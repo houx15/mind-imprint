@@ -108,3 +108,4 @@ HTML 的 `sc-if` 屏/态 → 所属块：
 - 标准信封结构一旦定下不随意改（树/日历/计数/评估的共同地基）。
 - 四条设计铁律：AI 克制不替学生定论 · 不操纵（卡自动触发但由学生确认打开） · 一次只问一个 · 过程即数据（跳过也记录）。
 - 不做 PRD §4 / AGENTS.md「明确不做」清单里的任何一项（上瘾式游戏化等）。
+- **验收门槛**：`pnpm -r typecheck` + `pnpm -r test` 必须全绿。注意 `vite build` / `vitest` 用 esbuild 转译、**不做类型检查**——类型安全只由 `tsc --noEmit`（已接入根 `pnpm -r typecheck`）保证。每个 slice 完成判据都包含 typecheck 绿。
