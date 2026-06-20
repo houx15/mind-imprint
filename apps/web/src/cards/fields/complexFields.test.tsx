@@ -16,8 +16,12 @@ describe("complex fields", () => {
   it("link_check shows the url and a verdict tag once a url is entered", async () => {
     const onChange = vi.fn();
     render(<LinkCheckField field={{ type: "link_check", key: "trace", label: "Trace" }} value="https://nature.com" onChange={onChange} />);
-    expect(screen.getByText("https://nature.com")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://nature.com")).toBeInTheDocument();
     expect(screen.getByText("已溯源")).toBeInTheDocument();
+  });
+  it("link_check hides 已溯源 when no url is entered", () => {
+    render(<LinkCheckField field={{ type: "link_check", key: "trace", label: "Trace" }} value="" onChange={vi.fn()} />);
+    expect(screen.queryByText("已溯源")).not.toBeInTheDocument();
   });
   it("repeatable_group adds a row and emits the full array on edit", async () => {
     const onChange = vi.fn();

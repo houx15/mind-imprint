@@ -18,10 +18,7 @@ export function LinkCheckField({ field, value, onChange }: FieldProps<F>) {
           className="min-w-[200px] flex-1 rounded-[10px] border border-mk-input bg-mk-input-bg px-3 py-2.5 text-[13.5px] text-mk-ink outline-none"
         />
         {url.trim() !== "" && (
-          <>
-            <span className="text-[13px] text-mk-ink break-all">{url}</span>
-            <span className="rounded-[9px] bg-mk-green-tint px-3 py-2 text-[12.5px] font-semibold text-mk-green">已溯源</span>
-          </>
+          <span className="rounded-[9px] bg-mk-green-tint px-3 py-2 text-[12.5px] font-semibold text-mk-green">已溯源</span>
         )}
       </div>
     </div>

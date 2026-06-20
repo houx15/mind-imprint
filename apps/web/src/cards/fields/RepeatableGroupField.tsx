@@ -8,12 +8,11 @@ import { MultiChoiceField } from "./MultiChoiceField";
 import { RatingField } from "./RatingField";
 import { LinkCheckField } from "./LinkCheckField";
 import type { ComponentType } from "react";
-import type { FieldProps as FP } from "./types";
 
 type F = z.infer<typeof Schema>;
 type Row = Record<string, unknown>;
 
-const ITEM_COMPONENTS: Record<ItemField["type"], ComponentType<FP<any>>> = {
+const ITEM_COMPONENTS: Record<ItemField["type"], ComponentType<FieldProps<any>>> = {
   text: TextField, textarea: TextAreaField, single_choice: SingleChoiceField,
   multi_choice: MultiChoiceField, rating: RatingField, link_check: LinkCheckField,
 };
