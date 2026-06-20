@@ -1,0 +1,29 @@
+import { z } from "zod";
+
+const base = { key: z.string().min(1), label: z.string().min(1) };
+
+export const TextField = z.object({ type: z.literal("text"), ...base });
+export const TextAreaField = z.object({ type: z.literal("textarea"), ...base, rows: z.number().int().positive().optional() });
+export const SingleChoiceField = z.object({ type: z.literal("single_choice"), ...base, options: z.array(z.string()).min(1) });
+export const MultiChoiceField = z.object({ type: z.literal("multi_choice"), ...base, options: z.array(z.string()).min(1) });
+export const RatingField = z.object({ type: z.literal("rating"), ...base, scale: z.number().int().positive() });
+export const LinkCheckField = z.object({ type: z.literal("link_check"), ...base });
+
+// item_fields cannot themselves be repeatable (no nesting)
+export const ItemField = z.discriminatedUnion("type", [
+  TextField, TextAreaField, SingleChoiceField, MultiChoiceField, RatingField, LinkCheckField,
+]);
+
+export const RepeatableGroupField = z.object({
+  type: z.literal("repeatable_group"),
+  ...base,
+  item_fields: z.array(ItemField).min(1),
+});
+
+export const FieldPrimitive = z.discriminatedUnion("type", [
+  TextField, TextAreaField, SingleChoiceField, MultiChoiceField, RatingField, LinkCheckField, RepeatableGroupField,
+]);
+
+export type FieldPrimitive = z.infer<typeof FieldPrimitive>;
+export type ItemField = z.infer<typeof ItemField>;
+export type FieldType = FieldPrimitive["type"];
