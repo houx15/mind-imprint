@@ -4,6 +4,7 @@ import { envelopeReducer, newEnvelope, type ReducerAction } from "../cards/envel
 import { ProposalBubble } from "../cards/states/ProposalBubble";
 import { ActiveSheet } from "../cards/states/ActiveSheet";
 import { CompletedCard } from "../cards/states/CompletedCard";
+import { PHOEBE_VALUES } from "./fixtures";
 
 const reg = loadRegistry();
 const cardIds = Object.keys(reg);
@@ -11,10 +12,16 @@ const cardIds = Object.keys(reg);
 export function Harness() {
   const [cardId, setCardId] = useState(cardIds[0]!);
   const card = reg[cardId]!;
-  const [env, setEnv] = useState<CardInstance>(() => newEnvelope(cardId, "t_demo"));
+  const [env, setEnv] = useState<CardInstance>(() => ({
+    ...newEnvelope(cardId, "t_demo"),
+    field_values: PHOEBE_VALUES[cardId] ?? {},
+  }));
 
   const dispatch = (a: ReducerAction) => setEnv((e) => envelopeReducer(e, a));
-  const reset = (id: string) => { setCardId(id); setEnv(newEnvelope(id, "t_demo")); };
+  const reset = (id: string) => {
+    setCardId(id);
+    setEnv({ ...newEnvelope(id, "t_demo"), field_values: PHOEBE_VALUES[id] ?? {} });
+  };
   const filledCount = useMemo(() => Object.keys(env.field_values).length, [env]);
 
   return (
@@ -61,6 +68,7 @@ export function Harness() {
           onExpandStep={(step_key) => dispatch({ type: "step_expand", step_key })}
           onNoteOpen={(step_key) => dispatch({ type: "note_open", step_key })}
           onSubmit={() => dispatch({ type: "submit" })}
+          // S1 has no persistence/draft state, so closing the sheet finalizes the envelope.
           onClose={() => dispatch({ type: "submit" })}
         />
       )}
