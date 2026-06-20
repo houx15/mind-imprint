@@ -14,6 +14,7 @@ function StepFields({ step, values, onField }: { step: Step; values: Record<stri
     <div className="space-y-4">
       {step.fields.map((field) => {
         const Cmp = fieldRegistry[field.type];
+        if (!Cmp) throw new Error(`No component registered for field type "${field.type}"`);
         return (
           <Cmp
             key={field.key}
@@ -54,6 +55,7 @@ function OnDemandStep({ step, values, onField, onExpandStep }: { step: Step } & 
           if (!open) onExpandStep(step.key);
           setOpen((v) => !v);
         }}
+        aria-expanded={open}
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <span className="text-[15px] font-bold text-mk-ink">{step.title}</span>
