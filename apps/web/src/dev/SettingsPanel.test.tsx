@@ -30,4 +30,12 @@ describe("SettingsPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "测试连接" }));
     expect(await screen.findByText(/OK!/)).toBeInTheDocument();
   });
+  it("test connection shows the error message (❌) without leaking the key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve({ error: { message: "invalid api key" } }) }));
+    render(<SettingsPanel />);
+    await fillCore();
+    await userEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    expect(await screen.findByText(/invalid api key/)).toBeInTheDocument();
+    expect(screen.queryByText(/sk-demo/)).not.toBeInTheDocument();
+  });
 });

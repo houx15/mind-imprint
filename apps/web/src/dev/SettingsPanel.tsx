@@ -10,7 +10,7 @@ const inputCls = "mt-1 w-full rounded-[10px] border border-mk-input bg-mk-input-
 const labelCls = "block text-[13px] font-semibold text-[#3A4256] mt-3";
 
 export function SettingsPanel() {
-  const initial = loadConfig();
+  const [initial] = useState(() => loadConfig());
   const [format, setFormat] = useState<LlmFormat>(initial.format ?? "openai");
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? "");
   const [model, setModel] = useState(initial.model ?? "");
