@@ -30,4 +30,19 @@ describe("ActiveSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: "提交" }));
     expect(p.onSubmit).toHaveBeenCalledOnce();
   });
+  it("close button fires onClose", async () => {
+    const p = props();
+    render(<ActiveSheet {...p} />);
+    await userEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(p.onClose).toHaveBeenCalledOnce();
+  });
+  it("methodology fires onNoteOpen on each open (re-consulting is a recorded signal)", async () => {
+    const p = props();
+    render(<ActiveSheet {...p} />);
+    const toggle = screen.getByRole("button", { name: "这个工具怎么用" });
+    await userEvent.click(toggle); // open
+    await userEvent.click(toggle); // close
+    await userEvent.click(toggle); // open again
+    expect(p.onNoteOpen).toHaveBeenCalledTimes(2);
+  });
 });

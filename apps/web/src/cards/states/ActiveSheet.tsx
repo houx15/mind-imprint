@@ -32,6 +32,7 @@ export function ActiveSheet({ card, values, onField, onExpandStep, onNoteOpen, o
             <div className="mt-1 text-[13px] text-mk-muted-2">{card.purpose}</div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Fires onNoteOpen on every open: re-consulting the methodology is itself a recorded signal (过程即数据). */}
             <button
               type="button"
               onClick={() => { if (!noteOpen) onNoteOpen(firstStepKey); setNoteOpen((v) => !v); }}
