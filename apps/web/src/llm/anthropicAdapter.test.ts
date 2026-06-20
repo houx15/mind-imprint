@@ -9,7 +9,7 @@ function mockFetch(status: number, body: unknown) {
   vi.stubGlobal("fetch", fn);
   return fn;
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("anthropicAdapter", () => {
   it("POSTs to /messages, lifts system out, sets anthropic headers, parses content", async () => {
@@ -30,9 +30,9 @@ describe("anthropicAdapter", () => {
   });
   it("throws LlmError on non-2xx and never leaks the key", async () => {
     mockFetch(400, { error: { message: "bad model" } });
-    const err = await anthropicAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    const err = await anthropicAdapter(cfg, { messages: [] }).catch((e: unknown) => e);
     expect(err).toMatchObject({ name: "LlmError", status: 400, provider: "anthropic", message: "bad model" });
-    expect(err.message).not.toContain("sk-ant-xyz");
+    expect((err as Error).message).not.toContain("sk-ant-xyz");
   });
   it("returns empty text when no content block is type text", async () => {
     mockFetch(200, { content: [{ type: "tool_use", id: "x" }], usage: { input_tokens: 1, output_tokens: 0 } });
@@ -41,8 +41,8 @@ describe("anthropicAdapter", () => {
   });
   it("wraps a network/fetch failure as LlmError without leaking the key", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
-    const err = await anthropicAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    const err = await anthropicAdapter(cfg, { messages: [] }).catch((e: unknown) => e);
     expect(err).toMatchObject({ name: "LlmError", provider: "anthropic" });
-    expect(err.message).not.toContain("sk-ant-xyz");
+    expect((err as Error).message).not.toContain("sk-ant-xyz");
   });
 });

@@ -9,7 +9,7 @@ function mockFetch(status: number, body: unknown) {
   vi.stubGlobal("fetch", fn);
   return fn;
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("openaiAdapter", () => {
   it("POSTs to /chat/completions with bearer auth and parses the reply", async () => {
@@ -29,14 +29,14 @@ describe("openaiAdapter", () => {
   });
   it("never leaks the apiKey in the error message", async () => {
     mockFetch(500, { error: { message: "boom" } });
-    const err = await openaiAdapter(cfg, { messages: [] }).catch((e) => e as Error);
-    expect(err.message).not.toContain("sk-test-123");
+    const err = await openaiAdapter(cfg, { messages: [] }).catch((e: unknown) => e);
+    expect((err as Error).message).not.toContain("sk-test-123");
   });
   it("wraps a network/fetch failure as LlmError without leaking the key", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
-    const err = await openaiAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    const err = await openaiAdapter(cfg, { messages: [] }).catch((e: unknown) => e);
     expect(err).toMatchObject({ name: "LlmError", provider: "openai" });
     expect((err as { status?: number }).status).toBeUndefined();
-    expect(err.message).not.toContain("sk-test-123");
+    expect((err as Error).message).not.toContain("sk-test-123");
   });
 });
