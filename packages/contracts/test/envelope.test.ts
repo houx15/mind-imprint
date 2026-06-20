@@ -26,4 +26,21 @@ describe("CardInstance", () => {
     const env = { ...base, event_trace: [{ kind: "wiggle", at: base.created_at }] };
     expect(CardInstance.safeParse(env).success).toBe(false);
   });
+  it("accepts step_expand, note_open, skip, and submit trace events", () => {
+    const env = { ...base, event_trace: [
+      { kind: "step_expand", step_key: "craap", at: base.created_at },
+      { kind: "note_open", step_key: "sift", at: base.created_at },
+      { kind: "skip", at: base.created_at },
+      { kind: "submit", at: base.created_at },
+    ] };
+    expect(CardInstance.safeParse(env).success).toBe(true);
+  });
+  it("accepts arbitrary field_values (record of unknown) and rubric_tags entries", () => {
+    const env = { ...base, field_values: { stop: "x", n: 42, nested: { ok: true } }, rubric_tags: ["D1_来源意识"] };
+    expect(CardInstance.safeParse(env).success).toBe(true);
+  });
+  it("accepts a completed envelope with a non-null completed_at", () => {
+    const env = { ...base, status: "completed", completed_at: "2026-06-20T11:00:00.000Z" };
+    expect(CardInstance.safeParse(env).success).toBe(true);
+  });
 });
