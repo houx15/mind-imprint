@@ -37,4 +37,10 @@ describe("envelopeReducer", () => {
     expect(env.completed_at).toBe(clock());
     expect(CardInstance.safeParse(env).success).toBe(true);
   });
+  it("does not mutate the input envelope", () => {
+    const env0 = start();
+    const snapshot = JSON.stringify(env0);
+    envelopeReducer(env0, { type: "field_change", path: "sources[0].verdict", value: "存疑" }, clock);
+    expect(JSON.stringify(env0)).toBe(snapshot);
+  });
 });

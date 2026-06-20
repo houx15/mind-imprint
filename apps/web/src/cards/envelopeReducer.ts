@@ -12,9 +12,14 @@ type Now = () => string;
 const defaultNow: Now = () => new Date().toISOString();
 
 let seq = 0;
-export function newEnvelope(card_id: string, task_id: string, now: Now = defaultNow): CardInstance {
+export function newEnvelope(
+  card_id: string,
+  task_id: string,
+  now: Now = defaultNow,
+  genId: () => string = () => `ci_${++seq}`,
+): CardInstance {
   return {
-    id: `ci_${++seq}`,
+    id: genId(),
     card_id, task_id, parent_node_id: null,
     status: "proposed", field_values: {}, event_trace: [], rubric_tags: [],
     created_at: now(), completed_at: null,
@@ -54,7 +59,9 @@ export function envelopeReducer(env: CardInstance, action: ReducerAction, now: N
       return append(env, { kind: "note_open", step_key: action.step_key, at: now() });
     case "skip":
       return append({ ...env, status: "skipped" }, { kind: "skip", at: now() });
-    case "submit":
-      return append({ ...env, status: "completed", completed_at: now() }, { kind: "submit", at: now() });
+    case "submit": {
+      const ts = now();
+      return append({ ...env, status: "completed", completed_at: ts }, { kind: "submit", at: ts });
+    }
   }
 }
