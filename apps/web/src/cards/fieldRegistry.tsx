@@ -6,12 +6,15 @@ import { TextAreaField } from "./fields/TextAreaField";
 import { SingleChoiceField } from "./fields/SingleChoiceField";
 import { MultiChoiceField } from "./fields/MultiChoiceField";
 import { RatingField } from "./fields/RatingField";
+import { LinkCheckField } from "./fields/LinkCheckField";
+import { RepeatableGroupField } from "./fields/RepeatableGroupField";
 
-// Partial for now; repeatable_group + link_check added in Task 8.
-export const fieldRegistry: Partial<Record<FieldType, ComponentType<FieldProps<any>>>> = {
+export const fieldRegistry: Record<FieldType, ComponentType<FieldProps<any>>> = {
   text: TextField,
   textarea: TextAreaField,
   single_choice: SingleChoiceField,
   multi_choice: MultiChoiceField,
   rating: RatingField,
+  link_check: LinkCheckField,
+  repeatable_group: RepeatableGroupField,
 };
