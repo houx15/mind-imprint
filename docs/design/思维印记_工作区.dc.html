@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif; -webkit-font-smoothing:antialiased; color:#1C2333; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:#D9DDE7; border-radius:8px; border:3px solid transparent; background-clip:padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background:#C2C8D6; background-clip:padding-box; }
+  textarea, input { font-family:inherit; }
+  @keyframes mkSheetUp { from { transform:translateY(64px); opacity:.4; } to { transform:translateY(0); opacity:1; } }
+  @keyframes mkScrim { from { opacity:0; } to { opacity:1; } }
+  @keyframes mkPop { from { opacity:.5; transform:translateY(10px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes mkDot { 0%,80%,100% { opacity:.25; } 40% { opacity:1; } }
+  @keyframes mkFade { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:translateY(0);} }
+</style>
+</helmet>
+<div style="width:100%; height:100vh; overflow:hidden; background:#F3F4F8;">
+
+  <!-- ============ AUTH SCREENS ============ -->
+  <sc-if value="{{ authScreen }}" hint-placeholder-val="{{ true }}">
+    <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:radial-gradient(1200px 600px at 50% -10%, #EAEDF8 0%, #F3F4F8 60%); padding:24px;">
+      <div style="width:100%; max-width:420px;">
+
+        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:26px;">
+          <svg viewBox="0 0 48 48" width="60" height="60" style="display:block; filter:drop-shadow(0 8px 18px rgba(42,59,122,.22));">
+            <rect x="5" y="6" width="38" height="36" rx="13" fill="#2A3B7A"></rect>
+            <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.10"></rect>
+            <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+            <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+            <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+            <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+            <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+            <circle cx="39" cy="9" r="4.5" fill="#E8A33D"></circle>
+          </svg>
+          <div style="font-size:22px; font-weight:800; color:#1C2333; margin-top:14px; letter-spacing:.01em;">思维印记</div>
+          <div style="font-size:13.5px; color:#8A92A3; margin-top:6px;">带着真实的问题来，和 AI 一起把思考走深</div>
+        </div>
+
+        <div style="background:#fff; border:1px solid #EAECF2; border-radius:18px; padding:26px 26px 24px; box-shadow:0 8px 30px rgba(20,30,60,.06);">
+
+          <!-- LOGIN -->
+          <sc-if value="{{ loginScreen }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:17px; font-weight:700; color:#1C2333; margin-bottom:18px;">登录</div>
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">邮箱 / 手机号</div>
+            <input value="phoebe@ibschool.edu" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:14px;" />
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">密码</div>
+            <input type="password" value="123456" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:20px;" />
+            <button onClick="{{ onEnterApp }}" style="width:100%; background:#2A3B7A; color:#fff; border:none; padding:13px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">登录</button>
+            <div style="text-align:center; margin-top:16px; font-size:13px; color:#8A92A3;">还没有账号？<span onClick="{{ onGoRegister }}" style="color:#2A3B7A; font-weight:700; cursor:pointer;">注册</span></div>
+          </sc-if>
+
+          <!-- REGISTER -->
+          <sc-if value="{{ registerScreen }}" hint-placeholder-val="">
+            <div style="font-size:17px; font-weight:700; color:#1C2333; margin-bottom:18px;">创建账号</div>
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">姓名</div>
+            <input value="Phoebe Chen" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:14px;" />
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">邮箱</div>
+            <input value="phoebe@ibschool.edu" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:14px;" />
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">设置密码</div>
+            <input type="password" value="123456" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:20px;" />
+            <button onClick="{{ onGoBind }}" style="width:100%; background:#2A3B7A; color:#fff; border:none; padding:13px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">下一步 · 绑定班级</button>
+            <div style="text-align:center; margin-top:16px; font-size:13px; color:#8A92A3;">已有账号？<span onClick="{{ onGoLogin }}" style="color:#2A3B7A; font-weight:700; cursor:pointer;">登录</span></div>
+          </sc-if>
+
+          <!-- BIND CLASS -->
+          <sc-if value="{{ bindScreen }}" hint-placeholder-val="">
+            <div style="font-size:17px; font-weight:700; color:#1C2333; margin-bottom:6px;">绑定你的班级</div>
+            <div style="font-size:13px; color:#8A92A3; line-height:1.6; margin-bottom:18px;">绑定后，老师布置的探究任务会出现在你的任务列表里。你的思考过程只属于你，老师看不到对话本身。</div>
+            <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">班级邀请码</div>
+            <input value="IB-DP1-A · 3F9K2" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:12px 14px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:14px;" />
+            <div style="display:flex; align-items:center; gap:11px; background:#F7F8FB; border:1px solid #EDEEF4; border-radius:12px; padding:12px 14px; margin-bottom:20px;">
+              <div style="width:40px; height:40px; border-radius:10px; background:#EDEFF9; display:flex; align-items:center; justify-content:center; font-weight:700; color:#2A3B7A; font-size:13px;">IB</div>
+              <div style="flex:1;">
+                <div style="font-size:14px; font-weight:700; color:#1C2333;">IB DP1 · A 班 · TOK</div>
+                <div style="font-size:12px; color:#8A92A3; margin-top:2px;">指导老师：Mr. Daniel · 28 名同学</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+            </div>
+            <button onClick="{{ onEnterApp }}" style="width:100%; background:#2A3B7A; color:#fff; border:none; padding:13px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">完成，进入思维印记</button>
+            <div style="text-align:center; margin-top:14px; font-size:13px;"><span onClick="{{ onEnterApp }}" style="color:#8A92A3; font-weight:600; cursor:pointer;">暂时跳过</span></div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ MAIN APP ============ -->
+  <sc-if value="{{ appScreen }}" hint-placeholder-val="">
+    <div style="display:flex; height:100%; width:100%; background:#F3F4F8; overflow:hidden;">
+
+      <!-- LEFT RAIL -->
+      <div style="width:74px; flex:none; background:#FFFFFF; border-right:1px solid #EAECF2; display:flex; flex-direction:column; align-items:center; padding:16px 0; gap:4px;">
+        <svg viewBox="0 0 48 48" width="38" height="38" style="display:block; margin-bottom:16px;">
+          <rect x="5" y="6" width="38" height="36" rx="13" fill="#2A3B7A"></rect>
+          <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.10"></rect>
+          <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+          <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+          <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+          <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+          <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+          <circle cx="39" cy="9" r="4.5" fill="#E8A33D"></circle>
+        </svg>
+
+        <div onClick="{{ onTabTasks }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:4px 0;">
+          <div style="{{ navTasks.box }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ navTasks.icon }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          </div>
+          <span style="{{ navTasks.label }}">任务</span>
+        </div>
+
+        <div onClick="{{ onTabRecords }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:4px 0;">
+          <div style="{{ navRecords.box }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ navRecords.icon }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 012-2h12a1 1 0 011 1v15a1 1 0 01-1 1H6.5A2.5 2.5 0 014 18.5"></path><path d="M9 7h6M9 11h4"></path></svg>
+          </div>
+          <span style="{{ navRecords.label }}">记录</span>
+        </div>
+
+        <div onClick="{{ onTabSettings }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; padding:4px 0;">
+          <div style="{{ navSettings.box }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ navSettings.icon }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+          </div>
+          <span style="{{ navSettings.label }}">设置</span>
+        </div>
+
+        <div style="margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:5px;">
+          <div onClick="{{ onTabSettings }}" style="width:36px; height:36px; border-radius:50%; background:#E8A33D; color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; cursor:pointer;">P</div>
+        </div>
+      </div>
+
+      <!-- CONTENT -->
+      <div style="flex:1; min-width:0; position:relative; display:flex; flex-direction:column;">
+
+        <!-- ===== TASKS: DIRECTORY ===== -->
+        <sc-if value="{{ showDirectory }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1; min-height:0; overflow-y:auto;">
+            <div style="max-width:980px; margin:0 auto; padding:44px 40px 60px;">
+              <div style="font-size:13px; color:#8A92A3; font-weight:600;">下午好，Phoebe</div>
+              <div style="font-size:28px; font-weight:800; color:#1C2333; margin-top:6px; letter-spacing:-.01em;">你想搞懂什么？</div>
+
+              <!-- new task entry -->
+              <div style="margin-top:22px; background:#fff; border:1px solid #EAECF2; border-radius:18px; padding:20px 22px; display:flex; align-items:center; gap:16px; box-shadow:0 4px 18px rgba(20,30,60,.05);">
+                <svg viewBox="0 0 48 48" width="42" height="42" style="display:block; flex:none;">
+                  <rect x="5" y="6" width="38" height="36" rx="13" fill="#2A3B7A"></rect>
+                  <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.10"></rect>
+                  <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                  <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                  <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                  <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                  <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+                  <circle cx="39" cy="9" r="4.5" fill="#E8A33D"></circle>
+                </svg>
+                <input placeholder="把你正在纠结的问题写下来——带上你自己的东西（链接、草稿、本子上的话）。" style="flex:1; border:none; outline:none; font-size:15px; color:#1C2333; background:transparent;" />
+                <button onClick="{{ onOpenTask }}" style="flex:none; display:inline-flex; align-items:center; gap:8px; background:#2A3B7A; color:#fff; border:none; padding:12px 20px; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">
+                  开始
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; justify-content:space-between; margin:34px 0 16px;">
+                <div style="font-size:15px; font-weight:700; color:#1C2333;">进行中的任务</div>
+                <div style="font-size:13px; color:#9AA1B0; font-weight:600;">{{ taskCount }} 个任务</div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;">
+                <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="4">
+                  <div onClick="{{ t.onOpen }}" style="background:#fff; border:1px solid #EAECF2; border-radius:16px; padding:18px 20px; cursor:pointer; box-shadow:0 1px 3px rgba(20,30,60,.04); transition:box-shadow .18s, transform .18s;" style-hover="box-shadow:0 8px 24px rgba(20,30,60,.09); transform:translateY(-2px);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                      <span style="{{ t.statusStyle }}">{{ t.status }}</span>
+                      <span style="font-size:12px; color:#9AA1B0; font-weight:500;">{{ t.last }}</span>
+                    </div>
+                    <div style="font-size:16px; font-weight:700; color:#1C2333; line-height:1.45; min-height:46px;">{{ t.title }}</div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+                      <div style="flex:1; height:6px; background:#EEF0F4; border-radius:999px; overflow:hidden;">
+                        <div style="{{ t.barStyle }}"></div>
+                      </div>
+                      <span style="font-size:12px; color:#8A92A3; font-weight:600; flex:none;">{{ t.cardsLabel }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== TASKS: WORKSPACE ===== -->
+        <sc-if value="{{ showWorkspace }}" hint-placeholder-val="">
+          <!-- top breadcrumb -->
+          <div style="height:62px; flex:none; background:#FFFFFF; border-bottom:1px solid #EAECF2; display:flex; align-items:center; padding:0 26px; gap:18px;">
+            <div onClick="{{ onBackToDir }}" style="display:flex; align-items:center; gap:7px; color:#6B7384; font-size:13.5px; font-weight:600; cursor:pointer; padding:7px 12px; border-radius:9px;" style-hover="background:#F2F3F8; color:#2A3B7A;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+              返回所有任务
+            </div>
+            <div style="width:1px; height:22px; background:#EAECF2;"></div>
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+              <span style="font-size:15.5px; font-weight:700; color:#1C2333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">中国是否让地球变得更可持续？</span>
+              <span style="flex:none; font-size:11.5px; font-weight:600; color:#4C9A82; background:#E7F3EE; padding:3px 10px; border-radius:999px;">进行中</span>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:8px; color:#9AA1B0; font-size:12.5px; font-weight:500;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"></rect></svg>
+              已用 {{ completedCount }} 张工具卡
+            </div>
+          </div>
+
+          <div style="flex:1; min-height:0; display:flex;">
+            <!-- chat -->
+            <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#F3F4F8;">
+              <div id="mk-chat" style="flex:1; min-height:0; overflow-y:auto; padding:32px 36px 24px;">
+                <div style="max-width:720px; margin:0 auto;">
+                  <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+                    <div style="margin-bottom:20px;">
+
+                      <sc-if value="{{ m.isStudent }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex; justify-content:flex-end;">
+                          <div style="max-width:540px; background:#2A3B7A; color:#fff; padding:13px 17px; border-radius:16px 16px 5px 16px; font-size:14.5px; line-height:1.66;">
+                            {{ m.text }}
+                            <sc-if value="{{ m.hasLink }}" hint-placeholder-val="">
+                              <div style="margin-top:9px; display:flex; align-items:center; gap:6px; font-size:12.5px; color:#C7CEF0; background:rgba(255,255,255,.10); padding:6px 10px; border-radius:8px; overflow:hidden;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C7CEF0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"></path><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"></path></svg>
+                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ m.link }}</span>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.isAIText }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex; gap:12px; align-items:flex-start;">
+                          <svg viewBox="0 0 48 48" width="32" height="32" style="display:block; flex:none; margin-top:1px;">
+                            <rect x="5" y="6" width="38" height="36" rx="13" fill="{{ avatarColor }}"></rect>
+                            <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12"></rect>
+                            <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                            <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                            <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                            <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                            <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+                          </svg>
+                          <div style="max-width:560px;">
+                            <div style="background:#fff; border:1px solid #EAECF2; padding:13px 17px; border-radius:5px 16px 16px 16px; font-size:14.5px; line-height:1.72; color:#2B3346; box-shadow:0 1px 2px rgba(20,30,60,.04);">{{ m.text }}</div>
+                            <sc-if value="{{ m.hasAction }}" hint-placeholder-val="">
+                              <button onClick="{{ m.onAction }}" style="margin-top:11px; display:inline-flex; align-items:center; gap:8px; background:#D98263; color:#fff; border:none; padding:11px 18px; border-radius:11px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 12px rgba(217,130,99,.32); font-family:inherit;" style-hover="background:#CC7355;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"></path></svg>
+                                {{ m.actionLabel }}
+                              </button>
+                            </sc-if>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.isProposal }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex; gap:12px; align-items:flex-start;">
+                          <svg viewBox="0 0 48 48" width="32" height="32" style="display:block; flex:none; margin-top:1px;">
+                            <rect x="5" y="6" width="38" height="36" rx="13" fill="{{ avatarColor }}"></rect>
+                            <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12"></rect>
+                            <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                            <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                            <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                            <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                            <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+                          </svg>
+                          <div style="max-width:520px; width:100%; background:#fff; border:1px solid #EAECF2; border-radius:5px 16px 16px 16px; padding:16px 18px; box-shadow:0 2px 10px rgba(20,30,60,.05);">
+                            <div style="display:flex; align-items:center; gap:9px; margin-bottom:11px;">
+                              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#D98263; background:#FBEEE7; padding:4px 10px; border-radius:999px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D98263" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"></rect></svg>
+                                建议工具卡
+                              </span>
+                              <span style="font-size:11px; font-weight:600; color:#2A3B7A; background:#EDEFF9; padding:3px 9px; border-radius:999px;">{{ m.category }}</span>
+                            </div>
+                            <div style="font-weight:700; font-size:15px; color:#1C2333; margin-bottom:5px;">{{ m.cardName }}</div>
+                            <div style="font-size:14px; color:#5B6373; line-height:1.66;">{{ m.nudge }}</div>
+
+                            <sc-if value="{{ m.isProposed }}" hint-placeholder-val="{{ true }}">
+                              <div style="display:flex; align-items:center; gap:14px; margin-top:14px;">
+                                <button onClick="{{ m.onOpen }}" style="display:inline-flex; align-items:center; gap:8px; background:#D98263; color:#fff; border:none; padding:11px 20px; border-radius:11px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(217,130,99,.30); font-family:inherit;" style-hover="background:#CC7355;">
+                                  打开卡
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                                </button>
+                                <button onClick="{{ m.onSkip }}" style="background:none; border:none; color:#9AA1B0; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; padding:6px 4px;" style-hover="color:#6B7384;">暂不，先继续</button>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ m.isCompleted }}" hint-placeholder-val="">
+                              <div style="display:inline-flex; align-items:center; gap:7px; margin-top:13px; font-size:13px; font-weight:600; color:#4C9A82; background:#E7F3EE; padding:7px 13px; border-radius:9px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                                已完成 · 已钉到过程树
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ m.isSkipped }}" hint-placeholder-val="">
+                              <div style="display:flex; align-items:center; gap:12px; margin-top:13px;">
+                                <span style="font-size:13px; font-weight:600; color:#9AA1B0; background:#F1F2F5; padding:7px 12px; border-radius:9px;">已跳过（已记录为信号）</span>
+                                <button onClick="{{ m.onOpen }}" style="background:none; border:none; color:#2A3B7A; font-size:13px; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; font-family:inherit;">仍可打开</button>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <!-- composer -->
+              <div style="flex:none; padding:0 36px 24px; background:#F3F4F8;">
+                <div style="max-width:720px; margin:0 auto;">
+                  <sc-if value="{{ footerComposer }}" hint-placeholder-val="">
+                    <div style="background:#fff; border:1px solid #E2E5EE; border-radius:16px; padding:12px 14px 12px 18px; display:flex; align-items:flex-end; gap:12px; box-shadow:0 2px 12px rgba(20,30,60,.05);">
+                      <textarea value="{{ composerText }}" onChange="{{ onComposerInput }}" rows="1" placeholder="把你的想法发给陪练……" style="flex:1; border:none; outline:none; resize:none; font-size:14.5px; line-height:1.6; color:#1C2333; background:transparent; max-height:120px; padding:6px 0;"></textarea>
+                      <button onClick="{{ onSend }}" style="flex:none; width:40px; height:40px; border-radius:11px; background:#2A3B7A; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#22305F;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+
+            <!-- tree -->
+            <sc-if value="{{ treeOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="width:344px; flex:none; background:#fff; border-left:1px solid #EAECF2; display:flex; flex-direction:column;">
+                <div style="height:54px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid #EFF0F5;">
+                  <div style="display:flex; align-items:center; gap:9px;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"></circle><circle cx="6" cy="18" r="2.4"></circle><circle cx="18" cy="12" r="2.4"></circle><path d="M8 6h6a2 2 0 012 2v2M8 18h6a2 2 0 002-2v-2"></path></svg>
+                    <span style="font-size:14px; font-weight:700; color:#1C2333;">过程树</span>
+                    <span style="font-size:11px; color:#9AA1B0; background:#F2F3F8; padding:2px 7px; border-radius:999px; font-weight:600;">只读</span>
+                  </div>
+                  <div onClick="{{ onToggleTree }}" style="cursor:pointer; color:#9AA1B0; padding:5px; border-radius:7px; display:flex;" style-hover="background:#F2F3F8;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+                  </div>
+                </div>
+                <div style="flex:1; min-height:0; overflow-y:auto; padding:18px 20px 28px;">
+                  <sc-for list="{{ tree }}" as="n" hint-placeholder-count="1">
+                    <div style="{{ n.rowStyle }}">
+                      <div style="flex:none; display:flex; flex-direction:column; align-items:center; padding-top:3px;">
+                        <div style="{{ n.markerStyle }}"></div>
+                        <div style="width:2px; flex:1; background:#EDEEF3; margin-top:4px; min-height:8px;"></div>
+                      </div>
+                      <div style="flex:1; padding-bottom:10px;">
+                        <span style="{{ n.tagStyle }}">{{ n.tag }}</span>
+                        <div style="font-size:13.5px; font-weight:600; color:#2B3346; line-height:1.5; margin-top:6px;">{{ n.title }}</div>
+                        <sc-if value="{{ n.hasSub }}" hint-placeholder-val="">
+                          <div style="font-size:12px; color:#9AA1B0; margin-top:3px;">{{ n.sub }}</div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="text-align:center; font-size:11.5px; color:#C2C8D6; margin-top:10px; font-weight:500;">边做边长 · 随评估归并枝节</div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ treeClosed }}" hint-placeholder-val="">
+              <div onClick="{{ onToggleTree }}" style="width:46px; flex:none; background:#fff; border-left:1px solid #EAECF2; display:flex; flex-direction:column; align-items:center; padding-top:16px; gap:14px; cursor:pointer;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7384" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+                <span style="writing-mode:vertical-rl; font-size:12.5px; font-weight:700; color:#6B7384; letter-spacing:.08em;">过程树</span>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- BOTTOM SHEET -->
+          <sc-if value="{{ hasActiveCard }}" hint-placeholder-val="">
+            <div style="position:absolute; inset:0; z-index:40; display:flex; flex-direction:column; justify-content:flex-end;">
+              <div onClick="{{ onCloseSheet }}" style="position:absolute; inset:0; background:rgba(22,28,46,.40); animation:mkScrim .22s ease;"></div>
+              <div style="position:relative; margin:0 auto; width:100%; max-width:880px; height:80%; background:#fff; border-radius:22px 22px 0 0; box-shadow:0 -16px 50px rgba(20,30,60,.22); display:flex; flex-direction:column; overflow:hidden; animation:mkSheetUp .34s cubic-bezier(.22,.9,.3,1);">
+                <div style="height:4px; flex:none; background:#D98263;"></div>
+                <div style="flex:none; padding:18px 26px 16px; border-bottom:1px solid #F0F1F5; display:flex; align-items:flex-start; gap:14px;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:9px; margin-bottom:6px;">
+                      <span style="font-size:11px; font-weight:700; color:#D98263; letter-spacing:.06em;">现在轮到你想</span>
+                      <span style="font-size:11px; font-weight:600; color:#2A3B7A; background:#EDEFF9; padding:2px 9px; border-radius:999px;">{{ activeCategory }}</span>
+                    </div>
+                    <div style="font-size:18px; font-weight:700; color:#1C2333;">{{ activeCardName }}</div>
+                    <div style="font-size:13px; color:#9AA1B0; margin-top:3px;">{{ activePurpose }}</div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <button onClick="{{ onOpenActiveMeth }}" style="display:inline-flex; align-items:center; gap:6px; background:#F2F3F8; border:none; color:#5B6373; font-size:12.5px; font-weight:600; padding:8px 13px; border-radius:9px; cursor:pointer; font-family:inherit;" style-hover="background:#E9EBF2; color:#2A3B7A;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                      这个工具怎么用
+                    </button>
+                    <div onClick="{{ onCloseSheet }}" style="flex:none; width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#9AA1B0;" style-hover="background:#F2F3F8; color:#5B6373;">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="flex:1; min-height:0; overflow-y:auto; padding:22px 26px 8px; background:#FAFBFC;">
+
+                  <sc-if value="{{ isSiftActive }}" hint-placeholder-val="">
+                    <div style="background:#fff; border:1px solid #ECEEF3; border-radius:14px; padding:18px 20px; margin-bottom:16px;">
+                      <div style="display:flex; align-items:center; gap:9px; margin-bottom:4px;">
+                        <span style="width:24px; height:24px; border-radius:7px; background:#2A3B7A; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">1</span>
+                        <span style="font-size:15px; font-weight:700; color:#1C2333;">SIFT · 横向找更多来源</span>
+                      </div>
+
+                      <div style="margin-top:16px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">Stop · 你打算用这条信息说明什么？</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">一句话写清你想用它支持的观点。说出目的，后面才知道要核到多严。</div>
+                        <textarea value="{{ sift.stop }}" onChange="{{ onSiftStop }}" rows="2" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; line-height:1.6; color:#1C2333; background:#FCFCFD; outline:none; resize:vertical;"></textarea>
+                      </div>
+
+                      <div style="margin-top:16px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">Investigate · 找出独立来源并判定</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">找 3 个互相独立的来源，分别看它是谁发布的、可不可信。来源越独立，结论越稳。</div>
+                        <sc-for list="{{ sources }}" as="src" hint-placeholder-count="3">
+                          <div style="border:1px solid #ECEEF3; border-radius:11px; padding:11px 13px; margin-bottom:9px; background:#fff;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px;">
+                              <span style="font-size:13.5px; font-weight:600; color:#2B3346;">{{ src.name }}</span>
+                              <span style="flex:none; font-size:11px; font-weight:600; color:#6B7384; background:#F2F3F8; padding:3px 9px; border-radius:999px;">{{ src.typeLabel }}</span>
+                            </div>
+                            <div style="display:flex; gap:7px;">
+                              <sc-for list="{{ src.verdictPills }}" as="v" hint-placeholder-count="3">
+                                <button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button>
+                              </sc-for>
+                            </div>
+                          </div>
+                        </sc-for>
+                        <button onClick="{{ onAddSource }}" style="width:100%; border:1px dashed #CFD4E0; background:#fff; color:#6B7384; font-size:13px; font-weight:600; padding:9px; border-radius:10px; cursor:pointer; font-family:inherit;" style-hover="border-color:#2A3B7A; color:#2A3B7A;">+ 添加来源</button>
+                      </div>
+
+                      <div style="margin-top:16px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">Find better coverage · 更权威的版本怎么说？</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">别停在第一篇。去找这件事最权威的报道或原始研究，看它的说法是否一致。</div>
+                        <textarea value="{{ sift.better }}" onChange="{{ onSiftBetter }}" rows="2" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; line-height:1.6; color:#1C2333; background:#FCFCFD; outline:none; resize:vertical;"></textarea>
+                      </div>
+
+                      <div style="margin-top:16px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">Trace · 溯到原始出处</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">顺着引用一路往回找，直到那条信息最初是谁、在哪儿说的。</div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                          <div style="flex:1; min-width:200px; display:flex; align-items:center; gap:8px; border:1px solid #E1E4ED; border-radius:10px; padding:10px 12px; background:#FCFCFD; font-size:13.5px; color:#2B3346;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"></path><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"></path></svg>
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ sift.traceUrl }}</span>
+                          </div>
+                          <span style="flex:none; display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:#4C9A82; background:#E7F3EE; padding:8px 13px; border-radius:9px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                            已溯源
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="background:#fff; border:1px solid #ECEEF3; border-radius:14px; overflow:hidden; margin-bottom:8px;">
+                      <div onClick="{{ onToggleCraap }}" style="display:flex; align-items:center; justify-content:space-between; padding:15px 20px; cursor:pointer;" style-hover="background:#FAFBFD;">
+                        <div style="display:flex; align-items:center; gap:9px;">
+                          <span style="width:24px; height:24px; border-radius:7px; background:#EDEFF9; color:#2A3B7A; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">2</span>
+                          <span style="font-size:15px; font-weight:700; color:#1C2333;">CRAAP · 纵向深挖单一材料</span>
+                          <span style="font-size:11.5px; color:#9AA1B0; font-weight:500;">按需展开</span>
+                        </div>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="{{ craapChevron }}"><path d="M6 9l6 6 6-6"></path></svg>
+                      </div>
+                      <sc-if value="{{ craapOpen }}" hint-placeholder-val="">
+                        <div style="padding:4px 20px 20px;">
+                          <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin-bottom:14px;">当你决定重点采信某个来源时，再纵向核它五维：时效、相关、权威、准确、目的。每项 1–5 分。</div>
+                          <sc-for list="{{ craapRows }}" as="r" hint-placeholder-count="5">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid #F3F4F7;">
+                              <span style="font-size:13.5px; color:#3A4256; font-weight:500;">{{ r.label }}</span>
+                              <div style="display:flex; gap:6px;">
+                                <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+                                  <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.n }}</button>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isConcessionActive }}" hint-placeholder-val="">
+                    <div style="background:#fff; border:1px solid #ECEEF3; border-radius:14px; padding:18px 20px; margin-bottom:8px;">
+                      <div style="display:flex; align-items:center; gap:9px; margin-bottom:4px;">
+                        <span style="width:24px; height:24px; border-radius:7px; background:#4C9A82; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">让</span>
+                        <span style="font-size:15px; font-weight:700; color:#1C2333;">让步段四步 · 以退为进</span>
+                      </div>
+                      <div style="margin-top:16px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">① 你的中心论点是什么？</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">用一句话写出你真正想让读者相信的那个判断。</div>
+                        <input value="{{ concession.thesis }}" onChange="{{ onConcThesis }}" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none;" />
+                      </div>
+                      <div style="margin-top:15px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">② 反方最强的那个事实是什么？</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">挑对方最难反驳的那一条——越强，你的让步越有分量。</div>
+                        <textarea value="{{ concession.counter }}" onChange="{{ onConcCounter }}" rows="2" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; line-height:1.6; color:#1C2333; background:#FCFCFD; outline:none; resize:vertical;"></textarea>
+                      </div>
+                      <div style="margin-top:15px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">③ 先承认它（让步）</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">大方承认这个事实，别躲。承认本身会让你显得更可信。</div>
+                        <textarea value="{{ concession.concede }}" onChange="{{ onConcConcede }}" rows="2" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; line-height:1.6; color:#1C2333; background:#FCFCFD; outline:none; resize:vertical;"></textarea>
+                      </div>
+                      <div style="margin-top:15px;">
+                        <div style="font-size:13px; font-weight:600; color:#3A4256;">④ 再转折反驳</div>
+                        <div style="font-size:12px; color:#9AA1B0; line-height:1.55; margin:4px 0 8px;">说明它为什么不足以推翻你的论点——这一步决定论证的力度。</div>
+                        <textarea value="{{ concession.rebut }}" onChange="{{ onConcRebut }}" rows="3" style="width:100%; border:1px solid #E1E4ED; border-radius:10px; padding:11px 13px; font-size:14px; line-height:1.6; color:#1C2333; background:#FCFCFD; outline:none; resize:vertical;"></textarea>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                </div>
+
+                <div style="flex:none; padding:14px 26px; border-top:1px solid #F0F1F5; display:flex; align-items:center; justify-content:space-between; background:#fff;">
+                  <div style="font-size:12px; color:#AEB4C2;">填写过程会被采集，提交后序列化为标准信封</div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <button onClick="{{ onCloseSheet }}" style="background:none; border:none; color:#6B7384; font-size:14px; font-weight:600; cursor:pointer; padding:10px 14px; font-family:inherit;">取消</button>
+                    <button onClick="{{ onSubmitCard }}" style="display:inline-flex; align-items:center; gap:8px; background:#2A3B7A; color:#fff; border:none; padding:12px 22px; border-radius:11px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">
+                      提交并钉到过程树
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- METHODOLOGY MODAL -->
+          <sc-if value="{{ showMethodology }}" hint-placeholder-val="">
+            <div style="position:absolute; inset:0; z-index:55; background:rgba(22,28,46,.44); display:flex; align-items:center; justify-content:center; padding:32px; animation:mkScrim .2s ease;">
+              <div style="width:100%; max-width:600px; max-height:88%; overflow-y:auto; background:#fff; border-radius:20px; box-shadow:0 24px 64px rgba(20,30,60,.28); animation:mkPop .3s cubic-bezier(.22,.9,.3,1);">
+                <div style="padding:26px 30px 22px; border-bottom:1px solid #F0F1F5; position:relative;">
+                  <div onClick="{{ onCloseMeth }}" style="position:absolute; top:20px; right:20px; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#9AA1B0;" style-hover="background:#F2F3F8; color:#5B6373;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                  </div>
+                  <div style="font-size:11px; font-weight:700; letter-spacing:.08em; color:#D98263; margin-bottom:8px;">工具说明书 · 我不懂为什么</div>
+                  <div style="font-size:22px; font-weight:800; color:#1C2333;">{{ methTitle }}</div>
+                  <div style="font-size:14px; color:#6B7384; line-height:1.66; margin-top:8px;">{{ methIntro }}</div>
+                </div>
+                <div style="padding:22px 30px 26px;">
+                  <div style="margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#2A3B7A; margin-bottom:8px;">
+                      <span style="width:22px; height:22px; border-radius:6px; background:#EDEFF9; display:flex; align-items:center; justify-content:center; font-size:12px;">①</span>
+                      为什么是这几步
+                    </div>
+                    <div style="font-size:14px; line-height:1.75; color:#3A4256;">{{ methWhy }}</div>
+                  </div>
+                  <div style="margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#2A3B7A; margin-bottom:10px;">
+                      <span style="width:22px; height:22px; border-radius:6px; background:#EDEFF9; display:flex; align-items:center; justify-content:center; font-size:12px;">②</span>
+                      怎么用
+                    </div>
+                    <sc-for list="{{ methSteps }}" as="st" hint-placeholder-count="4">
+                      <div style="display:flex; gap:11px; margin-bottom:10px;">
+                        <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#2A3B7A; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px;">{{ st.n }}</span>
+                        <div>
+                          <span style="font-size:13.5px; font-weight:700; color:#1C2333;">{{ st.title }}</span>
+                          <span style="font-size:13.5px; color:#6B7384;"> — {{ st.desc }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:#F7F8FB; border:1px solid #EDEEF4; border-radius:14px; padding:16px 18px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#4C9A82; margin-bottom:8px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21l2.3-7.4-6-4.6h7.6z"></path></svg>
+                      它能帮到你
+                    </div>
+                    <div style="font-size:14px; line-height:1.72; color:#3A4256;">{{ methHelp }}</div>
+                  </div>
+                  <button onClick="{{ onCloseMeth }}" style="width:100%; margin-top:20px; background:#2A3B7A; color:#fff; border:none; padding:13px; border-radius:12px; font-size:14.5px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">明白了，回去填</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- EVAL LOADING -->
+          <sc-if value="{{ evalLoading }}" hint-placeholder-val="">
+            <div style="position:absolute; inset:0; z-index:50; background:rgba(22,28,46,.40); display:flex; align-items:center; justify-content:center; animation:mkScrim .2s ease;">
+              <div style="background:#fff; border-radius:16px; padding:26px 32px; display:flex; align-items:center; gap:14px; box-shadow:0 16px 50px rgba(20,30,60,.22);">
+                <div style="display:flex; gap:5px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#2A3B7A; animation:mkDot 1.2s infinite ease-in-out;"></span>
+                  <span style="width:8px; height:8px; border-radius:50%; background:#2A3B7A; animation:mkDot 1.2s .2s infinite ease-in-out;"></span>
+                  <span style="width:8px; height:8px; border-radius:50%; background:#2A3B7A; animation:mkDot 1.2s .4s infinite ease-in-out;"></span>
+                </div>
+                <span style="font-size:14px; color:#3A4256; font-weight:600;">旗舰模型正在评估这一程的思维过程……</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- EVAL RESULT -->
+          <sc-if value="{{ showEval }}" hint-placeholder-val="">
+            <div style="position:absolute; inset:0; z-index:50; background:rgba(22,28,46,.42); display:flex; align-items:center; justify-content:center; padding:32px; animation:mkScrim .22s ease;">
+              <div style="width:100%; max-width:600px; max-height:90%; overflow-y:auto; background:#fff; border-radius:20px; box-shadow:0 24px 64px rgba(20,30,60,.28); animation:mkPop .3s cubic-bezier(.22,.9,.3,1);">
+                <div style="padding:26px 30px 20px; background:linear-gradient(135deg,#2A3B7A 0%,#34468C 100%); border-radius:20px 20px 0 0; position:relative;">
+                  <div onClick="{{ onCloseEval }}" style="position:absolute; top:18px; right:18px; width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff;" style-hover="background:rgba(255,255,255,.24);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                  </div>
+                  <div style="font-size:11px; font-weight:700; letter-spacing:.1em; color:#AEB8E4; margin-bottom:8px;">过程小结 · 仅你可见</div>
+                  <div style="font-size:24px; font-weight:800; color:#fff;">你的思维印记</div>
+                  <div style="font-size:13px; color:#C3CBEC; margin-top:6px; line-height:1.6;">基于完整对话 + 标准信封，按 SOLO 四级评级 · L1 单点 · L2 多点 · L3 关联 · L4 拓展</div>
+                </div>
+                <div style="padding:24px 30px;">
+                  <sc-for list="{{ evalDims }}" as="d" hint-placeholder-count="5">
+                    <div style="padding:13px 0; border-bottom:1px solid #F2F3F7;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
+                        <span style="font-size:14px; font-weight:700; color:#1C2333;">{{ d.dim }}</span>
+                        <span style="font-size:12.5px; font-weight:700; color:#D98263; background:#FBEEE7; padding:2px 10px; border-radius:999px;">{{ d.levelLabel }}</span>
+                      </div>
+                      <div style="display:flex; gap:5px; margin-bottom:7px;">
+                        <sc-for list="{{ d.segs }}" as="g" hint-placeholder-count="4">
+                          <span style="{{ g.style }}"></span>
+                        </sc-for>
+                      </div>
+                      <div style="font-size:12.5px; color:#8A92A3;">{{ d.note }}</div>
+                    </div>
+                  </sc-for>
+                  <div style="margin-top:20px; background:#F7F8FB; border:1px solid #EDEEF4; border-radius:14px; padding:17px 19px;">
+                    <div style="font-size:12px; font-weight:700; color:#2A3B7A; letter-spacing:.04em; margin-bottom:9px;">过程叙述</div>
+                    <div style="font-size:14px; line-height:1.78; color:#3A4256;">这一程你最大的转变发生在两处。你没有直接采信那篇公众号文章，而是横向找到了 <b style="color:#1C2333;">NASA</b> 与 <b style="color:#1C2333;">Nature Sustainability（IF 32.1）</b> 两个独立来源——来源意识从被动变主动。面对「碳排放全球第一」这个对你不利的事实，你选择正面接住、写让步段，而不是绕开——这是 <b style="color:#D98263;">L4 级</b>的对立观点处理。下一步可以多问自己一句：这些来源各自的立场是什么？</div>
+                  </div>
+                  <button onClick="{{ onCloseEval }}" style="width:100%; margin-top:18px; background:#2A3B7A; color:#fff; border:none; padding:13px; border-radius:12px; font-size:14.5px; font-weight:700; cursor:pointer; font-family:inherit;" style-hover="background:#22305F;">回到任务</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- ===== RECORDS ===== -->
+        <sc-if value="{{ isRecords }}" hint-placeholder-val="">
+          <div style="flex:1; min-height:0; overflow-y:auto;">
+            <div style="max-width:920px; margin:0 auto; padding:40px 40px 60px;">
+              <div style="font-size:26px; font-weight:800; color:#1C2333; letter-spacing:-.01em;">记录</div>
+              <div style="font-size:13.5px; color:#8A92A3; margin-top:5px;">你走过的思考，安静地留下印记。</div>
+
+              <div style="display:inline-flex; gap:4px; background:#EBEDF2; border-radius:11px; padding:4px; margin:22px 0 24px;">
+                <button onClick="{{ onRecLearning }}" style="{{ recTabStyle.learning }}">学习记录</button>
+                <button onClick="{{ onRecCards }}" style="{{ recTabStyle.cards }}">工具卡</button>
+                <button onClick="{{ onRecAbility }}" style="{{ recTabStyle.ability }}">能力素养</button>
+              </div>
+
+              <!-- learning -->
+              <sc-if value="{{ recLearning }}" hint-placeholder-val="{{ true }}">
+                <div style="background:#fff; border:1px solid #EAECF2; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(20,30,60,.04);">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                    <div style="font-size:15px; font-weight:700; color:#1C2333;">活跃日历</div>
+                    <div style="font-size:12.5px; color:#8A92A3; font-weight:600;">过去 17 周 · 共 42 天有思考</div>
+                  </div>
+                  <div style="display:grid; grid-template-rows:repeat(7, 13px); grid-auto-flow:column; grid-auto-columns:13px; gap:4px;">
+                    <sc-for list="{{ calendar }}" as="c" hint-placeholder-count="20">
+                      <div style="{{ c.style }}"></div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:7px; margin-top:16px; font-size:11.5px; color:#9AA1B0;">
+                    少
+                    <span style="width:12px; height:12px; border-radius:3px; background:#EDEFF4;"></span>
+                    <span style="width:12px; height:12px; border-radius:3px; background:#C9D0E8;"></span>
+                    <span style="width:12px; height:12px; border-radius:3px; background:#97A3D2;"></span>
+                    <span style="width:12px; height:12px; border-radius:3px; background:#5C6CB0;"></span>
+                    <span style="width:12px; height:12px; border-radius:3px; background:#2A3B7A;"></span>
+                    多
+                  </div>
+                </div>
+
+                <div style="font-size:15px; font-weight:700; color:#1C2333; margin:28px 0 14px;">成长回顾</div>
+                <sc-for list="{{ reviews }}" as="r" hint-placeholder-count="2">
+                  <div style="background:#fff; border:1px solid #EAECF2; border-radius:14px; padding:18px 20px; margin-bottom:12px; display:flex; gap:14px; align-items:flex-start;">
+                    <div style="flex:none; width:38px; height:38px; border-radius:10px; background:#FBF1DC; display:flex; align-items:center; justify-content:center;">
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D9A23D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z"></path></svg>
+                    </div>
+                    <div style="flex:1;">
+                      <div style="font-size:12px; color:#9AA1B0; font-weight:600; margin-bottom:4px;">{{ r.period }}</div>
+                      <div style="font-size:14.5px; line-height:1.7; color:#2B3346;">{{ r.text }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </sc-if>
+
+              <!-- cards -->
+              <sc-if value="{{ recCards }}" hint-placeholder-val="">
+                <div style="font-size:13.5px; color:#6B7384; margin-bottom:18px; line-height:1.6;">你收集到的思维工具卡，按课程库五大分支组织。用得越多，越成为你的本能。</div>
+                <sc-for list="{{ cardGroups }}" as="g" hint-placeholder-count="3">
+                  <div style="margin-bottom:24px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                      <span style="{{ g.dotStyle }}"></span>
+                      <span style="font-size:14px; font-weight:700; color:#1C2333;">{{ g.name }}</span>
+                      <span style="font-size:12px; color:#9AA1B0; font-weight:600;">{{ g.countLabel }}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+                      <sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="2">
+                        <div style="{{ c.boxStyle }}">
+                          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                            <div style="font-size:14.5px; font-weight:700; color:#1C2333; line-height:1.4;">{{ c.name }}</div>
+                            <span style="{{ c.badgeStyle }}">{{ c.badge }}</span>
+                          </div>
+                          <div style="font-size:12.5px; color:#8A92A3; line-height:1.55; margin-top:6px;">{{ c.purpose }}</div>
+                          <div style="font-size:12px; color:#9AA1B0; margin-top:10px; font-weight:600;">{{ c.usage }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </sc-if>
+
+              <!-- ability -->
+              <sc-if value="{{ recAbility }}" hint-placeholder-val="">
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:300px; background:#fff; border:1px solid #EAECF2; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(20,30,60,.04);">
+                    <div style="font-size:15px; font-weight:700; color:#1C2333;">AI 批判性思维 · 能力素养模型</div>
+                    <div style="font-size:12.5px; color:#8A92A3; margin-top:5px; line-height:1.6;">九个维度，跨五大分支。等级来自每次任务评估的归并，不是测验分数。</div>
+                    <div style="display:flex; justify-content:center; margin-top:10px;">
+                      <svg viewBox="0 0 280 270" width="100%" style="max-width:330px;">
+                        <sc-for list="{{ radarRings }}" as="ring" hint-placeholder-count="4">
+                          <polygon points="{{ ring.points }}" fill="none" stroke="#ECEEF4" stroke-width="1"></polygon>
+                        </sc-for>
+                        <sc-for list="{{ radarAxes }}" as="ax" hint-placeholder-count="9">
+                          <line x1="{{ ax.x1 }}" y1="{{ ax.y1 }}" x2="{{ ax.x2 }}" y2="{{ ax.y2 }}" stroke="#ECEEF4" stroke-width="1"></line>
+                        </sc-for>
+                        <polygon points="{{ radarPoints }}" fill="rgba(42,59,122,.14)" stroke="#2A3B7A" stroke-width="2" stroke-linejoin="round"></polygon>
+                        <sc-for list="{{ radarDots }}" as="dt" hint-placeholder-count="9">
+                          <circle cx="{{ dt.cx }}" cy="{{ dt.cy }}" r="3.2" fill="#2A3B7A"></circle>
+                        </sc-for>
+                        <sc-for list="{{ radarLabels }}" as="lb" hint-placeholder-count="9">
+                          <text x="{{ lb.x }}" y="{{ lb.y }}" text-anchor="{{ lb.anchor }}" font-size="10.5" font-weight="600" fill="#6B7384">{{ lb.text }}</text>
+                        </sc-for>
+                      </svg>
+                    </div>
+                  </div>
+                  <div style="flex:1; min-width:280px;">
+                    <sc-for list="{{ abilityList }}" as="a" hint-placeholder-count="9">
+                      <div style="background:#fff; border:1px solid #EAECF2; border-radius:12px; padding:13px 16px; margin-bottom:9px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="{{ a.dotStyle }}"></span>
+                            <span style="font-size:13.5px; font-weight:700; color:#1C2333;">{{ a.dim }}</span>
+                          </div>
+                          <span style="font-size:12px; font-weight:700; color:#2A3B7A; background:#EDEFF9; padding:2px 9px; border-radius:999px;">{{ a.levelLabel }}</span>
+                        </div>
+                        <div style="display:flex; gap:4px; margin-top:9px;">
+                          <sc-for list="{{ a.segs }}" as="g" hint-placeholder-count="4">
+                            <span style="{{ g.style }}"></span>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== SETTINGS ===== -->
+        <sc-if value="{{ isSettings }}" hint-placeholder-val="">
+          <div style="flex:1; min-height:0; overflow-y:auto;">
+            <div style="max-width:680px; margin:0 auto; padding:40px 40px 60px;">
+              <div style="font-size:26px; font-weight:800; color:#1C2333; letter-spacing:-.01em;">设置</div>
+
+              <!-- profile -->
+              <div style="font-size:13px; font-weight:700; color:#8A92A3; letter-spacing:.04em; margin:28px 0 12px;">个人</div>
+              <div style="background:#fff; border:1px solid #EAECF2; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(20,30,60,.04);">
+                <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                  <div style="width:56px; height:56px; border-radius:16px; background:#E8A33D; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700;">P</div>
+                  <div>
+                    <div style="font-size:16px; font-weight:700; color:#1C2333;">Phoebe Chen</div>
+                    <div style="font-size:13px; color:#8A92A3; margin-top:2px;">IB DP1 · A 班 · TOK</div>
+                  </div>
+                </div>
+                <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">姓名</div>
+                <input value="Phoebe Chen" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:11px 13px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none; margin-bottom:14px;" />
+                <div style="font-size:12.5px; font-weight:600; color:#3A4256; margin-bottom:6px;">邮箱</div>
+                <input value="phoebe@ibschool.edu" style="width:100%; border:1px solid #E1E4ED; border-radius:11px; padding:11px 13px; font-size:14px; color:#1C2333; background:#FCFCFD; outline:none;" />
+              </div>
+
+              <!-- AI avatar -->
+              <div style="font-size:13px; font-weight:700; color:#8A92A3; letter-spacing:.04em; margin:28px 0 12px;">AI 形象</div>
+              <div style="background:#fff; border:1px solid #EAECF2; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(20,30,60,.04);">
+                <div style="display:flex; align-items:center; gap:16px;">
+                  <svg viewBox="0 0 48 48" width="58" height="58" style="display:block; flex:none;">
+                    <rect x="5" y="6" width="38" height="36" rx="13" fill="{{ avatarColor }}"></rect>
+                    <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12"></rect>
+                    <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                    <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                    <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                    <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                    <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+                    <circle cx="39" cy="9" r="4.5" fill="#E8A33D"></circle>
+                  </svg>
+                  <div style="flex:1;">
+                    <div style="font-size:15px; font-weight:700; color:#1C2333;">你的陪练 · 印记</div>
+                    <div style="font-size:13px; color:#8A92A3; line-height:1.6; margin-top:4px;">它克制、安静，一次只问你一个问题。选一个你看着舒服的颜色。</div>
+                  </div>
+                </div>
+                <div style="display:flex; gap:12px; margin-top:18px;">
+                  <sc-for list="{{ avatarOptions }}" as="o" hint-placeholder-count="4">
+                    <div onClick="{{ o.onClick }}" style="{{ o.wrapStyle }}">
+                      <svg viewBox="0 0 48 48" width="40" height="40" style="display:block;">
+                        <rect x="5" y="6" width="38" height="36" rx="13" fill="{{ o.color }}"></rect>
+                        <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12"></rect>
+                        <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                        <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff"></ellipse>
+                        <circle cx="19.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                        <circle cx="30.3" cy="25" r="1.5" fill="#1C2333"></circle>
+                        <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"></path>
+                      </svg>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <!-- other -->
+              <div style="font-size:13px; font-weight:700; color:#8A92A3; letter-spacing:.04em; margin:28px 0 12px;">其他</div>
+              <div style="background:#fff; border:1px solid #EAECF2; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(20,30,60,.04);">
+                <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px 20px; border-bottom:1px solid #F2F3F7;">
+                    <div style="flex:1;">
+                      <div style="font-size:14px; font-weight:600; color:#1C2333;">{{ t.label }}</div>
+                      <div style="font-size:12.5px; color:#9AA1B0; line-height:1.5; margin-top:3px;">{{ t.desc }}</div>
+                    </div>
+                    <div onClick="{{ t.onClick }}" style="{{ t.trackStyle }}">
+                      <div style="{{ t.knobStyle }}"></div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div onClick="{{ onLogout }}" style="display:flex; align-items:center; gap:10px; padding:16px 20px; cursor:pointer; color:#C76B6B; font-size:14px; font-weight:600;" style-hover="background:#FBF3F3;">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C76B6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+                  退出登录
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'login',
+    tab: 'tasks',
+    taskView: 'directory',
+    recordTab: 'learning',
+    aiAvatar: '#2A3B7A',
+    methodologyOpen: '',
+
+    messages: [
+      { id:1, role:'student', kind:'text', text:'我看到一篇说「中国让地球变绿」的公众号文章，想用它写「中国是否让地球更可持续」。', link:'mp.weixin.qq.com/s/卫星图看中国变绿' },
+      { id:2, role:'ai', kind:'text', text:'好题目。不过动手写之前先停一下——这篇文章的说法，你核过来源吗？' },
+      { id:3, role:'ai', kind:'proposal', cardId:'sift_craap' }
+    ],
+    cardStatus: { sift_craap:'proposed', concession:'idle' },
+    tree: [ { id:'n0', type:'task_root', title:'中国是否让地球变得更可持续？', sub:'学生带进来的任务', depth:0 } ],
+    activeCard: '',
+    phase: 'await_sift',
+    composerVisible: false,
+    composerText: '',
+    sift: {
+      stop: '我想用这条信息论证「中国让地球更可持续」。',
+      sources: [
+        { name:'某公众号「卫星图看中国变绿」', type:'自媒体', verdict:'存疑' },
+        { name:'NASA Earth Observatory', type:'官方', verdict:'可信' },
+        { name:'Nature Sustainability (2019)', type:'学者/机构', verdict:'可信' }
+      ],
+      better: 'NASA 与 Nature Sustainability 指出「变绿」主要来自植树与集约农业，但这并不等于整体更可持续。',
+      traceUrl: 'nature.com/articles/s41893-019-0220-7',
+      craap: { currency:4, relevance:5, authority:5, accuracy:4, purpose:3 }
+    },
+    craapOpen: false,
+    concession: {
+      thesis: '中国在很大程度上让地球更可持续。',
+      counter: '中国是全球碳排放总量第一的国家。',
+      concede: '必须承认：以总量计，中国的碳排放确实全球最高，这是绕不开的事实。',
+      rebut: '但人均与单位 GDP 排放在持续下降，且可再生能源装机全球领先——趋势比存量更能支撑「让地球更可持续」。'
+    },
+    showEval: false,
+    evalLoading: false,
+    treeCollapsed: false,
+    toggles: { reminder:false, dark:false, restraint:true },
+    msgSeq: 3
+  };
+
+  componentDidUpdate() {
+    const el = document.getElementById('mk-chat');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  // routing
+  goRegister = () => this.setState({ screen:'register' });
+  goLogin = () => this.setState({ screen:'login' });
+  goBind = () => this.setState({ screen:'bindclass' });
+  enterApp = () => this.setState({ screen:'app', tab:'tasks', taskView:'directory' });
+  logout = () => this.setState({ screen:'login' });
+  tabTasks = () => this.setState({ tab:'tasks' });
+  tabRecords = () => this.setState({ tab:'records' });
+  tabSettings = () => this.setState({ tab:'settings' });
+  openTask = () => this.setState({ tab:'tasks', taskView:'workspace' });
+  backToDir = () => this.setState({ taskView:'directory' });
+  setRecordTab = (t) => this.setState({ recordTab:t });
+  setAvatar = (c) => this.setState({ aiAvatar:c });
+  toggleSetting = (k) => this.setState(s => ({ toggles:{ ...s.toggles, [k]:!s.toggles[k] } }));
+
+  openMeth = (id) => this.setState({ methodologyOpen:id });
+  closeMeth = () => this.setState({ methodologyOpen:'' });
+
+  // cards
+  openCard = (id) => this.setState(s => ({ activeCard:id, cardStatus:{ ...s.cardStatus, [id]:'active' } }));
+  closeSheet = () => this.setState(s => {
+    const id = s.activeCard;
+    const reverted = s.cardStatus[id] === 'completed' ? 'completed' : 'proposed';
+    return { activeCard:'', cardStatus:{ ...s.cardStatus, [id]:reverted } };
+  });
+  skipCard = (id) => this.setState(s => ({ cardStatus:{ ...s.cardStatus, [id]:'skipped' } }));
+  submitCard = () => {
+    if (this.state.activeCard === 'sift_craap') this.submitSift();
+    else if (this.state.activeCard === 'concession') this.submitConcession();
+  };
+
+  submitSift = () => {
+    this.setState(s => {
+      const seq = s.msgSeq;
+      return {
+        cardStatus:{ ...s.cardStatus, sift_craap:'completed' }, activeCard:'',
+        tree:[ ...s.tree,
+          { id:'n_sq1', type:'sub_question', title:'这个来源可信吗？', depth:1 },
+          { id:'n_card1', type:'card_use', title:'SIFT×CRAAP 信息核查', sub:'信息素养 · 已完成', depth:2 },
+          { id:'n_key1', type:'key_knowledge', title:'原文实为 NASA / Nature Sustainability（IF 32.1）', depth:2 }
+        ],
+        messages:[ ...s.messages, { id:seq+1, role:'ai', kind:'text', text:'查得漂亮——你把来源从一篇公众号一路溯到了 NASA 和 Nature Sustainability。那我只问你一个：现在到底有几个独立来源，真正支持「中国让地球更可持续」这个结论？' } ],
+        msgSeq: seq+1, phase:'await_q1_reply', composerVisible:true,
+        composerText:'其实硬来源只有两个。而且我查的时候撞到一个反例——中国碳排放总量全球第一，这要不要写进去？'
+      };
+    });
+  };
+  submitConcession = () => {
+    this.setState(s => {
+      const seq = s.msgSeq;
+      return {
+        cardStatus:{ ...s.cardStatus, concession:'completed' }, activeCard:'',
+        tree:[ ...s.tree, { id:'n_conc1', type:'concession', title:'让步段 · 以退为进', sub:'知识工具 · 已完成', depth:2 } ],
+        messages:[ ...s.messages, { id:seq+1, role:'ai', kind:'text', text:'稳了。先退一步承认，再转折反驳，你的论证比一开始扎实得多。这一程先到这儿——要看看你刚走过的这条思维印记吗？', action:'view_eval', actionLabel:'查看我的思维印记' } ],
+        msgSeq: seq+1, phase:'await_eval'
+      };
+    });
+  };
+  sendComposer = () => {
+    this.setState(s => {
+      const t = (s.composerText || '').trim();
+      if (!t) return {};
+      const seq = s.msgSeq;
+      return {
+        messages:[ ...s.messages,
+          { id:seq+1, role:'student', kind:'text', text:t },
+          { id:seq+2, role:'ai', kind:'text', text:'这个反例恰恰是机会。与其绕开它，不如正面接住——先承认它，再反驳。' },
+          { id:seq+3, role:'ai', kind:'proposal', cardId:'concession' }
+        ],
+        msgSeq: seq+3,
+        tree:[ ...s.tree,
+          { id:'n_att1', type:'attempt', title:'初稿：直接主张「中国让地球更可持续」', depth:1 },
+          { id:'n_sq2', type:'sub_question', title:'碳排放反例怎么处理？', depth:1 }
+        ],
+        cardStatus:{ ...s.cardStatus, concession:'proposed' }, phase:'await_concession',
+        composerVisible:false, composerText:''
+      };
+    });
+  };
+  viewEval = () => {
+    this.setState({ evalLoading:true });
+    setTimeout(() => this.setState(s => ({ evalLoading:false, showEval:true, tree:[ ...s.tree, { id:'n_ref1', type:'reflection', title:'反身：我学会了先找反方，再下结论', depth:1 } ] })), 1300);
+  };
+  closeEval = () => this.setState({ showEval:false });
+
+  onComposerInput = (e) => this.setState({ composerText: e.target.value });
+  updSift = (k, v) => this.setState(s => ({ sift:{ ...s.sift, [k]:v } }));
+  updConc = (k, v) => this.setState(s => ({ concession:{ ...s.concession, [k]:v } }));
+  setVerdict = (i, v) => this.setState(s => ({ sift:{ ...s.sift, sources: s.sift.sources.map((x,idx)=> idx===i ? { ...x, verdict:v } : x) } }));
+  setCraap = (k, v) => this.setState(s => ({ sift:{ ...s.sift, craap:{ ...s.sift.craap, [k]:v } } }));
+  addSource = () => this.setState(s => ({ sift:{ ...s.sift, sources:[ ...s.sift.sources, { name:'新来源', type:'自媒体', verdict:'存疑' } ] } }));
+  toggleCraap = () => this.setState(s => ({ craapOpen: !s.craapOpen }));
+  toggleTree = () => this.setState(s => ({ treeCollapsed: !s.treeCollapsed }));
+
+  pill(active, color) {
+    const base = { padding:'5px 12px', borderRadius:'999px', fontSize:'12px', fontWeight:600, cursor:'pointer', fontFamily:'inherit' };
+    return active ? { ...base, background:color, color:'#fff', border:'1px solid '+color } : { ...base, background:'#fff', color:'#6B7384', border:'1px solid #E1E4ED' };
+  }
+  cell(filled) {
+    return { width:'32px', height:'30px', borderRadius:'8px', fontSize:'13px', fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'1px solid '+(filled?'#2A3B7A':'#E1E4ED'), background:filled?'#2A3B7A':'#fff', color:filled?'#fff':'#9AA1B0' };
+  }
+  navStyle(active) {
+    return {
+      box: { width:'48px', height:'48px', borderRadius:'14px', display:'flex', alignItems:'center', justifyContent:'center', background: active?'#EDEFF9':'transparent' },
+      icon: active ? '#2A3B7A' : '#9AA1B0',
+      label: 'font-size:10.5px; font-weight:'+(active?'700':'500')+'; color:'+(active?'#2A3B7A':'#9AA1B0')+';'
+    };
+  }
+  recTab(active) {
+    const base = { padding:'8px 16px', borderRadius:'8px', fontSize:'13.5px', fontWeight:600, cursor:'pointer', border:'none', fontFamily:'inherit' };
+    return active ? { ...base, background:'#fff', color:'#2A3B7A', boxShadow:'0 1px 3px rgba(20,30,60,.10)' } : { ...base, background:'transparent', color:'#6B7384' };
+  }
+
+  renderVals() {
+    const s = this.state;
+
+    const messages = s.messages.map(m => {
+      const status = m.cardId ? s.cardStatus[m.cardId] : null;
+      return {
+        text:m.text, link:m.link, hasLink:!!m.link,
+        isStudent:m.role==='student', isAIText:m.role==='ai'&&m.kind!=='proposal', isProposal:m.kind==='proposal',
+        hasAction:!!m.action, actionLabel:m.actionLabel, onAction:m.action==='view_eval'?this.viewEval:()=>{},
+        cardName:m.cardId==='sift_craap'?'SIFT×CRAAP 信息核查':'让步段 · 以退为进',
+        category:m.cardId==='sift_craap'?'信息素养':'知识工具',
+        nudge:m.cardId==='sift_craap'?'这儿先别急着写，我们用 SIFT 横向核一下这个来源？':'这个反例很关键——要不要用「让步段」把它变成你的优势？',
+        isProposed:status==='proposed'||status==='active', isCompleted:status==='completed', isSkipped:status==='skipped',
+        onOpen:()=>this.openCard(m.cardId), onSkip:()=>this.skipCard(m.cardId)
+      };
+    });
+
+    const TM = {
+      task_root:{tag:'任务根',color:'#2A3B7A',bg:'#EDEFF9',fill:true},
+      sub_question:{tag:'子问题',color:'#2A3B7A',bg:'#EDEFF9',fill:false},
+      card_use:{tag:'工具卡使用',color:'#5B6BB5',bg:'#EBEDFA',fill:true},
+      attempt:{tag:'尝试草稿',color:'#9AA1B0',bg:'#F1F2F5',fill:false,dashed:true},
+      key_knowledge:{tag:'关键知识',color:'#D9A23D',bg:'#FBF1DC',fill:true},
+      concession:{tag:'让步修订',color:'#4C9A82',bg:'#E7F3EE',fill:true},
+      reflection:{tag:'反身收口',color:'#7C6BB5',bg:'#F0ECF8',fill:true}
+    };
+    const tree = s.tree.map(n => {
+      const t = TM[n.type];
+      return {
+        title:n.title, sub:n.sub||'', hasSub:!!n.sub, tag:t.tag,
+        rowStyle:{ display:'flex', gap:'11px', padding:'7px 0', marginLeft:(n.depth*18)+'px' },
+        markerStyle:{ width:'12px', height:'12px', borderRadius:'50%', border:'2px '+(t.dashed?'dashed':'solid')+' '+t.color, background:t.fill?t.color:'#fff' },
+        tagStyle:{ display:'inline-block', fontSize:'11px', fontWeight:700, padding:'2px 9px', borderRadius:'6px', background:t.bg, color:t.color }
+      };
+    });
+
+    const cr = s.sift.craap;
+    const craapRows = [['currency','Currency 时效性'],['relevance','Relevance 相关性'],['authority','Authority 权威性'],['accuracy','Accuracy 准确性'],['purpose','Purpose 目的性']].map(([k,label]) => ({
+      label, cells:[1,2,3,4,5].map(n => ({ n, onClick:()=>this.setCraap(k,n), style:this.cell(n<=cr[k]) }))
+    }));
+    const verdicts = [['可信','#4C9A82'],['存疑','#D9A23D'],['不可信','#C76B6B']];
+    const sources = s.sift.sources.map((src,i) => ({ name:src.name, typeLabel:src.type, verdictPills:verdicts.map(([lab,col])=>({ label:lab, onClick:()=>this.setVerdict(i,lab), style:this.pill(src.verdict===lab,col) })) }));
+
+    const evalDims = [
+      {dim:'来源意识',level:3,note:'从被动采信 → 主动溯源'},
+      {dim:'交叉验证',level:3,note:'找到 2 个独立权威来源'},
+      {dim:'论证结构',level:3,note:'引入让步段，结构更完整'},
+      {dim:'对立观点处理',level:4,note:'正面接住「碳排放」反例'},
+      {dim:'元认知',level:2,note:'可再多问：来源各自的立场？'}
+    ].map(d => ({ ...d, levelLabel:'L'+d.level, segs:[1,2,3,4].map(n=>({ style:{ flex:'1', height:'6px', borderRadius:'3px', background:n<=d.level?'#D98263':'#ECEEF4' } })) }));
+
+    const completedCount = ['sift_craap','concession'].filter(id => s.cardStatus[id]==='completed').length;
+
+    // methodology content
+    const METH = {
+      sift_craap: {
+        title:'SIFT × CRAAP 信息核查',
+        intro:'两套互补的核查方法：SIFT 教你横向、快速判断一条网络信息可不可信；CRAAP 在你决定重点采信某个来源时，纵向把它核透。',
+        why:'人最容易犯的错，是一头扎进单一材料、被它的措辞带着走。SIFT 先让你横向跳出来——看别人怎么说、找更权威的版本、溯到原始出处；只有当你确定要重点依赖某个来源时，才用 CRAAP 纵向五维细核。先广后深，省力又不容易被俘获。',
+        how:[
+          {n:'S',title:'Stop',desc:'先停一下，别急着采信或转发，想清楚你要用它说明什么。'},
+          {n:'I',title:'Investigate',desc:'查这条信息是谁发布的，找几个互相独立的来源对照。'},
+          {n:'F',title:'Find better',desc:'去找这件事更权威、更原始的报道或研究。'},
+          {n:'T',title:'Trace',desc:'顺着引用溯源，直到最初的出处。'}
+        ],
+        help:'让你在引用任何网络信息前都先站稳出处，不被单一来源或情绪化标题俘获——这是写研究、做 TOK、乃至日常刷手机都用得上的底层能力。'
+      },
+      concession: {
+        title:'让步段 · 以退为进',
+        intro:'一种让论证更有说服力的结构：先大方承认反方最强的那个事实，再转折反驳它。',
+        why:'当证据对你不利时，绕开它只会让论证显得心虚。让步段反其道而行：先承认对方最强的事实——这让你显得诚实、可信；再说明它为什么不足以推翻你的论点——这让你的结论更稳。退一步，是为了站得更稳地进。',
+        how:[
+          {n:'1',title:'立论',desc:'用一句话写清你真正想让人相信的判断。'},
+          {n:'2',title:'举反方',desc:'挑出对方最难反驳的那个事实。'},
+          {n:'3',title:'让步',desc:'大方承认这个事实，别躲。'},
+          {n:'4',title:'反驳',desc:'说明它为什么不足以推翻你的论点。'}
+        ],
+        help:'专治「遇到反例就慌」。学会处理对立证据，你的议论文、TOK 展示、辩论都会明显更有分量，也更经得起追问。'
+      }
+    };
+    const methId = s.methodologyOpen || s.activeCard;
+    const meth = METH[methId] || METH.sift_craap;
+
+    // tasks directory
+    const statusChip = (txt, color, bg) => ({ display:'inline-block', fontSize:'11.5px', fontWeight:700, padding:'3px 10px', borderRadius:'999px', color, background:bg });
+    const bar = (pct, color) => ({ width:pct+'%', height:'100%', background:color, borderRadius:'999px' });
+    const tasks = [
+      { title:'中国是否让地球变得更可持续？', status:'进行中', sc:['#4C9A82','#E7F3EE'], last:'刚刚', pct:60, cardsLabel:'2 张卡' },
+      { title:'社交媒体让我们更孤独了吗？', status:'进行中', sc:['#4C9A82','#E7F3EE'], last:'2 小时前', pct:35, cardsLabel:'1 张卡' },
+      { title:'「自由意志」在神经科学面前还成立吗？', status:'已评估', sc:['#7C6BB5','#F0ECF8'], last:'昨天', pct:100, cardsLabel:'4 张卡' },
+      { title:'该不该用 AI 帮我写历史论文？', status:'草稿', sc:['#9AA1B0','#F1F2F5'], last:'3 天前', pct:10, cardsLabel:'0 张卡' }
+    ].map(t => ({ title:t.title, status:t.status, last:t.last, cardsLabel:t.cardsLabel, statusStyle:statusChip(t.status,t.sc[0],t.sc[1]), barStyle:bar(t.pct, t.pct===100?'#7C6BB5':'#2A3B7A'), onOpen:this.openTask }));
+
+    // calendar
+    const calColors = ['#EDEFF4','#C9D0E8','#97A3D2','#5C6CB0','#2A3B7A'];
+    const calendar = [];
+    for (let i=0;i<119;i++) {
+      const seed=(i*37+13)%11; const recent=i>74; let lvl;
+      if(seed<3) lvl=0; else if(seed<6) lvl=1; else if(seed<8) lvl=2; else if(seed<10) lvl=3; else lvl=4;
+      if(!recent && lvl>0 && i%3===0) lvl=Math.max(0,lvl-1);
+      if(recent && lvl<2 && i%2===0) lvl=Math.min(4,lvl+1);
+      calendar.push({ style:{ width:'13px', height:'13px', borderRadius:'3px', background:calColors[lvl] } });
+    }
+
+    const reviews = [
+      { period:'最近两周', text:'以前你会直接采信第一篇看到的文章，现在你会先停下来找两三个独立来源——「先核源再下笔」开始变成你的默认动作。' },
+      { period:'本月', text:'你第一次主动把对自己不利的反例写进论证里（碳排放），而不是绕开它。处理对立观点，是更成熟的思考者才会做的事。' }
+    ];
+
+    // tool cards library
+    const dot = (c) => ({ width:'9px', height:'9px', borderRadius:'50%', background:c });
+    const usedBox = { background:'#fff', border:'1px solid #EAECF2', borderRadius:'13px', padding:'15px 17px' };
+    const lockBox = { background:'#FAFBFC', border:'1px dashed #E1E4ED', borderRadius:'13px', padding:'15px 17px', opacity:'.72' };
+    const badgeUsed = { flex:'none', fontSize:'11px', fontWeight:700, color:'#4C9A82', background:'#E7F3EE', padding:'2px 9px', borderRadius:'999px' };
+    const badgeLock = { flex:'none', fontSize:'11px', fontWeight:700, color:'#9AA1B0', background:'#F1F2F5', padding:'2px 9px', borderRadius:'999px' };
+    const cardGroups = [
+      { name:'信息素养', color:'#2A3B7A', count:'已用 1 / 2', cards:[
+        { name:'SIFT×CRAAP 信息核查', purpose:'先横向找更多来源，再纵向深挖单一材料', used:true, usage:'已使用 3 次 · 最近 刚刚' },
+        { name:'横向阅读', purpose:'像事实核查员一样开新标签页比对', used:false, usage:'尚未使用' }
+      ]},
+      { name:'知识工具', color:'#4C9A82', count:'已用 1 / 2', cards:[
+        { name:'让步段 · 以退为进', purpose:'先承认反方最强事实，再转折反驳', used:true, usage:'已使用 1 次 · 最近 刚刚' },
+        { name:'主张-理由-证据', purpose:'把一个论点拆成可检验的三层', used:false, usage:'尚未使用' }
+      ]},
+      { name:'反身性', color:'#7C6BB5', count:'已用 0 / 1', cards:[
+        { name:'立场觉察', purpose:'追问一个来源「为什么这么说」', used:false, usage:'尚未使用' }
+      ]}
+    ].map(g => ({
+      name:g.name, countLabel:g.count, dotStyle:dot(g.color),
+      cards:g.cards.map(c => ({ name:c.name, purpose:c.purpose, usage:c.usage, boxStyle:c.used?usedBox:lockBox, badge:c.used?'已收集':'未解锁', badgeStyle:c.used?badgeUsed:badgeLock }))
+    }));
+
+    // ability radar
+    const abilities = [
+      {dim:'来源意识',branch:'#2A3B7A',level:3},
+      {dim:'交叉验证',branch:'#2A3B7A',level:3},
+      {dim:'提问质量',branch:'#7C6BB5',level:3},
+      {dim:'论证结构',branch:'#4C9A82',level:3},
+      {dim:'对立观点处理',branch:'#4C9A82',level:4},
+      {dim:'跨学科联结',branch:'#D9A23D',level:2},
+      {dim:'伦理审辨',branch:'#C76B6B',level:2},
+      {dim:'立场觉察',branch:'#7C6BB5',level:3},
+      {dim:'元认知',branch:'#7C6BB5',level:2}
+    ];
+    const CX=140, CY=130, R=92, N=abilities.length;
+    const pt = (i,r) => { const a=(-90 + i*(360/N))*Math.PI/180; return [CX + r*Math.cos(a), CY + r*Math.sin(a)]; };
+    const ptsStr = (r) => abilities.map((d,i)=>{ const [x,y]=pt(i,r); return x.toFixed(1)+','+y.toFixed(1); }).join(' ');
+    const radarRings = [1,2,3,4].map(k => ({ points: ptsStr(R*k/4) }));
+    const radarAxes = abilities.map((d,i)=>{ const [x,y]=pt(i,R); return { x1:CX, y1:CY, x2:x.toFixed(1), y2:y.toFixed(1) }; });
+    const radarPoints = abilities.map((d,i)=>{ const [x,y]=pt(i,R*d.level/4); return x.toFixed(1)+','+y.toFixed(1); }).join(' ');
+    const radarDots = abilities.map((d,i)=>{ const [x,y]=pt(i,R*d.level/4); return { cx:x.toFixed(1), cy:y.toFixed(1) }; });
+    const radarLabels = abilities.map((d,i)=>{ const [x,y]=pt(i,R+18); let anchor='middle'; if(x>CX+6)anchor='start'; else if(x<CX-6)anchor='end'; return { x:x.toFixed(1), y:(y+3).toFixed(1), anchor, text:d.dim }; });
+    const abilityList = abilities.map(d => ({ dim:d.dim, levelLabel:'L'+d.level, dotStyle:dot(d.branch), segs:[1,2,3,4].map(n=>({ style:{ flex:'1', height:'6px', borderRadius:'3px', background:n<=d.level?d.branch:'#ECEEF4' } })) }));
+
+    // settings
+    const avatarOptions = ['#2A3B7A','#2F8F87','#C96F4F','#6B5CA5'].map(c => ({
+      color:c, onClick:()=>this.setAvatar(c),
+      wrapStyle:{ width:'56px', height:'56px', borderRadius:'15px', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', background: s.aiAvatar===c?'#EDEFF9':'#F7F8FB', border:'2px solid '+(s.aiAvatar===c?'#2A3B7A':'transparent') }
+    }));
+    const track = (on) => ({ width:'44px', height:'26px', borderRadius:'999px', background:on?'#2A3B7A':'#D6DAE4', position:'relative', cursor:'pointer', flex:'none', transition:'background .18s' });
+    const knob = (on) => ({ position:'absolute', top:'3px', left:on?'21px':'3px', width:'20px', height:'20px', borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.2)', transition:'left .18s' });
+    const toggles = [
+      { key:'restraint', label:'克制提示（始终开启）', desc:'工具卡只在该出现时浮出一张，绝不弹窗轰炸。这是产品的底线，不可关闭。' },
+      { key:'reminder', label:'每日学习提醒', desc:'一天一次温和提醒，不连胜、不催促。' },
+      { key:'dark', label:'深色模式', desc:'夜里思考时更护眼。' }
+    ].map(t => ({ label:t.label, desc:t.desc, onClick: t.key==='restraint'?()=>{}:()=>this.toggleSetting(t.key), trackStyle:track(s.toggles[t.key]), knobStyle:knob(s.toggles[t.key]) }));
+
+    const navT=this.navStyle(s.tab==='tasks'), navR=this.navStyle(s.tab==='records'), navS=this.navStyle(s.tab==='settings');
+
+    return {
+      // routing flags
+      authScreen: s.screen!=='app',
+      loginScreen: s.screen==='login', registerScreen: s.screen==='register', bindScreen: s.screen==='bindclass',
+      appScreen: s.screen==='app',
+      onGoRegister:this.goRegister, onGoLogin:this.goLogin, onGoBind:this.goBind, onEnterApp:this.enterApp, onLogout:this.logout,
+      navTasks:navT, navRecords:navR, navSettings:navS,
+      onTabTasks:this.tabTasks, onTabRecords:this.tabRecords, onTabSettings:this.tabSettings,
+
+      isTasks:s.tab==='tasks', isRecords:s.tab==='records', isSettings:s.tab==='settings',
+      showDirectory: s.tab==='tasks' && s.taskView==='directory',
+      showWorkspace: s.tab==='tasks' && s.taskView==='workspace',
+      onOpenTask:this.openTask, onBackToDir:this.backToDir,
+      tasks, taskCount:tasks.length,
+
+      // records
+      recLearning:s.recordTab==='learning', recCards:s.recordTab==='cards', recAbility:s.recordTab==='ability',
+      onRecLearning:()=>this.setRecordTab('learning'), onRecCards:()=>this.setRecordTab('cards'), onRecAbility:()=>this.setRecordTab('ability'),
+      recTabStyle:{ learning:this.recTab(s.recordTab==='learning'), cards:this.recTab(s.recordTab==='cards'), ability:this.recTab(s.recordTab==='ability') },
+      calendar, reviews, cardGroups,
+      radarRings, radarAxes, radarPoints, radarDots, radarLabels, abilityList,
+
+      // settings
+      avatarColor:s.aiAvatar, avatarOptions, toggles,
+
+      // workspace
+      messages, tree, evalDims, craapRows, sources, completedCount,
+      footerComposer:s.composerVisible, composerText:s.composerText, onComposerInput:this.onComposerInput, onSend:this.sendComposer,
+      treeOpen:!s.treeCollapsed, treeClosed:s.treeCollapsed, onToggleTree:this.toggleTree,
+      hasActiveCard:!!s.activeCard, isSiftActive:s.activeCard==='sift_craap', isConcessionActive:s.activeCard==='concession',
+      activeCardName:s.activeCard==='sift_craap'?'SIFT×CRAAP 信息核查':'让步段 · 以退为进',
+      activeCategory:s.activeCard==='sift_craap'?'信息素养':'知识工具',
+      activePurpose:s.activeCard==='sift_craap'?'先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)':'先承认反方最强的事实，再转折反驳，使论证更完整',
+      onCloseSheet:this.closeSheet, onSubmitCard:this.submitCard,
+      sift:s.sift, onSiftStop:(e)=>this.updSift('stop',e.target.value), onSiftBetter:(e)=>this.updSift('better',e.target.value), onAddSource:this.addSource,
+      craapOpen:s.craapOpen, onToggleCraap:this.toggleCraap, craapChevron: s.craapOpen?{ transform:'rotate(180deg)', transition:'transform .2s' }:{ transition:'transform .2s' },
+      concession:s.concession, onConcThesis:(e)=>this.updConc('thesis',e.target.value), onConcCounter:(e)=>this.updConc('counter',e.target.value), onConcConcede:(e)=>this.updConc('concede',e.target.value), onConcRebut:(e)=>this.updConc('rebut',e.target.value),
+
+      // methodology modal
+      showMethodology:!!s.methodologyOpen, onOpenActiveMeth:()=>this.openMeth(s.activeCard), onCloseMeth:this.closeMeth,
+      methTitle:meth.title, methIntro:meth.intro, methWhy:meth.why, methHelp:meth.help, methSteps:meth.how,
+
+      evalLoading:s.evalLoading, showEval:s.showEval, onCloseEval:this.closeEval
+    };
+  }
+}
+</script>
+</body>
+</html>
