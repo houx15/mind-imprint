@@ -3,3 +3,4 @@ export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
 export * from "./envelope";
+export * from "./registry";

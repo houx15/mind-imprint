@@ -1,0 +1,20 @@
+{
+  "id": "concession",
+  "category": "知识工具",
+  "name": "让步段 · 以退为进",
+  "purpose": "在论证里先承认反方最强的事实，再转折反驳，使论证更有力、结构更完整",
+  "trigger_condition": "学生在写论证段，且出现了与其中心论点相悖的证据，却想直接忽略或硬压",
+  "steps": [
+    {
+      "key": "concession", "title": "让步段四步", "disclose": "always",
+      "methodology_note": "让步段是以退为进：先退一步承认你不同意的一个事实，再对它反驳。它让论证更有力、逻辑更严密。",
+      "fields": [
+        { "type": "text", "key": "thesis", "label": "你的中心论点是什么？" },
+        { "type": "textarea", "key": "counter", "label": "反方最强的那个事实是什么？" },
+        { "type": "textarea", "key": "concede", "label": "先承认它（让步）" },
+        { "type": "textarea", "key": "rebut", "label": "再转折反驳（为什么它不足以推翻你的论点）" }
+      ]
+    }
+  ],
+  "rubric_tags": ["D5_论证结构", "D7_对立观点处理"]
+}
