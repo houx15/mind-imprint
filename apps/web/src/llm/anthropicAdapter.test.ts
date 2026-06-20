@@ -31,7 +31,18 @@ describe("anthropicAdapter", () => {
   it("throws LlmError on non-2xx and never leaks the key", async () => {
     mockFetch(400, { error: { message: "bad model" } });
     const err = await anthropicAdapter(cfg, { messages: [] }).catch((e) => e as Error);
-    expect(err).toMatchObject({ name: "LlmError", status: 400, message: "bad model" });
+    expect(err).toMatchObject({ name: "LlmError", status: 400, provider: "anthropic", message: "bad model" });
+    expect(err.message).not.toContain("sk-ant-xyz");
+  });
+  it("returns empty text when no content block is type text", async () => {
+    mockFetch(200, { content: [{ type: "tool_use", id: "x" }], usage: { input_tokens: 1, output_tokens: 0 } });
+    const result = await anthropicAdapter(cfg, { messages: [{ role: "user", content: "hi" }] });
+    expect(result.text).toBe("");
+  });
+  it("wraps a network/fetch failure as LlmError without leaking the key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
+    const err = await anthropicAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    expect(err).toMatchObject({ name: "LlmError", provider: "anthropic" });
     expect(err.message).not.toContain("sk-ant-xyz");
   });
 });

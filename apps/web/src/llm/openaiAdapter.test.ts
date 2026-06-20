@@ -25,11 +25,18 @@ describe("openaiAdapter", () => {
   });
   it("throws LlmError with status + provider message on non-2xx", async () => {
     mockFetch(401, { error: { message: "invalid key" } });
-    await expect(openaiAdapter(cfg, { messages: [] })).rejects.toMatchObject({ name: "LlmError", status: 401, message: "invalid key" });
+    await expect(openaiAdapter(cfg, { messages: [] })).rejects.toMatchObject({ name: "LlmError", status: 401, provider: "openai", message: "invalid key" });
   });
   it("never leaks the apiKey in the error message", async () => {
     mockFetch(500, { error: { message: "boom" } });
     const err = await openaiAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    expect(err.message).not.toContain("sk-test-123");
+  });
+  it("wraps a network/fetch failure as LlmError without leaking the key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
+    const err = await openaiAdapter(cfg, { messages: [] }).catch((e) => e as Error);
+    expect(err).toMatchObject({ name: "LlmError", provider: "openai" });
+    expect((err as { status?: number }).status).toBeUndefined();
     expect(err.message).not.toContain("sk-test-123");
   });
 });
