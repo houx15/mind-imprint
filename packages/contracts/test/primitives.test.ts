@@ -24,4 +24,16 @@ describe("FieldPrimitive", () => {
   it("rejects an unknown field type", () => {
     expect(FieldPrimitive.safeParse({ type: "slider", key: "x", label: "x" }).success).toBe(false);
   });
+  it("rejects a nested repeatable_group inside item_fields", () => {
+    expect(FieldPrimitive.safeParse({
+      type: "repeatable_group", key: "outer", label: "Outer",
+      item_fields: [{ type: "repeatable_group", key: "inner", label: "Inner", item_fields: [] }],
+    }).success).toBe(false);
+  });
+  it("rejects multi_choice with empty options", () => {
+    expect(FieldPrimitive.safeParse({ type: "multi_choice", key: "v", label: "x", options: [] }).success).toBe(false);
+  });
+  it("rejects rating with a non-positive scale", () => {
+    expect(FieldPrimitive.safeParse({ type: "rating", key: "c", label: "Currency", scale: 0 }).success).toBe(false);
+  });
 });
