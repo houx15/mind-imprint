@@ -10,6 +10,7 @@ describe("CompletedCard", () => {
     render(<CompletedCard card={reg.concession!} filledCount={3} />);
     expect(screen.getByText("让步段 · 以退为进")).toBeInTheDocument();
     expect(screen.getByText(/已完成/)).toBeInTheDocument();
-    expect(screen.getByText(/3/)).toBeInTheDocument();
+    expect(screen.getByText(reg.concession!.category)).toBeInTheDocument();
+    expect(screen.getByText(/已填 3 项/)).toBeInTheDocument();
   });
 });
