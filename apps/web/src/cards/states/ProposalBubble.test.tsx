@@ -19,9 +19,11 @@ describe("ProposalBubble", () => {
     expect(screen.getByText(/已钉到过程树/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开卡" })).not.toBeInTheDocument();
   });
-  it("skipped: shows the recorded-as-signal note and 仍可打开", () => {
-    render(<ProposalBubble status="skipped" {...base} onOpen={vi.fn()} onSkip={vi.fn()} />);
+  it("skipped: shows the recorded-as-signal note and 仍可打开 wires onOpen", async () => {
+    const onOpen = vi.fn();
+    render(<ProposalBubble status="skipped" {...base} onOpen={onOpen} onSkip={vi.fn()} />);
     expect(screen.getByText(/已记录为信号/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "仍可打开" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "仍可打开" }));
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 });
