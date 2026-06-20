@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TextAreaField } from "./TextAreaField";
 import { SingleChoiceField } from "./SingleChoiceField";
+import { MultiChoiceField } from "./MultiChoiceField";
 import { RatingField } from "./RatingField";
 
 describe("simple fields", () => {
@@ -25,5 +26,17 @@ describe("simple fields", () => {
     expect(segs).toHaveLength(5);
     await userEvent.click(segs[3]!);
     expect(onChange).toHaveBeenCalledWith(4);
+  });
+  it("multi_choice adds an option then removes it, never mutating the input array", async () => {
+    const onChange = vi.fn();
+    const initial: string[] = [];
+    const field = { type: "multi_choice" as const, key: "k", label: "选择", options: ["A", "B"] };
+    const { rerender } = render(<MultiChoiceField field={field} value={initial} onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(onChange).toHaveBeenLastCalledWith(["A"]);
+    expect(initial).toEqual([]); // input array not mutated
+    rerender(<MultiChoiceField field={field} value={["A"]} onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
   });
 });

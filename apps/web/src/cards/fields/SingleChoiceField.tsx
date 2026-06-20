@@ -16,6 +16,7 @@ export function SingleChoiceField({ field, value, onChange }: FieldProps<F>) {
               key={opt}
               type="button"
               onClick={() => onChange(opt)}
+              aria-pressed={active}
               className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${active ? "bg-mk-primary text-white" : "bg-[#F2F3F8] text-[#6B7384]"}`}
             >
               {opt}
