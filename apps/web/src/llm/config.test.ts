@@ -20,4 +20,9 @@ describe("config", () => {
     expect(isConfigured({ format: "openai", baseUrl: "u", model: "m", apiKey: "k" })).toBe(true);
     expect(isConfigured({ format: "openai", baseUrl: "u", model: "m" })).toBe(false);
   });
+  it("falls back to env when stored JSON is corrupt (does not throw)", () => {
+    localStorage.setItem("mk.llmConfig", "NOT_JSON{");
+    const cfg = loadConfig({ VITE_LLM_FORMAT: "openai", VITE_LLM_BASE_URL: "b", VITE_LLM_MODEL: "m", VITE_LLM_API_KEY: "k" });
+    expect(cfg).toMatchObject({ format: "openai", baseUrl: "b", model: "m", apiKey: "k" });
+  });
 });
