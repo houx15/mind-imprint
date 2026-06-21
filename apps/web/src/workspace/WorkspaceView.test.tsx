@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkspaceView } from "./WorkspaceView";
 import type { Store } from "../store/createStore";
+import { createStore, makeMemoryStorage } from "../store";
 import type { Conversation, ConvState, ConvPhase } from "../agent/createConversation";
 import type { Task, Message, CardInstance } from "@mind-imprint/contracts";
 
@@ -217,6 +218,51 @@ describe("WorkspaceView", () => {
     });
   });
 
+  describe("Live process tree growth", () => {
+    it("shows empty-state when there are no cards yet", () => {
+      const realStore = createStore({ storage: makeMemoryStorage() });
+      realStore.createTask({ title: "中国是否让地球变得更可持续？", seed: null });
+      const taskId = realStore.listTasks()[0]!.id;
+      const conv = makeConversation();
+      render(<WorkspaceView store={realStore} conversation={conv} taskId={taskId} onBack={() => {}} />);
+      // Empty-state footer is always visible
+      expect(screen.getByText("边做边长 · 随评估归并枝节")).toBeInTheDocument();
+      // Card name should NOT be visible yet
+      expect(screen.queryByText("SIFT×CRAAP 信息核查")).not.toBeInTheDocument();
+    });
+
+    it("shows the card node after putCard with a completed sift_craap instance", () => {
+      const realStore = createStore({ storage: makeMemoryStorage() });
+      realStore.createTask({ title: "中国是否让地球变得更可持续？", seed: null });
+      const taskId = realStore.listTasks()[0]!.id;
+      const conv = makeConversation();
+      const { rerender } = render(
+        <WorkspaceView store={realStore} conversation={conv} taskId={taskId} onBack={() => {}} />,
+      );
+      // Confirm no card node yet
+      expect(screen.queryByText("SIFT×CRAAP 信息核查")).not.toBeInTheDocument();
+
+      // Add a completed sift_craap card to the store
+      act(() => {
+        realStore.putCard({
+          id: "ci-sift-live",
+          card_id: "sift_craap",
+          task_id: taskId,
+          parent_node_id: null,
+          status: "completed",
+          field_values: {},
+          event_trace: [],
+          rubric_tags: [],
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        });
+      });
+
+      // The tree should now show the card node title from CARD_REGISTRY
+      expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+    });
+  });
+
   describe("CardSheetHost", () => {
     it("does NOT show the bottom sheet when phase is idle", () => {
       const store = makeStore();
@@ -238,8 +284,9 @@ describe("WorkspaceView", () => {
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      // The card name from CARD_REGISTRY for sift_craap appears in the header
-      expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+      // The card name from CARD_REGISTRY for sift_craap appears — may appear in both
+      // the tree panel and the card sheet header, so allow multiple matches.
+      expect(screen.getAllByText("SIFT×CRAAP 信息核查").length).toBeGreaterThan(0);
     });
 
     it("mounts the CardRenderer — a known field label from the active card appears", () => {

@@ -8,6 +8,7 @@ import { Composer } from "./Composer";
 import { TreePanel } from "./TreePanel";
 import { CardSheetHost } from "./CardSheetHost";
 import { messagesToItems } from "./viewModel";
+import { deriveProcessTree } from "./processTree";
 
 type Props = {
   store: Store;
@@ -40,6 +41,11 @@ export function WorkspaceView({ store, conversation, taskId, onBack }: Props) {
     (id) => store.getCard(id),
     (cardId) => CARD_REGISTRY[cardId],
   );
+
+  // Derive process tree from current store snapshot (no state — re-derives on every store update)
+  const treeNodes = task
+    ? deriveProcessTree({ task, cards: store.listCards(taskId), registry: CARD_REGISTRY })
+    : [];
 
   // Active card for the bottom sheet
   const activeCard =
@@ -185,7 +191,7 @@ export function WorkspaceView({ store, conversation, taskId, onBack }: Props) {
         </div>
 
         {/* Tree panel */}
-        <TreePanel open={treeOpen} onToggle={() => setTreeOpen((v) => !v)} />
+        <TreePanel open={treeOpen} onToggle={() => setTreeOpen((v) => !v)} nodes={treeNodes} />
 
         {/* Bottom sheet — only when card_active */}
         {phase === "card_active" && activeCard && activeSpec && (
