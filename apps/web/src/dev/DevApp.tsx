@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Harness } from "./Harness";
 import { SettingsPanel } from "./SettingsPanel";
 import { StorePanel } from "./StorePanel";
+import { WorkspaceDev } from "./WorkspaceDev";
 
-type Tab = "cards" | "llm" | "store";
+type Tab = "cards" | "llm" | "store" | "workspace";
 
 export function DevApp() {
   const [tab, setTab] = useState<Tab>("cards");
@@ -15,10 +16,12 @@ export function DevApp() {
         <button type="button" onClick={() => setTab("cards")} className={tabCls("cards")}>卡片</button>
         <button type="button" onClick={() => setTab("llm")} className={tabCls("llm")}>LLM 设置</button>
         <button type="button" onClick={() => setTab("store")} className={tabCls("store")}>存储</button>
+        <button type="button" onClick={() => setTab("workspace")} className={tabCls("workspace")}>工作区</button>
       </div>
       {tab === "cards" && <Harness />}
       {tab === "llm" && <SettingsPanel />}
       {tab === "store" && <StorePanel />}
+      {tab === "workspace" && <WorkspaceDev />}
     </div>
   );
 }
