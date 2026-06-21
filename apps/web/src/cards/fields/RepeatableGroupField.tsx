@@ -7,6 +7,7 @@ import { SingleChoiceField } from "./SingleChoiceField";
 import { MultiChoiceField } from "./MultiChoiceField";
 import { RatingField } from "./RatingField";
 import { LinkCheckField } from "./LinkCheckField";
+import { SpectrumField } from "./SpectrumField";
 import type { ComponentType } from "react";
 
 type F = z.infer<typeof Schema>;
@@ -15,6 +16,7 @@ type Row = Record<string, unknown>;
 const ITEM_COMPONENTS: Record<ItemField["type"], ComponentType<FieldProps<any>>> = {
   text: TextField, textarea: TextAreaField, single_choice: SingleChoiceField,
   multi_choice: MultiChoiceField, rating: RatingField, link_check: LinkCheckField,
+  spectrum: SpectrumField,
 };
 
 export function RepeatableGroupField({ field, value, onChange }: FieldProps<F>) {
