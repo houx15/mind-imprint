@@ -12,7 +12,7 @@
   "interaction_type": "量表光谱卡",
   "rubric_dims": ["D6", "D9"],
   "related": ["fact-opinion-value", "science-knowing"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D6", "D9"],
   "steps": [
     {
@@ -21,7 +21,10 @@
       "disclose": "always",
       "methodology_note": "不是所有「知道」都一样确定：数学证明可达必然，自然科学是「暂定但可靠」，历史/社科多为有据推断。把结论放到光谱（个人猜测→有据推断→强证据支持→科学共识→逻辑必然）上，再据此校准语气（可能/大概/很可能/几乎确定/必然）。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字说明你的结论应该放在光谱哪个位置、为什么，以及更相称的语气词是什么；可拖拽的光谱滑块即将上线" }
+        { "type": "text", "key": "claim", "label": "你的结论是什么？" },
+        { "type": "spectrum", "key": "position", "label": "把它放到确定度光谱上", "stops": ["个人猜测", "有据推断", "强证据", "科学共识", "逻辑必然"] },
+        { "type": "textarea", "key": "why", "label": "为什么是这个位置？支撑它的证据类型是什么？" },
+        { "type": "textarea", "key": "rewrite", "label": "用与该位置相称的语气词重写结论句（可能 / 大概 / 很可能 / 几乎确定 / 必然）" }
       ]
     }
   ]

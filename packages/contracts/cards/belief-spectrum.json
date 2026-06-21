@@ -12,7 +12,7 @@
   "interaction_type": "量表光谱卡",
   "rubric_dims": ["D4"],
   "related": ["steelman", "ethics-roleplay", "source-map"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D4"],
   "steps": [
     {
@@ -21,7 +21,16 @@
       "disclose": "always",
       "methodology_note": "把「对/错两派」摊成一条连续光谱：不同立场各自相信什么、引什么证据、背后有什么利益——再看看自己站哪。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录你的思考；这张卡的完整交互（可拖放的立场光谱）即将上线" }
+        { "type": "text", "key": "issue", "label": "争议议题是什么？" },
+        { "type": "repeatable_group", "key": "stances", "label": "把各方立场放到光谱上", "item_fields": [
+          { "type": "text", "key": "who", "label": "是谁 / 哪个立场" },
+          { "type": "spectrum", "key": "position", "label": "在光谱上的位置", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
+          { "type": "textarea", "key": "believes", "label": "它相信什么" },
+          { "type": "textarea", "key": "evidence", "label": "它引什么证据" },
+          { "type": "textarea", "key": "interest", "label": "背后有什么利益 / 背景" }
+        ] },
+        { "type": "spectrum", "key": "self", "label": "我现在站这里", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
+        { "type": "textarea", "key": "self_reason", "label": "我站这里的理由（他们的分歧在证据、价值，还是利益？）" }
       ]
     }
   ]
