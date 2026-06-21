@@ -94,9 +94,13 @@ Add `spectrum: SpectrumField` to `apps/web/src/cards/fieldRegistry.tsx`.
 
 ---
 
-## Sub-slice 3c-B — `classify` primitive (sketch; detailed when reached)
+## Sub-slice 3c-B — `criteria_check` primitive (REFINED)
 
-**Family:** 分类标注 (spin-detector: tag marketing/denial tactics 漂绿+FLICC; science-knowing: classify claims by how-we-know). Interaction: given a set of items, assign each to a category (drag-tag). **Primitive `classify`**: `{ type:"classify", key, label, items: string[], categories: string[] }`, value = `Record<itemIndex, categoryIndex>`. Component = a labeling grid (each item row + a category selector), keyboard-accessible. Un-stub the two cards with their real tactic/knowing categories from the `.md`.
+**Family:** 分类标注 (spin-detector, science-knowing). On reaching it, the faithful design is:
+- **science-knowing** needs a NEW primitive **`criteria_check`** — a fixed list of named criteria, each judged on a small shared scale, with the four standards 可证伪/对照/可重复/同行评审 assessed against a claim. Schema: `{ type:"criteria_check", key, label, criteria: string[], levels: string[] }`; value = `number[]` (length `criteria.length`, each = chosen level index; absent/`-1` = untouched). Component = one row per criterion + a per-row radiogroup of `levels` (reuses the radio idiom; immutable array update like `multi_choice`). Added to `FieldPrimitive` only (top-level; not nested).
+- **spin-detector** needs NO new primitive — it composes from existing primitives: a `repeatable_group` for the 漂绿「说的 vs 做的」table ({claim textarea, actual textarea}) and a `repeatable_group` for FLICC snippet-tagging ({snippet textarea, single_choice over the 5 tactics 假专家/逻辑谬误/不可能的标准/挑拣证据/阴谋论}). Both steps shown (no mode-toggle dependency on `show_if`).
+
+Restraint: both cards set up the criteria/labels and ask the student to judge/tag + justify; neither pre-judges "这是伪科学 / 这家在漂绿". (science-knowing rubric_dims D2/D5/D9; spin-detector D2/D4/D5 — already in JSON.)
 
 ## Sub-slice 3c-C — `show_if` stepped-guide (sketch)
 
