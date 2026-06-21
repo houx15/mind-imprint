@@ -1,0 +1,119 @@
+# Slice 3c — Rich Card Interactions · Design & Spec
+
+> Status: design self-approved (user delegated autonomous execution, waived interactive review). Date: 2026-06-21.
+> S3c is the roadmap's last named slice ("later" / breadth). It upgrades the 10 `body_status:"stub"` cards to real interactions. The platform is already end-to-end runnable (S1–S6); S3c is non-critical-path breadth.
+
+## The core mechanism (unchanged architecture)
+
+The card runtime is schema-driven: `packages/contracts/src/primitives.ts` defines field types as a discriminated union on `type`; `apps/web/src/cards/fieldRegistry.tsx` maps `type → component`; `CardRenderer` renders `step.fields[]` via the registry; `field_values[key]` + trace events flow through `onField`. **Adding an interaction = (1) add a primitive to the union, (2) add a field component, (3) register it, (4) flip the card JSON `body_status` to `full` and replace the placeholder textarea with real fields.** The renderer itself never changes per-card. This is the validation standard for "schema-driven": new card = new JSON, new interaction = one new primitive reused across cards.
+
+## Decomposition: 5 family sub-slices (by `interaction_type`)
+
+The 10 stub cards group into 5 interaction families. Each family = one sub-slice (own plan → TDD → merge), ordered by increasing complexity so the highest-leverage, lowest-risk primitives land first and the pattern is proven before the hard ones:
+
+| Sub-slice | Family (`interaction_type`) | Cards | New primitive(s) |
+|---|---|---|---|
+| **3c-A** | 量表光谱 spectrum | belief-spectrum, certainty-spectrum | `spectrum` |
+| **3c-B** | 分类标注 classify | spin-detector, science-knowing | `classify` |
+| **3c-C** | 步骤引导 stepped-guide | aok-methods, corpus-hook | `show_if` (field/step modifier) |
+| **3c-D** | 画布导图 canvas-map | argument-map, money-trail, source-map | `node_map` |
+| **3c-E** | 角色模拟 role-play | ethics-roleplay | `role_play` |
+
+Each sub-slice's interaction is designed faithfully to the card's `docs/工具包库/*.md` (methodology + 如何交互 + 渲染要点 + AI 克制红线), but the visual language is lifted from the existing design system (the `mk-*` Tailwind tokens + the established field components like `RatingField`), since the binding `思维印记_工作区.dc.html` does not draw these interactions. Restraint red-lines from each card's 红线 are preserved (AI never decides for the student).
+
+## Global Constraints (every sub-slice)
+
+- Verification gate per task: `pnpm -r typecheck` (tsc `--noEmit`) **and** `pnpm -r test` green. vitest does NOT typecheck — run `pnpm -r typecheck` explicitly.
+- New primitives are additive to the `FieldPrimitive` discriminated union; existing primitives and the standard envelope (`CardInstance.field_values` is `z.record(z.unknown())`) are unchanged, so no migration. A new primitive that is also valid inside `repeatable_group` must be added to `ItemField` too.
+- Each new field component conforms to `FieldProps<F> = { field, value, onChange }`; value persists to `field_values[key]` via the existing `onField`; no `CardRenderer`/store/envelope change except where a sub-slice explicitly needs a renderer feature (3c-C `show_if`).
+- Accessibility: interactive primitives expose proper ARIA roles and keyboard operation (not pointer-only), so they are testable and usable.
+- Un-stubbing a card = flip its JSON `body_status:"stub"→"full"` and replace the single placeholder textarea with the real fields. The registry count (33 cards) and all existing tests stay green.
+- Restraint (四条铁律): the AI proposes/sets up but never concludes for the student; no addictive mechanics.
+
+---
+
+## Sub-slice 3c-A — `spectrum` primitive (DETAILED — implement first)
+
+**Goal:** a labeled continuous-looking axis the student positions a marker on, to escape binary thinking and calibrate certainty. Serves certainty-spectrum directly and belief-spectrum compositionally.
+
+### New primitive `spectrum`
+
+Add to `packages/contracts/src/primitives.ts`:
+```ts
+export const SpectrumField = z.object({
+  type: z.literal("spectrum"),
+  ...base,                       // key, label
+  stops: z.array(z.string()).min(2),   // labeled positions; first/last are the poles
+});
+```
+- Add `SpectrumField` to BOTH the `ItemField` union (so it works inside `repeatable_group`, which belief-spectrum needs) and the top-level `FieldPrimitive` union.
+- **Value semantics:** `field_values[key]` = an integer index `0..stops.length-1` (which stop the marker is on), or `undefined` when untouched. (Discrete labeled stops, not a free 0–100 float — matches certainty-spectrum's `scale` render spec.)
+
+### Component `apps/web/src/cards/fields/SpectrumField.tsx`
+
+- A horizontal track with `stops.length` tick positions and the stop labels; a marker sits on the current index.
+- `role="slider"`, `aria-valuemin={0}`, `aria-valuemax={stops.length-1}`, `aria-valuenow={index}`, `aria-valuetext={stops[index]}`, `aria-label={field.label}`, `tabIndex={0}`.
+- Interaction: click a stop (or the track segment) to set that index; ArrowLeft/ArrowRight (and Home/End) move the marker and call `onChange(index)`. (Pointer-drag is a future enhancement; click + keyboard achieves positioning and is testable.)
+- Untouched (`value` not a number) → no marker filled / marker at neither end with a muted hint; first interaction sets the index.
+- Styling matches `RatingField` idiom (mk tokens: `bg-mk-primary` for the active marker/filled track, `#EEF0F4` track, `#9AA1B0` muted labels).
+
+### Register
+
+Add `spectrum: SpectrumField` to `apps/web/src/cards/fieldRegistry.tsx`.
+
+### Un-stub the two cards (flip `body_status` to `full`, real fields)
+
+**`certainty-spectrum.json`** — steps[0].fields:
+```
+- text  key="claim"   label="你的结论是什么？"
+- spectrum key="position" label="把它放到确定度光谱上" stops=["个人猜测","有据推断","强证据","科学共识","逻辑必然"]
+- textarea key="why" label="为什么是这个位置？支撑它的证据类型是什么？"
+- textarea key="rewrite" label="用与该位置相称的语气词，重写你的结论句（可能 / 大概 / 很可能 / 几乎确定 / 必然）"
+```
+(rubric_dims D6/D9 already in JSON; keep.)
+
+**`belief-spectrum.json`** — steps[0].fields:
+```
+- text key="issue" label="争议议题是什么？"
+- repeatable_group key="stances" label="把各方立场放到光谱上" item_fields=[
+    text     key="who"      label="是谁/哪个立场",
+    spectrum key="position" label="在光谱上的位置" stops=["这一极","偏这边","中间","偏那边","那一极"],
+    textarea key="believes" label="它相信什么",
+    textarea key="evidence" label="它引什么证据",
+    textarea key="interest" label="背后有什么利益/背景" ]
+- spectrum key="self"   label="我现在站这里" stops=["这一极","偏这边","中间","偏那边","那一极"]
+- textarea key="self_reason" label="我站这里的理由（他们的分歧到底在证据、价值，还是利益？）"
+```
+(rubric_dims D4 already in JSON; keep.)
+
+### Tests (TDD)
+- contracts: `SpectrumField` parses (valid stops ≥2; rejects <2); `FieldPrimitive` and `ItemField` accept `spectrum`; the two un-stubbed card JSONs parse via `CardSpec` and are `body_status:"full"`; registry still loads 33.
+- component: renders stops + labels; `role="slider"` with correct aria values; click a stop calls `onChange(index)`; ArrowRight from index i → `onChange(i+1)` (clamped at max), ArrowLeft clamps at 0; renders the marker at `value`.
+- fieldRegistry: `spectrum` resolves to `SpectrumField`.
+- Harness/registry count tests stay green (still 33 cards; 2 fewer stubs).
+
+---
+
+## Sub-slice 3c-B — `classify` primitive (sketch; detailed when reached)
+
+**Family:** 分类标注 (spin-detector: tag marketing/denial tactics 漂绿+FLICC; science-knowing: classify claims by how-we-know). Interaction: given a set of items, assign each to a category (drag-tag). **Primitive `classify`**: `{ type:"classify", key, label, items: string[], categories: string[] }`, value = `Record<itemIndex, categoryIndex>`. Component = a labeling grid (each item row + a category selector), keyboard-accessible. Un-stub the two cards with their real tactic/knowing categories from the `.md`.
+
+## Sub-slice 3c-C — `show_if` stepped-guide (sketch)
+
+**Family:** 步骤引导 (aok-methods: pick a discipline → show that discipline's method sub-steps; corpus-hook: stepped reading guide). Needs a **conditional-disclosure modifier** `show_if?: { key: string; equals: string | number }` on a field (and/or step), evaluated against current `field_values` in `CardRenderer` — a small renderer feature (the one sub-slice that touches the renderer). Un-stub via existing primitives + `show_if` branching (e.g., a `single_choice` discipline selector that reveals discipline-specific `textarea`s).
+
+## Sub-slice 3c-D — `node_map` canvas (sketch; hardest)
+
+**Family:** 画布导图 (argument-map: claim→reason→evidence + 谬误 flags; money-trail: funder→intermediary→message; source-map: 3D 溯源). **Primitive `node_map`**: nodes with typed roles + directed links. MVP = a structured node/edge editor (add node {role,text}, link node→node) rendered as a simple layered graph, NOT a free-form drag canvas (drag is a later enhancement). Value = `{ nodes:[{id,role,text}], edges:[{from,to}] }`. Un-stub the three cards with their role vocabularies.
+
+## Sub-slice 3c-E — `role_play` (sketch)
+
+**Family:** 角色模拟 (ethics-roleplay: argue an ethical dilemma from assigned stakeholder roles, then reflect). **Primitive `role_play`**: a set of roles each with a stance textarea + a final reflection; the AI sets up roles (never resolves the dilemma). Value = `{ roles:[{name, stance}], reflection }`. Likely composable from `repeatable_group` + textareas with a roles header — may need NO new primitive (decide when reached: if composable, 3c-E is JSON-only). 
+
+## Out of scope (S3c)
+
+Pointer-drag/free-canvas polish (click + keyboard first), new rubric dims, eval changes, the deferred S6-review minors (tracked separately), real backend. Each sketch (B–E) is refined into its own spec section + plan when its sub-slice begins.
+
+## Conclusion
+
+S3c upgrades the 10 stub cards across 5 family sub-slices, each adding at most one reused primitive and flipping card JSON to `full`, all schema-driven with zero per-card renderer code. 3c-A (`spectrum`) is fully specified and implemented first; B–E follow in complexity order, each refined and built in turn. Graceful degradation holds throughout: any not-yet-built family's cards remain `stub` (proposable, openable, submittable).
