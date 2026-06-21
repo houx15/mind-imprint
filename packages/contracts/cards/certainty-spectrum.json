@@ -11,7 +11,7 @@
   "age_band": ["DP"],
   "interaction_type": "量表光谱卡",
   "rubric_dims": ["D6", "D9"],
-  "related": ["fact-opinion-value", "science-knowing", "math-proof"],
+  "related": ["fact-opinion-value", "science-knowing"],
   "body_status": "stub",
   "rubric_tags": ["D6", "D9"],
   "steps": [
