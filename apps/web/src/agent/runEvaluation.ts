@@ -62,7 +62,13 @@ export async function runEvaluation(deps: RunEvaluationDeps): Promise<Evaluation
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    maxTokens: 1500,
+    // Headroom for the full 9-dim JSON + narrative. Reasoning models (e.g.
+    // DeepSeek-reasoner) spend completion tokens on hidden reasoning before
+    // emitting the JSON; a tight cap truncates the output mid-object and the
+    // parse fails. Measured: a short session already used ~1390 tokens, so the
+    // old 1500 cap left almost no margin for a full conversation. This is a
+    // ceiling, not a target — non-reasoning models still stop early.
+    maxTokens: 8000,
   };
 
   // First attempt
