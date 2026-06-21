@@ -12,16 +12,24 @@
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D5"],
   "related": ["fact-opinion-value", "steelman", "pee"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D5"],
   "steps": [
     {
       "key": "main",
       "title": "论证地图",
       "disclose": "always",
-      "methodology_note": "论证拆解两件事：结构（识别 claim 论点、reason/evidence 论据、warrant 隐藏假设）+ 谬误（稻草人、滑坡、人身攻击、诉诸权威、虚假两难、以偏概全等）。把「我觉得哪里怪怪的」变成可定位的结构问题。",
+      "methodology_note": "把论证拆成论点-论据-隐藏假设，给可疑环节贴谬误标签，再标出最弱的一环——若是你自己的论证，去补强它。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字梳理论点、论据、隐藏假设，并指出可疑谬误；可拖拽的节点画布即将上线" }
+        { "type": "text", "key": "claim", "label": "你要分析的论点是什么？" },
+        { "type": "repeatable_group", "key": "reasons", "label": "论据与隐藏假设", "item_fields": [
+          { "type": "textarea", "key": "reason", "label": "一条论据" },
+          { "type": "textarea", "key": "assumption", "label": "它默认了什么没说出来的假设？" },
+          { "type": "single_choice", "key": "fallacy", "label": "可疑谬误（没有就选「无」）", "options": ["无", "稻草人", "滑坡", "诉诸权威", "以偏概全", "循环论证", "虚假两难"] },
+          { "type": "textarea", "key": "fallacy_why", "label": "它符合这类谬误的哪一点？" }
+        ] },
+        { "type": "text", "key": "weakest", "label": "整条论证里最弱的环节是哪条？" },
+        { "type": "textarea", "key": "strengthen", "label": "如果这是你自己的论证，你会怎么补强它？" }
       ]
     }
   ]

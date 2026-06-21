@@ -12,16 +12,23 @@
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D2", "D3", "D9"],
   "related": ["sift", "craap", "source-map"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D2", "D3", "D9"],
   "steps": [
     {
       "key": "main",
       "title": "资金链溯源",
       "disclose": "always",
-      "methodology_note": "从一条说法出发，逐层追溯：发布者→资助者→利益方，判断出资方的利益与结论方向是否一致。被资助不等于必假，但利益和结论方向一致时要更警惕，去找独立来源对照。",
+      "methodology_note": "逐节点把说法溯到发布者→资助者→利益方，判断出资方利益和结论方向是否一致——不是『被资助即假』，而是标注利益、提高警惕、交叉验证。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录你的溯源过程（说法→发布者→资助者→利益方）；这张卡的完整交互（可视化溯源链画布）即将上线" }
+        { "type": "text", "key": "claim", "label": "要溯源的说法是什么？" },
+        { "type": "repeatable_group", "key": "chain", "label": "资金 / 利益链（逐节点添加）", "item_fields": [
+          { "type": "text", "key": "who", "label": "节点（谁）" },
+          { "type": "single_choice", "key": "role", "label": "这是哪一环", "options": ["发布者", "资助者", "母机构", "利益相关方"] },
+          { "type": "textarea", "key": "source", "label": "它的钱 / 利益从哪来？" }
+        ] },
+        { "type": "single_choice", "key": "alignment", "label": "出资方的利益和这条结论的方向一致吗？", "options": ["一致", "不一致", "看不出"] },
+        { "type": "textarea", "key": "meaning", "label": "这说明什么？（提醒：被资助 ≠ 必假，但利益一致时要找独立来源交叉验证）" }
       ]
     }
   ]

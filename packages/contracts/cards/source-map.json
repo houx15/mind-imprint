@@ -12,16 +12,23 @@
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D3", "D4", "D5"],
   "related": ["money-trail", "sift", "belief-spectrum", "rabbit-hole"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D3", "D4", "D5"],
   "steps": [
     {
       "key": "main",
       "title": "3D 溯源导图",
       "disclose": "always",
-      "methodology_note": "把材料、观点、来源、利益相关方、偏见、兴趣点各成节点，连线标清支持/反对/出资/源自关系，再打开「偏见图层」看谁其实同源——标了偏见不是不能用，而是在偏见中做更负责任的判断。",
+      "methodology_note": "把材料和观点抽成节点、标关系和偏见，看清哪些其实同源、谁在背后——所有材料都有立场，看见它才能更负责任地判断。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字列出你的主要材料/观点/来源；这张卡的完整交互（可拖放节点画布 + 偏见图层）即将上线" }
+        { "type": "repeatable_group", "key": "nodes", "label": "把材料 / 观点抽成节点", "item_fields": [
+          { "type": "text", "key": "material", "label": "材料 / 观点" },
+          { "type": "single_choice", "key": "node_type", "label": "节点类型", "options": ["观点", "来源", "报告", "出资方", "机构", "证据"] },
+          { "type": "single_choice", "key": "bias", "label": "偏见标注", "options": ["未知 / 无", "政治", "商业", "地域", "叙事"] },
+          { "type": "textarea", "key": "relation", "label": "它支持 / 反对 / 出自哪个节点？" }
+        ] },
+        { "type": "textarea", "key": "same_source", "label": "打开「偏见图层」看全局：哪些观点其实同源？谁在背后？" },
+        { "type": "textarea", "key": "shift", "label": "看完这张图，你的判断有变化吗？" }
       ]
     }
   ]
