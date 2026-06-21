@@ -12,16 +12,87 @@
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D2"],
   "related": ["sift", "money-trail", "certainty-spectrum"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D2"],
   "steps": [
     {
-      "key": "main",
-      "title": "信源体检（CRAAP / CRRAAB）",
+      "key": "source_input",
+      "title": "贴入来源",
       "disclose": "always",
-      "methodology_note": "从时效、相关、权威、准确、目的、偏见六维逐一判断来源，每维给出「可信 / 存疑 / 不可信」评级和一句理由，最后综合决定「直接引用 / 交叉验证后用 / 不用」。核心不是机械填表，而是养成判断信息的习惯。",
+      "methodology_note": "先把你想评估的来源贴进来——URL 或标题均可。CRAAP 是对「单一来源」的纵向体检，不是批量筛选；每次只看一个。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录你的判断；这张卡的完整交互（逐维标注 + 可信度拖拽）即将上线" }
+        { "type": "link_check", "key": "source_url", "label": "来源链接（贴 URL）" },
+        { "type": "text", "key": "source_title", "label": "来源标题 / 描述（选填）" }
+      ]
+    },
+    {
+      "key": "currency",
+      "title": "C · Currency 时效性",
+      "disclose": "always",
+      "methodology_note": "「这维在看什么？」信息的时效直接影响可信度。科学数据、统计数字、政策背景——越新越好。问自己：何时发布？数据有没有更新版本？",
+      "fields": [
+        { "type": "single_choice", "key": "currency_verdict", "label": "时效性判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "currency_reason", "label": "一句话理由——你凭什么这么判断？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "relevance",
+      "title": "R · Relevance 相关性",
+      "disclose": "always",
+      "methodology_note": "「这维在看什么？」来源是否直接回答你的研究问题，还是只提供背景？目标读者是谁？和你的论点匹配度如何？",
+      "fields": [
+        { "type": "single_choice", "key": "relevance_verdict", "label": "相关性判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "relevance_reason", "label": "一句话理由——它如何（或没有）直接支持你的论点？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "authority",
+      "title": "A · Authority 权威性",
+      "disclose": "always",
+      "methodology_note": "「这维在看什么？」作者是谁？所属机构是什么？有没有领域资质、同行评审、发表记录？个人博客 ≠ 学术期刊。",
+      "fields": [
+        { "type": "single_choice", "key": "authority_verdict", "label": "权威性判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "authority_reason", "label": "一句话理由——作者/机构凭什么有资格说这件事？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "accuracy",
+      "title": "A · Accuracy 准确性",
+      "disclose": "always",
+      "methodology_note": "「这维在看什么？」内容有没有引用来源？数据能被其他独立来源验证吗？有无拼写/逻辑错误？反常声明需要格外核查。",
+      "fields": [
+        { "type": "single_choice", "key": "accuracy_verdict", "label": "准确性判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "accuracy_reason", "label": "一句话理由——你如何验证（或无法验证）这条信息？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "purpose",
+      "title": "P · Purpose 目的",
+      "disclose": "always",
+      "methodology_note": "「这维在看什么？」这篇内容为何而写——告知、说服、销售、娱乐？目的不等于不可信，但目的决定了你该用多高的警惕心。",
+      "fields": [
+        { "type": "single_choice", "key": "purpose_verdict", "label": "目的判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "purpose_reason", "label": "一句话理由——它的写作目的是什么，对你的引用有何影响？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "bias",
+      "title": "B · Bias 偏见",
+      "disclose": "on_demand",
+      "methodology_note": "「这维在看什么？」CRRAAB 额外关注偏见：作者/机构有没有明显立场、利益关系、资金背景？偏见不一定让来源无效，但要在引用时标注。",
+      "fields": [
+        { "type": "single_choice", "key": "bias_verdict", "label": "偏见程度判断", "options": ["可信", "存疑", "不可信"] },
+        { "type": "textarea", "key": "bias_reason", "label": "一句话理由——你注意到哪些可能的立场或利益关系？", "rows": 2 }
+      ]
+    },
+    {
+      "key": "verdict",
+      "title": "汇总结论",
+      "disclose": "always",
+      "methodology_note": "综合以上各维度，做出最终引用决策。若多维「存疑」，建议衔接 SIFT 卡做横向核查，找独立来源互相印证。",
+      "fields": [
+        { "type": "single_choice", "key": "final_verdict", "label": "综合看，你会怎么用这个来源？", "options": ["直接引用", "交叉验证后用", "不用"] },
+        { "type": "textarea", "key": "final_note", "label": "说明你的决定——哪一维最影响了你？", "rows": 3 }
       ]
     }
   ]

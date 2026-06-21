@@ -58,7 +58,7 @@
     {
       "key": "privacy_check",
       "title": "隐私边界检查",
-      "disclose": "on_demand",
+      "disclose": "always",
       "methodology_note": "AI 的对话内容可能被用于训练或被第三方看到。有些东西不应该告诉 AI：真实姓名/身份证号、他人隐私、未发表的创作、家庭矛盾、精神健康细节。",
       "fields": [
         {

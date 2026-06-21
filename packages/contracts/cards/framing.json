@@ -12,16 +12,96 @@
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D4", "D6"],
   "related": ["cda", "fact-opinion-value", "knower-perspective"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D4", "D6"],
   "steps": [
     {
-      "key": "main",
-      "title": "语言框定标注",
+      "key": "input",
+      "title": "贴入要分析的文本",
       "disclose": "always",
-      "methodology_note": "五种框定：措辞（「自由斗士」vs「恐怖分子」）、委婉（「附带损伤」）、隐喻（把犯罪说成「野兽」还是「病毒」）、预设（「你什么时候停止…」）、主语选择（谁是施动者）。换一个中性词，体会判断如何随之改变。",
+      "methodology_note": "把你想分析的那段话完整贴进来——可以是一篇报道的摘录、广告文案、政治表达，或者你自己写的句子。不需要完美，一两句也行。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字标出带框定的词并归类（措辞/委婉/隐喻/预设/主语选择），再尝试中性化重写；完整的文本标注与对照交互即将上线" }
+        {
+          "type": "textarea",
+          "key": "source_text",
+          "label": "把你想分析的文本贴到这里",
+          "rows": 6
+        }
+      ]
+    },
+    {
+      "key": "tagging",
+      "title": "逐词标注框定类型",
+      "disclose": "always",
+      "methodology_note": "五种框定：「措辞」（「自由斗士」vs「恐怖分子」）——同一事实用带价值取向的词；「委婉」（「附带损伤」代替「平民死亡」）——用温和词掩盖严重事实；「隐喻」（把犯罪说成「野兽」还是「病毒」）——隐喻决定你想到什么解决方案；「预设」（「你什么时候停止…」）——句子里没说出口却要你默认接受的东西；「主语选择」（谁是施动者、谁是受害者）——被动句常常藏起责任人。锚点实验：Boroditsky 斯坦福「野兽 vs 病毒」——同一组犯罪数据，换个隐喻，受访者对「应该怎么做」的判断截然不同。",
+      "fields": [
+        {
+          "type": "repeatable_group",
+          "key": "frame_instances",
+          "label": "每发现一处框定，点「添加一行」记录它",
+          "item_fields": [
+            {
+              "type": "text",
+              "key": "phrase",
+              "label": "摘出的词或短语"
+            },
+            {
+              "type": "single_choice",
+              "key": "frame_type",
+              "label": "框定类型",
+              "options": ["措辞", "委婉", "隐喻", "预设", "主语选择"]
+            },
+            {
+              "type": "textarea",
+              "key": "felt_effect",
+              "label": "这个词让你对它有什么感觉？它把你往哪个方向推？"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "neutralize",
+      "title": "中性化重写，感受判断变化",
+      "disclose": "always",
+      "methodology_note": "把原句换成尽量「描述事实、不带价值倾向」的中性词重写一遍。完成后停一下：重写前和重写后，你对这件事的判断或感受有什么不同？这个差距就是语言在偷偷做的事。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "original_sentence",
+          "label": "把你觉得框定最明显的那句原文复制过来",
+          "rows": 3
+        },
+        {
+          "type": "textarea",
+          "key": "neutral_rewrite",
+          "label": "用中性词重写这句话",
+          "rows": 3
+        },
+        {
+          "type": "textarea",
+          "key": "judgment_shift",
+          "label": "重写前后，你对这件事的感觉或判断有什么变化？"
+        }
+      ]
+    },
+    {
+      "key": "summary",
+      "title": "汇总：这段文字在做什么",
+      "disclose": "on_demand",
+      "methodology_note": "不是每段话都怀有恶意——有时作者自己也没意识到在使用框定语言。但无论有意无意，框定都在影响读者。察觉它，就是获得选择的自由。",
+      "fields": [
+        {
+          "type": "multi_choice",
+          "key": "frame_types_used",
+          "label": "这段话用了哪些框定手法？（可多选）",
+          "options": ["措辞", "委婉", "隐喻", "预设", "主语选择"]
+        },
+        {
+          "type": "textarea",
+          "key": "overall_push",
+          "label": "综合来看，这段话想把读者推向什么方向或立场？"
+        }
       ]
     }
   ]

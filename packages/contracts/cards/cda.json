@@ -12,16 +12,107 @@
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D4", "D5"],
   "related": ["framing", "fact-opinion-value", "belief-spectrum"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D4", "D5"],
   "steps": [
     {
-      "key": "main",
-      "title": "话语分析（Fairclough 三维）",
+      "key": "texts",
+      "title": "输入两段对立文本",
       "disclose": "always",
-      "methodology_note": "Fairclough 三维框架：文本层（用词、及物性、隐喻）、话语实践层（来源、转述、生产消费）、社会文化层（制度/利益背景）。对两段对立文本逐层拆解，看清主语是谁、被动还是主动、含糊还是精确、谁的利益在说话。",
+      "methodology_note": "把你要对比分析的两段文本（A/B 立场）分别贴入下方。可以是声明、新闻报道、演讲摘录等，内容越真实越好。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录你对两段文本的三维分析；这张卡的完整交互（双栏标注 + 三维引导行）即将上线" }
+        {
+          "type": "textarea",
+          "key": "text_a",
+          "label": "文本 A（第一方立场）——粘贴原文或关键段落",
+          "rows": 6
+        },
+        {
+          "type": "textarea",
+          "key": "text_b",
+          "label": "文本 B（第二方立场）——粘贴原文或关键段落",
+          "rows": 6
+        }
+      ]
+    },
+    {
+      "key": "text_layer",
+      "title": "第一维：文本层",
+      "disclose": "always",
+      "methodology_note": "看用词本身的选择：主语是谁？被动语态多还是主动多？用词含糊还是精确、中立还是带价值色彩？有没有隐喻？——举具体例子标注。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "text_layer_a",
+          "label": "文本 A · 文本层标注：举 1-2 处例子，说明主语选择/及物性/用词/隐喻",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "text_layer_b",
+          "label": "文本 B · 文本层标注：举 1-2 处例子，说明主语选择/及物性/用词/隐喻",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "practice_layer",
+      "title": "第二维：话语实践层",
+      "disclose": "always",
+      "methodology_note": "看话语是怎么产生和被消费的：来源是谁？主流媒体还是利益相关方？怎么转述对方的声音？哪些声音被压低或放大？",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "practice_layer_a",
+          "label": "文本 A · 话语实践层：来源性质、转述方式、哪些声音被引用或忽略",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "practice_layer_b",
+          "label": "文本 B · 话语实践层：来源性质、转述方式、哪些声音被引用或忽略",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "social_layer",
+      "title": "第三维：社会文化层",
+      "disclose": "on_demand",
+      "methodology_note": "最深一层：这段话语背后有什么制度、文化或利益结构在支撑？（例：天主教会反赌背后的宗教文化背景）这一层需要你联系社会情境做推断，可以先跳过再回来。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "social_layer_a",
+          "label": "文本 A · 社会文化层：这段话语服务于什么利益/文化/制度背景？",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "social_layer_b",
+          "label": "文本 B · 社会文化层：这段话语服务于什么利益/文化/制度背景？",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "summary",
+      "title": "话语策略对照与小结",
+      "disclose": "always",
+      "methodology_note": "综合三维分析，概括两方各自的话语策略差异——谁的利益在说话？哪方的表达更透明？这对你的论证有什么启示？",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "comparison",
+          "label": "两方话语策略对照：A vs B 各自如何通过用词、来源、背景来建构立场",
+          "rows": 5
+        },
+        {
+          "type": "textarea",
+          "key": "takeaway",
+          "label": "对你论证的启示：识别出这些话语策略后，你打算如何在写作中回应或引用？",
+          "rows": 3
+        }
       ]
     }
   ]
