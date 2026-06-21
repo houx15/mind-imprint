@@ -1,0 +1,28 @@
+{
+  "id": "framing",
+  "category": "知识工具",
+  "name": "语言框定卡",
+  "name_en": "Language Framing",
+  "purpose": "看见措辞、委婉、隐喻、预设、主语选择如何在你没察觉时塑造你的想法——并试着换成中性词",
+  "trigger_condition": "学生没察觉措辞/隐喻/预设在悄悄塑造他的判断",
+  "trigger_keywords": ["措辞", "说法", "换个词", "听起来", "偷换", "中立吗"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D4", "D6"],
+  "related": ["cda", "fact-opinion-value", "knower-perspective"],
+  "body_status": "stub",
+  "rubric_tags": ["D4", "D6"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "语言框定标注",
+      "disclose": "always",
+      "methodology_note": "五种框定：措辞（「自由斗士」vs「恐怖分子」）、委婉（「附带损伤」）、隐喻（把犯罪说成「野兽」还是「病毒」）、预设（「你什么时候停止…」）、主语选择（谁是施动者）。换一个中性词，体会判断如何随之改变。",
+      "fields": [
+        { "type": "textarea", "key": "notes", "label": "先用文字标出带框定的词并归类（措辞/委婉/隐喻/预设/主语选择），再尝试中性化重写；完整的文本标注与对照交互即将上线" }
+      ]
+    }
+  ]
+}

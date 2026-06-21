@@ -1,0 +1,83 @@
+{
+  "id": "sift",
+  "category": "信息素养",
+  "name": "横向核查卡 SIFT",
+  "name_en": "SIFT Lateral Reading",
+  "purpose": "不要盯着可疑页面本身较劲——离开这一页、另开标签，看别人怎么评价这个来源，再回来下判断",
+  "trigger_condition": "学生面对一条来路不明的说法/截图/视频，倾向于停在原页面判断真假",
+  "trigger_keywords": ["是真的吗", "谁说的", "网上看到", "这条消息", "截图", "转发"],
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D2", "D3"],
+  "related": ["craap", "money-trail", "source-map"],
+  "body_status": "full",
+  "rubric_tags": ["D2", "D3"],
+  "steps": [
+    {
+      "key": "stop",
+      "title": "S — Stop 停一下",
+      "disclose": "always",
+      "methodology_note": "在对一条信息做任何判断或转发之前，先有意识地暂停。骗人的信息往往制造紧迫感，让你来不及思考。",
+      "fields": [
+        { "type": "textarea", "key": "first_reaction", "label": "你看到这条信息的第一反应是什么？你打算用它来说明什么？" }
+      ]
+    },
+    {
+      "key": "investigate",
+      "title": "I — Investigate the Source 查来源",
+      "disclose": "always",
+      "methodology_note": "另开一个标签，搜这个来源/作者是谁。骗人的页面会把自己包装得很专业——判断一个来源，要看它外面的人怎么说它，而不是盯着它自己怎么说自己。",
+      "fields": [
+        { "type": "text", "key": "source_name", "label": "这条信息的来源/作者名称" },
+        {
+          "type": "single_choice",
+          "key": "source_type",
+          "label": "它是什么类型的来源？",
+          "options": ["官方机构/政府", "主流媒体", "学术机构/学者", "非营利/智库", "自媒体/个人博主", "营销号/广告", "社交平台帖子", "不明来源"]
+        },
+        { "type": "textarea", "key": "investigate_notes", "label": "你搜到了什么关于这个来源的外部评价？（另开标签搜来源名称 + 可信度/批评）" }
+      ]
+    },
+    {
+      "key": "find",
+      "title": "F — Find Better Coverage 找更好的报道",
+      "disclose": "always",
+      "methodology_note": "找 2 个以上独立的、更可信的来源，看看同一件事它们怎么说。如果只有一个来源这么说，要格外小心。",
+      "fields": [
+        {
+          "type": "repeatable_group",
+          "key": "better_sources",
+          "label": "找 2 个独立可信来源，它们怎么说同一件事？",
+          "item_fields": [
+            { "type": "text", "key": "source", "label": "来源名称" },
+            { "type": "textarea", "key": "what_they_say", "label": "它对同一件事怎么说？" },
+            {
+              "type": "single_choice",
+              "key": "consistency",
+              "label": "与原说法的关系",
+              "options": ["一致支持", "部分支持", "中立/补充", "有出入", "明确矛盾"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "trace",
+      "title": "T — Trace Claims to Original Source 追原始出处",
+      "disclose": "always",
+      "methodology_note": "很多说法转了好几手，数据/图片/引语可能在流传中被断章取义或扭曲。追到最原始的来源，看看语境是什么。",
+      "fields": [
+        { "type": "link_check", "key": "original_source", "label": "溯到原始出处（贴链接），它说的是什么？" },
+        {
+          "type": "single_choice",
+          "key": "pyramid_level",
+          "label": "按信源金字塔，原来那条信息在哪一层？",
+          "options": ["原始证据（数据/研究论文/官方声明）", "一手报道（现场采访/直接来源）", "二手评论（分析/综述）", "营销/观点内容", "来源不明"]
+        },
+        { "type": "textarea", "key": "revised_judgment", "label": "完成 SIFT 后，你对这条信息的判断是否改变了？说说前后有什么不同。" }
+      ]
+    }
+  ]
+}

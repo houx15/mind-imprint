@@ -24,11 +24,14 @@ describe("Harness end-to-end (fake data)", () => {
     expect(parsed.status).toBe("skipped");
   });
 
-  it("lists registry cards and switches the rendered card", async () => {
+  it("lists the full registry of cards as options", () => {
     render(<Harness />);
     const picker = screen.getByLabelText("选择工具卡");
-    // both current cards present as options
-    expect(within(picker).getByRole("option", { name: /SIFT/ })).toBeInTheDocument();
-    expect(within(picker).getByRole("option", { name: /让步段/ })).toBeInTheDocument();
+    const options = within(picker).getAllByRole("option");
+    // the picker is data-driven over CARD_REGISTRY (33 cards), not a hardcoded list
+    expect(options.length).toBe(33);
+    // the demo cards are present by their exact names
+    expect(within(picker).getByRole("option", { name: "SIFT×CRAAP 信息核查" })).toBeInTheDocument();
+    expect(within(picker).getByRole("option", { name: "让步段 · 以退为进" })).toBeInTheDocument();
   });
 });

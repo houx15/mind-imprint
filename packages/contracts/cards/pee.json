@@ -1,0 +1,56 @@
+{
+  "id": "pee",
+  "category": "知识工具",
+  "name": "PEE 写作卡",
+  "name_en": "PEE Paragraph (Point-Evidence-Explanation)",
+  "purpose": "把一段论证写成 Point（要点）→ Evidence（论据）→ Explanation（解释）的结构，让学生自己搭骨架，而不是让 AI 代写",
+  "trigger_condition": "学生进入写作产出环节，想让 AI 直接代写段落",
+  "trigger_keywords": ["怎么写", "段落", "帮我写一段", "论文结构", "开头结尾", "字数"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D7", "D8"],
+  "related": ["argument-map", "steelman", "cda"],
+  "body_status": "full",
+  "rubric_tags": ["D7", "D8"],
+  "steps": [
+    {
+      "key": "thesis_check",
+      "title": "对齐开篇立场",
+      "disclose": "always",
+      "methodology_note": "PEE（或 PEEL）是议论写作的经典段落结构：先给要点，再给证据，再解释证据如何支撑要点。写段落前先确认这一段服务于哪个开篇立场——段落间立场必须一致。",
+      "fields": [
+        { "type": "text", "key": "thesis", "label": "你的开篇立场（论文主旨）是什么？" }
+      ]
+    },
+    {
+      "key": "point",
+      "title": "Point · 这段的要点",
+      "disclose": "always",
+      "methodology_note": "Point 是这一段自己的分论点，一句话，必须支撑你的开篇立场。",
+      "fields": [
+        { "type": "textarea", "key": "point", "label": "这段的要点（Point）是一句什么话？" }
+      ]
+    },
+    {
+      "key": "evidence",
+      "title": "Evidence · 论据",
+      "disclose": "always",
+      "methodology_note": "Evidence 是来自文本/数据/引文的具体支撑，要精确（词、数字、来源），不能只说「有研究显示」。",
+      "fields": [
+        { "type": "textarea", "key": "evidence", "label": "用什么证据支持？引文中的词/数据（不要让 AI 替你找）" }
+      ]
+    },
+    {
+      "key": "explanation",
+      "title": "Explanation · 解释",
+      "disclose": "always",
+      "methodology_note": "Explanation 才是你的思考所在——证据不会自己说话，你要解释「这个证据为什么支撑你的要点」。这是 AI 替不了你的部分。",
+      "fields": [
+        { "type": "textarea", "key": "explanation", "label": "解释（Explanation）：这个证据为什么支撑你的要点？" },
+        { "type": "multi_choice", "key": "self_check", "label": "自查（可多选）", "options": ["三部分都填了（P / E / E）", "证据是精确引文/数据，不是模糊描述", "解释扣住了 Point，没有跑题", "这段扣住了开篇立场"] }
+      ]
+    }
+  ]
+}

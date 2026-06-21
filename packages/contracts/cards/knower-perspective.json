@@ -1,0 +1,90 @@
+{
+  "id": "knower-perspective",
+  "category": "反身性与元认知",
+  "name": "认知者视角·自欺自审卡",
+  "name_en": "The Knower's Perspective",
+  "purpose": "把同一把尺子先量向自己：识别五种自欺（确认/动机/立场/回声室/部落），再用五招自审——「我是不是只信我想信的？」",
+  "trigger_condition": "学生只采纳支持自己原有立场的证据，未察觉自身偏见",
+  "trigger_keywords": ["我早就觉得", "果然", "我就知道", "大家都这么想", "这显然", "我相信"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["DP"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": ["D6"],
+  "related": ["framing", "metacognition", "belief-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D6"],
+  "steps": [
+    {
+      "key": "sources",
+      "title": "来源体检",
+      "disclose": "always",
+      "methodology_note": "偏见人人都有，识别它有什么用？有偏见不丢人，看不见才危险。看见了，你的判断才是你自己的，而不是立场替你做的。先列出最支持你结论的证据来源，再检查它们是否大多来自同一立场。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "supporting_sources",
+          "label": "你这个结论，最支持它的证据来自哪些来源？逐一列出。"
+        },
+        {
+          "type": "single_choice",
+          "key": "source_diversity",
+          "label": "这些来源，是不是大多同一立场 / 同一来源？",
+          "options": ["是，大多同一立场", "有一定多样性，但仍偏向一侧", "来自多个不同立场，较均衡"]
+        }
+      ]
+    },
+    {
+      "key": "self_check",
+      "title": "五种自欺自检",
+      "disclose": "always",
+      "methodology_note": "五种常见自欺：确认偏误（只找支持自己的）、动机性推理（想要它真所以信它）、立场局限（被自己的位置框住）、回声室（只听同温层）、部落主义（按阵营站队）。勾出最像自己当前状态的一种。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "deception_type",
+          "label": "最像你现在状态的自欺是哪一种？",
+          "options": ["确认偏误——只找支持自己的证据", "动机性推理——想要它真所以相信它", "立场局限——被自己的位置和身份框住", "回声室——只听同温层的声音", "部落主义——按阵营站队而非按证据判断"]
+        }
+      ]
+    },
+    {
+      "key": "self_review",
+      "title": "五招自审",
+      "disclose": "always",
+      "methodology_note": "针对识别出的自欺，选一招对应的自审动作：找反例、设想相反、来源体检、追问动机、请反方挑。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "review_action",
+          "label": "你选用哪招自审？",
+          "options": ["找一个反例——去找最有力的反方来源读完", "设想相反——如果证据相反，我还会这么确定吗？", "来源体检——我的来源是否同源/同立场？", "追问动机——我从这个结论里得到了什么？", "请反方挑——找一个不同立场的人来挑我的论证"]
+        },
+        {
+          "type": "textarea",
+          "key": "review_result",
+          "label": "自审后的发现：你找到了什么？这对你的论点有影响吗？"
+        }
+      ]
+    },
+    {
+      "key": "calibration",
+      "title": "校准与记录",
+      "disclose": "always",
+      "methodology_note": "自审不一定要改变结论——它让你的判断更有意识、更属于自己。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "outcome",
+          "label": "自审之后，你的立场/结论有什么变化？",
+          "options": ["维持原立场，但现在更清楚为什么", "有所修正——调整了部分表述或力度", "发现需要补充更多证据再下结论", "立场有较大转变"]
+        },
+        {
+          "type": "textarea",
+          "key": "calibration_note",
+          "label": "用一句话记录：自审让你看见了什么？"
+        }
+      ]
+    }
+  ]
+}

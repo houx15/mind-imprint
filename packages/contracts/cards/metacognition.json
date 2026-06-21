@@ -1,0 +1,94 @@
+{
+  "id": "metacognition",
+  "category": "反身性与元认知",
+  "name": "元认知收口卡",
+  "name_en": "Metacognition Wrap-up",
+  "purpose": "任务收尾时，回看自己怎么想的：校准信心、找出隐藏前提、指出自己论证里最弱的一环。",
+  "trigger_condition": "学生即将完成一个任务/论证，需要回看自己的推理质量",
+  "trigger_keywords": ["写完了", "总结", "我的结论", "完成", "交了", "想清楚了"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["DP"],
+  "interaction_type": "回放验证卡",
+  "rubric_dims": ["D6"],
+  "related": ["knower-perspective", "certainty-spectrum", "checkpoint"],
+  "body_status": "full",
+  "rubric_tags": ["D6"],
+  "steps": [
+    {
+      "key": "calibrate",
+      "title": "校准信心",
+      "disclose": "always",
+      "methodology_note": "找自己最弱的地方不是给自己挖坑——你不找，别人会找。先找到并补上，你的论证才真的强。第一步：先估一下你现在对最终结论有多确定。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "conclusion",
+          "label": "你的最终结论是什么？用一句话概括。"
+        },
+        {
+          "type": "rating",
+          "key": "confidence",
+          "scale": 5,
+          "label": "你对这个结论有多确定？（1 = 很不确定，5 = 非常确定）"
+        },
+        {
+          "type": "single_choice",
+          "key": "evidence_match",
+          "label": "你的确定度和你拥有的证据相称吗？",
+          "options": ["相称——证据充分支持这个确定度", "偏高——我比证据应该支持的更确定", "偏低——其实证据比我认为的更充分"]
+        }
+      ]
+    },
+    {
+      "key": "assumption",
+      "title": "找隐藏前提",
+      "disclose": "always",
+      "methodology_note": "每个论证背后都有没说出来的假设。把它们说出来，别人才无法用它来打你。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "hidden_premises",
+          "label": "你的论证默认了什么没明说的前提？至少找出一条。"
+        },
+        {
+          "type": "single_choice",
+          "key": "premise_solid",
+          "label": "这个隐藏前提本身站得住吗？",
+          "options": ["站得住——有支撑，不需要特别说明", "需要交代——最好在论证里明确说出来", "存疑——这个前提本身也需要证据"]
+        }
+      ]
+    },
+    {
+      "key": "weakest",
+      "title": "找最弱环节",
+      "disclose": "always",
+      "methodology_note": "如果你是最严厉的批评者，会打哪里？先找到它，再决定怎么应对——加强、承认局限、还是调整语气。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "weakest_link",
+          "label": "如果我是最严厉的批评者，会打你论证的哪一处？"
+        },
+        {
+          "type": "textarea",
+          "key": "response",
+          "label": "你准备怎么应对？补证据 / 承认局限 / 调整语气表述？"
+        }
+      ]
+    },
+    {
+      "key": "growth",
+      "title": "成长自述",
+      "disclose": "always",
+      "methodology_note": "收口不只是检查，更是记录思维成长的时刻。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "growth_note",
+          "label": "用一句话说：这次探究/写作，你的想法变了哪里？或你学到了什么新的思考方式？"
+        }
+      ]
+    }
+  ]
+}

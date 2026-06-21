@@ -1,0 +1,66 @@
+{
+  "id": "ai-collaboration",
+  "category": "AI伦理",
+  "name": "与 AI 协作保持判断卡",
+  "name_en": "Stay-in-Charge with AI",
+  "purpose": "在用 AI 时守住自己的判断——识别 8 种常见的「协作失败模式」，别让 AI 从助手变成替你思考的人",
+  "trigger_condition": "学生开始过度依赖 AI——照单全收、让 AI 替自己定论",
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["AI 说", "那就这样吧", "你帮我决定", "复制", "直接用", "听你的"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": ["D6", "D9"],
+  "related": ["ai-boundary", "ai-decision-tree", "steelman"],
+  "body_status": "full",
+  "rubric_tags": ["D6", "D9"],
+  "steps": [
+    {
+      "key": "label",
+      "title": "给 AI 的这条输出打标签",
+      "disclose": "always",
+      "methodology_note": "AI 会用很自信的语气给出可能错的东西。你不验证，就把判断权交出去了。先停下来，对 AI 刚才说的东西给出你的评价——不要照单全收。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "action_tag",
+          "label": "你对 AI 刚才的输出怎么处理？",
+          "options": ["采纳", "拒绝", "修改", "待验证"]
+        },
+        {
+          "type": "textarea",
+          "key": "reason",
+          "label": "为什么这样选？（一句话说你的理由）"
+        }
+      ]
+    },
+    {
+      "key": "self_check",
+      "title": "失败模式自检",
+      "disclose": "always",
+      "methodology_note": "与 AI 协作有 8 种常见失败模式。检查自己刚才有没有落进去——这不是批评，而是让你看见下次可以在哪里守住判断。",
+      "fields": [
+        {
+          "type": "multi_choice",
+          "key": "failure_modes",
+          "label": "我刚才有没有落进这些模式？（可多选，没有也可以不选）",
+          "options": [
+            "照单全收——没想过能不能用",
+            "让 AI 定论——把决定权交出去了",
+            "不验证就引用——直接复制事实或数据",
+            "被自信语气带走——因为 AI 说得流畅就信了",
+            "问得太宽泛——问题没有边界，AI 的回答没法评估",
+            "放弃立场——原本有想法，但被 AI 说服放弃了",
+            "不区分贡献——分不清哪部分是我想的、哪部分是 AI 的",
+            "无边界倾倒——把不该给 AI 的隐私/私事说出去了"
+          ]
+        },
+        {
+          "type": "textarea",
+          "key": "reflection",
+          "label": "下一步我打算怎么守住自己的判断？"
+        }
+      ]
+    }
+  ]
+}

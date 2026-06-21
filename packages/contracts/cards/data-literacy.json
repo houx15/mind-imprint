@@ -1,0 +1,40 @@
+{
+  "id": "data-literacy",
+  "category": "知识工具",
+  "name": "数据与统计素养卡",
+  "name_en": "Data & Statistics Literacy",
+  "purpose": "对每个数字问三件事——从哪来、跟什么比、想让你得出什么；并识别图表里的误导手法",
+  "trigger_condition": "学生引用一个数字/图表/统计结论，未追问它从哪来、跟什么比",
+  "trigger_keywords": ["数据显示", "百分比", "图表", "增长了", "研究发现", "平均", "相关"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D2", "D5"],
+  "related": ["craap", "argument-map", "certainty-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D2", "D5"],
+  "steps": [
+    {
+      "key": "three_questions",
+      "title": "数据三问",
+      "disclose": "always",
+      "methodology_note": "三问：① 来源——数据怎么收集的、样本多大、谁发布的？② 比较——和什么基准比、基准合理吗？③ 推论——它真的能支持这个结论，还是被过度解读？",
+      "fields": [
+        { "type": "textarea", "key": "source_q", "label": "① 来源：这数据怎么来的？样本多大？谁发布的？" },
+        { "type": "textarea", "key": "compare_q", "label": "② 比较：和什么基准比？这个基准合理吗？" },
+        { "type": "textarea", "key": "infer_q", "label": "③ 推论：这个数字能支持这个结论吗？有没有过度解读？" }
+      ]
+    },
+    {
+      "key": "chart_check",
+      "title": "图表谎言核查（可选）",
+      "disclose": "on_demand",
+      "methodology_note": "常见图表误导手法：截断坐标轴（让变化看起来更大）、选择性区间（只选对自己有利的时间段）、相关当因果、误导性百分比（绝对值很小但比例数字大）、樱桃挑选（只展示支持结论的数据点）。",
+      "fields": [
+        { "type": "multi_choice", "key": "chart_lies", "label": "图表里有没有这些手法？（可多选）", "options": ["截断坐标轴（纵轴不从 0 开始）", "选择性区间（只选对结论有利的时段）", "相关当因果", "误导性百分比（绝对值很小）", "樱桃挑选（忽略反例数据）"] },
+        { "type": "textarea", "key": "chart_note", "label": "说明你发现的问题（可选）" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "id": "question-card",
+  "category": "探究启动",
+  "name": "提问卡",
+  "name_en": "Question Card",
+  "purpose": "在探究的最起点，先激活学生自己的经验、直觉和疑问，再让 AI 帮他延伸，而不是一上来就把题目交给 AI",
+  "trigger_condition": "学生刚拿到一个题目/议题，还没有自己的想法就想直接让 AI 给方向或答案",
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["PYP", "MYP", "DP"],
+  "trigger_keywords": ["不知道从哪开始", "帮我写", "这题怎么做", "老师让我研究", "给我答案"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": ["D1"],
+  "related": ["rabbit-hole", "certainty-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D1"],
+  "steps": [
+    {
+      "key": "direction",
+      "title": "选一个进入方向",
+      "disclose": "always",
+      "methodology_note": "好的探究始于学生自己的问题意识，而不是现成答案。先选一个你最想说的方向，AI 只就这个方向追问一句，不评价对错。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "entry_direction",
+          "label": "开始之前，先听听你自己——选一张最想说的：",
+          "options": [
+            "我和这个话题有什么交集？",
+            "我第一反应相信什么／怀疑什么？",
+            "我已经知道什么？想弄清什么？",
+            "如果和别人讨论，我最想先问哪 3 个问题？"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "my_take",
+      "title": "说说你的想法",
+      "disclose": "always",
+      "methodology_note": "研究是从你的问题长出来的，不是从答案倒推。用自己的话说就好，不需要对，只需要真实。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "raw_thought",
+          "label": "用你自己的话说……（你的起点观点会被记录下来，作为后续探究的个人锚点）",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "next_move",
+      "title": "接下来往哪走？",
+      "disclose": "on_demand",
+      "methodology_note": "你已经有了自己的起点。下面是几个可以继续探索的方向——由你来选，AI 不替你决定。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "next_direction",
+          "label": "你想先往哪个方向延伸？",
+          "options": [
+            "找更多资料，看看别人怎么说",
+            "深挖我最感兴趣的那个点",
+            "先把问题整理得更清楚",
+            "想想这跟我的生活有什么关系"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "id": "rabbit-hole",
+  "category": "探究启动",
+  "name": "兔子洞·兴趣雷达卡",
+  "name_en": "Rabbit Hole / Interest Radar",
+  "purpose": "捕捉学生愿意「继续往下挖」的点，把模糊兴趣翻译成可探索方向，并把一次任务自然带向下一个洞",
+  "trigger_condition": "学生在某个点反复追问、愿意停留、主动延伸，露出真实兴趣信号",
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["PYP", "MYP", "DP"],
+  "trigger_keywords": ["好有意思", "我还想知道", "这个很酷", "顺便问一下", "为什么会这样"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": ["D1", "D6"],
+  "related": ["question-card", "source-map", "learning-report"],
+  "body_status": "full",
+  "rubric_tags": ["D1", "D6"],
+  "steps": [
+    {
+      "key": "anchor",
+      "title": "记录你的兴趣锚点",
+      "disclose": "always",
+      "methodology_note": "什么是兔子洞？一个让你忍不住一直挖的点。我们不评判它有没有用，先看你愿不愿意多停一会儿。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "anchor_note",
+          "label": "你刚才对哪个点特别来劲？用一句话记下来：",
+          "rows": 2
+        }
+      ]
+    },
+    {
+      "key": "next_hole",
+      "title": "这个洞还能通向哪？",
+      "disclose": "always",
+      "methodology_note": "兴趣不是玩物丧志——它能通向真实的探索方向。选一个你最想先挖的：",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "extension_mode",
+          "label": "你想怎么继续？",
+          "options": [
+            "深挖——我想弄清楚背后的原理",
+            "动手——我想做个东西或实验一下",
+            "影响——我想知道这对社会/环境有什么影响",
+            "作品——我想把它做成一个可以展示的东西"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "translate",
+      "title": "把兴趣翻译成可探索方向",
+      "disclose": "always",
+      "methodology_note": "把你的兴趣锚点 + 你选的模式合起来，凝练成一句「可探索方向」——这是你下一个洞的起点。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "explorable_direction",
+          "label": "我的下一个探索方向是……（AI 会帮你一起想，但最终由你来定）",
+          "rows": 2
+        }
+      ]
+    },
+    {
+      "key": "log",
+      "title": "存进兔子洞日志",
+      "disclose": "on_demand",
+      "methodology_note": "每一次挖洞都留一条记录。任务结束时，日志会帮你看见「我最近在追什么」，为学习报告卡提供线索。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "log_confirm",
+          "label": "要把这个锚点存进你的兔子洞日志吗？",
+          "options": ["存进去", "先不存"]
+        }
+      ]
+    }
+  ]
+}

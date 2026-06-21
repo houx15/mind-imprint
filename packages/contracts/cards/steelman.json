@@ -1,0 +1,48 @@
+{
+  "id": "steelman",
+  "category": "知识工具",
+  "name": "让步段·反方最强卡",
+  "name_en": "Steelman / Concession",
+  "purpose": "不打稻草人——先把反方最强的版本说出来，再回应它，让论证从「片面」变「可信」",
+  "trigger_condition": "学生只论证自己一方、没有认真对待反方，论证显得片面",
+  "trigger_keywords": ["我觉得我说得对", "反方", "但是", "怎么反驳", "加强论证", "让步"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D4"],
+  "related": ["argument-map", "pee", "belief-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D4"],
+  "steps": [
+    {
+      "key": "stance",
+      "title": "确认你的立场",
+      "disclose": "always",
+      "methodology_note": "Steelman（与 strawman 相对）：主动构建对立方最有力的论证，再据此回应。先确认你的立场，才能找到真正值得回应的反方最强点。",
+      "fields": [
+        { "type": "textarea", "key": "your_stance", "label": "你的立场是什么？（一两句话说清楚）" }
+      ]
+    },
+    {
+      "key": "strongest_counter",
+      "title": "反方最强的一击",
+      "disclose": "always",
+      "methodology_note": "现在切换视角：如果你是对方，最有力的一击是什么？不是弱化版、不是稻草人——是反方自己会引以为傲的那个论证。",
+      "fields": [
+        { "type": "textarea", "key": "counter_strongest", "label": "反方最强的论证是什么？（先自己试，再看 AI 补充）" }
+      ]
+    },
+    {
+      "key": "concession",
+      "title": "写让步段",
+      "disclose": "always",
+      "methodology_note": "让步段模板：「我承认【反方有理之处】，但【我的回应】，因为【理由/证据】。」让步是否真诚、回应是否扣住最强点——这两点决定段落质量。",
+      "fields": [
+        { "type": "textarea", "key": "concede", "label": "我承认……（真诚让步，不要偷偷弱化反方）" },
+        { "type": "textarea", "key": "rebuttal", "label": "但……因为……（回应必须扣住反方最强点）" },
+        { "type": "multi_choice", "key": "self_check", "label": "自查（可多选）", "options": ["让步是真诚的，没有弱化反方", "回应扣住了反方最强点，而不是旁枝末节"] }
+      ]
+    }
+  ]
+}

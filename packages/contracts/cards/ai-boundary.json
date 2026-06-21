@@ -1,0 +1,80 @@
+{
+  "id": "ai-boundary",
+  "category": "AI伦理",
+  "name": "AI 边界与幻觉核查卡",
+  "name_en": "AI Boundary & Hallucination Check",
+  "purpose": "AI 会「一本正经地编」。这张卡把 AI 的边界和可能的幻觉，变成学生练查证和判断的最佳时刻",
+  "trigger_condition": "AI 给出了一个可能不准/编造的事实、引用或数据，学生倾向直接采纳",
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["AI 说的对吗", "来源呢", "你确定吗", "引用", "数据是真的吗", "编的吧"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D9", "D3"],
+  "related": ["ai-collaboration", "sift", "opcvl"],
+  "body_status": "full",
+  "rubric_tags": ["D9", "D3"],
+  "steps": [
+    {
+      "key": "identify",
+      "title": "圈出需要核查的项目",
+      "disclose": "always",
+      "methodology_note": "AI 在预测「像样的话」，不是在查事实。所以越具体的细节——人名、日期、数据、引用——越要你去核对。先把 AI 刚才说的内容里，所有「具体可查」的声明列出来。",
+      "fields": [
+        {
+          "type": "repeatable_group",
+          "key": "checkable_items",
+          "label": "AI 说了哪些需要核查的具体声明？（每行一条）",
+          "item_fields": [
+            {
+              "type": "text",
+              "key": "claim",
+              "label": "具体声明（原文）"
+            },
+            {
+              "type": "single_choice",
+              "key": "kind",
+              "label": "类型",
+              "options": ["人名", "日期", "数据/数字", "引用/出处", "因果关系"]
+            },
+            {
+              "type": "single_choice",
+              "key": "ai_confidence",
+              "label": "AI 对这条的置信度（你感觉）",
+              "options": ["说得很确定", "有些不确定", "明显不确定/打了问号"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "verify",
+      "title": "挑一条去验证",
+      "disclose": "always",
+      "methodology_note": "不需要把每条都查。挑最关键、或置信度最低的那一条，去找原始出处——用 SIFT 横向找更多来源，或直接搜关键词看能否找到独立证据。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "target_claim",
+          "label": "我选择核查哪条声明？"
+        },
+        {
+          "type": "link_check",
+          "key": "source_link",
+          "label": "找到的原始出处或独立来源（贴链接）"
+        },
+        {
+          "type": "single_choice",
+          "key": "verdict",
+          "label": "核查结果",
+          "options": ["已验证——与 AI 说的一致", "幻觉——AI 编的，与事实不符", "存疑——找不到独立来源，无法确认"]
+        },
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "发现了什么？（如果是幻觉，记一次「成功识别 AI 幻觉」——这是高光时刻）"
+        }
+      ]
+    }
+  ]
+}

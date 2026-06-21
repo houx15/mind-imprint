@@ -1,0 +1,28 @@
+{
+  "id": "fact-opinion-value",
+  "category": "知识工具",
+  "name": "事实/观点/价值判断卡",
+  "name_en": "Fact / Opinion / Value",
+  "purpose": "把一段话里的陈述分成三类——能查证的事实、需论证的观点、藏着价值的判断，是一切清晰思考的地基",
+  "trigger_condition": "学生把观点/价值判断当成事实，或把三类陈述混在一起",
+  "trigger_keywords": ["这是事实", "我觉得", "应该", "好坏", "对不对", "大家都知道"],
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D4", "D5"],
+  "related": ["argument-map", "certainty-spectrum", "cda"],
+  "body_status": "stub",
+  "rubric_tags": ["D4", "D5"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "事实 / 观点 / 价值判断",
+      "disclose": "always",
+      "methodology_note": "区分三类陈述：事实=能被查证（可核查）；观点=需要论证（要给理由）；价值判断=藏着价值排序（「应该/好坏」）。先认清陈述的种类，才能正确处理它。",
+      "fields": [
+        { "type": "textarea", "key": "notes", "label": "先用文字标注每句话属于哪类（事实/观点/价值判断）并说明理由；完整的三色标注交互即将上线" }
+      ]
+    }
+  ]
+}

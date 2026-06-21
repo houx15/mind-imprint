@@ -1,0 +1,77 @@
+{
+  "id": "multimodal-decode",
+  "category": "信息素养",
+  "name": "多模态解构卡",
+  "name_en": "Multimodal Decode",
+  "purpose": "拆解画面、配乐、剪辑、语速如何联手塑造你的情绪和立场——看穿视听语言的说服",
+  "trigger_condition": "学生在看视频/音频/图像，被视听语言带动情绪而未察觉说服手法",
+  "trigger_keywords": ["视频", "纪录片", "配乐", "镜头", "这段好燃", "画面", "短视频"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D4", "D5"],
+  "related": ["corpus-hook", "cda", "spin-detector"],
+  "body_status": "full",
+  "rubric_tags": ["D4", "D5"],
+  "steps": [
+    {
+      "key": "material",
+      "title": "定位你在分析的片段",
+      "disclose": "always",
+      "methodology_note": "明确分析对象——视频、音频还是图像，以及你聚焦的具体片段（如某段时间轴或某张画面）。",
+      "fields": [
+        { "type": "link_check", "key": "media_url", "label": "贴入材料链接（视频/音频/图像 URL）" },
+        { "type": "text", "key": "segment", "label": "你重点分析的片段（如时间戳 0:20-0:35，或图像描述）" }
+      ]
+    },
+    {
+      "key": "mood",
+      "title": "第一步：情绪感知",
+      "disclose": "always",
+      "methodology_note": "先记录你的直觉感受，不加分析。这是你被影响的原始状态——后面你会看清是什么在制造它。",
+      "fields": [
+        { "type": "textarea", "key": "emotion", "label": "这段让你有什么感觉？（例：紧迫、绝望、愤怒、振奋……）" }
+      ]
+    },
+    {
+      "key": "tactics",
+      "title": "第二步：手法拆解",
+      "disclose": "always",
+      "methodology_note": "信息不止文字。纪录片、短视频用镜头、音乐、剪辑、旁白共同建立气氛与立场。看见手法，你才有选择信不信的自由。",
+      "fields": [
+        {
+          "type": "multi_choice",
+          "key": "tactic_tags",
+          "label": "哪些视听手法在制造这种情绪？（勾选所有适用项）",
+          "options": ["画面（特写/远景/慢镜/快剪）", "配乐（低沉/激昂/无声对比）", "语速（加快/放慢/停顿）", "剪辑（蒙太奇/对比剪接）", "用词（情绪化/暗示性/重复）", "对比（正反对照/前后反差）", "夸张或戏剧化处理"]
+        },
+        { "type": "textarea", "key": "tactic_examples", "label": "从片段中举一个具体例子，说明这个手法怎么在起作用" }
+      ]
+    },
+    {
+      "key": "fact_vs_stance",
+      "title": "第三步：事实 vs. 立场",
+      "disclose": "always",
+      "methodology_note": "情绪也是一种说服。视听语言可以把立场包装成显而易见的事实。这一步区分：它在告诉我一个可查证的事实，还是在塑造我对某件事的态度？",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "fact_or_stance",
+          "label": "这段内容主要在做什么？",
+          "options": ["陈述可查证的事实", "表达立场/观点", "两者混合（事实+情绪渲染）", "难以判断"]
+        },
+        { "type": "textarea", "key": "stance_evidence", "label": "说明你的判断依据——从片段中找一处证明" }
+      ]
+    },
+    {
+      "key": "summary",
+      "title": "第四步：汇总你的分析",
+      "disclose": "always",
+      "methodology_note": "把前三步整合成一句结论：这段用了哪些手法，想制造什么情绪，目的是让你形成什么立场。",
+      "fields": [
+        { "type": "textarea", "key": "analysis_summary", "label": "用 1-2 句话总结：这段材料用了哪些视听手法，想让你感受到什么、相信什么？" }
+      ]
+    }
+  ]
+}

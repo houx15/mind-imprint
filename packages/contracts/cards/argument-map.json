@@ -1,0 +1,28 @@
+{
+  "id": "argument-map",
+  "category": "知识工具",
+  "name": "论证地图卡（结构 + 谬误）",
+  "name_en": "Argument Map (Structure & Fallacies)",
+  "purpose": "把一段论证拆成「论点—论据—假设」的结构图，并对照常见逻辑谬误，看它到底站不站得住",
+  "trigger_condition": "学生要评估或构建一个论证，需要看清论点-论据结构与逻辑漏洞",
+  "trigger_keywords": ["因为所以", "这论证", "有道理吗", "逻辑", "站不站得住", "推理"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "画布导图卡",
+  "rubric_dims": ["D5"],
+  "related": ["fact-opinion-value", "steelman", "pee"],
+  "body_status": "stub",
+  "rubric_tags": ["D5"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "论证地图",
+      "disclose": "always",
+      "methodology_note": "论证拆解两件事：结构（识别 claim 论点、reason/evidence 论据、warrant 隐藏假设）+ 谬误（稻草人、滑坡、人身攻击、诉诸权威、虚假两难、以偏概全等）。把「我觉得哪里怪怪的」变成可定位的结构问题。",
+      "fields": [
+        { "type": "textarea", "key": "notes", "label": "先用文字梳理论点、论据、隐藏假设，并指出可疑谬误；可拖拽的节点画布即将上线" }
+      ]
+    }
+  ]
+}

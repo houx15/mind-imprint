@@ -1,0 +1,32 @@
+{
+  "id": "ethics-roleplay",
+  "category": "AI伦理",
+  "name": "伦理情景·角色博弈卡",
+  "name_en": "Ethics Scenario & Role Play",
+  "purpose": "把 AI 伦理做成游戏：在真实情景里扮演不同角色（开发者/用户/监管者/受影响者…），从各自的利益与盲区出发判断「AI 该介入到什么程度」",
+  "trigger_condition": "学生需要在真实伦理情景中从多个角色立场判断 AI 该介入到什么程度",
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["情景", "角色扮演", "如果是你", "立场", "各方", "谁该负责"],
+  "interaction_type": "角色模拟卡",
+  "rubric_dims": ["D9", "D4"],
+  "related": ["ethics-lenses", "belief-spectrum", "ai-decision-tree"],
+  "body_status": "stub",
+  "rubric_tags": ["D9", "D4"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "伦理情景角色博弈",
+      "disclose": "always",
+      "methodology_note": "只有站到对方的利益里，你才看得见自己原来的盲区。选一个真实情景（如招聘 AI 筛选、儿童陪伴机器人、医疗诊断黑箱），扮演一个角色（开发者/用户/监管者/伦理学家/企业负责人/受影响者），填出该角色的利益、责任和盲区，再与其他角色博弈。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "notes",
+          "label": "先用文字记录你的思考；这张卡的完整交互（情景卡抽取 + 角色分配 + 多角色对话区）即将上线"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "corpus-hook",
+  "category": "溯源与多视角",
+  "name": "语料钩子卡（含精问阅读推荐）",
+  "name_en": "Corpus Hooks & Curated Reading",
+  "purpose": "教师/课程设计者提前在语料里「埋钩子」：学生读/看到特定位置，AI 自动触发追问；并按学生兴趣，从预设语料库推荐精问阅读卡片",
+  "trigger_condition": "学生在教师预设的语料（视频/音频/文本）中阅读到特定位置，或需要在语料边界内深入",
+  "trigger_keywords": ["阅读材料", "视频到这", "读到这里", "推荐", "还有什么可读", "语料"],
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D1", "D5"],
+  "related": ["multimodal-decode", "source-map", "rabbit-hole"],
+  "body_status": "stub",
+  "rubric_tags": ["D1", "D5"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "语料钩子与精问阅读",
+      "disclose": "always",
+      "methodology_note": "语料钩子：在视频时间点、文本段旁预埋追问锚点，学生到达时 AI 触发提问，帮学生在关键节点停下来思考。精问阅读卡：不开放搜索，从课程设计者准备的语料库按兴趣推荐，每张含核心材料、关键问题、待判断证据点、可能反方、延伸方向、可写进论文的角度。",
+      "fields": [
+        { "type": "textarea", "key": "notes", "label": "先用文字记录你在这个锚点的思考；这张卡的完整交互（媒体播放区 + 时间点锚点气泡 + 精问阅读卡推荐）即将上线" }
+      ]
+    }
+  ]
+}

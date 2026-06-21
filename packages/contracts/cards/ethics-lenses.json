@@ -1,0 +1,92 @@
+{
+  "id": "ethics-lenses",
+  "category": "AI伦理",
+  "name": "伦理判断三镜头卡",
+  "name_en": "Three Ethical Lenses",
+  "purpose": "用三个镜头看同一个「应不应该」：后果（结果好坏）、义务（规则与权利）、品格（一个好人会怎么做），再加两个检验",
+  "trigger_condition": "学生面对一个「应不应该」的伦理问题，倾向于只给立场不给理由",
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "trigger_keywords": ["该不该", "对不对", "道德", "应不应该", "公平吗", "可以这样做吗"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": ["D9"],
+  "related": ["ethics-roleplay", "ai-decision-tree", "fact-opinion-value"],
+  "body_status": "full",
+  "rubric_tags": ["D9"],
+  "steps": [
+    {
+      "key": "setup",
+      "title": "说出伦理问题",
+      "disclose": "always",
+      "methodology_note": "先把你面对的「应不应该」问题说清楚。好的伦理问题要有：行动主体（谁做了/打算做什么）、对象（对谁）、情境（在什么条件下）。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "question",
+          "label": "你面对的伦理问题是什么？（尽量说具体：谁、做什么、对谁、在什么情况下）"
+        }
+      ]
+    },
+    {
+      "key": "lenses",
+      "title": "三镜头分析",
+      "disclose": "always",
+      "methodology_note": "三个镜头会打架怎么办？经常会。看见冲突、说明你为什么更看重哪个，这本身就是伦理思考。每个镜头独立看——不要因为已经有结论就跳过它。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "consequence",
+          "label": "后果镜头（结果论）：谁受益？谁受损？短期和长期的影响各是什么？"
+        },
+        {
+          "type": "textarea",
+          "key": "duty",
+          "label": "义务镜头（义务论）：侵犯了谁的权利？有没有把人当工具？有没有违背承诺或规则？"
+        },
+        {
+          "type": "textarea",
+          "key": "virtue",
+          "label": "品格镜头（德性论）：一个正直、有良知的人会怎么做？这个行为能培养好品格还是损害它？"
+        }
+      ]
+    },
+    {
+      "key": "tests",
+      "title": "两个检验",
+      "disclose": "on_demand",
+      "methodology_note": "这两个检验帮你跳出自己当下的视角。普遍化检验来自康德：如果每个人都这样做，世界会变成什么样？当事人检验：如果你是被影响的那个人，你还认为这个判断合理吗？",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "universalization",
+          "label": "普遍化检验：如果每个人在同样情境下都这样做，会有什么后果？"
+        },
+        {
+          "type": "textarea",
+          "key": "affected_party",
+          "label": "当事人检验：换到受影响者的位置，你还会认为这个判断公平吗？"
+        }
+      ]
+    },
+    {
+      "key": "synthesis",
+      "title": "综合判断",
+      "disclose": "always",
+      "methodology_note": "AI 不会替你下道德结论。综合三个镜头，你自己来判断——并说明为什么在这里你更看重哪个镜头。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "primary_lens",
+          "label": "在这个问题上，你认为哪个镜头最重要？",
+          "options": ["后果镜头（结果好坏）", "义务镜头（规则与权利）", "品格镜头（一个好人会怎么做）", "三个同等重要 / 无法分出主次"]
+        },
+        {
+          "type": "textarea",
+          "key": "judgment",
+          "label": "你的综合判断是什么？主要理由是什么？（说理由，不只说结论）"
+        }
+      ]
+    }
+  ]
+}

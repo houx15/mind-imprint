@@ -1,0 +1,84 @@
+{
+  "id": "checkpoint",
+  "category": "反身性与元认知",
+  "name": "Checkpoint 无 AI 回放·方法迁移卡",
+  "name_en": "No-AI Checkpoint & Transfer",
+  "purpose": "在关键节点做一次轻量验证：不靠 AI，用自己的话复述刚才的论点，或把同一方法迁移到新材料——回答产品最核心的问题「到底是学生学到了，还是 AI 学到了？」",
+  "trigger_condition": "关键节点，需要验证「是学生学到了，还是 AI 替他完成了」",
+  "trigger_keywords": ["我懂了", "学会了", "这个我会", "下一个", "同样的方法"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "回放验证卡",
+  "rubric_dims": ["D6", "D8"],
+  "related": ["metacognition", "learning-report", "ai-collaboration"],
+  "body_status": "full",
+  "rubric_tags": ["D6", "D8"],
+  "steps": [
+    {
+      "key": "mode",
+      "title": "选择回放模式",
+      "disclose": "always",
+      "methodology_note": "为什么要把 AI 关掉？因为能不靠它说出来，才证明是你的能力，而不是它的。选一种最适合当前节点的轻量验证方式。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "checkpoint_mode",
+          "label": "选择这次 Checkpoint 的方式：",
+          "options": ["复述——用自己的话说说刚才的论点或方法", "迁移——用同一方法分析一条新材料", "识错——指出 AI 刚才回答中可能不对的地方"]
+        }
+      ]
+    },
+    {
+      "key": "restate",
+      "title": "独立作答（AI 不补全）",
+      "disclose": "always",
+      "methodology_note": "接下来一分钟不靠 AI。用自己的话写，不用完美，只要真实。AI 不会在这里提供内容或提示——只接收你的回答。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "student_response",
+          "label": "你的独立作答——用自己的话说（不参考 AI 的回答）："
+        }
+      ]
+    },
+    {
+      "key": "transfer",
+      "title": "迁移任务（可选）",
+      "disclose": "on_demand",
+      "methodology_note": "迁移成功 = 能力，不是一次性。把同一方法用到另一个完全不同的材料上，验证你真的掌握了方法，而不只是记住了这一次的内容。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "new_material",
+          "label": "新材料（可粘贴链接或文字片段）——用刚才的方法判断它："
+        },
+        {
+          "type": "textarea",
+          "key": "transfer_response",
+          "label": "你的迁移判断："
+        }
+      ]
+    },
+    {
+      "key": "self_assess",
+      "title": "自评",
+      "disclose": "always",
+      "methodology_note": "轻量自评，不是打分——帮你看清自己掌握到哪了。",
+      "fields": [
+        {
+          "type": "rating",
+          "key": "confidence",
+          "scale": 5,
+          "label": "独立作答后，你觉得自己对这个方法/论点的掌握程度？（1 = 还很模糊，5 = 完全是我自己的了）"
+        },
+        {
+          "type": "single_choice",
+          "key": "next_step",
+          "label": "接下来你想做什么？",
+          "options": ["继续，感觉掌握了", "再练一次迁移，还不够稳", "需要重新理解这个方法"]
+        }
+      ]
+    }
+  ]
+}

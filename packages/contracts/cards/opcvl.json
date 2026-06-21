@@ -1,0 +1,95 @@
+{
+  "id": "opcvl",
+  "category": "AOK",
+  "name": "OPCVL 史料评估卡",
+  "name_en": "OPCVL Source Evaluation",
+  "purpose": "用 IB 历史的 OPCVL 框架评估史料：来源、目的、内容、价值、局限——并升到双源对照与史观自觉",
+  "trigger_condition": "学生在历史任务中评估一份或两份史料（IB 史料分析、首发 Demo 场景）",
+  "priority": "P0",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "trigger_keywords": ["史料", "来源分析", "OPCVL", "这张海报", "历史材料", "价值和局限"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
+  "related": ["source-map", "fact-opinion-value", "ai-boundary"],
+  "body_status": "full",
+  "rubric_tags": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
+  "steps": [
+    {
+      "key": "origin",
+      "title": "O · Origin 来源",
+      "disclose": "always",
+      "methodology_note": "先问：这份史料是谁、什么时候、在哪里产出的？作者的身份（个人、机构、政府）与材料的时间/地点直接影响它能告诉我们什么。",
+      "fields": [
+        { "type": "text", "key": "who", "label": "作者/出版方是谁？" },
+        { "type": "text", "key": "when_where", "label": "产出时间与地点？" },
+        { "type": "single_choice", "key": "source_type", "label": "材料类型", "options": ["一手史料（同时期产出）", "二手史料（事后撰写）", "不确定"] }
+      ]
+    },
+    {
+      "key": "purpose",
+      "title": "P · Purpose 目的",
+      "disclose": "always",
+      "methodology_note": "作者为什么要制作/写这份材料？目的（宣传、记录、说服、私信）直接影响材料的价值与局限——知道目的才能判断它「想让你相信什么」。",
+      "fields": [
+        { "type": "textarea", "key": "intended_purpose", "label": "这份材料的目的是什么（宣传？记录？说服？）？" },
+        { "type": "textarea", "key": "target_audience", "label": "它面向的受众是谁？" }
+      ]
+    },
+    {
+      "key": "content",
+      "title": "C · Content 内容",
+      "disclose": "always",
+      "methodology_note": "摘要这份材料说了什么——它呈现了哪些事实、观点或图像？注意：内容只是「材料说了什么」，还不是你对它的评价。",
+      "fields": [
+        { "type": "textarea", "key": "main_content", "label": "这份材料的主要内容是什么？（用自己的话摘要）" },
+        { "type": "textarea", "key": "notable_details", "label": "有哪些值得注意的细节或措辞？" }
+      ]
+    },
+    {
+      "key": "value",
+      "title": "V · Value 价值",
+      "disclose": "always",
+      "methodology_note": "价值 = 因为它的来源与目的，这份材料特别能告诉我们什么？（不是「它说的是真的」，而是「它对历史研究有什么独特用处」。）",
+      "fields": [
+        { "type": "textarea", "key": "value_content", "label": "这份材料的内容价值是什么？它记录了什么独特信息？" },
+        { "type": "textarea", "key": "value_origin", "label": "它的来源/目的如何使它具有价值？（例：作为当时的宣传品，它直接反映官方意图）" }
+      ]
+    },
+    {
+      "key": "limitation",
+      "title": "L · Limitation 局限",
+      "disclose": "always",
+      "methodology_note": "局限 = 同样因为来源/目的，它看不到什么、会偏向什么？（不是「它说错了」，而是「它的视角天然有哪些盲区」。）",
+      "fields": [
+        { "type": "textarea", "key": "limitation_content", "label": "内容局限：它没有覆盖或刻意回避了什么？" },
+        { "type": "textarea", "key": "limitation_origin", "label": "来源/目的局限：作者的立场、时代、目的如何限制了材料的视角？" }
+      ]
+    },
+    {
+      "key": "compare",
+      "title": "双源对照（第二份史料）",
+      "disclose": "on_demand",
+      "methodology_note": "有两份史料时，对照它们在内容、视角、价值上的异同——异同本身就是历史问题的线索。",
+      "fields": [
+        { "type": "textarea", "key": "source2_summary", "label": "第二份史料的 O/P/C 摘要（来源、目的、内容各一句）" },
+        { "type": "repeatable_group", "key": "compare_dims", "label": "逐维对照：两份史料有何异同？",
+          "item_fields": [
+            { "type": "text", "key": "dimension", "label": "对照维度（如：内容 / 视角 / 价值）" },
+            { "type": "textarea", "key": "difference", "label": "异同说明" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "reflexivity",
+      "title": "D12 · 史观自觉",
+      "disclose": "on_demand",
+      "methodology_note": "史观自觉是 OPCVL 的灵魂：觉察你作为分析者的位置——你带着什么前提、框架、偏好在看这些史料？这直接对应 TOK 「认知者与知识」。",
+      "fields": [
+        { "type": "textarea", "key": "own_standpoint", "label": "你自己带着什么立场或史观在分析这份材料？（例：民族主义视角？结果论？）" },
+        { "type": "textarea", "key": "how_it_affects", "label": "这个立场如何影响了你对价值/局限的判断？" }
+      ]
+    }
+  ]
+}

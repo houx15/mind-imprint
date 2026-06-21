@@ -1,0 +1,85 @@
+{
+  "id": "emotional-alignment",
+  "category": "探究启动",
+  "name": "情感对齐卡（内在小人·情绪电量）",
+  "name_en": "Emotional Alignment (Inner Parts / Energy Meter)",
+  "purpose": "在「激发兴趣」之前的第 -1 关：先让孩子感到被理解，找到他为什么「断电」，再慢慢把他带回好奇心",
+  "trigger_condition": "学生明显抗拒、断电、拖延、怕失败，对任何学习任务天然抵触（第 -1 关）",
+  "priority": "P2",
+  "disclosure_tier": "tier-2",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["不想做", "没意思", "我不行", "算了", "太难了", "反正也没用"],
+  "interaction_type": "选择追问卡",
+  "rubric_dims": [],
+  "related": ["rabbit-hole"],
+  "body_status": "full",
+  "rubric_tags": [],
+  "steps": [
+    {
+      "key": "energy",
+      "title": "今天的情绪电量",
+      "disclose": "always",
+      "methodology_note": "先不聊任务。这些小人是你的一部分，常常是在帮你挡住失败或难堪。先看看今天的电量在哪格——看见它，就不那么被它牵着走。",
+      "fields": [
+        {
+          "type": "rating",
+          "key": "energy_level",
+          "label": "今天你的电量在哪格？（1 = 几乎没电，5 = 电量满格）",
+          "scale": 5
+        }
+      ]
+    },
+    {
+      "key": "inner_part",
+      "title": "哪个小人今天最在场？",
+      "disclose": "always",
+      "methodology_note": "这些「内在小人」不是缺点，它们常常在保护你。选一个最像今天状态的：",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "inner_part_choice",
+          "label": "今天最在场的是哪一个？",
+          "options": [
+            "保护者——「别去冒险，可能会受伤」",
+            "完美小人——「做不好还不如不做」",
+            "拖延小人——「等会儿再说，现在还不是时候」",
+            "焦虑小人——「这么多事根本做不完」",
+            "讨好小人——「我得做对，不然别人怎么看我」",
+            "小大人——「我得自己扛，不能麻烦别人」"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "safe_island",
+      "title": "安全岛：说出来也 OK",
+      "disclose": "always",
+      "methodology_note": "这里是安全岛。不想做是可以说出来的，不需要解释，不需要道歉。AI 不会催你，也不会把这里的话告诉任何人评判你。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "not_want_reason",
+          "label": "如果你想说说「不想做」的原因，或者现在心里有什么——写在这里（完全可选，不写也 OK）：",
+          "rows": 3
+        }
+      ]
+    },
+    {
+      "key": "micro_action",
+      "title": "3 分钟小行动（完全可选）",
+      "disclose": "on_demand",
+      "methodology_note": "只在你愿意的时候出现。不愿意的话，今天先到这里，也是一个完整的选择。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "micro_action_choice",
+          "label": "你现在想怎么做？",
+          "options": [
+            "试试 3 分钟——就 3 分钟，之后可以停",
+            "先到这里就好，今天不想继续了"
+          ]
+        }
+      ]
+    }
+  ]
+}

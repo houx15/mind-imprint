@@ -1,0 +1,103 @@
+{
+  "id": "ai-decision-tree",
+  "category": "AI伦理",
+  "name": "负责任使用 AI 决策树卡",
+  "name_en": "Responsible AI Decision Tree",
+  "purpose": "在动手前先问「这件事要不要用 AI、用到哪一步」——把判断前置到使用之前",
+  "trigger_condition": "学生不确定「这件事/这一步该不该用 AI、用到什么程度」",
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["能不能用 AI", "这样用可以吗", "算作弊吗", "AI 帮我", "该不该交给 AI"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D8", "D9"],
+  "related": ["ai-collaboration", "ethics-lenses", "learning-report"],
+  "body_status": "full",
+  "rubric_tags": ["D8", "D9"],
+  "steps": [
+    {
+      "key": "define_task",
+      "title": "说清楚你想让 AI 做什么",
+      "disclose": "always",
+      "methodology_note": "用不用本身就是一个判断。跳过它，你就默认了 AI 该参与——而有些事就该你自己来。先把「你打算让 AI 做哪一步」说清楚，越具体越好。",
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "task_description",
+          "label": "你想让 AI 做什么？（描述这一步具体的工作内容）"
+        }
+      ]
+    },
+    {
+      "key": "decision_tree",
+      "title": "走决策树",
+      "disclose": "always",
+      "methodology_note": "决策树把 AI 介入按合适程度分四类：辅助理解（合适）→ 扩展思路/生成选项（合适但需筛选）→ 代替判断/表达（不合适）→ 编造数据/引用（绝对不合适）。关键问题是：这一步是「辅助你」还是「替代你」？",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "role_type",
+          "label": "这一步，AI 在做什么？",
+          "options": [
+            "帮我理解题目/概念——辅助理解",
+            "生成问题清单/思路扩展——辅助扩展，我来筛选",
+            "找反方观点/对立角度——辅助扩展，我来评估",
+            "判断资料可信度/替我做评估——替代我的判断，需要我再核一遍",
+            "直接代写整段/整篇——替代我的表达，不合适",
+            "生成/编造引用或数据——绝对不合适"
+          ]
+        },
+        {
+          "type": "single_choice",
+          "key": "level",
+          "label": "对照分级表，这一步的使用是？",
+          "options": ["合适", "合适但需交叉验证/筛选", "不合适——我需要换一种用法", "绝对不合适——不能这样用"]
+        }
+      ]
+    },
+    {
+      "key": "privacy_check",
+      "title": "隐私边界检查",
+      "disclose": "on_demand",
+      "methodology_note": "AI 的对话内容可能被用于训练或被第三方看到。有些东西不应该告诉 AI：真实姓名/身份证号、他人隐私、未发表的创作、家庭矛盾、精神健康细节。",
+      "fields": [
+        {
+          "type": "multi_choice",
+          "key": "privacy_risks",
+          "label": "你打算发给 AI 的内容里，有没有这些？（有的打勾，提醒自己处理）",
+          "options": [
+            "真实姓名、学号或其他可识别身份信息",
+            "他人的隐私信息（同学、家人）",
+            "未发表的创作或商业机密",
+            "精神健康、家庭矛盾等高度私密内容",
+            "以上都没有"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "declaration",
+      "title": "记录决策 & 准备声明",
+      "disclose": "always",
+      "methodology_note": "负责任使用 AI，最后一步是在学习报告里说明 AI 的角色——你用了哪一步、AI 帮了什么、你如何核验。这不是在「自首」，而是证明这个思考是你的。",
+      "fields": [
+        {
+          "type": "single_choice",
+          "key": "decision",
+          "label": "最终决定",
+          "options": [
+            "按原计划用——这一步是合适的",
+            "调整用法——改成辅助，我来做最终判断",
+            "不用 AI 做这一步——这部分应该自己来",
+            "还没想清楚，先暂停"
+          ]
+        },
+        {
+          "type": "textarea",
+          "key": "declaration_draft",
+          "label": "在学习报告里，我打算怎么说明 AI 的角色？（草稿，之后可以复制进报告卡）"
+        }
+      ]
+    }
+  ]
+}

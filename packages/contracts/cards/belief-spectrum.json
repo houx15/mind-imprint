@@ -1,0 +1,28 @@
+{
+  "id": "belief-spectrum",
+  "category": "溯源与多视角",
+  "name": "立场光谱卡（Belief Spectrum）",
+  "name_en": "Belief Spectrum",
+  "purpose": "把对错两派摊成一条连续光谱，定位各方与自己",
+  "trigger_condition": "学生把争议议题简化成「对错两派」，看不到中间的连续立场",
+  "trigger_keywords": ["两派", "谁对谁错", "专家吵架", "争议", "中立", "我站哪边"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "量表光谱卡",
+  "rubric_dims": ["D4"],
+  "related": ["steelman", "ethics-roleplay", "source-map"],
+  "body_status": "stub",
+  "rubric_tags": ["D4"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "立场光谱",
+      "disclose": "always",
+      "methodology_note": "把「对/错两派」摊成一条连续光谱：不同立场各自相信什么、引什么证据、背后有什么利益——再看看自己站哪。",
+      "fields": [
+        { "type": "textarea", "key": "notes", "label": "先用文字记录你的思考；这张卡的完整交互（可拖放的立场光谱）即将上线" }
+      ]
+    }
+  ]
+}
