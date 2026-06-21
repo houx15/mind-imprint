@@ -2,7 +2,7 @@
 
 > 目的：把每个 slice 里**明确推迟**的事都登记到一个未来 slice，确保最终能跑出一个端到端可用的平台。
 > 维护：每个 slice 完成时更新本表 + `slice-progress` 记忆。版本 2026-06-21（S6 后）。
-> **状态：S4+S5+S6 全部完成 → 平台端到端可跑通（merged `9d3f406`）。剩余仅 3c + 评估增强 + review minor，均不在关键路径。**
+> **状态：S4+S5+S6 全部完成 → 平台端到端可跑通（merged `9d3f406`）。S3c 全部完成（10 张 stub 卡全部 un-stub，merged `4403b14`，0 stub）。剩余仅评估增强 + review minor + 视觉增强（拖拽画布/对话），均不在关键路径。**
 
 ## 路线（剩余 slice）
 
@@ -11,7 +11,7 @@
 | **S4** ✅ | B5 | 过程树（确定性实时派生，merged `f427506`） | PRD §2 #3：过程长成可读的树 |
 | **S5** ✅ | B6 | 评估那一刀 + 「你的思维印记」（merged `6732ab1`） | 护城河（PRD §11） |
 | **S6** ✅ | B7 | 应用外壳（导航/主目录/记录页/设置页/mock 认证/key-gate；评估扩到 9 维 FULL_RUBRIC；merged `9d3f406`）| 把全部串成可用 app — **端到端达成** |
-| **3c**（later）| B1 扩展 | 富交互卡 | 10 张 stub 卡的真实交互 |
+| **3c** ✅ | B1 扩展 | 富交互卡（10 张 stub 全部 un-stub，merged `4403b14`；新增 3 原语 spectrum/criteria_check/show_if，其余组合现有原语）| 0 stub，全库可交互 |
 
 > ✅ **端到端已跑通**：**登录 → key-gate 填 key 测连接 → 新建任务粘链接 → 陪练对话 → AI 调卡 → 填卡 → 过程树实时长 → 生成思维印记（9 维评估）→ 记录页**。3c 是卡的广度扩展，不在端到端关键路径上（stub 卡当前可提议、可打开占位、可提交，优雅降级）。
 
@@ -36,8 +36,9 @@
 | **评估 error UX**：`phase==="error"` 当前对用户无任何提示；**re-run 覆盖**无确认 | S5 review | **S6** | 否 |
 | **setState-swap 模式核查**：`createEvaluator` 已修（state 仅在 changed 时换 ref）；核查 `createConversation`/`createStore` 是否同样无条件换 ref | S5 review | **S6 / cleanup** | 否 |
 | **评估增强树是否落库** vs 重派生 | S4 | **S5** 定 | 否 |
-| **10 张 stub 卡的真实交互**（量表光谱/角色模拟/画布导图/分类标注/媒体回放/条件分支）| S3a | **3c** | 否（优雅降级）|
-| **新原语**：`show_if`（条件步，aok-methods 需要）、spectrum/slider | S3a/3c | **3c** | 否 |
+| ~~**10 张 stub 卡的真实交互**~~ ✅ 完成（S3c）：量表光谱→`spectrum`，分类标注→`criteria_check`+组合，步骤引导→`show_if`，画布导图/角色模拟→组合现有原语 | S3a | **3c ✅** | — |
+| ~~**新原语**：`show_if` / spectrum~~ ✅ 完成（S3c 加了 spectrum / criteria_check / show_if 三个原语）| S3a/3c | **3c ✅** | — |
+| **视觉增强（S3c 显式推迟）**：画布导图卡的自由拖拽节点画布、角色模拟卡的多轮实时对话、`spectrum` 指针拖拽、`node_map`/`role_play` 原语（如要做这些视觉层）| S3c | **后续（非阻塞）** | 否（组合版已可用）|
 | **卡内容打磨**：emotional-alignment 运行期安全元数据（human_in_loop/privacy）、rabbit-hole 锚点 UX、learning-report 轨迹预填、checkpoint spot-error 字段 | S3a/3b review | **3c** | 否 |
 | **一轮多卡**：re-feed 后续 `summon_card` 当前被丢弃（MVP 一轮一卡）| S3b review | **3c** | 否（MVP 足够）|
 | **关卡=跳过不可逆**：scrim 误点即记 skipped；加「仅关闭不决定」语义 | S3b review | **3c** | 否 |
@@ -77,4 +78,4 @@
 
 ## 结论
 
-**S4 + S5 + S6 全部完成，平台已端到端可用**（merged `9d3f406`，覆盖 PRD §2 全部四条成功判据）。剩余：**3c**（10 张 stub 卡富交互）、**评估增强**（语义树归并 + Marcus/Ethan/Eliza few-shot 扩展 + nodeView 深度走父链）、以及上面登记的 **S6 review minor**——全部非阻塞的广度/打磨，择期推进，不影响端到端主动脉。无孤儿项阻塞端到端。
+**S4 + S5 + S6 全部完成，平台已端到端可用**（merged `9d3f406`）；**S3c 也已完成**（10 张 stub 卡全部 un-stub，merged `4403b14`，`library.test` 守卫 0 stub）。全部路线 slice（S1–S6 + 3a/3b/3c）皆已完成并入 main。剩余仅非阻塞打磨：**视觉增强**（拖拽画布 / 多轮对话 / spectrum 拖拽）、**评估增强**（语义树归并 + Marcus/Ethan/Eliza few-shot 扩展 + nodeView 深度走父链）、**S6 review minor**、**一轮多卡 / 关卡可逆 / ChatLog keys** 等整洁项。无孤儿项，无阻塞。
