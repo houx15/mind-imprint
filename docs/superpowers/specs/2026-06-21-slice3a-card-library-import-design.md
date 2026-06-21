@@ -8,7 +8,9 @@
 
 ## 1. Goal
 
-把 `docs/工具包库/` 的 **31 张卡**全部变成可被 registry 加载的 JSON 卡 spec，并给 `CardSpec` 补上库 frontmatter 的**路由元数据**，让 3b 的决策层能在全库上按「分类 / tier / priority / 触发词」选卡。**不动渲染器**：能用现有 7 原语表达的卡给真实 body；需要全新交互的卡先**注册 + 占位 body**（真实交互留给 3c）。
+把 `docs/工具包库/` 的 **31 张库卡**全部变成可被 registry 加载的 JSON 卡 spec，并给 `CardSpec` 补上库 frontmatter 的**路由元数据**，让 3b 的决策层能在全库上按「分类 / tier / priority / 触发词」选卡。**不动渲染器**：能用现有 7 原语表达的卡给真实 body；需要全新交互的卡先**注册 + 占位 body**（真实交互留给 3c）。
+
+**卡集决定（2026-06-21，用户拍板）：保留现有 2 张 demo 卡 + 导入全部 31 张库卡 = registry 共 33 张。** 现有 `sift_craap`（SIFT×CRAAP 合卡，对应 PRD §14 单卡流程）与 `concession`（让步段）是 demo 定制卡，**保留原 id**（S1 fixtures/测试、3b demo 主动脉都按这俩 id 引用）；库里的 `sift`(05)/`craap`(04)/`steelman`(12) 仍各自独立导入。由此产生 2 对近义卡（SIFT 系 / 让步段系）——其在 3b 决策层的取舍由 tier/trigger 元数据偏置（见 §8 carry-forward），**非本 slice 处理**。
 
 **不含：** 决策层 / summon_card 循环 / 工作区（→ 3b）；任何新字段原语或富交互组件（→ 3c）；评估（→ S5）；外壳（→ S6）。
 
@@ -58,9 +60,9 @@ export const CardSpec = z.object({
 
 ---
 
-## 3. 31 张卡 JSON
+## 3. 31 张库卡 JSON（+ 保留 2 张 demo 卡 = 33）
 
-每卡一份 JSON，放 `packages/contracts/cards/`（与现有两卡同目录），`id` = kebab-case（取自 frontmatter `id`，如 `belief-spectrum`），文件名建议 `<id>.json`。来源 = 该卡 `.md` 的 **frontmatter** + 正文「**渲染要点（卡片字段）**」节 + 「如何交互/分步脚本」节。
+每张**库卡**一份 JSON，放 `packages/contracts/cards/`（与现有两卡同目录），`id` = kebab-case（取自 frontmatter `id`，如 `belief-spectrum`/`sift`/`craap`/`steelman`），文件名 `<id>.json`。来源 = 该卡 `.md` 的 **frontmatter** + 正文「**渲染要点（卡片字段）**」节 + 「如何交互/分步脚本」节。现有 `sift_craap.json`/`concession.json` **保留不动**（仅在 §2 回填元数据），故 registry 最终 = 31 库卡 + 2 demo 卡 = **33**。
 
 按**交互可表达性**分两类（**按卡判定，不机械按 interaction_type**）：
 
@@ -102,9 +104,9 @@ export const CardSpec = z.object({
 
 ## 6. 测试（TDD）
 
-- **逐卡校验**：31 个 JSON 全部 `CardSpec.safeParse` 通过；`card.id === key`（沿用 registry 既有不变式，参数化跑 31 张）。
-- **catalog**：`deriveCatalog` 产出 31 条，且每条带核心路由元数据（id/category/name/trigger_condition 必有；提议用的 trigger_keywords/disclosure_tier/priority 对全 31 卡应存在）。
-- **元数据完整性**：全 31 卡都带 `priority`/`disclosure_tier`/`interaction_type`/`trigger_keywords`；`body_status` 仅 `full|stub`。
+- **逐卡校验**：33 个 JSON 全部 `CardSpec.safeParse` 通过；`card.id === key`（沿用 registry 既有不变式，参数化跑全部卡）。
+- **catalog**：`deriveCatalog` 产出 33 条，且每条带核心路由元数据（id/category/name/trigger_condition 必有；提议用的 trigger_keywords/disclosure_tier/priority 对全 33 卡应存在）。
+- **元数据完整性**：全 33 卡都带 `priority`/`disclosure_tier`/`interaction_type`/`trigger_keywords`；`body_status` 仅 `full|stub`。
 - **stub 卡**：标 `body_status:"stub"` 的卡，其 body 是单 step 单 `textarea`，经渲染器能产出合法 `CardInstance`（复用 S1 envelope 测试套路）。
 - **既有卡不回归**：`sift_craap`/`concession` 仍校验通过、Harness 仍渲染；回填的元数据不破坏既有字段。
 - **Harness**：选卡器列出 31 卡；切换能渲染 full 与 stub 两类（RTL）。
@@ -125,6 +127,7 @@ export const CardSpec = z.object({
 ## 8. Out of scope / carry-forward
 
 - **3b（下一个 slice）**：决策层用本 slice 的 catalog 元数据做「先分类 → 按 tier/priority/trigger 选卡」路由（README §渐进式披露 A：tier-0 常驻、tier-1/2 浮现、priority 取一主推其余折叠）；summon_card 循环 + 工作区。开 3b 前先据此**修订已存在的 3b 设计稿**（`2026-06-21-slice3-decision-summon-workspace-design.md`）的决策层/目录章节。
+- **3b 近义卡偏置**：因保留了 demo 卡（sift_craap/concession）与库卡（sift/craap/steelman）并存，3b 决策层须保证 Phoebe 主动脉里 demo 卡胜出——手段：给库里 `sift`/`craap`/`steelman` 设较低优先级或 tier-2，或在 demo 任务上下文里偏置 trigger 匹配。本 slice 已把所需元数据落到每卡，具体偏置策略在 3b 定。
 - **3c（later）**：为 stub 卡建真实富交互（量表光谱/角色模拟/画布导图/分类标注），含其分步脚本、就地小讲解、必要的新原语或专用组件；届时把对应卡 `body_status` 由 `stub` 升为 `full`。
 - **评估（S5）**：可消费 `rubric_dims`；本 slice 已把该元数据落到每卡。
 - **roadmap / 记忆更新**：S3 现拆为 3a/3b/3c，需同步 `docs/架构分解_Roadmap.md` 与 slice-progress 记忆（本 slice 完成时一并更新）。
