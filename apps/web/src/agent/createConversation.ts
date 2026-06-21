@@ -53,8 +53,8 @@ export function createConversation(deps: ConversationDeps): Conversation {
     const changed = (Object.keys(nextState) as (keyof ConvState)[]).some(
       (k) => nextState[k] !== state[k],
     );
-    state = nextState;
     if (changed) {
+      state = nextState;
       listeners.forEach((l) => l());
     }
   }

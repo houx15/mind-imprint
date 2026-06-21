@@ -374,4 +374,29 @@ describe("createConversation", () => {
     expect(snapshots).toContain("awaiting_llm");
     expect(snapshots).toContain("idle");
   });
+
+  it("getSnapshot() returns stable reference when nothing changed (no-op setState)", () => {
+    // Mirrors the createEvaluator stability test.
+    // After construction, calling getSnapshot() twice with no intervening mutation
+    // must return the exact same object reference — required for useSyncExternalStore.
+    const store = makeStore();
+    const fakeChat = makeFakeChat([]);
+    const { conv } = makeConv(store, fakeChat);
+
+    const snap1 = conv.getSnapshot();
+    const snap2 = conv.getSnapshot();
+    expect(snap1).toBe(snap2);
+  });
+
+  it("getSnapshot() returns new reference after a real state transition", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([makeTextResult("好")]);
+    const { conv } = makeConv(store, fakeChat);
+
+    const snapBefore = conv.getSnapshot();
+    await conv.send("hello");
+    const snapAfter = conv.getSnapshot();
+
+    expect(snapBefore).not.toBe(snapAfter);
+  });
 });

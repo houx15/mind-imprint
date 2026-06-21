@@ -193,6 +193,10 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
             type="button"
             disabled={evalState.phase === "running"}
             onClick={() => {
+              const hasEval = !!store.getLatestEvaluation(taskId);
+              if (hasEval && !window.confirm("重新评估会覆盖上一次的思维印记，确定吗？")) {
+                return;
+              }
               setShowEvalModal(true);
               void evaluator.run();
             }}
@@ -208,7 +212,7 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
               fontFamily: "inherit",
             }}
           >
-            生成思维印记
+            {store.getLatestEvaluation(taskId) ? "重新评估" : "生成思维印记"}
           </button>
         </div>
       </div>
@@ -252,6 +256,55 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
 
         {/* Eval loading overlay */}
         {evalState.phase === "running" && <EvalLoading />}
+
+        {/* Eval error card */}
+        {evalState.phase === "error" && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "80px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 40,
+              background: "#FFF3F3",
+              border: "1px solid #F8C8C8",
+              borderRadius: "12px",
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              boxShadow: "0 4px 16px rgba(200,60,60,.12)",
+              minWidth: "280px",
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: "#C0392B", fontSize: "14px" }}>评估失败</div>
+              {evalState.error && (
+                <div style={{ fontSize: "13px", color: "#8A4040", marginTop: "4px" }}>
+                  {evalState.error}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => void evaluator.run()}
+              style={{
+                background: "#C0392B",
+                color: "#fff",
+                border: "none",
+                padding: "7px 14px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                flexShrink: 0,
+              }}
+            >
+              重试
+            </button>
+          </div>
+        )}
 
         {/* Eval modal — shown when done and not dismissed */}
         {evalState.phase === "done" && evalState.evaluation && showEvalModal && (

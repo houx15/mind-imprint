@@ -430,6 +430,102 @@ describe("WorkspaceView", () => {
     });
   });
 
+  describe("eval error UX", () => {
+    function makeErrorEvaluator(errorMsg = "网络错误"): Evaluator {
+      // Use a stable snapshot reference — useSyncExternalStore requires referential
+      // stability between calls when nothing has changed.
+      const snapshot: EvalState = { phase: "error", error: errorMsg };
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: () => () => {},
+        run: vi.fn(),
+      };
+    }
+
+    it("shows 评估失败 message when evaluator phase is error", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={makeErrorEvaluator()} />,
+      );
+      expect(screen.getByText("评估失败")).toBeInTheDocument();
+      expect(screen.getByText("网络错误")).toBeInTheDocument();
+    });
+
+    it("shows 重试 button when evaluator phase is error", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={makeErrorEvaluator()} />,
+      );
+      expect(screen.getByRole("button", { name: /重试/ })).toBeInTheDocument();
+    });
+
+    it("clicking 重试 calls evaluator.run()", async () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const ev = makeErrorEvaluator();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={ev} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /重试/ }));
+      expect(ev.run).toHaveBeenCalled();
+    });
+  });
+
+  describe("eval re-run guard", () => {
+    it("shows 重新评估 when a prior evaluation exists", () => {
+      const store = makeStore();
+      // Make getLatestEvaluation return a truthy value
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue({ task_id: "t1" } as Evaluation);
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByRole("button", { name: /重新评估/ })).toBeInTheDocument();
+    });
+
+    it("shows 生成思维印记 when no prior evaluation exists", () => {
+      const store = makeStore();
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByRole("button", { name: /生成思维印记/ })).toBeInTheDocument();
+    });
+
+    it("with prior eval: confirm=true calls evaluator.run()", async () => {
+      const store = makeStore();
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue({ task_id: "t1" } as Evaluation);
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /重新评估/ }));
+      expect(evaluator.run).toHaveBeenCalled();
+      vi.restoreAllMocks();
+    });
+
+    it("with prior eval: confirm=false does NOT call evaluator.run()", async () => {
+      const store = makeStore();
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue({ task_id: "t1" } as Evaluation);
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /重新评估/ }));
+      expect(evaluator.run).not.toHaveBeenCalled();
+      vi.restoreAllMocks();
+    });
+  });
+
   describe("CardSheetHost", () => {
     it("does NOT show the bottom sheet when phase is idle", () => {
       const store = makeStore();
