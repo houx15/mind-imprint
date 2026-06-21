@@ -68,11 +68,15 @@ export async function openaiAdapter(config: LlmConfig, req: ChatRequest): Promis
   }
   const choice = data.choices?.[0];
   const rawToolCalls = choice?.message?.tool_calls;
-  const toolCalls: ToolCall[] | undefined = rawToolCalls?.map(c => ({
-    id: c.id,
-    name: c.function.name,
-    args: JSON.parse(c.function.arguments) as Record<string, unknown>,
-  }));
+  const toolCalls: ToolCall[] | undefined = rawToolCalls?.map(c => {
+    let args: Record<string, unknown>;
+    try {
+      args = JSON.parse(c.function.arguments) as Record<string, unknown>;
+    } catch {
+      throw new LlmError("模型返回的工具参数无法解析", { provider: "openai" });
+    }
+    return { id: c.id, name: c.function.name, args };
+  });
   return {
     text: choice?.message?.content ?? "",
     ...(toolCalls?.length ? { toolCalls } : {}),

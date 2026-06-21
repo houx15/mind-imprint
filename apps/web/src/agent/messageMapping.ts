@@ -25,23 +25,28 @@ export function buildLlmMessages(opts: BuildLlmMessagesOptions): ChatMessage[] {
       const parsed = SummonCardCall.safeParse(m.tool_call);
       if (parsed.success) {
         const call = parsed.data;
-        // Assistant message with a summon_card tool call
-        result.push({
-          role: "assistant",
-          content: m.content,
-          toolCalls: [{ id: call.id, name: "summon_card", args: call.args }],
-        });
-        // Look up the linked CardInstance
+        // Look up the linked CardInstance to determine resolution status
         const ci = cardById(call.card_instance_id);
         if (ci && (ci.status === "completed" || ci.status === "skipped")) {
+          // RESOLVED: emit tool_use + paired tool_result so the wire format is legal
+          result.push({
+            role: "assistant",
+            content: m.content,
+            toolCalls: [{ id: call.id, name: "summon_card", args: call.args }],
+          });
           const spec = specById(ci.card_id)!;
           result.push({
             role: "tool",
             content: JSON.stringify(serializeCardForRefeed(spec, ci)),
             toolCallId: call.id,
           });
+        } else {
+          // UNRESOLVED (proposed/active): emit as plain coaching text — no toolCalls.
+          // When the LLM is actually called an unresolved proposal is never the tail
+          // (a user message follows it), so emitting tool_use without a tool_result
+          // would make the message list wire-illegal for both OpenAI and Anthropic.
+          result.push({ role: "assistant", content: m.content });
         }
-        // If proposed/active (unresolved), append nothing — it's always the tail
       } else {
         // Plain assistant message (no tool_call)
         result.push({ role: "assistant", content: m.content });

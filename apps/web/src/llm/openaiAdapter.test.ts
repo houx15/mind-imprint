@@ -115,4 +115,21 @@ describe("openaiAdapter", () => {
     const result = await openaiAdapter(cfg, { messages: [{ role: "user", content: "hi" }] });
     expect(result.stopReason).toBe("length");
   });
+
+  it("throws LlmError (not SyntaxError) when tool_call arguments is malformed JSON", async () => {
+    mockFetch(200, {
+      choices: [{
+        message: {
+          content: null,
+          tool_calls: [{ id: "c1", type: "function", function: { name: "summon_card", arguments: "{not json" } }],
+        },
+        finish_reason: "tool_calls",
+      }],
+      usage: {},
+    });
+    const err = await openaiAdapter(cfg, { messages: [{ role: "user", content: "hi" }] }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ name: "LlmError", provider: "openai" });
+    expect(err).not.toBeInstanceOf(SyntaxError);
+    expect((err as Error).message).not.toContain("sk-test-123");
+  });
 });
