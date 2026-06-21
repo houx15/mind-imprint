@@ -1,4 +1,4 @@
-import type { Task, Message, MessageRole, CardInstance } from "@mind-imprint/contracts";
+import type { Task, Message, MessageRole, CardInstance, Evaluation } from "@mind-imprint/contracts";
 import { StoreState, EMPTY_STATE } from "./schema";
 import { STORE_KEY, type RawStorage } from "./storage";
 
@@ -20,6 +20,9 @@ export interface Store {
   putCard(card: CardInstance): void;
   getCard(id: string): CardInstance | undefined;
   listCards(task_id: string): CardInstance[];
+  putEvaluation(evaluation: Evaluation): void;
+  listEvaluations(task_id: string): Evaluation[];
+  getLatestEvaluation(task_id: string): Evaluation | undefined;
 }
 
 function load(storage: RawStorage): StoreState {
@@ -109,5 +112,14 @@ export function createStore(opts: CreateStoreOptions): Store {
     },
     getCard: (id) => state.cards.find((c) => c.id === id),
     listCards: (task_id) => state.cards.filter((c) => c.task_id === task_id),
+    putEvaluation(evaluation) {
+      commit({ ...state, evaluations: [...state.evaluations, evaluation] });
+    },
+    listEvaluations: (task_id) => state.evaluations.filter((e) => e.task_id === task_id),
+    getLatestEvaluation: (task_id) => {
+      const evals = state.evaluations.filter((e) => e.task_id === task_id);
+      if (evals.length === 0) return undefined;
+      return evals.reduce((max, e) => (e.created_at > max.created_at ? e : max));
+    },
   };
 }

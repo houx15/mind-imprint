@@ -46,7 +46,7 @@ function makeStore(overrides: {
   const messages: Message[] = overrides.messages ?? [];
   const cards: CardInstance[] = overrides.cards ?? [];
 
-  const storeState = { version: 1 as const, tasks: [task], messages, cards };
+  const storeState = { version: 1 as const, tasks: [task], messages, cards, evaluations: [] };
 
   return {
     getSnapshot: () => storeState,
@@ -63,6 +63,9 @@ function makeStore(overrides: {
     putCard: vi.fn() as any,
     getCard: (id: string) => cards.find((c) => c.id === id),
     listCards: (task_id: string) => cards.filter((c) => c.task_id === task_id),
+    putEvaluation: vi.fn() as any,
+    listEvaluations: vi.fn() as any,
+    getLatestEvaluation: vi.fn() as any,
   };
 }
 
