@@ -3,10 +3,14 @@ import { useSyncExternalStore } from "react";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { Store } from "../store/createStore";
 import type { Conversation } from "../agent/createConversation";
+import type { Evaluator } from "../agent/createEvaluator";
+import { useEvaluator } from "../agent/useEvaluator";
 import { ChatLog } from "./ChatLog";
 import { Composer } from "./Composer";
 import { TreePanel } from "./TreePanel";
 import { CardSheetHost } from "./CardSheetHost";
+import { EvalLoading } from "./EvalLoading";
+import { EvalModal } from "./EvalModal";
 import { messagesToItems } from "./viewModel";
 import { deriveProcessTree } from "./processTree";
 
@@ -15,16 +19,29 @@ type Props = {
   conversation: Conversation;
   taskId: string;
   onBack: () => void;
+  evaluator?: Evaluator;
 };
 
-export function WorkspaceView({ store, conversation, taskId, onBack }: Props) {
+// A no-op evaluator used when no evaluator prop is provided (e.g. in older tests)
+const NOOP_EVAL_STATE: import("../agent/createEvaluator").EvalState = { phase: "idle" };
+const NOOP_EVALUATOR: Evaluator = {
+  getSnapshot: () => NOOP_EVAL_STATE,
+  subscribe: () => () => {},
+  run: async () => {},
+};
+
+export function WorkspaceView({ store, conversation, taskId, onBack, evaluator = NOOP_EVALUATOR }: Props) {
   const [treeOpen, setTreeOpen] = useState(true);
+  const [showEvalModal, setShowEvalModal] = useState(true);
 
   // Subscribe to store state
   const storeState = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
   // Subscribe to conversation state
   const convState = useSyncExternalStore(conversation.subscribe, conversation.getSnapshot);
+
+  // Subscribe to evaluator state
+  const evalState = useEvaluator(evaluator);
 
   const task = store.getTask(taskId);
   const phase = convState.phase;
@@ -144,25 +161,55 @@ export function WorkspaceView({ store, conversation, taskId, onBack }: Props) {
             marginLeft: "auto",
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            color: "#9AA1B0",
-            fontSize: "12.5px",
-            fontWeight: 500,
+            gap: "12px",
           }}
         >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9AA1B0"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              color: "#9AA1B0",
+              fontSize: "12.5px",
+              fontWeight: 500,
+            }}
           >
-            <rect x="3" y="6" width="18" height="13" rx="2.5" />
-          </svg>
-          已用 {completedCount} 张工具卡
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#9AA1B0"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="6" width="18" height="13" rx="2.5" />
+            </svg>
+            已用 {completedCount} 张工具卡
+          </div>
+
+          <button
+            type="button"
+            disabled={evalState.phase === "running"}
+            onClick={() => {
+              setShowEvalModal(true);
+              void evaluator.run();
+            }}
+            style={{
+              fontSize: "13px",
+              fontWeight: 700,
+              color: evalState.phase === "running" ? "#9AA1B0" : "#2A3B7A",
+              background: evalState.phase === "running" ? "#F0F1F5" : "#EBF0FF",
+              border: "none",
+              padding: "7px 14px",
+              borderRadius: "10px",
+              cursor: evalState.phase === "running" ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            生成思维印记
+          </button>
         </div>
       </div>
 
@@ -200,6 +247,17 @@ export function WorkspaceView({ store, conversation, taskId, onBack }: Props) {
             spec={activeSpec}
             onSubmit={(id, final) => void conversation.submitCard(id, final)}
             onClose={(id) => void conversation.skipCard(id)}
+          />
+        )}
+
+        {/* Eval loading overlay */}
+        {evalState.phase === "running" && <EvalLoading />}
+
+        {/* Eval modal — shown when done and not dismissed */}
+        {evalState.phase === "done" && evalState.evaluation && showEvalModal && (
+          <EvalModal
+            evaluation={evalState.evaluation}
+            onClose={() => setShowEvalModal(false)}
           />
         )}
       </div>

@@ -5,7 +5,8 @@ import { WorkspaceView } from "./WorkspaceView";
 import type { Store } from "../store/createStore";
 import { createStore, makeMemoryStorage } from "../store";
 import type { Conversation, ConvState, ConvPhase } from "../agent/createConversation";
-import type { Task, Message, CardInstance } from "@mind-imprint/contracts";
+import type { Evaluator, EvalState, EvalPhase } from "../agent/createEvaluator";
+import type { Task, Message, CardInstance, Evaluation } from "@mind-imprint/contracts";
 
 // ─── Fake store ───────────────────────────────────────────────────────────────
 
@@ -66,6 +67,58 @@ function makeStore(overrides: {
     putEvaluation: vi.fn() as any,
     listEvaluations: vi.fn() as any,
     getLatestEvaluation: vi.fn() as any,
+  };
+}
+
+// ─── Fake evaluator ───────────────────────────────────────────────────────────
+
+function makeEvaluator(initialPhase: EvalPhase = "idle", evaluation?: Evaluation): {
+  evaluator: Evaluator;
+  setPhase: (phase: EvalPhase, evaluation?: Evaluation) => void;
+} {
+  let state: EvalState = { phase: initialPhase, evaluation };
+  const listeners = new Set<() => void>();
+
+  function notify() {
+    listeners.forEach((l) => l());
+  }
+
+  const evaluator: Evaluator = {
+    getSnapshot: () => state,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    run: vi.fn(async () => {
+      act(() => {
+        state = { phase: "running" };
+        notify();
+      });
+    }),
+  };
+
+  function setPhase(phase: EvalPhase, ev?: Evaluation) {
+    act(() => {
+      state = { phase, evaluation: ev };
+      notify();
+    });
+  }
+
+  return { evaluator, setPhase };
+}
+
+function makeEvaluation(): Evaluation {
+  return {
+    task_id: "t1",
+    scores: [
+      { dim_id: "D2", level: "L2", note: "能识别多个来源" },
+      { dim_id: "D3", level: "L2", note: "有一定横向验证" },
+      { dim_id: "D4", level: "L1", note: "视角单一" },
+      { dim_id: "D5", level: "L2", note: "有尝试拆解论证" },
+      { dim_id: "D6", level: "L1", note: "反思较少" },
+    ],
+    narrative: "Phoebe 在这次学习中展示了基础的信息核查能力。",
+    created_at: "2024-01-01T00:00:00.000Z",
   };
 }
 
@@ -263,6 +316,107 @@ describe("WorkspaceView", () => {
 
       // The tree should now show the card node title from CARD_REGISTRY
       expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+    });
+  });
+
+  describe("生成思维印记 evaluation trigger", () => {
+    it("shows the 生成思维印记 button in the breadcrumb", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByRole("button", { name: /生成思维印记/ })).toBeInTheDocument();
+    });
+
+    it("calls evaluator.run() when 生成思维印记 is clicked", async () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator();
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      expect(evaluator.run).toHaveBeenCalled();
+    });
+
+    it("shows EvalLoading when phase is running", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator("running");
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByText(/旗舰模型正在评估/)).toBeInTheDocument();
+    });
+
+    it("disables 生成思维印记 button while running", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const { evaluator } = makeEvaluator("running");
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByRole("button", { name: /生成思维印记/ })).toBeDisabled();
+    });
+
+    it("shows EvalModal when phase is done with an evaluation", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const evaluation = makeEvaluation();
+      const { evaluator } = makeEvaluator("done", evaluation);
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByText("你的思维印记")).toBeInTheDocument();
+    });
+
+    it("shows dim names in EvalModal", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const evaluation = makeEvaluation();
+      const { evaluator } = makeEvaluator("done", evaluation);
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      // D2 from DEMO_RUBRIC maps to "信源辨识"
+      expect(screen.getByText("信源辨识")).toBeInTheDocument();
+    });
+
+    it("dismisses EvalModal when 回到任务 is clicked", async () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const evaluation = makeEvaluation();
+      const { evaluator } = makeEvaluator("done", evaluation);
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      expect(screen.getByText("你的思维印记")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: /回到任务/ }));
+      expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
+    });
+
+    it("transitions: idle → running shows EvalLoading; → done shows EvalModal", () => {
+      const store = makeStore();
+      const conv = makeConversation();
+      const evaluation = makeEvaluation();
+      const { evaluator, setPhase } = makeEvaluator("idle");
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      // idle: no loading, no modal
+      expect(screen.queryByText(/旗舰模型正在评估/)).not.toBeInTheDocument();
+      expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
+
+      // transition to running
+      setPhase("running");
+      expect(screen.getByText(/旗舰模型正在评估/)).toBeInTheDocument();
+
+      // transition to done
+      setPhase("done", evaluation);
+      expect(screen.queryByText(/旗舰模型正在评估/)).not.toBeInTheDocument();
+      expect(screen.getByText("你的思维印记")).toBeInTheDocument();
     });
   });
 

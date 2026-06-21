@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { createStore } from "../store";
 import { chat, loadConfig } from "../llm";
-import { createConversation } from "../agent";
+import { createConversation, createEvaluator } from "../agent";
 import { CARD_REGISTRY, deriveCatalog } from "@mind-imprint/contracts";
 import { demoCatalog } from "../agent/prompt";
 import { WorkspaceView } from "../workspace";
@@ -36,13 +36,22 @@ if (existingTasks.length > 0) {
 }
 
 const catalog = demoCatalog(deriveCatalog(CARD_REGISTRY));
+const config = loadConfig();
 
 const conversation = createConversation({
   store,
   chat,
-  config: loadConfig(),
+  config,
   registry: CARD_REGISTRY,
   catalog,
+  taskId,
+});
+
+const evaluator = createEvaluator({
+  store,
+  chat,
+  config,
+  registry: CARD_REGISTRY,
   taskId,
 });
 
@@ -59,6 +68,7 @@ export function WorkspaceDev() {
         conversation={conversation}
         taskId={taskId}
         onBack={() => setDummy((n) => n + 1)}
+        evaluator={evaluator}
       />
     </div>
   );
