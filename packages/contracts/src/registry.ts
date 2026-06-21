@@ -4,7 +4,10 @@ import concession from "../cards/concession.json";
 
 const DEFAULT_RAW: Record<string, unknown> = { sift_craap: siftCraap, concession };
 
-export type CatalogEntry = { id: string; category: string; name: string; trigger_condition: string };
+export type CatalogEntry = {
+  id: string; category: string; name: string; trigger_condition: string;
+  trigger_keywords?: string[]; disclosure_tier?: string; priority?: string; interaction_type?: string;
+};
 export type Catalog = CatalogEntry[];
 
 export function loadRegistry(raw: Record<string, unknown> = DEFAULT_RAW): Record<string, CardSpec> {
@@ -26,6 +29,8 @@ export function loadRegistry(raw: Record<string, unknown> = DEFAULT_RAW): Record
 export function deriveCatalog(registry: Record<string, CardSpec>): Catalog {
   return Object.values(registry).map((c) => ({
     id: c.id, category: c.category, name: c.name, trigger_condition: c.trigger_condition,
+    trigger_keywords: c.trigger_keywords, disclosure_tier: c.disclosure_tier,
+    priority: c.priority, interaction_type: c.interaction_type,
   }));
 }
 

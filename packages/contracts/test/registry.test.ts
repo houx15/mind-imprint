@@ -22,6 +22,15 @@ describe("deriveCatalog", () => {
     const cat = deriveCatalog(loadRegistry());
     expect(cat).toHaveLength(2);
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
-    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "id", "name", "trigger_condition"]);
+    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "trigger_condition", "trigger_keywords"]);
+  });
+  it("deriveCatalog projects routing metadata", () => {
+    const cat = deriveCatalog(loadRegistry());
+    const sift = cat.find((c) => c.id === "sift_craap");
+    expect(sift).toBeDefined();
+    expect(sift!.priority).toBe("P0");
+    expect(sift!.disclosure_tier).toBe("tier-0");
+    expect(sift!.trigger_keywords?.length).toBeGreaterThan(0);
+    expect(sift!.interaction_type).toBe("步骤引导卡");
   });
 });
