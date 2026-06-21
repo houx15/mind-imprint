@@ -27,7 +27,10 @@
 | **mock 认证**：login/register/bind 屏（点击即进，无后端）| 设计 HTML `authScreen` | **S6** | 否（demo 可跳过/mock）|
 | **导航 a11y**（`role="tab"`/`aria-selected`）| S2.5/S6 | **S6** | 否 |
 | **评估触发 + showEval/evalLoading「你的思维印记」UI** | PRD §11/§14 步骤7 | **S5** | 是（护城河）|
-| **语义树归并**：`sub_question` 分枝 / `key_knowledge` / `attempt` 节点 + 归并打型（eval LLM 顺手做）；并把 `nodeView` 缩进从二元（`parent_id!==null`→1）改为按 node 列表**走父链算真实 depth**（depth×18px；HTML demo 卡节点在 depth 2=36px）| S4 | **S5** | 是（树的完整形态）|
+| **语义树归并**：`sub_question` 分枝 / `key_knowledge` / `attempt` 节点 + 归并打型（eval LLM 顺手做）；并把 `nodeView` 缩进从二元（`parent_id!==null`→1）改为按 node 列表**走父链算真实 depth**（depth×18px；HTML demo 卡节点在 depth 2=36px）| S4 → S5 | **follow-on（评估增强，可与 S5 `runEvaluation` 合并为一次结构化调用，或单独一刀）** | 否（S4 扁平实时树已满足"可读的树"）|
+| **few-shot 锚点样本扩展**：Marcus（被动 L1-2）/ Ethan（代写红线）/ Eliza（跨模块）——本期只放 1 份 Phoebe | S5 | **follow-on（评估精度/覆盖）** | 否（demo 用 Phoebe few-shot 够）|
+| **评估 benchmark / 微调**：人工标注 benchmark + 累积数据微调小模型（doc 的 验证/规模化 阶段）| S5 | **后续（非 demo）** | 否 |
+| **评估触发接进任务完成流**（当前手动按钮；可在任务"告一段落"时提示/异步增量跑）| S5 | **S6**（任务流/外壳） | 否 |
 | **评估增强树是否落库** vs 重派生 | S4 | **S5** 定 | 否 |
 | **10 张 stub 卡的真实交互**（量表光谱/角色模拟/画布导图/分类标注/媒体回放/条件分支）| S3a | **3c** | 否（优雅降级）|
 | **新原语**：`show_if`（条件步，aok-methods 需要）、spectrum/slider | S3a/3c | **3c** | 否 |
@@ -46,4 +49,4 @@
 
 ## 结论
 
-跑通 **S4 + S5 + S6** 即得到一个**端到端可用**的平台（覆盖 PRD §2 全部四条成功判据）。**3c** 与各 review 的 minor 项都是非阻塞的广度/打磨，登记在册、择期推进，不影响端到端主动脉。无孤儿项阻塞端到端。
+跑通 **S4 + S5 + S6** 即得到一个**端到端可用**的平台（覆盖 PRD §2 全部四条成功判据）。**3c**、**评估增强（语义树 + few-shot 扩展）** 与各 review 的 minor 项都是非阻塞的广度/打磨，登记在册、择期推进，不影响端到端主动脉。无孤儿项阻塞端到端。
