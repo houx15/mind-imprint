@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SpectrumField, FieldPrimitive, ItemField, RepeatableGroupField, CriteriaCheckField } from "../src/primitives";
+import { SpectrumField, FieldPrimitive, ItemField, RepeatableGroupField, CriteriaCheckField, ShowIf } from "../src/primitives";
 
 describe("FieldPrimitive", () => {
   it("accepts a textarea field", () => {
@@ -67,5 +67,19 @@ describe("CriteriaCheckField", () => {
   });
   it("is accepted by the FieldPrimitive union", () => {
     expect(FieldPrimitive.parse(ok)).toEqual(ok);
+  });
+});
+
+describe("show_if modifier", () => {
+  it("ShowIf parses {key, equals}", () => {
+    expect(ShowIf.parse({ key: "subject", equals: "数学" })).toEqual({ key: "subject", equals: "数学" });
+  });
+  it("a field may carry an optional show_if", () => {
+    const f = { type: "textarea", key: "proof", label: "证明", show_if: { key: "subject", equals: "数学" } };
+    expect(FieldPrimitive.parse(f)).toEqual(f);
+  });
+  it("a field without show_if still parses (backward compatible)", () => {
+    const f = { type: "textarea", key: "x", label: "X" };
+    expect(FieldPrimitive.parse(f)).toEqual(f);
   });
 });

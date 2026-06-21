@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-const base = { key: z.string().min(1), label: z.string().min(1) };
+export const ShowIf = z.object({ key: z.string().min(1), equals: z.string() });
+
+const base = { key: z.string().min(1), label: z.string().min(1), show_if: ShowIf.optional() };
 
 export const TextField = z.object({ type: z.literal("text"), ...base });
 export const TextAreaField = z.object({ type: z.literal("textarea"), ...base, rows: z.number().int().positive().optional() });
