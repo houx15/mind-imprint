@@ -18,6 +18,11 @@ describe("card library is complete", () => {
     }
   });
 
+  it("all cards are fully built — no stubs remain (S3c complete)", () => {
+    const stubs = Object.values(CARD_REGISTRY).filter((c) => c.body_status === "stub").map((c) => c.id);
+    expect(stubs).toEqual([]);
+  });
+
   it("catalog projects all 33 cards", () => {
     expect(deriveCatalog(CARD_REGISTRY).length).toBe(33);
   });
