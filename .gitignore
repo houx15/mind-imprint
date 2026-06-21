@@ -107,3 +107,6 @@ coverage/
 
 # Python
 htmlcov/
+
+# Subagent worktrees (never commit)
+.claude/worktrees/
