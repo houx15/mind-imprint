@@ -9,6 +9,7 @@ import { RatingField } from "./fields/RatingField";
 import { LinkCheckField } from "./fields/LinkCheckField";
 import { RepeatableGroupField } from "./fields/RepeatableGroupField";
 import { SpectrumField } from "./fields/SpectrumField";
+import { CriteriaCheckField } from "./fields/CriteriaCheckField";
 
 export const fieldRegistry: Record<FieldType, ComponentType<FieldProps<any>>> = {
   text: TextField,
@@ -19,4 +20,5 @@ export const fieldRegistry: Record<FieldType, ComponentType<FieldProps<any>>> = 
   link_check: LinkCheckField,
   repeatable_group: RepeatableGroupField,
   spectrum: SpectrumField,
+  criteria_check: CriteriaCheckField,
 };
