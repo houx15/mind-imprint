@@ -23,3 +23,27 @@ describe("CardSpec", () => {
     expect(CardSpec.safeParse(bad).success).toBe(false);
   });
 });
+
+const baseStep = { key: "s", title: "T", disclose: "always", methodology_note: "", fields: [{ type: "textarea", key: "x", label: "L" }] };
+const minimal = { id: "c", category: "信息素养", name: "n", purpose: "", trigger_condition: "", steps: [baseStep], rubric_tags: [] };
+
+describe("CardSpec metadata extension", () => {
+  it("still accepts a card with no metadata (back-compat)", () => {
+    expect(CardSpec.safeParse(minimal).success).toBe(true);
+  });
+  it("accepts full routing metadata", () => {
+    const withMeta = { ...minimal, name_en: "N", priority: "P0", disclosure_tier: "tier-0",
+      age_band: ["MYP","DP"], trigger_keywords: ["a"], interaction_type: "步骤引导卡",
+      rubric_dims: ["D1"], related: ["other"], body_status: "stub" };
+    expect(CardSpec.safeParse(withMeta).success).toBe(true);
+  });
+  it("rejects an unknown priority", () => {
+    expect(CardSpec.safeParse({ ...minimal, priority: "P9" }).success).toBe(false);
+  });
+  it("rejects an unknown interaction_type", () => {
+    expect(CardSpec.safeParse({ ...minimal, interaction_type: "全息卡" }).success).toBe(false);
+  });
+  it("rejects an unknown body_status", () => {
+    expect(CardSpec.safeParse({ ...minimal, body_status: "draft" }).success).toBe(false);
+  });
+});
