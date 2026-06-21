@@ -6,6 +6,7 @@ export interface LlmConfig {
   model: string;
   apiKey: string;
   evalModel?: string; // optional; consumed by B6/S5, only stored here
+  verified?: boolean; // set true only after a passing 测试连接; gates the key-gate
 }
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";

@@ -1,13 +1,24 @@
+import { z } from "zod";
 import type { LlmConfig, LlmFormat } from "./types";
 
 const STORAGE_KEY = "mk.llmConfig";
 type EnvSource = Record<string, string | undefined>;
 
+const StoredConfig = z.object({
+  format: z.enum(["openai", "anthropic"]).optional(),
+  baseUrl: z.string().optional(),
+  model: z.string().optional(),
+  apiKey: z.string().optional(),
+  evalModel: z.string().optional(),
+  verified: z.boolean().optional(),
+});
+
 export function loadConfig(env: EnvSource = import.meta.env as EnvSource): Partial<LlmConfig> {
   const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
   if (stored) {
     try {
-      return JSON.parse(stored) as LlmConfig;
+      const parsed = StoredConfig.safeParse(JSON.parse(stored));
+      if (parsed.success) return parsed.data;
     } catch {
       /* corrupt storage — fall through to env defaults */
     }
@@ -28,4 +39,12 @@ export function saveConfig(cfg: LlmConfig): void {
 
 export function isConfigured(cfg: Partial<LlmConfig>): cfg is LlmConfig {
   return Boolean(cfg.format && cfg.baseUrl && cfg.model && cfg.apiKey);
+}
+
+export function isVerified(cfg: Partial<LlmConfig>): boolean {
+  return isConfigured(cfg) && cfg.verified === true;
+}
+
+export function markVerified(cfg: LlmConfig): void {
+  saveConfig({ ...cfg, verified: true });
 }
