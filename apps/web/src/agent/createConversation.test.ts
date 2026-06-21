@@ -68,6 +68,7 @@ function makeConv(store: ReturnType<typeof makeStore>, fakeChat: FakeChat) {
     config: { format: "anthropic", baseUrl: "http://localhost", model: "test", apiKey: "k" },
     registry,
     catalog,
+    taskId: task.id,
     now: () => `2026-01-01T0${nowIdx++}:00:00.000Z`,
     genId: (() => { let n = 0; return () => `gen_${++n}`; })(),
   });
@@ -294,6 +295,66 @@ describe("createConversation", () => {
     const state = conv.getSnapshot();
     expect(state.phase).toBe("error");
     expect(state.error).toContain("API 超时");
+  });
+
+  it("re-feed throws LlmError after submitCard → phase=error, nothing thrown", async () => {
+    const store = makeStore();
+    // First call returns a summon_card proposal; second call (re-feed) throws LlmError
+    let callCount = 0;
+    const fakeChat: FakeChat = {
+      fn: async (_config: object, req: ChatRequest): Promise<ChatResult> => {
+        callCount++;
+        if (callCount === 1) return makeSummonCardResult();
+        throw new LlmError("re-feed 超时", { status: 503 });
+      },
+      calls: [],
+    };
+    const { conv } = makeConv(store, fakeChat);
+
+    await conv.send("test");
+    const { pendingCardId } = conv.getSnapshot();
+    expect(pendingCardId).toBeDefined();
+    conv.openCard(pendingCardId!);
+
+    const originalCi = store.getCard(pendingCardId!)!;
+    const completedCi = {
+      ...originalCi,
+      status: "completed" as const,
+      completed_at: "2026-01-01T01:00:00.000Z",
+      field_values: {},
+    };
+
+    // submitCard must resolve (not throw) even when re-feed errors
+    await expect(conv.submitCard(pendingCardId!, completedCi)).resolves.toBeUndefined();
+
+    const state = conv.getSnapshot();
+    expect(state.phase).toBe("error");
+    expect(state.error).toContain("re-feed 超时");
+  });
+
+  it("re-feed throws LlmError after skipCard → phase=error, nothing thrown", async () => {
+    const store = makeStore();
+    let callCount = 0;
+    const fakeChat: FakeChat = {
+      fn: async (_config: object, req: ChatRequest): Promise<ChatResult> => {
+        callCount++;
+        if (callCount === 1) return makeSummonCardResult();
+        throw new LlmError("skip re-feed 失败", { status: 500 });
+      },
+      calls: [],
+    };
+    const { conv } = makeConv(store, fakeChat);
+
+    await conv.send("test");
+    const { pendingCardId } = conv.getSnapshot();
+    expect(pendingCardId).toBeDefined();
+
+    // skipCard must resolve (not throw) even when re-feed errors
+    await expect(conv.skipCard(pendingCardId!)).resolves.toBeUndefined();
+
+    const state = conv.getSnapshot();
+    expect(state.phase).toBe("error");
+    expect(state.error).toContain("skip re-feed 失败");
   });
 
   it("subscribe notifies on state change", async () => {

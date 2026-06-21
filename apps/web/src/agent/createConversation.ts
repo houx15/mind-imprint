@@ -24,6 +24,7 @@ export interface ConversationDeps {
   config: Partial<LlmConfig>;
   registry: Record<string, CardSpec>;
   catalog: Catalog;
+  taskId: string;
   now?: () => string;
   genId?: () => string;
 }
@@ -38,14 +39,11 @@ export interface Conversation {
 }
 
 export function createConversation(deps: ConversationDeps): Conversation {
-  const { store, chat, config, registry, catalog } = deps;
+  const { store, chat, config, registry, catalog, taskId } = deps;
   const now = deps.now ?? (() => new Date().toISOString());
   const genId = deps.genId ?? (() => crypto.randomUUID());
 
-  // Use the most recently created task in the store
-  const tasks = store.listTasks();
-  if (tasks.length === 0) throw new Error("[createConversation] no task in store");
-  const taskId = tasks[tasks.length - 1]!.id;
+  if (!store.getTask(taskId)) throw new Error(`[createConversation] task "${taskId}" not in store`);
 
   let state: ConvState = { taskId, phase: "idle" };
   const listeners = new Set<() => void>();
@@ -170,7 +168,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
 
     async submitCard(cardInstanceId: string, finalInstance: CardInstance): Promise<void> {
       store.putCard(finalInstance);
-      setState({ phase: "awaiting_llm" });
+      setState({ phase: "awaiting_llm", pendingCardId: undefined });
 
       let result: ChatResult;
       try {
@@ -189,7 +187,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
       if (!ci) throw new Error(`[createConversation] unknown card instance "${cardInstanceId}"`);
       const skipped = envelopeReducer(ci, { type: "skip" }, now);
       store.putCard(skipped);
-      setState({ phase: "awaiting_llm" });
+      setState({ phase: "awaiting_llm", pendingCardId: undefined });
 
       let result: ChatResult;
       try {
