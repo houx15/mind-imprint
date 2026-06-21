@@ -10,19 +10,16 @@ type Props = {
 };
 
 function StepFields({ step, values, onField }: { step: Step; values: Record<string, unknown>; onField: Props["onField"] }) {
+  const visible = step.fields.filter((field) => {
+    const cond = (field as { show_if?: { key: string; equals: string } }).show_if;
+    return !cond || values[cond.key] === cond.equals;
+  });
   return (
     <div className="space-y-4">
-      {step.fields.map((field) => {
+      {visible.map((field) => {
         const Cmp = fieldRegistry[field.type];
         if (!Cmp) throw new Error(`No component registered for field type "${field.type}"`);
-        return (
-          <Cmp
-            key={field.key}
-            field={field}
-            value={values[field.key]}
-            onChange={(v: unknown) => onField(field.key, v)}
-          />
-        );
+        return <Cmp key={field.key} field={field} value={values[field.key]} onChange={(v: unknown) => onField(field.key, v)} />;
       })}
     </div>
   );
