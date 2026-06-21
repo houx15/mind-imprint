@@ -2,3 +2,8 @@ export * from "./prompt";
 export * from "./messageMapping";
 export * from "./createConversation";
 export * from "./useConversation";
+export * from "./runEvaluation";
+export * from "./evalPrompt";
+export * from "./evalInput";
+export * from "./createEvaluator";
+export * from "./useEvaluator";
