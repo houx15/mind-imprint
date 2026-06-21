@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FieldPrimitive } from "../src/primitives";
+import { SpectrumField, FieldPrimitive, ItemField, RepeatableGroupField } from "../src/primitives";
 
 describe("FieldPrimitive", () => {
   it("accepts a textarea field", () => {
@@ -35,5 +35,23 @@ describe("FieldPrimitive", () => {
   });
   it("rejects rating with a non-positive scale", () => {
     expect(FieldPrimitive.safeParse({ type: "rating", key: "c", label: "Currency", scale: 0 }).success).toBe(false);
+  });
+});
+
+describe("SpectrumField", () => {
+  const ok = { type: "spectrum", key: "pos", label: "位置", stops: ["低", "中", "高"] };
+  it("parses a valid spectrum field", () => {
+    expect(SpectrumField.parse(ok)).toEqual(ok);
+  });
+  it("requires at least 2 stops", () => {
+    expect(SpectrumField.safeParse({ ...ok, stops: ["只有一个"] }).success).toBe(false);
+  });
+  it("is accepted by the FieldPrimitive union", () => {
+    expect(FieldPrimitive.parse(ok)).toEqual(ok);
+  });
+  it("is accepted as an ItemField (usable inside repeatable_group)", () => {
+    expect(ItemField.parse(ok)).toEqual(ok);
+    const group = { type: "repeatable_group", key: "g", label: "G", item_fields: [ok] };
+    expect(RepeatableGroupField.parse(group)).toEqual(group);
   });
 });
