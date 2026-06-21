@@ -1,13 +1,21 @@
 import { useMemo, useState } from "react";
-import { loadRegistry, type CardInstance } from "@mind-imprint/contracts";
+import { CARD_REGISTRY, type CardInstance } from "@mind-imprint/contracts";
 import { envelopeReducer, newEnvelope, type ReducerAction } from "../cards/envelopeReducer";
 import { ProposalBubble } from "../cards/states/ProposalBubble";
 import { ActiveSheet } from "../cards/states/ActiveSheet";
 import { CompletedCard } from "../cards/states/CompletedCard";
 import { PHOEBE_VALUES } from "./fixtures";
 
-const reg = loadRegistry();
+const reg = CARD_REGISTRY;
 const cardIds = Object.keys(reg);
+
+// Group cards by category for <optgroup> rendering
+const cardsByCategory: Record<string, { id: string; name: string }[]> = {};
+for (const spec of Object.values(reg)) {
+  const bucket = cardsByCategory[spec.category] ?? [];
+  bucket.push({ id: spec.id, name: spec.name });
+  cardsByCategory[spec.category] = bucket;
+}
 
 export function Harness() {
   const [cardId, setCardId] = useState(cardIds[0]!);
@@ -27,7 +35,28 @@ export function Harness() {
   return (
     <div className="relative min-h-screen bg-mk-bg p-8 font-sans text-mk-ink">
       <div className="mx-auto max-w-[760px] space-y-5">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="card-picker" className="text-[13px] font-semibold text-mk-muted-2 sr-only">
+            选择工具卡
+          </label>
+          <select
+            id="card-picker"
+            aria-label="选择工具卡"
+            value={cardId}
+            onChange={(e) => reset(e.target.value)}
+            className="rounded-full border border-mk-border bg-white px-3 py-1.5 text-[13px] font-semibold text-mk-ink"
+          >
+            {Object.entries(cardsByCategory).map(([category, cards]) => (
+              <optgroup key={category} label={category}>
+                {cards.map(({ id, name }) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+
           {cardIds.map((id) => (
             <button
               key={id}
@@ -38,6 +67,12 @@ export function Harness() {
             </button>
           ))}
         </div>
+
+        {card.body_status === "stub" && (
+          <p className="text-[12px] text-mk-muted-2">
+            占位 · 富交互待上线 · {card.interaction_type}
+          </p>
+        )}
 
         {env.status === "proposed" && (
           <ProposalBubble

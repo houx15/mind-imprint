@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CardInstance } from "@mind-imprint/contracts";
 import { Harness } from "./Harness";
@@ -22,5 +22,13 @@ describe("Harness end-to-end (fake data)", () => {
     await userEvent.click(screen.getByRole("button", { name: "暂不，先继续" }));
     const parsed = JSON.parse(screen.getByTestId("envelope-json").textContent ?? "{}");
     expect(parsed.status).toBe("skipped");
+  });
+
+  it("lists registry cards and switches the rendered card", async () => {
+    render(<Harness />);
+    const picker = screen.getByLabelText("选择工具卡");
+    // both current cards present as options
+    expect(within(picker).getByRole("option", { name: /SIFT/ })).toBeInTheDocument();
+    expect(within(picker).getByRole("option", { name: /让步段/ })).toBeInTheDocument();
   });
 });
