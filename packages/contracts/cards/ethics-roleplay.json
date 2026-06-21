@@ -12,20 +12,23 @@
   "interaction_type": "角色模拟卡",
   "rubric_dims": ["D9", "D4"],
   "related": ["ethics-lenses", "belief-spectrum", "ai-decision-tree"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D9", "D4"],
   "steps": [
     {
       "key": "main",
       "title": "伦理情景角色博弈",
       "disclose": "always",
-      "methodology_note": "只有站到对方的利益里，你才看得见自己原来的盲区。选一个真实情景（如招聘 AI 筛选、儿童陪伴机器人、医疗诊断黑箱），扮演一个角色（开发者/用户/监管者/伦理学家/企业负责人/受影响者），填出该角色的利益、责任和盲区，再与其他角色博弈。",
+      "methodology_note": "抽一个真实伦理情景，逐角色填它的利益/责任/盲区——站到对方的利益里，才看得见自己的盲区；最后综合各方做出你的判断。",
       "fields": [
-        {
-          "type": "textarea",
-          "key": "notes",
-          "label": "先用文字记录你的思考；这张卡的完整交互（情景卡抽取 + 角色分配 + 多角色对话区）即将上线"
-        }
+        { "type": "textarea", "key": "scenario", "label": "情景与核心问题（AI 给定背景，你写下要决断的核心问题）" },
+        { "type": "repeatable_group", "key": "roles", "label": "各方角色立场板", "item_fields": [
+          { "type": "text", "key": "name", "label": "角色" },
+          { "type": "textarea", "key": "interest", "label": "它的利益" },
+          { "type": "textarea", "key": "duty", "label": "它的责任" },
+          { "type": "textarea", "key": "blindspot", "label": "它的盲区" }
+        ] },
+        { "type": "textarea", "key": "closing", "label": "综合各方：你认为 AI 该介入到哪一步？谁该负责？" }
       ]
     }
   ]
