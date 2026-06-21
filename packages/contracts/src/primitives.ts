@@ -9,6 +9,12 @@ export const MultiChoiceField = z.object({ type: z.literal("multi_choice"), ...b
 export const RatingField = z.object({ type: z.literal("rating"), ...base, scale: z.number().int().positive() });
 export const LinkCheckField = z.object({ type: z.literal("link_check"), ...base });
 export const SpectrumField = z.object({ type: z.literal("spectrum"), ...base, stops: z.array(z.string()).min(2) });
+export const CriteriaCheckField = z.object({
+  type: z.literal("criteria_check"),
+  ...base,
+  criteria: z.array(z.string()).min(2),
+  levels: z.array(z.string()).min(2),
+});
 
 // item_fields cannot themselves be repeatable (no nesting)
 export const ItemField = z.discriminatedUnion("type", [
@@ -22,7 +28,7 @@ export const RepeatableGroupField = z.object({
 });
 
 export const FieldPrimitive = z.discriminatedUnion("type", [
-  TextField, TextAreaField, SingleChoiceField, MultiChoiceField, RatingField, LinkCheckField, SpectrumField, RepeatableGroupField,
+  TextField, TextAreaField, SingleChoiceField, MultiChoiceField, RatingField, LinkCheckField, SpectrumField, CriteriaCheckField, RepeatableGroupField,
 ]);
 
 export type FieldPrimitive = z.infer<typeof FieldPrimitive>;
