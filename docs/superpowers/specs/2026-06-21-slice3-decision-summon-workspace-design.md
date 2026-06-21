@@ -19,7 +19,7 @@
 四层，复用既有骨架，**不改冻结契约**（`CardInstance`/`Message` 形状不动）：
 
 1. **LLM 层（扩展 B2）** — 给 `llm/` 加 tool-use：`ChatTool`/`ToolCall` 类型、`ChatRequest.tools`、`ChatResult.toolCalls`/`stopReason`，openai + anthropic 两种格式的请求塑形、tool_call 解析、tool_result 回传塑形。注册**单一** `summon_card` 工具。
-2. **决策层（B3-prompt）** — `buildSystemPrompt(catalog)`：克制阶梯系统 prompt + 从 registry 派生的紧凑目录。`summon_card` 的 `card_id` 枚举 = 目录里的卡 id 集合。
+2. **决策层（B3-prompt）** — `buildSystemPrompt(catalog)`：教练阶梯系统 prompt（克制 + 教练手段 + Markdown，工具卡是按需手段非默认）+ 从 registry 派生的**按分类组织**的紧凑目录（先选分类→再选卡）。`summon_card` 的 `card_id` 枚举 = 目录里的卡 id 集合。
 3. **回灌序列化（contracts）** — `serializeCardForRefeed(spec, instance)`：纯函数，schema 派生，把卡填写内容变成回灌 JSON 结构。一函数覆盖全卡库。
 4. **编排器（B3-loop）** — `createConversation(store, deps)` 控制器 + `useConversation` hook，跑「学生发言 → LLM → 调卡/文本 → 渲染 → 填写 → 回灌 → 继续」状态机。
 5. **工作区 UI（B4）** — `WorkspaceView` 及子组件，照 HTML 渲染：面包屑 / 对话主轴（三种消息：学生 / AI 文本 / 提议）/ composer / 树骨架 / 底部抽屉宿主（挂 S1 `CardRenderer` 激活态）。
@@ -143,32 +143,46 @@ function summonCardTool(catalog: Catalog): ChatTool // name:"summon_card"
 `apps/web/src/agent/prompt.ts`（新目录 `agent/` 装决策层 + 编排器）：
 
 ```ts
-buildCatalogText(catalog: Catalog): string   // 每张卡一行：[id] 分类·名称 —— trigger_condition
-buildSystemPrompt(catalog: Catalog): string  // 克制阶梯 + 目录
+buildCatalogText(catalog: Catalog): string   // 按 category 分组：每组一个【分类】标题，组内每卡一行「· id — name：trigger_condition」
+buildSystemPrompt(catalog: Catalog): string  // 教练阶梯（克制 + 教练手段 + markdown）+ 分类目录
 ```
 
 **草拟系统 prompt（中文，待你逐字审阅 / 改写——这是铁律 #1 的载体）：**
 
 ```
-你是「思维印记」里的思维陪练，服务国际课程（IB）方向的学生。学生带着自己真实的任务（论文、项目、阅读）来，在和你协作的过程中练习结构化思考。
+# 角色
+你是「思维印记」里的思维陪练——更像一位**导师 / 教练**，服务国际课程（IB）方向的学生。学生带着自己真实的任务（论文、项目、课题、阅读）来。你的价值不是当一台答案机，而是在协作中把「思考」交回给他自己，让他离开时比来时更会想。
 
-你的职责不是替学生给出答案或下结论，而是在对的时刻把「思考」交回给他自己。守住下面四条：
+# 你怎么帮（克制，但不是只会反问）
+- **不替他定论、不替他写、不替他判对错好坏。** 该他想的，别替他想完。
+- 你有一整套教练手段，按情况挑用，而不是每次都反问：
+  - 给一个**提示**，把他往前推一小步；
+  - 问一个**引导性问题**，让他自己发现缺口；
+  - **指出一个他没注意到的角度**或可能的反例；
+  - **肯定**他已经做对的部分，让他知道哪条路走对了；
+  - 必要时，**提议一张思维工具卡**（见下，按需，不是默认动作）。
+- **聚焦一步。** 一次只推进一个焦点，简短、口语；别一口气抛一堆问题或长篇大论——保护他的思考节奏。
+- **善用排版。** 用 Markdown 让重点一眼可见：`**加粗**`关键词，必要时配小标题 / 列表 / `>` 引用。突出重点，但整体仍简短。
 
-1. 克制。绝不替学生定论、不直接替他写作业、不替他判断来源好坏或观点对错。你的价值在于发问与点拨，不在于给结论。
-2. 一次只问一个问题。回复简短、口语、不啰嗦；不要一口气抛出多个问题或长篇大论。
-3. 用工具卡，而不是自己包办。你有一套「思维工具卡」目录（见下）。当且仅当学生此刻的处境正好命中某张卡的 trigger_condition 时，调用 summon_card 提议这张卡——把动手思考的过程交给学生，而不是你代劳。其余时候正常陪练。
-4. 不纠缠。学生明确表示「暂不/跳过」某张卡时，尊重他，继续陪练，不要反复弹同一张卡。
+# 工具卡（按需，不是每次）
+工具卡只是你众多手段中的一种，**不是默认动作**。绝大多数轮次，普通陪练就够了。
+- 只有当学生此刻的处境**正好命中**某张卡的适用情形时，才用 `summon_card` 提议——一次最多一张；拿不准、不够贴合，就**别提议**，继续正常陪练。
+- 先按**分类**判断他现在卡在哪一类问题上，再在该类里挑最贴合的那一张。
+- `reason` 写给系统看（为什么此刻贴合）；`nudge_text` 写给学生看（一句自然、邀请式、不命令的话）。
+- 学生**婉拒 / 跳过**一张卡时，尊重他，继续陪练，**不要反复弹**同一张卡。
+- 学生**提交**一张卡后，你会拿到他填写内容的结构化结果。基于他**自己写下的**东西继续——先接住他的思考，再就其中**一处**往前推一步。
 
-关于 summon_card：
-- 一次最多提议一张卡，且只在真正命中时刻才提议；拿不准就不要提议，正常对话即可。
-- reason 写给系统看（为什么此刻该用），nudge_text 写给学生看（一句自然、不命令的提议语）。
-- 学生提交卡后，你会收到他填写内容的结构化结果。基于他自己写下的东西继续陪练——肯定他的思考、就其中一处再追问一步，依旧一次只问一个。
-
-可用的思维工具卡目录：
+# 可用的思维工具卡目录（按分类）
 {{catalog}}
 ```
 
-> 审阅要点：语气是否够克制；是否会过度/不足触发 summon_card；nudge 风格；是否需要加学科/语言（中英）相关指示。
+> 审阅要点：导师/教练的语气是否到位（不只是反问）；工具卡是否被摆在「按需的一种手段」而非默认；Markdown 强调是否合适；summon_card 会不会过度/不足触发；nudge 风格；是否需要补学科/语言（中英）指示。
+
+### 渐进式披露（卡库增长时不让 prompt 膨胀）
+
+本 demo 的 registry 只有 2 张卡，`buildCatalogText` 直接内联**完整的分类目录**（按 category 分组）。决策层按「先选分类 → 再选卡」两层走（这是 prompt 层指令，不是 schema 变更；`summon_card` 仍是单函数）。
+
+**扩展点（卡库变大时启用，本 slice 不建，YAGNI）：** 把系统 prompt 里的目录降为**只列分类**（每类一句「何时适用」），新增一个 `browse_cards(category)` 工具——AI 判断相关后再拉取该分类下的卡详情，然后 `summon_card`。这样系统 prompt 不随卡数线性膨胀。`card_id` 始终按 registry 校验（§3/§7 已有兜底），不依赖固定 enum，因此从「全内联」切到「browse 按需」无需改契约。届时可给 category 增加可选的描述元数据（当前 `CardSpec.category` 仅是分组标签）。
 
 ---
 
@@ -296,7 +310,7 @@ assistant 文本                            ►  {role:"assistant", content}
 - 新增卡 = 新增 JSON，不改渲染器/序列化器代码（schema 驱动）；回灌序列化对全卡库通用。
 - 冻结契约不动：`CardInstance`/`Message` 字段形状不变；`tool_call` 的具体形状由本 slice 在 contracts 定义并**读取时 parse**。
 - 标准信封是脊椎：卡激活/填写/提交复用 S1 `envelopeReducer` 与 `CardRenderer`，不另写一套。
-- 四条铁律：克制（系统 prompt + 确定性回灌，不替学生定论）· 不操纵（卡自动提议但「打开」由学生点确认）· 一次只问一个 · 过程即数据（跳过也回灌为 skipped 信号）。
+- 四条铁律：克制（系统 prompt + 确定性回灌，不替学生定论）· 不操纵（卡自动提议但「打开」由学生点确认；工具卡是按需手段而非默认动作）· 一次只问一个 —— 落地为「**聚焦一步**」：简短、不堆问题；教练手段含提示 / 引导问题 / 指方向 / 肯定 / 工具卡，不限于反问 · 过程即数据（跳过也回灌为 skipped 信号）。
 - UI 逐像素照 `docs/design/思维印记_工作区.dc.html`，用 `mk-*` token + 真实 Phoebe 内容。
 
 ---
