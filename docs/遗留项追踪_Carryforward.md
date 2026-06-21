@@ -7,7 +7,7 @@
 
 | Slice | 块 | 一句话 | 端到端价值 |
 |---|---|---|---|
-| **S4**（进行中）| B5 | 过程树（确定性实时派生） | PRD §2 #3：过程长成可读的树 |
+| **S4** ✅ | B5 | 过程树（确定性实时派生，merged `f427506`） | PRD §2 #3：过程长成可读的树 |
 | **S5** | B6 | 评估那一刀 + 「你的思维印记」 | 护城河（PRD §11）；并做**语义树归并** |
 | **S6** | B7 | 应用外壳 | 把全部串成可用 app（导航/主目录/记录页/设置页/mock 认证）|
 | **3c**（later）| B1 扩展 | 富交互卡 | 10 张 stub 卡的真实交互 |
@@ -27,7 +27,7 @@
 | **mock 认证**：login/register/bind 屏（点击即进，无后端）| 设计 HTML `authScreen` | **S6** | 否（demo 可跳过/mock）|
 | **导航 a11y**（`role="tab"`/`aria-selected`）| S2.5/S6 | **S6** | 否 |
 | **评估触发 + showEval/evalLoading「你的思维印记」UI** | PRD §11/§14 步骤7 | **S5** | 是（护城河）|
-| **语义树归并**：`sub_question` 分枝 / `key_knowledge` / `attempt` 节点 + 归并打型（eval LLM 顺手做）| S4 | **S5** | 是（树的完整形态）|
+| **语义树归并**：`sub_question` 分枝 / `key_knowledge` / `attempt` 节点 + 归并打型（eval LLM 顺手做）；并把 `nodeView` 缩进从二元（`parent_id!==null`→1）改为按 node 列表**走父链算真实 depth**（depth×18px；HTML demo 卡节点在 depth 2=36px）| S4 | **S5** | 是（树的完整形态）|
 | **评估增强树是否落库** vs 重派生 | S4 | **S5** 定 | 否 |
 | **10 张 stub 卡的真实交互**（量表光谱/角色模拟/画布导图/分类标注/媒体回放/条件分支）| S3a | **3c** | 否（优雅降级）|
 | **新原语**：`show_if`（条件步，aok-methods 需要）、spectrum/slider | S3a/3c | **3c** | 否 |
