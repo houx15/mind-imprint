@@ -12,16 +12,21 @@
   "interaction_type": "步骤引导卡",
   "rubric_dims": ["D2", "D5"],
   "related": ["certainty-spectrum", "data-literacy", "opcvl"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D2", "D5"],
   "steps": [
     {
       "key": "main",
       "title": "学科方法子卡",
       "disclose": "always",
-      "methodology_note": "三门学科各有一套「怎么算知道」。数学：靠演绎证明，一个反例即可推翻（欧拉 n²+n+41：前 40 项成立，第 41 项失效）。人文社科：五个问——因果还是相关？样本够吗？观察会不会改变被观察者？测量靠谱吗？能复制吗？艺术：解读要为意义找文本/作品证据，区分「读出来」和「脑补」（Frost 《未选择的路》常见误读）。先用文字记录你的思考；这张卡的完整交互（学科子卡切换面板）即将上线。",
+      "methodology_note": "选一个学科，按它「怎么算知道」的标准逐条过——数学要证明不是举例，社科有五个问，艺术要文本依据。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录：你的任务属于哪个学科？你用了该学科的哪个标准来判断？这张卡的完整交互（数学/人文社科/艺术学科子卡切换面板）即将上线" }
+        { "type": "single_choice", "key": "subject", "label": "你在用哪个学科的方法？", "options": ["数学", "人文社科", "艺术"] },
+        { "type": "textarea", "key": "math_proof", "label": "区分「看了很多例子」（证据）和「证明了」——这条是哪种？", "show_if": { "key": "subject", "equals": "数学" } },
+        { "type": "textarea", "key": "math_counter", "label": "试着找一个反例", "show_if": { "key": "subject", "equals": "数学" } },
+        { "type": "textarea", "key": "math_axiom", "label": "它在什么公理 / 前提下成立？", "show_if": { "key": "subject", "equals": "数学" } },
+        { "type": "textarea", "key": "human_five_q", "label": "对这个社科结论逐条过「五个问」：因果还是相关？样本？观察效应？测量？能否复制？", "show_if": { "key": "subject", "equals": "人文社科" } },
+        { "type": "textarea", "key": "arts_evidence", "label": "作品里哪句 / 哪个细节支持这个解读？还是你脑补的？", "show_if": { "key": "subject", "equals": "艺术" } }
       ]
     }
   ]
