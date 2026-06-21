@@ -83,8 +83,10 @@
 |---|---|---|---|---|
 | **S1** ✅ | B0+B1 | 契约骨架 + 卡渲染器（纯前端、假数据） | 渲染器照 HTML 渲染两卡，三态可走，提交产出标准信封 | **强**（已完成，56 测试 + typecheck 绿，已并入 main） |
 | **S2** | B2 | provider 无关 LLM 客户端 + 配置（前端直连、BYO-key） | openai/anthropic 适配器、`chat()`、配置存取、设置面板（测连接）；真实模型能回话 | **强**：适配器对 mock `fetch` 单测（请求形/解析/错误）；配置存取单测；1 个 live 冒烟（有 key 才跑） |
-| **S2.5** | B2.5 | 浏览器持久化 | IndexedDB/localStorage 仓储：task/message/card_instance 落盘、可读回、刷新不丢 | **强**：仓储对内存/jsdom 存储单测 |
-| **S3** | B3+B4 | 决策层 + `summon_card` 前端回灌循环 + 工作区容器 | 真实对话中 AI 调对卡 → 渲染 → 摘要回灌；专注全屏布局；LLM 客户端在此实现 tool-calling | **中**：tool-use 循环/信封→回灌逻辑用 fake LLM 单测；调卡"质量"属 eval 集 |
+| **S2.5** ✅ | B2.5 | 浏览器持久化 | IndexedDB/localStorage 仓储：task/message/card_instance 落盘、可读回、刷新不丢 | **强**：仓储对内存/jsdom 存储单测（已并入 main） |
+| **S3a** ✅ | B0+B1 扩展 | 工具卡全库导入（用户改：本期用**全部 31 张库卡**，非 2 张样例） | `CardSpec` 加 frontmatter 路由元数据（priority/tier/trigger_keywords/interaction_type…）；31 库卡 JSON 导入 + registry 注册（共 33 张，含 2 张 demo 卡）；能用 7 原语表达的给真实 body，需全新交互的先 stub（→3c）；Harness 选卡器 | **强**：逐卡 `CardSpec` 校验 + registry fail-loud + 完整性门（33 张）|
+| **S3b** | B3+B4 | 决策层 + `summon_card` 前端回灌循环 + 工作区容器 | 真实对话中 AI 调对卡（在全 33 张上按 tier/priority/trigger 路由）→ 渲染 → 摘要回灌；专注全屏布局；LLM 客户端在此实现 tool-calling | **中**：tool-use 循环/信封→回灌逻辑用 fake LLM 单测；调卡"质量"属 eval 集 |
+| **S3c**（later） | B1 扩展 | 富交互卡 | 为 stub 卡建真实交互（量表光谱/角色模拟/画布导图/分类标注/媒体回放/条件分支），含分步脚本与就地小讲解；把对应卡 `body_status` 由 stub 升 full；可能加新原语（如 `show_if`/spectrum）| **中**：新原语/组件单测 |
 | **S4** | B5 | 过程树：事件流 → 树 | 右侧只读树实时生长，7 类节点 | **强**：树派生是纯函数 |
 | **S5** | B6 | 评估那一刀 + 「你的思维印记」 | rubric L1–L4 + 过程叙述（用 `evalModel`） | **中**：prompt 组装/产物解析单测；评级质量属 anchor 样本 eval |
 | **S6** | B7 | 外壳：认证(mock) + 主目录 + 记录页 + 设置页(LLM 配置) | 全 app 串起来，导航 任务/记录/设置 | **中**：组件 RTL + 路由测 |
