@@ -102,9 +102,14 @@ Add `spectrum: SpectrumField` to `apps/web/src/cards/fieldRegistry.tsx`.
 
 Restraint: both cards set up the criteria/labels and ask the student to judge/tag + justify; neither pre-judges "这是伪科学 / 这家在漂绿". (science-knowing rubric_dims D2/D5/D9; spin-detector D2/D4/D5 — already in JSON.)
 
-## Sub-slice 3c-C — `show_if` stepped-guide (sketch)
+## Sub-slice 3c-C — `show_if` stepped-guide (REFINED)
 
-**Family:** 步骤引导 (aok-methods: pick a discipline → show that discipline's method sub-steps; corpus-hook: stepped reading guide). Needs a **conditional-disclosure modifier** `show_if?: { key: string; equals: string | number }` on a field (and/or step), evaluated against current `field_values` in `CardRenderer` — a small renderer feature (the one sub-slice that touches the renderer). Un-stub via existing primitives + `show_if` branching (e.g., a `single_choice` discipline selector that reveals discipline-specific `textarea`s).
+**Family:** 步骤引导 (aok-methods, corpus-hook).
+- **`show_if` is a field MODIFIER, not a new field type:** an optional `{ key: string; equals: string }` added to the field `base` (so every primitive may carry it; no new `FieldType`, no `fieldRegistry` change). It is evaluated ONLY at the step level in `CardRenderer`'s `StepFields` — a field renders iff `!show_if || values[show_if.key] === show_if.equals`. This is the ONE sub-slice that touches `CardRenderer`. (Inside `repeatable_group` items `show_if` is not evaluated — documented; no card needs it there.)
+- **aok-methods** uses it: a `single_choice` `subject` (数学/人文社科/艺术) reveals discipline-specific `textarea`s via `show_if: {key:"subject", equals:"数学"}` etc. (math: 证明vs证据/找反例/公理前提; human: 社科五问; arts: 文本依据).
+- **corpus-hook** needs NO new feature — composes from existing primitives: a `repeatable_group` of hooks ({locator, question, answer}) + a `repeatable_group` of recommended reading-cards (six elements) + a direction textarea.
+
+Restraint: aok-methods gives the discipline's standard + guiding questions but never completes the proof/interpretation/social-science judgment; corpus-hook poses anchor questions + recommends pre-vetted cards but never answers the hook or pushes un-vetted open content. (aok-methods D2/D5; corpus-hook D1/D5 — already in JSON.)
 
 ## Sub-slice 3c-D — `node_map` canvas (sketch; hardest)
 
