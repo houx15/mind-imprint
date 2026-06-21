@@ -8,15 +8,18 @@ export interface LlmConfig {
   evalModel?: string; // optional; consumed by B6/S5, only stored here
 }
 
-export type ChatRole = "system" | "user" | "assistant";
-export interface ChatMessage { role: ChatRole; content: string }
+export type ChatRole = "system" | "user" | "assistant" | "tool";
+export interface ChatTool { name: string; description: string; parameters: Record<string, unknown> }
+export interface ToolCall { id: string; name: string; args: Record<string, unknown> }
+export interface ChatMessage { role: ChatRole; content: string; toolCalls?: ToolCall[]; toolCallId?: string }
 
 export interface ChatRequest {
   messages: ChatMessage[];
+  tools?: ChatTool[];
   maxTokens?: number;
   temperature?: number;
-  // tools?: reserved for Slice 3 (summon_card) — not implemented in Slice 2.
 }
 
+export type StopReason = "stop" | "tool_call" | "length" | "other";
 export interface ChatUsage { inputTokens?: number; outputTokens?: number }
-export interface ChatResult { text: string; usage?: ChatUsage; raw?: unknown }
+export interface ChatResult { text: string; toolCalls?: ToolCall[]; stopReason?: StopReason; usage?: ChatUsage; raw?: unknown }
