@@ -132,12 +132,24 @@ describe("createEvaluator", () => {
     expect(callCount).toBe(0);
   });
 
-  it("getSnapshot() returns stable reference when nothing changed", () => {
+  it("getSnapshot() returns stable reference when nothing changed (idle, no action)", () => {
     const { ev } = makeEvaluator(makeFakeChat());
 
     const snap1 = ev.getSnapshot();
     const snap2 = ev.getSnapshot();
     expect(snap1).toBe(snap2);
+  });
+
+  it("getSnapshot() returns stable reference between two reads after run() settles (no second run)", async () => {
+    const { ev } = makeEvaluator(makeFakeChat());
+
+    await ev.run();
+    // Nothing changed between these two reads — same object reference is required
+    // for useSyncExternalStore stable-snapshot contract
+    const snap1 = ev.getSnapshot();
+    const snap2 = ev.getSnapshot();
+    expect(snap1).toBe(snap2);
+    expect(snap1.phase).toBe("done");
   });
 
   it("getSnapshot() returns new reference after a transition", async () => {

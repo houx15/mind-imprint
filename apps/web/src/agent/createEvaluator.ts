@@ -36,8 +36,8 @@ export function createEvaluator(deps: EvaluatorDeps): Evaluator {
     const changed = (Object.keys(nextState) as (keyof EvalState)[]).some(
       (k) => nextState[k] !== state[k],
     );
-    state = nextState;
     if (changed) {
+      state = nextState;
       listeners.forEach((l) => l());
     }
   }

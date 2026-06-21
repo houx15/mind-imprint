@@ -32,7 +32,7 @@ const NOOP_EVALUATOR: Evaluator = {
 
 export function WorkspaceView({ store, conversation, taskId, onBack, evaluator = NOOP_EVALUATOR }: Props) {
   const [treeOpen, setTreeOpen] = useState(true);
-  const [showEvalModal, setShowEvalModal] = useState(true);
+  const [showEvalModal, setShowEvalModal] = useState(false);
 
   // Subscribe to store state
   const storeState = useSyncExternalStore(store.subscribe, store.getSnapshot);

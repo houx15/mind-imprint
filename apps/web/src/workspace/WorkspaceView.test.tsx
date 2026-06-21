@@ -361,25 +361,33 @@ describe("WorkspaceView", () => {
       expect(screen.getByRole("button", { name: /生成思维印记/ })).toBeDisabled();
     });
 
-    it("shows EvalModal when phase is done with an evaluation", () => {
+    it("shows EvalModal when phase is done with an evaluation (via button click)", async () => {
       const store = makeStore();
       const conv = makeConversation();
       const evaluation = makeEvaluation();
-      const { evaluator } = makeEvaluator("done", evaluation);
+      const { evaluator, setPhase } = makeEvaluator("idle");
       render(
         <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
       );
+      // modal not visible initially
+      expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
+      // click button — sets showEvalModal=true and calls run() (mock transitions to running)
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      // simulate evaluator completing
+      setPhase("done", evaluation);
       expect(screen.getByText("你的思维印记")).toBeInTheDocument();
     });
 
-    it("shows dim names in EvalModal", () => {
+    it("shows dim names in EvalModal (via button click)", async () => {
       const store = makeStore();
       const conv = makeConversation();
       const evaluation = makeEvaluation();
-      const { evaluator } = makeEvaluator("done", evaluation);
+      const { evaluator, setPhase } = makeEvaluator("idle");
       render(
         <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
       );
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      setPhase("done", evaluation);
       // D2 from DEMO_RUBRIC maps to "信源辨识"
       expect(screen.getByText("信源辨识")).toBeInTheDocument();
     });
@@ -388,16 +396,18 @@ describe("WorkspaceView", () => {
       const store = makeStore();
       const conv = makeConversation();
       const evaluation = makeEvaluation();
-      const { evaluator } = makeEvaluator("done", evaluation);
+      const { evaluator, setPhase } = makeEvaluator("idle");
       render(
         <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
       );
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      setPhase("done", evaluation);
       expect(screen.getByText("你的思维印记")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: /回到任务/ }));
       expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
     });
 
-    it("transitions: idle → running shows EvalLoading; → done shows EvalModal", () => {
+    it("transitions: idle → running shows EvalLoading; → done shows EvalModal", async () => {
       const store = makeStore();
       const conv = makeConversation();
       const evaluation = makeEvaluation();
@@ -409,8 +419,8 @@ describe("WorkspaceView", () => {
       expect(screen.queryByText(/旗舰模型正在评估/)).not.toBeInTheDocument();
       expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
 
-      // transition to running
-      setPhase("running");
+      // click button: sets showEvalModal=true, run() mock transitions to running
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
       expect(screen.getByText(/旗舰模型正在评估/)).toBeInTheDocument();
 
       // transition to done
