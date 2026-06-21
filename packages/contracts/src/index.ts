@@ -4,3 +4,4 @@ export * from "./cardSpec";
 export * from "./rubric";
 export * from "./envelope";
 export * from "./registry";
+export * from "./task";
