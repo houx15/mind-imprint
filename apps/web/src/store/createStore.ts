@@ -1,4 +1,4 @@
-import type { Task } from "@mind-imprint/contracts";
+import type { Task, Message, MessageRole, CardInstance } from "@mind-imprint/contracts";
 import { StoreState, EMPTY_STATE } from "./schema";
 import { STORE_KEY, type RawStorage } from "./storage";
 
@@ -15,6 +15,11 @@ export interface Store {
   getTask(id: string): Task | undefined;
   listTasks(): Task[];
   updateTask(id: string, patch: Partial<Pick<Task, "title" | "seed" | "status">>): Task;
+  appendMessage(input: { task_id: string; role: MessageRole; content: string; tool_call?: unknown }): Message;
+  listMessages(task_id: string): Message[];
+  putCard(card: CardInstance): void;
+  getCard(id: string): CardInstance | undefined;
+  listCards(task_id: string): CardInstance[];
 }
 
 function load(storage: RawStorage): StoreState {
@@ -76,5 +81,33 @@ export function createStore(opts: CreateStoreOptions): Store {
       commit({ ...state, tasks });
       return updated;
     },
+    appendMessage({ task_id, role, content, tool_call }) {
+      const message: Message = {
+        id: genId(), task_id, role, content,
+        tool_call: tool_call ?? null, created_at: now(),
+      };
+      let tasks = state.tasks;
+      const idx = state.tasks.findIndex((t) => t.id === task_id);
+      if (idx !== -1) {
+        tasks = [...state.tasks];
+        tasks[idx] = { ...tasks[idx]!, last_active_at: now() };
+      }
+      commit({ ...state, tasks, messages: [...state.messages, message] });
+      return message;
+    },
+    listMessages: (task_id) => state.messages.filter((m) => m.task_id === task_id),
+    putCard(card) {
+      const idx = state.cards.findIndex((c) => c.id === card.id);
+      let cards: CardInstance[];
+      if (idx === -1) {
+        cards = [...state.cards, card];
+      } else {
+        cards = [...state.cards];
+        cards[idx] = card;
+      }
+      commit({ ...state, cards });
+    },
+    getCard: (id) => state.cards.find((c) => c.id === id),
+    listCards: (task_id) => state.cards.filter((c) => c.task_id === task_id),
   };
 }
