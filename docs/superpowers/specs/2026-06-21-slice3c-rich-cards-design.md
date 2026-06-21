@@ -111,13 +111,20 @@ Restraint: both cards set up the criteria/labels and ask the student to judge/ta
 
 Restraint: aok-methods gives the discipline's standard + guiding questions but never completes the proof/interpretation/social-science judgment; corpus-hook poses anchor questions + recommends pre-vetted cards but never answers the hook or pushes un-vetted open content. (aok-methods D2/D5; corpus-hook D1/D5 — already in JSON.)
 
-## Sub-slice 3c-D — `node_map` canvas (sketch; hardest)
+## Sub-slice 3c-D — 画布导图 + 角色模拟, composed (REFINED — final S3c sub-slice)
 
-**Family:** 画布导图 (argument-map: claim→reason→evidence + 谬误 flags; money-trail: funder→intermediary→message; source-map: 3D 溯源). **Primitive `node_map`**: nodes with typed roles + directed links. MVP = a structured node/edge editor (add node {role,text}, link node→node) rendered as a simple layered graph, NOT a free-form drag canvas (drag is a later enhancement). Value = `{ nodes:[{id,role,text}], edges:[{from,to}] }`. Un-stub the three cards with their role vocabularies.
+On reaching the last two families, the faithful engineering call is **composition, not a new primitive**. All four remaining cards' interaction DATA is structured lists that the existing primitives (`text`/`textarea`/`single_choice`/`repeatable_group`) express directly; the "node canvas with connecting lines / drag" and "multi-role live dialogue" are VISUAL/real-time layers, not the thinking the card elicits. Building a free-form node/edge drag-canvas or a dialogue engine would be gold-plating the data doesn't require and the riskiest code in S3c. So 3c-D un-stubs all four with existing primitives (rich structured forms faithful to each `.md`), and the canvas/dialogue visualizations are logged as **future enhancements** (same posture as deferring spectrum's pointer-drag). This finishes S3c — all 10 stub cards → `full`.
 
-## Sub-slice 3c-E — `role_play` (sketch)
+- **argument-map** (论证地图): claim text + `repeatable_group` reasons {论据, 隐藏假设, `single_choice` 谬误标签, 谬误依据} + 最弱环节 + 补强.
+- **money-trail** (资金链溯源): claim text + `repeatable_group` chain {节点, `single_choice` 这是哪一环, 钱/利益来源} + `single_choice` 利益-结论一致性 + 这说明什么.
+- **source-map** (3D 溯源导图): `repeatable_group` nodes {材料/观点, `single_choice` 节点类型, `single_choice` 偏见标注, 关系说明} + 同源识别 + 判断是否改变.
+- **ethics-roleplay** (角色博弈): 情景与核心问题 + `repeatable_group` roles {角色, 利益, 责任, 盲区} + 收口（AI 该介入到哪一步？谁该负责？）.
 
-**Family:** 角色模拟 (ethics-roleplay: argue an ethical dilemma from assigned stakeholder roles, then reflect). **Primitive `role_play`**: a set of roles each with a stance textarea + a final reflection; the AI sets up roles (never resolves the dilemma). Value = `{ roles:[{name, stance}], reflection }`. Likely composable from `repeatable_group` + textareas with a roles header — may need NO new primitive (decide when reached: if composable, 3c-E is JSON-only). 
+Restraint: argument-map highlights the weakest link but the student strengthens it; money-trail flags interest alignment but concludes "被资助 ≠ 必假，要交叉验证" not "凡被资助即假"; source-map labels bias without declaring a source unusable; ethics-roleplay sets the scenario/roles but the student reasons each stance and the closing — AI never resolves the dilemma. (Rubric dims already in each JSON.)
+
+## Future enhancements (logged, out of S3c scope)
+
+Free-form node/edge **drag canvas** for the 画布导图 cards (argument/money/source); **multi-turn live role-play dialogue** for ethics-roleplay; **pointer-drag** on `spectrum`; a `node_map` / `role_play` primitive if/when those visual layers are built. All non-blocking; the composed forms are fully functional now.
 
 ## Out of scope (S3c)
 
