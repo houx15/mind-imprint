@@ -286,7 +286,7 @@ export function RecordsView({
                 AI 批判性思维 · 能力素养模型
               </div>
               <div style={{ fontSize: "12.5px", color: "#8A92A3", marginTop: "5px", lineHeight: 1.6 }}>
-                九个维度，跨五大分支。等级来自每次任务评估的归并，不是测验分数。
+                九个维度，跨多个课程库分支。等级来自每次任务评估的归并，不是测验分数。
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
                 <svg viewBox="0 0 280 270" width="100%" style={{ maxWidth: "330px" }}>
