@@ -1,8 +1,9 @@
-# Slice 3 — 决策层 + `summon_card` 回灌循环 + 工作区 (B3 + B4) · Design
+# Slice 3b — 决策层 + `summon_card` 回灌循环 + 工作区 (B3 + B4) · Design
 
-> 日期 2026-06-21 ｜ Blocks B3（决策 + summon_card 循环）+ B4（工作区容器）｜ 前置 B0、B1、B2、B2.5（均已并入 main）。
+> 日期 2026-06-21 ｜ Blocks B3（决策 + summon_card 循环）+ B4（工作区容器）｜ 前置 B0、B1、B2、B2.5、**3a（卡全库导入，33 张已并入 main）**。
+> 注：原 S3 拆为 3a（卡数据，✅）/ 3b（本稿）/ 3c（富交互卡，later）。本稿在 3a 之后**修订**：决策层从「2 张卡」改为在**全 33 张**上路由（§5）。
 > 双真相源：UI 一切以 `docs/design/思维印记_工作区.dc.html` 为准（逐像素）；非视觉（卡契约、标准信封、克制阶梯、决策层规则）以 `docs/思维印记_Demo_PRD.md` §7/§8/§13.2 为准，架构按 roadmap v0.2 §0.1（前端直连/无后端/BYO-key）。
-> 用户决定（2026-06-21）：① B3+B4 作为**一个 slice**；② 卡填写内容以**确定性、schema 派生的 JSON 结构**作为 `tool_result` 回灌（不再用 LLM 二次总结）。
+> 用户决定（2026-06-21）：① B3+B4 作为**一个 slice**；② 卡填写内容以**确定性、schema 派生的 JSON 结构**作为 `tool_result` 回灌（不再用 LLM 二次总结）；③ 决策层目录**全 33 张内联**，demo 工作区用 `demoCatalog` 偏置 demo 卡（§5）。
 
 ---
 
@@ -143,8 +144,9 @@ function summonCardTool(catalog: Catalog): ChatTool // name:"summon_card"
 `apps/web/src/agent/prompt.ts`（新目录 `agent/` 装决策层 + 编排器）：
 
 ```ts
-buildCatalogText(catalog: Catalog): string   // 按 category 分组：每组一个【分类】标题，组内每卡一行「· id — name：trigger_condition」
-buildSystemPrompt(catalog: Catalog): string  // 教练阶梯（克制 + 教练手段 + markdown）+ 分类目录
+buildCatalogText(catalog: Catalog): string   // 按 category 分组：每组一个【分类】标题，组内每卡一行「· id — name [tier·priority]：trigger_condition」
+buildSystemPrompt(catalog: Catalog): string  // 教练阶梯（克制 + 教练手段 + markdown）+ 分类目录（全 33 张内联）
+demoCatalog(full: Catalog): Catalog          // 给 demo 工作区用：偏置 demo 卡——剔除/后置 3 张近义库卡(sift/craap/steelman)，保证 Phoebe 主动脉里 sift_craap/concession 胜出
 ```
 
 **草拟系统 prompt（中文，待你逐字审阅 / 改写——这是铁律 #1 的载体）：**
@@ -178,11 +180,15 @@ buildSystemPrompt(catalog: Catalog): string  // 教练阶梯（克制 + 教练�
 
 > 审阅要点：导师/教练的语气是否到位（不只是反问）；工具卡是否被摆在「按需的一种手段」而非默认；Markdown 强调是否合适；summon_card 会不会过度/不足触发；nudge 风格；是否需要补学科/语言（中英）指示。
 
-### 渐进式披露（卡库增长时不让 prompt 膨胀）
+### 目录策略（33 张卡）与近义卡偏置
 
-本 demo 的 registry 只有 2 张卡，`buildCatalogText` 直接内联**完整的分类目录**（按 category 分组）。决策层按「先选分类 → 再选卡」两层走（这是 prompt 层指令，不是 schema 变更；`summon_card` 仍是单函数）。
+S3a 后 registry 有 **33 张卡**（31 库卡 + 2 demo 卡）。`buildCatalogText` 仍**整体内联**完整分类目录：33 张 × 每张一行 ≈ 33 行 ≈ 2–3k tokens，对系统 prompt 完全可承受，不构成膨胀。每行带 `[tier·priority]` 注记，决策层按「先选分类 → 再在该类挑最贴合的一张」两层走（prompt 层指令，非 schema 变更；`summon_card` 仍单函数）。
 
-**扩展点（卡库变大时启用，本 slice 不建，YAGNI）：** 把系统 prompt 里的目录降为**只列分类**（每类一句「何时适用」），新增一个 `browse_cards(category)` 工具——AI 判断相关后再拉取该分类下的卡详情，然后 `summon_card`。这样系统 prompt 不随卡数线性膨胀。`card_id` 始终按 registry 校验（§3/§7 已有兜底），不依赖固定 enum，因此从「全内联」切到「browse 按需」无需改契约。届时可给 category 增加可选的描述元数据（当前 `CardSpec.category` 仅是分组标签）。
+**近义卡偏置（不改卡数据）：** 因保留 demo 卡（`sift_craap`/`concession`）与库卡（`sift`/`craap`/`steelman`）并存，demo 工作区喂给决策层的是 `demoCatalog(full)`——把 3 张近义库卡**剔除或后置**，保证 Phoebe 主动脉里 demo 卡胜出。库卡的真实 tier/priority **不动**（`sift`/`craap` 仍是库设计里的 tier-0 常驻核心）；偏置只发生在 demo 实例的目录装配层。另加一条软规则进系统 prompt：「若多张卡都贴合，优先更**综合 / 更贴合当前任务**的那张」。
+
+**`related` 容错（S3a carry-forward）：** 决策层 / 任何 `related` 遍历必须容忍指向 registry 中不存在的 id（库 frontmatter 可能引用未建卡），不得因悬空邻居抛错。
+
+**渐进式披露扩展点（卡库 ≫ 33 时启用，本 slice 仍不建，YAGNI）：** 把目录降为**只列分类**（每类一句「何时适用」）+ 新增 `browse_cards(category)` 工具按需拉取该类卡详情再 `summon_card`。`card_id` 始终按 registry 校验（§3/§7 兜底），不依赖固定 enum，故「全内联 → browse 按需」的切换不改契约。这是 README §渐进式披露 A（tier-0 常驻 / tier-1·2 浮现）的工程落地，留待真实卡库规模再做。
 
 ---
 
@@ -296,7 +302,7 @@ assistant 文本                            ►  {role:"assistant", content}
 
 - **适配器**（扩 S2 mock-fetch 单测）：两格式各测——带 tools 的请求塑形、tool_call 解析（→`ToolCall`）、`tool` 结果消息回传塑形、`stopReason` 映射、回放 assistant 调用的塑形。
 - **序列化器**：纯单测，锚真实 SIFT 信封——四步全填、repeatable_group 多来源、未填字段跳过、跳过态。
-- **prompt/目录**：`buildCatalogText` 每卡一行且含 trigger_condition；`summonCardTool` 的 enum == registry 卡 id 集合。
+- **prompt/目录**：`buildCatalogText` 对全 33 张每卡一行（含 trigger_condition + tier/priority 注记）、按 category 分组；`summonCardTool` 的 enum == 传入目录的卡 id 集合；`demoCatalog(full)` 剔除/后置 `sift`/`craap`/`steelman`，且仍含 `sift_craap`/`concession`；`related` 遍历对悬空 id 不抛错。
 - **编排器**（核心，对 **fake LLM** + 内存 store）：脚本化「先 toolCall 后文本」——断言：① user/assistant/提议消息按序入库；② CardInstance 生命周期 proposed→active→completed/skipped；③ 续聊时重放的 `messages` 含配对到正确 tool-call id 的 `tool` 结果，其 content 为序列化 payload；④ 多 toolCall 只取首个；⑤ 未知 card_id 兜底；⑥ LlmError → phase:error。
 - **工作区**（RTL + fake LLM）：发消息 → 提议内联出现 → 打开卡（底部抽屉挂 CardRenderer）→ 填 → 提交 → 提议转「已完成」且 AI 跟进文本渲染；跳过路径；树骨架折叠；composer 在 awaiting 时禁用。
 
