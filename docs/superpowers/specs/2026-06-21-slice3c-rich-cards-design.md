@@ -52,8 +52,8 @@ export const SpectrumField = z.object({
 ### Component `apps/web/src/cards/fields/SpectrumField.tsx`
 
 - A horizontal track with `stops.length` tick positions and the stop labels; a marker sits on the current index.
-- `role="slider"`, `aria-valuemin={0}`, `aria-valuemax={stops.length-1}`, `aria-valuenow={index}`, `aria-valuetext={stops[index]}`, `aria-label={field.label}`, `tabIndex={0}`.
-- Interaction: click a stop (or the track segment) to set that index; ArrowLeft/ArrowRight (and Home/End) move the marker and call `onChange(index)`. (Pointer-drag is a future enhancement; click + keyboard achieves positioning and is testable.)
+- **Implemented as `role="radiogroup"` + one `role="radio"` per stop** (mirrors the proven `RatingField` idiom — discrete labeled stops are semantically choices, not a continuous position; more accessible + testable than a raw slider). `aria-checked` on the current index; the radiogroup is keyboard-focusable (`tabIndex={0}`). (Earlier draft said `role="slider"`; the radiogroup idiom supersedes it.)
+- Interaction: click a stop to set that index; ArrowLeft/ArrowRight (+ Home/End, ArrowUp/Down aliases) move the marker and call `onChange(index)`, clamped to `[0, max]`. (Pointer-drag is a future enhancement; click + keyboard achieves positioning and is testable.)
 - Untouched (`value` not a number) → no marker filled / marker at neither end with a muted hint; first interaction sets the index.
 - Styling matches `RatingField` idiom (mk tokens: `bg-mk-primary` for the active marker/filled track, `#EEF0F4` track, `#9AA1B0` muted labels).
 
