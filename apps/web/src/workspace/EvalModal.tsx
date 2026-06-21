@@ -1,5 +1,5 @@
 import type { Evaluation } from "@mind-imprint/contracts";
-import { DEMO_RUBRIC } from "@mind-imprint/contracts";
+import { FULL_RUBRIC } from "@mind-imprint/contracts";
 import { evalView } from "./evalView";
 
 type Props = {
@@ -8,7 +8,7 @@ type Props = {
 };
 
 export function EvalModal({ evaluation, onClose }: Props) {
-  const { dims } = evalView(evaluation, DEMO_RUBRIC);
+  const { dims } = evalView(evaluation, FULL_RUBRIC);
 
   return (
     <div

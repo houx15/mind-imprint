@@ -9,7 +9,7 @@ import { RubricDimension, SOLO_LABELS, SoloLevel } from "@mind-imprint/contracts
  *   3. few-shot (Phoebe) — a compact worked example with real content
  *   4. 输出约束 — strict JSON-only output instruction
  *
- * @param rubric - Array of RubricDimension (e.g. DEMO_RUBRIC from contracts)
+ * @param rubric - Array of RubricDimension (e.g. FULL_RUBRIC from contracts)
  * @returns The full evaluation system prompt string
  */
 export function buildEvalPrompt(rubric: RubricDimension[]): string {
@@ -73,7 +73,11 @@ Phoebe 完成让步段：正面承认中国碳排放数据，再以可再生能�
       "dim_id": "D6",
       "level": "L3",
       "note": "在陪练提示后主动校准对公众号的初始信任，觉察到「权威感」盲点；但迁移到其他情境的元认知反思尚浅，维持 L3"
-    }
+    },
+    { "dim_id": "D1", "level": "L3", "note": "Phoebe 提供了任务背景（用公众号文写中国可持续）与明确目标，问题具体可执行；但未结构化分步追问，停在 L3" },
+    { "dim_id": "D7", "level": "L3", "note": "让步段产出论点-论据-解释结构完整，引用 NASA 与 Nature Sustainability 有出处并回应反方；论证链条尚未到严丝合缝，维持 L3" },
+    { "dim_id": "D8", "level": "L2", "note": "放弃公众号改引一手来源体现了一定加工，但对话中未见明确区分 AI 贡献与个人贡献的声明，停在 L2" },
+    { "dim_id": "D9", "level": "L2", "note": "识别公众号不可信属信源层面；对 AI 本身局限/幻觉的主动核查在本次对话中较少，维持 L2" }
   ],
   "narrative": "Phoebe 本次会话展现出来源意识从被动转主动的关键跃迁：起步时想直接引用公众号，经 SIFT 工具卡引导后自主溯源到 NASA 与 Nature Sustainability 两个独立权威来源（D2/D3 均达 L4）。正面接住反例「中国碳排放全球第一」并写出让步段，体现了 L4 对立观点处理（D4）。论证拆解（D5）与元认知反思（D6）处于 L3——能识别基本结构与信任偏差，但对隐藏前提与跨情境迁移的觉察仍有提升空间。下一步可以问：你引用的 NASA 报告和 Nature Sustainability 各自的立场与资助来源是什么？进一步锻炼 D6 的认知者位置意识。"
 }

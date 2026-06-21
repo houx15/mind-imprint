@@ -388,7 +388,7 @@ describe("WorkspaceView", () => {
       );
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
       setPhase("done", evaluation);
-      // D2 from DEMO_RUBRIC maps to "信源辨识"
+      // D2 from FULL_RUBRIC maps to "信源辨识"
       expect(screen.getByText("信源辨识")).toBeInTheDocument();
     });
 

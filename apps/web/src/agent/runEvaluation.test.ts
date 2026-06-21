@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CARD_REGISTRY, DEMO_RUBRIC } from "@mind-imprint/contracts";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { CardInstance } from "@mind-imprint/contracts";
 import type { ChatRequest, ChatResult } from "../llm/types";
 import { createStore } from "../store/createStore";
@@ -136,7 +136,7 @@ describe("runEvaluation", () => {
     // System message contains a rubric dimension name
     const sysMsg = call.req.messages.find((m) => m.role === "system");
     expect(sysMsg).toBeDefined();
-    expect(sysMsg!.content).toContain("信源辨识"); // D2 name from DEMO_RUBRIC
+    expect(sysMsg!.content).toContain("信源辨识"); // D2 name from FULL_RUBRIC
 
     // User message contains a card name from the registry
     const userMsg = call.req.messages.find((m) => m.role === "user");

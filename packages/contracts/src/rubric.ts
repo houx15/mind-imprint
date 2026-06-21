@@ -1,14 +1,5 @@
 import { z } from "zod";
 
-export const RUBRIC_TAGS = [
-  "D1_来源意识",
-  "D2_交叉验证",
-  "D5_论证结构",
-  "D7_对立观点处理",
-] as const;
-
-export type RubricTag = (typeof RUBRIC_TAGS)[number];
-
 export const SoloLevel = z.enum(["L1", "L2", "L3", "L4"]);
 export type SoloLevel = z.infer<typeof SoloLevel>;
 export const SOLO_LABELS: Record<SoloLevel, string> = { L1: "萌芽", L2: "发展中", L3: "熟练", L4: "卓越" };
@@ -18,7 +9,9 @@ export interface RubricDimension {
   anchors: { L1: string; L2: string; L3: string; L4: string };
 }
 
-export const DEMO_RUBRIC: RubricDimension[] = [
+export const FULL_RUBRIC: RubricDimension[] = [
+  { id: "D1", name: "提问清晰度", framework: "ATL 思维 · QUEST-Q（输入）",
+    anchors: { L1: "直接抛一句话问题，不给 AI 任何背景或目标", L2: "给一点背景，但目标/约束模糊，常需 AI 反问澄清", L3: "主动提供任务背景、目标与约束，问题具体可执行", L4: "结构化拆解需求，分步追问并根据回答迭代提问" } },
   { id: "D2", name: "信源辨识", framework: "媒介/信息素养 · CRAAP",
     anchors: { L1: "完全信任 AI / 来源，从不追问出处", L2: "偶尔问「真的吗？」但不深入", L3: "主动要求论据，能识别来源等级", L4: "主动交叉验证，识别信源之间的利益关系与冲突" } },
   { id: "D3", name: "横向验证", framework: "ATL 研究 · 横向阅读 SHEG",
@@ -29,4 +22,10 @@ export const DEMO_RUBRIC: RubricDimension[] = [
     anchors: { L1: "把观点当事实，不分论点论据", L2: "能复述但不辨结构", L3: "能识别论点-论据-假设结构", L4: "识别隐藏前提与论证谬误" } },
   { id: "D6", name: "反思与元认知", framework: "ATL 反思 · TOK 认知者与知识",
     anchors: { L1: "不觉察自己被 AI 影响", L2: "事后偶尔回顾", L3: "主动校准信心，觉察思维盲点", L4: "觉察自己作为认知者的位置，迁移方法" } },
+  { id: "D7", name: "论证质量", framework: "QUEST-S · ATL 沟通（输出）",
+    anchors: { L1: "只堆观点 / 复制 AI 原话，无论点-论据结构", L2: "有结论但论据零散，结构不完整", L3: "论点-论据-解释结构完整，引用有出处", L4: "结构严谨且回应反方，论证链条经得起追问" } },
+  { id: "D8", name: "信息再生产", framework: "ATL 媒介伦理 · 学术诚信（输出）",
+    anchors: { L1: "整段照搬 AI 输出，不标注、不改写", L2: "偶尔改写，但分不清哪些是 AI、哪些是自己的", L3: "明确区分 AI 贡献与个人加工，主动声明 AI 使用", L4: "在 AI 基础上有独立判断与增量，诚信声明清晰可核" } },
+  { id: "D9", name: "AI 边界与伦理", framework: "TOK 知识与技术 · 伦理使用（输出）",
+    anchors: { L1: "把 AI 当全知，不质疑其可能出错或编造", L2: "知道 AI 会错，但不主动核查", L3: "主动核查 AI 可能幻觉处，识别其知识边界", L4: "系统性评估 AI 局限与伦理风险，按场景决定是否/如何用" } },
 ];

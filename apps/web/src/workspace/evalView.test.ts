@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { evalView } from "./evalView";
-import { DEMO_RUBRIC, SOLO_LABELS } from "@mind-imprint/contracts";
+import { FULL_RUBRIC, SOLO_LABELS } from "@mind-imprint/contracts";
 import type { Evaluation } from "@mind-imprint/contracts";
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ describe("evalView", () => {
         { dim_id: "D4", level: "L4", note: "构建了反方最强论证后再让步反驳，让步段写作达到 L4 级" },
       ],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     expect(result.dims).toHaveLength(1);
     // Guard: verify first dim exists before accessing properties
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
@@ -40,7 +40,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "D4", level: "L2", note: "提到了反方但轻描淡写" }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     const dim = result.dims[0];
     expect(dim.segs).toHaveLength(4);
@@ -67,7 +67,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "D2", level: "L1", note: "完全信任 AI 来源" }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     const segs = result.dims[0].segs;
     if (!segs[0] || !segs[1] || !segs[2] || !segs[3]) throw new Error("Expected 4 segs");
@@ -82,7 +82,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "D3", level: "L3", note: "主动多源对照，找到 2+ 独立来源" }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     const segs = result.dims[0].segs;
     if (!segs[3]) throw new Error("Expected 4 segs");
@@ -95,7 +95,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "D4", level: "L4", note: "正面接住碳排放反例" }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     expect(result.dims[0].levelLabel).toBe(`L4 · ${SOLO_LABELS["L4"]}`);
   });
@@ -105,7 +105,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "UNKNOWN_DIM", level: "L3", note: "some note" }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     expect(result.dims[0].dim).toBe("UNKNOWN_DIM");
   });
@@ -116,7 +116,7 @@ describe("evalView", () => {
       ...baseEvaluation,
       scores: [{ dim_id: "D2", level: "L3", note }],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     if (!result.dims[0]) throw new Error("Expected dims[0] to exist");
     expect(result.dims[0].note).toBe(note);
   });
@@ -132,7 +132,7 @@ describe("evalView", () => {
         { dim_id: "D6", level: "L2", note: "可再多问：来源各自的立场？" },
       ],
     };
-    const result = evalView(evaluation, DEMO_RUBRIC);
+    const result = evalView(evaluation, FULL_RUBRIC);
     expect(result.dims).toHaveLength(5);
     if (
       !result.dims[0] ||

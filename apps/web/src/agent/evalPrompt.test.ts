@@ -1,24 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { DEMO_RUBRIC, SOLO_LABELS } from "@mind-imprint/contracts";
+import { FULL_RUBRIC, SOLO_LABELS } from "@mind-imprint/contracts";
 import { buildEvalPrompt } from "./evalPrompt";
 
 describe("buildEvalPrompt", () => {
-  const prompt = buildEvalPrompt(DEMO_RUBRIC);
+  const prompt = buildEvalPrompt(FULL_RUBRIC);
 
   it("contains each dimension name", () => {
-    for (const dim of DEMO_RUBRIC) {
+    for (const dim of FULL_RUBRIC) {
       expect(prompt).toContain(dim.name);
     }
   });
 
   it("contains each dimension's L1 anchor text", () => {
-    for (const dim of DEMO_RUBRIC) {
+    for (const dim of FULL_RUBRIC) {
       expect(prompt).toContain(dim.anchors.L1);
     }
   });
 
   it("contains each dimension's L4 anchor text", () => {
-    for (const dim of DEMO_RUBRIC) {
+    for (const dim of FULL_RUBRIC) {
       expect(prompt).toContain(dim.anchors.L4);
     }
   });

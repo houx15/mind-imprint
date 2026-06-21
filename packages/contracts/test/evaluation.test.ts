@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { DEMO_RUBRIC, SoloLevel, SOLO_LABELS } from "../src/rubric";
+import { FULL_RUBRIC, SoloLevel, SOLO_LABELS } from "../src/rubric";
 import { Evaluation, EvalLlmOutput, DimScore } from "../src/evaluation";
 
 describe("rubric", () => {
-  it("DEMO_RUBRIC has the 5 demo dims, each with L1–L4 anchors", () => {
-    expect(DEMO_RUBRIC.map((d) => d.id)).toEqual(["D2", "D3", "D4", "D5", "D6"]);
-    for (const d of DEMO_RUBRIC) {
+  it("FULL_RUBRIC has 9 dims D1..D9, each with L1–L4 anchors", () => {
+    expect(FULL_RUBRIC.map((d) => d.id)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"]);
+    for (const d of FULL_RUBRIC) {
       expect(d.name).toBeTruthy();
       expect(d.framework).toBeTruthy();
       for (const lvl of ["L1", "L2", "L3", "L4"] as const) expect(d.anchors[lvl]).toBeTruthy();

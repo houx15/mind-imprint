@@ -1,4 +1,4 @@
-import { EvalLlmOutput, Evaluation, DEMO_RUBRIC } from "@mind-imprint/contracts";
+import { EvalLlmOutput, Evaluation, FULL_RUBRIC } from "@mind-imprint/contracts";
 import type { CardSpec } from "@mind-imprint/contracts";
 import type { Store } from "../store/createStore";
 import type { ChatRequest, ChatResult, LlmConfig } from "../llm/types";
@@ -40,7 +40,7 @@ function parseEvalOutput(text: string): EvalLlmOutput {
 /**
  * Runs a full evaluation cycle:
  * 1. Assembles the eval input from store data (messages + cards)
- * 2. Builds the system prompt from DEMO_RUBRIC
+ * 2. Builds the system prompt from FULL_RUBRIC
  * 3. Calls the flagship LLM with up to 1 retry on parse failure
  * 4. Persists and returns the Evaluation
  */
@@ -48,7 +48,7 @@ export async function runEvaluation(deps: RunEvaluationDeps): Promise<Evaluation
   const { store, chat, config, registry, taskId } = deps;
   const now = deps.now ?? (() => new Date().toISOString());
 
-  const system = buildEvalPrompt(DEMO_RUBRIC);
+  const system = buildEvalPrompt(FULL_RUBRIC);
   const user = assembleEvalInput({
     messages: store.listMessages(taskId),
     cards: store.listCards(taskId),

@@ -36,7 +36,7 @@ describe("EvalModal", () => {
     expect(screen.getByText(/仅你可见/)).toBeInTheDocument();
   });
 
-  it("renders all 5 dim names from DEMO_RUBRIC", () => {
+  it("renders all 5 dim names from FULL_RUBRIC (subset fixture)", () => {
     render(<EvalModal evaluation={phoebeEvaluation} onClose={vi.fn()} />);
     expect(screen.getByText("信源辨识")).toBeInTheDocument();
     expect(screen.getByText("横向验证")).toBeInTheDocument();
