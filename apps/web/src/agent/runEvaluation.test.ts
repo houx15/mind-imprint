@@ -254,7 +254,7 @@ describe("runEvaluation", () => {
     expect((fakeChat.calls[0]!.config as any).model).toBe("claude-sonnet-base");
   });
 
-  it("maxTokens is set to 1500 in the chat request", async () => {
+  it("sets a generous maxTokens so reasoning models don't truncate the eval JSON", async () => {
     const store = makeStore();
     const task = store.createTask({ title: "maxTokens test", seed: null });
     const taskId = task.id;
@@ -266,6 +266,6 @@ describe("runEvaluation", () => {
 
     await runEvaluation(deps);
 
-    expect(fakeChat.calls[0]!.req.maxTokens).toBe(1500);
+    expect(fakeChat.calls[0]!.req.maxTokens).toBe(8000);
   });
 });

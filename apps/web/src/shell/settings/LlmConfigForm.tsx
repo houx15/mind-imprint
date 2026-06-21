@@ -79,7 +79,14 @@ export function LlmConfigForm({
 
     try {
       const fn = await resolveChat();
-      await fn(cfg, { messages: [{ role: "user", content: "ping" }], maxTokens: 4 });
+      // A real generation check, not just reachability. maxTokens must be large
+      // enough for a reasoning model to finish its hidden reasoning AND emit a
+      // visible token — a tiny cap (e.g. 4) returns empty content on those
+      // models, which would pass a "didn't throw" check while proving nothing.
+      const r = await fn(cfg, { messages: [{ role: "user", content: "回复一个字：好" }], maxTokens: 256 });
+      if (!r.text.trim() && !(r.toolCalls && r.toolCalls.length > 0)) {
+        throw new Error("已连通，但模型没有返回任何内容（请确认模型名是否正确）");
+      }
       markVerified(cfg);
       setTestState("ok");
       onVerified();

@@ -110,3 +110,6 @@ htmlcov/
 
 # Subagent worktrees (never commit)
 .claude/worktrees/
+
+# Playwright MCP scratch (screenshots / console logs from live E2E runs)
+.playwright-mcp/
