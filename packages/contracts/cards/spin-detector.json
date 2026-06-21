@@ -12,16 +12,32 @@
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D2", "D4", "D5"],
   "related": ["money-trail", "multimodal-decode", "science-knowing"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D2", "D4", "D5"],
   "steps": [
     {
-      "key": "main",
-      "title": "套路识别（漂绿 / FLICC）",
+      "key": "greenwash",
+      "title": "漂绿核对：说的 vs 做的",
       "disclose": "always",
-      "methodology_note": "漂绿模式：对照企业宣称的环保形象与实际行为，找出「说的」和「做的」落差。FLICC 模式：把可疑句子归类到五类否认手法（假专家、逻辑谬误、不可能的标准、挑拣证据、阴谋论）。两种模式都要求学生自己命名套路，而不是 AI 替你贴标签。",
+      "methodology_note": "把「它宣称什么」和「它实际做了什么/有什么证据」并排，看落差。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录你识别出的套路；这张卡的完整交互（模式切换 + 可拖拽分类标注条）即将上线" }
+        { "type": "repeatable_group", "key": "pairs", "label": "说的 vs 做的", "item_fields": [
+          { "type": "textarea", "key": "claim", "label": "它宣称什么" },
+          { "type": "textarea", "key": "actual", "label": "它实际做了什么 / 证据" }
+        ] }
+      ]
+    },
+    {
+      "key": "flicc",
+      "title": "FLICC 套路标注",
+      "disclose": "always",
+      "methodology_note": "把可疑句子归到五类否认套路之一，并说明它符合这类的哪一点。",
+      "fields": [
+        { "type": "repeatable_group", "key": "tags", "label": "可疑句子 + 套路", "item_fields": [
+          { "type": "textarea", "key": "snippet", "label": "可疑句子" },
+          { "type": "single_choice", "key": "tactic", "label": "属于哪类套路", "options": ["假专家", "逻辑谬误", "不可能的标准", "挑拣证据", "阴谋论"] }
+        ] },
+        { "type": "textarea", "key": "persuasion", "label": "用一句话说明：这段在如何说服我？" }
       ]
     }
   ]

@@ -12,7 +12,7 @@
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D2", "D5", "D9"],
   "related": ["data-literacy", "certainty-spectrum", "spin-detector"],
-  "body_status": "stub",
+  "body_status": "full",
   "rubric_tags": ["D2", "D5", "D9"],
   "steps": [
     {
@@ -21,7 +21,10 @@
       "disclose": "always",
       "methodology_note": "四条标准：可证伪（能被证据推翻吗）、对照（有对照组吗）、可重复（别人能重现吗）、同行评审（经过专业审查吗）。科学知识是「暂定但可靠」——可被修正，但不等于「只是一种观点」。先用文字记录你的判断；这张卡的完整交互（四标准分类标注面板）即将上线。",
       "fields": [
-        { "type": "textarea", "key": "notes", "label": "先用文字记录：这个主张满足四标准中的哪些？和真科学（如气候研究）相比差别在哪？这张卡的完整交互（四标准分类标注面板）即将上线" }
+        { "type": "text", "key": "claim", "label": "你要检验的主张是什么？" },
+        { "type": "criteria_check", "key": "criteria", "label": "用四个标准逐条检验它", "criteria": ["可证伪", "有对照", "可重复", "经同行评审"], "levels": ["满足", "部分", "不满足"] },
+        { "type": "textarea", "key": "contrast", "label": "对照一个伪科学样例：差别在哪？" },
+        { "type": "textarea", "key": "tentative", "label": "满足标准 ≠ 永远正确。用一句话说明：这个结论目前有多可靠、什么会修正它？" }
       ]
     }
   ]
