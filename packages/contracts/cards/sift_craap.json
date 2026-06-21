@@ -2,8 +2,14 @@
   "id": "sift_craap",
   "category": "信息素养",
   "name": "SIFT×CRAAP 信息核查",
+  "name_en": "SIFT × CRAAP Source Check",
   "purpose": "先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)",
   "trigger_condition": "学生准备直接采信或引用一个网络来源，但还没核查出处",
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["来源", "可信吗", "这是真的吗", "谁说的", "出处"],
+  "interaction_type": "步骤引导卡",
   "steps": [
     {
       "key": "sift", "title": "SIFT · 横向找更多来源", "disclose": "always",
@@ -32,5 +38,8 @@
       ]
     }
   ],
-  "rubric_tags": ["D1_来源意识", "D2_交叉验证"]
+  "rubric_tags": ["D1_来源意识", "D2_交叉验证"],
+  "rubric_dims": ["D1", "D2"],
+  "related": ["sift", "craap"],
+  "body_status": "full"
 }
