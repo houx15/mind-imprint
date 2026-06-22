@@ -1,4 +1,5 @@
 import type { ChatItem } from "./viewModel";
+import { Markdown } from "./Markdown";
 
 // ─── Avatar SVG (reused for AI text + proposal bubbles) ───────────────────────
 
@@ -98,8 +99,31 @@ function AiTextBubble({ text }: AiTextBubbleProps) {
             boxShadow: "0 1px 2px rgba(20,30,60,.04)",
           }}
         >
-          {text}
+          <Markdown text={text} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Thinking indicator (shown while awaiting the LLM) ───────────────────────
+
+function ThinkingBubble() {
+  return (
+    <div className="flex items-start gap-[12px]">
+      <AiAvatar />
+      <div
+        className="inline-flex items-center gap-[9px] rounded-[5px_16px_16px_16px] border border-mk-border px-[16px] py-[13px]"
+        style={{ background: "#fff", boxShadow: "0 1px 2px rgba(20,30,60,.04)" }}
+      >
+        <span className="text-[13.5px] font-semibold" style={{ color: "#9AA1B0" }}>
+          思考中
+        </span>
+        <span className="flex items-center gap-[4px]" aria-hidden>
+          <span className="mk-think-dot" />
+          <span className="mk-think-dot" style={{ animationDelay: ".2s" }} />
+          <span className="mk-think-dot" style={{ animationDelay: ".4s" }} />
+        </span>
       </div>
     </div>
   );
@@ -287,9 +311,10 @@ type Props = {
   items: ChatItem[];
   onOpenCard: (cardInstanceId: string) => void;
   onSkipCard: (cardInstanceId: string) => void;
+  thinking?: boolean;
 };
 
-export function ChatLog({ items, onOpenCard, onSkipCard }: Props) {
+export function ChatLog({ items, onOpenCard, onSkipCard, thinking = false }: Props) {
   return (
     <div
       id="mk-chat"
@@ -318,6 +343,11 @@ export function ChatLog({ items, onOpenCard, onSkipCard }: Props) {
             )}
           </div>
         ))}
+        {thinking && (
+          <div style={{ marginBottom: "20px" }}>
+            <ThinkingBubble />
+          </div>
+        )}
       </div>
     </div>
   );

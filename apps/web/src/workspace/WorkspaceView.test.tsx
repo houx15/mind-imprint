@@ -135,6 +135,7 @@ function makeConversation(phase: ConvPhase = "idle", pendingCardId?: string): Co
       return () => listeners.delete(listener);
     },
     send: vi.fn(),
+    kickoff: vi.fn(),
     openCard: vi.fn(),
     submitCard: vi.fn(),
     skipCard: vi.fn(),

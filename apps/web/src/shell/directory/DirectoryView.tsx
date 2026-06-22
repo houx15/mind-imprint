@@ -28,7 +28,7 @@ export function DirectoryView({
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+    <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
         <div style={{ fontSize: 13, color: "#8A92A3", fontWeight: 600 }}>下午好，Phoebe</div>
         <div
@@ -40,7 +40,10 @@ export function DirectoryView({
             letterSpacing: "-0.01em",
           }}
         >
-          你想搞懂什么？
+          今天你在尝试什么？
+        </div>
+        <div style={{ fontSize: 15, color: "#6B7384", fontWeight: 500, marginTop: 8, lineHeight: 1.6 }}>
+          你有任何想讨论的作业、课题、信息、资料，都可以来找我哦
         </div>
 
         {/* new task entry */}

@@ -132,4 +132,23 @@ describe("ChatLog", () => {
     const { container } = render(<ChatLog items={[]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} />);
     expect(container.firstChild).toBeInTheDocument();
   });
+
+  it("renders markdown in AI text as real elements, not raw markup", () => {
+    const md: ChatItem = { kind: "ai_text", text: "先**停一下**：\n\n- 看看来源\n- 再核实" };
+    render(<ChatLog items={[md]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} />);
+    // "停一下" must be inside a <strong>, and the "**" markers must be gone.
+    const strong = screen.getByText("停一下");
+    expect(strong.tagName).toBe("STRONG");
+    expect(document.body.textContent).not.toContain("**");
+    expect(screen.getByText("看看来源").closest("li")).toBeInTheDocument();
+  });
+
+  it("shows the 思考中 indicator only when thinking is true", () => {
+    const { rerender } = render(
+      <ChatLog items={[aiTextItem]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} />,
+    );
+    expect(screen.queryByText("思考中")).not.toBeInTheDocument();
+    rerender(<ChatLog items={[aiTextItem]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} thinking />);
+    expect(screen.getByText("思考中")).toBeInTheDocument();
+  });
 });

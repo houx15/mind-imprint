@@ -233,6 +233,7 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
             items={chatItems}
             onOpenCard={(id) => conversation.openCard(id)}
             onSkipCard={(id) => void conversation.skipCard(id)}
+            thinking={phase === "awaiting_llm"}
           />
 
           <Composer

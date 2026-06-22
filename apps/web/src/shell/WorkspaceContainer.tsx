@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import type { Store } from "../store/createStore";
 import type { ChatFn } from "../agent/runEvaluation";
 import type { LlmConfig } from "../llm/types";
@@ -26,6 +26,13 @@ export function WorkspaceContainer({ store, taskId, onBack, chat, config }: Prop
     evaluator: createEvaluator({ store, chat: chatFn, config: cfg, registry: CARD_REGISTRY, taskId }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [taskId]);
+
+  // A task opened from the directory carries its opening message but no reply
+  // yet — kick off the first LLM turn. kickoff() is idempotent (no-ops once the
+  // assistant has replied), so this is safe across remounts and reloads.
+  useEffect(() => {
+    void conversation.kickoff();
+  }, [conversation]);
 
   return (
     <WorkspaceView store={store} conversation={conversation} evaluator={evaluator} taskId={taskId} onBack={onBack} />

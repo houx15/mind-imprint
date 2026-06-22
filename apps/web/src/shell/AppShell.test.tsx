@@ -22,7 +22,7 @@ describe("AppShell", () => {
     localStorage.setItem("mk.llmConfig", JSON.stringify({ format: "openai", baseUrl: "b", model: "m", apiKey: "k", verified: true }));
     render(<AppShell store={d.store} session={d.session} chat={d.chat} />);
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
-    expect(screen.getByText("你想搞懂什么？")).toBeTruthy();
+    expect(screen.getByText("今天你在尝试什么？")).toBeTruthy();
   });
   it("blocks the app with the key-gate when no verified config", () => {
     const d = deps();

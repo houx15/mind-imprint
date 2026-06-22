@@ -1,3 +1,32 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* The app shell sizes itself with height:100%, which only works if the full
+   html→body→#root chain establishes a height. Without this, #root collapses to
+   its content and pages (the directory, the workspace) render at half-height. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Typing indicator dots — shown in the chat log while awaiting the LLM. */
+.mk-think-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #B7BECC;
+  animation: mk-think-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes mk-think-bounce {
+  0%, 60%, 100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}

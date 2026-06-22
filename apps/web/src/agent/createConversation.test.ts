@@ -399,4 +399,79 @@ describe("createConversation", () => {
 
     expect(snapBefore).not.toBe(snapAfter);
   });
+
+  // ── kickoff: answer a pre-seeded opening message (directory → workspace) ──────
+
+  it("kickoff answers a pre-seeded opening message (calls the LLM, appends a reply)", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([makeTextResult("你对这个来源了解多少？")]);
+    const { conv, taskId } = makeConv(store, fakeChat);
+
+    // Simulate the directory seeding the first message without sending it.
+    store.appendMessage({ task_id: taskId, role: "user", content: "中国是否让地球更可持续？" });
+
+    await conv.kickoff();
+
+    // The model was called exactly once and a reply was appended.
+    expect(fakeChat.calls).toHaveLength(1);
+    const messages = store.listMessages(taskId);
+    expect(messages).toHaveLength(2);
+    expect(messages[1]!.role).toBe("assistant");
+    expect(messages[1]!.content).toBe("你对这个来源了解多少？");
+    expect(conv.getSnapshot().phase).toBe("idle");
+  });
+
+  it("kickoff can summon a card from the opening message", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([makeSummonCardResult()]);
+    const { conv, taskId } = makeConv(store, fakeChat);
+
+    store.appendMessage({ task_id: taskId, role: "user", content: "我想引用一篇公众号文章当证据" });
+
+    await conv.kickoff();
+
+    const state = conv.getSnapshot();
+    expect(state.phase).toBe("proposal_pending");
+    expect(state.pendingCardId).toBeDefined();
+    expect(store.getCard(state.pendingCardId!)!.card_id).toBe(VALID_CARD_ID);
+  });
+
+  it("kickoff is a no-op when there is no pending message", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([]);
+    const { conv } = makeConv(store, fakeChat);
+
+    await conv.kickoff();
+
+    expect(fakeChat.calls).toHaveLength(0);
+    expect(conv.getSnapshot().phase).toBe("idle");
+  });
+
+  it("kickoff is idempotent — a second call after a reply does nothing (no double-send)", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([makeTextResult("第一次回复")]);
+    const { conv, taskId } = makeConv(store, fakeChat);
+
+    store.appendMessage({ task_id: taskId, role: "user", content: "开场白" });
+
+    await conv.kickoff();
+    await conv.kickoff(); // latest message is now the assistant reply → no-op
+
+    expect(fakeChat.calls).toHaveLength(1);
+    expect(store.listMessages(taskId)).toHaveLength(2);
+  });
+
+  it("kickoff does not fire when the opening message was already answered", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([makeTextResult("回复")]);
+    const { conv, taskId } = makeConv(store, fakeChat);
+
+    // A completed turn already in the store (e.g. after a reload).
+    store.appendMessage({ task_id: taskId, role: "user", content: "问题" });
+    store.appendMessage({ task_id: taskId, role: "assistant", content: "答案" });
+
+    await conv.kickoff();
+
+    expect(fakeChat.calls).toHaveLength(0);
+  });
 });
