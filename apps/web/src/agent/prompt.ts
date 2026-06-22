@@ -19,9 +19,10 @@ export function buildCatalogText(catalog: Catalog): string {
   for (const [category, entries] of groups) {
     lines.push(`【${category}】`);
     for (const e of entries) {
-      const tier = e.disclosure_tier ?? "-";
-      const prio = e.priority ?? "-";
-      lines.push(`· ${e.id} — ${e.name} [${tier}·${prio}]：${e.trigger_condition}`);
+      const kind = e.interaction_type ? `（${e.interaction_type}）` : "";
+      lines.push(`· ${e.id}｜${e.name}${kind}`);
+      lines.push(`   何时用：${e.trigger_condition}`);
+      lines.push(`   能帮他：${e.purpose}`);
     }
   }
   return lines.join("\n");
@@ -42,6 +43,12 @@ export function buildSystemPrompt(catalog: Catalog): string {
   - 必要时，**提议一张思维工具卡**（见下，按需，不是默认动作）。
 - **聚焦一步。** 一次只推进一个焦点，简短、口语；别一口气抛一堆问题或长篇大论——保护他的思考节奏。
 - **善用排版。** 用 Markdown 让重点一眼可见：\`**加粗**\`关键词，必要时配小标题 / 列表 / \`>\` 引用。突出重点，但整体仍简短。
+
+# 关于链接和外部资料（重要）
+你**打不开链接、也看不到网页或文件里的内容**——你只看得到学生在对话里贴出的文字。所以当学生只丢来一个链接（或提到某个网页/PDF）时：
+- **别假装读过它**，别凭标题或网址猜测、编造里面的内容。
+- 坦诚说明你看不到链接内容，请他把**关键段落 / 数据 / 原话**粘贴进来；或者用一两句话先讲讲他从中看到了什么。
+- 这正好是个起点：可以借机和他一起**溯源、核实**这份材料（必要时再提议相应的工具卡）。
 
 # 工具卡（按需，不是每次）
 工具卡只是你众多手段中的一种，**不是默认动作**。绝大多数轮次，普通陪练就够了。

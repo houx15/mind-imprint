@@ -5,12 +5,15 @@ import { buildCatalogText, buildSystemPrompt, demoCatalog, summonCardTool } from
 const full = deriveCatalog(CARD_REGISTRY);
 
 describe("decision layer", () => {
-  it("catalog text groups by category and lists each card's trigger_condition", () => {
+  it("catalog text groups by category and shows each card's trigger_condition and purpose", () => {
     const txt = buildCatalogText(full);
-    expect(txt).toContain("信息素养");
+    expect(txt).toContain("【信息素养】");
     expect(txt).toContain("sift_craap");
-    // each line carries the trigger_condition
-    expect(txt).toMatch(/sift_craap.*：.+/);
+    const sift = full.find((c) => c.id === "sift_craap")!;
+    expect(txt).toContain(sift.trigger_condition);
+    expect(txt).toContain(sift.purpose);
+    expect(txt).toContain("何时用");
+    expect(txt).toContain("能帮他");
   });
   it("system prompt embeds the catalog and the restraint rules", () => {
     const p = buildSystemPrompt(full);
