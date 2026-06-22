@@ -12,10 +12,6 @@ type Props = {
 
 export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) {
   const [env, setEnv] = useState<CardInstance>(cardInstance);
-  const [noteOpen, setNoteOpen] = useState(false);
-
-  const firstStepKey = spec.steps[0]?.key ?? "";
-  const note = spec.steps[0]?.methodology_note;
 
   function handleField(path: string, value: unknown) {
     setEnv((e) => envelopeReducer(e, { type: "field_change", path, value }));
@@ -25,8 +21,9 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
     setEnv((e) => envelopeReducer(e, { type: "step_expand", step_key }));
   }
 
-  function handleNoteOpen() {
-    setEnv((e) => envelopeReducer(e, { type: "note_open", step_key: firstStepKey }));
+  // Consulting a step's methodology is recorded process data (过程即数据).
+  function handleNote(step_key: string) {
+    setEnv((e) => envelopeReducer(e, { type: "note_open", step_key }));
   }
 
   function handleSubmit() {
@@ -136,42 +133,6 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <button
               type="button"
-              onClick={() => {
-                if (!noteOpen) handleNoteOpen();
-                setNoteOpen((v) => !v);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#F2F3F8",
-                border: "none",
-                color: "#5B6373",
-                fontSize: "12.5px",
-                fontWeight: 600,
-                padding: "8px 13px",
-                borderRadius: "9px",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="9.5" />
-                <path d="M12 16v-4M12 8h.01" />
-              </svg>
-              这个工具怎么用
-            </button>
-            <button
-              type="button"
               aria-label="关闭"
               onClick={handleClose}
               style={{
@@ -214,27 +175,12 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
             background: "#FAFBFC",
           }}
         >
-          {noteOpen && note && (
-            <div
-              style={{
-                marginBottom: "16px",
-                borderRadius: "14px",
-                border: "1px solid #EDEFF9",
-                background: "rgba(237,239,249,0.40)",
-                padding: "16px",
-                fontSize: "13px",
-                lineHeight: "1.7",
-                color: "#3A4256",
-              }}
-            >
-              {note}
-            </div>
-          )}
           <CardRenderer
             card={spec}
             values={env.field_values}
             onField={handleField}
             onExpandStep={handleExpandStep}
+            onNote={handleNote}
           />
         </div>
 

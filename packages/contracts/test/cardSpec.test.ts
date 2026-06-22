@@ -61,7 +61,8 @@ describe("Methodology (Layer B)", () => {
     expect(CardSpec.safeParse(base).success).toBe(true);
   });
   it("accepts an optional example", () => {
-    const withEx = { ...base, steps: [{ ...base.steps[0], methodology: { ...base.steps[0].methodology, example: "比如…" } }] };
+    const step0 = base.steps[0]!;
+    const withEx = { ...base, steps: [{ ...step0, methodology: { ...step0.methodology, example: "比如…" } }] };
     expect(CardSpec.safeParse(withEx).success).toBe(true);
   });
   it("rejects methodology missing a required beat (how)", () => {
