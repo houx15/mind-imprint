@@ -1,11 +1,19 @@
 import { z } from "zod";
 import { FieldPrimitive } from "./primitives";
 
+export const Methodology = z.object({
+  why: z.string().min(1),
+  how: z.string().min(1),
+  when: z.string().min(1),
+  example: z.string().optional(),
+});
+
 export const Step = z.object({
   key: z.string().min(1),
   title: z.string().min(1),
   disclose: z.enum(["always", "on_demand"]),
   methodology_note: z.string(),
+  methodology: Methodology.optional(),
   fields: z.array(FieldPrimitive).min(1),
 });
 
@@ -37,6 +45,7 @@ export const CardSpec = z.object({
   body_status: BodyStatus.optional(),
 });
 
+export type Methodology = z.infer<typeof Methodology>;
 export type Step = z.infer<typeof Step>;
 export type Priority = z.infer<typeof Priority>;
 export type DisclosureTier = z.infer<typeof DisclosureTier>;

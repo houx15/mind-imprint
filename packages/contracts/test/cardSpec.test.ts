@@ -47,3 +47,25 @@ describe("CardSpec metadata extension", () => {
     expect(CardSpec.safeParse({ ...minimal, body_status: "draft" }).success).toBe(false);
   });
 });
+
+describe("Methodology (Layer B)", () => {
+  const base = {
+    id: "c", category: "信息素养", name: "n", purpose: "", trigger_condition: "", rubric_tags: [],
+    steps: [{
+      key: "s", title: "T", disclose: "always", methodology_note: "",
+      methodology: { why: "因为重要", how: "这样做", when: "卡住时" },
+      fields: [{ type: "textarea", key: "x", label: "L" }],
+    }],
+  };
+  it("accepts a step with structured methodology (why/how/when)", () => {
+    expect(CardSpec.safeParse(base).success).toBe(true);
+  });
+  it("accepts an optional example", () => {
+    const withEx = { ...base, steps: [{ ...base.steps[0], methodology: { ...base.steps[0].methodology, example: "比如…" } }] };
+    expect(CardSpec.safeParse(withEx).success).toBe(true);
+  });
+  it("rejects methodology missing a required beat (how)", () => {
+    const bad = { ...base, steps: [{ ...base.steps[0], methodology: { why: "x", when: "y" } }] };
+    expect(CardSpec.safeParse(bad).success).toBe(false);
+  });
+});
