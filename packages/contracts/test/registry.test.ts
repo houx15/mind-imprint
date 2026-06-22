@@ -26,6 +26,18 @@ describe("deriveCatalog", () => {
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
     expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
   });
+  it("every step of every card has structured methodology (Layer B)", () => {
+    const reg = loadRegistry();
+    for (const card of Object.values(reg)) {
+      for (const step of card.steps) {
+        const where = `${card.id}/${step.key}`;
+        expect(step.methodology, where).toBeDefined();
+        expect(step.methodology!.why.length, where).toBeGreaterThan(0);
+        expect(step.methodology!.how.length, where).toBeGreaterThan(0);
+        expect(step.methodology!.when.length, where).toBeGreaterThan(0);
+      }
+    }
+  });
   it("deriveCatalog projects routing metadata", () => {
     const cat = deriveCatalog(loadRegistry());
     const sift = cat.find((c) => c.id === "sift_craap");

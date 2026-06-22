@@ -14,6 +14,12 @@
     {
       "key": "sift", "title": "SIFT · 横向找更多来源", "disclose": "always",
       "methodology_note": "遇到一条信息先横向扩展、别一头扎进单一材料：Stop 停一下、Investigate 查来源、Find better coverage 找更权威版本、Trace 溯源。",
+      "methodology": {
+        "why": "盯着一个可疑页面**自己较劲**只会被它的包装带着走。先**横向**看别人怎么评价它，判断才站得稳。",
+        "how": "走完四步：**Stop** 停一下想清楚你要用它说明什么；**Investigate** 另开标签查来源是谁；**Find** 找更权威的版本怎么说；**Trace** 溯到原始出处。",
+        "when": "你准备**采信或引用**一个网络来源、但还没核查出处时——下笔之前先走这一遍。",
+        "example": "看到「中国让地球更可持续」的说法，先横向找 NASA、Nature Sustainability 怎么说，而不是只读那一篇文章。"
+      },
       "fields": [
         { "type": "textarea", "key": "stop", "label": "Stop：你打算用这条信息说明什么？" },
         { "type": "repeatable_group", "key": "sources", "label": "Investigate：找出 3 个独立来源",
@@ -29,6 +35,12 @@
     {
       "key": "craap", "title": "CRAAP · 纵向深挖单一材料", "disclose": "on_demand",
       "methodology_note": "当你决定重点采信某个来源时，再纵向核它五维。",
+      "methodology": {
+        "why": "横向核查告诉你「值不值得细看」；**真要重点引用**某个来源时，还得纵向把它本身体检一遍，才知道能信到几分。",
+        "how": "对这一个来源逐项打分：**Currency** 时效、**Relevance** 相关、**Authority** 权威、**Accuracy** 准确、**Purpose** 目的，五维合看。",
+        "when": "SIFT 之后，当某个来源**胜出、你打算重点采信或直接引用**它时再展开——不必每个来源都做。",
+        "example": "锁定一篇 Nature Sustainability 论文当主要论据后，逐维确认它够新、对题、权威、可验证、目的中立。"
+      },
       "fields": [
         { "type": "rating", "key": "currency", "scale": 5, "label": "Currency 时效性" },
         { "type": "rating", "key": "relevance", "scale": 5, "label": "Relevance 相关性" },

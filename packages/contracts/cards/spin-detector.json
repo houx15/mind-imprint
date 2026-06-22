@@ -20,6 +20,12 @@
       "title": "漂绿核对：说的 vs 做的",
       "disclose": "always",
       "methodology_note": "把「它宣称什么」和「它实际做了什么/有什么证据」并排，看落差。",
+      "methodology": {
+        "why": "漂绿的破绽全在**「说的」和「做的」对不上**。只读宣传语你只会被打动，并排放才暴露空话。",
+        "how": "左边写它**宣称什么**，右边写它**实际做了什么/有什么证据**，一条条对齐，盯住中间的落差。",
+        "when": "面对企业的绿色/环保/可持续营销，想验证它是真行动还是漂亮话时。",
+        "example": "宣称「100% 可持续」，实际只有包装可回收、生产仍高排放——落差就是漂绿。"
+      },
       "fields": [
         { "type": "repeatable_group", "key": "pairs", "label": "说的 vs 做的", "item_fields": [
           { "type": "textarea", "key": "claim", "label": "它宣称什么" },
@@ -32,6 +38,12 @@
       "title": "FLICC 套路标注",
       "disclose": "always",
       "methodology_note": "把可疑句子归到五类否认套路之一，并说明它符合这类的哪一点。",
+      "methodology": {
+        "why": "否认科学的手段就那么几类。**给套路命名**，你下次就能一眼认出，不会再被它唬住。",
+        "how": "把可疑句子归到 **FLICC 五类之一**（假专家 / 逻辑谬误 / 不可能的标准 / 挑拣证据 / 阴谋论），并说清它符合这类的哪一点。",
+        "when": "面对否认主流科学的内容（「专家说没那么严重」「这是阴谋」之类）时。",
+        "example": "「还有科学家不同意呢」常是**挑拣证据 + 假专家**——拿极少数异议冒充势均力敌的争论。"
+      },
       "fields": [
         { "type": "repeatable_group", "key": "tags", "label": "可疑句子 + 套路", "item_fields": [
           { "type": "textarea", "key": "snippet", "label": "可疑句子" },
