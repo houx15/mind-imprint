@@ -20,6 +20,10 @@ describe("decision layer", () => {
     expect(p).toContain("不替他定论");
     expect(p).toContain("summon_card");
     expect(p).toContain("sift_craap");
+    // the template itself names the two catalog dimensions as summon guidance,
+    // and reframes a genuine match as good coaching (restraint intact). This
+    // phrase lives only in the template, never in the injected catalog.
+    expect(p).toContain("不是永不递工具");
   });
   it("demoCatalog drops the 3 library twins but keeps the demo cards", () => {
     const d = demoCatalog(full).map((c) => c.id);
