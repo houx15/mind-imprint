@@ -77,3 +77,18 @@
 
 - **过度召唤**：更强的信号可能让模型召唤更频繁。缓解：prompt 仍保留全部克制语句；实时探针校准——若召唤过频，回调 prompt 措辞，不回退信号。
 - **目录变长 token**：每卡多一行 purpose。33 张卡可接受；若超预算，再议（非本期问题）。
+
+## 验证结果（实时 DeepSeek，2026-06-22）
+
+用临时探针（构造真实 `buildSystemPrompt(demoCatalog(...))` + `summonCardTool`，命中后即停）对实时模型测召唤率：
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| 冷开场单句（全部 7 张卡） | 0/12 | 3/14（信号明确的卡会召唤：emotional-alignment、learning-report） |
+| 一次实质交谈后（5 张研究类卡） | — | 5/10，且每次都召唤**正确的卡**（sift→sift、belief-spectrum→belief-spectrum、ethics→ethics） |
+
+**结论：** 喂入 `purpose` 让模型能识别贴合度——召唤从「永不」变为「在真正贴合时召唤正确的卡」。冷开场单句对研究类卡仍刻意保持低召唤（教练先陪练，铁律 #1）；真实多轮交互约 50%。
+
+**遗留（Layer B 候选）：** `data-literacy`、`concession` 两轮仍未召唤——其 trigger/purpose 文本或需 Layer B 的更丰富描述符（如「何时不用」「产出什么」）来加强。
+
+> 探针为临时文件（会发起实时调用），验证后已删除，未进入 git。Key 仅来自 gitignored `apps/web/.env.local`。
