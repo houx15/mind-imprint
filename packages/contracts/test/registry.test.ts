@@ -24,7 +24,7 @@ describe("deriveCatalog", () => {
     const cat = deriveCatalog(loadRegistry());
     expect(cat).toHaveLength(33);
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
-    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "trigger_condition", "trigger_keywords"]);
+    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
   });
   it("deriveCatalog projects routing metadata", () => {
     const cat = deriveCatalog(loadRegistry());
@@ -34,5 +34,7 @@ describe("deriveCatalog", () => {
     expect(sift!.disclosure_tier).toBe("tier-0");
     expect(sift!.trigger_keywords?.length).toBeGreaterThan(0);
     expect(sift!.interaction_type).toBe("步骤引导卡");
+    expect(typeof sift!.purpose).toBe("string");
+    expect(sift!.purpose.length).toBeGreaterThan(0);
   });
 });
