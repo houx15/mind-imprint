@@ -12,8 +12,7 @@ export const Step = z.object({
   key: z.string().min(1),
   title: z.string().min(1),
   disclose: z.enum(["always", "on_demand"]),
-  methodology_note: z.string(),
-  methodology: Methodology.optional(),
+  methodology: Methodology,
   fields: z.array(FieldPrimitive).min(1),
 });
 

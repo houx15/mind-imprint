@@ -6,7 +6,7 @@ import { CardRenderer } from "./CardRenderer";
 const card = {
   id: "t", category: "信息素养", name: "n", purpose: "", trigger_condition: "", rubric_tags: [],
   steps: [{
-    key: "s1", title: "第一步", disclose: "always", methodology_note: "",
+    key: "s1", title: "第一步", disclose: "always",
     methodology: { why: "**因为**重要", how: "这样做", when: "卡住时", example: "比如这样" },
     fields: [{ type: "textarea", key: "x", label: "L" }],
   }],

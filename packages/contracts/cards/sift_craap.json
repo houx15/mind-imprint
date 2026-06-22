@@ -13,7 +13,6 @@
   "steps": [
     {
       "key": "sift", "title": "SIFT · 横向找更多来源", "disclose": "always",
-      "methodology_note": "遇到一条信息先横向扩展、别一头扎进单一材料：Stop 停一下、Investigate 查来源、Find better coverage 找更权威版本、Trace 溯源。",
       "methodology": {
         "why": "盯着一个可疑页面**自己较劲**只会被它的包装带着走。先**横向**看别人怎么评价它，判断才站得稳。",
         "how": "走完四步：**Stop** 停一下想清楚你要用它说明什么；**Investigate** 另开标签查来源是谁；**Find** 找更权威的版本怎么说；**Trace** 溯到原始出处。",
@@ -34,7 +33,6 @@
     },
     {
       "key": "craap", "title": "CRAAP · 纵向深挖单一材料", "disclose": "on_demand",
-      "methodology_note": "当你决定重点采信某个来源时，再纵向核它五维。",
       "methodology": {
         "why": "横向核查告诉你「值不值得细看」；**真要重点引用**某个来源时，还得纵向把它本身体检一遍，才知道能信到几分。",
         "how": "对这一个来源逐项打分：**Currency** 时效、**Relevance** 相关、**Authority** 权威、**Accuracy** 准确、**Purpose** 目的，五维合看。",

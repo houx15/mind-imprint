@@ -6,7 +6,8 @@ import type { CardSpec } from "@mind-imprint/contracts";
 const card = {
   id: "t", category: "c", name: "n", purpose: "p", trigger_condition: "tc",
   rubric_tags: [], body_status: "full",
-  steps: [{ key: "s", title: "S", disclose: "always", methodology_note: "",
+  steps: [{ key: "s", title: "S", disclose: "always",
+    methodology: { why: "w", how: "h", when: "n" },
     fields: [
       { type: "single_choice", key: "subject", label: "学科", options: ["数学", "艺术"] },
       { type: "textarea", key: "proof", label: "数学证明", show_if: { key: "subject", equals: "数学" } },

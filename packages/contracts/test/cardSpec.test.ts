@@ -5,7 +5,8 @@ const valid = {
   id: "concession", category: "知识工具", name: "让步段", purpose: "以退为进",
   trigger_condition: "出现反例却想忽略", rubric_tags: ["D5_论证结构"],
   steps: [{
-    key: "concession", title: "让步段四步", disclose: "always", methodology_note: "先退一步再反驳",
+    key: "concession", title: "让步段四步", disclose: "always",
+    methodology: { why: "片面显得没看见反方", how: "先承认再反驳", when: "撞上反例时" },
     fields: [{ type: "text", key: "thesis", label: "中心论点" }],
   }],
 };
@@ -22,9 +23,14 @@ describe("CardSpec", () => {
     const bad = { ...valid, steps: [{ ...valid.steps[0], fields: [] }] };
     expect(CardSpec.safeParse(bad).success).toBe(false);
   });
+  it("rejects a step with no methodology", () => {
+    const { methodology, ...stepNoMethod } = valid.steps[0]!;
+    const bad = { ...valid, steps: [stepNoMethod] };
+    expect(CardSpec.safeParse(bad).success).toBe(false);
+  });
 });
 
-const baseStep = { key: "s", title: "T", disclose: "always", methodology_note: "", fields: [{ type: "textarea", key: "x", label: "L" }] };
+const baseStep = { key: "s", title: "T", disclose: "always", methodology: { why: "w", how: "h", when: "n" }, fields: [{ type: "textarea", key: "x", label: "L" }] };
 const minimal = { id: "c", category: "信息素养", name: "n", purpose: "", trigger_condition: "", steps: [baseStep], rubric_tags: [] };
 
 describe("CardSpec metadata extension", () => {
@@ -52,7 +58,7 @@ describe("Methodology (Layer B)", () => {
   const base = {
     id: "c", category: "信息素养", name: "n", purpose: "", trigger_condition: "", rubric_tags: [],
     steps: [{
-      key: "s", title: "T", disclose: "always", methodology_note: "",
+      key: "s", title: "T", disclose: "always",
       methodology: { why: "因为重要", how: "这样做", when: "卡住时" },
       fields: [{ type: "textarea", key: "x", label: "L" }],
     }],

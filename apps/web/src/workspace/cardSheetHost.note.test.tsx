@@ -6,7 +6,7 @@ import { CardSheetHost } from "./CardSheetHost";
 const spec = {
   id: "t", category: "信息素养", name: "测试卡", purpose: "p", trigger_condition: "tc", rubric_tags: [],
   steps: [{
-    key: "s1", title: "第一步", disclose: "always", methodology_note: "",
+    key: "s1", title: "第一步", disclose: "always",
     methodology: { why: "因为重要", how: "这样做", when: "卡住时" },
     fields: [{ type: "textarea", key: "x", label: "L" }],
   }],

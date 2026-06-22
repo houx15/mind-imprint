@@ -45,7 +45,7 @@ const siftSpec: CardSpec = {
       key: "stop",
       title: "Stop",
       disclose: "always",
-      methodology_note: "",
+      methodology: { why: "w", how: "h", when: "n" },
       fields: [{ type: "text", key: "stop", label: "Stop" }],
     },
   ],
