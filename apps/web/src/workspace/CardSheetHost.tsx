@@ -1,6 +1,6 @@
 import type { CardInstance, CardSpec } from "@mind-imprint/contracts";
 import { useState } from "react";
-import { CardRenderer } from "../cards/CardRenderer";
+import { pickCardBody } from "../cards/customRenderers";
 import { envelopeReducer } from "../cards/envelopeReducer";
 
 type Props = {
@@ -12,6 +12,7 @@ type Props = {
 
 export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) {
   const [env, setEnv] = useState<CardInstance>(cardInstance);
+  const Body = pickCardBody(spec.id);
 
   function handleField(path: string, value: unknown) {
     setEnv((e) => envelopeReducer(e, { type: "field_change", path, value }));
@@ -175,7 +176,7 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
             background: "#FAFBFC",
           }}
         >
-          <CardRenderer
+          <Body
             card={spec}
             values={env.field_values}
             onField={handleField}

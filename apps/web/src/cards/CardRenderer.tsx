@@ -13,7 +13,11 @@ type Props = {
   onNote?: (stepKey: string) => void;
 };
 
-function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepKey: string) => void }) {
+// A custom (escape-hatch) card renderer is a drop-in replacement for
+// CardRenderer: same props, writes only field_values via onField.
+export type CardBodyProps = Props;
+
+export function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepKey: string) => void }) {
   const m = step.methodology;
   const [open, setOpen] = useState(false);
   if (!m) return null;

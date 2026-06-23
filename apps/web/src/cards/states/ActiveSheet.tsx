@@ -1,5 +1,5 @@
 import type { CardSpec } from "@mind-imprint/contracts";
-import { CardRenderer } from "../CardRenderer";
+import { pickCardBody } from "../customRenderers";
 
 type Props = {
   card: CardSpec;
@@ -12,6 +12,7 @@ type Props = {
 };
 
 export function ActiveSheet({ card, values, onField, onExpandStep, onNoteOpen, onSubmit, onClose }: Props) {
+  const Body = pickCardBody(card.id);
   return (
     <div className="absolute inset-0 z-40 flex flex-col justify-end">
       <div onClick={onClose} className="absolute inset-0 bg-[rgba(22,28,46,0.40)]" aria-hidden />
@@ -32,7 +33,7 @@ export function ActiveSheet({ card, values, onField, onExpandStep, onNoteOpen, o
         </div>
 
         <div className="flex-1 overflow-y-auto bg-[#FAFBFC] px-6 py-5">
-          <CardRenderer card={card} values={values} onField={onField} onExpandStep={onExpandStep} onNote={onNoteOpen} />
+          <Body card={card} values={values} onField={onField} onExpandStep={onExpandStep} onNote={onNoteOpen} />
         </div>
 
         <div className="flex-none border-t border-[#F0F1F5] px-6 py-3.5">
