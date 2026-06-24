@@ -113,3 +113,6 @@ htmlcov/
 
 # Playwright MCP scratch (screenshots / console logs from live E2E runs)
 .playwright-mcp/
+
+# Superpowers brainstorm visual-companion scratch (mockups, session state)
+.superpowers/
