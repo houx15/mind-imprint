@@ -19,7 +19,7 @@ const instance: CardInstance = {
 describe("CardSheetHost + custom renderer (guardrail)", () => {
   it("emits the standard envelope from BeliefSpectrumRenderer", () => {
     const onSubmit = vi.fn();
-    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={onSubmit} onClose={vi.fn()} />);
+    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={onSubmit} onClose={vi.fn()} onSkip={vi.fn()} />);
 
     // Interact through the bespoke shared axis (我 row, no stances yet).
     fireEvent.click(screen.getByRole("radio", { name: selfField.stops[2] }));

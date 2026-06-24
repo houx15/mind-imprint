@@ -20,7 +20,7 @@ const instance: CardInstance = {
 describe("CardSheetHost per-step note_open", () => {
   it("records note_open(step_key) when a step's 方法 panel is expanded", () => {
     const onSubmit = vi.fn();
-    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={onSubmit} onClose={vi.fn()} />);
+    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={onSubmit} onClose={vi.fn()} onSkip={vi.fn()} />);
     fireEvent.click(screen.getByText("方法"));
     fireEvent.click(screen.getByText("提交并钉到过程树"));
     expect(onSubmit).toHaveBeenCalledOnce();
@@ -31,7 +31,7 @@ describe("CardSheetHost per-step note_open", () => {
   });
 
   it("no longer shows the global '这个工具怎么用' button", () => {
-    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={vi.fn()} onClose={vi.fn()} />);
+    render(<CardSheetHost cardInstance={instance} spec={spec} onSubmit={vi.fn()} onClose={vi.fn()} onSkip={vi.fn()} />);
     expect(screen.queryByText("这个工具怎么用")).toBeNull();
   });
 });

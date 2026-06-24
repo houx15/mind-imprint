@@ -8,9 +8,10 @@ type Props = {
   spec: CardSpec;
   onSubmit: (cardInstanceId: string, finalInstance: CardInstance) => void;
   onClose: (cardInstanceId: string) => void;
+  onSkip: (cardInstanceId: string) => void;
 };
 
-export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) {
+export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }: Props) {
   const [env, setEnv] = useState<CardInstance>(cardInstance);
   const Body = pickCardBody(spec.id);
 
@@ -33,8 +34,13 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
   }
 
   function handleClose() {
-    // Close as skip — call parent's onClose which triggers skipCard
+    // Just close — does NOT record a skip (仅关闭，不跳过)
     onClose(cardInstance.id);
+  }
+
+  function handleSkip() {
+    // Deliberate skip — records the signal (过程即数据)
+    onSkip(cardInstance.id);
   }
 
   return (
@@ -197,9 +203,22 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose }: Props) 
             background: "#fff",
           }}
         >
-          <div style={{ fontSize: "12px", color: "#AEB4C2" }}>
-            填写过程会被采集，提交后序列化为标准信封
-          </div>
+          <button
+            type="button"
+            onClick={handleSkip}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#C2557A",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              padding: "10px 0",
+              fontFamily: "inherit",
+            }}
+          >
+            跳过这张卡
+          </button>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               type="button"

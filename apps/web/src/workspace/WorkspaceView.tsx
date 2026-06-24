@@ -251,7 +251,8 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
             cardInstance={activeCard}
             spec={activeSpec}
             onSubmit={(id, final) => void conversation.submitCard(id, final)}
-            onClose={(id) => void conversation.skipCard(id)}
+            onClose={(id) => conversation.closeCard(id)}
+            onSkip={(id) => void conversation.skipCard(id)}
           />
         )}
 

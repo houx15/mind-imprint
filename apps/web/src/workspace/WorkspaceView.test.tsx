@@ -563,14 +563,14 @@ describe("WorkspaceView", () => {
       expect(screen.getByText("SIFT · 横向找更多来源")).toBeInTheDocument();
     });
 
-    it("calls conversation.skipCard when the bottom sheet close button is clicked", async () => {
+    it("calls conversation.closeCard when the bottom sheet close button is clicked", async () => {
       const cards = [makeCardInstance({ status: "active" })];
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
       const closeBtn = screen.getByRole("button", { name: /关闭/ });
       await userEvent.click(closeBtn);
-      expect(conv.skipCard).toHaveBeenCalledWith("ci-sift");
+      expect(conv.closeCard).toHaveBeenCalledWith("ci-sift");
     });
   });
 });
