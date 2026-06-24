@@ -79,3 +79,26 @@
 ## 结论
 
 **S4 + S5 + S6 全部完成，平台已端到端可用**（merged `9d3f406`）；**S3c 也已完成**（10 张 stub 卡全部 un-stub，merged `4403b14`，`library.test` 守卫 0 stub）。全部路线 slice（S1–S6 + 3a/3b/3c）皆已完成并入 main。剩余仅非阻塞打磨：**视觉增强**（拖拽画布 / 多轮对话 / spectrum 拖拽）、**评估增强**（语义树归并 + Marcus/Ethan/Eliza few-shot 扩展 + nodeView 深度走父链）、**S6 review minor**、**一轮多卡 / 关卡可逆 / ChatLog keys** 等整洁项。无孤儿项，无阻塞。
+
+---
+
+## 卡片修复 + 富教学体验批（merged `4b54ae0`，2026-06-24，大重构前）
+
+设计 `docs/superpowers/specs/2026-06-24-card-bugfixes-and-rich-teaching-design.md`，计划 `docs/superpowers/plans/2026-06-24-card-bugfixes-and-rich-teaching.md`。16 个 TDD 任务 + 终审（4 大不变量逐条核过，Ready to merge=Yes）全绿；375 web + 117 contracts 测试通过。
+
+- **#1** `openCard` 现设 `pendingCardId`（切会话后卡仍可重开）。
+- **#2** 关闭 ≠ 跳过：scrim/X/取消 → `conversation.closeCard`（不记跳过），仅显式「跳过这张卡」按钮 → `skipCard`。
+- **#4** 系统 prompt + 工具描述改为「贴合就递」，保留克制护栏（一次一张 / 打开由学生确认）。
+- **#5** 一回合可同时给解释文 + 卡：`createConversation` 存 `content=result.text`；`viewModel` 出 ai_text 气泡 + 提议（去重守卫防旧数据双显）；`messageMapping` 未解决分支回落 nudge_text。
+- **#3** SIFT×CRAAP 与 内在小人(emotional-alignment) 两张富卡：共享内联 SVG 资产（`cards/teaching/assets/`）→ `TeachingModal`（A1 居中，`teachingRegistry`/`pickTeaching`）+ 两个教学 module → `CardSheetHost` 的「给我讲讲这个」入口（开教学、记一次 `note_open`、隐藏方法面板）→ 两个自定义填写渲染器（`SiftCraapRenderer`/`InnerPartsRenderer`，经 `pickCardBody`，护栏测试钉死「只写本卡 schema key / 选项串逐字」）。
+
+### 本批 ship-as-is 遗留（终审判为非阻塞，可后续清理）
+
+- `prompt.ts` 首段 bullet 仍留「（见下，按需，不是默认动作）」，与新「贴合就递」措辞略有张力。
+- `viewModel` 去重(content==nudge)/纯空白 content 边界未单测（逻辑在）。
+- `TeachingModal`「首章禁用上一步」无显式测试（`disabled={isFirst}` 在）。
+- 内在小人角色卡用 `<div role="button">`（a11y 近似，已带 tabIndex/onKeyDown/aria）；教学 energy 章默认 level 2（首屏显示低电量条，纯教学不入信封）。
+- `SiftCraapRenderer` ~L260 有一处过时注释（称测试不模拟展开，实际已模拟）。
+- 两个填写渲染器各有 `as any` 取 field 定义；`InnerPartsRenderer` 内 `OnDemandSection` 重复了 `CardRenderer.OnDemandStep`（可抽共享）；energy 区有一个装饰性 `Battery` 与可点控件并存。
+
+**结论：本批全部并入 main 并推送 origin（`99a307d..4b54ae0`），分支已删。无 Critical/Important 遗留。**
