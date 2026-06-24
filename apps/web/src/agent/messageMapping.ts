@@ -45,7 +45,7 @@ export function buildLlmMessages(opts: BuildLlmMessagesOptions): ChatMessage[] {
           // When the LLM is actually called an unresolved proposal is never the tail
           // (a user message follows it), so emitting tool_use without a tool_result
           // would make the message list wire-illegal for both OpenAI and Anthropic.
-          result.push({ role: "assistant", content: m.content });
+          result.push({ role: "assistant", content: m.content || call.args.nudge_text });
         }
       } else {
         // Plain assistant message (no tool_call)

@@ -70,3 +70,14 @@ it("a resolved proposal still emits toolCalls + paired tool message", () => {
   expect(toolMsg).toBeDefined();
   expect(toolMsg!.toolCallId).toBe("c1");
 });
+
+it("falls back to nudge_text when an unresolved proposal has empty content", () => {
+  const call = { id: "tc1", name: "summon_card", card_instance_id: "ci1",
+    args: { card_id: "sift_craap", reason: "r", nudge_text: "用这张卡？" } };
+  const msg_empty: Message = { id: "m1", task_id: "t1", role: "assistant", content: "",
+    tool_call: call, created_at: "2026-01-01T00:00:00.000Z" };
+  const out = buildLlmMessages({ systemPrompt: "s", messages: [msg_empty],
+    cardById: () => ci("proposed"), specById });
+  const assistant = out.find((m) => m.role === "assistant")!;
+  expect(assistant.content).toBe("用这张卡？");
+});
