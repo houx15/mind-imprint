@@ -11,6 +11,7 @@ type Props = {
   // Consulting a step's methodology is itself recorded process data (过程即数据):
   // the first expand of each step's panel emits note_open(step_key).
   onNote?: (stepKey: string) => void;
+  hideMethodology?: boolean;
 };
 
 // A custom (escape-hatch) card renderer is a drop-in replacement for
@@ -66,16 +67,16 @@ function StepFields({ step, values, onField }: { step: Step; values: Record<stri
   );
 }
 
-export function CardRenderer({ card, values, onField, onExpandStep, onNote }: Props) {
+export function CardRenderer({ card, values, onField, onExpandStep, onNote, hideMethodology }: Props) {
   return (
     <div className="space-y-4">
       {card.steps.map((step) =>
         step.disclose === "on_demand" ? (
-          <OnDemandStep key={step.key} step={step} values={values} onField={onField} onExpandStep={onExpandStep} onNote={onNote} />
+          <OnDemandStep key={step.key} step={step} values={values} onField={onField} onExpandStep={onExpandStep} onNote={onNote} hideMethodology={hideMethodology} />
         ) : (
           <section key={step.key} className="rounded-mk border border-mk-border-2 bg-white p-5">
             <h3 className="mb-4 text-[15px] font-bold text-mk-ink">{step.title}</h3>
-            <MethodologyPanel step={step} onNote={onNote} />
+            {!hideMethodology && <MethodologyPanel step={step} onNote={onNote} />}
             <StepFields step={step} values={values} onField={onField} />
           </section>
         ),
@@ -84,7 +85,7 @@ export function CardRenderer({ card, values, onField, onExpandStep, onNote }: Pr
   );
 }
 
-function OnDemandStep({ step, values, onField, onExpandStep, onNote }: { step: Step } & Omit<Props, "card">) {
+function OnDemandStep({ step, values, onField, onExpandStep, onNote, hideMethodology }: { step: Step } & Omit<Props, "card">) {
   const [open, setOpen] = useState(false);
   return (
     <section className="overflow-hidden rounded-mk border border-mk-border-2 bg-white">
@@ -102,7 +103,7 @@ function OnDemandStep({ step, values, onField, onExpandStep, onNote }: { step: S
       </button>
       {open && (
         <div className="px-5 pb-5">
-          <MethodologyPanel step={step} onNote={onNote} />
+          {!hideMethodology && <MethodologyPanel step={step} onNote={onNote} />}
           <StepFields step={step} values={values} onField={onField} />
         </div>
       )}

@@ -26,4 +26,9 @@ describe("CardRenderer methodology panel", () => {
     // markdown highlight renders as <strong>, not literal **
     expect(screen.getByText("因为").tagName.toLowerCase()).toBe("strong");
   });
+
+  it("hides every 方法 panel when hideMethodology is set", () => {
+    render(<CardRenderer card={card} values={{}} onField={vi.fn()} onExpandStep={vi.fn()} hideMethodology />);
+    expect(screen.queryByRole("button", { name: "方法" })).toBeNull();
+  });
 });
