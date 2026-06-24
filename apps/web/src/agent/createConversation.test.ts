@@ -488,4 +488,19 @@ describe("createConversation", () => {
     conv.openCard("ci-1");
     expect(conv.getSnapshot()).toMatchObject({ phase: "card_active", pendingCardId: "ci-1" });
   });
+
+  it("closeCard dismisses the sheet without skipping or calling the LLM", async () => {
+    const chat = vi.fn(async () => ({ text: "x", toolCalls: [] }));
+    const store = makeStore();
+    const task = store.createTask({ title: "t", seed: null });
+    const ci = newEnvelope("sift_craap", task.id, () => "2026-01-01T00:00:00.000Z", () => "ci-1");
+    store.putCard(ci);
+    const conv = createConversation({ store, chat, config: {}, registry, catalog, taskId: task.id });
+    conv.openCard("ci-1");
+    conv.closeCard("ci-1");
+    expect(conv.getSnapshot()).toMatchObject({ phase: "idle", pendingCardId: undefined });
+    expect(store.getCard("ci-1")!.status).toBe("active");       // 未变 skipped
+    expect(store.getCard("ci-1")!.event_trace.some((e) => e.kind === "skip")).toBe(false);
+    expect(chat).not.toHaveBeenCalled();                         // 未调 LLM
+  });
 });

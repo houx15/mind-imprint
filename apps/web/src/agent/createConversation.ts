@@ -41,6 +41,7 @@ export interface Conversation {
    */
   kickoff(): Promise<void>;
   openCard(cardInstanceId: string): void;
+  closeCard(cardInstanceId: string): void;
   submitCard(cardInstanceId: string, finalInstance: CardInstance): Promise<void>;
   skipCard(cardInstanceId: string): Promise<void>;
 }
@@ -193,6 +194,11 @@ export function createConversation(deps: ConversationDeps): Conversation {
       const activated = envelopeReducer(ci, { type: "activate" }, now);
       store.putCard(activated);
       setState({ phase: "card_active", pendingCardId: cardInstanceId });
+    },
+
+    closeCard(_cardInstanceId: string): void {
+      // 关闭 sheet，不记跳过、不调 LLM；卡片保持 active，可重新打开。
+      setState({ phase: "idle", pendingCardId: undefined });
     },
 
     async submitCard(cardInstanceId: string, finalInstance: CardInstance): Promise<void> {
