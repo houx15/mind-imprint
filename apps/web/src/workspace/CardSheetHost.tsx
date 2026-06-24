@@ -2,6 +2,8 @@ import type { CardInstance, CardSpec } from "@mind-imprint/contracts";
 import { useState } from "react";
 import { pickCardBody } from "../cards/customRenderers";
 import { envelopeReducer } from "../cards/envelopeReducer";
+import { pickTeaching } from "../cards/teaching/teachingRegistry";
+import { TeachingModal } from "../cards/teaching/TeachingModal";
 
 type Props = {
   cardInstance: CardInstance;
@@ -14,6 +16,8 @@ type Props = {
 export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }: Props) {
   const [env, setEnv] = useState<CardInstance>(cardInstance);
   const Body = pickCardBody(spec.id);
+  const teaching = pickTeaching(spec.id);
+  const [showTeaching, setShowTeaching] = useState(false);
 
   function handleField(path: string, value: unknown) {
     setEnv((e) => envelopeReducer(e, { type: "field_change", path, value }));
@@ -135,6 +139,29 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }:
             <div style={{ fontSize: "13px", color: "#9AA1B0", marginTop: "3px" }}>
               {spec.purpose}
             </div>
+            {teaching && (
+              <button
+                type="button"
+                onClick={() => { handleNote(spec.steps[0]!.key); setShowTeaching(true); }}
+                style={{
+                  marginTop: "10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  background: "#EBF0FF",
+                  color: "#2A3B7A",
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "8px 14px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                给我讲讲这个
+              </button>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -188,6 +215,7 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }:
             onField={handleField}
             onExpandStep={handleExpandStep}
             onNote={handleNote}
+            hideMethodology={!!teaching}
           />
         </div>
 
@@ -271,6 +299,7 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }:
           </div>
         </div>
       </div>
+      {showTeaching && teaching && <TeachingModal module={teaching} onClose={() => setShowTeaching(false)} />}
     </div>
   );
 }
