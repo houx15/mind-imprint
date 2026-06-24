@@ -23,7 +23,19 @@ describe("decision layer", () => {
     // the template itself names the two catalog dimensions as summon guidance,
     // and reframes a genuine match as good coaching (restraint intact). This
     // phrase lives only in the template, never in the injected catalog.
-    expect(p).toContain("不是永不递工具");
+    expect(p).toContain("不是把工具藏起来");
+  });
+
+  it("system prompt frames cards as 'offer when it fits', not a rare exception", () => {
+    const p = buildSystemPrompt(full);
+    expect(p).toContain("贴合就递");
+    expect(p).toContain("打开由学生确认");
+    expect(p).toContain("一次最多一张");
+    expect(p).not.toContain("绝大多数轮次，普通陪练就够了");
+  });
+
+  it("summon_card tool description is invitational, not 'rarely call'", () => {
+    expect(summonCardTool(full).description).not.toContain("绝大多数轮次不需要调用");
   });
   it("demoCatalog drops the 3 library twins but keeps the demo cards", () => {
     const d = demoCatalog(full).map((c) => c.id);
