@@ -9,6 +9,7 @@
 > **Companion documents:**
 > - [`docs/architecture/database-schema.md`](../../architecture/database-schema.md) — full table-by-table schema.
 > - [`docs/architecture/api-design.md`](../../architecture/api-design.md) — every endpoint + the SSE protocol.
+> - [`docs/architecture/chat-history-storage.md`](../../architecture/chat-history-storage.md) — message storage, growth analysis, partitioning.
 > - [`docs/architecture/go-backend-best-practices.md`](../../architecture/go-backend-best-practices.md) — Go stack reference.
 
 ---
@@ -36,8 +37,8 @@ The platform rewrite must not erode what the product *is*. These survive verbati
    card is always a human action; **close ≠ skip** (only an explicit 跳过 records a skip).
 3. **一次只问一个** — one question, one card per turn. Enforced in the turn loop.
 4. **过程即数据** — skips, opens, and field changes are signal, recorded in the
-   envelope's `event_trace`; now durably in Postgres, with an `llm_calls` ledger
-   adding tier/token/cost as first-class process data.
+   envelope's `event_trace`; now durably in Postgres, with per-turn tier/token/cost
+   recorded on each assistant message as first-class process data.
 
 **The standard envelope (`CardInstance`) is the load-bearing floor.** Its shape
 (`field_values`, `event_trace`, `status`) is unchanged. It is the common ground of
@@ -65,7 +66,7 @@ mind-imprint/
 │  │  ├─ gateway/              provider adapters (deepseek/anthropic) + SSE proxy + keyResolver seam
 │  │  ├─ eval/                 SOLO-rubric evaluation (inline P1 → river worker P4)
 │  │  ├─ auth/                 signup/verify/signin, sessions, argon2id        [P2]
-│  │  ├─ org/                  schools/classes/memberships                     [P2 minimal → P3 rich]
+│  │  ├─ org/                  schools/classes/enrollments + HasEntitlement seam [P2 minimal → P3 rich]
 │  │  ├─ store/                sqlc-generated queries + pgxpool
 │  │  └─ cards/                go:embed of the shared card JSON + spec types
 │  ├─ migrations/              goose SQL migrations
@@ -123,41 +124,63 @@ and the `card` event arrive in the same stream.
 
 **The key-resolver seam:** `keyResolver(ctx) → (provider, model, key, orgID?)`.
 Today it returns the platform env secret. For future per-org billing it resolves
-the caller's school/class key and stamps `orgID` onto the `llm_calls` ledger row.
-Nothing else in the gateway changes.
+the caller's school/class key; org attribution comes from the user→school relation
+at rollup time (the `llm_usage` view). Nothing else in the gateway changes.
 
 **Streaming hygiene:** `Flush` per event; `X-Accel-Buffering: no`; the upstream
 call is bound to `r.Context()` so a client disconnect cancels the provider call;
-heartbeat comments keep the connection alive; every call writes an `llm_calls` row
-with tier + tokens + cost on completion.
+heartbeat comments keep the connection alive; on completion the per-turn usage
+(tier + tokens + cost) is written onto the assistant `messages` row (no separate
+ledger table).
 
 ## 5. Data model
 
 Full detail in [`database-schema.md`](../../architecture/database-schema.md). Summary:
 
-- **Identity & org:** `users` (role enum), `email_verification_tokens`, `sessions`,
-  `schools`, `classes` (with `join_code`), `memberships`.
-- **Core domain:** `tasks`, `messages`, `card_instances`, `evaluations`, `llm_calls`.
+- **Identity & org:** `users` (role enum, `school_id` NOT NULL),
+  `email_verification_tokens`, `sessions`, `schools`, `classes` (with `join_code`),
+  `enrollments` (user↔class join).
+- **Core domain:** `tasks`, `messages` (with per-turn usage), `card_instances`,
+  `evaluations` (provisional).
 
-Three deliberate choices:
+Five deliberate choices:
 1. **The envelope is stored as JSONB, validated at the edge only.** `field_values`
    and `event_trace` are `jsonb`. Go validates the *outer* envelope (status enum,
    required ids); the inner shape's deep truth stays the Zod contract. A new card
    adds zero columns.
 2. **No `process_node` table.** The process tree is a read-time projection from
    `card_instances.parent_node_id` + messages (matches current behavior).
-3. **`llm_calls` is the cost spine** and the future per-org billing read model.
+3. **Structural belonging vs entitlement are separate.** School/class belonging is
+   real data (`schools`/`classes`/`enrollments`/`users.school_id`). Paid access
+   ("membership") is **not** a table — it is a stubbed backend seam
+   `HasEntitlement(ctx, user)` (period-subscription vs token-balance is undecided),
+   checked before token-spending endpoints.
+4. **Per-turn usage lives on the turn, not in a ledger.** One model call = one
+   assistant `messages` row, so `model/tier/tokens/cost` sit on that row (and on
+   `evaluations` for eval calls). **No `llm_calls` table.** Org cost rollups use an
+   `llm_usage` UNION view; a real ledger is a later additive migration if billing
+   needs it. Message storage rationale + growth analysis:
+   [`chat-history-storage.md`](../../architecture/chat-history-storage.md)
+   (row-per-message, append-only; partition later, not now).
+5. **The evaluation data model is provisional.** P1 keeps the working SOLO-rubric
+   contract; the richer shape gets its own design pass (see §7).
 
 ## 6. Authentication & the organization invariant
 
-**Hard invariant (Global Constraint): every account belongs to a class (and thus a
-school). No orgless registration — ever.**
+**Hard invariant (Global Constraint): every account belongs to a school; students
+and teachers also belong to ≥1 class. No orgless registration — ever.** (Admins
+belong to a school but no class.)
 
 This couples auth and org, so a minimal org slice lands with **P2**:
 
 - **Signup requires a valid class join code.** One atomic transaction creates the
-  `users` row **and** the `memberships` row binding it to the code's class — or the
-  whole signup fails. No code path produces an orgless user.
+  `users` row (its `school_id` taken from `class.school_id`) **and** the
+  `enrollments` row binding it to the code's class — or the whole signup fails. No
+  code path produces an orgless user.
+- **Entitlement is a separate, deferred concept.** "Membership" as *paid access* is
+  not modeled as data yet; the `HasEntitlement(ctx, user)` seam (stubbed `true`)
+  gates token-spending endpoints (`/turn`, `/evaluate`) and is where a future
+  period-subscription or token-balance model plugs in — no call sites change.
 - Password hashing: **argon2id**. Email verification: a random token, only its
   **hash** stored, 24h TTL; raw token emailed via the `Mailer`. Signin **rejects
   unverified** accounts.
@@ -170,6 +193,12 @@ This couples auth and org, so a minimal org slice lands with **P2**:
   rosters, school aggregation) is **P3**.
 
 ## 7. Evaluation (sync → async)
+
+> **The evaluation data model is provisional.** "Tree of nodes" vs "flat scored
+> items" vs the current SOLO rubric are materially different shapes; we deliberately
+> do **not** lock one in. A dedicated evaluation-design brainstorm precedes any
+> further investment. P1 keeps the existing, working SOLO-rubric contract
+> (`scores[]` + narrative).
 
 - **P1:** `POST /tasks/:id/evaluate` runs the SOLO-rubric evaluation **inline**
   (flagship model, **never downgraded**) and writes the `evaluations` row.
@@ -198,8 +227,8 @@ Each phase is its own spec → plan → build and leaves the gate green.
 
 | Phase | Delivers | End state |
 |---|---|---|
-| **P1** | Go service, Postgres+goose, envelope persistence, smart gateway + SSE, ported prompt/refeed/loop, `llm_calls` ledger, seeded school+class+student, **inline** eval; frontend rewired | Today's app, real backend, one mock user |
-| **P2** | Signup/verify/signin, argon2id, sessions, `Mailer`, **minimal org** (admin-seeded classes + join-code-gated signup), per-user tasks | Real multi-user, every account org-bound |
+| **P1** | Go service, Postgres+goose, envelope persistence, smart gateway + SSE, ported prompt/refeed/loop, per-turn usage on `messages`, seeded school+class+student, `HasEntitlement` stub, **inline** eval; frontend rewired | Today's app, real backend, one mock user |
+| **P2** | Signup/verify/signin, argon2id, sessions, `Mailer`, **minimal org** (admin-seeded schools/classes + join-code-gated signup, `enrollments`), per-user tasks | Real multi-user, every account org-bound |
 | **P3** | Teacher/admin roles, class creation + roster management, school aggregation | Full org product |
 | **P4** | `river` job + worker, eval enqueue + poll | Non-blocking evaluation |
 

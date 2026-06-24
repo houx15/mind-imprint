@@ -31,7 +31,8 @@ Every non-2xx response:
 ```
 
 - `code` is a stable machine string (`validation_failed`, `unauthorized`,
-  `email_unverified`, `invalid_join_code`, `not_found`, `rate_limited`, `internal`).
+  `email_unverified`, `invalid_join_code`, `not_entitled`, `not_found`,
+  `rate_limited`, `internal`).
 - `message` never leaks internals; real error detail goes to `slog` server-side only.
 - Status mapping: `400` validation, `401` unauthenticated, `403` forbidden,
   `404` not found, `409` conflict (e.g. email taken), `429` rate-limited,
@@ -58,9 +59,10 @@ Request:
 ```json
 { "email": "phoebe@example.com", "password": "…", "display_name": "Phoebe", "join_code": "SY-7Q2K" }
 ```
-Behavior: one atomic transaction creates the `users` row **and** the `memberships`
-row binding it to the join code's class. Generates a verification token (stores only
-its hash, 24h TTL) and emails the raw token via the `Mailer`.
+Behavior: one atomic transaction creates the `users` row (with `school_id` taken
+from the join code's `class.school_id`) **and** the `enrollments` row binding it to
+the join code's class. Generates a verification token (stores only its hash, 24h
+TTL) and emails the raw token via the `Mailer`.
 
 Responses: `201 {}` (verification email sent) · `409 email_taken` ·
 `400 invalid_join_code` · `400 validation_failed` · `429 rate_limited`.
@@ -79,8 +81,14 @@ Responses: `200 {user}` · `401 invalid_credentials` · `403 email_unverified` �
 Deletes the session row, clears the cookie. `204`.
 
 ### `GET /api/v1/auth/me`
-`200 { "user": { id, email, display_name, role, avatar_color, school: {id,name}, class: {id,name} } }`
-· `401 unauthorized`. The org context is always present (invariant).
+```json
+200 { "user": { "id":"…", "email":"…", "display_name":"…", "role":"student",
+                "avatar_color":"…",
+                "school": { "id":"…", "name":"…" },
+                "classes": [ { "id":"…", "name":"…", "role_in_class":"student" } ] } }
+```
+`401 unauthorized`. The school is always present (invariant); `classes` is an array
+(one for a student, several for a teacher, empty for an admin).
 
 ---
 
@@ -105,6 +113,10 @@ card instances (the client builds the process-tree projection from `cards` +
 ### `POST /api/v1/tasks/:id/turn`
 Request: `{ "user_input": "…" }`. Response: `text/event-stream`.
 
+Gated by `HasEntitlement(ctx, user)` (a token-spending endpoint). When it returns
+false the request is rejected before any model call: `403 not_entitled`. Today the
+seam returns true for everyone.
+
 The server builds the system prompt (克制阶梯) + the card catalog as the
 `summon_card` tool from the embedded card JSON, resolves the key
 (`keyResolver(ctx)`), calls the provider, and streams:
@@ -127,8 +139,9 @@ data: {"message_id":"…"}
 - `event: error` carries the standard error envelope and ends the stream.
 
 Streaming hygiene: flush per event, `X-Accel-Buffering: no`, the upstream call bound
-to the request context (client disconnect cancels it), heartbeat comments. One
-`llm_calls` ledger row is written on completion.
+to the request context (client disconnect cancels it), heartbeat comments. On completion the
+per-turn usage (tier/tokens/cost) is written onto the assistant `messages` row (no
+separate ledger table).
 
 **One card per turn** is enforced server-side (一次只问一个).
 
@@ -162,9 +175,14 @@ Request: `{ "event_trace": [ … ] }` → status `skipped`, recorded as process 
 ## Evaluation  `[P1 sync → P4 async]`
 
 ### `POST /api/v1/tasks/:id/evaluate`
-Triggers evaluation. **P1:** runs inline (flagship model, never downgraded), writes
-the `evaluations` row, returns `201 { evaluation }` with `status:"done"`. **P4:**
-enqueues a river job, returns `202 { evaluation_id, status:"queued" }`.
+Triggers evaluation. Gated by `HasEntitlement` (`403 not_entitled` when false).
+**P1:** runs inline (flagship model, never downgraded), writes the `evaluations`
+row, returns `201 { evaluation }` with `status:"done"`. **P4:** enqueues a river
+job, returns `202 { evaluation_id, status:"queued" }`.
+
+> The evaluation response shape is **provisional** — the eval data model gets a
+> dedicated design pass (see database-schema.md). P1 returns the current SOLO-rubric
+> contract (`scores[]` + `narrative`).
 
 ### `GET /api/v1/tasks/:id/evaluation`
 `200 { evaluation: { id, status, scores, narrative, model, created_at, completed_at } }`.

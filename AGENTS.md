@@ -32,7 +32,7 @@
 |---|---|
 | 前端 `apps/web` | React + Vite + TypeScript + Tailwind —— 纯渲染 + API 客户端，不持有密钥、不直连模型 |
 | 后端 `apps/api` | **Go**（`net/http` + `pgx`/`sqlc` + `goose` + `river`）—— 智能网关（系统 prompt / `summon_card` / refeed / turn loop 都在服务端）、数据服务、鉴权、异步评估。唯一持有密钥、唯一访问 DB 与模型的单元 |
-| 存储 | **PostgreSQL** —— `users` / `sessions` / `schools` / `classes` / `memberships` / `task` / `message` / `card_instance` / `evaluation` / `llm_calls`（无 `process_node` 表，过程树由 `parent_node_id` 投影） |
+| 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（每轮 token/成本就落在 assistant 行）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；无 `llm_calls` 表（用量入 message/evaluation，组织成本用 `llm_usage` 视图汇总） |
 | 模型 | China-first：默认 **DeepSeek**，Anthropic 可选。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；评估走旗舰模型**绝不降级** |
 
 **三层解耦（核心心智模型：工具卡 = tool-use 循环里「由人来执行的工具」）：**
@@ -46,14 +46,14 @@
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
 - **新增卡 = 新增一份 JSON 配置，不改渲染器代码。** 这是 schema 驱动是否成立的验证标准；用现有字段原语（`text` / `textarea` / `single_choice` / `multi_choice` / `rating` / `repeatable_group` / `link_check`）拼，除非真需要全新交互才加原语。
 - **标准信封结构一旦定下不要随意改**——它是过程树、使用计数、评估的共同地基。后端按「边界校验」存储：Go 只校验信封外层（`status` 枚举、id、`field_values` 为对象、`event_trace` 为数组），内层深结构真相仍归 `packages/contracts` 的 Zod 契约。
-- **组织不变式：每个账号必属于某个班级（进而属于某个学校），不存在「无组织账号」。** 注册必须携带有效班级 join code；建号与 membership 在同一事务内完成，否则整体失败。
+- **组织不变式：每个账号必属于某个学校；学生/教师还属于 ≥1 个班级，不存在「无组织账号」。** 注册必须携带有效班级 join code；建号（`school_id` 取自 `class.school_id`）与 `enrollments` 在同一事务内完成，否则整体失败。**结构归属（学校/班级）与「会员/付费权益」是两回事**：付费权益暂不建表，由后端 `HasEntitlement(ctx,user)` 接缝（当前恒 true）在消耗 token 的端点前判定，未来接订阅/代币模型。
 - **密钥只在 `apps/api` 服务端**（LLM key / DB DSN / session secret / SMTP），绝不进 git、日志、抛出或渲染的错误、数据存储、评估 payload。
 
 ## 重构路线（已定稿，取代旧的「明确不做（本期）」）
 
 架构 north-star + 分期实施，每期独立 spec → plan → build：
 
-- **P1 · 后端地基 + 智能网关**：Go 服务、Postgres+goose、信封落库、SSE 网关、prompt/refeed/loop 移植、`llm_calls` 账本、种子「学校+班级+学生」、**内联**评估；前端改用 API。终态 = 今天的体验 + 真后端 + 单一 mock 学生。
+- **P1 · 后端地基 + 智能网关**：Go 服务、Postgres+goose、信封落库、SSE 网关、prompt/refeed/loop 移植、每轮用量落 message 行、种子「学校+班级+学生」、`HasEntitlement` 桩、**内联**评估；前端改用 API。终态 = 今天的体验 + 真后端 + 单一 mock 学生。
 - **P2 · 鉴权 + 最小组织**：注册/邮箱验证/登录、argon2id、session；管理员预置班级 + join-code 注册门槛；任务归属到人。
 - **P3 · 完整组织端**：教师/管理员角色登录、建班 + 名单管理、学校维度聚合。
 - **P4 · 异步评估**：river 任务 + worker，评估入队 + 轮询。
