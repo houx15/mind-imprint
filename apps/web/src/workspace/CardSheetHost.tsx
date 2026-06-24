@@ -1,5 +1,5 @@
 import type { CardInstance, CardSpec } from "@mind-imprint/contracts";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { pickCardBody } from "../cards/customRenderers";
 import { envelopeReducer } from "../cards/envelopeReducer";
 import { pickTeaching } from "../cards/teaching/teachingRegistry";
@@ -18,6 +18,10 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }:
   const Body = pickCardBody(spec.id);
   const teaching = pickTeaching(spec.id);
   const [showTeaching, setShowTeaching] = useState(false);
+  // The teaching entry records note_open at most once per sheet session (过程即数据),
+  // mirroring MethodologyPanel's first-expand-only behavior. Re-opening the modal
+  // must NOT inflate the note_open signal the evaluator reads.
+  const notedTeaching = useRef(false);
 
   function handleField(path: string, value: unknown) {
     setEnv((e) => envelopeReducer(e, { type: "field_change", path, value }));
@@ -142,7 +146,10 @@ export function CardSheetHost({ cardInstance, spec, onSubmit, onClose, onSkip }:
             {teaching && (
               <button
                 type="button"
-                onClick={() => { handleNote(spec.steps[0]!.key); setShowTeaching(true); }}
+                onClick={() => {
+                  if (!notedTeaching.current) { handleNote(spec.steps[0]!.key); notedTeaching.current = true; }
+                  setShowTeaching(true);
+                }}
                 style={{
                   marginTop: "10px",
                   display: "inline-flex",
