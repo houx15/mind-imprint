@@ -2,6 +2,8 @@ package httpx
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,6 +63,11 @@ func TestWriteError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.mustNotContain != "" {
+				old := slog.Default()
+				slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+				t.Cleanup(func() { slog.SetDefault(old) })
+			}
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/x", nil)
 			WriteError(rec, req, tt.err)

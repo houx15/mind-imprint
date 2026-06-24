@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	"mindimprint/api/internal/config"
@@ -13,6 +14,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	migrateUp := flag.Bool("migrate-up", false, "run database migrations then exit")
 	flag.Parse()
 
