@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/httpx"
@@ -45,11 +44,6 @@ func main() {
 	srv := httpx.NewServer(cfg, pool)
 
 	if err := httpx.RunServer(srv, func(_ context.Context) {
-		// Give pool close its own fresh deadline so a slow server shutdown
-		// can't starve it (cross-task decision from Task 5 review).
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = closeCtx // pool.Close is synchronous; context reserved for future async close
 		pool.Close()
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
