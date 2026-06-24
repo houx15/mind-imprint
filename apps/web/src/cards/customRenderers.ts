@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { CardRenderer, type CardBodyProps } from "./CardRenderer";
 import { BeliefSpectrumRenderer } from "./renderers/BeliefSpectrumRenderer";
 import { SiftCraapRenderer } from "./renderers/SiftCraapRenderer";
+import { InnerPartsRenderer } from "./renderers/InnerPartsRenderer";
 
 // Escape-hatch: a card_id may map to a bespoke renderer that overrides the
 // schema CardRenderer. The hard guardrail is the shared CardBodyProps contract
@@ -10,6 +11,7 @@ import { SiftCraapRenderer } from "./renderers/SiftCraapRenderer";
 export const customRenderers: Record<string, ComponentType<CardBodyProps>> = {
   "belief-spectrum": BeliefSpectrumRenderer,
   "sift_craap": SiftCraapRenderer,
+  "emotional-alignment": InnerPartsRenderer,
 };
 
 export function pickCardBody(cardId: string): ComponentType<CardBodyProps> {
