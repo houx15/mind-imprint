@@ -1,0 +1,101 @@
+{
+  "id": "fact-opinion-value",
+  "category": "知识工具",
+  "name": "事实/观点/价值判断卡",
+  "name_en": "Fact / Opinion / Value",
+  "purpose": "把一段话里的陈述分成三类——能查证的事实、需论证的观点、藏着价值的判断，是一切清晰思考的地基",
+  "trigger_condition": "学生把观点/价值判断当成事实，或把三类陈述混在一起",
+  "trigger_keywords": ["这是事实", "我觉得", "应该", "好坏", "对不对", "大家都知道"],
+  "priority": "P0",
+  "disclosure_tier": "tier-0",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D4", "D5"],
+  "related": ["argument-map", "certainty-spectrum", "cda"],
+  "body_status": "full",
+  "rubric_tags": ["D4", "D5"],
+  "steps": [
+    {
+      "key": "paste",
+      "title": "第一步：贴入要分析的段落",
+      "disclose": "always",
+      "methodology": {
+        "why": "三类陈述混在一起读，最容易把**观点和价值判断当成事实**囫囵接受——必须先把原文摆出来，才能逐句拆开看。",
+        "how": "把你想分析的段落**完整**贴进来，不用删改，接下来会一句一句给它打标签。",
+        "when": "当一段话让你隐约觉得「这真的是事实吗」，想看清里面到底有几分可查证的硬货时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "paragraph",
+          "label": "把需要分析的段落贴在这里",
+          "rows": 6
+        }
+      ]
+    },
+    {
+      "key": "classify",
+      "title": "第二步：逐句分类并说明理由",
+      "disclose": "always",
+      "methodology": {
+        "why": "三类陈述需要的**对待方式完全不同**：事实该去核查、观点该被论证、价值判断该被摊开。混为一谈，就会拿错处理它的方法。",
+        "how": "逐句套一个检验：**能被查证**吗？→ 事实；**需要给理由**才成立吗？→ 观点；**带「应该/好坏/对错」、藏着价值排序**吗？→ 价值判断。",
+        "when": "贴入段落后，对每一句话各打一个标签，并写下你判断的依据。",
+        "example": "「中国碳排放全球第一」=事实（可查）；「中国在认真减排」=观点（需论证）；「发达国家应承担更多责任」=价值判断（藏着公平排序）。"
+      },
+      "fields": [
+        {
+          "type": "repeatable_group",
+          "key": "sentences",
+          "label": "逐句添加——每行填一句话，选类型，写检验理由",
+          "item_fields": [
+            {
+              "type": "text",
+              "key": "sentence",
+              "label": "句子原文"
+            },
+            {
+              "type": "single_choice",
+              "key": "label",
+              "label": "类型",
+              "options": ["事实", "观点", "价值判断"]
+            },
+            {
+              "type": "textarea",
+              "key": "test_reason",
+              "label": "检验/理由（它能被查证吗？需要理由吗？藏了「应该」吗？）"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "next_action",
+      "title": "第三步：每类该怎么处理？",
+      "disclose": "on_demand",
+      "methodology": {
+        "why": "分类不是目的，**改进表达**才是——分完类如果不动手，就只是知道有问题却没修。",
+        "how": "对号入座地处理：**事实**去找权威来源核查、**观点**补上论证理由、**价值判断**讲清背后的价值前提，并改掉那些用「事实」口吻说出的观点。",
+        "when": "完成逐句分类之后，作为收尾决定每一类各该做什么。"
+      },
+      "fields": [
+        {
+          "type": "multi_choice",
+          "key": "actions_needed",
+          "label": "这段话里，你还需要做哪些事？（可多选）",
+          "options": [
+            "去核查事实句（找权威来源）",
+            "为观点句补充论证理由",
+            "说明价值判断句背后的价值前提",
+            "删掉或修改用「事实」口吻表达的观点"
+          ]
+        },
+        {
+          "type": "textarea",
+          "key": "reflection",
+          "label": "这段话里真正的事实有几条？其余的该怎么处理？用自己的话写下来。"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "source-map",
+  "category": "溯源与多视角",
+  "name": "3D 溯源导图卡",
+  "name_en": "3D Source-Tracing Map",
+  "purpose": "把一串聊天记录和零散材料，转成一张立体的导图：概念、来源、观点、利益相关方、偏见、兴趣点各成节点，看清谁支持谁、谁出钱、谁有偏见",
+  "trigger_condition": "学生在一个议题上积累了一堆材料/观点/来源，需要把探究过程立体化",
+  "trigger_keywords": ["整理一下", "关系太乱", "各方说法", "谁支持谁", "全局", "利益相关方"],
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "interaction_type": "画布导图卡",
+  "rubric_dims": ["D3", "D4", "D5"],
+  "related": ["money-trail", "sift", "belief-spectrum", "rabbit-hole"],
+  "body_status": "full",
+  "rubric_tags": ["D3", "D4", "D5"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "3D 溯源导图",
+      "disclose": "always",
+      "methodology": {
+        "why": "一堆零散材料堆在一起，你很容易**误以为有很多独立来源在互相印证**，其实它们可能**同出一源、同一出资方**；不画出来，你就看不见谁在背后、谁有偏见。",
+        "how": "把每条材料/观点抽成一个**节点**，标上类型（来源/报告/出资方……）和**偏见图层**（政治/商业/地域/叙事），再标清它**支持、反对还是出自**哪个节点。",
+        "when": "当一个议题上的材料、观点、来源已经堆成一团，关系太乱、你想把整个探究过程**立体地看清全局**时。",
+        "example": "三篇看似独立的报道，画出来才发现都引用了同一份由某行业协会出资的报告——这时它们其实只算**一个**来源。"
+      },
+      "fields": [
+        { "type": "repeatable_group", "key": "nodes", "label": "把材料 / 观点抽成节点", "item_fields": [
+          { "type": "text", "key": "material", "label": "材料 / 观点" },
+          { "type": "single_choice", "key": "node_type", "label": "节点类型", "options": ["观点", "来源", "报告", "出资方", "机构", "证据"] },
+          { "type": "single_choice", "key": "bias", "label": "偏见标注", "options": ["未知 / 无", "政治", "商业", "地域", "叙事"] },
+          { "type": "textarea", "key": "relation", "label": "它支持 / 反对 / 出自哪个节点？" }
+        ] },
+        { "type": "textarea", "key": "same_source", "label": "打开「偏见图层」看全局：哪些观点其实同源？谁在背后？" },
+        { "type": "textarea", "key": "shift", "label": "看完这张图，你的判断有变化吗？" }
+      ]
+    }
+  ]
+}

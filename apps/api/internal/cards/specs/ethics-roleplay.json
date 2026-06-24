@@ -1,0 +1,40 @@
+{
+  "id": "ethics-roleplay",
+  "category": "AI伦理",
+  "name": "伦理情景·角色博弈卡",
+  "name_en": "Ethics Scenario & Role Play",
+  "purpose": "把 AI 伦理做成游戏：在真实情景里扮演不同角色（开发者/用户/监管者/受影响者…），从各自的利益与盲区出发判断「AI 该介入到什么程度」",
+  "trigger_condition": "学生需要在真实伦理情景中从多个角色立场判断 AI 该介入到什么程度",
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["情景", "角色扮演", "如果是你", "立场", "各方", "谁该负责"],
+  "interaction_type": "角色模拟卡",
+  "rubric_dims": ["D9", "D4"],
+  "related": ["ethics-lenses", "belief-spectrum", "ai-decision-tree"],
+  "body_status": "full",
+  "rubric_tags": ["D9", "D4"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "伦理情景角色博弈",
+      "disclose": "always",
+      "methodology": {
+        "why": "只从自己的角度看伦理问题，盲区永远看不见。**真正站进对方的利益里**，你才会发现「谁该负责」远比想象中复杂——这正是 AI 伦理难下定论的原因。",
+        "how": "先写清**情景与核心问题**，再**逐个角色**（开发者/用户/监管者/受影响者…）填它的**利益、责任、盲区**——填的时候真的「成为」那个角色。最后**综合各方**写下你的判断：AI 该介入到哪一步、谁该负责。",
+        "when": "当一个真实情景里**有多个立场互相牵扯**、责任说不清时——尤其你发现自己只站在一方说话的时候。",
+        "example": "「AI 招聘筛掉了某类申请者」：开发者图效率、企业图省成本、被刷掉的人要公平、监管者要问责——四个角色摆开，盲区一下就显出来了。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "scenario", "label": "情景与核心问题（AI 给定背景，你写下要决断的核心问题）" },
+        { "type": "repeatable_group", "key": "roles", "label": "各方角色立场板", "item_fields": [
+          { "type": "text", "key": "name", "label": "角色" },
+          { "type": "textarea", "key": "interest", "label": "它的利益" },
+          { "type": "textarea", "key": "duty", "label": "它的责任" },
+          { "type": "textarea", "key": "blindspot", "label": "它的盲区" }
+        ] },
+        { "type": "textarea", "key": "closing", "label": "综合各方：你认为 AI 该介入到哪一步？谁该负责？" }
+      ]
+    }
+  ]
+}

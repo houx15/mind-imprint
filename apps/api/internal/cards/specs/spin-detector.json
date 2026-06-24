@@ -1,0 +1,54 @@
+{
+  "id": "spin-detector",
+  "category": "信息素养",
+  "name": "营销与否认套路卡（漂绿 + FLICC）",
+  "name_en": "Greenwashing & Denial Tactics",
+  "purpose": "两套套路识别器：漂绿——看穿绿色营销里「说的」和「做的」对不上；FLICC——识别否认科学的五类常见手法",
+  "trigger_condition": "学生面对企业绿色营销，或面对否认主流科学的内容",
+  "trigger_keywords": ["环保", "绿色", "可持续", "否认", "专家说没有", "阴谋", "其实没那么严重"],
+  "priority": "P2",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D2", "D4", "D5"],
+  "related": ["money-trail", "multimodal-decode", "science-knowing"],
+  "body_status": "full",
+  "rubric_tags": ["D2", "D4", "D5"],
+  "steps": [
+    {
+      "key": "greenwash",
+      "title": "漂绿核对：说的 vs 做的",
+      "disclose": "always",
+      "methodology": {
+        "why": "漂绿的破绽全在**「说的」和「做的」对不上**。只读宣传语你只会被打动，并排放才暴露空话。",
+        "how": "左边写它**宣称什么**，右边写它**实际做了什么/有什么证据**，一条条对齐，盯住中间的落差。",
+        "when": "面对企业的绿色/环保/可持续营销，想验证它是真行动还是漂亮话时。",
+        "example": "宣称「100% 可持续」，实际只有包装可回收、生产仍高排放——落差就是漂绿。"
+      },
+      "fields": [
+        { "type": "repeatable_group", "key": "pairs", "label": "说的 vs 做的", "item_fields": [
+          { "type": "textarea", "key": "claim", "label": "它宣称什么" },
+          { "type": "textarea", "key": "actual", "label": "它实际做了什么 / 证据" }
+        ] }
+      ]
+    },
+    {
+      "key": "flicc",
+      "title": "FLICC 套路标注",
+      "disclose": "always",
+      "methodology": {
+        "why": "否认科学的手段就那么几类。**给套路命名**，你下次就能一眼认出，不会再被它唬住。",
+        "how": "把可疑句子归到 **FLICC 五类之一**（假专家 / 逻辑谬误 / 不可能的标准 / 挑拣证据 / 阴谋论），并说清它符合这类的哪一点。",
+        "when": "面对否认主流科学的内容（「专家说没那么严重」「这是阴谋」之类）时。",
+        "example": "「还有科学家不同意呢」常是**挑拣证据 + 假专家**——拿极少数异议冒充势均力敌的争论。"
+      },
+      "fields": [
+        { "type": "repeatable_group", "key": "tags", "label": "可疑句子 + 套路", "item_fields": [
+          { "type": "textarea", "key": "snippet", "label": "可疑句子" },
+          { "type": "single_choice", "key": "tactic", "label": "属于哪类套路", "options": ["假专家", "逻辑谬误", "不可能的标准", "挑拣证据", "阴谋论"] }
+        ] },
+        { "type": "textarea", "key": "persuasion", "label": "用一句话说明：这段在如何说服我？" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "id": "cda",
+  "category": "信息素养",
+  "name": "话语分析卡 CDA",
+  "name_en": "Critical Discourse Analysis",
+  "purpose": "用 Fairclough 三维框架，看穿一段话怎么用词、怎么站位来潜移默化地说服甚至支配你",
+  "trigger_condition": "学生面对两份/多份立场对立的文本，需要看穿用词与立场背后的权力关系",
+  "trigger_keywords": ["措辞", "立场", "他这么说", "说服", "字里行间", "对比两方"],
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D4", "D5"],
+  "related": ["framing", "fact-opinion-value", "belief-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D4", "D5"],
+  "steps": [
+    {
+      "key": "texts",
+      "title": "输入两段对立文本",
+      "disclose": "always",
+      "methodology": {
+        "why": "话语策略往往要**两相对照**才看得清——单看一段你容易被它的语气带走，并排放才显出各自的取舍。",
+        "how": "把两段**立场对立**的真实文本（声明、报道、演讲摘录）分别贴入 A/B，内容越真实，后面三维分析越有料。",
+        "when": "当你手里有两份/多份立场冲突的材料，想看穿用词与站位背后的较量时。",
+        "example": "把支持与反对同一政策的两篇社论并排贴入，准备逐层拆它们怎么各说各话。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "text_a",
+          "label": "文本 A（第一方立场）——粘贴原文或关键段落",
+          "rows": 6
+        },
+        {
+          "type": "textarea",
+          "key": "text_b",
+          "label": "文本 B（第二方立场）——粘贴原文或关键段落",
+          "rows": 6
+        }
+      ]
+    },
+    {
+      "key": "text_layer",
+      "title": "第一维：文本层",
+      "disclose": "always",
+      "methodology": {
+        "why": "**说服藏在用词的选择里**。谁当主语、用主动还是被动，决定了「谁在负责、谁被隐去」——这是最容易被忽略的操纵。",
+        "how": "盯住具体字句：**主语是谁？主动还是被动？用词中立还是带价值色彩？有没有隐喻？**举 1-2 处例子标注出来。",
+        "when": "第一层、最贴近文本的分析——任何要拆解措辞的对比都从这里起步。",
+        "example": "「政府保护了居民」vs「居民受到了保护」——后者用被动悄悄抹掉了「是谁在保护」。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "text_layer_a",
+          "label": "文本 A · 文本层标注：举 1-2 处例子，说明主语选择/及物性/用词/隐喻",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "text_layer_b",
+          "label": "文本 B · 文本层标注：举 1-2 处例子，说明主语选择/及物性/用词/隐喻",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "practice_layer",
+      "title": "第二维：话语实践层",
+      "disclose": "always",
+      "methodology": {
+        "why": "一段话不是凭空出现的——**谁生产它、怎么转述对手、放大谁压低谁**，本身就是一种权力操作。",
+        "how": "看来源性质（主流媒体还是利益相关方）、**怎么引述对方的声音**、哪些声音被放大、哪些被悄悄略掉。",
+        "when": "拆完字句之后，往外看一层：分析话语是如何被生产和传播的。",
+        "example": "一篇报道大段直引己方专家，却只用一句话带过反对者——这种引用配比本身就是立场。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "practice_layer_a",
+          "label": "文本 A · 话语实践层：来源性质、转述方式、哪些声音被引用或忽略",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "practice_layer_b",
+          "label": "文本 B · 话语实践层：来源性质、转述方式、哪些声音被引用或忽略",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "social_layer",
+      "title": "第三维：社会文化层",
+      "disclose": "on_demand",
+      "methodology": {
+        "why": "用词和引用方式的背后，常有更大的**制度、文化或利益结构**在撑腰——看到这一层，你才算真正看穿而非只看到表面。",
+        "how": "联系社会情境推断：**这段话语在服务谁的利益、什么文化或制度背景？**这层较难，可以先跳过再回来补。",
+        "when": "进阶层、当表层和实践层都标注完、你想追问「为什么是这样说」的更深原因时。",
+        "example": "天主教会反对赌博，背后是其宗教文化立场——抓住这层，措辞选择就解释得通了。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "social_layer_a",
+          "label": "文本 A · 社会文化层：这段话语服务于什么利益/文化/制度背景？",
+          "rows": 4
+        },
+        {
+          "type": "textarea",
+          "key": "social_layer_b",
+          "label": "文本 B · 社会文化层：这段话语服务于什么利益/文化/制度背景？",
+          "rows": 4
+        }
+      ]
+    },
+    {
+      "key": "summary",
+      "title": "话语策略对照与小结",
+      "disclose": "always",
+      "methodology": {
+        "why": "三维拆完若不收口，只是一堆零散标注。**对照成结论**，分析才转化成你写作时能用的判断。",
+        "how": "并排概括两方策略差异：**谁的利益在说话？哪方更透明？**再落到「我打算在写作中如何回应或引用」。",
+        "when": "三层都标注完、要把分析变成对自己论证有用的启示时——这是收尾的一刀。",
+        "example": "对照后你可能发现 A 方靠隐喻煽情、B 方靠数据，于是决定引 B、并点破 A 的修辞。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "comparison",
+          "label": "两方话语策略对照：A vs B 各自如何通过用词、来源、背景来建构立场",
+          "rows": 5
+        },
+        {
+          "type": "textarea",
+          "key": "takeaway",
+          "label": "对你论证的启示：识别出这些话语策略后，你打算如何在写作中回应或引用？",
+          "rows": 3
+        }
+      ]
+    }
+  ]
+}

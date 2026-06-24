@@ -1,0 +1,130 @@
+{
+  "id": "opcvl",
+  "category": "AOK",
+  "name": "OPCVL 史料评估卡",
+  "name_en": "OPCVL Source Evaluation",
+  "purpose": "用 IB 历史的 OPCVL 框架评估史料：来源、目的、内容、价值、局限——并升到双源对照与史观自觉",
+  "trigger_condition": "学生在历史任务中评估一份或两份史料（IB 史料分析、首发 Demo 场景）",
+  "priority": "P0",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "trigger_keywords": ["史料", "来源分析", "OPCVL", "这张海报", "历史材料", "价值和局限"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
+  "related": ["source-map", "fact-opinion-value", "ai-boundary"],
+  "body_status": "full",
+  "rubric_tags": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
+  "steps": [
+    {
+      "key": "origin",
+      "title": "O · Origin 来源",
+      "disclose": "always",
+      "methodology": {
+        "why": "**一份史料能告诉你什么，由它从哪来决定**。同一句话，出自亲历者日记还是政府公告，份量完全不同——不先定位来源，后面的价值与局限都无从谈起。",
+        "how": "把三件事问清楚：作者/出版方**是谁**（个人、机构还是政府）、产出的**时间与地点**、是同时期产出的**一手**还是事后撰写的**二手**。",
+        "when": "拿到任何一份史料，**动手分析之前**的第一步——OPCVL 的地基。",
+        "example": "一张 1950 年代的官方海报，作者是政府、时间与事件同期——光这三点就提示你：它带着立场，不是中立记录。"
+      },
+      "fields": [
+        { "type": "text", "key": "who", "label": "作者/出版方是谁？" },
+        { "type": "text", "key": "when_where", "label": "产出时间与地点？" },
+        { "type": "single_choice", "key": "source_type", "label": "材料类型", "options": ["一手史料（同时期产出）", "二手史料（事后撰写）", "不确定"] }
+      ]
+    },
+    {
+      "key": "purpose",
+      "title": "P · Purpose 目的",
+      "disclose": "always",
+      "methodology": {
+        "why": "**目的决定了材料会强调什么、隐藏什么**。一份为宣传而生的材料和一封私人书信，可信的方向完全不同——看不出目的，就容易把「想让你相信的」当成「事实」。",
+        "how": "问两件事：作者**为什么**做这份材料（宣传？记录？说服？私信？），以及它**写给谁看**（受众）。受众往往反过来暴露目的。",
+        "when": "定位完来源（O）之后——目的是连接「谁做的」和「它有什么价值/局限」的桥。",
+        "example": "面向国内民众的宣传海报，目的是动员而非如实记录——这一点直接预告了它后面的局限。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "intended_purpose", "label": "这份材料的目的是什么（宣传？记录？说服？）？" },
+        { "type": "textarea", "key": "target_audience", "label": "它面向的受众是谁？" }
+      ]
+    },
+    {
+      "key": "content",
+      "title": "C · Content 内容",
+      "disclose": "always",
+      "methodology": {
+        "why": "**先看清「它说了什么」，再谈「它值不值得信」**。很多人跳过这步直接评价，结果评的是自己的印象而非材料本身——内容是后面价值/局限的事实依据。",
+        "how": "用**自己的话**摘要主要内容（事实、观点、图像各是什么），并圈出值得注意的**细节或措辞**。此刻只描述、不评判。",
+        "when": "来源和目的定位清楚后、进入价值/局限判断之前——把材料的「原话」固定下来。",
+        "example": "海报上写「亩产万斤」并配以丰收图——先记下这个内容本身，先别急着说它真假。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "main_content", "label": "这份材料的主要内容是什么？（用自己的话摘要）" },
+        { "type": "textarea", "key": "notable_details", "label": "有哪些值得注意的细节或措辞？" }
+      ]
+    },
+    {
+      "key": "value",
+      "title": "V · Value 价值",
+      "disclose": "always",
+      "methodology": {
+        "why": "**价值不等于「它说的是真的」**，而是「它对历史研究有什么独特用处」。哪怕一份材料满是偏见，它依然能真实反映**当时的立场或意图**——把价值等同于真假，是 OPCVL 最常见的失分点。",
+        "how": "从两头想：内容上它记录了什么**独特信息**（别处看不到的）；来源/目的上它如何因「谁做的、为什么做」而**特别有用**（例：作为当时的宣传品，它直接反映官方想灌输的意图）。",
+        "when": "在内容摘要完成后——把 O 和 P 的判断**转化成**「所以它对研究者有什么用」。",
+        "example": "一张失实的宣传海报，价值恰恰在于：它精准记录了官方**当时想让民众相信什么**。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "value_content", "label": "这份材料的内容价值是什么？它记录了什么独特信息？" },
+        { "type": "textarea", "key": "value_origin", "label": "它的来源/目的如何使它具有价值？（例：作为当时的宣传品，它直接反映官方意图）" }
+      ]
+    },
+    {
+      "key": "limitation",
+      "title": "L · Limitation 局限",
+      "disclose": "always",
+      "methodology": {
+        "why": "**局限不是「它说错了」，而是「它的视角天然有盲区」**。任何史料都从某个位置看世界，必然有看不到、不愿说的部分——指出这些盲区，才是史学评估而非简单挑错。",
+        "how": "同样从两头想：内容上它**没覆盖或刻意回避**了什么；来源/目的上作者的**立场、时代、目的**如何天然限制了它的视角。让局限和前面的价值**对称呼应**——同一个来源/目的，既给它价值，也给它局限。",
+        "when": "紧接价值之后——价值与局限是一枚硬币的两面，要成对地写。",
+        "example": "那张官方海报反映了官方意图（价值），但**看不到**普通民众的真实处境，也不会承认饥荒（局限）。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "limitation_content", "label": "内容局限：它没有覆盖或刻意回避了什么？" },
+        { "type": "textarea", "key": "limitation_origin", "label": "来源/目的局限：作者的立场、时代、目的如何限制了材料的视角？" }
+      ]
+    },
+    {
+      "key": "compare",
+      "title": "双源对照（第二份史料）",
+      "disclose": "on_demand",
+      "methodology": {
+        "why": "**两份史料的分歧，本身就是历史问题的线索**。它们为什么说得不一样？是立场不同、时间不同还是利益不同——对照能逼出单看一份史料看不到的张力。",
+        "how": "先给第二份史料做一句话的 O/P/C 摘要，再**逐维**对照两者：内容上说的是否一致、视角有何不同、价值各落在哪。重点不是谁对，而是**异同从何而来**。",
+        "when": "当任务要求你**同时分析两份史料**时（如 IB 史料对比题）——单源分析完成后再做。",
+        "example": "官方海报说「丰收」、同期农民日记写「挨饿」——这个矛盾正是探究当时真实情况的切入口。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "source2_summary", "label": "第二份史料的 O/P/C 摘要（来源、目的、内容各一句）" },
+        { "type": "repeatable_group", "key": "compare_dims", "label": "逐维对照：两份史料有何异同？",
+          "item_fields": [
+            { "type": "text", "key": "dimension", "label": "对照维度（如：内容 / 视角 / 价值）" },
+            { "type": "textarea", "key": "difference", "label": "异同说明" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "reflexivity",
+      "title": "D12 · 史观自觉",
+      "disclose": "on_demand",
+      "methodology": {
+        "why": "**你分析史料时，自己也站在某个立场上**。你的前提、框架、偏好会悄悄影响你判断什么算「价值」、什么算「局限」——意识不到这一点，你会把自己的史观当成客观。这直接对应 TOK「认知者与知识」。",
+        "how": "回头审视自己：你带着什么**立场或史观**在看（民族主义？结果论？某种道德预设？），再具体说出它如何**影响了**你前面对价值/局限的判断。",
+        "when": "在完成 OPCVL 全流程后做的一次反身回看——尤其当你发现自己「太顺地」站到某一边时。",
+        "example": "若你天然同情普通民众，可能会放大官方史料的局限、低估它的价值——先承认这点，判断才更稳。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "own_standpoint", "label": "你自己带着什么立场或史观在分析这份材料？（例：民族主义视角？结果论？）" },
+        { "type": "textarea", "key": "how_it_affects", "label": "这个立场如何影响了你对价值/局限的判断？" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "certainty-spectrum",
+  "category": "知识工具",
+  "name": "确定度光谱卡",
+  "name_en": "Certainty Spectrum",
+  "purpose": "不同知识有不同的确定度天花板——把一个结论放到光谱上，并用相称的语气表达它",
+  "trigger_condition": "学生用「一定/绝对」的口气说一个其实不确定的结论，或反之把可靠当成「只是观点」",
+  "trigger_keywords": ["一定是", "肯定", "绝对", "证明了", "真的假的", "有多确定"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["DP"],
+  "interaction_type": "量表光谱卡",
+  "rubric_dims": ["D6", "D9"],
+  "related": ["fact-opinion-value", "science-knowing"],
+  "body_status": "full",
+  "rubric_tags": ["D6", "D9"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "确定度光谱",
+      "disclose": "always",
+      "methodology": {
+        "why": "不同知识有不同的**确定度天花板**——把有据推断说成「绝对」会过度自信，把科学共识贬成「只是观点」又太虚无。语气配不上证据，论证就失真。",
+        "how": "先把结论放到光谱上（**个人猜测 → 有据推断 → 强证据 → 科学共识 → 逻辑必然**），看清它靠的是哪种证据；再用相称的语气词（可能/大概/很可能/几乎确定/必然）重写这句话。",
+        "when": "当你用「一定/绝对/证明了」的口气说一个其实没那么确定的结论，或反过来把可靠的共识说成「只是观点」时。",
+        "example": "「中国一定会实现碳中和」→ 这是有据推断，宜改成「中国**很可能**在政策与技术支撑下实现碳中和」。"
+      },
+      "fields": [
+        { "type": "text", "key": "claim", "label": "你的结论是什么？" },
+        { "type": "spectrum", "key": "position", "label": "把它放到确定度光谱上", "stops": ["个人猜测", "有据推断", "强证据", "科学共识", "逻辑必然"] },
+        { "type": "textarea", "key": "why", "label": "为什么是这个位置？支撑它的证据类型是什么？" },
+        { "type": "textarea", "key": "rewrite", "label": "用与该位置相称的语气词重写结论句（可能 / 大概 / 很可能 / 几乎确定 / 必然）" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "belief-spectrum",
+  "category": "溯源与多视角",
+  "name": "立场光谱卡（Belief Spectrum）",
+  "name_en": "Belief Spectrum",
+  "purpose": "把对错两派摊成一条连续光谱，定位各方与自己",
+  "trigger_condition": "学生把争议议题简化成「对错两派」，看不到中间的连续立场",
+  "trigger_keywords": ["两派", "谁对谁错", "专家吵架", "争议", "中立", "我站哪边"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "量表光谱卡",
+  "rubric_dims": ["D4"],
+  "related": ["steelman", "ethics-roleplay", "source-map"],
+  "body_status": "full",
+  "rubric_tags": ["D4"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "立场光谱",
+      "disclose": "always",
+      "methodology": {
+        "why": "把争议压成**「对/错两派」**会丢掉最有价值的中间地带——真实的分歧几乎都是**连续的**，非黑即白会让你看不见自己其实可以站在某个更精确的位置。",
+        "how": "先写下议题，再把每一方拖到光谱上一个具体的点，并分别记下它**相信什么、引什么证据、背后有什么利益**；最后把**自己**也放上去。",
+        "when": "当你发现自己在说「这就是两派在吵」「到底谁对谁错」，或被专家互相打架搞晕、不知道该站哪边时。",
+        "example": "「中国是否让地球更可持续？」——别只摆「是 / 否」，而要看见从「中国是减排引领者」到「中国是全球最大排放国」之间的整条光谱，你的真实立场往往落在中间某处。"
+      },
+      "fields": [
+        { "type": "text", "key": "issue", "label": "争议议题是什么？" },
+        { "type": "repeatable_group", "key": "stances", "label": "把各方立场放到光谱上", "item_fields": [
+          { "type": "text", "key": "who", "label": "是谁 / 哪个立场" },
+          { "type": "spectrum", "key": "position", "label": "在光谱上的位置", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
+          { "type": "textarea", "key": "believes", "label": "它相信什么" },
+          { "type": "textarea", "key": "evidence", "label": "它引什么证据" },
+          { "type": "textarea", "key": "interest", "label": "背后有什么利益 / 背景" }
+        ] },
+        { "type": "spectrum", "key": "self", "label": "我现在站这里", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
+        { "type": "textarea", "key": "self_reason", "label": "我站这里的理由（他们的分歧在证据、价值，还是利益？）" }
+      ]
+    }
+  ]
+}

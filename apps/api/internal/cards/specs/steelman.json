@@ -1,0 +1,61 @@
+{
+  "id": "steelman",
+  "category": "知识工具",
+  "name": "让步段·反方最强卡",
+  "name_en": "Steelman / Concession",
+  "purpose": "不打稻草人——先把反方最强的版本说出来，再回应它，让论证从「片面」变「可信」",
+  "trigger_condition": "学生只论证自己一方、没有认真对待反方，论证显得片面",
+  "trigger_keywords": ["我觉得我说得对", "反方", "但是", "怎么反驳", "加强论证", "让步"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D4"],
+  "related": ["argument-map", "pee", "belief-spectrum"],
+  "body_status": "full",
+  "rubric_tags": ["D4"],
+  "steps": [
+    {
+      "key": "stance",
+      "title": "确认你的立场",
+      "disclose": "always",
+      "methodology": {
+        "why": "立场模糊，就找不准**真正值得回应**的反方最强点——很容易跑去打无关的稻草人，浪费力气。",
+        "how": "先用**一两句话**把你自己的立场说清楚，给后面找反方最强点定个靶心。",
+        "when": "在动手做让步段、构建反方论证**之前**，第一步先把立场钉死。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "your_stance", "label": "你的立场是什么？（一两句话说清楚）" }
+      ]
+    },
+    {
+      "key": "strongest_counter",
+      "title": "反方最强的一击",
+      "disclose": "always",
+      "methodology": {
+        "why": "打**弱化版的反方**（稻草人）赢得轻松却没用——只有正面回应反方最强的版本，你的论证才从「片面」变成「可信」。",
+        "how": "真的**切换到对方视角**：如果你是反方，最有力的一击是什么？写出那个连反方自己都会引以为傲的论证，先自己试再让 AI 补。",
+        "when": "确认完立场后，正面去找并写下反方阵营里**最硬**的那一条。",
+        "example": "你支持「核电是清洁能源」，反方最强点不是「核电站不好看」，而是「福岛、切尔诺贝利证明事故后果不可逆且代价巨大」。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "counter_strongest", "label": "反方最强的论证是什么？（先自己试，再看 AI 补充）" }
+      ]
+    },
+    {
+      "key": "concession",
+      "title": "写让步段",
+      "disclose": "always",
+      "methodology": {
+        "why": "让步段的质量全看两点：**让步是否真诚**（没偷偷弱化反方）、**回应是否扣住最强点**（而非旁枝末节）。这两点立住了，段落才有分量。",
+        "how": "套用模板写：「我承认【反方有理之处】，**但**【我的回应】，**因为**【理由/证据】。」让步部分别缩水，回应部分要正对上一步那个最强点。",
+        "when": "找到反方最强点之后，用这一步把「真诚让步 + 有力反驳」落成一个完整段落。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "concede", "label": "我承认……（真诚让步，不要偷偷弱化反方）" },
+        { "type": "textarea", "key": "rebuttal", "label": "但……因为……（回应必须扣住反方最强点）" },
+        { "type": "multi_choice", "key": "self_check", "label": "自查（可多选）", "options": ["让步是真诚的，没有弱化反方", "回应扣住了反方最强点，而不是旁枝末节"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "science-knowing",
+  "category": "AOK",
+  "name": "科学怎么算知道卡",
+  "name_en": "How Science Knows",
+  "purpose": "用四条标准判断一个主张算不算可靠的科学：可证伪、对照、可重复、同行评审——科学是「暂定但可靠」",
+  "trigger_condition": "学生需要判断一个「科学主张」是否真的站得住，或区分科学与伪科学",
+  "priority": "P1",
+  "disclosure_tier": "tier-2",
+  "age_band": ["DP"],
+  "trigger_keywords": ["科学证明", "研究表明", "实验", "这科学吗", "伪科学", "共识"],
+  "interaction_type": "分类标注卡",
+  "rubric_dims": ["D2", "D5", "D9"],
+  "related": ["data-literacy", "certainty-spectrum", "spin-detector"],
+  "body_status": "full",
+  "rubric_tags": ["D2", "D5", "D9"],
+  "steps": [
+    {
+      "key": "main",
+      "title": "科学四标准",
+      "disclose": "always",
+      "methodology": {
+        "why": "**「研究表明」四个字不等于可靠**。伪科学最会披科学的外衣——有四条标准做尺子，你才能分清「真科学」和「听起来像科学」。同时它提醒你：科学是**暂定但可靠**，不是「永远正确」，也不是「只是一种观点」。",
+        "how": "把主张拿出来，用四条标准逐条打分：**可证伪**（有什么证据能推翻它）、**对照**（有对照组吗）、**可重复**（别人能重现吗）、**同行评审**（经过专业审查吗）；再找一个伪科学样例对照，看差别落在哪几条。",
+        "when": "当你遇到「研究表明」「科学证明」「实验显示」这类主张，又拿不准它是真站得住还是包装出来的时候。",
+        "example": "「占星预测」碰上**可证伪**这条就垮了——它的说法模糊到怎么都对，永远无法被证据推翻。"
+      },
+      "fields": [
+        { "type": "text", "key": "claim", "label": "你要检验的主张是什么？" },
+        { "type": "criteria_check", "key": "criteria", "label": "用四个标准逐条检验它", "criteria": ["可证伪", "有对照", "可重复", "经同行评审"], "levels": ["满足", "部分", "不满足"] },
+        { "type": "textarea", "key": "contrast", "label": "对照一个伪科学样例：差别在哪？" },
+        { "type": "textarea", "key": "tentative", "label": "满足标准 ≠ 永远正确。用一句话说明：这个结论目前有多可靠、什么会修正它？" }
+      ]
+    }
+  ]
+}

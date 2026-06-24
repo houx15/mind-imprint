@@ -1,0 +1,73 @@
+{
+  "id": "pee",
+  "category": "知识工具",
+  "name": "PEE 写作卡",
+  "name_en": "PEE Paragraph (Point-Evidence-Explanation)",
+  "purpose": "把一段论证写成 Point（要点）→ Evidence（论据）→ Explanation（解释）的结构，让学生自己搭骨架，而不是让 AI 代写",
+  "trigger_condition": "学生进入写作产出环节，想让 AI 直接代写段落",
+  "trigger_keywords": ["怎么写", "段落", "帮我写一段", "论文结构", "开头结尾", "字数"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D7", "D8"],
+  "related": ["argument-map", "steelman", "cda"],
+  "body_status": "full",
+  "rubric_tags": ["D7", "D8"],
+  "steps": [
+    {
+      "key": "thesis_check",
+      "title": "对齐开篇立场",
+      "disclose": "always",
+      "methodology": {
+        "why": "如果每段都各说各话、不扣同一个立场，整篇论文就会**散架**——读者看完不知道你到底主张什么。",
+        "how": "动笔前先把**开篇立场（论文主旨）**写下来，让它当锚点；之后每一段都要回头检查：我这段是在为它服务吗？",
+        "when": "在你准备写任何一个论证段**之前**——先对齐立场，再往下拆 P / E / E。"
+      },
+      "fields": [
+        { "type": "text", "key": "thesis", "label": "你的开篇立场（论文主旨）是什么？" }
+      ]
+    },
+    {
+      "key": "point",
+      "title": "Point · 这段的要点",
+      "disclose": "always",
+      "methodology": {
+        "why": "段落开头如果没有一句清楚的分论点，证据就**无处可挂**——读者读完一堆材料，却抓不到你想说什么。",
+        "how": "用**一句话**写出这段自己的分论点，并确认它是在为开篇立场添砖加瓦，而不是另起炉灶。",
+        "when": "每开始一个新段落时，第一句先把 Point 立起来。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "point", "label": "这段的要点（Point）是一句什么话？" }
+      ]
+    },
+    {
+      "key": "evidence",
+      "title": "Evidence · 论据",
+      "disclose": "always",
+      "methodology": {
+        "why": "模糊的「有研究显示」**没有说服力**，还容易掩盖你其实没查过证据这件事——精确的引文才扣得住分论点。",
+        "how": "给出**具体**的支撑：原文的词、确切的数字、明确的来源。亲自去找，别让 AI 替你找证据。",
+        "when": "立完 Point 之后，紧接着补上支撑它的那一条最有力的证据。",
+        "example": "不要写「有研究说全球在变暖」，而要写「NASA 数据显示 2023 年是有记录以来最热的一年」。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "evidence", "label": "用什么证据支持？引文中的词/数据（不要让 AI 替你找）" }
+      ]
+    },
+    {
+      "key": "explanation",
+      "title": "Explanation · 解释",
+      "disclose": "always",
+      "methodology": {
+        "why": "**证据不会自己说话**。把证据往那一摆就不管，读者并不会自动得出你的结论——少了解释，论证就断了。这一步才是你思考真正发生的地方，也是 AI 替不了你的部分。",
+        "how": "用自己的话讲清楚：**这个证据为什么能支撑这个 Point**？把证据和分论点之间的逻辑链一环一环说出来。",
+        "when": "给出 Evidence 之后立刻做——这是 PEE 里最不能省、也最容易被偷懒跳过的一步。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "explanation", "label": "解释（Explanation）：这个证据为什么支撑你的要点？" },
+        { "type": "multi_choice", "key": "self_check", "label": "自查（可多选）", "options": ["三部分都填了（P / E / E）", "证据是精确引文/数据，不是模糊描述", "解释扣住了 Point，没有跑题", "这段扣住了开篇立场"] }
+      ]
+    }
+  ]
+}

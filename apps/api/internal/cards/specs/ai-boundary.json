@@ -1,0 +1,90 @@
+{
+  "id": "ai-boundary",
+  "category": "AI伦理",
+  "name": "AI 边界与幻觉核查卡",
+  "name_en": "AI Boundary & Hallucination Check",
+  "purpose": "AI 会「一本正经地编」。这张卡把 AI 的边界和可能的幻觉，变成学生练查证和判断的最佳时刻",
+  "trigger_condition": "AI 给出了一个可能不准/编造的事实、引用或数据，学生倾向直接采纳",
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "trigger_keywords": ["AI 说的对吗", "来源呢", "你确定吗", "引用", "数据是真的吗", "编的吧"],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": ["D9", "D3"],
+  "related": ["ai-collaboration", "sift", "opcvl"],
+  "body_status": "full",
+  "rubric_tags": ["D9", "D3"],
+  "steps": [
+    {
+      "key": "identify",
+      "title": "圈出需要核查的项目",
+      "disclose": "always",
+      "methodology": {
+        "why": "AI 在**预测「像样的话」**，不是在查事实——它会把不存在的人名、出处说得和真的一样自然。不先圈出来，你就会把编的当成真的用进作业里。",
+        "how": "把 AI 刚才说的内容**逐条扫一遍**，凡是「具体可查」的声明都单独列出来：**人名、日期、数据/数字、引用/出处、因果关系**。顺手记下 AI 当时的语气有多确定。",
+        "when": "当 AI 给出了**具体细节**（尤其是你打算直接引用的事实、数据、出处）、而你正想照单采纳时。越具体的细节越值得圈。",
+        "example": "AI 说「据《自然·可持续性》2021 年一篇研究，中国可再生能源投资占全球 40%」——这里至少有三条可查项：期刊名、年份、那个 40%。"
+      },
+      "fields": [
+        {
+          "type": "repeatable_group",
+          "key": "checkable_items",
+          "label": "AI 说了哪些需要核查的具体声明？（每行一条）",
+          "item_fields": [
+            {
+              "type": "text",
+              "key": "claim",
+              "label": "具体声明（原文）"
+            },
+            {
+              "type": "single_choice",
+              "key": "kind",
+              "label": "类型",
+              "options": ["人名", "日期", "数据/数字", "引用/出处", "因果关系"]
+            },
+            {
+              "type": "single_choice",
+              "key": "ai_confidence",
+              "label": "AI 对这条的置信度（你感觉）",
+              "options": ["说得很确定", "有些不确定", "明显不确定/打了问号"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "verify",
+      "title": "挑一条去验证",
+      "disclose": "always",
+      "methodology": {
+        "why": "全部都查会累到放弃，最后一条都不查。**抓最关键或最可疑的那一条**做一次扎实核查，比泛泛扫一遍更能暴露幻觉，也练到了真本事。",
+        "how": "选一条声明，去找**原始出处**：用 **SIFT 横向阅读**搜更多独立来源，或直接搜关键词看能否找到第二个证据。最后给个判定——**已验证 / 幻觉 / 存疑**。",
+        "when": "圈完可查项之后。优先挑**对你的论证最要命**、或你感觉 **AI 最没把握**的那一条。",
+        "example": "去搜那本期刊 2021 年的目录，发现根本没这篇文章，也找不到「40%」的独立来源——这就是一次成功识别的 AI 幻觉。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "target_claim",
+          "label": "我选择核查哪条声明？"
+        },
+        {
+          "type": "link_check",
+          "key": "source_link",
+          "label": "找到的原始出处或独立来源（贴链接）"
+        },
+        {
+          "type": "single_choice",
+          "key": "verdict",
+          "label": "核查结果",
+          "options": ["已验证——与 AI 说的一致", "幻觉——AI 编的，与事实不符", "存疑——找不到独立来源，无法确认"]
+        },
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "发现了什么？（如果是幻觉，记一次「成功识别 AI 幻觉」——这是高光时刻）"
+        }
+      ]
+    }
+  ]
+}
