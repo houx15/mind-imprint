@@ -5,8 +5,10 @@ sync-cards:
 	go run ./tools/synccards
 
 # Regenerate the type-safe sqlc store from queries/ + migrations/.
+# CGO_ENABLED=0 forces the WASM-based pg_query parser (avoids macOS build issue
+# with the native pganalyze/pg_query_go C library).
 sqlc:
-	go tool sqlc generate
+	CGO_ENABLED=0 go tool sqlc generate
 
 # Apply goose migrations against DATABASE_URL (env or .env.local).
 migrate-up:
