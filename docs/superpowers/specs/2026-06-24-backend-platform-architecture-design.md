@@ -49,7 +49,11 @@ remains the single seam between the decision layer and the Card Runtime.
 
 **New card = new JSON, no renderer change.** This law now extends to the backend:
 the same card JSON is read by Go (prompt/refeed/catalog) and by the frontend
-(rendering). One source, zero drift, no code change to add a card.
+(rendering). The canonical source is `packages/contracts/cards/`; the frontend
+imports it directly. Go cannot `go:embed` across its module boundary, so `apps/api`
+embeds a **generated mirror** (`internal/cards/specs/`) kept in lockstep by a sync
+step plus a **drift-check test**. The canonical dir stays the single source — no
+code change to add a card.
 
 ## 3. Architecture overview
 
@@ -68,11 +72,11 @@ mind-imprint/
 │  │  ├─ auth/                 signup/verify/signin, sessions, argon2id        [P2]
 │  │  ├─ org/                  schools/classes/enrollments + HasEntitlement seam [P2 minimal → P3 rich]
 │  │  ├─ store/                sqlc-generated queries + pgxpool
-│  │  └─ cards/                go:embed of the shared card JSON + spec types
+│  │  └─ cards/                go:embed of the generated card-JSON mirror (specs/) + spec types + drift test
 │  ├─ migrations/              goose SQL migrations
 │  └─ Dockerfile               multi-stage → distroless
 ├─ packages/contracts/         Zod schemas STAY (frontend's truth for rendering)
-└─ packages/contracts/cards/   the 33 card JSON specs — single shared asset (TS imports; Go go:embed)
+└─ packages/contracts/cards/   the 33 card JSON specs — canonical source (TS imports directly; Go embeds a synced mirror + drift check)
 ```
 
 **The rule that makes the split real:** `apps/api` is the only unit holding secrets
