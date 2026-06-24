@@ -76,6 +76,10 @@ export function messagesToItems(
         const spec = specById(args.card_id);
 
         if (spec !== undefined) {
+          const explanation = msg.content.trim();
+          if (explanation && explanation !== args.nudge_text.trim()) {
+            items.push({ kind: "ai_text", text: msg.content });
+          }
           const item: ProposalItem = {
             kind: "proposal",
             cardInstanceId: card_instance_id,

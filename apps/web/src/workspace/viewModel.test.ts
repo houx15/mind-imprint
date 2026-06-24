@@ -278,4 +278,57 @@ describe("messagesToItems", () => {
     const items = messagesToItems([sysMsg], () => undefined, () => undefined);
     expect(items).toHaveLength(0);
   });
+
+  it("emits an ai_text bubble before the proposal when the model also explained", () => {
+    const msg = makeMsg({
+      id: "m1",
+      role: "assistant",
+      content: "先核一下来源。",
+      tool_call: {
+        id: "tc1",
+        name: "summon_card",
+        args: {
+          card_id: "sift_craap",
+          reason: "r",
+          nudge_text: "用这张卡？",
+        },
+        card_instance_id: "ci1",
+      },
+    });
+    const ci = makeCardInstance({ id: "ci1" });
+    const items = messagesToItems(
+      [msg],
+      (id) => (id === "ci1" ? ci : undefined),
+      (cardId) => (cardId === "sift_craap" ? siftSpec : undefined),
+    );
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({ kind: "ai_text", text: "先核一下来源。" });
+    expect(items[1]).toMatchObject({ kind: "proposal", nudge: "用这张卡？" });
+  });
+
+  it("emits only the proposal when there is no separate explanation", () => {
+    const msg = makeMsg({
+      id: "m1",
+      role: "assistant",
+      content: "",
+      tool_call: {
+        id: "tc1",
+        name: "summon_card",
+        args: {
+          card_id: "sift_craap",
+          reason: "r",
+          nudge_text: "用这张卡？",
+        },
+        card_instance_id: "ci1",
+      },
+    });
+    const ci = makeCardInstance({ id: "ci1" });
+    const items = messagesToItems(
+      [msg],
+      (id) => (id === "ci1" ? ci : undefined),
+      (cardId) => (cardId === "sift_craap" ? siftSpec : undefined),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: "proposal" });
+  });
 });
