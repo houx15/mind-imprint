@@ -192,7 +192,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
       if (!ci) throw new Error(`[createConversation] unknown card instance "${cardInstanceId}"`);
       const activated = envelopeReducer(ci, { type: "activate" }, now);
       store.putCard(activated);
-      setState({ phase: "card_active" });
+      setState({ phase: "card_active", pendingCardId: cardInstanceId });
     },
 
     async submitCard(cardInstanceId: string, finalInstance: CardInstance): Promise<void> {

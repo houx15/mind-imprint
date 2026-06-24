@@ -6,6 +6,7 @@ import { createStore } from "../store/createStore";
 import { makeMemoryStorage } from "../store/storage";
 import { demoCatalog } from "./prompt";
 import { createConversation } from "./createConversation";
+import { newEnvelope } from "../cards/envelopeReducer";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -473,5 +474,18 @@ describe("createConversation", () => {
     await conv.kickoff();
 
     expect(fakeChat.calls).toHaveLength(0);
+  });
+
+  it("openCard sets pendingCardId so a re-created conversation can still open a card", () => {
+    const store = makeStore();
+    const task = store.createTask({ title: "t", seed: null });
+    const ci = newEnvelope("sift_craap", task.id, () => "2026-01-01T00:00:00.000Z", () => "ci-1");
+    store.putCard(ci);
+    const conv = createConversation({
+      store, chat: async () => ({ text: "", toolCalls: [] }),
+      config: {}, registry, catalog, taskId: task.id,
+    });
+    conv.openCard("ci-1");
+    expect(conv.getSnapshot()).toMatchObject({ phase: "card_active", pendingCardId: "ci-1" });
   });
 });
