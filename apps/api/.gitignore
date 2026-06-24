@@ -1,0 +1,9 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+# build artifacts
+/api
+/bin/
+*.out
