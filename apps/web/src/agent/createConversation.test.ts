@@ -503,4 +503,19 @@ describe("createConversation", () => {
     expect(store.getCard("ci-1")!.event_trace.some((e) => e.kind === "skip")).toBe(false);
     expect(chat).not.toHaveBeenCalled();                         // 未调 LLM
   });
+
+  it("keeps the model's explanatory text alongside a summoned card", async () => {
+    const store = makeStore();
+    const fakeChat = makeFakeChat([{
+      text: "这条说法值得先核一下来源。",                          // 模型的解释正文
+      toolCalls: [{ id: "tc1", name: "summon_card",
+        args: { card_id: "sift_craap", reason: "r", nudge_text: "要不要用这张卡溯源？" } }],
+      stopReason: "tool_call",
+    }]);
+    const { conv, taskId } = makeConv(store, fakeChat);
+    await conv.send("中国让地球更可持续吗");
+    const msgs = store.listMessages(taskId);
+    const assistant = msgs.find((m) => m.role === "assistant" && m.tool_call)!;
+    expect(assistant.content).toBe("这条说法值得先核一下来源。");   // 解释保留，而非被 nudge 覆盖
+  });
 });

@@ -142,7 +142,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
           store.appendMessage({
             task_id: taskId,
             role: "assistant",
-            content: nudge_text,
+            content: result.text,
             tool_call: summonCardCall,
           });
 
