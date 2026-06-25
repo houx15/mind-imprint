@@ -61,9 +61,15 @@ type TurnDeps struct {
 // tool-use validate + persist a proposed card_instance and the assistant message
 // (with usage), emitting the card event and ending the turn. One card per turn.
 // Always emits done.
+//
+// A continuation turn (empty userInput) appends no user message and replies
+// from existing history — used after a card is submitted/skipped so the model
+// responds to the refed card (the tool_result already sits in the transcript).
 func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput string) error {
-	if _, err := deps.Store.AppendUserMessage(ctx, taskID, userInput); err != nil {
-		return err
+	if userInput != "" {
+		if _, err := deps.Store.AppendUserMessage(ctx, taskID, userInput); err != nil {
+			return err
+		}
 	}
 
 	history, err := deps.Store.ListMessages(ctx, taskID)

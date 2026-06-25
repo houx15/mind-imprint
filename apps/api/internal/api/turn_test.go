@@ -75,20 +75,44 @@ func TestTurnStreamsCardThenDone(t *testing.T) {
 	}
 }
 
-func TestTurnEmptyInputReturns400(t *testing.T) {
-	// Override HasEntitlement is not directly possible (package func). Instead,
-	// assert the happy gate; a dedicated denied-path test belongs to P-future
-	// when entitlement is data-driven. For P1 (stub true) assert pre-stream
-	// validation: empty user_input must return 400 before streaming begins.
+func TestTurnEmptyInputIsContinuation(t *testing.T) {
 	q := newAPITestQueries(t)
-	task, err := q.CreateTask(context.Background(), sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
+	ctx := context.Background()
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	h := New(Deps{Queries: q}).Handler()
+	// seed a prior user message so history isn't empty (realistic continuation)
+	_, _ = q.AppendMessage(ctx, sqlc.AppendMessageParams{TaskID: task.ID, Role: "user", Content: "hi"})
+
+	catalog, err := cards.Catalog()
+	if err != nil {
+		t.Fatalf("Catalog: %v", err)
+	}
+	idx := map[string]cards.Spec{}
+	for _, s := range catalog {
+		idx[s.ID] = s
+	}
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "继续"},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	h := New(Deps{
+		Queries:  q,
+		Provider: prov,
+		ChatResolver: func(context.Context) (gateway.Resolved, error) {
+			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
+		},
+		Catalog:  catalog,
+		SpecByID: func(id string) (cards.Spec, bool) { s, ok := idx[id]; return s, ok },
+	}).Handler()
+
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":""}`)))
-	if rr.Code != 400 {
-		t.Fatalf("empty input: want 400, got %d — body: %s", rr.Code, rr.Body.String())
+	if rr.Code != 200 {
+		t.Fatalf("continuation: want 200, got %d %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("want done event, got %s", rr.Body.String())
 	}
 }

@@ -18,6 +18,72 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// fakeTurnStore is a lightweight in-memory TurnStore for unit tests that do
+// not need a real database. It records the number of AppendUserMessage calls
+// so tests can assert continuation turns skip that step.
+type fakeTurnStore struct {
+	userAppends int
+	history     []agent.StoredMessage
+}
+
+func (f *fakeTurnStore) AppendUserMessage(_ context.Context, _ uuid.UUID, _ string) (uuid.UUID, error) {
+	f.userAppends++
+	return uuid.New(), nil
+}
+
+func (f *fakeTurnStore) ListMessages(_ context.Context, _ uuid.UUID) ([]agent.StoredMessage, error) {
+	return f.history, nil
+}
+
+func (f *fakeTurnStore) CardByID(_ context.Context, _ string) (agent.CardInstance, bool, error) {
+	return agent.CardInstance{}, false, nil
+}
+
+func (f *fakeTurnStore) CreateProposedCard(_ context.Context, _ uuid.UUID, _ string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func (f *fakeTurnStore) AppendAssistantMessage(_ context.Context, _ agent.AssistantMessage) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func TestRunTurnContinuationAppendsNoUserMessage(t *testing.T) {
+	store := &fakeTurnStore{
+		history: []agent.StoredMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "基于你刚填的卡，我们继续。"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 5, OutputTokens: 7}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	sse := &fakeSSE{}
+	err := agent.RunTurn(context.Background(), agent.TurnDeps{
+		Store:    store,
+		Provider: prov,
+		KeyResolver: func(context.Context) (gateway.Resolved, error) {
+			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
+		},
+		Catalog:  nil,
+		SpecByID: func(string) (cards.Spec, bool) { return cards.Spec{}, false },
+		SSE:      sse,
+	}, uuid.New(), "") // empty userInput = continuation turn
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.userAppends != 0 {
+		t.Fatalf("continuation turn must not append a user message, got %d", store.userAppends)
+	}
+	// assistant reply + done still emitted
+	if len(sse.texts) == 0 {
+		t.Fatal("expected assistant text delta, got none")
+	}
+	if sse.done == "" {
+		t.Fatal("expected done event, got none")
+	}
+}
+
 var seededStudentID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 
 // fakeSSE records emitted events for assertions.

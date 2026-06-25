@@ -3,7 +3,6 @@ package api
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -76,10 +75,8 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if strings.TrimSpace(body.UserInput) == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "user_input 不能为空", nil))
-		return
-	}
+	// Empty user_input is a valid continuation turn: no user message is appended,
+	// and the model replies from existing history (e.g. after a card submit/skip).
 
 	// Commit to streaming. After this, errors are SSE error events, not JSON.
 	sse, err := gateway.NewSSEWriter(w)
