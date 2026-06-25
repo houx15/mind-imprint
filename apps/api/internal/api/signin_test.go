@@ -51,8 +51,8 @@ func TestSigninSignout(t *testing.T) {
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/auth/signin",
 		strings.NewReader(`{"email":"ghost@demo.local","password":"whatever1"}`)))
-	if rr.Code != 401 {
-		t.Fatalf("unknown email: want 401, got %d", rr.Code)
+	if rr.Code != 401 || !strings.Contains(rr.Body.String(), "invalid_credentials") {
+		t.Fatalf("unknown email: want 401 invalid_credentials, got %d — %s", rr.Code, rr.Body.String())
 	}
 
 	// Signout with the cookie → 204 and the session is revoked.
