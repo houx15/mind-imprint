@@ -57,6 +57,12 @@ func ErrForbidden(msg string) *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "forbidden", Message: msg}
 }
 
+// ErrNotEntitled is the 403 returned by token-spending endpoints when the
+// entitlement seam denies access. Distinct stable code for the client.
+func ErrNotEntitled() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "not_entitled", Message: "当前没有可用额度"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }
