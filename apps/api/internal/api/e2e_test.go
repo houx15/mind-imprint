@@ -9,7 +9,6 @@ package api_test
 // step against a real testcontainers Postgres.
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -230,8 +229,6 @@ func TestE2EPhoebeVertical(t *testing.T) {
 	// Verify the turn 2 provider received history containing a tool_result for
 	// the completed sift_craap card. prov.scripts[1] was consumed for turn 2 —
 	// use the fact that the SSE body contains the plain-text reply (meaning
-	// RunTurn succeeded with the refeed-aware history).
-	if !bytes.Contains([]byte(rr.Body.String()), []byte("evaluated")) {
-		// The task status already proves the full pipeline ran.
-	}
+	// RunTurn succeeded with the refeed-aware history). The task status already
+	// proves the full pipeline ran.
 }
