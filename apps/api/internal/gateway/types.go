@@ -1,0 +1,71 @@
+// Package gateway is the server-side LLM gateway: chat types mirroring the TS
+// llm contract, streaming provider adapters (DeepSeek/Anthropic), the
+// key-resolver seam, and the SSE writer. Secrets enter only through Resolved
+// values built by a KeyResolver from server-side config; they never appear in
+// logs, errors, or committed files.
+package gateway
+
+// ChatRole mirrors the TS ChatRole union.
+type ChatRole = string
+
+const (
+	RoleSystem    ChatRole = "system"
+	RoleUser      ChatRole = "user"
+	RoleAssistant ChatRole = "assistant"
+	RoleTool      ChatRole = "tool"
+)
+
+// StopReason mirrors the TS StopReason union.
+type StopReason = string
+
+const (
+	StopStop     StopReason = "stop"
+	StopToolCall StopReason = "tool_call"
+	StopLength   StopReason = "length"
+	StopOther    StopReason = "other"
+)
+
+// ToolCall mirrors TS ToolCall { id, name, args }.
+type ToolCall struct {
+	ID   string         `json:"id"`
+	Name string         `json:"name"`
+	Args map[string]any `json:"args"`
+}
+
+// ChatTool mirrors TS ChatTool { name, description, parameters }.
+type ChatTool struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
+}
+
+// ChatMessage mirrors TS ChatMessage { role, content, toolCalls?, toolCallId? }.
+type ChatMessage struct {
+	Role       ChatRole   `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"toolCalls,omitempty"`
+	ToolCallID string     `json:"toolCallId,omitempty"`
+}
+
+// ChatRequest mirrors TS ChatRequest.
+type ChatRequest struct {
+	Messages    []ChatMessage `json:"messages"`
+	Tools       []ChatTool    `json:"tools,omitempty"`
+	MaxTokens   int           `json:"maxTokens,omitempty"`
+	Temperature *float64      `json:"temperature,omitempty"`
+}
+
+// ChatUsage mirrors TS ChatUsage { inputTokens?, outputTokens? }.
+type ChatUsage struct {
+	InputTokens  int `json:"inputTokens"`
+	OutputTokens int `json:"outputTokens"`
+}
+
+// ChatResult mirrors TS ChatResult (the accumulated, non-streamed shape; useful
+// for tests and any non-streaming caller).
+type ChatResult struct {
+	Text       string     `json:"text"`
+	ToolCalls  []ToolCall `json:"toolCalls,omitempty"`
+	StopReason StopReason `json:"stopReason,omitempty"`
+	Usage      ChatUsage  `json:"usage"`
+}
