@@ -44,6 +44,15 @@ func TestCardLifecycleRoutes(t *testing.T) {
 		t.Fatalf("bad trace: want 400, got %d", rr.Code)
 	}
 
+	// PUT with field_values null literal → 400 (must be an object, not jsonb null)
+	cNull, _ := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: task.ID})
+	baseNull := "/api/v1/tasks/" + task.ID.String() + "/cards/" + cNull.ID.String()
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest("PUT", baseNull, strings.NewReader(`{"status":"completed","field_values":null,"event_trace":[{"kind":"submit"}]}`)))
+	if rr.Code != 400 {
+		t.Fatalf("field_values null: want 400, got %d", rr.Code)
+	}
+
 	// skip on a second card
 	c2, _ := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "concession", TaskID: task.ID})
 	rr = httptest.NewRecorder()

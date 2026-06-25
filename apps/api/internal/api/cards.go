@@ -20,7 +20,7 @@ var traceKinds = map[string]bool{
 // validateFieldValues requires a JSON object.
 func validateFieldValues(raw json.RawMessage) error {
 	var obj map[string]any
-	if len(raw) == 0 || json.Unmarshal(raw, &obj) != nil {
+	if len(raw) == 0 || json.Unmarshal(raw, &obj) != nil || obj == nil {
 		return httpx.ErrBadRequest("validation_failed", "field_values 必须是对象", nil)
 	}
 	return nil
