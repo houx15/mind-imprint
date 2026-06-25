@@ -1,10 +1,6 @@
 import { useState } from "react";
 import type { SessionStore } from "../session";
 import { useSession } from "../session";
-import { LlmConfigForm } from "./LlmConfigForm";
-import type { ChatRequest, ChatResult, LlmConfig } from "../../llm/types";
-
-type ChatFn = (config: Partial<LlmConfig>, req: ChatRequest) => Promise<ChatResult>;
 
 const avatarOptions = ["#2A3B7A", "#D98263", "#4C9A82", "#E8A33D"];
 
@@ -16,11 +12,9 @@ const togglesDefault = [
 
 export function SettingsView({
   session,
-  chat,
   onLogout,
 }: {
   session: SessionStore;
-  chat?: ChatFn;
   onLogout: () => void;
 }) {
   const { aiAvatar } = useSession(session);
@@ -120,14 +114,6 @@ export function SettingsView({
               );
             })}
           </div>
-        </div>
-
-        {/* === 模型 / API (new card, between AI 形象 and 其他) === */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#8A92A3", letterSpacing: ".04em", margin: "28px 0 12px" }}>
-          模型 / API
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
-          <LlmConfigForm chat={chat} onVerified={() => {}} />
         </div>
 
         {/* === 其他 toggles === */}

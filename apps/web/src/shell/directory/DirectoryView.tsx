@@ -1,5 +1,6 @@
-import { useSyncExternalStore, useState } from "react";
+import { useSyncExternalStore, useState, useEffect } from "react";
 import type { Store } from "../../store/createStore";
+import { api } from "../../api";
 import { taskCardView } from "./taskCardView";
 
 export function DirectoryView({
@@ -8,23 +9,26 @@ export function DirectoryView({
   now,
 }: {
   store: Store;
-  onOpenTask: (taskId: string) => void;
+  onOpenTask: (taskId: string, openingText?: string) => void;
   now?: () => Date;
 }) {
   const _now = now ?? (() => new Date());
   useSyncExternalStore(store.subscribe, store.getSnapshot);
+  useEffect(() => {
+    void api.listTasks().then((ts) => ts.forEach((t) => store.putTask(t))).catch(() => {});
+  }, [store]);
   const tasks = store.listTasks();
   const taskCount = tasks.length;
   const [input, setInput] = useState("");
 
-  function handleStart() {
+  async function handleStart() {
     const trimmed = input.trim();
     if (!trimmed) return;
     const urlMatch = trimmed.match(/(https?:\/\/\S+)/);
     const seed = urlMatch ? urlMatch[1]! : null;
-    const t = store.createTask({ title: trimmed, seed });
-    store.appendMessage({ task_id: t.id, role: "user", content: trimmed });
-    onOpenTask(t.id);
+    const t = await api.createTask({ title: trimmed, seed });
+    store.putTask(t);
+    onOpenTask(t.id, trimmed);
   }
 
   return (
@@ -90,7 +94,7 @@ export function DirectoryView({
             onChange={(e) => setInput(e.target.value)}
           />
           <button
-            onClick={handleStart}
+            onClick={() => void handleStart()}
             style={{
               flex: "none",
               display: "inline-flex",

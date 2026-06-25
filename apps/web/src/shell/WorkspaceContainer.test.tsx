@@ -36,7 +36,7 @@ describe("WorkspaceContainer", () => {
     const task = store.createTask({ title: "任务 A", seed: null });
     store.appendMessage({ task_id: task.id, role: "user", content: "你好来自 A" });
     const onBack = vi.fn();
-    render(<WorkspaceContainer store={store} taskId={task.id} onBack={onBack} chat={undefined} config={undefined} />);
+    render(<WorkspaceContainer store={store} taskId={task.id} onBack={onBack} />);
     expect(screen.getByText("你好来自 A")).toBeTruthy();
     fireEvent.click(screen.getByText("返回所有任务"));
     expect(onBack).toHaveBeenCalledOnce();
@@ -55,12 +55,11 @@ describe("WorkspaceContainer", () => {
     expect(screen.queryByText("你好来自 A")).toBeNull();
   });
 
-  it("accepts chat and config props without error (ignored for AppShell compat)", () => {
+  it("renders without error for a minimal task", () => {
     const store = makeStore();
     const task = store.createTask({ title: "兼容任务", seed: null });
-    // chat/config are accepted-but-ignored; this just verifies no TypeScript or runtime error
     expect(() =>
-      render(<WorkspaceContainer store={store} taskId={task.id} onBack={vi.fn()} chat={"old-chat" as any} config={{ model: "x" } as any} />)
+      render(<WorkspaceContainer store={store} taskId={task.id} onBack={vi.fn()} />)
     ).not.toThrow();
   });
 

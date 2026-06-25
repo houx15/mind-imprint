@@ -10,9 +10,6 @@ interface Props {
   taskId: string;
   onBack: () => void;
   openingMessage?: string;
-  // Accepted-but-ignored until AppShell stops passing them (Task 6).
-  chat?: unknown;
-  config?: unknown;
 }
 
 export function WorkspaceContainer({ store, taskId, onBack, openingMessage }: Props) {
