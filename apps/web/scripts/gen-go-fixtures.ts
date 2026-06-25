@@ -13,7 +13,9 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSystemPrompt } from "../src/agent/prompt";
-import { serializeCardForRefeed, CARD_REGISTRY, deriveCatalog } from "@mind-imprint/contracts";
+import { buildEvalPrompt } from "../src/agent/evalPrompt";
+import { assembleEvalInput } from "../src/agent/evalInput";
+import { serializeCardForRefeed, CARD_REGISTRY, deriveCatalog, FULL_RUBRIC } from "@mind-imprint/contracts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "../../api/internal/agent/testdata");
@@ -73,5 +75,17 @@ writeFileSync(
   JSON.stringify(skipped, null, 2) + "\n",
 );
 
+// 3) Eval prompt fixture (verbatim flagship evaluator prompt).
+writeFileSync(resolve(outDir, "eval_prompt_full.txt"), buildEvalPrompt(FULL_RUBRIC));
+
+// 4) Eval input fixture from a small fixed transcript + one completed card.
+const evalMessages = [
+  { id: "m1", task_id: "t_1", role: "user", content: "我想引用这篇公众号文章", created_at: base.created_at },
+  { id: "m2", task_id: "t_1", role: "assistant", content: "先一起核查来源吧", tool_call: { id: "tc1", name: "summon_card", args: { card_id: "sift_craap", reason: "r", nudge_text: "n" }, card_instance_id: "ci_1" }, created_at: base.created_at },
+] as never;
+const evalCards = [{ ...base, status: "completed", field_values: { sift: { stop: "证明中国让地球更可持续" } } }] as never;
+const evalInput = assembleEvalInput({ messages: evalMessages, cards: evalCards, registry: CARD_REGISTRY });
+writeFileSync(resolve(outDir, "eval_input.txt"), evalInput);
+
 // eslint-disable-next-line no-console
-console.log("wrote 3 fixtures to", outDir);
+console.log("wrote 5 fixtures to", outDir);

@@ -10,11 +10,12 @@ import (
 // and the nested field_values (step.key → field.key → value). The DB stores
 // field_values as jsonb; the turn engine decodes it into this shape.
 type CardInstance struct {
-	ID          string
-	CardID      string
-	TaskID      string
-	Status      string
-	FieldValues map[string]map[string]any
+	ID            string
+	CardID        string
+	TaskID        string
+	Status        string
+	FieldValues   map[string]map[string]any
+	EventTraceLen int // populated for eval input (TS card.event_trace.length)
 }
 
 // RefeedAnswer pairs a field label with the value the human entered.
