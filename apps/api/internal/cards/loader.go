@@ -12,8 +12,9 @@ import (
 //go:embed specs/*.json
 var specFS embed.FS
 
-// Spec is the minimal view of a card the backend needs (catalog/prompt/refeed).
-// The deep card shape stays owned by the TS Zod contract.
+// Spec is the view of a card the backend needs (catalog/prompt/refeed).
+// The deep card shape stays owned by the TS Zod contract; we parse only what the
+// agent brain consumes: identity, the prompt fields, and steps/fields for refeed.
 type Spec struct {
 	ID               string `json:"id"`
 	Category         string `json:"category"`
@@ -21,6 +22,32 @@ type Spec struct {
 	NameEN           string `json:"name_en"`
 	Purpose          string `json:"purpose"`
 	TriggerCondition string `json:"trigger_condition"`
+	InteractionType  string `json:"interaction_type"`
+	Steps            []Step `json:"steps"`
+}
+
+// Step is one phase of a card; Key/Title come from the JSON, Fields are the
+// inputs the human fills.
+type Step struct {
+	Key    string  `json:"key"`
+	Title  string  `json:"title"`
+	Fields []Field `json:"fields"`
+}
+
+// Field is one input. Type is the field primitive (text/textarea/single_choice/
+// multi_choice/rating/repeatable_group/link_check). ItemFields is populated only
+// for repeatable_group.
+type Field struct {
+	Key        string      `json:"key"`
+	Type       string      `json:"type"`
+	Label      string      `json:"label"`
+	ItemFields []ItemField `json:"item_fields"`
+}
+
+// ItemField is one column of a repeatable_group row.
+type ItemField struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
 }
 
 // Catalog reads and parses every embedded spec, sorted by id for determinism.
