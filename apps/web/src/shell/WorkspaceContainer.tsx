@@ -1,40 +1,50 @@
 import { useMemo, useEffect } from "react";
-import type { Store } from "../store/createStore";
-import type { ChatFn } from "../agent/runEvaluation";
-import type { LlmConfig } from "../llm/types";
-import { chat as realChat, loadConfig } from "../llm";
-import { createConversation, createEvaluator } from "../agent";
-import { demoCatalog } from "../agent/prompt";
-import { CARD_REGISTRY, deriveCatalog } from "@mind-imprint/contracts";
+import { api } from "../api";
+import { createConversation } from "../agent/createConversation";
+import { createEvaluator } from "../agent/createEvaluator";
 import { WorkspaceView } from "../workspace";
-
-const CATALOG = demoCatalog(deriveCatalog(CARD_REGISTRY));
+import type { Store } from "../store/createStore";
 
 interface Props {
   store: Store;
   taskId: string;
   onBack: () => void;
-  chat?: ChatFn;
-  config?: Partial<LlmConfig>;
+  openingMessage?: string;
+  // Accepted-but-ignored until AppShell stops passing them (Task 6).
+  chat?: unknown;
+  config?: unknown;
 }
 
-export function WorkspaceContainer({ store, taskId, onBack, chat, config }: Props) {
-  const cfg = config ?? loadConfig();
-  const chatFn = chat ?? realChat;
-  const { conversation, evaluator } = useMemo(() => ({
-    conversation: createConversation({ store, chat: chatFn, config: cfg, registry: CARD_REGISTRY, catalog: CATALOG, taskId }),
-    evaluator: createEvaluator({ store, chat: chatFn, config: cfg, registry: CARD_REGISTRY, taskId }),
+export function WorkspaceContainer({ store, taskId, onBack, openingMessage }: Props) {
+  const { conversation, evaluator } = useMemo(
+    () => ({
+      conversation: createConversation({ api, store, taskId }),
+      evaluator: createEvaluator({ api, store, taskId }),
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [taskId]);
-
-  // A task opened from the directory carries its opening message but no reply
-  // yet — kick off the first LLM turn. kickoff() is idempotent (no-ops once the
-  // assistant has replied), so this is safe across remounts and reloads.
-  useEffect(() => {
-    void conversation.kickoff();
-  }, [conversation]);
-
-  return (
-    <WorkspaceView store={store} conversation={conversation} evaluator={evaluator} taskId={taskId} onBack={onBack} />
+    [taskId],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const detail = await api.getTask(taskId);
+        if (cancelled) return;
+        const evaluation = await api.getEvaluation(taskId);
+        if (cancelled) return;
+        store.hydrateTask(taskId, { ...detail, evaluation: evaluation ?? undefined });
+      } catch {
+        // hydration failure leaves the cache as-is; a fresh task simply has none
+      }
+      if (cancelled) return;
+      // Fresh task created from the directory: no server messages yet — send the opening line.
+      if (openingMessage && store.listMessages(taskId).length === 0) {
+        void conversation.send(openingMessage);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [taskId, conversation, openingMessage, store]);
+
+  return <WorkspaceView store={store} conversation={conversation} evaluator={evaluator} taskId={taskId} onBack={onBack} />;
 }

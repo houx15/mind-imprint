@@ -1,521 +1,61 @@
-import { describe, it, expect, vi } from "vitest";
-import { CARD_REGISTRY, deriveCatalog } from "@mind-imprint/contracts";
-import type { ChatRequest, ChatResult } from "../llm/types";
-import { LlmError } from "../llm/LlmError";
+import { describe, it, expect } from "vitest";
 import { createStore } from "../store/createStore";
-import { makeMemoryStorage } from "../store/storage";
-import { demoCatalog } from "./prompt";
 import { createConversation } from "./createConversation";
-import { newEnvelope } from "../cards/envelopeReducer";
+import type { TurnEvent } from "../api";
 
-// ── helpers ────────────────────────────────────────────────────────────────────
-
-type FakeChat = {
-  fn: (config: object, req: ChatRequest) => Promise<ChatResult>;
-  calls: ChatRequest[];
-};
-
-function makeFakeChat(script: ChatResult[]): FakeChat {
-  let idx = 0;
-  const calls: ChatRequest[] = [];
-  const fn = async (_config: object, req: ChatRequest): Promise<ChatResult> => {
-    calls.push(req);
-    const result = script[idx++];
-    if (result === undefined) throw new Error(`makeFakeChat: out of scripted results (call ${idx})`);
-    return result;
-  };
-  return { fn, calls };
-};
-
-function makeStore() {
-  return createStore({
-    storage: makeMemoryStorage(),
-    now: () => "2026-01-01T00:00:00.000Z",
-    genId: (() => { let n = 0; return () => `id_${++n}`; })(),
-  });
-}
-
-const registry = CARD_REGISTRY;
-const catalog = demoCatalog(deriveCatalog(registry));
-
-const VALID_CARD_ID = "sift_craap"; // known in registry
-
-function makeSummonCardResult(cardId = VALID_CARD_ID): ChatResult {
+function fakeApi(script: TurnEvent[]) {
+  const calls: { userInput?: string }[] = [];
   return {
-    text: "来核实一下来源？",
-    toolCalls: [
-      {
-        id: "tc_1",
-        name: "summon_card",
-        args: { card_id: cardId, reason: "信息素养", nudge_text: "来核实一下来源？" },
-      },
-    ],
-    stopReason: "tool_call",
+    calls,
+    async *runTurn(_t: string, userInput?: string) { calls.push({ userInput }); for (const e of script) yield e; },
+    async activateCard(_t: string, _c: string) { return undefined as never; },
+    async submitCard(_t: string, _c: string, env: any) { return env; },
+    async skipCard(_t: string, _c: string, _e: any) { return undefined as never; },
   };
 }
 
-function makeTextResult(text = "继续加油！"): ChatResult {
-  return { text, stopReason: "stop" };
-}
+const task = { id: "t1", title: "t", seed: null, status: "active" as const, created_at: "1", last_active_at: "1" };
 
-// ── test setup helpers ─────────────────────────────────────────────────────────
-
-function makeConv(store: ReturnType<typeof makeStore>, fakeChat: FakeChat) {
-  const task = store.createTask({ title: "test task", seed: null });
-  let nowIdx = 0;
-  const conv = createConversation({
-    store,
-    chat: fakeChat.fn as any,
-    config: { format: "anthropic", baseUrl: "http://localhost", model: "test", apiKey: "k" },
-    registry,
-    catalog,
-    taskId: task.id,
-    now: () => `2026-01-01T0${nowIdx++}:00:00.000Z`,
-    genId: (() => { let n = 0; return () => `gen_${++n}`; })(),
-  });
-  return { conv, taskId: task.id };
-}
-
-// ── tests ──────────────────────────────────────────────────────────────────────
-
-describe("createConversation", () => {
-  it("send → proposal: store has user + assistant proposal messages, proposed CardInstance, phase=proposal_pending", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeSummonCardResult()]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("我看到一篇关于中国可持续性的文章");
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("proposal_pending");
-    expect(state.pendingCardId).toBeDefined();
-
-    const messages = store.listMessages(taskId);
-    expect(messages).toHaveLength(2);
-
-    const [userMsg, assistantMsg] = messages;
-    expect(userMsg!.role).toBe("user");
-    expect(userMsg!.content).toBe("我看到一篇关于中国可持续性的文章");
-
-    expect(assistantMsg!.role).toBe("assistant");
-    expect(assistantMsg!.content).toBe("来核实一下来源？");
-    expect(assistantMsg!.tool_call).not.toBeNull();
-
-    // validate tool_call is a valid SummonCardCall
-    const tc = assistantMsg!.tool_call as any;
-    expect(tc.name).toBe("summon_card");
-    expect(tc.id).toBe("tc_1");
-    expect(tc.args.card_id).toBe(VALID_CARD_ID);
-    expect(tc.card_instance_id).toBe(state.pendingCardId);
-
-    // Proposed CardInstance in store
-    const ci = store.getCard(state.pendingCardId!);
-    expect(ci).toBeDefined();
-    expect(ci!.status).toBe("proposed");
-    expect(ci!.card_id).toBe(VALID_CARD_ID);
-    expect(ci!.task_id).toBe(taskId);
+describe("createConversation (API/SSE)", () => {
+  it("send streams text into a single assistant message and ends idle", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([{ type: "text", delta: "He" }, { type: "text", delta: "llo" }, { type: "done", messageId: "m1" }]);
+    const conv = createConversation({ api: api as never, store, taskId: "t1" });
+    await conv.send("hi");
+    const msgs = store.listMessages("t1");
+    expect(msgs.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(msgs[1]!.content).toBe("Hello");
+    expect(conv.getSnapshot().phase).toBe("idle");
+    expect(api.calls[0]!.userInput).toBe("hi");
   });
 
-  it("openCard → phase=card_active, instance status=active", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeSummonCardResult()]);
-    const { conv } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-
-    const { pendingCardId } = conv.getSnapshot();
-    expect(pendingCardId).toBeDefined();
-
-    conv.openCard(pendingCardId!);
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("card_active");
-
-    const ci = store.getCard(pendingCardId!);
-    expect(ci!.status).toBe("active");
+  it("a card event creates a proposed card + proposal_pending and ends the turn", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([{ type: "text", delta: "先溯源" }, { type: "card", cardInstanceId: "c1", cardId: "sift_craap", nudgeText: "一起?" }]);
+    const conv = createConversation({ api: api as never, store, taskId: "t1" });
+    await conv.send("引用公众号");
+    expect(store.getCard("c1")!.status).toBe("proposed");
+    expect(conv.getSnapshot()).toMatchObject({ phase: "proposal_pending", pendingCardId: "c1" });
+    const assistant = store.listMessages("t1").find((m) => m.role === "assistant")!;
+    expect((assistant.tool_call as any).card_instance_id).toBe("c1");
   });
 
-  it("submitCard → instance completed, second chat receives tool result with status=completed, follow-up appended, phase=idle", async () => {
-    const store = makeStore();
-    const followUpText = "很好，继续写论证！";
-    const fakeChat = makeFakeChat([makeSummonCardResult(), makeTextResult(followUpText)]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-    const { pendingCardId } = conv.getSnapshot();
-    conv.openCard(pendingCardId!);
-
-    // Build a completed instance
-    const originalCi = store.getCard(pendingCardId!)!;
-    const completedCi = {
-      ...originalCi,
-      status: "completed" as const,
-      completed_at: "2026-01-01T01:00:00.000Z",
-      field_values: { sift: { stop: "found_NASA" } },
-    };
-
-    await conv.submitCard(pendingCardId!, completedCi);
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("idle");
-
-    // Instance is completed in store
-    const ci = store.getCard(pendingCardId!);
-    expect(ci!.status).toBe("completed");
-
-    // Second chat call received messages with tool result
-    const secondReq = fakeChat.calls[1]!;
-    const toolMsg = secondReq.messages.find((m) => m.role === "tool");
-    expect(toolMsg).toBeDefined();
-    const payload = JSON.parse(toolMsg!.content);
-    expect(payload.status).toBe("completed");
-    expect(toolMsg!.toolCallId).toBe("tc_1");
-
-    // Follow-up message appended
-    const messages = store.listMessages(taskId);
-    const lastMsg = messages[messages.length - 1]!;
-    expect(lastMsg.role).toBe("assistant");
-    expect(lastMsg.content).toBe(followUpText);
-    expect(lastMsg.tool_call).toBeNull();
-  });
-
-  it("skipCard → instance skipped, tool result status=skipped, follow-up appended, phase=idle", async () => {
-    const store = makeStore();
-    const followUpText = "好的，我们继续吧！";
-    const fakeChat = makeFakeChat([makeSummonCardResult(), makeTextResult(followUpText)]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-    const { pendingCardId } = conv.getSnapshot();
-
-    await conv.skipCard(pendingCardId!);
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("idle");
-
-    // Instance is skipped
-    const ci = store.getCard(pendingCardId!);
-    expect(ci!.status).toBe("skipped");
-
-    // Second chat has tool result with status=skipped
-    const secondReq = fakeChat.calls[1]!;
-    const toolMsg = secondReq.messages.find((m) => m.role === "tool");
-    expect(toolMsg).toBeDefined();
-    const payload = JSON.parse(toolMsg!.content);
-    expect(payload.status).toBe("skipped");
-
-    // Follow-up appended
-    const messages = store.listMessages(taskId);
-    const lastMsg = messages[messages.length - 1]!;
-    expect(lastMsg.role).toBe("assistant");
-    expect(lastMsg.content).toBe(followUpText);
-  });
-
-  it("plain text reply (no toolCalls) → no CardInstance created, phase=idle", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("试着想一想...")]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("我的问题是什么？");
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("idle");
-    expect(state.pendingCardId).toBeUndefined();
-
-    const cards = store.listCards(taskId);
-    expect(cards).toHaveLength(0);
-
-    const messages = store.listMessages(taskId);
-    const lastMsg = messages[messages.length - 1]!;
-    expect(lastMsg.role).toBe("assistant");
-    expect(lastMsg.content).toBe("试着想一想...");
-    expect(lastMsg.tool_call).toBeNull();
-  });
-
-  it("multiple toolCalls → only first summon_card is used (one CardInstance)", async () => {
-    const store = makeStore();
-    const multiResult: ChatResult = {
-      text: "核实来源",
-      toolCalls: [
-        { id: "tc_1", name: "summon_card", args: { card_id: VALID_CARD_ID, reason: "r1", nudge_text: "n1" } },
-        { id: "tc_2", name: "summon_card", args: { card_id: "concession", reason: "r2", nudge_text: "n2" } },
-      ],
-      stopReason: "tool_call",
-    };
-    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const fakeChat = makeFakeChat([multiResult]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-
-    const cards = store.listCards(taskId);
-    expect(cards).toHaveLength(1);
-    expect(cards[0]!.card_id).toBe(VALID_CARD_ID);
-
-    consoleWarn.mockRestore();
-  });
-
-  it("unknown card_id in toolCall → no CardInstance, treated as plain text, phase=idle", async () => {
-    const store = makeStore();
-    const unknownCardResult: ChatResult = {
-      text: "test text",
-      toolCalls: [
-        { id: "tc_x", name: "summon_card", args: { card_id: "nonexistent_card_xyz", reason: "r", nudge_text: "n" } },
-      ],
-      stopReason: "tool_call",
-    };
-    const fakeChat = makeFakeChat([unknownCardResult]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("idle");
-    expect(state.pendingCardId).toBeUndefined();
-
-    const cards = store.listCards(taskId);
-    expect(cards).toHaveLength(0);
-
-    // Still appends a text message
-    const messages = store.listMessages(taskId);
-    const lastMsg = messages[messages.length - 1]!;
-    expect(lastMsg.role).toBe("assistant");
-    expect(lastMsg.tool_call).toBeNull();
-  });
-
-  it("chat throws LlmError → phase=error, error message set, nothing thrown", async () => {
-    const store = makeStore();
-    const fakeChat: FakeChat = {
-      fn: async () => { throw new LlmError("API 超时", { status: 408 }); },
-      calls: [],
-    };
-    const { conv } = makeConv(store, fakeChat);
-
-    await expect(conv.send("test")).resolves.toBeUndefined();
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("error");
-    expect(state.error).toContain("API 超时");
-  });
-
-  it("re-feed throws LlmError after submitCard → phase=error, nothing thrown", async () => {
-    const store = makeStore();
-    // First call returns a summon_card proposal; second call (re-feed) throws LlmError
-    let callCount = 0;
-    const fakeChat: FakeChat = {
-      fn: async (_config: object, req: ChatRequest): Promise<ChatResult> => {
-        callCount++;
-        if (callCount === 1) return makeSummonCardResult();
-        throw new LlmError("re-feed 超时", { status: 503 });
-      },
-      calls: [],
-    };
-    const { conv } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-    const { pendingCardId } = conv.getSnapshot();
-    expect(pendingCardId).toBeDefined();
-    conv.openCard(pendingCardId!);
-
-    const originalCi = store.getCard(pendingCardId!)!;
-    const completedCi = {
-      ...originalCi,
-      status: "completed" as const,
-      completed_at: "2026-01-01T01:00:00.000Z",
-      field_values: {},
-    };
-
-    // submitCard must resolve (not throw) even when re-feed errors
-    await expect(conv.submitCard(pendingCardId!, completedCi)).resolves.toBeUndefined();
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("error");
-    expect(state.error).toContain("re-feed 超时");
-  });
-
-  it("re-feed throws LlmError after skipCard → phase=error, nothing thrown", async () => {
-    const store = makeStore();
-    let callCount = 0;
-    const fakeChat: FakeChat = {
-      fn: async (_config: object, req: ChatRequest): Promise<ChatResult> => {
-        callCount++;
-        if (callCount === 1) return makeSummonCardResult();
-        throw new LlmError("skip re-feed 失败", { status: 500 });
-      },
-      calls: [],
-    };
-    const { conv } = makeConv(store, fakeChat);
-
-    await conv.send("test");
-    const { pendingCardId } = conv.getSnapshot();
-    expect(pendingCardId).toBeDefined();
-
-    // skipCard must resolve (not throw) even when re-feed errors
-    await expect(conv.skipCard(pendingCardId!)).resolves.toBeUndefined();
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("error");
-    expect(state.error).toContain("skip re-feed 失败");
-  });
-
-  it("subscribe notifies on state change", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("好")]);
-    const { conv } = makeConv(store, fakeChat);
-
-    const snapshots: string[] = [];
-    const unsub = conv.subscribe(() => {
-      snapshots.push(conv.getSnapshot().phase);
-    });
-
-    await conv.send("hello");
-    unsub();
-
-    // Should have transitioned: awaiting_llm → idle
-    expect(snapshots).toContain("awaiting_llm");
-    expect(snapshots).toContain("idle");
-  });
-
-  it("getSnapshot() returns stable reference when nothing changed (no-op setState)", () => {
-    // Mirrors the createEvaluator stability test.
-    // After construction, calling getSnapshot() twice with no intervening mutation
-    // must return the exact same object reference — required for useSyncExternalStore.
-    const store = makeStore();
-    const fakeChat = makeFakeChat([]);
-    const { conv } = makeConv(store, fakeChat);
-
-    const snap1 = conv.getSnapshot();
-    const snap2 = conv.getSnapshot();
-    expect(snap1).toBe(snap2);
-  });
-
-  it("getSnapshot() returns new reference after a real state transition", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("好")]);
-    const { conv } = makeConv(store, fakeChat);
-
-    const snapBefore = conv.getSnapshot();
-    await conv.send("hello");
-    const snapAfter = conv.getSnapshot();
-
-    expect(snapBefore).not.toBe(snapAfter);
-  });
-
-  // ── kickoff: answer a pre-seeded opening message (directory → workspace) ──────
-
-  it("kickoff answers a pre-seeded opening message (calls the LLM, appends a reply)", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("你对这个来源了解多少？")]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    // Simulate the directory seeding the first message without sending it.
-    store.appendMessage({ task_id: taskId, role: "user", content: "中国是否让地球更可持续？" });
-
-    await conv.kickoff();
-
-    // The model was called exactly once and a reply was appended.
-    expect(fakeChat.calls).toHaveLength(1);
-    const messages = store.listMessages(taskId);
-    expect(messages).toHaveLength(2);
-    expect(messages[1]!.role).toBe("assistant");
-    expect(messages[1]!.content).toBe("你对这个来源了解多少？");
+  it("submitCard fires a continuation turn (no user input)", async () => {
+    const store = createStore({}); store.putTask(task);
+    store.putCard({ id: "c1", card_id: "sift_craap", task_id: "t1", parent_node_id: null, status: "active", field_values: {}, event_trace: [], rubric_tags: [], created_at: "1", completed_at: null });
+    const api = fakeApi([{ type: "text", delta: "很好" }, { type: "done", messageId: "m2" }]);
+    const conv = createConversation({ api: api as never, store, taskId: "t1" });
+    const final = { ...store.getCard("c1")!, status: "completed" as const, field_values: { sift: { stop: "x" } } };
+    await conv.submitCard("c1", final);
+    expect(api.calls.at(-1)!.userInput).toBeUndefined(); // continuation turn
     expect(conv.getSnapshot().phase).toBe("idle");
   });
 
-  it("kickoff can summon a card from the opening message", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeSummonCardResult()]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    store.appendMessage({ task_id: taskId, role: "user", content: "我想引用一篇公众号文章当证据" });
-
-    await conv.kickoff();
-
-    const state = conv.getSnapshot();
-    expect(state.phase).toBe("proposal_pending");
-    expect(state.pendingCardId).toBeDefined();
-    expect(store.getCard(state.pendingCardId!)!.card_id).toBe(VALID_CARD_ID);
-  });
-
-  it("kickoff is a no-op when there is no pending message", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([]);
-    const { conv } = makeConv(store, fakeChat);
-
-    await conv.kickoff();
-
-    expect(fakeChat.calls).toHaveLength(0);
-    expect(conv.getSnapshot().phase).toBe("idle");
-  });
-
-  it("kickoff is idempotent — a second call after a reply does nothing (no double-send)", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("第一次回复")]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    store.appendMessage({ task_id: taskId, role: "user", content: "开场白" });
-
-    await conv.kickoff();
-    await conv.kickoff(); // latest message is now the assistant reply → no-op
-
-    expect(fakeChat.calls).toHaveLength(1);
-    expect(store.listMessages(taskId)).toHaveLength(2);
-  });
-
-  it("kickoff does not fire when the opening message was already answered", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([makeTextResult("回复")]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-
-    // A completed turn already in the store (e.g. after a reload).
-    store.appendMessage({ task_id: taskId, role: "user", content: "问题" });
-    store.appendMessage({ task_id: taskId, role: "assistant", content: "答案" });
-
-    await conv.kickoff();
-
-    expect(fakeChat.calls).toHaveLength(0);
-  });
-
-  it("openCard sets pendingCardId so a re-created conversation can still open a card", () => {
-    const store = makeStore();
-    const task = store.createTask({ title: "t", seed: null });
-    const ci = newEnvelope("sift_craap", task.id, () => "2026-01-01T00:00:00.000Z", () => "ci-1");
-    store.putCard(ci);
-    const conv = createConversation({
-      store, chat: async () => ({ text: "", toolCalls: [] }),
-      config: {}, registry, catalog, taskId: task.id,
-    });
-    conv.openCard("ci-1");
-    expect(conv.getSnapshot()).toMatchObject({ phase: "card_active", pendingCardId: "ci-1" });
-  });
-
-  it("closeCard dismisses the sheet without skipping or calling the LLM", async () => {
-    const chat = vi.fn(async () => ({ text: "x", toolCalls: [] }));
-    const store = makeStore();
-    const task = store.createTask({ title: "t", seed: null });
-    const ci = newEnvelope("sift_craap", task.id, () => "2026-01-01T00:00:00.000Z", () => "ci-1");
-    store.putCard(ci);
-    const conv = createConversation({ store, chat, config: {}, registry, catalog, taskId: task.id });
-    conv.openCard("ci-1");
-    conv.closeCard("ci-1");
-    expect(conv.getSnapshot()).toMatchObject({ phase: "idle", pendingCardId: undefined });
-    expect(store.getCard("ci-1")!.status).toBe("active");       // 未变 skipped
-    expect(store.getCard("ci-1")!.event_trace.some((e) => e.kind === "skip")).toBe(false);
-    expect(chat).not.toHaveBeenCalled();                         // 未调 LLM
-  });
-
-  it("keeps the model's explanatory text alongside a summoned card", async () => {
-    const store = makeStore();
-    const fakeChat = makeFakeChat([{
-      text: "这条说法值得先核一下来源。",                          // 模型的解释正文
-      toolCalls: [{ id: "tc1", name: "summon_card",
-        args: { card_id: "sift_craap", reason: "r", nudge_text: "要不要用这张卡溯源？" } }],
-      stopReason: "tool_call",
-    }]);
-    const { conv, taskId } = makeConv(store, fakeChat);
-    await conv.send("中国让地球更可持续吗");
-    const msgs = store.listMessages(taskId);
-    const assistant = msgs.find((m) => m.role === "assistant" && m.tool_call)!;
-    expect(assistant.content).toBe("这条说法值得先核一下来源。");   // 解释保留，而非被 nudge 覆盖
+  it("an error event sets phase error with the safe message", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([{ type: "error", code: "not_entitled", message: "无额度" }]);
+    const conv = createConversation({ api: api as never, store, taskId: "t1" });
+    await conv.send("hi");
+    expect(conv.getSnapshot()).toMatchObject({ phase: "error", error: "无额度" });
   });
 });
