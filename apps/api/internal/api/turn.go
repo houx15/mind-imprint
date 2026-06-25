@@ -95,8 +95,9 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 	// are serialized through em.mu — no concurrent writes to the underlying
 	// http.ResponseWriter.
 	stop := make(chan struct{})
-	defer close(stop)
+	hbDone := make(chan struct{})
 	go func() {
+		defer close(hbDone)
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -109,6 +110,13 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 				_ = em.Heartbeat()
 			}
 		}
+	}()
+	// Stop the heartbeat AND wait for it to fully exit before this handler
+	// returns — the ResponseWriter is invalid once ServeHTTP returns, so a
+	// heartbeat write must never outlive the handler.
+	defer func() {
+		close(stop)
+		<-hbDone
 	}()
 
 	// Record activity (best-effort; failure must not abort the turn).
@@ -126,7 +134,7 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 		// Stream already open: report via SSE error event. Log the real cause
 		// server-side only — never leak provider/internal detail to the client.
 		slog.Error("turn failed",
-			"request_id", r.Header.Get("X-Request-ID"),
+			"request_id", httpx.RequestIDFromContext(r.Context()),
 			"task_id", t.ID.String(),
 			"err", err.Error(),
 		)

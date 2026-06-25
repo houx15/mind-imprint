@@ -65,6 +65,14 @@ func TestTurnStreamsCardThenDone(t *testing.T) {
 	if len(crds) != 1 || crds[0].Status != "proposed" {
 		t.Fatalf("card not persisted: %+v", crds)
 	}
+	// The SSE card event must carry a non-empty card_instance_id that matches
+	// the persisted row — so the client can submit the envelope back by id.
+	if !strings.Contains(bodyStr, `"card_instance_id":"`) {
+		t.Fatalf(`missing "card_instance_id" key in SSE body:\n%s`, bodyStr)
+	}
+	if !strings.Contains(bodyStr, crds[0].ID.String()) {
+		t.Fatalf("card_instance_id %q not found in SSE body:\n%s", crds[0].ID.String(), bodyStr)
+	}
 }
 
 func TestTurnEmptyInputReturns400(t *testing.T) {

@@ -27,6 +27,11 @@ func requestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// RequestIDFromContext is the exported accessor for packages outside httpx
+// (e.g. the turn handler logging its request id). Delegates to the unexported
+// canonical accessor so the context key stays private to this package.
+func RequestIDFromContext(ctx context.Context) string { return requestIDFromContext(ctx) }
+
 // APIError is a client-safe error with an HTTP status, a stable machine code, a
 // human-readable message, and optional field-level details. It implements error.
 type APIError struct {
