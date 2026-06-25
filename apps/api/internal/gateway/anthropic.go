@@ -236,10 +236,8 @@ func (p *AnthropicProvider) consume(ctx context.Context, body io.Reader, out cha
 		}
 	}
 
-	if inputTokens != 0 || outputTokens != 0 {
-		if !emit(StreamEvent{Kind: EventUsage, Usage: &ChatUsage{InputTokens: inputTokens, OutputTokens: outputTokens}}) {
-			return
-		}
+	if !emit(StreamEvent{Kind: EventUsage, Usage: &ChatUsage{InputTokens: inputTokens, OutputTokens: outputTokens}}) {
+		return
 	}
 	emit(StreamEvent{Kind: EventDone, StopReason: stop})
 }

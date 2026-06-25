@@ -2,6 +2,9 @@ package gateway
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -91,5 +94,22 @@ func TestAnthropicStreamsTextThenToolUse(t *testing.T) {
 	}
 	if stop != StopToolCall {
 		t.Fatalf("stop = %q", stop)
+	}
+}
+
+func TestAnthropicSurfacesHTTPErrorWithoutLeaking(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = io.WriteString(w, `{"error":{"message":"secret-key-rejected"}}`)
+	}))
+	defer srv.Close()
+
+	p := NewAnthropicProvider(srv.Client())
+	_, err := p.Stream(context.Background(), Resolved{BaseURL: srv.URL, Model: "claude-3-5-sonnet-latest", APIKey: "sk-secret-xyz"}, ChatRequest{})
+	if err == nil {
+		t.Fatal("want error on 401")
+	}
+	if strings.Contains(err.Error(), "secret-key-rejected") || strings.Contains(err.Error(), "sk-secret-xyz") {
+		t.Fatalf("error leaks upstream body/secret: %v", err)
 	}
 }
