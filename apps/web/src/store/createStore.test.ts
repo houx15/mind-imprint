@@ -2,6 +2,55 @@ import { describe, it, expect, vi } from "vitest";
 import { createStore } from "./createStore";
 import { makeMemoryStorage, STORE_KEY } from "./storage";
 
+const task = (id: string) => ({ id, title: id, seed: null, status: "active" as const, created_at: "1", last_active_at: "1" });
+const msg = (id: string, tid: string, content: string) => ({ id, task_id: tid, role: "assistant" as const, content, tool_call: null, created_at: "1" });
+const card = (id: string, tid: string, status: any) => ({ id, card_id: "x", task_id: tid, parent_node_id: null, status, field_values: {}, event_trace: [], rubric_tags: [], created_at: "1", completed_at: null });
+
+describe("server-hydrated store", () => {
+  it("defaults to in-memory (no storage arg)", () => {
+    const s = createStore({});
+    expect(s.listTasks()).toEqual([]);
+  });
+  it("putTask upserts by id", () => {
+    const s = createStore({});
+    s.putTask(task("t1"));
+    s.putTask({ ...task("t1"), title: "renamed" });
+    expect(s.listTasks()).toHaveLength(1);
+    expect(s.getTask("t1")!.title).toBe("renamed");
+  });
+  it("putMessage upserts by id (streaming updates)", () => {
+    const s = createStore({});
+    s.putTask(task("t1"));
+    s.putMessage(msg("m1", "t1", "He"));
+    s.putMessage(msg("m1", "t1", "Hello"));
+    expect(s.listMessages("t1")).toHaveLength(1);
+    expect(s.listMessages("t1")[0]!.content).toBe("Hello");
+  });
+  it("hydrateTask replaces that task's messages+cards and upserts evaluation", () => {
+    const s = createStore({});
+    s.putTask(task("t1"));
+    s.putMessage(msg("temp", "t1", "optimistic"));
+    s.putCard(card("ctmp", "t1", "proposed"));
+    s.hydrateTask("t1", {
+      task: task("t1"),
+      messages: [msg("srv1", "t1", "server")],
+      cards: [card("csrv", "t1", "completed")],
+      evaluation: { task_id: "t1", scores: [], narrative: "n", created_at: "z" },
+    });
+    expect(s.listMessages("t1").map((m) => m.id)).toEqual(["srv1"]);
+    expect(s.listCards("t1").map((c) => c.id)).toEqual(["csrv"]);
+    expect(s.getLatestEvaluation("t1")!.narrative).toBe("n");
+  });
+  it("hydrateTask leaves other tasks untouched", () => {
+    const s = createStore({});
+    s.putTask(task("t1")); s.putMessage(msg("a", "t1", "keep"));
+    s.putTask(task("t2")); s.putMessage(msg("b", "t2", "keep2"));
+    s.hydrateTask("t2", { task: task("t2"), messages: [], cards: [] });
+    expect(s.listMessages("t1")).toHaveLength(1);
+    expect(s.listMessages("t2")).toHaveLength(0);
+  });
+});
+
 function fixedClock() {
   let n = 0;
   return () => `2026-06-21T10:00:0${n++}.000Z`;

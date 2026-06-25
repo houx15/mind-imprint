@@ -1,9 +1,9 @@
 import type { Task, Message, MessageRole, CardInstance, Evaluation } from "@mind-imprint/contracts";
 import { StoreState, EMPTY_STATE } from "./schema";
-import { STORE_KEY, type RawStorage } from "./storage";
+import { STORE_KEY, type RawStorage, makeMemoryStorage } from "./storage";
 
 export interface CreateStoreOptions {
-  storage: RawStorage;
+  storage?: RawStorage;
   now?: () => string;
   genId?: () => string;
 }
@@ -23,6 +23,9 @@ export interface Store {
   putEvaluation(evaluation: Evaluation): void;
   listEvaluations(task_id: string): Evaluation[];
   getLatestEvaluation(task_id: string): Evaluation | undefined;
+  putTask(task: Task): void;
+  putMessage(message: Message): void;
+  hydrateTask(taskId: string, data: { task: Task; messages: Message[]; cards: CardInstance[]; evaluation?: Evaluation }): void;
 }
 
 function load(storage: RawStorage): StoreState {
@@ -46,7 +49,7 @@ function load(storage: RawStorage): StoreState {
 export function createStore(opts: CreateStoreOptions): Store {
   const now = opts.now ?? (() => new Date().toISOString());
   const genId = opts.genId ?? (() => crypto.randomUUID());
-  const storage = opts.storage;
+  const storage = opts.storage ?? makeMemoryStorage();
 
   let state: StoreState = load(storage);
   const listeners = new Set<() => void>();
@@ -120,6 +123,27 @@ export function createStore(opts: CreateStoreOptions): Store {
       const evals = state.evaluations.filter((e) => e.task_id === task_id);
       if (evals.length === 0) return undefined;
       return evals.reduce((max, e) => (e.created_at > max.created_at ? e : max));
+    },
+    putTask(task) {
+      const idx = state.tasks.findIndex((t) => t.id === task.id);
+      const tasks = idx === -1 ? [...state.tasks, task] : state.tasks.map((t) => (t.id === task.id ? task : t));
+      commit({ ...state, tasks });
+    },
+    putMessage(message) {
+      const idx = state.messages.findIndex((m) => m.id === message.id);
+      const messages = idx === -1 ? [...state.messages, message] : state.messages.map((m) => (m.id === message.id ? message : m));
+      commit({ ...state, messages });
+    },
+    hydrateTask(taskId, data) {
+      const tasks = state.tasks.some((t) => t.id === data.task.id)
+        ? state.tasks.map((t) => (t.id === data.task.id ? data.task : t))
+        : [...state.tasks, data.task];
+      const messages = state.messages.filter((m) => m.task_id !== taskId).concat(data.messages);
+      const cards = state.cards.filter((c) => c.task_id !== taskId).concat(data.cards);
+      const evaluations = data.evaluation
+        ? state.evaluations.filter((e) => e.task_id !== taskId).concat(data.evaluation)
+        : state.evaluations;
+      commit({ ...state, tasks, messages, cards, evaluations });
     },
   };
 }

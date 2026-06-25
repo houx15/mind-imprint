@@ -67,6 +67,9 @@ function makeStore(overrides: {
     putEvaluation: vi.fn() as any,
     listEvaluations: vi.fn() as any,
     getLatestEvaluation: vi.fn() as any,
+    putTask: vi.fn() as any,
+    putMessage: vi.fn() as any,
+    hydrateTask: vi.fn() as any,
   };
 }
 
