@@ -102,3 +102,29 @@
 - 两个填写渲染器各有 `as any` 取 field 定义；`InnerPartsRenderer` 内 `OnDemandSection` 重复了 `CardRenderer.OnDemandStep`（可抽共享）；energy 区有一个装饰性 `Battery` 与可点控件并存。
 
 **结论：本批全部并入 main 并推送 origin（`99a307d..4b54ae0`），分支已删。无 Critical/Important 遗留。**
+
+---
+
+## P2 · 认证 + 最小组织（后端平台重构，merged 后更新，2026-06-26）
+
+设计 `docs/superpowers/specs/2026-06-25-p2-auth-minimal-org-design.md`，计划 `docs/superpowers/plans/2026-06-25-p2-auth-minimal-org.md`。12 个 TDD 任务（subagent-driven，逐任务双审 + opus 终审「Ready to merge=Yes」）。后端真·Cookie 会话认证取代 P1 `ActAsSeed`：注册（班级邀请码原子建号+入班，组织不变式）/登录/登出/`GET /auth/me` + 建好但**休眠**的邮箱验证流（P2 注册即自动验证）。前端 `AuthScreen` 接真 API + `AppShell` getMe 启动门。
+
+- 新表 `sessions` / `email_verification_tokens`（仅存 token 的 SHA-256 哈希）；`internal/auth`（argon2id `m=65536,t=1,p=4` + 32B `crypto/rand` 不透明 token）；种子 Phoebe 真密码（`phoebe@demo.mindimprint.local` / `phoebe-dev-pass`）。
+- 路由公开/受保护切分：公开 = signup/signin/signout/verify-email；受保护（`RequireUser`→401）= `/auth/me` + 全部 `/tasks`；`SessionAuth` 包裹整 mux 且**自身从不拒绝**。Cookie `mk_session`：HttpOnly+SameSite=Lax+Secure(配置门控，dev 关)。
+- 全门绿：Go `go vet` + `go test -p 1 ./...`（全包）；web typecheck + 295 测试 + build。
+
+### P2 ship-as-is 遗留（终审判为非阻塞 Minor / 明确推迟）
+
+| 遗留项 | → 目标 | 端到端必需？ |
+|---|---|---|
+| **Mailer + 真发邮件**：验证流已建好但休眠（注册即自动验证）；接 provider（China-first：阿里云/腾讯，或 Resend）时注册改「建 token + 发 raw token，`email_verified_at` 留 NULL」，端点零改 | 硬化轮 / 接邮件时 | 否（demo 自动验证） |
+| **CSRF 双提交 token** + **限流**（signup/signin/verify 按 IP+邮箱）| 安全硬化轮 | 否（Lax cookie 已挡跨站表单 CSRF） |
+| **argon2 `version` 解析后未断言**（`password.go` VerifyPassword 读 `v=%d` 但不校验；单版本部署，失配 fail-closed）| 安全硬化轮（与 CSRF/限流同批）| 否 |
+| **CORS `AllowedMethods` 缺 `PATCH`**（middleware.go `{GET,POST,PUT,OPTIONS}`，但 `/tasks/{id}/cards/{cid}` 是 PATCH）——**P1 既有**，P2 首次让真浏览器跨域走到它；本地 dev 同源（vite 代理）故 demo 不受影响；openCard 的 PATCH-active 本就 best-effort fire-and-forget | 硬化/浏览器联调轮 | 否（demo 同源） |
+| **SettingsView 头像块**仍硬编码 `"P"`/`#E8A33D`（`user.avatar_color` 已入 DTO 但未接到色块）| 打磨 | 否 |
+| **AuthScreen 绑定步删了静态班级预览卡**（假数据；真预览需 class-lookup 端点，不在 P2）；错码经 signup `invalid_join_code` 兜底 | P3（组织端）或加 class-lookup 端点 | 否 |
+| **签注 tx.Rollback 用 `r.Context()`**（处理器返回后已取消；pgx/PG 靠连接释放回滚，仅装饰性）| cleanup | 否 |
+| **teacher/admin 自助 + 名单管理 + 学校维度聚合** | **P3** | — |
+| **异步评估（river）** | **P4** | — |
+
+**结论：P2 全 12 任务 + 终审完成，无 Critical/Important，可并入 main。**
