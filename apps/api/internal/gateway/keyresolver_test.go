@@ -54,3 +54,14 @@ func TestKeyResolverErrorsWhenNoKey(t *testing.T) {
 		t.Fatal("want error when no provider key configured")
 	}
 }
+
+func TestEvalResolverIsFlagship(t *testing.T) {
+	r, err := NewEvalKeyResolver(config.Config{DeepSeekKey: "k"})(context.Background())
+	if err != nil { t.Fatal(err) }
+	if r.Tier != "flagship" || r.Model != "deepseek-reasoner" {
+		t.Fatalf("want flagship deepseek-reasoner, got %s/%s", r.Tier, r.Model)
+	}
+	if _, err := NewEvalKeyResolver(config.Config{})(context.Background()); err == nil {
+		t.Fatal("want error when no provider configured")
+	}
+}

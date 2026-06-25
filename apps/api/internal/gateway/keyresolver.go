@@ -42,3 +42,31 @@ func NewKeyResolver(cfg config.Config) KeyResolver {
 		}
 	}
 }
+
+// NewEvalKeyResolver builds the FLAGSHIP resolver for evaluation — never
+// downgraded (评估走旗舰模型绝不降级). DeepSeek's reasoner is the China-first
+// default; Anthropic is the fallback. Same seam shape as NewKeyResolver.
+func NewEvalKeyResolver(cfg config.Config) KeyResolver {
+	return func(_ context.Context) (Resolved, error) {
+		switch {
+		case cfg.DeepSeekKey != "":
+			return Resolved{
+				Provider: "deepseek",
+				BaseURL:  "https://api.deepseek.com/v1",
+				Model:    "deepseek-reasoner",
+				APIKey:   cfg.DeepSeekKey,
+				Tier:     "flagship",
+			}, nil
+		case cfg.AnthropicKey != "":
+			return Resolved{
+				Provider: "anthropic",
+				BaseURL:  "https://api.anthropic.com/v1",
+				Model:    "claude-3-5-sonnet-latest",
+				APIKey:   cfg.AnthropicKey,
+				Tier:     "flagship",
+			}, nil
+		default:
+			return Resolved{}, errNoProvider
+		}
+	}
+}
