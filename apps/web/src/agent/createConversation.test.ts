@@ -58,4 +58,18 @@ describe("createConversation (API/SSE)", () => {
     await conv.send("hi");
     expect(conv.getSnapshot()).toMatchObject({ phase: "error", error: "无额度" });
   });
+
+  it("a mid-stream error removes the partial assistant message from the store", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([
+      { type: "text", delta: "partial" },
+      { type: "error", code: "internal_error", message: "boom" },
+    ]);
+    const conv = createConversation({ api: api as never, store, taskId: "t1" });
+    await conv.send("hi");
+    const msgs = store.listMessages("t1");
+    expect(msgs.map((m) => m.role)).toEqual(["user"]);
+    expect(msgs.find((m) => m.role === "assistant")).toBeUndefined();
+    expect(conv.getSnapshot().phase).toBe("error");
+  });
 });

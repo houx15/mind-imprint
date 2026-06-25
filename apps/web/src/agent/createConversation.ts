@@ -44,11 +44,13 @@ export function createConversation(deps: ConversationDeps): Conversation {
     setState({ phase: "awaiting_llm", error: undefined, pendingCardId: undefined });
     const assistantId = genId();
     let text = "";
+    let assistantCreated = false;
     try {
       for await (const ev of api.runTurn(taskId, userInput)) {
         if (ev.type === "text") {
           text += ev.delta;
           store.putMessage({ id: assistantId, task_id: taskId, role: "assistant", content: text, tool_call: null, created_at: now() });
+          assistantCreated = true;
         } else if (ev.type === "card") {
           const ci = newEnvelope(ev.cardId, taskId, now, () => ev.cardInstanceId);
           store.putCard(ci);
@@ -63,12 +65,14 @@ export function createConversation(deps: ConversationDeps): Conversation {
           setState({ phase: "idle", pendingCardId: undefined });
           return;
         } else if (ev.type === "error") {
+          if (assistantCreated) store.removeMessage(assistantId);
           setState({ phase: "error", error: ev.message });
           return;
         }
       }
       setState({ phase: "idle" });
     } catch (err) {
+      if (assistantCreated) store.removeMessage(assistantId);
       setState({ phase: "error", error: err instanceof Error ? err.message : String(err) });
     }
   }

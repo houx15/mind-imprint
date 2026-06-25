@@ -25,6 +25,7 @@ export interface Store {
   getLatestEvaluation(task_id: string): Evaluation | undefined;
   putTask(task: Task): void;
   putMessage(message: Message): void;
+  removeMessage(id: string): void;
   hydrateTask(taskId: string, data: { task: Task; messages: Message[]; cards: CardInstance[]; evaluation?: Evaluation }): void;
 }
 
@@ -133,6 +134,9 @@ export function createStore(opts: CreateStoreOptions): Store {
       const idx = state.messages.findIndex((m) => m.id === message.id);
       const messages = idx === -1 ? [...state.messages, message] : state.messages.map((m) => (m.id === message.id ? message : m));
       commit({ ...state, messages });
+    },
+    removeMessage(id) {
+      commit({ ...state, messages: state.messages.filter((m) => m.id !== id) });
     },
     hydrateTask(taskId, data) {
       const tasks = state.tasks.some((t) => t.id === data.task.id)
