@@ -125,6 +125,12 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 	if len(cardsRows) != 1 || cardsRows[0].CardID != "sift_craap" || cardsRows[0].Status != "proposed" {
 		t.Fatalf("card row wrong: %+v", cardsRows)
 	}
+
+	// Cost: deepseek/deepseek-chat has a price entry so CostEstimate must be valid
+	// (non-NULL) in the persisted assistant message.
+	if !asst.CostEstimate.Valid {
+		t.Fatalf("assistant CostEstimate not persisted (want Valid=true, got %+v)", asst.CostEstimate)
+	}
 }
 
 func rolesOf(msgs []sqlc.Message) []string {

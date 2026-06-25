@@ -33,6 +33,7 @@ type AssistantMessage struct {
 	Tier             string
 	PromptTokens     *int32
 	CompletionTokens *int32
+	CostEstimate     pgtype.Numeric
 }
 
 // TurnStore is the persistence seam RunTurn drives. NewSqlcTurnStore adapts the
@@ -130,6 +131,8 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 
 	promptTokens := int32(usage.InputTokens)
 	completionTokens := int32(usage.OutputTokens)
+	cost, costOK := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
+	costNum := gateway.CostNumeric(cost, costOK)
 
 	// Did the model propose a valid card?
 	if firstTool != nil {
@@ -155,6 +158,7 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 					Tier:             resolved.Tier,
 					PromptTokens:     &promptTokens,
 					CompletionTokens: &completionTokens,
+					CostEstimate:     costNum,
 				})
 				if err != nil {
 					return err
@@ -177,6 +181,7 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 		Tier:             resolved.Tier,
 		PromptTokens:     &promptTokens,
 		CompletionTokens: &completionTokens,
+		CostEstimate:     costNum,
 	})
 	if err != nil {
 		return err
@@ -268,8 +273,7 @@ func (s *sqlcTurnStore) AppendAssistantMessage(ctx context.Context, in Assistant
 		b, _ := json.Marshal(in.ToolCall)
 		params.ToolCall = b
 	}
-	// cost_estimate left zero/null for P1.2; pricing rollup is P1.3.
-	params.CostEstimate = pgtype.Numeric{}
+	params.CostEstimate = in.CostEstimate
 	m, err := s.q.AppendMessage(ctx, params)
 	return m.ID, err
 }

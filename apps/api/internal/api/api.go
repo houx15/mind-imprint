@@ -34,5 +34,6 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}/cards/{cid}", a.patchCard)
 	mux.HandleFunc("PUT /api/v1/tasks/{id}/cards/{cid}", a.putCard)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/cards/{cid}/skip", a.skipCard)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/turn", a.postTurn)
 	return ActAsSeed(a.d.Queries)(mux)
 }

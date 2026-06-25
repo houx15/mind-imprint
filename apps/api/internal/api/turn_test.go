@@ -1,0 +1,86 @@
+package api_test
+
+import (
+	"context"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"mindimprint/api/internal/cards"
+	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+func TestTurnStreamsCardThenDone(t *testing.T) {
+	q := newAPITestQueries(t)
+	ctx := context.Background()
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	catalog, err := cards.Catalog()
+	if err != nil {
+		t.Fatalf("Catalog: %v", err)
+	}
+	idx := map[string]cards.Spec{}
+	for _, s := range catalog {
+		idx[s.ID] = s
+	}
+
+	// Stub proposes sift_craap then ends.
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "先一起核查来源"},
+		{Kind: gateway.EventToolUse, ToolUse: &gateway.StreamToolUse{ID: "tc1", Name: "summon_card", ArgsJSON: `{"card_id":"sift_craap","reason":"r","nudge_text":"要不要一起溯源？"}`}},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 20}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopToolCall},
+	})
+	h := New(Deps{
+		Queries:  q,
+		Provider: prov,
+		ChatResolver: func(context.Context) (gateway.Resolved, error) {
+			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
+		},
+		Catalog:  catalog,
+		SpecByID: func(id string) (cards.Spec, bool) { s, ok := idx[id]; return s, ok },
+	}).Handler()
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":"我想引用这篇公众号文章"}`)))
+	if rr.Code != 200 {
+		t.Fatalf("turn: want 200, got %d — body: %s", rr.Code, rr.Body.String())
+	}
+	bodyStr := rr.Body.String()
+	for _, want := range []string{"event: text", "event: card", `"card_id":"sift_craap"`, "event: done"} {
+		if !strings.Contains(bodyStr, want) {
+			t.Fatalf("missing %q in SSE:\n%s", want, bodyStr)
+		}
+	}
+	// A proposed card_instance was persisted.
+	crds, err := q.ListCardsByTask(ctx, task.ID)
+	if err != nil {
+		t.Fatalf("ListCardsByTask: %v", err)
+	}
+	if len(crds) != 1 || crds[0].Status != "proposed" {
+		t.Fatalf("card not persisted: %+v", crds)
+	}
+}
+
+func TestTurnEmptyInputReturns400(t *testing.T) {
+	// Override HasEntitlement is not directly possible (package func). Instead,
+	// assert the happy gate; a dedicated denied-path test belongs to P-future
+	// when entitlement is data-driven. For P1 (stub true) assert pre-stream
+	// validation: empty user_input must return 400 before streaming begins.
+	q := newAPITestQueries(t)
+	task, err := q.CreateTask(context.Background(), sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	h := New(Deps{Queries: q}).Handler()
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":""}`)))
+	if rr.Code != 400 {
+		t.Fatalf("empty input: want 400, got %d — body: %s", rr.Code, rr.Body.String())
+	}
+}
