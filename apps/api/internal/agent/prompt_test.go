@@ -63,7 +63,6 @@ func TestSummonCardToolEnumIsCatalogIDs(t *testing.T) {
 }
 
 func TestBuildSystemPromptMatchesGolden(t *testing.T) {
-	t.Skip("fixture generated in Task 9")
 	catalog, err := cards.Catalog()
 	if err != nil {
 		t.Fatalf("Catalog: %v", err)

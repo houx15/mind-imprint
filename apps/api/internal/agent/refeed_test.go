@@ -19,7 +19,6 @@ func mustSift(t *testing.T) cards.Spec {
 }
 
 func TestRefeedSkippedIsMinimal(t *testing.T) {
-	t.Skip("fixture generated in Task 9")
 	spec := mustSift(t)
 	p := SerializeCardForRefeed(spec, CardInstance{CardID: "sift_craap", Status: "skipped"})
 	b, err := json.Marshal(p)
@@ -36,7 +35,6 @@ func TestRefeedSkippedIsMinimal(t *testing.T) {
 }
 
 func TestRefeedCompletedMatchesGolden(t *testing.T) {
-	t.Skip("fixture generated in Task 9")
 	spec := mustSift(t)
 	inst := CardInstance{
 		CardID: "sift_craap",

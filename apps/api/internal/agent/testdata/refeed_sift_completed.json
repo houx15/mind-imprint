@@ -1,0 +1,39 @@
+{
+  "card_id": "sift_craap",
+  "card_name": "SIFT×CRAAP 信息核查",
+  "status": "completed",
+  "steps": [
+    {
+      "title": "SIFT · 横向找更多来源",
+      "answers": [
+        {
+          "label": "Stop：你打算用这条信息说明什么？",
+          "value": "证明中国让地球更可持续"
+        },
+        {
+          "label": "Investigate：找出 3 个独立来源",
+          "value": [
+            {
+              "来源": "NASA",
+              "类型": "官方",
+              "可信？": "可信"
+            },
+            {
+              "来源": "Nature Sustainability",
+              "类型": "学者/机构",
+              "可信？": "可信"
+            }
+          ]
+        },
+        {
+          "label": "Find better coverage：更权威的版本怎么说？",
+          "value": "原始研究来自 NASA / Nature Sustainability"
+        },
+        {
+          "label": "Trace：溯到原始出处（贴链接）",
+          "value": "https://www.nature.com/..."
+        }
+      ]
+    }
+  ]
+}
