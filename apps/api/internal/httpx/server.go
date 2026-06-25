@@ -13,10 +13,14 @@ import (
 
 // NewServer builds the fully-wired HTTP server: ServeMux with health routes,
 // the middleware chain, and a ReadHeaderTimeout to blunt slow-loris attacks.
-func NewServer(cfg config.Config, p Pinger) *http.Server {
+// If apiHandler is non-nil it is mounted under /api/v1/ (the API routes).
+func NewServer(cfg config.Config, p Pinger, apiHandler http.Handler) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", Healthz)
 	mux.Handle("GET /readyz", Readyz(p))
+	if apiHandler != nil {
+		mux.Handle("/api/v1/", apiHandler)
+	}
 
 	handler := chain(mux, RequestID, Recover, Logger, CORS(cfg.CORSOrigins))
 

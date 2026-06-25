@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 
+	"mindimprint/api/internal/api"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/config"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 func main() {
@@ -44,7 +49,37 @@ func main() {
 		return
 	}
 
-	srv := httpx.NewServer(cfg, pool)
+	queries := sqlc.New(pool)
+
+	catalog, err := cards.Catalog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cards: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+	specIndex := make(map[string]cards.Spec, len(catalog))
+	for _, s := range catalog {
+		specIndex[s.ID] = s
+	}
+	specByID := func(id string) (cards.Spec, bool) { s, ok := specIndex[id]; return s, ok }
+
+	// No global timeout on the HTTP client: streaming is governed by request ctx.
+	httpClient := &http.Client{}
+	provider := gateway.NewMuxProvider(map[string]gateway.Provider{
+		"deepseek":  gateway.NewDeepSeekProvider(httpClient),
+		"anthropic": gateway.NewAnthropicProvider(httpClient),
+	})
+
+	apiHandler := api.New(api.Deps{
+		Queries:      queries,
+		Provider:     provider,
+		ChatResolver: gateway.NewKeyResolver(cfg),
+		EvalResolver: gateway.NewEvalKeyResolver(cfg),
+		Catalog:      catalog,
+		SpecByID:     specByID,
+	}).Handler()
+
+	srv := httpx.NewServer(cfg, pool, apiHandler)
 
 	if err := httpx.RunServer(srv, func(_ context.Context) {
 		pool.Close()
