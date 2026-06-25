@@ -32,6 +32,15 @@ type Class struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type EmailVerificationToken struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+}
+
 type Enrollment struct {
 	ID          uuid.UUID `json:"id"`
 	UserID      uuid.UUID `json:"user_id"`
@@ -88,6 +97,16 @@ type Message struct {
 type School struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Session struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	TokenHash string    `json:"token_hash"`
+	ExpiresAt time.Time `json:"expires_at"`
+	UserAgent *string   `json:"user_agent"`
+	Ip        *string   `json:"ip"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

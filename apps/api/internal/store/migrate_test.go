@@ -60,6 +60,7 @@ func TestMigrationsCreateTablesAndSeed(t *testing.T) {
 	wantTables := []string{
 		"schools", "classes", "users", "enrollments",
 		"tasks", "messages", "card_instances", "evaluations",
+		"sessions", "email_verification_tokens",
 	}
 	for _, name := range wantTables {
 		var exists bool
