@@ -13,7 +13,8 @@ import (
 )
 
 func TestTurnStreamsCardThenDone(t *testing.T) {
-	q := newAPITestQueries(t)
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
 	ctx := context.Background()
 	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
 	if err != nil {
@@ -37,7 +38,8 @@ func TestTurnStreamsCardThenDone(t *testing.T) {
 		{Kind: gateway.EventDone, StopReason: gateway.StopToolCall},
 	})
 	h := New(Deps{
-		Queries:  q,
+		Queries:  sqlc.New(pool),
+		Pool:     pool,
 		Provider: prov,
 		ChatResolver: func(context.Context) (gateway.Resolved, error) {
 			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
@@ -45,9 +47,10 @@ func TestTurnStreamsCardThenDone(t *testing.T) {
 		Catalog:  catalog,
 		SpecByID: func(id string) (cards.Spec, bool) { s, ok := idx[id]; return s, ok },
 	}).Handler()
+	cookie := signInSeed(t, pool)
 
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":"我想引用这篇公众号文章"}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":"我想引用这篇公众号文章"}`)), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("turn: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
@@ -76,7 +79,8 @@ func TestTurnStreamsCardThenDone(t *testing.T) {
 }
 
 func TestTurnEmptyInputIsContinuation(t *testing.T) {
-	q := newAPITestQueries(t)
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
 	ctx := context.Background()
 	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
 	if err != nil {
@@ -98,7 +102,8 @@ func TestTurnEmptyInputIsContinuation(t *testing.T) {
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
 	})
 	h := New(Deps{
-		Queries:  q,
+		Queries:  sqlc.New(pool),
+		Pool:     pool,
 		Provider: prov,
 		ChatResolver: func(context.Context) (gateway.Resolved, error) {
 			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
@@ -106,9 +111,10 @@ func TestTurnEmptyInputIsContinuation(t *testing.T) {
 		Catalog:  catalog,
 		SpecByID: func(id string) (cards.Spec, bool) { s, ok := idx[id]; return s, ok },
 	}).Handler()
+	cookie := signInSeed(t, pool)
 
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":""}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/turn", strings.NewReader(`{"user_input":""}`)), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("continuation: want 200, got %d %s", rr.Code, rr.Body.String())
 	}

@@ -13,9 +13,10 @@ import (
 )
 
 func TestCardLifecycleRoutes(t *testing.T) {
-	q := newAPITestQueries(t)
-	defer func() {}()
-	h := New(Deps{Queries: q}).Handler()
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
 	ctx := context.Background()
 
 	task, _ := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
@@ -24,7 +25,7 @@ func TestCardLifecycleRoutes(t *testing.T) {
 
 	// PATCH active
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("PATCH", base, strings.NewReader(`{"status":"active"}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", base, strings.NewReader(`{"status":"active"}`)), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("patch: %d %s", rr.Code, rr.Body.String())
 	}
@@ -32,14 +33,14 @@ func TestCardLifecycleRoutes(t *testing.T) {
 	// PUT completed (valid envelope)
 	rr = httptest.NewRecorder()
 	body := `{"status":"completed","field_values":{"sift":{"stop":"x"}},"event_trace":[{"kind":"submit"}]}`
-	h.ServeHTTP(rr, httptest.NewRequest("PUT", base, strings.NewReader(body)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", base, strings.NewReader(body)), cookie))
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"status":"completed"`) {
 		t.Fatalf("put: %d %s", rr.Code, rr.Body.String())
 	}
 
 	// PUT bad event_trace kind → 400
 	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("PUT", base, strings.NewReader(`{"status":"completed","field_values":{},"event_trace":[{"kind":"bogus"}]}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", base, strings.NewReader(`{"status":"completed","field_values":{},"event_trace":[{"kind":"bogus"}]}`)), cookie))
 	if rr.Code != 400 {
 		t.Fatalf("bad trace: want 400, got %d", rr.Code)
 	}
@@ -48,7 +49,7 @@ func TestCardLifecycleRoutes(t *testing.T) {
 	cNull, _ := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: task.ID})
 	baseNull := "/api/v1/tasks/" + task.ID.String() + "/cards/" + cNull.ID.String()
 	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("PUT", baseNull, strings.NewReader(`{"status":"completed","field_values":null,"event_trace":[{"kind":"submit"}]}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", baseNull, strings.NewReader(`{"status":"completed","field_values":null,"event_trace":[{"kind":"submit"}]}`)), cookie))
 	if rr.Code != 400 {
 		t.Fatalf("field_values null: want 400, got %d", rr.Code)
 	}
@@ -56,14 +57,14 @@ func TestCardLifecycleRoutes(t *testing.T) {
 	// skip on a second card
 	c2, _ := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "concession", TaskID: task.ID})
 	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/cards/"+c2.ID.String()+"/skip", strings.NewReader(`{"event_trace":[{"kind":"skip"}]}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/cards/"+c2.ID.String()+"/skip", strings.NewReader(`{"event_trace":[{"kind":"skip"}]}`)), cookie))
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"status":"skipped"`) {
 		t.Fatalf("skip: %d %s", rr.Code, rr.Body.String())
 	}
 
 	// cross-task ownership → 404
 	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("PATCH", "/api/v1/tasks/"+uuid.NewString()+"/cards/"+card.ID.String(), strings.NewReader(`{"status":"active"}`)))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/tasks/"+uuid.NewString()+"/cards/"+card.ID.String(), strings.NewReader(`{"status":"active"}`)), cookie))
 	if rr.Code != 404 {
 		t.Fatalf("cross-task: want 404, got %d", rr.Code)
 	}

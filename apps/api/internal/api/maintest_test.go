@@ -6,6 +6,7 @@ package api_test
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/auth"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -54,7 +57,27 @@ func newAPITestPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// newAPITestQueries returns a *sqlc.Queries over a fresh test pool.
-func newAPITestQueries(t *testing.T) *sqlc.Queries {
-	return sqlc.New(newAPITestPool(t))
+// signInSeed creates a live session for the seeded student and returns the
+// cookie to attach to authed requests (replaces the implicit ActAsSeed inject).
+func signInSeed(t *testing.T, pool *pgxpool.Pool) *http.Cookie {
+	t.Helper()
+	q := sqlc.New(pool)
+	raw, hash, err := auth.NewToken()
+	if err != nil {
+		t.Fatalf("token: %v", err)
+	}
+	if _, err := q.CreateSession(context.Background(), sqlc.CreateSessionParams{
+		UserID:    SeedUserID,
+		TokenHash: hash,
+		ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	return &http.Cookie{Name: "mk_session", Value: raw}
+}
+
+// withCookie attaches c to req and returns it (for inline request building).
+func withCookie(req *http.Request, c *http.Cookie) *http.Request {
+	req.AddCookie(c)
+	return req
 }

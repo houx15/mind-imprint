@@ -22,14 +22,15 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // ---------------------------------------------------------------------------
 // Local helpers
 // ---------------------------------------------------------------------------
 
-// do fires a single HTTP request against h and returns the recorded response.
-func do(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+// doAuthed fires a single HTTP request with the given cookie attached.
+func doAuthed(h http.Handler, method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	var reqBody *strings.Reader
 	if body != "" {
 		reqBody = strings.NewReader(body)
@@ -37,7 +38,7 @@ func do(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 		reqBody = strings.NewReader("")
 	}
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest(method, path, reqBody))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest(method, path, reqBody), cookie))
 	return rr
 }
 
@@ -111,7 +112,8 @@ func (p *queueProvider) Stream(ctx context.Context, _ gateway.Resolved, _ gatewa
 // ---------------------------------------------------------------------------
 
 func TestE2EPhoebeVertical(t *testing.T) {
-	q := newAPITestQueries(t)
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
 	ctx := context.Background()
 	catalog, _ := cards.Catalog()
 	idx := map[string]cards.Spec{}
@@ -141,7 +143,8 @@ func TestE2EPhoebeVertical(t *testing.T) {
 	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, turn2, evalScript}}
 
 	h := New(Deps{
-		Queries:  q,
+		Queries:  sqlc.New(pool),
+		Pool:     pool,
 		Provider: prov,
 		ChatResolver: func(context.Context) (gateway.Resolved, error) {
 			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
@@ -152,16 +155,17 @@ func TestE2EPhoebeVertical(t *testing.T) {
 		Catalog:  catalog,
 		SpecByID: specByID,
 	}).Handler()
+	cookie := signInSeed(t, pool)
 
 	// 1. Create task
-	rr := do(h, "POST", "/api/v1/tasks", `{"title":"中国是否让地球更可持续？","seed":"https://x"}`)
+	rr := doAuthed(h, "POST", "/api/v1/tasks", `{"title":"中国是否让地球更可持续？","seed":"https://x"}`, cookie)
 	if rr.Code != 201 {
 		t.Fatalf("create task: want 201, got %d — body: %s", rr.Code, rr.Body.String())
 	}
 	taskID := mustField(t, rr.Body.Bytes(), "task", "id")
 
 	// 2. Turn 1 → card proposed
-	rr = do(h, "POST", "/api/v1/tasks/"+taskID+"/turn", `{"user_input":"我想引用这篇公众号文章"}`)
+	rr = doAuthed(h, "POST", "/api/v1/tasks/"+taskID+"/turn", `{"user_input":"我想引用这篇公众号文章"}`, cookie)
 	if rr.Code != 200 {
 		t.Fatalf("turn 1: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
@@ -176,36 +180,37 @@ func TestE2EPhoebeVertical(t *testing.T) {
 	cardID := crds[0].ID.String()
 
 	// 3. Submit the card envelope (SIFT completed)
-	rr = do(h, "PUT", "/api/v1/tasks/"+taskID+"/cards/"+cardID,
-		`{"status":"completed","field_values":{"sift":{"stop":"证明中国让地球更可持续","better":"原始研究来自 NASA / Nature Sustainability"}},"event_trace":[{"kind":"submit"}]}`)
+	rr = doAuthed(h, "PUT", "/api/v1/tasks/"+taskID+"/cards/"+cardID,
+		`{"status":"completed","field_values":{"sift":{"stop":"证明中国让地球更可持续","better":"原始研究来自 NASA / Nature Sustainability"}},"event_trace":[{"kind":"submit"}]}`,
+		cookie)
 	if rr.Code != 200 {
 		t.Fatalf("submit card: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
 	assertContains(t, rr.Body.String(), `"status":"completed"`)
 
 	// 4. Turn 2 → plain reply; the refeed carried the completed card as tool_result
-	rr = do(h, "POST", "/api/v1/tasks/"+taskID+"/turn", `{"user_input":"我又发现中国碳排放全球第一"}`)
+	rr = doAuthed(h, "POST", "/api/v1/tasks/"+taskID+"/turn", `{"user_input":"我又发现中国碳排放全球第一"}`, cookie)
 	if rr.Code != 200 {
 		t.Fatalf("turn 2: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
 	assertContains(t, rr.Body.String(), "event: text", "event: done")
 
 	// 5. Evaluate (flagship) → 201
-	rr = do(h, "POST", "/api/v1/tasks/"+taskID+"/evaluate", "")
+	rr = doAuthed(h, "POST", "/api/v1/tasks/"+taskID+"/evaluate", "", cookie)
 	if rr.Code != 201 {
 		t.Fatalf("evaluate: want 201, got %d — body: %s", rr.Code, rr.Body.String())
 	}
 	assertContains(t, rr.Body.String(), `"model":"deepseek-reasoner"`, "你的思维印记")
 
 	// 6. Get evaluation
-	rr = do(h, "GET", "/api/v1/tasks/"+taskID+"/evaluation", "")
+	rr = doAuthed(h, "GET", "/api/v1/tasks/"+taskID+"/evaluation", "", cookie)
 	if rr.Code != 200 {
 		t.Fatalf("get evaluation: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
 	assertContains(t, rr.Body.String(), `"status":"done"`)
 
 	// 7. Full task read projects messages + cards
-	rr = do(h, "GET", "/api/v1/tasks/"+taskID, "")
+	rr = doAuthed(h, "GET", "/api/v1/tasks/"+taskID, "", cookie)
 	if rr.Code != 200 {
 		t.Fatalf("get task: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}

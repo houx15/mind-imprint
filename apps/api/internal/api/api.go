@@ -26,23 +26,30 @@ type API struct{ d Deps }
 // New builds the API handler set.
 func New(d Deps) *API { return &API{d: d} }
 
-// Handler returns the /api/v1 mux wrapped by the ActAsSeed dev middleware.
-// Task 6 registers only the 3 task routes; Tasks 7/8/9 append the remaining routes.
+// Handler returns the /api/v1 mux. Auth routes (except /me) are public; every
+// other route requires a resolved session. SessionAuth runs for all requests
+// (so signout can read the cookie); RequireUser guards the protected group.
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/tasks", a.listTasks)
-	mux.HandleFunc("POST /api/v1/tasks", a.createTask)
-	mux.HandleFunc("GET /api/v1/tasks/{id}", a.getTask)
-	mux.HandleFunc("PATCH /api/v1/tasks/{id}/cards/{cid}", a.patchCard)
-	mux.HandleFunc("PUT /api/v1/tasks/{id}/cards/{cid}", a.putCard)
-	mux.HandleFunc("POST /api/v1/tasks/{id}/cards/{cid}/skip", a.skipCard)
-	mux.HandleFunc("POST /api/v1/tasks/{id}/turn", a.postTurn)
-	mux.HandleFunc("POST /api/v1/tasks/{id}/evaluate", a.postEvaluate)
-	mux.HandleFunc("GET /api/v1/tasks/{id}/evaluation", a.getEvaluation)
+
+	// Public auth routes.
 	mux.HandleFunc("POST /api/v1/auth/signup", a.signup)
 	mux.HandleFunc("POST /api/v1/auth/signin", a.signin)
 	mux.HandleFunc("POST /api/v1/auth/signout", a.signout)
 	mux.HandleFunc("POST /api/v1/auth/verify-email", a.verifyEmail)
-	mux.HandleFunc("GET /api/v1/auth/me", a.me)
-	return ActAsSeed(a.d.Queries)(mux)
+
+	// Protected routes (require a session).
+	protected := func(h http.HandlerFunc) http.Handler { return RequireUser(h) }
+	mux.Handle("GET /api/v1/auth/me", protected(a.me))
+	mux.Handle("GET /api/v1/tasks", protected(a.listTasks))
+	mux.Handle("POST /api/v1/tasks", protected(a.createTask))
+	mux.Handle("GET /api/v1/tasks/{id}", protected(a.getTask))
+	mux.Handle("PATCH /api/v1/tasks/{id}/cards/{cid}", protected(a.patchCard))
+	mux.Handle("PUT /api/v1/tasks/{id}/cards/{cid}", protected(a.putCard))
+	mux.Handle("POST /api/v1/tasks/{id}/cards/{cid}/skip", protected(a.skipCard))
+	mux.Handle("POST /api/v1/tasks/{id}/turn", protected(a.postTurn))
+	mux.Handle("POST /api/v1/tasks/{id}/evaluate", protected(a.postEvaluate))
+	mux.Handle("GET /api/v1/tasks/{id}/evaluation", protected(a.getEvaluation))
+
+	return SessionAuth(a.d.Queries)(mux)
 }

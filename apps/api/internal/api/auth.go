@@ -1,7 +1,7 @@
 // Package api is the /api/v1 HTTP surface: domain handlers, the request-user
 // context, and the entitlement seam. It drives internal/store, internal/agent
-// (turn + eval), and internal/gateway. P1 injects a seeded student via ActAsSeed;
-// P2 replaces that middleware with real session auth (same context key).
+// (turn + eval), and internal/gateway. P2 uses real session auth via SessionAuth
+// + RequireUser (P1 ActAsSeed shim removed).
 package api
 
 import (
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"mindimprint/api/internal/auth"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -46,18 +47,36 @@ func UserFromContext(ctx context.Context) (User, bool) {
 // SeedUserID is the deterministic seeded student from migration 0002_seed.sql.
 var SeedUserID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 
-// ActAsSeed is the P1 dev middleware: load the seeded student and inject it as
-// the request user. P2 swaps this for real session auth with no handler change.
-func ActAsSeed(q *sqlc.Queries) func(http.Handler) http.Handler {
+// SessionAuth resolves the mk_session cookie into the request user context if a
+// valid (unexpired) session exists. It never rejects on its own — absence just
+// means no user in context; RequireUser does the rejecting. Replaces the P1
+// ActAsSeed dev shim.
+func SessionAuth(q *sqlc.Queries) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			row, err := q.GetUserByID(r.Context(), SeedUserID)
+			c, err := r.Cookie(sessionCookieName)
+			if err != nil || c.Value == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			row, err := q.GetSessionWithUserByHash(r.Context(), auth.HashToken(c.Value))
 			if err != nil {
-				httpx.WriteError(w, r, err)
+				next.ServeHTTP(w, r) // invalid/expired → unauthenticated
 				return
 			}
 			u := User{ID: row.ID, SchoolID: row.SchoolID, Role: row.Role, DisplayName: row.DisplayName}
 			next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), u)))
 		})
 	}
+}
+
+// RequireUser rejects requests with no authenticated user (401).
+func RequireUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := UserFromContext(r.Context()); !ok {
+			httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
