@@ -42,5 +42,6 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/signup", a.signup)
 	mux.HandleFunc("POST /api/v1/auth/signin", a.signin)
 	mux.HandleFunc("POST /api/v1/auth/signout", a.signout)
+	mux.HandleFunc("POST /api/v1/auth/verify-email", a.verifyEmail)
 	return ActAsSeed(a.d.Queries)(mux)
 }
