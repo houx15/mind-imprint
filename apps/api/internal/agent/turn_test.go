@@ -87,6 +87,13 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 	if sse.card == nil || sse.card.cardID != "sift_craap" || sse.card.nudge != "要不要一起核查一下来源？" {
 		t.Fatalf("card event wrong: %+v", sse.card)
 	}
+	// Assert card_instance_id is non-empty and a valid UUID.
+	if sse.card.ci == "" {
+		t.Fatalf("card_instance_id is empty")
+	}
+	if _, err := uuid.Parse(sse.card.ci); err != nil {
+		t.Fatalf("card_instance_id is not a valid UUID: %v", err)
+	}
 	if sse.done == "" {
 		t.Fatalf("done not emitted")
 	}
