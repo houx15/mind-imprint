@@ -89,11 +89,17 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 		return err
 	}
 
+	// Bind the provider stream to a cancelable child context so that any early
+	// return from RunTurn (e.g. an SSE write error) cancels the stream goroutine
+	// inside the adapter, preventing a goroutine + connection leak.
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	req := gateway.ChatRequest{
 		Messages: llmMessages,
 		Tools:    []gateway.ChatTool{SummonCardTool(deps.Catalog)},
 	}
-	stream, err := deps.Provider.Stream(ctx, resolved, req)
+	stream, err := deps.Provider.Stream(streamCtx, resolved, req)
 	if err != nil {
 		return err
 	}

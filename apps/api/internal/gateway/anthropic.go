@@ -236,6 +236,13 @@ func (p *AnthropicProvider) consume(ctx context.Context, body io.Reader, out cha
 		}
 	}
 
+	// Surface scanner errors (e.g. line exceeding 1 MB buffer) rather than
+	// silently falling through to a fake-success Done.
+	if err := sc.Err(); err != nil {
+		emit(StreamEvent{Kind: EventDone, StopReason: StopOther})
+		return
+	}
+
 	if !emit(StreamEvent{Kind: EventUsage, Usage: &ChatUsage{InputTokens: inputTokens, OutputTokens: outputTokens}}) {
 		return
 	}

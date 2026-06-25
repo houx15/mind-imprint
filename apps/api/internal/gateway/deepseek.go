@@ -226,6 +226,13 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 		}
 	}
 
+	// Surface scanner errors (e.g. line exceeding 1 MB buffer) rather than
+	// silently falling through to a fake-success Done.
+	if err := sc.Err(); err != nil {
+		emit(StreamEvent{Kind: EventDone, StopReason: StopOther})
+		return
+	}
+
 	// Emit reassembled tool calls (in first-seen index order) before Done.
 	for _, idx := range order {
 		a := tools[idx]

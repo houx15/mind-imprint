@@ -48,6 +48,10 @@ type Resolved struct {
 // Provider streams a single model turn. The returned channel is closed when the
 // turn ends (Done) or ctx is cancelled. Implementations bind their upstream HTTP
 // call to ctx so a client disconnect cancels the provider call.
+//
+// EventUsage may arrive at any point before EventDone — DeepSeek emits it
+// inline alongside text deltas, while Anthropic emits it post-stream after the
+// final message_stop. Callers must not assume EventUsage precedes EventToolUse.
 type Provider interface {
 	Stream(ctx context.Context, r Resolved, req ChatRequest) (<-chan StreamEvent, error)
 }
