@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SessionStore } from "../session";
 import { useSession } from "../session";
+import type { MeUser } from "../../api";
 
 const avatarOptions = ["#2A3B7A", "#D98263", "#4C9A82", "#E8A33D"];
 
@@ -13,9 +14,11 @@ const togglesDefault = [
 export function SettingsView({
   session,
   onLogout,
+  user = null,
 }: {
   session: SessionStore;
   onLogout: () => void;
+  user?: MeUser | null;
 }) {
   const { aiAvatar } = useSession(session);
 
@@ -44,18 +47,20 @@ export function SettingsView({
               P
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2333" }}>Phoebe Chen</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2333" }}>{user?.display_name ?? "Phoebe Chen"}</div>
               <div style={{ fontSize: 13, color: "#8A92A3", marginTop: 2 }}>IB DP1 · A 班 · TOK</div>
             </div>
           </div>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#3A4256", marginBottom: 6 }}>姓名</div>
           <input
-            defaultValue="Phoebe Chen"
+            value={user?.display_name ?? "Phoebe Chen"}
+            readOnly
             style={{ width: "100%", border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", background: "#FCFCFD", outline: "none", marginBottom: 14, boxSizing: "border-box" }}
           />
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#3A4256", marginBottom: 6 }}>邮箱</div>
           <input
-            defaultValue="phoebe@ibschool.edu"
+            value={user?.email ?? "phoebe@ibschool.edu"}
+            readOnly
             style={{ width: "100%", border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", background: "#FCFCFD", outline: "none", boxSizing: "border-box" }}
           />
         </div>

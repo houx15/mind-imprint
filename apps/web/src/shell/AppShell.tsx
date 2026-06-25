@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createStore } from "../store";
 import { createSession, useSession, type SessionStore } from "./session";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { Store } from "../store/createStore";
+import { api as defaultApi, type ApiClient, type MeUser } from "../api";
 import { AuthScreen } from "./auth/AuthScreen";
 import { LeftRail } from "./LeftRail";
 import { DirectoryView } from "./directory/DirectoryView";
@@ -20,11 +21,24 @@ type TaskView = "directory" | "workspace";
 export function AppShell({
   store = defaultStore,
   session = defaultSession,
+  client = defaultApi,
 }: {
   store?: Store;
   session?: SessionStore;
+  client?: Pick<ApiClient, "getMe" | "signout">;
 }) {
   const sess = useSession(session);
+  const [booted, setBooted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    client.getMe()
+      .then((u: MeUser) => { if (!cancelled) { session.setUser(u); session.setAuthed(true); } })
+      .catch(() => { if (!cancelled) session.setAuthed(false); })
+      .finally(() => { if (!cancelled) setBooted(true); });
+    return () => { cancelled = true; };
+  }, [client, session]);
+
   const screen = sess.authed ? "app" : "auth";
 
   const [tab, setTab] = useState<Tab>("tasks");
@@ -32,8 +46,11 @@ export function AppShell({
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [openingMessage, setOpeningMessage] = useState<string | undefined>(undefined);
 
+  if (!booted) {
+    return <div style={{ width: "100%", height: "100%", background: "#F3F4F8" }} />;
+  }
   if (screen === "auth") {
-    return <AuthScreen onEnterApp={() => session.setAuthed(true)} />;
+    return <AuthScreen onAuthed={(u) => { session.setUser(u); session.setAuthed(true); }} />;
   }
 
   return (
@@ -60,7 +77,11 @@ export function AppShell({
         )}
         {tab === "records" && <RecordsView store={store} registry={CARD_REGISTRY} />}
         {tab === "settings" && (
-          <SettingsView session={session} onLogout={() => session.setAuthed(false)} />
+          <SettingsView
+            session={session}
+            user={session.getUser()}
+            onLogout={() => { void client.signout().finally(() => { session.setUser(null); session.setAuthed(false); }); }}
+          />
         )}
       </div>
     </div>

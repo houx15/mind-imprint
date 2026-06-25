@@ -35,4 +35,16 @@ describe("createSession", () => {
     const s = createSession({ storage });
     expect(s.getSnapshot()).toEqual({ authed: false, aiAvatar: "#2A3B7A" });
   });
+  it("setUser/getUser round-trips a MeUser and notifies subscribers", () => {
+    const s = createSession({ storage: makeMemoryStorage() });
+    const me = { id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student", avatar_color: "#7C9CF0", school: { id: "s1", name: "Demo" }, classes: [] };
+    let n = 0;
+    s.subscribe(() => { n++; });
+    s.setUser(me);
+    expect(s.getUser()).toEqual(me);
+    expect(n).toBe(1);
+    s.setUser(null);
+    expect(s.getUser()).toBeNull();
+    expect(n).toBe(2);
+  });
 });

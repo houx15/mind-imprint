@@ -14,7 +14,7 @@ describe("AuthScreen", () => {
     const client = { signin: vi.fn(async () => ME), signup: vi.fn() };
     const { container } = render(<AuthScreen onAuthed={onAuthed} client={client} />);
     const inputs = container.querySelectorAll("input");
-    fireEvent.change(inputs[0], { target: { value: "p@d.local" } });
+    fireEvent.change(inputs[0]!, { target: { value: "p@d.local" } });
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
     await waitFor(() => expect(onAuthed).toHaveBeenCalledWith(ME));
   });

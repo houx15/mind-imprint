@@ -1,16 +1,29 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { Root } from "./Root";
+
+vi.mock("./api", async (orig) => {
+  const real = await orig<typeof import("./api")>();
+  return {
+    ...real,
+    api: {
+      listTasks: vi.fn(async () => []),
+      createTask: vi.fn(),
+      getMe: vi.fn(async () => { throw new Error("401"); }),
+      signout: vi.fn(async () => {}),
+    },
+  };
+});
 
 afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
 describe("Root", () => {
-  it("renders the app shell by default (its login screen, no gallery)", () => {
+  it("renders the app shell by default (its login screen, no gallery)", async () => {
     window.history.pushState({}, "", "/");
     render(<Root />);
-    expect(screen.getByRole("button", { name: "登录" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "登录" })).toBeTruthy());
     expect(screen.queryByTestId("envelope-json")).toBeNull();
   });
 
