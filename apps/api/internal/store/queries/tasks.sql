@@ -10,3 +10,13 @@ SELECT * FROM tasks WHERE id = $1;
 SELECT * FROM tasks
 WHERE user_id = $1
 ORDER BY last_active_at DESC;
+
+-- name: TouchTask :one
+UPDATE tasks SET last_active_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
+-- name: SetTaskEvaluated :one
+UPDATE tasks SET status = 'evaluated'
+WHERE id = $1 AND user_id = $2
+RETURNING *;

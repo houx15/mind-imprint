@@ -90,3 +90,55 @@ func (q *Queries) ListTasksByUser(ctx context.Context, userID uuid.UUID) ([]Task
 	}
 	return items, nil
 }
+
+const setTaskEvaluated = `-- name: SetTaskEvaluated :one
+UPDATE tasks SET status = 'evaluated'
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, title, seed, status, created_at, last_active_at
+`
+
+type SetTaskEvaluatedParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) SetTaskEvaluated(ctx context.Context, arg SetTaskEvaluatedParams) (Task, error) {
+	row := q.db.QueryRow(ctx, setTaskEvaluated, arg.ID, arg.UserID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Seed,
+		&i.Status,
+		&i.CreatedAt,
+		&i.LastActiveAt,
+	)
+	return i, err
+}
+
+const touchTask = `-- name: TouchTask :one
+UPDATE tasks SET last_active_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, title, seed, status, created_at, last_active_at
+`
+
+type TouchTaskParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) TouchTask(ctx context.Context, arg TouchTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, touchTask, arg.ID, arg.UserID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Seed,
+		&i.Status,
+		&i.CreatedAt,
+		&i.LastActiveAt,
+	)
+	return i, err
+}

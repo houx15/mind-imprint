@@ -98,3 +98,101 @@ func (q *Queries) ListCardsByTask(ctx context.Context, taskID uuid.UUID) ([]Card
 	}
 	return items, nil
 }
+
+const setCardActive = `-- name: SetCardActive :one
+UPDATE card_instances
+SET status = 'active'
+WHERE id = $1 AND task_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+`
+
+type SetCardActiveParams struct {
+	ID     uuid.UUID `json:"id"`
+	TaskID uuid.UUID `json:"task_id"`
+}
+
+func (q *Queries) SetCardActive(ctx context.Context, arg SetCardActiveParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, setCardActive, arg.ID, arg.TaskID)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const skipCard = `-- name: SkipCard :one
+UPDATE card_instances
+SET event_trace = $3, status = 'skipped'
+WHERE id = $1 AND task_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+`
+
+type SkipCardParams struct {
+	ID         uuid.UUID `json:"id"`
+	TaskID     uuid.UUID `json:"task_id"`
+	EventTrace []byte    `json:"event_trace"`
+}
+
+func (q *Queries) SkipCard(ctx context.Context, arg SkipCardParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, skipCard, arg.ID, arg.TaskID, arg.EventTrace)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const submitCard = `-- name: SubmitCard :one
+UPDATE card_instances
+SET field_values = $3, event_trace = $4, status = 'completed', completed_at = now()
+WHERE id = $1 AND task_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+`
+
+type SubmitCardParams struct {
+	ID          uuid.UUID `json:"id"`
+	TaskID      uuid.UUID `json:"task_id"`
+	FieldValues []byte    `json:"field_values"`
+	EventTrace  []byte    `json:"event_trace"`
+}
+
+func (q *Queries) SubmitCard(ctx context.Context, arg SubmitCardParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, submitCard,
+		arg.ID,
+		arg.TaskID,
+		arg.FieldValues,
+		arg.EventTrace,
+	)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}

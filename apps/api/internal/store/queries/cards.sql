@@ -10,3 +10,21 @@ SELECT * FROM card_instances WHERE id = $1;
 SELECT * FROM card_instances
 WHERE task_id = $1
 ORDER BY created_at, id;
+
+-- name: SetCardActive :one
+UPDATE card_instances
+SET status = 'active'
+WHERE id = $1 AND task_id = $2
+RETURNING *;
+
+-- name: SubmitCard :one
+UPDATE card_instances
+SET field_values = $3, event_trace = $4, status = 'completed', completed_at = now()
+WHERE id = $1 AND task_id = $2
+RETURNING *;
+
+-- name: SkipCard :one
+UPDATE card_instances
+SET event_trace = $3, status = 'skipped'
+WHERE id = $1 AND task_id = $2
+RETURNING *;
