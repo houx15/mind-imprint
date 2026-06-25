@@ -43,7 +43,7 @@ type messageDTO struct {
 	ID        string          `json:"id"`
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
-	ToolCall  json.RawMessage `json:"tool_call"`
+	ToolCall  json.RawMessage `json:"tool_call,omitempty"`
 	CreatedAt string          `json:"created_at"`
 }
 
