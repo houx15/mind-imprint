@@ -76,6 +76,28 @@ func ErrConflict(msg string) *APIError {
 	return &APIError{Status: http.StatusConflict, Code: "conflict", Message: msg}
 }
 
+// P2 auth error codes — stable machine codes the SPA maps to inline messages.
+
+func ErrEmailTaken() *APIError {
+	return &APIError{Status: http.StatusConflict, Code: "email_taken", Message: "该邮箱已被注册"}
+}
+
+func ErrInvalidJoinCode() *APIError {
+	return &APIError{Status: http.StatusBadRequest, Code: "invalid_join_code", Message: "班级邀请码无效"}
+}
+
+func ErrEmailUnverified() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "email_unverified", Message: "邮箱尚未验证"}
+}
+
+func ErrTokenInvalid() *APIError {
+	return &APIError{Status: http.StatusBadRequest, Code: "token_invalid_or_expired", Message: "验证链接无效或已过期"}
+}
+
+func ErrInvalidCredentials() *APIError {
+	return &APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Message: "邮箱或密码错误"}
+}
+
 // ErrInternal is the generic, client-safe 500. Real detail is logged, never sent.
 func ErrInternal() *APIError {
 	return &APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "服务器内部错误"}

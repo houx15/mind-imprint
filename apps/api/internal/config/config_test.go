@@ -9,7 +9,7 @@ import (
 // allEnvKeys are every variable Load reads. Each subtest starts from a clean
 // slate by unsetting all of them, then setting only what the case needs.
 var allEnvKeys = []string{
-	"PORT", "DATABASE_URL", "CORS_ORIGINS", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY",
+	"PORT", "DATABASE_URL", "CORS_ORIGINS", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY", "COOKIE_SECURE",
 }
 
 func clearEnv(t *testing.T) {
@@ -41,6 +41,7 @@ func TestLoad(t *testing.T) {
 				"CORS_ORIGINS":      "http://localhost:5173,https://app.example.com",
 				"ANTHROPIC_API_KEY": "ak-test",
 				"DEEPSEEK_API_KEY":  "dk-test",
+				"COOKIE_SECURE":     "false",
 			},
 			wantErr: false,
 			check: func(t *testing.T, c Config) {
@@ -57,6 +58,9 @@ func TestLoad(t *testing.T) {
 				if c.AnthropicKey != "ak-test" || c.DeepSeekKey != "dk-test" {
 					t.Fatalf("keys = %q/%q", c.AnthropicKey, c.DeepSeekKey)
 				}
+				if c.CookieSecure {
+					t.Fatalf("CookieSecure = true, want false")
+				}
 			},
 		},
 		{
@@ -68,6 +72,9 @@ func TestLoad(t *testing.T) {
 			check: func(t *testing.T, c Config) {
 				if c.Port != "8080" {
 					t.Fatalf("Port = %q, want default 8080", c.Port)
+				}
+				if !c.CookieSecure {
+					t.Fatalf("CookieSecure default = false, want true")
 				}
 			},
 		},

@@ -16,6 +16,8 @@ type Deps struct {
 	EvalResolver gateway.KeyResolver // flagship (evaluate)
 	Catalog      []cards.Spec
 	SpecByID     func(id string) (cards.Spec, bool)
+	Pool         TxBeginner // for multi-statement transactions (signup)
+	CookieSecure bool       // Secure flag on the session cookie
 }
 
 // API holds the handler dependencies.
@@ -37,5 +39,6 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tasks/{id}/turn", a.postTurn)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/evaluate", a.postEvaluate)
 	mux.HandleFunc("GET /api/v1/tasks/{id}/evaluation", a.getEvaluation)
+	mux.HandleFunc("POST /api/v1/auth/signup", a.signup)
 	return ActAsSeed(a.d.Queries)(mux)
 }

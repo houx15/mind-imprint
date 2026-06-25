@@ -77,6 +77,8 @@ func main() {
 		EvalResolver: gateway.NewEvalKeyResolver(cfg),
 		Catalog:      catalog,
 		SpecByID:     specByID,
+		Pool:         pool,
+		CookieSecure: cfg.CookieSecure,
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)

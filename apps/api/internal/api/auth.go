@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -17,6 +18,11 @@ import (
 type ctxKey string
 
 const ctxKeyUser ctxKey = "user"
+
+// TxBeginner is the subset of *pgxpool.Pool the signup transaction needs.
+type TxBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // User is the request-scoped principal. Every user has a school (org invariant).
 type User struct {
