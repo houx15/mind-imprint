@@ -3,8 +3,9 @@ import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
 import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
 import { runTurn, type TurnEvent } from "./turn";
+import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 
-export type { TaskDetail, TurnEvent };
+export type { TaskDetail, TurnEvent, MeUser };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -17,8 +18,14 @@ export interface ApiClient {
   runEvaluation(taskId: string): Promise<Evaluation>;
   getEvaluation(taskId: string): Promise<Evaluation | null>;
   runTurn(taskId: string, userInput?: string): AsyncGenerator<TurnEvent>;
+  signup(input: { email: string; password: string; display_name: string; join_code: string }): Promise<void>;
+  verifyEmail(token: string): Promise<MeUser>;
+  signin(input: { email: string; password: string }): Promise<MeUser>;
+  signout(): Promise<void>;
+  getMe(): Promise<MeUser>;
 }
 
 export const api: ApiClient = {
   listTasks, createTask, getTask, activateCard, submitCard, skipCard, runEvaluation, getEvaluation, runTurn,
+  signup, verifyEmail, signin, signout, getMe,
 };
