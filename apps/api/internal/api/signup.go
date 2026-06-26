@@ -63,7 +63,11 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 	// ierr == pgx.ErrNoRows → not a teacher invite; try the class join code.
 	cls, err := a.d.Queries.GetClassByJoinCode(r.Context(), body.JoinCode)
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
+			return
+		}
+		httpx.WriteError(w, r, err)
 		return
 	}
 	a.signupStudent(w, r, body.Email, body.DisplayName, hash, cls)
