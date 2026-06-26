@@ -60,7 +60,7 @@ describe("ConsoleShell", () => {
     expect(onLogout).toHaveBeenCalled();
   });
 
-  it("absent role defaults to admin: lands on 概览, no teacher create button on 班级 tab", async () => {
+  it("absent role defaults to admin: lands on 概览, admin create button present on 班级 tab", async () => {
     const noRoleUser = { ...TEACHER, role: undefined } as unknown as MeUser;
     const session = createSession({ storage: mem() });
     session.setUser(noRoleUser);
@@ -69,8 +69,8 @@ describe("ConsoleShell", () => {
     expect((await screen.findAllByText("概览")).length).toBeGreaterThanOrEqual(2);
     // Navigate to 班级 tab (use role selector — nav label and page heading both say 班级)
     await userEvent.click(screen.getByRole("tab", { name: "班级" }));
-    // No teacher-only create button
-    expect(screen.queryByText("+ 新建班级")).not.toBeInTheDocument();
+    // Admin also sees the create button (admin create-class with teacher picker)
+    expect(await screen.findByText("+ 新建班级")).toBeInTheDocument();
   });
 
   it("an admin lands on the 概览 overview", async () => {

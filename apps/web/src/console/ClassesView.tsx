@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ApiClient, ClassSummary } from "../api";
+import type { ApiClient, ClassSummary, Teacher } from "../api";
 import { ApiError } from "../api";
 import { shortDate } from "./time";
 
-type Client = Pick<ApiClient, "listClasses" | "createClass">;
+type Client = Pick<ApiClient, "listClasses" | "createClass" | "listTeachers">;
 
 export function ClassesView({
   client,
@@ -20,8 +20,12 @@ export function ClassesView({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastCreated, setLastCreated] = useState<ClassSummary | null>(null);
+  const [teachers, setTeachers] = useState<Teacher[] | null>(null);
+  const [teacherId, setTeacherId] = useState("");
 
   const isTeacher = role === "teacher";
+  const isAdmin = role === "admin";
+  const canCreate = isTeacher || isAdmin;
 
   function load() {
     setError(null);
@@ -31,15 +35,26 @@ export function ClassesView({
   }
   useEffect(load, [client]);
 
+  function openCreate() {
+    setCreating(true);
+    setLastCreated(null);
+    if (isAdmin && teachers == null) {
+      client.listTeachers().then(setTeachers).catch(() => setTeachers([]));
+    }
+  }
+
   async function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
+    if (isAdmin && !teacherId) return;
     setBusy(true);
     setError(null);
     try {
-      const c = await client.createClass({ name: trimmed });
+      const input = isAdmin ? { name: trimmed, teacher_user_id: teacherId } : { name: trimmed };
+      const c = await client.createClass(input);
       setLastCreated(c);
       setName("");
+      setTeacherId("");
       setCreating(false);
       load();
     } catch (e) {
@@ -49,6 +64,8 @@ export function ClassesView({
     }
   }
 
+  const adminNoTeachers = isAdmin && teachers != null && teachers.length === 0;
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
@@ -56,9 +73,9 @@ export function ClassesView({
           <div style={{ fontSize: 26, fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>
             {isTeacher ? "我的班级" : "全校班级"}
           </div>
-          {isTeacher && !creating && (
+          {canCreate && !creating && (
             <button
-              onClick={() => { setCreating(true); setLastCreated(null); }}
+              onClick={openCreate}
               style={{ background: "#2A3B7A", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
             >
               + 新建班级
@@ -66,18 +83,34 @@ export function ClassesView({
           )}
         </div>
 
-        {isTeacher && creating && (
-          <div style={{ marginTop: 18, background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "18px 20px", display: "flex", gap: 12, alignItems: "center" }}>
+        {canCreate && creating && (
+          <div style={{ marginTop: 18, background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "18px 20px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <input
               autoFocus
               placeholder="班级名称，如「11 年级 A · TOK」"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
-              style={{ flex: 1, border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", outline: "none", boxSizing: "border-box" }}
+              style={{ flex: 1, minWidth: 220, border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", outline: "none", boxSizing: "border-box" }}
             />
-            <button onClick={() => void submit()} disabled={busy} style={{ background: "#2A3B7A", color: "#fff", border: "none", padding: "11px 18px", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>创建</button>
-            <button onClick={() => { setCreating(false); setName(""); }} style={{ background: "transparent", color: "#8A92A3", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>取消</button>
+            {isAdmin && (
+              <select
+                data-testid="teacher-picker"
+                value={teacherId}
+                onChange={(e) => setTeacherId(e.target.value)}
+                style={{ minWidth: 180, border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", outline: "none", boxSizing: "border-box", background: "#fff" }}
+              >
+                <option value="">选择教师…</option>
+                {(teachers ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>{t.display_name}（{t.email}）</option>
+                ))}
+              </select>
+            )}
+            <button onClick={() => void submit()} disabled={busy || (isAdmin && !teacherId)} style={{ background: "#2A3B7A", color: "#fff", border: "none", padding: "11px 18px", borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: (busy || (isAdmin && !teacherId)) ? "default" : "pointer", opacity: (isAdmin && !teacherId) ? 0.5 : 1, fontFamily: "inherit" }}>创建</button>
+            <button onClick={() => { setCreating(false); setName(""); setTeacherId(""); }} style={{ background: "transparent", color: "#8A92A3", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>取消</button>
+            {adminNoTeachers && (
+              <div style={{ flexBasis: "100%", color: "#C76B6B", fontSize: 13, fontWeight: 600 }}>请先在「教师」生成邀请码，邀请教师注册后再建班。</div>
+            )}
           </div>
         )}
 
