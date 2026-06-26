@@ -7,7 +7,7 @@ import (
 	"mindimprint/api/internal/org"
 )
 
-const ambiguous = "01OI"
+const ambiguous = "01OIL"
 
 func TestNewClassJoinCode(t *testing.T) {
 	seen := map[string]bool{}
