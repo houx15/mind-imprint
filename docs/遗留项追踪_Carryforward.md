@@ -128,3 +128,25 @@
 | **异步评估（river）** | **P4** | — |
 
 **结论：P2 全 12 任务 + 终审完成，无 Critical/Important，可并入 main。**
+
+---
+
+## P3.1 · Org backend + RBAC（后端组织端，2026-06-26）
+
+设计 `docs/superpowers/specs/`（P3.1 专项设计），计划 `docs/superpowers/plans/`。12 个 TDD 任务（subagent-driven，逐任务双审）。实现了教师邀请流（admin mint invite → teacher 用 invite code 注册 → teacher 建班 + 邀请码 → student 用 join code 注册入班）、班级名单（roster）读取、CSV 教师名单导入端点、管理员概览聚合（`GET /admin/overview`）、完整的 RBAC 分层（`assertAdminOfSchool` / `assertTeacherOwnsClass` / `RequireRole`）。端到端 org provisioning 测试（`TestE2EOrgProvisioning`）全链路通过。
+
+### P3.1 ship-as-is 遗留（终审判为非阻塞 Minor / 明确推迟）
+
+| 遗留项 | → 目标 | 端到端必需？ |
+|---|---|---|
+| **班级软归档**（class soft-archive / deactivate）：当前无停用班级端点；归档后学生不可新增入班、教师不可再用 join code | P3.2 或独立清理轮 | 否（demo 不需停用）|
+| **每生工作详情可见性**（per-student work-detail）：过程树 / 对话记录 / 评估叙述对教师的可见性——等待 eval 数据模型头脑风暴完成后再建接口 | 评估增强轮 / P4 后 | 否（teacher 当前只看 roster 聚合行）|
+| **CSV 解析在前端**（P3.2）：`POST /api/v1/admin/schools/{id}/import-teachers` 当前接已解析的 JSON rows；浏览器端 CSV→JSON 解析、错误预览 UI、逐行导入结果展示 = P3.2 前端任务 | P3.2 前端 | 否（端点已就绪）|
+| **教师邀请 email 投递为建议性**（advisory）：invite code 当前写库但不发邮件（Mailer 桩同 P2）；admin 需手动取 code 转告教师 | 接邮件轮（同 P2 Mailer）| 否（demo 手动传递）|
+| **教师邀请跨请求去重未实现**：重复导入同一教师邮箱会 mint 新 invite（invites 表不唯一约束）；建班操作是幂等的，invites 不是 | 硬化轮 | 否（demo 单次导入）|
+| **限流 + CSRF 双提交 token**：从 P2 延续，signup/signin/invite 端点仍无限流；CSRF = Lax cookie 现有防护 | 安全硬化轮 | 否 |
+| **教师端前端控制台**（建班 + 名单管理 + 学生工作详情入口）| **P3.2** | — |
+| **管理员端前端控制台**（学校概览 + 批量导入 + 邀请管理）| **P3.3** | — |
+| **异步评估（river）** | **P4** | — |
+
+**结论：P3.1 全 12 任务 + 端到端 org provisioning 测试完成，go vet + go test -p 1 ./... 全包通过，无 Critical/Important 遗留。**

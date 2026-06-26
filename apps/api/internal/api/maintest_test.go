@@ -178,3 +178,22 @@ func seedSecondSchool(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	}
 	return id
 }
+
+// signInViaAPI signs in via the real POST /api/v1/auth/signin endpoint and
+// returns the mk_session cookie from the Set-Cookie response header.
+func signInViaAPI(t *testing.T, h http.Handler, email, password string) *http.Cookie {
+	t.Helper()
+	body, _ := json.Marshal(map[string]any{"email": email, "password": password})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/auth/signin", bytes.NewReader(body)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("signInViaAPI: want 200, got %d — body: %s", rec.Code, rec.Body)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "mk_session" {
+			return c
+		}
+	}
+	t.Fatalf("signInViaAPI: mk_session cookie not found in response")
+	return nil
+}
