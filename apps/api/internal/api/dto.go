@@ -3,12 +3,25 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// numericString converts a pgtype.Numeric cost value to a string representation.
+// Returns "0" when the value is NULL/invalid.
+func numericString(n pgtype.Numeric) string {
+	if !n.Valid {
+		return "0"
+	}
+	v, _ := n.Value()
+	return fmt.Sprint(v)
+}
 
 const tsLayout = time.RFC3339Nano
 

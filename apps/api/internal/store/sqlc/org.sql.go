@@ -252,6 +252,82 @@ func (q *Queries) GetEnrollment(ctx context.Context, arg GetEnrollmentParams) (E
 	return i, err
 }
 
+const getSchoolCounts = `-- name: GetSchoolCounts :one
+SELECT
+  (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'student')   AS student_count,
+  (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'teacher')   AS teacher_count,
+  (SELECT count(*) FROM classes       WHERE classes.school_id = $1)                            AS class_count,
+  (SELECT count(*) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1)       AS task_count,
+  (SELECT count(*) FROM evaluations e JOIN tasks t ON t.id = e.task_id JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS evaluation_count,
+  (SELECT count(DISTINCT t.user_id) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS active_student_count
+`
+
+type GetSchoolCountsRow struct {
+	StudentCount       int64 `json:"student_count"`
+	TeacherCount       int64 `json:"teacher_count"`
+	ClassCount         int64 `json:"class_count"`
+	TaskCount          int64 `json:"task_count"`
+	EvaluationCount    int64 `json:"evaluation_count"`
+	ActiveStudentCount int64 `json:"active_student_count"`
+}
+
+func (q *Queries) GetSchoolCounts(ctx context.Context, schoolID uuid.UUID) (GetSchoolCountsRow, error) {
+	row := q.db.QueryRow(ctx, getSchoolCounts, schoolID)
+	var i GetSchoolCountsRow
+	err := row.Scan(
+		&i.StudentCount,
+		&i.TeacherCount,
+		&i.ClassCount,
+		&i.TaskCount,
+		&i.EvaluationCount,
+		&i.ActiveStudentCount,
+	)
+	return i, err
+}
+
+const getSchoolUsageByTier = `-- name: GetSchoolUsageByTier :many
+SELECT COALESCE(tier, 'unknown') AS tier,
+       COALESCE(SUM(prompt_tokens), 0)::bigint     AS prompt_tokens,
+       COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens,
+       COALESCE(SUM(cost_estimate), 0)::numeric    AS cost
+FROM llm_usage
+WHERE school_id = $1
+GROUP BY tier
+ORDER BY tier
+`
+
+type GetSchoolUsageByTierRow struct {
+	Tier             string         `json:"tier"`
+	PromptTokens     int64          `json:"prompt_tokens"`
+	CompletionTokens int64          `json:"completion_tokens"`
+	Cost             pgtype.Numeric `json:"cost"`
+}
+
+func (q *Queries) GetSchoolUsageByTier(ctx context.Context, schoolID uuid.UUID) ([]GetSchoolUsageByTierRow, error) {
+	rows, err := q.db.Query(ctx, getSchoolUsageByTier, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSchoolUsageByTierRow
+	for rows.Next() {
+		var i GetSchoolUsageByTierRow
+		if err := rows.Scan(
+			&i.Tier,
+			&i.PromptTokens,
+			&i.CompletionTokens,
+			&i.Cost,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByIDInSchool = `-- name: GetUserByIDInSchool :one
 SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at FROM users WHERE id = $1 AND school_id = $2
 `

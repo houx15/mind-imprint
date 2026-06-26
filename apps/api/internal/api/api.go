@@ -58,6 +58,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/admin/teacher-invites", adminOnly(a.createTeacherInvite))
 	mux.Handle("GET /api/v1/admin/teacher-invites", adminOnly(a.listTeacherInvites))
 	mux.Handle("POST /api/v1/admin/import", adminOnly(a.adminImport))
+	mux.Handle("GET /api/v1/admin/overview", adminOnly(a.adminOverview))
 
 	// Teacher-or-admin routes (require a session + teacher or admin role).
 	teacherOrAdmin := func(h http.HandlerFunc) http.Handler {

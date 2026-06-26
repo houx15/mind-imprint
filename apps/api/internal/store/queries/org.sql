@@ -64,3 +64,22 @@ DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class =
 
 -- name: GetClassBySchoolAndName :one
 SELECT * FROM classes WHERE school_id = $1 AND name = $2;
+
+-- name: GetSchoolCounts :one
+SELECT
+  (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'student')   AS student_count,
+  (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'teacher')   AS teacher_count,
+  (SELECT count(*) FROM classes       WHERE classes.school_id = $1)                            AS class_count,
+  (SELECT count(*) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1)       AS task_count,
+  (SELECT count(*) FROM evaluations e JOIN tasks t ON t.id = e.task_id JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS evaluation_count,
+  (SELECT count(DISTINCT t.user_id) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS active_student_count;
+
+-- name: GetSchoolUsageByTier :many
+SELECT COALESCE(tier, 'unknown') AS tier,
+       COALESCE(SUM(prompt_tokens), 0)::bigint     AS prompt_tokens,
+       COALESCE(SUM(completion_tokens), 0)::bigint AS completion_tokens,
+       COALESCE(SUM(cost_estimate), 0)::numeric    AS cost
+FROM llm_usage
+WHERE school_id = $1
+GROUP BY tier
+ORDER BY tier;
