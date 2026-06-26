@@ -23,7 +23,7 @@ export function ConsoleShell({
   const [tab, setTab] = useState<ConsoleTab>("classes");
   const [openClassId, setOpenClassId] = useState<string | null>(null);
   const user = session.getUser();
-  const role = user?.role ?? "teacher";
+  const role = user?.role ?? "admin";
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>

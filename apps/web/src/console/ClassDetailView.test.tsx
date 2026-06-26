@@ -44,6 +44,20 @@ describe("ClassDetailView roster", () => {
     expect(screen.getByText(/暂无学生作品详情/)).toBeInTheDocument();
   });
 
+  it("roster rows are not drill-ins (aggregate-only)", async () => {
+    const client = makeClient(detail());
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
+    // Wait for roster to load
+    const cell = await screen.findByText("Phoebe");
+    // Name cell must not be wrapped in a link or button (no drill-in navigation)
+    expect(cell.closest("a")).toBeNull();
+    expect(cell.closest("button")).toBeNull();
+    // The only interactive control on the row is the remove button
+    expect(screen.getByLabelText("移除 Phoebe")).toBeInTheDocument();
+    // Aggregate-only caption is present
+    expect(screen.getByText(/暂无学生作品详情/)).toBeInTheDocument();
+  });
+
   it("renders an empty-roster note with the join code", async () => {
     const client = makeClient(detail({ roster: [] }));
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);

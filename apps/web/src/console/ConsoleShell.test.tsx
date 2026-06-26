@@ -52,4 +52,13 @@ describe("ConsoleShell", () => {
     await userEvent.click(screen.getByText("退出登录"));
     expect(onLogout).toHaveBeenCalled();
   });
+
+  it("absent role defaults to admin (read-only): no create button, 全校班级 visible", async () => {
+    const noRoleUser = { ...TEACHER, role: undefined } as unknown as MeUser;
+    const session = createSession({ storage: mem() });
+    session.setUser(noRoleUser);
+    render(<ConsoleShell session={session} client={client()} onLogout={vi.fn()} />);
+    expect(await screen.findByText("全校班级")).toBeInTheDocument();
+    expect(screen.queryByText("+ 新建班级")).not.toBeInTheDocument();
+  });
 });
