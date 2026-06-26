@@ -25,11 +25,12 @@ type CardInstance struct {
 }
 
 type Class struct {
-	ID        uuid.UUID `json:"id"`
-	SchoolID  uuid.UUID `json:"school_id"`
-	Name      string    `json:"name"`
-	JoinCode  string    `json:"join_code"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID   `json:"id"`
+	SchoolID  uuid.UUID   `json:"school_id"`
+	Name      string      `json:"name"`
+	JoinCode  string      `json:"join_code"`
+	CreatedAt time.Time   `json:"created_at"`
+	CreatedBy pgtype.UUID `json:"created_by"`
 }
 
 type EmailVerificationToken struct {
@@ -118,6 +119,18 @@ type Task struct {
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	LastActiveAt time.Time `json:"last_active_at"`
+}
+
+type TeacherInvite struct {
+	ID         uuid.UUID          `json:"id"`
+	SchoolID   uuid.UUID          `json:"school_id"`
+	Code       string             `json:"code"`
+	Email      *string            `json:"email"`
+	CreatedBy  uuid.UUID          `json:"created_by"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy pgtype.UUID        `json:"consumed_by"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type User struct {
