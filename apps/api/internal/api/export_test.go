@@ -23,3 +23,8 @@ func SessionAuthForTest(pool *pgxpool.Pool, h http.Handler) http.Handler {
 func (a *API) AssertAdminOfSchoolForTest(ctx context.Context, schoolID uuid.UUID) error {
 	return a.assertAdminOfSchool(ctx, schoolID)
 }
+
+func (a *API) AssertTeacherOwnsClassForTest(ctx context.Context, classID uuid.UUID) error {
+	_, err := a.assertTeacherOwnsClass(ctx, classID)
+	return err
+}

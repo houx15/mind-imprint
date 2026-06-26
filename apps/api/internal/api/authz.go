@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -49,7 +51,10 @@ func (a *API) assertTeacherOwnsClass(ctx context.Context, classID uuid.UUID) (sq
 	}
 	cls, err := a.d.Queries.GetClassByID(ctx, classID)
 	if err != nil {
-		return sqlc.Class{}, httpx.ErrNotFound("资源不存在") // ErrNoRows or bad id
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sqlc.Class{}, httpx.ErrNotFound("资源不存在")
+		}
+		return sqlc.Class{}, err
 	}
 	if u.Role == "admin" {
 		if u.SchoolID != cls.SchoolID {
@@ -58,7 +63,13 @@ func (a *API) assertTeacherOwnsClass(ctx context.Context, classID uuid.UUID) (sq
 		return cls, nil
 	}
 	enr, err := a.d.Queries.GetEnrollment(ctx, sqlc.GetEnrollmentParams{UserID: u.ID, ClassID: classID})
-	if err != nil || enr.RoleInClass != "teacher" {
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sqlc.Class{}, httpx.ErrNotFound("资源不存在")
+		}
+		return sqlc.Class{}, err
+	}
+	if enr.RoleInClass != "teacher" {
 		return sqlc.Class{}, httpx.ErrNotFound("资源不存在")
 	}
 	return cls, nil
