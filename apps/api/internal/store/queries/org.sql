@@ -20,3 +20,20 @@ WHERE code = $1 AND consumed_at IS NULL AND expires_at > now();
 
 -- name: ConsumeTeacherInvite :exec
 UPDATE teacher_invites SET consumed_at = now(), consumed_by = $2 WHERE id = $1;
+
+-- name: CreateClass :one
+INSERT INTO classes (school_id, name, join_code, created_by)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: ListClassesForTeacher :many
+SELECT c.* FROM classes c
+JOIN enrollments e ON e.class_id = c.id
+WHERE e.user_id = $1 AND e.role_in_class = 'teacher'
+ORDER BY c.name;
+
+-- name: ListClassesBySchool :many
+SELECT * FROM classes WHERE school_id = $1 ORDER BY name;
+
+-- name: GetUserByIDInSchool :one
+SELECT * FROM users WHERE id = $1 AND school_id = $2;

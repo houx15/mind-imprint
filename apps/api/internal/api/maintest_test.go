@@ -115,3 +115,8 @@ func newTestAPI(pool *pgxpool.Pool) *API {
 func mustUUID(s string) uuid.UUID {
 	return uuid.MustParse(s)
 }
+
+// mustNewQueries returns a *sqlc.Queries wired to pool (test helper).
+func mustNewQueries(pool *pgxpool.Pool) *sqlc.Queries {
+	return sqlc.New(pool)
+}

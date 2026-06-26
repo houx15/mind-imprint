@@ -34,3 +34,11 @@ func (a *API) AssertTeacherOwnsClassForTest(ctx context.Context, classID uuid.UU
 	_, err := a.assertTeacherOwnsClass(ctx, classID)
 	return err
 }
+
+// GetEnrollmentParamsForTest builds a GetEnrollmentParams from raw string IDs.
+func GetEnrollmentParamsForTest(userID uuid.UUID, classID string) sqlc.GetEnrollmentParams {
+	return sqlc.GetEnrollmentParams{
+		UserID:  userID,
+		ClassID: uuid.MustParse(classID),
+	}
+}

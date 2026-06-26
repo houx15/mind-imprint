@@ -27,6 +27,38 @@ func (q *Queries) ConsumeTeacherInvite(ctx context.Context, arg ConsumeTeacherIn
 	return err
 }
 
+const createClass = `-- name: CreateClass :one
+INSERT INTO classes (school_id, name, join_code, created_by)
+VALUES ($1, $2, $3, $4)
+RETURNING id, school_id, name, join_code, created_at, created_by
+`
+
+type CreateClassParams struct {
+	SchoolID  uuid.UUID   `json:"school_id"`
+	Name      string      `json:"name"`
+	JoinCode  string      `json:"join_code"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+func (q *Queries) CreateClass(ctx context.Context, arg CreateClassParams) (Class, error) {
+	row := q.db.QueryRow(ctx, createClass,
+		arg.SchoolID,
+		arg.Name,
+		arg.JoinCode,
+		arg.CreatedBy,
+	)
+	var i Class
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.JoinCode,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const createTeacherInvite = `-- name: CreateTeacherInvite :one
 INSERT INTO teacher_invites (school_id, code, email, created_by, expires_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -126,6 +158,32 @@ func (q *Queries) GetEnrollment(ctx context.Context, arg GetEnrollmentParams) (E
 	return i, err
 }
 
+const getUserByIDInSchool = `-- name: GetUserByIDInSchool :one
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at FROM users WHERE id = $1 AND school_id = $2
+`
+
+type GetUserByIDInSchoolParams struct {
+	ID       uuid.UUID `json:"id"`
+	SchoolID uuid.UUID `json:"school_id"`
+}
+
+func (q *Queries) GetUserByIDInSchool(ctx context.Context, arg GetUserByIDInSchoolParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIDInSchool, arg.ID, arg.SchoolID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.PasswordHash,
+		&i.Role,
+		&i.SchoolID,
+		&i.DisplayName,
+		&i.AvatarColor,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listActiveTeacherInvitesBySchool = `-- name: ListActiveTeacherInvitesBySchool :many
 SELECT id, school_id, code, email, created_by, expires_at, consumed_at, consumed_by, created_at FROM teacher_invites
 WHERE school_id = $1 AND consumed_at IS NULL AND expires_at > now()
@@ -151,6 +209,71 @@ func (q *Queries) ListActiveTeacherInvitesBySchool(ctx context.Context, schoolID
 			&i.ConsumedAt,
 			&i.ConsumedBy,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassesBySchool = `-- name: ListClassesBySchool :many
+SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE school_id = $1 ORDER BY name
+`
+
+func (q *Queries) ListClassesBySchool(ctx context.Context, schoolID uuid.UUID) ([]Class, error) {
+	rows, err := q.db.Query(ctx, listClassesBySchool, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Class
+	for rows.Next() {
+		var i Class
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.JoinCode,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassesForTeacher = `-- name: ListClassesForTeacher :many
+SELECT c.id, c.school_id, c.name, c.join_code, c.created_at, c.created_by FROM classes c
+JOIN enrollments e ON e.class_id = c.id
+WHERE e.user_id = $1 AND e.role_in_class = 'teacher'
+ORDER BY c.name
+`
+
+func (q *Queries) ListClassesForTeacher(ctx context.Context, userID uuid.UUID) ([]Class, error) {
+	rows, err := q.db.Query(ctx, listClassesForTeacher, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Class
+	for rows.Next() {
+		var i Class
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Name,
+			&i.JoinCode,
+			&i.CreatedAt,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}

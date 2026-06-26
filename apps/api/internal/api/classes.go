@@ -1,0 +1,109 @@
+package api
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/org"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// createClass: teacher creates a class they own; admin may create one for any
+// teacher in their school via teacher_user_id. The creator/assignee is enrolled
+// as role_in_class='teacher'. One transaction (class + enrollment).
+func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
+	u, _ := UserFromContext(r.Context())
+	var body struct {
+		Name          string `json:"name"`
+		TeacherUserID string `json:"teacher_user_id"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(body.Name) == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "班级名称不能为空", nil))
+		return
+	}
+
+	// Determine the owning teacher.
+	teacherID := u.ID
+	if u.Role == "admin" {
+		if body.TeacherUserID == "" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "需要指定班级教师", nil))
+			return
+		}
+		tid, err := uuid.Parse(body.TeacherUserID)
+		if err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "teacher_user_id 无效", nil))
+			return
+		}
+		// The assignee must be a teacher in the admin's school.
+		tu, err := a.d.Queries.GetUserByIDInSchool(r.Context(), sqlc.GetUserByIDInSchoolParams{ID: tid, SchoolID: u.SchoolID})
+		if err != nil || tu.Role != "teacher" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "指定的教师无效", nil))
+			return
+		}
+		teacherID = tid
+	}
+
+	code, err := org.NewClassJoinCode()
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	cls, err := qtx.CreateClass(r.Context(), sqlc.CreateClassParams{
+		SchoolID:  u.SchoolID,
+		Name:      strings.TrimSpace(body.Name),
+		JoinCode:  code,
+		CreatedBy: pgtype.UUID{Bytes: u.ID, Valid: true},
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := qtx.CreateEnrollment(r.Context(), sqlc.CreateEnrollmentParams{
+		UserID: teacherID, ClassID: cls.ID, RoleInClass: "teacher",
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"class": toClassDTO(cls)})
+}
+
+func (a *API) listClasses(w http.ResponseWriter, r *http.Request) {
+	u, _ := UserFromContext(r.Context())
+	var rows []sqlc.Class
+	var err error
+	if u.Role == "admin" {
+		rows, err = a.d.Queries.ListClassesBySchool(r.Context(), u.SchoolID)
+	} else {
+		rows, err = a.d.Queries.ListClassesForTeacher(r.Context(), u.ID)
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]classDTO, 0, len(rows))
+	for _, c := range rows {
+		out = append(out, toClassDTO(c))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"classes": out})
+}
