@@ -18,9 +18,16 @@ export interface RosterStudent {
   card_count: number;
 }
 
+export interface Teacher {
+  id: string;
+  display_name: string;
+  email: string;
+}
+
 export interface ClassDetail {
   class: ClassSummary;
   roster: RosterStudent[];
+  teachers: Teacher[];
 }
 
 export async function listClasses(): Promise<ClassSummary[]> {
@@ -28,10 +35,12 @@ export async function listClasses(): Promise<ClassSummary[]> {
   return r.classes;
 }
 
-export async function createClass(input: { name: string }): Promise<ClassSummary> {
+export async function createClass(input: { name: string; teacher_user_id?: string }): Promise<ClassSummary> {
+  const body: Record<string, unknown> = { name: input.name };
+  if (input.teacher_user_id) body.teacher_user_id = input.teacher_user_id;
   const r = await apiFetch<{ class: ClassSummary }>("/api/v1/classes", {
     method: "POST",
-    body: JSON.stringify({ name: input.name }),
+    body: JSON.stringify(body),
   });
   return r.class;
 }

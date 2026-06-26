@@ -13,6 +13,7 @@ const detail = (over: Partial<ClassDetail> = {}): ClassDetail => ({
     { id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: "2026-06-26T10:00:00Z", task_count: 3, evaluation_count: 1, card_count: 7 },
     { id: "u2", display_name: "Mia", email: "m@d", last_active_at: null, task_count: 0, evaluation_count: 0, card_count: 0 },
   ],
+  teachers: [],
   ...over,
 });
 

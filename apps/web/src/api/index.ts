@@ -6,10 +6,14 @@ import { runTurn, type TurnEvent } from "./turn";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
-  type ClassSummary, type RosterStudent, type ClassDetail,
+  type ClassSummary, type RosterStudent, type ClassDetail, type Teacher,
 } from "./classes";
+import {
+  getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
+  type Overview, type TeacherInvite, type ImportRow, type ImportResult,
+} from "./admin";
 
-export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail };
+export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -28,15 +32,23 @@ export interface ApiClient {
   signout(): Promise<void>;
   getMe(): Promise<MeUser>;
   listClasses(): Promise<ClassSummary[]>;
-  createClass(input: { name: string }): Promise<ClassSummary>;
+  createClass(input: { name: string; teacher_user_id?: string }): Promise<ClassSummary>;
   getClass(id: string): Promise<ClassDetail>;
   renameClass(id: string, name: string): Promise<ClassSummary>;
   regenerateJoinCode(id: string): Promise<ClassSummary>;
   removeEnrollment(id: string, userId: string): Promise<void>;
+  getOverview(): Promise<Overview>;
+  listTeacherInvites(): Promise<TeacherInvite[]>;
+  createTeacherInvite(input: { email?: string; expires_days?: number }): Promise<{ code: string; expires_at: string }>;
+  adminImport(rows: ImportRow[]): Promise<ImportResult>;
+  listTeachers(): Promise<Teacher[]>;
+  assignTeacher(classId: string, teacherUserId: string): Promise<{ teachers: Teacher[] }>;
+  removeTeacher(classId: string, userId: string): Promise<void>;
 }
 
 export const api: ApiClient = {
   listTasks, createTask, getTask, activateCard, submitCard, skipCard, runEvaluation, getEvaluation, runTurn,
   signup, verifyEmail, signin, signout, getMe,
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
+  getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
 };
