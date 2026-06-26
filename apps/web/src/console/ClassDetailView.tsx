@@ -22,6 +22,11 @@ export function ClassDetailView({
   const _now = now ?? Date.now();
   const [detail, setDetail] = useState<ClassDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [confirmRegen, setConfirmRegen] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null); // student id
+  const [busy, setBusy] = useState(false);
 
   function load() {
     setError(null);
@@ -30,6 +35,47 @@ export function ClassDetailView({
     );
   }
   useEffect(load, [client, classId]);
+
+  async function doRename() {
+    const trimmed = draftName.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    try {
+      const updated = await client.renameClass(classId, trimmed);
+      setDetail((d) => (d ? { ...d, class: updated } : d));
+      setRenaming(false);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "改名失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doRegen() {
+    setBusy(true);
+    try {
+      const updated = await client.regenerateJoinCode(classId);
+      setDetail((d) => (d ? { ...d, class: updated } : d));
+      setConfirmRegen(false);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "轮换失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doRemove(studentId: string) {
+    setBusy(true);
+    try {
+      await client.removeEnrollment(classId, studentId);
+      setDetail((d) => (d ? { ...d, roster: d.roster.filter((s) => s.id !== studentId) } : d));
+      setConfirmRemove(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "移除失败");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (error) {
     return (
@@ -50,12 +96,36 @@ export function ClassDetailView({
         <button onClick={onBack} style={backBtn}>← 返回</button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 18 }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>{c.name}</div>
+          {renaming ? (
+            <>
+              <input
+                autoFocus
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                style={{ fontSize: 18, fontWeight: 700, color: "#1C2333", border: "1px solid #E1E4ED", borderRadius: 10, padding: "8px 12px", outline: "none" }}
+              />
+              <button onClick={() => void doRename()} disabled={busy} style={chipBtn}>保存</button>
+              <button onClick={() => setRenaming(false)} style={backBtn}>取消</button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>{c.name}</div>
+              <button onClick={() => { setDraftName(c.name); setRenaming(true); }} style={chipBtn}>改名</button>
+            </>
+          )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
           <span style={{ background: "#EDEFF9", color: "#2A3B7A", fontWeight: 700, fontSize: 13, padding: "6px 12px", borderRadius: 10 }}>邀请码 {c.join_code}</span>
           <button onClick={() => void navigator.clipboard?.writeText(c.join_code)} style={chipBtn}>复制</button>
+          <button onClick={() => setConfirmRegen(true)} style={chipBtn}>轮换</button>
+          {confirmRegen && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "#C76B6B", fontWeight: 600 }}>
+              轮换后旧邀请码立即失效，确定？
+              <button onClick={() => void doRegen()} disabled={busy} style={dangerBtn}>确认轮换</button>
+              <button onClick={() => setConfirmRegen(false)} style={backBtn}>取消</button>
+            </span>
+          )}
         </div>
 
         {detail.roster.length === 0 ? (
@@ -85,7 +155,23 @@ export function ClassDetailView({
                     <td style={TD}>{s.task_count}</td>
                     <td style={TD}>{s.evaluation_count}</td>
                     <td style={TD}>{s.card_count}</td>
-                    <td style={TD} />
+                    <td style={{ ...TD, textAlign: "right" }}>
+                      {confirmRemove === s.id ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#C76B6B", fontWeight: 600 }}>
+                          将 {s.display_name} 移出班级？仅解除关联，不删除其账号或作品。
+                          <button onClick={() => void doRemove(s.id)} disabled={busy} style={dangerBtn}>确认移除</button>
+                          <button onClick={() => setConfirmRemove(null)} style={backBtn}>取消</button>
+                        </span>
+                      ) : (
+                        <button
+                          aria-label={`移除 ${s.display_name}`}
+                          onClick={() => setConfirmRemove(s.id)}
+                          style={{ background: "transparent", border: "none", color: "#B7BECC", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -100,3 +186,4 @@ export function ClassDetailView({
 
 const backBtn: React.CSSProperties = { background: "transparent", border: "none", color: "#8A92A3", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 };
 const chipBtn: React.CSSProperties = { background: "transparent", border: "1px solid #D7DCF2", color: "#2A3B7A", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: "6px 12px", borderRadius: 10 };
+const dangerBtn: React.CSSProperties = { background: "#C76B6B", border: "none", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "5px 11px", borderRadius: 9 };

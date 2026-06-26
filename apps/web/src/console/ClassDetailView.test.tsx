@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ClassDetailView } from "./ClassDetailView";
 import type { ClassDetail } from "../api";
 
@@ -46,5 +47,41 @@ describe("ClassDetailView roster", () => {
     const client = makeClient(detail({ roster: [] }));
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
     expect(await screen.findByText(/还没有学生加入/)).toBeInTheDocument();
+  });
+});
+
+describe("ClassDetailView mutations", () => {
+  it("renames the class", async () => {
+    const client = makeClient(detail());
+    client.renameClass.mockResolvedValue({ ...detail().class, name: "新名字" });
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
+    await userEvent.click(await screen.findByText("改名"));
+    const input = screen.getByDisplayValue("11 年级 A");
+    await userEvent.clear(input);
+    await userEvent.type(input, "新名字");
+    await userEvent.click(screen.getByText("保存"));
+    await waitFor(() => expect(client.renameClass).toHaveBeenCalledWith("c1", "新名字"));
+  });
+
+  it("regenerates the join code only after confirming", async () => {
+    const client = makeClient(detail());
+    client.regenerateJoinCode.mockResolvedValue({ ...detail().class, join_code: "ZZ-ZZ" });
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
+    await userEvent.click(await screen.findByText("轮换"));
+    expect(client.regenerateJoinCode).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByText("确认轮换"));
+    await waitFor(() => expect(client.regenerateJoinCode).toHaveBeenCalledWith("c1"));
+    expect(await screen.findByText(/ZZ-ZZ/)).toBeInTheDocument();
+  });
+
+  it("removes a student only after confirming, then drops the row", async () => {
+    const client = makeClient(detail());
+    client.removeEnrollment.mockResolvedValue(undefined);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
+    await userEvent.click(await screen.findByLabelText("移除 Phoebe"));
+    expect(client.removeEnrollment).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByText("确认移除"));
+    await waitFor(() => expect(client.removeEnrollment).toHaveBeenCalledWith("c1", "u1"));
+    await waitFor(() => expect(screen.queryByText("Phoebe")).not.toBeInTheDocument());
   });
 });
