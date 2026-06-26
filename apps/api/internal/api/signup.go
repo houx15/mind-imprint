@@ -39,19 +39,33 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cls, err := a.d.Queries.GetClassByJoinCode(r.Context(), body.JoinCode)
-	if err != nil {
-		// ErrNoRows or anything else → invalid code (do not leak existence detail).
-		httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
-		return
-	}
-
 	hash, err := auth.HashPassword(body.Password)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 
+	// Resolve the code: teacher invite first, then class join code.
+	if inv, ierr := a.d.Queries.GetActiveTeacherInviteByCode(r.Context(), body.JoinCode); ierr == nil {
+		if inv.Email != nil && *inv.Email != body.Email {
+			httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
+			return
+		}
+		a.signupTeacher(w, r, body.Email, body.DisplayName, hash, inv)
+		return
+	}
+
+	cls, err := a.d.Queries.GetClassByJoinCode(r.Context(), body.JoinCode)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
+		return
+	}
+	a.signupStudent(w, r, body.Email, body.DisplayName, hash, cls)
+}
+
+// signupTeacher creates a teacher (school from the invite, no enrollment) and
+// consumes the invite, in one transaction.
+func (a *API) signupTeacher(w http.ResponseWriter, r *http.Request, email, displayName, hash string, inv sqlc.TeacherInvite) {
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -61,17 +75,48 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 	qtx := a.d.Queries.WithTx(tx)
 
 	u, err := qtx.CreateUser(r.Context(), sqlc.CreateUserParams{
-		Email:           body.Email,
-		PasswordHash:    hash,
-		Role:            "student",
-		SchoolID:        cls.SchoolID,
-		DisplayName:     body.DisplayName,
-		AvatarColor:     defaultAvatarColor,
-		EmailVerifiedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}, // auto-verify in P2
+		Email: email, PasswordHash: hash, Role: "teacher", SchoolID: inv.SchoolID,
+		DisplayName: displayName, AvatarColor: defaultAvatarColor,
+		EmailVerifiedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if isUniqueViolation(err) {
+			httpx.WriteError(w, r, httpx.ErrEmailTaken())
+			return
+		}
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := qtx.ConsumeTeacherInvite(r.Context(), sqlc.ConsumeTeacherInviteParams{
+		ID: inv.ID, ConsumedBy: pgtype.UUID{Bytes: u.ID, Valid: true},
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{})
+}
+
+// signupStudent is the unchanged P2 student path, extracted verbatim.
+func (a *API) signupStudent(w http.ResponseWriter, r *http.Request, email, displayName, hash string, cls sqlc.Class) {
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	u, err := qtx.CreateUser(r.Context(), sqlc.CreateUserParams{
+		Email: email, PasswordHash: hash, Role: "student", SchoolID: cls.SchoolID,
+		DisplayName: displayName, AvatarColor: defaultAvatarColor,
+		EmailVerifiedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		if isUniqueViolation(err) {
 			httpx.WriteError(w, r, httpx.ErrEmailTaken())
 			return
 		}
@@ -88,6 +133,11 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{})
+}
+
+// isUniqueViolation reports whether err is a Postgres 23505 (unique_violation).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

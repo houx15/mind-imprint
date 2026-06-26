@@ -1,6 +1,10 @@
 package api_test
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -42,5 +46,70 @@ func TestSignup(t *testing.T) {
 	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/auth/signup", strings.NewReader(short)))
 	if rr.Code != 400 {
 		t.Fatalf("short pw: want 400, got %d — %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestSignupWithTeacherInviteCreatesTeacher(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+
+	// Admin mints an invite (no bound email).
+	admin := signInAdmin(t, pool)
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/admin/teacher-invites", strings.NewReader("{}")), admin)
+	h.ServeHTTP(rec, req)
+	var created struct{ Code string `json:"code"` }
+	json.Unmarshal(rec.Body.Bytes(), &created)
+
+	// Teacher signs up with it.
+	body, _ := json.Marshal(map[string]any{
+		"email": "tt@demo.local", "password": "password123",
+		"display_name": "Teacher T", "join_code": created.Code,
+	})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewReader(body)))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("teacher signup got %d body=%s", rec.Code, rec.Body)
+	}
+
+	q := sqlc.New(pool)
+	u, err := q.GetUserByEmail(context.Background(), "tt@demo.local")
+	if err != nil || u.Role != "teacher" {
+		t.Fatalf("expected teacher user, got role=%q err=%v", u.Role, err)
+	}
+	if u.SchoolID != SeedSchoolID {
+		t.Fatalf("teacher school = %v, want seed", u.SchoolID)
+	}
+	// Invite is consumed → reusing it fails.
+	rec = httptest.NewRecorder()
+	body2, _ := json.Marshal(map[string]any{
+		"email": "tt2@demo.local", "password": "password123",
+		"display_name": "Teacher Two", "join_code": created.Code,
+	})
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewReader(body2)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("reused invite got %d, want 400", rec.Code)
+	}
+}
+
+func TestSignupTeacherInviteEmailMismatch(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	admin := signInAdmin(t, pool)
+	body, _ := json.Marshal(map[string]any{"email": "bound@demo.local"})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/admin/teacher-invites", bytes.NewReader(body)), admin))
+	var created struct{ Code string `json:"code"` }
+	json.Unmarshal(rec.Body.Bytes(), &created)
+
+	// Sign up with a different email than the invite was bound to.
+	su, _ := json.Marshal(map[string]any{
+		"email": "someoneelse@demo.local", "password": "password123",
+		"display_name": "X", "join_code": created.Code,
+	})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewReader(su)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("email mismatch got %d, want 400", rec.Code)
 	}
 }
