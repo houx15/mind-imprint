@@ -42,6 +42,17 @@ func TestAdminCreatesAndListsTeacherInvite(t *testing.T) {
 	}
 }
 
+func TestTeacherInviteRequiresAuth(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/admin/teacher-invites", strings.NewReader("{}"))
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated got %d, want 401", rec.Code)
+	}
+}
+
 func TestTeacherInviteRequiresAdmin(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()

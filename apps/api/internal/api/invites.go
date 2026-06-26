@@ -61,17 +61,16 @@ func (a *API) listTeacherInvites(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, inv := range rows {
-		var email string
-		if inv.Email != nil {
-			email = *inv.Email
-		}
-		out = append(out, map[string]any{
+		m := map[string]any{
 			"id":         inv.ID.String(),
-			"email":      email,
 			"code":       inv.Code,
 			"expires_at": inv.ExpiresAt.Format(tsLayout),
 			"created_at": inv.CreatedAt.Format(tsLayout),
-		})
+		}
+		if inv.Email != nil {
+			m["email"] = *inv.Email
+		}
+		out = append(out, m)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"invites": out})
 }
