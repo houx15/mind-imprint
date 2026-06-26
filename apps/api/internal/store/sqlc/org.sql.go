@@ -136,6 +136,60 @@ func (q *Queries) GetClassByID(ctx context.Context, id uuid.UUID) (Class, error)
 	return i, err
 }
 
+const getClassRoster = `-- name: GetClassRoster :many
+SELECT u.id, u.display_name, u.email,
+       MAX(t.last_active_at) AS last_active_at,
+       COUNT(DISTINCT t.id)  AS task_count,
+       COUNT(DISTINCT ev.id) AS evaluation_count,
+       COUNT(DISTINCT ci.id) AS card_count
+FROM enrollments e
+JOIN users u             ON u.id = e.user_id
+LEFT JOIN tasks t        ON t.user_id = u.id
+LEFT JOIN evaluations ev ON ev.task_id = t.id
+LEFT JOIN card_instances ci ON ci.task_id = t.id
+WHERE e.class_id = $1 AND e.role_in_class = 'student'
+GROUP BY u.id, u.display_name, u.email
+ORDER BY u.display_name
+`
+
+type GetClassRosterRow struct {
+	ID              uuid.UUID   `json:"id"`
+	DisplayName     string      `json:"display_name"`
+	Email           string      `json:"email"`
+	LastActiveAt    interface{} `json:"last_active_at"`
+	TaskCount       int64       `json:"task_count"`
+	EvaluationCount int64       `json:"evaluation_count"`
+	CardCount       int64       `json:"card_count"`
+}
+
+func (q *Queries) GetClassRoster(ctx context.Context, classID uuid.UUID) ([]GetClassRosterRow, error) {
+	rows, err := q.db.Query(ctx, getClassRoster, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetClassRosterRow
+	for rows.Next() {
+		var i GetClassRosterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.Email,
+			&i.LastActiveAt,
+			&i.TaskCount,
+			&i.EvaluationCount,
+			&i.CardCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEnrollment = `-- name: GetEnrollment :one
 SELECT id, user_id, class_id, role_in_class, created_at FROM enrollments WHERE user_id = $1 AND class_id = $2
 `

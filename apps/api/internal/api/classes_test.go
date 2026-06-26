@@ -13,6 +13,55 @@ import (
 	. "mindimprint/api/internal/api"
 )
 
+func TestClassRosterShowsAggregateSignals(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	teacherID := createTeacher(t, pool, SeedSchoolID, "rt@demo.local")
+	teacher := signInAs(t, pool, teacherID)
+
+	// Create a class, then enroll the seeded student (Phoebe) into it directly.
+	classID := createClassViaAPI(t, h, teacher, "Roster Class")
+	enrollStudent(t, pool, SeedUserID, classID)
+	// Give Phoebe one task so a count is non-zero.
+	seedTaskFor(t, pool, SeedUserID)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID, nil), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("roster got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Roster []struct {
+			Email     string `json:"email"`
+			TaskCount int    `json:"task_count"`
+		} `json:"roster"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Roster) != 1 || resp.Roster[0].TaskCount < 1 {
+		t.Fatalf("unexpected roster: %+v", resp.Roster)
+	}
+	// Roster must NOT leak any contents field.
+	if bytes.Contains(rec.Body.Bytes(), []byte("narrative")) {
+		t.Fatal("roster leaked evaluation contents")
+	}
+}
+
+func TestRosterDeniedToOtherSchoolTeacher(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	owner := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "owner@demo.local"))
+	classID := createClassViaAPI(t, h, owner, "Owned")
+
+	// A teacher in a different school must get 404 (existence hidden).
+	otherSchool := seedSecondSchool(t, pool)
+	stranger := signInAs(t, pool, createTeacher(t, pool, otherSchool, "stranger@other.local"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID, nil), stranger))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("cross-school teacher got %d, want 404", rec.Code)
+	}
+}
+
 func TestTeacherCreatesAndListsOwnClass(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()

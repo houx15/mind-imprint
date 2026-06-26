@@ -1,6 +1,10 @@
 package api
 
-import "mindimprint/api/internal/store/sqlc"
+import (
+	"time"
+
+	"mindimprint/api/internal/store/sqlc"
+)
 
 type classDTO struct {
 	ID        string `json:"id"`
@@ -18,4 +22,33 @@ func toClassDTO(c sqlc.Class) classDTO {
 		SchoolID:  c.SchoolID.String(),
 		CreatedAt: c.CreatedAt.Format(tsLayout),
 	}
+}
+
+type rosterEntryDTO struct {
+	ID              string  `json:"id"`
+	DisplayName     string  `json:"display_name"`
+	Email           string  `json:"email"`
+	LastActiveAt    *string `json:"last_active_at"`
+	TaskCount       int64   `json:"task_count"`
+	EvaluationCount int64   `json:"evaluation_count"`
+	CardCount       int64   `json:"card_count"`
+}
+
+// toRosterEntryDTO converts a GetClassRosterRow to a rosterEntryDTO.
+// LastActiveAt is interface{} from sqlc (MAX over a LEFT JOIN — nullable).
+// pgx v5 materialises a non-null timestamptz as time.Time; NULL becomes nil.
+func toRosterEntryDTO(row sqlc.GetClassRosterRow) rosterEntryDTO {
+	e := rosterEntryDTO{
+		ID:              row.ID.String(),
+		DisplayName:     row.DisplayName,
+		Email:           row.Email,
+		TaskCount:       row.TaskCount,
+		EvaluationCount: row.EvaluationCount,
+		CardCount:       row.CardCount,
+	}
+	if ts, ok := row.LastActiveAt.(time.Time); ok {
+		s := ts.Format(tsLayout)
+		e.LastActiveAt = &s
+	}
+	return e
 }

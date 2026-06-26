@@ -88,6 +88,29 @@ func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"class": toClassDTO(cls)})
 }
 
+func (a *API) getClass(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	cls, err := a.assertTeacherOwnsClass(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rows, err := a.d.Queries.GetClassRoster(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	roster := make([]rosterEntryDTO, 0, len(rows))
+	for _, row := range rows {
+		roster = append(roster, toRosterEntryDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"class": toClassDTO(cls), "roster": roster})
+}
+
 func (a *API) listClasses(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	var rows []sqlc.Class

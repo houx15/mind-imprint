@@ -64,6 +64,7 @@ func (a *API) Handler() http.Handler {
 	}
 	mux.Handle("POST /api/v1/classes", teacherOrAdmin(a.createClass))
 	mux.Handle("GET /api/v1/classes", teacherOrAdmin(a.listClasses))
+	mux.Handle("GET /api/v1/classes/{id}", teacherOrAdmin(a.getClass))
 
 	return SessionAuth(a.d.Queries)(mux)
 }
