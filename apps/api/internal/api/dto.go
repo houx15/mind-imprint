@@ -12,6 +12,11 @@ import (
 
 const tsLayout = time.RFC3339Nano
 
+// nowPlusDays returns the time d days from now (used for invite TTL).
+func nowPlusDays(d int) time.Time {
+	return time.Now().Add(time.Duration(d) * 24 * time.Hour)
+}
+
 // decodeJSON reads a JSON request body into v, mapping any failure to a 400.
 func decodeJSON(r *http.Request, v any) error {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {

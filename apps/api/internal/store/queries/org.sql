@@ -61,3 +61,6 @@ UPDATE classes SET join_code = $2 WHERE id = $1 RETURNING *;
 
 -- name: DeleteEnrollment :execrows
 DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'student';
+
+-- name: GetClassBySchoolAndName :one
+SELECT * FROM classes WHERE school_id = $1 AND name = $2;

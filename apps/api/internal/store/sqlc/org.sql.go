@@ -153,6 +153,29 @@ func (q *Queries) GetClassByID(ctx context.Context, id uuid.UUID) (Class, error)
 	return i, err
 }
 
+const getClassBySchoolAndName = `-- name: GetClassBySchoolAndName :one
+SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE school_id = $1 AND name = $2
+`
+
+type GetClassBySchoolAndNameParams struct {
+	SchoolID uuid.UUID `json:"school_id"`
+	Name     string    `json:"name"`
+}
+
+func (q *Queries) GetClassBySchoolAndName(ctx context.Context, arg GetClassBySchoolAndNameParams) (Class, error) {
+	row := q.db.QueryRow(ctx, getClassBySchoolAndName, arg.SchoolID, arg.Name)
+	var i Class
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.JoinCode,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const getClassRoster = `-- name: GetClassRoster :many
 SELECT u.id, u.display_name, u.email,
        MAX(t.last_active_at) AS last_active_at,
