@@ -65,6 +65,10 @@ reuses existing tables.
   `enrollments_user_class_key` UNIQUE(user_id,class_id) makes this safe):
   `INSERT INTO enrollments (user_id, class_id, role_in_class) VALUES ($1,$2,'teacher')
   ON CONFLICT (user_id, class_id) DO UPDATE SET role_in_class = 'teacher'`.
+- **`DeleteClassTeacher`** (`:execrows`) — `DELETE FROM enrollments WHERE class_id = $1
+  AND user_id = $2 AND role_in_class = 'teacher'`. **A dedicated query is required**:
+  the existing `DeleteEnrollment` filters `role_in_class = 'student'` (a P3.2 safety
+  property so remove-student can't nuke a teacher), so it cannot remove a teacher.
 
 ### New / changed handlers (`internal/api`)
 
@@ -93,9 +97,10 @@ admin.
 
 ### Remove-teacher
 
-No new endpoint — admin removes a teacher with the existing
-`DELETE /classes/{id}/enrollments/{userId}` (which deletes any enrollment by user id;
-admin-of-school passes its tenancy guard).
+- **`DELETE /classes/{id}/teachers/{userId}`** (adminOnly) — same tenancy check as the
+  assign handler (load class; `class.school_id != admin.school_id` → 404); calls
+  `DeleteClassTeacher`; `204`. This is a **new** endpoint (the existing
+  `DELETE …/enrollments/{userId}` is student-only and can't remove a teacher).
 
 ---
 
@@ -132,9 +137,11 @@ New `admin.ts`, all via `apiFetch`:
   `{teachers:[{id,display_name,email}]}`.
 - `assignTeacher(classId, teacherUserId): Promise<{teachers:Teacher[]}>` —
   `POST /classes/{id}/teachers`.
+- `removeTeacher(classId, userId): Promise<void>` — `DELETE /classes/{id}/teachers/
+  {userId}` (the new teacher-specific endpoint; NOT the student `removeEnrollment`).
 
-Extend `classes.ts`: `ClassDetail` gains `teachers: Teacher[]`; reuse the existing
-`removeEnrollment` for teacher removal. `Teacher = {id,display_name,email}`.
+Extend `classes.ts`: `ClassDetail` gains `teachers: Teacher[]`. `Teacher =
+{id,display_name,email}`.
 
 ### Screens
 
@@ -171,7 +178,7 @@ Extend `classes.ts`: `ClassDetail` gains `teachers: Teacher[]`; reuse the existi
   picker). If the school has no teachers yet, the admin create form explains a teacher
   must be invited first (links conceptually to the 教师 tab) and the submit is disabled.
 - **`ClassDetailView`** — an admin-only **教师** section above the roster: the class's
-  `teachers` (from the extended `getClass`), each with a remove × (→ `removeEnrollment`
+  `teachers` (from the extended `getClass`), each with a remove × (→ `removeTeacher`
   → refetch), plus an **assign** control (picker from `listTeachers()` → `assignTeacher`
   → refetch). Teachers see no teacher section (the field may be present but the section
   is role-gated). The aggregate-only roster and all P3.2 behavior are unchanged.
