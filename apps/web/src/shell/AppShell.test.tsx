@@ -36,4 +36,32 @@ describe("AppShell boot gate", () => {
     render(<AppShell store={store} session={session} client={client as never} />);
     await waitFor(() => expect(screen.getAllByText("登录").length).toBeGreaterThan(0));
   });
+
+  it("routes a teacher to the console (我的班级)", async () => {
+    const store = createStore({});
+    const session = createSession({ storage: mem() });
+    const TEACHER = { ...ME, role: "teacher" };
+    const client = {
+      getMe: vi.fn(async () => TEACHER),
+      signout: vi.fn(),
+      listClasses: vi.fn(async () => []),
+      createClass: vi.fn(), getClass: vi.fn(), renameClass: vi.fn(), regenerateJoinCode: vi.fn(), removeEnrollment: vi.fn(),
+    };
+    render(<AppShell store={store} session={session} client={client as never} />);
+    await waitFor(() => expect(screen.getByText("我的班级")).toBeInTheDocument());
+  });
+
+  it("routes an admin to the console (全校班级)", async () => {
+    const store = createStore({});
+    const session = createSession({ storage: mem() });
+    const ADMIN = { ...ME, role: "admin" };
+    const client = {
+      getMe: vi.fn(async () => ADMIN),
+      signout: vi.fn(),
+      listClasses: vi.fn(async () => []),
+      createClass: vi.fn(), getClass: vi.fn(), renameClass: vi.fn(), regenerateJoinCode: vi.fn(), removeEnrollment: vi.fn(),
+    };
+    render(<AppShell store={store} session={session} client={client as never} />);
+    await waitFor(() => expect(screen.getByText("全校班级")).toBeInTheDocument());
+  });
 });

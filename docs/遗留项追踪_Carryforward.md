@@ -150,3 +150,20 @@
 | **异步评估（river）** | **P4** | — |
 
 **结论：P3.1 全 12 任务 + 端到端 org provisioning 测试完成，go vet + go test -p 1 ./... 全包通过，无 Critical/Important 遗留。**
+
+---
+
+## P3.2 · 教师/管理员控制台前端（AppShell 角色路由 + StudentApp 提取，2026-06-26）
+
+`AppShell` 拆出 `StudentApp`（行为保全提取）并按角色路由：`teacher`/`admin` → `ConsoleShell`，其余 → `StudentApp`。327 个 web 测试全绿，typecheck 干净。
+
+### P3.2 ship-as-is 遗留（终审判为非阻塞 Minor / 明确推迟）
+
+| 遗留项 | → 目标 | 端到端必需？ |
+|---|---|---|
+| **管理员建班 + 教师分配**：前端建班表单向 `POST /classes` 携带 `teacher_user_id`，需后端先提供 teacher-picker 端点（按 school 列教师列表）；admin 界面无"新建班级"按钮（`isTeacher=false` 已隐藏）| P3.3 | 否（admin 可通过教师控制台间接建班）|
+| **班级列表卡片学生人数**：`ClassSummary` 当前无学生数字段；需后端 `GET /classes` 在 `COUNT(enrollments)` 聚合后返回 `student_count`；前端列表卡片显示 N 名学生 | P3.3（后端 COUNT 配套）| 否（邀请码可见、班级名可见，demo 够用）|
+| **管理员专属屏**（教师邀请管理 / CSV 名单导入 / 学校概览）：`ConsoleShell` 当前 admin 与 teacher 共用同一视图，admin 无额外管理入口 | P3.3 | 否（P3.1 后端端点已就绪，等前端接入）|
+| **每生工作详情可见性**：过程树 / 对话记录 / 评估叙述对教师的可见性——等待 eval 数据模型头脑风暴完成后再建接口（P3.1 同款遗留，从 P3.1 延续）| 评估增强轮 / P4 后 | 否（teacher 当前只看 roster 聚合行）|
+
+**结论：P3.2 AppShell 角色路由 + StudentApp 提取完成，全 327 测试 + typecheck 通过，无 Critical/Important 遗留。**

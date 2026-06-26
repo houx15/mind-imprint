@@ -1,22 +1,19 @@
 import { useEffect, useState } from "react";
 import { createStore } from "../store";
 import { createSession, useSession, type SessionStore } from "./session";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { Store } from "../store/createStore";
 import { api as defaultApi, type ApiClient, type MeUser } from "../api";
 import { AuthScreen } from "./auth/AuthScreen";
-import { LeftRail } from "./LeftRail";
-import { DirectoryView } from "./directory/DirectoryView";
-import { WorkspaceContainer } from "./WorkspaceContainer";
-import { RecordsView } from "./records/RecordsView";
-import { SettingsView } from "./settings/SettingsView";
+import { StudentApp } from "./StudentApp";
+import { ConsoleShell } from "../console/ConsoleShell";
 
-// Module-level singletons — used when no props are injected (production entry)
 const defaultStore = createStore({});
 const defaultSession = createSession({ storage: window.localStorage });
 
-type Tab = "tasks" | "records" | "settings";
-type TaskView = "directory" | "workspace";
+type ShellClient = Pick<
+  ApiClient,
+  "getMe" | "signout" | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
+>;
 
 export function AppShell({
   store = defaultStore,
@@ -25,7 +22,7 @@ export function AppShell({
 }: {
   store?: Store;
   session?: SessionStore;
-  client?: Pick<ApiClient, "getMe" | "signout">;
+  client?: ShellClient;
 }) {
   const sess = useSession(session);
   const [booted, setBooted] = useState(false);
@@ -39,51 +36,18 @@ export function AppShell({
     return () => { cancelled = true; };
   }, [client, session]);
 
-  const screen = sess.authed ? "app" : "auth";
-
-  const [tab, setTab] = useState<Tab>("tasks");
-  const [taskView, setTaskView] = useState<TaskView>("directory");
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [openingMessage, setOpeningMessage] = useState<string | undefined>(undefined);
-
   if (!booted) {
     return <div style={{ width: "100%", height: "100%", background: "#F3F4F8" }} />;
   }
-  if (screen === "auth") {
+  if (!sess.authed) {
     return <AuthScreen onAuthed={(u) => { session.setUser(u); session.setAuthed(true); }} />;
   }
 
-  return (
-    <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
-      <LeftRail tab={tab} onTab={setTab} />
-      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {tab === "tasks" && taskView === "directory" && (
-          <DirectoryView
-            store={store}
-            onOpenTask={(id, opening) => {
-              setActiveTaskId(id);
-              setOpeningMessage(opening);
-              setTaskView("workspace");
-            }}
-          />
-        )}
-        {tab === "tasks" && taskView === "workspace" && (
-          <WorkspaceContainer
-            store={store}
-            taskId={activeTaskId!}
-            openingMessage={openingMessage}
-            onBack={() => { setTaskView("directory"); setOpeningMessage(undefined); }}
-          />
-        )}
-        {tab === "records" && <RecordsView store={store} registry={CARD_REGISTRY} />}
-        {tab === "settings" && (
-          <SettingsView
-            session={session}
-            user={session.getUser()}
-            onLogout={() => { void client.signout().finally(() => { session.setUser(null); session.setAuthed(false); }); }}
-          />
-        )}
-      </div>
-    </div>
-  );
+  const onLogout = () => { void client.signout().finally(() => { session.setUser(null); session.setAuthed(false); }); };
+  const role = session.getUser()?.role;
+
+  if (role === "teacher" || role === "admin") {
+    return <ConsoleShell session={session} client={client} onLogout={onLogout} />;
+  }
+  return <StudentApp store={store} session={session} onLogout={onLogout} />;
 }
