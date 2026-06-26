@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClassDetailView } from "./ClassDetailView";
 import type { ClassDetail } from "../api";
+import { ApiError } from "../api";
 
 const NOW = Date.parse("2026-06-26T12:00:00Z");
 
@@ -61,6 +62,7 @@ describe("ClassDetailView mutations", () => {
     await userEvent.type(input, "新名字");
     await userEvent.click(screen.getByText("保存"));
     await waitFor(() => expect(client.renameClass).toHaveBeenCalledWith("c1", "新名字"));
+    expect(await screen.findByText("新名字")).toBeInTheDocument();
   });
 
   it("regenerates the join code only after confirming", async () => {
@@ -83,5 +85,23 @@ describe("ClassDetailView mutations", () => {
     await userEvent.click(screen.getByText("确认移除"));
     await waitFor(() => expect(client.removeEnrollment).toHaveBeenCalledWith("c1", "u1"));
     await waitFor(() => expect(screen.queryByText("Phoebe")).not.toBeInTheDocument());
+  });
+
+  it("keeps the detail view visible and shows an inline error when rename fails", async () => {
+    const client = makeClient(detail());
+    client.renameClass.mockRejectedValue(new ApiError("INTERNAL", "服务器错误", 500));
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
+    await userEvent.click(await screen.findByText("改名"));
+    const input = screen.getByDisplayValue("11 年级 A");
+    await userEvent.clear(input);
+    await userEvent.type(input, "新名字");
+    await userEvent.click(screen.getByText("保存"));
+    await waitFor(() => expect(client.renameClass).toHaveBeenCalled());
+    // Detail view (roster) is still visible — NOT replaced by the full-page load-error banner
+    expect(screen.getByText("Phoebe")).toBeInTheDocument();
+    // Inline error message is shown
+    expect(await screen.findByText("服务器错误")).toBeInTheDocument();
+    // The full-page "重试" link is NOT present
+    expect(screen.queryByText("重试")).not.toBeInTheDocument();
   });
 });

@@ -27,6 +27,7 @@ export function ClassDetailView({
   const [confirmRegen, setConfirmRegen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null); // student id
   const [busy, setBusy] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   function load() {
     setError(null);
@@ -39,39 +40,42 @@ export function ClassDetailView({
   async function doRename() {
     const trimmed = draftName.trim();
     if (!trimmed) return;
+    setMutationError(null);
     setBusy(true);
     try {
       const updated = await client.renameClass(classId, trimmed);
       setDetail((d) => (d ? { ...d, class: updated } : d));
       setRenaming(false);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "改名失败");
+      setMutationError(e instanceof ApiError ? e.message : "改名失败");
     } finally {
       setBusy(false);
     }
   }
 
   async function doRegen() {
+    setMutationError(null);
     setBusy(true);
     try {
       const updated = await client.regenerateJoinCode(classId);
       setDetail((d) => (d ? { ...d, class: updated } : d));
       setConfirmRegen(false);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "轮换失败");
+      setMutationError(e instanceof ApiError ? e.message : "轮换失败");
     } finally {
       setBusy(false);
     }
   }
 
   async function doRemove(studentId: string) {
+    setMutationError(null);
     setBusy(true);
     try {
       await client.removeEnrollment(classId, studentId);
       setDetail((d) => (d ? { ...d, roster: d.roster.filter((s) => s.id !== studentId) } : d));
       setConfirmRemove(null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "移除失败");
+      setMutationError(e instanceof ApiError ? e.message : "移除失败");
     } finally {
       setBusy(false);
     }
@@ -127,6 +131,10 @@ export function ClassDetailView({
             </span>
           )}
         </div>
+
+        {mutationError && (
+          <div style={{ marginTop: 12, color: "#C76B6B", fontSize: 13, fontWeight: 600 }}>{mutationError}</div>
+        )}
 
         {detail.roster.length === 0 ? (
           <div style={{ marginTop: 30, color: "#8A92A3", fontSize: 14.5, lineHeight: 1.7 }}>
