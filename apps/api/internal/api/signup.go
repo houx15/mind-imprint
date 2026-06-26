@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -46,7 +47,12 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve the code: teacher invite first, then class join code.
-	if inv, ierr := a.d.Queries.GetActiveTeacherInviteByCode(r.Context(), body.JoinCode); ierr == nil {
+	inv, ierr := a.d.Queries.GetActiveTeacherInviteByCode(r.Context(), body.JoinCode)
+	if ierr != nil && !errors.Is(ierr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, ierr) // real DB error → 500 via WriteError, never masked
+		return
+	}
+	if ierr == nil {
 		if inv.Email != nil && *inv.Email != body.Email {
 			httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())
 			return
@@ -54,7 +60,7 @@ func (a *API) signup(w http.ResponseWriter, r *http.Request) {
 		a.signupTeacher(w, r, body.Email, body.DisplayName, hash, inv)
 		return
 	}
-
+	// ierr == pgx.ErrNoRows → not a teacher invite; try the class join code.
 	cls, err := a.d.Queries.GetClassByJoinCode(r.Context(), body.JoinCode)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInvalidJoinCode())

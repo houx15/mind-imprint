@@ -58,6 +58,9 @@ func TestSignupWithTeacherInviteCreatesTeacher(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/admin/teacher-invites", strings.NewReader("{}")), admin)
 	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("mint invite: want 201, got %d — %s", rec.Code, rec.Body)
+	}
 	var created struct{ Code string `json:"code"` }
 	json.Unmarshal(rec.Body.Bytes(), &created)
 
@@ -79,6 +82,15 @@ func TestSignupWithTeacherInviteCreatesTeacher(t *testing.T) {
 	}
 	if u.SchoolID != SeedSchoolID {
 		t.Fatalf("teacher school = %v, want seed", u.SchoolID)
+	}
+	// Teachers attach to classes only by creating them, not at signup → zero enrollments.
+	var enrollCount int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM enrollments WHERE user_id = $1`, u.ID).Scan(&enrollCount); err != nil {
+		t.Fatalf("count enrollments: %v", err)
+	}
+	if enrollCount != 0 {
+		t.Fatalf("teacher must have no enrollment, got %d", enrollCount)
 	}
 	// Invite is consumed → reusing it fails.
 	rec = httptest.NewRecorder()
