@@ -51,5 +51,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/tasks/{id}/evaluate", protected(a.postEvaluate))
 	mux.Handle("GET /api/v1/tasks/{id}/evaluation", protected(a.getEvaluation))
 
+	// Admin-only routes (require a session + admin role).
+	adminOnly := func(h http.HandlerFunc) http.Handler {
+		return RequireUser(RequireRole("admin")(http.HandlerFunc(h)))
+	}
+	mux.Handle("POST /api/v1/admin/teacher-invites", adminOnly(a.createTeacherInvite))
+	mux.Handle("GET /api/v1/admin/teacher-invites", adminOnly(a.listTeacherInvites))
+
 	return SessionAuth(a.d.Queries)(mux)
 }

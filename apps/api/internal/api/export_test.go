@@ -11,6 +11,12 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// DepsForTest returns a minimal Deps wired to pool for handler integration tests.
+// Gateway/catalog fields are left nil because org routes don't call them.
+func DepsForTest(pool *pgxpool.Pool) Deps {
+	return Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false}
+}
+
 var (
 	SeedSchoolID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	SeedAdminID  = uuid.MustParse("00000000-0000-0000-0000-000000000005")

@@ -7,9 +7,84 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const consumeTeacherInvite = `-- name: ConsumeTeacherInvite :exec
+UPDATE teacher_invites SET consumed_at = now(), consumed_by = $2 WHERE id = $1
+`
+
+type ConsumeTeacherInviteParams struct {
+	ID         uuid.UUID   `json:"id"`
+	ConsumedBy pgtype.UUID `json:"consumed_by"`
+}
+
+func (q *Queries) ConsumeTeacherInvite(ctx context.Context, arg ConsumeTeacherInviteParams) error {
+	_, err := q.db.Exec(ctx, consumeTeacherInvite, arg.ID, arg.ConsumedBy)
+	return err
+}
+
+const createTeacherInvite = `-- name: CreateTeacherInvite :one
+INSERT INTO teacher_invites (school_id, code, email, created_by, expires_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, school_id, code, email, created_by, expires_at, consumed_at, consumed_by, created_at
+`
+
+type CreateTeacherInviteParams struct {
+	SchoolID  uuid.UUID `json:"school_id"`
+	Code      string    `json:"code"`
+	Email     *string   `json:"email"`
+	CreatedBy uuid.UUID `json:"created_by"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (q *Queries) CreateTeacherInvite(ctx context.Context, arg CreateTeacherInviteParams) (TeacherInvite, error) {
+	row := q.db.QueryRow(ctx, createTeacherInvite,
+		arg.SchoolID,
+		arg.Code,
+		arg.Email,
+		arg.CreatedBy,
+		arg.ExpiresAt,
+	)
+	var i TeacherInvite
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Code,
+		&i.Email,
+		&i.CreatedBy,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+		&i.ConsumedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getActiveTeacherInviteByCode = `-- name: GetActiveTeacherInviteByCode :one
+SELECT id, school_id, code, email, created_by, expires_at, consumed_at, consumed_by, created_at FROM teacher_invites
+WHERE code = $1 AND consumed_at IS NULL AND expires_at > now()
+`
+
+func (q *Queries) GetActiveTeacherInviteByCode(ctx context.Context, code string) (TeacherInvite, error) {
+	row := q.db.QueryRow(ctx, getActiveTeacherInviteByCode, code)
+	var i TeacherInvite
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Code,
+		&i.Email,
+		&i.CreatedBy,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+		&i.ConsumedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const getClassByID = `-- name: GetClassByID :one
 SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE id = $1
@@ -49,4 +124,40 @@ func (q *Queries) GetEnrollment(ctx context.Context, arg GetEnrollmentParams) (E
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listActiveTeacherInvitesBySchool = `-- name: ListActiveTeacherInvitesBySchool :many
+SELECT id, school_id, code, email, created_by, expires_at, consumed_at, consumed_by, created_at FROM teacher_invites
+WHERE school_id = $1 AND consumed_at IS NULL AND expires_at > now()
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListActiveTeacherInvitesBySchool(ctx context.Context, schoolID uuid.UUID) ([]TeacherInvite, error) {
+	rows, err := q.db.Query(ctx, listActiveTeacherInvitesBySchool, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TeacherInvite
+	for rows.Next() {
+		var i TeacherInvite
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchoolID,
+			&i.Code,
+			&i.Email,
+			&i.CreatedBy,
+			&i.ExpiresAt,
+			&i.ConsumedAt,
+			&i.ConsumedBy,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
