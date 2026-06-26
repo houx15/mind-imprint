@@ -167,3 +167,24 @@
 | **每生工作详情可见性**：过程树 / 对话记录 / 评估叙述对教师的可见性——等待 eval 数据模型头脑风暴完成后再建接口（P3.1 同款遗留，从 P3.1 延续）| 评估增强轮 / P4 后 | 否（teacher 当前只看 roster 聚合行）|
 
 **结论：P3.2 AppShell 角色路由 + StudentApp 提取完成，全 327 测试 + typecheck 通过，无 Critical/Important 遗留。**
+
+---
+
+## P3.3 · 管理员控制台前端（教师管理 + ClassDetailView 教师区块，2026-06-27）
+
+`ConsoleShell` admin 专属屏（教师邀请管理 / CSV 名单导入 / 学校概览 / 建班选教师）+ `ClassDetailView` admin 教师区块（列教师 + 分配 + 移除）。12 个 TDD 任务（subagent-driven，逐任务双审）。班级列表补 `student_count` 字段（后端 COUNT 聚合 + 前端列表卡显示 N 名学生）。
+
+### P3.3 ship-as-is 遗留（终审判为非阻塞 Minor / 明确推迟）
+
+| 遗留项 | → 目标 | 端到端必需？ |
+|---|---|---|
+| **教师自助协教师管理**（co-teacher self-service）：教师可申请添加/移除同班协教师；当前分配/移除教师仅 admin 操作，教师角色无此入口 | 后续（权限扩展轮）| 否（admin 操作够 demo）|
+| **每生工作详情可见性**（per-student work-detail）：过程树 / 对话记录 / 评估叙述对教师/admin 的可见性——等待 eval 数据模型头脑风暴完成后再建接口；当前只看 roster 聚合行 | 评估增强轮 / P4 后 | 否 |
+| **真实邮件投递**（invite + 注册验证）：邮件验证流已建好但休眠（P2 起延续）；invite code 写库但不发邮件；接 provider（阿里云/腾讯/Resend）时可激活 | 接邮件轮 | 否（demo 手动传递）|
+| **限流 + CSRF 双提交 token**：signup/signin/invite 端点仍无限流；CSRF = Lax cookie 现有防护（P2 起延续）| 安全硬化轮 | 否 |
+| **CSV 转义引号（`""`）未支持**：前端 CSV 解析器当前不处理 RFC 4180 转义引号（`""` → `"`），含引号字段的名单导入可能截断；简单 split 实现已足够 demo | 硬化轮 | 否（demo 名单无含引号字段）|
+| **班级软归档**（class soft-archive / deactivate）：无停用班级端点；归档后学生不可新增入班、join code 失效（P3.1 起延续）| 后续清理轮 | 否 |
+| **单教师强制校验**（single-teacher enforcement）：当前可对同一班级多次分配同一教师 ID（后端 `class_assignments` 无 unique 约束在教师维度）；幂等性由调用方自保 | 硬化轮 | 否（demo 场景单次分配）|
+| **控制台 a11y**（console a11y）：`ClassDetailView` 教师区块选择器缺 `<label>`；`ConsoleShell` 导航卡片用 `<div>` 点击、缺 `tablist`/键盘导航——与 `LeftRail` a11y 遗留共享优先级 | a11y polish 轮 | 否 |
+
+**结论：P3.3 全 12 任务完成，web typecheck + 全套测试通过，无 Critical/Important 遗留。**

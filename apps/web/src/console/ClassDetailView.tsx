@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ApiClient, ClassDetail } from "../api";
+import type { ApiClient, ClassDetail, Teacher } from "../api";
 import { ApiError } from "../api";
 import { relativeTime } from "./time";
 
-type Client = Pick<ApiClient, "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment">;
+type Client = Pick<ApiClient, "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment" | "listTeachers" | "assignTeacher" | "removeTeacher">;
 
 const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "#8A92A3", padding: "10px 12px", borderBottom: "1px solid #EAECF2" };
 const TD: React.CSSProperties = { fontSize: 13.5, color: "#1C2333", padding: "12px", borderBottom: "1px solid #F2F3F7" };
@@ -83,6 +83,47 @@ export function ClassDetailView({
     }
   }
 
+  const [teacherOptions, setTeacherOptions] = useState<Teacher[] | null>(null);
+  const [assignId, setAssignId] = useState("");
+
+  function loadTeacherOptions() {
+    if (teacherOptions == null) {
+      client.listTeachers().then(setTeacherOptions).catch(() => setTeacherOptions([]));
+    }
+  }
+
+  useEffect(() => {
+    if (role === "admin") loadTeacherOptions();
+  }, [role, classId]);
+
+  async function doAssignTeacher() {
+    if (!assignId) return;
+    setMutationError(null);
+    setBusy(true);
+    try {
+      const { teachers } = await client.assignTeacher(classId, assignId);
+      setDetail((d) => (d ? { ...d, teachers } : d));
+      setAssignId("");
+    } catch (e) {
+      setMutationError(e instanceof ApiError ? e.message : "添加教师失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doRemoveTeacher(userId: string) {
+    setMutationError(null);
+    setBusy(true);
+    try {
+      await client.removeTeacher(classId, userId);
+      setDetail((d) => (d ? { ...d, teachers: d.teachers.filter((t) => t.id !== userId) } : d));
+    } catch (e) {
+      setMutationError(e instanceof ApiError ? e.message : "移除教师失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (error) {
     return (
       <div style={{ flex: 1, padding: 40 }}>
@@ -136,6 +177,44 @@ export function ClassDetailView({
 
         {mutationError && (
           <div style={{ marginTop: 12, color: "#C76B6B", fontSize: 13, fontWeight: 600 }}>{mutationError}</div>
+        )}
+
+        {role === "admin" && (
+          <div style={{ marginTop: 26 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2333", marginBottom: 10 }}>任课教师</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              {detail.teachers.map((t) => (
+                <span key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 600, padding: "6px 10px", borderRadius: 10 }}>
+                  {t.display_name}
+                  <button
+                    aria-label={`移除教师 ${t.display_name}`}
+                    onClick={() => void doRemoveTeacher(t.id)}
+                    disabled={busy}
+                    style={{ background: "transparent", border: "none", color: "#2A3B7A", fontSize: 14, cursor: "pointer", fontFamily: "inherit", lineHeight: 1, padding: 0 }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              {detail.teachers.length === 0 && <span style={{ color: "#8A92A3", fontSize: 13 }}>暂无任课教师</span>}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+              <select
+                data-testid="assign-teacher-picker"
+                value={assignId}
+                onClick={loadTeacherOptions}
+                onFocus={loadTeacherOptions}
+                onChange={(e) => setAssignId(e.target.value)}
+                style={{ minWidth: 200, border: "1px solid #E1E4ED", borderRadius: 11, padding: "9px 12px", fontSize: 13.5, color: "#1C2333", outline: "none", background: "#fff" }}
+              >
+                <option value="">选择教师添加…</option>
+                {(teacherOptions ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>{t.display_name}（{t.email}）</option>
+                ))}
+              </select>
+              <button onClick={() => void doAssignTeacher()} disabled={busy || !assignId} style={chipBtn}>添加</button>
+            </div>
+          </div>
         )}
 
         {detail.roster.length === 0 ? (
