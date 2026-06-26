@@ -108,7 +108,16 @@ func (a *API) getClass(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		roster = append(roster, toRosterEntryDTO(row))
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"class": toClassDTO(cls), "roster": roster})
+	tRows, err := a.d.Queries.GetClassTeachers(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	teachers := make([]teacherDTO, 0, len(tRows))
+	for _, te := range tRows {
+		teachers = append(teachers, teacherDTO{ID: te.ID.String(), DisplayName: te.DisplayName, Email: te.Email})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"class": toClassDTO(cls), "roster": roster, "teachers": teachers})
 }
 
 func (a *API) listClasses(w http.ResponseWriter, r *http.Request) {

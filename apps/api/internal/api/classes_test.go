@@ -199,3 +199,31 @@ func TestRemoveStudentFromClass(t *testing.T) {
 		t.Fatalf("student account must survive: %v", err)
 	}
 }
+
+func TestGetClassIncludesTeachers(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	// A teacher creates a class → they are enrolled as its teacher.
+	tid := createTeacher(t, pool, SeedSchoolID, "teach@demo.local")
+	teacher := signInAs(t, pool, tid)
+	classID := createClassViaAPI(t, h, teacher, "TOK 11A")
+
+	req := httptest.NewRequest("GET", "/api/v1/classes/"+classID, nil)
+	req.AddCookie(teacher)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rec.Code, rec.Body)
+	}
+	var body struct {
+		Teachers []struct {
+			ID, DisplayName, Email string
+		} `json:"teachers"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Teachers) != 1 || body.Teachers[0].Email != "teach@demo.local" {
+		t.Fatalf("want the creating teacher in teachers[], got %+v", body.Teachers)
+	}
+}
