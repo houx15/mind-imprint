@@ -13,6 +13,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignClassTeacher = `-- name: AssignClassTeacher :exec
+INSERT INTO enrollments (user_id, class_id, role_in_class)
+VALUES ($1, $2, 'teacher')
+ON CONFLICT (user_id, class_id) DO UPDATE SET role_in_class = 'teacher'
+`
+
+type AssignClassTeacherParams struct {
+	UserID  uuid.UUID `json:"user_id"`
+	ClassID uuid.UUID `json:"class_id"`
+}
+
+func (q *Queries) AssignClassTeacher(ctx context.Context, arg AssignClassTeacherParams) error {
+	_, err := q.db.Exec(ctx, assignClassTeacher, arg.UserID, arg.ClassID)
+	return err
+}
+
 const consumeTeacherInvite = `-- name: ConsumeTeacherInvite :exec
 UPDATE teacher_invites SET consumed_at = now(), consumed_by = $2 WHERE id = $1
 `
@@ -94,6 +110,23 @@ func (q *Queries) CreateTeacherInvite(ctx context.Context, arg CreateTeacherInvi
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteClassTeacher = `-- name: DeleteClassTeacher :execrows
+DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'teacher'
+`
+
+type DeleteClassTeacherParams struct {
+	ClassID uuid.UUID `json:"class_id"`
+	UserID  uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteClassTeacher(ctx context.Context, arg DeleteClassTeacherParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteClassTeacher, arg.ClassID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteEnrollment = `-- name: DeleteEnrollment :execrows
@@ -220,6 +253,40 @@ func (q *Queries) GetClassRoster(ctx context.Context, classID uuid.UUID) ([]GetC
 			&i.EvaluationCount,
 			&i.CardCount,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getClassTeachers = `-- name: GetClassTeachers :many
+SELECT u.id, u.display_name, u.email
+FROM enrollments e
+JOIN users u ON u.id = e.user_id
+WHERE e.class_id = $1 AND e.role_in_class = 'teacher'
+ORDER BY u.display_name
+`
+
+type GetClassTeachersRow struct {
+	ID          uuid.UUID `json:"id"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+}
+
+func (q *Queries) GetClassTeachers(ctx context.Context, classID uuid.UUID) ([]GetClassTeachersRow, error) {
+	rows, err := q.db.Query(ctx, getClassTeachers, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetClassTeachersRow
+	for rows.Next() {
+		var i GetClassTeachersRow
+		if err := rows.Scan(&i.ID, &i.DisplayName, &i.Email); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -445,6 +512,38 @@ func (q *Queries) ListClassesForTeacher(ctx context.Context, userID uuid.UUID) (
 			&i.CreatedAt,
 			&i.CreatedBy,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTeachersBySchool = `-- name: ListTeachersBySchool :many
+SELECT id, display_name, email FROM users
+WHERE school_id = $1 AND role = 'teacher'
+ORDER BY display_name
+`
+
+type ListTeachersBySchoolRow struct {
+	ID          uuid.UUID `json:"id"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+}
+
+func (q *Queries) ListTeachersBySchool(ctx context.Context, schoolID uuid.UUID) ([]ListTeachersBySchoolRow, error) {
+	rows, err := q.db.Query(ctx, listTeachersBySchool, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeachersBySchoolRow
+	for rows.Next() {
+		var i ListTeachersBySchoolRow
+		if err := rows.Scan(&i.ID, &i.DisplayName, &i.Email); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

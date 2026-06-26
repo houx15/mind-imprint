@@ -34,6 +34,12 @@ type rosterEntryDTO struct {
 	CardCount       int64   `json:"card_count"`
 }
 
+type teacherDTO struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+}
+
 // toRosterEntryDTO converts a GetClassRosterRow to a rosterEntryDTO.
 // LastActiveAt is interface{} from sqlc (MAX over a LEFT JOIN — nullable).
 // pgx v5 materialises a non-null timestamptz as time.Time; NULL becomes nil.

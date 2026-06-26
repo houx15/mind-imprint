@@ -83,3 +83,23 @@ FROM llm_usage
 WHERE school_id = $1
 GROUP BY tier
 ORDER BY tier;
+
+-- name: ListTeachersBySchool :many
+SELECT id, display_name, email FROM users
+WHERE school_id = $1 AND role = 'teacher'
+ORDER BY display_name;
+
+-- name: GetClassTeachers :many
+SELECT u.id, u.display_name, u.email
+FROM enrollments e
+JOIN users u ON u.id = e.user_id
+WHERE e.class_id = $1 AND e.role_in_class = 'teacher'
+ORDER BY u.display_name;
+
+-- name: AssignClassTeacher :exec
+INSERT INTO enrollments (user_id, class_id, role_in_class)
+VALUES ($1, $2, 'teacher')
+ON CONFLICT (user_id, class_id) DO UPDATE SET role_in_class = 'teacher';
+
+-- name: DeleteClassTeacher :execrows
+DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'teacher';
