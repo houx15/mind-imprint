@@ -38,8 +38,8 @@ export function ImportView({ client }: { client: Client }) {
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
-        const row = (err as ApiError & { details?: { row?: number } }).details?.row;
-        if (typeof row === "number") setBadRow(row);
+        const details = err.details as { row?: number } | undefined;
+        if (details && typeof details.row === "number") setBadRow(details.row);
       } else {
         setError("导入失败");
       }

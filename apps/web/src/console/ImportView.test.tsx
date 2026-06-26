@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImportView } from "./ImportView";
+import { ApiError } from "../api";
 
 function file(content: string, name = "roster.csv") {
   return new File([content], name, { type: "text/csv" });
@@ -29,6 +30,29 @@ describe("ImportView", () => {
     // code sheet
     expect(await screen.findByText("AB-CD")).toBeInTheDocument();
     expect(screen.getByText("T-9")).toBeInTheDocument();
+  });
+
+  it("highlights the bad row and shows the error message when adminImport rejects with details.row", async () => {
+    const client = {
+      adminImport: vi.fn(async () => { throw new ApiError("validation_failed", "坏行", 400, { row: 0 }); }),
+    };
+    render(<ImportView client={client} />);
+    const input = screen.getByTestId("csv-input") as HTMLInputElement;
+    await userEvent.upload(input, file("class,teacher_email,student_email\n11A,t@x,s@x\n12B,t2@x,s2@x\n"));
+
+    // preview shows both rows
+    expect(await screen.findByText("11A")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("导入"));
+
+    // error message appears
+    expect(await screen.findByText("坏行")).toBeInTheDocument();
+
+    // first row (row 0 = 11A) gets the highlight background
+    await waitFor(() => {
+      const row = screen.getByText("11A").closest("tr");
+      expect(row).toHaveStyle({ background: "#FBECEC" });
+    });
   });
 
   it("shows a parse error for a file with no class column", async () => {
