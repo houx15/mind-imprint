@@ -96,6 +96,23 @@ func (q *Queries) CreateTeacherInvite(ctx context.Context, arg CreateTeacherInvi
 	return i, err
 }
 
+const deleteEnrollment = `-- name: DeleteEnrollment :execrows
+DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'student'
+`
+
+type DeleteEnrollmentParams struct {
+	ClassID uuid.UUID `json:"class_id"`
+	UserID  uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteEnrollment(ctx context.Context, arg DeleteEnrollmentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEnrollment, arg.ClassID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getActiveTeacherInviteByCode = `-- name: GetActiveTeacherInviteByCode :one
 SELECT id, school_id, code, email, created_by, expires_at, consumed_at, consumed_by, created_at FROM teacher_invites
 WHERE code = $1 AND consumed_at IS NULL AND expires_at > now()
@@ -337,4 +354,50 @@ func (q *Queries) ListClassesForTeacher(ctx context.Context, userID uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const setClassJoinCode = `-- name: SetClassJoinCode :one
+UPDATE classes SET join_code = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by
+`
+
+type SetClassJoinCodeParams struct {
+	ID       uuid.UUID `json:"id"`
+	JoinCode string    `json:"join_code"`
+}
+
+func (q *Queries) SetClassJoinCode(ctx context.Context, arg SetClassJoinCodeParams) (Class, error) {
+	row := q.db.QueryRow(ctx, setClassJoinCode, arg.ID, arg.JoinCode)
+	var i Class
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.JoinCode,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const updateClassName = `-- name: UpdateClassName :one
+UPDATE classes SET name = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by
+`
+
+type UpdateClassNameParams struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) UpdateClassName(ctx context.Context, arg UpdateClassNameParams) (Class, error) {
+	row := q.db.QueryRow(ctx, updateClassName, arg.ID, arg.Name)
+	var i Class
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.JoinCode,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
 }

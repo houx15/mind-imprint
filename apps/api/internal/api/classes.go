@@ -130,3 +130,80 @@ func (a *API) listClasses(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"classes": out})
 }
+
+func (a *API) patchClass(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if _, err := a.assertTeacherOwnsClass(r.Context(), id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var body struct {
+		Name               *string `json:"name"`
+		RegenerateJoinCode bool    `json:"regenerate_join_code"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var cls sqlc.Class
+	changed := false
+	if body.Name != nil {
+		if strings.TrimSpace(*body.Name) == "" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "班级名称不能为空", nil))
+			return
+		}
+		cls, err = a.d.Queries.UpdateClassName(r.Context(), sqlc.UpdateClassNameParams{ID: id, Name: strings.TrimSpace(*body.Name)})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		changed = true
+	}
+	if body.RegenerateJoinCode {
+		code, cerr := org.NewClassJoinCode()
+		if cerr != nil {
+			httpx.WriteError(w, r, cerr)
+			return
+		}
+		cls, err = a.d.Queries.SetClassJoinCode(r.Context(), sqlc.SetClassJoinCodeParams{ID: id, JoinCode: code})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		changed = true
+	}
+	if !changed {
+		cls, err = a.d.Queries.GetClassByID(r.Context(), id)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"class": toClassDTO(cls)})
+}
+
+func (a *API) removeEnrollment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if _, err := a.assertTeacherOwnsClass(r.Context(), id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	userID, err := uuid.Parse(r.PathValue("userId"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if _, err := a.d.Queries.DeleteEnrollment(r.Context(), sqlc.DeleteEnrollmentParams{ClassID: id, UserID: userID}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

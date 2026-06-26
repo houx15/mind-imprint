@@ -52,3 +52,12 @@ LEFT JOIN card_instances ci ON ci.task_id = t.id
 WHERE e.class_id = $1 AND e.role_in_class = 'student'
 GROUP BY u.id, u.display_name, u.email
 ORDER BY u.display_name;
+
+-- name: UpdateClassName :one
+UPDATE classes SET name = $2 WHERE id = $1 RETURNING *;
+
+-- name: SetClassJoinCode :one
+UPDATE classes SET join_code = $2 WHERE id = $1 RETURNING *;
+
+-- name: DeleteEnrollment :execrows
+DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'student';

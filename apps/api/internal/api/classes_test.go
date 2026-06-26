@@ -157,3 +157,45 @@ func TestAdminCannotAssignForeignTeacher(t *testing.T) {
 		t.Fatalf("cross-school assign got %d, want 400; body=%s", rec.Code, rec.Body)
 	}
 }
+
+func TestPatchClassRenameAndRegenerate(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "pt@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Old Name")
+
+	body, _ := json.Marshal(map[string]any{"name": "New Name", "regenerate_join_code": true})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PATCH", "/api/v1/classes/"+classID, bytes.NewReader(body)), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Class struct {
+			Name     string `json:"name"`
+			JoinCode string `json:"join_code"`
+		} `json:"class"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Class.Name != "New Name" || resp.Class.JoinCode == "" {
+		t.Fatalf("rename/regenerate failed: %+v", resp.Class)
+	}
+}
+
+func TestRemoveStudentFromClass(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "rm@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "RM Class")
+	enrollStudent(t, pool, SeedUserID, classID)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("DELETE", "/api/v1/classes/"+classID+"/enrollments/"+SeedUserID.String(), nil), teacher))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("remove got %d", rec.Code)
+	}
+	// The student account still exists (only the enrollment was removed).
+	if _, err := mustNewQueries(pool).GetUserByID(context.Background(), SeedUserID); err != nil {
+		t.Fatalf("student account must survive: %v", err)
+	}
+}
