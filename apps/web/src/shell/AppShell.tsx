@@ -12,7 +12,10 @@ const defaultSession = createSession({ storage: window.localStorage });
 
 type ShellClient = Pick<
   ApiClient,
-  "getMe" | "signout" | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
+  | "getMe" | "signout"
+  | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
+  | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
+  | "listTeachers" | "assignTeacher" | "removeTeacher"
 >;
 
 export function AppShell({

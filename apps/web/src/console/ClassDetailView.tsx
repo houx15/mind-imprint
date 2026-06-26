@@ -13,11 +13,13 @@ export function ClassDetailView({
   classId,
   onBack,
   now,
+  role,
 }: {
   client: Client;
   classId: string;
   onBack: () => void;
   now?: number;
+  role?: string;
 }) {
   const _now = now ?? Date.now();
   const [detail, setDetail] = useState<ClassDetail | null>(null);

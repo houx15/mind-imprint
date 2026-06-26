@@ -19,6 +19,13 @@ function client() {
     renameClass: vi.fn(),
     regenerateJoinCode: vi.fn(),
     removeEnrollment: vi.fn(),
+    getOverview: vi.fn(async () => ({ counts: { student: 0, teacher: 0, class: 0, task: 0, evaluation: 0, active_student: 0 }, usage_by_tier: [] })),
+    listTeacherInvites: vi.fn(async () => []),
+    createTeacherInvite: vi.fn(),
+    adminImport: vi.fn(),
+    listTeachers: vi.fn(async () => []),
+    assignTeacher: vi.fn(),
+    removeTeacher: vi.fn(),
   };
 }
 
@@ -53,12 +60,24 @@ describe("ConsoleShell", () => {
     expect(onLogout).toHaveBeenCalled();
   });
 
-  it("absent role defaults to admin (read-only): no create button, 全校班级 visible", async () => {
+  it("absent role defaults to admin: lands on 概览, no teacher create button on 班级 tab", async () => {
     const noRoleUser = { ...TEACHER, role: undefined } as unknown as MeUser;
     const session = createSession({ storage: mem() });
     session.setUser(noRoleUser);
     render(<ConsoleShell session={session} client={client()} onLogout={vi.fn()} />);
-    expect(await screen.findByText("全校班级")).toBeInTheDocument();
+    // Admin (default) lands on 概览 — multiple matches expected (nav label + page heading)
+    await screen.findAllByText("概览");
+    // Navigate to 班级 tab (use role selector — nav label and page heading both say 班级)
+    await userEvent.click(screen.getByRole("tab", { name: "班级" }));
+    // No teacher-only create button
     expect(screen.queryByText("+ 新建班级")).not.toBeInTheDocument();
+  });
+
+  it("an admin lands on the 概览 overview", async () => {
+    const session = createSession({ storage: mem() });
+    session.setUser({ ...TEACHER, role: "admin" });
+    render(<ConsoleShell session={session} client={client()} onLogout={vi.fn()} />);
+    // Multiple matches: nav-rail label + page heading — both signal 概览 is active
+    expect((await screen.findAllByText("概览")).length).toBeGreaterThan(0);
   });
 });

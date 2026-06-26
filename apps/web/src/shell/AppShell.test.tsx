@@ -51,7 +51,7 @@ describe("AppShell boot gate", () => {
     await waitFor(() => expect(screen.getByText("我的班级")).toBeInTheDocument());
   });
 
-  it("routes an admin to the console (全校班级)", async () => {
+  it("routes an admin to the console (lands on 概览)", async () => {
     const store = createStore({});
     const session = createSession({ storage: mem() });
     const ADMIN = { ...ME, role: "admin" };
@@ -60,8 +60,11 @@ describe("AppShell boot gate", () => {
       signout: vi.fn(),
       listClasses: vi.fn(async () => []),
       createClass: vi.fn(), getClass: vi.fn(), renameClass: vi.fn(), regenerateJoinCode: vi.fn(), removeEnrollment: vi.fn(),
+      getOverview: vi.fn(async () => ({ counts: { student: 0, teacher: 0, class: 0, task: 0, evaluation: 0, active_student: 0 }, usage_by_tier: [] })),
+      listTeacherInvites: vi.fn(async () => []), createTeacherInvite: vi.fn(), adminImport: vi.fn(),
+      listTeachers: vi.fn(async () => []), assignTeacher: vi.fn(), removeTeacher: vi.fn(),
     };
     render(<AppShell store={store} session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getByText("全校班级")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("概览").length).toBeGreaterThan(0));
   });
 });
