@@ -4,8 +4,12 @@ import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
 import { runTurn, type TurnEvent } from "./turn";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
+import {
+  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
+  type ClassSummary, type RosterStudent, type ClassDetail,
+} from "./classes";
 
-export type { TaskDetail, TurnEvent, MeUser };
+export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -23,9 +27,16 @@ export interface ApiClient {
   signin(input: { email: string; password: string }): Promise<MeUser>;
   signout(): Promise<void>;
   getMe(): Promise<MeUser>;
+  listClasses(): Promise<ClassSummary[]>;
+  createClass(input: { name: string }): Promise<ClassSummary>;
+  getClass(id: string): Promise<ClassDetail>;
+  renameClass(id: string, name: string): Promise<ClassSummary>;
+  regenerateJoinCode(id: string): Promise<ClassSummary>;
+  removeEnrollment(id: string, userId: string): Promise<void>;
 }
 
 export const api: ApiClient = {
   listTasks, createTask, getTask, activateCard, submitCard, skipCard, runEvaluation, getEvaluation, runTurn,
   signup, verifyEmail, signin, signout, getMe,
+  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
 };
