@@ -66,7 +66,7 @@ describe("ConsoleShell", () => {
     session.setUser(noRoleUser);
     render(<ConsoleShell session={session} client={client()} onLogout={vi.fn()} />);
     // Admin (default) lands on 概览 — multiple matches expected (nav label + page heading)
-    await screen.findAllByText("概览");
+    expect((await screen.findAllByText("概览")).length).toBeGreaterThanOrEqual(2);
     // Navigate to 班级 tab (use role selector — nav label and page heading both say 班级)
     await userEvent.click(screen.getByRole("tab", { name: "班级" }));
     // No teacher-only create button
@@ -78,6 +78,6 @@ describe("ConsoleShell", () => {
     session.setUser({ ...TEACHER, role: "admin" });
     render(<ConsoleShell session={session} client={client()} onLogout={vi.fn()} />);
     // Multiple matches: nav-rail label + page heading — both signal 概览 is active
-    expect((await screen.findAllByText("概览")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("概览")).length).toBeGreaterThanOrEqual(2);
   });
 });

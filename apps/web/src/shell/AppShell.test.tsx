@@ -65,6 +65,6 @@ describe("AppShell boot gate", () => {
       listTeachers: vi.fn(async () => []), assignTeacher: vi.fn(), removeTeacher: vi.fn(),
     };
     render(<AppShell store={store} session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getAllByText("概览").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("概览").length).toBeGreaterThanOrEqual(2));
   });
 });
