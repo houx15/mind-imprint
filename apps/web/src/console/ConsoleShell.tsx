@@ -27,7 +27,7 @@ export function ConsoleShell({
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
-      <ConsoleRail tab={tab} onTab={(t) => { setTab(t); if (t === "classes") setOpenClassId(null); }} />
+      <ConsoleRail role={role} tab={tab} onTab={(t) => { setTab(t); if (t === "classes") setOpenClassId(null); }} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex" }}>
         {tab === "classes" && openClassId == null && (
           <ClassesView client={client} role={role} onOpenClass={setOpenClassId} />

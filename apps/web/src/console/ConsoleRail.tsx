@@ -1,7 +1,7 @@
 // No React import needed — `React.CSSProperties` / `React.ReactNode` resolve via the
 // global namespace from @types/react, matching shell/LeftRail.tsx.
 
-export type ConsoleTab = "classes" | "settings";
+export type ConsoleTab = "overview" | "classes" | "teachers" | "import" | "settings";
 
 interface NavItem {
   key: ConsoleTab;
@@ -11,6 +11,18 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    key: "overview",
+    label: "概览",
+    icon: (stroke) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="9" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
     key: "classes",
     label: "班级",
     icon: (stroke) => (
@@ -18,6 +30,27 @@ const NAV_ITEMS: NavItem[] = [
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+      </svg>
+    ),
+  },
+  {
+    key: "teachers",
+    label: "教师",
+    icon: (stroke) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 00-3-3.87" />
+      </svg>
+    ),
+  },
+  {
+    key: "import",
+    label: "导入",
+    icon: (stroke) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <path d="M7 10l5 5 5-5M12 15V3" />
       </svg>
     ),
   },
@@ -33,6 +66,8 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const TEACHER_TABS: ConsoleTab[] = ["classes", "settings"];
+
 const BOX_BASE: React.CSSProperties = { width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" };
 const ACTIVE_BOX: React.CSSProperties = { ...BOX_BASE, background: "#EDEFF9" };
 const INACTIVE_BOX: React.CSSProperties = { ...BOX_BASE, background: "transparent" };
@@ -41,9 +76,11 @@ const INACTIVE_ICON_STROKE = "#9AA1B0";
 const ACTIVE_LABEL: React.CSSProperties = { color: "#2A3B7A", fontWeight: 700, fontSize: 10 };
 const INACTIVE_LABEL: React.CSSProperties = { color: "#9AA1B0", fontSize: 10 };
 
-export function ConsoleRail({ tab, onTab }: { tab: ConsoleTab; onTab: (t: ConsoleTab) => void }) {
+export function ConsoleRail({ role, tab, onTab }: { role: string; tab: ConsoleTab; onTab: (t: ConsoleTab) => void }) {
+  const items = role === "admin" ? NAV_ITEMS : NAV_ITEMS.filter((i) => TEACHER_TABS.includes(i.key));
   return (
     <div style={{ width: 74, flexShrink: 0, background: "#FFFFFF", borderRight: "1px solid #EAECF2", display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 0", gap: 4 }}>
+      {/* logo SVG — unchanged */}
       <svg viewBox="0 0 48 48" width="38" height="38" style={{ display: "block", marginBottom: 16 }}>
         <rect x="5" y="6" width="38" height="36" rx="13" fill="#2A3B7A" />
         <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.10" />
@@ -55,7 +92,7 @@ export function ConsoleRail({ tab, onTab }: { tab: ConsoleTab; onTab: (t: Consol
         <circle cx="39" cy="9" r="4.5" fill="#E8A33D" />
       </svg>
 
-      {NAV_ITEMS.map(({ key, label, icon }) => {
+      {items.map(({ key, label, icon }) => {
         const isActive = tab === key;
         return (
           <div
