@@ -114,5 +114,9 @@ htmlcov/
 # Playwright MCP scratch (screenshots / console logs from live E2E runs)
 .playwright-mcp/
 
+# Playwright E2E run artifacts (traces, screenshots, reports)
+apps/web/test-results/
+apps/web/playwright-report/
+
 # Superpowers brainstorm visual-companion scratch (mockups, session state)
 .superpowers/

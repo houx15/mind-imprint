@@ -13,8 +13,12 @@ test("golden path: admin → teacher → student → evaluation → signals", as
   await page.getByRole("tab", { name: "教师" }).click();
   await expect(page.getByText("生成教师邀请码")).toBeVisible();
   await page.getByRole("button", { name: "生成邀请码" }).click();
-  const inviteText = await page.getByText(/新邀请码\s+\S+/).innerText();
-  const inviteCode = inviteText.match(/新邀请码\s+(\S+)/)![1];
+  // Teacher invite codes are formatted "T-XXXXXX" (codes.go NewTeacherInviteCode;
+  // alphabet A-Z2-9, ambiguous chars excluded). Extract the exact token rather
+  // than a bare \S+, which would swallow trailing copy if the banner layout ever
+  // loses its " · " separator.
+  const inviteText = await page.getByText(/新邀请码\s+T-/).innerText();
+  const inviteCode = inviteText.match(/(T-[A-Z2-9]+)/)![1];
   expect(inviteCode).toBeTruthy();
   await logout(page);
 
@@ -27,8 +31,12 @@ test("golden path: admin → teacher → student → evaluation → signals", as
   await page.getByRole("button", { name: "+ 新建班级" }).click();
   await page.getByPlaceholder("班级名称，如「11 年级 A · TOK」").fill(className);
   await page.getByRole("button", { name: "创建" }).click();
-  const createdText = await page.getByText(/已创建「.*」· 邀请码\s+\S+/).innerText();
-  const joinCode = createdText.match(/邀请码\s+(\S+)/)![1];
+  // The banner renders "…邀请码 {join_code}（分享给学生加入）" with NO space before
+  // the parenthetical, so a bare \S+ would capture "GQB3-9D9D（分享给学生加入）" and
+  // the student signup would be rejected as an invalid code. Match the exact join
+  // code shape instead: XXXX-XXXX over the A-Z2-9 alphabet (codes.go NewClassJoinCode).
+  const createdText = await page.getByText(/已创建「.*」· 邀请码\s+[A-Z2-9]{4}-[A-Z2-9]{4}/).innerText();
+  const joinCode = createdText.match(/邀请码\s+([A-Z2-9]{4}-[A-Z2-9]{4})/)![1];
   expect(joinCode).toBeTruthy();
   await logout(page);
 
