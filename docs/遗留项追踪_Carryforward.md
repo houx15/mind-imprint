@@ -188,3 +188,24 @@
 | **控制台 a11y**（console a11y）：`ClassDetailView` 教师区块选择器缺 `<label>`；`ConsoleShell` 导航卡片用 `<div>` 点击、缺 `tablist`/键盘导航——与 `LeftRail` a11y 遗留共享优先级 | a11y polish 轮 | 否 |
 
 **结论：P3.3 全 12 任务完成，web typecheck + 全套测试通过，无 Critical/Important 遗留。**
+
+---
+
+## 全栈 E2E 实烟测试套件（test/fullstack-e2e-live-smoke，2026-06-27）
+
+4 个任务（Task 1–4）构建了完整的浏览器驱动烟测套件，覆盖真实栈（web → Go API → 一次性 Postgres → 真实 DeepSeek）。
+
+- **位置**：`apps/web/e2e/`（harness: `run-stack.sh`，helpers: `helpers.ts`，4 个 spec，`RUNBOOK.md`）
+- **运行方式**：本地开发者手动运行，**不是 CI 门禁**（需真实 `DEEPSEEK_API_KEY`）。
+- **确定性 spec 已在 keyless 环境验证通过**：`auth.spec.ts`（3 个测试）、`registration.spec.ts`（1 个测试）、`smoke.spec.ts`（1 个测试）——5/5 全绿。
+- **golden-path spec**（`golden-path.spec.ts`）：跨角色完整生命周期（admin invite → teacher 注册 → 建班 → student 入班 → Phoebe 任务 → 卡片召唤 → SIFT 信封 → 过程树 → refeed → 评估「你的思维印记」→ 教师名单信号 → 管理员概览）。**需真实 API key 才能运行 live-model 步骤**，由开发者按 `RUNBOOK.md` 执行。
+
+### 遗留 / 后续
+
+| 遗留项 | → 目标 | 必需？ |
+|---|---|---|
+| **确定性 CI 门禁**：如需将 E2E 接入 CI，需实现 `STUB_LLM` 脚本化 provider（stub 召卡 + stub 评估），使 golden-path 无真实 key 可运行 | 后续（CI 接入轮）| 否（当前本地手动） |
+| **选择器稳定性**：auth 输入框 / 卡片表单字段缺 `data-testid`；当前用位置/类型定位（`input:not([type="password"]) nth(0)` 等），改版 UI 后可能脆性失效 | 后续（testid 补充轮）| 否（当前定位稳定） |
+| **golden-path 卡片填写**：`summonCardWithRetry` 对 `tool_choice=auto` 有一次重试；`retries:1` playwright 配置已吸收一次随机失败；极偶发"模型拒绝召卡"属 live-model 方差，不是管道故障，重跑即可 | 无（RUNBOOK 已记录）| — |
+
+**结论：全栈 E2E live-smoke 套件已建立并验证（4 spec 文件，5 确定性测试全绿，golden-path type-clean 并已被 Playwright 发现），由开发者按 RUNBOOK 持有真实 key 后执行 live 跑。**
