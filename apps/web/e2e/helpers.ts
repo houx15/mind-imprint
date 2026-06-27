@@ -13,9 +13,8 @@ export async function login(page: Page, email: string, password: string): Promis
   await page.goto("/");
   const loginBtn = page.getByRole("button", { name: "登录" }).first();
   await expect(loginBtn).toBeVisible();
-  const card = page.locator("body");
-  await card.locator('input:not([type="password"])').first().fill(email);
-  await card.locator('input[type="password"]').first().fill(password);
+  await page.locator('input:not([type="password"])').first().fill(email);
+  await page.locator('input[type="password"]').first().fill(password);
   await loginBtn.click();
   // Login resolves when the login submit button is gone (app rendered).
   await expect(page.getByRole("button", { name: "登录" })).toHaveCount(0, { timeout: 30_000 });
@@ -36,7 +35,6 @@ export async function registerWithCode(
   await page.goto("/");
   await page.getByText("注册").click();
   // Register step: name, email, password (three inputs; password is typed).
-  const inputs = page.locator("input");
   await page.locator('input:not([type="password"])').nth(0).fill(opts.name);
   await page.locator('input:not([type="password"])').nth(1).fill(opts.email);
   await page.locator('input[type="password"]').first().fill(opts.password);

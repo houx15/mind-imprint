@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, Locator } from "@playwright/test";
 import { login, logout, registerWithCode, uniqueEmail, ADMIN } from "./helpers";
 
 // One continuous cross-role journey. Serial by config. Live model on the
@@ -48,7 +48,7 @@ test("golden path: admin → teacher → student → evaluation → signals", as
   // card was proposed (tool_choice=auto ⇒ summon is the model's call).
   const proposal = page.getByText("建议工具卡");
   const openBtn = page.getByRole("button", { name: "打开卡" });
-  await summonCardWithRetry(page, proposal, openBtn);
+  await summonCardWithRetry(page, proposal);
 
   // Restraint law: the card is PROPOSED, not auto-opened. Opening requires
   // the student to click 打开卡 (the card sheet only appears after).
@@ -58,7 +58,16 @@ test("golden path: admin → teacher → student → evaluation → signals", as
 
   // Fill the card. SIFT/CRAAP fields vary; fill every visible text input/area
   // in the sheet so the envelope is non-empty, then submit.
-  const sheetInputs = page.locator('textarea, input[type="text"]');
+  // Scope to the card sheet to exclude the chat composer textarea.
+  // CardSheetHost.tsx renders: root-overlay > inner-sheet (position:relative, maxWidth:880px)
+  //   which contains the "现在轮到你想" header AND the "提交并钉到过程树" footer button.
+  // .last() gives the innermost div matching both filters (the inner-sheet, not its parent).
+  const sheet = page.locator("div").filter({
+    has: page.getByText("现在轮到你想"),
+  }).filter({
+    has: page.getByRole("button", { name: "提交并钉到过程树" }),
+  }).last();
+  const sheetInputs = sheet.locator('textarea, input[type="text"]');
   const count = await sheetInputs.count();
   for (let i = 0; i < count; i++) {
     const el = sheetInputs.nth(i);
@@ -70,10 +79,18 @@ test("golden path: admin → teacher → student → evaluation → signals", as
   await expect(page.getByText("已完成 · 已钉到过程树")).toBeVisible({ timeout: 20_000 });
 
   // Refeed turn: send another message; the completed card rides the history.
+  // ChatLog.tsx renders every message (student or AI) as a child div inside
+  // #mk-chat > div (the maxWidth-720 centering div). Count before send, then
+  // assert the count grew by ≥2: +1 for the student message, +≥1 for the AI reply.
+  const chatItems = page.locator("#mk-chat > div > div");
+  const countBefore = await chatItems.count();
   await page.getByPlaceholder("把你的想法发给陪练……").fill("好了，我已经核过来源。接下来帮我把论点写扎实一点。");
   await page.getByRole("button", { name: "发送" }).click();
-  // The reply streaming without error is enough (refeed-aware history worked).
-  await page.waitForTimeout(3_000);
+  // Fail if no AI reply renders (live-model error or pipeline break would leave count at +1).
+  await expect(async () => {
+    const n = await chatItems.count();
+    expect(n).toBeGreaterThanOrEqual(countBefore + 2);
+  }).toPass({ timeout: 60_000, intervals: [1_000] });
 
   // Evaluation (LIVE flagship): trigger and wait for 你的思维印记.
   await page.getByRole("button", { name: /^(生成思维印记|重新评估)$/ }).click();
@@ -95,12 +112,15 @@ test("golden path: admin → teacher → student → evaluation → signals", as
   // 7. Admin overview reflects the new class/student.
   await login(page, ADMIN.email, ADMIN.password);
   await expect(page.getByRole("tab", { name: "概览" })).toBeVisible();
-  await expect(page.getByText("学生")).toBeVisible();
+  // OverviewView.tsx renders stat cards: each outer div's textContent is label+count
+  // (e.g. "学生3"). Assert the student stat shows a non-zero positive integer,
+  // proving real data was fetched — not just that a static label is present.
+  await expect(page.locator("div").filter({ hasText: /^学生[1-9]\d*$/ })).toBeVisible({ timeout: 15_000 });
 });
 
 // Summon-with-retry: wait for a proposed card; if none, send one explicit
 // source-vetting nudge and wait again; fail with a clear diagnostic on timeout.
-async function summonCardWithRetry(page: Page, proposal, openBtn) {
+async function summonCardWithRetry(page: Page, proposal: Locator) {
   try {
     await expect(proposal.first()).toBeVisible({ timeout: 45_000 });
     return;
