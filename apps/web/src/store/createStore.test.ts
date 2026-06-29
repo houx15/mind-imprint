@@ -35,7 +35,7 @@ describe("server-hydrated store", () => {
       task: task("t1"),
       messages: [msg("srv1", "t1", "server")],
       cards: [card("csrv", "t1", "completed")],
-      evaluation: { task_id: "t1", scores: [], narrative: "n", created_at: "z" },
+      evaluation: { id: "", task_id: "t1", status: "done" as const, completed_at: null, scores: [], narrative: "n", created_at: "z" },
     });
     expect(s.listMessages("t1").map((m) => m.id)).toEqual(["srv1"]);
     expect(s.listCards("t1").map((c) => c.id)).toEqual(["csrv"]);

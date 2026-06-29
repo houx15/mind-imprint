@@ -10,7 +10,7 @@ const phoebeNarrative =
   "这一程你最大的转变发生在两处。你没有直接采信那篇公众号文章，而是横向找到了 NASA 与 Nature Sustainability（IF 32.1）两个独立来源——来源意识从被动变主动。面对「碳排放全球第一」这个对你不利的事实，你选择正面接住、写让步段，而不是绕开——这是 L4 级的对立观点处理。下一步可以多问自己一句：这些来源各自的立场是什么？";
 
 const phoebeEvaluation: Evaluation = {
-  task_id: "task-phoebe-001",
+  id: "ev-phoebe", task_id: "task-phoebe-001", status: "done", completed_at: null,
   narrative: phoebeNarrative,
   created_at: "2026-06-21T00:00:00.000Z",
   scores: [
@@ -101,7 +101,7 @@ describe("EvalModal", () => {
 
   it("evaluation with single score still renders correctly", () => {
     const singleScoreEval: Evaluation = {
-      task_id: "task-single",
+      id: "ev-single", task_id: "task-single", status: "done", completed_at: null,
       narrative: "你主动找到了 NASA 数据作为权威来源，来源意识已从萌芽阶段进入发展期。",
       created_at: "2026-06-21T00:00:00.000Z",
       scores: [{ dim_id: "D2", level: "L2", note: "偶尔追问来源但尚未深入" }],

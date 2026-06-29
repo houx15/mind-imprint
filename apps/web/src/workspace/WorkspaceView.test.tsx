@@ -113,7 +113,7 @@ function makeEvaluator(initialPhase: EvalPhase = "idle", evaluation?: Evaluation
 
 function makeEvaluation(): Evaluation {
   return {
-    task_id: "t1",
+    id: "ev-fixture", task_id: "t1", status: "done", completed_at: null,
     scores: [
       { dim_id: "D2", level: "L2", note: "能识别多个来源" },
       { dim_id: "D3", level: "L2", note: "有一定横向验证" },

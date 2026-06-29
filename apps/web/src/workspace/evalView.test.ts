@@ -6,7 +6,7 @@ import type { Evaluation } from "@mind-imprint/contracts";
 // ─── fixtures ────────────────────────────────────────────────────────────────
 
 const baseEvaluation: Evaluation = {
-  task_id: "task-phoebe-001",
+  id: "ev-fixture", task_id: "task-phoebe-001", status: "done", completed_at: null,
   narrative:
     "这一程你最大的转变发生在两处。你没有直接采信那篇公众号文章，而是横向找到了 NASA 与 Nature Sustainability（IF 32.1）两个独立来源——来源意识从被动变主动。面对「碳排放全球第一」这个对你不利的事实，你选择正面接住、写让步段，而不是绕开。",
   created_at: "2026-06-21T00:00:00.000Z",

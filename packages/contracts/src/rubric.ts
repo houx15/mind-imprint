@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-export const SoloLevel = z.enum(["L1", "L2", "L3", "L4"]);
+export const SoloLevel = z.enum(["L1", "L2", "L3", "L4", "NA"]);
 export type SoloLevel = z.infer<typeof SoloLevel>;
-export const SOLO_LABELS: Record<SoloLevel, string> = { L1: "萌芽", L2: "发展中", L3: "熟练", L4: "卓越" };
+
+// A scored level excludes N/A (N/A = insufficient evidence, rendered neutrally, not on the bar).
+export type ScoredLevel = Exclude<SoloLevel, "NA">;
+export const SOLO_LABELS: Record<ScoredLevel, string> = { L1: "萌芽", L2: "发展中", L3: "熟练", L4: "卓越" };
 
 export interface RubricDimension {
   id: string; name: string; framework: string;
@@ -28,4 +31,6 @@ export const FULL_RUBRIC: RubricDimension[] = [
     anchors: { L1: "整段照搬 AI 输出，不标注、不改写", L2: "偶尔改写，但分不清哪些是 AI、哪些是自己的", L3: "明确区分 AI 贡献与个人加工，主动声明 AI 使用", L4: "在 AI 基础上有独立判断与增量，诚信声明清晰可核" } },
   { id: "D9", name: "AI 边界与伦理", framework: "TOK 知识与技术 · 伦理使用（输出）",
     anchors: { L1: "把 AI 当全知，不质疑其可能出错或编造", L2: "知道 AI 会错，但不主动核查", L3: "主动核查 AI 可能幻觉处，识别其知识边界", L4: "系统性评估 AI 局限与伦理风险，按场景决定是否/如何用" } },
+  { id: "D10", name: "协作编排", framework: "意图与编排 · 跨轮驱动与贡献",
+    anchors: { L1: "把 AI 当答案机器：直接要成品，不带入自己的材料，不追问不调整", L2: "被 AI 追问后才补充自己的材料，不主动规划协作步骤", L3: "未经提示就带入自己的草稿/链接/提纲，并跨轮驱动改进", L4: "跨步骤编排 AI 角色、管理上下文、沉淀可复用结构" } },
 ];

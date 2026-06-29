@@ -4,7 +4,7 @@ import { makeMemoryStorage, STORE_KEY } from "./storage";
 import type { Evaluation } from "@mind-imprint/contracts";
 
 function ev(task_id: string, at: string, narrative: string): Evaluation {
-  return { task_id, scores: [{ dim_id: "D2", level: "L4", note: "n" }], narrative, created_at: at };
+  return { id: "", task_id, status: "done", completed_at: null, scores: [{ dim_id: "D2", level: "L4", note: "n" }], narrative, created_at: at };
 }
 
 describe("store evaluations", () => {

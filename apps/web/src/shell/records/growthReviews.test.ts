@@ -3,7 +3,7 @@ import { deriveGrowthReviews } from "./growthReviews";
 import type { Evaluation } from "@mind-imprint/contracts";
 
 function ev(created_at: string, narrative: string): Evaluation {
-  return { task_id: "t1", scores: [], narrative, created_at };
+  return { id: "", task_id: "t1", status: "done", completed_at: null, scores: [], narrative, created_at };
 }
 
 describe("deriveGrowthReviews", () => {

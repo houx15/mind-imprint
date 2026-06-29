@@ -4,7 +4,7 @@ import { FULL_RUBRIC } from "@mind-imprint/contracts";
 import type { Evaluation } from "@mind-imprint/contracts";
 
 function ev(created_at: string, scores: { dim_id: string; level: "L1"|"L2"|"L3"|"L4" }[]): Evaluation {
-  return { task_id: "t1", created_at, narrative: "",
+  return { id: "", task_id: "t1", status: "done", completed_at: null, created_at, narrative: "",
     scores: scores.map((s) => ({ ...s, note: "" })) };
 }
 
