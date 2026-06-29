@@ -47,7 +47,7 @@ function makeStore(overrides: {
   const messages: Message[] = overrides.messages ?? [];
   const cards: CardInstance[] = overrides.cards ?? [];
 
-  const storeState = { version: 1 as const, tasks: [task], messages, cards, evaluations: [] };
+  const storeState = { version: 1 as const, tasks: [task], messages, cards, evaluations: [], lastSeenEvaluationAt: {} };
 
   return {
     getSnapshot: () => storeState,
@@ -67,6 +67,8 @@ function makeStore(overrides: {
     putEvaluation: vi.fn() as any,
     listEvaluations: vi.fn() as any,
     getLatestEvaluation: vi.fn() as any,
+    getLastSeenEvaluationAt: vi.fn() as any,
+    setLastSeenEvaluationAt: vi.fn() as any,
     putTask: vi.fn() as any,
     putMessage: vi.fn() as any,
     removeMessage: vi.fn() as any,

@@ -7,8 +7,9 @@ export const StoreState = z.object({
   messages: z.array(Message),
   cards: z.array(CardInstance),
   evaluations: z.array(Evaluation).default([]),
+  lastSeenEvaluationAt: z.record(z.string()).default({}),
 });
 
 export type StoreState = z.infer<typeof StoreState>;
 
-export const EMPTY_STATE: StoreState = { version: 1, tasks: [], messages: [], cards: [], evaluations: [] };
+export const EMPTY_STATE: StoreState = { version: 1, tasks: [], messages: [], cards: [], evaluations: [], lastSeenEvaluationAt: {} };

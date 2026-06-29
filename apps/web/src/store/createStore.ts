@@ -23,6 +23,8 @@ export interface Store {
   putEvaluation(evaluation: Evaluation): void;
   listEvaluations(task_id: string): Evaluation[];
   getLatestEvaluation(task_id: string): Evaluation | undefined;
+  getLastSeenEvaluationAt(task_id: string): string | undefined;
+  setLastSeenEvaluationAt(task_id: string, iso: string): void;
   putTask(task: Task): void;
   putMessage(message: Message): void;
   removeMessage(id: string): void;
@@ -124,6 +126,10 @@ export function createStore(opts: CreateStoreOptions): Store {
       const evals = state.evaluations.filter((e) => e.task_id === task_id);
       if (evals.length === 0) return undefined;
       return evals.reduce((max, e) => (e.created_at > max.created_at ? e : max));
+    },
+    getLastSeenEvaluationAt: (task_id) => state.lastSeenEvaluationAt[task_id],
+    setLastSeenEvaluationAt(task_id, iso) {
+      commit({ ...state, lastSeenEvaluationAt: { ...state.lastSeenEvaluationAt, [task_id]: iso } });
     },
     putTask(task) {
       const idx = state.tasks.findIndex((t) => t.id === task.id);

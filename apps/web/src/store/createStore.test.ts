@@ -149,3 +149,13 @@ describe("createStore — load policy", () => {
     warn.mockRestore();
   });
 });
+
+describe("lastSeenEvaluationAt", () => {
+  it("is undefined until set, then returns the stored iso per task", () => {
+    const store = createStore({});
+    expect(store.getLastSeenEvaluationAt("t1")).toBeUndefined();
+    store.setLastSeenEvaluationAt("t1", "2026-06-29T00:00:05.000Z");
+    expect(store.getLastSeenEvaluationAt("t1")).toBe("2026-06-29T00:00:05.000Z");
+    expect(store.getLastSeenEvaluationAt("t2")).toBeUndefined();
+  });
+});
