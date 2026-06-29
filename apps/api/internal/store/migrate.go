@@ -23,5 +23,11 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
-	return goose.UpContext(ctx, db, "migrations")
+	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
+		return err
+	}
+
+	// Apply river's own schema (river_job et al.) so every caller that runs
+	// migrations gets the job-queue tables. Idempotent via river's versioning.
+	return RunRiverMigrations(ctx, pool)
 }
