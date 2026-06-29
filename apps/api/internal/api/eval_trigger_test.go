@@ -66,3 +66,35 @@ func TestPutCard_TriggersMilestoneEval(t *testing.T) {
 		t.Fatalf("after card2: enqueues=%d, want 1 (in-flight debounce)", len(rec.calls))
 	}
 }
+
+func TestPostEvaluate_InflightIsIdempotent(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: SeedUserID, Title: "T"})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	// Pre-seed an in-flight (queued) eval directly.
+	existing, err := q.EnqueueEvaluation(ctx, task.ID)
+	if err != nil {
+		t.Fatalf("seed enqueue: %v", err)
+	}
+
+	rec := &recordingEnqueuer{}
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Enqueuer: rec}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// Manual POST /evaluate while one is in flight → 202 with the existing row, no new job.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/evaluate", nil), cookie))
+	if rr.Code != 202 {
+		t.Fatalf("status=%d want 202; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), existing.ID.String()) {
+		t.Fatalf("body should return the in-flight eval %s: %s", existing.ID, rr.Body.String())
+	}
+	if len(rec.calls) != 0 {
+		t.Fatalf("no new job should be enqueued, got %d", len(rec.calls))
+	}
+}

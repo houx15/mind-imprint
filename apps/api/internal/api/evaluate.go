@@ -29,6 +29,14 @@ func (a *API) postEvaluate(w http.ResponseWriter, r *http.Request) {
 	// Insert a queued evaluation row, then hand the job off to the async queue.
 	ev, err := a.d.Queries.EnqueueEvaluation(r.Context(), t.ID)
 	if err != nil {
+		// One in-flight eval per task (partial unique index). If one is already
+		// queued/running, return it — the client polls it — instead of erroring.
+		if isUniqueViolation(err) {
+			if existing, gerr := a.d.Queries.GetLatestEvaluation(r.Context(), t.ID); gerr == nil {
+				httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"evaluation": toEvaluationDTO(existing)})
+				return
+			}
+		}
 		httpx.WriteError(w, r, err)
 		return
 	}
