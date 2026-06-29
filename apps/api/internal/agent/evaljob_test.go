@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
@@ -72,7 +73,10 @@ func TestEvaluateWorker_Work_FinishesDone(t *testing.T) {
 		SpecByID: noSpec,
 	}
 	evalID, taskID := uuid.New(), uuid.New()
-	job := &river.Job[EvaluateArgs]{Args: EvaluateArgs{EvaluationID: evalID, TaskID: taskID}}
+	job := &river.Job[EvaluateArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3},
+		Args:   EvaluateArgs{EvaluationID: evalID, TaskID: taskID},
+	}
 
 	if err := w.Work(context.Background(), job); err != nil {
 		t.Fatalf("work: %v", err)
@@ -107,10 +111,12 @@ func TestEvaluateWorker_Work_FinishesDone(t *testing.T) {
 	}
 }
 
-// TestEvaluateWorker_Work_FailsOnParseError exercises the retry-then-fail path:
-// the stub replays unparseable text on every Collect, so both attempts fail; the
-// worker must call Fail with a sanitized reason and return a non-nil error (so
-// river can retry). (Replaces the old TestRunEvaluationRetriesThenFails.)
+// TestEvaluateWorker_Work_FailsOnParseError exercises the retry-then-fail path on
+// the FINAL attempt: the stub replays unparseable text on every Collect, so both
+// the initial parse and the parse-retry fail; on the last attempt
+// (Attempt==MaxAttempts) the worker must call Fail with a sanitized reason (the
+// terminal state) and return a non-nil error. (Replaces the old
+// TestRunEvaluationRetriesThenFails.)
 func TestEvaluateWorker_Work_FailsOnParseError(t *testing.T) {
 	store := &fakeLifecycleStore{}
 	prov := gateway.NewStubProvider([]gateway.StreamEvent{
@@ -124,11 +130,14 @@ func TestEvaluateWorker_Work_FailsOnParseError(t *testing.T) {
 		SpecByID: noSpec,
 	}
 	evalID := uuid.New()
-	job := &river.Job[EvaluateArgs]{Args: EvaluateArgs{EvaluationID: evalID, TaskID: uuid.New()}}
+	job := &river.Job[EvaluateArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 3, MaxAttempts: 3}, // final attempt
+		Args:   EvaluateArgs{EvaluationID: evalID, TaskID: uuid.New()},
+	}
 
 	err := w.Work(context.Background(), job)
 	if err == nil {
-		t.Fatal("want parse-failure error after retry")
+		t.Fatal("want parse-failure error on final attempt")
 	}
 	if store.failedID != evalID {
 		t.Fatalf("Fail not called with eval id: got %v", store.failedID)
@@ -138,6 +147,50 @@ func TestEvaluateWorker_Work_FailsOnParseError(t *testing.T) {
 	}
 	if store.finished != nil {
 		t.Error("Finish must not be called on the failure path")
+	}
+}
+
+// TestEvaluateWorker_Work_NonFinalAttempt_DoesNotMarkFailed verifies the
+// retry-budget contract: on a NON-final attempt (Attempt < MaxAttempts) a
+// runEval failure must NOT persist the terminal 'failed' state (else a later
+// successful retry would flip failed→done with a stale error). The worker still
+// returns the error so river retries until attempts are exhausted.
+func TestEvaluateWorker_Work_NonFinalAttempt_DoesNotMarkFailed(t *testing.T) {
+	store := &fakeLifecycleStore{}
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "not json"},
+		{Kind: gateway.EventDone},
+	})
+	w := &EvaluateWorker{
+		Store:    store,
+		Provider: prov,
+		Resolver: flagshipResolver("deepseek-reasoner"),
+		SpecByID: noSpec,
+	}
+	evalID := uuid.New()
+	job := &river.Job[EvaluateArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 3}, // not the final attempt
+		Args:   EvaluateArgs{EvaluationID: evalID, TaskID: uuid.New()},
+	}
+
+	err := w.Work(context.Background(), job)
+	if err == nil {
+		t.Fatal("want error so river retries the non-final attempt")
+	}
+	if store.failedID != uuid.Nil {
+		t.Fatalf("Fail must NOT be called on a non-final attempt: got %v", store.failedID)
+	}
+	if store.finished != nil {
+		t.Error("Finish must not be called on the failure path")
+	}
+}
+
+// TestEvaluateArgs_InsertOpts_CapsAttempts pins the per-job-type retry cap: all
+// eval jobs default to 3 attempts (so a deterministically-poisoned job can't
+// burn ~50 flagship calls at river's default MaxAttempts=25).
+func TestEvaluateArgs_InsertOpts_CapsAttempts(t *testing.T) {
+	if got := (EvaluateArgs{}).InsertOpts().MaxAttempts; got != 3 {
+		t.Fatalf("InsertOpts().MaxAttempts = %d, want 3", got)
 	}
 }
 

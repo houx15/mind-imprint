@@ -22,6 +22,16 @@ type EvaluateArgs struct {
 // Kind uniquely identifies the job type for river. Stable across deploys.
 func (EvaluateArgs) Kind() string { return "evaluate" }
 
+// InsertOpts caps retries for ALL eval jobs at 3 attempts (vs river's default of
+// 25). Each Work invocation can spend up to two FLAGSHIP calls (runEval's initial
+// parse + one parse-retry), and eval is the never-downgrade, most cost-sensitive
+// path — so a deterministically-poisoned job (unparseable JSON, malformed task)
+// must not burn ~50 flagship calls before it's abandoned. This is a per-job-type
+// default applied even when the enqueue call passes nil insertion opts.
+func (EvaluateArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{MaxAttempts: 3}
+}
+
 // EvaluateWorker is the SOLE eval entrypoint: it owns the queued→running→done/
 // failed lifecycle around the shared runEval compute. The flagship model is used
 // and never downgraded (Resolver must be the flagship resolver).
@@ -43,8 +53,15 @@ func (w *EvaluateWorker) Work(ctx context.Context, job *river.Job[EvaluateArgs])
 	}
 	r, err := runEval(ctx, w.Store, w.Provider, w.Resolver, w.SpecByID, job.Args.TaskID)
 	if err != nil {
-		// Sanitize: store a generic reason; the real cause stays in the returned error.
-		_ = w.Store.Fail(ctx, id, "评估执行失败")
+		// Persist the terminal 'failed' state ONLY on the final attempt. Marking
+		// it terminal on an earlier attempt would let a later successful retry
+		// flip failed→done, leaving a stale error. Until attempts are exhausted
+		// the row stays 'running' between retries (MarkRunning is a no-op once
+		// running). Always return the error so river keeps retrying.
+		if job.Attempt >= job.MaxAttempts {
+			// Sanitize: store a generic reason; the real cause stays in the returned error.
+			_ = w.Store.Fail(ctx, id, "评估执行失败")
+		}
 		return err
 	}
 	scoresJSON, _ := json.Marshal(r.Out.Scores)
