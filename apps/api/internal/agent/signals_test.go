@@ -55,3 +55,34 @@ func TestComputeSignals_NoOverlap(t *testing.T) {
 		t.Errorf("MaxVerbatimOverlapChars=%d want ~0", s.MaxVerbatimOverlapChars)
 	}
 }
+
+func TestComputeSignals_NACandidates_Empty(t *testing.T) {
+	// One short student message, no sources, no AI, no cards.
+	s := ComputeSignals([]StoredMessage{{Role: "user", Content: "hi"}}, nil)
+	got := map[string]bool{}
+	for _, d := range s.NACandidates {
+		got[d] = true
+	}
+	for _, want := range []string{"D2", "D3", "D7", "D8", "D9"} {
+		if !got[want] {
+			t.Errorf("expected %s in NACandidates, got %v", want, s.NACandidates)
+		}
+	}
+	if got["D1"] || got["D4"] || got["D10"] {
+		t.Errorf("LLM-only dims must not be rule-marked N/A: %v", s.NACandidates)
+	}
+}
+
+func TestComputeSignals_NACandidates_RichTask(t *testing.T) {
+	long := "我认为中国在可再生能源上领先，因为装机量数据支持这一点，而且这段足够长以构成实质论证内容。"
+	msgs := []StoredMessage{
+		{Role: "user", Content: "看 https://nasa.gov/a 与 https://nature.com/b ：" + long},
+		{Role: "assistant", Content: "可以参考这两个来源。"},
+	}
+	s := ComputeSignals(msgs, nil)
+	for _, dim := range s.NACandidates {
+		if dim == "D2" || dim == "D3" || dim == "D7" || dim == "D9" {
+			t.Errorf("did not expect %s N/A-candidate in a rich task: %v", dim, s.NACandidates)
+		}
+	}
+}

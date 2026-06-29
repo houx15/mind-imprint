@@ -40,12 +40,17 @@ func distinctURLs(texts []string) int {
 func ComputeSignals(msgs []StoredMessage, cardInsts []CardInstance) EvalSignals {
 	var s EvalSignals
 	var studentTexts, aiTexts []string
+	maxStudentRunes := 0
 	for _, m := range msgs {
 		s.MessageCount++
 		switch m.Role {
 		case "user":
 			s.StudentTurnCount++
-			s.StudentCharCount += len([]rune(m.Content))
+			n := len([]rune(m.Content))
+			s.StudentCharCount += n
+			if n > maxStudentRunes {
+				maxStudentRunes = n
+			}
 			studentTexts = append(studentTexts, m.Content)
 		case "assistant":
 			s.AssistantTurnCount++
@@ -77,6 +82,26 @@ func ComputeSignals(msgs []StoredMessage, cardInsts []CardInstance) EvalSignals 
 		}
 		s.Cards = append(s.Cards, cs)
 	}
+
+	// N/A-candidate derivation (conservative; LLM may override per the
+	// injection contract). Facts only — no semantic judgement.
+	totalSources := s.SourceCountStudent + s.SourceCountAI
+	if totalSources == 0 {
+		s.NACandidates = append(s.NACandidates, "D2")
+	}
+	if totalSources < 2 {
+		s.NACandidates = append(s.NACandidates, "D3")
+	}
+	if maxStudentRunes < 40 {
+		s.NACandidates = append(s.NACandidates, "D7")
+	}
+	if s.MaxVerbatimOverlapChars < 20 {
+		s.NACandidates = append(s.NACandidates, "D8")
+	}
+	if s.AssistantTurnCount == 0 {
+		s.NACandidates = append(s.NACandidates, "D9")
+	}
+
 	return s
 }
 
