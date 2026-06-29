@@ -14,8 +14,8 @@ ORDER BY created_at DESC
 LIMIT 1;
 
 -- name: EnqueueEvaluation :one
-INSERT INTO evaluations (task_id, scores, narrative, model, tier, status)
-VALUES ($1, '[]'::jsonb, '', '', '', 'queued')
+INSERT INTO evaluations (task_id, scores, narrative, model, tier, status, trigger)
+VALUES ($1, '[]'::jsonb, '', '', '', 'queued', 'manual')
 RETURNING *;
 
 -- name: MarkEvaluationRunning :exec

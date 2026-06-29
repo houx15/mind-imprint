@@ -19,7 +19,7 @@ INSERT INTO evaluations (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, 'done', now()
 )
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
 `
 
 type CreateEvaluationParams struct {
@@ -61,14 +61,16 @@ func (q *Queries) CreateEvaluation(ctx context.Context, arg CreateEvaluationPara
 		&i.CompletedAt,
 		&i.Signals,
 		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
 	)
 	return i, err
 }
 
 const enqueueEvaluation = `-- name: EnqueueEvaluation :one
-INSERT INTO evaluations (task_id, scores, narrative, model, tier, status)
-VALUES ($1, '[]'::jsonb, '', '', '', 'queued')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version
+INSERT INTO evaluations (task_id, scores, narrative, model, tier, status, trigger)
+VALUES ($1, '[]'::jsonb, '', '', '', 'queued', 'manual')
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
 `
 
 func (q *Queries) EnqueueEvaluation(ctx context.Context, taskID uuid.UUID) (Evaluation, error) {
@@ -90,6 +92,8 @@ func (q *Queries) EnqueueEvaluation(ctx context.Context, taskID uuid.UUID) (Eval
 		&i.CompletedAt,
 		&i.Signals,
 		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
 	)
 	return i, err
 }
@@ -147,7 +151,7 @@ func (q *Queries) FinishEvaluation(ctx context.Context, arg FinishEvaluationPara
 }
 
 const getLatestEvaluation = `-- name: GetLatestEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone FROM evaluations
 WHERE task_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -172,6 +176,8 @@ func (q *Queries) GetLatestEvaluation(ctx context.Context, taskID uuid.UUID) (Ev
 		&i.CompletedAt,
 		&i.Signals,
 		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
 	)
 	return i, err
 }

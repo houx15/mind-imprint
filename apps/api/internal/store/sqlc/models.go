@@ -66,6 +66,8 @@ type Evaluation struct {
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
 	Signals          []byte             `json:"signals"`
 	RubricVersion    *string            `json:"rubric_version"`
+	Trigger          string             `json:"trigger"`
+	TriggerMilestone *int32             `json:"trigger_milestone"`
 }
 
 type LlmUsage struct {
