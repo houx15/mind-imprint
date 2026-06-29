@@ -19,10 +19,13 @@ describe("createEvaluator (async polling)", () => {
       .mockResolvedValueOnce(ev("running"))
       .mockResolvedValueOnce(ev("done"));
     const api = { runEvaluation: vi.fn().mockResolvedValue(ev("queued")), getEvaluation };
-    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait });
+    const store = fakeStore();
+    const evaluator = createEvaluator({ api, store, taskId: "t1", wait: noWait });
     await evaluator.run();
     expect(evaluator.getSnapshot().phase).toBe("done");
     expect(evaluator.getSnapshot().evaluation?.status).toBe("done");
+    expect(store.putEvaluation).toHaveBeenCalledTimes(1);
+    expect(store.putEvaluation).toHaveBeenCalledWith(expect.objectContaining({ status: "done" }));
   });
 
   it("resolves to 'error' when the eval status becomes 'failed'", async () => {
@@ -30,9 +33,11 @@ describe("createEvaluator (async polling)", () => {
       runEvaluation: vi.fn().mockResolvedValue(ev("queued")),
       getEvaluation: vi.fn().mockResolvedValue(ev("failed")),
     };
-    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait });
+    const store = fakeStore();
+    const evaluator = createEvaluator({ api, store, taskId: "t1", wait: noWait });
     await evaluator.run();
     expect(evaluator.getSnapshot().phase).toBe("error");
+    expect(store.putEvaluation).not.toHaveBeenCalled();
   });
 
   it("times out to 'error' if it never reaches a terminal status", async () => {
@@ -40,8 +45,23 @@ describe("createEvaluator (async polling)", () => {
       runEvaluation: vi.fn().mockResolvedValue(ev("queued")),
       getEvaluation: vi.fn().mockResolvedValue(ev("running")),
     };
-    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait, maxAttempts: 3 });
+    const store = fakeStore();
+    const evaluator = createEvaluator({ api, store, taskId: "t1", wait: noWait, maxAttempts: 3 });
     await evaluator.run();
     expect(evaluator.getSnapshot().phase).toBe("error");
+    expect(store.putEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a network error as phase 'error' with the error message", async () => {
+    const api = {
+      runEvaluation: vi.fn().mockRejectedValue(new Error("net error")),
+      getEvaluation: vi.fn(),
+    };
+    const store = fakeStore();
+    const evaluator = createEvaluator({ api, store, taskId: "t1", wait: noWait });
+    await evaluator.run();
+    expect(evaluator.getSnapshot().phase).toBe("error");
+    expect(evaluator.getSnapshot().error).toBe("net error");
+    expect(store.putEvaluation).not.toHaveBeenCalled();
   });
 });
