@@ -55,6 +55,14 @@ func ComputeSignals(msgs []StoredMessage, cardInsts []CardInstance) EvalSignals 
 	s.SourceCountStudent = distinctURLs(studentTexts)
 	s.SourceCountAI = distinctURLs(aiTexts)
 
+	for _, st := range studentTexts {
+		for _, ai := range aiTexts {
+			if n := longestCommonSubstring([]rune(st), []rune(ai)); n > s.MaxVerbatimOverlapChars {
+				s.MaxVerbatimOverlapChars = n
+			}
+		}
+	}
+
 	s.Cards = make([]CardSignal, 0, len(cardInsts))
 	for _, c := range cardInsts {
 		cs := CardSignal{CardID: c.CardID, Status: c.Status, OpCount: c.EventTraceLen}
@@ -85,4 +93,42 @@ func isEmptyValue(v any) bool {
 	default:
 		return false
 	}
+}
+
+// longestCommonSubstring returns the rune length of the longest contiguous
+// run shared by a and b. Each text is capped at maxLCSRunes to bound cost;
+// copy detection only needs to know a long verbatim run exists, not its exact
+// length past the cap.
+const maxLCSRunes = 4000
+
+func longestCommonSubstring(a, b []rune) int {
+	if len(a) > maxLCSRunes {
+		a = a[:maxLCSRunes]
+	}
+	if len(b) > maxLCSRunes {
+		b = b[:maxLCSRunes]
+	}
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	prev := make([]int, len(b)+1)
+	cur := make([]int, len(b)+1)
+	best := 0
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			if a[i-1] == b[j-1] {
+				cur[j] = prev[j-1] + 1
+				if cur[j] > best {
+					best = cur[j]
+				}
+			} else {
+				cur[j] = 0
+			}
+		}
+		prev, cur = cur, prev
+		for k := range cur {
+			cur[k] = 0
+		}
+	}
+	return best
 }

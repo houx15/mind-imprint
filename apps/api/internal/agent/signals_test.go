@@ -32,3 +32,26 @@ func TestComputeSignals_CountsAndSources(t *testing.T) {
 		t.Errorf("card signal wrong: %+v", s.Cards)
 	}
 }
+
+func TestComputeSignals_VerbatimOverlap(t *testing.T) {
+	shared := "中国太阳能装机容量全球第一这是一个足够长的片段"
+	msgs := []StoredMessage{
+		{Role: "assistant", Content: "根据资料，" + shared + "，你可以参考。"},
+		{Role: "user", Content: "我直接用：" + shared},
+	}
+	s := ComputeSignals(msgs, nil)
+	if s.MaxVerbatimOverlapChars != len([]rune(shared)) {
+		t.Errorf("MaxVerbatimOverlapChars=%d want %d", s.MaxVerbatimOverlapChars, len([]rune(shared)))
+	}
+}
+
+func TestComputeSignals_NoOverlap(t *testing.T) {
+	msgs := []StoredMessage{
+		{Role: "assistant", Content: "abcdefg"},
+		{Role: "user", Content: "完全不同的内容"},
+	}
+	s := ComputeSignals(msgs, nil)
+	if s.MaxVerbatimOverlapChars > 1 {
+		t.Errorf("MaxVerbatimOverlapChars=%d want ~0", s.MaxVerbatimOverlapChars)
+	}
+}
