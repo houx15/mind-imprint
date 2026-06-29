@@ -485,6 +485,34 @@ describe("WorkspaceView", () => {
       await userEvent.click(screen.getByRole("button", { name: /重试/ }));
       expect(ev.run).toHaveBeenCalled();
     });
+
+    it("does NOT show EvalModal when phase is error even if a prior done eval exists and showEvalModal is true", async () => {
+      // Regression guard: re-evaluate that errors while modal flag is true must NOT show stale
+      // "你的思维印记" alongside "评估失败". Old guard was `!== "running"` — "error" passed through.
+      // Sequence: first run succeeds (done → modal visible), then re-eval transitions to error.
+      const store = makeStore();
+      const evaluation = makeEvaluation();
+      const conv = makeConversation();
+      // Start with NO prior eval so button is "生成思维印记" (no confirm dialog needed)
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+      const { evaluator, setPhase } = makeEvaluator("idle");
+      render(
+        <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
+      );
+      // Click first run → sets showEvalModal=true, run() transitions evaluator to running
+      await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      // First eval completes: seed the store so latestDone is available, then transition to done
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(evaluation);
+      setPhase("done", evaluation);
+      // Modal is now visible (showEvalModal=true, latestDone set, phase="done")
+      expect(screen.getByText("你的思维印记")).toBeInTheDocument();
+      // Re-eval fails: transition directly to error (simulates a second run() call that errors)
+      setPhase("error", undefined);
+      // Error card must be visible
+      expect(screen.getByText("评估失败")).toBeInTheDocument();
+      // EvalModal must be suppressed — latestDone still in store but phase="error" blocks it
+      expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
+    });
   });
 
   describe("eval re-run guard", () => {

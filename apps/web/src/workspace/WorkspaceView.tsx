@@ -323,8 +323,8 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
           </div>
         )}
 
-        {/* Eval modal — reads store-latest done eval; suppressed while a run is active */}
-        {showEvalModal && latestDone && evalState.phase !== "running" && (
+        {/* Eval modal — reads store-latest done eval; suppressed while a run is active or errored */}
+        {showEvalModal && latestDone && (evalState.phase === "idle" || evalState.phase === "done") && (
           <EvalModal
             evaluation={latestDone}
             onClose={() => {
