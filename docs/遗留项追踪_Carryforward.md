@@ -209,3 +209,21 @@
 | **golden-path 卡片填写**：`summonCardWithRetry` 对 `tool_choice=auto` 有一次重试；`retries:1` playwright 配置已吸收一次随机失败；极偶发"模型拒绝召卡"属 live-model 方差，不是管道故障，重跑即可 | 无（RUNBOOK 已记录）| — |
 
 **结论：全栈 E2E live-smoke 套件已建立并验证（4 spec 文件，5 确定性测试全绿，golden-path type-clean 并已被 Playwright 发现），由开发者按 RUNBOOK 持有真实 key 后执行 live 跑。**
+
+---
+
+## P4 异步评估 + 里程碑自动触发（2026-06-29）
+
+P4 后端 backbone（async eval / river / 规则信号 / 10 维 v2 量规）已并入 main `0fb57c2`；其 follow-up **里程碑自动触发**已并入 main `1e2842e`（6 任务，subagent-driven，每任务复核 + opus 全分支终审「Ready WITH FIXES」+ 1 修复；全门禁绿）。Spec/plan 见 `docs/superpowers/{specs,plans}/2026-06-29-milestone-auto-trigger-*.md`。**纯后端**：服务端在里程碑（首张完成卡 **或** 6 个实质学生回合）自动入队评估，去抖（在途/10 分钟内已完成则跳过）+ 上限 3 次自动评估/任务；分区唯一索引 `evaluations_one_inflight_per_task` 保证「每任务至多 1 个在途评估」（迁移 0008 自愈，建索引前降级历史重复在途行）；worker 成功后回填 `task.status='evaluated'`（补回 P4 丢掉的标记）；手动 `POST /evaluate` 改为幂等（在途时返回现有行 202）。
+
+### 遗留 / 后续（里程碑，均非 bug）
+
+| 遗留项 | → 目标 | 必需？ |
+|---|---|---|
+| **turn 路径触发用 `r.Context()`**：最后一个 SSE 事件后客户端断连会取消 context → 该次里程碑触发被静默丢弃（best-effort 容忍）；`context.WithoutCancel` 可加固 | 加固轮 | 否 |
+| **失败的里程碑入队行计入上限 3**：infra 失败的行仍计入 cap（防失控，合理）；值得加注释说明「cap 计的是尝试不是成功」 | polish 轮 | 否 |
+| **`TestCountSignals` 未钉边界**：有 2 字符（排除）+ 25 字符（计入），无 19/20 字符行 → `>=20`→`>20` 回归测不出 | polish 轮 | 否 |
+| **worker 在 `Finish` 后崩溃可重复消费旗舰**：唯一索引不覆盖 `done` 行；重试会重跑 `runEval`（P4 既有路径，非本轮引入） | P4 加固轮 | 否 |
+| **P4 backbone fast-follows**（river-hop 集成测试、事务化入队 + stale-row reaper、死代码清理 `Deps.EvalResolver`/`EvalStore`/`CreateEvaluation`、test/content polish）| P4 加固轮 | 否 |
+
+**结论：里程碑自动触发全 6 任务完成 + 1 终审修复（迁移自愈），全门禁绿（build/vet + `go test -p 1 ./...` 全 9 包），无 Critical/Important 遗留。下一步 = 前端「你的思维印记」reveal UI，然后 billing/entitlement 头脑风暴。**
