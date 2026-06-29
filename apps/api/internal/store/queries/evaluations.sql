@@ -32,3 +32,17 @@ WHERE id = $1;
 -- name: FailEvaluation :exec
 UPDATE evaluations SET status = 'failed', error = $2, completed_at = now()
 WHERE id = $1;
+
+-- name: TryEnqueueMilestoneEvaluation :one
+INSERT INTO evaluations (task_id, scores, narrative, model, tier, status, trigger, trigger_milestone)
+SELECT sqlc.arg(task_id)::uuid, '[]'::jsonb, '', '', '', 'queued', 'milestone', sqlc.arg(milestone)::int
+WHERE sqlc.arg(milestone)::int > COALESCE((SELECT max(trigger_milestone) FROM evaluations
+                     WHERE task_id = sqlc.arg(task_id)::uuid AND trigger = 'milestone'), 0)
+  AND (SELECT count(*) FROM evaluations
+       WHERE task_id = sqlc.arg(task_id)::uuid AND trigger = 'milestone') < sqlc.arg(cap)::int
+  AND NOT EXISTS (SELECT 1 FROM evaluations
+                  WHERE task_id = sqlc.arg(task_id)::uuid AND status IN ('queued','running'))
+  AND NOT EXISTS (SELECT 1 FROM evaluations
+                  WHERE task_id = sqlc.arg(task_id)::uuid AND status = 'done'
+                    AND completed_at > now() - interval '10 minutes')
+RETURNING *;

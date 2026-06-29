@@ -191,3 +191,49 @@ func (q *Queries) MarkEvaluationRunning(ctx context.Context, id uuid.UUID) error
 	_, err := q.db.Exec(ctx, markEvaluationRunning, id)
 	return err
 }
+
+const tryEnqueueMilestoneEvaluation = `-- name: TryEnqueueMilestoneEvaluation :one
+INSERT INTO evaluations (task_id, scores, narrative, model, tier, status, trigger, trigger_milestone)
+SELECT $1::uuid, '[]'::jsonb, '', '', '', 'queued', 'milestone', $2::int
+WHERE $2::int > COALESCE((SELECT max(trigger_milestone) FROM evaluations
+                     WHERE task_id = $1::uuid AND trigger = 'milestone'), 0)
+  AND (SELECT count(*) FROM evaluations
+       WHERE task_id = $1::uuid AND trigger = 'milestone') < $3::int
+  AND NOT EXISTS (SELECT 1 FROM evaluations
+                  WHERE task_id = $1::uuid AND status IN ('queued','running'))
+  AND NOT EXISTS (SELECT 1 FROM evaluations
+                  WHERE task_id = $1::uuid AND status = 'done'
+                    AND completed_at > now() - interval '10 minutes')
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
+`
+
+type TryEnqueueMilestoneEvaluationParams struct {
+	TaskID    uuid.UUID `json:"task_id"`
+	Milestone int32     `json:"milestone"`
+	Cap       int32     `json:"cap"`
+}
+
+func (q *Queries) TryEnqueueMilestoneEvaluation(ctx context.Context, arg TryEnqueueMilestoneEvaluationParams) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, tryEnqueueMilestoneEvaluation, arg.TaskID, arg.Milestone, arg.Cap)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
+	)
+	return i, err
+}
