@@ -56,90 +56,102 @@ func parseEvalOutput(text string) (EvalLlmOutput, error) {
 	return out, nil
 }
 
-// EvalStore is the persistence seam RunEvaluation drives.
+// EvalStore is the read seam shared by the eval compute and the worker.
 type EvalStore interface {
 	EvalMessages(ctx context.Context, taskID uuid.UUID) ([]StoredMessage, error)
 	EvalCards(ctx context.Context, taskID uuid.UUID) ([]CardInstance, error)
 	CreateEvaluation(ctx context.Context, p sqlc.CreateEvaluationParams) (sqlc.Evaluation, error)
 }
 
-// EvalDeps are the inputs to RunEvaluation.
-type EvalDeps struct {
-	Store    EvalStore
-	Provider gateway.Provider
-	Resolver gateway.KeyResolver // FLAGSHIP resolver; never the chaperone one
-	SpecByID func(id string) (cards.Spec, bool)
-	TaskID   uuid.UUID
+// EvalLifecycleStore is the persistence seam the river EvaluateWorker drives:
+// reads (messages/cards) plus the queued→running→done/failed lifecycle.
+type EvalLifecycleStore interface {
+	EvalMessages(ctx context.Context, taskID uuid.UUID) ([]StoredMessage, error)
+	EvalCards(ctx context.Context, taskID uuid.UUID) ([]CardInstance, error)
+	MarkRunning(ctx context.Context, evalID uuid.UUID) error
+	Finish(ctx context.Context, p sqlc.FinishEvaluationParams) error
+	Fail(ctx context.Context, evalID uuid.UUID, msg string) error
 }
 
-// RunEvaluation assembles the eval input, calls the flagship model, parses with
-// one retry, and persists the evaluation row. Ports the TS runEvaluation.
-func RunEvaluation(ctx context.Context, deps EvalDeps) (sqlc.Evaluation, error) {
-	msgs, err := deps.Store.EvalMessages(ctx, deps.TaskID)
-	if err != nil {
-		return sqlc.Evaluation{}, err
-	}
-	cardInsts, err := deps.Store.EvalCards(ctx, deps.TaskID)
-	if err != nil {
-		return sqlc.Evaluation{}, err
-	}
-	system := BuildEvalPrompt(FullRubric)
-	user := AssembleEvalInput(msgs, cardInsts, deps.SpecByID)
+// runEvalResult bundles the shared eval compute outputs so the worker can
+// persist them (and so failures short-circuit before any write).
+type runEvalResult struct {
+	Out      EvalLlmOutput
+	Signals  EvalSignals
+	Res      gateway.ChatResult
+	Resolved gateway.Resolved
+}
 
-	resolved, err := deps.Resolver(ctx)
+// runEval is the shared eval compute: signals → prompt → flagship Collect →
+// parse-with-one-retry. It does not touch the lifecycle (MarkRunning/Finish/
+// Fail) — the worker wraps that around this. Ports the TS runEvaluation compute.
+func runEval(ctx context.Context, store EvalLifecycleStore, provider gateway.Provider,
+	resolver gateway.KeyResolver, specByID func(string) (cards.Spec, bool), taskID uuid.UUID) (runEvalResult, error) {
+
+	msgs, err := store.EvalMessages(ctx, taskID)
 	if err != nil {
-		return sqlc.Evaluation{}, err
+		return runEvalResult{}, err
+	}
+	cardInsts, err := store.EvalCards(ctx, taskID)
+	if err != nil {
+		return runEvalResult{}, err
+	}
+
+	sig := ComputeSignals(msgs, cardInsts)
+	system := BuildEvalPrompt(FullRubric)
+	user := BuildEvalUserInput(msgs, cardInsts, sig, specByID)
+
+	resolved, err := resolver(ctx)
+	if err != nil {
+		return runEvalResult{}, err
 	}
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
 			{Role: gateway.RoleUser, Content: user},
 		},
-		// Headroom for the 9-dim JSON + narrative; reasoning models spend
+		// Headroom for the 10-dim JSON + narrative; reasoning models spend
 		// completion tokens on hidden reasoning before the JSON (matches TS 8000).
 		MaxTokens: 8000,
 	}
 
-	res, err := gateway.Collect(ctx, deps.Provider, resolved, req)
+	res, err := gateway.Collect(ctx, provider, resolved, req)
 	if err != nil {
-		return sqlc.Evaluation{}, err
+		return runEvalResult{}, err
 	}
 	out, perr := parseEvalOutput(res.Text)
 	if perr != nil {
-		res, err = gateway.Collect(ctx, deps.Provider, resolved, req) // retry once
+		res, err = gateway.Collect(ctx, provider, resolved, req) // retry once
 		if err != nil {
-			return sqlc.Evaluation{}, err
+			return runEvalResult{}, err
 		}
-		out, perr = parseEvalOutput(res.Text)
-		if perr != nil {
-			return sqlc.Evaluation{}, errors.New("评估输出解析失败")
+		if out, perr = parseEvalOutput(res.Text); perr != nil {
+			return runEvalResult{}, errors.New("评估输出解析失败")
 		}
 	}
-
-	scoresJSON, err := json.Marshal(out.Scores)
-	if err != nil {
-		return sqlc.Evaluation{}, err
-	}
-	pt, ct := int32(res.Usage.InputTokens), int32(res.Usage.OutputTokens)
-	cost, ok := gateway.EstimateCost(resolved.Provider, resolved.Model, res.Usage.InputTokens, res.Usage.OutputTokens)
-	return deps.Store.CreateEvaluation(ctx, sqlc.CreateEvaluationParams{
-		TaskID:           deps.TaskID,
-		Scores:           scoresJSON,
-		Narrative:        out.Narrative,
-		Model:            resolved.Model,
-		Tier:             resolved.Tier,
-		PromptTokens:     &pt,
-		CompletionTokens: &ct,
-		CostEstimate:     gateway.CostNumeric(cost, ok),
-	})
+	return runEvalResult{Out: out, Signals: sig, Res: res, Resolved: resolved}, nil
 }
 
 // --- sqlc adapter ----------------------------------------------------------
 
 type sqlcEvalStore struct{ q *sqlc.Queries }
 
-// NewSqlcEvalStore adapts sqlc queries to EvalStore.
-func NewSqlcEvalStore(q *sqlc.Queries) EvalStore { return &sqlcEvalStore{q: q} }
+// NewSqlcEvalStore adapts sqlc queries to the eval seams. The returned
+// *sqlcEvalStore satisfies both EvalStore (reads) and EvalLifecycleStore
+// (reads + queued→running→done/failed lifecycle).
+func NewSqlcEvalStore(q *sqlc.Queries) *sqlcEvalStore { return &sqlcEvalStore{q: q} }
+
+func (s *sqlcEvalStore) MarkRunning(ctx context.Context, evalID uuid.UUID) error {
+	return s.q.MarkEvaluationRunning(ctx, evalID)
+}
+
+func (s *sqlcEvalStore) Finish(ctx context.Context, p sqlc.FinishEvaluationParams) error {
+	return s.q.FinishEvaluation(ctx, p)
+}
+
+func (s *sqlcEvalStore) Fail(ctx context.Context, evalID uuid.UUID, msg string) error {
+	return s.q.FailEvaluation(ctx, sqlc.FailEvaluationParams{ID: evalID, Error: &msg})
+}
 
 func (s *sqlcEvalStore) EvalMessages(ctx context.Context, taskID uuid.UUID) ([]StoredMessage, error) {
 	rows, err := s.q.ListMessagesByTask(ctx, taskID)
