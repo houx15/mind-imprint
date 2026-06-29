@@ -152,7 +152,18 @@ func TestE2EPhoebeVertical(t *testing.T) {
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 200}},
 		{Kind: gateway.EventDone},
 	}
-	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, turn2, evalScript}}
+	// evalScript2 is consumed by the explicit POST /evaluate in step 5.
+	// Script order matches the actual prov.Stream call sequence:
+	//   [0] turn1   → Turn 1 (step 2)
+	//   [1] evalScript → milestone auto-trigger after card submit (step 3)
+	//   [2] turn2   → Turn 2 (step 4)
+	//   [3] evalScript2 → explicit POST /evaluate (step 5)
+	evalScript2 := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"scores":[{"dim_id":"D2","level":"L4","note":"n"}],"narrative":"你的思维印记"}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 200}},
+		{Kind: gateway.EventDone},
+	}
+	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, evalScript, turn2, evalScript2}}
 
 	evalResolver := func(context.Context) (gateway.Resolved, error) {
 		return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship"}, nil

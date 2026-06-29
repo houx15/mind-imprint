@@ -119,6 +119,10 @@ func (a *API) putCard(w http.ResponseWriter, r *http.Request) {
 		ID: cardID, TaskID: taskID,
 		FieldValues: []byte(body.FieldValues), EventTrace: []byte(body.EventTrace),
 	})
+	if err == nil {
+		// A completed card may cross a milestone — best-effort, never blocks the response.
+		a.maybeTriggerMilestoneEval(r.Context(), taskID)
+	}
 	writeCardOrNotFound(w, r, c, err)
 }
 

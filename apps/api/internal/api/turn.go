@@ -136,5 +136,9 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 			"err", err.Error(),
 		)
 		_ = em.ErrorEnvelope("internal_error", "对话处理失败，请重试")
+		return
 	}
+	// Turn succeeded (assistant message persisted) — a new substantive turn may
+	// cross a milestone. Best-effort; must not write to the SSE stream.
+	a.maybeTriggerMilestoneEval(r.Context(), t.ID)
 }
