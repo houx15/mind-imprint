@@ -65,6 +65,87 @@ func (q *Queries) CreateEvaluation(ctx context.Context, arg CreateEvaluationPara
 	return i, err
 }
 
+const enqueueEvaluation = `-- name: EnqueueEvaluation :one
+INSERT INTO evaluations (task_id, scores, narrative, model, tier, status)
+VALUES ($1, '[]'::jsonb, '', '', '', 'queued')
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version
+`
+
+func (q *Queries) EnqueueEvaluation(ctx context.Context, taskID uuid.UUID) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, enqueueEvaluation, taskID)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+	)
+	return i, err
+}
+
+const failEvaluation = `-- name: FailEvaluation :exec
+UPDATE evaluations SET status = 'failed', error = $2, completed_at = now()
+WHERE id = $1
+`
+
+type FailEvaluationParams struct {
+	ID    uuid.UUID `json:"id"`
+	Error *string   `json:"error"`
+}
+
+func (q *Queries) FailEvaluation(ctx context.Context, arg FailEvaluationParams) error {
+	_, err := q.db.Exec(ctx, failEvaluation, arg.ID, arg.Error)
+	return err
+}
+
+const finishEvaluation = `-- name: FinishEvaluation :exec
+UPDATE evaluations SET
+    scores = $2, narrative = $3, signals = $4, rubric_version = $5,
+    model = $6, tier = $7, prompt_tokens = $8, completion_tokens = $9,
+    cost_estimate = $10, status = 'done', completed_at = now()
+WHERE id = $1
+`
+
+type FinishEvaluationParams struct {
+	ID               uuid.UUID      `json:"id"`
+	Scores           []byte         `json:"scores"`
+	Narrative        string         `json:"narrative"`
+	Signals          []byte         `json:"signals"`
+	RubricVersion    *string        `json:"rubric_version"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     *int32         `json:"prompt_tokens"`
+	CompletionTokens *int32         `json:"completion_tokens"`
+	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+}
+
+func (q *Queries) FinishEvaluation(ctx context.Context, arg FinishEvaluationParams) error {
+	_, err := q.db.Exec(ctx, finishEvaluation,
+		arg.ID,
+		arg.Scores,
+		arg.Narrative,
+		arg.Signals,
+		arg.RubricVersion,
+		arg.Model,
+		arg.Tier,
+		arg.PromptTokens,
+		arg.CompletionTokens,
+		arg.CostEstimate,
+	)
+	return err
+}
+
 const getLatestEvaluation = `-- name: GetLatestEvaluation :one
 SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version FROM evaluations
 WHERE task_id = $1
@@ -93,4 +174,14 @@ func (q *Queries) GetLatestEvaluation(ctx context.Context, taskID uuid.UUID) (Ev
 		&i.RubricVersion,
 	)
 	return i, err
+}
+
+const markEvaluationRunning = `-- name: MarkEvaluationRunning :exec
+UPDATE evaluations SET status = 'running'
+WHERE id = $1 AND status = 'queued'
+`
+
+func (q *Queries) MarkEvaluationRunning(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markEvaluationRunning, id)
+	return err
 }
