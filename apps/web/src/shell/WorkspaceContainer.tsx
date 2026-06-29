@@ -43,5 +43,23 @@ export function WorkspaceContainer({ store, taskId, onBack, openingMessage }: Pr
     return () => { cancelled = true; };
   }, [taskId, conversation, openingMessage, store]);
 
+  useEffect(() => {
+    const POLL_MS = 30_000;
+    let cancelled = false;
+    const id = setInterval(() => {
+      void (async () => {
+        try {
+          const latest = await api.getEvaluation(taskId);
+          if (cancelled || !latest || latest.status !== "done") return;
+          const known = store.getLatestEvaluation(taskId);
+          if (!known || latest.created_at > known.created_at) store.putEvaluation(latest);
+        } catch {
+          // best-effort: a failed poll is silently ignored
+        }
+      })();
+    }, POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [taskId, store]);
+
   return <WorkspaceView store={store} conversation={conversation} evaluator={evaluator} taskId={taskId} onBack={onBack} />;
 }

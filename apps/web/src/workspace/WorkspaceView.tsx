@@ -11,6 +11,7 @@ import { TreePanel } from "./TreePanel";
 import { CardSheetHost } from "./CardSheetHost";
 import { EvalLoading } from "./EvalLoading";
 import { EvalModal } from "./EvalModal";
+import { MindImprintIndicator } from "./MindImprintIndicator";
 import { messagesToItems } from "./viewModel";
 import { deriveProcessTree } from "./processTree";
 
@@ -44,6 +45,18 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
   const evalState = useEvaluator(evaluator);
 
   const task = store.getTask(taskId);
+
+  const latestEval = store.getLatestEvaluation(taskId);
+  const latestDone = latestEval && latestEval.status === "done" ? latestEval : undefined;
+  const lastSeen = store.getLastSeenEvaluationAt(taskId);
+  const hasUnseen = !!latestDone && (!lastSeen || latestDone.created_at > lastSeen);
+  const indicatorVisible = hasUnseen && !showEvalModal && evalState.phase !== "running";
+
+  function openReveal() {
+    if (latestDone) store.setLastSeenEvaluationAt(taskId, latestDone.created_at);
+    setShowEvalModal(true);
+  }
+
   const phase = convState.phase;
   const pendingCardId = convState.pendingCardId;
 
@@ -256,6 +269,8 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
           />
         )}
 
+        <MindImprintIndicator visible={indicatorVisible} onOpen={openReveal} />
+
         {/* Eval loading overlay */}
         {evalState.phase === "running" && <EvalLoading />}
 
@@ -308,11 +323,14 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
           </div>
         )}
 
-        {/* Eval modal — shown when done and not dismissed */}
-        {evalState.phase === "done" && evalState.evaluation && showEvalModal && (
+        {/* Eval modal — reads store-latest done eval; suppressed while a run is active */}
+        {showEvalModal && latestDone && evalState.phase !== "running" && (
           <EvalModal
-            evaluation={evalState.evaluation}
-            onClose={() => setShowEvalModal(false)}
+            evaluation={latestDone}
+            onClose={() => {
+              store.setLastSeenEvaluationAt(taskId, latestDone.created_at);
+              setShowEvalModal(false);
+            }}
           />
         )}
       </div>

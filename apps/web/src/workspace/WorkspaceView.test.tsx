@@ -380,7 +380,8 @@ describe("WorkspaceView", () => {
       expect(screen.queryByText("你的思维印记")).not.toBeInTheDocument();
       // click button — sets showEvalModal=true and calls run() (mock transitions to running)
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
-      // simulate evaluator completing
+      // simulate evaluator completing: seed the store so latestDone is available
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(evaluation);
       setPhase("done", evaluation);
       expect(screen.getByText("你的思维印记")).toBeInTheDocument();
     });
@@ -394,6 +395,8 @@ describe("WorkspaceView", () => {
         <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
       );
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      // seed the store so latestDone is available when phase transitions to done
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(evaluation);
       setPhase("done", evaluation);
       // Faces start expanded; categories are collapsed — expand "信息素养" to reveal D2=信源辨识
       await userEvent.click(screen.getByText("信息素养"));
@@ -409,6 +412,8 @@ describe("WorkspaceView", () => {
         <WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} evaluator={evaluator} />,
       );
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
+      // seed the store so latestDone is available when phase transitions to done
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(evaluation);
       setPhase("done", evaluation);
       expect(screen.getByText("你的思维印记")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: /回到任务/ }));
@@ -431,7 +436,8 @@ describe("WorkspaceView", () => {
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
       expect(screen.getByText(/旗舰模型正在评估/)).toBeInTheDocument();
 
-      // transition to done
+      // transition to done: seed the store so latestDone is available
+      (store.getLatestEvaluation as ReturnType<typeof vi.fn>).mockReturnValue(evaluation);
       setPhase("done", evaluation);
       expect(screen.queryByText(/旗舰模型正在评估/)).not.toBeInTheDocument();
       expect(screen.getByText("你的思维印记")).toBeInTheDocument();
