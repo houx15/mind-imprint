@@ -1,24 +1,47 @@
-import { describe, it, expect } from "vitest";
-import { createStore } from "../store/createStore";
+import { describe, it, expect, vi } from "vitest";
 import { createEvaluator } from "./createEvaluator";
+import type { Evaluation } from "@mind-imprint/contracts";
+import type { Store } from "../store/createStore";
 
-const task = { id: "t1", title: "t", seed: null, status: "active" as const, created_at: "1", last_active_at: "1" };
+function fakeStore(): Store {
+  return { putEvaluation: vi.fn() } as unknown as Store;
+}
+const ev = (status: Evaluation["status"]): Evaluation => ({
+  id: "ev1", task_id: "t1", status, scores: [], narrative: "n",
+  created_at: "2026-06-29T00:00:00.000Z", completed_at: null,
+});
 
-describe("createEvaluator (API)", () => {
-  it("run() calls the API, stores the evaluation, and ends done", async () => {
-    const store = createStore({}); store.putTask(task);
-    const evaluation = { task_id: "t1", scores: [{ dim_id: "D1", level: "L3", note: "n" }], narrative: "印记", created_at: "z" };
-    const api = { async runEvaluation() { return evaluation; } };
-    const ev = createEvaluator({ api: api as never, store, taskId: "t1" });
-    await ev.run();
-    expect(ev.getSnapshot()).toMatchObject({ phase: "done", evaluation });
-    expect(store.getLatestEvaluation("t1")!.narrative).toBe("印记");
+describe("createEvaluator (async polling)", () => {
+  const noWait = async () => {};
+
+  it("polls queued → running → done and resolves to phase 'done'", async () => {
+    const getEvaluation = vi.fn()
+      .mockResolvedValueOnce(ev("running"))
+      .mockResolvedValueOnce(ev("done"));
+    const api = { runEvaluation: vi.fn().mockResolvedValue(ev("queued")), getEvaluation };
+    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait });
+    await evaluator.run();
+    expect(evaluator.getSnapshot().phase).toBe("done");
+    expect(evaluator.getSnapshot().evaluation?.status).toBe("done");
   });
-  it("run() surfaces an error", async () => {
-    const store = createStore({}); store.putTask(task);
-    const api = { async runEvaluation() { throw new Error("评估失败"); } };
-    const ev = createEvaluator({ api: api as never, store, taskId: "t1" });
-    await ev.run();
-    expect(ev.getSnapshot()).toMatchObject({ phase: "error", error: "评估失败" });
+
+  it("resolves to 'error' when the eval status becomes 'failed'", async () => {
+    const api = {
+      runEvaluation: vi.fn().mockResolvedValue(ev("queued")),
+      getEvaluation: vi.fn().mockResolvedValue(ev("failed")),
+    };
+    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait });
+    await evaluator.run();
+    expect(evaluator.getSnapshot().phase).toBe("error");
+  });
+
+  it("times out to 'error' if it never reaches a terminal status", async () => {
+    const api = {
+      runEvaluation: vi.fn().mockResolvedValue(ev("queued")),
+      getEvaluation: vi.fn().mockResolvedValue(ev("running")),
+    };
+    const evaluator = createEvaluator({ api, store: fakeStore(), taskId: "t1", wait: noWait, maxAttempts: 3 });
+    await evaluator.run();
+    expect(evaluator.getSnapshot().phase).toBe("error");
   });
 });
