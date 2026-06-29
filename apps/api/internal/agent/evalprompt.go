@@ -1,8 +1,15 @@
 package agent
 
 import (
+	"encoding/json"
 	"strings"
+
+	"mindimprint/api/internal/cards"
 )
+
+// RubricVersion identifies the rubric schema used for evaluation outputs.
+// Consumed by the worker (Task 9) to tag evaluation rows.
+const RubricVersion = "cognitive-model-v2"
 
 // BuildEvalPrompt ports the TS buildEvalPrompt verbatim.
 // Builds the evaluation system prompt for the flagship evaluator LLM.
@@ -76,9 +83,10 @@ Phoebe 完成让步段：正面承认中国碳排放数据，再以可再生能�
     { "dim_id": "D1", "level": "L3", "note": "Phoebe 提供了任务背景（用公众号文写中国可持续）与明确目标，问题具体可执行；但未结构化分步追问，停在 L3" },
     { "dim_id": "D7", "level": "L3", "note": "让步段产出论点-论据-解释结构完整，引用 NASA 与 Nature Sustainability 有出处并回应反方；论证链条尚未到严丝合缝，维持 L3" },
     { "dim_id": "D8", "level": "L2", "note": "放弃公众号改引一手来源体现了一定加工，但对话中未见明确区分 AI 贡献与个人贡献的声明，停在 L2" },
-    { "dim_id": "D9", "level": "L2", "note": "识别公众号不可信属信源层面；对 AI 本身局限/幻觉的主动核查在本次对话中较少，维持 L2" }
+    { "dim_id": "D9", "level": "NA", "note": "本次对话以来源核查为主，未见 Phoebe 对 AI 自身输出的事实主张提出质疑或核查——证据不足，N/A" },
+    { "dim_id": "D10", "level": "L3", "note": "Phoebe 未经提示就带入自己的引用材料并跨轮调整方向（放弃公众号改引一手来源），达到 L3 协作编排" }
   ],
-  "narrative": "Phoebe 本次会话展现出来源意识从被动转主动的关键跃迁：起步时想直接引用公众号，经 SIFT 工具卡引导后自主溯源到 NASA 与 Nature Sustainability 两个独立权威来源（D2/D3 均达 L4）。正面接住反例「中国碳排放全球第一」并写出让步段，体现了 L4 对立观点处理（D4）。论证拆解（D5）与元认知反思（D6）处于 L3——能识别基本结构与信任偏差，但对隐藏前提与跨情境迁移的觉察仍有提升空间。下一步可以问：你引用的 NASA 报告和 Nature Sustainability 各自的立场与资助来源是什么？进一步锻炼 D6 的认知者位置意识。"
+  "narrative": "Phoebe 本次会话展现出来源意识从被动转主动的关键跃迁：起步时想直接引用公众号，经 SIFT 工具卡引导后自主溯源到 NASA 与 Nature Sustainability 两个独立权威来源（D2/D3 均达 L4）。正面接住反例「中国碳排放全球第一」并写出让步段，体现了 L4 对立观点处理（D4）。论证拆解（D5）与元认知反思（D6）处于 L3——能识别基本结构与信任偏差，但对隐藏前提与跨情境迁移的觉察仍有提升空间。未经提示自主带入一手来源并跨轮调整，体现协作编排（D10）L3；对 AI 事实核查无观察证据（D9 N/A）。下一步可以问：你引用的 NASA 报告和 Nature Sustainability 各自的立场与资助来源是什么？进一步锻炼 D6 的认知者位置意识。"
 }
 ` + "```"
 
@@ -89,7 +97,8 @@ Phoebe 完成让步段：正面承认中国碳排放数据，再以可再生能�
 - 评估结果只给学生本人看，语气诊断而非判断，帮助而非评判。
 - 你评估的是**思考过程**，不是结论对不对。
 - 不替学生定论——过程叙述里描述「你做了什么」而不是「你应该怎么想」。
-- 若某个维度在对话中几乎没有出现，给 L1 并在 note 里说明。
+- 若某个维度在对话中**没有可观察的证据**，给 **N/A**（本次未涉及）——绝不从「沉默」推断 L1。L1 必须有一个低质量行为的正面证据。
+- 评估输入末尾附有 **## 客观信号**：由系统确定性计算的硬事实（来源计数、复制检测、各卡填写情况、N/A 候选维度）。**你必须尊重这些事实，但可以解读**：若对话明确显示某行为，你可以推翻一个 N/A 候选；但你**不得**断言与信号相矛盾的事实（例如认定的来源数多于已计数的数量）。
 
 ---
 
@@ -117,9 +126,20 @@ JSON 结构：
 规则：
 - ` + "`scores`" + ` 数组必须覆盖量规中列出的所有维度，即 ` + dimIds + `
 - 每个 ` + "`dim_id`" + ` 必须是量规中的维度 id（` + dimIds + `）
-- ` + "`level`" + ` 只能是 L1 / L2 / L3 / L4
+- ` + "`level`" + ` 只能是 L1 / L2 / L3 / L4 / NA
 - ` + "`note`" + ` 为该维度的简短评注（1–2 句，引用对话中的具体行为作为证据）
 - ` + "`narrative`" + ` 为整体过程叙述（3–5 句，诊断 + 一个下一步建议）`
 
 	return prompt
+}
+
+// BuildEvalUserInput is AssembleEvalInput plus the deterministic 客观信号
+// block (the anti-hallucination anchor). The block is facts the model must
+// respect but may interpret (see the injection contract in BuildEvalPrompt).
+func BuildEvalUserInput(messages []StoredMessage, cardInsts []CardInstance, sig EvalSignals, specByID func(string) (cards.Spec, bool)) string {
+	base := AssembleEvalInput(messages, cardInsts, specByID)
+	b, _ := json.Marshal(sig)
+	return base + "\n\n## 客观信号（事实，须尊重但可解读）\n" +
+		"（source_count_*：学生/AI 各自引入的去重链接数；max_verbatim_overlap_chars：学生与 AI 文本的最长逐字重叠；na_candidates：证据不足、可判 N/A 的维度，对话另有证据时可推翻）\n" +
+		string(b)
 }
