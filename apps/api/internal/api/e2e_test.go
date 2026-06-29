@@ -18,12 +18,24 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/riverqueue/river"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// inlineWorkerEnqueuer drives the real EvaluateWorker synchronously so the e2e
+// vertical produces a finished evaluation without a running river client. The
+// queued→running→done lifecycle is exercised end-to-end against the scripted
+// flagship provider.
+type inlineWorkerEnqueuer struct{ w *agent.EvaluateWorker }
+
+func (e inlineWorkerEnqueuer) EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error {
+	return e.w.Work(ctx, &river.Job[agent.EvaluateArgs]{Args: args})
+}
 
 // ---------------------------------------------------------------------------
 // Local helpers
@@ -142,6 +154,16 @@ func TestE2EPhoebeVertical(t *testing.T) {
 	}
 	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, turn2, evalScript}}
 
+	evalResolver := func(context.Context) (gateway.Resolved, error) {
+		return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship"}, nil
+	}
+	enqueuer := inlineWorkerEnqueuer{w: &agent.EvaluateWorker{
+		Store:    agent.NewSqlcEvalStore(sqlc.New(pool)),
+		Provider: prov,
+		Resolver: evalResolver,
+		SpecByID: specByID,
+	}}
+
 	h := New(Deps{
 		Queries:  sqlc.New(pool),
 		Pool:     pool,
@@ -149,11 +171,10 @@ func TestE2EPhoebeVertical(t *testing.T) {
 		ChatResolver: func(context.Context) (gateway.Resolved, error) {
 			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil
 		},
-		EvalResolver: func(context.Context) (gateway.Resolved, error) {
-			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship"}, nil
-		},
-		Catalog:  catalog,
-		SpecByID: specByID,
+		EvalResolver: evalResolver,
+		Catalog:      catalog,
+		SpecByID:     specByID,
+		Enqueuer:     enqueuer,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 
@@ -195,27 +216,31 @@ func TestE2EPhoebeVertical(t *testing.T) {
 	}
 	assertContains(t, rr.Body.String(), "event: text", "event: done")
 
-	// 5. Evaluate (flagship) → 201
+	// 5. Evaluate (flagship) → 202 queued; the inline worker enqueuer drives the
+	// real EvaluateWorker to completion synchronously.
 	rr = doAuthed(h, "POST", "/api/v1/tasks/"+taskID+"/evaluate", "", cookie)
-	if rr.Code != 201 {
-		t.Fatalf("evaluate: want 201, got %d — body: %s", rr.Code, rr.Body.String())
+	if rr.Code != 202 {
+		t.Fatalf("evaluate: want 202, got %d — body: %s", rr.Code, rr.Body.String())
 	}
-	assertContains(t, rr.Body.String(), `"model":"deepseek-reasoner"`, "你的思维印记")
+	assertContains(t, rr.Body.String(), `"status":"queued"`)
 
-	// 6. Get evaluation
+	// 6. Get evaluation → done, with the flagship model + narrative persisted.
 	rr = doAuthed(h, "GET", "/api/v1/tasks/"+taskID+"/evaluation", "", cookie)
 	if rr.Code != 200 {
 		t.Fatalf("get evaluation: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
-	assertContains(t, rr.Body.String(), `"status":"done"`)
+	assertContains(t, rr.Body.String(), `"status":"done"`, `"model":"deepseek-reasoner"`, "你的思维印记")
 
 	// 7. Full task read projects messages + cards
 	rr = doAuthed(h, "GET", "/api/v1/tasks/"+taskID, "", cookie)
 	if rr.Code != 200 {
 		t.Fatalf("get task: want 200, got %d — body: %s", rr.Code, rr.Body.String())
 	}
+	// Task-evaluated marking moved to a later plan (the worker/finish path), so
+	// the task status is no longer flipped to "evaluated" here — assert the
+	// projection shape only.
 	body := rr.Body.String()
-	assertContains(t, body, `"cards":[`, `"messages":[`, `"status":"evaluated"`)
+	assertContains(t, body, `"cards":[`, `"messages":[`)
 
 	// Verify the messages array is not empty (we had 2 user + 2 assistant messages).
 	var fullTask map[string]any

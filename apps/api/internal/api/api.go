@@ -1,12 +1,20 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// Enqueuer hands an evaluation job off to the async queue. The river client is
+// the production implementation; tests inject a fake.
+type Enqueuer interface {
+	EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error
+}
 
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
@@ -18,6 +26,7 @@ type Deps struct {
 	SpecByID     func(id string) (cards.Spec, bool)
 	Pool         TxBeginner // for multi-statement transactions (signup)
 	CookieSecure bool       // Secure flag on the session cookie
+	Enqueuer     Enqueuer   // enqueues async evaluation jobs
 }
 
 // API holds the handler dependencies.

@@ -7,12 +7,20 @@ import (
 	"testing"
 
 	. "mindimprint/api/internal/api"
-	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
-func TestEvaluateInlineThenGet(t *testing.T) {
+// recordingEnqueuer captures the args it was asked to enqueue so the test can
+// assert the handler queued exactly one evaluation job.
+type recordingEnqueuer struct{ calls []agent.EvaluateArgs }
+
+func (r *recordingEnqueuer) EnqueueEvaluate(_ context.Context, a agent.EvaluateArgs) error {
+	r.calls = append(r.calls, a)
+	return nil
+}
+
+func TestPostEvaluate_EnqueuesQueued(t *testing.T) {
 	pool := newAPITestPool(t)
 	q := sqlc.New(pool)
 	ctx := context.Background()
@@ -20,55 +28,37 @@ func TestEvaluateInlineThenGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	// Seed a tiny transcript so the eval input isn't empty.
+	// Seed a tiny transcript so the task is realistic (the worker re-reads state).
 	_, _ = q.AppendMessage(ctx, sqlc.AppendMessageParams{TaskID: task.ID, Role: "user", Content: "hi"})
 
-	evalJSON := `{"scores":[{"dim_id":"D1","level":"L3","note":"n"}],"narrative":"你的思维印记"}`
-	prov := gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: evalJSON},
-		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 50, OutputTokens: 80}},
-		{Kind: gateway.EventDone},
-	})
-	catalog, err := cards.Catalog()
-	if err != nil {
-		t.Fatalf("Catalog: %v", err)
-	}
-	idx := map[string]cards.Spec{}
-	for _, s := range catalog {
-		idx[s.ID] = s
-	}
+	rec := &recordingEnqueuer{}
 	h := New(Deps{
 		Queries:  sqlc.New(pool),
 		Pool:     pool,
-		Provider: prov,
-		EvalResolver: func(_ context.Context) (gateway.Resolved, error) {
-			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship"}, nil
-		},
-		Catalog:  catalog,
-		SpecByID: func(id string) (cards.Spec, bool) { s, ok := idx[id]; return s, ok },
+		Enqueuer: rec,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 
-	// POST evaluate → 201 + narrative in body
+	// POST evaluate → 202 + queued status; no inline LLM call.
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/tasks/"+task.ID.String()+"/evaluate", nil), cookie))
-	if rr.Code != 201 || !strings.Contains(rr.Body.String(), "你的思维印记") {
-		t.Fatalf("evaluate: %d %s", rr.Code, rr.Body.String())
+	if rr.Code != 202 {
+		t.Fatalf("status=%d want 202; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"status":"queued"`) {
+		t.Errorf("body missing queued status: %s", rr.Body.String())
+	}
+	if len(rec.calls) != 1 {
+		t.Fatalf("expected 1 enqueue, got %d", len(rec.calls))
+	}
+	if rec.calls[0].TaskID != task.ID {
+		t.Errorf("enqueued task id = %s, want %s", rec.calls[0].TaskID, task.ID)
 	}
 
-	// task is now evaluated
-	got, err := q.GetTask(ctx, task.ID)
-	if err != nil {
-		t.Fatalf("GetTask: %v", err)
-	}
-	if got.Status != "evaluated" {
-		t.Fatalf("task status %s, want 'evaluated'", got.Status)
-	}
-
-	// GET evaluation → 200 + model in body
+	// GET evaluation → 200 + still queued (no worker ran in this unit test).
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/tasks/"+task.ID.String()+"/evaluation", nil), cookie))
-	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"model":"deepseek-reasoner"`) {
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"status":"queued"`) {
 		t.Fatalf("get eval: %d %s", rr.Code, rr.Body.String())
 	}
 

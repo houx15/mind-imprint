@@ -26,25 +26,29 @@ func (a *API) postEvaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ev, err := agent.RunEvaluation(r.Context(), agent.EvalDeps{
-		Store:    agent.NewSqlcEvalStore(a.d.Queries),
-		Provider: a.d.Provider,
-		Resolver: a.d.EvalResolver, // FLAGSHIP — never downgraded
-		SpecByID: a.d.SpecByID,
-		TaskID:   t.ID,
-	})
+	// Insert a queued evaluation row, then hand the job off to the async queue.
+	ev, err := a.d.Queries.EnqueueEvaluation(r.Context(), t.ID)
 	if err != nil {
-		// Log the real cause; return a generic 500 (no internal detail leaked).
-		slog.Error("evaluation failed", "task_id", t.ID.String(), "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := a.d.Enqueuer.EnqueueEvaluate(r.Context(), agent.EvaluateArgs{
+		EvaluationID: ev.ID,
+		TaskID:       t.ID,
+	}); err != nil {
+		// Best-effort: mark the row failed so the client stops polling. The real
+		// cause is logged, never persisted or leaked.
+		_ = a.d.Queries.FailEvaluation(r.Context(), sqlc.FailEvaluationParams{ID: ev.ID, Error: ptrStr("入队失败")})
+		slog.Error("evaluation enqueue failed", "task_id", t.ID.String(), "err", err.Error())
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
 	}
 
-	// Mark the task evaluated (best-effort; the evaluation row is the source of truth).
-	_, _ = a.d.Queries.SetTaskEvaluated(r.Context(), sqlc.SetTaskEvaluatedParams{ID: t.ID, UserID: u.ID})
-
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"evaluation": toEvaluationDTO(ev)})
+	httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"evaluation": toEvaluationDTO(ev)})
 }
+
+// ptrStr returns a pointer to s (sqlc nullable string columns take *string).
+func ptrStr(s string) *string { return &s }
 
 func (a *API) getEvaluation(w http.ResponseWriter, r *http.Request) {
 	t, ok := a.loadOwnedTask(w, r)

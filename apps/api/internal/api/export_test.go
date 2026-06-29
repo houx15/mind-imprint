@@ -8,13 +8,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// noopEnqueuer is a nil-safe stub for handler tests that don't exercise /evaluate.
+type noopEnqueuer struct{}
+
+func (noopEnqueuer) EnqueueEvaluate(context.Context, agent.EvaluateArgs) error { return nil }
 
 // DepsForTest returns a minimal Deps wired to pool for handler integration tests.
 // Gateway/catalog fields are left nil because org routes don't call them.
 func DepsForTest(pool *pgxpool.Pool) Deps {
-	return Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false}
+	return Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false, Enqueuer: noopEnqueuer{}}
 }
 
 var (

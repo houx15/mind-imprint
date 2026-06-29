@@ -9,6 +9,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/config"
@@ -17,6 +22,14 @@ import (
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// riverEnqueuer adapts the river client to the api.Enqueuer seam.
+type riverEnqueuer struct{ c *river.Client[pgx.Tx] }
+
+func (e riverEnqueuer) EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error {
+	_, err := e.c.Insert(ctx, args, nil)
+	return err
+}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -70,6 +83,30 @@ func main() {
 		"anthropic": gateway.NewAnthropicProvider(httpClient),
 	})
 
+	// Embedded river client: the EvaluateWorker runs in-process off the default
+	// queue, using the FLAGSHIP eval resolver (never downgraded).
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &agent.EvaluateWorker{
+		Store:    agent.NewSqlcEvalStore(queries),
+		Provider: provider,
+		Resolver: gateway.NewEvalKeyResolver(cfg), // FLAGSHIP
+		SpecByID: specByID,
+	})
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Queues:  map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 2}},
+		Workers: workers,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "river client: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+	if err := riverClient.Start(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "river start: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+
 	apiHandler := api.New(api.Deps{
 		Queries:      queries,
 		Provider:     provider,
@@ -79,11 +116,13 @@ func main() {
 		SpecByID:     specByID,
 		Pool:         pool,
 		CookieSecure: cfg.CookieSecure,
+		Enqueuer:     riverEnqueuer{c: riverClient},
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
 
-	if err := httpx.RunServer(srv, func(_ context.Context) {
+	if err := httpx.RunServer(srv, func(shutdownCtx context.Context) {
+		_ = riverClient.Stop(shutdownCtx)
 		pool.Close()
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
