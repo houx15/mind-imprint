@@ -3,6 +3,7 @@ export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
 export * from "./evaluation";
+export * from "./cognitive-model";
 export * from "./envelope";
 export * from "./registry";
 export * from "./task";
