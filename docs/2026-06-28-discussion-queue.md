@@ -6,9 +6,10 @@
 > 锚点：四条设计铁律（AI 克制 / 不操纵 / 一次只问一个 / 过程即数据）；后端 north-star
 > `docs/superpowers/specs/2026-06-24-backend-platform-architecture-design.md`。
 >
-> **▶ 当前位置（2026-06-29）：** #5 ✅、#1+#3 ✅、#2 ✅（均出 spec，待 review）。
-> **下一步 = brainstorm #4（组织/注册复核）** —— 队列最后一项。全部为「讨论先于实现」，spec 定稿后再决定是否进入 plan/build。
+> **▶ 当前位置（2026-06-29）：队列已全部走完。** #5 ✅、#1+#3 ✅、#2 ✅、#4 ✅ —— 五个议题均已出 spec/review note 并 commit。
+> **下一步 = 由用户决定先把哪个 spec 推进到 plan/build**（评估模型喂 P4；其余按需）。本队列任务完成。
 > #2 被 reframe：从「可扩展性复核」变为「卡模型演进」—— 卡内 AI 导师 + DB 运行时存储（teacher 授权流程本轮显式不做）。
+> #4 为纯复核：P2+P3 组织/鉴权已是 production-grade，本轮不做新决策，三处 seam 记为 carry-forward。
 
 ---
 
@@ -67,4 +68,4 @@
 | #1 卡召唤 | ✅ 设计定稿（待 review） | `2026-06-29-card-summon-decision-layer-design.md` | — | 决策层：共享规则信号 → stage-1 `summon_when` 确定性闸门 → 策略(去重/冷却) → stage-2 全自治(auto over k 候选)。卡 spec 加 `summon_when`，单一真相源 + build 校验。 |
 | #3 agent 职责 | ✅ 设计定稿（待 review） | `2026-06-29-card-summon-decision-layer-design.md` | — | 与 #1 同 spec：保持反应式单步陪练，但不再 process-blind（知道用过哪些卡 + rubric_dims 钩子留待 weak-dim 召唤）。 |
 | #2 卡架构 | ✅ 设计定稿（待 review） | `2026-06-29-card-architecture-evolution-design.md` | — | reframe 为卡模型演进：卡=教学区(图文+方法限定导师)/录入区(声明式表单,无AI)/外部陪练；存储=DB数据+文件行为拆分(DB为运行时唯一源,33 JSON 转 seed)；卡内导师=单运行时按卡 grounding、pull 非 push、走网关、对话入 event_trace。teacher 授权流程+导师机制+数据模型 = carry-forward。 |
-| #4 组织/注册 | 🔜 | — | — | 盘点缺口为主（队列最后一项） |
+| #4 组织/注册 | ✅ 复核完成 | `2026-06-29-org-registration-review.md` | — | 纯复核：P2+P3 org/auth 已 production-grade（org 不变式 DB+app 双层强制、注册原子化、RBAC 双层、HasEntitlement 已接线、secrets 服务端隔离）。本轮不做新决策。Carry-forward 三处 seam：①邮箱验证「活 handler 但未建邮件链路」，school-vouched 模型下是否需要待定；②学生 enrollment 生命周期偏薄（仅注册时单班，无 join-another/leave/transfer，跨校 enroll guard 未确认）；③session 过期清理未自动化（仅 read-time 校验，存储整洁问题）。 |
