@@ -28,3 +28,7 @@ UPDATE card_instances
 SET event_trace = $3, status = 'skipped'
 WHERE id = $1 AND task_id = $2
 RETURNING *;
+
+-- name: CountCompletedCards :one
+SELECT count(*) FROM card_instances
+WHERE task_id = $1 AND status = 'completed';

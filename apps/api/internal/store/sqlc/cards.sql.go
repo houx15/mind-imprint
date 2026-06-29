@@ -11,6 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const countCompletedCards = `-- name: CountCompletedCards :one
+SELECT count(*) FROM card_instances
+WHERE task_id = $1 AND status = 'completed'
+`
+
+func (q *Queries) CountCompletedCards(ctx context.Context, taskID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countCompletedCards, taskID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCardInstance = `-- name: CreateCardInstance :one
 INSERT INTO card_instances (card_id, task_id, status)
 VALUES ($1, $2, 'proposed')

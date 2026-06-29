@@ -11,3 +11,7 @@ RETURNING *;
 SELECT * FROM messages
 WHERE task_id = $1
 ORDER BY created_at, id;
+
+-- name: CountSubstantiveTurns :one
+SELECT count(*) FROM messages
+WHERE task_id = $1 AND role = 'user' AND char_length(content) >= 20;
