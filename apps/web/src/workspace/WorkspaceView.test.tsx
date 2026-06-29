@@ -395,7 +395,8 @@ describe("WorkspaceView", () => {
       );
       await userEvent.click(screen.getByRole("button", { name: /生成思维印记/ }));
       setPhase("done", evaluation);
-      // D2 from FULL_RUBRIC maps to "信源辨识"
+      // Faces start expanded; categories are collapsed — expand "信息素养" to reveal D2=信源辨识
+      await userEvent.click(screen.getByText("信息素养"));
       expect(screen.getByText("信源辨识")).toBeInTheDocument();
     });
 

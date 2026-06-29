@@ -1,6 +1,6 @@
 import type { Evaluation } from "@mind-imprint/contracts";
-import { FULL_RUBRIC } from "@mind-imprint/contracts";
-import { evalView } from "./evalView";
+import { assembleImprint } from "@mind-imprint/contracts";
+import { FaceSection } from "./imprintReveal";
 
 type Props = {
   evaluation: Evaluation;
@@ -8,7 +8,8 @@ type Props = {
 };
 
 export function EvalModal({ evaluation, onClose }: Props) {
-  const { dims } = evalView(evaluation, FULL_RUBRIC);
+  const imprint = assembleImprint(evaluation);
+  const allNA = imprint.faces.every((f) => f.scored === 0);
 
   return (
     <div
@@ -109,63 +110,14 @@ export function EvalModal({ evaluation, onClose }: Props) {
 
         {/* Body */}
         <div style={{ padding: "24px 30px" }}>
-          {/* Dim rows */}
-          {dims.map((d, i) => (
-            <div
-              key={d.dim}
-              style={{
-                padding: "13px 0",
-                borderBottom: i < dims.length - 1 ? "1px solid #F2F3F7" : "none",
-              }}
-            >
-              {/* Dim name + levelLabel pill */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  marginBottom: "8px",
-                }}
-              >
-                <span style={{ fontSize: "14px", fontWeight: 700, color: "#1C2333" }}>
-                  {d.dim}
-                </span>
-                <span
-                  style={{
-                    fontSize: "12.5px",
-                    fontWeight: 700,
-                    color: "#D98263",
-                    background: "#FBEEE7",
-                    padding: "2px 10px",
-                    borderRadius: "999px",
-                    flexShrink: 0,
-                  }}
-                >
-                  {d.levelLabel}
-                </span>
-              </div>
-
-              {/* Seg bars */}
-              <div style={{ display: "flex", gap: "5px", marginBottom: "7px" }}>
-                {d.segs.map((seg, idx) => (
-                  <span
-                    key={idx}
-                    aria-hidden="true"
-                    style={{
-                      flex: "1",
-                      height: "6px",
-                      borderRadius: "3px",
-                      background: seg.filled ? "#D98263" : "#ECEEF4",
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Note */}
-              <div style={{ fontSize: "12.5px", color: "#8A92A3" }}>{d.note}</div>
+          {/* All-N/A short task: in-progress framing, not punished */}
+          {allNA && (
+            <div style={{ fontSize: "13px", color: "#8A92A3", padding: "4px 0 10px" }}>
+              进行中 · 这一程暂未产生可评估的过程证据，继续推进任务后再来看你的思维印记。
             </div>
-          ))}
+          )}
+          {/* Faces → categories → dims */}
+          {imprint.faces.map((face) => <FaceSection key={face.id} face={face} />)}
 
           {/* Narrative card */}
           <div
