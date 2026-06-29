@@ -26,7 +26,7 @@ type EvalLlmOutput struct {
 	Narrative string     `json:"narrative"`
 }
 
-var validLevels = map[string]bool{"L1": true, "L2": true, "L3": true, "L4": true}
+var validLevels = map[string]bool{"L1": true, "L2": true, "L3": true, "L4": true, "NA": true}
 
 // parseEvalOutput strips optional ```json fences then JSON-parses + validates,
 // mirroring the TS parseEvalOutput.

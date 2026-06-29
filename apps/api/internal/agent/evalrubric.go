@@ -14,60 +14,66 @@ var SoloLabels = map[string]string{"L1": "萌芽", "L2": "发展中", "L3": "熟
 // soloOrder is the level iteration order (TS soloLevels).
 var soloOrder = []string{"L1", "L2", "L3", "L4"}
 
-// FullRubric mirrors TS FULL_RUBRIC — the nine evaluation dimensions, in order.
+// FullRubric is the v2 cognitive-model rubric — ten evaluation dimensions, in order.
 var FullRubric = []RubricDimension{
-	{ID: "D1", Name: "提问清晰度", Framework: "ATL 思维 · QUEST-Q（输入）", Anchors: map[string]string{
-		"L1": "直接抛一句话问题，不给 AI 任何背景或目标",
-		"L2": "给一点背景，但目标/约束模糊，常需 AI 反问澄清",
-		"L3": "主动提供任务背景、目标与约束，问题具体可执行",
-		"L4": "结构化拆解需求，分步追问并根据回答迭代提问",
+	{ID: "D1", Name: "提问清晰度", Framework: "ATL 思维 · 意图与编排（单轮）", Anchors: map[string]string{
+		"L1": "开场问句只有一句话，无背景/目标/方向约束",
+		"L2": "给了背景或目标之一，但约束/期望模糊，AI 需反问澄清",
+		"L3": "单次提问即含背景+目标+约束，问题具体可执行",
+		"L4": "单次提问还分层给出子问题与期望产出格式，便于 AI 精准应答",
 	}},
-	{ID: "D2", Name: "信源辨识", Framework: "媒介/信息素养 · CRAAP", Anchors: map[string]string{
-		"L1": "完全信任 AI / 来源，从不追问出处",
-		"L2": "偶尔问「真的吗？」但不深入",
-		"L3": "主动要求论据，能识别来源等级",
-		"L4": "主动交叉验证，识别信源之间的利益关系与冲突",
+	{ID: "D2", Name: "信源辨识", Framework: "信息素养 · CRAAP（单源可信度）", Anchors: map[string]string{
+		"L1": "引入了来源却从不追问其出处/可信度",
+		"L2": "偶尔问「这可靠吗？」但不深入",
+		"L3": "主动要求出处，并能判断单一来源的等级/资质",
+		"L4": "识别该来源的立场、资助或利益冲突",
 	}},
-	{ID: "D3", Name: "横向验证", Framework: "ATL 研究 · 横向阅读 SHEG", Anchors: map[string]string{
-		"L1": "只看单一来源，不另开查证",
-		"L2": "想到要多看，但没真去找",
-		"L3": "主动多源对照，找到 2+ 独立来源",
+	{ID: "D3", Name: "横向验证", Framework: "ATL 研究 · 横向阅读（多源对照）", Anchors: map[string]string{
+		"L1": "只用单一来源，未另开查证",
+		"L2": "口头说「该多看几个来源」但未真正找第二个",
+		"L3": "主动多源对照，引入 2+ 独立来源",
 		"L4": "溯到原始出处，比较各源权威性与一致性",
 	}},
-	{ID: "D4", Name: "多视角与让步", Framework: "QUEST-E · 论证评估", Anchors: map[string]string{
-		"L1": "只站自己一方，无视反方",
-		"L2": "提到反方但轻描淡写 / 稻草人",
-		"L3": "主动找反方并正面回应",
-		"L4": "构建反方最强论证(steelman)后再让步反驳",
+	{ID: "D4", Name: "多视角与让步", Framework: "论证评估 · 反方处理（独占反方）", Anchors: map[string]string{
+		"L1": "给出立场但完全不提反方",
+		"L2": "提到反方却轻描淡写或稻草人化",
+		"L3": "主动取得反方观点并正面回应",
+		"L4": "先把反方强化为最强论证(steelman)再让步反驳",
 	}},
-	{ID: "D5", Name: "论证拆解", Framework: "QUEST-U · 论证分析", Anchors: map[string]string{
-		"L1": "把观点当事实，不分论点论据",
-		"L2": "能复述但不辨结构",
-		"L3": "能识别论点-论据-假设结构",
-		"L4": "识别隐藏前提与论证谬误",
+	{ID: "D5", Name: "论证拆解", Framework: "论证分析 · 拆解他人/AI 的论证", Anchors: map[string]string{
+		"L1": "复述某来源/AI 的结论，却当作事实、不分论点与论据",
+		"L2": "能准确复述该论证，但不标出论点/论据/假设",
+		"L3": "明确标出论点-论据-假设结构，或指出来源对证据的扭曲/断章取义",
+		"L4": "进一步指出未明说的隐藏前提，或点名某一具体谬误类型",
 	}},
-	{ID: "D6", Name: "反思与元认知", Framework: "ATL 反思 · TOK 认知者与知识", Anchors: map[string]string{
-		"L1": "不觉察自己被 AI 影响",
-		"L2": "事后偶尔回顾",
-		"L3": "主动校准信心，觉察思维盲点",
-		"L4": "觉察自己作为认知者的位置，迁移方法",
+	{ID: "D6", Name: "反思与元认知", Framework: "ATL 反思 · TOK 认知者（反思式采纳）", Anchors: map[string]string{
+		"L1": "直接采用 AI 的措辞或方向，无任何犹豫、限定或保留（默认式采纳）",
+		"L2": "事后才回顾「也许该……」，但当时未自检",
+		"L3": "当场陈述自己的不确定/信心，或点名盲点；采用 AI 方向前先说明理由（反思式采纳）",
+		"L4": "觉察并把方法迁移到新子问题/新情境",
 	}},
-	{ID: "D7", Name: "论证质量", Framework: "QUEST-S · ATL 沟通（输出）", Anchors: map[string]string{
-		"L1": "只堆观点 / 复制 AI 原话，无论点-论据结构",
-		"L2": "有结论但论据零散，结构不完整",
-		"L3": "论点-论据-解释结构完整，引用有出处",
-		"L4": "结构严谨且回应反方，论证链条经得起追问",
+	{ID: "D7", Name: "论证质量", Framework: "ATL 沟通 · 自身论证产出", Anchors: map[string]string{
+		"L1": "自己的论证只堆结论或观点，无论点-论据支撑",
+		"L2": "有明确结论，但论据零散、claim 与 evidence 未连接",
+		"L3": "自己的论证：论点-论据-解释结构完整，引用有出处",
+		"L4": "论证链严密、经得起追问",
 	}},
-	{ID: "D8", Name: "信息再生产", Framework: "ATL 媒介伦理 · 学术诚信（输出）", Anchors: map[string]string{
+	{ID: "D8", Name: "信息再生产", Framework: "学术诚信 · 出处/署名（复制检测）", Anchors: map[string]string{
 		"L1": "整段照搬 AI 输出，不标注、不改写",
-		"L2": "偶尔改写，但分不清哪些是 AI、哪些是自己的",
+		"L2": "有改写，但未标明哪些来自 AI、哪些是自己",
 		"L3": "明确区分 AI 贡献与个人加工，主动声明 AI 使用",
-		"L4": "在 AI 基础上有独立判断与增量，诚信声明清晰可核",
+		"L4": "诚信声明清晰可核，标注 AI 贡献边界",
 	}},
-	{ID: "D9", Name: "AI 边界与伦理", Framework: "TOK 知识与技术 · 伦理使用（输出）", Anchors: map[string]string{
-		"L1": "把 AI 当全知，不质疑其可能出错或编造",
-		"L2": "知道 AI 会错，但不主动核查",
-		"L3": "主动核查 AI 可能幻觉处，识别其知识边界",
-		"L4": "系统性评估 AI 局限与伦理风险，按场景决定是否/如何用",
+	{ID: "D9", Name: "AI 边界与伦理", Framework: "TOK 知识与技术 · 事实核查（认知核查）", Anchors: map[string]string{
+		"L1": "把 AI 当全知，对其事实主张不质疑是否出错/编造",
+		"L2": "口头承认「AI 可能不准」，但不采取核查动作",
+		"L3": "主动核查 AI 的可疑/可能幻觉处，发现问题即指出",
+		"L4": "因核查结果实质修订或拒用 AI 的产出",
+	}},
+	{ID: "D10", Name: "协作编排", Framework: "意图与编排 · 跨轮驱动与贡献", Anchors: map[string]string{
+		"L1": "把 AI 当答案机器：直接要成品，不带入自己的材料，不追问、不调整",
+		"L2": "被 AI 追问后才补充自己的材料；不主动规划协作步骤",
+		"L3": "未经提示带入自己的草稿/链接/提纲，并跨轮驱动改进、指派子任务",
+		"L4": "跨步骤编排 AI 角色、管理上下文、复用/沉淀可重用结构，分清留与弃",
 	}},
 }
