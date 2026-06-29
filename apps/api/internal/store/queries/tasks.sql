@@ -16,7 +16,5 @@ UPDATE tasks SET last_active_at = now()
 WHERE id = $1 AND user_id = $2
 RETURNING *;
 
--- name: SetTaskEvaluated :one
-UPDATE tasks SET status = 'evaluated'
-WHERE id = $1 AND user_id = $2
-RETURNING *;
+-- name: MarkTaskEvaluated :exec
+UPDATE tasks SET status = 'evaluated' WHERE id = $1;

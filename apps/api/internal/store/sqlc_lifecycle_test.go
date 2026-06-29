@@ -84,7 +84,7 @@ func TestCardAndEvalLifecycle(t *testing.T) {
 		t.Fatalf("latest mismatch: %v %v", got.ID, err)
 	}
 
-	if _, err := q.SetTaskEvaluated(ctx, sqlc.SetTaskEvaluatedParams{ID: task.ID, UserID: seededStudentID}); err != nil {
+	if err := q.MarkTaskEvaluated(ctx, task.ID); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -71,6 +71,7 @@ type EvalLifecycleStore interface {
 	MarkRunning(ctx context.Context, evalID uuid.UUID) error
 	Finish(ctx context.Context, p sqlc.FinishEvaluationParams) error
 	Fail(ctx context.Context, evalID uuid.UUID, msg string) error
+	MarkTaskEvaluated(ctx context.Context, taskID uuid.UUID) error
 }
 
 // runEvalResult bundles the shared eval compute outputs so the worker can
@@ -151,6 +152,10 @@ func (s *sqlcEvalStore) Finish(ctx context.Context, p sqlc.FinishEvaluationParam
 
 func (s *sqlcEvalStore) Fail(ctx context.Context, evalID uuid.UUID, msg string) error {
 	return s.q.FailEvaluation(ctx, sqlc.FailEvaluationParams{ID: evalID, Error: &msg})
+}
+
+func (s *sqlcEvalStore) MarkTaskEvaluated(ctx context.Context, taskID uuid.UUID) error {
+	return s.q.MarkTaskEvaluated(ctx, taskID)
 }
 
 func (s *sqlcEvalStore) EvalMessages(ctx context.Context, taskID uuid.UUID) ([]StoredMessage, error) {

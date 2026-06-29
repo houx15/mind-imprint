@@ -91,30 +91,13 @@ func (q *Queries) ListTasksByUser(ctx context.Context, userID uuid.UUID) ([]Task
 	return items, nil
 }
 
-const setTaskEvaluated = `-- name: SetTaskEvaluated :one
-UPDATE tasks SET status = 'evaluated'
-WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, title, seed, status, created_at, last_active_at
+const markTaskEvaluated = `-- name: MarkTaskEvaluated :exec
+UPDATE tasks SET status = 'evaluated' WHERE id = $1
 `
 
-type SetTaskEvaluatedParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) SetTaskEvaluated(ctx context.Context, arg SetTaskEvaluatedParams) (Task, error) {
-	row := q.db.QueryRow(ctx, setTaskEvaluated, arg.ID, arg.UserID)
-	var i Task
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Title,
-		&i.Seed,
-		&i.Status,
-		&i.CreatedAt,
-		&i.LastActiveAt,
-	)
-	return i, err
+func (q *Queries) MarkTaskEvaluated(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markTaskEvaluated, id)
+	return err
 }
 
 const touchTask = `-- name: TouchTask :one

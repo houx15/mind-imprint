@@ -17,12 +17,13 @@ import (
 // lifecycle calls so worker tests can assert the queued→running→done/failed
 // flow without a real database (mirrors eval_test.go's fake-store style).
 type fakeLifecycleStore struct {
-	msgs     []StoredMessage
-	cards    []CardInstance
-	ranID    uuid.UUID
-	finished *sqlc.FinishEvaluationParams
-	failedID uuid.UUID
-	failMsg  string
+	msgs            []StoredMessage
+	cards           []CardInstance
+	ranID           uuid.UUID
+	finished        *sqlc.FinishEvaluationParams
+	failedID        uuid.UUID
+	failMsg         string
+	evaluatedTaskID uuid.UUID
 }
 
 func (f *fakeLifecycleStore) EvalMessages(context.Context, uuid.UUID) ([]StoredMessage, error) {
@@ -42,6 +43,10 @@ func (f *fakeLifecycleStore) Finish(_ context.Context, p sqlc.FinishEvaluationPa
 func (f *fakeLifecycleStore) Fail(_ context.Context, id uuid.UUID, msg string) error {
 	f.failedID = id
 	f.failMsg = msg
+	return nil
+}
+func (f *fakeLifecycleStore) MarkTaskEvaluated(_ context.Context, id uuid.UUID) error {
+	f.evaluatedTaskID = id
 	return nil
 }
 
@@ -109,6 +114,9 @@ func TestEvaluateWorker_Work_FinishesDone(t *testing.T) {
 	if store.finished != nil && store.failMsg != "" {
 		t.Error("Fail must not be called on the done path")
 	}
+	if store.evaluatedTaskID != taskID {
+		t.Fatalf("MarkTaskEvaluated not called with task id: got %v want %v", store.evaluatedTaskID, taskID)
+	}
 }
 
 // TestEvaluateWorker_Work_FailsOnParseError exercises the retry-then-fail path on
@@ -148,6 +156,9 @@ func TestEvaluateWorker_Work_FailsOnParseError(t *testing.T) {
 	if store.finished != nil {
 		t.Error("Finish must not be called on the failure path")
 	}
+	if store.evaluatedTaskID != uuid.Nil {
+		t.Error("MarkTaskEvaluated must not be called on a failure path")
+	}
 }
 
 // TestEvaluateWorker_Work_NonFinalAttempt_DoesNotMarkFailed verifies the
@@ -182,6 +193,9 @@ func TestEvaluateWorker_Work_NonFinalAttempt_DoesNotMarkFailed(t *testing.T) {
 	}
 	if store.finished != nil {
 		t.Error("Finish must not be called on the failure path")
+	}
+	if store.evaluatedTaskID != uuid.Nil {
+		t.Error("MarkTaskEvaluated must not be called on a failure path")
 	}
 }
 

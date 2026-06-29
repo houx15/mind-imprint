@@ -218,3 +218,26 @@ func TestTryEnqueueMilestone_ConcurrentExactlyOne(t *testing.T) {
 		t.Fatalf("inserted = %d, want exactly 1 (unique-index backstop)", inserted)
 	}
 }
+
+func TestMarkTaskEvaluated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newStoreTestPool(t)
+	q := sqlc.New(pool)
+	task := seedTaskForEval(t, ctx, pool)
+	if task.Status != "active" {
+		t.Fatalf("seed status = %q, want active", task.Status)
+	}
+	if err := q.MarkTaskEvaluated(ctx, task.ID); err != nil {
+		t.Fatalf("mark: %v", err)
+	}
+	got, err := q.GetTask(ctx, task.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Status != "evaluated" {
+		t.Fatalf("status = %q, want evaluated", got.Status)
+	}
+}

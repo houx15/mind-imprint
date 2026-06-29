@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -69,7 +70,7 @@ func (w *EvaluateWorker) Work(ctx context.Context, job *river.Job[EvaluateArgs])
 	pt, ct := int32(r.Res.Usage.InputTokens), int32(r.Res.Usage.OutputTokens)
 	cost, ok := gateway.EstimateCost(r.Resolved.Provider, r.Resolved.Model, r.Res.Usage.InputTokens, r.Res.Usage.OutputTokens)
 	rv := RubricVersion
-	return w.Store.Finish(ctx, sqlc.FinishEvaluationParams{
+	if err := w.Store.Finish(ctx, sqlc.FinishEvaluationParams{
 		ID:               id,
 		Scores:           scoresJSON,
 		Narrative:        r.Out.Narrative,
@@ -80,5 +81,13 @@ func (w *EvaluateWorker) Work(ctx context.Context, job *river.Job[EvaluateArgs])
 		PromptTokens:     &pt,
 		CompletionTokens: &ct,
 		CostEstimate:     gateway.CostNumeric(cost, ok),
-	})
+	}); err != nil {
+		return err
+	}
+	// Best-effort: flip the task to 'evaluated' now that a result exists. A failure
+	// here must NOT re-run the never-downgrade flagship eval, so swallow + log.
+	if err := w.Store.MarkTaskEvaluated(ctx, job.Args.TaskID); err != nil {
+		slog.Warn("eval: mark task evaluated failed", "task_id", job.Args.TaskID.String(), "err", err.Error())
+	}
+	return nil
 }
