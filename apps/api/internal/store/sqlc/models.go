@@ -64,6 +64,8 @@ type Evaluation struct {
 	Error            *string            `json:"error"`
 	CreatedAt        time.Time          `json:"created_at"`
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	Signals          []byte             `json:"signals"`
+	RubricVersion    *string            `json:"rubric_version"`
 }
 
 type LlmUsage struct {

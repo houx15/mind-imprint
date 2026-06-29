@@ -19,7 +19,7 @@ INSERT INTO evaluations (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, 'done', now()
 )
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version
 `
 
 type CreateEvaluationParams struct {
@@ -59,12 +59,14 @@ func (q *Queries) CreateEvaluation(ctx context.Context, arg CreateEvaluationPara
 		&i.Error,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
 	)
 	return i, err
 }
 
 const getLatestEvaluation = `-- name: GetLatestEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version FROM evaluations
 WHERE task_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -87,6 +89,8 @@ func (q *Queries) GetLatestEvaluation(ctx context.Context, taskID uuid.UUID) (Ev
 		&i.Error,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
 	)
 	return i, err
 }
