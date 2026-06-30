@@ -226,4 +226,22 @@ P4 后端 backbone（async eval / river / 规则信号 / 10 维 v2 量规）已�
 | **worker 在 `Finish` 后崩溃可重复消费旗舰**：唯一索引不覆盖 `done` 行；重试会重跑 `runEval`（P4 既有路径，非本轮引入） | P4 加固轮 | 否 |
 | **P4 backbone fast-follows**（river-hop 集成测试、事务化入队 + stale-row reaper、死代码清理 `Deps.EvalResolver`/`EvalStore`/`CreateEvaluation`、test/content polish）| P4 加固轮 | 否 |
 
-**结论：里程碑自动触发全 6 任务完成 + 1 终审修复（迁移自愈），全门禁绿（build/vet + `go test -p 1 ./...` 全 9 包），无 Critical/Important 遗留。下一步 = 前端「你的思维印记」reveal UI，然后 billing/entitlement 头脑风暴。**
+**结论：里程碑自动触发全 6 任务完成 + 1 终审修复（迁移自愈），全门禁绿（build/vet + `go test -p 1 ./...` 全 9 包），无 Critical/Important 遗留。**
+
+---
+
+## P4 follow-up：前端「你的思维印记」reveal UI（2026-06-30）
+
+已并入 main `5f910d0`（6 任务 → 8 commits，subagent-driven，每任务复核 + opus 全分支终审「Ready WITH FIXES」+ 1 修复；全门禁绿 `pnpm -r typecheck && pnpm -r test` = 469 测试）。Spec/plan 见 `docs/superpowers/{specs,plans}/2026-06-29-mind-imprint-reveal-ui-*.md`。**纯前端（+契约同步）**：把异步 v2 评估呈现为**层级钻取**——2 张脸（🚀 生成式驾驭 / 🛡️ 批判式防护）→ 4 类（意图与编排 / 推理与论证 / 信息素养 / AI元认知与边界）→ 10 维（D1-D10）；**铁律#2**：脸/类只显「事实覆盖 chip」（N/M 维已评，无聚合等级/分数），等级词（L1-L4）只在维度叶子出现；N/A 中性（「本次未涉及」灰显无条，计为未涉及而非失败）；全 N/A → 「进行中」。视觉遵 `.dc.html`，结构遵 eval-model spec §7。`createEvaluator` 改为轮询（POST→queued→done|failed|timeout，phase 名仍 `"running"`）；新 `MindImprintIndicator`（offer-don't-push，无 badge/计数/自动弹）；`WorkspaceContainer` 加 30s 后台轮询（仅在更新时 putEvaluation）。终审修复 `5f910d0`：弹窗 guard 收紧为 `phase==="idle"||phase==="done"`（防 re-eval 以 error 结束时闪回旧评估）。
+
+### 遗留 / 后续（reveal，均非 bug）
+
+| 遗留项 | → 目标 | 必需？ |
+|---|---|---|
+| **后台轮询不在 reveal 打开时暂停**（spec §5 要求暂停）：`showEvalModal` 是 WorkspaceView 局部态，上提到 container = 结构改动；影响小（新评估可能在阅读时换掉弹窗内容） | polish 轮 | 否 |
+| **`putEvaluation` 无条件 APPEND**：手动 evaluator 路径缺后台轮询那道 `created_at>known` 门 → 幂等 re-eval 可能在 `listEvaluations` 重复一行；修法 = 按 id upsert，但现有 fixture 断言空-id 评估 `toHaveLength(2)` → 需专门 fixture 轮 | 独立 fast-follow | 否 |
+| **`evaluate.ts` CAST 而非 Zod-parse 响应**：`status.default("done")` 只在 `StoreState.parse` 生效；后端若漏 `status`，轮询静默超时（当前 DTO 无此问题，仅意识层面） | 意识 | 否 |
+| **`@keyframes mkPop` 未定义**：indicator + modal 引用但 index.css 无定义 → 装饰性 no-op（chip/modal 无弹入动画即出现，EvalModal 既有） | polish 轮 | 否 |
+| **rubric v1 锚点 D1-D9 与 v2 对账**：v2 量规取代 v1，旧锚点未逐条 reconcile | 内容轮 | 否 |
+
+**结论：reveal UI 全 6 任务完成 + 2 复核/终审修复，全门禁绿 469 测试，无 Critical/Important 遗留。异步 v2 评估现已端到端打通（里程碑自动触发 → worker 10 维评分 → SPA 轮询 + 层级揭示 + 安静邀请）。下一步 = billing/entitlement 头脑风暴（填 `HasEntitlement`）。**
