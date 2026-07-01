@@ -1,0 +1,38 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<section class="section" style="background:var(--bg)">
+  <div class="container center">
+    <div class="sec-label reveal">{t(lang, "一次真实的思考", "One real piece of thinking")}</div>
+    <h2 class="sec-title reveal">{t(lang, "Phoebe 是怎么走完一程的", "How Phoebe works through a question")}</h2>
+    <p class="sec-sub reveal">{t(lang, "「中国是否让地球变得更可持续？」——从一条想引用的链接，到一枚思维印记。", "\"Is China making the planet more sustainable?\" — from a link she wanted to cite, to a mind imprint.")}</p>
+
+    <div class="steps">
+      <div class="stepcard reveal">
+        <div class="num">1</div>
+        <h4>{t(lang, "带着真实任务进来", "Bring a real task")}</h4>
+        <p>{t(lang, "新建任务，粘上她真正在写的问题和一篇想当证据的文章链接。", "She starts a task and pastes the question she's actually writing — plus a link she wants to use as evidence.")}</p>
+        <span class="mono">new task</span>
+      </div>
+      <div class="stepcard reveal">
+        <div class="num">2</div>
+        <h4>{t(lang, "AI 在对的时刻召唤卡", "AI summons a card")}</h4>
+        <p>{t(lang, "AI 没有替她判断真假，而是递上 SIFT×CRAAP 卡，陪她溯到 NASA 与 Nature Sustainability。", "AI doesn't judge for her — it hands over the SIFT×CRAAP card and traces the source to NASA and Nature Sustainability.")}</p>
+        <span class="mono">summon_card("sift_craap")</span>
+      </div>
+      <div class="stepcard reveal">
+        <div class="num">3</div>
+        <h4>{t(lang, "亲手填，过程树生长", "She fills it; the tree grows")}</h4>
+        <p>{t(lang, "撞上「碳排放全球第一」的反例，AI 召唤让步段卡。每一步序列化为标准信封，过程树实时生长。", "She hits the \"#1 emitter\" counter-example; AI summons the concession card. Each step becomes a standard envelope and the process tree grows live.")}</p>
+        <span class="mono">summon_card("concession")</span>
+      </div>
+      <div class="stepcard reveal">
+        <div class="num">4</div>
+        <h4>{t(lang, "评估那一刀", "The evaluation cut")}</h4>
+        <p>{t(lang, "任务告一段落，旗舰模型读完整过程，跑出 rubric 评级与过程叙述——以「你的思维印记」呈现。", "When she pauses, a flagship model reads the whole process and returns a rubric rating and narrative — shown as \"Your Mind Imprint.\"")}</p>
+        <span class="mono">evaluate</span>
+      </div>
+    </div>
+  </div>
+</section>

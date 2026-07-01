@@ -1,0 +1,28 @@
+---
+import Icon from "./Icon.astro";
+import { getLang, t, localePath, switchLocaleUrl } from "../i18n/utils";
+import { loginUrl, demoUrl } from "../config";
+
+const lang = getLang(Astro.currentLocale);
+const path = Astro.url.pathname;
+const other = switchLocaleUrl(path, lang);
+const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
+const active = (p: string) => (key === p ? "page" : undefined);
+---
+<nav class="site-nav">
+  <a class="brand" href={localePath(lang, "/")}>
+    <span class="mk"><Icon name="mark" /></span>{t(lang, "思维印记", "Mind Imprint")}
+  </a>
+  <div class="navlinks">
+    <a href={localePath(lang, "/")} aria-current={active("/")}>{t(lang, "首页", "Home")}</a>
+    <a href={localePath(lang, "/evaluation")} aria-current={active("/evaluation")}>{t(lang, "评估模型", "Evaluation")}</a>
+    <a href={localePath(lang, "/about")} aria-current={active("/about")}>{t(lang, "关于", "About")}</a>
+  </div>
+  <div class="navright">
+    <a class="lang" href={other} aria-label="Switch language">
+      {lang === "zh" ? <span><b>中</b> / EN</span> : <span>中 / <b>EN</b></span>}
+    </a>
+    <a class="btn btn-ghost" href={loginUrl}>{t(lang, "登录", "Log in")}</a>
+    <a class="btn btn-primary" href={demoUrl}>{t(lang, "体验 Demo", "Try demo")}</a>
+  </div>
+</nav>

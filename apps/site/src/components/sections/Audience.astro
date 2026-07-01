@@ -1,0 +1,29 @@
+---
+import Icon from "../Icon.astro";
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<section class="section" style="background:var(--bg)">
+  <div class="container center">
+    <div class="sec-label reveal">{t(lang, "为谁而建", "Who it's for")}</div>
+    <h2 class="sec-title reveal">{t(lang, "为国际课程的师生而建", "Built for the IB classroom")}</h2>
+
+    <div class="audience">
+      <div class="aud reveal">
+        <div class="ai"><Icon name="cap" /></div>
+        <h4>{t(lang, "学生", "Students")}</h4>
+        <p>{t(lang, "IB / A-Level 等国际课程的学生，带着 EE、TOK、IA 这些真实任务，学会和 AI 一起把思考走深。", "Students in IB, A-Level and other international tracks bring real EE / TOK / IA tasks and learn to think deeper with AI.")}</p>
+      </div>
+      <div class="aud reveal">
+        <div class="ai"><Icon name="users" /></div>
+        <h4>{t(lang, "教师", "Teachers")}</h4>
+        <p>{t(lang, "看到的不是又一篇成品作业，而是每个学生的思考过程与成长——过程即证据。", "Teachers see the thinking process and growth of each student — not just another finished essay. The process is the evidence.")}</p>
+      </div>
+      <div class="aud reveal">
+        <div class="ai"><Icon name="building" /></div>
+        <h4>{t(lang, "学校", "Schools")}</h4>
+        <p>{t(lang, "以班级为单位接入，用一套克制、不操纵的 AI，把「善用 AI」变成可教、可评的能力。", "Roll out class by class, with one restrained, non-manipulative AI — turning \"using AI well\" into a teachable, assessable skill.")}</p>
+      </div>
+    </div>
+  </div>
+</section>

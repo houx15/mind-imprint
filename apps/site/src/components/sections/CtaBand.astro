@@ -1,0 +1,17 @@
+---
+import { getLang, t } from "../../i18n/utils";
+import { demoUrl, loginUrl } from "../../config";
+const lang = getLang(Astro.currentLocale);
+---
+<section class="section tight">
+  <div class="container">
+    <div class="ctaband reveal">
+      <h2>{t(lang, "亲眼看看它是怎么把思考塞回给学生的", "See how it hands thinking back to students")}</h2>
+      <p>{t(lang, "无需注册，以示例学生 Phoebe 的身份走完整个流程——召唤工具卡、被引导、拿到你的思维印记。", "No sign-up. Walk the whole flow as our sample student Phoebe — summon a card, get coached, receive a mind imprint.")}</p>
+      <div class="cta-row">
+        <a class="btn btn-lg btn-light" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
+        <a class="btn btn-lg btn-clear" href={loginUrl}>{t(lang, "登录", "Log in")}</a>
+      </div>
+    </div>
+  </div>
+</section>

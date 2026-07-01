@@ -1,0 +1,40 @@
+---
+import Icon from "../Icon.astro";
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<section class="section">
+  <div class="container center">
+    <div class="sec-label reveal">{t(lang, "它做什么", "What it does")}</div>
+    <h2 class="sec-title reveal">{t(lang, "两层别处没有的能力", "Two capabilities you won't find elsewhere")}</h2>
+    <p class="sec-sub reveal">{t(lang, "不是替学生想，而是在对的时刻把「思考」塞回给学生——然后评估他是怎么想的。", "It doesn't think for students. It hands thinking back at the right moment — then evaluates how they thought.")}</p>
+
+    <div class="duo">
+      <div class="feat f1 reveal">
+        <div class="fic"><Icon name="cards" /></div>
+        <h3>{t(lang, "交互式思维工具卡", "Interactive thinking cards")}</h3>
+        <p>{t(lang, "在对话的对的时刻，AI 递给学生一张结构化的思考脚手架，由他亲手填——溯源、让步段、论证拆解。触发是自动的，但「打开」永远由学生确认。", "At the right moment, AI hands the student a structured scaffold to fill themselves — sourcing, concession, argument analysis. The trigger is automatic; opening it is always the student's choice.")}</p>
+        <div class="mini">
+          <div class="mini-t">{t(lang, "让步段四步 · 以退为进", "Concession · four steps")}</div>
+          <div class="stepline">
+            <div class="step"><b>①</b>{t(lang, "中心论点", "Claim")}</div>
+            <div class="step"><b>②</b>{t(lang, "最强反例", "Counter")}</div>
+            <div class="step"><b>③</b>{t(lang, "先承认", "Concede")}</div>
+            <div class="step"><b>④</b>{t(lang, "再反驳", "Rebut")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat f2 reveal">
+        <div class="fic"><Icon name="spark" /></div>
+        <h3>{t(lang, "过程评估 · 思维印记", "Process evaluation · the imprint")}</h3>
+        <p>{t(lang, "任务告一段落，旗舰模型读完整过程，按认知模型十维给出诊断式评级——只给学生看，描述他做了什么，而不是他应该怎么想。", "When the task pauses, a flagship model reads the whole process and scores ten dimensions — diagnostic, private, about what the student did, not what they should think.")}</p>
+        <div class="mini">
+          <div class="imp-row"><span class="name">{t(lang, "信源辨识", "Source ID")}</span><div class="bar"><i style="width:76%;background:var(--green)"></i></div><span class="lv" style="color:var(--green)">L3</span></div>
+          <div class="imp-row"><span class="name">{t(lang, "横向验证", "Lateral")}</span><div class="bar"><i style="width:92%;background:var(--primary)"></i></div><span class="lv" style="color:var(--primary)">L4</span></div>
+          <div class="imp-row"><span class="name">{t(lang, "多视角让步", "Concession")}</span><div class="bar"><i style="width:58%;background:var(--amber)"></i></div><span class="lv" style="color:var(--amber)">L2</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

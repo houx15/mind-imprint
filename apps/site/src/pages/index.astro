@@ -1,0 +1,15 @@
+---
+import Base from "../layouts/Base.astro";
+import HomePage from "../components/pages/HomePage.astro";
+import { getLang, t } from "../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<Base
+  title={t(lang, "思维印记 · 帮学生更深地完成思考", "Mind Imprint · Help students think deeper")}
+  description={t(lang,
+    "思维印记是为国际课程学校打造的 AI 思考陪练：交互式思维工具卡 + 过程评估，把学生和 AI 协作的全过程记录、评估，长成一枚思维印记。",
+    "Mind Imprint is an AI thinking partner for IB schools: interactive thinking cards plus process evaluation, recording and assessing how students think with AI."
+  )}
+>
+  <HomePage />
+</Base>

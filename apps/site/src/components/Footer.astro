@@ -1,0 +1,39 @@
+---
+import Icon from "./Icon.astro";
+import { getLang, t, localePath } from "../i18n/utils";
+import { loginUrl, demoUrl } from "../config";
+
+const lang = getLang(Astro.currentLocale);
+const year = 2026;
+---
+<footer class="site-foot">
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href={localePath(lang, "/")}>
+        <span class="mk"><Icon name="mark" /></span>{t(lang, "思维印记", "Mind Imprint")}
+      </a>
+      <p>{t(lang,
+        "一个把「思考过程」本身变成产品的 AI 学习平台。我们占「思考」这一层，不拥有学生的文档。",
+        "An AI learning platform that turns the thinking process itself into the product. We hold the thinking layer — never the student's document."
+      )}</p>
+    </div>
+    <div class="foot-cols">
+      <div class="foot-col">
+        <h5>{t(lang, "产品", "Product")}</h5>
+        <a href={localePath(lang, "/")}>{t(lang, "首页", "Home")}</a>
+        <a href={localePath(lang, "/evaluation")}>{t(lang, "评估模型", "Evaluation")}</a>
+        <a href={localePath(lang, "/about")}>{t(lang, "关于", "About")}</a>
+      </div>
+      <div class="foot-col">
+        <h5>{t(lang, "开始", "Get started")}</h5>
+        <a href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
+        <a href={loginUrl}>{t(lang, "登录", "Log in")}</a>
+        <a href={localePath(lang, "/about")}>{t(lang, "为学校接入", "For schools")}</a>
+      </div>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© {year} {t(lang, "思维印记 · Mind Imprint", "Mind Imprint · 思维印记")}</span>
+    <span>{t(lang, "为国际课程学生打造 · 克制、不操纵", "Built for IB students · restrained, never manipulative")}</span>
+  </div>
+</footer>

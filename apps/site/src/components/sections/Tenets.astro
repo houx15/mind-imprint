@@ -1,0 +1,47 @@
+---
+import Icon from "../Icon.astro";
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+const tenets = [
+  {
+    icon: "leaf",
+    zh: ["AI 克制，绝不替学生定论", "AI 的职责不是给答案，而是在对的时刻把「思考」塞回给学生。系统 prompt 的核心就是这条克制阶梯。"],
+    en: ["AI stays restrained — never concludes for the student", "Its job isn't to answer, but to hand thinking back at the right moment. That restraint ladder is the core of the system prompt."],
+  },
+  {
+    icon: "anchor",
+    zh: ["不操纵", "这个产品教学生「不被俘获」。绝不用连胜、排行榜、推送这类老虎机式机制留人——工具卡触发是自动的，但打开由学生确认。"],
+    en: ["No manipulation", "This product teaches students not to be captured. No streaks, leaderboards, or push notifications — cards trigger automatically, but opening one is the student's call."],
+  },
+  {
+    icon: "target",
+    zh: ["一次只问一个", "陪练对话短、不啰嗦，既降低 token，也保护学生的思考节奏。"],
+    en: ["One question at a time", "Coaching stays short and unhurried — lower token cost, and it protects the student's own thinking rhythm."],
+  },
+  {
+    icon: "activity",
+    zh: ["过程即数据", "学生跳过工具卡、让 AI 直接答，也被记录。摩擦被转化成信号，而不是被消灭。"],
+    en: ["The process is the data", "Skipping a card, or letting AI answer directly, is recorded too. Friction becomes signal instead of being erased."],
+  },
+];
+---
+<section class="section">
+  <div class="container center">
+    <div class="sec-label reveal">{t(lang, "四条设计铁律", "Four design laws")}</div>
+    <h2 class="sec-title reveal">{t(lang, "违反即自毁的脊梁", "The spine we won't break")}</h2>
+    <p class="sec-sub reveal">{t(lang, "这四条决定了这个产品和市面上「帮你更快完成」的工具有什么根本不同。", "These four are what make this product fundamentally different from tools that just help you finish faster.")}</p>
+
+    <div class="tenets">
+      {tenets.map((it) => (
+        <div class="tenet reveal">
+          <div class="ti"><Icon name={it.icon} /></div>
+          <div>
+            <h4>{lang === "zh" ? it.zh[0] : it.en[0]}</h4>
+            <p>{lang === "zh" ? it.zh[1] : it.en[1]}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
