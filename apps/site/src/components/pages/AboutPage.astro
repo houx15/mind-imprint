@@ -1,0 +1,112 @@
+---
+import Icon from "../Icon.astro";
+import CtaBand from "../sections/CtaBand.astro";
+import { getLang, t } from "../../i18n/utils";
+import { demoUrl } from "../../config";
+const lang = getLang(Astro.currentLocale);
+
+const pedagogy = [
+  {
+    tag: "IB · SOLO · TOK",
+    icon: "book",
+    zh: ["扎根于国际课程的教学法", "工具卡与评估不是凭空发明的：它们建立在 ATL 技能、TOK 认知框架与 SOLO 分类学之上，说的是老师本来就在教的语言。"],
+    en: ["Rooted in IB pedagogy", "The cards and the evaluation aren't invented from scratch — they build on ATL skills, the TOK framework and the SOLO taxonomy, speaking the language teachers already use."],
+  },
+  {
+    tag: "SIFT · CRAAP",
+    icon: "shield",
+    zh: ["信息素养作为底座", "在一个 AI 会自信地编造的时代，横向阅读、溯源核查、判断信源等级，是每个学生都该有的基本功。"],
+    en: ["Information literacy at the base", "In an age where AI confidently fabricates, lateral reading, source-tracing and credibility judgment are basic skills every student needs."],
+  },
+  {
+    tag: "Argument · Metacognition",
+    icon: "scale",
+    zh: ["论证与元认知", "让步段、论证拆解、反身性追问——教学生不只是得出结论，而是看清自己是怎么被说服、又怎么说服别人的。"],
+    en: ["Argument & metacognition", "Concession, argument analysis, reflexive questioning — teaching students not just to reach a conclusion, but to see how they're persuaded and how they persuade."],
+  },
+];
+---
+
+<section class="pagehero">
+  <div class="wash"><i class="w1"></i><i class="w2"></i><i class="w3"></i></div>
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="pip"></span>{t(lang, "关于思维印记", "About Mind Imprint")}</div>
+    <h1>{t(lang, "在 AI 时代，我们教的是「怎么想」，不是「怎么更快」。", "In the age of AI, we teach how to think — not how to go faster.")}</h1>
+    <p class="lead">{t(lang, "当 AI 能一键给出答案，稀缺的能力不再是产出，而是判断、追问与深度思考。这正是思维印记想守护的东西。", "When AI can answer in one click, the scarce skill is no longer output — it's judgment, questioning and deep thought. That is what Mind Imprint protects.")}</p>
+  </div>
+</section>
+
+<!-- belief -->
+<section class="section tight">
+  <div class="container">
+    <div class="belief reveal">
+      <p>{t(lang, "我们相信：善用 AI，是这一代学生最重要的素养之一——而它是可以被教、被看见、被评估的。", "We believe using AI well is one of the most important literacies of this generation — and that it can be taught, made visible, and evaluated.")}</p>
+      <p>{t(lang, "所以我们不做又一个「帮你更快完成作业」的工具。我们做一个陪练：在对的时刻把思考塞回给学生，并把这段思考完整地记录、评估下来。", "So we don't build another \"finish your homework faster\" tool. We build a thinking partner: one that hands thinking back at the right moment, and records and evaluates that thinking in full.")}</p>
+    </div>
+  </div>
+</section>
+
+<!-- pedagogy -->
+<section class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "我们的底气", "What it's built on")}</div>
+      <h2 class="sec-title reveal">{t(lang, "不是话术，是教学法", "Not a pitch — a pedagogy")}</h2>
+    </div>
+    <div class="peda">
+      {pedagogy.map((p) => (
+        <div class="pedacard reveal">
+          <div class="tagname">{p.tag}</div>
+          <h4>{lang === "zh" ? p.zh[0] : p.en[0]}</h4>
+          <p>{lang === "zh" ? p.zh[1] : p.en[1]}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- our layer -->
+<section class="section">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "我们占哪一层", "The layer we hold")}</div>
+      <h2 class="sec-title reveal">{t(lang, "我们占「思考」这一层", "We hold the thinking layer")}</h2>
+      <p class="sec-sub reveal">{t(lang, "学生的作文活在他自己的世界里——Google Doc、本子、随手粘进来。我们不拥有那个文档，我们只拥有他思考的轨迹。", "The student's essay lives in their own world — a Google Doc, a notebook, pasted in. We don't own that document. We only hold the trail of their thinking.")}</p>
+    </div>
+    <div class="why" style="margin-top:44px">
+      <div class="whycard no reveal">
+        <div class="wl"><Icon name="help" />{t(lang, "我们不是", "We are not")}</div>
+        <h3>{t(lang, "一个文档编辑器", "A document editor")}</h3>
+        <p>{t(lang, "没有排版、没有提交、没有代写。右侧的过程树是只读的记录，不是又一个写作工具。", "No formatting, no submission, no ghost-writing. The process tree on the right is a read-only record, not another writing tool.")}</p>
+      </div>
+      <div class="whycard yes reveal">
+        <div class="wl"><Icon name="route" />{t(lang, "我们是", "We are")}</div>
+        <h3>{t(lang, "思考发生的地方", "Where the thinking happens")}</h3>
+        <p>{t(lang, "学生带着真实任务进来，在与 AI 的协作中被引导做结构化思考——摩擦被转化成信号，过程被留存为成长。", "Students bring real tasks and are guided into structured thinking with AI — friction becomes signal, and the process is kept as growth.")}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- for schools -->
+<section class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="schools reveal">
+      <div>
+        <h3>{t(lang, "为学校接入", "For schools")}</h3>
+        <p>{t(lang, "思维印记以班级为单位接入。每个账号都属于一所学校、一个班级——没有「无组织账号」，也没有面向公众的自助注册。", "Mind Imprint rolls out class by class. Every account belongs to a school and a class — there are no orphan accounts and no public self-serve signup.")}</p>
+        <p>{t(lang, "想为你的学校或班级试用？点「体验 Demo」先走一遍完整流程，我们再聊接入。", "Want to try it for your school or class? Walk the full flow via the demo first, then let's talk about rolling it out.")}</p>
+        <div class="cta-row" style="justify-content:flex-start;margin-top:22px">
+          <a class="btn btn-lg btn-primary" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flowstep"><span class="fn">1</span><div><b>{t(lang, "学校建班", "School creates a class")}</b><span>{t(lang, "老师或管理员建立班级，拿到一个班级邀请码。", "A teacher or admin creates a class and gets a join code.")}</span></div></div>
+        <div class="flowstep"><span class="fn">2</span><div><b>{t(lang, "学生凭码注册", "Students join by code")}</b><span>{t(lang, "学生用邀请码注册，账号自动归属对应的学校与班级。", "Students register with the code; accounts are bound to the right school and class.")}</span></div></div>
+        <div class="flowstep"><span class="fn">3</span><div><b>{t(lang, "带着真实任务开练", "They bring real tasks")}</b><span>{t(lang, "学生把 EE、TOK、IA 等真实任务带进来，思考全程被记录、被评估。", "Students bring real EE / TOK / IA tasks; the whole process is recorded and evaluated.")}</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<CtaBand />

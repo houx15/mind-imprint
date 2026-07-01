@@ -1,0 +1,15 @@
+---
+import Base from "../layouts/Base.astro";
+import EvaluationPage from "../components/pages/EvaluationPage.astro";
+import { getLang, t } from "../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<Base
+  title={t(lang, "评估模型 · 思维印记", "The Evaluation Model · Mind Imprint")}
+  description={t(lang,
+    "思维印记评估的是思考的过程，不是作业成品：旗舰模型按认知模型两面四类十维、SOLO 四级给出诊断式评级，只给学生本人看。",
+    "Mind Imprint evaluates the thinking process, not the finished work — a flagship model scores two faces, four groups and ten dimensions on the SOLO scale, private to the student."
+  )}
+>
+  <EvaluationPage />
+</Base>

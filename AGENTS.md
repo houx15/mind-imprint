@@ -82,6 +82,7 @@ This ensures Claude Code, Codex CLI, and Gemini CLI share the same context consi
 
 - `apps/web/` - 前端 SPA（React + Vite）
 - `apps/api/` - 后端 Go 服务（重构后新增）
+- `apps/site/` - 营销站（Astro 静态站，中英双语 zh 默认 / en 于 `/en/`；纯展示 + 链接到 app，不持有密钥；风格 = Toddle 暖编辑 + Apple 叙事）
 - `packages/contracts/` - Zod 契约 + 卡 JSON 单一真相源（前后端共享）
 - `docs/` - 权威产品规格：PRD、工具包库
 - `docs/architecture/` - 后端平台架构参考：database-schema、api-design、go-backend-best-practices

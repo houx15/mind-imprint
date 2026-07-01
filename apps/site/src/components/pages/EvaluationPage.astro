@@ -1,0 +1,231 @@
+---
+import Icon from "../Icon.astro";
+import CtaBand from "../sections/CtaBand.astro";
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// The real cognitive model (packages/contracts cognitive-model.ts + rubric.ts):
+// two faces → four categories → ten dimensions.
+const model = [
+  {
+    face: "drive", icon: "compass",
+    zh: "生成式驾驭", en: "Generative drive",
+    subZh: "主动驾驭 AI，把它变成放大思考的工具", subEn: "Actively drive AI — make it amplify thinking",
+    cats: [
+      {
+        zh: "意图与编排", en: "Intent & orchestration",
+        sZh: "怎么提问、怎么跨轮驱动协作", sEn: "How you prompt and drive the collaboration",
+        dims: [
+          { code: "D1", zh: "提问清晰度", en: "Prompt clarity", fZh: "ATL 思维 · 意图与编排", fEn: "ATL Thinking · intent" },
+          { code: "D10", zh: "协作编排", en: "Collaborative orchestration", fZh: "意图与编排 · 跨轮驱动", fEn: "Intent · cross-turn drive" },
+        ],
+      },
+      {
+        zh: "推理与论证", en: "Reasoning & argument",
+        sZh: "拆解、回应、产出论证", sEn: "Analyzing, answering, and producing arguments",
+        dims: [
+          { code: "D4", zh: "多视角与让步", en: "Perspective & concession", fZh: "论证评估 · 反方处理", fEn: "Argument eval · counter-handling" },
+          { code: "D5", zh: "论证拆解", en: "Argument analysis", fZh: "论证分析 · 拆解论证", fEn: "Argument analysis · deconstruction" },
+          { code: "D7", zh: "论证质量", en: "Argument quality", fZh: "ATL 沟通 · 自身论证产出", fEn: "ATL Communication · own argument" },
+        ],
+      },
+    ],
+  },
+  {
+    face: "guard", icon: "shield",
+    zh: "批判式防护", en: "Critical guard",
+    subZh: "不被 AI 俘获，守住判断与诚信", subEn: "Don't get captured — guard judgment and integrity",
+    cats: [
+      {
+        zh: "信息素养", en: "Information literacy",
+        sZh: "溯源与多源对照", sEn: "Sourcing and cross-checking",
+        dims: [
+          { code: "D2", zh: "信源辨识", en: "Source discernment", fZh: "信息素养 · CRAAP", fEn: "Info literacy · CRAAP" },
+          { code: "D3", zh: "横向验证", en: "Lateral verification", fZh: "ATL 研究 · 横向阅读", fEn: "ATL Research · lateral reading" },
+        ],
+      },
+      {
+        zh: "AI 元认知与边界", en: "AI metacognition & limits",
+        sZh: "觉察、诚信、核查 AI", sEn: "Awareness, integrity, checking AI",
+        dims: [
+          { code: "D6", zh: "反思与元认知", en: "Reflection & metacognition", fZh: "ATL 反思 · TOK 认知者", fEn: "ATL Reflection · TOK knower" },
+          { code: "D8", zh: "信息再生产", en: "Information reproduction", fZh: "学术诚信 · 出处署名", fEn: "Academic integrity · attribution" },
+          { code: "D9", zh: "AI 边界与伦理", en: "AI limits & ethics", fZh: "TOK 知识与技术 · 事实核查", fEn: "TOK & tech · fact-checking" },
+        ],
+      },
+    ],
+  },
+];
+
+const solo = [
+  { lv: "l1", code: "L1", zh: "萌芽", en: "Emerging", dZh: "单点：只做到一个孤立的点，缺乏联系。", dEn: "One isolated point, few connections." },
+  { lv: "l2", code: "L2", zh: "发展中", en: "Developing", dZh: "多点：做到几个点，但还没连起来。", dEn: "Several points, not yet joined up." },
+  { lv: "l3", code: "L3", zh: "熟练", en: "Proficient", dZh: "关联：把要素连成结构，能主动应用。", dEn: "Points linked into a working structure." },
+  { lv: "l4", code: "L4", zh: "卓越", en: "Advanced", dZh: "拓展：迁移、反思、超越当前任务。", dEn: "Transfers, reflects, goes beyond the task." },
+];
+
+const principles = [
+  { icon: "book", zh: ["诊断，不判断", "描述「你做了什么」，而不是「你应该怎么想」。语气是诊断式的，不打分排名。"], en: ["Diagnostic, not judgmental", "It describes what you did, not what you should think — a diagnosis, never a grade or rank."] },
+  { icon: "lock", zh: ["只给学生本人看", "评估是私密的成长镜子，不是给他人比较的成绩单。"], en: ["Private to the student", "The evaluation is a private mirror for growth, not a report card for comparison."] },
+  { icon: "award", zh: ["评估走旗舰模型，绝不降级", "陪练对话可以走中档模型，但评估那一刀永远用最强模型。"], en: ["Flagship model, never downgraded", "Coaching may use a mid-tier model, but the evaluation cut always uses the strongest one."] },
+  { icon: "hand", zh: ["提供，而不是推送", "结果安静地出现——无徽章、不自动弹开，由学生自己点开。"], en: ["Offered, never pushed", "Results appear quietly — no badges, no auto-open. The student chooses when to look."] },
+];
+---
+
+<section class="pagehero">
+  <div class="wash"><i class="w1"></i><i class="w2"></i><i class="w3"></i></div>
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="pip"></span>{t(lang, "过程评估 · 我们的护城河", "Process evaluation · our moat")}</div>
+    <h1>{t(lang, "我们评估的是思考的过程，不是作业的成品。", "We evaluate the thinking process — not the finished work.")}</h1>
+    <p class="lead">{t(lang, "旗舰模型读完学生与 AI 协作的全过程，按一套认知模型给出诊断式评级，长成一枚「思维印记」。", "A flagship model reads the whole student–AI process and returns a diagnostic rating along a cognitive model — a Mind Imprint.")}</p>
+  </div>
+</section>
+
+<!-- why: process not product -->
+<section class="section tight">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "为什么", "Why")}</div>
+      <h2 class="sec-title reveal">{t(lang, "成品会说谎，过程不会", "The product can lie; the process can't")}</h2>
+    </div>
+    <div class="why">
+      <div class="whycard no reveal">
+        <div class="wl"><Icon name="help" />{t(lang, "我们不做", "We don't")}</div>
+        <h3>{t(lang, "给作文打个分", "Grade the essay")}</h3>
+        <p>{t(lang, "一篇漂亮的成品，可能是 AI 一键生成的，也可能是学生深思熟虑的——分数分不出这两者。我们不拥有、也不评判学生的文档。", "A polished essay could be one AI click or hours of real thought — a score can't tell them apart. We neither own nor judge the student's document.")}</p>
+      </div>
+      <div class="whycard yes reveal">
+        <div class="wl"><Icon name="check" />{t(lang, "我们做", "We do")}</div>
+        <h3>{t(lang, "看清思考是怎么发生的", "See how the thinking happened")}</h3>
+        <p>{t(lang, "学生跳过工具卡、追问反例、溯源核查——每一步都被记录成过程树。评估读的是这条轨迹：他到底是怎么和 AI 一起想的。", "Skipping a card, chasing a counter-example, tracing a source — each step becomes the process tree. The evaluation reads that trail: how they actually thought with AI.")}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- cognitive model -->
+<section class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "认知模型", "The cognitive model")}</div>
+      <h2 class="sec-title reveal">{t(lang, "两面 · 四类 · 十维", "Two faces · four groups · ten dimensions")}</h2>
+      <p class="sec-sub reveal">{t(lang, "善用 AI 的能力被拆成一枚硬币的两面：主动驾驭，与批判防护。", "Using AI well is the two sides of one coin: driving it, and guarding against it.")}</p>
+    </div>
+
+    <div class="model">
+      {model.map((f) => (
+        <div class:list={["mface", f.face, "reveal"]}>
+          <div class="mf-head">
+            <span class="mf-ic"><Icon name={f.icon} /></span>
+            <div>
+              <div class="mf-t">{lang === "zh" ? f.zh : f.en}</div>
+              <div class="mf-s">{lang === "zh" ? f.subZh : f.subEn}</div>
+            </div>
+          </div>
+          {f.cats.map((c) => (
+            <div class:list={["mcat", f.face]}>
+              <div class="cat-h"><span class="dotc"></span>{lang === "zh" ? c.zh : c.en}</div>
+              <div class="cat-s">{lang === "zh" ? c.sZh : c.sEn}</div>
+              {c.dims.map((d) => (
+                <div class="dim">
+                  <span class="dcode">{d.code}</span>
+                  <div>
+                    <div class="dname">{lang === "zh" ? d.zh : d.en}</div>
+                    <div class="dframe">{lang === "zh" ? d.fZh : d.fEn}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- SOLO scale -->
+<section class="section">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "四级评分", "The four levels")}</div>
+      <h2 class="sec-title reveal">{t(lang, "每一维，按 SOLO 四级", "Each dimension, on the SOLO scale")}</h2>
+      <p class="sec-sub reveal">{t(lang, "SOLO 分类学描述的是理解的结构，从单点到拓展——衡量深度，而不是对错。", "The SOLO taxonomy describes the structure of understanding, from a single point to extension — depth, not right-or-wrong.")}</p>
+    </div>
+    <div class="solo">
+      {solo.map((s) => (
+        <div class:list={["slv", s.lv, "reveal"]}>
+          <div class="sbar"></div>
+          <div class="scode">{s.code}</div>
+          <h4>{lang === "zh" ? s.zh : s.en}</h4>
+          <p>{lang === "zh" ? s.dZh : s.dEn}</p>
+        </div>
+      ))}
+    </div>
+    <p class="na-note reveal">{t(lang, "证据不足时记为 ", "When evidence is insufficient it's marked ")}<b>N/A</b>{t(lang, "——中性呈现，不计入进度，不当作失分。", " — shown neutrally, not counted against the student.")}</p>
+  </div>
+</section>
+
+<!-- sample imprint -->
+<section class="section" style="background:var(--bg)">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "一枚真实的印记", "A real imprint")}</div>
+      <h2 class="sec-title reveal">{t(lang, "Phoebe 这一程的思维印记", "Phoebe's imprint for this session")}</h2>
+      <p class="sec-sub reveal">{t(lang, "分层揭示：先两面，再四类，最后落到十维——安静地提供，由她自己点开。", "Revealed in layers: faces, then groups, then dimensions — offered quietly, opened at her choice.")}</p>
+    </div>
+
+    <div class="sample reveal">
+      <div class="window">
+        <div class="win-bar">
+          <div class="tl"><b style="background:#F0685C"></b><b style="background:#F5BF4F"></b><b style="background:#62C554"></b></div>
+          <div class="win-title">{t(lang, "你的思维印记 · Phoebe", "Your Mind Imprint · Phoebe")}</div>
+        </div>
+        <div class="evalp">
+          <div class="faces">
+            <div class="face drive">
+              <div class="fh"><span class="fi"><Icon name="compass" /></span><span class="ft">{t(lang, "生成式驾驭", "Generative drive")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "提问清晰度", "Prompt clarity")}</span><div class="bar"><i style="width:76%;background:var(--primary)"></i></div><span class="lv" style="color:var(--primary)">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "论证拆解", "Analysis")}</span><div class="bar"><i style="width:76%;background:var(--primary)"></i></div><span class="lv" style="color:var(--primary)">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "论证质量", "Argument")}</span><div class="bar"><i style="width:58%;background:var(--amber)"></i></div><span class="lv" style="color:var(--amber)">L2 {t(lang, "发展中", "Dev.")}</span></div>
+            </div>
+            <div class="face guard">
+              <div class="fh"><span class="fi"><Icon name="shield" /></span><span class="ft">{t(lang, "批判式防护", "Critical guard")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "横向验证", "Lateral")}</span><div class="bar"><i style="width:92%;background:var(--green)"></i></div><span class="lv" style="color:var(--green)">L4 {t(lang, "卓越", "Adv.")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "信源辨识", "Source ID")}</span><div class="bar"><i style="width:76%;background:var(--green)"></i></div><span class="lv" style="color:var(--green)">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="imp-row"><span class="name">{t(lang, "AI 边界与伦理", "AI limits")}</span><div class="bar"><i style="width:74%;background:var(--green)"></i></div><span class="lv" style="color:var(--green)">L3 {t(lang, "熟练", "Prof.")}</span></div>
+            </div>
+          </div>
+          <div class="narr">
+            <div class="q"><Icon name="spark" />{t(lang, "过程叙述", "Process narrative")}</div>
+            {lang === "zh"
+              ? <Fragment>你没有直接采用那篇文章，而是<b>溯到 NASA 与 Nature Sustainability</b> 两个独立原始来源——横向验证做得很扎实，是这一程最亮的地方。当你撞上「碳排放全球第一」这个反例时，你<b>主动接住了它</b>并完成了让步段；下一步，可以把让步之后的反驳再收紧一点，让论证链条更有力。</Fragment>
+              : <Fragment>Rather than using the article directly, you <b>traced it back to NASA and Nature Sustainability</b> — strong lateral reading, the highlight of this session. When you hit the "#1 emitter" counter-example, you <b>took it head-on</b> and completed the concession; next, tighten the rebuttal that follows so the argument lands harder.</Fragment>}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- principles -->
+<section class="section">
+  <div class="container">
+    <div class="center">
+      <div class="sec-label reveal">{t(lang, "评估的原则", "Principles")}</div>
+      <h2 class="sec-title reveal">{t(lang, "评估本身也守着四条铁律", "The evaluation keeps the design laws too")}</h2>
+    </div>
+    <div class="principles">
+      {principles.map((p) => (
+        <div class="principle reveal">
+          <div class="pi"><Icon name={p.icon} /></div>
+          <div>
+            <h4>{lang === "zh" ? p.zh[0] : p.en[0]}</h4>
+            <p>{lang === "zh" ? p.zh[1] : p.en[1]}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<CtaBand />
