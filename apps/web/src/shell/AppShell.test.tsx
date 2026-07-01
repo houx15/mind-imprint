@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AppShell } from "./AppShell";
 import { createStore } from "../store/createStore";
@@ -66,5 +66,36 @@ describe("AppShell boot gate", () => {
     };
     render(<AppShell store={store} session={session} client={client as never} />);
     await waitFor(() => expect(screen.getAllByText("概览").length).toBeGreaterThanOrEqual(2));
+  });
+});
+
+describe("AppShell demo trial (?trial=1)", () => {
+  afterEach(() => { window.history.replaceState({}, "", "/"); });
+
+  it("auto-signs-in as the sample student when getMe fails and ?trial=1 is present", async () => {
+    window.history.replaceState({}, "", "/?trial=1");
+    const store = createStore({});
+    const session = createSession({ storage: mem() });
+    const signin = vi.fn(async () => ME);
+    const client = {
+      getMe: vi.fn(async () => { throw new Error("401"); }),
+      signin, signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn(),
+    };
+    render(<AppShell store={store} session={session} client={client as never} />);
+    await waitFor(() => expect(screen.getByText("今天你在尝试什么？")).toBeInTheDocument());
+    expect(signin).toHaveBeenCalledWith({ email: "phoebe@demo.mindimprint.local", password: "phoebe-dev-pass" });
+  });
+
+  it("does NOT auto-sign-in without ?trial=1 (falls back to the auth screen)", async () => {
+    const store = createStore({});
+    const session = createSession({ storage: mem() });
+    const signin = vi.fn(async () => ME);
+    const client = {
+      getMe: vi.fn(async () => { throw new Error("401"); }),
+      signin, signout: vi.fn(),
+    };
+    render(<AppShell store={store} session={session} client={client as never} />);
+    await waitFor(() => expect(screen.getAllByText("登录").length).toBeGreaterThan(0));
+    expect(signin).not.toHaveBeenCalled();
   });
 });
