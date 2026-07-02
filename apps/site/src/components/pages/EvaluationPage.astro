@@ -65,10 +65,10 @@ const solo = [
 ];
 
 const principles = [
-  { icon: "book", zh: ["诊断，不判断", "描述「你做了什么」，而不是「你应该怎么想」。语气是诊断式的，不打分排名。"], en: ["Diagnostic, not judgmental", "It describes what you did, not what you should think — a diagnosis, never a grade or rank."] },
-  { icon: "lock", zh: ["只给学生本人看", "评估是私密的成长镜子，不是给他人比较的成绩单。"], en: ["Private to the student", "The evaluation is a private mirror for growth, not a report card for comparison."] },
+  { icon: "book", zh: ["像诊断，也像一封信", "它只讲清楚「你做到了什么」，把「该怎么想」交还给你自己。语气始终是诊断式的，不打分、不排名。"], en: ["Diagnostic, not judgmental", "It describes what you did, not what you should think — a diagnosis, never a grade or rank."] },
+  { icon: "lock", zh: ["只给学生本人看", "评估是一面私密的成长镜子，只照给学生自己看，其他人都看不到。"], en: ["Private to the student", "The evaluation is a private mirror for growth, not a report card for comparison."] },
   { icon: "award", zh: ["评估永远用最强的模型", "日常陪练可以用更轻量的模型，但到了评估这一步，我们始终用最强的那一个。"], en: ["Evaluation always uses the strongest model", "Everyday coaching can run on a lighter model, but for the evaluation itself we always use the very best one."] },
-  { icon: "hand", zh: ["提供，而不是推送", "结果安静地出现——无徽章、不自动弹开，由学生自己点开。"], en: ["Offered, never pushed", "Results appear quietly — no badges, no auto-open. The student chooses when to look."] },
+  { icon: "hand", zh: ["看不看，学生说了算", "结果只是安静地出现——没有徽章、不会自动弹开，什么时候点开，由学生自己决定。"], en: ["Offered, never pushed", "Results appear quietly — no badges, no auto-open. The student chooses when to look."] },
 ];
 ---
 
@@ -76,7 +76,7 @@ const principles = [
   <div class="wash"><i class="w1"></i><i class="w2"></i><i class="w3"></i></div>
   <div class="hero-inner">
     <div class="eyebrow"><span class="pip"></span>{t(lang, "过程评估 · 我们的护城河", "Process evaluation · our moat")}</div>
-    <h1>{t(lang, "我们评估的是思考的过程，不是作业的成品。", "We evaluate the thinking process — not the finished work.")}</h1>
+    <h1>{t(lang, "我们评估的是思考的过程，作业的成品始终属于学生自己。", "We evaluate the thinking process — the finished work stays the student's own.")}</h1>
     <p class="lead">{t(lang, "最强的模型会读完学生和 AI 协作的全过程，用一套思维框架给出一份诊断式的评级，最后长成一枚「思维印记」。", "The strongest model reads the whole student–AI process and returns a diagnostic rating along a thinking framework — which becomes a Mind Imprint.")}</p>
   </div>
 </section>
@@ -149,7 +149,7 @@ const principles = [
     <div class="center">
       <div class="sec-label reveal">{t(lang, "四级评分", "The four levels")}</div>
       <h2 class="sec-title reveal">{t(lang, "每个维度，分成四个成长阶段", "Each dimension, across four stages of growth")}</h2>
-      <p class="sec-sub reveal">{t(lang, "这四个阶段来自 SOLO 分类学，描述的是理解的深浅——从零散的单点，一直到能融会贯通、迁移应用。它衡量的是深度，不是对错。", "The four stages come from the SOLO taxonomy — they describe how deep understanding goes, from scattered single points to connected, transferable mastery. They measure depth, not right-or-wrong.")}</p>
+      <p class="sec-sub reveal">{t(lang, "这四个阶段来自 SOLO 分类学，描述的是理解的深浅——从零散的单点，一直到能融会贯通、迁移应用。它衡量的是理解的深度，与对错无关。", "The four stages come from the SOLO taxonomy — they describe how deep understanding goes, from scattered single points to connected, transferable mastery. They measure depth, not right-or-wrong.")}</p>
     </div>
     <div class="solo">
       {solo.map((s) => (
@@ -198,7 +198,7 @@ const principles = [
           <div class="narr">
             <div class="q"><Icon name="spark" />{t(lang, "过程叙述", "Process narrative")}</div>
             {lang === "zh"
-              ? <Fragment>你没有直接采用那篇文章，而是<b>溯到 NASA 与 Nature Sustainability</b> 两个独立原始来源——横向验证做得很扎实，是这一程最亮的地方。当你撞上「碳排放全球第一」这个反例时，你<b>主动接住了它</b>并完成了让步段；下一步，可以把让步之后的反驳再收紧一点，让论证链条更有力。</Fragment>
+              ? <Fragment>你把那篇文章一路<b>溯到了 NASA 与 Nature Sustainability</b> 两个独立原始来源——横向验证做得很扎实，是这一程最亮的地方。当你撞上「碳排放全球第一」这个反例时，你<b>主动接住了它</b>并完成了让步段；下一步，可以把让步之后的反驳再收紧一点，让论证链条更有力。</Fragment>
               : <Fragment>Rather than using the article directly, you <b>traced it back to NASA and Nature Sustainability</b> — strong lateral reading, the highlight of this session. When you hit the "#1 emitter" counter-example, you <b>took it head-on</b> and completed the concession; next, tighten the rebuttal that follows so the argument lands harder.</Fragment>}
           </div>
         </div>
