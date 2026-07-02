@@ -67,7 +67,7 @@ const solo = [
 const principles = [
   { icon: "book", zh: ["诊断，不判断", "描述「你做了什么」，而不是「你应该怎么想」。语气是诊断式的，不打分排名。"], en: ["Diagnostic, not judgmental", "It describes what you did, not what you should think — a diagnosis, never a grade or rank."] },
   { icon: "lock", zh: ["只给学生本人看", "评估是私密的成长镜子，不是给他人比较的成绩单。"], en: ["Private to the student", "The evaluation is a private mirror for growth, not a report card for comparison."] },
-  { icon: "award", zh: ["评估走旗舰模型，绝不降级", "陪练对话可以走中档模型，但评估那一刀永远用最强模型。"], en: ["Flagship model, never downgraded", "Coaching may use a mid-tier model, but the evaluation cut always uses the strongest one."] },
+  { icon: "award", zh: ["评估永远用最强的模型", "日常陪练可以用更轻量的模型，但到了评估这一步，我们始终用最强的那一个。"], en: ["Evaluation always uses the strongest model", "Everyday coaching can run on a lighter model, but for the evaluation itself we always use the very best one."] },
   { icon: "hand", zh: ["提供，而不是推送", "结果安静地出现——无徽章、不自动弹开，由学生自己点开。"], en: ["Offered, never pushed", "Results appear quietly — no badges, no auto-open. The student chooses when to look."] },
 ];
 ---
@@ -77,7 +77,7 @@ const principles = [
   <div class="hero-inner">
     <div class="eyebrow"><span class="pip"></span>{t(lang, "过程评估 · 我们的护城河", "Process evaluation · our moat")}</div>
     <h1>{t(lang, "我们评估的是思考的过程，不是作业的成品。", "We evaluate the thinking process — not the finished work.")}</h1>
-    <p class="lead">{t(lang, "旗舰模型读完学生与 AI 协作的全过程，按一套认知模型给出诊断式评级，长成一枚「思维印记」。", "A flagship model reads the whole student–AI process and returns a diagnostic rating along a cognitive model — a Mind Imprint.")}</p>
+    <p class="lead">{t(lang, "最强的模型会读完学生和 AI 协作的全过程，用一套思维框架给出一份诊断式的评级，最后长成一枚「思维印记」。", "The strongest model reads the whole student–AI process and returns a diagnostic rating along a thinking framework — which becomes a Mind Imprint.")}</p>
   </div>
 </section>
 
@@ -108,8 +108,8 @@ const principles = [
   <div class="container">
     <div class="center">
       <div class="sec-label reveal">{t(lang, "认知模型", "The cognitive model")}</div>
-      <h2 class="sec-title reveal">{t(lang, "两面 · 四类 · 十维", "Two faces · four groups · ten dimensions")}</h2>
-      <p class="sec-sub reveal">{t(lang, "善用 AI 的能力被拆成一枚硬币的两面：主动驾驭，与批判防护。", "Using AI well is the two sides of one coin: driving it, and guarding against it.")}</p>
+      <h2 class="sec-title reveal">{t(lang, "一套覆盖十个维度的思维框架", "A thinking framework across ten dimensions")}</h2>
+      <p class="sec-sub reveal">{t(lang, "我们把「善用 AI」拆成一枚硬币的两面——主动驾驭 AI，与批判地防护自己；两面之下再分四类、共十个具体维度。", "We split \"using AI well\" into two sides of one coin — actively driving AI, and critically guarding yourself — then into four groups and ten concrete dimensions.")}</p>
     </div>
 
     <div class="model">
@@ -148,8 +148,8 @@ const principles = [
   <div class="container">
     <div class="center">
       <div class="sec-label reveal">{t(lang, "四级评分", "The four levels")}</div>
-      <h2 class="sec-title reveal">{t(lang, "每一维，按 SOLO 四级", "Each dimension, on the SOLO scale")}</h2>
-      <p class="sec-sub reveal">{t(lang, "SOLO 分类学描述的是理解的结构，从单点到拓展——衡量深度，而不是对错。", "The SOLO taxonomy describes the structure of understanding, from a single point to extension — depth, not right-or-wrong.")}</p>
+      <h2 class="sec-title reveal">{t(lang, "每个维度，分成四个成长阶段", "Each dimension, across four stages of growth")}</h2>
+      <p class="sec-sub reveal">{t(lang, "这四个阶段来自 SOLO 分类学，描述的是理解的深浅——从零散的单点，一直到能融会贯通、迁移应用。它衡量的是深度，不是对错。", "The four stages come from the SOLO taxonomy — they describe how deep understanding goes, from scattered single points to connected, transferable mastery. They measure depth, not right-or-wrong.")}</p>
     </div>
     <div class="solo">
       {solo.map((s) => (
@@ -212,7 +212,7 @@ const principles = [
   <div class="container">
     <div class="center">
       <div class="sec-label reveal">{t(lang, "评估的原则", "Principles")}</div>
-      <h2 class="sec-title reveal">{t(lang, "评估本身也守着四条铁律", "The evaluation keeps the design laws too")}</h2>
+      <h2 class="sec-title reveal">{t(lang, "评估本身，也守着我们那几件坚持", "The evaluation keeps our principles too")}</h2>
     </div>
     <div class="principles">
       {principles.map((p) => (
