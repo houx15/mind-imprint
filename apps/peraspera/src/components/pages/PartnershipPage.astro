@@ -1,0 +1,283 @@
+---
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  hero,
+  solutionsIntro,
+  solutions,
+  miIntro,
+  miModel,
+  miSolo,
+  miPrinciples,
+  miWhySchool,
+  closingCta,
+} from "../../content/partnership";
+
+const lang = getLang(Astro.currentLocale);
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ 1 · Two kinds of solutions ═══ -->
+<section class="section" id="solutions">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, solutionsIntro.eyebrow.zh, solutionsIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, solutionsIntro.title.zh, solutionsIntro.title.en)}</h2>
+    </div>
+    <div class="solutions">
+      {solutions.map((s) => (
+        <article class="solution-card reveal">
+          <span class="solution-tag">{s.tag}</span>
+          <h3>{t(lang, s.title.zh, s.title.en)}</h3>
+          <p class="solution-body">{t(lang, s.body.zh, s.body.en)}</p>
+          {s.items.length > 0 && (
+            <div class="solution-items">
+              {s.items.map((item) => (
+                <div class="solution-item">
+                  <h4>{t(lang, item.title.zh, item.title.en)}</h4>
+                  <p>{t(lang, item.body.zh, item.body.en)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2 · Introduce 思维印记 (mind imprint) ═══ -->
+<section class="section alt" id="mind-imprint">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, miIntro.eyebrow.zh, miIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, miIntro.title.zh, miIntro.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {miIntro.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+
+    <!-- two faces / ten dimensions -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miModel.eyebrow.zh, miModel.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miModel.title.zh, miModel.title.en)}</h3>
+      <p class="mi-block-sub">{t(lang, miModel.sub.zh, miModel.sub.en)}</p>
+      <div class="faces">
+        {miModel.faces.map((f) => (
+          <div class:list={["face", f.face]}>
+            <h4>{t(lang, f.title.zh, f.title.en)}</h4>
+            <p class="face-sub">{t(lang, f.sub.zh, f.sub.en)}</p>
+            <ul class="dims">
+              {f.dims.map((d) => <li>{t(lang, d.name.zh, d.name.en)}</li>)}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- SOLO levels -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miSolo.eyebrow.zh, miSolo.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miSolo.title.zh, miSolo.title.en)}</h3>
+      <p class="mi-block-sub">{t(lang, miSolo.sub.zh, miSolo.sub.en)}</p>
+      <div class="solo">
+        {miSolo.levels.map((lv) => (
+          <div class="solo-level">
+            <span class="solo-code">{lv.code}</span>
+            <h4>{t(lang, lv.name.zh, lv.name.en)}</h4>
+            <p>{t(lang, lv.body.zh, lv.body.en)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- principles -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miPrinciples.eyebrow.zh, miPrinciples.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miPrinciples.title.zh, miPrinciples.title.en)}</h3>
+      <div class="principles">
+        {miPrinciples.items.map((p) => (
+          <div class="principle-card">
+            <h4>{t(lang, p.title.zh, p.title.en)}</h4>
+            <p>{t(lang, p.body.zh, p.body.en)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <p class="mi-why reveal">{t(lang, miWhySchool.zh, miWhySchool.en)}</p>
+  </div>
+</section>
+
+<!-- ═══ 3 · Closing CTA ═══ -->
+<section class="section" id="contact">
+  <div class="container">
+    <div class="cta reveal">
+      <h2>{t(lang, closingCta.title.zh, closingCta.title.en)}</h2>
+      <p>{t(lang, closingCta.sub.zh, closingCta.sub.en)}</p>
+      <div class="cta-row">
+        <a class="btn btn-primary btn-lg" href={localePath(lang, closingCta.ctaHref)}>
+          {t(lang, closingCta.ctaLabel.zh, closingCta.ctaLabel.en)}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ---- 1 · two solution cards --------------------------------------------- */
+  .solutions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+    align-items: start;
+  }
+  .solution-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--primary);
+    border-radius: var(--r-lg);
+    padding: 34px 30px;
+  }
+  .solution-tag {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: var(--primary);
+  }
+  .solution-card h3 { margin-top: 12px; margin-bottom: 14px; }
+  .solution-body { color: var(--ink-2); font-size: 1rem; max-width: none; }
+  .solution-items {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .solution-item h4 { color: var(--ink); }
+  .solution-item p { margin-top: 6px; color: var(--ink-2); font-size: 0.92rem; max-width: none; }
+
+  /* ---- 2 · mind imprint intro prose ---------------------------------------- */
+  .prose {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 74ch;
+  }
+  .prose p { font-size: 1.0625rem; color: var(--ink-2); }
+
+  .mi-block {
+    margin-top: 68px;
+    padding-top: 48px;
+    border-top: 1px solid var(--line);
+  }
+  .mi-block-title { margin-top: 14px; max-width: none; }
+  .mi-block-sub { margin-top: 14px; color: var(--ink-2); font-size: 1.02rem; max-width: 68ch; }
+
+  /* two faces */
+  .faces {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    margin-top: 32px;
+  }
+  .face {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 26px 26px;
+  }
+  .face.drive { border-left: 3px solid var(--primary); }
+  .face.guard { border-left: 3px solid var(--muted); }
+  .face h4 { color: var(--ink); }
+  .face-sub { margin-top: 6px; color: var(--muted); font-size: 0.9rem; max-width: none; }
+  .dims {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .dims li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.95rem;
+    color: var(--ink-2);
+  }
+  .dims li::before {
+    content: "✦";
+    color: var(--primary);
+    font-size: 0.75em;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  /* SOLO levels */
+  .solo {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-top: 32px;
+  }
+  .solo-level {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 22px 20px;
+  }
+  .solo-code {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--primary);
+  }
+  .solo-level h4 { margin-top: 8px; }
+  .solo-level p { margin-top: 8px; color: var(--ink-2); font-size: 0.9rem; max-width: none; }
+
+  /* principles */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 32px;
+  }
+  .principle-card {
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    border-radius: var(--r-lg);
+    padding: 24px 24px;
+  }
+  .principle-card h4 { color: var(--ink); }
+  .principle-card p { margin-top: 8px; color: var(--ink-2); font-size: 0.92rem; max-width: none; }
+
+  .mi-why {
+    margin-top: 56px;
+    padding-top: 40px;
+    border-top: 1px solid var(--line);
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+    max-width: 74ch;
+  }
+
+  @media (max-width: 900px) {
+    .solutions, .faces, .principles { grid-template-columns: 1fr; }
+    .solo { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .solo { grid-template-columns: 1fr; }
+  }
+</style>
