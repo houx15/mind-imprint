@@ -1,0 +1,26 @@
+---
+// Temporary placeholder — replaced by the full long-read in Phase D (task D2).
+import Base from "../../../layouts/Base.astro";
+import { getLang, localePath } from "../../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+---
+<Base
+  title="The Global Landscape of Similar Schools · Per Aspera Institute"
+  description="In-depth report coming soon."
+>
+  <header class="pagehero">
+    <div class="container">
+      <p class="eyebrow">Institute · Public research</p>
+      <h1>The Global Landscape of Similar Schools</h1>
+      <p class="lead">
+        深度报告即将上线 · In-depth report coming soon
+      </p>
+    </div>
+  </header>
+  <section class="section tight">
+    <div class="container center">
+      <a class="btn btn-outline" href={localePath(lang, "/institute")}>← Back to the Institute</a>
+    </div>
+  </section>
+</Base>
