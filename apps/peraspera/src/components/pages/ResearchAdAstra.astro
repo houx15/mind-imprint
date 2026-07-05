@@ -1,0 +1,550 @@
+---
+// Per Aspera — Institute long-read: "The Full Ad Astra / Astra Nova Story"
+// (/institute/ad-astra, /en/institute/ad-astra). Content lives in
+// src/content/research.ts (adAstra export) — this file is layout only.
+//
+// Pattern follows InstitutePage.astro / AboutPage.astro: getLang, .pagehero,
+// .container/.section/.reveal, existing global.css primitives (.table-wrap
+// + .table, .btn). The 3-entity genealogy uses the shared <Timeline>.
+// Everything else here is bespoke long-read scaffolding (citation chips,
+// case cards, myth entries) scoped to this component.
+import Timeline from "../Timeline.astro";
+import CiteRow from "../CiteRow.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  meta,
+  genealogy,
+  admissions,
+  ageStages,
+  highSchool,
+  cases,
+  mythbusting,
+  sourcesIntro,
+  sourceGroups,
+  methodologyNote,
+} from "../../content/research";
+
+const lang = getLang(Astro.currentLocale);
+const htmlLang = lang === "zh" ? "zh-CN" : "en";
+
+const timelineSteps = genealogy.entities.map((e) => ({
+  label: t(lang, e.label.zh, e.label.en),
+  date: t(lang, e.date.zh, e.date.en),
+}));
+
+const hsTimelineSteps = highSchool.timeline.map((s) => ({
+  label: t(lang, s.label.zh, s.label.en),
+  date: t(lang, s.date.zh, s.date.en),
+}));
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, meta.eyebrow.zh, meta.eyebrow.en)}</p>
+    <h1>{t(lang, meta.title.zh, meta.title.en)}</h1>
+    <p class="lead">{t(lang, meta.lede.zh, meta.lede.en)}</p>
+    <p class="meta-note">{t(lang, meta.dateNote.zh, meta.dateNote.en)}</p>
+  </div>
+</header>
+
+<article class="longread" lang={htmlLang}>
+
+  <!-- ═══ 0 · Genealogy ═══ -->
+  <section class="section" id="genealogy">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, genealogy.intro.eyebrow.zh, genealogy.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, genealogy.intro.title.zh, genealogy.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, genealogy.intro.body.zh, genealogy.intro.body.en)}</p>
+      </div>
+
+      <div class="reveal" style="margin-top:44px">
+        <Timeline lang={lang} steps={timelineSteps} />
+      </div>
+
+      <div class="entity-cards reveal">
+        {genealogy.entities.map((e) => (
+          <article class="entity-card">
+            <p class="entity-date">{t(lang, e.date.zh, e.date.en)}</p>
+            <h3>{t(lang, e.label.zh, e.label.en)}</h3>
+            <p>{t(lang, e.form.zh, e.form.en)}</p>
+            <p class="entity-audience">{t(lang, e.audience.zh, e.audience.en)}</p>
+            <CiteRow cites={e.cites} lang={lang} />
+          </article>
+        ))}
+      </div>
+
+      <p class="body-p reveal">
+        {t(lang, genealogy.extra.text.zh, genealogy.extra.text.en)}
+        <CiteRow cites={genealogy.extra.cites ?? []} lang={lang} inline />
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ 1 · Admissions: official vs. actual ═══ -->
+  <section class="section alt" id="admissions">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, admissions.intro.eyebrow.zh, admissions.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, admissions.intro.title.zh, admissions.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, admissions.intro.body.zh, admissions.intro.body.en)}</p>
+      </div>
+
+      {admissions.blocks.map((block) => (
+        <div class="admissions-block reveal">
+          <h3>{t(lang, block.title.zh, block.title.en)}</h3>
+          <div class="ovsa-grid">
+            <div class="ovsa-col">
+              <p class="ovsa-label">{t(lang, "官方说法", "The official line")}</p>
+              <ul class="bullet-list">
+                {block.official.map((b) => (
+                  <li>
+                    {t(lang, b.text.zh, b.text.en)}
+                    <CiteRow cites={b.cites ?? []} lang={lang} inline />
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div class="ovsa-col">
+              <p class="ovsa-label ovsa-label-actual">{t(lang, "实际情况", "What actually happens")}</p>
+              <ul class="bullet-list">
+                {block.actual.map((b) => (
+                  <li>
+                    {t(lang, b.text.zh, b.text.en)}
+                    <CiteRow cites={b.cites ?? []} lang={lang} inline />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          {block.warn && (
+            <div class="warn-box">
+              <p class="warn-title">{t(lang, block.warn.title.zh, block.warn.title.en)}</p>
+              <p>{t(lang, block.warn.body.zh, block.warn.body.en)}</p>
+              <CiteRow cites={block.warn.cites} lang={lang} inline />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- ═══ 2 · Age-band pedagogy ═══ -->
+  <section class="section" id="age-stages">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, ageStages.intro.eyebrow.zh, ageStages.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, ageStages.intro.title.zh, ageStages.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, ageStages.intro.body.zh, ageStages.intro.body.en)}</p>
+      </div>
+
+      <div class="stage-list reveal">
+        {ageStages.stages.map((stage) => (
+          <article class="stage-card">
+            <p class="stage-age">{t(lang, stage.ageRange.zh, stage.ageRange.en)}</p>
+            <h3>{t(lang, stage.title.zh, stage.title.en)}</h3>
+            <ul class="bullet-list">
+              {stage.bullets.map((b) => (
+                <li>
+                  {t(lang, b.text.zh, b.text.en)}
+                  <CiteRow cites={b.cites ?? []} lang={lang} inline />
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 3 · High school program ═══ -->
+  <section class="section alt" id="high-school">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, highSchool.intro.eyebrow.zh, highSchool.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, highSchool.intro.title.zh, highSchool.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, highSchool.intro.body.zh, highSchool.intro.body.en)}</p>
+      </div>
+
+      <div class="hs-tiers reveal">
+        {highSchool.tiers.map((tier, i) => (
+          <article class={`hs-tier ${i === 2 ? "hs-tier-featured" : ""}`}>
+            <p class="hs-tier-name">{t(lang, tier.name.zh, tier.name.en)}</p>
+            <p class="hs-tier-hours">{t(lang, tier.hours.zh, tier.hours.en)}</p>
+            <p class="hs-tier-desc">{t(lang, tier.desc.zh, tier.desc.en)}</p>
+          </article>
+        ))}
+      </div>
+
+      <p class="body-p reveal">
+        {t(lang, highSchool.corporateCollaborative.text.zh, highSchool.corporateCollaborative.text.en)}
+        <CiteRow cites={highSchool.corporateCollaborative.cites ?? []} lang={lang} inline />
+      </p>
+
+      <div class="reveal" style="margin-top:56px">
+        <p class="eyebrow">{t(lang, "时间线", "Timeline")}</p>
+        <h3 class="sec-title" style="max-width:none;margin-top:8px">{t(lang, "你面对的申请日历", "The application calendar you're facing")}</h3>
+      </div>
+      <div class="reveal" style="margin-top:32px">
+        <Timeline lang={lang} steps={hsTimelineSteps} />
+      </div>
+
+      <div class="reveal" style="margin-top:56px">
+        <p class="eyebrow">{t(lang, "学费", "Tuition")}</p>
+        <h3 class="sec-title" style="max-width:none;margin-top:8px">{t(lang, "按每周课时分档（2026/27）", "Tiered by weekly hours (2026/27)")}</h3>
+      </div>
+      <div class="table-wrap reveal" style="margin-top:28px">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{t(lang, "每周课时", "Weekly hours")}</th>
+              <th>{t(lang, "学费", "Tuition")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {highSchool.tuition.map((row) => (
+              <tr>
+                <td>{t(lang, row.hours.zh, row.hours.en)}</td>
+                <td class="num">{t(lang, row.price.zh, row.price.en)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ul class="bullet-list reveal" style="margin-top:28px">
+        {highSchool.notes.map((b) => (
+          <li>
+            {t(lang, b.text.zh, b.text.en)}
+            <CiteRow cites={b.cites ?? []} lang={lang} inline />
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══ 4 · Real cases ═══ -->
+  <section class="section" id="cases">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, cases.intro.eyebrow.zh, cases.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, cases.intro.title.zh, cases.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, cases.intro.body.zh, cases.intro.body.en)}</p>
+      </div>
+
+      <div class="note-box reveal">
+        <p>{t(lang, cases.noHsCasesNote.zh, cases.noHsCasesNote.en)}</p>
+      </div>
+
+      <h3 class="cases-subhead reveal">{t(lang, "录取者", "Admitted")}</h3>
+      <div class="case-list reveal">
+        {cases.admitted.map((c) => (
+          <article class="case-card">
+            <div class="case-tags">
+              <span class="case-tag case-tag-in">{t(lang, c.tag.zh, c.tag.en)}</span>
+              <span class="case-credibility">{t(lang, c.credibility.zh, c.credibility.en)}</span>
+            </div>
+            <h4>{t(lang, c.title.zh, c.title.en)}</h4>
+            <ul class="bullet-list">
+              {c.bullets.map((b) => (
+                <li>
+                  {t(lang, b.text.zh, b.text.en)}
+                  <CiteRow cites={b.cites ?? []} lang={lang} inline />
+                </li>
+              ))}
+            </ul>
+            {c.quote && <blockquote>{t(lang, c.quote.zh, c.quote.en)}</blockquote>}
+            <CiteRow cites={c.cites} lang={lang} />
+          </article>
+        ))}
+      </div>
+
+      <h3 class="cases-subhead reveal">{t(lang, "被拒 / 未走完流程", "Rejected / did not complete the process")}</h3>
+      <div class="case-list reveal">
+        {cases.rejected.map((c) => (
+          <article class="case-card">
+            <div class="case-tags">
+              <span class="case-tag case-tag-out">{t(lang, c.tag.zh, c.tag.en)}</span>
+              <span class="case-credibility">{t(lang, c.credibility.zh, c.credibility.en)}</span>
+            </div>
+            <h4>{t(lang, c.title.zh, c.title.en)}</h4>
+            {c.quote && <blockquote>{t(lang, c.quote.zh, c.quote.en)}</blockquote>}
+            <ul class="bullet-list">
+              {c.bullets.map((b) => (
+                <li>
+                  {t(lang, b.text.zh, b.text.en)}
+                  <CiteRow cites={b.cites ?? []} lang={lang} inline />
+                </li>
+              ))}
+            </ul>
+            <CiteRow cites={c.cites} lang={lang} />
+          </article>
+        ))}
+      </div>
+
+      <div class="reveal" style="margin-top:56px">
+        <h3 class="cases-subhead" style="margin-top:0">{t(lang, "招生官视角的补充证据", "Corroborating evidence from the admissions-office side")}</h3>
+        <ul class="bullet-list">
+          {cases.officialEvidence.map((b) => (
+            <li>
+              {t(lang, b.text.zh, b.text.en)}
+              <CiteRow cites={b.cites ?? []} lang={lang} inline />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div class="note-box reveal" style="margin-top:44px">
+        <p class="note-box-title">{t(lang, "从案例反推：怎么准备", "What these cases show: how to prepare")}</p>
+        <ul class="bullet-list">
+          {cases.takeaways.map((b) => (
+            <li>
+              {t(lang, b.text.zh, b.text.en)}
+              <CiteRow cites={b.cites ?? []} lang={lang} inline />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 5 · Mythbusting ═══ -->
+  <section class="section alt" id="mythbusting">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, mythbusting.intro.eyebrow.zh, mythbusting.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, mythbusting.intro.title.zh, mythbusting.intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, mythbusting.intro.body.zh, mythbusting.intro.body.en)}</p>
+      </div>
+
+      <div class="myth-list reveal">
+        {mythbusting.entries.map((m) => (
+          <article class="myth-card">
+            <p class="myth-claim">{t(lang, "流传的说法", "The claim circulating")} — {t(lang, m.claim.zh, m.claim.en)}</p>
+            <p>{t(lang, m.reality.zh, m.reality.en)}</p>
+            <CiteRow cites={m.cites} lang={lang} inline />
+          </article>
+        ))}
+      </div>
+
+      <div class="note-box reveal" style="margin-top:32px">
+        <p>{t(lang, mythbusting.blankPlatforms.zh, mythbusting.blankPlatforms.en)}</p>
+      </div>
+      <div class="note-box reveal" style="margin-top:20px">
+        <p>{t(lang, mythbusting.scarcityNote.zh, mythbusting.scarcityNote.en)}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Sources ═══ -->
+  <section class="section" id="sources">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, sourcesIntro.eyebrow.zh, sourcesIntro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, sourcesIntro.title.zh, sourcesIntro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0">{t(lang, sourcesIntro.body.zh, sourcesIntro.body.en)}</p>
+      </div>
+
+      <div class="source-groups reveal">
+        {sourceGroups.map((group) => (
+          <div class="source-group">
+            <h4>{t(lang, group.heading.zh, group.heading.en)}</h4>
+            <ul class="source-list">
+              {group.items.map((item) => (
+                <li>
+                  <a href={item.url} target="_blank" rel="noopener">
+                    {t(lang, item.label.zh, item.label.en)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div class="methodology reveal">
+        {methodologyNote.map((n) => <p>{t(lang, n.zh, n.en)}</p>)}
+      </div>
+
+      <div class="center reveal" style="margin-top:52px">
+        <a class="btn btn-outline" href={localePath(lang, "/institute")}>
+          {t(lang, "← 回到研究院", "← Back to the Institute")}
+        </a>
+      </div>
+    </div>
+  </section>
+</article>
+
+<style>
+  .meta-note {
+    margin-top: 18px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  /* Long-read measure: everything inside gets a comfortable reading width
+     by default; sections that need full width (tables, grids) opt back out
+     via their own max-width:none. */
+  .longread :is(p, .bullet-list, blockquote) {
+    max-width: 68ch;
+  }
+  .body-p { color: var(--ink-2); font-size: 1.0625rem; line-height: 1.75; }
+
+  .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 14px; color: var(--ink-2); font-size: 1rem; line-height: 1.7; }
+  .bullet-list li { padding-left: 22px; position: relative; }
+  .bullet-list li::before { content: "✦"; position: absolute; left: 0; top: 2px; color: var(--primary); font-size: 0.75em; }
+
+  /* Inline citation chips are rendered by the shared <CiteRow> component
+     (src/components/CiteRow.astro), which owns its own scoped styles. */
+
+  /* Genealogy entity cards */
+  .entity-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 48px; }
+  .entity-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 26px 24px;
+  }
+  .entity-date {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.06em; color: var(--primary); margin-bottom: 8px;
+  }
+  .entity-card h3 { font-size: 1.1rem; margin-bottom: 10px; }
+  .entity-card p { font-size: 0.95rem; color: var(--ink-2); }
+  .entity-audience { margin-top: 10px; }
+
+  /* Admissions: official-vs-actual two-column grid */
+  .admissions-block { margin-top: 56px; }
+  .admissions-block:first-of-type { margin-top: 44px; }
+  .admissions-block h3 { font-size: 1.2rem; margin-bottom: 20px; }
+  .ovsa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .ovsa-col {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 24px 26px;
+  }
+  .ovsa-label {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.78rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .ovsa-label-actual { color: var(--primary); }
+
+  .warn-box {
+    margin-top: 22px; background: var(--paper-2); border: 1px solid var(--line-2);
+    border-left: 4px solid var(--ink); border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    padding: 22px 26px;
+  }
+  .warn-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.98rem;
+    color: var(--ink); margin-bottom: 8px;
+  }
+  .warn-box p:not(.warn-title) { color: var(--ink-2); font-size: 0.98rem; }
+
+  .note-box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 22px 26px; max-width: none;
+  }
+  .note-box p { max-width: 74ch; color: var(--ink-2); font-size: 0.98rem; }
+  .note-box-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.98rem;
+    color: var(--ink); margin-bottom: 14px;
+  }
+
+  /* Age-band stage cards */
+  .stage-list { display: flex; flex-direction: column; gap: 28px; margin-top: 44px; }
+  .stage-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 28px 30px;
+  }
+  .stage-age {
+    display: inline-block; font-family: var(--font-display); font-weight: 600;
+    font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--primary); background: var(--primary-tint); border: 1px solid var(--primary-line);
+    border-radius: var(--r-pill); padding: 4px 12px; margin-bottom: 12px;
+  }
+  .stage-card h3 { margin-bottom: 16px; }
+
+  /* High-school tiers */
+  .hs-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 44px; align-items: start; }
+  .hs-tier {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 28px 24px;
+  }
+  .hs-tier-featured { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+  .hs-tier-name {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.8rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary);
+  }
+  .hs-tier-hours {
+    font-family: var(--font-display); font-weight: 700; color: var(--ink);
+    font-size: 1.5rem; margin: 8px 0 10px;
+  }
+  .hs-tier-desc { color: var(--ink-2); font-size: 0.95rem; }
+
+  /* Case cards */
+  .cases-subhead { margin-top: 56px; font-size: 1.3rem; }
+  .case-list { display: flex; flex-direction: column; gap: 24px; margin-top: 28px; }
+  .case-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 28px 30px;
+  }
+  .case-tags { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .case-tag {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.72rem;
+    letter-spacing: 0.06em; text-transform: uppercase; border-radius: var(--r-pill);
+    padding: 3px 12px; border: 1px solid var(--line-2); color: var(--ink-2);
+  }
+  .case-tag-in { color: var(--primary); border-color: var(--primary-line); background: var(--primary-tint); }
+  .case-tag-out { color: var(--ink); border-color: var(--line-2); background: var(--paper-2); }
+  .case-credibility { font-size: 0.82rem; color: var(--muted); }
+  .case-card h4 { font-size: 1.08rem; margin-bottom: 14px; }
+  .case-card blockquote {
+    border-left: 2px solid var(--primary-line); padding-left: 18px; margin: 16px 0;
+    color: var(--ink-2); font-style: italic; font-size: 0.98rem; max-width: none;
+  }
+
+  /* Myth entries */
+  .myth-list { display: flex; flex-direction: column; gap: 20px; margin-top: 44px; }
+  .myth-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 24px 28px;
+  }
+  .myth-card p { max-width: none; }
+  .myth-claim {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.92rem;
+    color: var(--ink); margin-bottom: 10px;
+  }
+
+  /* Sources */
+  .source-groups {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 40px;
+    margin-top: 44px;
+  }
+  .source-group h4 {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.92rem;
+    color: var(--ink); border-bottom: 1px solid var(--line-2); padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .source-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .source-list a {
+    font-size: 0.92rem; color: var(--ink-2); text-decoration: underline;
+    text-underline-offset: 2px; text-decoration-color: var(--line-2);
+  }
+  .source-list a:hover { color: var(--primary); text-decoration-color: var(--primary-line); }
+
+  .methodology { margin-top: 40px; }
+  .methodology p { font-size: 0.85rem; color: var(--muted); max-width: 78ch; margin-bottom: 10px; }
+
+  @media (max-width: 900px) {
+    .entity-cards { grid-template-columns: 1fr; }
+    .ovsa-grid { grid-template-columns: 1fr; }
+    .hs-tiers { grid-template-columns: 1fr; }
+    .source-groups { grid-template-columns: 1fr; }
+  }
+
+  /* Tables scroll horizontally on narrow screens instead of squeezing —
+     .table-wrap (global.css) already provides overflow-x:auto. */
+  @media (max-width: 760px) {
+    .stage-card, .case-card, .entity-card, .ovsa-col { padding: 22px 20px; }
+  }
+</style>

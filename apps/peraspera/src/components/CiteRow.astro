@@ -1,0 +1,48 @@
+---
+// A row of small citation links, echoing the source reports' own inline
+// ".src" lines — real <a href target=_blank rel=noopener> per link, so every
+// citation in research.ts stays clickable wherever it's attached (a bullet,
+// a card, a warning box). Renders nothing if there are no cites.
+import { t, type Lang } from "../i18n/utils";
+import type { Cite } from "../content/research";
+
+interface Props {
+  cites: Cite[];
+  lang: Lang;
+  inline?: boolean;
+}
+
+const { cites, lang, inline = false } = Astro.props;
+---
+
+{cites.length > 0 && (
+  <span class={`cite-row ${inline ? "" : "block"}`}>
+    {cites.map((c, i) => (
+      <>
+        <a href={c.url} target="_blank" rel="noopener">{t(lang, c.label.zh, c.label.en)}</a>
+        {i < cites.length - 1 && <span aria-hidden="true">·</span>}
+      </>
+    ))}
+  </span>
+)}
+
+<style>
+  .cite-row {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    align-items: center;
+  }
+  .cite-row.block { display: flex; margin-top: 10px; }
+  .cite-row a {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--line-2);
+    white-space: nowrap;
+  }
+  .cite-row a:hover { color: var(--primary); text-decoration-color: var(--primary-line); }
+  .cite-row span[aria-hidden] { color: var(--line-2); font-size: 0.78rem; }
+</style>

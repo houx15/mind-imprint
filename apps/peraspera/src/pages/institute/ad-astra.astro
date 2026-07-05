@@ -1,26 +1,10 @@
 ---
-// Temporary placeholder — replaced by the full long-read in Phase D (task D1).
 import Base from "../../layouts/Base.astro";
-import { getLang, localePath } from "../../i18n/utils";
-
-const lang = getLang(Astro.currentLocale);
+import ResearchAdAstra from "../../components/pages/ResearchAdAstra.astro";
 ---
 <Base
   title="Ad Astra / Astra Nova 完全解读 · Per Aspera 研究院"
-  description="深度报告即将上线。"
+  description="「Musk 的学校」其实是三所学校。招生标准、分年龄段培养方式、高中项目三档详解、真实录取与被拒案例、宣传与现实的落差——全部带来源。"
 >
-  <header class="pagehero">
-    <div class="container">
-      <p class="eyebrow">研究院 · 公开研究</p>
-      <h1>Ad Astra / Astra Nova 完全解读</h1>
-      <p class="lead">
-        深度报告即将上线 · In-depth report coming soon
-      </p>
-    </div>
-  </header>
-  <section class="section tight">
-    <div class="container center">
-      <a class="btn btn-outline" href={localePath(lang, "/institute")}>← 回到研究院</a>
-    </div>
-  </section>
+  <ResearchAdAstra />
 </Base>

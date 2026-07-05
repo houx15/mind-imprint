@@ -1,26 +1,10 @@
 ---
-// Temporary placeholder — replaced by the full long-read in Phase D (task D1).
 import Base from "../../../layouts/Base.astro";
-import { getLang, localePath } from "../../../i18n/utils";
-
-const lang = getLang(Astro.currentLocale);
+import ResearchAdAstra from "../../../components/pages/ResearchAdAstra.astro";
 ---
 <Base
   title="The Full Ad Astra / Astra Nova Story · Per Aspera Institute"
-  description="In-depth report coming soon."
+  description="'Musk's school' is actually three schools. Admissions standards, age-by-age teaching methods, the high school program's three tiers, real admit and reject cases, and the gap between marketing and reality — every claim sourced."
 >
-  <header class="pagehero">
-    <div class="container">
-      <p class="eyebrow">Institute · Public research</p>
-      <h1>The Full Ad Astra / Astra Nova Story</h1>
-      <p class="lead">
-        深度报告即将上线 · In-depth report coming soon
-      </p>
-    </div>
-  </header>
-  <section class="section tight">
-    <div class="container center">
-      <a class="btn btn-outline" href={localePath(lang, "/institute")}>← Back to the Institute</a>
-    </div>
-  </section>
+  <ResearchAdAstra />
 </Base>
