@@ -6,6 +6,8 @@ export const prerender = false;
 const CONTACT_MAX = 500;
 const TEXT_MAX = 2000;
 const LOCALE_MAX = 16;
+const BODY_MAX = 8192;
+const INTEREST_OPTIONS = new Set(["sprint", "academy", "explore"]);
 
 interface LeadPayload {
   contact_name?: unknown;
@@ -24,9 +26,21 @@ function asTrimmedString(value: unknown): string | undefined {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  // Body size guard (defense-in-depth on this unauthenticated endpoint).
+  // Reject before reading/parsing when Content-Length declares an oversized body.
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > BODY_MAX) {
+    return json(413, { ok: false });
+  }
+
   let body: LeadPayload;
   try {
-    body = await request.json();
+    const raw = await request.text();
+    // Defensive cap when Content-Length was absent or understated.
+    if (raw.length > BODY_MAX) {
+      return json(413, { ok: false });
+    }
+    body = JSON.parse(raw);
   } catch {
     return json(400, { ok: false, error: "Invalid request body." });
   }
@@ -56,10 +70,10 @@ export const POST: APIRoute = async ({ request }) => {
     return json(400, { ok: false, error: "child_age is too long." });
   }
 
-  const interest = asTrimmedString(body.interest);
-  if (interest && interest.length > TEXT_MAX) {
-    return json(400, { ok: false, error: "interest is too long." });
-  }
+  // Constrain interest to the known option set; drop (null) anything else
+  // rather than rejecting an otherwise-valid lead over an odd interest value.
+  const interestRaw = asTrimmedString(body.interest);
+  const interest = interestRaw && INTEREST_OPTIONS.has(interestRaw) ? interestRaw : undefined;
 
   const message = asTrimmedString(body.message);
   if (message && message.length > TEXT_MAX) {
