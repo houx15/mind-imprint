@@ -1,0 +1,16 @@
+---
+// Large position-statement block. Unlike Timeline/TierCards/Accordion, this
+// component is handed both languages directly and picks by `lang` itself —
+// callers don't pre-resolve it via t().
+interface Props {
+  lang: "zh" | "en";
+  zh: string;
+  en: string;
+}
+
+const { lang, zh, en } = Astro.props;
+const text = lang === "zh" ? zh : en;
+---
+<blockquote class="pullquote" lang={lang === "zh" ? "zh-CN" : "en"}>
+  <p>{text}</p>
+</blockquote>

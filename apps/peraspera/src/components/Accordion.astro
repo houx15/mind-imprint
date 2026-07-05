@@ -1,0 +1,18 @@
+---
+// Styled FAQ list on native <details>/<summary> — no JS required. Items are
+// plain, already-localized strings resolved by the caller via t().
+interface Props {
+  lang: "zh" | "en";
+  items: { q: string; a: string }[];
+}
+
+const { lang, items } = Astro.props;
+---
+<div class="faq" lang={lang === "zh" ? "zh-CN" : "en"}>
+  {items.map((item) => (
+    <details>
+      <summary>{item.q}</summary>
+      <div class="faq-body"><p>{item.a}</p></div>
+    </details>
+  ))}
+</div>

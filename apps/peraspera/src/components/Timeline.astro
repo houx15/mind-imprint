@@ -1,0 +1,19 @@
+---
+// Horizontal step row on desktop, vertical stack at the 760px breakpoint
+// (owned by global.css's .timeline rules). Strings are already resolved by
+// the caller via t() — this component just lays them out.
+interface Props {
+  lang: "zh" | "en";
+  steps: { label: string; date: string }[];
+}
+
+const { lang, steps } = Astro.props;
+---
+<div class="timeline" lang={lang === "zh" ? "zh-CN" : "en"}>
+  {steps.map((step) => (
+    <div class="tl-item">
+      <p class="tl-when">{step.date}</p>
+      <h4>{step.label}</h4>
+    </div>
+  ))}
+</div>

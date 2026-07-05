@@ -1,0 +1,61 @@
+---
+// Three pricing/program tiers (轻量/标准/完整 style, cf. Astra Nova Level A/B/C).
+// Name/hours/price stay visible; the full feature list sits behind a native
+// <details> "what's included" toggle so each card stays scannable.
+interface Props {
+  lang: "zh" | "en";
+  tiers: { name: string; hours: string; price: string; features: string[] }[];
+}
+
+const { lang, tiers } = Astro.props;
+const detailsLabel = lang === "zh" ? "包含内容" : "What's included";
+---
+<div class="tiers" lang={lang === "zh" ? "zh-CN" : "en"}>
+  {tiers.map((tier) => (
+    <article class="tier">
+      <p class="tier-name">{tier.name}</p>
+      <p class="tier-price">{tier.price}</p>
+      <p class="tier-desc">{tier.hours}</p>
+      <details>
+        <summary>{detailsLabel}</summary>
+        <ul class="tier-list">
+          {tier.features.map((feature) => <li>{feature}</li>)}
+        </ul>
+      </details>
+    </article>
+  ))}
+</div>
+
+<style>
+  /* .tier (global.css) has no built-in disclosure treatment — .faq's +/- toggle
+     is scoped to the FAQ accordion. This gives the per-tier "what's included"
+     summary the same quiet affordance without repurposing the FAQ class. */
+  .tier details {
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .tier summary {
+    list-style: none;
+    cursor: pointer;
+    position: relative;
+    padding-right: 26px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    color: var(--primary);
+  }
+  .tier summary::-webkit-details-marker { display: none; }
+  .tier summary::after {
+    content: "+";
+    position: absolute;
+    right: 0;
+    top: -2px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--primary);
+  }
+  .tier details[open] summary::after { content: "−"; }
+  .tier details .tier-list { margin-top: 14px; margin-bottom: 0; }
+</style>
