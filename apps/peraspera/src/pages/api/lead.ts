@@ -3,8 +3,9 @@ import { getAdminClient } from "../../lib/supabase";
 
 export const prerender = false;
 
-const SHORT_MAX = 500;
-const LONG_MAX = 2000;
+const CONTACT_MAX = 500;
+const TEXT_MAX = 2000;
+const LOCALE_MAX = 16;
 
 interface LeadPayload {
   contact_name?: unknown;
@@ -34,38 +35,39 @@ export const POST: APIRoute = async ({ request }) => {
     return json(400, { ok: false, error: "Invalid request body." });
   }
 
-  // Honeypot: if filled in, silently pretend success without inserting.
-  if (typeof body.hp === "string" && body.hp.trim().length > 0) {
+  // Honeypot: any non-null value that stringifies to non-empty is a bot.
+  // Silently pretend success without inserting.
+  if (body.hp != null && String(body.hp).trim().length > 0) {
     return json(200, { ok: true });
   }
 
   const contact = asTrimmedString(body.contact);
-  if (!contact || contact.length > SHORT_MAX) {
+  if (!contact || contact.length > CONTACT_MAX) {
     return json(400, { ok: false, error: "A valid contact is required." });
   }
 
   const contactName = asTrimmedString(body.contact_name);
-  if (contactName && contactName.length > SHORT_MAX) {
+  if (contactName && contactName.length > TEXT_MAX) {
     return json(400, { ok: false, error: "contact_name is too long." });
   }
 
   const childAge = asTrimmedString(body.child_age);
-  if (childAge && childAge.length > SHORT_MAX) {
+  if (childAge && childAge.length > TEXT_MAX) {
     return json(400, { ok: false, error: "child_age is too long." });
   }
 
   const interest = asTrimmedString(body.interest);
-  if (interest && interest.length > LONG_MAX) {
+  if (interest && interest.length > TEXT_MAX) {
     return json(400, { ok: false, error: "interest is too long." });
   }
 
   const message = asTrimmedString(body.message);
-  if (message && message.length > LONG_MAX) {
+  if (message && message.length > TEXT_MAX) {
     return json(400, { ok: false, error: "message is too long." });
   }
 
   const locale = asTrimmedString(body.locale);
-  if (locale && locale.length > SHORT_MAX) {
+  if (locale && locale.length > LOCALE_MAX) {
     return json(400, { ok: false, error: "locale is too long." });
   }
 
