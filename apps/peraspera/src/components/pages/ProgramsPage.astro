@@ -1,5 +1,4 @@
 ---
-import Countdown from "../Countdown.astro";
 import PullQuote from "../PullQuote.astro";
 import Timeline from "../Timeline.astro";
 import TierCards from "../TierCards.astro";
@@ -47,10 +46,6 @@ const catalogCols = {
       <p class="eyebrow">{t(lang, sprint.eyebrow.zh, sprint.eyebrow.en)}</p>
       <h2 class="sec-title">{t(lang, sprint.title.zh, sprint.title.en)}</h2>
       <p class="sec-lead">{t(lang, sprint.sub.zh, sprint.sub.en)}</p>
-    </div>
-
-    <div class="reveal" style="margin-top:28px">
-      <Countdown lang={lang} />
     </div>
 
     <!-- Position statement -->

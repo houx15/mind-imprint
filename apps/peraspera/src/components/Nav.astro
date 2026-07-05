@@ -7,18 +7,187 @@ const path = Astro.url.pathname;
 const other = switchLocaleUrl(path, lang);
 const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
 const active = (p: string) => (key === p ? "page" : undefined);
+const projectsActive = key === "/coaching" || key === "/academy";
 ---
 <nav class="site-nav">
   <a class="brand" href={localePath(lang, "/")}>{t(lang, brand.zh, brand.en)}</a>
+
   <div class="navlinks">
-    <a href={localePath(lang, "/programs")} aria-current={active("/programs")}>{t(lang, nav.programs.zh, nav.programs.en)}</a>
-    <a href={localePath(lang, "/institute")} aria-current={active("/institute")}>{t(lang, nav.institute.zh, nav.institute.en)}</a>
+    <a href={localePath(lang, "/")} aria-current={active("/")}>{t(lang, nav.home.zh, nav.home.en)}</a>
+
+    <div class="dropdown" data-dropdown>
+      <button
+        type="button"
+        class="dropdown-toggle"
+        aria-haspopup="true"
+        aria-expanded="false"
+        aria-current={projectsActive ? "page" : undefined}
+      >
+        {t(lang, nav.programs.zh, nav.programs.en)}
+        <svg class="chev" width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true">
+          <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <div class="dropdown-panel">
+        <a href={localePath(lang, "/coaching")} aria-current={active("/coaching")}>{t(lang, nav.coaching.zh, nav.coaching.en)}</a>
+        <a href={localePath(lang, "/academy")} aria-current={active("/academy")}>{t(lang, nav.academy.zh, nav.academy.en)}</a>
+      </div>
+    </div>
+
+    <a href={localePath(lang, "/partnership")} aria-current={active("/partnership")}>{t(lang, nav.partnership.zh, nav.partnership.en)}</a>
     <a href={localePath(lang, "/about")} aria-current={active("/about")}>{t(lang, nav.about.zh, nav.about.en)}</a>
   </div>
+
+  <!-- Mobile fallback: .navlinks (incl. the dropdown) is hidden below 760px and there is
+       no hamburger menu yet, so the 项目 sub-links get a plain always-expanded row here
+       instead of disappearing entirely. -->
+  <div class="mobile-subnav">
+    <span class="mobile-subnav-label">{t(lang, nav.programs.zh, nav.programs.en)}</span>
+    <a href={localePath(lang, "/coaching")} aria-current={active("/coaching")}>{t(lang, nav.coaching.zh, nav.coaching.en)}</a>
+    <a href={localePath(lang, "/academy")} aria-current={active("/academy")}>{t(lang, nav.academy.zh, nav.academy.en)}</a>
+  </div>
+
   <div class="navright">
     <a class="lang" href={other} aria-label="Switch language">
       {lang === "zh" ? <span><b>中</b> / EN</span> : <span>中 / <b>EN</b></span>}
     </a>
-    <a class="btn btn-primary" href={localePath(lang, "/apply")}>{t(lang, nav.apply.zh, nav.apply.en)}</a>
+    <a class="btn btn-primary" href={localePath(lang, "/contact")}>{t(lang, nav.contact.zh, nav.contact.en)}</a>
   </div>
 </nav>
+
+<script>
+  // Progressive enhancement only: without JS the dropdown still opens via
+  // CSS :hover / :focus-within (see the scoped styles below), so the two
+  // sub-links are always reachable by mouse and by keyboard Tab.
+  document.querySelectorAll<HTMLElement>("[data-dropdown]").forEach((wrapper) => {
+    const toggle = wrapper.querySelector<HTMLButtonElement>(".dropdown-toggle");
+    if (!toggle) return;
+
+    const close = () => {
+      wrapper.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    };
+    const open = () => {
+      wrapper.classList.add("open");
+      toggle.setAttribute("aria-expanded", "true");
+    };
+
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (wrapper.classList.contains("open")) close();
+      else open();
+    });
+
+    wrapper.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        close();
+        toggle.focus();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!wrapper.contains(event.target as Node)) close();
+    });
+  });
+</script>
+
+<style>
+  .navlinks .dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+  .dropdown-toggle:hover,
+  .dropdown-toggle[aria-expanded="true"],
+  .dropdown-toggle[aria-current="page"] {
+    color: var(--primary);
+  }
+  .dropdown-toggle .chev {
+    transition: transform 0.15s;
+  }
+  .dropdown:hover .chev,
+  .dropdown:focus-within .chev,
+  .dropdown.open .chev {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-panel {
+    position: absolute;
+    top: calc(100% + 14px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    min-width: 168px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg, 12px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .dropdown-panel a {
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: var(--ink-2);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+  }
+  .dropdown-panel a:hover,
+  .dropdown-panel a[aria-current="page"] {
+    color: var(--primary);
+    background: var(--surface-2);
+  }
+
+  .dropdown:hover .dropdown-panel,
+  .dropdown:focus-within .dropdown-panel,
+  .dropdown.open .dropdown-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .mobile-subnav {
+    display: none;
+  }
+
+  @media (max-width: 760px) {
+    .mobile-subnav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      order: 3;
+      padding: 10px 22px 14px;
+      border-top: 1px solid var(--line);
+      font-size: 0.85rem;
+      color: var(--ink-2);
+    }
+    .mobile-subnav-label {
+      color: var(--muted);
+    }
+    .mobile-subnav a:hover,
+    .mobile-subnav a[aria-current="page"] {
+      color: var(--primary);
+    }
+    nav.site-nav {
+      flex-wrap: wrap;
+    }
+  }
+</style>

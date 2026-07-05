@@ -1,5 +1,4 @@
 ---
-import Countdown from "../Countdown.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
 import {
   hero,
@@ -48,8 +47,6 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     </div>
   </div>
 </header>
-
-<Countdown lang={lang} />
 
 <!-- ═══ Three pillars ═══ -->
 <section class="section">

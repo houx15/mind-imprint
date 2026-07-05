@@ -11,11 +11,17 @@ export const brand: Bilingual = {
   en: "Per Aspera",
 };
 
-export const nav: Record<"programs" | "institute" | "about" | "apply", Bilingual> = {
-  programs: { zh: "课程", en: "Programs" },
-  institute: { zh: "研究院", en: "Institute" },
-  about: { zh: "关于我们", en: "About Us" },
-  apply: { zh: "预约说明会", en: "Book an info session" },
+export const nav: Record<
+  "home" | "programs" | "coaching" | "academy" | "partnership" | "about" | "contact",
+  Bilingual
+> = {
+  home: { zh: "首页", en: "Home" },
+  programs: { zh: "项目", en: "Programs" },
+  coaching: { zh: "申请辅导", en: "Application coaching" },
+  academy: { zh: "学院", en: "Academy" },
+  partnership: { zh: "合作", en: "Partnership" },
+  about: { zh: "关于我们", en: "About" },
+  contact: { zh: "联系我们", en: "Contact" },
 };
 
 export const footer: {

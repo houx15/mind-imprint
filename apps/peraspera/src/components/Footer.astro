@@ -14,9 +14,11 @@ const lang = getLang(Astro.currentLocale);
     <div class="foot-cols">
       <div class="foot-col">
         <h5>{t(lang, "导航", "Navigate")}</h5>
-        <a href={localePath(lang, "/programs")}>{t(lang, nav.programs.zh, nav.programs.en)}</a>
-        <a href={localePath(lang, "/institute")}>{t(lang, nav.institute.zh, nav.institute.en)}</a>
+        <a href={localePath(lang, "/coaching")}>{t(lang, nav.coaching.zh, nav.coaching.en)}</a>
+        <a href={localePath(lang, "/academy")}>{t(lang, nav.academy.zh, nav.academy.en)}</a>
+        <a href={localePath(lang, "/partnership")}>{t(lang, nav.partnership.zh, nav.partnership.en)}</a>
         <a href={localePath(lang, "/about")}>{t(lang, nav.about.zh, nav.about.en)}</a>
+        <a href={localePath(lang, "/contact")}>{t(lang, nav.contact.zh, nav.contact.en)}</a>
       </div>
       <div class="foot-col">
         <h5>{t(lang, "联系", "Contact")}</h5>
