@@ -4,3 +4,5 @@ dist/
 .vercel/
 node_modules/
 .astro/
+.vercel
+.env*
