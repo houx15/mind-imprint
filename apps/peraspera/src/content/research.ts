@@ -1305,8 +1305,8 @@ export const schoolsObservations: {
     },
     {
       text: {
-        zh: "选拔机制彼此差异很大：Nueva 用 IQ 测试硬选拔；Minerva 用约 3% 的录取漏斗；SpaceX 时期的 Ad Astra 用推理测试加思辨题（约 3% 录取率）；Astra Nova 用「如何思考」的视频（约 50% 进入下一轮）；Alpha/Sora/Synthesis 基本靠价格和理念完成自我筛选。Musk 系统一以贯之的选拔逻辑，是完全跳过成绩单与标化考试，聚焦孩子面对开放问题时展现的推理过程。",
-        en: "Selection mechanisms differ sharply across this set: Nueva screens hard on an IQ test; Minerva runs a roughly 3% acceptance funnel; Ad Astra, in its SpaceX-era form, used reasoning tests plus open-ended questions (about a 3% acceptance rate); Astra Nova uses a \"how do you think\" video (about 50% advance to the next round); Alpha, Sora, and Synthesis are mostly self-selected by price and philosophy. The one consistent thread across the Musk-affiliated schools is skipping transcripts and standardized scores entirely, and focusing instead on the reasoning a child shows when facing an open-ended question.",
+        zh: "选拔机制彼此差异很大：Nueva 用 IQ 测试硬选拔；Minerva 约 3% 的录取率；SpaceX 时期的 Ad Astra 用推理测试加思辨题（约 3% 录取率）；Astra Nova 用「如何思考」的视频（约 50% 进入下一轮）；Alpha/Sora/Synthesis 基本靠价格和理念完成自我筛选。Musk 系统一以贯之的选拔逻辑，是完全跳过成绩单与标化考试，聚焦孩子面对开放问题时展现的推理过程。",
+        en: "Selection mechanisms differ sharply across this set: Nueva screens hard on an IQ test; Minerva has a roughly 3% acceptance rate; Ad Astra, in its SpaceX-era form, used reasoning tests plus open-ended questions (about a 3% acceptance rate); Astra Nova uses a \"how do you think\" video (about 50% advance to the next round); Alpha, Sora, and Synthesis are mostly self-selected by price and philosophy. The one consistent thread across the Musk-affiliated schools is skipping transcripts and standardized scores entirely, and focusing instead on the reasoning a child shows when facing an open-ended question.",
       },
     },
   ],

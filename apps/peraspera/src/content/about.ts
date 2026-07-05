@@ -49,7 +49,7 @@ export interface Founder {
 
 export const founders: Founder[] = [
   {
-    name: { zh: "陈玉洁", en: "Chen Yujie" },
+    name: { zh: "陈玉洁", en: "Yujie Chen" },
     role: {
       zh: "CEO · 联合创始人 · 教育研究院负责人",
       en: "CEO · Co-founder · Head of the Education Research Institute",
@@ -61,7 +61,7 @@ export const founders: Founder[] = [
     photoSlot: { zh: "照片位", en: "Photo placeholder" },
   },
   {
-    name: { zh: "侯煜欣", en: "Hou Yuxin" },
+    name: { zh: "侯煜欣", en: "Yuxin Hou" },
     role: {
       zh: "联合创始人 · 产品负责人",
       en: "Co-founder · Head of Product",
@@ -89,10 +89,10 @@ export const letter: {
   signoff: Bilingual;
 } = {
   paragraphs: [
-    { zh: "你好，我们是陈玉洁和侯煜欣。", en: "Hello. We're Chen Yujie and Hou Yuxin." },
+    { zh: "你好，我们是陈玉洁和侯煜欣。", en: "Hello. We're Yujie Chen and Yuxin Hou." },
     {
       zh: "陈玉洁在国际课堂里教了多年批判性思维和信息素养，带孩子拆解论证、追问一个说法到底从哪里来。侯煜欣做过几次创业，也一直在教 AI 思维和产品思维，相信最好的学习是从一个真实问题动手，做出一个真正的东西。",
-      en: "Chen Yujie has spent years teaching critical thinking and information literacy in international classrooms — helping kids take an argument apart and ask where a claim actually comes from. Hou Yuxin has founded a few companies, and has spent time teaching AI thinking and product thinking, believing the best kind of learning starts from a real problem and ends with something real, made by hand.",
+      en: "Yujie Chen has spent years teaching critical thinking and information literacy in international classrooms — helping kids take an argument apart and ask where a claim actually comes from. Yuxin Hou has founded a few companies, and has spent time teaching AI thinking and product thinking, believing the best kind of learning starts from a real problem and ends with something real, made by hand.",
     },
     {
       zh: "我们决定一起做 Per Aspera，是因为认真研究了 Elon Musk 教育谱系里的 Astra Nova 高中之后，越看越确认一件事：它看重的是孩子面对一道没有标准答案的问题时怎么推理、被追问时敢不敢改口。这恰好是 AI 时代最不容易贬值的能力。",
@@ -109,7 +109,7 @@ export const letter: {
   },
   signoff: {
     zh: "—— 陈玉洁 · 侯煜欣　2026 年夏",
-    en: "— Chen Yujie · Hou Yuxin, Summer 2026",
+    en: "— Yujie Chen · Yuxin Hou, Summer 2026",
   },
 };
 
