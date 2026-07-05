@@ -1,0 +1,181 @@
+---
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  hero,
+  introSection,
+  modulesIntro,
+  modules,
+  personalizedPlan,
+  closingCta,
+} from "../../content/academy";
+
+const lang = getLang(Astro.currentLocale);
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ 1 · How our classes work ═══ -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, introSection.eyebrow.zh, introSection.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, introSection.title.zh, introSection.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {introSection.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2 · The six modules ═══ -->
+<section class="section alt" id="modules">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, modulesIntro.eyebrow.zh, modulesIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, modulesIntro.title.zh, modulesIntro.title.en)}</h2>
+      <p class="sec-lead" style="margin-left:0">{t(lang, modulesIntro.sub.zh, modulesIntro.sub.en)}</p>
+    </div>
+    <div class="module-grid reveal">
+      {modules.map((m, i) => (
+        <article class="module-card">
+          <span class="module-num">{String(i + 1).padStart(2, "0")}</span>
+          <h3>{t(lang, m.title.zh, m.title.en)}</h3>
+          <p class="module-blurb">{t(lang, m.blurb.zh, m.blurb.en)}</p>
+          <ul class="module-topics">
+            {m.topics.map((topic) => <li>{t(lang, topic.zh, topic.en)}</li>)}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3 · A plan designed for each child ═══ -->
+<section class="section" id="plan">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, personalizedPlan.eyebrow.zh, personalizedPlan.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, personalizedPlan.title.zh, personalizedPlan.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {personalizedPlan.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+    <div class="plan-points reveal">
+      {personalizedPlan.points.map((pt) => (
+        <article class="plan-point">
+          <h4>{t(lang, pt.title.zh, pt.title.en)}</h4>
+          <p>{t(lang, pt.body.zh, pt.body.en)}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4 · Closing CTA ═══ -->
+<section class="section alt" id="contact">
+  <div class="container">
+    <div class="cta reveal">
+      <h2>{t(lang, closingCta.title.zh, closingCta.title.en)}</h2>
+      <p>{t(lang, closingCta.sub.zh, closingCta.sub.en)}</p>
+      <div class="cta-row">
+        <a class="btn btn-primary btn-lg" href={localePath(lang, closingCta.ctaHref)}>
+          {t(lang, closingCta.ctaLabel.zh, closingCta.ctaLabel.en)}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ---- 1 · intro paragraphs ---------------------------------------------- */
+  .prose {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 72ch;
+  }
+  .prose p { font-size: 1.0625rem; color: var(--ink-2); }
+
+  /* ---- 2 · module cards --------------------------------------------------- */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+  }
+  .module-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--primary);
+    border-radius: var(--r-lg);
+    padding: 30px 28px;
+    transition: border-color .2s, transform .2s, box-shadow .2s;
+  }
+  .module-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary-line);
+    border-top-color: var(--primary);
+  }
+  .module-num {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.08em; color: var(--primary);
+  }
+  .module-card h3 { margin-top: 10px; margin-bottom: 12px; }
+  .module-blurb { color: var(--ink-2); font-size: 0.98rem; }
+  .module-topics {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .module-topics li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .module-topics li::before {
+    content: "✦";
+    color: var(--primary);
+    font-size: 0.75em;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  /* ---- 3 · personalized plan points --------------------------------------- */
+  .plan-points {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 44px;
+  }
+  .plan-point {
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    border-radius: var(--r-lg);
+    padding: 26px 26px;
+  }
+  .plan-point h4 { color: var(--ink); }
+  .plan-point p { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; }
+
+  @media (max-width: 900px) {
+    .module-grid, .plan-points {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
