@@ -1,37 +1,387 @@
 /* ============================================================================
-   Per Aspera — minimal style stub for A2 (i18n scaffolding).
-   A3 expands this into the full design system; keep this stub small.
+   Per Aspera — marketing site design system.
+   Editorial minimalism: warm paper, near-black ink, one deep ink-blue accent.
+   Space Grotesk display against a neutral sans body; Noto Sans SC for Chinese.
+   Signature: the star mark (✦, ad astra) as a small recurring wayfinding glyph.
    ========================================================================== */
 
 :root {
-  --paper: #FBFAF7;
-  --ink: #1C2333;
-  --primary: #2A3B7A;
+  /* paper + ink */
+  --paper: #FAF8F4;      /* warm off-white page canvas */
+  --paper-2: #F3EFE7;    /* deeper warm wash for alt sections + footer */
+  --surface: #FFFFFF;    /* cards, windows */
+  --ink: #15171C;        /* near-black text + headings */
+  --ink-2: #3B3E46;      /* body / secondary text */
+  --muted: #6A6E78;      /* captions, labels, meta */
+  --line: #E7E3DB;       /* hairline on paper */
+  --line-2: #D9D4C9;     /* slightly stronger divider */
+
+  /* the one accent — deep ink-blue, used sparingly */
+  --primary: #1E3A5F;
+  --primary-hover: #142A46;
+  --primary-tint: #E9EEF3;   /* faint cool wash */
+  --primary-line: #C9D5E1;   /* accent hairline */
+
+  /* geometry */
+  --r-sm: 6px; --r: 10px; --r-lg: 16px; --r-pill: 999px;
+  --maxw: 1140px;
+  --shadow-sm: 0 1px 3px rgba(21,23,28,.05);
+  --shadow: 0 30px 70px -48px rgba(21,23,28,.34);
+
+  --font-display: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", Roboto,
+    Helvetica, Arial, sans-serif;
 }
 
+/* ---- reset + base ---------------------------------------------------------- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
-  font-family: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
-  color: var(--ink);
+  font-family: var(--font-body);
+  color: var(--ink-2);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.55;
-  font-size: 16px;
+  text-rendering: optimizeLegibility;
+  line-height: 1.62;
+  font-size: 17px;
 }
-a { color: inherit; }
+a { color: inherit; text-decoration: none; }
 svg { display: block; }
 img { max-width: 100%; display: block; }
+::selection { background: var(--primary); color: var(--paper); }
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+/* type scale */
+.display, .hero h1 { font-size: clamp(2.5rem, 5.2vw + 0.5rem, 4.5rem); }
+h1 { font-size: clamp(2.25rem, 4vw + 0.5rem, 3.25rem); }
+h2, .sec-title { font-size: clamp(1.85rem, 2.6vw + 0.5rem, 2.7rem); }
+h3 { font-size: clamp(1.3rem, 1vw + 0.9rem, 1.6rem); }
+h4 { font-size: 1.125rem; letter-spacing: -0.01em; }
+h5 { font-size: 0.8125rem; letter-spacing: 0.02em; }
+p { max-width: 66ch; }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 3px; }
 
 .ic { width: 1em; height: 1em; stroke: currentColor; fill: none;
   stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ---- reveal on scroll (progressive enhancement) ----
+/* ---- layout ---------------------------------------------------------------- */
+.container { max-width: var(--maxw); margin: 0 auto; padding-left: 40px; padding-right: 40px; }
+.section { padding: clamp(88px, 11vw, 128px) 0; }
+.section.tight { padding: clamp(64px, 8vw, 88px) 0; }
+.section.alt { background: var(--paper-2); border-block: 1px solid var(--line); }
+.center { text-align: center; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+/* the recurring star mark */
+.star { color: var(--primary); font-style: normal; }
+
+/* section header kit */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--font-display);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--primary);
+}
+.eyebrow::before { content: "✦"; font-size: 0.72em; line-height: 1; }
+.sec-label {
+  font-family: var(--font-display); font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+}
+.sec-title { margin-top: 16px; max-width: 20ch; }
+.center .sec-title, .center .sec-lead { margin-left: auto; margin-right: auto; }
+.sec-lead { margin-top: 20px; max-width: 60ch; font-size: 1.1875rem; color: var(--ink-2); }
+
+/* the Latin motto, set as a quiet tracked line */
+.motto {
+  font-family: var(--font-display); font-weight: 500;
+  letter-spacing: 0.24em; text-transform: uppercase;
+  font-size: 0.8rem; color: var(--primary);
+}
+
+/* ---- buttons --------------------------------------------------------------- */
+.btn {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
+  line-height: 1; border-radius: var(--r); padding: 12px 22px; cursor: pointer;
+  border: 1px solid transparent; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 9px;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+.btn-lg { font-size: 1.05rem; padding: 16px 30px; }
+.btn-primary { color: var(--paper); background: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-outline { background: transparent; border-color: var(--line-2); color: var(--ink); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.btn-ghost { background: transparent; color: var(--primary); padding-inline: 8px; }
+.btn-ghost:hover { color: var(--primary-hover); }
+.btn-ghost::after { content: "→"; transition: transform .18s ease; }
+.btn-ghost:hover::after { transform: translateX(3px); }
+.btn-light { background: var(--paper); color: var(--primary); }
+.btn-light:hover { transform: translateY(-1px); background: #fff; }
+
+/* text link accent */
+.link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--primary-line); transition: text-decoration-color .15s; }
+.link:hover { text-decoration-color: var(--primary); }
+
+/* ---- nav ------------------------------------------------------------------- */
+nav.site-nav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; padding: 16px 40px;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.2rem;
+  letter-spacing: -0.01em; color: var(--ink);
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.brand::before { content: "✦"; color: var(--primary); font-size: 0.85em; }
+.navlinks { display: flex; gap: 30px; font-size: 0.95rem; font-weight: 500; color: var(--ink-2); }
+.navlinks a { position: relative; padding: 4px 0; transition: color .15s; }
+.navlinks a:hover, .navlinks a[aria-current="page"] { color: var(--primary); }
+.navlinks a[aria-current="page"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+  height: 1.5px; background: var(--primary);
+}
+.navright { display: flex; align-items: center; gap: 14px; }
+.lang {
+  font-family: var(--font-display); font-size: 0.8rem; font-weight: 500;
+  color: var(--muted); padding: 7px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--line-2); letter-spacing: 0.02em; white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.lang b { color: var(--ink); font-weight: 600; }
+.lang:hover { border-color: var(--primary-line); color: var(--ink); }
+
+/* ---- hero ------------------------------------------------------------------ */
+.hero { padding: clamp(72px, 10vw, 128px) 40px clamp(56px, 8vw, 96px); }
+.hero-inner { max-width: 900px; margin: 0 auto; }
+.hero.center .hero-inner { text-align: center; }
+.hero .eyebrow, .hero .motto { margin-bottom: 24px; }
+.hero h1 { letter-spacing: -0.03em; }
+.hero h1 .em { color: var(--primary); }
+.hero h1 .soft { color: var(--muted); }
+.hero .lead { font-size: clamp(1.125rem, 1vw + 0.9rem, 1.375rem); color: var(--ink-2);
+  margin-top: 28px; max-width: 60ch; }
+.hero.center .lead { margin-inline: auto; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 36px; }
+.hero.center .cta-row { justify-content: center; }
+.reassure { font-size: 0.9rem; color: var(--muted); margin-top: 18px; }
+
+/* ---- countdown bar --------------------------------------------------------- */
+.countdown {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 14px 28px; padding: 15px 24px;
+  background: var(--primary-tint); border-block: 1px solid var(--primary-line);
+}
+.countdown .cd-label {
+  font-family: var(--font-display); font-size: 0.82rem; font-weight: 500;
+  letter-spacing: 0.06em; color: var(--primary); text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.countdown .cd-label::before { content: "✦"; font-size: 0.8em; }
+.countdown .cd-units { display: flex; gap: 22px; }
+.countdown .cd-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.countdown .cd-num {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.5rem;
+  color: var(--primary); font-variant-numeric: tabular-nums; line-height: 1;
+}
+.countdown .cd-cap { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); }
+
+/* ---- belief cards ---------------------------------------------------------- */
+.beliefs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.belief-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: 30px; transition: border-color .2s, transform .2s;
+}
+.belief-card:hover { border-color: var(--primary-line); transform: translateY(-2px); }
+.belief-card .b-idx {
+  font-family: var(--font-display); font-size: 0.8rem; font-weight: 600;
+  letter-spacing: 0.1em; color: var(--primary);
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 16px;
+}
+.belief-card .b-idx::before { content: "✦"; }
+.belief-card h3 { margin-bottom: 10px; }
+.belief-card p { color: var(--ink-2); font-size: 1rem; }
+
+/* ---- pull-quote (position statement) --------------------------------------- */
+.pullquote {
+  max-width: 22ch; margin: 0 auto;
+  border-left: 2px solid var(--primary); padding-left: clamp(24px, 4vw, 44px);
+}
+.pullquote p {
+  font-family: var(--font-display); font-weight: 500;
+  font-size: clamp(1.6rem, 3vw + 0.6rem, 2.6rem); line-height: 1.28;
+  letter-spacing: -0.02em; color: var(--ink); max-width: none;
+}
+.pullquote p .em { color: var(--primary); }
+.pullquote cite {
+  display: block; margin-top: 22px; font-style: normal;
+  font-family: var(--font-display); font-size: 0.85rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ---- horizontal timeline --------------------------------------------------- */
+.timeline {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 28px; position: relative; padding-top: 34px;
+}
+.timeline::before {
+  content: ""; position: absolute; top: 6px; left: 0; right: 0;
+  height: 1px; background: var(--line-2);
+}
+.tl-item { position: relative; }
+.tl-item::before {
+  content: "✦"; position: absolute; top: -34px; left: 0;
+  color: var(--primary); font-size: 0.85rem; line-height: 1;
+  background: var(--paper); padding-right: 10px;
+}
+.tl-item .tl-when {
+  font-family: var(--font-display); font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary);
+}
+.tl-item h4 { margin: 8px 0 6px; }
+.tl-item p { font-size: 0.95rem; color: var(--ink-2); }
+
+/* ---- tier cards ------------------------------------------------------------ */
+.tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: start; }
+.tier {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: 32px 28px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+.tier:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
+.tier.featured { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.tier .tier-name {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.82rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--primary);
+}
+.tier .tier-price {
+  font-family: var(--font-display); font-weight: 700; color: var(--ink);
+  font-size: 2.25rem; letter-spacing: -0.02em; margin: 8px 0 4px;
+}
+.tier .tier-price small { font-size: 0.85rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.tier .tier-desc { color: var(--ink-2); font-size: 0.95rem; margin-bottom: 12px; }
+.tier .tier-list { list-style: none; display: flex; flex-direction: column; gap: 11px;
+  font-size: 0.95rem; color: var(--ink-2); margin: 4px 0 24px; }
+.tier .tier-list li { display: flex; gap: 10px; align-items: flex-start; }
+.tier .tier-list li::before { content: "✦"; color: var(--primary); font-size: 0.8em; margin-top: 3px; }
+.tier .btn { margin-top: auto; justify-content: center; }
+
+/* ---- FAQ (native details / summary) ---------------------------------------- */
+.faq { max-width: 760px; margin: 0 auto; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary {
+  list-style: none; cursor: pointer; padding: 24px 40px 24px 0; position: relative;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.0625rem;
+  color: var(--ink); transition: color .15s;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary:hover { color: var(--primary); }
+.faq summary::after {
+  content: "+"; position: absolute; right: 4px; top: 22px;
+  font-family: var(--font-display); font-size: 1.4rem; font-weight: 500;
+  color: var(--primary); line-height: 1; transition: transform .2s ease;
+}
+.faq details[open] summary::after { content: "−"; }
+.faq .faq-body { padding: 0 0 26px; color: var(--ink-2); }
+.faq .faq-body p { max-width: 62ch; }
+
+/* ---- editorial table (fees / tuition / comparison) ------------------------- */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 520px; }
+.table th, .table td { padding: 16px 20px; text-align: left; }
+.table thead th {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.78rem;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary);
+  border-bottom: 2px solid var(--primary-line); white-space: nowrap;
+}
+.table tbody td { border-bottom: 1px solid var(--line); color: var(--ink-2); }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover td { background: var(--paper); }
+.table th:first-child, .table td:first-child { font-weight: 600; color: var(--ink); }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- CTA band -------------------------------------------------------------- */
+.cta {
+  background: var(--primary); color: var(--paper); border-radius: var(--r-lg);
+  padding: clamp(48px, 7vw, 76px) clamp(28px, 5vw, 60px); text-align: center;
+  position: relative; overflow: hidden;
+}
+.cta .motto { color: color-mix(in srgb, var(--paper) 75%, var(--primary)); margin-bottom: 18px; }
+.cta h2 { color: var(--paper); max-width: 18ch; margin: 0 auto; }
+.cta p { color: color-mix(in srgb, var(--paper) 82%, transparent); max-width: 52ch;
+  margin: 18px auto 32px; font-size: 1.125rem; }
+.cta .cta-row { justify-content: center; }
+.cta .btn-outline { color: var(--paper); border-color: color-mix(in srgb, var(--paper) 40%, transparent); }
+.cta .btn-outline:hover { border-color: var(--paper); color: var(--paper);
+  background: color-mix(in srgb, var(--paper) 12%, transparent); }
+
+/* ---- page hero (interior pages) -------------------------------------------- */
+.pagehero { padding: clamp(72px, 9vw, 112px) 40px clamp(40px, 5vw, 64px); }
+.pagehero .container { max-width: 860px; }
+.pagehero h1 { margin: 20px 0 0; }
+.pagehero .lead { font-size: clamp(1.1rem, 1vw + 0.85rem, 1.3rem); color: var(--ink-2);
+  margin-top: 20px; max-width: 60ch; }
+
+/* ---- footer ---------------------------------------------------------------- */
+footer.site-foot { background: var(--paper-2); border-top: 1px solid var(--line);
+  padding: 64px 40px 44px; }
+.foot-grid { max-width: var(--maxw); margin: 0 auto; display: flex;
+  justify-content: space-between; gap: 48px; flex-wrap: wrap; align-items: flex-start; }
+.foot-brand { max-width: 380px; }
+.foot-brand .brand { font-size: 1.15rem; margin-bottom: 14px; }
+.foot-disclaimer { font-size: 0.82rem; color: var(--muted); line-height: 1.65; max-width: none; }
+.foot-cols { display: flex; gap: 64px; flex-wrap: wrap; }
+.foot-col { display: flex; flex-direction: column; }
+.foot-col h5 { font-family: var(--font-display); font-size: 0.75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
+.foot-col a { font-size: 0.95rem; color: var(--ink-2); margin-bottom: 11px; transition: color .15s; }
+.foot-col a:hover { color: var(--primary); }
+.foot-contact { display: inline-flex; align-items: center; gap: 8px; }
+.foot-social { display: flex; gap: 16px; margin-top: 4px; }
+.foot-social .soc { font-size: 0.9rem; }
+.foot-bottom { max-width: var(--maxw); margin: 44px auto 0; padding-top: 24px;
+  border-top: 1px solid var(--line); font-size: 0.85rem; color: var(--muted);
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+/* ---- reveal on scroll (progressive enhancement) ----------------------------
    Only hide when JS is present (html.js); without JS everything stays visible. */
-.js .reveal { opacity: 0; transform: translateY(28px);
+.js .reveal { opacity: 0; transform: translateY(26px);
   transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
 .js .reveal.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .js .reveal { opacity: 1; transform: none; transition: none; }
   html { scroll-behavior: auto; }
+  * { transition: none !important; }
+}
+
+/* ---- responsive ------------------------------------------------------------ */
+@media (max-width: 900px) {
+  .beliefs, .tiers { grid-template-columns: 1fr; }
+  .timeline { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .container, nav.site-nav, .hero, .pagehero, footer.site-foot {
+    padding-left: 22px; padding-right: 22px;
+  }
+  .navlinks { display: none; }
+  .hero h1 { letter-spacing: -0.02em; }
+  .timeline { grid-template-columns: 1fr; }
+  .timeline::before { display: none; }
+  .tl-item::before { position: static; display: inline-block; background: none; padding: 0; margin-bottom: 6px; }
+  .foot-cols { gap: 40px; }
+  .foot-bottom { justify-content: flex-start; }
 }
