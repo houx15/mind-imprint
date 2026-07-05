@@ -1064,3 +1064,323 @@ export const adAstra = {
 // sourced from ad-astra-调研报告.html §3 「同类高端创新学校对比」 — keep it
 // independent of `adAstra` above (no shared mutable state) so this file can
 // grow to serve /institute/schools without touching this export.
+
+/* ════════════════════════════════════════════════════════════════════════
+   Task D2 — /institute/schools: "The Global Landscape of Similar Schools"
+   Source: docs/astranova/ad-astra-调研报告.html §3 「同类高端创新学校对比」
+   (table + its citation line) and §4 「横向观察」 items 1–2 (item 4, the
+   Bastrop 48-vs-10 discrepancy, already lives in adAstra.mythbusting above —
+   not repeated here). Retrieved/scraped 2026-07-05.
+   ════════════════════════════════════════════════════════════════════════ */
+
+export interface SchoolEntry {
+  name: string;
+  subtitle: Bilingual;
+  url: string;
+  whoTheyAdmit: Bilingual;
+  tuition: Bilingual;
+  howTheyTeach: Bilingual;
+  controversy: Bilingual;
+}
+
+export const schoolsMeta: {
+  eyebrow: Bilingual;
+  title: Bilingual;
+  lede: Bilingual;
+  dateNote: Bilingual;
+} = {
+  eyebrow: { zh: "研究院 · 公开研究", en: "Institute · Public research" },
+  title: {
+    zh: "全球同类学校版图",
+    en: "The Global Landscape of Similar Schools",
+  },
+  lede: {
+    zh: "Alpha School、Synthesis、Khan Lab School、Khan World School、Minerva、Sora Schools、The Nueva School、Acton Academy——八所目标人群相似（高知/科技家庭、资优儿童）、学费高昂或选拔严格、主打创新教学法的学校。我们把每一所「招什么人、学费多少、怎么教、争议在哪」放进同一张对照，每条都带来源链接。",
+    en: "Alpha School, Synthesis, Khan Lab School, Khan World School, Minerva, Sora Schools, The Nueva School, and Acton Academy — eight schools that share a similar target audience (highly educated and tech-industry families, gifted kids), either a steep price tag or strict selectivity, and a pitch built around innovative teaching. We put who each one admits, what it costs, how it teaches, and where the controversy sits side by side, every line sourced.",
+  },
+  dateNote: {
+    zh: "调研日期：2026 年 7 月 5 日 · 数据来自各校官网、媒体报道与公开来源，检索/抓取时间均为当日。",
+    en: "Research date: July 5, 2026. Data comes from each school's official site, media coverage, and public sources, all retrieved or scraped that same day.",
+  },
+};
+
+export const schoolsIntro: {
+  eyebrow: Bilingual;
+  title: Bilingual;
+  body: Bilingual;
+} = {
+  eyebrow: { zh: "导语", en: "Introduction" },
+  title: { zh: "为什么是这八所学校", en: "Why these eight schools" },
+  body: {
+    zh: "选取标准：目标人群相近（高知家庭、科技从业者家庭、资优儿童），学费高昂或选拔严格，教学法都主打「创新」，并共同聚焦在培养问题解决能力这件事上。它们不是同一类学校——从在线的 45 美元/月产品到 7.5 万美元/年的线下校区都在其中——但放在一起看，价格、选拔方式和教学设计的真实差异，比任何一家的官网单独讲的故事都更清楚。",
+    en: "Selection criteria: a similar target audience (highly educated families, tech-industry families, gifted kids), either a steep price tag or strict selectivity, an innovative-teaching pitch, and a shared focus on building problem-solving ability. The range runs from a $45/month online product to a $75,000/year in-person campus, and seen side by side, the real differences in price, selection method, and teaching design come through more clearly than any single school's own website tells it.",
+  },
+};
+
+export const schoolEntries: SchoolEntry[] = [
+  {
+    name: "Alpha School",
+    subtitle: { zh: "奥斯汀等 13 校区", en: "Austin and 12 other campuses" },
+    url: "https://alpha.school/",
+    whoTheyAdmit: {
+      zh: "滚动招生：家庭面试 + 学生到校「影随日」+ 1,000 美元定金；实际生源以科技富裕家庭为主，主要靠价格和理念完成自我筛选。",
+      en: "Rolling admissions: a family interview, an on-campus student \"shadow day,\" and a $1,000 deposit. In practice the student body skews toward wealthy tech families, largely self-selected through price and philosophy.",
+    },
+    tuition: {
+      zh: "奥斯汀校区 40,000 美元；纽约校区 65,000 美元；全网跨度 10,000 美元（Brownsville 校区）–75,000 美元。",
+      en: "$40,000 at the Austin campus; $65,000 in New York; the network-wide range runs from $10,000 (the Brownsville campus) to $75,000.",
+    },
+    howTheyTeach: {
+      zh: "「2 Hour Learning」：每天约 2 小时用自适应软件（非 LLM）完成所有学科学习，没有传统教师，只有「guide」；下午整段时间用于生活技能、演讲、创业等工作坊。",
+      en: "\"2 Hour Learning\": roughly two hours a day of adaptive software (not an LLM) covering every academic subject, with no traditional teachers — only \"guides.\" The rest of the afternoon is workshops on life skills, public speaking, and entrepreneurship.",
+    },
+    controversy: {
+      zh: "官方宣称 MAP 测试成绩位列全美前 1–2%，但这一数据完全来自内部口径，没有第三方验证；2025 年 7 月被 IXL 终止合作账号（IXL 称其产品不能替代教师）；有家长投诉课程流于刷题机械；宾夕法尼亚州拒批了它的网校牌照；其软件供应商与富豪 Joe Liemandt 旗下营利性公司 Trilogy 之间的关联交易也存在争议。",
+      en: "Alpha claims MAP scores in the top 1–2% nationally, but that figure comes entirely from Alpha's own internal reporting, with no third-party verification. In July 2025, IXL terminated Alpha's account, saying its product can't substitute for a teacher; parents have complained the curriculum feels like mechanical drilling; Pennsylvania rejected its online-school license application; and the related-party dealings between its software vendor and billionaire Joe Liemandt's for-profit Trilogy have drawn scrutiny too.",
+    },
+  },
+  {
+    name: "Synthesis",
+    subtitle: { zh: "在线产品，非全日制学校", en: "An online product, not a full-time school" },
+    url: "https://www.synthesis.com/",
+    whoTheyAdmit: {
+      zh: "开放注册，不设选拔门槛，面向 8–14 岁；自我定位「资优向」，营销上也强调对神经多样性儿童友好。",
+      en: "Open enrollment with no admissions screen, for ages 8–14. Synthesis positions itself toward gifted kids, and its marketing also emphasizes being welcoming to neurodivergent children.",
+    },
+    tuition: {
+      zh: "Tutor 产品：每月 45 美元或每年 348 美元（常有 119 美元/年的促销价）；夏令营每期 800 美元（早鸟价 379 美元）。",
+      en: "The Tutor product: $45/month or $348/year (frequently discounted to $119/year); summer camp runs $800 per session ($379 for early birds).",
+    },
+    howTheyTeach: {
+      zh: "Ad Astra 团队模拟课的直系商业化产品：没有说明书的团队策略模拟（救火、太空殖民），练协作与决断，教练不给答案；Synthesis Tutor 则是面向 K-5 数学的 AI 私教产品。",
+      en: "A direct commercial descendant of Ad Astra's team-simulation class: instruction-manual-free team strategy simulations (firefighting, space colonization) that train collaboration and decision-making, with coaches who withhold answers. Synthesis Tutor, separately, is an AI math tutor for grades K-5.",
+    },
+    controversy: {
+      zh: "待核实——本报告未找到第三方对 Synthesis 教学效果的独立评估；作为 Ad Astra 模拟课的商业衍生品，它服务的家庭规模（25,000+）远超线下实体学校，教学效果与线下版本是否可比，尚无公开数据说明。",
+      en: "Unverified — this report found no independent third-party evaluation of Synthesis's teaching outcomes. As a commercial spinoff of the Ad Astra simulation class serving a far larger population (25,000+ families) than any in-person school in this comparison, whether its outcomes are comparable to the in-person original isn't addressed by any public data.",
+    },
+  },
+  {
+    name: "Khan Lab School",
+    subtitle: { zh: "硅谷，Sal Khan 创办", en: "Silicon Valley, founded by Sal Khan" },
+    url: "https://khanlabschool.org/",
+    whoTheyAdmit: {
+      zh: "免标化考试（test-blind）招生：家庭面试 + 学生到校观察式试读，筛选自驱型学习者。",
+      en: "Test-blind admissions: a family interview plus an on-campus observational trial day, screening for self-directed learners.",
+    },
+    tuition: {
+      zh: "33,700 美元（TK-5 学前至五年级）/ 37,700 美元（6-12 年级）。",
+      en: "$33,700 for TK-5 (pre-K through fifth grade); $37,700 for grades 6-12.",
+    },
+    howTheyTeach: {
+      zh: "掌握制（mastery-based）：自定进度学习，按能力混龄分组，不打字母等第（用 Mastery Transcript 成绩单），学日更长，重视项目式学习。",
+      en: "Mastery-based: self-paced learning, mixed-age grouping by ability, no letter grades (a Mastery Transcript instead), a longer school day, and heavy emphasis on project-based work.",
+    },
+    controversy: {
+      zh: "待核实——本报告未见针对 Khan Lab School 教学效果或运营的第三方争议报道；约 310 人、两个校区的小规模是刻意维持的结果，尚未大规模扩张，可比数据有限。",
+      en: "Unverified — this report found no third-party controversy reporting about Khan Lab School's teaching outcomes or operations. Its small scale (about 310 students across two campuses) is deliberately maintained, which also means there's less comparable data at scale.",
+    },
+  },
+  {
+    name: "Khan World School",
+    subtitle: { zh: "在线，与 ASU 合办", en: "Online, run jointly with Arizona State University" },
+    url: "https://asuprep.asu.edu/khan-world-school/",
+    whoTheyAdmit: {
+      zh: "结构化申请流程，重点考察学生的独立学习准备度。",
+      en: "A structured application process that focuses on assessing a student's readiness for independent learning.",
+    },
+    tuition: {
+      zh: "亚利桑那州居民免费（作为特许学校）；美国其他州学生 10,500 美元；国际学生 13,700 美元。",
+      en: "Free for Arizona residents (as a charter school); $10,500 for students from other U.S. states; $13,700 for international students.",
+    },
+    howTheyTeach: {
+      zh: "自定进度的 Khan Academy 课程 + 苏格拉底式研讨 + 真实问题研究，每学期含 2 门免费的 ASU 大学课程。",
+      en: "Self-paced Khan Academy coursework, Socratic seminars, and real-world problem research, plus two free ASU college courses each semester.",
+    },
+    controversy: {
+      zh: "首届学生的成长速度数据被称为「超过全美 99.9% 的学校」——这一说法来自校方口径，本报告未见独立验证。",
+      en: "The growth-rate figures for its first cohort were described as \"outpacing 99.9% of schools nationally\" — that claim comes from the school itself; this report found no independent verification of it.",
+    },
+  },
+  {
+    name: "Minerva",
+    subtitle: { zh: "大学，另授权高中课程体系", en: "A university, with a licensed high-school curriculum" },
+    url: "https://www.minerva.edu/",
+    whoTheyAdmit: {
+      zh: "录取率约 3%（10,864 份申请、约 330 人录取），比哈佛更难进；生源面向全球招生。",
+      en: "An acceptance rate of roughly 3% (10,864 applicants, about 330 admitted) — harder to get into than Harvard — with a globally sourced student body.",
+    },
+    tuition: {
+      zh: "大学学费约 19,000–24,000 美元/年，明显低于同层级美国私立大学。",
+      en: "University tuition runs about $19,000–24,000 a year, notably below peer-tier U.S. private universities.",
+    },
+    howTheyTeach: {
+      zh: "没有实体校园：四年间学生轮驻 7 个世界城市；所有课程都是自研 Forum 平台上的小班研讨，主打「全主动学习」与「思维习惯」（HCs）课程体系；授权的 Minerva Baccalaureate 高中课程毕业生可同时获得高中文凭和 32 个大学学分。",
+      en: "No physical campus: over four years, students rotate through seven cities worldwide. All coursework is small-seminar discussion on Minerva's own Forum platform, built around \"fully active learning\" and a \"Habits of Mind\" (HC) curriculum. Graduates of the licensed Minerva Baccalaureate high-school program earn a high-school diploma plus 32 college credits.",
+    },
+    controversy: {
+      zh: "待核实——本报告未见针对 Minerva 大学本部教学模式的第三方争议报道；需注意的是，Minerva Baccalaureate 高中课程体系由第三方学校获得授权运营，与 Minerva 大学本部并非同一实体，两者的录取标准和数据不能直接混用。",
+      en: "Unverified — this report found no third-party controversy reporting about Minerva University's teaching model itself. Worth flagging: the Minerva Baccalaureate high-school curriculum is run under license by separate schools, not by Minerva University directly, so its admissions figures and Minerva University's shouldn't be conflated.",
+    },
+  },
+  {
+    name: "Sora Schools",
+    subtitle: { zh: "在线，总部亚特兰大", en: "Online, headquartered in Atlanta" },
+    url: "https://soraschools.com/",
+    whoTheyAdmit: {
+      zh: "常规申请流程，不设高门槛选拔。",
+      en: "A standard application process with no high-bar selection screen.",
+    },
+    tuition: {
+      zh: "17,900 美元/年；弹性学费区间 7,500–16,000 美元，每年发放 300 万美元以上助学金。",
+      en: "$17,900/year; a sliding-scale range of $7,500–16,000, with over $3 million in financial aid awarded annually.",
+    },
+    howTheyTeach: {
+      zh: "用跨学科项目「远征（expeditions）」取代应试课程；每天约 3 小时 20 分钟的直播课，一周上 4 天；学生可同时修读双学分课程拿副学士学位；采用 Mastery Transcript 成绩单，获 Cognia 与 WASC 双认证。",
+      en: "Cross-disciplinary project \"expeditions\" replace an exam-driven curriculum; roughly 3 hours 20 minutes of live class a day, four days a week. Students can earn an associate degree through dual-credit coursework alongside their diploma, use a Mastery Transcript, and the school carries both Cognia and WASC accreditation.",
+    },
+    controversy: {
+      zh: "待核实——本报告未见第三方对 Sora 教学效果的独立评估；作为一家获得约 3,000 万美元风险投资的营利性教育科技公司，其学生规模（覆盖 30 多个州）和融资背景意味着持续的增长压力，值得留意。",
+      en: "Unverified — this report found no independent third-party evaluation of Sora's teaching outcomes. As a for-profit edtech company that has raised roughly $30M in venture funding, with students across 30-plus states, the ongoing growth pressure that funding creates is worth watching.",
+    },
+  },
+  {
+    name: "The Nueva School",
+    subtitle: { zh: "湾区，1967 年创办", en: "San Francisco Bay Area, founded in 1967" },
+    url: "https://www.nuevaschool.org/",
+    whoTheyAdmit: {
+      zh: "明确只招资优生：低龄段以 IQ 测试（WPPSI/WISC）作为核心门槛，选拔性极高，同时采用 need-blind（录取不考虑经济状况）政策。",
+      en: "Explicitly admits only gifted students: for younger grades, an IQ test (WPPSI/WISC) is the core admissions gate, making selectivity extremely high, alongside a need-blind policy (admissions decisions don't factor in financial need).",
+    },
+    tuition: {
+      zh: "约 30,555 美元（学前）–53,350 美元（高中）。",
+      en: "About $30,555 (pre-K) to $53,350 (high school).",
+    },
+    howTheyTeach: {
+      zh: "K-12 设计思维教育的先驱学校（与斯坦福 d.school 渊源深厚）：探究式跨学科教学、建构主义项目制学习（PBL）、社会情感学习（SEL）的发源地之一，三次获得国家蓝丝带学校称号。",
+      en: "A pioneer of K-12 design-thinking education with deep ties to Stanford's d.school: inquiry-based interdisciplinary teaching, constructivist project-based learning, one of the originating schools for social-emotional learning (SEL), and a three-time National Blue Ribbon School.",
+    },
+    controversy: {
+      zh: "IQ 测试门槛意味着录取结果本身就已经由生源的资优程度决定——教学法的效果和生源筛选的效果很难被拆开单独衡量，这也是本报告在「立场」部分特别提醒的风险。",
+      en: "The IQ-test threshold means the admissions outcome is already substantially determined by how gifted the applicant pool is — separating the effect of the teaching method from the effect of the selection process is genuinely hard, and it's the risk this report flags specifically in the stance section below.",
+    },
+  },
+  {
+    name: "Acton Academy",
+    subtitle: { zh: "Alpha 的前身模式", en: "The model Alpha grew out of" },
+    url: "https://actonacademy.org/",
+    whoTheyAdmit: {
+      zh: "各加盟校区自主招生，招生标准不统一，普遍看重家庭教育理念的契合度。",
+      en: "Each franchised campus handles its own admissions; there's no unified screening standard, and the common thread is how well a family's educational philosophy fits.",
+    },
+    tuition: {
+      zh: "因加盟校区而异，典型区间 8,500–13,150 美元/年，是这个赛道里价格较低的一端。",
+      en: "Varies by franchise campus, typically $8,500–13,150/year — the lower-priced end of this category.",
+    },
+    howTheyTeach: {
+      zh: "学习者驱动：用苏格拉底式引导者（不称为教师）带领学生，核心技能自定进度学习，配合真实世界「任务（quests）」、混龄工作室、学生自治。",
+      en: "Learner-driven: Socratic \"guides\" (not called teachers) lead students through self-paced core skills, paired with real-world \"quests,\" mixed-age studios, and student self-governance.",
+    },
+    controversy: {
+      zh: "待核实——加盟制意味着教学质量因校区而异，本报告未对具体某一加盟校区做独立核查；作为 Alpha School 教学法的前身模式，这层历史渊源也意味着它面对的规模化压力和 Alpha 类似。",
+      en: "Unverified — the franchise structure means teaching quality varies by campus, and this report did not independently audit any specific franchise location. As the model Alpha School's approach grew out of, that lineage also means Acton faces scaling pressures similar to Alpha's.",
+    },
+  },
+];
+
+export const schoolsObservations: {
+  intro: { eyebrow: Bilingual; title: Bilingual };
+  bullets: Bullet[];
+} = {
+  intro: {
+    eyebrow: { zh: "跨校观察", en: "Cross-school observations" },
+    title: { zh: "放在一起看，才看得出差异", en: "The differences only show up side by side" },
+  },
+  bullets: [
+    {
+      text: {
+        zh: "同样的话术，三个数量级的价格：都在讲「问题解决、自定进度、真实世界」，但 Synthesis 每年 348 美元、Khan World School 0–13,700 美元、Sora 17,900 美元、Astra Nova 最高 36,000 美元、Khan Lab/Nueva/Alpha 34,000–75,000 美元。价格主要跟着线下师生比与校区地段走，教学法本身对定价的影响相对有限。",
+        en: "The same pitch, three orders of magnitude in price: all of them talk about \"problem-solving, self-paced, real-world,\" yet Synthesis runs $348/year, Khan World School $0–13,700, Sora $17,900, Astra Nova up to $36,000, and Khan Lab/Nueva/Alpha $34,000–75,000. Price mostly tracks in-person staffing ratios and campus location; the teaching method itself has a comparatively limited effect on what a school charges.",
+      },
+    },
+    {
+      text: {
+        zh: "选拔机制彼此差异很大：Nueva 用 IQ 测试硬选拔；Minerva 用约 3% 的录取漏斗；SpaceX 时期的 Ad Astra 用推理测试加思辨题（约 3% 录取率）；Astra Nova 用「如何思考」的视频（约 50% 进入下一轮）；Alpha/Sora/Synthesis 基本靠价格和理念完成自我筛选。Musk 系统一以贯之的选拔逻辑，是完全跳过成绩单与标化考试，聚焦孩子面对开放问题时展现的推理过程。",
+        en: "Selection mechanisms differ sharply across this set: Nueva screens hard on an IQ test; Minerva runs a roughly 3% acceptance funnel; Ad Astra, in its SpaceX-era form, used reasoning tests plus open-ended questions (about a 3% acceptance rate); Astra Nova uses a \"how do you think\" video (about 50% advance to the next round); Alpha, Sora, and Synthesis are mostly self-selected by price and philosophy. The one consistent thread across the Musk-affiliated schools is skipping transcripts and standardized scores entirely, and focusing instead on the reasoning a child shows when facing an open-ended question.",
+      },
+    },
+  ],
+};
+
+export const schoolsStance: {
+  eyebrow: Bilingual;
+  title: Bilingual;
+  body: Bilingual;
+  cites: Cite[];
+} = {
+  eyebrow: { zh: "我们的立场", en: "Our stance" },
+  title: {
+    zh: "看懂生源筛选和教学法的区别",
+    en: "Telling selection apart from teaching method",
+  },
+  body: {
+    zh: "这八所学校几乎都在讲同一套故事：问题解决、自定进度、真实世界。但仔细看学费和招生方式就会发现，价格差距能到 200 倍，选拔机制也从 IQ 测试硬门槛（Nueva）到几乎零门槛的开放注册（Synthesis）都有。生源筛选本身很可能比教学法解释了更多「出路好」的结果——一位被 Ad Astra 拒绝的家长说得很直接：当年一起研究、申请这所学校的家长群体，本身大概率就已经保证了孩子们会有好出路。Per Aspera 向这些学校学习的是内核：真问题、真思辨、真协作。名人效应、招生稀缺性、被过度渲染的成果数据，我们如实写出来，把判断交还给你自己。",
+    en: "Nearly all eight schools tell some version of the same story: problem-solving, self-paced, real-world. Look closer at tuition and admissions, though, and the price gap runs as high as 200x, and the selection mechanism spans everything from a hard IQ-test gate (Nueva) to open enrollment with almost no screen at all (Synthesis). Selection itself may well explain more of the \"good outcomes\" than the teaching method does — one parent rejected by Ad Astra put it plainly: the community of parents who researched and applied to that school together was, on its own, probably enough to guarantee those kids a good outcome. What Per Aspera takes from these schools is their core: real problems, real reasoning, real collaboration. The celebrity effect, the admissions scarcity, and the overhyped outcome data — we write those down honestly, and leave the judgment to you.",
+  },
+  cites: [
+    {
+      label: { zh: "Reddit 原评论 (u/siberian, 2024-08)", en: "Reddit original comment (u/siberian, 2024-08)" },
+      url: "https://reddit.com/r/conservativeterrorism/comments/1ejvknb/conspiracy_theorist_elon_musk_about_to_open/lggvmjx/",
+    },
+  ],
+};
+
+export const schoolsSourceGroups: { heading: Bilingual; items: Cite[] }[] = [
+  {
+    heading: { zh: "各校官网", en: "Official school sites" },
+    items: [
+      { label: { zh: "Alpha School", en: "Alpha School" }, url: "https://alpha.school/" },
+      { label: { zh: "Synthesis", en: "Synthesis" }, url: "https://www.synthesis.com/" },
+      { label: { zh: "Khan Lab School", en: "Khan Lab School" }, url: "https://khanlabschool.org/" },
+      { label: { zh: "Khan World School (ASU Prep)", en: "Khan World School (ASU Prep)" }, url: "https://asuprep.asu.edu/khan-world-school/" },
+      { label: { zh: "Minerva", en: "Minerva" }, url: "https://www.minerva.edu/" },
+      { label: { zh: "Sora Schools", en: "Sora Schools" }, url: "https://soraschools.com/" },
+      { label: { zh: "The Nueva School", en: "The Nueva School" }, url: "https://www.nuevaschool.org/" },
+      { label: { zh: "Acton Academy", en: "Acton Academy" }, url: "https://actonacademy.org/" },
+    ],
+  },
+  {
+    heading: { zh: "媒体与第三方资料", en: "Media & third-party sources" },
+    items: [
+      { label: { zh: "Wikipedia: Alpha School", en: "Wikipedia: Alpha School" }, url: "https://en.wikipedia.org/wiki/Alpha_School" },
+      { label: { zh: "The New York Times, 2025-07-27", en: "The New York Times, 2025-07-27" }, url: "https://www.nytimes.com/2025/07/27/us/politics/ai-alpha-school-austin-texas.html" },
+      { label: { zh: "Alpha 招生页", en: "Alpha admissions page" }, url: "https://alpha.school/admission/" },
+      { label: { zh: "NBC Bay Area", en: "NBC Bay Area" }, url: "https://www.nbcbayarea.com/news/local/ai-powered-private-school-opens-san-francisco-campus/3922556/" },
+      { label: { zh: "NEPC 评论", en: "NEPC commentary" }, url: "https://nepc.colorado.edu/blog/fprice-kids-pay" },
+      { label: { zh: "Penn Capital-Star", en: "Penn Capital-Star" }, url: "https://penncapital-star.com/education/state-rejects-application-for-cyber-charter-school-with-ai-teacher-and-two-hours-of-daily-class/" },
+      { label: { zh: "Synthesis Tutor 产品页", en: "Synthesis Tutor product page" }, url: "https://www.synthesis.com/tutor" },
+      { label: { zh: "Synthesis Camp 产品页", en: "Synthesis Camp product page" }, url: "https://www.synthesis.com/camp" },
+      { label: { zh: "The Hustle", en: "The Hustle" }, url: "https://thehustle.co/meet-synthesis-the-edtech-startup-scaling-elon-musks-ad-astra-school" },
+      { label: { zh: "Khan Lab School 学费页", en: "Khan Lab School tuition page" }, url: "https://khanlabschool.org/Tuition-Affordability" },
+      { label: { zh: "Private School Review", en: "Private School Review" }, url: "https://www.privateschoolreview.com/khan-lab-school-profile" },
+      { label: { zh: "ASU Prep Digital", en: "ASU Prep Digital" }, url: "https://www.asuprepdigital.org/enrollment-khan-world-school/" },
+      { label: { zh: "BusinessWire, 2023-03-09", en: "BusinessWire, 2023-03-09" }, url: "https://www.businesswire.com/news/home/20230309005872/en/" },
+      { label: { zh: "Minerva 录取率", en: "Minerva acceptance rate" }, url: "https://www.clastify.com/blog/acceptance-rates/minerva-university" },
+      { label: { zh: "MBacc", en: "MBacc" }, url: "https://www.mbacc.com/" },
+      { label: { zh: "Sora 学费页", en: "Sora tuition page" }, url: "https://soraschools.com/tuition-and-affordability" },
+      { label: { zh: "Crunchbase: Sora Schools", en: "Crunchbase: Sora Schools" }, url: "https://www.crunchbase.com/organization/sora-schools" },
+      { label: { zh: "Wikipedia: The Nueva School", en: "Wikipedia: The Nueva School" }, url: "https://en.wikipedia.org/wiki/The_Nueva_School" },
+      { label: { zh: "Nueva 学费页", en: "Nueva tuition page" }, url: "https://www.nuevaschool.org/admissions/affording-nueva" },
+      { label: { zh: "Wikipedia: Acton Academy", en: "Wikipedia: Acton Academy" }, url: "https://en.wikipedia.org/wiki/Acton_Academy" },
+    ],
+  },
+];
+
+export const schools = {
+  meta: schoolsMeta,
+  intro: schoolsIntro,
+  entries: schoolEntries,
+  observations: schoolsObservations,
+  stance: schoolsStance,
+  sourceGroups: schoolsSourceGroups,
+};

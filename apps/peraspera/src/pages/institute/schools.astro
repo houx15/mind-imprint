@@ -1,26 +1,10 @@
 ---
-// Temporary placeholder — replaced by the full long-read in Phase D (task D2).
 import Base from "../../layouts/Base.astro";
-import { getLang, localePath } from "../../i18n/utils";
-
-const lang = getLang(Astro.currentLocale);
+import ResearchSchools from "../../components/pages/ResearchSchools.astro";
 ---
 <Base
   title="全球同类学校版图 · Per Aspera 研究院"
-  description="深度报告即将上线。"
+  description="Alpha School、Synthesis、Khan Lab School、Khan World School、Minerva、Sora Schools、The Nueva School、Acton Academy——招什么人、学费、怎么教、争议与风险，八所学校放进同一张对照，全部带来源。"
 >
-  <header class="pagehero">
-    <div class="container">
-      <p class="eyebrow">研究院 · 公开研究</p>
-      <h1>全球同类学校版图</h1>
-      <p class="lead">
-        深度报告即将上线 · In-depth report coming soon
-      </p>
-    </div>
-  </header>
-  <section class="section tight">
-    <div class="container center">
-      <a class="btn btn-outline" href={localePath(lang, "/institute")}>← 回到研究院</a>
-    </div>
-  </section>
+  <ResearchSchools />
 </Base>

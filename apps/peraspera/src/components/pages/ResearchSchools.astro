@@ -1,0 +1,229 @@
+---
+// Per Aspera — Institute long-read: "The Global Landscape of Similar Schools"
+// (/institute/schools, /en/institute/schools). Content lives in
+// src/content/research.ts (`schools` export) — this file is layout only.
+//
+// Pattern follows ResearchAdAstra.astro: getLang, .pagehero, .container/
+// .section/.reveal, existing global.css primitives (.btn). Each school gets
+// a card with its 4 columns (招什么人 / 学费 / 怎么教 / 争议与风险) as a
+// labeled sub-grid — a card grid reads better than a wide .table here since
+// every cell is a full sentence or two, and cards stack cleanly on mobile
+// with no horizontal scrolling required.
+import { getLang, t, localePath } from "../../i18n/utils";
+import { schools } from "../../content/research";
+
+const lang = getLang(Astro.currentLocale);
+const htmlLang = lang === "zh" ? "zh-CN" : "en";
+
+const { meta, intro, entries, observations, stance, sourceGroups } = schools;
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, meta.eyebrow.zh, meta.eyebrow.en)}</p>
+    <h1>{t(lang, meta.title.zh, meta.title.en)}</h1>
+    <p class="lead">{t(lang, meta.lede.zh, meta.lede.en)}</p>
+    <p class="meta-note">{t(lang, meta.dateNote.zh, meta.dateNote.en)}</p>
+  </div>
+</header>
+
+<article class="longread" lang={htmlLang}>
+
+  <!-- ═══ Intro ═══ -->
+  <section class="section" id="intro">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, intro.eyebrow.zh, intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, intro.title.zh, intro.title.en)}</h2>
+        <p class="sec-lead" style="margin-left:0;max-width:74ch">{t(lang, intro.body.zh, intro.body.en)}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Comparison: 8 schools × 4 columns ═══ -->
+  <section class="section alt" id="comparison">
+    <div class="container">
+      <div class="school-list reveal">
+        {entries.map((school) => (
+          <article class="school-card">
+            <header class="school-card-head">
+              <div>
+                <h3>
+                  <a href={school.url} target="_blank" rel="noopener">{school.name}</a>
+                </h3>
+                <p class="school-subtitle">{t(lang, school.subtitle.zh, school.subtitle.en)}</p>
+              </div>
+            </header>
+            <div class="school-fields">
+              <div class="school-field">
+                <p class="school-field-label">{t(lang, "招什么人", "Who it admits")}</p>
+                <p>{t(lang, school.whoTheyAdmit.zh, school.whoTheyAdmit.en)}</p>
+              </div>
+              <div class="school-field">
+                <p class="school-field-label">{t(lang, "学费", "Tuition")}</p>
+                <p>{t(lang, school.tuition.zh, school.tuition.en)}</p>
+              </div>
+              <div class="school-field">
+                <p class="school-field-label">{t(lang, "怎么教", "How it teaches")}</p>
+                <p>{t(lang, school.howTheyTeach.zh, school.howTheyTeach.en)}</p>
+              </div>
+              <div class="school-field school-field-controversy">
+                <p class="school-field-label">{t(lang, "争议与风险", "Controversy & risk")}</p>
+                <p>{t(lang, school.controversy.zh, school.controversy.en)}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Cross-school observations ═══ -->
+  <section class="section" id="observations">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, observations.intro.eyebrow.zh, observations.intro.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, observations.intro.title.zh, observations.intro.title.en)}</h2>
+      </div>
+      <ul class="bullet-list reveal" style="margin-top:32px;max-width:none">
+        {observations.bullets.map((b) => (
+          <li style="max-width:78ch">{t(lang, b.text.zh, b.text.en)}</li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══ Our stance ═══ -->
+  <section class="section alt" id="stance">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, stance.eyebrow.zh, stance.eyebrow.en)}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, stance.title.zh, stance.title.en)}</h2>
+        <p class="body-p" style="max-width:78ch;margin-top:20px">
+          {t(lang, stance.body.zh, stance.body.en)}
+        </p>
+        <div class="stance-cites">
+          {stance.cites.map((c) => (
+            <a href={c.url} target="_blank" rel="noopener">{t(lang, c.label.zh, c.label.en)}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Sources ═══ -->
+  <section class="section" id="sources">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, "来源", "Sources")}</p>
+        <h2 class="sec-title" style="max-width:none">{t(lang, "全部来源", "All sources")}</h2>
+      </div>
+
+      <div class="source-groups reveal">
+        {sourceGroups.map((group) => (
+          <div class="source-group">
+            <h4>{t(lang, group.heading.zh, group.heading.en)}</h4>
+            <ul class="source-list">
+              {group.items.map((item) => (
+                <li>
+                  <a href={item.url} target="_blank" rel="noopener">
+                    {t(lang, item.label.zh, item.label.en)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div class="center reveal" style="margin-top:52px">
+        <a class="btn btn-outline" href={localePath(lang, "/institute")}>
+          {t(lang, "← 回到研究院", "← Back to the Institute")}
+        </a>
+      </div>
+    </div>
+  </section>
+</article>
+
+<style>
+  .meta-note {
+    margin-top: 18px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  .longread :is(p, .bullet-list, blockquote) { max-width: 68ch; }
+  .body-p { color: var(--ink-2); font-size: 1.0625rem; line-height: 1.75; }
+
+  .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 14px; color: var(--ink-2); font-size: 1rem; line-height: 1.7; }
+  .bullet-list li { padding-left: 22px; position: relative; }
+  .bullet-list li::before { content: "✦"; position: absolute; left: 0; top: 2px; color: var(--primary); font-size: 0.75em; }
+
+  /* School comparison cards */
+  .school-list { display: flex; flex-direction: column; gap: 24px; }
+  .school-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 28px 30px;
+  }
+  .school-card-head h3 { font-size: 1.25rem; margin: 0; }
+  .school-card-head h3 a {
+    color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-2);
+  }
+  .school-card-head h3 a:hover { color: var(--primary); border-color: var(--primary-line); }
+  .school-subtitle { margin-top: 4px; font-size: 0.92rem; color: var(--muted); }
+
+  .school-fields {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px 28px;
+    margin-top: 22px;
+  }
+  .school-field p:not(.school-field-label) { color: var(--ink-2); font-size: 0.96rem; line-height: 1.65; max-width: none; }
+  .school-field-label {
+    font-family: var(--font-display); font-weight: 600; font-size: 0.76rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary);
+    margin-bottom: 8px;
+  }
+  .school-field-controversy {
+    grid-column: 1 / -1;
+    background: var(--paper-2); border: 1px solid var(--line-2);
+    border-left: 4px solid var(--ink); border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    padding: 18px 22px; margin-top: 4px;
+  }
+  .school-field-controversy .school-field-label { color: var(--ink); }
+
+  /* Stance section */
+  .stance-cites { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .stance-cites a {
+    font-size: 0.85rem; color: var(--muted); text-decoration: underline;
+    text-underline-offset: 2px; text-decoration-color: var(--line-2);
+  }
+  .stance-cites a:hover { color: var(--primary); text-decoration-color: var(--primary-line); }
+
+  /* Sources */
+  .source-groups {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 40px;
+    margin-top: 44px;
+  }
+  .source-group h4 {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.92rem;
+    color: var(--ink); border-bottom: 1px solid var(--line-2); padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .source-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .source-list a {
+    font-size: 0.92rem; color: var(--ink-2); text-decoration: underline;
+    text-underline-offset: 2px; text-decoration-color: var(--line-2);
+  }
+  .source-list a:hover { color: var(--primary); text-decoration-color: var(--primary-line); }
+
+  @media (max-width: 900px) {
+    .school-fields { grid-template-columns: 1fr; }
+    .school-field-controversy { grid-column: 1; }
+    .source-groups { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 760px) {
+    .school-card { padding: 22px 20px; }
+  }
+</style>
