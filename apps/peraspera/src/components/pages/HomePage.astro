@@ -2,17 +2,18 @@
 import { getLang, t, localePath } from "../../i18n/utils";
 import {
   hero,
-  pillarsIntro,
-  pillars,
+  mission,
+  offerIntro,
+  offers,
   beliefsIntro,
   beliefs,
+  team,
   faqIntro,
   faqs,
-  closing,
+  faqMore,
 } from "../../content/home";
 
 const lang = getLang(Astro.currentLocale);
-const other: "zh" | "en" = lang === "zh" ? "en" : "zh";
 
 // Split the headline around its accented fragment so we can wrap it in .em.
 const headline = t(lang, hero.headline.zh, hero.headline.en);
@@ -22,207 +23,244 @@ const headBefore = emIdx >= 0 ? headline.slice(0, emIdx) : headline;
 const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
 ---
 
-<!-- ═══ Hero ═══ -->
-<header class="hero">
-  <div class="hero-inner">
-    <p class="motto">{hero.motto}</p>
-    <h1>
-      {headBefore}<span class="em">{em}</span>{headAfter}
-    </h1>
-    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
-
-    <!-- the same lines in the other language: the page's bilingual signature -->
-    <p class="hero-alt" lang={other === "zh" ? "zh-CN" : "en"}>
-      <span class="hero-alt-head">{t(other, hero.headline.zh, hero.headline.en)}</span>
-      <span class="hero-alt-sub">{t(other, hero.sub.zh, hero.sub.en)}</span>
-    </p>
-
-    <div class="cta-row">
-      <a class="btn btn-primary btn-lg" href={localePath(lang, hero.ctaPrimary.href)}>
-        {t(lang, hero.ctaPrimary.label.zh, hero.ctaPrimary.label.en)}
-      </a>
-      <a class="btn btn-outline btn-lg" href={localePath(lang, hero.ctaSecondary.href)}>
-        {t(lang, hero.ctaSecondary.label.zh, hero.ctaSecondary.label.en)}
-      </a>
-    </div>
-  </div>
-</header>
-
-<!-- ═══ Three pillars ═══ -->
-<section class="section">
-  <div class="container">
-    <div class="reveal">
-      <p class="eyebrow">{t(lang, pillarsIntro.eyebrow.zh, pillarsIntro.eyebrow.en)}</p>
-      <h2 class="sec-title">{t(lang, pillarsIntro.title.zh, pillarsIntro.title.en)}</h2>
-    </div>
-    <div class="pillars reveal">
-      {pillars.map((p) => (
-        <article class="pillar">
-          <h3>{t(lang, p.title.zh, p.title.en)}</h3>
-          <p>{t(lang, p.body.zh, p.body.en)}</p>
-          <a class="btn-ghost pillar-link" href={localePath(lang, p.href)}>
-            {t(lang, p.cta.zh, p.cta.en)}
-          </a>
-        </article>
-      ))}
-    </div>
-  </div>
-</section>
-
-<!-- ═══ Beliefs (bilingual pairing) ═══ -->
-<section class="section alt">
-  <div class="container">
-    <div class="center reveal">
-      <p class="eyebrow" style="justify-content:center">{t(lang, beliefsIntro.eyebrow.zh, beliefsIntro.eyebrow.en)}</p>
-      <h2 class="sec-title">{t(lang, beliefsIntro.title.zh, beliefsIntro.title.en)}</h2>
-    </div>
-    <div class="beliefs beliefs-home reveal" style="margin-top:52px">
-      {beliefs.map((b) => (
-        <article class="belief-card">
-          <span class="b-idx">{t(lang, b.tag.zh, b.tag.en)}</span>
-          <h3>{b.headZh}</h3>
-          {b.bodyZh && <p>{b.bodyZh}</p>}
-          <div class="b-en" lang="en">
-            <p class="b-en-head">{b.headEn}</p>
-            {b.bodyEn && <p class="b-en-body">{b.bodyEn}</p>}
-          </div>
-        </article>
-      ))}
-    </div>
-  </div>
-</section>
-
-<!-- ═══ Featured FAQ ═══ -->
-<section class="section">
-  <div class="container">
-    <div class="center reveal">
-      <p class="eyebrow" style="justify-content:center">{t(lang, faqIntro.eyebrow.zh, faqIntro.eyebrow.en)}</p>
-      <h2 class="sec-title">{t(lang, faqIntro.title.zh, faqIntro.title.en)}</h2>
-    </div>
-    <div class="faq reveal" style="margin-top:44px">
-      {faqs.map((f) => (
-        <details>
-          <summary>{t(lang, f.q.zh, f.q.en)}</summary>
-          <div class="faq-body"><p>{t(lang, f.a.zh, f.a.en)}</p></div>
-        </details>
-      ))}
-    </div>
-    <p class="faq-more center reveal">
-      <a class="link" href={`${localePath(lang, "/about")}#faq`}>
-        {t(lang, faqIntro.more.zh, faqIntro.more.en)} <span class="star">→</span>
-      </a>
-    </p>
-  </div>
-</section>
-
-<!-- ═══ Closing CTA ═══ -->
-<section class="section tight">
-  <div class="container">
-    <div class="cta reveal">
-      <p class="motto">{closing.motto}</p>
-      <h2>{t(lang, closing.title.zh, closing.title.en)}</h2>
-      <p>{t(lang, closing.body.zh, closing.body.en)}</p>
+<div class="home">
+  <!-- ═══ 1 · Hero ═══ -->
+  <section class="screen hero-screen">
+    <div class="container">
+      <p class="motto">{hero.motto}</p>
+      <h1 class="hero-head">
+        {headBefore}<span class="em">{em}</span>{headAfter}
+      </h1>
+      <p class="hero-lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
       <div class="cta-row">
-        <a class="btn btn-light btn-lg" href={localePath(lang, closing.href)}>
-          {t(lang, closing.cta.zh, closing.cta.en)}
-          <span aria-hidden="true">→</span>
+        <a class="btn btn-primary btn-lg" href={localePath(lang, hero.ctaPrimary.href)}>
+          {t(lang, hero.ctaPrimary.label.zh, hero.ctaPrimary.label.en)}
+        </a>
+        <a class="btn btn-outline btn-lg" href={localePath(lang, hero.ctaSecondary.href)}>
+          {t(lang, hero.ctaSecondary.label.zh, hero.ctaSecondary.label.en)}
         </a>
       </div>
     </div>
-  </div>
-</section>
+    <a class="scroll-hint" href="#mission" aria-hidden="true">✦</a>
+  </section>
+
+  <!-- ═══ 2 · Mission ═══ -->
+  <section id="mission" class="screen mission-screen">
+    <div class="container reveal">
+      <p class="sec-label">{mission.label}</p>
+      <h2 class="mission-head">{t(lang, mission.heading.zh, mission.heading.en)}</h2>
+      <p class="mission-body">{t(lang, mission.body.zh, mission.body.en)}</p>
+    </div>
+  </section>
+
+  <!-- ═══ 3 · What we offer ═══ -->
+  <section class="screen offer-screen">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, offerIntro.label.zh, offerIntro.label.en)}</p>
+        <h2 class="sec-title">{t(lang, offerIntro.heading.zh, offerIntro.heading.en)}</h2>
+      </div>
+      <div class="offer-grid reveal">
+        {offers.map((o) => (
+          <article class="offer-card">
+            <h3>{t(lang, o.name.zh, o.name.en)}</h3>
+            <p>{t(lang, o.body.zh, o.body.en)}</p>
+            <a class="btn-ghost offer-link" href={localePath(lang, o.href)}>
+              {t(lang, o.cta.zh, o.cta.en)}
+            </a>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 4 · What we believe (single language) ═══ -->
+  <section class="screen belief-screen">
+    <div class="container">
+      <div class="center reveal">
+        <p class="eyebrow" style="justify-content:center">{t(lang, beliefsIntro.label.zh, beliefsIntro.label.en)}</p>
+        <h2 class="sec-title">{t(lang, beliefsIntro.heading.zh, beliefsIntro.heading.en)}</h2>
+      </div>
+      <div class="beliefs belief-grid reveal">
+        {beliefs.map((b) => (
+          <article class="belief-card">
+            <span class="b-idx">{t(lang, b.tag.zh, b.tag.en)}</span>
+            <h3>{t(lang, b.head.zh, b.head.en)}</h3>
+            {b.body && <p>{t(lang, b.body.zh, b.body.en)}</p>}
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 5 · Who we are ═══ -->
+  <section class="screen team-screen">
+    <div class="container reveal">
+      <p class="eyebrow">{t(lang, team.label.zh, team.label.en)}</p>
+      <h2 class="sec-title">{t(lang, team.heading.zh, team.heading.en)}</h2>
+      <p class="team-intro">{t(lang, team.intro.zh, team.intro.en)}</p>
+      <div class="team-grid">
+        {team.members.map((m) => (
+          <div class="member">
+            <p class="member-name">{t(lang, m.name.zh, m.name.en)}</p>
+            <p class="member-role">{t(lang, m.role.zh, m.role.en)}</p>
+          </div>
+        ))}
+      </div>
+      <a class="btn-ghost team-link" href={localePath(lang, team.href)}>
+        {t(lang, team.cta.zh, team.cta.en)}
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══ 6 · Questions ═══ -->
+  <section class="screen faq-screen">
+    <div class="container">
+      <div class="reveal">
+        <p class="eyebrow">{t(lang, faqIntro.label.zh, faqIntro.label.en)}</p>
+        <h2 class="sec-title">{t(lang, faqIntro.heading.zh, faqIntro.heading.en)}</h2>
+      </div>
+      <div class="faq reveal">
+        {faqs.map((f) => (
+          <details>
+            <summary>{t(lang, f.q.zh, f.q.en)}</summary>
+            <div class="faq-body"><p>{t(lang, f.a.zh, f.a.en)}</p></div>
+          </details>
+        ))}
+      </div>
+      <div class="faq-foot reveal">
+        <a class="link" href={`${localePath(lang, "/about")}#faq`}>
+          {t(lang, faqMore.label.zh, faqMore.label.en)} <span class="star">→</span>
+        </a>
+        <a class="btn btn-primary" href={localePath(lang, "/contact")}>
+          {t(lang, faqMore.contactLabel.zh, faqMore.contactLabel.en)}
+        </a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Homepage-only document-level scroll snapping. The `.snap` utility in
+     global.css only takes effect on a scroll container; the page's scroller is
+     the document, so we enable snapping on `html` here (this component only ever
+     renders on / and /en/). Gated exactly like `.snap`: desktop width + fine
+     pointer + no reduced-motion — on phones/short windows it's off and screens
+     flow naturally. `scroll-padding-top` keeps anchored screens clear of the
+     sticky nav. -->
+<style is:global>
+  @media (min-width: 900px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    html { scroll-snap-type: y proximity; scroll-padding-top: 72px; }
+    .home > .screen { scroll-snap-align: start; }
+  }
+</style>
 
 <style>
-  /* Bilingual echo under the hero — the page's editorial signature.
-     Quiet, tracked, and clearly secondary to the primary-language lines. */
-  .hero-alt {
-    margin-top: 22px;
-    padding-top: 22px;
-    border-top: 1px solid var(--line);
-    max-width: 60ch;
-    color: var(--muted);
+  /* Every screen keeps its content clear of the sticky nav when jumped to. */
+  .screen { scroll-margin-top: 72px; }
+  .screen > .container { width: 100%; }
+
+  /* 1 · Hero — big, left-aligned, confident. */
+  .hero-screen { position: relative; }
+  .hero-screen .motto { margin-bottom: 26px; }
+  .hero-head {
+    font-size: clamp(2.5rem, 5.4vw + 0.5rem, 4.75rem);
+    letter-spacing: -0.03em;
+    max-width: 18ch;
   }
-  .hero-alt-head {
-    display: block;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: 1.05rem;
-    letter-spacing: -0.01em;
+  .hero-head .em { color: var(--primary); }
+  .hero-lead {
+    margin-top: 30px;
+    max-width: 54ch;
+    font-size: clamp(1.15rem, 1vw + 0.9rem, 1.45rem);
     color: var(--ink-2);
   }
-  .hero-alt-sub {
-    display: block;
-    margin-top: 6px;
-    font-size: 0.95rem;
-    line-height: 1.55;
+  .scroll-hint {
+    position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%);
+    color: var(--primary); font-size: 0.9rem; opacity: 0.7;
+    animation: hint-float 2.4s ease-in-out infinite;
+  }
+  .scroll-hint:hover { opacity: 1; }
+  @keyframes hint-float {
+    0%, 100% { transform: translate(-50%, 0); }
+    50% { transform: translate(-50%, 7px); }
   }
 
-  /* Pillars: navigational cards, distinct from the declarative belief cards
-     by a top accent rule and a footer arrow link. (Missing hook in global.css.) */
-  .pillars {
+  /* 2 · Mission — one large paragraph, generous measure. */
+  .mission-screen { background: var(--paper-2); border-block: 1px solid var(--line); }
+  .mission-head { margin-top: 18px; max-width: 20ch; }
+  .mission-body {
+    margin-top: 30px;
+    max-width: 58ch;
+    font-size: clamp(1.2rem, 0.9vw + 1rem, 1.6rem);
+    line-height: 1.55;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* 3 · Offer — three navigational cards. */
+  .offer-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
     margin-top: 52px;
   }
-  .pillar {
-    display: flex;
-    flex-direction: column;
+  .offer-card {
+    display: flex; flex-direction: column;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    padding: 32px 30px;
     border-top: 3px solid var(--primary);
+    border-radius: var(--r-lg);
+    padding: 34px 30px;
     transition: border-color .2s, transform .2s, box-shadow .2s;
   }
-  .pillar:hover {
+  .offer-card:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-sm);
     border-color: var(--primary-line);
     border-top-color: var(--primary);
   }
-  .pillar h3 { margin-bottom: 12px; }
-  .pillar p { color: var(--ink-2); font-size: 1rem; flex: 1; }
-  .pillar .pillar-link { margin-top: 22px; align-self: flex-start; }
+  .offer-card h3 { margin-bottom: 14px; }
+  .offer-card p { color: var(--ink-2); font-size: 1rem; flex: 1; }
+  .offer-card .offer-link { margin-top: 24px; align-self: flex-start; }
 
-  /* Four belief cards read as a symmetric 2×2 at desktop; the shared global
-     .beliefs class is a 3-column grid (fine for the 3-up pillar count elsewhere)
-     and would strand the 4th card. Astro scopes this above the global rule, so
-     the ≤900px collapse to one column is restated here to stay in sync. */
-  .beliefs-home { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 900px) {
-    .beliefs-home { grid-template-columns: 1fr; }
-  }
+  /* 4 · Beliefs — 2×2, single language. */
+  .belief-grid { grid-template-columns: repeat(2, 1fr); margin-top: 52px; }
 
-  /* Belief cards: the English pairing shown beneath the Chinese, always. */
-  .b-en {
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line);
+  /* 5 · Who we are. */
+  .team-intro { margin-top: 22px; max-width: 56ch; font-size: 1.15rem; color: var(--ink-2); }
+  .team-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 22px; margin-top: 40px; max-width: 760px;
   }
-  .b-en-head {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-style: italic;
-    font-size: 0.98rem;
-    line-height: 1.4;
-    color: var(--primary);
-    letter-spacing: -0.01em;
+  .member {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-lg); padding: 26px 28px;
   }
-  .b-en-body {
-    margin-top: 7px;
-    font-size: 0.9rem;
-    line-height: 1.55;
-    color: var(--muted);
+  .member-name {
+    font-family: var(--font-display); font-weight: 700; font-size: 1.35rem;
+    color: var(--ink); letter-spacing: -0.01em;
   }
+  .member-role { margin-top: 8px; font-size: 0.95rem; color: var(--muted); }
+  .team-link { margin-top: 34px; display: inline-flex; }
 
-  .faq-more { margin-top: 30px; }
-  .faq-more .star { font-style: normal; }
+  /* 6 · Questions. */
+  .faq { margin-top: 44px; }
+  .faq-foot {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    justify-content: center; margin-top: 40px;
+  }
+  .faq-foot .star { font-style: normal; }
 
   @media (max-width: 900px) {
-    .pillars { grid-template-columns: 1fr; }
+    .offer-grid, .belief-grid, .team-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 760px) {
-    .hero-alt { max-width: none; }
+    /* On phones there is no snapping; keep vertical breathing room so short
+       screens don't feel cramped and tall ones never clip. */
+    .screen { padding-block: 88px; }
+    .hero-screen { padding-block: 96px 72px; }
+    .scroll-hint { display: none; }
   }
 </style>

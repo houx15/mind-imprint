@@ -1,18 +1,12 @@
 // Per Aspera — home page (/) content. zh is the source of truth; en mirrors it.
-// Bilingual scope for this page: Hero, the belief cards (shown zh + en together),
-// and the footer disclaimer. Pillars, FAQ and the closing CTA are language-
-// switched (one language per page) via `t()`.
-//
-// Copy is drawn verbatim from docs/astranova/PerAspera官网文案v2-多页版.md §一,
-// with two deliberate edits:
-//   1. Belief 4's headline was "驾驭 AI，而不是被 AI 驯化。" (an X-not-Y antithesis).
-//      Rewritten to a positive declarative per the site copy rule.
-//   2. The closing CTA is reframed from the doc's "2-min video + parent letter"
-//      application onto our funnel: 留资 → 说明会 → 一对一面谈.
+// The page renders ONE language per locale via t(lang, zh, en) — nothing is shown
+// in both languages at once (fixes the old belief-cards bug where zh text leaked
+// onto the /en/ page). Plain, parent-legible wording throughout: no jargon, no
+// deadlines, no antithesis (不是…而是 / not-X-but-Y).
 
 import type { Bilingual } from "./site";
 
-/* ---- Hero ------------------------------------------------------------------ */
+/* ---- 1 · Hero -------------------------------------------------------------- */
 export const hero: {
   motto: string;
   headline: Bilingual;
@@ -24,122 +18,179 @@ export const hero: {
 } = {
   motto: "Per Aspera",
   headline: {
-    zh: "培养 AI 时代的真正驾驭者。",
-    en: "Raising the true masters of the AI era.",
+    zh: "为 AI 时代，培养真正能解决问题的人。",
+    en: "For an AI-native world, we raise young people who solve real problems.",
   },
-  headlineEm: { zh: "驾驭者", en: "masters" },
+  headlineEm: { zh: "解决问题", en: "solve real problems" },
   sub: {
-    zh: "当 AI 能秒答一切，我们训练它替代不了的东西：思辨、协作、伦理判断，和把问题变成作品的能力。",
-    en: "When AI can answer everything, we train what it can't replace: reasoning, collaboration, ethical judgment — and the ability to turn problems into products.",
+    zh: "教育正在走向 AI 原生学习。我们陪孩子提早动手、真实创造，长出和 AI 一起把问题解决掉的能力。",
+    en: "Education is moving toward AI-Native Learning. We help children build and create earlier, and grow the ability to solve real problems alongside AI.",
   },
   ctaPrimary: {
-    label: { zh: "查看课程", en: "Explore programs" },
-    href: "/programs",
+    label: { zh: "了解更多", en: "Learn more" },
+    href: "#mission",
   },
   ctaSecondary: {
-    label: { zh: "走进研究院", en: "Enter the institute" },
-    href: "/institute",
+    label: { zh: "联系我们", en: "Contact us" },
+    href: "/contact",
   },
 };
 
-/* ---- Three pillars --------------------------------------------------------- */
-export const pillarsIntro: { eyebrow: Bilingual; title: Bilingual } = {
-  eyebrow: { zh: "概览", en: "Overview" },
-  title: {
-    zh: "一所学院，一个研究院，一套公开的理念。",
-    en: "An academy, an institute, and a point of view we publish in full.",
+/* ---- 2 · Mission ----------------------------------------------------------- */
+export const mission: {
+  label: string;
+  heading: Bilingual;
+  body: Bilingual;
+} = {
+  label: "AI-Native Learning",
+  heading: {
+    zh: "教育正在走向 AI 原生学习。",
+    en: "Education is moving toward AI-Native Learning.",
+  },
+  body: {
+    zh: "我们把这次转变叫作 AI 原生学习（AI-Native Learning，简称 ANL）。越来越多的学生开始走进真实的公司里学习、甚至工作，也更早地动手做东西、把想法变成真实的作品。在一个个真实的问题里，他们长出和 AI 一起把事情解决掉的能力。我们相信这就是下一代教育该有的样子，这也是我们存在的理由。",
+    en: "We call this shift AI-Native Learning (ANL). More and more students are starting to learn — and even work — inside real companies, and to build and create earlier, turning ideas into things that actually exist. Working on real problems, they grow the ability to solve them alongside AI. We believe this is what the next generation of education looks like, and it is why we exist.",
   },
 };
 
-export interface Pillar {
-  title: Bilingual;
+/* ---- 3 · What we offer ----------------------------------------------------- */
+export const offerIntro: { label: Bilingual; heading: Bilingual } = {
+  label: { zh: "我们做的事", en: "What we do" },
+  heading: { zh: "我们能帮你什么。", en: "What we offer." },
+};
+
+export interface Offer {
+  name: Bilingual;
   body: Bilingual;
   cta: Bilingual;
   href: string;
 }
 
-export const pillars: Pillar[] = [
+export const offers: Offer[] = [
   {
-    title: { zh: "课程 · 学院", en: "Programs · Academy" },
+    name: { zh: "申请辅导", en: "Application coaching" },
     body: {
-      zh: "两个产品：面向 10.15 Astra Nova 高中申请的 14 周冲刺营；面向 9–14 岁的长线学院——亚洲时区的问题解决者教育。",
-      en: "Two products: a 14-week sprint for the Oct 15 Astra Nova high-school application, and a long-term academy for ages 9–14 — problem-solver education built for Asian time zones.",
+      zh: "帮学生和家长一起，准备好申请那些为 AI 时代而建的顶尖学校，比如马斯克创办的 Astra Nova。",
+      en: "We help students and parents get ready to apply to top schools built for the AI era — like Elon Musk's Astra Nova.",
     },
-    cta: { zh: "查看课程", en: "Explore programs" },
-    href: "/programs",
+    cta: { zh: "了解申请辅导", en: "Learn about coaching" },
+    href: "/coaching",
   },
   {
-    title: { zh: "研究院 · 思维印记", en: "Institute · Mind Imprint" },
+    name: { zh: "课程项目", en: "Courses" },
     body: {
-      zh: "我们不只教，还在造工具：AI 时代的思维能力评估体系——用孩子与 AI 的真实对话，量化“怎么想”。Demo 已上线。",
-      en: "We teach, and we build the tools: an assessment system for thinking in the AI era, reading how a child reasons from their real conversations with AI. The demo is live.",
+      zh: "认同这样的学习方式、但还没进入这些学校的家庭，可以来上我们的课程项目——业余时间、在线上就能学。",
+      en: "For families who share this way of learning but haven't enrolled in those schools, we run part-time courses you can take online.",
     },
-    cta: { zh: "走进研究院", en: "Enter the institute" },
-    href: "/institute",
+    cta: { zh: "了解课程项目", en: "See our courses" },
+    href: "/academy",
   },
   {
-    title: { zh: "理念 · 为什么是我们", en: "Beliefs · Why us" },
+    name: { zh: "学校合作", en: "School partnership" },
     body: {
-      zh: "两位创始人：多年 IB/国际课堂批判性思维教学 × 连续创业者的 AI/产品/计算思维。我们把研究全部公开。",
-      en: "Two founders: years of teaching critical thinking in IB and international classrooms, crossed with a serial founder's fluency in AI, product, and computational thinking. We publish all of our research.",
+      zh: "认同这个方向的学校，我们提供 AI 转型的支持：AI 的使用与评估（我们的思维印记产品）、教师培训，以及课程。",
+      en: "For schools that share this vision, we help with their AI transformation — AI use and evaluation (our mind imprint product), teacher training, and courses.",
     },
-    cta: { zh: "了解我们", en: "Meet the founders" },
-    href: "/about",
+    cta: { zh: "了解学校合作", en: "Explore partnership" },
+    href: "/partnership",
   },
 ];
 
-/* ---- Beliefs (always shown zh + en together) ------------------------------- */
-export const beliefsIntro: { eyebrow: Bilingual; title: Bilingual } = {
-  eyebrow: { zh: "我们相信什么", en: "What we believe" },
-  title: {
-    zh: "四条不肯让步的信念。",
-    en: "Four convictions we won't trade away.",
-  },
+/* ---- 4 · What we believe (single language per locale) ---------------------- */
+export const beliefsIntro: { label: Bilingual; heading: Bilingual } = {
+  label: { zh: "我们相信什么", en: "What we believe" },
+  heading: { zh: "我们相信的几件事。", en: "A few things we believe." },
 };
 
 export interface Belief {
   /** short thematic tag beside the star mark */
   tag: Bilingual;
-  headZh: string;
-  headEn: string;
-  bodyZh?: string;
-  bodyEn?: string;
+  head: Bilingual;
+  body?: Bilingual;
 }
 
 export const beliefs: Belief[] = [
   {
     tag: { zh: "思考", en: "Thinking" },
-    headZh: "在 AI 能秒答一切的时代，“怎么想”是唯一值钱的能力。",
-    headEn: "In an age where AI answers everything, how you think is the only thing left worth learning.",
+    head: {
+      zh: "在 AI 什么都能答的时代，怎么想，才是真正要学的东西。",
+      en: "When AI can answer anything, how you think is what's really worth learning.",
+    },
   },
   {
     tag: { zh: "能力", en: "Ability" },
-    headZh: "能力无法代办。",
-    headEn: "Ability cannot be outsourced.",
-    bodyZh: "没有人能替孩子完成一次真实的思考——所以我们不背题、不代写、不写脚本。",
-    bodyEn: "No one can think on your child's behalf — so we don't drill answers, ghostwrite letters, or script videos.",
+    head: {
+      zh: "真正的能力，得自己长出来。",
+      en: "Real ability has to grow from within.",
+    },
+    body: {
+      zh: "没有人能替孩子完成一次真实的思考，所以我们陪着一起练，不背题、不代写。",
+      en: "No one can think for your child, so we practise alongside them — no drilling answers, no ghostwriting.",
+    },
   },
   {
     tag: { zh: "家庭", en: "Family" },
-    headZh: "家长是教育的一半。",
-    headEn: "Parents are half of the education.",
-    bodyZh: "好学校面试的是整个家庭；好教育发生在饭桌上。",
-    bodyEn: "Great schools interview the whole family; great education happens at the dinner table.",
+    head: {
+      zh: "家长是教育的另一半。",
+      en: "Parents are the other half of education.",
+    },
+    body: {
+      zh: "很多真实的学习，就发生在家里的饭桌上。",
+      en: "A lot of real learning happens at the family dinner table.",
+    },
   },
   {
     tag: { zh: "主动权", en: "Agency" },
-    headZh: "驾驭 AI，握住主动权。",
-    headEn: "Master AI, and keep the upper hand.",
-    bodyZh: "会用 AI 的孩子很多，敢对 AI 说“你错了”的孩子很少——我们培养后者。",
-    bodyEn: "Many kids can use AI; few dare tell it “you're wrong.” We raise the few.",
+    head: {
+      zh: "让孩子握住和 AI 相处的主动权。",
+      en: "Keep your child in charge of how they work with AI.",
+    },
+    body: {
+      zh: "会用 AI 的孩子很多，敢对 AI 说“这里不对”的孩子很少，我们想培养后者。",
+      en: "Many kids can use AI; few dare to tell it “this is wrong.” We raise the few.",
+    },
   },
 ];
 
-/* ---- Featured FAQ (full set lives on /about) ------------------------------- */
-export const faqIntro: { eyebrow: Bilingual; title: Bilingual; more: Bilingual } = {
-  eyebrow: { zh: "常见问题", en: "FAQ" },
-  title: { zh: "先答几个高频问题。", en: "A few questions, up front." },
-  more: { zh: "完整问答见关于页", en: "See the full FAQ on About" },
+/* ---- 5 · Who we are -------------------------------------------------------- */
+export const team: {
+  label: Bilingual;
+  heading: Bilingual;
+  intro: Bilingual;
+  members: { name: Bilingual; role: Bilingual }[];
+  cta: Bilingual;
+  href: string;
+} = {
+  label: { zh: "我们是谁", en: "Who we are" },
+  heading: { zh: "一支小团队，两位创始人。", en: "A small team, two founders." },
+  intro: {
+    zh: "一位多年深耕国际课程里的思辨教学，一位是连续创业者、常年做 AI 与产品。我们把研究和方法都公开出来。",
+    en: "One of us has spent years teaching critical thinking in international classrooms; the other is a serial founder working in AI and product. We publish our research and methods openly.",
+  },
+  members: [
+    {
+      name: { zh: "陈玉洁", en: "Yujie Chen" },
+      role: {
+        zh: "CEO · 联合创始人 · 教育研究院负责人",
+        en: "CEO · Co-founder · Head of the education research institute",
+      },
+    },
+    {
+      name: { zh: "侯煜欣", en: "Yuxin Hou" },
+      role: {
+        zh: "联合创始人 · 产品负责人",
+        en: "Co-founder · Head of product",
+      },
+    },
+  ],
+  cta: { zh: "了解我们", en: "Meet the team" },
+  href: "/about",
+};
+
+/* ---- 6 · Questions --------------------------------------------------------- */
+export const faqIntro: { label: Bilingual; heading: Bilingual } = {
+  label: { zh: "常见问题", en: "FAQ" },
+  heading: { zh: "几个常见问题。", en: "A few common questions." },
 };
 
 export interface Faq {
@@ -149,42 +200,32 @@ export interface Faq {
 
 export const faqs: Faq[] = [
   {
-    q: { zh: "Per Aspera 与 Astra Nova 是什么关系？", en: "How is Per Aspera related to Astra Nova?" },
+    q: {
+      zh: "Per Aspera 和 Astra Nova 是什么关系？",
+      en: "How is Per Aspera related to Astra Nova?",
+    },
     a: {
-      zh: "没有任何关系，我们是独立机构（详见关于页）。",
-      en: "In no way. We are an independent organization (see the About page for the full statement).",
+      zh: "我们是一家独立机构，和 Astra Nova 没有任何关联，也不代表它。",
+      en: "We are an independent organization. We are not affiliated with Astra Nova and do not represent it.",
     },
   },
   {
     q: { zh: "你们能保证录取吗？", en: "Can you guarantee admission?" },
     a: {
-      zh: "不能，任何人都不能。我们承诺能力提升，成功费仅录取后收取。",
-      en: "No — and no one can. What we promise is real growth in ability; the success fee is charged only after an offer.",
+      zh: "不能，任何人都不能。我们能做的，是帮孩子真正把能力练出来。",
+      en: "No — and no one can. What we can do is help your child genuinely build their abilities.",
     },
   },
   {
-    q: { zh: "孩子几岁可以来？", en: "What ages do you work with?" },
+    q: { zh: "孩子多大可以参加？", en: "What ages do you work with?" },
     a: {
-      zh: "冲刺营 13–17 岁；长线学院 9–14 岁；家长工作坊不限。",
-      en: "The sprint is for ages 13–17; the long-term academy for 9–14; the parent workshops have no age limit.",
+      zh: "申请辅导主要面向准备申请这类学校的中学生；课程项目也欢迎更小的孩子，我们会为每个孩子设计合适的计划。",
+      en: "Application coaching is mainly for secondary-school students preparing to apply; our courses also welcome younger children, and we design a plan that fits each child.",
     },
   },
 ];
 
-/* ---- Closing CTA (reframed onto 留资 → 说明会 → 一对一面谈) ------------------- */
-export const closing: {
-  motto: string;
-  title: Bilingual;
-  body: Bilingual;
-  cta: Bilingual;
-  href: string;
-} = {
-  motto: "Per Aspera",
-  title: { zh: "先来一次说明会。", en: "Start with an info session." },
-  body: {
-    zh: "留下联系方式，我们约你参加线上说明会，再做一对一面谈——看看我们是否合适同行。",
-    en: "Leave your contact and we'll invite you to an online info session, then a one-on-one conversation — to see if we're a good fit.",
-  },
-  cta: { zh: "预约说明会", en: "Book an info session" },
-  href: "/contact",
+export const faqMore: { label: Bilingual; contactLabel: Bilingual } = {
+  label: { zh: "更多问题看关于页", en: "More questions on the About page" },
+  contactLabel: { zh: "联系我们", en: "Contact us" },
 };
