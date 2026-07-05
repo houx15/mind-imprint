@@ -1,0 +1,70 @@
+---
+// Slim countdown bar toward the Astra Nova high-school application deadline.
+// Server-renders a real day count (no-JS users still see a number); a small
+// inline script recomputes on load from `data-countdown` and, past the
+// deadline, swaps in a neutral closed-window message.
+interface Props {
+  lang: "zh" | "en";
+}
+
+const { lang } = Astro.props;
+
+// US-West end-of-day on 2026-10-15.
+const TARGET_ISO = "2026-10-15T23:59:59-07:00";
+
+const deadline = new Date(TARGET_ISO);
+const msRemaining = deadline.getTime() - Date.now();
+const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+const isPast = msRemaining <= 0;
+
+const activePrefix =
+  lang === "en" ? "" : "距 Astra Nova 高中申请截止（2026-10-15）还有 ";
+const activeSuffix =
+  lang === "en"
+    ? " days until the Astra Nova high-school application deadline (Oct 15, 2026)"
+    : " 天";
+const closedText =
+  lang === "en"
+    ? "The Astra Nova application window has closed · sprint cohorts are still enrolling"
+    : "Astra Nova 高中申请窗口已截止 · 冲刺营持续招募";
+---
+
+<div class="countdown" data-countdown={TARGET_ISO}>
+  <p class="cd-text" data-cd-active hidden={isPast}>
+    {activePrefix}<span class="cd-num" data-days>{daysRemaining}</span>{activeSuffix}
+  </p>
+  <p class="cd-text" data-cd-closed hidden={!isPast}>{closedText}</p>
+</div>
+
+<style>
+  /* .cd-label (global.css) is meant for short uppercase captions, not a full
+     sentence; this is the "needed hook is missing" case the brief calls out. */
+  .countdown .cd-text {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--ink-2);
+  }
+</style>
+
+<script>
+  const bar = document.querySelector<HTMLElement>("[data-countdown]");
+  if (bar) {
+    const targetIso = bar.getAttribute("data-countdown");
+    const target = targetIso ? new Date(targetIso).getTime() : NaN;
+    if (!Number.isNaN(target)) {
+      const msRemaining = target - Date.now();
+      const isPast = msRemaining <= 0;
+
+      const activeEl = bar.querySelector<HTMLElement>("[data-cd-active]");
+      const closedEl = bar.querySelector<HTMLElement>("[data-cd-closed]");
+      if (activeEl) activeEl.hidden = isPast;
+      if (closedEl) closedEl.hidden = !isPast;
+
+      const daysEl = bar.querySelector<HTMLElement>("[data-days]");
+      if (daysEl && !isPast) {
+        const days = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+        daysEl.textContent = String(days);
+      }
+    }
+  }
+</script>
