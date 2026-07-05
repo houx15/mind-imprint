@@ -1,32 +1,46 @@
 /* ============================================================================
-   Per Aspera — marketing site design system.
-   Editorial minimalism: warm paper, near-black ink, one deep ink-blue accent.
+   Per Aspera — marketing site design system (DARK).
+   Near-monochrome nightfall: near-black canvas, off-white ink, generous air.
+   ONE faint cool-blue accent, used as a whisper — small marks, links, focus,
+   a single hairline — never as a fill. High-contrast white primary buttons.
    Space Grotesk display against a neutral sans body; Noto Sans SC for Chinese.
    Signature: the star mark (✦, ad astra) as a small recurring wayfinding glyph.
+
+   Token names are preserved from the former light system so every page/component
+   <style> block that references them (var(--ink), var(--surface), --primary …)
+   recolors automatically. Only the values change here; a few rules that layered a
+   light color on the old blue fill (buttons, CTA, selection, table hover) are
+   rewritten below.
    ========================================================================== */
 
 :root {
-  /* paper + ink */
-  --paper: #FAF8F4;      /* warm off-white page canvas */
-  --paper-2: #F3EFE7;    /* deeper warm wash for alt sections + footer */
-  --surface: #FFFFFF;    /* cards, windows */
-  --ink: #15171C;        /* near-black text + headings */
-  --ink-2: #3B3E46;      /* body / secondary text */
-  --muted: #6A6E78;      /* captions, labels, meta */
-  --line: #E7E3DB;       /* hairline on paper */
-  --line-2: #D9D4C9;     /* slightly stronger divider */
+  color-scheme: dark;
 
-  /* the one accent — deep ink-blue, used sparingly */
-  --primary: #1E3A5F;
-  --primary-hover: #142A46;
-  --primary-tint: #E9EEF3;   /* faint cool wash */
-  --primary-line: #C9D5E1;   /* accent hairline */
+  /* canvas + ink */
+  --bg: #0B0B0C;         /* near-black page canvas */
+  --paper: #0B0B0C;      /* alias of --bg — kept for existing page refs */
+  --paper-2: #101013;    /* alt sections + footer: a barely-there lift */
+  --surface: #151517;    /* cards, windows, form inputs */
+  --surface-2: #1C1C20;  /* hover lift on surfaces */
+  --ink: #F4F4F2;        /* off-white — headings + high-emphasis text */
+  --ink-2: #C9CAD0;      /* body / secondary text, legible on black */
+  --ink-inv: #0B0B0C;    /* near-black — text on light (white buttons) */
+  --muted: #9A9AA0;      /* captions, labels, meta */
+  --line: rgba(255, 255, 255, 0.10);   /* hairline on dark */
+  --line-2: rgba(255, 255, 255, 0.16); /* slightly stronger divider */
+
+  /* the one accent — faint cool-blue, low saturation, used sparingly */
+  --primary: #8AA0C8;
+  --primary-hover: #AABDDD;
+  --primary-tint: rgba(138, 160, 200, 0.10);   /* faint cool wash */
+  --primary-line: rgba(138, 160, 200, 0.32);   /* accent hairline */
 
   /* geometry */
   --r-sm: 6px; --r: 10px; --r-lg: 16px; --r-pill: 999px;
   --maxw: 1140px;
-  --shadow-sm: 0 1px 3px rgba(21,23,28,.05);
-  --shadow: 0 30px 70px -48px rgba(21,23,28,.34);
+  /* on dark we lean on hairlines, not shadows; these read only faintly */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow: 0 40px 90px -50px rgba(0, 0, 0, .85);
 
   --font-display: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", Roboto,
@@ -35,11 +49,11 @@
 
 /* ---- reset + base ---------------------------------------------------------- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--bg); }
 body {
   font-family: var(--font-body);
   color: var(--ink-2);
-  background: var(--paper);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   line-height: 1.62;
@@ -48,7 +62,7 @@ body {
 a { color: inherit; text-decoration: none; }
 svg { display: block; }
 img { max-width: 100%; display: block; }
-::selection { background: var(--primary); color: var(--paper); }
+::selection { background: var(--primary); color: var(--ink-inv); }
 
 h1, h2, h3, h4, h5 {
   font-family: var(--font-display);
@@ -83,6 +97,29 @@ p { max-width: 66ch; }
 /* the recurring star mark */
 .star { color: var(--primary); font-style: normal; }
 
+/* ---- full-screen section utilities ----------------------------------------
+   For the homepage's one-section-per-screen rhythm. `100svh` uses the *small*
+   viewport height so mobile browser chrome never clips a screen.
+
+   Scroll-snap is a progressive nicety, not a requirement, and it is OFF by
+   default. It is enabled ONLY on large viewports with a fine pointer (desktop
+   mouse/trackpad) AND only when the user hasn't asked to reduce motion. On
+   phones, short windows, or when content is taller than the viewport, there is
+   no snapping and the page scrolls naturally — content is never trapped or
+   clipped. `proximity` (not `mandatory`) means a screen only snaps when you're
+   already near its edge, so long screens stay freely scrollable. */
+.screen {
+  min-height: 100vh;      /* fallback for browsers without svh */
+  min-height: 100svh;
+  display: grid;
+  align-items: center;
+}
+.snap { scroll-snap-type: none; }
+@media (min-width: 900px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .snap { scroll-snap-type: y proximity; }
+  .snap .screen { scroll-snap-align: start; }
+}
+
 /* section header kit */
 .eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
@@ -115,30 +152,32 @@ p { max-width: 66ch; }
   transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
 }
 .btn-lg { font-size: 1.05rem; padding: 16px 30px; }
-.btn-primary { color: var(--paper); background: var(--primary); }
-.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+/* primary = high-contrast white surface, near-black text */
+.btn-primary { color: var(--ink-inv); background: var(--ink); border-color: var(--ink); }
+.btn-primary:hover { background: #FFFFFF; border-color: #FFFFFF; transform: translateY(-1px); }
+/* secondary = ghost/outline, hairline border, off-white text */
 .btn-outline { background: transparent; border-color: var(--line-2); color: var(--ink); }
 .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
 .btn-ghost { background: transparent; color: var(--primary); padding-inline: 8px; }
 .btn-ghost:hover { color: var(--primary-hover); }
 .btn-ghost::after { content: "→"; transition: transform .18s ease; }
 .btn-ghost:hover::after { transform: translateX(3px); }
-.btn-light { background: var(--paper); color: var(--primary); }
-.btn-light:hover { transform: translateY(-1px); background: #fff; }
+.btn-light { background: var(--ink); color: var(--ink-inv); border-color: var(--ink); }
+.btn-light:hover { transform: translateY(-1px); background: #FFFFFF; border-color: #FFFFFF; }
 
 /* text link accent */
 .link { color: var(--primary); text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: var(--primary-line); transition: text-decoration-color .15s; }
-.link:hover { text-decoration-color: var(--primary); }
+  text-decoration-color: var(--primary-line); transition: text-decoration-color .15s, color .15s; }
+.link:hover { text-decoration-color: var(--primary); color: var(--primary-hover); }
 
 /* ---- nav ------------------------------------------------------------------- */
 nav.site-nav {
   position: sticky; top: 0; z-index: 50;
   display: flex; align-items: center; justify-content: space-between;
   gap: 24px; padding: 16px 40px;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: saturate(180%) blur(18px);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  background: color-mix(in srgb, var(--bg) 76%, transparent);
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
   border-bottom: 1px solid var(--line);
 }
 .brand {
@@ -195,7 +234,7 @@ nav.site-nav {
 .countdown .cd-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .countdown .cd-num {
   font-family: var(--font-display); font-weight: 700; font-size: 1.5rem;
-  color: var(--primary); font-variant-numeric: tabular-nums; line-height: 1;
+  color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
 }
 .countdown .cd-cap { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--muted); }
@@ -246,7 +285,7 @@ nav.site-nav {
 .tl-item::before {
   content: "✦"; position: absolute; top: -34px; left: 0;
   color: var(--primary); font-size: 0.85rem; line-height: 1;
-  background: var(--paper); padding-right: 10px;
+  background: var(--bg); padding-right: 10px;
 }
 .tl-item .tl-when {
   font-family: var(--font-display); font-size: 0.78rem; font-weight: 600;
@@ -262,8 +301,8 @@ nav.site-nav {
   padding: 32px 28px; display: flex; flex-direction: column; gap: 6px;
   transition: border-color .2s, transform .2s, box-shadow .2s;
 }
-.tier:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
-.tier.featured { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.tier:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+.tier.featured { border-color: var(--primary-line); box-shadow: var(--shadow-sm); }
 .tier .tier-name {
   font-family: var(--font-display); font-weight: 600; font-size: 0.82rem;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--primary);
@@ -310,24 +349,26 @@ nav.site-nav {
 }
 .table tbody td { border-bottom: 1px solid var(--line); color: var(--ink-2); }
 .table tbody tr:last-child td { border-bottom: 0; }
-.table tbody tr:hover td { background: var(--paper); }
+.table tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .table th:first-child, .table td:first-child { font-weight: 600; color: var(--ink); }
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- CTA band -------------------------------------------------------------- */
+/* On dark this is an elevated bordered surface, not a color fill — the white
+   primary button carries the emphasis. */
 .cta {
-  background: var(--primary); color: var(--paper); border-radius: var(--r-lg);
+  background: var(--surface); color: var(--ink-2); border: 1px solid var(--line);
+  border-radius: var(--r-lg);
   padding: clamp(48px, 7vw, 76px) clamp(28px, 5vw, 60px); text-align: center;
   position: relative; overflow: hidden;
 }
-.cta .motto { color: color-mix(in srgb, var(--paper) 75%, var(--primary)); margin-bottom: 18px; }
-.cta h2 { color: var(--paper); max-width: 18ch; margin: 0 auto; }
-.cta p { color: color-mix(in srgb, var(--paper) 82%, transparent); max-width: 52ch;
-  margin: 18px auto 32px; font-size: 1.125rem; }
+.cta .motto { color: var(--primary); margin-bottom: 18px; }
+.cta h2 { color: var(--ink); max-width: 18ch; margin: 0 auto; }
+.cta p { color: var(--ink-2); max-width: 52ch; margin: 18px auto 32px; font-size: 1.125rem; }
 .cta .cta-row { justify-content: center; }
-.cta .btn-outline { color: var(--paper); border-color: color-mix(in srgb, var(--paper) 40%, transparent); }
-.cta .btn-outline:hover { border-color: var(--paper); color: var(--paper);
-  background: color-mix(in srgb, var(--paper) 12%, transparent); }
+.cta .btn-outline { color: var(--ink); border-color: var(--line-2); }
+.cta .btn-outline:hover { border-color: var(--primary); color: var(--primary);
+  background: transparent; }
 
 /* ---- page hero (interior pages) -------------------------------------------- */
 .pagehero { padding: clamp(72px, 9vw, 112px) 40px clamp(40px, 5vw, 64px); }
