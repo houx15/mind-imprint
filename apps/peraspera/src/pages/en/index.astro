@@ -1,14 +1,10 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { getLang, t } from "../../i18n/utils";
-const lang = getLang(Astro.currentLocale);
+import HomePage from "../../components/pages/HomePage.astro";
 ---
 <Base
-  title={t(lang, "Per Aspera", "Per Aspera")}
-  description={t(lang,
-    "Per Aspera 是一所面向未来的独立教育机构。",
-    "Per Aspera is an independent, future-focused school."
-  )}
+  title="Per Aspera · Raising the true masters of the AI era"
+  description="Per Aspera is an independent school: a sprint for the Astra Nova high-school application, a long-term academy built for Asian time zones, and an institute that measures how you think."
 >
-  <h1>Per Aspera</h1>
+  <HomePage />
 </Base>

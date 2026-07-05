@@ -1,0 +1,222 @@
+---
+import Countdown from "../Countdown.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  hero,
+  pillarsIntro,
+  pillars,
+  beliefsIntro,
+  beliefs,
+  faqIntro,
+  faqs,
+  closing,
+} from "../../content/home";
+
+const lang = getLang(Astro.currentLocale);
+const other: "zh" | "en" = lang === "zh" ? "en" : "zh";
+
+// Split the headline around its accented fragment so we can wrap it in .em.
+const headline = t(lang, hero.headline.zh, hero.headline.en);
+const em = t(lang, hero.headlineEm.zh, hero.headlineEm.en);
+const emIdx = headline.indexOf(em);
+const headBefore = emIdx >= 0 ? headline.slice(0, emIdx) : headline;
+const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
+---
+
+<!-- ═══ Hero ═══ -->
+<header class="hero">
+  <div class="hero-inner">
+    <p class="motto">{hero.motto}</p>
+    <h1>
+      {headBefore}<span class="em">{em}</span>{headAfter}
+    </h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+
+    <!-- the same lines in the other language: the page's bilingual signature -->
+    <p class="hero-alt" lang={other === "zh" ? "zh-CN" : "en"}>
+      <span class="hero-alt-head">{t(other, hero.headline.zh, hero.headline.en)}</span>
+      <span class="hero-alt-sub">{t(other, hero.sub.zh, hero.sub.en)}</span>
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href={localePath(lang, hero.ctaPrimary.href)}>
+        {t(lang, hero.ctaPrimary.label.zh, hero.ctaPrimary.label.en)}
+      </a>
+      <a class="btn btn-outline btn-lg" href={localePath(lang, hero.ctaSecondary.href)}>
+        {t(lang, hero.ctaSecondary.label.zh, hero.ctaSecondary.label.en)}
+      </a>
+    </div>
+  </div>
+</header>
+
+<Countdown lang={lang} />
+
+<!-- ═══ Three pillars ═══ -->
+<section class="section">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, pillarsIntro.eyebrow.zh, pillarsIntro.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, pillarsIntro.title.zh, pillarsIntro.title.en)}</h2>
+    </div>
+    <div class="pillars reveal">
+      {pillars.map((p) => (
+        <article class="pillar">
+          <h3>{t(lang, p.title.zh, p.title.en)}</h3>
+          <p>{t(lang, p.body.zh, p.body.en)}</p>
+          <a class="btn-ghost pillar-link" href={localePath(lang, p.href)}>
+            {t(lang, p.cta.zh, p.cta.en)}
+          </a>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Beliefs (bilingual pairing) ═══ -->
+<section class="section alt">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, beliefsIntro.eyebrow.zh, beliefsIntro.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, beliefsIntro.title.zh, beliefsIntro.title.en)}</h2>
+    </div>
+    <div class="beliefs reveal" style="margin-top:52px">
+      {beliefs.map((b) => (
+        <article class="belief-card">
+          <span class="b-idx">{t(lang, b.tag.zh, b.tag.en)}</span>
+          <h3>{b.headZh}</h3>
+          {b.bodyZh && <p>{b.bodyZh}</p>}
+          <div class="b-en" lang="en">
+            <p class="b-en-head">{b.headEn}</p>
+            {b.bodyEn && <p class="b-en-body">{b.bodyEn}</p>}
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Featured FAQ ═══ -->
+<section class="section">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, faqIntro.eyebrow.zh, faqIntro.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, faqIntro.title.zh, faqIntro.title.en)}</h2>
+    </div>
+    <div class="faq reveal" style="margin-top:44px">
+      {faqs.map((f) => (
+        <details>
+          <summary>{t(lang, f.q.zh, f.q.en)}</summary>
+          <div class="faq-body"><p>{t(lang, f.a.zh, f.a.en)}</p></div>
+        </details>
+      ))}
+    </div>
+    <p class="faq-more center reveal">
+      <a class="link" href={`${localePath(lang, "/about")}#faq`}>
+        {t(lang, faqIntro.more.zh, faqIntro.more.en)} <span class="star">→</span>
+      </a>
+    </p>
+  </div>
+</section>
+
+<!-- ═══ Closing CTA ═══ -->
+<section class="section tight">
+  <div class="container">
+    <div class="cta reveal">
+      <p class="motto">{closing.motto}</p>
+      <h2>{t(lang, closing.title.zh, closing.title.en)}</h2>
+      <p>{t(lang, closing.body.zh, closing.body.en)}</p>
+      <div class="cta-row">
+        <a class="btn btn-light btn-lg" href={localePath(lang, closing.href)}>
+          {t(lang, closing.cta.zh, closing.cta.en)}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Bilingual echo under the hero — the page's editorial signature.
+     Quiet, tracked, and clearly secondary to the primary-language lines. */
+  .hero-alt {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    max-width: 60ch;
+    color: var(--muted);
+  }
+  .hero-alt-head {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    color: var(--ink-2);
+  }
+  .hero-alt-sub {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  /* Pillars: navigational cards, distinct from the declarative belief cards
+     by a top accent rule and a footer arrow link. (Missing hook in global.css.) */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 52px;
+  }
+  .pillar {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 32px 30px;
+    border-top: 3px solid var(--primary);
+    transition: border-color .2s, transform .2s, box-shadow .2s;
+  }
+  .pillar:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary-line);
+    border-top-color: var(--primary);
+  }
+  .pillar h3 { margin-bottom: 12px; }
+  .pillar p { color: var(--ink-2); font-size: 1rem; flex: 1; }
+  .pillar .pillar-link { margin-top: 22px; align-self: flex-start; }
+
+  /* Belief cards: the English pairing shown beneath the Chinese, always. */
+  .b-en {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .b-en-head {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-style: italic;
+    font-size: 0.98rem;
+    line-height: 1.4;
+    color: var(--primary);
+    letter-spacing: -0.01em;
+  }
+  .b-en-body {
+    margin-top: 7px;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .faq-more { margin-top: 30px; }
+  .faq-more .star { font-style: normal; }
+
+  @media (max-width: 900px) {
+    .pillars { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .hero-alt { max-width: none; }
+  }
+</style>
