@@ -1,0 +1,84 @@
+---
+import "../styles/global.css";
+import IconSprite from "../components/IconSprite.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { getLang, localePath } from "../i18n/utils";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+const lang = getLang(Astro.currentLocale);
+
+// hreflang alternates for the same page in both languages
+const path = Astro.url.pathname;
+const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
+const site = Astro.site?.toString().replace(/\/$/, "") ?? "";
+const zhHref = site + localePath("zh", key);
+const enHref = site + localePath("en", key);
+---
+<!doctype html>
+<html lang={lang === "zh" ? "zh-CN" : "en"}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>document.documentElement.classList.add("js");</script>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="alternate" hreflang="zh" href={zhHref} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="x-default" href={zhHref} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <IconSprite />
+    <Nav />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+
+    <script>
+      // Cinematic reveal-on-scroll
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io.unobserve(e.target);
+            }
+          });
+        },
+        { threshold: 0.14 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+      // Tabbed demo windows (no-op when a page has none)
+      document.querySelectorAll("[data-tabs]").forEach((group) => {
+        const tabs = group.querySelectorAll<HTMLElement>("[data-tab]");
+        const panels = group.querySelectorAll<HTMLElement>("[data-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const n = tab.getAttribute("data-tab");
+            tabs.forEach((x) => x.classList.toggle("on", x === tab));
+            panels.forEach((p) =>
+              p.classList.toggle("on", p.getAttribute("data-panel") === n),
+            );
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

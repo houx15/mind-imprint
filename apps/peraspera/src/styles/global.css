@@ -1,0 +1,37 @@
+/* ============================================================================
+   Per Aspera — minimal style stub for A2 (i18n scaffolding).
+   A3 expands this into the full design system; keep this stub small.
+   ========================================================================== */
+
+:root {
+  --paper: #FBFAF7;
+  --ink: #1C2333;
+  --primary: #2A3B7A;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  font-size: 16px;
+}
+a { color: inherit; }
+svg { display: block; }
+img { max-width: 100%; display: block; }
+
+.ic { width: 1em; height: 1em; stroke: currentColor; fill: none;
+  stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- reveal on scroll (progressive enhancement) ----
+   Only hide when JS is present (html.js); without JS everything stays visible. */
+.js .reveal { opacity: 0; transform: translateY(28px);
+  transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+.js .reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal { opacity: 1; transform: none; transition: none; }
+  html { scroll-behavior: auto; }
+}

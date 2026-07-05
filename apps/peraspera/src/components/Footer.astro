@@ -1,0 +1,34 @@
+---
+import Icon from "./Icon.astro";
+import { getLang, t, localePath } from "../i18n/utils";
+import { brand, nav, footer } from "../content/site";
+
+const lang = getLang(Astro.currentLocale);
+---
+<footer class="site-foot">
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href={localePath(lang, "/")}>{t(lang, brand.zh, brand.en)}</a>
+      <p class="foot-disclaimer">{t(lang, footer.disclaimer.zh, footer.disclaimer.en)}</p>
+    </div>
+    <div class="foot-cols">
+      <div class="foot-col">
+        <h5>{t(lang, "导航", "Navigate")}</h5>
+        <a href={localePath(lang, "/programs")}>{t(lang, nav.programs.zh, nav.programs.en)}</a>
+        <a href={localePath(lang, "/institute")}>{t(lang, nav.institute.zh, nav.institute.en)}</a>
+        <a href={localePath(lang, "/about")}>{t(lang, nav.about.zh, nav.about.en)}</a>
+      </div>
+      <div class="foot-col">
+        <h5>{t(lang, "联系", "Contact")}</h5>
+        <a class="foot-contact" href="mailto:hello@peraspera.org"><Icon name="mail" /> {t(lang, footer.contact.zh, footer.contact.en)}</a>
+        <div class="foot-social" aria-label={t(lang, "社交媒体", "Social")}>
+          <a href="#" class="soc">Instagram</a>
+          <a href="#" class="soc">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>{t(lang, footer.copyright.zh, footer.copyright.en)}</span>
+  </div>
+</footer>

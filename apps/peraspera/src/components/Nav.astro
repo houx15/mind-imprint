@@ -1,0 +1,24 @@
+---
+import { getLang, t, localePath, switchLocaleUrl } from "../i18n/utils";
+import { brand, nav } from "../content/site";
+
+const lang = getLang(Astro.currentLocale);
+const path = Astro.url.pathname;
+const other = switchLocaleUrl(path, lang);
+const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
+const active = (p: string) => (key === p ? "page" : undefined);
+---
+<nav class="site-nav">
+  <a class="brand" href={localePath(lang, "/")}>{t(lang, brand.zh, brand.en)}</a>
+  <div class="navlinks">
+    <a href={localePath(lang, "/programs")} aria-current={active("/programs")}>{t(lang, nav.programs.zh, nav.programs.en)}</a>
+    <a href={localePath(lang, "/institute")} aria-current={active("/institute")}>{t(lang, nav.institute.zh, nav.institute.en)}</a>
+    <a href={localePath(lang, "/about")} aria-current={active("/about")}>{t(lang, nav.about.zh, nav.about.en)}</a>
+  </div>
+  <div class="navright">
+    <a class="lang" href={other} aria-label="Switch language">
+      {lang === "zh" ? <span><b>中</b> / EN</span> : <span>中 / <b>EN</b></span>}
+    </a>
+    <a class="btn btn-primary" href={localePath(lang, "/apply")}>{t(lang, nav.apply.zh, nav.apply.en)}</a>
+  </div>
+</nav>

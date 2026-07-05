@@ -1,0 +1,14 @@
+---
+import Base from "../layouts/Base.astro";
+import { getLang, t } from "../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+<Base
+  title={t(lang, "Per Aspera", "Per Aspera")}
+  description={t(lang,
+    "Per Aspera 是一所面向未来的独立教育机构。",
+    "Per Aspera is an independent, future-focused school."
+  )}
+>
+  <h1>Per Aspera</h1>
+</Base>
