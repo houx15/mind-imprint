@@ -79,7 +79,7 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
       <p class="eyebrow" style="justify-content:center">{t(lang, beliefsIntro.eyebrow.zh, beliefsIntro.eyebrow.en)}</p>
       <h2 class="sec-title">{t(lang, beliefsIntro.title.zh, beliefsIntro.title.en)}</h2>
     </div>
-    <div class="beliefs reveal" style="margin-top:52px">
+    <div class="beliefs beliefs-home reveal" style="margin-top:52px">
       {beliefs.map((b) => (
         <article class="belief-card">
           <span class="b-idx">{t(lang, b.tag.zh, b.tag.en)}</span>
@@ -187,6 +187,15 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
   .pillar h3 { margin-bottom: 12px; }
   .pillar p { color: var(--ink-2); font-size: 1rem; flex: 1; }
   .pillar .pillar-link { margin-top: 22px; align-self: flex-start; }
+
+  /* Four belief cards read as a symmetric 2×2 at desktop; the shared global
+     .beliefs class is a 3-column grid (fine for the 3-up pillar count elsewhere)
+     and would strand the 4th card. Astro scopes this above the global rule, so
+     the ≤900px collapse to one column is restated here to stay in sync. */
+  .beliefs-home { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 900px) {
+    .beliefs-home { grid-template-columns: 1fr; }
+  }
 
   /* Belief cards: the English pairing shown beneath the Chinese, always. */
   .b-en {
