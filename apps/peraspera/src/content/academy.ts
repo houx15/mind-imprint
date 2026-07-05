@@ -42,8 +42,16 @@ export const introSection: {
       en: "Every class starts with something real — a video, a report that sparked debate, a choice a kid might actually face. Everyone shares their first reaction, then the group checks it against evidence and questions each other, to see whether the judgment holds up. The teacher guides the discussion, but the conclusion is the child's own.",
     },
     {
-      zh: "课堂不大,几个孩子围在一起讨论,AI 是可以随时拿来查证、拓展思路的工具,但怎么判断、怎么下结论,始终是孩子自己的事。",
-      en: "Classes are small — a handful of kids in real discussion. AI is there as a tool to check facts and widen ideas, but the judgment and the conclusion always stay with the child.",
+      zh: "课堂不大,六到十个孩子在线上视频里围成一圈讨论——不是听课,是真的在一起争论、互相追问。AI 是随时可以拿来查证、拓展思路的工具,但怎么判断、怎么下结论,始终是孩子自己的事。",
+      en: "Classes are small — six to ten kids in a live video discussion, not a lecture. AI is there as a tool to check facts and widen ideas, but the judgment and the conclusion always stay with the child.",
+    },
+    {
+      zh: "一年分三个学期,每个学期我们都会更新一批课程——跟着当下发生的事和孩子们感兴趣的方向走,不是一份用十年不变的教材。同一个模块下,孩子这学期讨论的话题,和下学期很可能完全不一样。",
+      en: "We run three terms a year, and refresh part of the course list every term — following what's actually happening in the world and what kids are curious about, not a syllabus that stays the same for a decade. Within the same module, what a child discusses this term and what they discuss next term can look quite different.",
+    },
+    {
+      zh: "带课的老师本身在这些领域里做过真事——写过时评、做过研究、参与过真实的项目,不是只会照本宣科的讲师。",
+      en: "The people who teach have actually done the work in their field — writing commentary, doing research, working on real projects — not reciting from a script.",
     },
     {
       zh: "上课全程在线,每周一次,和孩子平时的学校生活并行,不用另外请假或安排接送。",
@@ -149,6 +157,61 @@ export const modules: AcademyModule[] = [
   },
 ];
 
+/* ---- Participation levels ------------------------------------------------ */
+export interface AcademyLevel {
+  name: Bilingual;
+  desc: Bilingual;
+  points: Bilingual[];
+}
+
+export const levelsIntro: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
+  eyebrow: { zh: "怎么上课", en: "Ways to join" },
+  title: { zh: "从试一门课,到一条完整的路径。", en: "From trying one class to a full track." },
+  sub: {
+    zh: "不用一上来就定死。孩子和家长可以先从投入不多的方式开始,觉得合适再往深走。",
+    en: "You don't have to decide everything up front. Start with a lighter commitment, and go deeper once it feels right.",
+  },
+};
+
+export const levels: AcademyLevel[] = [
+  {
+    name: { zh: "单科体验", en: "Try a module" },
+    desc: {
+      zh: "先挑一个模块里的一两门课上上看,一周一次课。适合刚接触这种上课方式、想先感受一下的孩子和家长。",
+      en: "Pick one or two classes from a single module and try them — once a week. A good fit if this way of learning is new to you and you want a feel for it first.",
+    },
+    points: [
+      { zh: "一周一次课,时间投入不大", en: "One class a week — a light commitment" },
+      { zh: "可以只上感兴趣的那一个模块", en: "Focus on just the one module that interests you" },
+      { zh: "随时可以加课,也可以先只试这一门", en: "Add more later, or simply try this one for now" },
+    ],
+  },
+  {
+    name: { zh: "多模块组合", en: "A few modules together" },
+    desc: {
+      zh: "覆盖两三个模块,一周两到三次课。孩子开始在不同的思考工具之间来回练习,逐渐把它们连成一整套习惯。",
+      en: "Covering two or three modules, a few classes a week. Kids start moving between different thinking tools and gradually turn them into one connected habit.",
+    },
+    points: [
+      { zh: "一周两到三次课", en: "A few classes each week" },
+      { zh: "模块之间互相呼应,不是孤立的课", en: "Modules connect to each other, not isolated lessons" },
+      { zh: "适合想系统练一练、又不想排太满的孩子", en: "For kids who want it to add up to something, without over-scheduling" },
+    ],
+  },
+  {
+    name: { zh: "完整个性化路径", en: "A full, personalized track" },
+    desc: {
+      zh: "六个模块都会覆盖到,一周固定几次课。我们会持续跟进孩子的变化,动态调整接下来该学什么——这是最贴近我们说的“为每个孩子设计方案”的一条路径。",
+      en: "All six modules, on a regular weekly schedule. We keep track of how the child is changing and adjust what comes next — this is the path that most fully lives up to what we mean by a plan designed for one child.",
+    },
+    points: [
+      { zh: "覆盖全部六个模块", en: "Covers all six modules" },
+      { zh: "固定的每周节奏,长期跟进", en: "A steady weekly rhythm, followed over time" },
+      { zh: "方案随孩子的表现持续调整", en: "The plan keeps adjusting to how the child is doing" },
+    ],
+  },
+];
+
 /* ---- Personalized plan ---------------------------------------------------- */
 export const personalizedPlan: {
   eyebrow: Bilingual;
@@ -196,6 +259,25 @@ export const personalizedPlan: {
         zh: "不管孩子年纪大小、有没有申请这类学校的打算,只要认同这样的学习方式,都可以来上课。",
         en: "Whatever your child's age, and whether or not you're aiming for a school like Astra Nova, if this way of learning resonates, they're welcome to join.",
       },
+    },
+  ],
+};
+
+/* ---- Beyond the classroom: project showcase ----------------------------- */
+export const showcase: { eyebrow: Bilingual; title: Bilingual; body: Bilingual[] } = {
+  eyebrow: { zh: "走出教室", en: "Beyond the classroom" },
+  title: {
+    zh: "学期快结束时,孩子们会展示自己做的东西。",
+    en: "Near the end of each term, kids show what they've made.",
+  },
+  body: [
+    {
+      zh: "每学期快结束时,我们会办一次线上的成果展示。孩子们轮流讲讲自己这学期琢磨透的一个问题,或者做出来的一个小项目、一个原型,说说自己是怎么想清楚的、又是怎么改过来改过去的。",
+      en: "Near the end of each term, we hold an online showcase. Kids take turns talking through a question they worked through that term, or a small project or prototype they built — and how their thinking changed along the way.",
+    },
+    {
+      zh: "家长可以旁听,看看孩子这学期真正学到的是什么样子,而不只是一张成绩单。同伴之间也会互相提问、给反馈——这本身也是一次思考的练习。",
+      en: "Parents are welcome to sit in and see what a child actually learned that term — not just a grade on paper. Kids also question and give feedback to each other, which is its own kind of thinking practice.",
     },
   ],
 };

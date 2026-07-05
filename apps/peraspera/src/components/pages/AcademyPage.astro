@@ -5,7 +5,10 @@ import {
   introSection,
   modulesIntro,
   modules,
+  levelsIntro,
+  levels,
   personalizedPlan,
+  showcase,
   closingCta,
 } from "../../content/academy";
 
@@ -57,8 +60,30 @@ const lang = getLang(Astro.currentLocale);
   </div>
 </section>
 
-<!-- ═══ 3 · A plan designed for each child ═══ -->
-<section class="section" id="plan">
+<!-- ═══ 3 · Participation levels ═══ -->
+<section class="section" id="levels">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, levelsIntro.eyebrow.zh, levelsIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, levelsIntro.title.zh, levelsIntro.title.en)}</h2>
+      <p class="sec-lead" style="margin-left:0">{t(lang, levelsIntro.sub.zh, levelsIntro.sub.en)}</p>
+    </div>
+    <div class="tiers reveal">
+      {levels.map((lv) => (
+        <article class="tier">
+          <p class="tier-name">{t(lang, lv.name.zh, lv.name.en)}</p>
+          <p class="tier-desc">{t(lang, lv.desc.zh, lv.desc.en)}</p>
+          <ul class="tier-list">
+            {lv.points.map((pt) => <li>{t(lang, pt.zh, pt.en)}</li>)}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4 · A plan designed for each child ═══ -->
+<section class="section alt" id="plan">
   <div class="container">
     <div class="reveal">
       <p class="eyebrow">{t(lang, personalizedPlan.eyebrow.zh, personalizedPlan.eyebrow.en)}</p>
@@ -78,7 +103,20 @@ const lang = getLang(Astro.currentLocale);
   </div>
 </section>
 
-<!-- ═══ 4 · Closing CTA ═══ -->
+<!-- ═══ 5 · Beyond the classroom ═══ -->
+<section class="section" id="showcase">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, showcase.eyebrow.zh, showcase.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, showcase.title.zh, showcase.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {showcase.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 6 · Closing CTA ═══ -->
 <section class="section alt" id="contact">
   <div class="container">
     <div class="cta reveal">
@@ -157,7 +195,11 @@ const lang = getLang(Astro.currentLocale);
     flex-shrink: 0;
   }
 
-  /* ---- 3 · personalized plan points --------------------------------------- */
+  /* ---- 3 · participation levels -------------------------------------------- */
+  .tiers { margin-top: 48px; }
+  .tier .tier-name { margin-bottom: 4px; }
+
+  /* ---- 4 · personalized plan points --------------------------------------- */
   .plan-points {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -174,7 +216,7 @@ const lang = getLang(Astro.currentLocale);
   .plan-point p { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; }
 
   @media (max-width: 900px) {
-    .module-grid, .plan-points {
+    .module-grid, .plan-points, .tiers {
       grid-template-columns: 1fr;
     }
   }
