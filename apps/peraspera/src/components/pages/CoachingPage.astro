@@ -1,0 +1,316 @@
+---
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  hero,
+  introSection,
+  whySection,
+  offerIntro,
+  stage1,
+  stage2,
+  stage3,
+  forParents,
+  applySection,
+} from "../../content/coaching";
+
+const lang = getLang(Astro.currentLocale);
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ 1 · What Astra Nova is ═══ -->
+<section class="section" id="astra-nova">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, introSection.eyebrow.zh, introSection.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, introSection.title.zh, introSection.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {introSection.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+    <div class="intro-links reveal">
+      {introSection.links.map((l) => (
+        <a class="link" href={localePath(lang, l.href)}>
+          {t(lang, l.label.zh, l.label.en)} <span class="star">→</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2 · Why it's valuable, and why it's hard ═══ -->
+<section class="section alt" id="why">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, whySection.eyebrow.zh, whySection.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, whySection.title.zh, whySection.title.en)}</h2>
+    </div>
+    <div class="why-grid reveal">
+      <article class="why-card">
+        <h3>{t(lang, whySection.valuable.title.zh, whySection.valuable.title.en)}</h3>
+        <p>{t(lang, whySection.valuable.body.zh, whySection.valuable.body.en)}</p>
+      </article>
+      <article class="why-card">
+        <h3>{t(lang, whySection.hard.title.zh, whySection.hard.title.en)}</h3>
+        {whySection.hard.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3 · What we offer — a two-month, three-stage journey ═══ -->
+<section class="section" id="journey">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, offerIntro.eyebrow.zh, offerIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, offerIntro.title.zh, offerIntro.title.en)}</h2>
+      <p class="sec-lead" style="margin-left:0">{t(lang, offerIntro.sub.zh, offerIntro.sub.en)}</p>
+    </div>
+
+    <!-- Stage 1 -->
+    <div class="stage reveal">
+      <p class="stage-tag">{t(lang, stage1.tag.zh, stage1.tag.en)}</p>
+      <h3>{t(lang, stage1.title.zh, stage1.title.en)}</h3>
+      <p class="stage-body">{t(lang, stage1.body.zh, stage1.body.en)}</p>
+      <div class="abilities-grid">
+        {stage1.abilities.map((a) => (
+          <article class="belief-card">
+            <h4>{t(lang, a.title.zh, a.title.en)}</h4>
+            <p>{t(lang, a.body.zh, a.body.en)}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+
+    <!-- Stage 2 -->
+    <div class="stage reveal">
+      <p class="stage-tag">{t(lang, stage2.tag.zh, stage2.tag.en)}</p>
+      <h3>{t(lang, stage2.title.zh, stage2.title.en)}</h3>
+      <p class="stage-body">{t(lang, stage2.body.zh, stage2.body.en)}</p>
+      <ul class="stage-points">
+        {stage2.points.map((p) => <li>{t(lang, p.zh, p.en)}</li>)}
+      </ul>
+    </div>
+
+    <!-- Stage 3 -->
+    <div class="stage reveal">
+      <p class="stage-tag">{t(lang, stage3.tag.zh, stage3.tag.en)}</p>
+      <h3>{t(lang, stage3.title.zh, stage3.title.en)}</h3>
+      <div class="stage-body">
+        {stage3.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+      </div>
+    </div>
+
+    <!-- For parents -->
+    <div class="parents reveal">
+      <h3>{t(lang, forParents.title.zh, forParents.title.en)}</h3>
+      <p class="parents-intro">{t(lang, forParents.intro.zh, forParents.intro.en)}</p>
+      <div class="parents-grid">
+        {forParents.items.map((item) => (
+          <article class="parent-card">
+            <p class="parent-month">{t(lang, item.month.zh, item.month.en)}</p>
+            <h4>{t(lang, item.title.zh, item.title.en)}</h4>
+            <p>{t(lang, item.body.zh, item.body.en)}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4 · How to apply to work with us ═══ -->
+<section class="section alt" id="apply">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, applySection.eyebrow.zh, applySection.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, applySection.title.zh, applySection.title.en)}</h2>
+      <p class="sec-lead">{t(lang, applySection.sub.zh, applySection.sub.en)}</p>
+    </div>
+    <div class="apply-steps reveal">
+      {applySection.steps.map((s, i) => (
+        <article class="apply-step">
+          <span class="apply-step-num">{i + 1}</span>
+          <h4>{t(lang, s.title.zh, s.title.en)}</h4>
+          <p>{t(lang, s.body.zh, s.body.en)}</p>
+        </article>
+      ))}
+    </div>
+    <div class="center reveal" style="margin-top:44px">
+      <a class="btn btn-primary btn-lg" href={localePath(lang, applySection.ctaHref)}>
+        {t(lang, applySection.ctaLabel.zh, applySection.ctaLabel.en)}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ---- 1 · intro paragraphs + research links --------------------------- */
+  .prose {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 72ch;
+  }
+  .prose p { font-size: 1.0625rem; color: var(--ink-2); }
+  .intro-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 32px;
+    margin-top: 30px;
+  }
+
+  /* ---- 2 · why valuable / why hard, two cards --------------------------- */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 44px;
+  }
+  .why-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 32px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .why-card h3 { margin-bottom: 2px; }
+  .why-card p { color: var(--ink-2); font-size: 1rem; max-width: none; }
+
+  /* ---- 3 · journey stages ------------------------------------------------ */
+  .stage {
+    margin-top: 76px;
+    padding-top: 56px;
+    border-top: 1px solid var(--line);
+  }
+  .stage-tag {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .stage-tag::before { content: "✦"; }
+  .stage h3 { margin-top: 14px; max-width: 24ch; }
+  .stage-body {
+    margin-top: 18px;
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+    max-width: 68ch;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .stage > .stage-body { display: block; }
+
+  .abilities-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 36px;
+  }
+  .abilities-grid .belief-card p { font-size: 0.95rem; }
+
+  .stage-points {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 30px;
+    max-width: 68ch;
+  }
+  .stage-points li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+  }
+  .stage-points li::before {
+    content: "✦";
+    color: var(--primary);
+    font-size: 0.8em;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ---- for-parents block -------------------------------------------------- */
+  .parents {
+    margin-top: 76px;
+    padding: clamp(32px, 4vw, 44px);
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    border-radius: var(--r-lg);
+  }
+  .parents-intro { margin-top: 12px; color: var(--ink-2); }
+  .parents-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    margin-top: 30px;
+  }
+  .parent-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 26px 26px;
+  }
+  .parent-month {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+  .parent-card h4 { margin-top: 10px; }
+  .parent-card p:last-child { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; }
+
+  /* ---- 4 · apply steps ---------------------------------------------------- */
+  .apply-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 52px;
+  }
+  .apply-step {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 30px 26px;
+  }
+  .apply-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    color: var(--primary);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .apply-step h4 { margin-top: 16px; }
+  .apply-step p { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; }
+
+  @media (max-width: 900px) {
+    .why-grid, .abilities-grid, .parents-grid, .apply-steps {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
