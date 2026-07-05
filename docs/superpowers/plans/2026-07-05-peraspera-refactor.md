@@ -11,6 +11,7 @@
 - **Remove sitewide:** 说明会 (replace with "留下联系方式，我们会联系你" / "leave your contact and we'll reach out"); ALL deadlines + the Countdown component/usages; the "冲刺营" name.
 - **Bilingual, single-language per locale.** zh at `/`, en at `/en/`. On `/en/` NO Chinese may render (fixes the belief-cards bug where zh showed on the EN page). `t(lang,zh,en)`.
 - **Copy voice:** NO antithesis of any form (`不是…而是`/`而非`/`而不是`/"not X but Y"/"rather than"). Positive declaratives. No lorem ipsum. Realistic, parent-legible copy — a parent must immediately understand what we do.
+- **PLAIN WORDING — no jargon (hard rule).** Write the way a normal parent talks. BANNED words/marketing-CRM-jargon: 留资 (use "留下联系方式"), 漏斗, 触点, 转化, 赋能, 抓手, 闭环, 心智, 打法, 对齐, 颗粒度, 抓手, 生态位, and any consultant/startup buzzword. Prefer everyday verbs and concrete nouns. If unsure how to phrase something naturally, look at how real education/school/tutoring websites word it and match that register. English copy: same — plain, warm, concrete; no buzzwords.
 - **Contact = the conversion.** Dedicated `/contact` (联系我们) page holds the Supabase lead form (reframed, no 说明会). Every "联系我们 / leave contact" CTA links to `/contact`.
 - Secrets server-only; git hygiene (explicit `git add`, never root package.json / orphan test / .env); trailer `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. Build gate: `pnpm --filter peraspera build` + `astro check` 0 errors.
 
