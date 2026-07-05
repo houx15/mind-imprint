@@ -106,7 +106,7 @@ export const modules: AcademyModule[] = [
     },
     topics: [
       { zh: "自然科学怎么算“知道”", en: "How natural science claims to know" },
-      { zh: "数学靠证明,不靠证据", en: "Mathematics runs on proof, not evidence" },
+      { zh: "数学靠严密的证明来确立结论", en: "Mathematics establishes its conclusions through rigorous proof" },
       { zh: "人文社科的研究人凭什么算数", en: "What makes human & social science research count" },
       { zh: "艺术:有据解读,还是自己脑补", en: "The arts: grounded reading, or projection" },
       { zh: "哥伦布是英雄还是恶棍", en: "Columbus: hero or villain" },
