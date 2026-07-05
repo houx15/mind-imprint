@@ -1,0 +1,294 @@
+---
+import Countdown from "../Countdown.astro";
+import PullQuote from "../PullQuote.astro";
+import Timeline from "../Timeline.astro";
+import TierCards from "../TierCards.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
+import { hero, sprint, academy } from "../../content/programs";
+
+const lang = getLang(Astro.currentLocale);
+
+const timelineSteps = sprint.timeline.map((step) => ({
+  label: t(lang, step.label.zh, step.label.en),
+  date: t(lang, step.date.zh, step.date.en),
+}));
+
+const tierCards = academy.tiers.map((tier) => ({
+  name: t(lang, tier.name.zh, tier.name.en),
+  hours: t(lang, tier.hours.zh, tier.hours.en),
+  price: t(lang, tier.price.zh, tier.price.en),
+  features: tier.features.map((f) => t(lang, f.zh, f.en)),
+}));
+
+const feeCols = {
+  item: t(lang, "项目", "Item"),
+  desc: t(lang, "说明", "What's covered"),
+  price: t(lang, "费用", "Fee"),
+};
+const catalogCols = {
+  name: t(lang, "课名", "Course"),
+  age: t(lang, "年龄段", "Ages"),
+  hours: t(lang, "课时", "Hours"),
+  instructor: t(lang, "主讲", "Instructor"),
+  seats: t(lang, "剩余名额", "Seats"),
+};
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ Product one · Sprint ═══ -->
+<section class="section" id="sprint">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, sprint.eyebrow.zh, sprint.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, sprint.title.zh, sprint.title.en)}</h2>
+      <p class="sec-lead">{t(lang, sprint.sub.zh, sprint.sub.en)}</p>
+    </div>
+
+    <div class="reveal" style="margin-top:28px">
+      <Countdown lang={lang} />
+    </div>
+
+    <!-- Position statement -->
+    <div class="position reveal">
+      <PullQuote lang={lang} zh={sprint.position.zh} en={sprint.position.en} />
+      <div class="position-body">
+        {sprint.positionBody.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+      </div>
+    </div>
+
+    <!-- Two tracks -->
+    <div class="reveal" style="margin-top:76px">
+      <p class="eyebrow">{t(lang, sprint.tracksIntro.eyebrow.zh, sprint.tracksIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, sprint.tracksIntro.title.zh, sprint.tracksIntro.title.en)}</h3>
+    </div>
+    <div class="tracks reveal">
+      {sprint.tracks.map((track) => (
+        <article class="track">
+          <h4>{t(lang, track.title.zh, track.title.en)}</h4>
+          <ul class="track-list">
+            {track.bullets.map((b) => <li>{t(lang, b.zh, b.en)}</li>)}
+          </ul>
+          {track.note && (
+            <a class="btn-ghost track-link" href={localePath(lang, track.note.href)}>
+              {t(lang, track.note.text.zh, track.note.text.en)}
+            </a>
+          )}
+        </article>
+      ))}
+    </div>
+
+    <!-- Timeline -->
+    <div class="reveal" style="margin-top:76px">
+      <p class="eyebrow">{t(lang, sprint.timelineIntro.eyebrow.zh, sprint.timelineIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, sprint.timelineIntro.title.zh, sprint.timelineIntro.title.en)}</h3>
+    </div>
+    <div class="reveal" style="margin-top:44px">
+      <Timeline lang={lang} steps={timelineSteps} />
+    </div>
+
+    <!-- Fees -->
+    <div class="reveal" style="margin-top:76px">
+      <p class="eyebrow">{t(lang, sprint.feesIntro.eyebrow.zh, sprint.feesIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, sprint.feesIntro.title.zh, sprint.feesIntro.title.en)}</h3>
+    </div>
+    <div class="table-wrap reveal" style="margin-top:32px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{feeCols.item}</th>
+            <th>{feeCols.desc}</th>
+            <th>{feeCols.price}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sprint.fees.map((fee) => (
+            <tr>
+              <td>{t(lang, fee.name.zh, fee.name.en)}</td>
+              <td>{t(lang, fee.desc.zh, fee.desc.en)}</td>
+              <td><span class="badge-tbd">{t(lang, fee.price.zh, fee.price.en)}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="fees-note reveal">{t(lang, sprint.feesDisclaimer.zh, sprint.feesDisclaimer.en)}</p>
+
+    <!-- Screening -->
+    <div class="screening reveal">
+      <h3>{t(lang, sprint.screeningTitle.zh, sprint.screeningTitle.en)}</h3>
+      <p>{t(lang, sprint.screeningBody.zh, sprint.screeningBody.en)}</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Product two · Academy ═══ -->
+<section class="section alt" id="academy">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, academy.eyebrow.zh, academy.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, academy.title.zh, academy.title.en)}</h2>
+      <p class="sec-lead">{t(lang, academy.sub.zh, academy.sub.en)}</p>
+    </div>
+
+    <!-- Why -->
+    <div class="reveal" style="margin-top:56px">
+      <p class="eyebrow">{t(lang, academy.whyIntro.eyebrow.zh, academy.whyIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, academy.whyIntro.title.zh, academy.whyIntro.title.en)}</h3>
+      <p class="why-body">{t(lang, academy.why.zh, academy.why.en)}</p>
+    </div>
+
+    <!-- Four course lines -->
+    <div class="reveal" style="margin-top:64px">
+      <p class="eyebrow">{t(lang, academy.linesIntro.eyebrow.zh, academy.linesIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, academy.linesIntro.title.zh, academy.linesIntro.title.en)}</h3>
+    </div>
+    <div class="lines reveal">
+      {academy.lines.map((line) => (
+        <article class="belief-card">
+          <h4>{t(lang, line.title.zh, line.title.en)}</h4>
+          <p>{t(lang, line.desc.zh, line.desc.en)}</p>
+        </article>
+      ))}
+    </div>
+
+    <!-- Three tiers -->
+    <div class="reveal" style="margin-top:76px">
+      <p class="eyebrow">{t(lang, academy.tiersIntro.eyebrow.zh, academy.tiersIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, academy.tiersIntro.title.zh, academy.tiersIntro.title.en)}</h3>
+    </div>
+    <div class="reveal" style="margin-top:44px">
+      <TierCards lang={lang} tiers={tierCards} />
+    </div>
+
+    <!-- Catalog -->
+    <div class="reveal" style="margin-top:76px">
+      <p class="eyebrow">{t(lang, academy.catalogIntro.eyebrow.zh, academy.catalogIntro.eyebrow.en)}</p>
+      <h3 class="sec-title" style="max-width:none">{t(lang, academy.catalogIntro.title.zh, academy.catalogIntro.title.en)}</h3>
+    </div>
+    <div class="table-wrap reveal" style="margin-top:32px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{catalogCols.name}</th>
+            <th>{catalogCols.age}</th>
+            <th>{catalogCols.hours}</th>
+            <th>{catalogCols.instructor}</th>
+            <th>{catalogCols.seats}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {academy.catalog.map((course) => (
+            <tr>
+              <td>{t(lang, course.name.zh, course.name.en)}</td>
+              <td><span class="badge-tbd">{t(lang, course.age.zh, course.age.en)}</span></td>
+              <td><span class="badge-tbd">{t(lang, course.hours.zh, course.hours.en)}</span></td>
+              <td><span class="badge-tbd">{t(lang, course.instructor.zh, course.instructor.en)}</span></td>
+              <td><span class="badge-tbd">{t(lang, course.seats.zh, course.seats.en)}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* A small "value intentionally unfilled" badge — reused for fee cells and
+     catalog cells that have no real data yet. Neither .table nor .tier
+     ships a hook for this, so it's added here (global.css has no equivalent). */
+  .badge-tbd {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--paper-2);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-pill);
+    padding: 3px 11px;
+  }
+
+  /* Position statement: the pullquote plus its two explanatory paragraphs. */
+  .position { margin-top: 56px; }
+  .position-body {
+    max-width: 640px;
+    margin: 28px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .position-body p { font-size: 1.0625rem; color: var(--ink-2); max-width: none; }
+
+  /* Two track cards — same card language as the home page's pillars, with a
+     bullet list standing in for the pillar's single body paragraph. */
+  .tracks {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 36px;
+  }
+  .track {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 32px 30px;
+    display: flex;
+    flex-direction: column;
+  }
+  .track h4 { margin-bottom: 18px; }
+  .track-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 0.95rem;
+    color: var(--ink-2);
+  }
+  .track-list li { display: flex; gap: 10px; align-items: flex-start; }
+  .track-list li::before { content: "✦"; color: var(--primary); font-size: 0.8em; margin-top: 5px; flex-shrink: 0; }
+  .track-link { margin-top: 22px; align-self: flex-start; }
+
+  /* Fees disclaimer, quiet caption under the table. */
+  .fees-note {
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  /* Screening callout — a bordered box, distinct from the neutral fee table. */
+  .screening {
+    margin-top: 56px;
+    border: 1px solid var(--primary-line);
+    background: var(--primary-tint);
+    border-radius: var(--r-lg);
+    padding: clamp(28px, 4vw, 40px);
+  }
+  .screening h3 { margin-bottom: 12px; }
+  .screening p { max-width: 70ch; color: var(--ink-2); }
+
+  .why-body { margin-top: 20px; font-size: 1.0625rem; max-width: 72ch; }
+
+  /* Four course-line cards, 2×2 (the shared .beliefs grid defaults to 3-up). */
+  .lines {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 36px;
+  }
+
+  @media (max-width: 900px) {
+    .tracks, .lines { grid-template-columns: 1fr; }
+  }
+</style>
