@@ -1,0 +1,51 @@
+---
+import LeadForm from "../LeadForm.astro";
+import { getLang, t } from "../../i18n/utils";
+import { hero, directContact } from "../../content/contact";
+
+const lang = getLang(Astro.currentLocale);
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ Form ═══ -->
+<section class="section tight">
+  <div class="container">
+    <div class="reveal contact-form-wrap">
+      <LeadForm lang={lang} />
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Direct contact fallback ═══ -->
+<section class="section tight alt">
+  <div class="container">
+    <div class="center reveal direct-contact">
+      <h3>{t(lang, directContact.title.zh, directContact.title.en)}</h3>
+      <p class="direct-contact-line">
+        <a class="link" href={`mailto:${directContact.email}`}>{directContact.email}</a>
+      </p>
+      <p class="direct-contact-line">{t(lang, directContact.wechat.zh, directContact.wechat.en)}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .contact-form-wrap {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .direct-contact h3 { margin-bottom: 14px; }
+  .direct-contact-line {
+    font-size: 1rem;
+    color: var(--ink-2);
+    margin-top: 6px;
+  }
+</style>

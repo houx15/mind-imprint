@@ -7,7 +7,7 @@ const CONTACT_MAX = 500;
 const TEXT_MAX = 2000;
 const LOCALE_MAX = 16;
 const BODY_MAX = 8192;
-const INTEREST_OPTIONS = new Set(["sprint", "academy", "explore"]);
+const INTEREST_OPTIONS = new Set(["coaching", "academy", "partnership", "explore"]);
 
 interface LeadPayload {
   contact_name?: unknown;

@@ -186,5 +186,5 @@ export const closing: {
     en: "Leave your contact and we'll invite you to an online info session, then a one-on-one conversation — to see if we're a good fit.",
   },
   cta: { zh: "预约说明会", en: "Book an info session" },
-  href: "/apply",
+  href: "/contact",
 };

@@ -5,7 +5,7 @@
 // states. No JS required for the form to be labelled and fillable; JS only
 // changes how the submit result is shown.
 import { t } from "../i18n/utils";
-import { form, interestOptions } from "../content/apply";
+import { form, interestOptions } from "../content/contact";
 
 interface Props {
   lang: "zh" | "en";
@@ -274,10 +274,13 @@ const { lang } = Astro.props;
     color: var(--primary);
     max-width: none;
   }
+  /* Attention/error state on dark: a warm hue distinct from the site's cool
+     --primary accent, tinted the same way (faint wash + hairline) so it reads
+     as "part of this design system" rather than a bolted-on light-theme card. */
   .lead-error {
-    color: #8a3324;
-    background: #FBEEE9;
-    border: 1px solid #E7C7BA;
+    color: #F2B8A6;
+    background: rgba(224, 122, 92, 0.12);
+    border: 1px solid rgba(224, 122, 92, 0.34);
     border-radius: var(--r);
     padding: 14px 18px;
     font-size: 0.95rem;

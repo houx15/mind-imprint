@@ -150,7 +150,7 @@ export const demoCta: {
     en: "Demos are currently by appointment — it protects the product, and helps us find the families who believe in this approach.",
   },
   label: { zh: "预约演示", en: "Book a demo" },
-  href: "/apply",
+  href: "/contact",
 };
 
 export const originIntro: { eyebrow: Bilingual; title: Bilingual } = {
