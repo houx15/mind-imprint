@@ -405,8 +405,8 @@ export const ageStages: {
         },
         {
           text: {
-            zh: "注意：如上文警示框所述，NYT（2025-12）报道该小学部截至当时并未实际运营，以上是官方设计蓝图而非经证实的实践。曾发布「小学 STEM 专员（Elementary STEM Specialist）」等职位（2024 年 7 月起聘）。",
-            en: "A caveat: as the warning box above notes, the NYT (2025-12) reported this elementary program was not actually operating as of that report — the description above is the official design blueprint, not a verified practice. The school did post an \"Elementary STEM Specialist\" job listing starting July 2024.",
+            zh: "注意：如上文警示框所述，NYT（2025-12）报道该小学部截至当时并未实际运营，以上是官方设计蓝图，其落地实践目前仍缺乏经证实的记录。曾发布「小学 STEM 专员（Elementary STEM Specialist）」等职位（2024 年 7 月起聘）。",
+            en: "A caveat: as the warning box above notes, the NYT (2025-12) reported this elementary program was not actually operating as of that report — the description above is the official design blueprint, and its classroom practice currently lacks any verified record. The school did post an \"Elementary STEM Specialist\" job listing starting July 2024.",
           },
           cites: [{ label: { zh: "Salary.com 招聘帖, 2024", en: "Salary.com job listing, 2024" }, url: "https://www.salary.com/job/xplor-education/elementary-stem-specialist-assistant-elementary-teacher/j202405181304167135276" }],
         },
@@ -853,8 +853,8 @@ export const cases: {
   takeaways: [
     {
       text: {
-        zh: "录取者共性（Julia、湾区男孩、Winston、NY Mag 课堂群像）：有一个「玩真的」的课外纵深（辩论双冠、作曲、机器人……），而非履历堆砌；面对开放问题敢下判断、能给结构化理由、被追问时敢修正；家庭本身认同非传统路径（半数 homeschool）；英语口头表达能撑住全英文小组讨论（对中国孩子这是隐形门槛，Julia 的辩论背景正好命中）。",
-        en: "Common traits among admitted students (Julia, the Bay Area boy, Winston, the NY Mag classroom snapshot): a genuinely deep extracurricular pursuit that's \"the real thing\" (double debate champion, composition, robotics...) rather than resume-padding; the willingness to take a position on an open question, give structured reasoning, and revise when pressed; a family that itself embraces the non-traditional path (about half are homeschoolers); and spoken English strong enough to hold up in an all-English group discussion — an invisible barrier for Chinese kids, one Julia's debate background hit directly.",
+        zh: "录取者共性（Julia、湾区男孩、Winston、NY Mag 课堂群像）：有一个「玩真的」的课外纵深（辩论双冠、作曲、机器人……），校方看重的正是这份真实投入；面对开放问题敢下判断、能给结构化理由、被追问时敢修正；家庭本身认同非传统路径（半数 homeschool）；英语口头表达能撑住全英文小组讨论（对中国孩子这是隐形门槛，Julia 的辩论背景正好命中）。",
+        en: "Common traits among admitted students (Julia, the Bay Area boy, Winston, the NY Mag classroom snapshot): a genuinely deep extracurricular pursuit that's \"the real thing\" (double debate champion, composition, robotics...), and what the school weighs is exactly that authentic commitment; the willingness to take a position on an open question, give structured reasoning, and revise when pressed; a family that itself embraces the non-traditional path (about half are homeschoolers); and spoken English strong enough to hold up in an all-English group discussion — an invisible barrier for Chinese kids, one Julia's debate background hit directly.",
       },
     },
     {
@@ -1034,8 +1034,8 @@ export const sourceGroups: { heading: Bilingual; items: Cite[] }[] = [
 
 export const methodologyNote: Bilingual[] = [
   {
-    zh: "① adastraschool.org 内容基本停留在 2024–25 招生季，官方信息均反映首届规划而非当前实况；② nymag.com 与 NYT 原文有付费墙/抓取限制，相关细节经由转引核对；③ Wikipedia 上「Astra Nova 全日制学费 $32,500」为旧数据，本报告以官网 2026/27 分档学费为准。",
-    en: "① adastraschool.org's content largely remains frozen at the 2024–25 admissions cycle — its official information reflects first-cohort planning, not necessarily the current reality. ② nymag.com and NYT originals sit behind paywalls/scraping limits; relevant details were cross-checked via secondary citations. ③ Wikipedia's \"$32,500 full-time Astra Nova tuition\" is outdated; this report uses the official site's 2026/27 tiered tuition instead.",
+    zh: "① adastraschool.org 内容基本停留在 2024–25 招生季，官方信息反映的是首届规划的当时状态；② nymag.com 与 NYT 原文有付费墙/抓取限制，相关细节经由转引核对；③ Wikipedia 上「Astra Nova 全日制学费 $32,500」为旧数据，本报告以官网 2026/27 分档学费为准。",
+    en: "① adastraschool.org's content largely remains frozen at the 2024–25 admissions cycle — its official information reflects the first-cohort planning as it stood then. ② nymag.com and NYT originals sit behind paywalls/scraping limits; relevant details were cross-checked via secondary citations. ③ Wikipedia's \"$32,500 full-time Astra Nova tuition\" is outdated; this report uses the official site's 2026/27 tiered tuition instead.",
   },
   {
     zh: "方法说明：Reddit 官方接口屏蔽抓取，经 PullPush 存档库检索（覆盖约 2020–2025 年中，此后内容未能覆盖）；小红书不被外部索引，仅能通过公众号截图间接证实；X/Quora/Facebook 受访问限制。",
