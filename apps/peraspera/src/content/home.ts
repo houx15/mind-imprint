@@ -161,8 +161,8 @@ export const team: {
   cta: Bilingual;
   href: string;
 } = {
-  label: { zh: "我们是谁", en: "Who we are" },
-  heading: { zh: "一支小团队，两位创始人。", en: "A small team, two founders." },
+  label: { zh: "团队", en: "Team" },
+  heading: { zh: "我们是谁", en: "Who we are" },
   intro: {
     zh: "一位多年深耕国际课程里的思辨教学，一位是连续创业者、常年做 AI 与产品。我们把研究和方法都公开出来。",
     en: "One of us has spent years teaching critical thinking in international classrooms; the other is a serial founder working in AI and product. We publish our research and methods openly.",
