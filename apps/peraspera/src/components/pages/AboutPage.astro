@@ -1,0 +1,197 @@
+---
+import Accordion from "../Accordion.astro";
+import { getLang, t } from "../../i18n/utils";
+import {
+  hero,
+  foundersIntro,
+  founders,
+  letterIntro,
+  letter,
+  nameOrigin,
+  faqIntro,
+  faq,
+} from "../../content/about";
+
+const lang = getLang(Astro.currentLocale);
+
+const faqResolved = faq.map((item) => ({
+  q: t(lang, item.q.zh, item.q.en),
+  a: t(lang, item.a.zh, item.a.en),
+}));
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+  </div>
+</header>
+
+<!-- ═══ Founders ═══ -->
+<section class="section" id="founders">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, foundersIntro.eyebrow.zh, foundersIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, foundersIntro.title.zh, foundersIntro.title.en)}</h2>
+    </div>
+    <div class="founders reveal">
+      {founders.map((f) => (
+        <article class="founder-card">
+          <div class="founder-photo" aria-hidden="true">
+            <span>{t(lang, f.name.zh, f.name.en).slice(0, 1)}</span>
+          </div>
+          <p class="founder-photo-cap">{t(lang, f.photoSlot.zh, f.photoSlot.en)}</p>
+          <h3>{t(lang, f.name.zh, f.name.en)}</h3>
+          <p class="founder-role">{t(lang, f.role.zh, f.role.en)}</p>
+          <p class="founder-bio">{t(lang, f.bio.zh, f.bio.en)}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Founders' letter ═══ -->
+<section class="section alt">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, letterIntro.eyebrow.zh, letterIntro.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, letterIntro.title.zh, letterIntro.title.en)}</h2>
+    </div>
+    <article class="letter reveal" lang={lang === "zh" ? "zh-CN" : "en"}>
+      {letter.paragraphs.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+      <p class="letter-signature">{t(lang, letter.signatureLine.zh, letter.signatureLine.en)}</p>
+      <p class="letter-signoff">{t(lang, letter.signoff.zh, letter.signoff.en)}</p>
+    </article>
+  </div>
+</section>
+
+<!-- ═══ Name origin ═══ -->
+<section class="section tight">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, nameOrigin.eyebrow.zh, nameOrigin.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, nameOrigin.title.zh, nameOrigin.title.en)}</h2>
+    </div>
+    <p class="name-origin-body reveal">
+      {t(lang, nameOrigin.prefix.zh, nameOrigin.prefix.en)}{" "}
+      <em>{nameOrigin.motto}</em>{t(lang, nameOrigin.body.zh, nameOrigin.body.en)}
+    </p>
+  </div>
+</section>
+
+<!-- ═══ Full FAQ ═══ -->
+<section class="section alt" id="faq">
+  <div class="container">
+    <div class="center reveal">
+      <p class="eyebrow" style="justify-content:center">{t(lang, faqIntro.eyebrow.zh, faqIntro.eyebrow.en)}</p>
+      <h2 class="sec-title">{t(lang, faqIntro.title.zh, faqIntro.title.en)}</h2>
+    </div>
+    <div class="reveal" style="margin-top:44px">
+      <Accordion lang={lang} items={faqResolved} />
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Founder cards: two-up, each with a lettered placeholder "photo" —
+     an honest stand-in (no lorem-ipsum headshot) until real portraits land. */
+  .founders {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 44px;
+  }
+  .founder-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 36px 32px;
+    text-align: center;
+  }
+  .founder-photo {
+    width: 88px;
+    height: 88px;
+    margin: 0 auto;
+    border-radius: 999px;
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .founder-photo span {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.9rem;
+    color: var(--primary);
+  }
+  .founder-photo-cap {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .founder-card h3 { margin-top: 20px; }
+  .founder-role {
+    margin-top: 4px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--primary);
+  }
+  .founder-bio {
+    margin-top: 16px;
+    font-size: 0.98rem;
+    color: var(--ink-2);
+  }
+
+  /* Founders' letter — editorial long-form: a comfortable single-column
+     measure, generous paragraph rhythm, a set-apart signature line. */
+  .letter {
+    max-width: 640px;
+    margin: 48px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .letter p { font-size: 1.0625rem; line-height: 1.75; color: var(--ink-2); max-width: none; }
+  .letter-signature {
+    margin-top: 12px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line-2);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.15rem;
+    color: var(--ink);
+    text-align: center;
+  }
+  .letter-signoff {
+    margin-top: -8px;
+    text-align: center;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+
+  /* Name origin — a single centered statement, the Latin motto in italics. */
+  .name-origin-body {
+    max-width: 640px;
+    margin: 28px auto 0;
+    text-align: center;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--ink-2);
+  }
+  .name-origin-body em {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  @media (max-width: 900px) {
+    .founders { grid-template-columns: 1fr; }
+  }
+</style>
