@@ -16,15 +16,12 @@ const timelineSteps = sprint.timeline.map((step) => ({
 const tierCards = academy.tiers.map((tier) => ({
   name: t(lang, tier.name.zh, tier.name.en),
   hours: t(lang, tier.hours.zh, tier.hours.en),
-  price: t(lang, tier.price.zh, tier.price.en),
+  // No price: tier rates are discussed in the info session, not on the page.
+  // TierCards.astro only renders its price line when this is non-empty.
+  price: "",
   features: tier.features.map((f) => t(lang, f.zh, f.en)),
 }));
 
-const feeCols = {
-  item: t(lang, "项目", "Item"),
-  desc: t(lang, "说明", "What's covered"),
-  price: t(lang, "费用", "Fee"),
-};
 const catalogCols = {
   name: t(lang, "课名", "Course"),
   age: t(lang, "年龄段", "Ages"),
@@ -99,26 +96,9 @@ const catalogCols = {
       <p class="eyebrow">{t(lang, sprint.feesIntro.eyebrow.zh, sprint.feesIntro.eyebrow.en)}</p>
       <h3 class="sec-title" style="max-width:none">{t(lang, sprint.feesIntro.title.zh, sprint.feesIntro.title.en)}</h3>
     </div>
-    <div class="table-wrap reveal" style="margin-top:32px">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>{feeCols.item}</th>
-            <th>{feeCols.desc}</th>
-            <th>{feeCols.price}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sprint.fees.map((fee) => (
-            <tr>
-              <td>{t(lang, fee.name.zh, fee.name.en)}</td>
-              <td>{t(lang, fee.desc.zh, fee.desc.en)}</td>
-              <td><span class="badge-tbd">{t(lang, fee.price.zh, fee.price.en)}</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ul class="fees-list reveal" style="margin-top:32px">
+      {sprint.feesPoints.map((point) => <li>{t(lang, point.zh, point.en)}</li>)}
+    </ul>
     <p class="fees-note reveal">{t(lang, sprint.feesDisclaimer.zh, sprint.feesDisclaimer.en)}</p>
 
     <!-- Screening -->
@@ -167,6 +147,7 @@ const catalogCols = {
     <div class="reveal" style="margin-top:44px">
       <TierCards lang={lang} tiers={tierCards} />
     </div>
+    <p class="tiers-note reveal">{t(lang, academy.tiersNote.zh, academy.tiersNote.en)}</p>
 
     <!-- Catalog -->
     <div class="reveal" style="margin-top:76px">
@@ -201,9 +182,12 @@ const catalogCols = {
 </section>
 
 <style>
-  /* A small "value intentionally unfilled" badge — reused for fee cells and
-     catalog cells that have no real data yet. Neither .table nor .tier
-     ships a hook for this, so it's added here (global.css has no equivalent). */
+  /* A small "value intentionally unfilled" badge — used for the catalog's
+     age/hours/instructor/seats cells (course-schedule data, not pricing;
+     the sprint's fees and the academy's tier prices are no longer shown
+     here at all — see .fees-list / .tiers-note below). Neither .table nor
+     .tier ships a hook for this, so it's added here (global.css has no
+     equivalent). */
   .badge-tbd {
     display: inline-flex;
     align-items: center;
@@ -259,12 +243,33 @@ const catalogCols = {
   .track-list li::before { content: "✦"; color: var(--primary); font-size: 0.8em; margin-top: 5px; flex-shrink: 0; }
   .track-link { margin-top: 22px; align-self: flex-start; }
 
-  /* Fees disclaimer, quiet caption under the table. */
+  /* Fee structure, presented as two short points (no amounts — those are
+     covered in the info session). Same bullet language as .track-list. */
+  .fees-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+  .fees-list li { display: flex; gap: 10px; align-items: flex-start; }
+  .fees-list li::before { content: "✦"; color: var(--primary); font-size: 0.8em; margin-top: 6px; flex-shrink: 0; }
+
+  /* Fees disclaimer, quiet caption under the fee points. */
   .fees-note {
     margin-top: 20px;
     font-size: 0.9rem;
     color: var(--muted);
     max-width: 62ch;
+  }
+
+  /* Quiet caption under the tier cards, pointing pricing to the info session. */
+  .tiers-note {
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: var(--muted);
   }
 
   /* Screening callout — a bordered box, distinct from the neutral fee table. */

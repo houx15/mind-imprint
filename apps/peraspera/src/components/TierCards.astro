@@ -1,7 +1,9 @@
 ---
 // Three pricing/program tiers (轻量/标准/完整 style, cf. Astra Nova Level A/B/C).
-// Name/hours/price stay visible; the full feature list sits behind a native
-// <details> "what's included" toggle so each card stays scannable.
+// Name/hours stay visible; the full feature list sits behind a native
+// <details> "what's included" toggle so each card stays scannable. `price` is
+// optional — pass an empty string to omit pricing entirely (e.g. when it's
+// discussed elsewhere, like an info session) without leaving an empty gap.
 interface Props {
   lang: "zh" | "en";
   tiers: { name: string; hours: string; price: string; features: string[] }[];
@@ -14,7 +16,7 @@ const detailsLabel = lang === "zh" ? "包含内容" : "What's included";
   {tiers.map((tier) => (
     <article class="tier">
       <p class="tier-name">{tier.name}</p>
-      <p class="tier-price">{tier.price}</p>
+      {tier.price && <p class="tier-price">{tier.price}</p>}
       <p class="tier-desc">{tier.hours}</p>
       <details>
         <summary>{detailsLabel}</summary>

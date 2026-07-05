@@ -1,9 +1,12 @@
 // Per Aspera — programs page (/programs, /en/programs) content.
 // zh is the source of truth, copied verbatim from
 // docs/astranova/PerAspera官网文案v2-多页版.md §二「课程页 /programs」; en is an
-// idiomatic (not literal) translation. All ¥____ price blanks in the source
-// are intentionally unfilled — they render as a "待定/TBD" badge, never an
-// invented number.
+// idiomatic (not literal) translation. The source's ¥____ price blanks are not
+// displayed at all — pricing (both the sprint's fees and the academy's tier
+// rates) is reframed as something the info session walks families through,
+// consistent with the site's 留资 → 说明会 → 面谈 funnel. The catalog table's
+// age/hours/instructor/seats cells (non-price course-schedule data) still use
+// a 待定/TBD placeholder badge.
 //
 // One deliberate rewrite: the 立场声明's closing line in the source reads
 // "但打磨的是表达，不是替你思考。" (an "A, not B" contrast). Per the site's
@@ -40,13 +43,6 @@ export interface TimelineStep {
   date: Bilingual;
 }
 
-export interface FeeItem {
-  name: Bilingual;
-  /** Always the TBD placeholder in this launch — the source leaves every price blank. */
-  price: Bilingual;
-  desc: Bilingual;
-}
-
 export const sprint: {
   eyebrow: Bilingual;
   title: Bilingual;
@@ -58,7 +54,8 @@ export const sprint: {
   timelineIntro: { eyebrow: Bilingual; title: Bilingual };
   timeline: TimelineStep[];
   feesIntro: { eyebrow: Bilingual; title: Bilingual };
-  fees: FeeItem[];
+  /** Fee *structure*, no amounts — the amounts themselves are walked through in the info session. */
+  feesPoints: Bilingual[];
   feesDisclaimer: Bilingual;
   screeningTitle: Bilingual;
   screeningBody: Bilingual;
@@ -163,33 +160,17 @@ export const sprint: {
   ],
 
   feesIntro: {
-    eyebrow: { zh: "收费", en: "Tuition & fees" },
-    title: { zh: "透明的三笔费用。", en: "Three line items, fully transparent." },
+    eyebrow: { zh: "费用", en: "Fees" },
+    title: { zh: "费用在说明会里一次讲清。", en: "We walk through fees in the info session." },
   },
-  fees: [
+  feesPoints: [
     {
-      name: { zh: "基础费", en: "Base tuition" },
-      price: { zh: "待定", en: "TBD" },
-      desc: {
-        zh: "覆盖 14 周全部训练 + 双轨工作坊 + 思维评估报告，无论申请结果",
-        en: "Covers all 14 weeks of training, both tracks' workshops, and the thinking-assessment report — regardless of the application outcome",
-      },
+      zh: "基础费覆盖 14 周全部训练、双轨工作坊与思维评估报告，报名结果如何都包含在内。",
+      en: "The base tuition covers all 14 weeks of training, both workshop tracks, and the thinking-assessment report — regardless of the application outcome.",
     },
     {
-      name: { zh: "录取成功费", en: "Success fee" },
-      price: { zh: "待定", en: "TBD" },
-      desc: {
-        zh: "仅在 12.15 获录取后支付",
-        en: "Charged only after an offer on Dec 15",
-      },
-    },
-    {
-      name: { zh: "首届内测价", en: "Founding-cohort rate" },
-      price: { zh: "待定", en: "TBD" },
-      desc: {
-        zh: "前 __ 组家庭 __ 折，以案例授权为条件",
-        en: "A discount for the first __ families, conditional on case-study consent",
-      },
+      zh: "录取成功费只在 12.15 拿到录取后才收取。",
+      en: "The success fee is charged only after an offer on Dec 15.",
     },
   ],
   feesDisclaimer: {
@@ -214,8 +195,6 @@ export interface CourseLine {
 export interface TierDef {
   name: Bilingual;
   hours: Bilingual;
-  /** Always the TBD placeholder in this launch — the source leaves every price blank. */
-  price: Bilingual;
   features: Bilingual[];
 }
 
@@ -237,6 +216,8 @@ export const academy: {
   lines: CourseLine[];
   tiersIntro: { eyebrow: Bilingual; title: Bilingual };
   tiers: TierDef[];
+  /** Reframes tier pricing as an info-session topic — no amounts live in this file. */
+  tiersNote: Bilingual;
   catalogIntro: { eyebrow: Bilingual; title: Bilingual };
   catalog: CatalogItem[];
 } = {
@@ -299,7 +280,6 @@ export const academy: {
     {
       name: { zh: "轻量", en: "Light" },
       hours: { zh: "每周 2 小时", en: "2 hrs/week" },
-      price: { zh: "待定/学期", en: "TBD/term" },
       features: [
         { zh: "选修一条课程线（思辨 / 建造 / 模拟 / 表达任选其一）", en: "Pick one course line — reasoning, building, simulation, or expression" },
         { zh: "低门槛入口，适合先体验", en: "A low-commitment way to try the academy first" },
@@ -308,7 +288,6 @@ export const academy: {
     {
       name: { zh: "标准", en: "Standard" },
       hours: { zh: "每周 4–6 小时", en: "4–6 hrs/week" },
-      price: { zh: "待定/学期", en: "TBD/term" },
       features: [
         { zh: "选修两条课程线", en: "Two course lines of your choosing" },
         { zh: "每周全英文小组讨论", en: "Weekly all-English group discussion" },
@@ -317,7 +296,6 @@ export const academy: {
     {
       name: { zh: "完整", en: "Full" },
       hours: { zh: "每周 8+ 小时", en: "8+ hrs/week" },
-      price: { zh: "待定/学期", en: "TBD/term" },
       features: [
         { zh: "全部四条课程线", en: "All four course lines" },
         { zh: "团队策略模拟", en: "Team strategy simulation" },
@@ -326,6 +304,10 @@ export const academy: {
       ],
     },
   ],
+  tiersNote: {
+    zh: "三档的具体费用在说明会中详谈。",
+    en: "We'll go over the pricing for each tier in the info session.",
+  },
 
   catalogIntro: {
     eyebrow: { zh: "本学期课程单", en: "This term's course list" },
