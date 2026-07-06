@@ -11,7 +11,7 @@ export async function activateCard(taskId: string, cardId: string): Promise<Card
 export async function submitCard(taskId: string, cardId: string, env: CardInstance): Promise<CardInstance> {
   const r = await apiFetch<{ card: CardInstance }>(`/api/v1/tasks/${taskId}/cards/${cardId}`, {
     method: "PUT",
-    body: JSON.stringify({ status: "completed", field_values: env.field_values, event_trace: env.event_trace }),
+    body: JSON.stringify({ status: "completed", field_values: env.field_values, event_trace: env.event_trace, anchors: env.anchors }),
   });
   return r.card;
 }
