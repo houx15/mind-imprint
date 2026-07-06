@@ -258,8 +258,8 @@ export const applySection: {
   eyebrow: { zh: "怎么开始", en: "How to get started" },
   title: { zh: "从留下联系方式开始。", en: "It starts with leaving your contact info." },
   sub: {
-    zh: "不用一次说清楚所有细节,先让我们认识一下孩子和家庭。",
-    en: "You don't need every detail figured out up front — let's just get to know your child and your family first.",
+    zh: "每一轮我们只带很少的几个家庭,好把每个孩子都放在心上。不用一次说清楚所有细节,先让我们认识一下孩子和家庭。",
+    en: "Each round we take on only a small number of families, so every child gets our full attention. You don't need every detail figured out up front — let's just get to know your child and your family first.",
   },
   steps: [
     {

@@ -18,13 +18,13 @@ export const hero: {
 } = {
   motto: "Per Aspera",
   headline: {
-    zh: "为 AI 时代，培养真正能解决问题的人。",
-    en: "For an AI-native world, we raise young people who solve real problems.",
+    zh: "和 AI 一起，培养会独立思考、也能把问题做成真东西的年轻人。",
+    en: "Alongside AI, we raise young people who think for themselves and turn problems into real things.",
   },
-  headlineEm: { zh: "解决问题", en: "solve real problems" },
+  headlineEm: { zh: "把问题做成真东西", en: "turn problems into real things" },
   sub: {
-    zh: "教育正在走向 AI 原生学习。我们陪孩子提早动手、真实创造，长出和 AI 一起把问题解决掉的能力。",
-    en: "Education is moving toward AI-Native Learning. We help children build and create earlier, and grow the ability to solve real problems alongside AI.",
+    zh: "教育正在走向 AI 原生学习。我们陪孩子练两样本事：遇到任何说法都会自己先想一想，也能和 AI 一起把一个真实的问题做出来。",
+    en: "Education is moving toward AI-Native Learning. We help children build two abilities: thinking any claim through for themselves, and working with AI to turn a real problem into something that exists.",
   },
   ctaPrimary: {
     label: { zh: "了解更多", en: "Learn more" },
@@ -53,10 +53,62 @@ export const mission: {
   },
 };
 
-/* ---- 3 · What we offer ----------------------------------------------------- */
+/* ---- 3 · Our core product (思维印记) --------------------------------------- */
+export interface ProductPart {
+  name: Bilingual;
+  body: Bilingual;
+}
+
+export const product: {
+  label: Bilingual;
+  heading: Bilingual;
+  headingEm: Bilingual;
+  body: Bilingual;
+  parts: ProductPart[];
+  cta: Bilingual;
+  href: string;
+} = {
+  label: { zh: "核心产品", en: "Our core product" },
+  heading: { zh: "思维印记，我们的核心产品。", en: "Mind Imprint, our core product." },
+  headingEm: { zh: "思维印记", en: "Mind Imprint" },
+  body: {
+    zh: "这是一款 AI 教育产品，把我们整套学习方式都装了进去。它由三部分组成。",
+    en: "It's one AI education product that carries our whole way of learning, and it's made of three parts.",
+  },
+  parts: [
+    {
+      name: { zh: "AI 互动课", en: "AI-assisted courses" },
+      body: {
+        zh: "真人小班、全程在线，AI 一路在旁边陪着上；分思辨和产品思维两条线，没有录播视频。",
+        en: "Live, small-group, fully online, with AI alongside throughout — two threads, critical thinking and product thinking, and no recorded video.",
+      },
+    },
+    {
+      name: { zh: "两个工作台", en: "Two workbenches" },
+      body: {
+        zh: "一个让孩子和 AI 一起完成真实任务的互动界面；在关键的时刻，AI 会把该想的那一步交回给孩子。",
+        en: "An interactive space where a child works a real task together with AI; at the key moment, the AI hands the thinking step back to the child.",
+      },
+    },
+    {
+      name: { zh: "过程评估", en: "Process assessment" },
+      body: {
+        zh: "把孩子这一路是怎么想的记录下来，慢慢长成一份只给他自己看的成长记录。",
+        en: "It records how a child got there and grows it into a private record made just for them.",
+      },
+    },
+  ],
+  cta: { zh: "了解思维印记", en: "About Mind Imprint" },
+  href: "/mind-imprint",
+};
+
+/* ---- 4 · Three services built on the product ------------------------------- */
 export const offerIntro: { label: Bilingual; heading: Bilingual } = {
-  label: { zh: "我们做的事", en: "What we do" },
-  heading: { zh: "我们能帮你什么。", en: "What we offer." },
+  label: { zh: "我们的服务", en: "Our services" },
+  heading: {
+    zh: "三种服务，都建立在思维印记之上。",
+    en: "Three services, all built on Mind Imprint.",
+  },
 };
 
 export interface Offer {
@@ -70,8 +122,8 @@ export const offers: Offer[] = [
   {
     name: { zh: "申请辅导", en: "Application coaching" },
     body: {
-      zh: "帮学生和家长一起，准备好申请那些为 AI 时代而建的顶尖学校，比如马斯克创办的 Astra Nova。",
-      en: "We help students and parents get ready to apply to top schools built for the AI era — like Elon Musk's Astra Nova.",
+      zh: "一对一陪学生和家长，准备申请那些为 AI 时代而建的顶尖学校，比如马斯克创办的 Astra Nova；平时的练习就在思维印记里做。",
+      en: "One-on-one help for students and parents preparing to apply to top schools built for the AI era — like Elon Musk's Astra Nova — with the practice happening inside Mind Imprint.",
     },
     cta: { zh: "了解申请辅导", en: "Learn about coaching" },
     href: "/coaching",
@@ -79,8 +131,8 @@ export const offers: Offer[] = [
   {
     name: { zh: "课程项目", en: "Courses" },
     body: {
-      zh: "认同这样的学习方式、但还没进入这些学校的家庭，可以来上我们的课程项目——业余时间、在线上就能学。",
-      en: "For families who share this way of learning but haven't enrolled in those schools, we run part-time courses you can take online.",
+      zh: "业余时间、全程在线的课程项目，孩子就在思维印记里和 AI 一起上课、动手；还没进入这些学校的家庭也能来学。",
+      en: "Part-time, fully online courses where a child learns and builds with AI right inside Mind Imprint — open to families who haven't enrolled in those schools too.",
     },
     cta: { zh: "了解课程项目", en: "See our courses" },
     href: "/academy",
@@ -88,15 +140,15 @@ export const offers: Offer[] = [
   {
     name: { zh: "学校合作", en: "School partnership" },
     body: {
-      zh: "认同这个方向的学校，我们提供 AI 转型的支持：AI 的使用与评估（我们的思维印记产品）、教师培训，以及课程。",
-      en: "For schools that share this vision, we help with their AI transformation — AI use and evaluation (our mind imprint product), teacher training, and courses.",
+      zh: "陪认同这个方向的学校，把 AI 踏实地带进日常教学，用的正是思维印记，还有配套的教师培训和课程。",
+      en: "We help schools that share this direction bring AI into everyday teaching — with Mind Imprint itself, plus teacher training and courses.",
     },
     cta: { zh: "了解学校合作", en: "Explore partnership" },
     href: "/partnership",
   },
 ];
 
-/* ---- 4 · What we believe (single language per locale) ---------------------- */
+/* ---- 5 · What we believe (single language per locale) ---------------------- */
 export const beliefsIntro: { label: Bilingual; heading: Bilingual } = {
   label: { zh: "我们相信什么", en: "What we believe" },
   heading: { zh: "我们相信的几件事。", en: "A few things we believe." },
@@ -120,12 +172,12 @@ export const beliefs: Belief[] = [
   {
     tag: { zh: "能力", en: "Ability" },
     head: {
-      zh: "真正的能力，得自己长出来。",
-      en: "Real ability has to grow from within.",
+      zh: "真正的能力，得自己长出来，也得看得见。",
+      en: "Real ability has to grow from within — and be seen.",
     },
     body: {
-      zh: "没有人能替孩子完成一次真实的思考，所以我们陪着一起练，不背题、不代写。",
-      en: "No one can think for your child, so we practise alongside them — no drilling answers, no ghostwriting.",
+      zh: "没有人能替孩子完成一次真实的思考。我们陪着一起练，也把这一路怎么想的记录下来，让成长看得见。",
+      en: "No one can think for your child. We practise alongside them and record how they got there, so the growth is visible.",
     },
   },
   {
@@ -152,7 +204,7 @@ export const beliefs: Belief[] = [
   },
 ];
 
-/* ---- 5 · Who we are -------------------------------------------------------- */
+/* ---- 6 · Who we are -------------------------------------------------------- */
 export const team: {
   label: Bilingual;
   heading: Bilingual;
@@ -187,7 +239,7 @@ export const team: {
   href: "/about",
 };
 
-/* ---- 6 · Questions --------------------------------------------------------- */
+/* ---- 7 · Questions --------------------------------------------------------- */
 export const faqIntro: { label: Bilingual; heading: Bilingual } = {
   label: { zh: "常见问题", en: "FAQ" },
   heading: { zh: "几个常见问题。", en: "A few common questions." },

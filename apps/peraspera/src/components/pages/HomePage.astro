@@ -3,6 +3,7 @@ import { getLang, t, localePath } from "../../i18n/utils";
 import {
   hero,
   mission,
+  product,
   offerIntro,
   offers,
   beliefsIntro,
@@ -21,6 +22,13 @@ const em = t(lang, hero.headlineEm.zh, hero.headlineEm.en);
 const emIdx = headline.indexOf(em);
 const headBefore = emIdx >= 0 ? headline.slice(0, emIdx) : headline;
 const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
+
+// Same split for the product-screen heading (accented product name).
+const prodHead = t(lang, product.heading.zh, product.heading.en);
+const prodEm = t(lang, product.headingEm.zh, product.headingEm.en);
+const prodIdx = prodHead.indexOf(prodEm);
+const prodBefore = prodIdx >= 0 ? prodHead.slice(0, prodIdx) : prodHead;
+const prodAfter = prodIdx >= 0 ? prodHead.slice(prodIdx + prodEm.length) : "";
 ---
 
 <div class="home">
@@ -53,7 +61,32 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     </div>
   </section>
 
-  <!-- ═══ 3 · What we offer ═══ -->
+  <!-- ═══ 3 · Our core product (思维印记) ═══ -->
+  <section class="screen product-screen">
+    <div class="container reveal">
+      <p class="eyebrow">{t(lang, product.label.zh, product.label.en)}</p>
+      <h2 class="sec-title product-head">
+        {prodBefore}<span class="em">{prodEm}</span>{prodAfter}
+      </h2>
+      <p class="product-body">{t(lang, product.body.zh, product.body.en)}</p>
+      <ol class="product-parts">
+        {product.parts.map((p, i) => (
+          <li class="product-part">
+            <span class="part-num">{i + 1}</span>
+            <div>
+              <h3>{t(lang, p.name.zh, p.name.en)}</h3>
+              <p>{t(lang, p.body.zh, p.body.en)}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <a class="btn-ghost product-link" href={localePath(lang, product.href)}>
+        {t(lang, product.cta.zh, product.cta.en)} <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══ 4 · Three services built on the product ═══ -->
   <section class="screen offer-screen">
     <div class="container">
       <div class="reveal">
@@ -74,7 +107,7 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     </div>
   </section>
 
-  <!-- ═══ 4 · What we believe (single language) ═══ -->
+  <!-- ═══ 5 · What we believe (single language) ═══ -->
   <section class="screen belief-screen">
     <div class="container">
       <div class="center reveal">
@@ -93,7 +126,7 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     </div>
   </section>
 
-  <!-- ═══ 5 · Who we are ═══ -->
+  <!-- ═══ 6 · Who we are ═══ -->
   <section class="screen team-screen">
     <div class="container reveal">
       <p class="eyebrow">{t(lang, team.label.zh, team.label.en)}</p>
@@ -113,7 +146,7 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     </div>
   </section>
 
-  <!-- ═══ 6 · Questions ═══ -->
+  <!-- ═══ 7 · Questions ═══ -->
   <section class="screen faq-screen">
     <div class="container">
       <div class="reveal">
@@ -199,7 +232,36 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
     letter-spacing: -0.01em;
   }
 
-  /* 3 · Offer — three navigational cards. */
+  /* 3 · Core product — 思维印记, with its three parts. */
+  .product-head { margin-top: 18px; max-width: 22ch; }
+  .product-head .em { color: var(--primary); }
+  .product-body {
+    margin-top: 22px; max-width: 52ch;
+    font-size: 1.15rem; color: var(--ink-2);
+  }
+  .product-parts {
+    list-style: none; margin: 40px 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+  }
+  .product-part {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 26px 24px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+  }
+  .product-part .part-num {
+    flex: none;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
+    color: var(--primary);
+    border: 1px solid var(--primary-line);
+  }
+  .product-part h3 { font-size: 1.15rem; margin-bottom: 8px; }
+  .product-part p { color: var(--ink-2); font-size: 0.98rem; line-height: 1.5; }
+  .product-link { margin-top: 34px; display: inline-flex; }
+
+  /* 4 · Offer — three navigational cards. */
   .offer-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -254,7 +316,7 @@ const headAfter = emIdx >= 0 ? headline.slice(emIdx + em.length) : "";
   .faq-foot .star { font-style: normal; }
 
   @media (max-width: 900px) {
-    .offer-grid, .belief-grid, .team-grid { grid-template-columns: 1fr; }
+    .offer-grid, .belief-grid, .team-grid, .product-parts { grid-template-columns: 1fr; }
   }
   @media (max-width: 760px) {
     /* On phones there is no snapping; keep vertical breathing room so short

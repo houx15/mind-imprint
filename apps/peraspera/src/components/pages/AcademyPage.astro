@@ -3,10 +3,12 @@ import { getLang, t, localePath } from "../../i18n/utils";
 import {
   hero,
   introSection,
+  productNote,
   modulesIntro,
   modules,
   levelsIntro,
   levels,
+  camps,
   personalizedPlan,
   showcase,
   closingCta,
@@ -34,6 +36,12 @@ const lang = getLang(Astro.currentLocale);
     <div class="prose reveal">
       {introSection.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
     </div>
+    <p class="product-note reveal">
+      {t(lang, productNote.text.zh, productNote.text.en)}{" "}
+      <a href={localePath(lang, productNote.linkHref)}>
+        {t(lang, productNote.linkLabel.zh, productNote.linkLabel.en)} →
+      </a>
+    </p>
   </div>
 </section>
 
@@ -82,8 +90,21 @@ const lang = getLang(Astro.currentLocale);
   </div>
 </section>
 
+<!-- ═══ 3b · Winter / summer camps ═══ -->
+<section class="section alt" id="camps">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, camps.eyebrow.zh, camps.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, camps.title.zh, camps.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {camps.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+  </div>
+</section>
+
 <!-- ═══ 4 · A plan designed for each child ═══ -->
-<section class="section alt" id="plan">
+<section class="section" id="plan">
   <div class="container">
     <div class="reveal">
       <p class="eyebrow">{t(lang, personalizedPlan.eyebrow.zh, personalizedPlan.eyebrow.en)}</p>
@@ -104,7 +125,7 @@ const lang = getLang(Astro.currentLocale);
 </section>
 
 <!-- ═══ 5 · Beyond the classroom ═══ -->
-<section class="section" id="showcase">
+<section class="section alt" id="showcase">
   <div class="container">
     <div class="reveal">
       <p class="eyebrow">{t(lang, showcase.eyebrow.zh, showcase.eyebrow.en)}</p>
@@ -117,7 +138,7 @@ const lang = getLang(Astro.currentLocale);
 </section>
 
 <!-- ═══ 6 · Closing CTA ═══ -->
-<section class="section alt" id="contact">
+<section class="section" id="contact">
   <div class="container">
     <div class="cta reveal">
       <h2>{t(lang, closingCta.title.zh, closingCta.title.en)}</h2>
@@ -141,6 +162,19 @@ const lang = getLang(Astro.currentLocale);
     max-width: 72ch;
   }
   .prose p { font-size: 1.0625rem; color: var(--ink-2); }
+
+  .product-note {
+    margin-top: 24px;
+    max-width: 72ch;
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+  }
+  .product-note a {
+    color: var(--primary);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .product-note a:hover { text-decoration: underline; }
 
   /* ---- 2 · module cards --------------------------------------------------- */
   .module-grid {

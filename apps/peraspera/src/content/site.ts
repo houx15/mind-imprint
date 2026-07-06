@@ -12,13 +12,14 @@ export const brand: Bilingual = {
 };
 
 export const nav: Record<
-  "home" | "programs" | "coaching" | "academy" | "partnership" | "about" | "contact",
+  "home" | "mindImprint" | "programs" | "coaching" | "academy" | "partnership" | "about" | "contact",
   Bilingual
 > = {
   home: { zh: "首页", en: "Home" },
+  mindImprint: { zh: "思维印记", en: "Mind Imprint" },
   programs: { zh: "项目", en: "Programs" },
   coaching: { zh: "申请辅导", en: "Application coaching" },
-  academy: { zh: "学院", en: "Academy" },
+  academy: { zh: "课程", en: "Courses" },
   partnership: { zh: "合作", en: "Partnership" },
   about: { zh: "关于我们", en: "About" },
   contact: { zh: "联系我们", en: "Contact" },

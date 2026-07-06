@@ -1,0 +1,648 @@
+---
+import { getLang, t, localePath } from "../../i18n/utils";
+import {
+  hero,
+  whyProduct,
+  courses,
+  workbenches,
+  miIntro,
+  miShotCaption,
+  miAfterShot,
+  miModel,
+  miSolo,
+  miInitiative,
+  miPrinciples,
+  closing,
+} from "../../content/mind-imprint";
+
+const lang = getLang(Astro.currentLocale);
+---
+
+<!-- ═══ Page hero ═══ -->
+<header class="pagehero">
+  <div class="container">
+    <p class="eyebrow">{t(lang, hero.eyebrow.zh, hero.eyebrow.en)}</p>
+    <h1>{t(lang, hero.title.zh, hero.title.en)}</h1>
+    <p class="lead">{t(lang, hero.sub.zh, hero.sub.en)}</p>
+  </div>
+</header>
+
+<!-- ═══ 1 · Why we made it a product ═══ -->
+<section class="section tight" id="why-product">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, whyProduct.eyebrow.zh, whyProduct.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:26ch">{t(lang, whyProduct.title.zh, whyProduct.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {whyProduct.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2 · Component 1 · AI-assisted interactive courses ═══ -->
+<section class="section alt" id="courses">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, courses.eyebrow.zh, courses.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, courses.title.zh, courses.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {courses.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+    <div class="threads reveal">
+      {courses.threads.map((th) => (
+        <article class="thread-card">
+          <h4>{t(lang, th.name.zh, th.name.en)}</h4>
+          <p>{t(lang, th.body.zh, th.body.en)}</p>
+        </article>
+      ))}
+    </div>
+    <div class="intro-links reveal">
+      <a class="link" href={localePath(lang, courses.linkHref)}>
+        {t(lang, courses.linkLabel.zh, courses.linkLabel.en)} <span class="star">→</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3 · Component 2 · Two workbenches ═══ -->
+<section class="section" id="workbenches">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, workbenches.eyebrow.zh, workbenches.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, workbenches.title.zh, workbenches.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {workbenches.intro.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+    <div class="benches reveal">
+      {workbenches.items.map((w) => (
+        <article class="bench-card">
+          <h3>{t(lang, w.name.zh, w.name.en)}</h3>
+          <p class="bench-desc">{t(lang, w.desc.zh, w.desc.en)}</p>
+          <div class="bench-eg">
+            <span class="bench-eg-tag">{t(lang, w.exampleLabel.zh, w.exampleLabel.en)}</span>
+            <p>{t(lang, w.example.zh, w.example.en)}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4 · Component 3 · Process assessment + interface mockup ═══ -->
+<section class="section alt" id="assessment">
+  <div class="container">
+    <div class="reveal">
+      <p class="eyebrow">{t(lang, miIntro.eyebrow.zh, miIntro.eyebrow.en)}</p>
+      <h2 class="sec-title" style="max-width:none">{t(lang, miIntro.title.zh, miIntro.title.en)}</h2>
+    </div>
+    <div class="prose reveal">
+      {miIntro.body.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+
+    <!-- ── the dark interface mockup ── -->
+    <figure class="mi-shot reveal">
+      <!-- workspace: chat + process tree -->
+      <div class="mi-window">
+        <div class="mi-bar">
+          <span class="mi-tl"><i></i><i></i><i></i></span>
+          <span class="mi-title">{t(lang, "思维印记 · 工作区 · Phoebe", "Mind imprint · Workspace · Phoebe")}</span>
+        </div>
+        <div class="mi-cols">
+          <div class="mi-chat">
+            <div class="mi-greet">{t(lang, "中国是否让地球变得更可持续？· 进行中", "Is China making the planet more sustainable? · In progress")}</div>
+            <div class="mi-msg you">{t(lang, "我想引用这篇公众号文章当证据。", "I want to cite this article as evidence.")}</div>
+            <div class="mi-msg ai">{t(lang, "先别急着用它。这条信息你打算拿来说明什么？我们一起把来源溯清楚。", "Before you use it — what do you want it to prove? Let's trace the source first.")}</div>
+            <div class="mi-card">
+              <div class="mi-card-tag"><span class="mi-pill">{t(lang, "信息素养", "Info literacy")}</span>{t(lang, "建议工具卡", "Suggested tool-card")}</div>
+              <h4>{t(lang, "SIFT × CRAAP · 横向找更多来源", "SIFT × CRAAP · read laterally")}</h4>
+              <p>{t(lang, "停一停 · 查证独立来源、判断可信度 · 溯到原始出处。", "Stop · check independent sources and credibility · trace to the origin.")}</p>
+              <div class="mi-acts">
+                <span class="mi-chip go">{t(lang, "打开卡", "Open card")}</span>
+                <span class="mi-chip later">{t(lang, "暂不，先继续", "Not now")}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mi-tree">
+            <div class="mi-tree-head"><h5>{t(lang, "过程树", "Process tree")}</h5><span class="mi-ro">{t(lang, "只读", "read-only")}</span></div>
+            <div class="mi-tree-sub">{t(lang, "边做边长，评估时自动收拢", "Grows as you work")}</div>
+            <div class="mi-tree-wrap">
+              <span class="mi-spine"></span>
+              <div class="mi-node c1"><div class="k">{t(lang, "提问", "Question")}</div><div class="v">{t(lang, "中国是否让地球更可持续？", "Is China making Earth more sustainable?")}</div></div>
+              <div class="mi-node c2"><div class="k">{t(lang, "溯源 · SIFT", "Sourcing · SIFT")}</div><div class="v">{t(lang, "溯到 NASA / Nature Sustainability", "Traced to NASA / Nature Sustainability")}</div></div>
+              <div class="mi-node c3"><div class="k">{t(lang, "让步段 · 进行中", "Concession · active")}</div><div class="v">{t(lang, "撞上反例：碳排放全球第一", "Counter: #1 in total emissions")}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- evaluation reveal -->
+      <div class="mi-window">
+        <div class="mi-bar">
+          <span class="mi-tl"><i></i><i></i><i></i></span>
+          <span class="mi-title">{t(lang, "你的思维印记 · Phoebe", "Your mind imprint · Phoebe")}</span>
+        </div>
+        <div class="mi-eval">
+          <div class="mi-eval-head">
+            <span class="mi-spark">✦</span>
+            <div>
+              <h4>{t(lang, "你的思维印记", "Your mind imprint")}</h4>
+              <p>{t(lang, "最强的模型读完整个过程 · 覆盖十个维度 · 只给学生本人看", "The strongest model reads the whole process · ten dimensions · private to the student")}</p>
+            </div>
+          </div>
+          <div class="mi-faces">
+            <div class="mi-face drive">
+              <div class="mi-fh"><span class="mi-fi">🚀</span><span class="mi-ft">{t(lang, "生成式驾驭", "Generative drive")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "提问清晰度", "Clarity")}</span><span class="mi-track"><i style="width:76%;background:var(--mi-blue)"></i></span><span class="mi-lv blue">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "论证拆解", "Analysis")}</span><span class="mi-track"><i style="width:76%;background:var(--mi-blue)"></i></span><span class="mi-lv blue">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "论证质量", "Argument")}</span><span class="mi-track"><i style="width:58%;background:var(--mi-amber)"></i></span><span class="mi-lv amber">L2 {t(lang, "发展中", "Dev.")}</span></div>
+            </div>
+            <div class="mi-face guard">
+              <div class="mi-fh"><span class="mi-fi">🛡️</span><span class="mi-ft">{t(lang, "批判式防护", "Critical guard")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "横向验证", "Lateral")}</span><span class="mi-track"><i style="width:92%;background:var(--mi-green)"></i></span><span class="mi-lv green">L4 {t(lang, "卓越", "Adv.")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "信源辨识", "Source ID")}</span><span class="mi-track"><i style="width:76%;background:var(--mi-green)"></i></span><span class="mi-lv green">L3 {t(lang, "熟练", "Prof.")}</span></div>
+              <div class="mi-row"><span class="n">{t(lang, "AI 边界与伦理", "AI limits")}</span><span class="mi-track"><i style="width:74%;background:var(--mi-green)"></i></span><span class="mi-lv green">L3 {t(lang, "熟练", "Prof.")}</span></div>
+            </div>
+          </div>
+          <div class="mi-narr">
+            <div class="q">{t(lang, "过程叙述", "Process narrative")}</div>
+            {lang === "zh"
+              ? <p>你把那篇文章一路<b>溯到了 NASA 与 Nature Sustainability</b> 两个独立原始来源——横向验证做得很扎实，是这一程最亮的地方。当你撞上「碳排放全球第一」这个反例时，你<b>主动接住了它</b>并完成了让步段；下一步，可以把让步之后的反驳再收紧一点，让论证链条更有力。</p>
+              : <p>You <b>traced that article back to NASA and Nature Sustainability</b> — two independent original sources. Your lateral reading was solid, the highlight of this session. When you hit the "#1 total emitter" counter-example, you <b>took it head-on</b> and completed the concession; next, tighten the rebuttal that follows so the argument lands harder.</p>}
+          </div>
+        </div>
+      </div>
+      <figcaption class="mi-cap">{t(lang, miShotCaption.zh, miShotCaption.en)}</figcaption>
+    </figure>
+
+    <div class="prose reveal" style="margin-top:44px">
+      {miAfterShot.map((p) => <p>{t(lang, p.zh, p.en)}</p>)}
+    </div>
+
+    <!-- two faces / ten dimensions -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miModel.eyebrow.zh, miModel.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miModel.title.zh, miModel.title.en)}</h3>
+      <p class="mi-block-sub">{t(lang, miModel.sub.zh, miModel.sub.en)}</p>
+      <div class="faces">
+        {miModel.faces.map((f) => (
+          <div class:list={["face", f.face]}>
+            <div class="face-head"><span class="face-ic">{f.icon}</span><h4>{t(lang, f.title.zh, f.title.en)}</h4></div>
+            <p class="face-sub">{t(lang, f.sub.zh, f.sub.en)}</p>
+            <ul class="dims">
+              {f.dims.map((d) => <li><span class="dcode">{d.code}</span>{t(lang, d.name.zh, d.name.en)}</li>)}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- SOLO levels -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miSolo.eyebrow.zh, miSolo.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miSolo.title.zh, miSolo.title.en)}</h3>
+      <p class="mi-block-sub">{t(lang, miSolo.sub.zh, miSolo.sub.en)}</p>
+      <div class="solo">
+        {miSolo.levels.map((lv) => (
+          <div class="solo-level">
+            <span class="solo-code">{lv.code}</span>
+            <h4>{t(lang, lv.name.zh, lv.name.en)}</h4>
+            <p>{t(lang, lv.body.zh, lv.body.en)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- initiative gradient -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miInitiative.eyebrow.zh, miInitiative.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miInitiative.title.zh, miInitiative.title.en)}</h3>
+      <p class="mi-why">{t(lang, miInitiative.body.zh, miInitiative.body.en)}</p>
+    </div>
+
+    <!-- principles -->
+    <div class="mi-block reveal">
+      <p class="eyebrow">{t(lang, miPrinciples.eyebrow.zh, miPrinciples.eyebrow.en)}</p>
+      <h3 class="mi-block-title">{t(lang, miPrinciples.title.zh, miPrinciples.title.en)}</h3>
+      <div class="principles">
+        {miPrinciples.items.map((p) => (
+          <div class="principle-card">
+            <h4>{t(lang, p.title.zh, p.title.en)}</h4>
+            <p>{t(lang, p.body.zh, p.body.en)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 5 · Closing — one product, three services ═══ -->
+<section class="section" id="contact">
+  <div class="container">
+    <div class="center reveal">
+      <h2 class="sec-title">{t(lang, closing.title.zh, closing.title.en)}</h2>
+      <p class="sec-lead">{t(lang, closing.sub.zh, closing.sub.en)}</p>
+    </div>
+    <div class="services reveal">
+      {closing.services.map((s) => (
+        <a class="service-card" href={localePath(lang, s.href)}>
+          <h4>{t(lang, s.name.zh, s.name.en)} <span class="star">→</span></h4>
+          <p>{t(lang, s.body.zh, s.body.en)}</p>
+        </a>
+      ))}
+    </div>
+    <div class="center reveal" style="margin-top:44px">
+      <a class="btn btn-primary btn-lg" href={localePath(lang, closing.ctaHref)}>
+        {t(lang, closing.ctaLabel.zh, closing.ctaLabel.en)}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* shared prose / lead */
+  .prose {
+    margin-top: 34px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 72ch;
+  }
+  .prose p { font-size: 1.0625rem; color: var(--ink-2); }
+  .sec-lead { margin-top: 16px; color: var(--ink-2); font-size: 1.075rem; max-width: 60ch; }
+
+  /* ---- 2 · course threads ------------------------------------------------ */
+  .threads {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    margin-top: 44px;
+  }
+  .thread-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 2px solid var(--primary-line);
+    border-radius: var(--r-lg);
+    padding: 28px 26px;
+  }
+  .thread-card h4 { color: var(--ink); }
+  .thread-card p { margin-top: 10px; color: var(--ink-2); font-size: 0.95rem; max-width: none; }
+  .intro-links { display: flex; flex-wrap: wrap; gap: 12px 32px; margin-top: 30px; }
+
+  /* ---- 3 · workbenches --------------------------------------------------- */
+  .benches {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 44px;
+    align-items: start;
+  }
+  .bench-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 34px 30px;
+  }
+  .bench-card h3 { margin-bottom: 12px; }
+  .bench-desc { color: var(--ink-2); font-size: 1rem; max-width: none; }
+  .bench-eg {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+  .bench-eg-tag {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+  .bench-eg p { margin-top: 9px; color: var(--ink-2); font-size: 0.95rem; max-width: none; }
+
+  /* ======================================================================
+     4 · THE DARK INTERFACE MOCKUP (mind-imprint workspace + eval reveal)
+     Modeled on apps/site's .window/.cols/.chat/.tree/.evalp, recolored for
+     Per Aspera's near-black palette. All classes prefixed `mi-` to stay local.
+     ====================================================================== */
+  .mi-shot {
+    margin: 48px 0 8px;
+    --mi-face: #131318;         /* window body, one notch under --surface */
+    --mi-lift: #1B1B20;         /* raised element (ai bubble, tree node) */
+    --mi-blue: var(--primary);  /* the one accent — drive + L3 */
+    --mi-green: #79C6A6;        /* guard face + L3/L4 (muted for dark) */
+    --mi-amber: #D2B072;        /* L2 developing (muted gold) */
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .mi-window {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .mi-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #101014;
+    border-bottom: 1px solid var(--line);
+  }
+  .mi-tl { display: flex; gap: 7px; }
+  .mi-tl i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .mi-tl i:nth-child(1) { background: #E06256; }
+  .mi-tl i:nth-child(2) { background: #D8A94C; }
+  .mi-tl i:nth-child(3) { background: #5CB86B; }
+  .mi-title { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+
+  .mi-cols { display: grid; grid-template-columns: 1.55fr 1fr; }
+  .mi-chat {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-right: 1px solid var(--line);
+    background: var(--mi-face);
+  }
+  .mi-greet { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+  .mi-msg {
+    max-width: 92%;
+    padding: 12px 15px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .mi-msg.you {
+    align-self: flex-end;
+    background: var(--primary);
+    color: var(--ink-inv);
+    border-bottom-right-radius: 5px;
+    font-weight: 500;
+  }
+  .mi-msg.ai {
+    align-self: flex-start;
+    background: var(--mi-lift);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 5px;
+  }
+  .mi-card {
+    border: 1px solid var(--primary-line);
+    background: var(--primary-tint);
+    border-radius: 14px;
+    padding: 15px 17px;
+  }
+  .mi-card-tag {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 9px;
+  }
+  .mi-pill {
+    background: var(--primary);
+    color: var(--ink-inv);
+    padding: 3px 8px;
+    border-radius: var(--r-pill);
+    letter-spacing: 0.02em;
+  }
+  .mi-card h4 { font-size: 0.98rem; color: var(--ink); margin-bottom: 5px; }
+  .mi-card p { font-size: 0.84rem; color: var(--ink-2); margin-bottom: 13px; max-width: none; }
+  .mi-acts { display: flex; gap: 9px; }
+  .mi-chip { font-size: 0.8rem; font-weight: 600; padding: 7px 14px; border-radius: 9px; }
+  .mi-chip.go { background: var(--ink); color: var(--ink-inv); }
+  .mi-chip.later { background: transparent; border: 1px solid var(--line-2); color: var(--muted); }
+
+  .mi-tree { padding: 20px; background: var(--paper-2); }
+  .mi-tree-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .mi-tree-head h5 { font-size: 0.85rem; font-weight: 700; color: var(--ink); }
+  .mi-ro {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--surface-2);
+    padding: 3px 9px;
+    border-radius: 6px;
+  }
+  .mi-tree-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 18px; }
+  .mi-tree-wrap { position: relative; }
+  .mi-spine { position: absolute; left: 5px; top: 14px; bottom: 20px; width: 1px; background: var(--line-2); }
+  .mi-node {
+    position: relative;
+    padding: 11px 13px;
+    border-radius: 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    margin-left: 16px;
+    margin-bottom: 12px;
+    font-size: 0.82rem;
+  }
+  .mi-node:last-child { margin-bottom: 0; }
+  .mi-node::before {
+    content: "";
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    width: 16px;
+    height: 1px;
+    background: var(--line-2);
+  }
+  .mi-node .k {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .mi-node .v { color: var(--ink-2); }
+  .mi-node.c1 { border-left: 3px solid var(--mi-blue); }
+  .mi-node.c1 .k { color: var(--mi-blue); }
+  .mi-node.c2 { border-left: 3px solid var(--mi-green); }
+  .mi-node.c2 .k { color: var(--mi-green); }
+  .mi-node.c3 { border-left: 3px solid var(--mi-amber); }
+  .mi-node.c3 .k { color: var(--mi-amber); }
+
+  /* eval reveal */
+  .mi-eval { padding: 28px 30px; background: var(--mi-face); }
+  .mi-eval-head { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
+  .mi-spark {
+    width: 34px; height: 34px; flex-shrink: 0;
+    border-radius: 10px;
+    background: var(--primary-tint);
+    color: var(--primary);
+    display: grid; place-items: center;
+    font-size: 1rem;
+  }
+  .mi-eval-head h4 { font-size: 1.15rem; color: var(--ink); }
+  .mi-eval-head p { font-size: 0.8rem; color: var(--muted); margin-top: 3px; max-width: none; }
+  .mi-faces { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+  .mi-face { border: 1px solid var(--line); border-radius: 14px; padding: 17px; background: var(--surface); }
+  .mi-fh { display: flex; align-items: center; gap: 9px; margin-bottom: 15px; }
+  .mi-fi {
+    width: 30px; height: 30px; flex-shrink: 0;
+    border-radius: 9px;
+    display: grid; place-items: center;
+    font-size: 0.95rem;
+  }
+  .mi-face.drive .mi-fi { background: var(--primary-tint); }
+  .mi-face.guard .mi-fi { background: rgba(121, 198, 166, 0.12); }
+  .mi-ft { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+  .mi-row { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
+  .mi-row:last-child { margin-bottom: 0; }
+  .mi-row .n { width: 74px; font-size: 0.76rem; font-weight: 600; color: var(--ink-2); flex-shrink: 0; }
+  .mi-track { flex: 1; height: 7px; border-radius: var(--r-pill); background: rgba(255,255,255,0.07); overflow: hidden; }
+  .mi-track i { display: block; height: 100%; border-radius: var(--r-pill); }
+  .mi-lv { font-size: 0.68rem; font-weight: 700; width: 62px; text-align: right; flex-shrink: 0; }
+  .mi-lv.blue { color: var(--mi-blue); }
+  .mi-lv.green { color: var(--mi-green); }
+  .mi-lv.amber { color: var(--mi-amber); }
+  .mi-narr {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 16px 18px;
+  }
+  .mi-narr .q {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 8px;
+  }
+  .mi-narr p { font-size: 0.86rem; color: var(--ink-2); line-height: 1.65; max-width: none; }
+  .mi-narr b { color: var(--ink); font-weight: 600; }
+
+  .mi-cap {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    max-width: 70ch;
+    line-height: 1.6;
+  }
+
+  /* ---- mind-imprint sub-blocks (model / SOLO / initiative / principles) --- */
+  .mi-block {
+    margin-top: 64px;
+    padding-top: 46px;
+    border-top: 1px solid var(--line);
+  }
+  .mi-block-title { margin-top: 14px; max-width: none; }
+  .mi-block-sub { margin-top: 14px; color: var(--ink-2); font-size: 1.0125rem; max-width: 66ch; }
+
+  .faces { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 30px; }
+  .face {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 26px;
+  }
+  .face.drive { border-left: 3px solid var(--primary-line); }
+  .face.guard { border-left: 3px solid rgba(121, 198, 166, 0.4); }
+  .face-head { display: flex; align-items: center; gap: 10px; }
+  .face-ic { font-size: 1.2rem; }
+  .face h4 { color: var(--ink); }
+  .face-sub { margin-top: 8px; color: var(--muted); font-size: 0.9rem; max-width: none; }
+  .dims {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .dims li {
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    font-size: 0.92rem;
+    color: var(--ink-2);
+  }
+  .dcode {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--primary-tint);
+    padding: 2px 7px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    min-width: 34px;
+    text-align: center;
+  }
+
+  .solo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 30px; }
+  .solo-level {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 22px 20px;
+  }
+  .solo-code {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--primary);
+  }
+  .solo-level h4 { margin-top: 8px; }
+  .solo-level p { margin-top: 8px; color: var(--ink-2); font-size: 0.9rem; max-width: none; }
+
+  .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 30px; }
+  .principle-card {
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-line);
+    border-radius: var(--r-lg);
+    padding: 24px;
+  }
+  .principle-card h4 { color: var(--ink); }
+  .principle-card p { margin-top: 8px; color: var(--ink-2); font-size: 0.92rem; max-width: none; }
+
+  .mi-why { margin-top: 8px; font-size: 1.0625rem; color: var(--ink-2); max-width: 74ch; }
+
+  /* ---- 5 · closing service link cards ------------------------------------ */
+  .services {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    margin-top: 48px;
+  }
+  .service-card {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 28px 26px;
+    transition: border-color .2s, transform .2s, box-shadow .2s;
+  }
+  .service-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary-line);
+  }
+  .service-card h4 { color: var(--ink); }
+  .service-card p { margin-top: 10px; color: var(--ink-2); font-size: 0.94rem; max-width: none; }
+
+  /* ---- responsive -------------------------------------------------------- */
+  @media (max-width: 900px) {
+    .threads, .benches, .faces, .principles, .services { grid-template-columns: 1fr; }
+    .solo { grid-template-columns: repeat(2, 1fr); }
+    .mi-cols { grid-template-columns: 1fr; }
+    .mi-chat { border-right: 0; border-bottom: 1px solid var(--line); }
+    .mi-faces { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .solo { grid-template-columns: 1fr; }
+    .mi-eval { padding: 22px 18px; }
+    .mi-chat, .mi-tree { padding: 18px; }
+  }
+</style>

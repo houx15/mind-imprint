@@ -1,20 +1,22 @@
-// Per Aspera — 学院 / 课程项目 (academy) page (/academy, /en/academy)
+// Per Aspera — 课程 / Courses (academy) page (/academy, /en/academy)
 // content. zh is the source of truth; en is an idiomatic (not literal)
 // translation.
 //
-// This page introduces our part-time, online courses — for families who share
-// our way of learning but haven't applied to (or aren't interested in
-// applying to) schools like Astra Nova. The course library is presented as
-// SIX MODULES, not a long list of individual lessons. Modules 1-5 are drawn
-// from docs/03_课程库_单课设计; module 6 (AI 与产品) is new, added per the
-// refactor plan. Plain, warm, concrete wording — no jargon, no deadlines, no
-// info sessions (说明会), no antithesis, and no mention of time zones.
+// This is the FAMILIES service (2C): our AI-assisted interactive courses, for
+// families who share our way of learning. The courses run on our core product,
+// 思维印记 (Mind Imprint). The library is presented as TWO THREADS — 思辨
+// (critical thinking, modules 1-5) and 产品思维 (product thinking, module 6) —
+// broken into SIX MODULES. Modules 1-5 are drawn from docs/03_课程库_单课设计;
+// module 6 (AI 与产品) is added per the refactor plan. Plain, warm, concrete
+// wording — no jargon, no deadlines, no info sessions (说明会), no antithesis,
+// and no mention of time zones. Classes are live and AI-assisted, with no
+// pre-recorded video lectures.
 
 import type { Bilingual } from "./site";
 
 /* ---- Page hero --------------------------------------------------------- */
 export const hero: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
-  eyebrow: { zh: "学院", en: "Academy" },
+  eyebrow: { zh: "课程", en: "Courses" },
   title: {
     zh: "一套业余时间就能上的课，陪孩子练真正的思考。",
     en: "Part-time courses that build real thinking, alongside school.",
@@ -42,8 +44,8 @@ export const introSection: {
       en: "Every class starts with something real — a video, a report that sparked debate, a choice a kid might actually face. Everyone shares their first reaction, then the group checks it against evidence and questions each other, to see whether the judgment holds up. The teacher guides the discussion, but the conclusion is the child's own.",
     },
     {
-      zh: "课堂不大,六到十个孩子在线上视频里围成一圈讨论——不是听课,是真的在一起争论、互相追问。AI 是随时可以拿来查证、拓展思路的工具,但怎么判断、怎么下结论,始终是孩子自己的事。",
-      en: "Classes are small — six to ten kids in a live video discussion, not a lecture. AI is there as a tool to check facts and widen ideas, but the judgment and the conclusion always stay with the child.",
+      zh: "课堂不大,六到十个孩子在线上视频里围成一圈,一起讨论、互相追问。每一节都是老师带着孩子实时上的直播小课,没有提前录好的视频课。AI 随时可以拿来查证、拓展思路,判断和结论始终留给孩子自己。",
+      en: "Classes are small — six to ten kids gathered in a live video discussion, talking things through and questioning each other. Every session is taught live by a teacher in real time, with no pre-recorded video lectures. AI is on hand as a tool to check facts and widen ideas, and the judgment and the conclusion always stay with the child.",
     },
     {
       zh: "一年分三个学期,每个学期我们都会更新一批课程——跟着当下发生的事和孩子们感兴趣的方向走,不是一份用十年不变的教材。同一个模块下,孩子这学期讨论的话题,和下学期很可能完全不一样。",
@@ -60,6 +62,16 @@ export const introSection: {
   ],
 };
 
+/* ---- Runs on our product: 思维印记 (Mind Imprint) ----------------------- */
+export const productNote: { text: Bilingual; linkLabel: Bilingual; linkHref: string } = {
+  text: {
+    zh: "这些课都在我们自己的 AI 产品「思维印记」上进行。孩子和 AI 协作的每一步都会被记录下来,变成一条看得见的思考过程,也是我们做过程评估的依据。",
+    en: "These classes all run on our own AI product, Mind Imprint. Every step of a child's work with AI is recorded into a visible thinking process, which is also the basis for how we look at that process.",
+  },
+  linkLabel: { zh: "了解思维印记", en: "About Mind Imprint" },
+  linkHref: "/mind-imprint",
+};
+
 /* ---- The six modules ------------------------------------------------------ */
 export interface AcademyModule {
   title: Bilingual;
@@ -69,10 +81,10 @@ export interface AcademyModule {
 
 export const modulesIntro: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
   eyebrow: { zh: "课程库", en: "The course library" },
-  title: { zh: "六个模块,练全一整套思考能力。", en: "Six modules, one full set of thinking abilities." },
+  title: { zh: "六个模块,分成两条主线。", en: "Six modules, along two main threads." },
   sub: {
-    zh: "我们按能力分成六个模块,每个模块下面有很多具体的课,挑几个例子给你看看孩子会讨论什么。",
-    en: "We group lessons by ability into six modules. Each module holds many specific lessons — here are a few examples of what kids actually discuss.",
+    zh: "一条是「思辨」——怎么找信息、怎么判断、怎么把一个问题想清楚,对应前五个模块;一条是「产品思维」——从一个真实问题出发,和 AI 一起动手做出点东西,对应最后一个模块。下面每个模块里都有很多具体的课,挑几个例子给你看看孩子会讨论什么。",
+    en: "One thread is critical thinking (思辨) — how to find information, judge it, and think a question all the way through, covered by the first five modules. The other is product thinking (产品思维) — starting from a real problem and building something with AI, covered by the last module. Each module below holds many specific lessons; here are a few examples of what kids actually discuss.",
   },
 };
 
@@ -211,6 +223,25 @@ export const levels: AcademyLevel[] = [
     ],
   },
 ];
+
+/* ---- Winter / summer camps ----------------------------------------------- */
+export const camps: { eyebrow: Bilingual; title: Bilingual; body: Bilingual[] } = {
+  eyebrow: { zh: "另一种方式", en: "Another way in" },
+  title: {
+    zh: "也可以来一次寒暑假的 AI 营。",
+    en: "You can also join a winter or summer AI camp.",
+  },
+  body: [
+    {
+      zh: "想先轻松地感受一下这种学习方式,寒假或暑假的 AI 营是个不错的开始。几天时间,孩子和一小群同伴集中泡在一个真实的问题里,和 AI 一起动手,从头把一件事想清楚、做出来。",
+      en: "For a lighter first taste of this way of learning, a winter or summer AI camp is a good place to start. Over a few days, your child and a small group of peers dive into one real question together, working hands-on with AI to think it through and build something from scratch.",
+    },
+    {
+      zh: "营期节奏紧凑、投入完整,几天下来,孩子就能真切地体会到平时课上那种一起讨论、一起追问的感觉。",
+      en: "Camps are short and immersive, and a few days in, kids get a real feel for the kind of discussing and questioning that our regular classes are built on.",
+    },
+  ],
+};
 
 /* ---- Personalized plan ---------------------------------------------------- */
 export const personalizedPlan: {

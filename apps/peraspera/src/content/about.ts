@@ -55,8 +55,8 @@ export const founders: Founder[] = [
       en: "CEO · Co-founder · Head of the Education Research Institute",
     },
     bio: {
-      zh: "多年联合国 ESG 与气候课程、IB 课程辅导经验。把真实国际课堂里长出来的批判性思维与信息素养课，系统化为 Per Aspera 的课程体系与评估标准。",
-      en: "Years of experience with UN ESG and climate curricula, and with IB coursework. She has taken the critical-thinking and information-literacy teaching that grew out of real international classrooms and systematized it into Per Aspera's course framework and assessment standards.",
+      zh: "多年联合国 ESG 与气候课程、IB 课程辅导经验。她创立了「思维印记」这套方法——在真实国际课堂里长出来的三十多门批判性思维课，以及产品背后的过程评估标准。",
+      en: "Years of experience with UN ESG and climate programs, and with IB coaching. She created the Mind Imprint approach — 30-plus critical-thinking courses grown in real international classrooms, and the process-assessment rubric behind the product.",
     },
     photoSlot: { zh: "照片位", en: "Photo placeholder" },
   },
@@ -67,8 +67,8 @@ export const founders: Founder[] = [
       en: "Co-founder · Head of Product",
     },
     bio: {
-      zh: "连续创业者。AI 思维、产品思维、计算思维教育者——相信最好的思维课是「从真问题到真原型」的完整旅程。",
-      en: "A serial founder. An educator in AI thinking, product thinking, and computational thinking, who believes the best thinking curriculum is the full journey from a real problem to a real prototype.",
+      zh: "连续创业者。AI 思维、产品思维、计算思维教育者。带领「思维印记」的产品化——工作台的交互设计、评估工程，以及对 AI 的调校。",
+      en: "A serial founder, and an educator in AI, product, and computational thinking. He leads the productization of Mind Imprint — the workbench interaction, the assessment engineering, and the tuning of the AI.",
     },
     photoSlot: { zh: "照片位", en: "Photo placeholder" },
   },
@@ -99,8 +99,8 @@ export const letter: {
       en: "We decided to build Per Aspera together after digging deep into Astra Nova, the high school from Elon Musk's education lineage. The more we looked, the more we became sure of one thing: what it values is how a child reasons through a question with no model answer, and whether they're willing to change their mind when someone pushes back. That happens to be one of the abilities the AI era is least likely to devalue.",
     },
     {
-      zh: "所以我们做两件事：一边帮孩子把这些思考、表达和协作的能力真正练出来，为申请这样的学校做准备；一边也把这套学习方式做成课程，给认同它的家庭和学校用。这些能力才是真正留下的东西——如果孩子最终被 Astra Nova 录取，太好了；如果没有，这些能力也已经留在他身上。",
-      en: "So we do two things: help children genuinely build the reasoning, expression, and collaboration ability to prepare for a school like this, and turn this way of learning into courses for families and schools who share it. The ability itself is what actually stays with a child. If they end up at Astra Nova, wonderful. If not, the ability is already theirs to keep.",
+      zh: "所以我们把这套学习方式做成了一个产品——「思维印记」。它装着我们的课程、两个工作台，还有一套过程评估。在它之上，我们做这些服务：帮准备申请的家庭做辅导，给认同这套学习方式的家庭和学校开课程。这些能力才是真正留下的东西——如果孩子最终被 Astra Nova 录取，太好了；如果没有，这些能力也已经留在他身上。",
+      en: "So we turned this way of learning into a product — Mind Imprint. It carries our courses, two workbenches, and a process assessment. On top of it we build the services: coaching for families preparing to apply, and courses for families and schools who share this way of learning. The ability itself is what actually stays with a child. If they end up at Astra Nova, wonderful. If not, the ability is already theirs to keep.",
     },
   ],
   signatureLine: {
