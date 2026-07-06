@@ -22,8 +22,10 @@ import (
 // not need a real database. It records the number of AppendUserMessage calls
 // so tests can assert continuation turns skip that step.
 type fakeTurnStore struct {
-	userAppends int
-	history     []agent.StoredMessage
+	userAppends    int
+	history        []agent.StoredMessage
+	materials      []agent.Material
+	anchorsWritten []byte
 }
 
 func (f *fakeTurnStore) AppendUserMessage(_ context.Context, _ uuid.UUID, _ string) (uuid.UUID, error) {
@@ -45,6 +47,14 @@ func (f *fakeTurnStore) CreateProposedCard(_ context.Context, _ uuid.UUID, _ str
 
 func (f *fakeTurnStore) AppendAssistantMessage(_ context.Context, _ agent.AssistantMessage) (uuid.UUID, error) {
 	return uuid.New(), nil
+}
+
+func (f *fakeTurnStore) ListMaterials(_ context.Context, _ uuid.UUID) ([]agent.Material, error) {
+	return f.materials, nil
+}
+func (f *fakeTurnStore) SetCardAnchors(_ context.Context, _, _ uuid.UUID, anchors []byte) error {
+	f.anchorsWritten = anchors
+	return nil
 }
 
 func TestRunTurnContinuationAppendsNoUserMessage(t *testing.T) {

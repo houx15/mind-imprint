@@ -44,6 +44,8 @@ type TurnStore interface {
 	CardByID(ctx context.Context, id string) (CardInstance, bool, error)
 	CreateProposedCard(ctx context.Context, taskID uuid.UUID, cardID string) (uuid.UUID, error)
 	AppendAssistantMessage(ctx context.Context, in AssistantMessage) (uuid.UUID, error)
+	ListMaterials(ctx context.Context, taskID uuid.UUID) ([]Material, error)
+	SetCardAnchors(ctx context.Context, cardInstanceID, taskID uuid.UUID, anchors []byte) error
 }
 
 // TurnDeps are the inputs to RunTurn.
@@ -256,6 +258,27 @@ func (s *sqlcTurnStore) CardByID(ctx context.Context, id string) (CardInstance, 
 func (s *sqlcTurnStore) CreateProposedCard(ctx context.Context, taskID uuid.UUID, cardID string) (uuid.UUID, error) {
 	row, err := s.q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: cardID, TaskID: taskID})
 	return row.ID, err
+}
+
+func (s *sqlcTurnStore) ListMaterials(ctx context.Context, taskID uuid.UUID) ([]Material, error) {
+	rows, err := s.q.ListMaterialsByTask(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Material, 0, len(rows))
+	for _, r := range rows {
+		m := Material{ID: r.ID.String(), Title: r.Title}
+		if len(r.Blocks) > 0 {
+			_ = json.Unmarshal(r.Blocks, &m.Blocks)
+		}
+		out = append(out, m)
+	}
+	return out, nil
+}
+
+func (s *sqlcTurnStore) SetCardAnchors(ctx context.Context, cardInstanceID, taskID uuid.UUID, anchors []byte) error {
+	_, err := s.q.SetCardAnchors(ctx, sqlc.SetCardAnchorsParams{ID: cardInstanceID, TaskID: taskID, Anchors: anchors})
+	return err
 }
 
 func (s *sqlcTurnStore) AppendAssistantMessage(ctx context.Context, in AssistantMessage) (uuid.UUID, error) {

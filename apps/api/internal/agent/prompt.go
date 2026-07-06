@@ -47,6 +47,37 @@ const promptTemplate = `# 角色
 # 可用的思维工具卡目录（按分类）
 {{catalog}}`
 
+// Material is the agent's view of a task material (see slice-2 material table).
+type Material struct {
+	ID     string
+	Title  string
+	Blocks []MaterialBlock
+}
+
+// MaterialBlock is one addressable paragraph of a material.
+type MaterialBlock struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// BuildMaterialContext renders the task's materials (with block ids) as a
+// context block the model can reference when anchoring questions. Empty when
+// there are no materials.
+func BuildMaterialContext(materials []Material) string {
+	if len(materials) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("# 学生正在读/写的材料（可引用其中的 block_id 与原句）\n")
+	for _, m := range materials {
+		b.WriteString("## 材料：" + m.Title + "\n")
+		for _, blk := range m.Blocks {
+			b.WriteString("[" + blk.ID + "] " + blk.Text + "\n")
+		}
+	}
+	return b.String()
+}
+
 // BuildCatalogText groups catalog entries by category (first-seen insertion
 // order) and renders the Chinese lines exactly as the TS buildCatalogText does.
 func BuildCatalogText(catalog []cards.Spec) string {
