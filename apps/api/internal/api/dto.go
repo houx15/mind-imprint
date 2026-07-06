@@ -129,6 +129,7 @@ type cardDTO struct {
 	ParentNodeID *string         `json:"parent_node_id"`
 	FieldValues  json.RawMessage `json:"field_values"`
 	EventTrace   json.RawMessage `json:"event_trace"`
+	Anchors      json.RawMessage `json:"anchors"`
 	RubricTags   []string        `json:"rubric_tags"`
 	CreatedAt    string          `json:"created_at"`
 	CompletedAt  *string         `json:"completed_at"`
@@ -155,6 +156,10 @@ func toCardDTO(c sqlc.CardInstance) cardDTO {
 	}
 	if d.RubricTags == nil {
 		d.RubricTags = []string{}
+	}
+	d.Anchors = json.RawMessage(c.Anchors)
+	if len(d.Anchors) == 0 {
+		d.Anchors = json.RawMessage("[]")
 	}
 	return d
 }

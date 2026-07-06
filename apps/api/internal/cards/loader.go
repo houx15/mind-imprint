@@ -23,6 +23,7 @@ type Spec struct {
 	Purpose          string `json:"purpose"`
 	TriggerCondition string `json:"trigger_condition"`
 	InteractionType  string `json:"interaction_type"`
+	Mode             string `json:"mode"`
 	Steps            []Step `json:"steps"`
 }
 

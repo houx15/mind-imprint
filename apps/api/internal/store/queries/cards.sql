@@ -32,3 +32,8 @@ RETURNING *;
 -- name: CountCompletedCards :one
 SELECT count(*) FROM card_instances
 WHERE task_id = $1 AND status = 'completed';
+
+-- name: SetCardAnchors :one
+UPDATE card_instances SET anchors = $3
+WHERE id = $1 AND task_id = $2
+RETURNING *;

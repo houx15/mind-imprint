@@ -26,7 +26,7 @@ func (q *Queries) CountCompletedCards(ctx context.Context, taskID uuid.UUID) (in
 const createCardInstance = `-- name: CreateCardInstance :one
 INSERT INTO card_instances (card_id, task_id, status)
 VALUES ($1, $2, 'proposed')
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors
 `
 
 type CreateCardInstanceParams struct {
@@ -48,12 +48,13 @@ func (q *Queries) CreateCardInstance(ctx context.Context, arg CreateCardInstance
 		&i.RubricTags,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Anchors,
 	)
 	return i, err
 }
 
 const getCard = `-- name: GetCard :one
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at FROM card_instances WHERE id = $1
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors FROM card_instances WHERE id = $1
 `
 
 func (q *Queries) GetCard(ctx context.Context, id uuid.UUID) (CardInstance, error) {
@@ -70,12 +71,13 @@ func (q *Queries) GetCard(ctx context.Context, id uuid.UUID) (CardInstance, erro
 		&i.RubricTags,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Anchors,
 	)
 	return i, err
 }
 
 const listCardsByTask = `-- name: ListCardsByTask :many
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at FROM card_instances
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors FROM card_instances
 WHERE task_id = $1
 ORDER BY created_at, id
 `
@@ -100,6 +102,7 @@ func (q *Queries) ListCardsByTask(ctx context.Context, taskID uuid.UUID) ([]Card
 			&i.RubricTags,
 			&i.CreatedAt,
 			&i.CompletedAt,
+			&i.Anchors,
 		); err != nil {
 			return nil, err
 		}
@@ -115,7 +118,7 @@ const setCardActive = `-- name: SetCardActive :one
 UPDATE card_instances
 SET status = 'active'
 WHERE id = $1 AND task_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors
 `
 
 type SetCardActiveParams struct {
@@ -137,6 +140,38 @@ func (q *Queries) SetCardActive(ctx context.Context, arg SetCardActiveParams) (C
 		&i.RubricTags,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Anchors,
+	)
+	return i, err
+}
+
+const setCardAnchors = `-- name: SetCardAnchors :one
+UPDATE card_instances SET anchors = $3
+WHERE id = $1 AND task_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors
+`
+
+type SetCardAnchorsParams struct {
+	ID      uuid.UUID `json:"id"`
+	TaskID  uuid.UUID `json:"task_id"`
+	Anchors []byte    `json:"anchors"`
+}
+
+func (q *Queries) SetCardAnchors(ctx context.Context, arg SetCardAnchorsParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, setCardAnchors, arg.ID, arg.TaskID, arg.Anchors)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Anchors,
 	)
 	return i, err
 }
@@ -145,7 +180,7 @@ const skipCard = `-- name: SkipCard :one
 UPDATE card_instances
 SET event_trace = $3, status = 'skipped'
 WHERE id = $1 AND task_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors
 `
 
 type SkipCardParams struct {
@@ -168,6 +203,7 @@ func (q *Queries) SkipCard(ctx context.Context, arg SkipCardParams) (CardInstanc
 		&i.RubricTags,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Anchors,
 	)
 	return i, err
 }
@@ -176,7 +212,7 @@ const submitCard = `-- name: SubmitCard :one
 UPDATE card_instances
 SET field_values = $3, event_trace = $4, status = 'completed', completed_at = now()
 WHERE id = $1 AND task_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors
 `
 
 type SubmitCardParams struct {
@@ -205,6 +241,7 @@ func (q *Queries) SubmitCard(ctx context.Context, arg SubmitCardParams) (CardIns
 		&i.RubricTags,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.Anchors,
 	)
 	return i, err
 }

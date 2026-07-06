@@ -22,6 +22,7 @@ type CardInstance struct {
 	RubricTags   []string           `json:"rubric_tags"`
 	CreatedAt    time.Time          `json:"created_at"`
 	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
+	Anchors      []byte             `json:"anchors"`
 }
 
 type Class struct {
