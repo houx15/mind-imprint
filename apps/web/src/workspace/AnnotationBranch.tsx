@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Anchor, CardInstance, CardSpec } from "@mind-imprint/contracts";
 import { envelopeReducer } from "../cards/envelopeReducer";
 
@@ -13,6 +13,15 @@ export function AnnotationBranch({
   const [anchors, setAnchors] = useState<Anchor[]>(card.anchors);
   const [asking, setAsking] = useState(false);
   const [ownQ, setOwnQ] = useState("");
+
+  // AI anchors are generated at summon time but reach the client asynchronously
+  // (via activateCard, after this component has mounted). Seed local state once
+  // they land — the functional guard prevents overwriting any edits already made.
+  useEffect(() => {
+    if (card.anchors.length > 0) {
+      setAnchors((prev) => (prev.length === 0 ? card.anchors : prev));
+    }
+  }, [card.anchors]);
 
   function setAnswer(i: number, answer: string) {
     setAnchors((prev) => prev.map((a, idx) => (idx === i ? { ...a, answer } : a)));

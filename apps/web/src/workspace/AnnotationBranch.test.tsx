@@ -47,4 +47,11 @@ describe("AnnotationBranch", () => {
     fireEvent.click(screen.getByText("收起"));
     expect(onClose).toHaveBeenCalledWith("c1");
   });
+
+  it("renders anchors that arrive asynchronously after mount", () => {
+    const { rerender } = render(<AnnotationBranch card={cardWith([])} spec={spec} onSubmit={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.queryByText("这处「美航局发现」——转载者是权威吗？")).toBeNull();
+    rerender(<AnnotationBranch card={cardWith([aiAnchor])} spec={spec} onSubmit={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText("这处「美航局发现」——转载者是权威吗？")).toBeInTheDocument();
+  });
 });
