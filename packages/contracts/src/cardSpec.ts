@@ -32,6 +32,7 @@ export const CardSpec = z.object({
   trigger_condition: z.string(),
   steps: z.array(Step).min(1),
   rubric_tags: z.array(z.string()),
+  mode: z.enum(["annotation", "form"]).default("form"),
   // routing metadata (library frontmatter) — additive, optional
   name_en: z.string().optional(),
   priority: Priority.optional(),

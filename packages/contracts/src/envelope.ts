@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Anchor } from "./anchor";
 
 export const TraceEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("field_change"), path: z.string(), at: z.string() }),
@@ -18,6 +19,7 @@ export const CardInstance = z.object({
   status: CardStatus,
   field_values: z.record(z.unknown()),
   event_trace: z.array(TraceEvent),
+  anchors: z.array(Anchor).default([]),
   rubric_tags: z.array(z.string()),
   created_at: z.string(),
   completed_at: z.string().nullable(),
