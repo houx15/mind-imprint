@@ -1,9 +1,7 @@
-// LEFT RAIL — lifted verbatim from docs/design/思维印记_工作区.dc.html lines 104–141
-// Logo SVG: lines 106–115
-// Nav items: 任务 117–122 (icon 119), 记录 124–129 (icon 126), 设置 131–136 (icon 133)
-// Avatar dot: 138–140
+// LEFT RAIL — four pillars per binding design 思维印记 工作区.dc.html (left-rail section).
+// Tabs: 课程 (courses) / 批判思维 (tasks portal) / 我的评估 (records) / 设置 (settings).
 
-type TabKey = "tasks" | "records" | "settings";
+type TabKey = "courses" | "tasks" | "records" | "settings";
 
 interface NavItem {
   key: TabKey;
@@ -13,62 +11,40 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    key: "tasks",
-    label: "任务",
-    // icon lifted from HTML line 119
+    key: "courses",
+    label: "课程",
     icon: (stroke) => (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 014 20.5z" />
+        <path d="M20 18v3H6.5A2.5 2.5 0 014 18.5" />
+        <path d="M9 7.5h7M9 11h5" />
+      </svg>
+    ),
+  },
+  {
+    key: "tasks",
+    label: "批判思维",
+    icon: (stroke) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z" />
       </svg>
     ),
   },
   {
     key: "records",
-    label: "记录",
-    // icon lifted from HTML line 126
+    label: "我的评估",
     icon: (stroke) => (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 19.5V5a2 2 0 012-2h12a1 1 0 011 1v15a1 1 0 01-1 1H6.5A2.5 2.5 0 014 18.5" />
-        <path d="M9 7h6M9 11h4" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20V10M6 20v-5M18 20V6" />
+        <path d="M3 20h18" />
       </svg>
     ),
   },
   {
     key: "settings",
     label: "设置",
-    // icon lifted from HTML line 133
     icon: (stroke) => (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
       </svg>
