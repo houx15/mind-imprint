@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "课程",
     icon: (stroke) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 014 20.5z" />
+        <path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5z" />
         <path d="M20 18v3H6.5A2.5 2.5 0 014 18.5" />
         <path d="M9 7.5h7M9 11h5" />
       </svg>

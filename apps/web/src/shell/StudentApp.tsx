@@ -8,7 +8,7 @@ import { WorkspaceContainer } from "./WorkspaceContainer";
 import { RecordsView } from "./records/RecordsView";
 import { SettingsView } from "./settings/SettingsView";
 
-type Tab = "tasks" | "records" | "settings";
+type Tab = "courses" | "tasks" | "records" | "settings";
 type TaskView = "directory" | "workspace";
 
 export function StudentApp({
