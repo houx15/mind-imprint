@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { Anchor } from "@mind-imprint/contracts";
 import type { ProcessNode } from "./processTree";
@@ -11,9 +11,14 @@ const MAX_W = 640;
 
 export function RightPanel({ nodes = [], taskId, seedUrl, anchors }: { nodes?: ProcessNode[]; taskId: string; seedUrl: string | null; anchors?: Anchor[] }) {
   const [open, setOpen] = useState(true);
-  const [tab, setTab] = useState<Tab>(anchors && anchors.length ? "material" : "tree");
+  const [tab, setTab] = useState<Tab>("tree");
   const [width, setWidth] = useState(360);
   const drag = useRef<{ startX: number; startW: number } | null>(null);
+
+  const hasAnchors = !!(anchors && anchors.length > 0);
+  useEffect(() => {
+    if (hasAnchors) setTab("material");
+  }, [hasAnchors]);
 
   function onDragStart(e: ReactMouseEvent) {
     drag.current = { startX: e.clientX, startW: width };
