@@ -1,4 +1,4 @@
-import type { Task, CardInstance, Evaluation, TraceEvent } from "@mind-imprint/contracts";
+import type { Task, CardInstance, Evaluation, TraceEvent, Material } from "@mind-imprint/contracts";
 import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
 import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
@@ -12,9 +12,11 @@ import {
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
+import { listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch, MaterialFetchError } from "./materials";
 
 export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult };
 export { ApiError } from "./client";
+export { MaterialFetchError } from "./materials";
 
 export interface ApiClient {
   listTasks(): Promise<Task[]>;
@@ -44,6 +46,10 @@ export interface ApiClient {
   listTeachers(): Promise<Teacher[]>;
   assignTeacher(classId: string, teacherUserId: string): Promise<{ teachers: Teacher[] }>;
   removeTeacher(classId: string, userId: string): Promise<void>;
+  listMaterials(taskId: string): Promise<Material[]>;
+  createMaterial(taskId: string, input: { kind: "article" | "draft"; title: string; text: string }): Promise<Material>;
+  fetchMaterialFromSeed(taskId: string): Promise<Material>;
+  saveScratch(taskId: string, materialId: string, scratch: string): Promise<Material>;
 }
 
 export const api: ApiClient = {
@@ -51,4 +57,5 @@ export const api: ApiClient = {
   signup, verifyEmail, signin, signout, getMe,
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
+  listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch,
 };
