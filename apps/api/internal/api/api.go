@@ -16,6 +16,12 @@ type Enqueuer interface {
 	EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error
 }
 
+// Fetcher retrieves readable text from a URL. materialize.HTTPFetcher is the
+// production impl; tests inject a fake.
+type Fetcher interface {
+	FetchReadable(ctx context.Context, url string) (title, text string, err error)
+}
+
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
 	Queries      *sqlc.Queries
@@ -27,6 +33,7 @@ type Deps struct {
 	Pool         TxBeginner // for multi-statement transactions (signup)
 	CookieSecure bool       // Secure flag on the session cookie
 	Enqueuer     Enqueuer   // enqueues async evaluation jobs
+	Fetcher      Fetcher    // fetches material text from a seed URL
 }
 
 // API holds the handler dependencies.
@@ -59,6 +66,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/tasks/{id}/turn", protected(a.postTurn))
 	mux.Handle("POST /api/v1/tasks/{id}/evaluate", protected(a.postEvaluate))
 	mux.Handle("GET /api/v1/tasks/{id}/evaluation", protected(a.getEvaluation))
+	mux.Handle("GET /api/v1/tasks/{id}/materials", protected(a.listMaterials))
+	mux.Handle("POST /api/v1/tasks/{id}/materials", protected(a.createMaterial))
+	mux.Handle("POST /api/v1/tasks/{id}/materials/from-seed", protected(a.materialFromSeed))
+	mux.Handle("PUT /api/v1/tasks/{id}/materials/{mid}/scratch", protected(a.updateMaterialScratch))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {

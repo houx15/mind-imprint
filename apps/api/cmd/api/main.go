@@ -19,6 +19,7 @@ import (
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -117,6 +118,7 @@ func main() {
 		Pool:         pool,
 		CookieSecure: cfg.CookieSecure,
 		Enqueuer:     riverEnqueuer{c: riverClient},
+		Fetcher:      materialize.NewFetcher(),
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
