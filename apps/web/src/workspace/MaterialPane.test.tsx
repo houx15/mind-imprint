@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Material } from "@mind-imprint/contracts";
@@ -56,5 +57,27 @@ describe("MaterialPane", () => {
     render(<MaterialPane taskId="t1" seedUrl={null} />);
     expect(await screen.findByPlaceholderText(/把材料贴进来/)).toBeInTheDocument();
     expect(api.fetchMaterialFromSeed).not.toHaveBeenCalled();
+  });
+
+  it("renders under StrictMode without hanging", async () => {
+    (api.listMaterials as any).mockResolvedValue([article]);
+    render(
+      <React.StrictMode>
+        <MaterialPane taskId="t1" seedUrl="https://x" />
+      </React.StrictMode>,
+    );
+    expect(await screen.findByText("第一段。")).toBeInTheDocument();
+  });
+
+  it("fetches from seed at most once under StrictMode", async () => {
+    (api.listMaterials as any).mockResolvedValue([]);
+    (api.fetchMaterialFromSeed as any).mockResolvedValue(article);
+    render(
+      <React.StrictMode>
+        <MaterialPane taskId="t1" seedUrl="https://x" />
+      </React.StrictMode>,
+    );
+    expect(await screen.findByText("第一段。")).toBeInTheDocument();
+    expect(api.fetchMaterialFromSeed).toHaveBeenCalledTimes(1);
   });
 });

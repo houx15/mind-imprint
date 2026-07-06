@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Material } from "@mind-imprint/contracts";
-import { api, MaterialFetchError } from "../api";
+import { api } from "../api";
 
 type Phase = "loading" | "ready" | "paste";
 
@@ -15,11 +15,9 @@ export function MaterialPane({ taskId, seedUrl }: { taskId: string; seedUrl: str
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    let cancelled = false;
     void (async () => {
       try {
         const existing = await api.listMaterials(taskId);
-        if (cancelled) return;
         if (existing.length > 0) {
           setMaterials(existing);
           setActiveId(existing[0]!.id);
@@ -32,24 +30,16 @@ export function MaterialPane({ taskId, seedUrl }: { taskId: string; seedUrl: str
         }
         try {
           const m = await api.fetchMaterialFromSeed(taskId);
-          if (cancelled) return;
           setMaterials([m]);
           setActiveId(m.id);
           setPhase("ready");
-        } catch (e) {
-          if (cancelled) return;
-          if (!(e instanceof MaterialFetchError)) {
-            // Non-fetch errors also degrade to paste (never a blocking error).
-          }
+        } catch {
           setPhase("paste");
         }
       } catch {
-        if (!cancelled) setPhase("paste");
+        setPhase("paste");
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [taskId, seedUrl]);
 
   async function submitPaste() {
@@ -90,7 +80,7 @@ export function MaterialPane({ taskId, seedUrl }: { taskId: string; seedUrl: str
           })}
           <button
             type="button"
-            onClick={() => setPhase("paste")}
+            onClick={() => { setPasteTitle(""); setPasteText(""); setPhase("paste"); }}
             style={{ flex: "none", padding: "7px 11px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit", color: "#9AA1B0", background: "#fff", border: "1px dashed #E1E4ED" }}
           >
             ＋ 加材料
