@@ -84,7 +84,7 @@ export const modulesIntro: { eyebrow: Bilingual; title: Bilingual; sub: Bilingua
   title: { zh: "六个模块,分成两条主线。", en: "Six modules, along two main threads." },
   sub: {
     zh: "一条是「思辨」——怎么找信息、怎么判断、怎么把一个问题想清楚,对应前五个模块;一条是「产品思维」——从一个真实问题出发,和 AI 一起动手做出点东西,对应最后一个模块。下面每个模块里都有很多具体的课,挑几个例子给你看看孩子会讨论什么。",
-    en: "One thread is critical thinking (思辨) — how to find information, judge it, and think a question all the way through, covered by the first five modules. The other is product thinking (产品思维) — starting from a real problem and building something with AI, covered by the last module. Each module below holds many specific lessons; here are a few examples of what kids actually discuss.",
+    en: "One thread is critical thinking — how to find information, judge it, and think a question all the way through, covered by the first five modules. The other is product thinking — starting from a real problem and building something with AI, covered by the last module. Each module below holds many specific lessons; here are a few examples of what kids actually discuss.",
   },
 };
 

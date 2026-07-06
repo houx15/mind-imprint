@@ -338,7 +338,7 @@ export const closing: {
       href: "/coaching",
     },
     {
-      name: { zh: "课程", en: "Academy" },
+      name: { zh: "课程", en: "Courses" },
       body: { zh: "业余时间、全程在线的课程项目。", en: "Part-time, fully online course programs." },
       href: "/academy",
     },
