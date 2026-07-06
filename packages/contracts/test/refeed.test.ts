@@ -8,7 +8,7 @@ const sift = CARD_REGISTRY.sift_craap!;
 function inst(status: CardInstance["status"], field_values: Record<string, unknown>): CardInstance {
   return {
     id: "ci_1", card_id: "sift_craap", task_id: "t_1", parent_node_id: null,
-    status, field_values, event_trace: [], rubric_tags: [],
+    status, field_values, event_trace: [], rubric_tags: [], anchors: [],
     created_at: "2026-06-21T10:00:00.000Z", completed_at: null,
   };
 }
