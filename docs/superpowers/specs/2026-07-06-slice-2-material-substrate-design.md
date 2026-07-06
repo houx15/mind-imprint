@@ -71,7 +71,7 @@ A dedicated package, unit-testable without a task/DB. The material handler depen
 - `http.Client` with `Timeout: 8s`; `CheckRedirect` caps redirects at 3 and re-runs the host/IP guard on each hop.
 - Custom `Transport.DialContext`: after DNS resolution, reject if **any** resolved IP is loopback (`127.0.0.0/8`, `::1`), private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`), link-local (`169.254.0.0/16`, `fe80::/10`) — this covers the `169.254.169.254` cloud-metadata address — unspecified (`0.0.0.0`, `::`), or not global-unicast → reason `blocked`. Guard at **dial time** (post-DNS) to defeat DNS-rebinding.
 - Response: require `Content-Type` `text/html` or `text/plain` (else `unsupported_content`); read through `io.LimitReader` at 2 MB (exceed → `too_large`); set a `User-Agent`.
-- Extract with `github.com/go-shiori/go-readability` (pure Go, no CGO). Use the extracted title + text content. (New Go dependency — add to `go.mod`.)
+- Extract with a **minimal internal extractor on `golang.org/x/net/html`** (already in the module graph as a transitive dep — no new external download, build-robust): parse the HTML, take `<title>`, and collect text from block elements (`p`, `h1`–`h3`, `li`, `blockquote`) while skipping `script`/`style`/`nav`/`header`/`footer`/`aside`/`noscript`. `text/plain` responses skip parsing and use the body verbatim. (Chosen over `go-shiori/go-readability` to avoid a new external dependency whose download couldn't be verified in this environment; the spec's sanctioned fallback.)
 
 ### 3.2 Segmentation (`internal/materialize/segment.go`)
 
@@ -107,6 +107,6 @@ Anchors / highlights / AI-generated questions / inline card branches (Slice 3); 
 
 ## 9. Risks / notes
 
-- `go-readability` is a new dependency; if the team prefers zero new deps, a minimal internal `<p>`-extractor is the fallback (lower quality). Recommendation stands: use `go-readability`.
+- Extraction uses a minimal internal `x/net/html` extractor (see §3.1) rather than `go-readability`, to avoid a new external dependency whose proxy availability couldn't be confirmed. Quality is lower than a full readability library but adequate for the substrate; revisitable later.
 - Server-side fetch is the one security-sensitive addition — the SSRF guard and size/time caps are load-bearing and must be tested directly.
 - Slice 2 is larger than Slice 1 (backend + frontend). If the plan's task list runs long, the natural split is **2a backend (contract + Go + fetch)** then **2b frontend (sidebar + pane)** — but it remains one spec.
