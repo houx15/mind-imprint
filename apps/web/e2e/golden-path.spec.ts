@@ -42,10 +42,10 @@ test("golden path: admin → teacher → student → evaluation → signals", as
 
   // 4. Student registers with the join code → lands on the workspace.
   await registerWithCode(page, { name: "E2E Phoebe", email: studentEmail, password: "e2e-pass-12345", code: joinCode });
-  await expect(page.getByRole("tab", { name: "任务" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "批判思维" })).toBeVisible();
 
   // 5. Student runs the Phoebe task (LIVE MODEL).
-  await page.getByRole("tab", { name: "任务" }).click();
+  await page.getByRole("tab", { name: "批判思维" }).click();
   await expect(page.getByText("你想搞懂什么？")).toBeVisible();
   await page
     .getByPlaceholder("开一个新项目——把你正纠结的问题写下来，带上你自己的东西（链接、草稿、本子上的话）。")

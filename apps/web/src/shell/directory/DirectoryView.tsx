@@ -54,7 +54,7 @@ export function DirectoryView({
           每一个项目是你正在思考的一件事——可以随时离开，回来接着想。想搞懂新的东西时，开一个新项目。
         </div>
 
-        {/* new task entry */}
+        {/* new project entry */}
         <div
           style={{
             marginTop: 22,
