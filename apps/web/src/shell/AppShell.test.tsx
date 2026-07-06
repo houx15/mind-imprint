@@ -26,7 +26,7 @@ describe("AppShell boot gate", () => {
     const session = createSession({ storage: mem() });
     const client = { getMe: vi.fn(async () => ME), signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn() };
     render(<AppShell store={store} session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getByText("今天你在尝试什么？")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("你想搞懂什么？")).toBeInTheDocument());
   });
 
   it("shows AuthScreen when getMe rejects (401)", async () => {
@@ -82,7 +82,7 @@ describe("AppShell demo trial (?trial=1)", () => {
       signin, signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn(),
     };
     render(<AppShell store={store} session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getByText("今天你在尝试什么？")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("你想搞懂什么？")).toBeInTheDocument());
     expect(signin).toHaveBeenCalledWith({ email: "phoebe@demo.mindimprint.local", password: "phoebe-dev-pass" });
   });
 

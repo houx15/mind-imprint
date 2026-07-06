@@ -6,10 +6,12 @@ import { taskCardView } from "./taskCardView";
 export function DirectoryView({
   store,
   onOpenTask,
+  userName,
   now,
 }: {
   store: Store;
   onOpenTask: (taskId: string, openingText?: string) => void;
+  userName?: string;
   now?: () => Date;
 }) {
   const _now = now ?? (() => new Date());
@@ -34,7 +36,9 @@ export function DirectoryView({
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
-        <div style={{ fontSize: 13, color: "#8A92A3", fontWeight: 600 }}>下午好，Phoebe</div>
+        <div style={{ fontSize: 13, color: "#8A92A3", fontWeight: 600 }}>
+          下午好，{userName ?? "Phoebe"} · 批判思维工作台
+        </div>
         <div
           style={{
             fontSize: 28,
@@ -44,10 +48,10 @@ export function DirectoryView({
             letterSpacing: "-0.01em",
           }}
         >
-          今天你在尝试什么？
+          你想搞懂什么？
         </div>
-        <div style={{ fontSize: 15, color: "#6B7384", fontWeight: 500, marginTop: 8, lineHeight: 1.6 }}>
-          你有任何想讨论的作业、课题、信息、资料，都可以来找我哦
+        <div style={{ fontSize: 14, color: "#6B7384", marginTop: 8, lineHeight: 1.6, maxWidth: 560 }}>
+          每一个项目是你正在思考的一件事——可以随时离开，回来接着想。想搞懂新的东西时，开一个新项目。
         </div>
 
         {/* new task entry */}
@@ -81,7 +85,7 @@ export function DirectoryView({
             <circle cx="39" cy="9" r="4.5" fill="#E8A33D" />
           </svg>
           <input
-            placeholder="把你正在纠结的问题写下来——带上你自己的东西（链接、草稿、本子上的话）。"
+            placeholder="开一个新项目——把你正纠结的问题写下来，带上你自己的东西（链接、草稿、本子上的话）。"
             style={{
               flex: 1,
               border: "none",
@@ -111,7 +115,7 @@ export function DirectoryView({
               fontFamily: "inherit",
             }}
           >
-            开始
+            开新项目
             <svg
               width="15"
               height="15"
@@ -135,8 +139,8 @@ export function DirectoryView({
             margin: "34px 0 16px",
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>进行中的任务</div>
-          <div style={{ fontSize: 13, color: "#9AA1B0", fontWeight: 600 }}>{taskCount} 个任务</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>进行中的项目</div>
+          <div style={{ fontSize: 13, color: "#9AA1B0", fontWeight: 600 }}>{taskCount} 个项目</div>
         </div>
 
         <div
@@ -226,6 +230,11 @@ export function DirectoryView({
             );
           })}
         </div>
+        {taskCount === 0 && (
+          <div style={{ fontSize: 13, color: "#9AA1B0", marginTop: 14 }}>
+            还没有项目，从上面开一个吧。
+          </div>
+        )}
       </div>
     </div>
   );

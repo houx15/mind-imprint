@@ -46,9 +46,9 @@ test("golden path: admin → teacher → student → evaluation → signals", as
 
   // 5. Student runs the Phoebe task (LIVE MODEL).
   await page.getByRole("tab", { name: "任务" }).click();
-  await expect(page.getByText("今天你在尝试什么？")).toBeVisible();
+  await expect(page.getByText("你想搞懂什么？")).toBeVisible();
   await page
-    .getByPlaceholder("把你正在纠结的问题写下来——带上你自己的东西（链接、草稿、本子上的话）。")
+    .getByPlaceholder("开一个新项目——把你正纠结的问题写下来，带上你自己的东西（链接、草稿、本子上的话）。")
     .fill("我在写 TOK：中国是否让地球更可持续？我找到一篇文章链接，想判断它可不可信再用。https://example.com/china-sustainability");
   await page.getByRole("button", { name: "开始" }).click();
 
