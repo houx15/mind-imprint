@@ -126,6 +126,7 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 		Catalog:     a.d.Catalog,
 		SpecByID:    a.d.SpecByID,
 		SSE:         em,
+		AnchorGen:   agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver),
 	}
 	if err := agent.RunTurn(r.Context(), deps, t.ID, body.UserInput); err != nil {
 		// Stream already open: report via SSE error event. Log the real cause

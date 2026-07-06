@@ -2,6 +2,7 @@ package agent_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -206,6 +207,44 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 	// (non-NULL) in the persisted assistant message.
 	if !asst.CostEstimate.Valid {
 		t.Fatalf("assistant CostEstimate not persisted (want Valid=true, got %+v)", asst.CostEstimate)
+	}
+}
+
+type fakeAnchorGen struct{ anchors []agent.Anchor }
+
+func (f fakeAnchorGen) Generate(_ context.Context, _ cards.Spec, _ []agent.Material) ([]agent.Anchor, error) {
+	return f.anchors, nil
+}
+
+func TestRunTurnWritesAnchorsForAnnotationCard(t *testing.T) {
+	store := &fakeTurnStore{
+		materials: []agent.Material{{ID: "m1", Title: "T", Blocks: []agent.MaterialBlock{{ID: "b0", Text: "原句。"}}}},
+	}
+	spec := cards.Spec{ID: "sift_craap", Name: "CRAAP", Mode: "annotation", Steps: []cards.Step{{Key: "a", Title: "权威性"}}}
+	stub := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "先核查来源。"},
+		{Kind: gateway.EventToolUse, ToolUse: &gateway.StreamToolUse{ID: "t1", Name: "summon_card", ArgsJSON: `{"card_id":"sift_craap","reason":"r","nudge_text":"n"}`}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopToolCall},
+	})
+	deps := agent.TurnDeps{
+		Store:       store,
+		Provider:    stub,
+		KeyResolver: func(context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil },
+		Catalog:     []cards.Spec{spec},
+		SpecByID: func(id string) (cards.Spec, bool) {
+			if id == "sift_craap" {
+				return spec, true
+			}
+			return cards.Spec{}, false
+		},
+		SSE:       &fakeSSE{},
+		AnchorGen: fakeAnchorGen{anchors: []agent.Anchor{{ID: "a0", BlockID: "b0", Dimension: "权威性", Author: "ai", Question: "可信吗？"}}},
+	}
+	if err := agent.RunTurn(context.Background(), deps, uuid.New(), "看看这个"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(store.anchorsWritten), "可信吗？") {
+		t.Fatalf("anchors not persisted: %s", store.anchorsWritten)
 	}
 }
 

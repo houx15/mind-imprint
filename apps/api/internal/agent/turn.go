@@ -56,6 +56,7 @@ type TurnDeps struct {
 	Catalog     []cards.Spec
 	SpecByID    func(id string) (cards.Spec, bool)
 	SSE         SSEEmitter
+	AnchorGen   AnchorGenerator
 }
 
 // RunTurn runs one model turn: append the user message, build history + system
@@ -80,6 +81,10 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 	}
 
 	systemPrompt := BuildSystemPrompt(deps.Catalog)
+	materials, _ := deps.Store.ListMaterials(ctx, taskID)
+	if mc := BuildMaterialContext(materials); mc != "" {
+		systemPrompt = systemPrompt + "\n\n" + mc
+	}
 	llmMessages := BuildLlmMessages(BuildLlmMessagesOptions{
 		SystemPrompt: systemPrompt,
 		Messages:     history,
@@ -150,6 +155,15 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 				cardInstanceID, err := deps.Store.CreateProposedCard(ctx, taskID, args.CardID)
 				if err != nil {
 					return err
+				}
+				spec, _ := deps.SpecByID(args.CardID)
+				if spec.Mode == "annotation" && deps.AnchorGen != nil {
+					anchors, gerr := deps.AnchorGen.Generate(ctx, spec, materials)
+					if gerr == nil && len(anchors) > 0 {
+						if raw, merr := json.Marshal(anchors); merr == nil {
+							_ = deps.Store.SetCardAnchors(ctx, cardInstanceID, taskID, raw)
+						}
+					}
 				}
 				call := &SummonCardCall{
 					ID:             firstTool.ID,
