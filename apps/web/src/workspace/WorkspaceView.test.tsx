@@ -570,6 +570,9 @@ describe("WorkspaceView", () => {
   });
 
   describe("CardSheetHost", () => {
+    // sift_craap (the makeCardInstance default) is an annotation-mode card, which
+    // renders inline via AnnotationBranch (see below) rather than CardSheetHost.
+    // These tests use "craap" — a form-mode card — to exercise the CardSheetHost path.
     it("does NOT show the bottom sheet when phase is idle", () => {
       const store = makeStore();
       const conv = makeConversation("idle");
@@ -577,8 +580,8 @@ describe("WorkspaceView", () => {
       expect(screen.queryByText("现在轮到你想")).not.toBeInTheDocument();
     });
 
-    it("shows the bottom sheet when phase is card_active with an active card instance", () => {
-      const cards = [makeCardInstance({ status: "active" })];
+    it("shows the bottom sheet when phase is card_active with an active form-mode card instance", () => {
+      const cards = [makeCardInstance({ card_id: "craap", status: "active" })];
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
@@ -586,31 +589,67 @@ describe("WorkspaceView", () => {
     });
 
     it("shows the card name in the bottom sheet header", () => {
-      const cards = [makeCardInstance({ status: "active" })];
+      const cards = [makeCardInstance({ card_id: "craap", status: "active" })];
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      // The card name from CARD_REGISTRY for sift_craap appears — may appear in both
+      // The card name from CARD_REGISTRY for craap appears — may appear in both
       // the tree panel and the card sheet header, so allow multiple matches.
-      expect(screen.getAllByText("SIFT×CRAAP 信息核查").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("信源辨识卡 CRAAP / CRRAAB").length).toBeGreaterThan(0);
     });
 
     it("mounts the CardRenderer — a known field label from the active card appears", () => {
-      const cards = [makeCardInstance({ status: "active" })];
+      const cards = [makeCardInstance({ card_id: "craap", status: "active" })];
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      // SIFT×CRAAP has a step title rendered by CardRenderer
-      expect(screen.getByText("SIFT · 横向找更多来源")).toBeInTheDocument();
+      // craap has a step title rendered by CardRenderer
+      expect(screen.getByText("C · Currency 时效性")).toBeInTheDocument();
     });
 
     it("calls conversation.closeCard when the bottom sheet close button is clicked", async () => {
-      const cards = [makeCardInstance({ status: "active" })];
+      const cards = [makeCardInstance({ card_id: "craap", status: "active" })];
       const store = makeStore({ cards });
       const conv = makeConversation("card_active", "ci-sift");
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
       const closeBtn = screen.getByRole("button", { name: /关闭/ });
       await userEvent.click(closeBtn);
+      expect(conv.closeCard).toHaveBeenCalledWith("ci-sift");
+    });
+  });
+
+  describe("AnnotationBranch (inline, annotation-mode cards)", () => {
+    it("renders AnnotationBranch inline instead of the CardSheetHost bottom sheet", () => {
+      // makeCardInstance defaults to card_id "sift_craap", an annotation-mode card.
+      const cards = [makeCardInstance({ status: "active" })];
+      const store = makeStore({ cards });
+      const conv = makeConversation("card_active", "ci-sift");
+      render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
+      expect(screen.queryByText("现在轮到你想")).not.toBeInTheDocument();
+      expect(screen.getByText(/工具卡 · 对话分支/)).toBeInTheDocument();
+    });
+
+    it("passes the active card's anchors to the material pane", async () => {
+      const anchor = {
+        id: "a0", material_id: "m1", block_id: "b0", start: 0, end: 0,
+        quote: "示例引文", dimension: "权威性", author: "ai" as const, question: "可信吗？", answer: "",
+      };
+      const cards = [makeCardInstance({ status: "active", anchors: [anchor] })];
+      const store = makeStore({ cards });
+      const conv = makeConversation("card_active", "ci-sift");
+      render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
+      // The 材料 tab defaults active when anchors are present, and the anchor's
+      // question surfaces inline via AnnotationBranch.
+      expect(screen.getByRole("tab", { name: "材料" })).toHaveAttribute("aria-selected", "true");
+      expect(await screen.findByText("可信吗？")).toBeInTheDocument();
+    });
+
+    it("calls conversation.closeCard when the inline branch's 收起 button is clicked", async () => {
+      const cards = [makeCardInstance({ status: "active" })];
+      const store = makeStore({ cards });
+      const conv = makeConversation("card_active", "ci-sift");
+      render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: "收起" }));
       expect(conv.closeCard).toHaveBeenCalledWith("ci-sift");
     });
   });

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { Material } from "@mind-imprint/contracts";
+import type { ReactNode } from "react";
+import type { Material, Anchor } from "@mind-imprint/contracts";
 import { api } from "../api";
 
 type Phase = "loading" | "ready" | "paste";
 
-export function MaterialPane({ taskId, seedUrl }: { taskId: string; seedUrl: string | null }) {
+export function MaterialPane({ taskId, seedUrl, anchors = [] }: { taskId: string; seedUrl: string | null; anchors?: Anchor[] }) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -119,13 +120,41 @@ export function MaterialPane({ taskId, seedUrl }: { taskId: string; seedUrl: str
           </div>
         )}
 
-        {phase === "ready" && active && <MaterialBody key={active.id} taskId={taskId} material={active} />}
+        {phase === "ready" && active && <MaterialBody key={active.id} taskId={taskId} material={active} anchors={anchors} />}
       </div>
     </div>
   );
 }
 
-function MaterialBody({ taskId, material }: { taskId: string; material: Material }) {
+function renderBlock(text: string, quotes: string[]): ReactNode {
+  if (quotes.length === 0) return text;
+  // Highlight the first occurrence of each distinct quote.
+  const marks = Array.from(new Set(quotes.filter(Boolean)));
+  type Seg = { text: string; hl: boolean };
+  let segs: Seg[] = [{ text, hl: false }];
+  for (const q of marks) {
+    const next: Seg[] = [];
+    for (const s of segs) {
+      if (s.hl) { next.push(s); continue; }
+      const idx = s.text.indexOf(q);
+      if (idx < 0) { next.push(s); continue; }
+      if (idx > 0) next.push({ text: s.text.slice(0, idx), hl: false });
+      next.push({ text: q, hl: true });
+      const rest = s.text.slice(idx + q.length);
+      if (rest) next.push({ text: rest, hl: false });
+    }
+    segs = next;
+  }
+  return segs.map((s, i) =>
+    s.hl ? (
+      <mark key={i} style={{ background: "#F0ECF8", color: "#1C2333", borderBottom: "2px solid #7C6BB5", borderRadius: 3, padding: "1px 2px" }}>{s.text}</mark>
+    ) : (
+      <span key={i}>{s.text}</span>
+    ),
+  );
+}
+
+function MaterialBody({ taskId, material, anchors }: { taskId: string; material: Material; anchors: Anchor[] }) {
   const [scratch, setScratch] = useState(material.scratch);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,11 +171,14 @@ function MaterialBody({ taskId, material }: { taskId: string; material: Material
       <div style={{ background: "#fff", border: "1px solid #ECEEF3", borderRadius: 14, padding: "20px 22px" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: "#1C2333", lineHeight: 1.5 }}>{material.title}</div>
         <div style={{ marginTop: 14 }}>
-          {material.blocks.map((b) => (
-            <p key={b.id} style={{ fontSize: 15, lineHeight: 2.1, color: "#2B3346", margin: "0 0 14px" }}>
-              {b.text}
-            </p>
-          ))}
+          {material.blocks.map((b) => {
+            const quotes = anchors.filter((a) => a.block_id === b.id).map((a) => a.quote);
+            return (
+              <p key={b.id} style={{ fontSize: 15, lineHeight: 2.1, color: "#2B3346", margin: "0 0 14px" }}>
+                {renderBlock(b.text, quotes)}
+              </p>
+            );
+          })}
         </div>
       </div>
       <div style={{ marginTop: 14, background: "#FBF7EF", border: "1px solid #F0E6D2", borderRadius: 12, padding: "13px 15px" }}>

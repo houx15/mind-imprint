@@ -9,6 +9,7 @@ import { ChatLog } from "./ChatLog";
 import { Composer } from "./Composer";
 import { RightPanel } from "./RightPanel";
 import { CardSheetHost } from "./CardSheetHost";
+import { AnnotationBranch } from "./AnnotationBranch";
 import { EvalLoading } from "./EvalLoading";
 import { EvalModal } from "./EvalModal";
 import { MindImprintIndicator } from "./MindImprintIndicator";
@@ -252,13 +253,22 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
             onSend={(text) => void conversation.send(text)}
             disabled={phase === "awaiting_llm"}
           />
+
+          {phase === "card_active" && activeCard && activeSpec?.mode === "annotation" && (
+            <AnnotationBranch
+              card={activeCard}
+              spec={activeSpec}
+              onSubmit={(id, final) => void conversation.submitCard(id, final)}
+              onClose={(id) => conversation.closeCard(id)}
+            />
+          )}
         </div>
 
         {/* Right panel: 材料 / 过程树 */}
-        <RightPanel nodes={treeNodes} taskId={taskId} seedUrl={task?.seed ?? null} />
+        <RightPanel nodes={treeNodes} taskId={taskId} seedUrl={task?.seed ?? null} anchors={activeCard?.anchors} />
 
-        {/* Bottom sheet — only when card_active */}
-        {phase === "card_active" && activeCard && activeSpec && (
+        {/* Bottom sheet — only when card_active and not an inline annotation card */}
+        {phase === "card_active" && activeCard && activeSpec && activeSpec.mode !== "annotation" && (
           <CardSheetHost
             cardInstance={activeCard}
             spec={activeSpec}

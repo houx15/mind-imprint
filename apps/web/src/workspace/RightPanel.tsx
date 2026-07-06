@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type { Anchor } from "@mind-imprint/contracts";
 import type { ProcessNode } from "./processTree";
 import { TreeBody } from "./TreeBody";
 import { MaterialPane } from "./MaterialPane";
@@ -8,9 +9,9 @@ type Tab = "material" | "tree";
 const MIN_W = 320;
 const MAX_W = 640;
 
-export function RightPanel({ nodes = [], taskId, seedUrl }: { nodes?: ProcessNode[]; taskId: string; seedUrl: string | null }) {
+export function RightPanel({ nodes = [], taskId, seedUrl, anchors }: { nodes?: ProcessNode[]; taskId: string; seedUrl: string | null; anchors?: Anchor[] }) {
   const [open, setOpen] = useState(true);
-  const [tab, setTab] = useState<Tab>("tree");
+  const [tab, setTab] = useState<Tab>(anchors && anchors.length ? "material" : "tree");
   const [width, setWidth] = useState(360);
   const drag = useRef<{ startX: number; startW: number } | null>(null);
 
@@ -67,7 +68,7 @@ export function RightPanel({ nodes = [], taskId, seedUrl }: { nodes?: ProcessNod
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
           </button>
         </div>
-        {tab === "tree" ? <TreeBody nodes={nodes} /> : <MaterialPane taskId={taskId} seedUrl={seedUrl} />}
+        {tab === "tree" ? <TreeBody nodes={nodes} /> : <MaterialPane taskId={taskId} seedUrl={seedUrl} anchors={anchors} />}
       </div>
     </>
   );
