@@ -7,7 +7,7 @@ import type { Evaluator } from "../agent/createEvaluator";
 import { useEvaluator } from "../agent/useEvaluator";
 import { ChatLog } from "./ChatLog";
 import { Composer } from "./Composer";
-import { TreePanel } from "./TreePanel";
+import { RightPanel } from "./RightPanel";
 import { CardSheetHost } from "./CardSheetHost";
 import { EvalLoading } from "./EvalLoading";
 import { EvalModal } from "./EvalModal";
@@ -32,7 +32,6 @@ const NOOP_EVALUATOR: Evaluator = {
 };
 
 export function WorkspaceView({ store, conversation, taskId, onBack, evaluator = NOOP_EVALUATOR }: Props) {
-  const [treeOpen, setTreeOpen] = useState(true);
   const [showEvalModal, setShowEvalModal] = useState(false);
 
   // Subscribe to store state
@@ -255,8 +254,8 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
           />
         </div>
 
-        {/* Tree panel */}
-        <TreePanel open={treeOpen} onToggle={() => setTreeOpen((v) => !v)} nodes={treeNodes} />
+        {/* Right panel: 材料 / 过程树 */}
+        <RightPanel nodes={treeNodes} taskId={taskId} seedUrl={task?.seed ?? null} />
 
         {/* Bottom sheet — only when card_active */}
         {phase === "card_active" && activeCard && activeSpec && (

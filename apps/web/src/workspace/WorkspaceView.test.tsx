@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+vi.mock("../api", async (orig) => {
+  const real = await orig<typeof import("../api")>();
+  return { ...real, api: { ...real.api, listMaterials: vi.fn().mockResolvedValue([]), fetchMaterialFromSeed: vi.fn(), createMaterial: vi.fn(), saveScratch: vi.fn() } };
+});
+
 import { WorkspaceView } from "./WorkspaceView";
 import type { Store } from "../store/createStore";
 import { createStore, makeMemoryStorage } from "../store";
@@ -233,19 +239,12 @@ describe("WorkspaceView", () => {
     });
   });
 
-  describe("TreePanel", () => {
-    it("shows the 过程树 heading when open", () => {
+  describe("RightPanel", () => {
+    it("shows the 过程树 tab, defaulted active", () => {
       const store = makeStore();
       const conv = makeConversation();
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      expect(screen.getByText("过程树")).toBeInTheDocument();
-    });
-
-    it("shows the 只读 badge when panel is open", () => {
-      const store = makeStore();
-      const conv = makeConversation();
-      render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      expect(screen.getByText("只读")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "过程树" })).toBeInTheDocument();
     });
 
     it("shows the empty-state copy", () => {
@@ -255,29 +254,29 @@ describe("WorkspaceView", () => {
       expect(screen.getByText("边做边长 · 随评估归并枝节")).toBeInTheDocument();
     });
 
-    it("toggles tree closed when collapse button is clicked", async () => {
+    it("toggles the panel closed when collapse button is clicked", async () => {
       const store = makeStore();
       const conv = makeConversation();
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      // The 只读 badge should be visible when open
-      expect(screen.getByText("只读")).toBeInTheDocument();
-      // Click the collapse/toggle button (the chevron in the tree header)
-      const toggleBtn = screen.getByRole("button", { name: /折叠过程树/ });
+      // The 过程树 tab should be visible when open
+      expect(screen.getByRole("tab", { name: "过程树" })).toBeInTheDocument();
+      // Click the collapse/toggle button (the chevron in the panel header)
+      const toggleBtn = screen.getByRole("button", { name: /折叠侧栏/ });
       await userEvent.click(toggleBtn);
-      // After closing, 只读 badge should not be visible
-      expect(screen.queryByText("只读")).not.toBeInTheDocument();
+      // After closing, the tab is gone
+      expect(screen.queryByRole("tab", { name: "过程树" })).not.toBeInTheDocument();
     });
 
-    it("toggles tree back open after closing", async () => {
+    it("toggles the panel back open after closing", async () => {
       const store = makeStore();
       const conv = makeConversation();
       render(<WorkspaceView store={store} conversation={conv} taskId="t1" onBack={() => {}} />);
-      const toggleBtn = screen.getByRole("button", { name: /折叠过程树/ });
+      const toggleBtn = screen.getByRole("button", { name: /折叠侧栏/ });
       await userEvent.click(toggleBtn);
-      // Tree is closed, now click the expand button on the closed panel
-      const expandBtn = screen.getByRole("button", { name: /展开过程树/ });
+      // Panel is closed, now click the expand button on the collapsed panel
+      const expandBtn = screen.getByRole("button", { name: /展开侧栏/ });
       await userEvent.click(expandBtn);
-      expect(screen.getByText("只读")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "过程树" })).toBeInTheDocument();
     });
   });
 
