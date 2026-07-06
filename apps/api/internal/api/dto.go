@@ -58,6 +58,44 @@ func toTaskDTO(t sqlc.Task) taskDTO {
 	}
 }
 
+type materialDTO struct {
+	ID        string          `json:"id"`
+	TaskID    string          `json:"task_id"`
+	Kind      string          `json:"kind"`
+	Source    string          `json:"source"`
+	Title     string          `json:"title"`
+	SourceURL *string         `json:"source_url"`
+	Blocks    json.RawMessage `json:"blocks"`
+	Scratch   string          `json:"scratch"`
+	CreatedAt string          `json:"created_at"`
+}
+
+func toMaterialDTO(m sqlc.Material) materialDTO {
+	blocks := json.RawMessage(m.Blocks)
+	if len(blocks) == 0 {
+		blocks = json.RawMessage("[]")
+	}
+	return materialDTO{
+		ID:        m.ID.String(),
+		TaskID:    m.TaskID.String(),
+		Kind:      m.Kind,
+		Source:    m.Source,
+		Title:     m.Title,
+		SourceURL: m.SourceUrl,
+		Blocks:    blocks,
+		Scratch:   m.Scratch,
+		CreatedAt: m.CreatedAt.Format(tsLayout),
+	}
+}
+
+func toMaterialDTOs(rows []sqlc.Material) []materialDTO {
+	out := make([]materialDTO, 0, len(rows))
+	for _, m := range rows {
+		out = append(out, toMaterialDTO(m))
+	}
+	return out
+}
+
 type messageDTO struct {
 	ID        string          `json:"id"`
 	Role      string          `json:"role"`

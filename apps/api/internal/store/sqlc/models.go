@@ -84,6 +84,18 @@ type LlmUsage struct {
 	CreatedAt        time.Time      `json:"created_at"`
 }
 
+type Material struct {
+	ID        uuid.UUID `json:"id"`
+	TaskID    uuid.UUID `json:"task_id"`
+	Kind      string    `json:"kind"`
+	Source    string    `json:"source"`
+	Title     string    `json:"title"`
+	SourceUrl *string   `json:"source_url"`
+	Blocks    []byte    `json:"blocks"`
+	Scratch   string    `json:"scratch"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Message struct {
 	ID               uuid.UUID      `json:"id"`
 	TaskID           uuid.UUID      `json:"task_id"`
