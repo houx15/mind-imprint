@@ -42,7 +42,7 @@ describe("createConversation (API/SSE)", () => {
 
   it("submitCard fires a continuation turn (no user input)", async () => {
     const store = createStore({}); store.putTask(task);
-    store.putCard({ id: "c1", card_id: "sift_craap", task_id: "t1", parent_node_id: null, status: "active", field_values: {}, event_trace: [], rubric_tags: [], created_at: "1", completed_at: null });
+    store.putCard({ id: "c1", card_id: "sift_craap", task_id: "t1", parent_node_id: null, status: "active", field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "1", completed_at: null });
     const api = fakeApi([{ type: "text", delta: "很好" }, { type: "done", messageId: "m2" }]);
     const conv = createConversation({ api: api as never, store, taskId: "t1" });
     const final = { ...store.getCard("c1")!, status: "completed" as const, field_values: { sift: { stop: "x" } } };

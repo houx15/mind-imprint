@@ -22,6 +22,7 @@ export function newEnvelope(
     id: genId(),
     card_id, task_id, parent_node_id: null,
     status: "proposed", field_values: {}, event_trace: [], rubric_tags: [],
+    anchors: [],
     created_at: now(), completed_at: null,
   };
 }

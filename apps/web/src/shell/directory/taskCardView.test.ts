@@ -9,7 +9,7 @@ function task(o: Partial<Task> = {}): Task {
 }
 function card(status: CardInstance["status"]): CardInstance {
   return { id: Math.random().toString(), card_id: "sift_craap", task_id: "t1", parent_node_id: null,
-    status, field_values: {}, event_trace: [], rubric_tags: [], created_at: "x", completed_at: null };
+    status, field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "x", completed_at: null };
 }
 
 describe("taskCardView", () => {

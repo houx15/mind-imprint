@@ -18,7 +18,7 @@ function freshStore() {
 function card(id: string, task_id: string): CardInstance {
   return {
     id, card_id: "sift_craap", task_id, parent_node_id: null,
-    status: "proposed", field_values: {}, event_trace: [], rubric_tags: [],
+    status: "proposed", field_values: {}, event_trace: [], rubric_tags: [], anchors: [],
     created_at: "2026-06-21T09:00:00.000Z", completed_at: null,
   };
 }

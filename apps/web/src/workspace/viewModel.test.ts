@@ -28,6 +28,7 @@ function makeCardInstance(overrides: Partial<CardInstance>): CardInstance {
     field_values: {},
     event_trace: [],
     rubric_tags: [],
+    anchors: [],
     created_at: at,
     completed_at: null,
     ...overrides,
@@ -40,6 +41,7 @@ const siftSpec: CardSpec = {
   name: "SIFT×CRAAP 信息核查",
   purpose: "核查信息来源的可信度",
   trigger_condition: "学生引用外部信息",
+  mode: "form",
   steps: [
     {
       key: "stop",

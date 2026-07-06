@@ -38,6 +38,7 @@ function makeCardInstance(overrides: Partial<CardInstance> = {}): CardInstance {
     field_values: {},
     event_trace: [],
     rubric_tags: [],
+    anchors: [],
     created_at: "2024-01-01T00:00:00.000Z",
     completed_at: null,
     ...overrides,
@@ -315,6 +316,7 @@ describe("WorkspaceView", () => {
           field_values: {},
           event_trace: [],
           rubric_tags: [],
+          anchors: [],
           created_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         });

@@ -6,7 +6,7 @@ import { deriveProcessTree } from "./processTree";
 const task: Task = { id: "t_1", title: "中国是否让地球变得更可持续？", seed: "https://example.org/article", status: "active", created_at: "2026-06-21T09:00:00.000Z", last_active_at: "2026-06-21T09:00:00.000Z" };
 
 function card(id: string, card_id: string, status: CardInstance["status"], at: string, field_values: Record<string, unknown> = {}): CardInstance {
-  return { id, card_id, task_id: "t_1", parent_node_id: null, status, field_values, event_trace: [], rubric_tags: [], created_at: at, completed_at: status === "completed" ? at : null };
+  return { id, card_id, task_id: "t_1", parent_node_id: null, status, field_values, event_trace: [], rubric_tags: [], anchors: [], created_at: at, completed_at: status === "completed" ? at : null };
 }
 
 const reg = CARD_REGISTRY;

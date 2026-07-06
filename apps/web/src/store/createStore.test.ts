@@ -4,7 +4,7 @@ import { makeMemoryStorage, STORE_KEY } from "./storage";
 
 const task = (id: string) => ({ id, title: id, seed: null, status: "active" as const, created_at: "1", last_active_at: "1" });
 const msg = (id: string, tid: string, content: string) => ({ id, task_id: tid, role: "assistant" as const, content, tool_call: null, created_at: "1" });
-const card = (id: string, tid: string, status: any) => ({ id, card_id: "x", task_id: tid, parent_node_id: null, status, field_values: {}, event_trace: [], rubric_tags: [], created_at: "1", completed_at: null });
+const card = (id: string, tid: string, status: any) => ({ id, card_id: "x", task_id: tid, parent_node_id: null, status, field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "1", completed_at: null });
 
 describe("server-hydrated store", () => {
   it("defaults to in-memory (no storage arg)", () => {

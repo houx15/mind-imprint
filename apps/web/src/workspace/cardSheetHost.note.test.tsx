@@ -14,7 +14,7 @@ const spec = {
 
 const instance: CardInstance = {
   id: "ci-1", card_id: "t", task_id: "task-1", parent_node_id: null, status: "active",
-  field_values: {}, event_trace: [], rubric_tags: [], created_at: "2024-01-01T00:00:00.000Z", completed_at: null,
+  field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "2024-01-01T00:00:00.000Z", completed_at: null,
 };
 
 describe("CardSheetHost per-step note_open", () => {

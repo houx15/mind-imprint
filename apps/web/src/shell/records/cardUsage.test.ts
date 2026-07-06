@@ -9,7 +9,7 @@ const registry = {
 
 function ci(card_id: string, id: string): CardInstance {
   return { id, card_id, task_id: "t1", parent_node_id: null, status: "completed",
-    field_values: {}, event_trace: [], rubric_tags: [], created_at: "2026-06-01T00:00:00Z", completed_at: null };
+    field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "2026-06-01T00:00:00Z", completed_at: null };
 }
 
 describe("deriveCardUsage", () => {

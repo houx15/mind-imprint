@@ -13,7 +13,7 @@ const selfField = spec.steps[0]!.fields.find((f) => f.key === "self") as { stops
 
 const instance: CardInstance = {
   id: "ci-bs", card_id: "belief-spectrum", task_id: "task-1", parent_node_id: null, status: "active",
-  field_values: {}, event_trace: [], rubric_tags: [], created_at: "2024-01-01T00:00:00.000Z", completed_at: null,
+  field_values: {}, event_trace: [], rubric_tags: [], anchors: [], created_at: "2024-01-01T00:00:00.000Z", completed_at: null,
 };
 
 describe("CardSheetHost + custom renderer (guardrail)", () => {
