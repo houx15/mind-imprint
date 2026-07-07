@@ -26,6 +26,9 @@ import (
 type VoiceService interface {
 	Synthesize(ctx context.Context, text string, speed float64) ([]byte, error)
 	ASRStream(ctx context.Context, audioIn <-chan []byte) (<-chan voice.Transcript, error)
+	// Voice returns the configured voice name, used to key the TTS cache so
+	// rotating VOICE_TTS_VOICE never silently serves stale audio.
+	Voice() string
 }
 
 // synthesizeTimeout bounds the upstream TTS call. voice.Client.Synthesize has
@@ -34,14 +37,17 @@ type VoiceService interface {
 const synthesizeTimeout = 30 * time.Second
 
 // voiceClient adapts voice.Client to VoiceService for production wiring.
-type voiceClient struct{ c *voice.Client }
+type voiceClient struct {
+	c     *voice.Client
+	voice string
+}
 
 // NewVoiceService builds the production VoiceService from Volcano Engine
 // credentials/config. Returns a non-nil VoiceService unconditionally; the
 // caller (main.go) decides whether to construct one at all based on whether
 // credentials are configured, leaving Deps.Voice nil otherwise.
 func NewVoiceService(cfg voice.Config) VoiceService {
-	return &voiceClient{c: voice.New(cfg)}
+	return &voiceClient{c: voice.New(cfg), voice: cfg.TTSVoice}
 }
 
 func (vc *voiceClient) Synthesize(ctx context.Context, text string, speed float64) ([]byte, error) {
@@ -53,6 +59,8 @@ func (vc *voiceClient) Synthesize(ctx context.Context, text string, speed float6
 func (vc *voiceClient) ASRStream(context.Context, <-chan []byte) (<-chan voice.Transcript, error) {
 	return nil, errors.New("voice: asr not implemented")
 }
+
+func (vc *voiceClient) Voice() string { return vc.voice }
 
 // voiceTTSRequest is the wire body for POST /api/v1/voice/tts.
 type voiceTTSRequest struct {
@@ -96,16 +104,16 @@ func (a *API) postVoiceTTS(w http.ResponseWriter, r *http.Request) {
 		speed = *req.Speed
 	}
 
-	// The voice label isn't threaded through Deps; "default" identifies the
-	// single configured voice for cache-key purposes (see report for the
-	// tradeoff if multiple voices are ever supported).
-	const voiceLabel = "default"
+	// The cache key is derived from the configured voice name (not a literal
+	// placeholder) so rotating VOICE_TTS_VOICE can never silently serve
+	// audio synthesized under a different voice.
+	voiceLabel := a.d.Voice.Voice()
 	sum := sha256.Sum256([]byte(voiceLabel + "|" + strconv.FormatFloat(speed, 'f', -1, 64) + "|" + req.Text))
 	key := hex.EncodeToString(sum[:])
 
 	if cached, err := a.d.Queries.GetVoiceTTSCache(r.Context(), key); err == nil {
 		w.Header().Set("Content-Type", "audio/mpeg")
-		w.Write(cached.Audio)
+		_, _ = w.Write(cached.Audio)
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, err)
@@ -126,5 +134,5 @@ func (a *API) postVoiceTTS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "audio/mpeg")
-	w.Write(audio)
+	_, _ = w.Write(audio)
 }

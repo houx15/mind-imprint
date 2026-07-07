@@ -30,6 +30,8 @@ func (s *stubVoice) ASRStream(context.Context, <-chan []byte) (<-chan voice.Tran
 	return nil, errors.New("n/a")
 }
 
+func (s *stubVoice) Voice() string { return "test-voice" }
+
 func TestVoiceTTSCachesAndServes(t *testing.T) {
 	pool := newAPITestPool(t)
 	q := sqlc.New(pool)
