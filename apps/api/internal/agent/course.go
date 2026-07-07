@@ -114,6 +114,19 @@ func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.P
 	if err != nil || len(anchors) == 0 {
 		return authored
 	}
+	// AnchorGenerator substitutes generic unanchored fallback anchors (empty
+	// BlockID) when the model fails; that means real generation didn't happen —
+	// prefer the curated authored challenge instead of generic placeholders.
+	anchored := false
+	for _, a := range anchors {
+		if a.BlockID != "" {
+			anchored = true
+			break
+		}
+	}
+	if !anchored {
+		return authored
+	}
 	content := map[string]any{"title": frame.Title, "prompt": frame.Prompt, "anchors": anchors, "reason_hint": frame.ReasonHint}
 	raw, err := json.Marshal(content)
 	if err != nil {

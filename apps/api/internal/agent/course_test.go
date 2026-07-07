@@ -58,3 +58,18 @@ func TestRenderChallengeUsesAnchorsFromAsset(t *testing.T) {
 		t.Fatalf("challenge content wrong: %s", got.Content)
 	}
 }
+
+func TestRenderChallengeFallsBackWhenModelFails(t *testing.T) {
+	ct := "verify_claim"
+	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json"}, {Kind: gateway.EventDone}}
+	in := CourseStepInput{Ordinal: 2, Kind: "challenge", ChallengeType: &ct,
+		Assets:          []CourseAsset{{ID: "m0", Kind: "text", Value: "某科技博主综合整理的文章称地球绿了 5%。"}},
+		AuthoredContent: json.RawMessage(`{"title":"现在轮到你","prompt":"哪句是事实？","anchors":[{"id":"a0","block_id":"b0","quote":"x","dimension":"权威性","author":"ai","question":"作者是谁","answer":"","material_id":"m0","start":0,"end":0}],"reason_hint":"理由"}`)}
+	got := RenderCourseStep(context.Background(), in, gateway.NewStubProvider(script), stubResolver)
+	if got.Source != "authored" {
+		t.Fatalf("want authored fallback on model failure, got %+v", got)
+	}
+	if !contains(got.Content, "作者是谁") {
+		t.Fatalf("authored anchors should be preserved: %s", got.Content)
+	}
+}
