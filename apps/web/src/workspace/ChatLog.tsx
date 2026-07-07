@@ -1,5 +1,8 @@
+import { useState } from "react";
 import type { ChatItem } from "./viewModel";
 import { Markdown } from "./Markdown";
+import { synthesize } from "../api/voice";
+import { player } from "../audio/player";
 
 // ─── Avatar SVG (reused for AI text + proposal bubbles) ───────────────────────
 
@@ -50,6 +53,27 @@ function LinkIcon() {
   );
 }
 
+// ─── Speaker (play) icon ───────────────────────────────────────────────────────
+
+function SpeakerIcon({ color }: { color: string }) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 9h4l5-4v14l-5-4H4z" />
+      <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" />
+      <path d="M17.5 7.2a6.5 6.5 0 0 1 0 9.6" />
+    </svg>
+  );
+}
+
 // ─── Item renderers ────────────────────────────────────────────────────────────
 
 type StudentBubbleProps = {
@@ -86,7 +110,26 @@ type AiTextBubbleProps = {
   text: string;
 };
 
+type PlayState = "idle" | "loading" | "playing";
+
 function AiTextBubble({ text }: AiTextBubbleProps) {
+  const [playState, setPlayState] = useState<PlayState>("idle");
+
+  async function handlePlay() {
+    if (playState === "loading") return;
+    setPlayState("loading");
+    try {
+      const url = await synthesize(text);
+      await player.play(url, () => setPlayState("idle"));
+      setPlayState("playing");
+    } catch (err) {
+      console.warn("play failed", err);
+      setPlayState("idle");
+    }
+  }
+
+  const iconColor = playState === "playing" ? "#2A3B7A" : "#9AA1B0";
+
   return (
     <div className="flex items-start gap-[12px]">
       <AiAvatar />
@@ -101,6 +144,23 @@ function AiTextBubble({ text }: AiTextBubbleProps) {
         >
           <Markdown text={text} />
         </div>
+        <button
+          type="button"
+          onClick={handlePlay}
+          disabled={playState === "loading"}
+          aria-label="朗读"
+          className="mt-[6px] inline-flex items-center justify-center rounded-full border-none bg-transparent p-[4px]"
+          style={{
+            cursor: playState === "loading" ? "default" : "pointer",
+            opacity: playState === "loading" ? 0.6 : 1,
+          }}
+        >
+          {playState === "loading" ? (
+            <span style={{ fontSize: 11, color: "#9AA1B0" }}>…</span>
+          ) : (
+            <SpeakerIcon color={iconColor} />
+          )}
+        </button>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@
  */
 export class AudioPlayer {
   private el: HTMLAudioElement | null = null;
+  private currentUrl: string | null = null;
 
   /**
    * `onEnded` is an optional extra param (natural playback completion callback) —
@@ -19,6 +20,7 @@ export class AudioPlayer {
     if (typeof Audio === "undefined") return;
     const el = new Audio();
     this.el = el;
+    this.currentUrl = url;
     el.src = url;
     if (onEnded) el.addEventListener("ended", onEnded, { once: true });
     await el.play();
@@ -29,6 +31,14 @@ export class AudioPlayer {
     this.el.pause();
     this.el.currentTime = 0;
     this.el = null;
+    this.revokeCurrentUrl();
+  }
+
+  private revokeCurrentUrl(): void {
+    if (this.currentUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      URL.revokeObjectURL(this.currentUrl);
+    }
+    this.currentUrl = null;
   }
 }
 

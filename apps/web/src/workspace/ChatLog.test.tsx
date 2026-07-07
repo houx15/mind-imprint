@@ -1,8 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatLog } from "./ChatLog";
 import type { ChatItem } from "./viewModel";
+import { synthesize } from "../api/voice";
+import { player } from "../audio/player";
+
+vi.mock("../api/voice", () => ({
+  synthesize: vi.fn(),
+}));
+
+vi.mock("../audio/player", () => ({
+  player: { play: vi.fn(), stop: vi.fn() },
+}));
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
 
@@ -141,6 +151,20 @@ describe("ChatLog", () => {
     expect(strong.tagName).toBe("STRONG");
     expect(document.body.textContent).not.toContain("**");
     expect(screen.getByText("看看来源").closest("li")).toBeInTheDocument();
+  });
+
+  it("renders a 朗读 play button on AI text bubbles", () => {
+    render(<ChatLog items={[aiTextItem]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} />);
+    expect(screen.getByLabelText("朗读")).toBeInTheDocument();
+  });
+
+  it("clicking the 朗读 button synthesizes the message text and plays it", async () => {
+    vi.mocked(synthesize).mockResolvedValue("blob:x");
+    const item: ChatItem = { kind: "ai_text", text: "你好" };
+    render(<ChatLog items={[item]} onOpenCard={vi.fn()} onSkipCard={vi.fn()} />);
+    await userEvent.click(screen.getByLabelText("朗读"));
+    expect(synthesize).toHaveBeenCalledWith("你好");
+    await waitFor(() => expect(player.play).toHaveBeenCalledWith("blob:x", expect.any(Function)));
   });
 
   it("shows the 思考中 indicator only when thinking is true", () => {
