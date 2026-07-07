@@ -74,6 +74,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/courses/{id}", protected(a.getCourse))
 	mux.Handle("GET /api/v1/courses/{id}/progress", protected(a.getCourseProgress))
 	mux.Handle("PUT /api/v1/courses/{id}/progress", protected(a.putCourseProgress))
+	mux.Handle("POST /api/v1/courses/{id}/steps/{ordinal}/render", protected(a.renderCourseStep))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {
