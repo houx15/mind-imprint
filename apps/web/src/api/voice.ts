@@ -25,6 +25,7 @@ export class AsrStream {
   private partialCb: ((text: string) => void) | null = null;
   private finalCb: ((text: string) => void) | null = null;
   private errorCb: ((message: string) => void) | null = null;
+  private intentionallyClosed = false;
 
   constructor() {
     this.ws = new WebSocket(asrWsUrl());
@@ -47,6 +48,13 @@ export class AsrStream {
           break;
       }
     };
+    this.ws.onerror = () => {
+      this.errorCb?.("语音连接中断");
+    };
+    this.ws.onclose = () => {
+      if (this.intentionallyClosed) return;
+      this.errorCb?.("语音连接中断");
+    };
   }
 
   onPartial(cb: (text: string) => void): void {
@@ -67,6 +75,7 @@ export class AsrStream {
   }
 
   stop(): void {
+    this.intentionallyClosed = true;
     if (this.ws.readyState === WS_OPEN) {
       this.ws.send(JSON.stringify({ type: "stop" }));
     }

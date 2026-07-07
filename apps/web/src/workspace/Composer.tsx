@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { AsrStream } from "../api/voice";
 import { MicCapture } from "../audio/capture";
 
@@ -39,13 +39,25 @@ export function Composer({ onSend, disabled = false }: Props) {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }
 
-  function stopRecording() {
+  // Stable across renders (reads only refs + the setState setter, both of
+  // which are stable), so the unmount-cleanup effect below always tears
+  // down whatever the current mic/ASR connection is. Safe to call more than
+  // once: once torn down, the refs are null and further calls are no-ops.
+  const stopRecording = useCallback(() => {
     micRef.current?.stop();
     asrRef.current?.stop();
     micRef.current = null;
     asrRef.current = null;
     setRecording(false);
-  }
+  }, []);
+
+  // If the component unmounts mid-recording, release the mic + ASR socket
+  // instead of leaving them running with nothing left to stop them.
+  useEffect(() => {
+    return () => {
+      stopRecording();
+    };
+  }, [stopRecording]);
 
   async function handleMicDown() {
     if (disabled || recording) return;

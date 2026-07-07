@@ -83,4 +83,32 @@ describe("AsrStream", () => {
     expect(ws.sent.some((m) => typeof m === "string" && m.includes("stop"))).toBe(true);
     expect(ws.closed).toBe(true);
   });
+
+  it("invokes the error callback on a socket error", () => {
+    const stream = new AsrStream();
+    const onError = vi.fn();
+    stream.onError(onError);
+    const ws = FakeWebSocket.instances.at(0)!;
+    ws.onerror?.();
+    expect(onError).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("invokes the error callback on an unexpected close", () => {
+    const stream = new AsrStream();
+    const onError = vi.fn();
+    stream.onError(onError);
+    const ws = FakeWebSocket.instances.at(0)!;
+    ws.onclose?.();
+    expect(onError).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("does not invoke the error callback when stop() closes intentionally", () => {
+    const stream = new AsrStream();
+    const onError = vi.fn();
+    stream.onError(onError);
+    const ws = FakeWebSocket.instances.at(0)!;
+    stream.stop();
+    ws.onclose?.();
+    expect(onError).not.toHaveBeenCalled();
+  });
 });
