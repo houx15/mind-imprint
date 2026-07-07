@@ -1,4 +1,4 @@
-import type { Course, CourseSummary, CourseProgress } from "@mind-imprint/contracts";
+import type { Course, CourseSummary, CourseProgress, RenderedStep } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 export async function listCourses(): Promise<CourseSummary[]> {
@@ -16,4 +16,8 @@ export async function getCourseProgress(id: string): Promise<CourseProgress> {
 export async function saveCourseProgress(id: string, input: { current_ordinal: number; completed_ordinals: number[] }): Promise<CourseProgress> {
   const r = await apiFetch<{ progress: CourseProgress }>(`/api/v1/courses/${id}/progress`, { method: "PUT", body: JSON.stringify(input) });
   return r.progress;
+}
+export async function renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep> {
+  const r = await apiFetch<{ rendered: RenderedStep }>(`/api/v1/courses/${courseId}/steps/${ordinal}/render`, { method: "POST" });
+  return r.rendered;
 }

@@ -1,4 +1,4 @@
-import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress } from "@mind-imprint/contracts";
+import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep } from "@mind-imprint/contracts";
 import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
 import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
@@ -13,7 +13,7 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch, MaterialFetchError } from "./materials";
-import { listCourses, getCourse, getCourseProgress, saveCourseProgress } from "./courses";
+import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
 
 export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult };
 export { ApiError } from "./client";
@@ -55,6 +55,7 @@ export interface ApiClient {
   getCourse(id: string): Promise<Course>;
   getCourseProgress(id: string): Promise<CourseProgress>;
   saveCourseProgress(id: string, input: { current_ordinal: number; completed_ordinals: number[] }): Promise<CourseProgress>;
+  renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
 }
 
 export const api: ApiClient = {
@@ -63,5 +64,5 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch,
-  listCourses, getCourse, getCourseProgress, saveCourseProgress,
+  listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
 };
