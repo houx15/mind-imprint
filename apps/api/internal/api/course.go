@@ -1,9 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -75,9 +77,13 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	p, err := a.d.Queries.GetCourseProgress(r.Context(), sqlc.GetCourseProgressParams{UserID: u.ID, CourseID: c.ID})
 	if err != nil {
-		// no row yet → default zero progress
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": map[string]any{
-			"course_id": c.ID.String(), "current_ordinal": 0, "completed_ordinals": []int32{}, "updated_at": "",
+		if !errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		// no row yet → default zero progress for a first-time visitor
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": courseProgressDTO{
+			CourseID: c.ID.String(), CurrentOrdinal: 0, CompletedOrdinals: []int32{}, UpdatedAt: "",
 		}})
 		return
 	}
