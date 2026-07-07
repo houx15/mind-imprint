@@ -59,11 +59,15 @@ type asrFullRequest struct {
 // Channel/goroutine lifecycle: the returned channel is closed exactly once,
 // by the reader goroutine, when it exits (server IsLast frame, a read
 // error, or ctx cancellation). The reader also owns the WebSocket
-// connection's single Close call (deferred). The sender goroutine exits on
-// its own — either audioIn is closed and drained (it sends one final
-// packet and returns) or ctx is cancelled (it returns without blocking on
-// audioIn) — so cancelling ctx unblocks both goroutines without leaking
-// either.
+// connection's single Close call (deferred). The sender goroutine exits
+// either because audioIn is closed and drained (it sends one final packet
+// and returns) or because its context is done. That context is a
+// child (sendCtx) derived from ctx and cancelled the instant the reader
+// goroutine exits, for any reason — not just outer-ctx cancellation. This
+// matters because closing conn does not unblock a sender parked on
+// <-audioIn: without an independently-cancelled sendCtx, a server-initiated
+// IsLast (ahead of the caller finishing/closing audioIn, with the outer ctx
+// never cancelled) would leak the sender goroutine forever.
 func (c *Client) Stream(ctx context.Context, audioIn <-chan []byte) (<-chan Transcript, error) {
 	headers := http.Header{}
 	headers.Set("X-Api-Resource-Id", c.cfg.ASRResourceID)
@@ -130,8 +134,21 @@ func (c *Client) Stream(ctx context.Context, audioIn <-chan []byte) (<-chan Tran
 
 	out := make(chan Transcript)
 
-	go asrSend(ctx, conn, audioIn)
-	go asrReceive(ctx, conn, out)
+	// sendCtx is derived from ctx but cancelled independently the moment
+	// asrReceive exits, regardless of why (server IsLast, read error, or
+	// outer ctx cancellation). This is required because asrSend can be
+	// parked on <-audioIn with no way to notice that the reader — and thus
+	// the connection — is already gone: closing conn does not unblock a
+	// receive on audioIn, and the caller may never close audioIn or cancel
+	// ctx on its own. Without this, a server-initiated IsLast (ahead of the
+	// caller finishing its audio) leaks the sender goroutine forever.
+	sendCtx, cancelSend := context.WithCancel(ctx)
+
+	go asrSend(sendCtx, conn, audioIn)
+	go func() {
+		defer cancelSend()
+		asrReceive(ctx, conn, out)
+	}()
 
 	return out, nil
 }
