@@ -98,6 +98,7 @@ func toMaterialDTOs(rows []sqlc.Material) []materialDTO {
 
 type messageDTO struct {
 	ID        string          `json:"id"`
+	TaskID    string          `json:"task_id"`
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
 	ToolCall  json.RawMessage `json:"tool_call,omitempty"`
@@ -113,6 +114,7 @@ func toMessageDTOs(rows []sqlc.Message) []messageDTO {
 		}
 		out = append(out, messageDTO{
 			ID:        m.ID.String(),
+			TaskID:    m.TaskID.String(),
 			Role:      m.Role,
 			Content:   m.Content,
 			ToolCall:  tc,
@@ -124,6 +126,7 @@ func toMessageDTOs(rows []sqlc.Message) []messageDTO {
 
 type cardDTO struct {
 	ID           string          `json:"id"`
+	TaskID       string          `json:"task_id"`
 	CardID       string          `json:"card_id"`
 	Status       string          `json:"status"`
 	ParentNodeID *string         `json:"parent_node_id"`
@@ -138,6 +141,7 @@ type cardDTO struct {
 func toCardDTO(c sqlc.CardInstance) cardDTO {
 	d := cardDTO{
 		ID:          c.ID.String(),
+		TaskID:      c.TaskID.String(),
 		CardID:      c.CardID,
 		Status:      c.Status,
 		FieldValues: json.RawMessage(c.FieldValues),
