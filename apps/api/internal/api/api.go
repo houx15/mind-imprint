@@ -35,6 +35,7 @@ type Deps struct {
 	Enqueuer     Enqueuer     // enqueues async evaluation jobs
 	Fetcher      Fetcher      // fetches material text from a seed URL
 	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
+	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
 }
 
 // API holds the handler dependencies.
@@ -77,6 +78,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/courses/{id}/progress", protected(a.putCourseProgress))
 	mux.Handle("POST /api/v1/courses/{id}/steps/{ordinal}/render", protected(a.renderCourseStep))
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
+	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {

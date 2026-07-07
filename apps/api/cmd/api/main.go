@@ -137,6 +137,7 @@ func main() {
 		Enqueuer:     riverEnqueuer{c: riverClient},
 		Fetcher:      materialize.NewFetcher(),
 		Voice:        buildVoice(cfg),
+		CORSOrigins:  cfg.CORSOrigins,
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
@@ -138,4 +140,132 @@ func (a *API) postVoiceTTS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "audio/mpeg")
 	_, _ = w.Write(audio)
+}
+
+// asrStopMessage is the client's signal that it has no more audio to send,
+// sent as a text frame: {"type":"stop"}.
+type asrStopMessage struct {
+	Type string `json:"type"`
+}
+
+// asrOutMessage is the wire shape for every frame this handler sends down to
+// the browser: a partial/final transcript or an error notice. text carries
+// the transcript text for partial/final; message carries the (never
+// upstream-detailed) error text for type "error".
+type asrOutMessage struct {
+	Type    string `json:"type"`
+	Text    string `json:"text,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// getVoiceASR upgrades the connection to a WebSocket and bridges it to
+// Volcano ASR: browser PCM frames flow up via audioIn, recognized
+// transcripts flow back down as JSON text frames. Two goroutines run
+// concurrently — a browser-read loop (owns closing audioIn, exactly once)
+// and this handler's own transcript-forward loop (reads from out until it
+// closes). Cancelling ctx (via the deferred cancel, on return from either
+// loop ending) tears down both: it unblocks a browser-read parked in
+// conn.Read, and it is the same ctx passed to ASRStream, so it propagates to
+// Task 7's Stream and its internal sender/receiver goroutines.
+func (a *API) getVoiceASR(w http.ResponseWriter, r *http.Request) {
+	if a.d.Voice == nil {
+		httpx.WriteError(w, r, httpx.ErrVoiceUnavailable())
+		return
+	}
+
+	u, _ := UserFromContext(r.Context())
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OriginPatterns: originsFrom(a.d.CORSOrigins),
+	})
+	if err != nil {
+		// Accept already wrote the HTTP response (e.g. 403 on origin
+		// mismatch); there is no connection to tear down.
+		return
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	audioIn := make(chan []byte, 32)
+	out, err := a.d.Voice.ASRStream(ctx, audioIn)
+	if err != nil {
+		// Never leak the upstream dial/protocol error to the client.
+		errBody, _ := json.Marshal(asrOutMessage{Type: "error", Message: "语音识别失败"})
+		_ = conn.Write(ctx, websocket.MessageText, errBody)
+		return
+	}
+
+	// Browser-read loop: the sole closer of audioIn, on any exit path
+	// (client "stop" message, client disconnect/error, or ctx cancellation
+	// via the select below).
+	go func() {
+		defer close(audioIn)
+		for {
+			typ, data, err := conn.Read(ctx)
+			if err != nil {
+				return
+			}
+			switch typ {
+			case websocket.MessageBinary:
+				select {
+				case audioIn <- data:
+				case <-ctx.Done():
+					return
+				}
+			case websocket.MessageText:
+				var msg asrStopMessage
+				if json.Unmarshal(data, &msg) == nil && msg.Type == "stop" {
+					return
+				}
+			}
+		}
+	}()
+
+	// Forward loop: runs in the handler goroutine so the deferred cancel/
+	// Close only fire once both loops have had a chance to finish naturally
+	// (out closing is Task 7's signal that the upstream stream is done).
+	for t := range out {
+		typ := "partial"
+		if t.Final {
+			typ = "final"
+		}
+		body, err := json.Marshal(asrOutMessage{Type: typ, Text: t.Text})
+		if err != nil {
+			continue
+		}
+		if err := conn.Write(ctx, websocket.MessageText, body); err != nil {
+			break
+		}
+	}
+}
+
+// originsFrom converts the platform's CORS origin allowlist (full URLs, e.g.
+// "http://localhost:5173") into the host-only patterns coder/websocket's
+// OriginPatterns expects (it matches against the Origin header's host).
+// Unparseable or empty entries are skipped; an empty result makes Accept
+// fall back to same-origin enforcement, which is a safe default.
+func originsFrom(cors []string) []string {
+	hosts := make([]string, 0, len(cors))
+	for _, origin := range cors {
+		if origin == "" {
+			continue
+		}
+		u, err := url.Parse(origin)
+		if err != nil || u.Host == "" {
+			continue
+		}
+		hosts = append(hosts, u.Host)
+	}
+	return hosts
 }
