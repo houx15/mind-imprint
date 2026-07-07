@@ -56,8 +56,11 @@ func (vc *voiceClient) Synthesize(ctx context.Context, text string, speed float6
 	return vc.c.Synthesize(ctx, text, speed)
 }
 
-func (vc *voiceClient) ASRStream(context.Context, <-chan []byte) (<-chan voice.Transcript, error) {
-	return nil, errors.New("voice: asr not implemented")
+// ASRStream is intentionally not given its own request timeout — ASR is a
+// long-lived stream, and it's the caller's (Task 8's) request context that
+// bounds its lifetime.
+func (vc *voiceClient) ASRStream(ctx context.Context, audioIn <-chan []byte) (<-chan voice.Transcript, error) {
+	return vc.c.Stream(ctx, audioIn)
 }
 
 func (vc *voiceClient) Voice() string { return vc.voice }
