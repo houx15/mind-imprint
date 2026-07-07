@@ -22,6 +22,7 @@ import (
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/voice"
 )
 
 // riverEnqueuer adapts the river client to the api.Enqueuer seam.
@@ -30,6 +31,22 @@ type riverEnqueuer struct{ c *river.Client[pgx.Tx] }
 func (e riverEnqueuer) EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error {
 	_, err := e.c.Insert(ctx, args, nil)
 	return err
+}
+
+// buildVoice constructs the production VoiceService only when Volcano
+// Engine credentials are configured; otherwise it returns nil so Deps.Voice
+// stays nil and the platform still boots with voice routes 503ing.
+func buildVoice(cfg config.Config) api.VoiceService {
+	if cfg.VoiceAppID == "" || cfg.VoiceAccessKey == "" {
+		return nil
+	}
+	return api.NewVoiceService(voice.Config{
+		AppID:         cfg.VoiceAppID,
+		AccessKey:     cfg.VoiceAccessKey,
+		TTSVoice:      cfg.VoiceTTSVoice,
+		TTSResourceID: cfg.VoiceTTSResource,
+		ASRResourceID: cfg.VoiceASRResource,
+	})
 }
 
 func main() {
@@ -119,6 +136,7 @@ func main() {
 		CookieSecure: cfg.CookieSecure,
 		Enqueuer:     riverEnqueuer{c: riverClient},
 		Fetcher:      materialize.NewFetcher(),
+		Voice:        buildVoice(cfg),
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)

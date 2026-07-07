@@ -25,6 +25,15 @@ type Config struct {
 	// CookieSecure sets the Secure flag on the session cookie. Default true;
 	// set COOKIE_SECURE=false for local http dev so the browser sends it.
 	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`
+
+	// Voice (Volcano Engine) credentials and resource ids — server-side
+	// only. Left empty in dev/test to keep the voice feature optional; the
+	// platform must still boot when unset (Deps.Voice stays nil).
+	VoiceAppID       string `env:"VOICE_APP_ID"`
+	VoiceAccessKey   string `env:"VOICE_ACCESS_KEY"`
+	VoiceTTSVoice    string `env:"VOICE_TTS_VOICE"`
+	VoiceTTSResource string `env:"VOICE_TTS_RESOURCE_ID" envDefault:"seed-tts-2.0"`
+	VoiceASRResource string `env:"VOICE_ASR_RESOURCE_ID" envDefault:"volc.bigasr.sauc.duration"`
 }
 
 // Load reads .env.local if present (ignored if absent), then parses the

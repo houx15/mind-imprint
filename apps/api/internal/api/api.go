@@ -30,10 +30,11 @@ type Deps struct {
 	EvalResolver gateway.KeyResolver // flagship (evaluate)
 	Catalog      []cards.Spec
 	SpecByID     func(id string) (cards.Spec, bool)
-	Pool         TxBeginner // for multi-statement transactions (signup)
-	CookieSecure bool       // Secure flag on the session cookie
-	Enqueuer     Enqueuer   // enqueues async evaluation jobs
-	Fetcher      Fetcher    // fetches material text from a seed URL
+	Pool         TxBeginner   // for multi-statement transactions (signup)
+	CookieSecure bool         // Secure flag on the session cookie
+	Enqueuer     Enqueuer     // enqueues async evaluation jobs
+	Fetcher      Fetcher      // fetches material text from a seed URL
+	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
 }
 
 // API holds the handler dependencies.
@@ -75,6 +76,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/courses/{id}/progress", protected(a.getCourseProgress))
 	mux.Handle("PUT /api/v1/courses/{id}/progress", protected(a.putCourseProgress))
 	mux.Handle("POST /api/v1/courses/{id}/steps/{ordinal}/render", protected(a.renderCourseStep))
+	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {

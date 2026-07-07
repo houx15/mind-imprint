@@ -98,6 +98,12 @@ func ErrInvalidCredentials() *APIError {
 	return &APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Message: "邮箱或密码错误"}
 }
 
+// ErrVoiceUnavailable is the 503 returned when the voice feature is not
+// configured (Deps.Voice is nil) — the platform must still boot without it.
+func ErrVoiceUnavailable() *APIError {
+	return &APIError{Status: http.StatusServiceUnavailable, Code: "voice_unavailable", Message: "语音服务未启用"}
+}
+
 // ErrInternal is the generic, client-safe 500. Real detail is logged, never sent.
 func ErrInternal() *APIError {
 	return &APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "服务器内部错误"}
