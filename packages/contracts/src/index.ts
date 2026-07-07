@@ -6,6 +6,7 @@ export * from "./evaluation";
 export * from "./cognitive-model";
 export * from "./envelope";
 export * from "./anchor";
+export * from "./course";
 export * from "./registry";
 export * from "./task";
 export * from "./material";
