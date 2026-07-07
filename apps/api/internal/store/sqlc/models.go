@@ -199,3 +199,10 @@ type User struct {
 	AvatarColor     string             `json:"avatar_color"`
 	CreatedAt       time.Time          `json:"created_at"`
 }
+
+type VoiceTtsCache struct {
+	Key       string    `json:"key"`
+	Audio     []byte    `json:"audio"`
+	Voice     string    `json:"voice"`
+	CreatedAt time.Time `json:"created_at"`
+}
