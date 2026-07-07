@@ -4,7 +4,7 @@ import { api } from "../../api";
 
 const STAR = "M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z";
 
-function CourseCard({ course, pct }: { course: CourseSummary; pct: number | null }) {
+function CourseCard({ course, pct, onOpen }: { course: CourseSummary; pct: number | null; onOpen: () => void }) {
   const done = pct != null && pct >= 100;
   const tone = pct == null ? "未开始" : done ? "已学完" : "进行中";
   const cta = pct == null ? "开始学习" : done ? "回顾" : "继续";
@@ -13,7 +13,7 @@ function CourseCard({ course, pct }: { course: CourseSummary; pct: number | null
     ...(done ? { color: "#4C9A82", background: "#E7F3EE" } : pct != null ? { color: "#2A3B7A", background: "#EDEFF9" } : { color: "#8A92A3", background: "#F1F2F5" }),
   };
   return (
-    <div style={{ display: "flex", flexDirection: "column", background: "#fff", border: "1px solid #EAECF2", borderRadius: 18, overflow: "hidden", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
+    <div onClick={onOpen} style={{ display: "flex", flexDirection: "column", background: "#fff", border: "1px solid #EAECF2", borderRadius: 18, overflow: "hidden", boxShadow: "0 1px 3px rgba(20,30,60,.04)", cursor: "pointer" }}>
       <div style={{ position: "relative", height: 120, background: "linear-gradient(135deg,#EDEFF9,#F3F0EC)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <span style={{ position: "absolute", top: 14, left: 16, fontSize: 11, fontWeight: 700, color: "#2A3B7A", background: "rgba(255,255,255,.85)", padding: "4px 10px", borderRadius: 999 }}>{course.branch}</span>
         <div style={{ width: 56, height: 56, borderRadius: 16, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 16px rgba(42,59,122,.12)" }}>
@@ -40,7 +40,7 @@ function CourseCard({ course, pct }: { course: CourseSummary; pct: number | null
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: "auto", paddingTop: 16 }}>
           <span style={toneStyle}>{tone}</span>
-          <button type="button" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2A3B7A", color: "#fff", border: "none", padding: "9px 15px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2A3B7A", color: "#fff", border: "none", padding: "9px 15px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             {cta}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
@@ -50,7 +50,7 @@ function CourseCard({ course, pct }: { course: CourseSummary; pct: number | null
   );
 }
 
-export function CoursesView() {
+export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [pctById, setPctById] = useState<Record<string, number | null>>({});
 
@@ -80,7 +80,7 @@ export function CoursesView() {
           <div style={{ fontSize: 14, color: "#9AA1B0", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginTop: 28 }}>
-            {(courses ?? []).map((c) => <CourseCard key={c.id} course={c} pct={pctById[c.id] ?? null} />)}
+            {(courses ?? []).map((c) => <CourseCard key={c.id} course={c} pct={pctById[c.id] ?? null} onOpen={() => onOpenCourse?.(c.id)} />)}
           </div>
         )}
       </div>

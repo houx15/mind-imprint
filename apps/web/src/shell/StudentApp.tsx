@@ -3,7 +3,7 @@ import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { Store } from "../store/createStore";
 import type { SessionStore } from "./session";
 import { LeftRail } from "./LeftRail";
-import { CoursesView } from "./courses/CoursesView";
+import { CoursesContainer } from "./courses/CoursesContainer";
 import { DirectoryView } from "./directory/DirectoryView";
 import { WorkspaceContainer } from "./WorkspaceContainer";
 import { RecordsView } from "./records/RecordsView";
@@ -30,7 +30,7 @@ export function StudentApp({
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
       <LeftRail tab={tab} onTab={setTab} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {tab === "courses" && <CoursesView />}
+        {tab === "courses" && <CoursesContainer />}
         {tab === "tasks" && taskView === "directory" && (
           <DirectoryView
             store={store}
