@@ -9,4 +9,9 @@ describe("Course contracts", () => {
   it("parses a full course with steps", () => { expect(Course.parse({ ...summary, steps: [step] }).steps).toHaveLength(1); });
   it("rejects an unknown step kind", () => { expect(Course.parse.bind(null, { ...summary, steps: [{ ...step, kind: "quiz" }] })).toThrow(); });
   it("parses progress with completed ordinals", () => { expect(CourseProgress.parse({ course_id: "co1", current_ordinal: 2, completed_ordinals: [0, 1], updated_at: "1" }).completed_ordinals).toEqual([0, 1]); });
+
+  it("parses a rendered step", async () => {
+    const { RenderedStep } = await import("../src/course");
+    expect(RenderedStep.parse({ ordinal: 0, kind: "teaching", template: "teaching", content: { subtitle: "x" }, source: "generated" }).source).toBe("generated");
+  });
 });

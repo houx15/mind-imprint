@@ -25,3 +25,16 @@ SET current_ordinal = EXCLUDED.current_ordinal,
     completed_ordinals = EXCLUDED.completed_ordinals,
     updated_at = now()
 RETURNING *;
+
+-- name: GetCourseStepByOrdinal :one
+SELECT * FROM course_step WHERE course_id = $1 AND ordinal = $2;
+
+-- name: GetCourseStepRender :one
+SELECT * FROM course_step_render WHERE course_step_id = $1;
+
+-- name: UpsertCourseStepRender :one
+INSERT INTO course_step_render (course_step_id, content, source)
+VALUES ($1, $2, $3)
+ON CONFLICT (course_step_id) DO UPDATE
+SET content = EXCLUDED.content, source = EXCLUDED.source, created_at = now()
+RETURNING *;

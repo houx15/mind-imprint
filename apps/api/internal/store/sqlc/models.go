@@ -65,6 +65,13 @@ type CourseStep struct {
 	AuthoredContent []byte    `json:"authored_content"`
 }
 
+type CourseStepRender struct {
+	CourseStepID uuid.UUID `json:"course_step_id"`
+	Content      []byte    `json:"content"`
+	Source       string    `json:"source"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type EmailVerificationToken struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`

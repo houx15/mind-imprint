@@ -66,6 +66,47 @@ func (q *Queries) GetCourseProgress(ctx context.Context, arg GetCourseProgressPa
 	return i, err
 }
 
+const getCourseStepByOrdinal = `-- name: GetCourseStepByOrdinal :one
+SELECT id, course_id, ordinal, kind, purpose, assets, challenge_type, authored_content FROM course_step WHERE course_id = $1 AND ordinal = $2
+`
+
+type GetCourseStepByOrdinalParams struct {
+	CourseID uuid.UUID `json:"course_id"`
+	Ordinal  int32     `json:"ordinal"`
+}
+
+func (q *Queries) GetCourseStepByOrdinal(ctx context.Context, arg GetCourseStepByOrdinalParams) (CourseStep, error) {
+	row := q.db.QueryRow(ctx, getCourseStepByOrdinal, arg.CourseID, arg.Ordinal)
+	var i CourseStep
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.Ordinal,
+		&i.Kind,
+		&i.Purpose,
+		&i.Assets,
+		&i.ChallengeType,
+		&i.AuthoredContent,
+	)
+	return i, err
+}
+
+const getCourseStepRender = `-- name: GetCourseStepRender :one
+SELECT course_step_id, content, source, created_at FROM course_step_render WHERE course_step_id = $1
+`
+
+func (q *Queries) GetCourseStepRender(ctx context.Context, courseStepID uuid.UUID) (CourseStepRender, error) {
+	row := q.db.QueryRow(ctx, getCourseStepRender, courseStepID)
+	var i CourseStepRender
+	err := row.Scan(
+		&i.CourseStepID,
+		&i.Content,
+		&i.Source,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCourseSteps = `-- name: ListCourseSteps :many
 SELECT id, course_id, ordinal, kind, purpose, assets, challenge_type, authored_content FROM course_step WHERE course_id = $1 ORDER BY ordinal
 `
@@ -181,6 +222,32 @@ func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProg
 		&i.CurrentOrdinal,
 		&i.CompletedOrdinals,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertCourseStepRender = `-- name: UpsertCourseStepRender :one
+INSERT INTO course_step_render (course_step_id, content, source)
+VALUES ($1, $2, $3)
+ON CONFLICT (course_step_id) DO UPDATE
+SET content = EXCLUDED.content, source = EXCLUDED.source, created_at = now()
+RETURNING course_step_id, content, source, created_at
+`
+
+type UpsertCourseStepRenderParams struct {
+	CourseStepID uuid.UUID `json:"course_step_id"`
+	Content      []byte    `json:"content"`
+	Source       string    `json:"source"`
+}
+
+func (q *Queries) UpsertCourseStepRender(ctx context.Context, arg UpsertCourseStepRenderParams) (CourseStepRender, error) {
+	row := q.db.QueryRow(ctx, upsertCourseStepRender, arg.CourseStepID, arg.Content, arg.Source)
+	var i CourseStepRender
+	err := row.Scan(
+		&i.CourseStepID,
+		&i.Content,
+		&i.Source,
+		&i.CreatedAt,
 	)
 	return i, err
 }

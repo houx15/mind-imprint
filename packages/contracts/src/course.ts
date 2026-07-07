@@ -41,9 +41,18 @@ export const CourseProgress = z.object({
   updated_at: z.string(),
 });
 
+export const RenderedStep = z.object({
+  ordinal: z.number().int(),
+  kind: CourseStepKind,
+  template: z.enum(["teaching", "challenge"]),
+  content: z.unknown(),
+  source: z.enum(["generated", "authored"]),
+});
+
 export type CourseStepKind = z.infer<typeof CourseStepKind>;
 export type CourseAsset = z.infer<typeof CourseAsset>;
 export type CourseStep = z.infer<typeof CourseStep>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
 export type Course = z.infer<typeof Course>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
+export type RenderedStep = z.infer<typeof RenderedStep>;
