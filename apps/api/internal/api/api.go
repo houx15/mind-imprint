@@ -70,6 +70,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/tasks/{id}/materials", protected(a.createMaterial))
 	mux.Handle("POST /api/v1/tasks/{id}/materials/from-seed", protected(a.materialFromSeed))
 	mux.Handle("PUT /api/v1/tasks/{id}/materials/{mid}/scratch", protected(a.updateMaterialScratch))
+	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
+	mux.Handle("GET /api/v1/courses/{id}", protected(a.getCourse))
+	mux.Handle("GET /api/v1/courses/{id}/progress", protected(a.getCourseProgress))
+	mux.Handle("PUT /api/v1/courses/{id}/progress", protected(a.putCourseProgress))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {
