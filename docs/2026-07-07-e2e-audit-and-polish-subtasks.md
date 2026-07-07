@@ -4,6 +4,8 @@
 
 This is both a **verification report** (what works) and a **polish backlog** (what to build next), with each item scoped as an independently developable sub-task.
 
+> **Update 2026-07-07 — ST-1 and ST-2 are FIXED** on branch `polish-e2e-fixes` (commits `705b799`, `c7648b7`). ST-1: `task_id` added to the message/card DTOs → reload keeps history. ST-2 (delivery): anchors now ride the `card` SSE event → the keystone renders at summon time. The ST-2 **coverage** question (how many/which cards are annotation-mode) is left open as a product decision. Remaining: ST-3..ST-9.
+
 ---
 
 ## 1. Verdict
