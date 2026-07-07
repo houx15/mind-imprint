@@ -30,7 +30,7 @@ export function StudentApp({
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
       <LeftRail tab={tab} onTab={setTab} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {tab === "courses" && <CoursesContainer />}
+        {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("tasks")} />}
         {tab === "tasks" && taskView === "directory" && (
           <DirectoryView
             store={store}

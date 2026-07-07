@@ -4,7 +4,7 @@ import { api } from "../../api";
 import { TeachingTemplate, type TeachingContent } from "./TeachingTemplate";
 import { ChallengeTemplate, type ChallengeContent } from "./ChallengeTemplate";
 
-export function CoursePlayer({ courseId, onExit }: { courseId: string; onExit: () => void }) {
+export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string; onExit: () => void; onFinish: () => void }) {
   const [course, setCourse] = useState<Course | null>(null);
   const [ordinal, setOrdinal] = useState(0);
   const [rendered, setRendered] = useState<RenderedStep | null>(null);
@@ -99,7 +99,7 @@ export function CoursePlayer({ courseId, onExit }: { courseId: string; onExit: (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
           </div>
         ) : (
-          <div aria-label="完成课程" onClick={() => { go(ordinal); onExit(); }} style={{ position: "absolute", right: 14, top: "44%", width: 44, height: 44, borderRadius: "50%", background: "#4C9A82", boxShadow: "0 5px 16px rgba(76,154,130,.30)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <div aria-label="完成课程" onClick={() => { go(ordinal); onFinish(); }} style={{ position: "absolute", right: 14, top: "44%", width: 44, height: 44, borderRadius: "50%", background: "#4C9A82", boxShadow: "0 5px 16px rgba(76,154,130,.30)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
           </div>
         )}

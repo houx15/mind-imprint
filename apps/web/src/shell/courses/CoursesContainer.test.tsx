@@ -19,6 +19,7 @@ describe("CoursesContainer", () => {
     (api.listCourses as any).mockResolvedValue([summary]);
     (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 0, completed_ordinals: [], updated_at: "" });
     (api.getCourse as any).mockResolvedValue(course);
+    (api.saveCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 0, completed_ordinals: [0], updated_at: "" });
     (api.renderCourseStep as any).mockResolvedValue({ ordinal: 0, kind: "teaching", template: "teaching", source: "generated", content: { title: "开场", subtitle: "s", body: ["b"], foreground_asset_id: null } });
   });
 
@@ -28,5 +29,15 @@ describe("CoursesContainer", () => {
     expect(await screen.findByText("开场")).toBeInTheDocument(); // player step
     fireEvent.click(screen.getByText("课程")); // back
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // grid header
+  });
+
+  it("shows the course report after finishing the last step", async () => {
+    render(<CoursesContainer />);
+    fireEvent.click(await screen.findByText("开始学习"));
+    // single-step course → the finish (完成课程) control is shown immediately
+    fireEvent.click(await screen.findByLabelText("完成课程"));
+    expect(await screen.findByText("学习报告 · 课程完成")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("返回课程"));
+    expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // back to grid
   });
 });

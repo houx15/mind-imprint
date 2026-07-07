@@ -31,7 +31,7 @@ describe("CoursePlayer", () => {
   });
 
   it("renders the first step and advances to the next on 下一步", async () => {
-    render(<CoursePlayer courseId="co1" onExit={vi.fn()} />);
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
     expect(await screen.findByText("第 0 步")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("下一步"));
     expect(await screen.findByText("第 1 步")).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("CoursePlayer", () => {
 
   it("exits via the back control", async () => {
     const onExit = vi.fn();
-    render(<CoursePlayer courseId="co1" onExit={onExit} />);
+    render(<CoursePlayer courseId="co1" onExit={onExit} onFinish={vi.fn()} />);
     await screen.findByText("第 0 步");
     fireEvent.click(screen.getByText("课程"));
     expect(onExit).toHaveBeenCalled();
@@ -48,7 +48,7 @@ describe("CoursePlayer", () => {
 
   it("resumes at the saved ordinal without rendering step 0 first", async () => {
     (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 1, completed_ordinals: [0], updated_at: "" });
-    render(<CoursePlayer courseId="co1" onExit={vi.fn()} />);
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
     expect(await screen.findByText("第 1 步")).toBeInTheDocument();
     expect(api.renderCourseStep).toHaveBeenCalledWith("co1", 1);
     expect(api.renderCourseStep).not.toHaveBeenCalledWith("co1", 0);
