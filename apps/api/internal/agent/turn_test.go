@@ -100,13 +100,13 @@ var seededStudentID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 // fakeSSE records emitted events for assertions.
 type fakeSSE struct {
 	texts []string
-	card  *struct{ ci, cardID, nudge string }
+	card  *struct{ ci, cardID, nudge, anchors string }
 	done  string
 }
 
 func (f *fakeSSE) Text(delta string) error { f.texts = append(f.texts, delta); return nil }
-func (f *fakeSSE) Card(ci, cardID, nudge string) error {
-	f.card = &struct{ ci, cardID, nudge string }{ci, cardID, nudge}
+func (f *fakeSSE) Card(ci, cardID, nudge string, anchors []byte) error {
+	f.card = &struct{ ci, cardID, nudge, anchors string }{ci, cardID, nudge, string(anchors)}
 	return nil
 }
 func (f *fakeSSE) Done(messageID string) error { f.done = messageID; return nil }
@@ -220,6 +220,7 @@ func TestRunTurnWritesAnchorsForAnnotationCard(t *testing.T) {
 	store := &fakeTurnStore{
 		materials: []agent.Material{{ID: "m1", Title: "T", Blocks: []agent.MaterialBlock{{ID: "b0", Text: "原句。"}}}},
 	}
+	sse := &fakeSSE{}
 	spec := cards.Spec{ID: "sift_craap", Name: "CRAAP", Mode: "annotation", Steps: []cards.Step{{Key: "a", Title: "权威性"}}}
 	stub := gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: "先核查来源。"},
@@ -237,7 +238,7 @@ func TestRunTurnWritesAnchorsForAnnotationCard(t *testing.T) {
 			}
 			return cards.Spec{}, false
 		},
-		SSE:       &fakeSSE{},
+		SSE:       sse,
 		AnchorGen: fakeAnchorGen{anchors: []agent.Anchor{{ID: "a0", BlockID: "b0", Dimension: "权威性", Author: "ai", Question: "可信吗？"}}},
 	}
 	if err := agent.RunTurn(context.Background(), deps, uuid.New(), "看看这个"); err != nil {
@@ -245,6 +246,11 @@ func TestRunTurnWritesAnchorsForAnnotationCard(t *testing.T) {
 	}
 	if !strings.Contains(string(store.anchorsWritten), "可信吗？") {
 		t.Fatalf("anchors not persisted: %s", store.anchorsWritten)
+	}
+	// The card SSE event must carry the generated anchors, so the client renders
+	// the anchored questions at summon time (not via a later, timing-dependent refetch).
+	if sse.card == nil || !strings.Contains(sse.card.anchors, "可信吗？") {
+		t.Fatalf("card event did not carry anchors: %+v", sse.card)
 	}
 }
 

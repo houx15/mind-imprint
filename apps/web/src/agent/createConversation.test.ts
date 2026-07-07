@@ -31,10 +31,14 @@ describe("createConversation (API/SSE)", () => {
 
   it("a card event creates a proposed card + proposal_pending and ends the turn", async () => {
     const store = createStore({}); store.putTask(task);
-    const api = fakeApi([{ type: "text", delta: "先溯源" }, { type: "card", cardInstanceId: "c1", cardId: "sift_craap", nudgeText: "一起?" }]);
+    const anchor = { id: "a0", material_id: "m0", block_id: "b0", start: 0, end: 3, quote: "原句", dimension: "权威性", author: "ai" as const, question: "可信吗？", answer: "" };
+    const api = fakeApi([{ type: "text", delta: "先溯源" }, { type: "card", cardInstanceId: "c1", cardId: "sift_craap", nudgeText: "一起?", anchors: [anchor] }]);
     const conv = createConversation({ api: api as never, store, taskId: "t1" });
     await conv.send("引用公众号");
     expect(store.getCard("c1")!.status).toBe("proposed");
+    // Anchors delivered on the card event are applied immediately (keystone renders on open).
+    expect(store.getCard("c1")!.anchors).toHaveLength(1);
+    expect(store.getCard("c1")!.anchors[0]!.question).toBe("可信吗？");
     expect(conv.getSnapshot()).toMatchObject({ phase: "proposal_pending", pendingCardId: "c1" });
     const assistant = store.listMessages("t1").find((m) => m.role === "assistant")!;
     expect((assistant.tool_call as any).card_instance_id).toBe("c1");

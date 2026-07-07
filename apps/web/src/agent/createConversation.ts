@@ -53,7 +53,9 @@ export function createConversation(deps: ConversationDeps): Conversation {
           assistantCreated = true;
         } else if (ev.type === "card") {
           const ci = newEnvelope(ev.cardId, taskId, now, () => ev.cardInstanceId);
-          store.putCard(ci);
+          // Anchors ride the card event, so an annotation card renders its
+          // AI-generated questions immediately — no dependency on activateCard timing.
+          store.putCard(ev.anchors.length > 0 ? { ...ci, anchors: ev.anchors } : ci);
           store.putMessage({
             id: assistantId, task_id: taskId, role: "assistant", content: text, created_at: now(),
             tool_call: { id: ev.cardInstanceId, name: "summon_card", args: { card_id: ev.cardId, reason: "", nudge_text: ev.nudgeText }, card_instance_id: ev.cardInstanceId },

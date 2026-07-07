@@ -18,7 +18,7 @@ import (
 // relays text/card/done through it; a test can inject a recorder.
 type SSEEmitter interface {
 	Text(delta string) error
-	Card(cardInstanceID, cardID, nudgeText string) error
+	Card(cardInstanceID, cardID, nudgeText string, anchors []byte) error
 	Done(messageID string) error
 }
 
@@ -157,10 +157,14 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 					return err
 				}
 				spec, _ := deps.SpecByID(args.CardID)
+				// Anchors are generated here and carried on the card SSE event so the
+				// client has them at summon time — never dependent on a later refetch.
+				var anchorsRaw []byte
 				if spec.Mode == "annotation" && deps.AnchorGen != nil {
 					anchors, gerr := deps.AnchorGen.Generate(ctx, spec, materials)
 					if gerr == nil && len(anchors) > 0 {
 						if raw, merr := json.Marshal(anchors); merr == nil {
+							anchorsRaw = raw
 							_ = deps.Store.SetCardAnchors(ctx, cardInstanceID, taskID, raw)
 						}
 					}
@@ -185,7 +189,7 @@ func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput str
 				if err != nil {
 					return err
 				}
-				if err := deps.SSE.Card(cardInstanceID.String(), args.CardID, args.NudgeText); err != nil {
+				if err := deps.SSE.Card(cardInstanceID.String(), args.CardID, args.NudgeText, anchorsRaw); err != nil {
 					return err
 				}
 				return deps.SSE.Done(msgID.String())

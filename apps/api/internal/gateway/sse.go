@@ -48,12 +48,19 @@ func (s *SSEWriter) Text(delta string) error {
 }
 
 // Card emits a summon_card proposal: the persisted card_instance id, the card id,
-// and the student-facing nudge.
-func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string) error {
-	return s.writeEvent("card", map[string]string{
+// the student-facing nudge, and any AI-generated anchors (a JSON array; "[]" when
+// none). Carrying anchors here means the client has them at summon time rather
+// than depending on a later refetch.
+func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte) error {
+	raw := json.RawMessage(anchors)
+	if len(raw) == 0 {
+		raw = json.RawMessage("[]")
+	}
+	return s.writeEvent("card", map[string]any{
 		"card_instance_id": cardInstanceID,
 		"card_id":          cardID,
 		"nudge_text":       nudgeText,
+		"anchors":          raw,
 	})
 }
 

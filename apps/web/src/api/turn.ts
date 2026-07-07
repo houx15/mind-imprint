@@ -1,9 +1,10 @@
+import type { Anchor } from "@mind-imprint/contracts";
 import { API_BASE } from "./client";
 import { parseSSE } from "./sse";
 
 export type TurnEvent =
   | { type: "text"; delta: string }
-  | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string }
+  | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string; anchors: Anchor[] }
   | { type: "done"; messageId: string }
   | { type: "error"; code: string; message: string };
 
@@ -28,7 +29,7 @@ export async function* runTurn(taskId: string, userInput?: string): AsyncGenerat
     let d: Record<string, unknown>;
     try { d = JSON.parse(frame.data); } catch { continue; }
     if (frame.event === "text") yield { type: "text", delta: String(d.delta ?? "") };
-    else if (frame.event === "card") yield { type: "card", cardInstanceId: String(d.card_instance_id), cardId: String(d.card_id), nudgeText: String(d.nudge_text ?? "") };
+    else if (frame.event === "card") yield { type: "card", cardInstanceId: String(d.card_instance_id), cardId: String(d.card_id), nudgeText: String(d.nudge_text ?? ""), anchors: Array.isArray(d.anchors) ? (d.anchors as Anchor[]) : [] };
     else if (frame.event === "done") yield { type: "done", messageId: String(d.message_id ?? "") };
     else if (frame.event === "error") {
       const err = (d.error ?? {}) as { code?: string; message?: string };

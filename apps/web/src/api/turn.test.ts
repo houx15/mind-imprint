@@ -10,13 +10,13 @@ function sseResponse(body: string): Response {
 describe("runTurn", () => {
   it("maps SSE frames to TurnEvents", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => sseResponse(
-      'event: text\ndata: {"delta":"hi"}\n\nevent: card\ndata: {"card_instance_id":"c1","card_id":"sift_craap","nudge_text":"溯源?"}\n\nevent: done\ndata: {"message_id":"m1"}\n\n',
+      'event: text\ndata: {"delta":"hi"}\n\nevent: card\ndata: {"card_instance_id":"c1","card_id":"sift_craap","nudge_text":"溯源?","anchors":[{"id":"a0","question":"可信吗？"}]}\n\nevent: done\ndata: {"message_id":"m1"}\n\n',
     )));
     const events = [];
     for await (const e of runTurn("t1", "hello")) events.push(e);
     expect(events).toEqual([
       { type: "text", delta: "hi" },
-      { type: "card", cardInstanceId: "c1", cardId: "sift_craap", nudgeText: "溯源?" },
+      { type: "card", cardInstanceId: "c1", cardId: "sift_craap", nudgeText: "溯源?", anchors: [{ id: "a0", question: "可信吗？" }] },
       { type: "done", messageId: "m1" },
     ]);
   });

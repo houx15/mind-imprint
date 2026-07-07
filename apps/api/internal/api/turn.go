@@ -26,10 +26,10 @@ func (e *syncEmitter) Text(d string) error {
 	return e.sse.Text(d)
 }
 
-func (e *syncEmitter) Card(ci, c, n string) error {
+func (e *syncEmitter) Card(ci, c, n string, anchors []byte) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.sse.Card(ci, c, n)
+	return e.sse.Card(ci, c, n, anchors)
 }
 
 func (e *syncEmitter) Done(id string) error {
