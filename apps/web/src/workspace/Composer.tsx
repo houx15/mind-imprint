@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+import { AsrStream } from "../api/voice";
+import { MicCapture } from "../audio/capture";
 
 type Props = {
   onSend: (text: string) => void;
@@ -7,7 +9,10 @@ type Props = {
 
 export function Composer({ onSend, disabled = false }: Props) {
   const [text, setText] = useState("");
+  const [recording, setRecording] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const micRef = useRef<MicCapture | null>(null);
+  const asrRef = useRef<AsrStream | null>(null);
 
   function handleSend() {
     const trimmed = text.trim();
@@ -32,6 +37,41 @@ export function Composer({ onSend, disabled = false }: Props) {
     const el = e.target;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }
+
+  function stopRecording() {
+    micRef.current?.stop();
+    asrRef.current?.stop();
+    micRef.current = null;
+    asrRef.current = null;
+    setRecording(false);
+  }
+
+  async function handleMicDown() {
+    if (disabled || recording) return;
+    setRecording(true);
+    try {
+      const asr = new AsrStream();
+      asr.onPartial((t) => setText(t));
+      asr.onFinal((t) => setText(t));
+      asr.onError((message) => {
+        console.warn("ASR error:", message);
+        stopRecording();
+      });
+      asrRef.current = asr;
+
+      const mic = new MicCapture();
+      micRef.current = mic;
+      await mic.start((pcm) => asrRef.current?.sendPCM(pcm));
+    } catch (err) {
+      console.warn("Mic capture failed:", err);
+      stopRecording();
+    }
+  }
+
+  function handleMicUp() {
+    if (!recording) return;
+    stopRecording();
   }
 
   return (
@@ -72,6 +112,45 @@ export function Composer({ onSend, disabled = false }: Props) {
               opacity: disabled ? 0.5 : 1,
             }}
           />
+          <button
+            type="button"
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            onPointerLeave={handleMicUp}
+            disabled={disabled}
+            aria-label={recording ? "正在录音，松开结束" : "按住说话"}
+            aria-pressed={recording}
+            style={{
+              flex: "none",
+              width: "40px",
+              height: "40px",
+              borderRadius: "11px",
+              background: recording ? "#D6455D" : "#EEF0F6",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: disabled ? "not-allowed" : "pointer",
+              opacity: disabled ? 0.6 : 1,
+              transition: "background .15s ease",
+            }}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={recording ? "#fff" : "#5A6178"}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={handleSend}
