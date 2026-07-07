@@ -76,6 +76,12 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// Normalize source to the only sanctioned value: "voice". Anything else
+	// (including a client bug) is dropped to "" so a malformed marker can never
+	// persist a value the shared Message contract rejects on rehydration.
+	if body.Source != "voice" {
+		body.Source = ""
+	}
 	// Empty user_input is a valid continuation turn: no user message is appended,
 	// and the model replies from existing history (e.g. after a card submit/skip).
 
