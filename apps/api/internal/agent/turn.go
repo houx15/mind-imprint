@@ -39,7 +39,7 @@ type AssistantMessage struct {
 // TurnStore is the persistence seam RunTurn drives. NewSqlcTurnStore adapts the
 // generated sqlc queries to it.
 type TurnStore interface {
-	AppendUserMessage(ctx context.Context, taskID uuid.UUID, content string) (uuid.UUID, error)
+	AppendUserMessage(ctx context.Context, taskID uuid.UUID, content string, source string) (uuid.UUID, error)
 	ListMessages(ctx context.Context, taskID uuid.UUID) ([]StoredMessage, error)
 	CardByID(ctx context.Context, id string) (CardInstance, bool, error)
 	CreateProposedCard(ctx context.Context, taskID uuid.UUID, cardID string) (uuid.UUID, error)
@@ -68,9 +68,13 @@ type TurnDeps struct {
 // A continuation turn (empty userInput) appends no user message and replies
 // from existing history — used after a card is submitted/skipped so the model
 // responds to the refed card (the tool_result already sits in the transcript).
-func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput string) error {
+//
+// source marks the origin of userInput (e.g. "voice" when the message was
+// spoken); it is persisted on the user message only and empty means unset
+// (typed) — stored as NULL, never as an empty string.
+func RunTurn(ctx context.Context, deps TurnDeps, taskID uuid.UUID, userInput string, source string) error {
 	if userInput != "" {
-		if _, err := deps.Store.AppendUserMessage(ctx, taskID, userInput); err != nil {
+		if _, err := deps.Store.AppendUserMessage(ctx, taskID, userInput, source); err != nil {
 			return err
 		}
 	}
@@ -225,8 +229,12 @@ type sqlcTurnStore struct {
 // NewSqlcTurnStore wraps sqlc queries as a TurnStore.
 func NewSqlcTurnStore(q *sqlc.Queries) TurnStore { return &sqlcTurnStore{q: q} }
 
-func (s *sqlcTurnStore) AppendUserMessage(ctx context.Context, taskID uuid.UUID, content string) (uuid.UUID, error) {
-	m, err := s.q.AppendMessage(ctx, sqlc.AppendMessageParams{TaskID: taskID, Role: "user", Content: content})
+func (s *sqlcTurnStore) AppendUserMessage(ctx context.Context, taskID uuid.UUID, content string, source string) (uuid.UUID, error) {
+	var sp *string
+	if source != "" {
+		sp = &source
+	}
+	m, err := s.q.AppendMessage(ctx, sqlc.AppendMessageParams{TaskID: taskID, Role: "user", Content: content, Source: sp})
 	return m.ID, err
 }
 

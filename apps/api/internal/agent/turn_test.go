@@ -29,7 +29,7 @@ type fakeTurnStore struct {
 	anchorsWritten []byte
 }
 
-func (f *fakeTurnStore) AppendUserMessage(_ context.Context, _ uuid.UUID, _ string) (uuid.UUID, error) {
+func (f *fakeTurnStore) AppendUserMessage(_ context.Context, _ uuid.UUID, _ string, _ string) (uuid.UUID, error) {
 	f.userAppends++
 	return uuid.New(), nil
 }
@@ -79,7 +79,7 @@ func TestRunTurnContinuationAppendsNoUserMessage(t *testing.T) {
 		Catalog:  nil,
 		SpecByID: func(string) (cards.Spec, bool) { return cards.Spec{}, false },
 		SSE:      sse,
-	}, uuid.New(), "") // empty userInput = continuation turn
+	}, uuid.New(), "", "") // empty userInput = continuation turn
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 		SSE:         sse,
 	}
 
-	if err := agent.RunTurn(ctx, deps, task.ID, "这篇文章可信吗？"); err != nil {
+	if err := agent.RunTurn(ctx, deps, task.ID, "这篇文章可信吗？", ""); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
 
@@ -183,6 +183,9 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 	if len(msgs) != 2 || msgs[0].Role != "user" || msgs[1].Role != "assistant" {
 		t.Fatalf("messages = %d (%v)", len(msgs), rolesOf(msgs))
 	}
+	if msgs[0].Source != nil {
+		t.Fatalf("default (empty) source must persist as NULL, got %v", *msgs[0].Source)
+	}
 	asst := msgs[1]
 	if asst.Model == nil || *asst.Model != "deepseek-chat" {
 		t.Fatalf("assistant model not persisted")
@@ -207,6 +210,56 @@ func TestRunTurnProposesCardAndPersists(t *testing.T) {
 	// (non-NULL) in the persisted assistant message.
 	if !asst.CostEstimate.Valid {
 		t.Fatalf("assistant CostEstimate not persisted (want Valid=true, got %+v)", asst.CostEstimate)
+	}
+}
+
+// TestRunTurnPersistsVoiceSource asserts that a turn run with source="voice"
+// persists the user message with Source=="voice", while the default ("")
+// persists Source==nil (covered above in TestRunTurnProposesCardAndPersists).
+func TestRunTurnPersistsVoiceSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{
+		UserID: seededStudentID,
+		Title:  "语音提问测试",
+	})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	stub := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "好的。"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 5, OutputTokens: 3}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	sse := &fakeSSE{}
+	deps := agent.TurnDeps{
+		Store:       agent.NewSqlcTurnStore(q),
+		Provider:    stub,
+		KeyResolver: func(context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "chaperone"}, nil },
+		Catalog:     nil,
+		SpecByID:    func(string) (cards.Spec, bool) { return cards.Spec{}, false },
+		SSE:         sse,
+	}
+
+	if err := agent.RunTurn(ctx, deps, task.ID, "这段话是我说的", "voice"); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+
+	msgs, err := q.ListMessagesByTask(ctx, task.ID)
+	if err != nil {
+		t.Fatalf("ListMessagesByTask: %v", err)
+	}
+	if len(msgs) != 2 || msgs[0].Role != "user" {
+		t.Fatalf("messages = %d (%v)", len(msgs), rolesOf(msgs))
+	}
+	if msgs[0].Source == nil || *msgs[0].Source != "voice" {
+		t.Fatalf("expected user message source == \"voice\", got %v", msgs[0].Source)
 	}
 }
 
@@ -241,7 +294,7 @@ func TestRunTurnWritesAnchorsForAnnotationCard(t *testing.T) {
 		SSE:       sse,
 		AnchorGen: fakeAnchorGen{anchors: []agent.Anchor{{ID: "a0", BlockID: "b0", Dimension: "权威性", Author: "ai", Question: "可信吗？"}}},
 	}
-	if err := agent.RunTurn(context.Background(), deps, uuid.New(), "看看这个"); err != nil {
+	if err := agent.RunTurn(context.Background(), deps, uuid.New(), "看看这个", ""); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(store.anchorsWritten), "可信吗？") {

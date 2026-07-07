@@ -38,4 +38,17 @@ describe("Message", () => {
   it("rejects an unknown role", () => {
     expect(Message.safeParse({ ...message, role: "tool" }).success).toBe(false);
   });
+  it("accepts source: voice", () => {
+    expect(Message.safeParse({ ...message, source: "voice" }).success).toBe(true);
+  });
+  it("accepts a null source", () => {
+    expect(Message.safeParse({ ...message, source: null }).success).toBe(true);
+  });
+  it("accepts an omitted source", () => {
+    const { source, ...withoutSource } = { ...message, source: undefined };
+    expect(Message.safeParse(withoutSource).success).toBe(true);
+  });
+  it("rejects an unknown source value", () => {
+    expect(Message.safeParse({ ...message, source: "typed" }).success).toBe(false);
+  });
 });

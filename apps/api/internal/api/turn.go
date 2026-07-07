@@ -70,6 +70,7 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		UserInput string `json:"user_input"`
+		Source    string `json:"source"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -128,7 +129,7 @@ func (a *API) postTurn(w http.ResponseWriter, r *http.Request) {
 		SSE:         em,
 		AnchorGen:   agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver),
 	}
-	if err := agent.RunTurn(r.Context(), deps, t.ID, body.UserInput); err != nil {
+	if err := agent.RunTurn(r.Context(), deps, t.ID, body.UserInput, body.Source); err != nil {
 		// Stream already open: report via SSE error event. Log the real cause
 		// server-side only — never leak provider/internal detail to the client.
 		slog.Error("turn failed",

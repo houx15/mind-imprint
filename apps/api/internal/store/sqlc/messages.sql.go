@@ -15,11 +15,11 @@ import (
 const appendMessage = `-- name: AppendMessage :one
 INSERT INTO messages (
     task_id, role, content, tool_call,
-    provider, model, tier, prompt_tokens, completion_tokens, cost_estimate
+    provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, source
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
-RETURNING id, task_id, role, content, tool_call, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at
+RETURNING id, task_id, role, content, tool_call, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, source
 `
 
 type AppendMessageParams struct {
@@ -33,6 +33,7 @@ type AppendMessageParams struct {
 	PromptTokens     *int32         `json:"prompt_tokens"`
 	CompletionTokens *int32         `json:"completion_tokens"`
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+	Source           *string        `json:"source"`
 }
 
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
@@ -47,6 +48,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		arg.PromptTokens,
 		arg.CompletionTokens,
 		arg.CostEstimate,
+		arg.Source,
 	)
 	var i Message
 	err := row.Scan(
@@ -62,6 +64,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		&i.CompletionTokens,
 		&i.CostEstimate,
 		&i.CreatedAt,
+		&i.Source,
 	)
 	return i, err
 }
@@ -79,7 +82,7 @@ func (q *Queries) CountSubstantiveTurns(ctx context.Context, taskID uuid.UUID) (
 }
 
 const listMessagesByTask = `-- name: ListMessagesByTask :many
-SELECT id, task_id, role, content, tool_call, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at FROM messages
+SELECT id, task_id, role, content, tool_call, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, source FROM messages
 WHERE task_id = $1
 ORDER BY created_at, id
 `
@@ -106,6 +109,7 @@ func (q *Queries) ListMessagesByTask(ctx context.Context, taskID uuid.UUID) ([]M
 			&i.CompletionTokens,
 			&i.CostEstimate,
 			&i.CreatedAt,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}

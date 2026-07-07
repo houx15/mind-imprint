@@ -148,6 +148,7 @@ type Message struct {
 	CompletionTokens *int32         `json:"completion_tokens"`
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
 	CreatedAt        time.Time      `json:"created_at"`
+	Source           *string        `json:"source"`
 }
 
 type School struct {

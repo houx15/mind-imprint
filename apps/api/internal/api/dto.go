@@ -102,6 +102,7 @@ type messageDTO struct {
 	Role      string          `json:"role"`
 	Content   string          `json:"content"`
 	ToolCall  json.RawMessage `json:"tool_call,omitempty"`
+	Source    *string         `json:"source,omitempty"`
 	CreatedAt string          `json:"created_at"`
 }
 
@@ -118,6 +119,7 @@ func toMessageDTOs(rows []sqlc.Message) []messageDTO {
 			Role:      m.Role,
 			Content:   m.Content,
 			ToolCall:  tc,
+			Source:    m.Source,
 			CreatedAt: m.CreatedAt.Format(tsLayout),
 		})
 	}

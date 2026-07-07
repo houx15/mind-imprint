@@ -19,6 +19,7 @@ export const Message = z.object({
   role: MessageRole,
   content: z.string(),
   tool_call: z.unknown().nullable(),
+  source: z.enum(["voice"]).nullable().optional(),
   created_at: z.string(),
 });
 
