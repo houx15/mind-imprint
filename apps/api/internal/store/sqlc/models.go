@@ -34,6 +34,37 @@ type Class struct {
 	CreatedBy pgtype.UUID `json:"created_by"`
 }
 
+type Course struct {
+	ID         uuid.UUID `json:"id"`
+	Branch     string    `json:"branch"`
+	Title      string    `json:"title"`
+	Blurb      string    `json:"blurb"`
+	TasksCount int32     `json:"tasks_count"`
+	ToolsCount int32     `json:"tools_count"`
+	TimeLabel  string    `json:"time_label"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type CourseProgress struct {
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	CourseID          uuid.UUID `json:"course_id"`
+	CurrentOrdinal    int32     `json:"current_ordinal"`
+	CompletedOrdinals []int32   `json:"completed_ordinals"`
+	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type CourseStep struct {
+	ID              uuid.UUID `json:"id"`
+	CourseID        uuid.UUID `json:"course_id"`
+	Ordinal         int32     `json:"ordinal"`
+	Kind            string    `json:"kind"`
+	Purpose         string    `json:"purpose"`
+	Assets          []byte    `json:"assets"`
+	ChallengeType   *string   `json:"challenge_type"`
+	AuthoredContent []byte    `json:"authored_content"`
+}
+
 type EmailVerificationToken struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`
