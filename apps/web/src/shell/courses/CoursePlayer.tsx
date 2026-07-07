@@ -14,14 +14,21 @@ export function CoursePlayer({ courseId, onExit }: { courseId: string; onExit: (
     let cancelled = false;
     void (async () => {
       const c = await api.getCourse(courseId);
-      if (cancelled) return;
-      setCourse(c);
+      let startOrd = 0;
+      let comp: number[] = [];
       try {
         const p = await api.getCourseProgress(courseId);
-        if (cancelled) return;
-        setCompleted(p.completed_ordinals);
-        setOrdinal(Math.min(p.current_ordinal, c.steps.length - 1));
-      } catch { /* default 0 */ }
+        startOrd = Math.min(p.current_ordinal, c.steps.length - 1);
+        comp = p.completed_ordinals;
+      } catch {
+        /* no progress yet → default to step 0 */
+      }
+      if (cancelled) return;
+      // Set course LAST so the render effect first fires with the resumed ordinal
+      // already applied — avoids a stale step-0 flash + a wasted render on resume.
+      setCompleted(comp);
+      setOrdinal(startOrd);
+      setCourse(c);
     })();
     return () => { cancelled = true; };
   }, [courseId]);

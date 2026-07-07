@@ -45,4 +45,12 @@ describe("CoursePlayer", () => {
     fireEvent.click(screen.getByText("课程"));
     expect(onExit).toHaveBeenCalled();
   });
+
+  it("resumes at the saved ordinal without rendering step 0 first", async () => {
+    (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 1, completed_ordinals: [0], updated_at: "" });
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} />);
+    expect(await screen.findByText("第 1 步")).toBeInTheDocument();
+    expect(api.renderCourseStep).toHaveBeenCalledWith("co1", 1);
+    expect(api.renderCourseStep).not.toHaveBeenCalledWith("co1", 0);
+  });
 });
