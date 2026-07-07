@@ -12,12 +12,14 @@ export interface ConversationDeps {
   taskId: string;
   now?: () => string;
   genId?: () => string;
+  /** Autoplay hook for voice-origin turns; defaults to a no-op so this module stays test-isolable. */
+  speak?: (text: string) => void;
 }
 
 export interface Conversation {
   getSnapshot(): ConvState;
   subscribe(listener: () => void): () => void;
-  send(text: string): Promise<void>;
+  send(text: string, source?: "voice"): Promise<void>;
   openCard(cardInstanceId: string): void;
   closeCard(cardInstanceId: string): void;
   submitCard(cardInstanceId: string, finalInstance: CardInstance): Promise<void>;
@@ -28,6 +30,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
   const { api, store, taskId } = deps;
   const now = deps.now ?? (() => new Date().toISOString());
   const genId = deps.genId ?? (() => crypto.randomUUID());
+  const speak = deps.speak ?? (() => {});
 
   let state: ConvState = { taskId, phase: "idle" };
   const listeners = new Set<() => void>();
@@ -40,13 +43,13 @@ export function createConversation(deps: ConversationDeps): Conversation {
   }
 
   // Stream one turn; userInput undefined ⇒ continuation turn (after a card).
-  async function streamTurn(userInput?: string): Promise<void> {
+  async function streamTurn(userInput?: string, source?: "voice"): Promise<void> {
     setState({ phase: "awaiting_llm", error: undefined, pendingCardId: undefined });
     const assistantId = genId();
     let text = "";
     let assistantCreated = false;
     try {
-      for await (const ev of api.runTurn(taskId, userInput)) {
+      for await (const ev of api.runTurn(taskId, userInput, source)) {
         if (ev.type === "text") {
           text += ev.delta;
           store.putMessage({ id: assistantId, task_id: taskId, role: "assistant", content: text, tool_call: null, created_at: now() });
@@ -65,6 +68,7 @@ export function createConversation(deps: ConversationDeps): Conversation {
         } else if (ev.type === "done") {
           store.putMessage({ id: assistantId, task_id: taskId, role: "assistant", content: text, tool_call: null, created_at: now() });
           setState({ phase: "idle", pendingCardId: undefined });
+          if (source === "voice" && text.trim()) speak(text);
           return;
         } else if (ev.type === "error") {
           if (assistantCreated) store.removeMessage(assistantId);
@@ -83,9 +87,9 @@ export function createConversation(deps: ConversationDeps): Conversation {
     getSnapshot: () => state,
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
 
-    async send(text) {
+    async send(text, source) {
       store.appendMessage({ task_id: taskId, role: "user", content: text });
-      await streamTurn(text);
+      await streamTurn(text, source);
     },
 
     openCard(cardInstanceId) {

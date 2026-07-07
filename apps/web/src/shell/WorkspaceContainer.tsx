@@ -1,5 +1,7 @@
 import { useMemo, useEffect } from "react";
 import { api } from "../api";
+import { synthesize } from "../api/voice";
+import { player } from "../audio/player";
 import { createConversation } from "../agent/createConversation";
 import { createEvaluator } from "../agent/createEvaluator";
 import { WorkspaceView } from "../workspace";
@@ -15,7 +17,12 @@ interface Props {
 export function WorkspaceContainer({ store, taskId, onBack, openingMessage }: Props) {
   const { conversation, evaluator } = useMemo(
     () => ({
-      conversation: createConversation({ api, store, taskId }),
+      conversation: createConversation({
+        api,
+        store,
+        taskId,
+        speak: (text) => { void synthesize(text).then((url) => player.play(url)).catch(() => {}); },
+      }),
       evaluator: createEvaluator({ api, store, taskId }),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

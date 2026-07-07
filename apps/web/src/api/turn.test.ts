@@ -26,4 +26,22 @@ describe("runTurn", () => {
     for await (const e of runTurn("t1", "hello")) events.push(e);
     expect(events).toEqual([{ type: "error", code: "not_entitled", message: "无额度" }]);
   });
+
+  it("includes source:\"voice\" in the request body when passed", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => sseResponse('event: done\ndata: {"message_id":"m1"}\n\n'));
+    vi.stubGlobal("fetch", fetchMock);
+    const events = [];
+    for await (const e of runTurn("t1", "hello", "voice")) events.push(e);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body).toEqual({ user_input: "hello", source: "voice" });
+  });
+
+  it("sends an empty source when omitted", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => sseResponse('event: done\ndata: {"message_id":"m1"}\n\n'));
+    vi.stubGlobal("fetch", fetchMock);
+    const events = [];
+    for await (const e of runTurn("t1", "hello")) events.push(e);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body).toEqual({ user_input: "hello", source: "" });
+  });
 });

@@ -8,12 +8,12 @@ export type TurnEvent =
   | { type: "done"; messageId: string }
   | { type: "error"; code: string; message: string };
 
-export async function* runTurn(taskId: string, userInput?: string): AsyncGenerator<TurnEvent> {
+export async function* runTurn(taskId: string, userInput?: string, source?: "voice"): AsyncGenerator<TurnEvent> {
   const res = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/turn`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ user_input: userInput ?? "" }),
+    body: JSON.stringify({ user_input: userInput ?? "", source: source ?? "" }),
   });
 
   // Gate failures (403/404/…) come back as a JSON error envelope, not SSE.

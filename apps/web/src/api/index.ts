@@ -28,7 +28,7 @@ export interface ApiClient {
   skipCard(taskId: string, cardId: string, eventTrace: TraceEvent[]): Promise<CardInstance>;
   runEvaluation(taskId: string): Promise<Evaluation>;
   getEvaluation(taskId: string): Promise<Evaluation | null>;
-  runTurn(taskId: string, userInput?: string): AsyncGenerator<TurnEvent>;
+  runTurn(taskId: string, userInput?: string, source?: "voice"): AsyncGenerator<TurnEvent>;
   signup(input: { email: string; password: string; display_name: string; join_code: string }): Promise<void>;
   verifyEmail(token: string): Promise<MeUser>;
   signin(input: { email: string; password: string }): Promise<MeUser>;

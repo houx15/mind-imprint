@@ -4,10 +4,10 @@ import { createConversation } from "./createConversation";
 import type { TurnEvent } from "../api";
 
 function fakeApi(script: TurnEvent[]) {
-  const calls: { userInput?: string }[] = [];
+  const calls: { userInput?: string; source?: "voice" }[] = [];
   return {
     calls,
-    async *runTurn(_t: string, userInput?: string) { calls.push({ userInput }); for (const e of script) yield e; },
+    async *runTurn(_t: string, userInput?: string, source?: "voice") { calls.push({ userInput, source }); for (const e of script) yield e; },
     async activateCard(_t: string, _c: string) { return undefined as never; },
     async submitCard(_t: string, _c: string, env: any) { return env; },
     async skipCard(_t: string, _c: string, _e: any) { return undefined as never; },
@@ -61,6 +61,25 @@ describe("createConversation (API/SSE)", () => {
     const conv = createConversation({ api: api as never, store, taskId: "t1" });
     await conv.send("hi");
     expect(conv.getSnapshot()).toMatchObject({ phase: "error", error: "无额度" });
+  });
+
+  it("autoplays the assembled assistant reply after a voice-origin turn", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([{ type: "text", delta: "你好" }, { type: "text", delta: "，同学" }, { type: "done", messageId: "m1" }]);
+    const speak = vi.fn();
+    const conv = createConversation({ api: api as never, store, taskId: "t1", speak });
+    await conv.send("说点什么", "voice");
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak).toHaveBeenCalledWith("你好，同学");
+  });
+
+  it("does not autoplay after a typed (non-voice) turn", async () => {
+    const store = createStore({}); store.putTask(task);
+    const api = fakeApi([{ type: "text", delta: "Hello" }, { type: "done", messageId: "m1" }]);
+    const speak = vi.fn();
+    const conv = createConversation({ api: api as never, store, taskId: "t1", speak });
+    await conv.send("typed");
+    expect(speak).not.toHaveBeenCalled();
   });
 
   it("a mid-stream error removes the partial assistant message from the store", async () => {

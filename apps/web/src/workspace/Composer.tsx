@@ -3,7 +3,7 @@ import { AsrStream } from "../api/voice";
 import { MicCapture } from "../audio/capture";
 
 type Props = {
-  onSend: (text: string) => void;
+  onSend: (text: string, source?: "voice") => void;
   disabled?: boolean;
 };
 
@@ -13,11 +13,15 @@ export function Composer({ onSend, disabled = false }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const micRef = useRef<MicCapture | null>(null);
   const asrRef = useRef<AsrStream | null>(null);
+  // True once a voice transcript (partial or final) has filled the textarea, until the
+  // student edits it by hand or sends — i.e. "was this turn's text produced by speaking?"
+  const wasVoiceRef = useRef(false);
 
   function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
-    onSend(trimmed);
+    onSend(trimmed, wasVoiceRef.current ? "voice" : undefined);
+    wasVoiceRef.current = false;
     setText("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -33,6 +37,7 @@ export function Composer({ onSend, disabled = false }: Props) {
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setText(e.target.value);
+    wasVoiceRef.current = false; // manual edit reverts this turn to typed
     // auto-grow
     const el = e.target;
     el.style.height = "auto";
@@ -64,8 +69,8 @@ export function Composer({ onSend, disabled = false }: Props) {
     setRecording(true);
     try {
       const asr = new AsrStream();
-      asr.onPartial((t) => setText(t));
-      asr.onFinal((t) => setText(t));
+      asr.onPartial((t) => { wasVoiceRef.current = true; setText(t); });
+      asr.onFinal((t) => { wasVoiceRef.current = true; setText(t); });
       asr.onError((message) => {
         console.warn("ASR error:", message);
         stopRecording();

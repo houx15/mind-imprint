@@ -250,7 +250,7 @@ export function WorkspaceView({ store, conversation, taskId, onBack, evaluator =
           />
 
           <Composer
-            onSend={(text) => void conversation.send(text)}
+            onSend={(text, source) => void conversation.send(text, source)}
             disabled={phase === "awaiting_llm"}
           />
 

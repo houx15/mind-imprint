@@ -236,7 +236,7 @@ describe("WorkspaceView", () => {
       const textarea = screen.getByPlaceholderText("把你的想法发给陪练……");
       await userEvent.type(textarea, "我的论点");
       await userEvent.click(screen.getByRole("button", { name: /发送/ }));
-      expect(conv.send).toHaveBeenCalledWith("我的论点");
+      expect(conv.send).toHaveBeenCalledWith("我的论点", undefined);
     });
   });
 
