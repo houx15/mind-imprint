@@ -65,7 +65,7 @@ export function RecordsView({
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: "920px", margin: "0 auto", padding: "40px 40px 60px" }}>
         <div style={{ fontSize: "26px", fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>
-          记录
+          我的评估
         </div>
         <div style={{ fontSize: "13.5px", color: "#8A92A3", marginTop: "5px" }}>
           你走过的思考，安静地留下印记。

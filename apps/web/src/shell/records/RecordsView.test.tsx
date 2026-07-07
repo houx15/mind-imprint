@@ -7,9 +7,10 @@ import { CARD_REGISTRY } from "@mind-imprint/contracts";
 const NOW = () => new Date("2026-06-21T12:00:00Z");
 
 describe("RecordsView", () => {
-  it("shows the learning tab by default with the activity calendar header", () => {
+  it("shows the 我的评估 header + learning tab by default with the activity calendar", () => {
     const store = createStore({ storage: makeMemoryStorage() });
     render(<RecordsView store={store} registry={CARD_REGISTRY} now={NOW} />);
+    expect(screen.getByText("我的评估")).toBeTruthy();
     expect(screen.getByText("活跃日历")).toBeTruthy();
   });
 

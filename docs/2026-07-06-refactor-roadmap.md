@@ -51,10 +51,10 @@ Not building: document editor / authoring / submission (the process tree is read
 
 ## 4. Progress tracker
 
-- [ ] Slice 1 · Nav / IA shell — spec → plan → build
-- [ ] Slice 2 · Material substrate
-- [ ] Slice 3 · Material-anchored card engine ⭐
-- [ ] Slice 4 · Courses pillar (incl. voice sub-step)
-- [ ] Slice 5 · My-Evaluation + Settings polish
+- [x] Slice 1 · Nav / IA shell — branch `slice-1-nav-ia-shell` (kept, unmerged)
+- [x] Slice 2 · Material substrate — branch `slice-2-material-substrate` (stacked, kept)
+- [x] Slice 3 · Material-anchored card engine ⭐ — branch `slice-3-anchored-cards` (stacked, kept)
+- [x] Slice 4 · Courses pillar (hybrid AI-generated; voice deferred to 4-voice) — branch `slice-4-courses` (stacked, kept)
+- [x] Slice 5 · My-Evaluation + Settings polish — branch `slice-5-eval-settings-polish` (stacked, kept)
 
-> As each slice completes, check it off and record the merge commit here.
+> ✅ **All 5 slices complete** (2026-07-07). Each built TDD via subagent-driven development with per-task + whole-branch reviews; branches stacked and kept unmerged per the user. Deferred follow-ups: 3d polish (methodology modal, close-out framework, click-sync), 4-voice (TTS/STT), 4c-ask (course ask-panel), course-level SOLO eval + note-export, CoursePlayer render-error state.
