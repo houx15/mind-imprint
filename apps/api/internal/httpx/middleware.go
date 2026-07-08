@@ -94,7 +94,7 @@ func CORS(origins []string) func(http.Handler) http.Handler {
 	c := cors.New(cors.Options{
 		AllowedOrigins:   origins,
 		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodOptions},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions},
 		AllowedHeaders:   []string{"Content-Type", "X-CSRF-Token"},
 	})
 	return c.Handler

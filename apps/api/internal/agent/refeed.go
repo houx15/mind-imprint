@@ -15,7 +15,8 @@ type CardInstance struct {
 	TaskID        string
 	Status        string
 	FieldValues   map[string]map[string]any
-	EventTraceLen int // populated for eval input (TS card.event_trace.length)
+	Anchors       []Anchor // annotation/keystone cards persist answers here, not in FieldValues
+	EventTraceLen int       // populated for eval input (TS card.event_trace.length)
 }
 
 // RefeedAnswer pairs a field label with the value the human entered.
@@ -130,5 +131,38 @@ func SerializeCardForRefeed(spec cards.Spec, inst CardInstance) RefeedPayload {
 			steps = append(steps, RefeedStep{Title: step.Title, Answers: answers})
 		}
 	}
+	// Annotation/keystone cards leave field_values empty and persist the
+	// student's answers on anchors; fold those in so 摘要回灌 sees them.
+	steps = append(steps, anchorSteps(inst)...)
 	return RefeedPayload{CardID: spec.ID, CardName: cardName, Status: "completed", Steps: steps}
+}
+
+// anchorSteps turns answered anchors into refeed steps, one per dimension
+// (first-seen order), mapping each anchor to {label: question, value: answer}.
+// Unanswered anchors (the AI's question with no student reply) are dropped, so
+// form cards — which carry no answered anchors — contribute nothing here.
+func anchorSteps(inst CardInstance) []RefeedStep {
+	var steps []RefeedStep
+	byDim := map[string]int{}
+	for _, a := range inst.Anchors {
+		if isEmpty(a.Answer) {
+			continue
+		}
+		dim := a.Dimension
+		if dim == "" {
+			dim = "标注"
+		}
+		label := a.Question
+		if label == "" {
+			label = dim
+		}
+		i, ok := byDim[dim]
+		if !ok {
+			steps = append(steps, RefeedStep{Title: dim})
+			i = len(steps) - 1
+			byDim[dim] = i
+		}
+		steps[i].Answers = append(steps[i].Answers, RefeedAnswer{Label: label, Value: a.Answer})
+	}
+	return steps
 }

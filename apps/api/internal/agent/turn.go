@@ -278,6 +278,9 @@ func (s *sqlcTurnStore) CardByID(ctx context.Context, id string) (CardInstance, 
 	if len(row.FieldValues) > 0 {
 		_ = json.Unmarshal(row.FieldValues, &ci.FieldValues)
 	}
+	if len(row.Anchors) > 0 {
+		_ = json.Unmarshal(row.Anchors, &ci.Anchors)
+	}
 	return ci, true, nil
 }
 

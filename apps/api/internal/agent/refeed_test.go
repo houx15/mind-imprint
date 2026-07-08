@@ -109,6 +109,37 @@ func TestRefeedRepeatableGroupRemap(t *testing.T) {
 	}
 }
 
+// TestRefeedFoldsAnnotationAnchors covers the flagship keystone/annotation card:
+// its answers live on `anchors` (field_values stays empty), and they must reach
+// the refeed payload — otherwise "摘要回灌" drops the student's actual thinking.
+func TestRefeedFoldsAnnotationAnchors(t *testing.T) {
+	spec := mustSift(t)
+	inst := CardInstance{
+		CardID: "sift_craap",
+		Status: "completed",
+		// annotation cards leave field_values empty; the student's answers ride anchors.
+		Anchors: []Anchor{
+			{Dimension: "溯源 (SIFT)", Question: "这条信息最初来自哪里？", Answer: "原始研究来自 NASA / Nature Sustainability", Author: "ai"},
+			{Dimension: "可信度 (CRAAP)", Question: "这个来源可信吗？", Answer: "NASA 是官方机构，可信", Author: "ai"},
+			{Dimension: "空", Question: "没回答", Answer: "", Author: "ai"}, // unanswered → must not leak
+		},
+	}
+	p := SerializeCardForRefeed(spec, inst)
+	if p.Status != "completed" {
+		t.Fatalf("status = %q, want completed", p.Status)
+	}
+	if len(p.Steps) != 2 {
+		t.Fatalf("steps = %d, want 2 (one per answered anchor dimension)", len(p.Steps))
+	}
+	if p.Steps[0].Title != "溯源 (SIFT)" {
+		t.Fatalf("step[0] title = %q", p.Steps[0].Title)
+	}
+	if p.Steps[0].Answers[0].Label != "这条信息最初来自哪里？" ||
+		p.Steps[0].Answers[0].Value != "原始研究来自 NASA / Nature Sustainability" {
+		t.Fatalf("step[0] answer wrong: %+v", p.Steps[0].Answers[0])
+	}
+}
+
 // jsonEqual compares two JSON byte slices semantically (key order independent).
 func jsonEqual(t *testing.T, a, b []byte) bool {
 	t.Helper()

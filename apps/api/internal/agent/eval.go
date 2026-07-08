@@ -188,6 +188,9 @@ func (s *sqlcEvalStore) EvalCards(ctx context.Context, taskID uuid.UUID) ([]Card
 		if len(r.FieldValues) > 0 {
 			_ = json.Unmarshal(r.FieldValues, &ci.FieldValues)
 		}
+		if len(r.Anchors) > 0 {
+			_ = json.Unmarshal(r.Anchors, &ci.Anchors)
+		}
 		// event_trace length only (TS card.event_trace.length).
 		if len(r.EventTrace) > 0 {
 			var arr []json.RawMessage

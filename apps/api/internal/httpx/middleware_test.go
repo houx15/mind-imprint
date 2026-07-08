@@ -70,3 +70,25 @@ func TestCORSPreflight(t *testing.T) {
 		t.Fatalf("Allow-Credentials = %q, want true", got)
 	}
 }
+
+// TestCORSPreflightPatchDelete guards the regression where the allow-list omitted
+// PATCH/DELETE, silently breaking card-open (PATCH), class-rename (PATCH), and
+// student/teacher removal (DELETE) from the browser.
+func TestCORSPreflightPatchDelete(t *testing.T) {
+	allowed := "http://localhost:5173"
+	h := chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), CORS([]string{allowed}))
+
+	for _, method := range []string{http.MethodPatch, http.MethodDelete} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodOptions, "/x", nil)
+		req.Header.Set("Origin", allowed)
+		req.Header.Set("Access-Control-Request-Method", method)
+		h.ServeHTTP(rec, req)
+
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != allowed {
+			t.Fatalf("%s preflight: Allow-Origin = %q, want %q", method, got, allowed)
+		}
+	}
+}
