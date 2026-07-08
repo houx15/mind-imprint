@@ -16,7 +16,7 @@ type CardInstance struct {
 	Status        string
 	FieldValues   map[string]map[string]any
 	Anchors       []Anchor // annotation/keystone cards persist answers here, not in FieldValues
-	EventTraceLen int       // populated for eval input (TS card.event_trace.length)
+	EventTraceLen int      // populated for eval input (TS card.event_trace.length)
 }
 
 // RefeedAnswer pairs a field label with the value the human entered.

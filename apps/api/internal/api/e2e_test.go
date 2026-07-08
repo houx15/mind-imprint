@@ -11,6 +11,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,8 +21,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 
-	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/agent"
+	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
@@ -108,6 +109,14 @@ type queueProvider struct {
 
 func (p *queueProvider) Stream(ctx context.Context, _ gateway.Resolved, _ gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
 	p.mu.Lock()
+	if p.i >= len(p.scripts) {
+		i := p.i
+		p.mu.Unlock()
+		// A raw index panic here is opaque; surface the desync instead. If a new
+		// server-side LLM call is added (e.g. anchor-gen for an annotation card),
+		// extend the script queue below to match the real call sequence.
+		return nil, fmt.Errorf("queueProvider: unscripted Stream call #%d (only %d scripts queued)", i, len(p.scripts))
+	}
 	script := p.scripts[p.i]
 	p.i++
 	p.mu.Unlock()
@@ -153,17 +162,27 @@ func TestE2EPhoebeVertical(t *testing.T) {
 		{Kind: gateway.EventDone},
 	}
 	// evalScript2 is consumed by the explicit POST /evaluate in step 5.
-	// Script order matches the actual prov.Stream call sequence:
-	//   [0] turn1   → Turn 1 (step 2)
-	//   [1] evalScript → milestone auto-trigger after card submit (step 3)
-	//   [2] turn2   → Turn 2 (step 4)
-	//   [3] evalScript2 → explicit POST /evaluate (step 5)
 	evalScript2 := []gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: `{"scores":[{"dim_id":"D2","level":"L4","note":"n"}],"narrative":"你的思维印记"}`},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 200}},
 		{Kind: gateway.EventDone},
 	}
-	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, evalScript, turn2, evalScript2}}
+	// anchorScript is consumed when Turn 1 summons sift_craap — an annotation-mode
+	// card, so RunTurn calls AnchorGen.Generate (an extra LLM Stream) before it
+	// emits the card event. Materials are empty here, so the generator falls back
+	// to per-dimension anchors regardless of this payload.
+	anchorScript := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `[]`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 5, OutputTokens: 5}},
+		{Kind: gateway.EventDone},
+	}
+	// Script order matches the actual prov.Stream call sequence:
+	//   [0] turn1        → Turn 1 main stream (step 2)
+	//   [1] anchorScript → anchor-gen for the summoned annotation card (step 2)
+	//   [2] evalScript   → milestone auto-trigger after card submit (step 3)
+	//   [3] turn2        → Turn 2 main stream (step 4)
+	//   [4] evalScript2  → explicit POST /evaluate (step 5)
+	prov := &queueProvider{scripts: [][]gateway.StreamEvent{turn1, anchorScript, evalScript, turn2, evalScript2}}
 
 	evalResolver := func(context.Context) (gateway.Resolved, error) {
 		return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship"}, nil
