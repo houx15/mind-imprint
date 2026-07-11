@@ -55,10 +55,13 @@ export function ViewFrame({ state }: ViewFrameProps) {
     return <div style={FRAME} />;
   }
 
-  // S0 任务解码 is always the onboarding recognition screen regardless of its
-  // `.view` tag (design docs/design/思维印记_工作区.dc.html ~L2113/L2125:
-  // `stnS0` is checked directly by station code, same as the reference logic).
-  const effectiveView = active.code === "S0" ? "onboarding" : active.view;
+  // S0/S1/S2 render bespoke onboarding screens regardless of their `.view`
+  // tag (which is the station's four-view *association* from the design's STA,
+  // not what renders during onboarding). The design gates these by station
+  // code — `stnS0 || stnS1 || stnS2` — while S3–S6 render their view
+  // (viewIsMaterial=S3, viewIsStructure=S4, viewIsWriting=S5, viewIsReview=S6).
+  const isOnboarding = active.code === "S0" || active.code === "S1" || active.code === "S2";
+  const effectiveView = isOnboarding ? "onboarding" : active.view;
 
   return (
     <div style={FRAME}>
