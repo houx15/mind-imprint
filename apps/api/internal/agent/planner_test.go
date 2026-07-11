@@ -105,10 +105,39 @@ func TestIntake_ImportedDoesNotSatisfyStudentWritten(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Intake: %v", err)
 	}
-	// decode_task still owes its machine items AND milestone_plan is not solid.
+	// The imported milestone_plan node is on the graph, yet decode_task's
+	// student_written `milestone_plan` item must STILL be reported as owed —
+	// imported content never auto-satisfies a student_written item. (This is
+	// the invariant; it holds because CheckGate satisfies student_written items
+	// only from recorded status, never from graph presence.)
 	g, _ := f.LoadGraph(context.Background(), pid)
 	rep := CheckGate(sk, "decode_task", g, RecordedGate{})
 	if rep.Solid {
 		t.Fatal("imported milestone_plan must not make decode_task solid")
+	}
+	var item ItemResult
+	found := false
+	for _, it := range rep.Items {
+		if it.Name == "milestone_plan" {
+			item, found = it, true
+		}
+	}
+	if !found {
+		t.Fatal("decode_task report should list the milestone_plan student_written item")
+	}
+	if item.Kind != "student_written" {
+		t.Fatalf("milestone_plan should be a student_written item, got %q", item.Kind)
+	}
+	if item.Pass {
+		t.Fatal("imported milestone_plan must NOT satisfy the student_written milestone_plan item")
+	}
+	owed := false
+	for _, m := range rep.Missing {
+		if m == "milestone_plan 待完成" {
+			owed = true
+		}
+	}
+	if !owed {
+		t.Fatalf("milestone_plan should be reported as owed in Missing, got %v", rep.Missing)
 	}
 }
