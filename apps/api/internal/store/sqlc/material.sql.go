@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createMaterial = `-- name: CreateMaterial :one
@@ -51,6 +52,52 @@ func (q *Queries) CreateMaterial(ctx context.Context, arg CreateMaterialParams) 
 	return i, err
 }
 
+const createProjectMaterial = `-- name: CreateProjectMaterial :one
+
+INSERT INTO material (task_id, project_id, kind, source, title, source_url, blocks)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
+`
+
+type CreateProjectMaterialParams struct {
+	TaskID    uuid.UUID   `json:"task_id"`
+	ProjectID pgtype.UUID `json:"project_id"`
+	Kind      string      `json:"kind"`
+	Source    string      `json:"source"`
+	Title     string      `json:"title"`
+	SourceUrl *string     `json:"source_url"`
+	Blocks    []byte      `json:"blocks"`
+}
+
+// Project-scoped reads/writes (Slice 3): the classifier's surface_card
+// predicate reads a project's source materials; task_id stays required
+// (legacy FK, not yet dropped) so fixtures still supply it.
+func (q *Queries) CreateProjectMaterial(ctx context.Context, arg CreateProjectMaterialParams) (Material, error) {
+	row := q.db.QueryRow(ctx, createProjectMaterial,
+		arg.TaskID,
+		arg.ProjectID,
+		arg.Kind,
+		arg.Source,
+		arg.Title,
+		arg.SourceUrl,
+		arg.Blocks,
+	)
+	var i Material
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Kind,
+		&i.Source,
+		&i.Title,
+		&i.SourceUrl,
+		&i.Blocks,
+		&i.Scratch,
+		&i.CreatedAt,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
 const getMaterial = `-- name: GetMaterial :one
 SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material WHERE id = $1
 `
@@ -71,6 +118,43 @@ func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, erro
 		&i.ProjectID,
 	)
 	return i, err
+}
+
+const listMaterialsByProject = `-- name: ListMaterialsByProject :many
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material
+WHERE project_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListMaterialsByProject(ctx context.Context, projectID pgtype.UUID) ([]Material, error) {
+	rows, err := q.db.Query(ctx, listMaterialsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Material
+	for rows.Next() {
+		var i Material
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Kind,
+			&i.Source,
+			&i.Title,
+			&i.SourceUrl,
+			&i.Blocks,
+			&i.Scratch,
+			&i.CreatedAt,
+			&i.ProjectID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMaterialsByTask = `-- name: ListMaterialsByTask :many
