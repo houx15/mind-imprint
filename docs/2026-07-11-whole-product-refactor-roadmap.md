@@ -83,7 +83,7 @@ started · ◐ in progress · ☑ done.
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
-| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. | 4 | ☐ |
+| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (live wiring).** | 4 | ◐ (5a ☑, 5b ☐) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
@@ -181,3 +181,27 @@ Each slice appends its spec/plan links and outcome here as it completes.
   card-refs validated only by a test not at `Load`; Advance upsert-before-event ordering; 0017 down
   fails if skill-typed rows exist. **Slice 5 debt still owed:** legacy `task_id` NULLABLE migration +
   project-scope `GetCardInstance` (from Slice 3), plus a live loop driver + check_gate debounce.
+- **Slice 5a** — ☑ **complete** (branch `refactor2-slice5a-studio-shell`, commits `d39963b`..HEAD).
+  Spec `docs/superpowers/specs/2026-07-11-slice-5a-studio-shell-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-5a-studio-shell.md`. **First UI slice.** DISCOVERY: the
+  local `思维印记_工作区.dc.html` was a stale snapshot (old chat workspace); the real Studio design
+  (四视图/S0–S6/装备栏) was in the Claude Design project's newer 2767-line version — refreshed in-repo
+  (`d39963b`). KEY DESIGN INSIGHT: the four views (结构/素材/写作/评估) and the S0–S6 stations are the
+  SAME control — the station rail IS the view switcher (S3=素材, S4=结构, S5=写作, S6=评估; S0–S2 are
+  onboarding), which maps 1:1 onto the Slice-4 contract DAG (7 contracts, each with a `view` field).
+  Delivered (new `apps/web/src/studio/` tree, controlled + fixture-backed, dev-harness mounted, old
+  `workspace/`/`StudentApp`/`Root` untouched — Slice-1 discipline): `Bean` mascot + `StudioState`
+  view-model (the 5a↔5b seam) + fixture; `StationRail` (the contract map, per-station state + gate
+  strip + soft-lock); `ViewFrame` (station-rail-driven four-view switcher, 素材 reuses Slice-1
+  `SourceDossier`); the four view shells (S0 任务解码 recognition + S1/S2 shells · 结构/写作/评估 shells,
+  deep interactions deferred to 6–9); `CoachRail` (thread + **三键处置** `DispositionCard` ≥15-**rune**
+  gate matching the backend + **装备栏** `EquipmentBar` + `MethodologyModal` + composer); `StudioShell`
+  (3-column layout + focus mode). Gate: full web suite 446 green + tsc clean; controlled (no fetch/
+  SSE/model), boundary held. Final whole-branch review (opus): Merge after fixes — fixed 2 Important
+  (equip→meth mapping, modal clipped to coach rail → lifted to shell) + revise→rewrite drift + double-锚定.
+  **CARRIED to 5b:** `CoachMessage.ai` anchor field (chip+锚定-label split — arrives with the backend
+  projection). **5b will owe:** projects API + `projectToStudioState` projection (skill contracts →
+  stations, gate reports → gate progress, plan → coach anchor) · live coach (post_intervention/
+  check_gate) over SSE · real disposition persistence · the app-routing flip + retiring the old chat
+  `workspace/` + legacy `RunTurn`/`turn.go` · the Slice-3 deferred debt (task_id-nullable migration +
+  project-scope `GetCardInstance`) · a live loop driver + check_gate debounce.
