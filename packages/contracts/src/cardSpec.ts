@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FieldPrimitive } from "./primitives";
+import { PrimitiveKind } from "./interactionPrimitive";
 
 export const Methodology = z.object({
   why: z.string().min(1),
@@ -39,10 +40,22 @@ export const CardSpec = z.object({
   disclosure_tier: DisclosureTier.optional(),
   age_band: z.array(z.string()).optional(),
   trigger_keywords: z.array(z.string()).optional(),
+  // deprecated: interaction_type (retire when cards are ported in Slice 3)
   interaction_type: InteractionType.optional(),
   rubric_dims: z.array(z.string()).optional(),
   related: z.array(z.string()).optional(),
   body_status: BodyStatus.optional(),
+  // C2: card format evolution — primitive binding + subject/stage/completion metadata
+  primitive: PrimitiveKind.optional(),
+  subject: z.array(z.string()).optional(),
+  stage: z.array(z.string()).optional(),
+  target_type: z.string().optional(),
+  params: z.record(z.unknown()).optional(),
+  completion: z.array(z.record(z.unknown())).optional(),
+  graph_effects: z.array(z.record(z.unknown())).optional(),
+  observe: z.array(z.object({ when: z.string(), move: z.record(z.unknown()) })).optional(),
+  consolidation: z.string().optional(),
+  intrusiveness_cap: z.enum(["I0", "I1", "I2", "I3", "I4"]).optional(),
 });
 
 export type Methodology = z.infer<typeof Methodology>;

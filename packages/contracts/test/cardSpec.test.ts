@@ -76,3 +76,94 @@ describe("Methodology (Layer B)", () => {
     expect(CardSpec.safeParse(bad).success).toBe(false);
   });
 });
+
+describe("C2 card format evolution", () => {
+  const baseStep = { key: "s", title: "T", disclose: "always", methodology: { why: "w", how: "h", when: "n" }, fields: [{ type: "textarea", key: "x", label: "L" }] };
+  const base = { id: "c", category: "思维工具", name: "n", purpose: "", trigger_condition: "", steps: [baseStep], rubric_tags: [] };
+
+  it("accepts a card with primitive binding", () => {
+    const withPrimitive = { ...base, primitive: "annotate" };
+    expect(CardSpec.safeParse(withPrimitive).success).toBe(true);
+  });
+
+  it("accepts a card with subject array", () => {
+    const withSubject = { ...base, subject: ["global-perspectives", "individuals-and-societies"] };
+    expect(CardSpec.safeParse(withSubject).success).toBe(true);
+  });
+
+  it("accepts a card with stage array", () => {
+    const withStage = { ...base, stage: ["S3", "S4"] };
+    expect(CardSpec.safeParse(withStage).success).toBe(true);
+  });
+
+  it("accepts a card with target_type", () => {
+    const withTargetType = { ...base, target_type: "argument" };
+    expect(CardSpec.safeParse(withTargetType).success).toBe(true);
+  });
+
+  it("accepts a card with params object", () => {
+    const withParams = { ...base, params: { key1: "value1", nested: { a: 1 } } };
+    expect(CardSpec.safeParse(withParams).success).toBe(true);
+  });
+
+  it("accepts a card with completion array", () => {
+    const withCompletion = { ...base, completion: [{ status: "done", metadata: "info" }, { status: "pending" }] };
+    expect(CardSpec.safeParse(withCompletion).success).toBe(true);
+  });
+
+  it("accepts a card with graph_effects array", () => {
+    const withGraphEffects = { ...base, graph_effects: [{ effect: "create_node" }, { effect: "link_edge", to: "n1" }] };
+    expect(CardSpec.safeParse(withGraphEffects).success).toBe(true);
+  });
+
+  it("accepts a card with observe array", () => {
+    const withObserve = { ...base, observe: [{ when: "after_submit", move: { action: "log" } }, { when: "on_error", move: { action: "retry" } }] };
+    expect(CardSpec.safeParse(withObserve).success).toBe(true);
+  });
+
+  it("accepts a card with consolidation string", () => {
+    const withConsolidation = { ...base, consolidation: "reflect_on_learning" };
+    expect(CardSpec.safeParse(withConsolidation).success).toBe(true);
+  });
+
+  it("accepts a card with intrusiveness_cap", () => {
+    const withIntrusivenessCap = { ...base, intrusiveness_cap: "I2" };
+    expect(CardSpec.safeParse(withIntrusivenessCap).success).toBe(true);
+  });
+
+  it("accepts a card with all new C2 fields together", () => {
+    const fullCard = {
+      ...base,
+      primitive: "graph",
+      subject: ["science"],
+      stage: ["S3"],
+      target_type: "claim",
+      params: { mode: "edit" },
+      completion: [{ status: "complete" }],
+      graph_effects: [{ effect: "create" }],
+      observe: [{ when: "submit", move: { step: "next" } }],
+      consolidation: "summarize",
+      intrusiveness_cap: "I1",
+    };
+    expect(CardSpec.safeParse(fullCard).success).toBe(true);
+  });
+
+  it("maintains back-compat: old card JSON without new fields still parses", () => {
+    expect(CardSpec.safeParse(base).success).toBe(true);
+  });
+
+  it("accepts interaction_type (now deprecated but still supported)", () => {
+    const withInteractionType = { ...base, interaction_type: "步骤引导卡" };
+    expect(CardSpec.safeParse(withInteractionType).success).toBe(true);
+  });
+
+  it("rejects invalid primitive value", () => {
+    const badPrimitive = { ...base, primitive: "invalid_primitive" };
+    expect(CardSpec.safeParse(badPrimitive).success).toBe(false);
+  });
+
+  it("rejects invalid intrusiveness_cap value", () => {
+    const badIntrusiveness = { ...base, intrusiveness_cap: "I9" };
+    expect(CardSpec.safeParse(badIntrusiveness).success).toBe(false);
+  });
+});
