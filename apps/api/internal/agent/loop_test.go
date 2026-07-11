@@ -42,6 +42,11 @@ type fakeAgentStore struct {
 		Action         string
 		Reason         string
 	}
+
+	gateStates        map[string]RecordedGate // keyed by contract
+	upsertPlanCalls   int
+	lastPlanBody      []byte
+	gateAttemptEvents []EventRow
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -108,6 +113,27 @@ func (f *fakeAgentStore) InsertDisposition(_ context.Context, interventionID uui
 	f.lastDisposition.Action = action
 	f.lastDisposition.Reason = reason
 	return uuid.New(), nil
+}
+
+func (f *fakeAgentStore) ListGateStates(context.Context, uuid.UUID) (map[string]RecordedGate, error) {
+	if f.gateStates == nil {
+		return map[string]RecordedGate{}, nil
+	}
+	return f.gateStates, nil
+}
+
+func (f *fakeAgentStore) UpsertGateState(_ context.Context, _ uuid.UUID, contract string, rec RecordedGate) error {
+	if f.gateStates == nil {
+		f.gateStates = map[string]RecordedGate{}
+	}
+	f.gateStates[contract] = rec
+	return nil
+}
+
+func (f *fakeAgentStore) UpsertPlan(_ context.Context, _ uuid.UUID, body []byte) error {
+	f.upsertPlanCalls++
+	f.lastPlanBody = body
+	return nil
 }
 
 func TestLoop_UnsupportedClaimEmitsInterventionAndPersistsOnce(t *testing.T) {
@@ -344,5 +370,29 @@ func TestLoop_InactiveCardObserveDoesNotFire(t *testing.T) {
 	}
 	if action != nil {
 		t.Fatalf("want silence for a non-active card, got %+v", action)
+	}
+}
+
+func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
+	f := &fakeAgentStore{}
+	pid := uuid.New()
+	if err := f.UpsertGateState(context.Background(), pid, "decode_task",
+		RecordedGate{Confirmed: true, Items: map[string]string{"milestone_plan": "solid"}}); err != nil {
+		t.Fatalf("UpsertGateState: %v", err)
+	}
+	// upsert again (same contract) must not duplicate
+	_ = f.UpsertGateState(context.Background(), pid, "decode_task", RecordedGate{Confirmed: true})
+	states, err := f.ListGateStates(context.Background(), pid)
+	if err != nil {
+		t.Fatalf("ListGateStates: %v", err)
+	}
+	if len(states) != 1 || !states["decode_task"].Confirmed {
+		t.Fatalf("want one confirmed gate_state, got %+v", states)
+	}
+	if err := f.UpsertPlan(context.Background(), pid, []byte(`{"route":["frame_question"]}`)); err != nil {
+		t.Fatalf("UpsertPlan: %v", err)
+	}
+	if f.upsertPlanCalls != 1 {
+		t.Fatalf("want 1 plan upsert, got %d", f.upsertPlanCalls)
 	}
 }

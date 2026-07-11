@@ -11,6 +11,54 @@ import (
 	"github.com/google/uuid"
 )
 
+const getGateStateNode = `-- name: GetGateStateNode :one
+SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
+WHERE project_id = $1 AND type = 'gate_state' AND body->>'contract' = $2::text
+LIMIT 1
+`
+
+type GetGateStateNodeParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Column2   string    `json:"column_2"`
+}
+
+func (q *Queries) GetGateStateNode(ctx context.Context, arg GetGateStateNodeParams) (GraphNode, error) {
+	row := q.db.QueryRow(ctx, getGateStateNode, arg.ProjectID, arg.Column2)
+	var i GraphNode
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Type,
+		&i.Body,
+		&i.Author,
+		&i.SpanRef,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPlanNode = `-- name: GetPlanNode :one
+SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
+WHERE project_id = $1 AND type = 'plan'
+ORDER BY created_at, id
+LIMIT 1
+`
+
+func (q *Queries) GetPlanNode(ctx context.Context, projectID uuid.UUID) (GraphNode, error) {
+	row := q.db.QueryRow(ctx, getPlanNode, projectID)
+	var i GraphNode
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Type,
+		&i.Body,
+		&i.Author,
+		&i.SpanRef,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertGraphEdge = `-- name: InsertGraphEdge :one
 INSERT INTO graph_edge (project_id, type, from_kind, from_id, to_kind, to_id)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -84,6 +132,40 @@ func (q *Queries) InsertGraphNode(ctx context.Context, arg InsertGraphNodeParams
 	return i, err
 }
 
+const listGateStateNodes = `-- name: ListGateStateNodes :many
+SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
+WHERE project_id = $1 AND type = 'gate_state'
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListGateStateNodes(ctx context.Context, projectID uuid.UUID) ([]GraphNode, error) {
+	rows, err := q.db.Query(ctx, listGateStateNodes, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GraphNode
+	for rows.Next() {
+		var i GraphNode
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Type,
+			&i.Body,
+			&i.Author,
+			&i.SpanRef,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGraphEdgesByProject = `-- name: ListGraphEdgesByProject :many
 SELECT id, project_id, type, from_kind, from_id, to_kind, to_id, created_at FROM graph_edge
 WHERE project_id = $1
@@ -151,4 +233,28 @@ func (q *Queries) ListGraphNodesByProject(ctx context.Context, projectID uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateGraphNodeBody = `-- name: UpdateGraphNodeBody :one
+UPDATE graph_node SET body = $2 WHERE id = $1 RETURNING id, project_id, type, body, author, span_ref, created_at
+`
+
+type UpdateGraphNodeBodyParams struct {
+	ID   uuid.UUID `json:"id"`
+	Body []byte    `json:"body"`
+}
+
+func (q *Queries) UpdateGraphNodeBody(ctx context.Context, arg UpdateGraphNodeBodyParams) (GraphNode, error) {
+	row := q.db.QueryRow(ctx, updateGraphNodeBody, arg.ID, arg.Body)
+	var i GraphNode
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Type,
+		&i.Body,
+		&i.Author,
+		&i.SpanRef,
+		&i.CreatedAt,
+	)
+	return i, err
 }

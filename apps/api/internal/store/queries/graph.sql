@@ -17,3 +17,22 @@ RETURNING *;
 SELECT * FROM graph_edge
 WHERE project_id = $1
 ORDER BY created_at, id;
+
+-- name: GetGateStateNode :one
+SELECT * FROM graph_node
+WHERE project_id = $1 AND type = 'gate_state' AND body->>'contract' = $2::text
+LIMIT 1;
+
+-- name: ListGateStateNodes :many
+SELECT * FROM graph_node
+WHERE project_id = $1 AND type = 'gate_state'
+ORDER BY created_at, id;
+
+-- name: GetPlanNode :one
+SELECT * FROM graph_node
+WHERE project_id = $1 AND type = 'plan'
+ORDER BY created_at, id
+LIMIT 1;
+
+-- name: UpdateGraphNodeBody :one
+UPDATE graph_node SET body = $2 WHERE id = $1 RETURNING *;

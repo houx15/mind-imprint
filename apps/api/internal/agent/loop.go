@@ -73,6 +73,12 @@ type AgentStore interface {
 	InsertGraphEdge(ctx context.Context, projectID uuid.UUID, edge MintEdge) error
 
 	InsertDisposition(ctx context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error)
+
+	// Gate/plan graph-node state (Slice 4). gate_state is one graph_node per
+	// (project, contract) keyed on body->>'contract'; plan is one per project.
+	ListGateStates(ctx context.Context, projectID uuid.UUID) (map[string]RecordedGate, error)
+	UpsertGateState(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate) error
+	UpsertPlan(ctx context.Context, projectID uuid.UUID, body []byte) error
 }
 
 // AgentDeps bundles the runtime loop's dependencies (design §2): the

@@ -3,8 +3,10 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/store/sqlc"
@@ -263,4 +265,71 @@ func (s *sqlcAgentStore) InsertDisposition(ctx context.Context, interventionID u
 		return uuid.UUID{}, err
 	}
 	return row.ID, nil
+}
+
+// gateStateBody is the gate_state graph_node body shape.
+type gateStateBody struct {
+	Contract       string            `json:"contract"`
+	Status         string            `json:"status"`
+	ConfirmedSolid bool              `json:"confirmed_solid"`
+	Items          map[string]string `json:"items"`
+}
+
+// ListGateStates reads every gate_state graph_node for the project, keyed by
+// its recorded contract id (Slice 4).
+func (s *sqlcAgentStore) ListGateStates(ctx context.Context, projectID uuid.UUID) (map[string]RecordedGate, error) {
+	rows, err := s.q.ListGateStateNodes(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]RecordedGate, len(rows))
+	for _, r := range rows {
+		var b gateStateBody
+		if err := json.Unmarshal(r.Body, &b); err != nil {
+			continue // a malformed body is treated as no recorded state
+		}
+		out[b.Contract] = RecordedGate{Confirmed: b.ConfirmedSolid, Items: b.Items}
+	}
+	return out, nil
+}
+
+// UpsertGateState writes rec to the project's gate_state graph_node for
+// contract — updating the existing row if one exists (one gate_state per
+// project+contract), inserting otherwise.
+func (s *sqlcAgentStore) UpsertGateState(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate) error {
+	body, err := json.Marshal(gateStateBody{
+		Contract: contract, ConfirmedSolid: rec.Confirmed, Items: rec.Items,
+	})
+	if err != nil {
+		return err
+	}
+	existing, err := s.q.GetGateStateNode(ctx, sqlc.GetGateStateNodeParams{ProjectID: projectID, Column2: contract})
+	if err == nil {
+		_, err = s.q.UpdateGraphNodeBody(ctx, sqlc.UpdateGraphNodeBodyParams{ID: existing.ID, Body: body})
+		return err
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	_, err = s.q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
+		ProjectID: projectID, Type: "gate_state", Body: body, Author: "ai",
+	})
+	return err
+}
+
+// UpsertPlan writes body to the project's single plan graph_node —
+// updating the existing row if one exists, inserting otherwise.
+func (s *sqlcAgentStore) UpsertPlan(ctx context.Context, projectID uuid.UUID, body []byte) error {
+	existing, err := s.q.GetPlanNode(ctx, projectID)
+	if err == nil {
+		_, err = s.q.UpdateGraphNodeBody(ctx, sqlc.UpdateGraphNodeBodyParams{ID: existing.ID, Body: body})
+		return err
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	_, err = s.q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
+		ProjectID: projectID, Type: "plan", Body: body, Author: "ai",
+	})
+	return err
 }
