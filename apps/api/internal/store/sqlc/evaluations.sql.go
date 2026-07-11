@@ -19,7 +19,7 @@ INSERT INTO evaluations (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, 'done', now()
 )
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps
 `
 
 type CreateEvaluationParams struct {
@@ -63,6 +63,9 @@ func (q *Queries) CreateEvaluation(ctx context.Context, arg CreateEvaluationPara
 		&i.RubricVersion,
 		&i.Trigger,
 		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
 	)
 	return i, err
 }
@@ -70,7 +73,7 @@ func (q *Queries) CreateEvaluation(ctx context.Context, arg CreateEvaluationPara
 const enqueueEvaluation = `-- name: EnqueueEvaluation :one
 INSERT INTO evaluations (task_id, scores, narrative, model, tier, status, trigger)
 VALUES ($1, '[]'::jsonb, '', '', '', 'queued', 'manual')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps
 `
 
 func (q *Queries) EnqueueEvaluation(ctx context.Context, taskID uuid.UUID) (Evaluation, error) {
@@ -94,6 +97,9 @@ func (q *Queries) EnqueueEvaluation(ctx context.Context, taskID uuid.UUID) (Eval
 		&i.RubricVersion,
 		&i.Trigger,
 		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
 	)
 	return i, err
 }
@@ -151,7 +157,7 @@ func (q *Queries) FinishEvaluation(ctx context.Context, arg FinishEvaluationPara
 }
 
 const getLatestEvaluation = `-- name: GetLatestEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps FROM evaluations
 WHERE task_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -178,6 +184,9 @@ func (q *Queries) GetLatestEvaluation(ctx context.Context, taskID uuid.UUID) (Ev
 		&i.RubricVersion,
 		&i.Trigger,
 		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
 	)
 	return i, err
 }
@@ -204,7 +213,7 @@ WHERE $2::int > COALESCE((SELECT max(trigger_milestone) FROM evaluations
   AND NOT EXISTS (SELECT 1 FROM evaluations
                   WHERE task_id = $1::uuid AND status = 'done'
                     AND completed_at > now() - interval '10 minutes')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps
 `
 
 type TryEnqueueMilestoneEvaluationParams struct {
@@ -234,6 +243,9 @@ func (q *Queries) TryEnqueueMilestoneEvaluation(ctx context.Context, arg TryEnqu
 		&i.RubricVersion,
 		&i.Trigger,
 		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
 	)
 	return i, err
 }

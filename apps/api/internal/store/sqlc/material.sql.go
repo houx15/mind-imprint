@@ -14,7 +14,7 @@ import (
 const createMaterial = `-- name: CreateMaterial :one
 INSERT INTO material (task_id, kind, source, title, source_url, blocks)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
 `
 
 type CreateMaterialParams struct {
@@ -46,12 +46,13 @@ func (q *Queries) CreateMaterial(ctx context.Context, arg CreateMaterialParams) 
 		&i.Blocks,
 		&i.Scratch,
 		&i.CreatedAt,
+		&i.ProjectID,
 	)
 	return i, err
 }
 
 const getMaterial = `-- name: GetMaterial :one
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at FROM material WHERE id = $1
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material WHERE id = $1
 `
 
 func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, error) {
@@ -67,12 +68,13 @@ func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, erro
 		&i.Blocks,
 		&i.Scratch,
 		&i.CreatedAt,
+		&i.ProjectID,
 	)
 	return i, err
 }
 
 const listMaterialsByTask = `-- name: ListMaterialsByTask :many
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at FROM material
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material
 WHERE task_id = $1
 ORDER BY created_at
 `
@@ -96,6 +98,7 @@ func (q *Queries) ListMaterialsByTask(ctx context.Context, taskID uuid.UUID) ([]
 			&i.Blocks,
 			&i.Scratch,
 			&i.CreatedAt,
+			&i.ProjectID,
 		); err != nil {
 			return nil, err
 		}
@@ -110,7 +113,7 @@ func (q *Queries) ListMaterialsByTask(ctx context.Context, taskID uuid.UUID) ([]
 const updateMaterialScratch = `-- name: UpdateMaterialScratch :one
 UPDATE material SET scratch = $3
 WHERE id = $1 AND task_id = $2
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
 `
 
 type UpdateMaterialScratchParams struct {
@@ -132,6 +135,7 @@ func (q *Queries) UpdateMaterialScratch(ctx context.Context, arg UpdateMaterialS
 		&i.Blocks,
 		&i.Scratch,
 		&i.CreatedAt,
+		&i.ProjectID,
 	)
 	return i, err
 }

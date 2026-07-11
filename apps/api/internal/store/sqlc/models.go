@@ -11,18 +11,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CardCompetence struct {
+	ID              uuid.UUID `json:"id"`
+	UserID          uuid.UUID `json:"user_id"`
+	CardID          string    `json:"card_id"`
+	ScaffoldState   string    `json:"scaffold_state"`
+	UnpromptedCount int32     `json:"unprompted_count"`
+	PromptedCount   int32     `json:"prompted_count"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 type CardInstance struct {
-	ID           uuid.UUID          `json:"id"`
-	CardID       string             `json:"card_id"`
-	TaskID       uuid.UUID          `json:"task_id"`
-	ParentNodeID pgtype.UUID        `json:"parent_node_id"`
-	Status       string             `json:"status"`
-	FieldValues  []byte             `json:"field_values"`
-	EventTrace   []byte             `json:"event_trace"`
-	RubricTags   []string           `json:"rubric_tags"`
-	CreatedAt    time.Time          `json:"created_at"`
-	CompletedAt  pgtype.Timestamptz `json:"completed_at"`
-	Anchors      []byte             `json:"anchors"`
+	ID            uuid.UUID          `json:"id"`
+	CardID        string             `json:"card_id"`
+	TaskID        uuid.UUID          `json:"task_id"`
+	ParentNodeID  pgtype.UUID        `json:"parent_node_id"`
+	Status        string             `json:"status"`
+	FieldValues   []byte             `json:"field_values"`
+	EventTrace    []byte             `json:"event_trace"`
+	RubricTags    []string           `json:"rubric_tags"`
+	CreatedAt     time.Time          `json:"created_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	Anchors       []byte             `json:"anchors"`
+	ProjectID     pgtype.UUID        `json:"project_id"`
+	ContractRef   *string            `json:"contract_ref"`
+	FrameworkFill []byte             `json:"framework_fill"`
+}
+
+type ChatMessage struct {
+	ID             uuid.UUID `json:"id"`
+	ThreadID       uuid.UUID `json:"thread_id"`
+	Role           string    `json:"role"`
+	Content        string    `json:"content"`
+	Modality       string    `json:"modality"`
+	Attachments    []byte    `json:"attachments"`
+	QuotedFragment *string   `json:"quoted_fragment"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type ChatThread struct {
+	ID              uuid.UUID   `json:"id"`
+	UserID          uuid.UUID   `json:"user_id"`
+	Title           string      `json:"title"`
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	CreatedAt       time.Time   `json:"created_at"`
 }
 
 type Class struct {
@@ -72,6 +104,30 @@ type CourseStepRender struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type Disposition struct {
+	ID             uuid.UUID `json:"id"`
+	InterventionID uuid.UUID `json:"intervention_id"`
+	Action         string    `json:"action"`
+	Reason         string    `json:"reason"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type DraftSnapshot struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Seq       int32     `json:"seq"`
+	Content   string    `json:"content"`
+	SpanIndex []byte    `json:"span_index"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type EditBuffer struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Content   string    `json:"content"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type EmailVerificationToken struct {
 	ID         uuid.UUID          `json:"id"`
 	UserID     uuid.UUID          `json:"user_id"`
@@ -107,6 +163,53 @@ type Evaluation struct {
 	RubricVersion    *string            `json:"rubric_version"`
 	Trigger          string             `json:"trigger"`
 	TriggerMilestone *int32             `json:"trigger_milestone"`
+	ProjectID        pgtype.UUID        `json:"project_id"`
+	Rubric           *string            `json:"rubric"`
+	Leaps            []byte             `json:"leaps"`
+}
+
+type Event struct {
+	ID        uuid.UUID   `json:"id"`
+	ProjectID pgtype.UUID `json:"project_id"`
+	UserID    uuid.UUID   `json:"user_id"`
+	Surface   string      `json:"surface"`
+	Type      string      `json:"type"`
+	Payload   []byte      `json:"payload"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+type GraphEdge struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Type      string    `json:"type"`
+	FromKind  string    `json:"from_kind"`
+	FromID    uuid.UUID `json:"from_id"`
+	ToKind    string    `json:"to_kind"`
+	ToID      uuid.UUID `json:"to_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type GraphNode struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Type      string    `json:"type"`
+	Body      []byte    `json:"body"`
+	Author    string    `json:"author"`
+	SpanRef   []byte    `json:"span_ref"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Intervention struct {
+	ID                 uuid.UUID   `json:"id"`
+	ProjectID          uuid.UUID   `json:"project_id"`
+	CardInstanceID     pgtype.UUID `json:"card_instance_id"`
+	Type               string      `json:"type"`
+	Anchor             []byte      `json:"anchor"`
+	Criterion          *string     `json:"criterion"`
+	Body               string      `json:"body"`
+	Level              *string     `json:"level"`
+	OutputCheckVerdict *string     `json:"output_check_verdict"`
+	CreatedAt          time.Time   `json:"created_at"`
 }
 
 type LlmUsage struct {
@@ -124,15 +227,16 @@ type LlmUsage struct {
 }
 
 type Material struct {
-	ID        uuid.UUID `json:"id"`
-	TaskID    uuid.UUID `json:"task_id"`
-	Kind      string    `json:"kind"`
-	Source    string    `json:"source"`
-	Title     string    `json:"title"`
-	SourceUrl *string   `json:"source_url"`
-	Blocks    []byte    `json:"blocks"`
-	Scratch   string    `json:"scratch"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID   `json:"id"`
+	TaskID    uuid.UUID   `json:"task_id"`
+	Kind      string      `json:"kind"`
+	Source    string      `json:"source"`
+	Title     string      `json:"title"`
+	SourceUrl *string     `json:"source_url"`
+	Blocks    []byte      `json:"blocks"`
+	Scratch   string      `json:"scratch"`
+	CreatedAt time.Time   `json:"created_at"`
+	ProjectID pgtype.UUID `json:"project_id"`
 }
 
 type Message struct {
@@ -151,6 +255,18 @@ type Message struct {
 	Source           *string        `json:"source"`
 }
 
+type Project struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	Qualification string             `json:"qualification"`
+	Title         string             `json:"title"`
+	Deadline      pgtype.Timestamptz `json:"deadline"`
+	BoardCfgVer   int32              `json:"board_cfg_ver"`
+	Status        string             `json:"status"`
+	CreatedAt     time.Time          `json:"created_at"`
+	LastActiveAt  time.Time          `json:"last_active_at"`
+}
+
 type School struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
@@ -165,6 +281,18 @@ type Session struct {
 	UserAgent *string   `json:"user_agent"`
 	Ip        *string   `json:"ip"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type SourceLogEntry struct {
+	ID          uuid.UUID `json:"id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	Url         string    `json:"url"`
+	Title       string    `json:"title"`
+	TimeSpentS  int32     `json:"time_spent_s"`
+	Takeaway    string    `json:"takeaway"`
+	Tier        *string   `json:"tier"`
+	LateralRead bool      `json:"lateral_read"`
+	OpenedAt    time.Time `json:"opened_at"`
 }
 
 type Task struct {
