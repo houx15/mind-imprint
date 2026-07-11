@@ -12,6 +12,13 @@ export interface RubricDimension {
   anchors: { L1: string; L2: string; L3: string; L4: string };
 }
 
+// Rubric container: wraps a set of dimensions with metadata and validation.
+export interface Rubric {
+  id: string;
+  name: string;
+  dimensions: RubricDimension[];
+}
+
 export const FULL_RUBRIC: RubricDimension[] = [
   { id: "D1", name: "提问清晰度", framework: "ATL 思维 · QUEST-Q（输入）",
     anchors: { L1: "直接抛一句话问题，不给 AI 任何背景或目标", L2: "给一点背景，但目标/约束模糊，常需 AI 反问澄清", L3: "主动提供任务背景、目标与约束，问题具体可执行", L4: "结构化拆解需求，分步追问并根据回答迭代提问" } },
@@ -34,3 +41,22 @@ export const FULL_RUBRIC: RubricDimension[] = [
   { id: "D10", name: "协作编排", framework: "意图与编排 · 跨轮驱动与贡献",
     anchors: { L1: "把 AI 当答案机器：直接要成品，不带入自己的材料，不追问不调整", L2: "被 AI 追问后才补充自己的材料，不主动规划协作步骤", L3: "未经提示就带入自己的草稿/链接/提纲，并跨轮驱动改进", L4: "跨步骤编排 AI 角色、管理上下文、沉淀可复用结构" } },
 ];
+
+// CT_RUBRIC: the Critical Thinking rubric used by the platform.
+// OPCVL (HS-D1…D12) is a separate rubric, deferred to its module (assessment §10 Q3).
+export const CT_RUBRIC: Rubric = {
+  id: "ct",
+  name: "AI 批判思维（9+1 维）",
+  dimensions: FULL_RUBRIC,
+};
+
+// assertRubricComplete: validates that a rubric has all required anchors (no blanks).
+export function assertRubricComplete(r: Rubric): void {
+  for (const d of r.dimensions) {
+    for (const lvl of ["L1", "L2", "L3", "L4"] as const) {
+      if (!d.anchors[lvl] || d.anchors[lvl].trim() === "") {
+        throw new Error(`rubric ${r.id} dim ${d.id} missing ${lvl} anchor`);
+      }
+    }
+  }
+}
