@@ -90,7 +90,12 @@ func TestWritingProject_LoadsValidatesAndReferencesRealCards(t *testing.T) {
 	for i, id := range order {
 		pos[id] = i
 	}
-	if pos["evaluate_sources"] >= pos["build_argument"] {
-		t.Fatal("build_argument must come after evaluate_sources")
+	// the full S0–S6 chain is linear
+	chain := []string{"decode_task", "frame_question", "evaluate_perspectives",
+		"evaluate_sources", "build_argument", "draft_polish", "reflect_archive"}
+	for i := 1; i < len(chain); i++ {
+		if pos[chain[i-1]] >= pos[chain[i]] {
+			t.Fatalf("%s must come before %s", chain[i-1], chain[i])
+		}
 	}
 }

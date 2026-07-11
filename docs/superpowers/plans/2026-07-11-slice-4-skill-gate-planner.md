@@ -561,8 +561,8 @@ Faithful to product spec §5.2 (S0–S6 gate items) and the spec's §3 table. A 
           { "kind": "every_source_evaluated" },
           { "kind": "no_single_sourced_claim" }
         ],
-        "student_written": ["source_risk_notes"],
-        "human": []
+        "student_written": ["source_risk_notes", "lateral_read_logged"],
+        "human": ["source_quality_spot_check"]
       }
     },
     "build_argument": {
