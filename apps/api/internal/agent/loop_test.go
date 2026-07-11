@@ -47,10 +47,17 @@ type fakeAgentStore struct {
 	upsertPlanCalls   int
 	lastPlanBody      []byte
 	gateAttemptEvents []EventRow
+
+	minted             []GraphNodeView
+	lastImportedAuthor string
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
-	return f.graph, nil
+	g := f.graph
+	if len(f.minted) > 0 {
+		g.Nodes = append(append([]GraphNodeView{}, g.Nodes...), f.minted...)
+	}
+	return g, nil
 }
 
 func (f *fakeAgentStore) InsertIntervention(_ context.Context, row InterventionRow) (uuid.UUID, error) {
@@ -96,9 +103,18 @@ func (f *fakeAgentStore) SetCardInstanceFramework(_ context.Context, _, id uuid.
 	return nil
 }
 
-func (f *fakeAgentStore) InsertGraphNode(_ context.Context, _ uuid.UUID, _ MintNode) (uuid.UUID, error) {
+func (f *fakeAgentStore) InsertGraphNode(_ context.Context, _ uuid.UUID, node MintNode) (uuid.UUID, error) {
 	f.insertGraphNodeCalls++
-	return uuid.New(), nil
+	f.lastImportedAuthor = node.Author
+	id := uuid.New()
+	text, _ := node.Body["text"].(string)
+	f.minted = append(f.minted, GraphNodeView{
+		ID:     id.String(),
+		Type:   node.Type,
+		Author: node.Author,
+		Text:   text,
+	})
+	return id, nil
 }
 
 func (f *fakeAgentStore) InsertGraphEdge(_ context.Context, _ uuid.UUID, edge MintEdge) error {
