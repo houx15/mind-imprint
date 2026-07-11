@@ -1,0 +1,78 @@
+import type { StudioState } from "./state";
+import { SourceDossier } from "../workspace/material/SourceDossier";
+import { StructureView } from "./views/StructureView";
+import { WritingView } from "./views/WritingView";
+import { ReviewView } from "./views/ReviewView";
+import { OnboardingView } from "./views/OnboardingView";
+
+export type ViewFrameProps = {
+  state: StudioState;
+};
+
+const FRAME: React.CSSProperties = {
+  flex: 1,
+  minWidth: 520,
+  display: "flex",
+  flexDirection: "column",
+  background: "#F3F4F8",
+};
+
+const HEADER: React.CSSProperties = {
+  flex: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "0 24px",
+  height: 56,
+  borderBottom: "1px solid #EAECF2",
+  background: "#fff",
+};
+
+const ICON_BOX: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: 9,
+  background: "#EDEFF9",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const NAME: React.CSSProperties = { fontSize: 15, fontWeight: 800, color: "#1C2333" };
+
+function StationIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-4-4" />
+    </svg>
+  );
+}
+
+export function ViewFrame({ state }: ViewFrameProps) {
+  const active = state.stations.find((s) => s.code === state.activeStation);
+
+  if (!active) {
+    return <div style={FRAME} />;
+  }
+
+  // S0 任务解码 is always the onboarding recognition screen regardless of its
+  // `.view` tag (design docs/design/思维印记_工作区.dc.html ~L2113/L2125:
+  // `stnS0` is checked directly by station code, same as the reference logic).
+  const effectiveView = active.code === "S0" ? "onboarding" : active.view;
+
+  return (
+    <div style={FRAME}>
+      <div style={HEADER}>
+        <div style={ICON_BOX}>
+          <StationIcon />
+        </div>
+        <span style={NAME}>{active.name}</span>
+      </div>
+      {effectiveView === "素材" && <SourceDossier sources={state.views.material} />}
+      {effectiveView === "结构" && <StructureView cards={state.views.structure} />}
+      {effectiveView === "写作" && <WritingView {...state.views.writing} />}
+      {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}
+      {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}
+    </div>
+  );
+}
