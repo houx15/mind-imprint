@@ -7,8 +7,10 @@ export type EquipmentBarProps = {
   onOpen: (id: string) => void;
 };
 
-// 装备栏 (button-triggered popover). Design: docs/design/思维印记_工作区.dc.html
-// ~L1344-1364 (popover) and ~L1390-1392 (composer toolbox toggle button).
+// 装备栏 — the popover PANEL only (design ~L1344-1364). The trigger toolbox
+// button lives in the composer row and is owned by the host (CoachRail,
+// design ~L1390-1392) — the design has exactly one toolbox toggle. `onToggle`
+// here drives the panel's own collapse chevron. Renders nothing when closed.
 function ToolboxIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -26,9 +28,10 @@ function ChevronDownIcon() {
 }
 
 export function EquipmentBar({ cards, open, onToggle, onOpen }: EquipmentBarProps) {
+  if (!open) return null;
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
-      {open && (
+      {
         <div
           style={{
             borderTop: "1px solid #EFF0F5",
@@ -98,26 +101,7 @@ export function EquipmentBar({ cards, open, onToggle, onOpen }: EquipmentBarProp
             })}
           </div>
         </div>
-      )}
-      <div
-        onClick={onToggle}
-        title="装备栏 · 工具卡"
-        role="button"
-        style={{
-          flex: "none",
-          width: 32,
-          height: 32,
-          borderRadius: 9,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          color: open ? "#2A3B7A" : "#6B7384",
-          background: open ? "#EDEFF9" : "transparent",
-        }}
-      >
-        <ToolboxIcon />
-      </div>
+      }
     </div>
   );
 }

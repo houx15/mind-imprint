@@ -14,6 +14,11 @@ describe("CoachRail", () => {
     expect(screen.getAllByText(new RegExp(c.anchor)).length).toBeGreaterThan(0);
     expect(screen.getByText("孤儿证据")).toBeInTheDocument(); // the flag message label
   });
+  it("renders exactly ONE 装备栏 toggle (the composer's) — not a duplicate from EquipmentBar", () => {
+    render(<CoachRail anchor={c.anchor} messages={c.messages} equipment={c.equipment}
+      activeView="结构" onDisposition={() => {}} onOpenMethodology={() => {}} onSend={() => {}} />);
+    expect(screen.getAllByTitle("装备栏 · 工具卡")).toHaveLength(1);
+  });
   it("sends composer text", () => {
     const onSend = vi.fn();
     render(<CoachRail anchor={c.anchor} messages={c.messages} equipment={c.equipment}

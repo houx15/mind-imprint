@@ -22,10 +22,15 @@ describe("EquipmentBar (装备栏)", () => {
     expect(onOpen).toHaveBeenCalledWith("eq-steelman");
   });
 
-  it("the toolbox toggle button fires onToggle", () => {
+  it("renders nothing when closed (the trigger lives in the composer, not here)", () => {
+    const { container } = render(<EquipmentBar cards={CARDS} open={false} onToggle={() => {}} onOpen={() => {}} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("the panel's collapse chevron fires onToggle", () => {
     const onToggle = vi.fn();
-    render(<EquipmentBar cards={CARDS} open={false} onToggle={onToggle} onOpen={() => {}} />);
-    fireEvent.click(screen.getByTitle("装备栏 · 工具卡"));
+    render(<EquipmentBar cards={CARDS} open={true} onToggle={onToggle} onOpen={() => {}} />);
+    fireEvent.click(screen.getByTitle("收起装备栏"));
     expect(onToggle).toHaveBeenCalled();
   });
 });
