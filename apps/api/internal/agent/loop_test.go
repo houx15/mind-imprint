@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,6 +18,30 @@ type fakeAgentStore struct {
 
 	appendEventCalls int
 	lastEvent        EventRow
+
+	cardInstances map[uuid.UUID]CardInstanceRow
+
+	createCardInstanceCalls int
+	lastCreateCardInstance  struct {
+		ProjectID   uuid.UUID
+		MaterialID  uuid.UUID
+		CardID      string
+		ContractRef string
+	}
+
+	insertGraphNodeCalls int
+	insertGraphEdgeCalls int
+	lastGraphEdge        MintEdge
+
+	setFrameworkCalls int
+	lastFramework     []byte
+
+	insertDispositionCalls int
+	lastDisposition        struct {
+		InterventionID uuid.UUID
+		Action         string
+		Reason         string
+	}
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -33,6 +58,56 @@ func (f *fakeAgentStore) AppendEvent(_ context.Context, row EventRow) error {
 	f.appendEventCalls++
 	f.lastEvent = row
 	return nil
+}
+
+func (f *fakeAgentStore) CreateCardInstance(_ context.Context, projectID, materialID uuid.UUID, cardID, contractRef string) (CardInstanceRow, error) {
+	f.createCardInstanceCalls++
+	f.lastCreateCardInstance.ProjectID = projectID
+	f.lastCreateCardInstance.MaterialID = materialID
+	f.lastCreateCardInstance.CardID = cardID
+	f.lastCreateCardInstance.ContractRef = contractRef
+	row := CardInstanceRow{ID: uuid.New(), ProjectID: projectID, CardID: cardID, Status: "proposed"}
+	if f.cardInstances == nil {
+		f.cardInstances = map[uuid.UUID]CardInstanceRow{}
+	}
+	f.cardInstances[row.ID] = row
+	return row, nil
+}
+
+func (f *fakeAgentStore) GetCardInstance(_ context.Context, id uuid.UUID) (CardInstanceRow, error) {
+	row, ok := f.cardInstances[id]
+	if !ok {
+		return CardInstanceRow{}, fmt.Errorf("fakeAgentStore: no card_instance %s", id)
+	}
+	return row, nil
+}
+
+func (f *fakeAgentStore) SetCardInstanceFramework(_ context.Context, _, id uuid.UUID, framework []byte) error {
+	f.setFrameworkCalls++
+	f.lastFramework = framework
+	row := f.cardInstances[id]
+	row.FrameworkFill = framework
+	f.cardInstances[id] = row
+	return nil
+}
+
+func (f *fakeAgentStore) InsertGraphNode(_ context.Context, _ uuid.UUID, _ MintNode) (uuid.UUID, error) {
+	f.insertGraphNodeCalls++
+	return uuid.New(), nil
+}
+
+func (f *fakeAgentStore) InsertGraphEdge(_ context.Context, _ uuid.UUID, edge MintEdge) error {
+	f.insertGraphEdgeCalls++
+	f.lastGraphEdge = edge
+	return nil
+}
+
+func (f *fakeAgentStore) InsertDisposition(_ context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error) {
+	f.insertDispositionCalls++
+	f.lastDisposition.InterventionID = interventionID
+	f.lastDisposition.Action = action
+	f.lastDisposition.Reason = reason
+	return uuid.New(), nil
 }
 
 func TestLoop_UnsupportedClaimEmitsInterventionAndPersistsOnce(t *testing.T) {
@@ -136,5 +211,138 @@ func TestLoop_EnforcementRejectionIsSilentAndPersistsNothing(t *testing.T) {
 	if store.insertInterventionCalls != 0 || store.appendEventCalls != 0 {
 		t.Fatalf("rejected output must never be persisted, got insert=%d append=%d",
 			store.insertInterventionCalls, store.appendEventCalls)
+	}
+}
+
+// TestLoop_SurfaceCardOutranksPostIntervention covers Task 5's candidate
+// ordering: a project with BOTH an unsupported claim (would fire
+// post_intervention) AND an unevaluated source material (fires
+// surface_card) must surface the card, never nag about the claim first.
+func TestLoop_SurfaceCardOutranksPostIntervention(t *testing.T) {
+	g := GraphView{
+		Nodes:     []GraphNodeView{{ID: "n1", Type: "claim", Author: "student", Text: "中国的经济转型正在让地球更可持续"}},
+		Materials: []MaterialView{{ID: uuid.New().String(), Kind: "article"}},
+	}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("should never be called"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" {
+		t.Fatalf("want a surface_card action, got %+v", action)
+	}
+	if action.CardInstanceID == "" {
+		t.Fatal("expected a non-empty CardInstanceID")
+	}
+	if store.createCardInstanceCalls != 1 {
+		t.Fatalf("want CreateCardInstance called once, got %d", store.createCardInstanceCalls)
+	}
+	if store.insertInterventionCalls != 0 {
+		t.Fatal("surface_card must outrank post_intervention — an intervention was persisted instead")
+	}
+}
+
+// TestLoop_UnevaluatedSourceAloneSurfacesCard is the base surface_card
+// dispatch case (no competing post_intervention candidate).
+func TestLoop_UnevaluatedSourceAloneSurfacesCard(t *testing.T) {
+	materialID := uuid.New()
+	g := GraphView{Materials: []MaterialView{{ID: materialID.String(), Kind: "article"}}}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("should never be called"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" {
+		t.Fatalf("want a surface_card action, got %+v", action)
+	}
+	if store.lastCreateCardInstance.MaterialID != materialID || store.lastCreateCardInstance.CardID != "craap" {
+		t.Fatalf("unexpected CreateCardInstance call: %+v", store.lastCreateCardInstance)
+	}
+}
+
+// TestLoop_ActiveCardObserveFeedsCoach covers design §5: an active card's
+// observe rules are another candidate source feeding the coach through the
+// existing enforcement stack — no new coach code.
+func TestLoop_ActiveCardObserveFeedsCoach(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{
+				ID:     uuid.New().String(),
+				CardID: "craap",
+				Status: "active",
+				Anchors: []Anchor{
+					{ID: "a0", Dimension: "authority", Author: "ai", Answer: "还可以"}, // <15 bytes -> observe fires
+				},
+			},
+		},
+	}
+	store := &fakeAgentStore{graph: g}
+	body := "这条来源的权威性还没写清楚——它的作者/机构是谁？"
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider(body),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-C"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "intervention" {
+		t.Fatalf("want an intervention action, got %+v", action)
+	}
+	if action.Output.Body != body {
+		t.Fatalf("want body %q, got %q", body, action.Output.Body)
+	}
+	if store.insertInterventionCalls != 1 {
+		t.Fatalf("want InsertIntervention called once, got %d", store.insertInterventionCalls)
+	}
+}
+
+// TestLoop_InactiveCardObserveDoesNotFire covers "observe rules watch
+// active cards only" — a proposed (not-yet-opened) or completed card's
+// weak-note state must never generate a candidate.
+func TestLoop_InactiveCardObserveDoesNotFire(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{
+				ID:     uuid.New().String(),
+				CardID: "craap",
+				Status: "proposed",
+				Anchors: []Anchor{
+					{ID: "a0", Dimension: "authority", Author: "ai", Answer: "还可以"},
+				},
+			},
+		},
+	}
+	store := &fakeAgentStore{graph: g}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("should never be called"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-C"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence for a non-active card, got %+v", action)
 	}
 }

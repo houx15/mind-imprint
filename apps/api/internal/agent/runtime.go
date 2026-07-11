@@ -26,12 +26,39 @@ type GraphEdgeView struct {
 	Type     string // "supports" | ...
 }
 
+// MaterialView is the classifier's read-only view of one of the project's
+// source materials (design §3: surface_card targets a "material.source").
+// Kind mirrors the material table's check constraint ("article" | "draft");
+// the surface-card predicate only ever proposes on "article" (source)
+// materials, never on the student's own draft.
+type MaterialView struct {
+	ID   string
+	Kind string
+}
+
+// CardInstanceView is the classifier/loop's read-only view of one of the
+// project's card_instance rows, carrying just enough state (id, card id,
+// status, live anchors) for ObserveCandidates (Task 2) to evaluate the
+// card's observe rules over its primitive state.
+type CardInstanceView struct {
+	ID      string
+	CardID  string
+	Status  string
+	Anchors []Anchor
+}
+
 // GraphView is the shallow graph neighborhood the classifier evaluates and
 // the coach reads context from. Perceive (loop.go, Task 4) loads it via
-// sqlc; Slice 2's tests build it directly as a pure fixture.
+// sqlc; Slice 2's tests build it directly as a pure fixture. Materials and
+// CardInstances are Task 5 additions (Slice 3): the surface_card predicate
+// reads Materials + Edges (a card_instance->material edge marks a material
+// already surfaced; a material->evidence "evaluated-as" edge marks it
+// already promoted); the observe predicate reads CardInstances.
 type GraphView struct {
-	Nodes []GraphNodeView
-	Edges []GraphEdgeView
+	Nodes         []GraphNodeView
+	Edges         []GraphEdgeView
+	Materials     []MaterialView
+	CardInstances []CardInstanceView
 }
 
 // Candidate is one classifier-proposed next action awaiting the coach. The
@@ -39,12 +66,13 @@ type GraphView struct {
 // coach only fills in the body text; it is never asked for structured
 // output (design §4).
 type Candidate struct {
-	Verb       string // "post_intervention" in Slice 2; other C3 verbs later
-	AnchorKind string // e.g. "graph_node"
+	Verb       string // "post_intervention" | "surface_card" (Task 5); other C3 verbs later
+	AnchorKind string // e.g. "graph_node" | "material"
 	AnchorID   string
 	Criterion  string // CT dimension tag, e.g. "D5"
 	Reason     string // internal-only: why this candidate fired
 	Level      string // I-ladder rung, e.g. "I2"
+	CardID     string // set for "surface_card": the card id to instantiate (e.g. "craap")
 }
 
 // Trigger mirrors the agent-spec tiers that can invoke RunAgentStep: T-A
@@ -54,9 +82,14 @@ type Trigger struct {
 }
 
 // Action is the loop's single emitted step for one RunAgentStep call
-// (Task 4). Silence is a nil *Action, never a zero-value Action.
+// (Task 4). Silence is a nil *Action, never a zero-value Action. Kind
+// discriminates the two shapes Slice 3 adds: "intervention" (the Slice-2
+// shape — Output/InterventionID/Verdict populated) and "surface_card" (Task
+// 5 — CardInstanceID populated, no model call, no enforcement).
 type Action struct {
+	Kind           string // "intervention" | "surface_card"
 	Output         enforcement.AgentOutput
 	InterventionID string
 	Verdict        string
+	CardInstanceID string // set when Kind == "surface_card"
 }

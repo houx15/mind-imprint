@@ -87,6 +87,8 @@ func ObserveCandidates(spec cards.Spec, cardInstanceID string, anchors []Anchor)
 				Verb:       rule.Verb,
 				AnchorKind: "card_instance",
 				AnchorID:   cardInstanceID,
+				Criterion:  tag, // the CRAAP dimension that fired (e.g. "authority") — enforcement.ValidateOutput requires a non-empty criterion on a question output
+				Reason:     "card dimension answer is thin: " + tag,
 				Level:      rule.Level,
 			})
 		}
