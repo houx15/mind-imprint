@@ -81,7 +81,7 @@ started · ◐ in progress · ☑ done.
 | **0** | **Foundations: contracts + graph + events + enforcement primitives** | The five contracts as schemas (C1 primitive state schemas · C2 card format · C3 verb set · C4 event set · C5 skill format), the **workspace-graph data model** (nodes/edges/field-level author/span-index) + **append-only event stream** (studio/course/chat surface tag, unprompted/prompted), rubric + behavior ladders as config (CT-D1…D9, HS-D*), and the **enforcement primitives** (output-check, banned-phrasing suite, typed-output schema, schema-level authorship). Zod + sqlc/goose, all TDD, no UI, no live agent. | — | ☑ |
 | **1** | **`annotate` primitive (MATERIAL read-view)** | Hand-build the `annotate` interaction per the design's MATERIAL view: render a span-indexed material with clickable AI/student spans (`AnnotateState` from C1), emit C4 events, controlled component + demo host. **`graph` is split out** to Slice 7 (built with the STRUCTURE view, where its card-driven-vs-map-viz shape resolves in context — decided 2026-07-11). | 0 | ☑ |
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
-| **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☐ |
+| **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☐ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. | 4 | ☐ |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
@@ -140,3 +140,18 @@ Each slice appends its spec/plan links and outcome here as it completes.
   `surface_card` (Slice 3), planner/intake (Slice 4), UI/SSE (Slice 5), assessor (Slice 10),
   the cheap-model classifier hook (seam only). **RETIREMENT: legacy `RunTurn`/`summon_card`
   (`turn.go`) stays live until the Studio replaces the old workspace, then DELETE in Slice 5.**
+- **Slice 3** — ☑ **complete** (branch `refactor2-slice3-cards`, impl commits `7cb736c`..HEAD).
+  Spec `docs/superpowers/specs/2026-07-11-slice-3-card-runtime-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-3-card-runtime.md`. Delivered: C2 card fields on the Go
+  `cards.Spec` + **CRAAP authored as C2 config over `annotate`**; `card_completion.go`
+  (`EvaluateCompletion`, `ObserveCandidates`) + `card_effects.go` (`GraphEffects` mints an evidence
+  node + `evaluated-as` edge, `ConsolidationPayload`); `card_lifecycle.go` (`SurfaceCard`,
+  `CompleteCard`, `RecordDisposition`); `surface_card` + `observe` wired into the Slice-2 loop;
+  project-scoped `card_instance`/`disposition` sqlc. **§5.7 acceptance proven**: a second inline
+  `note` card surfaces+completes with zero new runtime code. Final review SHIP; fixed 2 follow-ups
+  (CompleteCard idempotency guard; rune-count length gates for Chinese). Gate: full `-short` +
+  testcontainers (`Refactor2Cards`, `Card|Loop|SecondCard`) green; legacy form path/`RunTurn`/
+  migrations/contracts untouched. **DEFERRED debt for Slice 5** (before a live material/answer
+  transport lands): an additive migration making the legacy `task_id` NULLABLE on `material`/
+  `card_instances`/`evaluations` (0016 added `project_id` but left the legacy FK NOT NULL, so the
+  adapter currently borrows the material's `task_id`); and project-scoping `GetCardInstance`.
