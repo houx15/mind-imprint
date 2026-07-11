@@ -31,7 +31,7 @@ function S0View({ data }: { data: OnboardingFx }) {
             <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333" }}>用自己的话，说清这份任务在考什么</div>
           </div>
           <div style={{ fontSize: 12.5, color: "#8A92A3", margin: "4px 0 12px" }}>
-            死记评分标准没用——先用你自己的话复述一遍，印记只看你是不是真读懂了。
+            背评分表没用——先用你自己的话复述一遍，印记只看你是不是真读懂了。
           </div>
           <textarea
             rows={3}

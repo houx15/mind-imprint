@@ -9,7 +9,8 @@ describe("OnboardingView (S0 任务解码)", () => {
   it("renders the restate card, rubric rows, and the plan tracker", () => {
     render(<OnboardingView station={s0} data={STUDIO_FIXTURE.views.onboarding} />);
     expect(screen.getByText(/说清这份任务在考什么/)).toBeInTheDocument();
-    expect(screen.getByText(/评分表/)).toBeInTheDocument();
+    // the card-2 heading specifically (the restate subtitle also says 评分表)
+    expect(screen.getByText("评分表 · 翻成人话")).toBeInTheDocument();
     const firstPlain = STUDIO_FIXTURE.views.onboarding.rubricRows[0]!.plain;
     expect(screen.getByText(firstPlain)).toBeInTheDocument();
   });
