@@ -3,6 +3,7 @@ export * from "./interactionPrimitive";
 export * from "./graph";
 export * from "./event";
 export * from "./agentOutput";
+export * from "./skill";
 export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
