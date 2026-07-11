@@ -122,15 +122,22 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 	}
 
 	cands := SurfaceCardCandidates(g)
+
+	// When a Project skill is loaded, reconcile its gates once and hold the
+	// reports: they feed the (lowest-priority) check_gate fallback below and are
+	// reused by the check_gate handler (no second fetch/recompute).
+	var gateReports map[string]GateReport
+	var checkGateCands []Candidate
 	if deps.Skill != nil {
 		recorded, err := deps.Store.ListGateStates(ctx, projectID)
 		if err != nil {
 			return nil, err
 		}
-		reports := ReconcileGates(*deps.Skill, g, recorded)
-		route := Route(*deps.Skill, reports)
-		cands = append(cands, CheckGateCandidates(*deps.Skill, route, reports)...)
+		gateReports = ReconcileGates(*deps.Skill, g, recorded)
+		route := Route(*deps.Skill, gateReports)
+		checkGateCands = CheckGateCandidates(route, gateReports)
 	}
+
 	cands = append(cands, CandidateMoves(g)...)
 	for _, ci := range g.CardInstances {
 		if ci.Status != "active" {
@@ -142,6 +149,10 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		}
 		cands = append(cands, ObserveCandidates(spec, ci.ID, ci.Anchors)...)
 	}
+	// check_gate is the lowest-priority fallback: surface_card and every coaching
+	// nudge (post_intervention / observe) outrank it, so a gate report never
+	// starves the coaching that moves the student toward the gate.
+	cands = append(cands, checkGateCands...)
 	if len(cands) == 0 {
 		return nil, nil // silence: nothing to say
 	}
@@ -161,11 +172,10 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 	}
 
 	if c.Verb == "check_gate" {
-		recorded, err := deps.Store.ListGateStates(ctx, projectID)
-		if err != nil {
-			return nil, err
-		}
-		report := CheckGate(*deps.Skill, c.AnchorID, g, recorded[c.AnchorID])
+		// Reuse the report already reconciled above (nothing mutates between);
+		// a check_gate candidate only exists when deps.Skill != nil, so
+		// gateReports is populated.
+		report := gateReports[c.AnchorID]
 		payload, err := json.Marshal(map[string]any{"contract": c.AnchorID, "status": report.Status, "missing": report.Missing})
 		if err != nil {
 			return nil, err

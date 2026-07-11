@@ -185,8 +185,11 @@ skipped — "the gates are all still owed; the route just starts from where they
   currently points at, if its gate is not `machine_clear`, propose a `check_gate` candidate
   (anchor = the contract, level I1). `RunAgentStep` handles a `check_gate` candidate by running
   `CheckGate` and recording the report — no model call (it is a structural report, like
-  `surface_card`). Ordering: `surface_card` > `check_gate` > `post_intervention` (a gate report
-  is more actionable than a nudge, less interrupting than opening a card).
+  `surface_card`). Ordering: `surface_card` > `post_intervention` > `check_gate` — `check_gate` is
+  the **lowest-priority fallback**. (The draft ordering put `check_gate` above `post_intervention`;
+  the whole-branch review showed that is wrong: `check_gate` is a no-op read that never clears
+  itself, so ranking it above the coaching nudge would let it starve the very coaching that moves
+  the student toward `machine_clear`. It fires only when there is nothing to coach.)
 - **The planner runs on intake and on a passed gate** (agent-spec §4.5 cadence). Slice 4 exposes
   `Intake`/`Advance` as store-backed functions the loop calls at those moments; the standing
   "planner runs every T-B" cadence is a later refinement (the deterministic route only changes
@@ -224,9 +227,10 @@ project; one gate_state per project+contract — keyed upsert, not blind insert)
 - **advance** — a passing gate flips `gate_state` + unlocks the dependent on the next `Route`; a
   gate with a failing machine item or an unrecorded student/human item refuses and records what's
   missing; advance never writes `solid` for a non-machine item.
-- **wiring** — with a route pointing at an unmet contract, `RunAgentStep` emits a `check_gate`
-  action recording the report; the ordering (`surface_card` > `check_gate` > `post_intervention`)
-  holds.
+- **wiring** — with a route pointing at an unmet contract and nothing to coach, `RunAgentStep`
+  emits a `check_gate` action recording the report; the ordering (`surface_card` >
+  `post_intervention` > `check_gate`, check_gate lowest) holds — a coaching nudge always outranks
+  the gate-report fallback.
 - **§5.7 acceptance** — a trivial second skill authored inline (one contract, one machine item,
   no cards) loads + reconciles + routes + advances through the exact same functions, with **zero
   new runtime code**.

@@ -409,6 +409,41 @@ func TestLoop_CheckGateCandidateEmitsReportNoModelCall(t *testing.T) {
 	}
 }
 
+// TestLoop_PostInterventionOutranksCheckGate pins the corrected candidate
+// priority (whole-branch review): a coaching nudge must beat the check_gate
+// fallback. With a Skill loaded AND an unsupported claim present, BOTH a
+// post_intervention candidate (the D5 nudge) and a check_gate candidate (the
+// route's empty first contract) exist — the loop must emit the intervention,
+// never let the no-op gate report starve the coaching that moves the student
+// toward the gate.
+func TestLoop_PostInterventionOutranksCheckGate(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	g := GraphView{
+		Nodes: []GraphNodeView{
+			{ID: "n1", Type: "claim", Author: "student", Text: "中国的经济转型正在让地球更可持续"},
+		},
+	}
+	body := "这条主张现在还没有素材支撑——它的证据是什么？"
+	f := &fakeAgentStore{graph: g}
+	deps := AgentDeps{
+		Store:    f,
+		Provider: scriptedProvider(body),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+		Skill:    &sk,
+	}
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("RunAgentStep: %v", err)
+	}
+	if action == nil || action.Kind != "intervention" {
+		t.Fatalf("want an intervention action (nudge outranks check_gate), got %+v", action)
+	}
+	if action.Output.Body != body {
+		t.Fatalf("want the coaching body, got %q", action.Output.Body)
+	}
+}
+
 func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
 	f := &fakeAgentStore{}
 	pid := uuid.New()

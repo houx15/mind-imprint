@@ -1709,7 +1709,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Produces: `func CheckGateCandidates(sk skills.Skill, route []string, reports map[string]GateReport) []Candidate` — for the first routed contract not `machine_clear`, one `check_gate` candidate (`Verb:"check_gate"`, `AnchorKind:"contract"`, `AnchorID:contractID`, `Level:"I1"`).
-- `RunAgentStep` gains a `deps.Skill skills.Skill` + `deps.Route`/reports path. **Decision:** to avoid overloading `RunAgentStep`'s Slice-2 signature and its many existing tests, add the skill to `AgentDeps` as an optional field `Skill *skills.Skill`; when nil (Slice-2/3 callers), the check_gate path is skipped entirely. When set, after `SurfaceCardCandidates` and before `CandidateMoves`, append `CheckGateCandidates`. Ordering: `surface_card` > `check_gate` > `post_intervention`.
+- `RunAgentStep` gains a `deps.Skill skills.Skill` + `deps.Route`/reports path. **Decision:** to avoid overloading `RunAgentStep`'s Slice-2 signature and its many existing tests, add the skill to `AgentDeps` as an optional field `Skill *skills.Skill`; when nil (Slice-2/3 callers), the check_gate path is skipped entirely. When set, compute the gate reports/route and hold the `check_gate` candidate to append LAST (after `CandidateMoves` + observe). Ordering: `surface_card` > `post_intervention` > `check_gate` (check_gate lowest — corrected in the whole-branch review: it is a no-op read that never clears itself, so it must not preempt coaching).
 - `Action{Kind:"check_gate", GateReport *GateReport}` (or carry `Criterion`/`Missing`); no model call, no enforcement.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1829,7 +1829,7 @@ Then handle the new verb before the `post_intervention` path:
 	}
 ```
 
-**Ordering note:** `SurfaceCardCandidates` is prepended, `check_gate` next, `CandidateMoves`/observe last — so `surface_card` > `check_gate` > `post_intervention`, matching the spec. Add `"mindimprint/api/internal/skills"` to `loop.go` imports.
+**Ordering note (corrected in the whole-branch review):** `SurfaceCardCandidates` first, `CandidateMoves`/observe next, `check_gate` LAST — so `surface_card` > `post_intervention` > `check_gate`. check_gate is the lowest-priority fallback (a no-op read that never clears itself must not starve coaching). Add `"mindimprint/api/internal/skills"` to `loop.go` imports.
 
 - [ ] **Step 5: Run the tests**
 
