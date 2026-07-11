@@ -80,7 +80,7 @@ started · ◐ in progress · ☑ done.
 |---|---|---|---|---|
 | **0** | **Foundations: contracts + graph + events + enforcement primitives** | The five contracts as schemas (C1 primitive state schemas · C2 card format · C3 verb set · C4 event set · C5 skill format), the **workspace-graph data model** (nodes/edges/field-level author/span-index) + **append-only event stream** (studio/course/chat surface tag, unprompted/prompted), rubric + behavior ladders as config (CT-D1…D9, HS-D*), and the **enforcement primitives** (output-check, banned-phrasing suite, typed-output schema, schema-level authorship). Zod + sqlc/goose, all TDD, no UI, no live agent. | — | ☑ |
 | **1** | **`annotate` primitive (MATERIAL read-view)** | Hand-build the `annotate` interaction per the design's MATERIAL view: render a span-indexed material with clickable AI/student spans (`AnnotateState` from C1), emit C4 events, controlled component + demo host. **`graph` is split out** to Slice 7 (built with the STRUCTURE view, where its card-driven-vs-map-viz shape resolves in context — decided 2026-07-11). | 0 | ☑ |
-| **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☐ |
+| **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☐ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☐ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. | 4 | ☐ |
@@ -124,3 +124,19 @@ Each slice appends its spec/plan links and outcome here as it completes.
   no backend/network, `MaterialPane.tsx` untouched. Final review: SHIP, no defects. Deferred:
   student-span text-selection creation, backend persistence + source log (Slice 6), coach rail
   (Slice 2), `graph` (Slice 7).
+- **Slice 2** — ☑ **complete** (branch `refactor2-slice2-runtime`, impl commits `f666532`..HEAD).
+  Spec `docs/superpowers/specs/2026-07-11-slice-2-runtime-coach-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-2-runtime-coach.md`. Delivered (evolve the `agent`
+  pkg, no orphans): `runtime.go` types + `classifier.go` (`CandidateMoves`, pure predicate:
+  unsupported-claim → intervention candidate) + `coach.go`/`coach_prompt.go` (own posture
+  prompt, system+user turns, body from model / anchor+criterion from Candidate, full
+  enforcement stack) + `loop.go` (`RunAgentStep`: perceive→classify→decide-one→coach→enforce→
+  record; silence on no-candidate AND on enforcement rejection, persisting nothing) +
+  `agentstore.go` (sqlc adapter, `graph_node.body.text`→`GraphNodeView.Text`, event actor via
+  project owner) + `intervention` sqlc queries. Final review found + FIXED two real gaps:
+  output-check now handles full-width 。！？ (was ASCII-only → no-op for the Chinese coach), and
+  the coach sends a user turn (was system-only → rejected by live providers). Gate: full
+  `-short` + testcontainers (loop + store) green; `prompt.go`/`turn.go` untouched. Deferred:
+  `surface_card` (Slice 3), planner/intake (Slice 4), UI/SSE (Slice 5), assessor (Slice 10),
+  the cheap-model classifier hook (seam only). **RETIREMENT: legacy `RunTurn`/`summon_card`
+  (`turn.go`) stays live until the Studio replaces the old workspace, then DELETE in Slice 5.**
