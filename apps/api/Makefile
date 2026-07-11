@@ -1,8 +1,12 @@
-.PHONY: sync-cards sqlc migrate-up test run
+.PHONY: sync-cards sync-skills sqlc migrate-up test run
 
 # Mirror the canonical card JSON specs into the embeddable directory.
 sync-cards:
 	go run ./tools/synccards
+
+# Mirror the canonical skill JSON specs into the embeddable directory.
+sync-skills:
+	go run ./tools/syncskills
 
 # Regenerate the type-safe sqlc store from queries/ + migrations/.
 # CGO_ENABLED=0 forces the WASM-based pg_query parser (avoids macOS build issue
