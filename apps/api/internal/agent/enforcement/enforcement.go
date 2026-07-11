@@ -8,6 +8,7 @@ package enforcement
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // AgentOutput mirrors the Zod typed-output union (C3):
@@ -133,20 +134,41 @@ func OutputCheck(text string, ctx Context, sim Similarity) Verdict {
 	return Verdict{Verdict: "pass"}
 }
 
-// isDeclarative treats a sentence ending in "." with no "?" as
-// declarative. This is a fast heuristic gate, not a full parser.
+// isDeclarative treats a sentence ending in a declarative terminator, with no
+// question mark, as declarative. Both ASCII (. !) and full-width Chinese (。！)
+// terminators and question marks (? ？) are recognized — the coach speaks
+// Chinese, so ASCII-only matching would silently miss every real echo. This is
+// a fast heuristic gate, not a full parser.
 func isDeclarative(text string) bool {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
 		return false
 	}
-	return strings.HasSuffix(trimmed, ".") && !strings.Contains(trimmed, "?")
+	if strings.ContainsAny(trimmed, "?？") {
+		return false
+	}
+	return strings.HasSuffix(trimmed, ".") || strings.HasSuffix(trimmed, "!") ||
+		strings.HasSuffix(trimmed, "。") || strings.HasSuffix(trimmed, "！")
 }
 
-// asQuestion rewrites a declarative sentence as a question so the
-// student, not the AI, supplies the claim.
+// asQuestion rewrites a declarative sentence as a question so the student, not
+// the AI, supplies the claim. It strips a trailing declarative terminator
+// (ASCII or full-width) and appends a full-width "？" for Chinese text, an
+// ASCII "?" otherwise.
 func asQuestion(text string) string {
-	trimmed := strings.TrimSpace(text)
-	trimmed = strings.TrimSuffix(trimmed, ".")
+	trimmed := strings.TrimRight(strings.TrimSpace(text), ".!。！")
+	if containsHan(trimmed) {
+		return trimmed + "？"
+	}
 	return trimmed + "?"
+}
+
+// containsHan reports whether s contains any Han (CJK) rune.
+func containsHan(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
 }

@@ -31,7 +31,8 @@ import (
 func ProposeIntervention(ctx context.Context, prov gateway.Provider, r gateway.Resolved, g GraphView, c Candidate, sim enforcement.Similarity) (enforcement.AgentOutput, string, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: BuildCoachPrompt(g, c)},
+			{Role: gateway.RoleSystem, Content: coachPosturePrompt},
+			{Role: gateway.RoleUser, Content: BuildCoachContext(g, c)},
 		},
 	}
 	res, err := gateway.Collect(ctx, prov, r, req)

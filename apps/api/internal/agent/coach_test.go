@@ -67,10 +67,10 @@ func TestProposeIntervention_AnchoredQuestion(t *testing.T) {
 
 func TestProposeIntervention_DeclarativeEchoIsIntercepted(t *testing.T) {
 	g, c := coachFixture()
-	// Ends in an ASCII "." with no "?" — enforcement's isDeclarative heuristic
-	// flags this as a declarative sentence, and constSim(0.99) puts it well
-	// above the default echo threshold against the anchored node's own text.
-	prov := scriptedProvider("中国的经济转型正在让地球更可持续.")
+	// A real Chinese declarative echo ending in the full-width "。" (no "？") —
+	// enforcement's isDeclarative flags it, and constSim(0.99) puts it well above
+	// the echo threshold against the anchored node's own text.
+	prov := scriptedProvider("中国的经济转型正在让地球更可持续。")
 
 	out, verdict, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, constSim(0.99))
 	if err != nil {
@@ -79,8 +79,8 @@ func TestProposeIntervention_DeclarativeEchoIsIntercepted(t *testing.T) {
 	if verdict != "intercept" {
 		t.Fatalf("want verdict=intercept, got %q", verdict)
 	}
-	if !strings.HasSuffix(out.Body, "?") {
-		t.Fatalf("want rewritten body to end in a question mark, got %q", out.Body)
+	if !strings.HasSuffix(out.Body, "？") {
+		t.Fatalf("want rewritten body to end in a full-width question mark, got %q", out.Body)
 	}
 }
 

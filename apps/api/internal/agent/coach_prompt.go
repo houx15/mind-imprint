@@ -45,16 +45,16 @@ func neighborEdges(g GraphView, nodeID string) []GraphEdgeView {
 	return out
 }
 
-// BuildCoachPrompt assembles the coach's system prompt: the posture ladder,
-// the anchored node + its direct edges (the graph neighborhood), and the
-// classifier's reason + CT criterion for this candidate move. The model
-// only ever sees this — the anchor and criterion on the returned
+// BuildCoachContext assembles the coach's USER-turn context: the anchored node
+// + its direct edges (the graph neighborhood) and the classifier's reason + CT
+// criterion for this candidate move. The posture ladder is sent separately as
+// the system message (coachPosturePrompt) so the request always carries a
+// user turn — a system-only request is rejected by real providers. The model
+// only ever sees these two — the anchor and criterion on the returned
 // AgentOutput come from c, not from parsing the model's reply.
-func BuildCoachPrompt(g GraphView, c Candidate) string {
+func BuildCoachContext(g GraphView, c Candidate) string {
 	var b strings.Builder
-	b.WriteString(coachPosturePrompt)
-
-	b.WriteString("\n\n# 当前锚点节点\n")
+	b.WriteString("# 当前锚点节点\n")
 	if n, ok := findNode(g, c.AnchorID); ok {
 		fmt.Fprintf(&b, "- id=%s type=%s author=%s", n.ID, n.Type, n.Author)
 		if n.Text != "" {

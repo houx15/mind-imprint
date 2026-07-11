@@ -1,6 +1,9 @@
 package enforcement
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func stubSim(x float64) Similarity {
 	return stubSimilarity{value: x}
@@ -12,6 +15,23 @@ type stubSimilarity struct {
 
 func (s stubSimilarity) Cosine(a, b string) float64 {
 	return s.value
+}
+
+func TestOutputCheck_ChinesePunctuation(t *testing.T) {
+	// A Chinese declarative ending in the full-width "。" must be intercepted
+	// and rewritten as a Chinese question — the coach speaks Chinese, so
+	// ASCII-only matching would let every real echo through untouched.
+	v := OutputCheck("中国的转型让地球更可持续。", Context{Topic: "中国是否让地球更可持续"}, stubSim(0.95))
+	if v.Verdict != "intercept" {
+		t.Fatalf("chinese declarative echo should intercept, got %q", v.Verdict)
+	}
+	if !strings.HasSuffix(v.Rewrite, "？") {
+		t.Fatalf("rewrite should end in a full-width ？, got %q", v.Rewrite)
+	}
+	// A Chinese question ending in "？" is not a declarative echo → pass.
+	if v2 := OutputCheck("它的证据是什么？", Context{Topic: "中国是否让地球更可持续"}, stubSim(0.99)); v2.Verdict != "pass" {
+		t.Fatalf("chinese question should pass, got %q", v2.Verdict)
+	}
 }
 
 func TestValidateOutput_ReferenceNeedsProvenance(t *testing.T) {
