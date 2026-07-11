@@ -141,3 +141,63 @@ func TestIntake_ImportedDoesNotSatisfyStudentWritten(t *testing.T) {
 		t.Fatalf("milestone_plan should be reported as owed in Missing, got %v", rep.Missing)
 	}
 }
+
+func TestAdvance_MachineOnlyGateAdvancesOnMachineClear(t *testing.T) {
+	// A trivial one-machine-item skill: advancing needs only machine_clear.
+	sk := skills.Skill{ID: "mini", Kind: "project", Contracts: map[string]skills.Contract{
+		"only": {Gate: skills.Gate{Machine: []skills.MachineItem{{Kind: "node_present", Type: "x"}}}},
+	}}
+	f := &fakeAgentStore{graph: GraphView{Nodes: []GraphNodeView{{ID: "n", Type: "x"}}}}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+	ok, err := Advance(context.Background(), deps, pid, sk, "only")
+	if err != nil || !ok {
+		t.Fatalf("Advance = %v, %v; want true", ok, err)
+	}
+	states, _ := f.ListGateStates(context.Background(), pid)
+	if !states["only"].Confirmed {
+		t.Fatal("machine-only gate should be confirmed solid on advance")
+	}
+}
+
+func TestAdvance_RefusesWhenMachineItemMissing(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{graph: GraphView{}} // no perspectives
+	deps := AgentDeps{Store: f}
+	ok, err := Advance(context.Background(), deps, uuid.New(), sk, "evaluate_perspectives")
+	if err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if ok {
+		t.Fatal("must refuse: machine items missing")
+	}
+	if f.lastEvent.Type != "gate_attempt" {
+		t.Fatalf("want a gate_attempt event recording what's missing, got %q", f.lastEvent.Type)
+	}
+}
+
+func TestAdvance_RefusesWhenStudentItemUnrecorded_DEC3(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	// machine items pass, but student_written items unrecorded → refuse.
+	f := &fakeAgentStore{graph: GraphView{Nodes: []GraphNodeView{
+		{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"},
+	}}}
+	deps := AgentDeps{Store: f}
+	ok, _ := Advance(context.Background(), deps, uuid.New(), sk, "evaluate_perspectives")
+	if ok {
+		t.Fatal("DEC-3: machine may not advance a gate whose student_written items are unrecorded")
+	}
+}
+
+func TestAdvance_PassesWhenAllItemsSatisfied(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph:      GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}},
+		gateStates: map[string]RecordedGate{"evaluate_perspectives": {Items: map[string]string{"recon_logged": "solid", "sources_per_perspective": "solid"}}},
+	}
+	deps := AgentDeps{Store: f}
+	ok, err := Advance(context.Background(), deps, uuid.New(), sk, "evaluate_perspectives")
+	if err != nil || !ok {
+		t.Fatalf("Advance = %v,%v; want true", ok, err)
+	}
+}

@@ -105,3 +105,57 @@ func writePlan(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skil
 	}
 	return route, nil
 }
+
+// Replan recomputes and rewrites the route, recording the reason as a
+// plan_revised event (agent-spec §5.2).
+func Replan(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills.Skill, reason string) ([]string, error) {
+	return writePlan(ctx, deps, projectID, sk, reason)
+}
+
+// Advance is the blocking unlock (DEC-8): it confirms a contract's gate solid
+// only when every item is satisfied — machine items computed AND every
+// student_written/human item recorded solid. It never marks a non-machine
+// item itself (DEC-3). A machine-only gate advances on machine_clear. Records
+// a gate_attempt event either way.
+func Advance(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills.Skill, contractID string) (bool, error) {
+	g, err := deps.Store.LoadGraph(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	recorded, err := deps.Store.ListGateStates(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	rec := recorded[contractID]
+	report := CheckGate(sk, contractID, g, rec)
+
+	var missing []string
+	if report.Status != "machine_clear" {
+		missing = append(missing, report.Missing...)
+	} else {
+		c := sk.Contracts[contractID]
+		for _, name := range append(append([]string{}, c.Gate.StudentWritten...), c.Gate.Human...) {
+			if rec.Items[name] != "solid" {
+				missing = append(missing, name+" 待完成")
+			}
+		}
+	}
+
+	if len(missing) > 0 {
+		payload, _ := json.Marshal(map[string]any{"contract": contractID, "result": "blocked", "missing": missing})
+		if err := deps.Store.AppendEvent(ctx, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_attempt", Payload: payload}); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+
+	rec.Confirmed = true
+	if err := deps.Store.UpsertGateState(ctx, projectID, contractID, rec); err != nil {
+		return false, err
+	}
+	payload, _ := json.Marshal(map[string]any{"contract": contractID, "result": "passed"})
+	if err := deps.Store.AppendEvent(ctx, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_attempt", Payload: payload}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
