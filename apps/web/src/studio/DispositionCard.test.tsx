@@ -16,6 +16,15 @@ describe("DispositionCard (三键处置)", () => {
     expect(onDisposition).toHaveBeenCalledWith("reject", expect.stringContaining("方向"));
   });
 
+  it("fires onDisposition with the wire-contract literal \"rewrite\" (not \"revise\") for 我自己改", () => {
+    const onDisposition = vi.fn();
+    render(<DispositionCard tag="D5" anchor="治理决心主张" body="这条主张还没有素材支撑" onDisposition={onDisposition} />);
+    fireEvent.click(screen.getByText("我自己改"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "我想先按自己的思路把这段重新组织一下" } });
+    fireEvent.click(screen.getByText(/提交|钉/));
+    expect(onDisposition).toHaveBeenCalledWith("rewrite", expect.any(String));
+  });
+
   it("renders the tag, anchor and body copy passed in", () => {
     render(
       <DispositionCard

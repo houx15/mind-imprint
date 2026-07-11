@@ -19,6 +19,18 @@ describe("CoachRail", () => {
       activeView="结构" onDisposition={() => {}} onOpenMethodology={() => {}} onSend={() => {}} />);
     expect(screen.getAllByTitle("装备栏 · 工具卡")).toHaveLength(1);
   });
+  it("does not double the 锚定 label: the disposition card's tag pill is a bare criterion, not a second 锚定", () => {
+    render(<CoachRail anchor={c.anchor} messages={c.messages} equipment={c.equipment}
+      activeView="结构" onDisposition={() => {}} onOpenMethodology={() => {}} onSend={() => {}} />);
+    // exactly one "锚定 ..." label should render (DispositionCard's anchor
+    // pill); the ai message's tag must be the bare criterion (e.g. "D5"),
+    // not "锚定 D5" — otherwise this rail shows "锚定" twice.
+    expect(screen.getAllByText(/^锚定/).length).toBe(1);
+    // "D5" renders twice by design: once as the thread message's own tag
+    // pill, once as DispositionCard's tag pill — neither is prefixed with 锚定.
+    expect(screen.getAllByText("D5").length).toBeGreaterThan(0);
+  });
+
   it("sends composer text", () => {
     const onSend = vi.fn();
     render(<CoachRail anchor={c.anchor} messages={c.messages} equipment={c.equipment}

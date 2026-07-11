@@ -70,7 +70,7 @@ export function EquipmentBar({ cards, open, onToggle, onOpen }: EquipmentBarProp
               return (
                 <div
                   key={card.id}
-                  onClick={() => onOpen(card.id)}
+                  onClick={() => onOpen(card.meth)}
                   role="button"
                   style={{
                     display: "inline-flex",

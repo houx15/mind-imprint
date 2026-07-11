@@ -4,7 +4,7 @@ export type DispositionCardProps = {
   tag: string;
   anchor: string;
   body: string;
-  onDisposition: (choice: "accept" | "revise" | "reject", reason: string) => void;
+  onDisposition: (choice: "accept" | "rewrite" | "reject", reason: string) => void;
 };
 
 // Three-key disposition on an AI suggestion.
@@ -12,9 +12,12 @@ export type DispositionCardProps = {
 // dispReasonHint logic ~L2276-2284). The reason gate is ">=15" in the mock via
 // `.trim().length` (UTF-16 units); we gate on RUNE count instead
 // ([...reason].length) to match the backend's rune-based validation.
-const DISPOSITION_KEYS: Array<{ choice: "accept" | "revise" | "reject"; label: string }> = [
+// The internal choice literal is "rewrite" (not "revise") to match the wire
+// contract (packages/contracts/src/event.ts) and Go backend; the label stays
+// the Chinese copy "我自己改".
+const DISPOSITION_KEYS: Array<{ choice: "accept" | "rewrite" | "reject"; label: string }> = [
   { choice: "accept", label: "接受" },
-  { choice: "revise", label: "我自己改" },
+  { choice: "rewrite", label: "我自己改" },
   { choice: "reject", label: "不采纳" },
 ];
 
@@ -23,7 +26,7 @@ function runeCount(text: string): number {
 }
 
 export function DispositionCard({ tag, anchor, body, onDisposition }: DispositionCardProps) {
-  const [choice, setChoice] = useState<"accept" | "revise" | "reject" | null>(null);
+  const [choice, setChoice] = useState<"accept" | "rewrite" | "reject" | null>(null);
   const [reason, setReason] = useState("");
 
   const rlen = runeCount(reason);

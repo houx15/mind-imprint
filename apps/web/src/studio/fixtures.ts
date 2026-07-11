@@ -36,17 +36,21 @@ export const STUDIO_FIXTURE: StudioState = {
       { kind: "student", body: "它想证明中国是认真在转型的。" },
       {
         kind: "ai",
-        tag: "锚定 D5",
+        // Bare criterion — no "锚定" prefix. The "锚定" label is chrome that
+        // belongs to the anchor itself (already shown in CoachRail's header
+        // status pill and again next to this tag in DispositionCard's
+        // "锚定 {anchor}" text); prefixing it here produced a doubled 锚定.
+        tag: "D5",
         body: "那就把它连到「治理决心」那条主张下——不过那条现在是「裸主张」，还没有证据。这两处正好互相补上。补完，门禁第①条就过了。",
       },
     ],
     equipment: [
-      { id: "eq-steelman", name: "钢人卡", spont: "提示后" },
-      { id: "eq-concession-para", name: "让步段卡", spont: "自发" },
-      { id: "eq-toulmin-map", name: "Toulmin 图", spont: "自发" },
-      { id: "eq-sift-lateral", name: "SIFT 横向阅读", spont: "自发" },
-      { id: "eq-craap-five", name: "CRAAP 五维", spont: "提示后" },
-      { id: "eq-lateral-check", name: "横向核查", spont: "自发" },
+      { id: "eq-steelman", name: "钢人卡", spont: "提示后", meth: "concession" },
+      { id: "eq-concession-para", name: "让步段卡", spont: "自发", meth: "concession" },
+      { id: "eq-toulmin-map", name: "Toulmin 图", spont: "自发", meth: "concession" },
+      { id: "eq-sift-lateral", name: "SIFT 横向阅读", spont: "自发", meth: "sift_craap" },
+      { id: "eq-craap-five", name: "CRAAP 五维", spont: "提示后", meth: "sift_craap" },
+      { id: "eq-lateral-check", name: "横向核查", spont: "自发", meth: "sift_craap" },
     ],
   },
   views: {

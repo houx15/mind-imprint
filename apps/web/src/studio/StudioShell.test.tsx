@@ -20,4 +20,14 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByText(/专注/));
     expect(onToggleFocus).toHaveBeenCalled();
   });
+
+  it("opening 装备栏 and clicking a card renders the methodology modal at the shell level (not clipped to the coach rail)", () => {
+    render(<StudioShell state={STUDIO_FIXTURE} callbacks={noop} />);
+    // composer toolbox toggle opens the 装备栏 popover
+    fireEvent.click(screen.getByTitle("装备栏 · 工具卡"));
+    // 让步段卡's meth key is "concession" (design ~L2287-2294)
+    fireEvent.click(screen.getByText("让步段卡"));
+    expect(screen.getByText("工具说明书 · 我不懂为什么")).toBeInTheDocument();
+    expect(screen.getByText("让步段 · 以退为进")).toBeInTheDocument();
+  });
 });

@@ -18,7 +18,7 @@ export type CoachMessage =
   | { kind: "ai"; body: string; tag?: string }
   | { kind: "flag"; label: string; body: string };
 
-export type EquipCard = { id: string; name: string; spont: "自发" | "提示后" };
+export type EquipCard = { id: string; name: string; spont: "自发" | "提示后"; meth: string };
 
 export type StructureCardFx = {
   id: string;
@@ -65,7 +65,7 @@ export type StudioState = {
 export type StudioCallbacks = {
   onSelectStation: (code: StationCode) => void;
   onToggleFocus: () => void;
-  onDisposition: (choice: "accept" | "revise" | "reject", reason: string) => void;
+  onDisposition: (choice: "accept" | "rewrite" | "reject", reason: string) => void;
   onOpenMethodology: (cardId: string) => void;
   onComposerSend: (text: string) => void;
 };

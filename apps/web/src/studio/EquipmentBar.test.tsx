@@ -11,15 +11,17 @@ describe("EquipmentBar (装备栏)", () => {
     expect(screen.queryByText("钢人卡")).not.toBeInTheDocument();
   });
 
-  it("shows chips with 自发/提示后 badges when open, and clicking a chip fires onOpen(id)", () => {
+  it("shows chips with 自发/提示后 badges when open, and clicking a chip fires onOpen(meth)", () => {
     const onOpen = vi.fn();
     render(<EquipmentBar cards={CARDS} open={true} onToggle={() => {}} onOpen={onOpen} />);
     expect(screen.getByText("钢人卡")).toBeInTheDocument();
     expect(screen.getAllByText("自发").length).toBeGreaterThan(0);
     expect(screen.getAllByText("提示后").length).toBeGreaterThan(0);
 
+    // 钢人卡's meth key is "concession" (design ~L2287-2294), not its card id —
+    // this is what actually reaches MethodologyModal.
     fireEvent.click(screen.getByText("钢人卡"));
-    expect(onOpen).toHaveBeenCalledWith("eq-steelman");
+    expect(onOpen).toHaveBeenCalledWith("concession");
   });
 
   it("renders nothing when closed (the trigger lives in the composer, not here)", () => {

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
-import { MethodologyModal } from "./MethodologyModal";
 import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
 
 export type CoachRailProps = {
@@ -19,6 +18,14 @@ export type CoachRailProps = {
 // 装备栏 + composer. Design: docs/design/思维印记_工作区.dc.html ~L1230-1405
 // (header ~1232-1243, thread ~1245-1280, tool-card slot ~1281-1343, 装备栏
 // ~1344-1364, composer ~1366-1404).
+//
+// NOTE: MethodologyModal is rendered at the StudioShell level, not here —
+// CoachRail is only 388px wide (a `position:relative` column), so a
+// full-bleed `position:absolute; inset:0` modal rendered inside it gets
+// clipped to the rail instead of covering the whole workspace (design
+// intent: full-screen scrim, ~L1409). CoachRail only owns the 装备栏
+// popover's open/closed state; opening a card just calls onOpenMethodology
+// and lets the parent own the modal.
 const FONT = "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif";
 
 function ToolboxIcon() {
@@ -91,15 +98,9 @@ export function CoachRail({
   onSend,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
-  const [methId, setMethId] = useState<string | null>(null);
   const [composerText, setComposerText] = useState("");
 
   const lastAi = [...messages].reverse().find((m) => m.kind === "ai");
-
-  function handleOpenMethodology(id: string) {
-    setMethId(id);
-    onOpenMethodology(id);
-  }
 
   function handleSend() {
     const text = composerText.trim();
@@ -204,8 +205,7 @@ export function CoachRail({
       </div>
 
       {/* 装备栏 */}
-      <EquipmentBar cards={equipment} open={equipOpen} onToggle={() => setEquipOpen((o) => !o)} onOpen={handleOpenMethodology} />
-      <MethodologyModal cardId={methId} onClose={() => setMethId(null)} />
+      <EquipmentBar cards={equipment} open={equipOpen} onToggle={() => setEquipOpen((o) => !o)} onOpen={onOpenMethodology} />
 
       {/* composer */}
       <div style={{ flex: "none", padding: "11px 16px 15px", borderTop: "1px solid #EFF0F5" }}>

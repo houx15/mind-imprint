@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { StationRail } from "./StationRail";
 import { ViewFrame } from "./ViewFrame";
 import { CoachRail } from "./CoachRail";
+import { MethodologyModal } from "./MethodologyModal";
 import type { StudioCallbacks, StudioState } from "./state";
 
 export type StudioShellProps = {
@@ -39,6 +41,15 @@ function ExitFocusIcon() {
 
 export function StudioShell({ state, callbacks }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
+  // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
+  // covers the whole workspace instead of being clipped to the 388px coach
+  // rail. Design: docs/design/思维印记_工作区.dc.html ~L1409.
+  const [methId, setMethId] = useState<string | null>(null);
+
+  function handleOpenMethodology(id: string) {
+    setMethId(id);
+    callbacks.onOpenMethodology(id);
+  }
 
   return (
     <div style={{ height: "100%", minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative", fontFamily: FONT }}>
@@ -121,10 +132,12 @@ export function StudioShell({ state, callbacks }: StudioShellProps) {
           equipment={state.coach.equipment}
           activeView={activeView}
           onDisposition={callbacks.onDisposition}
-          onOpenMethodology={callbacks.onOpenMethodology}
+          onOpenMethodology={handleOpenMethodology}
           onSend={callbacks.onComposerSend}
         />
       </div>
+
+      <MethodologyModal cardId={methId} onClose={() => setMethId(null)} />
     </div>
   );
 }
