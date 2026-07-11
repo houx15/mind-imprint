@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **No new migration.** `graph_node.type` already allows `plan` and `gate_state`; `graph_node.author` already allows `imported`. Write zero DDL.
+- **~~No new migration~~ → migration `0017` (added during Task 11).** `graph_node.type`/`author` already allow `plan`/`gate_state`/`imported`, but 0016's `type` CHECK enumerated only 5 values — too tight, since `type` is an open skill-vocabulary field the gate engine matches against. `0017` relaxes the CHECK to a non-empty guard (additive, reversible, no sqlc/Go change).
 - **No model call, no UI, no transport.** All logic is pure functions or store-backed orchestration over fixtures + testcontainers, matching Slices 2–3.
 - **DEC-3 is structural.** `CheckGate` returns `Status ∈ {empty, partial, machine_clear}` and **never** `solid`. `solid` exists only as `GateReport.Solid`, mirrored from a recorded `gate_state.confirmed_solid`. `Advance` may write `confirmed_solid=true` only after every `student_written`/`human` item is *recorded* solid (it never marks one itself); a machine-only gate advances on `machine_clear`.
 - **Machine gate items are a closed typed set** whose *names* live in the `skill` package (`skill.MachineKinds`) and whose *evaluation* lives in `agent`: `node_present{type}` · `node_count_at_least{type,n}` · `no_orphan_evidence` · `no_unsupported_claim` · `no_single_sourced_claim` · `every_source_evaluated`. A new kind is a runtime change (§5.7 escape hatch); authoring a skill only references existing kinds.

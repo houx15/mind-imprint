@@ -53,10 +53,15 @@ touches **zero new agent code and zero new primitives**, and a hypothetical seco
   (§4.5 planner) is a documented seam — staged exactly as classifier(pure)→coach(model) was.
 - **One branch.** *(Confirmed.)* Skill loader + gate engine + writing-project JSON + intake +
   planner ship together; the pieces are tightly coupled. Task boundaries are drawn in the plan.
-- **No new migration.** Slice 0 already provisioned everything: `graph_node.type` carries `plan`
-  and `gate_state`; `graph_node.author` carries `imported`. The plan artifact is a `plan` node;
-  each contract's gate status is a `gate_state` node; intake mints `imported` nodes. Slice 4
-  writes no DDL.
+- **~~No new migration~~ → one small additive migration (`0017`).** Slice 0 provisioned the
+  `plan`/`gate_state` node types and `imported` author. But its `graph_node.type` **CHECK
+  enumerated a fixed 5 values** — wrong, because `graph_node.type` is architecturally an *open,
+  skill-defined vocabulary* (the gate engine's `node_present{type}` matches whatever artifact
+  names a skill's contracts declare: `rubric_translation`, `perspective`, `preregistration`, …).
+  Slice 4's integration test surfaced this (intake minting those types hit SQLSTATE 23514).
+  Migration `0017` relaxes the CHECK to a non-empty guard; the structural types still work as
+  exact string values, and a typo'd type just fails its gate (stays owed — the safe DEC-3
+  direction). Additive, reversible, no sqlc/Go change.
 - **Provenance = the `imported` author value, not a new column.** Intake marks candidates
   `author='imported'` (§5.2's "author=student, provenance=imported" collapses onto the existing
   enum). Imported content is **present but owes the gate**: it never auto-satisfies a
