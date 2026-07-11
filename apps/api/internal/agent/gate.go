@@ -206,3 +206,13 @@ func CheckGate(sk skills.Skill, contractID string, g GraphView, rec RecordedGate
 	}
 	return rep
 }
+
+// ReconcileGates runs CheckGate for every contract against the reconstructed
+// state — the "owe every gate" diff (agent-spec §5.2). recorded may be nil.
+func ReconcileGates(sk skills.Skill, g GraphView, recorded map[string]RecordedGate) map[string]GateReport {
+	out := make(map[string]GateReport, len(sk.Contracts))
+	for id := range sk.Contracts {
+		out[id] = CheckGate(sk, id, g, recorded[id])
+	}
+	return out
+}
