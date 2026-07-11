@@ -129,19 +129,12 @@ func Advance(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills
 	rec := recorded[contractID]
 	report := CheckGate(sk, contractID, g, rec)
 
-	var missing []string
-	if report.Status != "machine_clear" {
-		missing = append(missing, report.Missing...)
-	} else {
-		c := sk.Contracts[contractID]
-		for _, name := range append(append([]string{}, c.Gate.StudentWritten...), c.Gate.Human...) {
-			if rec.Items[name] != "solid" {
-				missing = append(missing, name+" 待完成")
-			}
-		}
-	}
-
-	if len(missing) > 0 {
+	// CheckGate.Missing already accumulates BOTH the failing machine items and
+	// every unrecorded student_written/human item — so a non-empty Missing is
+	// exactly the DEC-8 refuse condition. The gate passes only when every item
+	// (machine computed + non-machine recorded "solid") is satisfied; Advance
+	// never records a non-machine item itself (DEC-3).
+	if missing := report.Missing; len(missing) > 0 {
 		payload, _ := json.Marshal(map[string]any{"contract": contractID, "result": "blocked", "missing": missing})
 		if err := deps.Store.AppendEvent(ctx, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_attempt", Payload: payload}); err != nil {
 			return false, err
