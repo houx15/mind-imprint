@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Harness } from "./Harness";
 import { StorePanel } from "./StorePanel";
+import { MaterialPanel } from "./MaterialPanel";
 
-type Tab = "cards" | "store";
+type Tab = "cards" | "store" | "material";
 
 export function DevApp() {
   const [tab, setTab] = useState<Tab>("cards");
@@ -13,9 +14,11 @@ export function DevApp() {
       <div className="flex gap-2 border-b border-mk-border bg-white px-6 py-3">
         <button type="button" onClick={() => setTab("cards")} className={tabCls("cards")}>卡片</button>
         <button type="button" onClick={() => setTab("store")} className={tabCls("store")}>存储</button>
+        <button type="button" onClick={() => setTab("material")} className={tabCls("material")}>素材</button>
       </div>
       {tab === "cards" && <Harness />}
       {tab === "store" && <StorePanel />}
+      {tab === "material" && <MaterialPanel />}
     </div>
   );
 }
