@@ -14,6 +14,31 @@
   "related": ["sift", "money-trail", "certainty-spectrum"],
   "body_status": "full",
   "rubric_tags": ["D2"],
+  "primitive": "annotate",
+  "target_type": "material.source",
+  "params": {
+    "tags": ["currency", "relevance", "authority", "accuracy", "purpose"],
+    "tag_prompts": {
+      "currency": "这条信息是什么时候发布/更新的？有没有更新版？",
+      "relevance": "它直接支持你的论点吗，还是只提供背景？",
+      "authority": "谁站在这条主张背后——原始出处是谁，有什么资质？",
+      "accuracy": "这条信息能被独立验证吗？有没有可核对的来源？",
+      "purpose": "这份材料是为了告知、说服、销售还是娱乐而写的？"
+    }
+  },
+  "completion": [
+    { "kind": "every_tag_present", "tags": ["currency", "relevance", "authority", "accuracy", "purpose"] },
+    { "kind": "field_written_by", "field": "risk_note", "author": "student" }
+  ],
+  "graph_effects": [
+    { "kind": "promote", "from": "material", "to": "evidence", "with": "source_quality" }
+  ],
+  "observe": [
+    { "when": "tag=authority AND note_len<15", "move": { "verb": "post_intervention", "level": "I2" } },
+    { "when": "tag=accuracy AND note_len<15", "move": { "verb": "post_intervention", "level": "I2" } }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I3",
   "steps": [
     {
       "key": "source_input",

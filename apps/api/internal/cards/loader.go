@@ -25,6 +25,78 @@ type Spec struct {
 	InteractionType  string `json:"interaction_type"`
 	Mode             string `json:"mode"`
 	Steps            []Step `json:"steps"`
+
+	// C2 card format evolution (agent-spec §3): the primitive binding + the
+	// runtime's typed view of params/completion/graph_effects/observe. All
+	// additive and optional — legacy cards (no C2 block) parse unchanged.
+	Primitive        string                `json:"primitive"`
+	TargetType       string                `json:"target_type"`
+	Params           Params                `json:"params"`
+	Completion       []CompletionPredicate `json:"completion"`
+	GraphEffects     []GraphEffect         `json:"graph_effects"`
+	Observe          []ObserveRule         `json:"observe"`
+	Consolidation    string                `json:"consolidation"`
+	IntrusivenessCap string                `json:"intrusiveness_cap"`
+}
+
+// Params is the card's C2 params block. CRAAP uses tags (the annotate
+// dimensions) + tag_prompts (per-dimension guiding question); other C2
+// cards may leave both empty.
+type Params struct {
+	Tags       []string          `json:"tags"`
+	TagPrompts map[string]string `json:"tag_prompts"`
+}
+
+// CompletionPredicate is one closed-set completion check (agent-spec §3):
+// "every_tag_present" (Tags) or "field_written_by" (Field + Author).
+type CompletionPredicate struct {
+	Kind   string   `json:"kind"`
+	Tags   []string `json:"tags"`
+	Field  string   `json:"field"`
+	Author string   `json:"author"`
+}
+
+// GraphEffect is one closed-set graph mutation applied on card completion
+// (agent-spec §3): "promote" mints a node of type To from a target of kind
+// From, carrying the field named by With.
+type GraphEffect struct {
+	Kind string `json:"kind"`
+	From string `json:"from"`
+	To   string `json:"to"`
+	With string `json:"with"`
+}
+
+// ObserveRule is one closed-set trigger (agent-spec §3) evaluated over the
+// card's live primitive state; a match yields a coach Candidate. The JSON
+// shape nests the resulting move (mirroring the TS CardSpec contract's
+// `{when, move}` shape); ObserveRule flattens it for the Go runtime.
+type ObserveRule struct {
+	When  string `json:"when"`
+	Verb  string `json:"-"`
+	Level string `json:"-"`
+}
+
+// observeMove is the wire shape of ObserveRule.Move ({verb, level}).
+type observeMove struct {
+	Verb  string `json:"verb"`
+	Level string `json:"level"`
+}
+
+// UnmarshalJSON adapts the wire shape `{"when":..., "move":{"verb":...,
+// "level":...}}` (the TS CardSpec contract's observe entry) into the flat
+// ObserveRule the Go runtime reads.
+func (o *ObserveRule) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		When string      `json:"when"`
+		Move observeMove `json:"move"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	o.When = wire.When
+	o.Verb = wire.Move.Verb
+	o.Level = wire.Move.Level
+	return nil
 }
 
 // Step is one phase of a card; Key/Title come from the JSON, Fields are the
