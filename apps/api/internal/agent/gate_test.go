@@ -72,3 +72,52 @@ func TestEvalMachineItem_EverySourceEvaluated(t *testing.T) {
 		t.Fatal("all sources evaluated → should pass")
 	}
 }
+
+func TestCheckGate_MachineClearNeverSolid(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	// evaluate_perspectives needs 2 perspectives (machine) + student items.
+	g := GraphView{Nodes: []GraphNodeView{
+		{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"},
+	}}
+	// no recorded non-machine items, not confirmed
+	r := CheckGate(sk, "evaluate_perspectives", g, RecordedGate{})
+	if r.Status != "machine_clear" {
+		t.Fatalf("Status = %q, want machine_clear", r.Status)
+	}
+	if r.Solid {
+		t.Fatal("DEC-3: CheckGate must never report Solid without a recorded confirmation")
+	}
+	// missing lists the owed student_written items
+	if len(r.Missing) == 0 {
+		t.Fatal("want student_written items reported as missing")
+	}
+}
+
+func TestCheckGate_EmptyAndPartial(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	empty := CheckGate(sk, "evaluate_perspectives", GraphView{}, RecordedGate{})
+	if empty.Status != "empty" {
+		t.Fatalf("Status = %q, want empty", empty.Status)
+	}
+	partial := CheckGate(sk, "evaluate_perspectives", GraphView{
+		Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}}, // only 1 of 2
+	}, RecordedGate{})
+	if partial.Status != "partial" {
+		t.Fatalf("Status = %q, want partial", partial.Status)
+	}
+}
+
+func TestCheckGate_SolidOnlyFromRecordedConfirmation(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	g := GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}}
+	r := CheckGate(sk, "evaluate_perspectives", g, RecordedGate{
+		Confirmed: true,
+		Items:     map[string]string{"recon_logged": "solid", "sources_per_perspective": "solid"},
+	})
+	if !r.Solid {
+		t.Fatal("recorded confirmation → Solid true")
+	}
+	if r.Status == "solid" {
+		t.Fatal("DEC-3: Status enum never carries solid; Solid is a separate recorded flag")
+	}
+}

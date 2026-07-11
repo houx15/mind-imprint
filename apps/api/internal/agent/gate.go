@@ -106,3 +106,103 @@ func hasEvaluatedEdge(materialID string, g GraphView) bool {
 func EvalMachineItemForTest(item skills.MachineItem, g GraphView) (bool, string) {
 	return evalMachineItem(item, g)
 }
+
+// hasAnyNodeOfType reports whether the graph has at least one node of the
+// given type. Used by CheckGate to distinguish "empty" (nothing attempted)
+// from "partial" (some but not enough progress) when a type-counted machine
+// item (e.g. node_count_at_least) fails. Type == "" (untyped predicates like
+// no_orphan_evidence) never contributes partial credit this way.
+func hasAnyNodeOfType(g GraphView, nodeType string) bool {
+	if nodeType == "" {
+		return false
+	}
+	for _, n := range g.Nodes {
+		if n.Type == nodeType {
+			return true
+		}
+	}
+	return false
+}
+
+// RecordedGate is the externally-recorded (non-machine) status of a gate,
+// read from its gate_state node body. Confirmed is the external "solid"
+// (a passed challenge / human / explicit student confirmation — DEC-3); Items
+// maps each student_written/human item name to "solid"|"flagged-weak"|"".
+type RecordedGate struct {
+	Confirmed bool
+	Items     map[string]string
+}
+
+// ItemResult is one gate item's outcome in a report.
+type ItemResult struct {
+	Name    string
+	Kind    string // "machine" | "student_written" | "human"
+	Pass    bool
+	Missing string
+}
+
+// GateReport is CheckGate's verdict. Status is the MACHINE computation and
+// never exceeds "machine_clear" (DEC-3); Solid mirrors the recorded external
+// confirmation. Missing is the ordered list of what remains.
+type GateReport struct {
+	Contract string
+	Status   string // "empty" | "partial" | "machine_clear"
+	Solid    bool
+	Items    []ItemResult
+	Missing  []string
+}
+
+// CheckGate evaluates a contract's gate: machine items over the graph, merged
+// with the recorded status of student_written/human items. It never returns
+// "solid" as a machine Status (DEC-3) — Solid is a separate recorded flag.
+func CheckGate(sk skills.Skill, contractID string, g GraphView, rec RecordedGate) GateReport {
+	c := sk.Contracts[contractID]
+	rep := GateReport{Contract: contractID, Solid: rec.Confirmed}
+
+	machinePass := true
+	anyPass := false
+	for _, m := range c.Gate.Machine {
+		pass, missing := evalMachineItem(m, g)
+		name := m.Kind
+		if m.Type != "" {
+			name = m.Kind + ":" + m.Type
+		}
+		rep.Items = append(rep.Items, ItemResult{Name: name, Kind: "machine", Pass: pass, Missing: missing})
+		if pass {
+			anyPass = true
+		} else {
+			machinePass = false
+			rep.Missing = append(rep.Missing, missing)
+			// A failed type-counted item (e.g. node_count_at_least) can still
+			// show partial progress — some but not enough matching nodes —
+			// which should surface as "partial" rather than "empty".
+			if hasAnyNodeOfType(g, m.Type) {
+				anyPass = true
+			}
+		}
+	}
+	for _, tier := range []struct {
+		names []string
+		kind  string
+	}{{c.Gate.StudentWritten, "student_written"}, {c.Gate.Human, "human"}} {
+		for _, name := range tier.names {
+			sat := rec.Items[name] == "solid"
+			rep.Items = append(rep.Items, ItemResult{Name: name, Kind: tier.kind, Pass: sat})
+			if sat {
+				anyPass = true
+			} else {
+				rep.Missing = append(rep.Missing, name+" 待完成")
+			}
+		}
+	}
+
+	switch {
+	case machinePass:
+		rep.Status = "machine_clear"
+	case anyPass:
+		rep.Status = "partial"
+	default:
+		rep.Status = "empty"
+	}
+	return rep
+}
