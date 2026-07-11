@@ -78,7 +78,7 @@ started · ◐ in progress · ☑ done.
 
 | # | Slice | Delivers | Depends on | Status |
 |---|---|---|---|---|
-| **0** | **Foundations: contracts + graph + events + enforcement primitives** | The five contracts as schemas (C1 primitive state schemas · C2 card format · C3 verb set · C4 event set · C5 skill format), the **workspace-graph data model** (nodes/edges/field-level author/span-index) + **append-only event stream** (studio/course/chat surface tag, unprompted/prompted), rubric + behavior ladders as config (CT-D1…D9, HS-D*), and the **enforcement primitives** (output-check, banned-phrasing suite, typed-output schema, schema-level authorship). Zod + sqlc/goose, all TDD, no UI, no live agent. | — | ☐ |
+| **0** | **Foundations: contracts + graph + events + enforcement primitives** | The five contracts as schemas (C1 primitive state schemas · C2 card format · C3 verb set · C4 event set · C5 skill format), the **workspace-graph data model** (nodes/edges/field-level author/span-index) + **append-only event stream** (studio/course/chat surface tag, unprompted/prompted), rubric + behavior ladders as config (CT-D1…D9, HS-D*), and the **enforcement primitives** (output-check, banned-phrasing suite, typed-output schema, schema-level authorship). Zod + sqlc/goose, all TDD, no UI, no live agent. | — | ☑ |
 | **1** | **Primitive library + graph wiring** | Hand-build `annotate` + `graph` (build-order first two) with their fixed state schemas, emitting C4 events, reading/writing the graph; minimal host. Other primitives follow as later slices need them. | 0 | ☐ |
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☐ |
 | **3** | **Card format proven: CRAAP + Toulmin** | The two cards as pure C2 config over the two primitives — completion, `graph_effects` (CRAAP mints evidence → Toulmin consumes), observe rules, consolidation, three-key disposition. Acceptance: the second card touches zero interface code. | 2 | ☐ |
@@ -102,4 +102,14 @@ Studio (spec Phase 1); 10 = the assessment moat; 11–12 = Chat/Courses; 13 wait
 
 Each slice appends its spec/plan links and outcome here as it completes.
 
-- **Slice 0** — _spec in progress._
+- **Slice 0** — ☑ **complete** (branch `refactor2-slice0-foundations`, commits `2664dd3`..`30a45fb`).
+  Spec `docs/superpowers/specs/2026-07-11-slice-0-foundations-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-0-foundations.md`. Delivered: C1–C5 Zod contracts
+  (interactionPrimitive · graph · event · agentOutput · cardSpec-evolved · skill) + CT rubric
+  container; Go enforcement primitives (output-check · banned-phrasing · typed-output guard ·
+  authorship guard); additive migration `0016` (project/graph_node/graph_edge/draft_snapshot/
+  edit_buffer/source_log_entry/intervention/disposition/card_competence/chat_thread/chat_message/
+  event + nullable project_id on material/card_instances/evaluations) + sqlc queries (project/
+  graph/event, event append-only). Gate: contracts 178 green + typecheck; `go build`/`vet`;
+  `-short` all green; testcontainers migration + sqlc + pre-existing migrate test green.
+  Deferred by design: OPCVL ladders, non-foundation queries, CRAAP/Toulmin port (Slice 3).
