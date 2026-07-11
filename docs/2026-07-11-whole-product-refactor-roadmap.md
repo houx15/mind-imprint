@@ -82,7 +82,7 @@ started · ◐ in progress · ☑ done.
 | **1** | **`annotate` primitive (MATERIAL read-view)** | Hand-build the `annotate` interaction per the design's MATERIAL view: render a span-indexed material with clickable AI/student spans (`AnnotateState` from C1), emit C4 events, controlled component + demo host. **`graph` is split out** to Slice 7 (built with the STRUCTURE view, where its card-driven-vs-map-viz shape resolves in context — decided 2026-07-11). | 0 | ☑ |
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
-| **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☐ |
+| **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. | 4 | ☐ |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
@@ -155,3 +155,29 @@ Each slice appends its spec/plan links and outcome here as it completes.
   transport lands): an additive migration making the legacy `task_id` NULLABLE on `material`/
   `card_instances`/`evaluations` (0016 added `project_id` but left the legacy FK NOT NULL, so the
   adapter currently borrows the material's `task_id`); and project-scoping `GetCardInstance`.
+- **Slice 4** — ☑ **complete** (branch `refactor2-slice4-skill-gate-planner`, commits `154a622`..HEAD).
+  Spec `docs/superpowers/specs/2026-07-11-slice-4-skill-gate-planner-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-4-skill-gate-planner.md`. Delivered: the **`skills`
+  package** (C5 `Skill`/`Contract`/`Gate` types + `go:embed` loader + DAG validation: acyclic,
+  requires-resolve, machine-kind-in-closed-set, `TopoOrder`) + `syncskills` tool/`make sync-skills`;
+  the **writing-project S0–S6 skill as pure config** (`packages/contracts/skills/writing-project.json`
+  ↔ synced mirror); the **gate engine** (`gate.go`: closed machine-predicate set `node_present`/
+  `node_count_at_least`/`no_orphan_evidence`/`no_unsupported_claim`/`no_single_sourced_claim`/
+  `every_source_evaluated`; `CheckGate` three-tier report, **DEC-3** structural — machine caps at
+  `machine_clear`, never `solid`); the **deterministic planner** (`planner.go`: `ReconcileGates`
+  owe-every-gate · `Route` advisory reachability over the DAG · `Intake` mints `imported` nodes +
+  first plan · `Replan` · `Advance` **DEC-8** blocking unlock, never marks a non-machine item);
+  `check_gate` wired into the Slice-2 loop as a **no-model** action (ranked lowest — never starves
+  coaching); store: `gate_state`/`plan` graph-node upsert (sqlc + adapter + fake). **§5.7 proven**:
+  an inline second skill reconciles/routes/advances with zero new runtime code. Gate: full `-short`
+  + testcontainers (`Slice4` intake→route→advance→replan round-trip vs real PG) green; legacy
+  task/card paths untouched (`deps.Skill==nil` fully skips the new path). Final whole-branch review
+  (opus): Ready to merge — fixed the check_gate-starves-coaching ordering + 2 Minors before merge.
+  **MIGRATION 0017** (the spec's "no new migration" was wrong): 0016's `graph_node.type` CHECK
+  enumerated 5 values, but `type` is an **open skill-vocabulary field** the gate engine matches —
+  0017 relaxes it to a non-empty guard (additive, reversible). **Planner deferred (documented seam):**
+  the flagship model-judgment layer (prioritize among simultaneously-unlocked contracts,
+  `route_to_course` on stalls) — Slice 4's route is deterministic. **Carry-forward Minors:** skill
+  card-refs validated only by a test not at `Load`; Advance upsert-before-event ordering; 0017 down
+  fails if skill-typed rows exist. **Slice 5 debt still owed:** legacy `task_id` NULLABLE migration +
+  project-scope `GetCardInstance` (from Slice 3), plus a live loop driver + check_gate debounce.
