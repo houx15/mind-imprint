@@ -11,48 +11,43 @@ type MethCopy = {
   title: string;
   intro: string;
   why: string;
-  steps: Array<{ title: string; desc: string }>;
+  steps: Array<{ n: string; title: string; desc: string }>;
   help: string;
 };
 
+// Canonical copy is the design's own METH bank
+// (docs/design/思维印记_工作区.dc.html ~L2377-2402) — verbatim, per the
+// binding-design rule. Step markers are the design's (S/I/F/T for sift_craap,
+// 1-4 for concession), not a positional index.
 const METHODOLOGY: Record<string, MethCopy> = {
-  concession: {
-    title: "让步段卡",
-    intro: "一段真正的论证会先承认最强的反例，再说明它为什么不推翻你的主张。",
-    why: "评分表最看重的不是「你说得对」，而是「你知道对方会怎么反驳，并且接得住」——跳过反方，分析与评估这一档很难往上走。",
-    steps: [
-      { title: "写出反方的最强版本", desc: "不是稻草人，是让你自己都觉得有点道理的那个说法" },
-      { title: "承认它的分量", desc: "一句话说清它真实存在、不能被无视" },
-      { title: "转折回你的主张", desc: "说明这个反例为什么不能推翻你更大的判断" },
-      { title: "接回论证图", desc: "把让步段连到对应的主张节点，别让它悬空" },
-    ],
-    help: "让步段是「分析与评估」拿到 7-8 段位最常见的缺口——补上它，通常就是这一档和上一档之间的差距。",
-  },
   sift_craap: {
-    title: "CRAAP 五维 / SIFT 横向阅读",
-    intro: "判断一条信息值不值得信，靠的不是「感觉」，而是能不能在五个维度上说清楚。",
-    why: "「表F 评估」要求你对每条来源写出作用与风险，而不是简单贴一个「可信/不可信」的标签——CRAAP 把这件事拆成可执行的五步。",
+    title: "SIFT × CRAAP 信息核查",
+    intro:
+      "两套互补的核查方法：SIFT 教你横向、快速判断一条网络信息可不可信；CRAAP 在你决定重点采信某个来源时，纵向把它核透。",
+    why: "人最容易犯的错，是一头扎进单一材料、被它的措辞带着走。SIFT 先让你横向跳出来——看别人怎么说、找更权威的版本、溯到原始出处；只有当你确定要重点依赖某个来源时，才用 CRAAP 纵向五维细核。先广后深，省力又不容易被俘获。",
     steps: [
-      { title: "Currency 时效", desc: "这条信息是什么时候发布 / 更新的，跟得上话题吗" },
-      { title: "Relevance 相关", desc: "它到底在回答你的问题，还是只是沾边" },
-      { title: "Authority 权威", desc: "作者 / 机构在这个领域有没有资格说话" },
-      { title: "Accuracy 准确", desc: "能不能在别处找到独立信源核实同一个事实" },
+      { n: "S", title: "Stop", desc: "先停一下，别急着采信或转发，想清楚你要用它说明什么。" },
+      { n: "I", title: "Investigate", desc: "查这条信息是谁发布的，找几个互相独立的来源对照。" },
+      { n: "F", title: "Find better", desc: "去找这件事更权威、更原始的报道或研究。" },
+      { n: "T", title: "Trace", desc: "顺着引用溯源，直到最初的出处。" },
     ],
-    help: "把 CRAAP 五维过一遍，再横向核查一次原始信源——这条来源在你论证里的「作用与风险」就有据可写了。",
+    help: "让你在引用任何网络信息前都先站稳出处，不被单一来源或情绪化标题俘获——这是写研究、做 TOK、乃至日常刷手机都用得上的底层能力。",
+  },
+  concession: {
+    title: "让步段 · 以退为进",
+    intro: "一种让论证更有说服力的结构：先大方承认反方最强的那个事实，再转折反驳它。",
+    why: "当证据对你不利时，绕开它只会让论证显得心虚。让步段反其道而行：先承认对方最强的事实——这让你显得诚实、可信；再说明它为什么不足以推翻你的论点——这让你的结论更稳。退一步，是为了站得更稳地进。",
+    steps: [
+      { n: "1", title: "立论", desc: "用一句话写清你真正想让人相信的判断。" },
+      { n: "2", title: "举反方", desc: "挑出对方最难反驳的那个事实。" },
+      { n: "3", title: "让步", desc: "大方承认这个事实，别躲。" },
+      { n: "4", title: "反驳", desc: "说明它为什么不足以推翻你的论点。" },
+    ],
+    help: "专治「遇到反例就慌」。学会处理对立证据，你的议论文、TOK 展示、辩论都会明显更有分量，也更经得起追问。",
   },
 };
 
-const DEFAULT_METHODOLOGY: MethCopy = {
-  title: "这张工具卡",
-  intro: "工具卡不是给你答案，而是在你思考卡住的地方，把结构递回给你。",
-  why: "过程评估在意的是你怎么用证据、怎么处理反方、怎么组织表达——工具卡把这些拆成几个可以一步步做的动作。",
-  steps: [
-    { title: "读懂它在问什么", desc: "先看卡片顶部锚定的是哪个主张 / 哪段论证" },
-    { title: "用自己的话回答", desc: "别急着套模板，先写出你此刻真实的想法" },
-    { title: "回填到过程树", desc: "你的回答会成为过程记录的一部分" },
-  ],
-  help: "如果还是不确定怎么用，去对应的系统课过一遍完整流程，会更踏实。",
-};
+const DEFAULT_METHODOLOGY: MethCopy = METHODOLOGY.sift_craap!;
 
 function CloseIcon() {
   return (
@@ -166,7 +161,7 @@ export function MethodologyModal({ cardId, onClose }: MethodologyModalProps) {
               </span>
               怎么用
             </div>
-            {copy.steps.map((st, i) => (
+            {copy.steps.map((st) => (
               <div key={st.title} style={{ display: "flex", gap: 11, marginBottom: 10 }}>
                 <span
                   style={{
@@ -184,7 +179,7 @@ export function MethodologyModal({ cardId, onClose }: MethodologyModalProps) {
                     marginTop: 1,
                   }}
                 >
-                  {i + 1}
+                  {st.n}
                 </span>
                 <div>
                   <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{st.title}</span>
