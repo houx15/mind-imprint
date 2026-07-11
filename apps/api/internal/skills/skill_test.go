@@ -1,0 +1,68 @@
+package skills
+
+import "testing"
+
+func linearSkill() Skill {
+	return Skill{
+		ID:   "t",
+		Kind: "project",
+		Contracts: map[string]Contract{
+			"a": {Gate: Gate{Machine: []MachineItem{{Kind: "node_present", Type: "x"}}}},
+			"b": {Requires: []string{"a"}},
+			"c": {Requires: []string{"b"}},
+		},
+	}
+}
+
+func TestValidate_AcceptsAcyclicResolvedDAG(t *testing.T) {
+	if err := linearSkill().Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+}
+
+func TestValidate_RejectsDanglingRequires(t *testing.T) {
+	s := linearSkill()
+	s.Contracts["b"] = Contract{Requires: []string{"nope"}}
+	if err := s.Validate(); err == nil {
+		t.Fatal("want error for dangling requires")
+	}
+}
+
+func TestValidate_RejectsCycle(t *testing.T) {
+	s := Skill{ID: "t", Kind: "project", Contracts: map[string]Contract{
+		"a": {Requires: []string{"b"}},
+		"b": {Requires: []string{"a"}},
+	}}
+	if err := s.Validate(); err == nil {
+		t.Fatal("want error for cyclic requires")
+	}
+}
+
+func TestValidate_RejectsUnknownMachineKind(t *testing.T) {
+	s := linearSkill()
+	s.Contracts["a"] = Contract{Gate: Gate{Machine: []MachineItem{{Kind: "bogus"}}}}
+	if err := s.Validate(); err == nil {
+		t.Fatal("want error for unknown machine kind")
+	}
+}
+
+func TestTopoOrder_IsDeterministicAndRespectsRequires(t *testing.T) {
+	order, err := linearSkill().TopoOrder()
+	if err != nil {
+		t.Fatalf("TopoOrder: %v", err)
+	}
+	pos := map[string]int{}
+	for i, id := range order {
+		pos[id] = i
+	}
+	if !(pos["a"] < pos["b"] && pos["b"] < pos["c"]) {
+		t.Fatalf("order violates requires: %v", order)
+	}
+	// determinism: same input, same output
+	order2, _ := linearSkill().TopoOrder()
+	for i := range order {
+		if order[i] != order2[i] {
+			t.Fatalf("non-deterministic order: %v vs %v", order, order2)
+		}
+	}
+}
