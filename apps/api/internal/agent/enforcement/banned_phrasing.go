@@ -44,6 +44,10 @@ var Rules = []Rule{
 		Name:    "candidate-example-here",
 		Pattern: regexp.MustCompile(`(?i)here('|')?s an example you can use`),
 	},
+	{
+		Name:    "unanchored-question-zh",
+		Pattern: regexp.MustCompile(`你有没有考虑过`),
+	},
 }
 
 // BannedPhrasing checks text against the versioned Rules corpus

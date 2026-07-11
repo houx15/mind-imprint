@@ -75,6 +75,14 @@ func TestBannedPhrasing_FlagsUnanchoredQuestion(t *testing.T) {
 	}
 }
 
+func TestBannedPhrasing_FlagsUnanchoredQuestionZh(t *testing.T) {
+	// The Slice-2 coach speaks Chinese; the corpus must flag the Chinese
+	// equivalent of the unanchored-question failure, not just the English one.
+	if BannedPhrasing("你有没有考虑过其他角度？") == nil {
+		t.Fatal("banned phrase must be flagged")
+	}
+}
+
 func TestOutputCheck_InterceptsDeclarativeEcho(t *testing.T) {
 	sim := stubSim(0.95)
 	v := OutputCheck("China's transition makes the planet more sustainable.",
