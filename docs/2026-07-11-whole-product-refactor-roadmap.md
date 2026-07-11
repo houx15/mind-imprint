@@ -79,7 +79,7 @@ started · ◐ in progress · ☑ done.
 | # | Slice | Delivers | Depends on | Status |
 |---|---|---|---|---|
 | **0** | **Foundations: contracts + graph + events + enforcement primitives** | The five contracts as schemas (C1 primitive state schemas · C2 card format · C3 verb set · C4 event set · C5 skill format), the **workspace-graph data model** (nodes/edges/field-level author/span-index) + **append-only event stream** (studio/course/chat surface tag, unprompted/prompted), rubric + behavior ladders as config (CT-D1…D9, HS-D*), and the **enforcement primitives** (output-check, banned-phrasing suite, typed-output schema, schema-level authorship). Zod + sqlc/goose, all TDD, no UI, no live agent. | — | ☑ |
-| **1** | **`annotate` primitive (MATERIAL read-view)** | Hand-build the `annotate` interaction per the design's MATERIAL view: render a span-indexed material with clickable AI/student spans (`AnnotateState` from C1), emit C4 events, controlled component + demo host. **`graph` is split out** to Slice 7 (built with the STRUCTURE view, where its card-driven-vs-map-viz shape resolves in context — decided 2026-07-11). | 0 | ☐ |
+| **1** | **`annotate` primitive (MATERIAL read-view)** | Hand-build the `annotate` interaction per the design's MATERIAL view: render a span-indexed material with clickable AI/student spans (`AnnotateState` from C1), emit C4 events, controlled component + demo host. **`graph` is split out** to Slice 7 (built with the STRUCTURE view, where its card-driven-vs-map-viz shape resolves in context — decided 2026-07-11). | 0 | ☑ |
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☐ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☐ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☐ |
@@ -113,3 +113,14 @@ Each slice appends its spec/plan links and outcome here as it completes.
   graph/event, event append-only). Gate: contracts 178 green + typecheck; `go build`/`vet`;
   `-short` all green; testcontainers migration + sqlc + pre-existing migrate test green.
   Deferred by design: OPCVL ladders, non-foundation queries, CRAAP/Toulmin port (Slice 3).
+- **Slice 1** — ☑ **complete** (branch `refactor2-slice1-annotate`, impl commits `8433275`..`cb77cbf`).
+  Spec `docs/superpowers/specs/2026-07-11-slice-1-annotate-primitive-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-1-annotate-primitive.md`. Delivered: the `annotate`
+  primitive (`apps/web/src/primitives/annotate/` — `segmentBlock` runs + controlled `Annotate`
+  component: clickable author-styled AI/student spans, select→dimension/question panel) and the
+  信源档案 source-dossier shell (`apps/web/src/workspace/material/` — list↔article↔summary, locked
+  count, `source_opened` C4 event) over real China-greening fixtures (Chen et al. 2019 *Nature
+  Sustainability*), plus a dev-harness mount. Gate: web suite 405 green + typecheck; controlled,
+  no backend/network, `MaterialPane.tsx` untouched. Final review: SHIP, no defects. Deferred:
+  student-span text-selection creation, backend persistence + source log (Slice 6), coach rail
+  (Slice 2), `graph` (Slice 7).
