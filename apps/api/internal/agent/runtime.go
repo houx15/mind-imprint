@@ -83,13 +83,16 @@ type Trigger struct {
 
 // Action is the loop's single emitted step for one RunAgentStep call
 // (Task 4). Silence is a nil *Action, never a zero-value Action. Kind
-// discriminates the two shapes Slice 3 adds: "intervention" (the Slice-2
-// shape — Output/InterventionID/Verdict populated) and "surface_card" (Task
-// 5 — CardInstanceID populated, no model call, no enforcement).
+// discriminates the shapes later tasks add: "intervention" (the Slice-2
+// shape — Output/InterventionID/Verdict populated), "surface_card" (Task
+// 5 — CardInstanceID populated, no model call, no enforcement), and
+// "check_gate" (Task 10 — GateReport populated, no model call, no
+// enforcement: a structural read of one contract's gate).
 type Action struct {
-	Kind           string // "intervention" | "surface_card"
+	Kind           string // "intervention" | "surface_card" | "check_gate"
 	Output         enforcement.AgentOutput
 	InterventionID string
 	Verdict        string
-	CardInstanceID string // set when Kind == "surface_card"
+	CardInstanceID string      // set when Kind == "surface_card"
+	GateReport     *GateReport // set when Kind == "check_gate"
 }

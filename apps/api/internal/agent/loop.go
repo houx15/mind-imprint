@@ -10,6 +10,7 @@ import (
 	"mindimprint/api/internal/agent/enforcement"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/skills"
 )
 
 // InterventionRow is the persistence payload for one coach intervention,
@@ -90,6 +91,13 @@ type AgentDeps struct {
 	Provider gateway.Provider
 	Resolved gateway.Resolved
 	Sim      enforcement.Similarity
+
+	// Skill is the optional Slice-4 planner seam: when set, RunAgentStep
+	// reconciles gates + computes the route and considers a check_gate
+	// candidate (Task 10). Slice-2/3 callers leave it nil, and the
+	// check_gate path is skipped entirely — back-compat for every existing
+	// test that constructs AgentDeps without a Skill.
+	Skill *skills.Skill
 }
 
 // RunAgentStep runs one perceive -> classify -> decide-one -> act -> enforce
@@ -99,12 +107,14 @@ type AgentDeps struct {
 // trigger identifies which tier (T-A/T-B/T-C) invoked this step; Slice 2's
 // single trigger predicate does not branch on it yet.
 //
-// Candidate ordering (Task 5): surface_card candidates come first, ahead of
-// every post_intervention candidate (whether from the unsupported-claim
-// predicate or an active card's observe rules) — surfacing an unevaluated
-// source is a one-time offer the student can act on immediately, while a
-// post_intervention nudge can always wait one more step. Within each tier,
-// candidates stay in the classifier's stable (material/node) order.
+// Candidate ordering (Task 5, extended Task 10): surface_card candidates
+// come first, then check_gate (when deps.Skill is set), ahead of every
+// post_intervention candidate (whether from the unsupported-claim predicate
+// or an active card's observe rules) — surfacing an unevaluated source is a
+// one-time offer the student can act on immediately, a gate check is a
+// no-model structural read, while a post_intervention nudge can always wait
+// one more step. Within each tier, candidates stay in the classifier's
+// stable (material/node) order.
 func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trigger Trigger) (*Action, error) {
 	g, err := deps.Store.LoadGraph(ctx, projectID)
 	if err != nil {
@@ -112,6 +122,15 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 	}
 
 	cands := SurfaceCardCandidates(g)
+	if deps.Skill != nil {
+		recorded, err := deps.Store.ListGateStates(ctx, projectID)
+		if err != nil {
+			return nil, err
+		}
+		reports := ReconcileGates(*deps.Skill, g, recorded)
+		route := Route(*deps.Skill, reports)
+		cands = append(cands, CheckGateCandidates(*deps.Skill, route, reports)...)
+	}
 	cands = append(cands, CandidateMoves(g)...)
 	for _, ci := range g.CardInstances {
 		if ci.Status != "active" {
@@ -139,6 +158,22 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 			return nil, err
 		}
 		return SurfaceCard(ctx, deps, projectID, spec, materialID)
+	}
+
+	if c.Verb == "check_gate" {
+		recorded, err := deps.Store.ListGateStates(ctx, projectID)
+		if err != nil {
+			return nil, err
+		}
+		report := CheckGate(*deps.Skill, c.AnchorID, g, recorded[c.AnchorID])
+		payload, err := json.Marshal(map[string]any{"contract": c.AnchorID, "status": report.Status, "missing": report.Missing})
+		if err != nil {
+			return nil, err
+		}
+		if err := deps.Store.AppendEvent(ctx, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_checked", Payload: payload}); err != nil {
+			return nil, err
+		}
+		return &Action{Kind: "check_gate", GateReport: &report}, nil
 	}
 
 	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, deps.Sim)

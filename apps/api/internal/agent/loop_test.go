@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"mindimprint/api/internal/skills"
 )
 
 // fakeAgentStore is an in-memory AgentStore double for the loop unit tests —
@@ -386,6 +388,24 @@ func TestLoop_InactiveCardObserveDoesNotFire(t *testing.T) {
 	}
 	if action != nil {
 		t.Fatalf("want silence for a non-active card, got %+v", action)
+	}
+}
+
+// TestLoop_CheckGateCandidateEmitsReportNoModelCall covers the check_gate
+// wiring (Task 10): when deps.Skill is set and the routed contract's gate is
+// not yet machine_clear, RunAgentStep emits a check_gate Action — no model
+// call, no enforcement.
+func TestLoop_CheckGateCandidateEmitsReportNoModelCall(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	g := GraphView{} // decode_task empty → its gate is not machine_clear
+	f := &fakeAgentStore{graph: g}
+	deps := AgentDeps{Store: f, Skill: &sk}
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("RunAgentStep: %v", err)
+	}
+	if action == nil || action.Kind != "check_gate" {
+		t.Fatalf("want a check_gate action, got %+v", action)
 	}
 }
 

@@ -1,5 +1,7 @@
 package agent
 
+import "mindimprint/api/internal/skills"
+
 // CandidateMoves implements the Slice-2 trigger predicate (design §3): for
 // each claim node with no incoming "supports" edge from an evidence node,
 // emit a post_intervention candidate anchored to that claim. Pure, no DB,
@@ -80,4 +82,23 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 		})
 	}
 	return out
+}
+
+// CheckGateCandidates proposes a structural check_gate for the contract the
+// route currently points at, when that contract's gate is not yet
+// machine_clear. It is a no-model action (like surface_card): the loop runs
+// CheckGate and records the report. At most one candidate.
+func CheckGateCandidates(sk skills.Skill, route []string, reports map[string]GateReport) []Candidate {
+	for _, id := range route {
+		if reports[id].Status != "machine_clear" {
+			return []Candidate{{
+				Verb:       "check_gate",
+				AnchorKind: "contract",
+				AnchorID:   id,
+				Level:      "I1",
+				Reason:     "gate not yet machine-clear",
+			}}
+		}
+	}
+	return nil
 }

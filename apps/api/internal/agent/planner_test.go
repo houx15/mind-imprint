@@ -10,6 +10,38 @@ import (
 	"mindimprint/api/internal/skills"
 )
 
+// TestSecondSkill_ReconcileRouteAdvanceWithZeroNewRuntimeCode is the §5.7
+// acceptance test: a second, wholly different skill — authored inline here,
+// never embedded in the registry — must run through the exact same
+// ReconcileGates / Route / Advance functions the writing-project skill uses,
+// with zero new runtime code.
+func TestSecondSkill_ReconcileRouteAdvanceWithZeroNewRuntimeCode(t *testing.T) {
+	// A bare "note-to-self" project skill: one contract, one machine item, no
+	// cards — authored inline, never embedded — runs through the exact same
+	// ReconcileGates / Route / Advance the writing-project skill uses.
+	sk := skills.Skill{ID: "note-to-self", Kind: "project", Contracts: map[string]skills.Contract{
+		"jot": {Gate: skills.Gate{Machine: []skills.MachineItem{{Kind: "node_present", Type: "note"}}}},
+	}}
+	if err := sk.Validate(); err != nil {
+		t.Fatalf("inline skill invalid: %v", err)
+	}
+	f := &fakeAgentStore{}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+
+	route, err := Intake(context.Background(), deps, pid, sk, []IntakeCandidate{{Type: "note", Text: "记一笔"}})
+	if err != nil {
+		t.Fatalf("Intake: %v", err)
+	}
+	if len(route) != 1 || route[0] != "jot" {
+		t.Fatalf("route = %v, want [jot]", route)
+	}
+	ok, err := Advance(context.Background(), deps, pid, sk, "jot")
+	if err != nil || !ok {
+		t.Fatalf("Advance = %v,%v; want true (machine-only gate, node present)", ok, err)
+	}
+}
+
 func TestWritingProject_CardsResolveInRegistry(t *testing.T) {
 	sk, _ := skills.ByID("writing-project")
 	for _, id := range sk.Cards {
