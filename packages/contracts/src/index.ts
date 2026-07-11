@@ -2,6 +2,7 @@ export const CONTRACTS_VERSION = "0.0.0";
 export * from "./interactionPrimitive";
 export * from "./graph";
 export * from "./event";
+export * from "./agentOutput";
 export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";

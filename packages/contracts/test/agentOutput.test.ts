@@ -1,0 +1,22 @@
+import { describe, it, expect } from "vitest";
+import { Verb, AgentOutput } from "../src/agentOutput";
+
+describe("agent output (C3)", () => {
+  it("verb set is the closed list", () => {
+    for (const v of ["surface_card","post_intervention","check_gate","plan","replan",
+                     "advance","route","invite_commit","reply","propose"]) {
+      expect(Verb.safeParse(v).success).toBe(true);
+    }
+    expect(Verb.safeParse("write_essay").success).toBe(false);
+  });
+  it("question/diagnostic carry anchor + criterion + body", () => {
+    expect(AgentOutput.safeParse({ type: "question", anchor: { kind: "graph_node", id: "n1" },
+      criterion: "D4", body: "Who holds the opposing view?" }).success).toBe(true);
+  });
+  it("reference must quote a student artifact with provenance", () => {
+    expect(AgentOutput.safeParse({ type: "reference", anchor: { kind: "artifact", id: "a1" },
+      quote: "my earlier claim", provenance: "artifact:a1" }).success).toBe(true);
+    expect(AgentOutput.safeParse({ type: "reference", anchor: { kind: "artifact", id: "a1" },
+      quote: "x" }).success).toBe(false); // provenance required
+  });
+});
