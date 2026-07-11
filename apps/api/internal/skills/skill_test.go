@@ -66,3 +66,31 @@ func TestTopoOrder_IsDeterministicAndRespectsRequires(t *testing.T) {
 		}
 	}
 }
+
+func TestWritingProject_LoadsValidatesAndReferencesRealCards(t *testing.T) {
+	s, ok := ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill not embedded")
+	}
+	if s.Kind != "project" {
+		t.Fatalf("kind = %q", s.Kind)
+	}
+	for _, want := range []string{"decode_task", "frame_question", "evaluate_perspectives",
+		"evaluate_sources", "build_argument", "draft_polish", "reflect_archive"} {
+		if _, ok := s.Contracts[want]; !ok {
+			t.Fatalf("missing contract %s", want)
+		}
+	}
+	// requires chain holds (build_argument after evaluate_sources)
+	order, err := s.TopoOrder()
+	if err != nil {
+		t.Fatalf("TopoOrder: %v", err)
+	}
+	pos := map[string]int{}
+	for i, id := range order {
+		pos[id] = i
+	}
+	if pos["evaluate_sources"] >= pos["build_argument"] {
+		t.Fatal("build_argument must come after evaluate_sources")
+	}
+}

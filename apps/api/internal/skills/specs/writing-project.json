@@ -1,0 +1,105 @@
+{
+  "id": "writing-project",
+  "kind": "project",
+  "vocabulary": "per-board",
+  "cards": ["craap", "sift", "concession", "steelman"],
+  "intake": { "procedure": "decompose_imported_to_graph" },
+  "contracts": {
+    "decode_task": {
+      "requires": [],
+      "produces": ["rubric_translation", "weakness_prediction", "milestone_plan"],
+      "view": "评估",
+      "repertoire": [],
+      "gate": {
+        "machine": [
+          { "kind": "node_present", "type": "rubric_translation" },
+          { "kind": "node_count_at_least", "type": "weakness_prediction", "n": 2 }
+        ],
+        "student_written": ["milestone_plan"],
+        "human": []
+      }
+    },
+    "frame_question": {
+      "requires": ["decode_task"],
+      "produces": ["research_question", "provisional_answer", "preregistration"],
+      "view": "结构",
+      "repertoire": [],
+      "gate": {
+        "machine": [
+          { "kind": "node_present", "type": "research_question" },
+          { "kind": "node_present", "type": "provisional_answer" },
+          { "kind": "node_present", "type": "preregistration" }
+        ],
+        "student_written": ["terms_defined"],
+        "human": []
+      }
+    },
+    "evaluate_perspectives": {
+      "requires": ["frame_question"],
+      "produces": ["perspective"],
+      "view": "素材",
+      "repertoire": [],
+      "gate": {
+        "machine": [
+          { "kind": "node_count_at_least", "type": "perspective", "n": 2 }
+        ],
+        "student_written": ["recon_logged", "sources_per_perspective"],
+        "human": []
+      }
+    },
+    "evaluate_sources": {
+      "requires": ["evaluate_perspectives"],
+      "produces": ["evidence"],
+      "view": "素材",
+      "repertoire": ["craap", "sift"],
+      "gate": {
+        "machine": [
+          { "kind": "every_source_evaluated" },
+          { "kind": "no_single_sourced_claim" }
+        ],
+        "student_written": ["source_risk_notes"],
+        "human": []
+      }
+    },
+    "build_argument": {
+      "requires": ["evaluate_sources"],
+      "produces": ["claim", "concession"],
+      "view": "结构",
+      "repertoire": ["concession", "steelman"],
+      "gate": {
+        "machine": [
+          { "kind": "no_orphan_evidence" },
+          { "kind": "no_unsupported_claim" },
+          { "kind": "no_single_sourced_claim" },
+          { "kind": "node_present", "type": "concession" }
+        ],
+        "student_written": ["warrants", "steelman"],
+        "human": ["warrant_quality_spot_check"]
+      }
+    },
+    "draft_polish": {
+      "requires": ["build_argument"],
+      "produces": ["word_budget_ok"],
+      "view": "写作",
+      "repertoire": [],
+      "gate": {
+        "machine": [
+          { "kind": "node_present", "type": "word_budget_ok" }
+        ],
+        "student_written": ["citations_matched"],
+        "human": ["whole_draft_review"]
+      }
+    },
+    "reflect_archive": {
+      "requires": ["draft_polish"],
+      "produces": ["reflection"],
+      "view": "评估",
+      "repertoire": [],
+      "gate": {
+        "machine": [],
+        "student_written": ["reflection"],
+        "human": ["declaration_signed"]
+      }
+    }
+  }
+}
