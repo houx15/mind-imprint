@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"mindimprint/api/internal/cards"
 )
@@ -80,7 +81,9 @@ func ObserveCandidates(spec cards.Spec, cardInstanceID string, anchors []Anchor)
 			if a.Dimension != tag {
 				continue
 			}
-			if len(a.Answer) >= n {
+			// Count characters (runes), not bytes — a Chinese note of a few
+			// characters must still read as "thin" against a note_len<N rule.
+			if utf8.RuneCountInString(strings.TrimSpace(a.Answer)) >= n {
 				continue
 			}
 			out = append(out, Candidate{

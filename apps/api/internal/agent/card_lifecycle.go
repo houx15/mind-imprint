@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -78,6 +79,13 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 		return false, err
 	}
 
+	// Idempotency (design §6): a completed card already carries its
+	// consolidation framework. Re-running must not mint a second evidence
+	// node/edge, so a card whose framework_fill is already set is a no-op.
+	if isFrameworkSet(row.FrameworkFill) {
+		return true, nil
+	}
+
 	var anchors []Anchor
 	if len(row.Anchors) > 0 {
 		if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
@@ -129,6 +137,13 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 	return true, nil
 }
 
+// isFrameworkSet reports whether a card_instance's framework_fill jsonb holds
+// a real consolidation payload (vs the default empty '{}' / null / unset).
+func isFrameworkSet(b []byte) bool {
+	s := strings.TrimSpace(string(b))
+	return s != "" && s != "{}" && s != "null"
+}
+
 // anchoredMaterialID reads the material a card's anchors are attached to —
 // every anchor on one card_instance targets the same material (Slice 3's
 // fixture-provided anchors; Slice 5's real UI enforces this too).
@@ -166,8 +181,10 @@ func resolveMintRef(id string, nodeIDs map[int]uuid.UUID) (uuid.UUID, error) {
 // persisted — the same "on any enforcement error, persist nothing" rule
 // the rest of the loop follows (Slice 2).
 func RecordDisposition(ctx context.Context, deps AgentDeps, interventionID uuid.UUID, action, reason string) error {
-	if len(reason) < 15 {
-		return fmt.Errorf("disposition: reason must be at least 15 characters, got %d", len(reason))
+	// Count characters (runes), not bytes — the product is Chinese-first, where
+	// a byte count would let ~5 characters clear a ≥15-character gate.
+	if utf8.RuneCountInString(strings.TrimSpace(reason)) < 15 {
+		return fmt.Errorf("disposition: reason must be at least 15 characters, got %d", utf8.RuneCountInString(strings.TrimSpace(reason)))
 	}
 	_, err := deps.Store.InsertDisposition(ctx, interventionID, action, reason)
 	return err

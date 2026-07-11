@@ -181,6 +181,55 @@ func TestRecordDisposition_ValidReasonInserts(t *testing.T) {
 	}
 }
 
+func TestCompleteCard_IdempotentWhenFrameworkAlreadySet(t *testing.T) {
+	store := newCardFakeStore()
+	deps := AgentDeps{Store: store}
+	cardInstanceID := uuid.New()
+	materialID := uuid.New()
+
+	spec := craapSpecFixture()
+	spec.GraphEffects = []cards.GraphEffect{{Kind: "promote", From: "material", To: "evidence", With: "source_quality"}}
+
+	anchors := completeAnchors()
+	for i := range anchors {
+		anchors[i].MaterialID = materialID.String()
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	// framework_fill already populated => the card was already completed.
+	store.cardInstances[cardInstanceID] = CardInstanceRow{
+		ID: cardInstanceID, ProjectID: uuid.New(), CardID: spec.ID, Status: "active",
+		Anchors: anchorsJSON, FrameworkFill: []byte(`{"strategy":"reveal_framework_after_completion"}`),
+	}
+
+	complete, err := CompleteCard(context.Background(), deps, spec, cardInstanceID)
+	if err != nil {
+		t.Fatalf("CompleteCard: %v", err)
+	}
+	if !complete {
+		t.Fatal("want complete = true (already completed)")
+	}
+	if store.insertGraphNodeCalls != 0 || store.insertGraphEdgeCalls != 0 || store.setFrameworkCalls != 0 {
+		t.Fatalf("idempotent re-complete must mint/persist nothing, got nodes=%d edges=%d framework=%d",
+			store.insertGraphNodeCalls, store.insertGraphEdgeCalls, store.setFrameworkCalls)
+	}
+}
+
+func TestRecordDisposition_ShortChineseReasonRejectedByRuneCount(t *testing.T) {
+	store := newCardFakeStore()
+	deps := AgentDeps{Store: store}
+	// 5 Han characters = 15 UTF-8 bytes but only 5 runes — must be rejected
+	// (a byte count would have let this clear the ≥15-character gate).
+	if err := RecordDisposition(context.Background(), deps, uuid.New(), "reject", "五个汉字哦"); err == nil {
+		t.Fatal("want rejection: 5 runes < 15 despite ~15 bytes")
+	}
+	if store.insertDispositionCalls != 0 {
+		t.Fatalf("want nothing persisted, got %d calls", store.insertDispositionCalls)
+	}
+}
+
 // TestSecondCard_SurfaceAndCompleteWithZeroNewRuntimeCode is agent-spec
 // §5.7's acceptance test: a trivial second card (a "note" card over
 // `annotate`, one dimension, one every_tag_present predicate, no
