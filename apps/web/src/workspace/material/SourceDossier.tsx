@@ -1,12 +1,33 @@
 import { useState } from "react";
-import type { StudioEvent } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, StudioEvent } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
 import type { SourceFixture } from "./fixtures";
 
 export type SourceDossierProps = {
   sources: SourceFixture[];
   onEvent?: (e: StudioEvent) => void;
+  anchors?: Anchor[];
 };
+
+type AnnotateSpan = AnnotateState["spans"][number];
+
+// Live card anchors are presentation-only here: they highlight the same spans
+// the coach rail is asking about, but the mint never depends on this mapping.
+// A source-level anchor (empty block_id + a 0..0 range, e.g. risk_note) has
+// nowhere to highlight in the article body, so it's skipped.
+function anchorToSpan(anchor: Anchor): AnnotateSpan | null {
+  const blockRef = anchor.block_id || undefined;
+  const hasRange = anchor.end > anchor.start;
+  if (!blockRef && !hasRange) return null;
+  return {
+    id: anchor.id,
+    ...(hasRange ? { range: { start: anchor.start, end: anchor.end } } : {}),
+    ...(blockRef ? { block_ref: blockRef } : {}),
+    tag: anchor.dimension,
+    note: anchor.answer || anchor.question,
+    author: anchor.author,
+  };
+}
 
 const CRAAP_TONE: Record<string, { background: string; color: string }> = {
   可信: { background: "#EAF3EE", color: "#2E7D4F" },
@@ -30,12 +51,24 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, onEvent }: SourceDossierProps) {
+export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
 
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
+
+  const liveSpans = openSource
+    ? (anchors ?? [])
+        .filter((a) => a.material_id === openSource.annotate.material_id)
+        .map(anchorToSpan)
+        .filter((s): s is AnnotateSpan => s !== null)
+    : [];
+  const annotateState = openSource
+    ? liveSpans.length > 0
+      ? { ...openSource.annotate, spans: [...openSource.annotate.spans, ...liveSpans] }
+      : openSource.annotate
+    : null;
 
   const openSourceView = (source: SourceFixture) => {
     setOpenId(source.id);
@@ -135,7 +168,7 @@ export function SourceDossier({ sources, onEvent }: SourceDossierProps) {
               {openSource.meta && <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>{openSource.meta}</div>}
               <Annotate
                 blocks={openSource.blocks}
-                state={openSource.annotate}
+                state={annotateState!}
                 activeSpanId={activeSpanId}
                 onSelectSpan={setActiveSpanId}
               />
