@@ -1,16 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StudioProjection } from "@mind-imprint/contracts";
 import { api as defaultApi } from "../api";
 import { StudioShell } from "./StudioShell";
+import { createStudioConversation } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks } from "./state";
 
 type StudioApi = { listProjects: typeof defaultApi.listProjects; getProject: typeof defaultApi.getProject };
+type StudioConversation = ReturnType<typeof createStudioConversation>;
+type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
 
 // Reuse the trial-signin creds/sequence from AppShell.tsx:26-27 so ?studio is
 // reachable without a class join-code. Public demo creds — see AppShell's
 // comment for the seed-migration source.
 const DEMO_EMAIL = "phoebe@demo.mindimprint.local";
 const DEMO_PASSWORD = "phoebe-dev-pass";
+
+// Used before the conversation controller exists yet (project still
+// loading). NOTE: we deliberately don't use React's useSyncExternalStore
+// here — it requires getSnapshot() to return a referentially stable value
+// when nothing changed, which the controller's own getSnapshot (`() =>
+// state`) satisfies, but test doubles that build a fresh snapshot object
+// per call don't; that mismatch causes an infinite re-render loop. Instead
+// we copy the snapshot into local state on subscribe/mount, which only
+// updates on an actual emitted change.
+const EMPTY_CONV_SNAPSHOT: ConvSnapshot = { messages: [], sending: false, error: null, disposableInterventionId: null };
 
 // Map the lean wire projection into the frontend view-model, stubbing the
 // deferred center-pane views (material → Slice 6, structure/writing/review → 7/8/9).
@@ -47,14 +60,24 @@ async function defaultEnsureSession(): Promise<void> {
 export function StudioContainer({
   api = defaultApi,
   ensureSession = defaultEnsureSession,
+  makeConversation = createStudioConversation,
 }: {
   api?: StudioApi;
   ensureSession?: () => Promise<void>;
+  makeConversation?: typeof createStudioConversation;
 }) {
   const [state, setState] = useState<StudioState | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [activeStation, setActiveStation] = useState<StationCode | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conv, setConv] = useState<StudioConversation | null>(null);
+  const [convSnapshot, setConvSnapshot] = useState<ConvSnapshot>(EMPTY_CONV_SNAPSHOT);
+  // Guards double-dispatch of the same disposition (carry-forward from Task
+  // 10's review): the conversation controller itself doesn't clear
+  // disposableInterventionId after a dispose call, so a second click before
+  // a new intervention arrives would re-POST the same id.
+  const disposedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +91,7 @@ export function StudioContainer({
         const s = toStudioState(proj);
         setState(s);
         setActiveStation(s.activeStation);
+        setProjectId(list[0]!.id);
       } catch {
         if (!cancelled) setError("加载失败，请重试");
       }
@@ -75,16 +99,50 @@ export function StudioContainer({
     return () => { cancelled = true; };
   }, [api, ensureSession]);
 
+  // Create the live conversation once the projectId is known — guarded by
+  // the projectId dependency so it isn't recreated on every render.
+  useEffect(() => {
+    if (!projectId) return;
+    setConv(makeConversation({ projectId }));
+  }, [projectId, makeConversation]);
+
+  // Mirror the controller's snapshot into local state on subscribe (initial
+  // read + every emitted change) so the render below always has this
+  // session's live turns.
+  useEffect(() => {
+    if (!conv) return;
+    setConvSnapshot(conv.getSnapshot());
+    const unsubscribe = conv.subscribe(() => setConvSnapshot(conv.getSnapshot()));
+    return () => { unsubscribe(); };
+  }, [conv]);
+
   if (error) return <div className="mk-studio-error">{error}</div>;
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;
 
   const callbacks: StudioCallbacks = {
     onSelectStation: setActiveStation,          // client-local view switch
     onToggleFocus: () => setFocusMode((f) => !f),
-    onDisposition: () => { /* wired in 5c */ },
+    onDisposition: (choice, reason) => {
+      const id = convSnapshot.disposableInterventionId;
+      if (id && disposedIdRef.current === id) return; // already dispatched for this intervention
+      disposedIdRef.current = id;
+      conv?.dispose(choice, reason);
+    },
     onOpenMethodology: () => { /* client-live; StudioShell owns modal state */ },
-    onComposerSend: () => { /* wired in 5c */ },
+    onComposerSend: (text) => conv?.send(text),
   };
 
-  return <StudioShell state={{ ...state, activeStation, focusMode }} callbacks={callbacks} />;
+  // Projection = history on load; controller = this session's live turns.
+  const mergedState: StudioState = {
+    ...state,
+    coach: { ...state.coach, messages: [...state.coach.messages, ...convSnapshot.messages] },
+  };
+
+  return (
+    <StudioShell
+      state={{ ...mergedState, activeStation, focusMode }}
+      callbacks={callbacks}
+      sending={convSnapshot.sending}
+    />
+  );
 }

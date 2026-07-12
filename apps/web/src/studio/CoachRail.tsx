@@ -12,6 +12,7 @@ export type CoachRailProps = {
   onDisposition: StudioCallbacks["onDisposition"];
   onOpenMethodology: (id: string) => void;
   onSend: (t: string) => void;
+  sending?: boolean;
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -96,6 +97,7 @@ export function CoachRail({
   onDisposition,
   onOpenMethodology,
   onSend,
+  sending = false,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -103,6 +105,7 @@ export function CoachRail({
   const lastAi = [...messages].reverse().find((m) => m.kind === "ai");
 
   function handleSend() {
+    if (sending) return;
     const text = composerText.trim();
     if (!text) return;
     onSend(text);
@@ -244,6 +247,7 @@ export function CoachRail({
             onChange={(e) => setComposerText(e.target.value)}
             rows={1}
             placeholder="把你的想法发给印记……"
+            disabled={sending}
             style={{ flex: 1, border: "none", outline: "none", resize: "none", fontSize: 14, lineHeight: 1.6, color: "#1C2333", background: "transparent", maxHeight: 100, padding: "6px 0", fontFamily: "inherit" }}
           />
           <div
@@ -257,7 +261,20 @@ export function CoachRail({
             type="button"
             aria-label="发送"
             onClick={handleSend}
-            style={{ flex: "none", width: 36, height: 36, borderRadius: 10, background: "#2A3B7A", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            disabled={sending || !composerText.trim()}
+            style={{
+              flex: "none",
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "#2A3B7A",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: sending || !composerText.trim() ? "not-allowed" : "pointer",
+              opacity: sending || !composerText.trim() ? 0.5 : 1,
+            }}
           >
             <SendIcon />
           </button>

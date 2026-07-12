@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { StudioContainer } from "./StudioContainer";
 
 const projection = {
@@ -32,5 +32,22 @@ describe("StudioContainer", () => {
     const failing = { listProjects: async () => { throw new Error("boom"); }, getProject: async () => projection } as any;
     render(<StudioContainer api={failing} ensureSession={async () => {}} />);
     await waitFor(() => expect(screen.getByText(/加载失败|出错|重试/)).toBeInTheDocument());
+  });
+
+  it("sends a composer message and renders the live coach reply", async () => {
+    const conv = {
+      getSnapshot: () => ({ messages: [{ kind: "ai", body: "连到治理决心", tag: "D5", anchor: "论证图 · 治理决心主张" }], sending: false, error: null, disposableInterventionId: "iid" }),
+      subscribe: () => () => {},
+      send: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+    };
+    render(<StudioContainer api={fakeApi} ensureSession={async () => {}} makeConversation={() => conv as any} />);
+    // "论证构建" renders twice (rail item + ViewFrame header) — see the first
+    // test's comment above; use getAllByText for the same reason here.
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+    // the live coach reply from the controller is rendered — it appears
+    // both in the thread and mirrored in the DispositionCard body, so use
+    // getAllByText for the same reason as above.
+    await waitFor(() => expect(screen.getAllByText("连到治理决心").length).toBeGreaterThan(0));
   });
 });

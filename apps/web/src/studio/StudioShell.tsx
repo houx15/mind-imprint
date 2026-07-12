@@ -8,6 +8,7 @@ import type { StudioCallbacks, StudioState } from "./state";
 export type StudioShellProps = {
   state: StudioState;
   callbacks: StudioCallbacks;
+  sending?: boolean;
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -39,7 +40,7 @@ function ExitFocusIcon() {
   );
 }
 
-export function StudioShell({ state, callbacks }: StudioShellProps) {
+export function StudioShell({ state, callbacks, sending = false }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
   // covers the whole workspace instead of being clipped to the 388px coach
@@ -134,6 +135,7 @@ export function StudioShell({ state, callbacks }: StudioShellProps) {
           onDisposition={callbacks.onDisposition}
           onOpenMethodology={handleOpenMethodology}
           onSend={callbacks.onComposerSend}
+          sending={sending}
         />
       </div>
 
