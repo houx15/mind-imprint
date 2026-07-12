@@ -9,6 +9,7 @@
       "requires": [],
       "produces": ["rubric_translation", "weakness_prediction", "milestone_plan"],
       "view": "评估",
+      "title": "任务解码",
       "repertoire": [],
       "gate": {
         "machine": [
@@ -23,6 +24,7 @@
       "requires": ["decode_task"],
       "produces": ["research_question", "provisional_answer", "preregistration"],
       "view": "结构",
+      "title": "立题",
       "repertoire": [],
       "gate": {
         "machine": [
@@ -38,6 +40,7 @@
       "requires": ["frame_question"],
       "produces": ["perspective"],
       "view": "素材",
+      "title": "视角与素材",
       "repertoire": [],
       "gate": {
         "machine": [
@@ -51,6 +54,7 @@
       "requires": ["evaluate_perspectives"],
       "produces": ["evidence"],
       "view": "素材",
+      "title": "信源评估",
       "repertoire": ["craap", "sift"],
       "gate": {
         "machine": [
@@ -65,6 +69,7 @@
       "requires": ["evaluate_sources"],
       "produces": ["claim", "concession"],
       "view": "结构",
+      "title": "论证构建",
       "repertoire": ["concession", "steelman"],
       "gate": {
         "machine": [
@@ -81,6 +86,7 @@
       "requires": ["build_argument"],
       "produces": ["word_budget_ok"],
       "view": "写作",
+      "title": "成稿打磨",
       "repertoire": [],
       "gate": {
         "machine": [
@@ -94,6 +100,7 @@
       "requires": ["draft_polish"],
       "produces": ["reflection"],
       "view": "评估",
+      "title": "反思归档",
       "repertoire": [],
       "gate": {
         "machine": [],

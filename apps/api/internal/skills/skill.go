@@ -47,6 +47,7 @@ type Contract struct {
 	Requires   []string `json:"requires"`
 	Produces   []string `json:"produces"`
 	View       string   `json:"view"`
+	Title      string   `json:"title"`
 	Repertoire []string `json:"repertoire"`
 	Gate       Gate     `json:"gate"`
 }

@@ -99,3 +99,24 @@ func TestWritingProject_LoadsValidatesAndReferencesRealCards(t *testing.T) {
 		}
 	}
 }
+
+func TestWritingProjectContractTitles(t *testing.T) {
+	sk, ok := ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill not found")
+	}
+	want := map[string]string{
+		"decode_task":           "任务解码",
+		"frame_question":        "立题",
+		"evaluate_perspectives": "视角与素材",
+		"evaluate_sources":      "信源评估",
+		"build_argument":        "论证构建",
+		"draft_polish":          "成稿打磨",
+		"reflect_archive":       "反思归档",
+	}
+	for id, title := range want {
+		if got := sk.Contracts[id].Title; got != title {
+			t.Errorf("contract %s: Title = %q, want %q", id, got, title)
+		}
+	}
+}
