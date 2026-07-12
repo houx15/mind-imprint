@@ -8,8 +8,14 @@
 -- claim + an orphan evidence node, S5-S6 locked, coach anchor on the
 -- 治理决心 claim, and a 4-row onboarding rubric.
 
+-- Owned by the seeded admin (00000000-0000-0000-0000-000000000005), NOT Phoebe:
+-- this row is only a legacy NOT NULL task_id FK anchor for the demo project's
+-- card_instances/material rows (dropped in 5c). It must not belong to Phoebe,
+-- or her legacy /api/v1/tasks list (TestTasksCRUD) would see it and fail the
+-- "initial list is empty" assertion — the Studio projection below never joins
+-- to task.user_id, so the anchor's owner is otherwise irrelevant.
 INSERT INTO tasks (id, user_id, title, status) VALUES
-  ('00000000-0000-0000-0000-000000000100', '00000000-0000-0000-0000-000000000003', '思维印记 · 0457 演示', 'active')
+  ('00000000-0000-0000-0000-000000000100', '00000000-0000-0000-0000-000000000005', '思维印记 · 0457 演示', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO project (id, user_id, qualification, title, status) VALUES
@@ -26,7 +32,10 @@ INSERT INTO graph_node (id, project_id, type, author, body) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- build_argument (S4) graph: a done core claim, a bare "治理决心" claim, and an
--- orphan evidence node — so ReconcileGates reports build_argument partial.
+-- orphan evidence node. With no graph_edge rows connecting them, all four
+-- machine gate items are unmet, so ReconcileGates reports build_argument as
+-- empty (not partial) — GateDTO carries no status field, so this is invisible
+-- on the wire either way.
 INSERT INTO graph_node (id, project_id, type, author, body) VALUES
   ('00000000-0000-0000-0000-000000000142', '00000000-0000-0000-0000-000000000101', 'claim', 'student',
    '{"text":"中国的环保治理呈现真实且持续增强的决心，但存量排放问题尚未解决——「趋势变好」不等于「问题已解决」。"}'::jsonb),
