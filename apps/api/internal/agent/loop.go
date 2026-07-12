@@ -199,7 +199,8 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		return &Action{Kind: "check_gate", GateReport: &report}, nil
 	}
 
-	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, deps.Sim)
+	// TODO(Task 4): pass the real loaded chat history instead of nil.
+	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, nil, deps.Sim)
 	if err != nil {
 		// Enforcement (or the model call itself) rejected the output — log
 		// server-side and stay silent. A rejected output is never persisted

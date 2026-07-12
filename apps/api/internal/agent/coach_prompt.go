@@ -52,8 +52,19 @@ func neighborEdges(g GraphView, nodeID string) []GraphEdgeView {
 // user turn — a system-only request is rejected by real providers. The model
 // only ever sees these two — the anchor and criterion on the returned
 // AgentOutput come from c, not from parsing the model's reply.
-func BuildCoachContext(g GraphView, c Candidate) string {
+func BuildCoachContext(g GraphView, c Candidate, history []ChatTurn) string {
 	var b strings.Builder
+	if len(history) > 0 {
+		b.WriteString("# 对话记录（最近在前为旧、在后为新）\n")
+		for _, t := range history {
+			who := "学生"
+			if t.Role == "assistant" {
+				who = "教练"
+			}
+			fmt.Fprintf(&b, "%s：%s\n", who, t.Content)
+		}
+		b.WriteString("\n")
+	}
 	b.WriteString("# 当前锚点节点\n")
 	if n, ok := findNode(g, c.AnchorID); ok {
 		fmt.Fprintf(&b, "- id=%s type=%s author=%s", n.ID, n.Type, n.Author)

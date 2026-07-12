@@ -28,11 +28,11 @@ import (
 //
 // Returns the enforced AgentOutput and the output-check verdict
 // ("pass" | "intercept"), or an error if the output must not be emitted.
-func ProposeIntervention(ctx context.Context, prov gateway.Provider, r gateway.Resolved, g GraphView, c Candidate, sim enforcement.Similarity) (enforcement.AgentOutput, string, error) {
+func ProposeIntervention(ctx context.Context, prov gateway.Provider, r gateway.Resolved, g GraphView, c Candidate, history []ChatTurn, sim enforcement.Similarity) (enforcement.AgentOutput, string, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: coachPosturePrompt},
-			{Role: gateway.RoleUser, Content: BuildCoachContext(g, c)},
+			{Role: gateway.RoleUser, Content: BuildCoachContext(g, c, history)},
 		},
 	}
 	res, err := gateway.Collect(ctx, prov, r, req)
