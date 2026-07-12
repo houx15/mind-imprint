@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -40,5 +42,16 @@ func TestInterventionDisposition(t *testing.T) {
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-0000000009ff/interventions/00000000-0000-0000-0000-000000000121/disposition", strings.NewReader(`{"action":"accept","reason":"这条我接受因为理由足够长了"}`)), cookie))
 	if rr.Code != 404 {
 		t.Fatalf("foreign: want 404, got %d", rr.Code)
+	}
+
+	// owned project, but intervention id doesn't belong to it (cross-tenant /
+	// nonexistent intervention) -> 404, not a silent 204 (IDOR regression guard).
+	// Reason is >=15 runes so it's the scoping check rejecting this, not the
+	// reason guard.
+	foreignIID := uuid.NewString()
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/interventions/"+foreignIID+"/disposition", strings.NewReader(`{"action":"accept","reason":"这条我接受因为理由足够长了"}`)), cookie))
+	if rr.Code != 404 {
+		t.Fatalf("foreign intervention scoped to owned project: want 404, got %d — %s", rr.Code, rr.Body.String())
 	}
 }

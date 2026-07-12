@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -175,6 +176,12 @@ func resolveMintRef(id string, nodeIDs map[int]uuid.UUID) (uuid.UUID, error) {
 	return uuid.Parse(id)
 }
 
+// ErrDispositionReasonTooShort is the typed sentinel for the <15-rune reason
+// guard in RecordDisposition. Callers (e.g. the HTTP handler) should use
+// errors.Is against this instead of matching the error string, so a future
+// reword of the message text can't silently regress a 400 into a 500.
+var ErrDispositionReasonTooShort = errors.New("disposition: reason must be at least 15 characters")
+
 // RecordDisposition persists the student's three-key disposition on an
 // intervention (product spec §7.1 rule 6): accept / reject / rewrite, with
 // a reason. A reason under 15 characters is rejected and nothing is
@@ -183,8 +190,8 @@ func resolveMintRef(id string, nodeIDs map[int]uuid.UUID) (uuid.UUID, error) {
 func RecordDisposition(ctx context.Context, deps AgentDeps, interventionID uuid.UUID, action, reason string) error {
 	// Count characters (runes), not bytes — the product is Chinese-first, where
 	// a byte count would let ~5 characters clear a ≥15-character gate.
-	if utf8.RuneCountInString(strings.TrimSpace(reason)) < 15 {
-		return fmt.Errorf("disposition: reason must be at least 15 characters, got %d", utf8.RuneCountInString(strings.TrimSpace(reason)))
+	if n := utf8.RuneCountInString(strings.TrimSpace(reason)); n < 15 {
+		return fmt.Errorf("%w, got %d", ErrDispositionReasonTooShort, n)
 	}
 	_, err := deps.Store.InsertDisposition(ctx, interventionID, action, reason)
 	return err
