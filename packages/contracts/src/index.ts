@@ -17,3 +17,4 @@ export * from "./task";
 export * from "./material";
 export * from "./summonCard";
 export * from "./refeed";
+export * from "./studioState";
