@@ -22,7 +22,8 @@ export async function* studioTurn(projectId: string, userInput: string): AsyncGe
     return;
   }
   for await (const frame of parseSSE(res.body)) {
-    const data = frame.data ? JSON.parse(frame.data) : {};
+    let data: any;
+    try { data = frame.data ? JSON.parse(frame.data) : {}; } catch { continue; }
     switch (frame.event) {
       case "intervention": yield { type: "intervention", interventionId: data.intervention_id, body: data.body, anchor: data.anchor, criterion: data.criterion, level: data.level }; break;
       case "gate": yield { type: "gate", contract: data.contract, status: data.status, passed: data.passed, total: data.total, missing: data.missing ?? [] }; break;

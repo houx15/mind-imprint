@@ -213,6 +213,7 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 	// error, fall back to nil rather than failing the whole turn.
 	history, err := deps.Store.LoadChatHistory(ctx, projectID, 12)
 	if err != nil {
+		slog.Warn("agent: load chat history failed; proceeding without it", "project_id", projectID.String(), "err", err.Error())
 		history = nil
 	}
 	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim)

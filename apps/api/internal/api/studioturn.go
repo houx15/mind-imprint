@@ -143,9 +143,12 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
-	_ = store.AppendEvent(r.Context(), agent.EventRow{
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "prompt_sent", Payload: []byte(`{}`),
-	})
+	}); err != nil {
+		slog.Warn("studio turn: append prompt_sent event failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
 
 	sk, _ := skills.ByID("writing-project")
 	deps := agent.AgentDeps{

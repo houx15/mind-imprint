@@ -122,7 +122,7 @@ export function StudioContainer({
       const id = convSnapshot.disposableInterventionId;
       if (id && disposedIdRef.current === id) return; // already dispatched for this intervention
       disposedIdRef.current = id;
-      conv?.dispose(choice, reason);
+      conv?.dispose(choice, reason).catch(() => { disposedIdRef.current = null; });
     },
     onOpenMethodology: () => { /* client-live; StudioShell owns modal state */ },
     onComposerSend: (text) => conv?.send(text),
