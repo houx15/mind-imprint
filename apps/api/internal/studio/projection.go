@@ -2,7 +2,6 @@ package studio
 
 import (
 	"encoding/json"
-	"strings"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/skills"
@@ -80,7 +79,7 @@ func projectStations(sk skills.Skill, d ProjectData) ([]StationDTO, string, erro
 			st.State = "locked"
 		}
 		if total := gateTotal(c); total > 0 {
-			st.Gate = &GateDTO{Total: total, Passed: gatePassed(rep, recorded[id], g)}
+			st.Gate = &GateDTO{Total: total, Passed: gatePassed(rep, recorded[id])}
 		}
 		stations = append(stations, st)
 	}
@@ -105,14 +104,15 @@ func gateTotal(c skills.Contract) int {
 	return len(c.Gate.Machine) + len(c.Gate.StudentWritten) + len(c.Gate.Human)
 }
 
-// gatePassed counts satisfied gate items: machine items reported Pass (minus
-// vacuous passes on untouched data — see vacuousMachinePass), plus
+// gatePassed counts satisfied gate items: machine items reported Pass AND
+// Attempted (agent.ItemResult.Attempted — excludes vacuous passes on
+// untouched data, per the gate engine's own predicate knowledge), plus
 // student_written/human items recorded "solid".
-func gatePassed(rep agent.GateReport, rec agent.RecordedGate, g agent.GraphView) int {
+func gatePassed(rep agent.GateReport, rec agent.RecordedGate) int {
 	n := 0
 	for _, it := range rep.Items {
 		if it.Kind == "machine" {
-			if it.Pass && !vacuousMachinePass(it.Name, g) {
+			if it.Pass && it.Attempted {
 				n++
 			}
 			continue
@@ -122,26 +122,4 @@ func gatePassed(rep agent.GateReport, rec agent.RecordedGate, g agent.GraphView)
 		}
 	}
 	return n
-}
-
-// vacuousMachinePass reports whether a machine item's Pass=true reflects
-// "nothing to check yet" rather than genuine progress. evalMachineItem's
-// negation-style predicates (agent/gate.go) are vacuously true over an empty
-// candidate set — e.g. no_orphan_evidence passes when there is no evidence at
-// all. For gate-progress display that vacuous pass must not count, or an
-// untouched contract would show partial credit. name is the ItemResult.Name
-// ("kind" or "kind:type"); only the kind prefix matters here.
-func vacuousMachinePass(name string, g agent.GraphView) bool {
-	kind := name
-	if i := strings.IndexByte(name, ':'); i >= 0 {
-		kind = name[:i]
-	}
-	switch kind {
-	case "no_orphan_evidence", "no_unsupported_claim", "no_single_sourced_claim":
-		return len(g.Nodes) == 0
-	case "every_source_evaluated":
-		return len(g.Materials) == 0
-	default:
-		return false
-	}
 }

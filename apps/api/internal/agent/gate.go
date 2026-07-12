@@ -124,6 +124,28 @@ func hasAnyNodeOfType(g GraphView, nodeType string) bool {
 	return false
 }
 
+// attemptedFor reports whether a machine item's Pass reflects genuine
+// progress rather than a negation-style predicate passing vacuously because
+// the scanned node/material type doesn't exist yet (see ItemResult.Attempted
+// doc). It uses the same node-type knowledge evalMachineItem's predicates
+// scan, so the two stay in lockstep — this is gate-predicate knowledge and
+// belongs here, not duplicated by callers.
+func attemptedFor(item skills.MachineItem, g GraphView) bool {
+	switch item.Kind {
+	case "node_present", "node_count_at_least":
+		// A Pass here means the nodes genuinely exist; a Fail is genuine too.
+		return true
+	case "no_orphan_evidence":
+		return hasAnyNodeOfType(g, "evidence")
+	case "no_unsupported_claim", "no_single_sourced_claim":
+		return hasAnyNodeOfType(g, "claim")
+	case "every_source_evaluated":
+		return len(g.Materials) > 0
+	default:
+		return false
+	}
+}
+
 // RecordedGate is the externally-recorded (non-machine) status of a gate,
 // read from its gate_state node body. Confirmed is the external "solid"
 // (a passed challenge / human / explicit student confirmation — DEC-3); Items
@@ -139,6 +161,13 @@ type ItemResult struct {
 	Kind    string // "machine" | "student_written" | "human"
 	Pass    bool
 	Missing string
+	// Attempted is only meaningful for Kind=="machine". It reports whether
+	// Pass reflects genuine progress rather than a negation-style predicate
+	// (no_orphan_evidence, no_unsupported_claim, no_single_sourced_claim,
+	// every_source_evaluated) passing vacuously because the scanned node/
+	// material type doesn't exist on the graph yet. Consumers that count
+	// gate progress (e.g. studio.gatePassed) must require Pass && Attempted.
+	Attempted bool
 }
 
 // GateReport is CheckGate's verdict. Status is the MACHINE computation and
@@ -167,7 +196,7 @@ func CheckGate(sk skills.Skill, contractID string, g GraphView, rec RecordedGate
 		if m.Type != "" {
 			name = m.Kind + ":" + m.Type
 		}
-		rep.Items = append(rep.Items, ItemResult{Name: name, Kind: "machine", Pass: pass, Missing: missing})
+		rep.Items = append(rep.Items, ItemResult{Name: name, Kind: "machine", Pass: pass, Missing: missing, Attempted: attemptedFor(m, g)})
 		if pass {
 			anyPass = true
 		} else {

@@ -76,3 +76,39 @@ func TestProjectStations_GateProgress(t *testing.T) {
 		t.Fatalf("S4 passed = %d, want 0 (empty graph)", s4.Gate.Passed)
 	}
 }
+
+// TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph is the
+// realistic case the empty-graph test above misses: by the time a student
+// reaches build_argument (S4), S0-S3 are solid and the graph already has
+// unrelated nodes from earlier contracts (rubric_translation,
+// research_question) — but no claim/evidence node yet. build_argument's
+// negation-style machine predicates (no_orphan_evidence,
+// no_unsupported_claim, no_single_sourced_claim) pass vacuously over that
+// non-empty graph because there's still nothing of the scanned type
+// (claim/evidence) to check. None of those vacuous passes may count as
+// progress — Passed must stay 0, not ~3/7.
+func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T) {
+	sk := writingSkill(t)
+	d := ProjectData{
+		Nodes: []sqlc.GraphNode{
+			{ID: uuid.New(), Type: "rubric_translation", Body: []byte(`{}`)},
+			{ID: uuid.New(), Type: "research_question", Body: []byte(`{}`)},
+		},
+		GateStates: []sqlc.GraphNode{gateStateNode("decode_task"), gateStateNode("frame_question"), gateStateNode("evaluate_perspectives"), gateStateNode("evaluate_sources")},
+		Plan:       planNode(`["build_argument","draft_polish","reflect_archive"]`),
+	}
+	stations, current, err := projectStations(sk, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current != "S4" {
+		t.Fatalf("current = %q, want S4", current)
+	}
+	s4 := stations[4]
+	if s4.Gate == nil || s4.Gate.Total != 7 {
+		t.Fatalf("S4 gate = %+v, want total 7", s4.Gate)
+	}
+	if s4.Gate.Passed != 0 {
+		t.Fatalf("S4 passed = %d, want 0 (no claim/evidence nodes yet — vacuous negation passes must not count on a non-empty graph)", s4.Gate.Passed)
+	}
+}
