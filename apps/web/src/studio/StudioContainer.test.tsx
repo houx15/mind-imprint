@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { StudioContainer } from "./StudioContainer";
 
 const projection = {
@@ -78,5 +79,19 @@ describe("StudioContainer", () => {
     fireEvent.click(screen.getByLabelText(/发送|send/i));
 
     expect(conv.send).toHaveBeenCalledWith("我加了一条证据");
+  });
+
+  it("wires the card from the conversation to the rail", async () => {
+    // getSnapshot must return a STABLE reference across calls (see the
+    // "sends a composer message" test's note above) — a fresh object
+    // literal per call trips useSyncExternalStore's tearing check and
+    // triggers React's infinite-update guard.
+    const snapshot = { messages: [], sending: false, error: null, disposableInterventionId: null, card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "proposed" } };
+    const conv = { getSnapshot: () => snapshot, subscribe: () => () => {}, send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn() };
+    render(<StudioContainer api={fakeApi} ensureSession={async () => {}} makeConversation={() => conv as any} />);
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+    // the craap proposal is visible in the rail (name + purpose text both
+    // match the regex, so use getAllByText per this file's convention above)
+    await waitFor(() => expect(screen.getAllByText(/CRAAP|来源|核查/).length).toBeGreaterThan(0));
   });
 });

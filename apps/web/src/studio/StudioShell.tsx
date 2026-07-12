@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StationRail } from "./StationRail";
 import { ViewFrame } from "./ViewFrame";
 import { CoachRail } from "./CoachRail";
+import type { LiveCard } from "./CoachRail";
 import { MethodologyModal } from "./MethodologyModal";
 import type { StudioCallbacks, StudioState } from "./state";
 
@@ -9,6 +10,9 @@ export type StudioShellProps = {
   state: StudioState;
   callbacks: StudioCallbacks;
   sending?: boolean;
+  // Live tool-card slot (Task 10): the conversation's card, threaded down
+  // to CoachRail — defaults to null when there's no conversation yet.
+  card?: LiveCard | null;
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -40,7 +44,7 @@ function ExitFocusIcon() {
   );
 }
 
-export function StudioShell({ state, callbacks, sending = false }: StudioShellProps) {
+export function StudioShell({ state, callbacks, sending = false, card = null }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
   // covers the whole workspace instead of being clipped to the 388px coach
@@ -136,6 +140,10 @@ export function StudioShell({ state, callbacks, sending = false }: StudioShellPr
           onOpenMethodology={handleOpenMethodology}
           onSend={callbacks.onComposerSend}
           sending={sending}
+          card={card}
+          onOpenCard={callbacks.onOpenCard}
+          onSubmitCard={callbacks.onSubmitCard}
+          onSkipCard={callbacks.onSkipCard}
         />
       </div>
 

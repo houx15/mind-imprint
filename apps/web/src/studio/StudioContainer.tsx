@@ -126,6 +126,9 @@ export function StudioContainer({
     },
     onOpenMethodology: () => { /* client-live; StudioShell owns modal state */ },
     onComposerSend: (text) => conv?.send(text),
+    onOpenCard: () => conv?.openCard(),
+    onSubmitCard: (finalEnvelope) => conv?.submitCard(finalEnvelope),
+    onSkipCard: (eventTrace) => conv?.skipCard(eventTrace),
   };
 
   // Projection = history on load; controller = this session's live turns.
@@ -139,6 +142,7 @@ export function StudioContainer({
       state={{ ...mergedState, activeStation, focusMode }}
       callbacks={callbacks}
       sending={convSnapshot.sending}
+      card={convSnapshot.card}
     />
   );
 }

@@ -2,6 +2,7 @@ import type { SourceFixture } from "../workspace/material/fixtures";
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
+  CardInstance, TraceEvent,
 } from "@mind-imprint/contracts";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
@@ -47,4 +48,9 @@ export type StudioCallbacks = {
   onDisposition: (choice: "accept" | "rewrite" | "reject", reason: string) => void;
   onOpenMethodology: (cardId: string) => void;
   onComposerSend: (text: string) => void;
+  // Live tool-card slot (Task 10): optional because the disposition/
+  // placeholder path (no active card) never needs them.
+  onOpenCard?: (cardInstanceId: string) => void;
+  onSubmitCard?: (finalEnvelope: CardInstance) => void;
+  onSkipCard?: (eventTrace: TraceEvent[]) => void;
 };
