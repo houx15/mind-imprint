@@ -4,9 +4,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+func pgUUID(u uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: u, Valid: true} }
 
 func writingSkill(t *testing.T) skills.Skill {
 	t.Helper()
@@ -110,5 +115,60 @@ func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (no claim/evidence nodes yet — vacuous negation passes must not count on a non-empty graph)", s4.Gate.Passed)
+	}
+}
+
+func TestProjectCoach_AnchorAndThread(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			// flag carries a criterion too, but its headline is the anchor label.
+			{Type: "flag", Body: "图上有一处孤儿证据", Criterion: &crit, Anchor: []byte(`{"label":"孤儿证据"}`)},
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if coach.Anchor != "论证图 · 治理决心主张" { // latest intervention's anchor
+		t.Fatalf("anchor = %q", coach.Anchor)
+	}
+	// flag label = anchor.label (not the criterion), even when a criterion is set.
+	if len(coach.Messages) != 2 || coach.Messages[0].Kind != "flag" || coach.Messages[0].Label != "孤儿证据" {
+		t.Fatalf("messages = %+v", coach.Messages)
+	}
+	if coach.Messages[1].Kind != "ai" || coach.Messages[1].Tag != "D5" || coach.Messages[1].Anchor != "论证图 · 治理决心主张" {
+		t.Fatalf("ai msg = %+v", coach.Messages[1])
+	}
+}
+
+func TestProjectCoach_AnchorFallback(t *testing.T) {
+	coach := projectCoach(ProjectData{}, "论证构建") // no interventions
+	if coach.Anchor != "论证构建" {
+		t.Fatalf("fallback anchor = %q, want 论证构建", coach.Anchor)
+	}
+}
+
+func TestProjectEquipment_SpontAndMeth(t *testing.T) {
+	steel := uuid.New()
+	d := ProjectData{
+		Cards: []sqlc.CardInstance{
+			{ID: steel, CardID: "steelman"},
+			{ID: uuid.New(), CardID: "concession"},
+		},
+		Interventions: []sqlc.Intervention{
+			{CardInstanceID: pgUUID(steel)}, // steelman was nudged
+		},
+	}
+	spec := func(id string) (cards.Spec, bool) {
+		return map[string]cards.Spec{"steelman": {ID: "steelman", Name: "钢人卡"}, "concession": {ID: "concession", Name: "让步段卡"}}[id], true
+	}
+	eq := projectEquipment(d, spec)
+	if len(eq) != 2 {
+		t.Fatalf("want 2 equip, got %d", len(eq))
+	}
+	if eq[0].Name != "钢人卡" || eq[0].Spont != "提示后" || eq[0].Meth != "concession" {
+		t.Fatalf("steelman = %+v", eq[0])
+	}
+	if eq[1].Spont != "自发" {
+		t.Fatalf("concession spont = %q, want 自发", eq[1].Spont)
 	}
 }

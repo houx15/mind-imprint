@@ -3,7 +3,11 @@ package studio
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -122,4 +126,143 @@ func gatePassed(rep agent.GateReport, rec agent.RecordedGate) int {
 		}
 	}
 	return n
+}
+
+type anchorBody struct {
+	Label string `json:"label"`
+}
+
+func anchorLabel(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var b anchorBody
+	if err := json.Unmarshal(raw, &b); err != nil {
+		return ""
+	}
+	return b.Label
+}
+
+// projectCoach builds the coach rail: anchor (latest intervention's, else the
+// current station title) + the intervention thread. No student bubbles in 5b.
+func projectCoach(d ProjectData, currentTitle string) CoachDTO {
+	c := CoachDTO{Messages: make([]CoachMessageDTO, 0, len(d.Interventions))}
+	for _, iv := range d.Interventions {
+		label := anchorLabel(iv.Anchor)
+		if iv.Type == "flag" {
+			// A flag's headline is its anchor label; the criterion stays a tag.
+			c.Messages = append(c.Messages, CoachMessageDTO{Kind: "flag", Label: label, Body: iv.Body})
+			continue
+		}
+		msg := CoachMessageDTO{Kind: "ai", Body: iv.Body, Anchor: label}
+		if iv.Criterion != nil {
+			msg.Tag = *iv.Criterion
+		}
+		c.Messages = append(c.Messages, msg)
+	}
+	if n := len(d.Interventions); n > 0 {
+		c.Anchor = anchorLabel(d.Interventions[n-1].Anchor)
+	}
+	if c.Anchor == "" {
+		c.Anchor = currentTitle
+	}
+	return c
+}
+
+func cardMeth(cardID string) string {
+	switch cardID {
+	case "craap", "sift":
+		return "sift_craap"
+	case "concession", "steelman":
+		return "concession"
+	default:
+		return ""
+	}
+}
+
+// projectEquipment maps card_instances to the 装备栏 chips. spont = 提示后 when an
+// intervention references the instance (agent-surfaced), else 自发.
+func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) []EquipCardDTO {
+	nudged := map[string]bool{}
+	for _, iv := range d.Interventions {
+		if iv.CardInstanceID.Valid {
+			nudged[uuidFromPg(iv.CardInstanceID)] = true
+		}
+	}
+	out := make([]EquipCardDTO, 0, len(d.Cards))
+	for _, ci := range d.Cards {
+		name := ci.CardID
+		if s, ok := specByID(ci.CardID); ok && s.Name != "" {
+			name = s.Name
+		}
+		spont := "自发"
+		if nudged[ci.ID.String()] {
+			spont = "提示后"
+		}
+		out = append(out, EquipCardDTO{ID: ci.ID.String(), Name: name, Spont: spont, Meth: cardMeth(ci.CardID)})
+	}
+	return out
+}
+
+func uuidFromPg(u pgtype.UUID) string {
+	return uuid.UUID(u.Bytes).String()
+}
+
+// projectOnboarding reads the decode_task graph nodes for the S0 view.
+func projectOnboarding(d ProjectData) OnboardingDTO {
+	ob := OnboardingDTO{RubricRows: []RubricRowDTO{}, PlanSteps: []string{}}
+	for _, n := range d.Nodes {
+		switch n.Type {
+		case "rubric_translation":
+			var body struct {
+				RestatePrompt string         `json:"restate_prompt"`
+				Rows          []RubricRowDTO `json:"rows"`
+			}
+			if json.Unmarshal(n.Body, &body) == nil {
+				ob.RubricRows = append(ob.RubricRows, body.Rows...)
+				if body.RestatePrompt != "" {
+					ob.RestatePrompt = body.RestatePrompt
+				}
+			}
+		case "milestone_plan":
+			var body struct {
+				Steps []string `json:"steps"`
+			}
+			if json.Unmarshal(n.Body, &body) == nil {
+				ob.PlanSteps = append(ob.PlanSteps, body.Steps...)
+			}
+		}
+	}
+	return ob
+}
+
+// Project builds the full StudioProjection. Pure; no I/O.
+func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d ProjectData) (StudioProjection, error) {
+	stations, current, err := projectStations(sk, d)
+	if err != nil {
+		return StudioProjection{}, err
+	}
+	currentTitle := ""
+	for i, id := range mustOrder(sk) {
+		if stationCode(i) == current {
+			currentTitle = sk.Contracts[id].Title
+		}
+	}
+	coach := projectCoach(d, currentTitle)
+	return StudioProjection{
+		Project:       ProjectHeader{Title: d.Project.Title, QualLabel: d.Project.Qualification},
+		Stations:      stations,
+		ActiveStation: current,
+		Coach: CoachDTO{
+			Anchor:    coach.Anchor,
+			Messages:  coach.Messages,
+			Equipment: projectEquipment(d, specByID),
+		},
+		Onboarding: projectOnboarding(d),
+	}, nil
+}
+
+func mustOrder(sk skills.Skill) []string {
+	order, _ := sk.TopoOrder()
+	return order
 }
