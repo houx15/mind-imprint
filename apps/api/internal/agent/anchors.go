@@ -104,6 +104,30 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Ancho
 			Author: "ai", Question: it.Question, Answer: "",
 		})
 	}
+	// C2 annotate cards (params.tags present) require the model's dimension
+	// vocabulary to exactly cover the completion tags, else
+	// EvaluateCompletion's every_tag_present can never be satisfied and the
+	// student's filled-in card silently never mints. A well-formed reply with
+	// an off-vocabulary dimension (or a missing tag) is treated as a parse
+	// failure here so Generate falls back to the tag-correct
+	// fallbackAnchors. Legacy cards (no params.tags) are unvalidated.
+	if len(spec.Params.Tags) > 0 {
+		wantTags := map[string]bool{}
+		for _, tag := range spec.Params.Tags {
+			wantTags[tag] = false
+		}
+		for _, a := range out {
+			if _, ok := wantTags[a.Dimension]; !ok {
+				return nil, errString("anchor dimension not in tag vocabulary: " + a.Dimension)
+			}
+			wantTags[a.Dimension] = true
+		}
+		for tag, seen := range wantTags {
+			if !seen {
+				return nil, errString("missing anchor for tag: " + tag)
+			}
+		}
+	}
 	return out, nil
 }
 

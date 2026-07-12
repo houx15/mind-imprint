@@ -96,6 +96,55 @@ func TestFallbackAnchorsKeysOffParamsTags(t *testing.T) {
 	}
 }
 
+func TestGenerateFallsBackWhenModelUsesOffVocabularyDimensions(t *testing.T) {
+	spec, ok := cards.ByID("craap")
+	if !ok {
+		t.Fatal("craap spec not found")
+	}
+	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
+	// Well-formed JSON, but dimensions are off-vocabulary (e.g. "Currency" /
+	// "时效性" instead of the tag "currency") — this must NOT be minted as-is,
+	// because EvaluateCompletion's every_tag_present would never match.
+	raw := `[
+		{"block_id":"b0","quote":"some source","dimension":"Currency","question":"数据是哪一年的？"},
+		{"block_id":"b0","quote":"some source","dimension":"C · Currency 时效性","question":"数据是哪一年的？"},
+		{"block_id":"b0","quote":"some source","dimension":"时效性","question":"数据是哪一年的？"}
+	]`
+	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone}}
+	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
+	got, err := gen.Generate(context.Background(), spec, mats)
+	if err != nil {
+		t.Fatalf("fallback must not error: %v", err)
+	}
+	wantTags := map[string]bool{"currency": false, "relevance": false, "authority": false, "accuracy": false, "purpose": false}
+	if len(got) != len(wantTags) {
+		t.Fatalf("want %d tag-keyed fallback anchors, got %d: %+v", len(wantTags), len(got), got)
+	}
+	for _, a := range got {
+		if _, isTag := wantTags[a.Dimension]; !isTag {
+			t.Fatalf("anchor dimension %q leaked from off-vocabulary model output instead of falling back", a.Dimension)
+		}
+		wantTags[a.Dimension] = true
+	}
+	for tag, seen := range wantTags {
+		if !seen {
+			t.Fatalf("no fallback anchor for completion tag %q", tag)
+		}
+	}
+}
+
+func TestParseAnchorGenRejectsOffVocabularyDimensionForTaggedCard(t *testing.T) {
+	spec, ok := cards.ByID("craap")
+	if !ok {
+		t.Fatal("craap spec not found")
+	}
+	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
+	raw := `[{"block_id":"b0","quote":"some source","dimension":"Currency","question":"q"}]`
+	if _, err := parseAnchorGen(raw, spec, mats); err == nil {
+		t.Fatal("expected error: off-vocabulary dimension for a tag-keyed card must not parse cleanly")
+	}
+}
+
 func TestGenerateFallsBackWhenModelReturnsGarbage(t *testing.T) {
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json at all"}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })

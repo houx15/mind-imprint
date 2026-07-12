@@ -9,7 +9,7 @@ export type StudioAnnotateCardProps = {
   onSkip: (eventTrace: TraceEvent[]) => void;
 };
 
-const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有什么风险？";
+const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有什么风险 / 局限？";
 
 // Authorship-agnostic annotate answer host (design s3CoachCard, ~L1282-1320).
 // It renders whatever anchors it is handed — chip = dimension, question,
@@ -21,6 +21,14 @@ const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有�
 export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAnnotateCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [riskNote, setRiskNote] = useState("");
+
+  // Completable only once every anchor has a non-empty answer AND the
+  // risk-note is non-empty — matches the design's per-dimension ✓ + lock
+  // intent. Locking before that leaves the backend's card `active` with no
+  // mint, and the frontend has no rehydration path for that state, so we
+  // gate the button rather than let the student lose the card in-session.
+  const allAnchorsAnswered = anchors.every((a) => !!(answers[a.id] ?? a.answer)?.trim());
+  const canLock = allAnchorsAnswered && !!riskNote.trim();
 
   function handleAnswerChange(id: string, value: string) {
     setAnswers((prev) => ({ ...prev, [id]: value }));
@@ -159,13 +167,15 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
           <button
             type="button"
             onClick={handleLock}
+            disabled={!canLock}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 7,
               fontSize: 13,
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: canLock ? "pointer" : "not-allowed",
+              opacity: canLock ? 1 : 0.5,
               padding: "9px 15px",
               borderRadius: 10,
               color: "#fff",
