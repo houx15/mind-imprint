@@ -38,4 +38,26 @@ describe("createStudioConversation", () => {
     expect(s.card).toBeNull();
     expect(s.messages.at(-1)).toMatchObject({ kind: "ai", body: "补得不错" });
   });
+
+  it("keeps a newly-surfaced card alive when submit refeed surfaces a NEW card before done", async () => {
+    const api = {
+      async *studioTurn() { yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors: [] }; yield { type: "done" }; },
+      activateProjectCard: vi.fn(async () => {}),
+      // Refeed after submitting ci1 surfaces a brand-new card ci2 (e.g. CRAAP on the second material),
+      // with NO intervening intervention event before "done".
+      async *submitProjectCard() { yield { type: "card", cardInstanceId: "ci2", cardId: "craap", nudgeText: "n2", anchors: [] }; yield { type: "done" }; },
+      skipProjectCard: vi.fn(async () => {}),
+      postDisposition: vi.fn(async () => {}),
+    } as any;
+    const conv = createStudioConversation({ projectId: "p1", api });
+    await conv.send("hi");
+    expect(conv.getSnapshot().card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "proposed" });
+    await conv.openCard();
+    await conv.submitCard({ field_values: {}, event_trace: [], anchors: [] } as any);
+    const s = conv.getSnapshot();
+    // The NEW card (ci2) must survive the "done" clear — it must NOT be wiped
+    // just because the submitted card (ci1) is done. Against the old unconditional
+    // `set({ card: null })` on "done", this assertion would fail (card would be null).
+    expect(s.card).toMatchObject({ cardInstanceId: "ci2", cardId: "craap", status: "proposed" });
+  });
 });

@@ -74,19 +74,25 @@ export function createStudioConversation({ projectId, api }: Deps) {
 
   async function openCard() {
     if (!state.card) return;
-    await activateCard(projectId, state.card.cardInstanceId);
-    set({ card: { ...state.card, status: "active" } });
+    const activatedId = state.card.cardInstanceId;
+    await activateCard(projectId, activatedId);
+    if (state.card?.cardInstanceId === activatedId) {
+      set({ card: { ...state.card, status: "active" } });
+    }
   }
 
   async function submitCard(finalEnvelope: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }) {
     if (!state.card) return;
     const cardInstanceId = state.card.cardInstanceId;
+    const submittedId = cardInstanceId;
     set({ sending: true, error: null });
     try {
       for await (const e of submitCardTurn(projectId, cardInstanceId, finalEnvelope) as AsyncGenerator<StudioTurnEvent>) {
         applyEvent(e);
         if (e.type === "done") {
-          set({ card: null });
+          if (state.card?.cardInstanceId === submittedId) {
+            set({ card: null });
+          }
         }
       }
     } catch {
