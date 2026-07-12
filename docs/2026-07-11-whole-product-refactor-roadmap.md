@@ -84,7 +84,7 @@ started · ◐ in progress · ☑ done.
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ◐ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☐) |
-| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
+| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ◐ (keystone ☑ — CRAAP fill→mint live via coach rail; material center-pane view + source-log S2 → 6b, SIFT lateral → 6c) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
@@ -280,10 +280,30 @@ Each slice appends its spec/plan links and outcome here as it completes.
   the anchor-based fill CRAAP's completion needs). Carry-forward Minors (batch): swallowed `AppendEvent` on
   activate/skip now `slog.Warn`'d; non-transactional card writes (matches `putCard`); spec/plan Goal sections
   still read as the aspirational target (Known-limitation callout precedes them).
-- **NEXT = Slice 6** (material + source log, S2/S3): 素材 view over the `annotate` primitive — dossier + span
-  highlights, search-plan→auto-log→citations-only-from-log, CRAAP vertical + SIFT lateral. **This is where the
-  CRAAP fill→mint lights up:** annotating a material span + tagging a CRAAP dimension produces the anchors that
-  satisfy `EvaluateCompletion` → `CompleteCard` mints the evidence node → `every_source_evaluated` gate flips.
-  Then 5d (routing cutover), then 7–9 (deepen 结构/写作/评估). **Cleanup (any time):** Slice-3 debt (task_id
-  NULLABLE + project-scope `GetCardInstance`); unique index on `chat_thread.seeded_project_id`; onboarding
-  live producer; live `gate` passed/total counts.
+- **Slice 6 (keystone)** — ◐ **KEYSTONE COMPLETE** (branch `refactor2-slice6-craap-fill-mint`, impl commits
+  `969ff3d`..`f1f3b93`). Spec `…/specs/2026-07-11-slice-6-craap-fill-mint-design.md` · plan
+  `…/plans/2026-07-11-slice-6-craap-fill-mint.md`. **The CRAAP fill→mint bridge is LIVE** — a real student now
+  completes a source-evaluation card end-to-end through the coach rail, minting an evidence node. 8 tasks
+  subagent-driven TDD (backend T1–T3, frontend T4–T7, suite T8). **Scope: S3-vertical keystone only** (AI
+  anchors per-dimension questions → student answers + writes 作用与风险 → lock → mint), guidance level **L1**
+  (AI authors + circles spans; the `author` field is the seam kept open for L2/L3 = student finds spans /
+  elicits questions). Delivered: (T1) **the deeper disjunction fix** — `AnchorGenerator` now keys anchors off
+  `params.tags` so `dimension` == the completion tag (was `Steps[].Title` → could never satisfy
+  `EvaluateCompletion`; incidentally revived CRAAP's dead `ObserveCandidates` nudge rules); (T2) Studio surface
+  seam generates + persists + emits AI anchors on annotate-card surface (`streamAction`→method, graceful-degrade
+  to `[]`); (T3) **non-vacuous** surface→fill→submit→mint E2E driving the *generated* anchors (the 5c-2 review's
+  demand); (T4) `StudioAnnotateCard` — authorship-agnostic answer-mode producing filled anchors + a student
+  `risk_note` anchor, binding design copy verbatim; (T5) conversation carries anchors; (T6) CoachRail forks
+  `annotate`→`StudioAnnotateCard` — **full anchor flow traced end-to-end** (SSE→conv→container→shell→rail; lock
+  →submit body intact); (T7) SourceDossier anchor-span highlight (seam landed). Submit→mint→gate→refeed is
+  untouched 5c-2 code. Gate: full Go suite serialized `-p 1` exit 0 + web **475** + contracts **181** + tsc
+  clean. **DEFERRED (own follow-ups):** **6b** = material center-pane view (un-stub `views.material: []` in
+  `StudioContainer.toStudioState`, then thread `card.anchors` via `ViewFrame` to light up T7's left-pane
+  highlight) + source-log S2 (search-plan→auto-log→citations, RL-2); **6c** = SIFT lateral; also student *free*
+  span-creation (L2/L3) and the R-9 summing-up framework reveal. T4 Minor for triage: `RISK_NOTE_QUESTION` const
+  drops "／局限" vs the placeholder's binding copy.
+- **NEXT = Slice 5d** (routing cutover): retire `RunTurn`/`turn.go`/old `workspace/`; flip routing; gate
+  `StudioContainer.defaultEnsureSession` (the silent sign-in-as-Phoebe fallback). Then **6b/6c** (material
+  station + SIFT), then 7–9 (deepen 结构/写作/评估). **Cleanup (any time):** Slice-3 debt (task_id NULLABLE +
+  project-scope `GetCardInstance`); unique index on `chat_thread.seeded_project_id`; onboarding live producer;
+  live `gate` passed/total counts.
