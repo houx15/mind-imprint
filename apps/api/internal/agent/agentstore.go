@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -107,6 +109,76 @@ func (s *sqlcAgentStore) AppendEvent(ctx context.Context, row EventRow) error {
 		Payload:   row.Payload,
 	})
 	return err
+}
+
+// getOrCreateThread resolves the project's chat_thread, creating it
+// (get-then-create) the first time a chat message is persisted for that
+// project. Mirrors AppendEvent's project->user resolution: the thread's
+// owning user comes from the project row, not a separate "acting user"
+// concept (Slice 2/5c's single-user-per-project model).
+func (s *sqlcAgentStore) getOrCreateThread(ctx context.Context, projectID uuid.UUID) (uuid.UUID, error) {
+	pg := pgtype.UUID{Bytes: projectID, Valid: true}
+	th, err := s.q.GetThreadByProject(ctx, pg)
+	if err == nil {
+		return th.ID, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.UUID{}, err
+	}
+	project, err := s.q.GetProject(ctx, projectID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	created, err := s.q.CreateThread(ctx, sqlc.CreateThreadParams{UserID: project.UserID, SeededProjectID: pg})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return created.ID, nil
+}
+
+// CreateChatMessage persists one student chat turn to the project's thread
+// (creating the thread on first use).
+func (s *sqlcAgentStore) CreateChatMessage(ctx context.Context, projectID uuid.UUID, role, content string) error {
+	threadID, err := s.getOrCreateThread(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	_, err = s.q.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{ThreadID: threadID, Role: role, Content: content, Modality: "text"})
+	return err
+}
+
+// LoadChatHistory merges student chat_messages + prior interventions into a
+// single time-ordered conversation, capped to the most-recent `limit`.
+func (s *sqlcAgentStore) LoadChatHistory(ctx context.Context, projectID uuid.UUID, limit int) ([]ChatTurn, error) {
+	pg := pgtype.UUID{Bytes: projectID, Valid: true}
+	msgs, err := s.q.ListChatMessagesByProject(ctx, pg)
+	if err != nil {
+		return nil, err
+	}
+	ivs, err := s.q.ListInterventionsByProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	type stamped struct {
+		at   time.Time
+		turn ChatTurn
+	}
+	var all []stamped
+	for _, m := range msgs {
+		all = append(all, stamped{at: m.CreatedAt, turn: ChatTurn{Role: m.Role, Content: m.Content}})
+	}
+	for _, iv := range ivs {
+		all = append(all, stamped{at: iv.CreatedAt, turn: ChatTurn{Role: "assistant", Content: iv.Body}})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].at.Before(all[j].at) })
+	if limit > 0 && len(all) > limit {
+		all = all[len(all)-limit:]
+	}
+	out := make([]ChatTurn, len(all))
+	for i, st := range all {
+		out[i] = st.turn
+	}
+	return out, nil
 }
 
 // CreateCardInstance instantiates a proposed card_instance for cardID on

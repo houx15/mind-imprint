@@ -52,6 +52,9 @@ type fakeAgentStore struct {
 
 	minted             []GraphNodeView
 	lastImportedAuthor string
+
+	chatTurns              []ChatTurn
+	createChatMessageCalls int
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -72,6 +75,27 @@ func (f *fakeAgentStore) AppendEvent(_ context.Context, row EventRow) error {
 	f.appendEventCalls++
 	f.lastEvent = row
 	return nil
+}
+
+// CreateChatMessage/LoadChatHistory: a minimal in-memory double — append to a
+// slice, return the stored user turns. Interventions merge is exercised for
+// real by the sqlc-backed TestSqlcAgentStore_ChatHistoryMerge; the fake never
+// needs to fabricate an intervention side, since no loop test asserts on
+// merged history yet.
+func (f *fakeAgentStore) CreateChatMessage(_ context.Context, _ uuid.UUID, role, content string) error {
+	f.createChatMessageCalls++
+	f.chatTurns = append(f.chatTurns, ChatTurn{Role: role, Content: content})
+	return nil
+}
+
+func (f *fakeAgentStore) LoadChatHistory(_ context.Context, _ uuid.UUID, limit int) ([]ChatTurn, error) {
+	turns := f.chatTurns
+	if limit > 0 && len(turns) > limit {
+		turns = turns[len(turns)-limit:]
+	}
+	out := make([]ChatTurn, len(turns))
+	copy(out, turns)
+	return out, nil
 }
 
 func (f *fakeAgentStore) CreateCardInstance(_ context.Context, projectID, materialID uuid.UUID, cardID, contractRef string) (CardInstanceRow, error) {

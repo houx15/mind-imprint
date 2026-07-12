@@ -27,6 +27,13 @@ type InterventionRow struct {
 	OutputCheckVerdict string
 }
 
+// ChatTurn is one turn of the coach's conversational context: the student's
+// message (role "user") or a prior coach intervention (role "assistant").
+type ChatTurn struct {
+	Role    string // "user" | "assistant"
+	Content string
+}
+
 // EventRow is the persistence payload for one appended C4 event.
 type EventRow struct {
 	ProjectID uuid.UUID
@@ -56,6 +63,12 @@ type AgentStore interface {
 	LoadGraph(ctx context.Context, projectID uuid.UUID) (GraphView, error)
 	InsertIntervention(ctx context.Context, row InterventionRow) (uuid.UUID, error)
 	AppendEvent(ctx context.Context, row EventRow) error
+
+	// CreateChatMessage/LoadChatHistory are the chat-history seam (Slice 5c
+	// task 2): persisting the student's spoken/typed turns and reading back
+	// the merged student+coach conversation so the coach can see it.
+	CreateChatMessage(ctx context.Context, projectID uuid.UUID, role, content string) error
+	LoadChatHistory(ctx context.Context, projectID uuid.UUID, limit int) ([]ChatTurn, error)
 
 	// CreateCardInstance instantiates a proposed card_instance for cardID
 	// on materialID (SurfaceCard, card_lifecycle.go). The legacy
