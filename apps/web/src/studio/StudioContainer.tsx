@@ -20,7 +20,7 @@ const DEMO_PASSWORD = "phoebe-dev-pass";
 // constant reference (defined once at module scope, not per-render) keeps
 // getSnapshot referentially stable across renders so it never falsely
 // signals a change.
-const EMPTY_CONV_SNAPSHOT: ConvSnapshot = { messages: [], sending: false, error: null, disposableInterventionId: null };
+const EMPTY_CONV_SNAPSHOT: ConvSnapshot = { messages: [], sending: false, error: null, disposableInterventionId: null, card: null };
 const emptyConvSubscribe = () => () => {};
 const emptyConvGetSnapshot = () => EMPTY_CONV_SNAPSHOT;
 
