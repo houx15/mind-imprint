@@ -45,48 +45,7 @@ func (s *sqlcAgentStore) LoadGraph(ctx context.Context, projectID uuid.UUID) (Gr
 	if err != nil {
 		return GraphView{}, err
 	}
-
-	g := GraphView{
-		Nodes:         make([]GraphNodeView, 0, len(nodes)),
-		Edges:         make([]GraphEdgeView, 0, len(edges)),
-		Materials:     make([]MaterialView, 0, len(materials)),
-		CardInstances: make([]CardInstanceView, 0, len(cardInstances)),
-	}
-	for _, n := range nodes {
-		g.Nodes = append(g.Nodes, GraphNodeView{
-			ID:     n.ID.String(),
-			Type:   n.Type,
-			Author: n.Author,
-			Text:   graphNodeBodyText(n.Body),
-		})
-	}
-	for _, e := range edges {
-		g.Edges = append(g.Edges, GraphEdgeView{
-			FromKind: e.FromKind,
-			FromID:   e.FromID.String(),
-			ToKind:   e.ToKind,
-			ToID:     e.ToID.String(),
-			Type:     e.Type,
-		})
-	}
-	for _, m := range materials {
-		g.Materials = append(g.Materials, MaterialView{ID: m.ID.String(), Kind: m.Kind})
-	}
-	for _, ci := range cardInstances {
-		var anchors []Anchor
-		if len(ci.Anchors) > 0 {
-			// A malformed anchors blob must never crash perceive — treat it
-			// as no anchors (the observe rules simply see nothing to flag).
-			_ = json.Unmarshal(ci.Anchors, &anchors)
-		}
-		g.CardInstances = append(g.CardInstances, CardInstanceView{
-			ID:      ci.ID.String(),
-			CardID:  ci.CardID,
-			Status:  ci.Status,
-			Anchors: anchors,
-		})
-	}
-	return g, nil
+	return GraphViewFromRows(nodes, edges, materials, cardInstances), nil
 }
 
 // graphNodeBodyText reads the "text" field out of a graph_node.body jsonb
@@ -282,15 +241,7 @@ func (s *sqlcAgentStore) ListGateStates(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]RecordedGate, len(rows))
-	for _, r := range rows {
-		var b gateStateBody
-		if err := json.Unmarshal(r.Body, &b); err != nil {
-			continue // a malformed body is treated as no recorded state
-		}
-		out[b.Contract] = RecordedGate{Confirmed: b.ConfirmedSolid, Items: b.Items}
-	}
-	return out, nil
+	return RecordedGatesFromNodes(rows), nil
 }
 
 // UpsertGateState writes rec to the project's gate_state graph_node for
