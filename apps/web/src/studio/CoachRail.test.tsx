@@ -79,13 +79,13 @@ describe("CoachRail ai message anchor (5a carry-forward)", () => {
 });
 
 describe("CoachRail live card slot (task 9)", () => {
-  it("renders the craap proposal → sheet and wires submit/skip", () => {
+  it("renders the craap proposal → annotate card and wires open", () => {
     const onOpenCard = vi.fn(), onSubmitCard = vi.fn(), onSkipCard = vi.fn();
     const spec = CARD_REGISTRY["craap"]!;
     const { rerender } = render(
       <CoachRail
         {...baseProps()}
-        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "proposed" }}
+        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "proposed", anchors: [] }}
         onOpenCard={onOpenCard}
         onSubmitCard={onSubmitCard}
         onSkipCard={onSkipCard}
@@ -96,15 +96,45 @@ describe("CoachRail live card slot (task 9)", () => {
     rerender(
       <CoachRail
         {...baseProps()}
-        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active" }}
+        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active", anchors: [] }}
         onOpenCard={onOpenCard}
         onSubmitCard={onSubmitCard}
         onSkipCard={onSkipCard}
       />,
     );
-    // the schema-driven sheet renders craap step titles (verbatim from craap.json);
-    // "权威性"/"来源" both appear in multiple field labels within the always-disclosed
-    // steps, so assert presence rather than uniqueness.
-    expect(screen.getAllByText(/权威性|来源/).length).toBeGreaterThan(0);
+    // craap.json's primitive is "annotate" — the active branch must fork to
+    // StudioAnnotateCard, not the schema-driven StudioCardSheet.
+    expect(screen.getByText("作用与风险（自己写）")).toBeInTheDocument();
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+  });
+});
+
+describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () => {
+  it("primitive === 'annotate' renders StudioAnnotateCard, fed the live anchors, not StudioCardSheet", () => {
+    const spec = CARD_REGISTRY["craap"]!;
+    const anchors = [
+      { id: "a1", material_id: "m1", block_id: "b1", start: 0, end: 10, quote: "示例引文", dimension: "权威性", author: "ai" as const, question: "这条来源的作者是谁？", answer: "" },
+    ];
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active", anchors }}
+      />,
+    );
+    expect(screen.getByText("作用与风险（自己写）")).toBeInTheDocument();
+    expect(screen.getByText("这条来源的作者是谁？")).toBeInTheDocument(); // the fed-in anchor's question
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+  });
+
+  it("a non-annotate primitive keeps rendering StudioCardSheet", () => {
+    const spec = CARD_REGISTRY["concession"]!;
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci2", cardId: "concession", spec, status: "active", anchors: [] }}
+      />,
+    );
+    expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
   });
 });

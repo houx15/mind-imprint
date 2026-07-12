@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
+import type { Anchor, CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
+import { StudioAnnotateCard } from "./StudioAnnotateCard";
 import { StudioCardSheet } from "./StudioCardSheet";
 import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
 
@@ -11,6 +12,7 @@ export type LiveCard = {
   cardId: string;
   spec: CardSpec;
   status: "proposed" | "active";
+  anchors: Anchor[];
 };
 
 export type CoachRailProps = {
@@ -264,11 +266,20 @@ export function CoachRail({
         {card && card.status === "proposed" ? (
           <CardProposalBubble spec={card.spec} onOpen={() => onOpenCard?.(card.cardInstanceId)} />
         ) : card && card.status === "active" ? (
-          <StudioCardSheet
-            spec={card.spec}
-            onSubmit={(finalEnvelope) => onSubmitCard?.(finalEnvelope)}
-            onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
-          />
+          card.spec.primitive === "annotate" ? (
+            <StudioAnnotateCard
+              spec={card.spec}
+              anchors={card.anchors}
+              onSubmit={(env) => onSubmitCard?.(env)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          ) : (
+            <StudioCardSheet
+              spec={card.spec}
+              onSubmit={(finalEnvelope) => onSubmitCard?.(finalEnvelope)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          )
         ) : activeView === "素材" ? (
           <CraapPlaceholder />
         ) : (
