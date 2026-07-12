@@ -14,13 +14,18 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/skills"
 )
 
 // loadOwnedProjectCard scopes {cid} to the owned {id} project (404-no-leak).
@@ -101,4 +106,135 @@ func (a *API) skipProjectCard(w http.ResponseWriter, r *http.Request) {
 		ProjectID: projectID, Surface: "studio", Type: "card_skipped", Payload: []byte(`{}`),
 	})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// submitProjectCard (SSE, Task 5) persists a filled card envelope, runs
+// CompleteCard (mints the evidence node once the spec's completion
+// predicates hold over the submitted anchors — design §6/agent-spec §3),
+// then refeeds one RunAgentStep so the coach can react. Mirrors
+// postProjectTurn's SSE shape (heartbeat, studioEmitter, streamAction)
+// rather than duplicating it, since both endpoints drive the same
+// RunAgentStep result vocabulary.
+func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
+	projectID, cid, ok := a.loadOwnedProjectCard(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	var body struct {
+		FieldValues json.RawMessage `json:"field_values"`
+		EventTrace  json.RawMessage `json:"event_trace"`
+		Anchors     json.RawMessage `json:"anchors"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := validateFieldValues(body.FieldValues); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := validateEventTrace(body.EventTrace); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := validateAnchors(body.Anchors); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	resolved, err := a.d.ChatResolver(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+
+	// Commit to streaming. After this, errors are SSE error events, not JSON.
+	sse, err := gateway.NewSSEWriter(w)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	em := &studioEmitter{sse: sse}
+
+	// Heartbeat until the turn returns or the client disconnects — clones
+	// postProjectTurn's shape exactly.
+	stop := make(chan struct{})
+	hbDone := make(chan struct{})
+	go func() {
+		defer close(hbDone)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-r.Context().Done():
+				return
+			case <-ticker.C:
+				_ = em.Heartbeat()
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-hbDone
+	}()
+
+	store := agent.NewSqlcAgentStore(a.d.Queries)
+	if err := store.SetCardInstanceAnchors(r.Context(), projectID, cid, body.Anchors); err != nil {
+		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+		_ = em.Done()
+		return
+	}
+	if err := store.SubmitProjectCardInstance(r.Context(), projectID, cid, body.FieldValues, body.EventTrace); err != nil {
+		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+		_ = em.Done()
+		return
+	}
+	if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "completed"); err != nil {
+		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+		_ = em.Done()
+		return
+	}
+
+	sk, _ := skills.ByID("writing-project")
+	deps := agent.AgentDeps{
+		Store: store, Provider: a.d.Provider, Resolved: resolved,
+		Sim: studioSimilarity(), Skill: &sk, SkipSurfaceCards: false,
+	}
+
+	// Mint the evidence node (if the submitted anchors satisfy the spec's
+	// completion predicates) BEFORE the refeed, so the coach's reaction can
+	// see the freshly promoted evidence in the same graph read.
+	row, err := store.GetCardInstance(r.Context(), cid)
+	if err == nil {
+		if spec, ok := cards.ByID(row.CardID); ok {
+			if _, err := agent.CompleteCard(r.Context(), deps, spec, cid); err != nil {
+				slog.Error("card submit: CompleteCard", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+	} else {
+		slog.Error("card submit: GetCardInstance", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "card_refeed"})
+	if err != nil {
+		slog.Error("card submit: refeed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+		_ = em.Done()
+		return
+	}
+	streamAction(em, action)
+	_ = em.Done()
 }

@@ -8,6 +8,8 @@ package api_test
 // rows, not a fixture.
 
 import (
+	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -17,25 +19,68 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
 // createProjectCardForTest inserts a card_instance scoped to the seeded demo
 // project (…0101) / task (…0100) via CreateProjectCardInstance, and returns
-// its id as a string for building request paths.
+// its id as a string for building request paths. Uses the "craap" spec
+// (not "sift_craap") — Task 5's submit test needs a card whose spec
+// actually declares completion predicates + graph_effects so a fully
+// answered submission can mint an evidence node; "sift_craap" declares
+// neither.
 func createProjectCardForTest(t *testing.T, pool *pgxpool.Pool) string {
 	t.Helper()
 	q := sqlc.New(pool)
 	ci, err := q.CreateProjectCardInstance(t.Context(), sqlc.CreateProjectCardInstanceParams{
 		TaskID:    mustUUID("00000000-0000-0000-0000-000000000100"),
 		ProjectID: pgtype.UUID{Bytes: mustUUID("00000000-0000-0000-0000-000000000101"), Valid: true},
-		CardID:    "sift_craap",
-		Status:    "proposed",
+		CardID:    "craap",
+		Status:    "active",
 	})
 	if err != nil {
 		t.Fatalf("createProjectCardForTest: %v", err)
 	}
 	return ci.ID.String()
+}
+
+// craapCompleteAnchors builds a fully-satisfying CRAAP []Anchor JSON: the
+// five CRAAP tags (currency/relevance/authority/accuracy/purpose) each with
+// a non-empty AI-authored Answer, plus a student-authored risk_note — the
+// exact shape craap.json's completion predicates
+// (every_tag_present + field_written_by risk_note/student) require. Every
+// anchor is keyed to the seeded material 00000000-0000-0000-0000-000000000110
+// (migration 0018, project …0101) so CompleteCard's anchoredMaterialID +
+// GraphEffects have a material to promote into an evidence node.
+func craapCompleteAnchors(t *testing.T, pool *pgxpool.Pool, cid string) string {
+	t.Helper()
+	_ = pool // seeded material id is a stable fixture (migration 0018); no live lookup needed
+	_ = cid
+	materialID := "00000000-0000-0000-0000-000000000110"
+	anchors := []agent.Anchor{
+		{ID: "a0", MaterialID: materialID, Dimension: "currency", Author: "ai", Answer: "2024年发布，数据较新"},
+		{ID: "a1", MaterialID: materialID, Dimension: "relevance", Author: "ai", Answer: "直接支持中国可持续论点"},
+		{ID: "a2", MaterialID: materialID, Dimension: "authority", Author: "ai", Answer: "NASA地球观测团队发布，具备权威性"},
+		{ID: "a3", MaterialID: materialID, Dimension: "accuracy", Author: "ai", Answer: "数据可在Nature Sustainability交叉核对"},
+		{ID: "a4", MaterialID: materialID, Dimension: "purpose", Author: "ai", Answer: "科普告知性质，非商业推广"},
+		{ID: "a5", MaterialID: materialID, Dimension: "risk_note", Author: "student", Answer: "仍需留意样本口径是否一致"},
+	}
+	b, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal craap anchors: %v", err)
+	}
+	return string(b)
+}
+
+// anyNodeOfType reports whether nodes contains a graph_node of the given type.
+func anyNodeOfType(nodes []sqlc.GraphNode, typ string) bool {
+	for _, n := range nodes {
+		if n.Type == typ {
+			return true
+		}
+	}
+	return false
 }
 
 func TestProjectCardActivateSkip(t *testing.T) {
@@ -62,5 +107,36 @@ func TestProjectCardActivateSkip(t *testing.T) {
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/"+uuid.NewString()+"/activate", nil), cookie))
 	if rr.Code != 404 {
 		t.Fatalf("foreign card: %d", rr.Code)
+	}
+}
+
+// TestProjectCardSubmit — Task 5: POST .../cards/{cid}/submit persists the
+// filled envelope, runs CompleteCard (which mints an evidence node once the
+// CRAAP completion predicates hold), and refeeds one RunAgentStep over SSE.
+func TestProjectCardSubmit(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	cid := createProjectCardForTest(t, pool) // craap on a seeded material, status active
+	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
+
+	// Fully-satisfying CRAAP anchors: all 5 tags answered + a student risk_note.
+	anchors := craapCompleteAnchors(t, pool, cid) // helper builds anchors keyed to the card's material
+	body := `{"field_values":{"final_verdict":"存疑"},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + anchors + `}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+	// status completed + an evidence node minted
+	q := sqlc.New(pool)
+	got, _ := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if got.Status != "completed" {
+		t.Fatalf("status = %q", got.Status)
+	}
+	nodes, _ := q.ListGraphNodesByProject(context.Background(), projectID)
+	if !anyNodeOfType(nodes, "evidence") {
+		t.Fatalf("no evidence node minted")
 	}
 }

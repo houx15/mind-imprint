@@ -173,6 +173,16 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
+	streamAction(em, action)
+	_ = em.Done()
+}
+
+// streamAction emits one RunAgentStep result over the Studio SSE emitter —
+// shared by postProjectTurn and submitProjectCard (Task 5), the two
+// endpoints that both drive RunAgentStep and stream whatever it returns.
+// Does not call em.Done(); callers do that themselves once, after any
+// endpoint-specific streaming this function doesn't cover.
+func streamAction(em *studioEmitter, action *agent.Action) {
 	switch {
 	case action == nil:
 		// silence: a legitimate first-class outcome (design §2) — nothing to
@@ -193,5 +203,4 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		gr := action.GateReport
 		_ = em.Gate(gr.Contract, gr.Status, 0, 0, gr.Missing) // passed/total: deferred polish, see GateReport.Items
 	}
-	_ = em.Done()
 }

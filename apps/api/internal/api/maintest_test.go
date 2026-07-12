@@ -22,9 +22,17 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/auth"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// cardsByID wires Deps.SpecByID to the embedded card catalog (cards.ByID) —
+// a tiny named wrapper so test setup reads `SpecByID: cardsByID()` instead
+// of repeating the func literal at every call site.
+func cardsByID() func(id string) (cards.Spec, bool) {
+	return cards.ByID
+}
 
 // newAPITestPool spins up a throwaway Postgres, runs all migrations (incl. seed),
 // and returns the pool. Container/pool torn down via t.Cleanup.
