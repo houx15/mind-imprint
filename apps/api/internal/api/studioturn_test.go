@@ -9,6 +9,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
@@ -110,5 +112,68 @@ func TestProjectTurn_SurfacesCraapCard(t *testing.T) {
 	cis, _ := sqlc.New(pool).ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse("00000000-0000-0000-0000-000000000101")))
 	if len(cis) == 0 {
 		t.Fatalf("no card_instance persisted")
+	}
+}
+
+// TestProjectTurn_SurfacesCraapCard_GeneratesAnchors — Task 2: the Studio
+// surface seam (streamAction -> surfaceAnchors) must generate + persist AI
+// anchors on the craap card_instance it just proposed, not emit an empty
+// `[]` anchors payload. Drives the real HTTP turn endpoint (same trigger as
+// TestProjectTurn_SurfacesCraapCard) with the fake provider/resolver: the
+// stub's scripted reply is not valid anchor-gen JSON, so
+// AnchorGenerator.Generate falls back to its deterministic per-tag path —
+// exercising the surface seam end to end with no live model/key required.
+func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event:\n%s", body)
+	}
+	// The SSE `card` frame itself must no longer carry the hardcoded `[]`.
+	if strings.Contains(body, `"anchors":[]`) {
+		t.Fatalf("card frame still emits empty anchors:\n%s", body)
+	}
+
+	q := sqlc.New(pool)
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	var cid uuid.UUID
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "craap" {
+			cid = ci.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no craap card_instance persisted")
+	}
+
+	row, err := q.GetCardInstance(context.Background(), cid)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	var anchors []agent.Anchor
+	if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
+		t.Fatalf("unmarshal persisted anchors: %v — raw: %s", err, row.Anchors)
+	}
+	if len(anchors) == 0 {
+		t.Fatalf("expected generated anchors on annotate-card surface, got none")
+	}
+	tags := map[string]bool{"currency": true, "relevance": true, "authority": true, "accuracy": true, "purpose": true}
+	for _, a := range anchors {
+		if !tags[a.Dimension] {
+			t.Fatalf("persisted anchor dimension %q is not a completion tag", a.Dimension)
+		}
 	}
 }

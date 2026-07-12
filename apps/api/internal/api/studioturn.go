@@ -1,10 +1,15 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/agent/enforcement"
@@ -173,7 +178,7 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
-	streamAction(em, action)
+	a.streamAction(r.Context(), em, action, projectID, store)
 	_ = em.Done()
 }
 
@@ -182,14 +187,23 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 // endpoints that both drive RunAgentStep and stream whatever it returns.
 // Does not call em.Done(); callers do that themselves once, after any
 // endpoint-specific streaming this function doesn't cover.
-func streamAction(em *studioEmitter, action *agent.Action) {
+func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent.Action, projectID uuid.UUID, store agent.AgentStore) {
 	switch {
 	case action == nil:
 		// silence: a legitimate first-class outcome (design §2) — nothing to
 		// stream but done.
 	case action.Kind == "surface_card":
 		spec, _ := cards.ByID(action.CardID)
-		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, []byte("[]"))
+		anchors := []byte("[]")
+		// Guidance level L1: the AI authors these anchors at surface time via
+		// AnchorGenerator. Higher guidance levels populate card_instance.anchors
+		// upstream (from student action) without touching this seam.
+		if spec.Primitive == "annotate" {
+			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID); ok {
+				anchors = raw
+			}
+		}
+		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, anchors)
 	case action.Kind == "intervention":
 		// Anchor is sent EMPTY, deliberately: a live intervention's anchor is
 		// a {kind,id} node reference, not the seed data's {label} shape — there
@@ -203,4 +217,56 @@ func streamAction(em *studioEmitter, action *agent.Action) {
 		gr := action.GateReport
 		_ = em.Gate(gr.Contract, gr.Status, 0, 0, gr.Missing) // passed/total: deferred polish, see GateReport.Items
 	}
+}
+
+// surfaceAnchors generates the L1 AI anchors for a just-surfaced annotate
+// card (e.g. craap), persists them on the card_instance, and returns the
+// JSON to carry on the same SSE `card` frame. Degrades to (nil,false) on
+// any error — parse failure, persistence failure, empty generation — so the
+// card still surfaces with no anchors rather than failing the whole turn;
+// generating pre-anchored questions is a nice-to-have on top of the card
+// existing, not a precondition for it.
+func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID string) ([]byte, bool) {
+	cid, err := uuid.Parse(cardInstanceID)
+	if err != nil {
+		return nil, false
+	}
+	materials, err := a.projectMaterials(ctx, projectID)
+	if err != nil {
+		return nil, false
+	}
+	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
+	anchors, err := gen.Generate(ctx, spec, materials)
+	if err != nil || len(anchors) == 0 {
+		return nil, false
+	}
+	raw, err := json.Marshal(anchors)
+	if err != nil {
+		return nil, false
+	}
+	if err := store.SetCardInstanceAnchors(ctx, projectID, cid, raw); err != nil {
+		slog.Warn("surface anchors: persist failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+		return nil, false
+	}
+	return raw, true
+}
+
+// projectMaterials reads the project's materials into the agent runtime's
+// view — ID (needed by the deterministic fallback) and Blocks (needed by
+// the real LLM path for quote->offset resolution). Mirrors
+// sqlcTurnStore.ListMaterials (turn.go), the legacy task-scoped equivalent.
+func (a *API) projectMaterials(ctx context.Context, projectID uuid.UUID) ([]agent.Material, error) {
+	rows, err := a.d.Queries.ListMaterialsByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]agent.Material, 0, len(rows))
+	for _, r := range rows {
+		m := agent.Material{ID: r.ID.String(), Title: r.Title}
+		if len(r.Blocks) > 0 {
+			_ = json.Unmarshal(r.Blocks, &m.Blocks)
+		}
+		out = append(out, m)
+	}
+	return out, nil
 }

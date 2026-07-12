@@ -251,6 +251,6 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
-	streamAction(em, action)
+	a.streamAction(r.Context(), em, action, projectID, store)
 	_ = em.Done()
 }
