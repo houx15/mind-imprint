@@ -83,7 +83,7 @@ started · ◐ in progress · ☑ done.
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
-| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (interactive loop) / 5d (routing cutover).** | 4 | ◐ (5a ☑, 5b ☑, 5c/5d ☐) |
+| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-cards) / 5d (routing cutover).** | 4 | ◐ (5a ☑, 5b ☑, 5c ☑, 5c-2/5d ☐) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
@@ -229,6 +229,35 @@ Each slice appends its spec/plan links and outcome here as it completes.
   `Material/CardInstance.TaskID`→pgtype.UUID + project-scope `GetCardInstance`); live coach loop/disposition/
   composer. **5d:** `StudioContainer.defaultEnsureSession` silently signs in as Phoebe on any getMe failure
   under `?studio` — MUST gate before the Studio is the real student surface; routing flip + retire workspace//turn.go.
-- **NEXT = Slice 5c** (interactive loop): live coach (post_intervention/check_gate) over SSE + a loop driver +
-  check_gate debounce; real disposition persistence + composer send → chat; the Slice-3 deferred debt; the
-  onboarding producer↔reader reconciliation. Then 5d (routing cutover), then 6–9 (deepen each center-pane view).
+- **Slice 5c** — ☑ **complete + MERGED to main (`4c14fd8`)** (branch `refactor2-slice5c-interactive-loop`,
+  16 commits `cd2d4fa`..`4c14fd8`). Spec `…/specs/2026-07-11-slice-5c-interactive-loop-design.md` · plan
+  `…/plans/2026-07-11-slice-5c-interactive-loop.md`. **The coach rail goes two-way live — CONVERSATIONAL
+  loop only (no tool-cards, no migration).** 11 tasks subagent-driven TDD. **DECISIONS (brainstorm):**
+  5c decomposed → conversational-loop-now / tool-cards→5c-2 (the map showed post_intervention+check_gate are
+  card_instances-free; only surface_card pulls the Slice-3 debt) · **chat-aware coach** (feed the student msg +
+  recent thread into the coach model turn) · **Similarity = keyless lexical** (rune-bigram Jaccard, no
+  embeddings/key — embeddings deferred) · **the coach reply IS the intervention row** (no dup assistant
+  chat_message; context + projection both merge student chat_messages ⋈ interventions). Delivered: `chat.sql`
+  (thread/message queries, project-joined) + `AgentStore` chat seam (`ChatTurn`/`LoadChatHistory`/
+  `CreateChatMessage`); chat-aware `ProposeIntervention`/`BuildCoachContext`; `AgentDeps.SkipSurfaceCards`
+  (zero-value = current behavior) + history threading in `RunAgentStep`; **exported keyless
+  `enforcement.LexicalSimilarity`**; gateway `SSEWriter.Intervention`/`.Gate`; **`POST /projects/{id}/turn`**
+  (ownership+entitlement-before-stream, heartbeat clone, ONE RunAgentStep/turn [一次只问一个], silence-legal,
+  cards-off); **`POST /projects/{id}/interventions/{iid}/disposition`**; `projectCoach` merges student bubbles;
+  frontend `api/studioTurn.ts` (SSE client) + `studio/conversation.ts` (live controller) + `StudioContainer`
+  composer/disposition wired live via `useSyncExternalStore` + composer `sending`. Gate: full Go suite
+  (testcontainers, serialized `-p 1`) exit 0 + web **457** green. **Per-task reviews caught + FIXED 2 real
+  bugs:** a **cross-tenant IDOR** on disposition (iid wasn't scoped to the owned project → now membership-checked,
+  404-no-leak) and a **`useSyncExternalStore` deviation** (reverted; test fixture stabilized). Final whole-branch
+  review (opus) = **Ready to merge — Yes** (no Critical/Important; verified wire-contract Go↔TS, no reply dup,
+  reload coherence, all 4 red lines, auth, back-compat); pre-merge polish wave (parse-guard + slog.Warn ×2 +
+  disposition retry-on-failure). **CARRY-FORWARDS — 5c-2:** surface_card + tool-card fill/refeed + card_instances;
+  live `gate` handling (controller drops gate events; studioturn gate emit hardcodes 0,0); multi-step/debounced
+  loop; token-streaming; a live anchor label (runtime stores `{kind,id}` → live+reload both chip-only). **cleanup:**
+  Slice-3 debt (task_id NULLABLE + project-scope GetCardInstance); unique partial index on
+  `chat_thread.seeded_project_id` (getOrCreateThread TOCTOU); onboarding live producer. **5d:** retire
+  RunTurn/turn.go/workspace; routing flip; gate `defaultEnsureSession`.
+- **NEXT = Slice 5c-2** (tool-cards live): set `SkipSurfaceCards:false` + wire the card sheet; `surface_card` →
+  card_instance → student fills → refeed; card-fill mutates the graph → **the multi-step / gate-debounced loop**
+  + live `gate` re-checks. (Card-fill mints card_instances — pair with the Slice-3 debt cleanup as needed.) Then
+  5d (routing cutover), then 6–9 (deepen each center-pane view).
