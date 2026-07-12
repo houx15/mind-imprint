@@ -67,6 +67,35 @@ func TestGenerateUsesStubThenPersistsAnchors(t *testing.T) {
 	}
 }
 
+func TestFallbackAnchorsKeysOffParamsTags(t *testing.T) {
+	spec, ok := cards.ByID("craap")
+	if !ok {
+		t.Fatal("craap spec not found")
+	}
+	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
+	got := fallbackAnchors(spec, mats)
+
+	// One anchor per completion tag, dimension == the tag (NOT the step title).
+	wantDims := map[string]bool{"currency": false, "relevance": false, "authority": false, "accuracy": false, "purpose": false}
+	for _, a := range got {
+		if _, isTag := wantDims[a.Dimension]; !isTag {
+			t.Fatalf("anchor dimension %q is not a completion tag (regression: step-title keying)", a.Dimension)
+		}
+		if a.Author != "ai" || a.Answer != "" {
+			t.Fatalf("generated anchor must be ai-authored with empty answer, got author=%q answer=%q", a.Author, a.Answer)
+		}
+		if a.Question == "" {
+			t.Fatalf("anchor for %q has empty question", a.Dimension)
+		}
+		wantDims[a.Dimension] = true
+	}
+	for tag, seen := range wantDims {
+		if !seen {
+			t.Fatalf("no generated anchor for completion tag %q", tag)
+		}
+	}
+}
+
 func TestGenerateFallsBackWhenModelReturnsGarbage(t *testing.T) {
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json at all"}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })

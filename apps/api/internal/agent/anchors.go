@@ -107,12 +107,34 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Ancho
 	return out, nil
 }
 
-// fallbackAnchors builds one unanchored ai anchor per card dimension (step title).
+// fallbackAnchors builds one unanchored ai anchor per card dimension. C2
+// annotate cards (params.tags present) key anchors off the completion tags so
+// EvaluateCompletion's every_tag_present is satisfiable; legacy cards (no C2
+// params block) key off step titles as before.
 func fallbackAnchors(spec cards.Spec, materials []Material) []Anchor {
 	matID := ""
 	if len(materials) > 0 {
 		matID = materials[0].ID
 	}
+	// C2 annotate cards (params.tags present) key anchors off the completion
+	// tags so EvaluateCompletion's every_tag_present is satisfiable. Guidance
+	// level L1: the AI authors the question here; higher levels populate
+	// anchors from student action upstream without touching this path.
+	if len(spec.Params.Tags) > 0 {
+		out := make([]Anchor, 0, len(spec.Params.Tags))
+		for i, tag := range spec.Params.Tags {
+			q := spec.Params.TagPrompts[tag]
+			if q == "" {
+				q = "从「" + tag + "」这个角度看这份材料，你注意到什么？"
+			}
+			out = append(out, Anchor{
+				ID: "a" + strconv.Itoa(i), MaterialID: matID, BlockID: "",
+				Dimension: tag, Author: "ai", Question: q, Answer: "",
+			})
+		}
+		return out
+	}
+	// Legacy step-title path (cards without a C2 params block).
 	out := make([]Anchor, 0, len(spec.Steps))
 	for i, st := range spec.Steps {
 		out = append(out, Anchor{
@@ -149,6 +171,26 @@ func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, mate
 }
 
 func buildAnchorPrompt(spec cards.Spec) string {
+	// C2 annotate cards (params.tags present) must key the model's dimension
+	// output off the completion tags, else EvaluateCompletion's
+	// every_tag_present can never be satisfied. Legacy cards (no C2 params
+	// block) keep the step-title dimension vocabulary.
+	if len(spec.Params.Tags) > 0 {
+		var dims strings.Builder
+		for _, tag := range spec.Params.Tags {
+			dims.WriteString("- " + tag)
+			if p := spec.Params.TagPrompts[tag]; p != "" {
+				dims.WriteString("：" + p)
+			}
+			dims.WriteString("\n")
+		}
+		return "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
+			"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。\n" +
+			"维度：\n" + dims.String() +
+			"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。" +
+			"dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。" +
+			"block_id 必须来自材料，quote 必须是该 block 里的原文片段。不要输出任何多余文字。"
+	}
 	var dims strings.Builder
 	for _, st := range spec.Steps {
 		dims.WriteString("- " + st.Title + "\n")
