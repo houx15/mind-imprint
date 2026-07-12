@@ -46,3 +46,26 @@ func TestSSEWriterEncodesEvents(t *testing.T) {
 		t.Fatalf("missing X-Accel-Buffering: no")
 	}
 }
+
+func TestSSEWriter_StudioEvents(t *testing.T) {
+	rec := httptest.NewRecorder()
+	w, err := NewSSEWriter(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Intervention("iid-1", "把它连到治理决心", "论证图 · 治理决心主张", "D5", "I2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Gate("build_argument", "partial", 2, 7, []string{"concession 待完成"}); err != nil {
+		t.Fatal(err)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"event: intervention", `"intervention_id":"iid-1"`, `"criterion":"D5"`, `"anchor":"论证图 · 治理决心主张"`,
+		"event: gate", `"contract":"build_argument"`, `"passed":2`, `"total":7`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing %q in:\n%s", want, body)
+		}
+	}
+}

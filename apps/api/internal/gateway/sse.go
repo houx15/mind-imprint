@@ -64,6 +64,27 @@ func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byt
 	})
 }
 
+// Intervention emits one coach intervention (Slice 5c Studio turn).
+func (s *SSEWriter) Intervention(interventionID, body, anchor, criterion, level string) error {
+	return s.writeEvent("intervention", map[string]any{
+		"intervention_id": interventionID,
+		"body":            body,
+		"anchor":          anchor,
+		"criterion":       criterion,
+		"level":           level,
+	})
+}
+
+// Gate emits a gate-check result.
+func (s *SSEWriter) Gate(contract, status string, passed, total int, missing []string) error {
+	if missing == nil {
+		missing = []string{}
+	}
+	return s.writeEvent("gate", map[string]any{
+		"contract": contract, "status": status, "passed": passed, "total": total, "missing": missing,
+	})
+}
+
 // Done ends the stream, carrying the persisted assistant message id.
 func (s *SSEWriter) Done(messageID string) error {
 	return s.writeEvent("done", map[string]string{"message_id": messageID})
