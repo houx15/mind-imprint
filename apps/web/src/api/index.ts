@@ -1,4 +1,4 @@
-import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep } from "@mind-imprint/contracts";
+import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection } from "@mind-imprint/contracts";
 import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
 import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
@@ -14,8 +14,9 @@ import {
 } from "./admin";
 import { listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch, MaterialFetchError } from "./materials";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
+import { listProjects, getProject, type ProjectListItem } from "./projects";
 
-export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult };
+export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem };
 export { ApiError } from "./client";
 export { MaterialFetchError } from "./materials";
 
@@ -56,6 +57,8 @@ export interface ApiClient {
   getCourseProgress(id: string): Promise<CourseProgress>;
   saveCourseProgress(id: string, input: { current_ordinal: number; completed_ordinals: number[] }): Promise<CourseProgress>;
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
+  listProjects(): Promise<ProjectListItem[]>;
+  getProject(id: string): Promise<StudioProjection>;
 }
 
 export const api: ApiClient = {
@@ -65,4 +68,5 @@ export const api: ApiClient = {
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
+  listProjects, getProject,
 };
