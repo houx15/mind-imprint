@@ -94,5 +94,6 @@ type Action struct {
 	InterventionID string
 	Verdict        string
 	CardInstanceID string      // set when Kind == "surface_card"
+	CardID         string      // set when Kind == "surface_card": the card spec id (e.g. "craap")
 	GateReport     *GateReport // set when Kind == "check_gate"
 }

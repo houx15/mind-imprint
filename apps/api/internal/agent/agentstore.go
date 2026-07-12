@@ -224,6 +224,40 @@ func (s *sqlcAgentStore) SetCardInstanceFramework(ctx context.Context, projectID
 	return err
 }
 
+// SetCardInstanceStatus writes the card_instance's lifecycle status (e.g.
+// "proposed" -> "active" on open).
+func (s *sqlcAgentStore) SetCardInstanceStatus(ctx context.Context, projectID, id uuid.UUID, status string) error {
+	_, err := s.q.SetCardInstanceStatus(ctx, sqlc.SetCardInstanceStatusParams{
+		ID:        id,
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Status:    status,
+	})
+	return err
+}
+
+// SetCardInstanceAnchors writes the card_instance's live anchors jsonb —
+// the card runtime's per-field/observe-event state.
+func (s *sqlcAgentStore) SetCardInstanceAnchors(ctx context.Context, projectID, id uuid.UUID, anchors []byte) error {
+	_, err := s.q.SetCardInstanceAnchors(ctx, sqlc.SetCardInstanceAnchorsParams{
+		ID:        id,
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Anchors:   anchors,
+	})
+	return err
+}
+
+// SubmitProjectCardInstance writes the student's final field_values +
+// event_trace on submission.
+func (s *sqlcAgentStore) SubmitProjectCardInstance(ctx context.Context, projectID, id uuid.UUID, fieldValues, eventTrace []byte) error {
+	_, err := s.q.SubmitProjectCardInstance(ctx, sqlc.SubmitProjectCardInstanceParams{
+		ID:          id,
+		ProjectID:   pgtype.UUID{Bytes: projectID, Valid: true},
+		FieldValues: fieldValues,
+		EventTrace:  eventTrace,
+	})
+	return err
+}
+
 // toCardInstanceRow maps the sqlc row to the AgentStore seam's shape.
 func toCardInstanceRow(row sqlc.CardInstance) CardInstanceRow {
 	var projectID uuid.UUID

@@ -55,6 +55,14 @@ type fakeAgentStore struct {
 
 	chatTurns              []ChatTurn
 	createChatMessageCalls int
+
+	setStatusCalls   int
+	lastStatus       string
+	setAnchorsCalls  int
+	lastAnchorsWrite []byte
+	submitCardCalls  int
+	lastFieldValues  []byte
+	lastEventTrace   []byte
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -126,6 +134,34 @@ func (f *fakeAgentStore) SetCardInstanceFramework(_ context.Context, _, id uuid.
 	row := f.cardInstances[id]
 	row.FrameworkFill = framework
 	f.cardInstances[id] = row
+	return nil
+}
+
+func (f *fakeAgentStore) SetCardInstanceStatus(_ context.Context, _, id uuid.UUID, status string) error {
+	f.setStatusCalls++
+	f.lastStatus = status
+	row := f.cardInstances[id]
+	row.Status = status
+	f.cardInstances[id] = row
+	return nil
+}
+
+func (f *fakeAgentStore) SetCardInstanceAnchors(_ context.Context, _, id uuid.UUID, anchors []byte) error {
+	f.setAnchorsCalls++
+	f.lastAnchorsWrite = anchors
+	row := f.cardInstances[id]
+	row.Anchors = anchors
+	f.cardInstances[id] = row
+	return nil
+}
+
+func (f *fakeAgentStore) SubmitProjectCardInstance(_ context.Context, _, id uuid.UUID, fieldValues, eventTrace []byte) error {
+	f.submitCardCalls++
+	f.lastFieldValues = fieldValues
+	f.lastEventTrace = eventTrace
+	// CardInstanceRow carries no FieldValues/EventTrace (agent-loop-only
+	// view, mirroring the real adapter's toCardInstanceRow) — recorded on
+	// the fake for assertions only, not round-tripped through the map.
 	return nil
 }
 
@@ -517,6 +553,28 @@ func TestRunAgentStep_SkipSurfaceCards(t *testing.T) {
 	}
 	if store.createCardInstanceCalls != createCallsBefore {
 		t.Fatalf("SkipSurfaceCards: want no additional card instantiated, before=%d after=%d", createCallsBefore, store.createCardInstanceCalls)
+	}
+}
+
+// TestSurfaceCard_SetsActionCardID covers Slice 5c-2 Task 2: SurfaceCard's
+// emitted Action carries CardID (the card spec id), not just
+// CardInstanceID — the SSE emitter (Task 3) needs the card id to tell the
+// client which card to render.
+func TestSurfaceCard_SetsActionCardID(t *testing.T) {
+	g := GraphView{Materials: []MaterialView{{ID: uuid.New().String(), Kind: "article"}}}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("unused"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+	act, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if act == nil || act.Kind != "surface_card" || act.CardID != "craap" {
+		t.Fatalf("want surface_card craap, got %+v", act)
 	}
 }
 

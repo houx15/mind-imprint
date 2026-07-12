@@ -79,6 +79,14 @@ type AgentStore interface {
 	GetCardInstance(ctx context.Context, id uuid.UUID) (CardInstanceRow, error)
 	SetCardInstanceFramework(ctx context.Context, projectID, id uuid.UUID, framework []byte) error
 
+	// SetCardInstanceStatus/SetCardInstanceAnchors/SubmitProjectCardInstance
+	// are the Slice 5c-2 card-runtime mutation seam: opening a card
+	// (proposed->active), each live field/observe-event write (anchors),
+	// and the student's final submission (field_values + event_trace).
+	SetCardInstanceStatus(ctx context.Context, projectID, id uuid.UUID, status string) error
+	SetCardInstanceAnchors(ctx context.Context, projectID, id uuid.UUID, anchors []byte) error
+	SubmitProjectCardInstance(ctx context.Context, projectID, id uuid.UUID, fieldValues, eventTrace []byte) error
+
 	// InsertGraphNode/InsertGraphEdge apply one card's graph_effects
 	// (CompleteCard, card_lifecycle.go) and mint SurfaceCard's
 	// card_instance->material edge. node/edge ids must already be resolved
