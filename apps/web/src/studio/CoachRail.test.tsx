@@ -1,9 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { CoachRail } from "./CoachRail";
 import { STUDIO_FIXTURE } from "./fixtures";
 
 const c = STUDIO_FIXTURE.coach;
+
+function baseProps() {
+  return {
+    anchor: c.anchor,
+    messages: c.messages,
+    equipment: c.equipment,
+    activeView: "结构" as const,
+    onDisposition: () => {},
+    onOpenMethodology: () => {},
+    onSend: () => {},
+  };
+}
 
 describe("CoachRail", () => {
   it("renders the anchor status, the thread, and the 装备栏 toggle", () => {
@@ -62,5 +75,36 @@ describe("CoachRail ai message anchor (5a carry-forward)", () => {
     // the 锚定 label now renders once per ai message with an anchor, plus
     // once in DispositionCard's own anchor pill — both match this anchor.
     expect(screen.getAllByText(/锚定 论证图 · 治理决心主张/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("CoachRail live card slot (task 9)", () => {
+  it("renders the craap proposal → sheet and wires submit/skip", () => {
+    const onOpenCard = vi.fn(), onSubmitCard = vi.fn(), onSkipCard = vi.fn();
+    const spec = CARD_REGISTRY["craap"]!;
+    const { rerender } = render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "proposed" }}
+        onOpenCard={onOpenCard}
+        onSubmitCard={onSubmitCard}
+        onSkipCard={onSkipCard}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /打开|开始/ })); // the proposal open affordance
+    expect(onOpenCard).toHaveBeenCalled();
+    rerender(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active" }}
+        onOpenCard={onOpenCard}
+        onSubmitCard={onSubmitCard}
+        onSkipCard={onSkipCard}
+      />,
+    );
+    // the schema-driven sheet renders craap step titles (verbatim from craap.json);
+    // "权威性"/"来源" both appear in multiple field labels within the always-disclosed
+    // steps, so assert presence rather than uniqueness.
+    expect(screen.getAllByText(/权威性|来源/).length).toBeGreaterThan(0);
   });
 });

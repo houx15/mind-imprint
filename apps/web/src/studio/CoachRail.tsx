@@ -1,8 +1,17 @@
 import { useState } from "react";
+import type { CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
+import { StudioCardSheet } from "./StudioCardSheet";
 import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
+
+export type LiveCard = {
+  cardInstanceId: string;
+  cardId: string;
+  spec: CardSpec;
+  status: "proposed" | "active";
+};
 
 export type CoachRailProps = {
   anchor: string;
@@ -13,6 +22,13 @@ export type CoachRailProps = {
   onOpenMethodology: (id: string) => void;
   onSend: (t: string) => void;
   sending?: boolean;
+  // Live tool-card slot (Task 9): when set, this replaces the disposition/
+  // placeholder card with either a proposal bubble (status "proposed") or
+  // the schema-driven card sheet (status "active").
+  card?: LiveCard | null;
+  onOpenCard?: (cardInstanceId: string) => void;
+  onSubmitCard?: (finalEnvelope: CardInstance) => void;
+  onSkipCard?: (eventTrace: TraceEvent[]) => void;
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -89,6 +105,49 @@ function CraapPlaceholder() {
   );
 }
 
+function CardProposalBubble({ spec, onOpen }: { spec: CardSpec; onOpen: () => void }) {
+  return (
+    <div style={{ border: "1px solid #F0DACF", borderRadius: 14, overflow: "hidden", boxShadow: "0 3px 14px rgba(217,130,99,.10)" }}>
+      <div style={{ height: 4, background: "#D98263" }} />
+      <div style={{ padding: "12px 15px 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#D98263" }}>工具卡</span>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>
+            {spec.category}
+          </span>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#1C2333" }}>{spec.name}</div>
+        <div style={{ fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6, marginTop: 3 }}>{spec.purpose}</div>
+      </div>
+      <div style={{ padding: "0 15px 14px" }}>
+        <button
+          type="button"
+          onClick={onOpen}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: "#2A3B7A",
+            color: "#fff",
+            border: "none",
+            padding: "8px 16px",
+            borderRadius: 10,
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          打开
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CoachRail({
   anchor,
   messages,
@@ -98,6 +157,10 @@ export function CoachRail({
   onOpenMethodology,
   onSend,
   sending = false,
+  card = null,
+  onOpenCard,
+  onSubmitCard,
+  onSkipCard,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -198,7 +261,15 @@ export function CoachRail({
           </div>
         ))}
 
-        {activeView === "素材" ? (
+        {card && card.status === "proposed" ? (
+          <CardProposalBubble spec={card.spec} onOpen={() => onOpenCard?.(card.cardInstanceId)} />
+        ) : card && card.status === "active" ? (
+          <StudioCardSheet
+            spec={card.spec}
+            onSubmit={(finalEnvelope) => onSubmitCard?.(finalEnvelope)}
+            onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+          />
+        ) : activeView === "素材" ? (
           <CraapPlaceholder />
         ) : (
           <DispositionCard
