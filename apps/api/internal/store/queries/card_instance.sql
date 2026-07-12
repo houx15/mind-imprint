@@ -27,6 +27,11 @@ UPDATE card_instances SET status = $3
 WHERE id = $1 AND project_id = $2
 RETURNING *;
 
+-- name: SubmitProjectCardInstance :one
+UPDATE card_instances SET field_values = $3, event_trace = $4
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
 -- name: GetCardInstance :one
 SELECT * FROM card_instances WHERE id = $1;
 

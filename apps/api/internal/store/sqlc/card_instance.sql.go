@@ -231,3 +231,43 @@ func (q *Queries) SetCardInstanceStatus(ctx context.Context, arg SetCardInstance
 	)
 	return i, err
 }
+
+const submitProjectCardInstance = `-- name: SubmitProjectCardInstance :one
+UPDATE card_instances SET field_values = $3, event_trace = $4
+WHERE id = $1 AND project_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill
+`
+
+type SubmitProjectCardInstanceParams struct {
+	ID          uuid.UUID   `json:"id"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+	FieldValues []byte      `json:"field_values"`
+	EventTrace  []byte      `json:"event_trace"`
+}
+
+func (q *Queries) SubmitProjectCardInstance(ctx context.Context, arg SubmitProjectCardInstanceParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, submitProjectCardInstance,
+		arg.ID,
+		arg.ProjectID,
+		arg.FieldValues,
+		arg.EventTrace,
+	)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Anchors,
+		&i.ProjectID,
+		&i.ContractRef,
+		&i.FrameworkFill,
+	)
+	return i, err
+}
