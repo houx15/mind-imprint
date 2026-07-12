@@ -107,6 +107,51 @@ func TestCheckGate_EmptyAndPartial(t *testing.T) {
 	}
 }
 
+// TestCheckGate_EverySourceEvaluatedAttemptedMirrorsArticleOnlyScan covers
+// the Important review finding: attemptedFor's every_source_evaluated case
+// must mirror evalMachineItem's own scan, which only considers "article"
+// materials (m.Kind != "article" { continue }). A material of kind "draft"
+// (the student's own draft) must not count as an attempt on this predicate.
+func TestCheckGate_EverySourceEvaluatedAttemptedMirrorsArticleOnlyScan(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	findItem := func(items []ItemResult, name string) ItemResult {
+		for _, it := range items {
+			if it.Name == name {
+				return it
+			}
+		}
+		t.Fatalf("item %q not found in report", name)
+		return ItemResult{}
+	}
+
+	// Only a draft material (no article) → evalMachineItem's article-only
+	// scan finds nothing to fail on, so Pass vacuously true; Attempted must
+	// be false since no article was ever scanned.
+	draftOnly := CheckGate(sk, "evaluate_sources", GraphView{
+		Materials: []MaterialView{{ID: "d1", Kind: "draft"}},
+	}, RecordedGate{})
+	it := findItem(draftOnly.Items, "every_source_evaluated")
+	if it.Attempted {
+		t.Fatal("draft-only materials → Attempted should be false (no article scanned)")
+	}
+
+	// Empty materials → same vacuous-pass, not-attempted case.
+	empty := CheckGate(sk, "evaluate_sources", GraphView{}, RecordedGate{})
+	it = findItem(empty.Items, "every_source_evaluated")
+	if it.Attempted {
+		t.Fatal("no materials → Attempted should be false")
+	}
+
+	// An article material → genuine attempt, regardless of Pass/Fail.
+	withArticle := CheckGate(sk, "evaluate_sources", GraphView{
+		Materials: []MaterialView{{ID: "m1", Kind: "article"}},
+	}, RecordedGate{})
+	it = findItem(withArticle.Items, "every_source_evaluated")
+	if !it.Attempted {
+		t.Fatal("an article material present → Attempted should be true")
+	}
+}
+
 func TestCheckGate_SolidOnlyFromRecordedConfirmation(t *testing.T) {
 	sk, _ := skills.ByID("writing-project")
 	g := GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}}

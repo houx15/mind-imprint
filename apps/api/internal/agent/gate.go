@@ -124,6 +124,21 @@ func hasAnyNodeOfType(g GraphView, nodeType string) bool {
 	return false
 }
 
+// hasAnyMaterialOfKind reports whether the graph has at least one material of
+// the given kind ("article" | "draft"). Symmetric to hasAnyNodeOfType, but
+// over g.Materials — used by attemptedFor's every_source_evaluated case to
+// mirror evalMachineItem's own scan, which only considers "article" materials
+// (a student's own "draft" material must never contribute attempted progress
+// on this predicate).
+func hasAnyMaterialOfKind(g GraphView, kind string) bool {
+	for _, m := range g.Materials {
+		if m.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // attemptedFor reports whether a machine item's Pass reflects genuine
 // progress rather than a negation-style predicate passing vacuously because
 // the scanned node/material type doesn't exist yet (see ItemResult.Attempted
@@ -140,7 +155,7 @@ func attemptedFor(item skills.MachineItem, g GraphView) bool {
 	case "no_unsupported_claim", "no_single_sourced_claim":
 		return hasAnyNodeOfType(g, "claim")
 	case "every_source_evaluated":
-		return len(g.Materials) > 0
+		return hasAnyMaterialOfKind(g, "article")
 	default:
 		return false
 	}
