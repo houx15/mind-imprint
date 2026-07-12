@@ -83,7 +83,7 @@ started · ◐ in progress · ☑ done.
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
-| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (live wiring).** | 4 | ◐ (5a ☑, 5b ☐) |
+| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (interactive loop) / 5d (routing cutover).** | 4 | ◐ (5a ☑, 5b ☑, 5c/5d ☐) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☐ |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
@@ -205,3 +205,30 @@ Each slice appends its spec/plan links and outcome here as it completes.
   check_gate) over SSE · real disposition persistence · the app-routing flip + retiring the old chat
   `workspace/` + legacy `RunTurn`/`turn.go` · the Slice-3 deferred debt (task_id-nullable migration +
   project-scope `GetCardInstance`) · a live loop driver + check_gate debounce.
+- **Slice 5b** — ☑ **complete + MERGED to main (`fe0e5bc`)** (branch `refactor2-slice5b-studio-readpath`,
+  20 commits `d3333b9`..`fe0e5bc`). Spec `…/specs/2026-07-11-slice-5b-studio-readpath-design.md` · plan
+  `…/plans/2026-07-11-slice-5b-studio-readpath.md`. **First backend-wired UI slice — READ PATH ONLY**,
+  11 tasks subagent-driven TDD. **DECISION: 5b decomposed 5→5a/5b/5c/5d; 5b = read path only** (brainstorm
+  fork). Delivered: **lean `StudioProjection` Zod contract** (`packages/contracts/src/studioState.ts`: shared
+  view types + wire DTO — NOT the full frontend StudioState; frontend maps it, stubbing deferred center
+  panes) + Go↔Zod parity DTO (`internal/studio/dto.go`); **pure Go read-projection** `internal/studio`
+  (`projection.go` stations via `TopoOrder`+`ReconcileGates`, coach anchor/thread from interventions,
+  equipment from card_instances, onboarding from decode_task nodes; `load.go`); **skill contract `title`s**
+  (S0–S6 Chinese names on `writing-project.json`); **`agent` pure helpers** `GraphViewFromRows`/
+  `RecordedGatesFromNodes` + **`agent.ItemResult.Attempted`** (genuine-vs-vacuous gate progress, mirrors
+  `evalMachineItem`'s per-predicate scans incl. article-only materials); **migration 0018** seed demo
+  Task(admin)+Project(Phoebe) ≈ STUDIO_FIXTURE (S4 current, orphan-evidence); **`GET /projects` + `/projects/{id}`**
+  (ownership 404-not-403); frontend **`api/projects.ts`** (list-unwraps-envelope / detail-Zod-parses) +
+  **`state.ts` adopts contract types** + CoachRail `锚定` anchor render + live **`StudioContainer`** mapping
+  projection→StudioState + additive **`?studio`** route (AppShell/Root/workspace UNTOUCHED). Gate: full Go
+  suite (testcontainers) exit 0 + web **453** green + tsc clean. Final whole-branch review (opus) = merge
+  WITH FIXES → **caught a false green "门禁通过" banner** on the S4 landing view (StructureView `allClean`
+  vacuously-true on stubbed `structure:[]`) → FIXED (deferred-shell placeholder when empty) + seed
+  aggregate-comment + `Project` dedup. **HARD CARRY-FORWARDS — 5c:** onboarding producer↔reader shape
+  (`agent.Intake` writes `{text}` vs reader's `{restate_prompt,rows}`); Slice-3 debt (task_id NULLABLE ripples
+  `Material/CardInstance.TaskID`→pgtype.UUID + project-scope `GetCardInstance`); live coach loop/disposition/
+  composer. **5d:** `StudioContainer.defaultEnsureSession` silently signs in as Phoebe on any getMe failure
+  under `?studio` — MUST gate before the Studio is the real student surface; routing flip + retire workspace//turn.go.
+- **NEXT = Slice 5c** (interactive loop): live coach (post_intervention/check_gate) over SSE + a loop driver +
+  check_gate debounce; real disposition persistence + composer send → chat; the Slice-3 deferred debt; the
+  onboarding producer↔reader reconciliation. Then 5d (routing cutover), then 6–9 (deepen each center-pane view).
