@@ -73,16 +73,6 @@ func craapCompleteAnchors(t *testing.T, pool *pgxpool.Pool, cid string) string {
 	return string(b)
 }
 
-// anyNodeOfType reports whether nodes contains a graph_node of the given type.
-func anyNodeOfType(nodes []sqlc.GraphNode, typ string) bool {
-	for _, n := range nodes {
-		if n.Type == typ {
-			return true
-		}
-	}
-	return false
-}
-
 func TestProjectCardActivateSkip(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
@@ -121,6 +111,22 @@ func TestProjectCardSubmit(t *testing.T) {
 	cid := createProjectCardForTest(t, pool) // craap on a seeded material, status active
 	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
 
+	q := sqlc.New(pool)
+
+	// Snapshot graph_nodes BEFORE the submit — the seed migration (0018)
+	// already plants a pre-existing type=evidence node in this project (the
+	// 5b orphan-evidence fixture, id …0144, body {"text":...}). Asserting
+	// "any evidence node exists" would pass even if CompleteCard mints
+	// nothing, so we must isolate the nodes that are NEW as of this submit.
+	before, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (before): %v", err)
+	}
+	beforeIDs := make(map[uuid.UUID]bool, len(before))
+	for _, n := range before {
+		beforeIDs[n.ID] = true
+	}
+
 	// Fully-satisfying CRAAP anchors: all 5 tags answered + a student risk_note.
 	anchors := craapCompleteAnchors(t, pool, cid) // helper builds anchors keyed to the card's material
 	body := `{"field_values":{"final_verdict":"存疑"},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + anchors + `}`
@@ -129,14 +135,39 @@ func TestProjectCardSubmit(t *testing.T) {
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
 		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
 	}
-	// status completed + an evidence node minted
-	q := sqlc.New(pool)
+	// status completed
 	got, _ := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
 	if got.Status != "completed" {
 		t.Fatalf("status = %q", got.Status)
 	}
-	nodes, _ := q.ListGraphNodesByProject(context.Background(), projectID)
-	if !anyNodeOfType(nodes, "evidence") {
-		t.Fatalf("no evidence node minted")
+
+	// A NEW evidence node was minted by this submit — not merely the
+	// pre-seeded one. Delta by identity (id not present before the submit),
+	// then belt-and-suspenders on body shape: GraphEffects mints
+	// Body: {"source_quality": {...}} (card_effects.go), which the seed
+	// node's {"text": "..."} body does not have.
+	after, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (after): %v", err)
+	}
+	var newEvidence *sqlc.GraphNode
+	for i, n := range after {
+		if beforeIDs[n.ID] {
+			continue // pre-existing node (e.g. the seed's orphan evidence fixture)
+		}
+		if n.Type == "evidence" {
+			newEvidence = &after[i]
+			break
+		}
+	}
+	if newEvidence == nil {
+		t.Fatalf("no NEW evidence node minted by submit (found %d nodes before, %d after)", len(before), len(after))
+	}
+	var decodedBody map[string]json.RawMessage
+	if err := json.Unmarshal(newEvidence.Body, &decodedBody); err != nil {
+		t.Fatalf("unmarshal minted evidence node body: %v — %s", err, newEvidence.Body)
+	}
+	if _, ok := decodedBody["source_quality"]; !ok {
+		t.Fatalf("minted evidence node body missing source_quality (CRAAP GraphEffects shape): %s", newEvidence.Body)
 	}
 }
