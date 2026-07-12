@@ -9,7 +9,8 @@ export type ProjectListItem = {
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {
-  return apiFetch<ProjectListItem[]>("/api/v1/projects");
+  const res = await apiFetch<{ projects: ProjectListItem[] }>("/api/v1/projects");
+  return res.projects;
 }
 
 export async function getProject(id: string): Promise<StudioProjection> {
