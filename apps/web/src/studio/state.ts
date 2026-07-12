@@ -1,24 +1,10 @@
 import type { SourceFixture } from "../workspace/material/fixtures";
+import type {
+  Station, StationCode, StationView, StationState,
+  CoachMessage, EquipCard, RubricRow, OnboardingFx,
+} from "@mind-imprint/contracts";
 
-export type StationCode = "S0" | "S1" | "S2" | "S3" | "S4" | "S5" | "S6";
-export type StationView = "结构" | "素材" | "写作" | "评估" | "onboarding";
-export type StationState = "done" | "current" | "locked";
-
-export type Station = {
-  code: StationCode;
-  name: string;
-  view: StationView;
-  state: StationState;
-  gate?: { total: number; passed: number };
-  backflow?: boolean;
-};
-
-export type CoachMessage =
-  | { kind: "student"; body: string }
-  | { kind: "ai"; body: string; tag?: string }
-  | { kind: "flag"; label: string; body: string };
-
-export type EquipCard = { id: string; name: string; spont: "自发" | "提示后"; meth: string };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
 
 export type StructureCardFx = {
   id: string;
@@ -34,13 +20,6 @@ export type GaugeFx = {
   lit: number;
   note: string;
   level: "full" | "partial" | "empty";
-};
-
-export type RubricRow = { official: string; plain: string; weak: boolean };
-export type OnboardingFx = {
-  restatePrompt: string;
-  rubricRows: RubricRow[];
-  planSteps: string[];  // 立题 / 找素材 / 评估来源 / 搭论证 / 成稿 / 反思归档
 };
 
 export type StudioState = {

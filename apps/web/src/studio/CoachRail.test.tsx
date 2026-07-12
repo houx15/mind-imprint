@@ -19,13 +19,15 @@ describe("CoachRail", () => {
       activeView="结构" onDisposition={() => {}} onOpenMethodology={() => {}} onSend={() => {}} />);
     expect(screen.getAllByTitle("装备栏 · 工具卡")).toHaveLength(1);
   });
-  it("does not double the 锚定 label: the disposition card's tag pill is a bare criterion, not a second 锚定", () => {
+  it("does not double-prefix the tag chip: the ai message's tag is a bare criterion, not '锚定 D5'", () => {
     render(<CoachRail anchor={c.anchor} messages={c.messages} equipment={c.equipment}
       activeView="结构" onDisposition={() => {}} onOpenMethodology={() => {}} onSend={() => {}} />);
-    // exactly one "锚定 ..." label should render (DispositionCard's anchor
-    // pill); the ai message's tag must be the bare criterion (e.g. "D5"),
-    // not "锚定 D5" — otherwise this rail shows "锚定" twice.
-    expect(screen.getAllByText(/^锚定/).length).toBe(1);
+    // "锚定 ..." labels legitimately render twice now: once next to the ai
+    // message's own tag chip (when the message carries an anchor), once in
+    // DispositionCard's anchor pill. Neither is "锚定 D5" — the tag chip
+    // itself must stay a bare criterion (e.g. "D5"), never prefixed with 锚定.
+    expect(screen.getAllByText(/^锚定/).length).toBe(2);
+    expect(screen.queryByText("锚定 D5")).not.toBeInTheDocument();
     // "D5" renders twice by design: once as the thread message's own tag
     // pill, once as DispositionCard's tag pill — neither is prefixed with 锚定.
     expect(screen.getAllByText("D5").length).toBeGreaterThan(0);
@@ -38,5 +40,27 @@ describe("CoachRail", () => {
     fireEvent.change(screen.getByPlaceholderText(/发给印记/), { target: { value: "我加了一条证据" } });
     fireEvent.click(screen.getByLabelText(/发送|send/i));
     expect(onSend).toHaveBeenCalledWith("我加了一条证据");
+  });
+});
+
+describe("CoachRail ai message anchor (5a carry-forward)", () => {
+  it("renders the criterion chip and the 锚定 anchor label", () => {
+    render(
+      <CoachRail
+        anchor="论证图 · 治理决心主张"
+        messages={[{ kind: "ai", body: "补完，门禁第①条就过了。", tag: "D5", anchor: "论证图 · 治理决心主张" }]}
+        equipment={STUDIO_FIXTURE.coach.equipment}
+        activeView="结构"
+        onDisposition={() => {}}
+        onOpenMethodology={() => {}}
+        onSend={() => {}}
+      />,
+    );
+    // "D5" renders twice by design (thread tag pill + DispositionCard tag
+    // pill), same as the fixture-driven tests above.
+    expect(screen.getAllByText("D5").length).toBeGreaterThan(0);
+    // the 锚定 label now renders once per ai message with an anchor, plus
+    // once in DispositionCard's own anchor pill — both match this anchor.
+    expect(screen.getAllByText(/锚定 论证图 · 治理决心主张/).length).toBeGreaterThan(0);
   });
 });

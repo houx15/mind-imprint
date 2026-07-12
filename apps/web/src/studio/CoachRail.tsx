@@ -169,6 +169,9 @@ export function CoachRail({
                       >
                         {m.tag}
                       </span>
+                      {m.anchor && (
+                        <span style={{ fontSize: 10.5, color: "#AEB4C2", fontWeight: 600 }}>锚定 {m.anchor}</span>
+                      )}
                     </div>
                   )}
                   <div style={{ background: "#F7F8FB", border: "1px solid #EEF0F5", padding: "10px 14px", borderRadius: "4px 14px 14px 14px", fontSize: 13.5, lineHeight: 1.7, color: "#2B3346" }}>

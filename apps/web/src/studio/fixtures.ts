@@ -36,11 +36,12 @@ export const STUDIO_FIXTURE: StudioState = {
       { kind: "student", body: "它想证明中国是认真在转型的。" },
       {
         kind: "ai",
-        // Bare criterion — no "锚定" prefix. The "锚定" label is chrome that
-        // belongs to the anchor itself (already shown in CoachRail's header
-        // status pill and again next to this tag in DispositionCard's
-        // "锚定 {anchor}" text); prefixing it here produced a doubled 锚定.
+        // `tag` stays a bare criterion — never "锚定 D5". `anchor` is the
+        // separate carried-forward field: CoachRail renders it as its own
+        // "锚定 {anchor}" label next to the tag chip (matching the label
+        // already shown in the header status pill / DispositionCard).
         tag: "D5",
+        anchor: "论证图 · 治理决心主张",
         body: "那就把它连到「治理决心」那条主张下——不过那条现在是「裸主张」，还没有证据。这两处正好互相补上。补完，门禁第①条就过了。",
       },
     ],
