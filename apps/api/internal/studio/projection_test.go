@@ -2,6 +2,7 @@ package studio
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -170,5 +171,25 @@ func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	}
 	if eq[1].Spont != "自发" {
 		t.Fatalf("concession spont = %q, want 自发", eq[1].Spont)
+	}
+}
+
+func TestProjectCoach_MergesStudentMessages(t *testing.T) {
+	t1 := time.Now()
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Body: "图上有一处孤儿证据", Anchor: []byte(`{"label":"孤儿证据"}`), Type: "flag", CreatedAt: t1},
+		},
+		ChatMessages: []sqlc.ChatMessage{
+			{Role: "user", Content: "它想证明中国在认真转型", CreatedAt: t1.Add(time.Second)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if len(coach.Messages) != 2 {
+		t.Fatalf("want 2 messages, got %d", len(coach.Messages))
+	}
+	// time order: flag first, then the student bubble.
+	if coach.Messages[0].Kind != "flag" || coach.Messages[1].Kind != "student" || coach.Messages[1].Body != "它想证明中国在认真转型" {
+		t.Fatalf("merged = %+v", coach.Messages)
 	}
 }

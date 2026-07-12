@@ -2,6 +2,8 @@ package studio
 
 import (
 	"encoding/json"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,6 +23,7 @@ type ProjectData struct {
 	Plan          *sqlc.GraphNode  // plan node, nil if none
 	Interventions []sqlc.Intervention
 	Cards         []sqlc.CardInstance
+	ChatMessages  []sqlc.ChatMessage
 }
 
 type planBody struct {
@@ -144,21 +147,38 @@ func anchorLabel(raw []byte) string {
 }
 
 // projectCoach builds the coach rail: anchor (latest intervention's, else the
-// current station title) + the intervention thread. No student bubbles in 5b.
+// current station title) + the time-ordered thread merging the intervention
+// thread (flag/ai) with the student's own chat_messages (5c: "both sides").
 func projectCoach(d ProjectData, currentTitle string) CoachDTO {
-	c := CoachDTO{Messages: make([]CoachMessageDTO, 0, len(d.Interventions))}
+	type stamped struct {
+		at  time.Time
+		msg CoachMessageDTO
+	}
+	all := make([]stamped, 0, len(d.Interventions)+len(d.ChatMessages))
 	for _, iv := range d.Interventions {
 		label := anchorLabel(iv.Anchor)
 		if iv.Type == "flag" {
 			// A flag's headline is its anchor label; the criterion stays a tag.
-			c.Messages = append(c.Messages, CoachMessageDTO{Kind: "flag", Label: label, Body: iv.Body})
+			all = append(all, stamped{at: iv.CreatedAt, msg: CoachMessageDTO{Kind: "flag", Label: label, Body: iv.Body}})
 			continue
 		}
 		msg := CoachMessageDTO{Kind: "ai", Body: iv.Body, Anchor: label}
 		if iv.Criterion != nil {
 			msg.Tag = *iv.Criterion
 		}
-		c.Messages = append(c.Messages, msg)
+		all = append(all, stamped{at: iv.CreatedAt, msg: msg})
+	}
+	for _, cm := range d.ChatMessages {
+		if cm.Role != "user" {
+			continue
+		}
+		all = append(all, stamped{at: cm.CreatedAt, msg: CoachMessageDTO{Kind: "student", Body: cm.Content}})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].at.Before(all[j].at) })
+
+	c := CoachDTO{Messages: make([]CoachMessageDTO, len(all))}
+	for i, st := range all {
+		c.Messages[i] = st.msg
 	}
 	if n := len(d.Interventions); n > 0 {
 		c.Anchor = anchorLabel(d.Interventions[n-1].Anchor)
