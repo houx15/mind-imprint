@@ -39,7 +39,7 @@ type CoachDTO struct {
 // Tag/Anchor. For kind="flag": Label + Body. For kind="student": Body.
 type CoachMessageDTO struct {
 	Kind   string `json:"kind"`
-	Body   string `json:"body,omitempty"`
+	Body   string `json:"body"`
 	Tag    string `json:"tag,omitempty"`
 	Anchor string `json:"anchor,omitempty"`
 	Label  string `json:"label,omitempty"`

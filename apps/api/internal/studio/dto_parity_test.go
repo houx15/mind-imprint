@@ -23,18 +23,170 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		t.Fatal(err)
-	}
-	top := keys(m)
+	top := marshalKeys(t, raw)
 	want := []string{"activeStation", "coach", "onboarding", "project", "stations"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
-	// Spot-check a station's keys and that gate is camelCase total/passed.
-	if !bytesHasKeys(t, raw, "论证构建", []string{"code", "name", "view", "state", "gate"}) {
-		t.Fatalf("station keys mismatch: %s", raw)
+
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+
+	// coach: {anchor, messages, equipment}
+	assertKeys(t, m["coach"], []string{"anchor", "equipment", "messages"})
+
+	var coach map[string]json.RawMessage
+	if err := json.Unmarshal(m["coach"], &coach); err != nil {
+		t.Fatal(err)
+	}
+
+	// coach.messages[0] is an "ai" message with tag+anchor: {kind,body,tag,anchor}
+	var messages []json.RawMessage
+	if err := json.Unmarshal(coach["messages"], &messages); err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("coach.messages len = %d, want 1", len(messages))
+	}
+	assertKeys(t, messages[0], []string{"anchor", "body", "kind", "tag"})
+
+	// coach.equipment[0]: {id,name,spont,meth}
+	var equipment []json.RawMessage
+	if err := json.Unmarshal(coach["equipment"], &equipment); err != nil {
+		t.Fatal(err)
+	}
+	if len(equipment) != 1 {
+		t.Fatalf("coach.equipment len = %d, want 1", len(equipment))
+	}
+	assertKeys(t, equipment[0], []string{"id", "meth", "name", "spont"})
+
+	// onboarding: {restatePrompt, rubricRows, planSteps}
+	assertKeys(t, m["onboarding"], []string{"planSteps", "restatePrompt", "rubricRows"})
+
+	var onboarding map[string]json.RawMessage
+	if err := json.Unmarshal(m["onboarding"], &onboarding); err != nil {
+		t.Fatal(err)
+	}
+	var rubricRows []json.RawMessage
+	if err := json.Unmarshal(onboarding["rubricRows"], &rubricRows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rubricRows) != 1 {
+		t.Fatalf("onboarding.rubricRows len = %d, want 1", len(rubricRows))
+	}
+	// rubric row: {official,plain,weak}
+	assertKeys(t, rubricRows[0], []string{"official", "plain", "weak"})
+
+	// station: {code,name,view,state,gate} (backflow omitted when false, gate present)
+	var stations []json.RawMessage
+	if err := json.Unmarshal(m["stations"], &stations); err != nil {
+		t.Fatal(err)
+	}
+	if len(stations) != 1 {
+		t.Fatalf("stations len = %d, want 1", len(stations))
+	}
+	assertKeys(t, stations[0], []string{"code", "gate", "name", "state", "view"})
+}
+
+// TestCoachMessageDTOKinds asserts each CoachMessageDTO union variant marshals
+// to exactly its expected key set per packages/contracts/src/studioState.ts
+// CoachMessage: student -> {kind,body}; ai -> {kind,body,tag?,anchor?};
+// flag -> {kind,label,body}. Body is REQUIRED on every variant (never omitted,
+// even when empty) — this is the regression this test guards against.
+func TestCoachMessageDTOKinds(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  CoachMessageDTO
+		want []string
+	}{
+		{
+			name: "ai with tag and anchor",
+			msg:  CoachMessageDTO{Kind: "ai", Body: "b", Tag: "D5", Anchor: "论证图 · 治理决心主张"},
+			want: []string{"anchor", "body", "kind", "tag"},
+		},
+		{
+			name: "ai with neither tag nor anchor",
+			msg:  CoachMessageDTO{Kind: "ai", Body: "b"},
+			want: []string{"body", "kind"},
+		},
+		{
+			name: "student",
+			msg:  CoachMessageDTO{Kind: "student", Body: "s"},
+			want: []string{"body", "kind"},
+		},
+		{
+			name: "flag",
+			msg:  CoachMessageDTO{Kind: "flag", Label: "跳过", Body: "f"},
+			want: []string{"body", "kind", "label"},
+		},
+		{
+			name: "ai with empty body must still include body key",
+			msg:  CoachMessageDTO{Kind: "ai", Body: ""},
+			want: []string{"body", "kind"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			raw, err := json.Marshal(c.msg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := marshalKeys(t, raw)
+			if !equalStrs(got, c.want) {
+				t.Fatalf("keys = %v, want %v (raw=%s)", got, c.want, raw)
+			}
+		})
+	}
+}
+
+// TestStationDTOGateBackflowOmission asserts the omitempty negative case for
+// gate/backflow: absent when nil/false, present when set.
+func TestStationDTOGateBackflowOmission(t *testing.T) {
+	t.Run("gate nil, backflow false: both keys omitted", func(t *testing.T) {
+		s := StationDTO{Code: "S1", Name: "起点", View: "结构", State: "locked"}
+		raw, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := marshalKeys(t, raw)
+		want := []string{"code", "name", "state", "view"}
+		if !equalStrs(got, want) {
+			t.Fatalf("keys = %v, want %v (raw=%s)", got, want, raw)
+		}
+	})
+
+	t.Run("gate set, backflow true: both keys present", func(t *testing.T) {
+		s := StationDTO{Code: "S4", Name: "论证构建", View: "结构", State: "current", Gate: &GateDTO{Total: 7, Passed: 2}, Backflow: true}
+		raw, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := marshalKeys(t, raw)
+		want := []string{"backflow", "code", "gate", "name", "state", "view"}
+		if !equalStrs(got, want) {
+			t.Fatalf("keys = %v, want %v (raw=%s)", got, want, raw)
+		}
+	})
+}
+
+// marshalKeys unmarshals raw JSON into a map and returns its sorted key set.
+func marshalKeys(t *testing.T, raw json.RawMessage) []string {
+	t.Helper()
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("unmarshal into map failed: %v (raw=%s)", err, raw)
+	}
+	return keys(m)
+}
+
+// assertKeys unmarshals raw into a map and asserts its sorted key set equals want.
+func assertKeys(t *testing.T, raw json.RawMessage, want []string) {
+	t.Helper()
+	got := marshalKeys(t, raw)
+	if !equalStrs(got, want) {
+		t.Fatalf("keys = %v, want %v (raw=%s)", got, want, raw)
 	}
 }
 
@@ -46,6 +198,7 @@ func keys(m map[string]json.RawMessage) []string {
 	sort.Strings(out)
 	return out
 }
+
 func equalStrs(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -56,24 +209,4 @@ func equalStrs(a, b []string) bool {
 		}
 	}
 	return true
-}
-func bytesHasKeys(t *testing.T, raw []byte, marker string, want []string) bool {
-	// crude: assert every wanted key substring appears near the marker station
-	s := string(raw)
-	for _, k := range want {
-		if !contains(s, `"`+k+`"`) {
-			t.Logf("missing key %q", k)
-			return false
-		}
-	}
-	return contains(s, marker)
-}
-func contains(s, sub string) bool { return len(s) >= len(sub) && (stringIndex(s, sub) >= 0) }
-func stringIndex(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }
