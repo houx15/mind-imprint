@@ -171,3 +171,61 @@ func TestProjectCardSubmit(t *testing.T) {
 		t.Fatalf("minted evidence node body missing source_quality (CRAAP GraphEffects shape): %s", newEvidence.Body)
 	}
 }
+
+// TestProjectCardSubmit_FormPathDoesNotComplete — the re-scope gate (whole-
+// branch-review, Slice 5c-2): a submit via the form path — anchors: [] as
+// envelopeReducer actually produces today, since the schema field renderer
+// only ever fills field_values, never anchors (that bridge is deferred to
+// Slice 6's material-annotation surface) — must NOT flip the card to
+// "completed" and must NOT mint a new evidence node. Before this fix,
+// submitProjectCard set status="completed" unconditionally regardless of
+// whether CompleteCard's predicates held, permanently marking every
+// form-only CRAAP submit "done" with no evidence and no resubmit path.
+func TestProjectCardSubmit_FormPathDoesNotComplete(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	cid := createProjectCardForTest(t, pool) // craap on a seeded material, status active
+	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
+
+	q := sqlc.New(pool)
+
+	before, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (before): %v", err)
+	}
+	beforeIDs := make(map[uuid.UUID]bool, len(before))
+	for _, n := range before {
+		beforeIDs[n.ID] = true
+	}
+
+	// Mirrors what envelopeReducer actually produces for a form-only CRAAP
+	// fill today: no anchors at all.
+	body := `{"field_values":{"final_verdict":"存疑"},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":[]}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	// status stays active — NOT completed — so the student can resubmit.
+	got, _ := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if got.Status != "active" {
+		t.Fatalf("status = %q, want active (non-satisfying submit must not complete)", got.Status)
+	}
+
+	// No NEW evidence node minted.
+	after, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (after): %v", err)
+	}
+	for _, n := range after {
+		if beforeIDs[n.ID] {
+			continue
+		}
+		if n.Type == "evidence" {
+			t.Fatalf("unexpected NEW evidence node minted by a non-satisfying (anchors:[]) submit: %+v", n)
+		}
+	}
+}

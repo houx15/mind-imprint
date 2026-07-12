@@ -6,6 +6,26 @@
 > `…-slice-5c-interactive-loop-design.md`), which built the loop with
 > card-surfacing gated OFF (`AgentDeps.SkipSurfaceCards:true`).
 
+## Known limitation / re-scope (whole-branch-review, post-merge)
+
+5c-2 ships the tool-card **TRANSPORT + plumbing**: surface → open → fill (schema
+field renderer) → submit → persist → refeed, all correct and tested. The
+**live evidence-node mint is DEFERRED to Slice 6.** Reason: CRAAP is an
+*annotation* card — its completion predicates (`EvaluateCompletion`) are
+evaluated over **anchors** (material-linked, per-dimension), not over
+`field_values`. The schema-driven Card Runtime wired in 5c-2 only ever
+produces `field_values` (a plain form fill) — it never produces `anchors`.
+Anchors are produced by a **material-annotation surface** (highlighting a
+passage in a material and tagging it with a CRAAP dimension), which is
+Slice 6's deliverable, not 5c-2's. So today, a real student's form-only CRAAP
+submit is a **non-satisfying** submit: `CompleteCard` correctly returns
+`complete=false`, the card stays `active` (not `completed`), and no evidence
+node is minted. The mint path itself is proven — given a satisfying anchor
+set (the shape Slice 6 will produce), `CompleteCard` mints the evidence node
+and the gate flips — but that anchor set does not yet exist in the running
+product. See the corrected "Acceptance" section below and the "Deferred"
+section for the bridge this unblocks.
+
 ## Goal
 
 The agent surfaces the **CRAAP** source-evaluation card; the student fills it
@@ -25,6 +45,7 @@ material-anchored card borrows the material's `task_id`).
 4. **Frontend**: a `card` `StudioTurnEvent` variant; card state in `conversation.ts` (`openCard`/`submitCard`/`skipCard`); the live tool-card slot in `CoachRail` (replace the static `CraapPlaceholder`) **reusing** the schema-driven Card Runtime (`CardSheetHost`/`CardRenderer`/`pickCardBody`/`envelopeReducer`/card-states), project-scoped; a `projectCards` API client.
 
 **Out (later):**
+- **The CRAAP fill→mint bridge** — CRAAP is annotation-based; the schema field renderer produces `field_values`, not `anchors`; the live mint lights up with the Slice-6 material-annotation surface. See "Known limitation / re-scope" above.
 - **Mid-fill `ObserveCandidates`** (coach nudging a thin dimension answer *while* the card is open) → follow-on. 5c-2 is surface→fill→submit→refeed.
 - **More card types** (richer `SurfaceCardCandidates` beyond the hardcoded `craap` — concession/sift/steelman trigger logic) → follow-on.
 - **Slice-3 debt / migration** (`task_id` NULLABLE + project-scoped `GetCardInstance`) — NOT needed (material-anchored borrow works) → cleanup slice.
@@ -60,11 +81,13 @@ fill  → local envelope (envelopeReducer: field_change/step_expand/note_open �
 submit → POST /projects/{id}/cards/{cid}/submit  (SSE)
   loadOwnedProject + entitlement → NewSSEWriter + heartbeat (postProjectTurn shape)
   persist: SetCardInstanceAnchors(cid, anchors) + SubmitProjectCard(cid, field_values, event_trace)
-           + SetCardInstanceStatus(cid, "completed")
   CompleteCard(spec, cid): GetCardInstance → EvaluateCompletion(anchors) →
-           GraphEffects mint evidence node + material--evaluated-as-->node → SetCardInstanceFramework
+           complete==true  → GraphEffects mint evidence node + material--evaluated-as-->node
+                             → SetCardInstanceFramework → SetCardInstanceStatus(cid, "completed")
+           complete==false → leave status "active" (no mint; student can refill/resubmit) —
+                             THIS is the form-only path today (no anchors from the field renderer)
   refeed:  action := RunAgentStep(deps{SkipSurfaceCards:false}, projectID, Trigger{"card_refeed"})
-           → stream intervention | gate (every_source_evaluated flipped) | (silence) → done
+           → stream intervention | gate (every_source_evaluated flipped, once satisfying anchors exist) | (silence) → done
 
 skip  → POST /projects/{id}/cards/{cid}/skip   (SetCardInstanceStatus skipped + persist event_trace; 200)
 ```
@@ -127,16 +150,36 @@ The 5b seed (migration 0018) already gives the project **two `kind='article'` ma
 Fresh migrated DB, `/?studio` (Phoebe demo, S4). Send a message → the agent
 **surfaces the CRAAP card** as a proposal bubble in the coach rail (it does NOT
 auto-open). Open it → the CRAAP sheet renders (the five dimensions +
-risk-note, schema-driven). Fill the dimensions + a ≥-threshold risk note →
-submit → the sheet closes, an **evidence node is minted** (the 素材/gate reflect
-it), the `every_source_evaluated` gate item flips, and the coach **reacts** (a
-follow-up intervention or a gate update streams into the rail). Skipping a
-proposal instead records the skip (过程即数据) and moves on. Reload preserves the
-completed card + minted node. The old chat workspace + task-scoped cards are
+risk-note, schema-driven). Fill the dimensions + a risk note → submit → the
+fill persists (`field_values` + `event_trace` land on the card_instance) and
+the **coach refeed runs** (one `RunAgentStep`; an intervention, a gate update,
+or silence streams into the rail, matching the loop's normal vocabulary).
+
+**Deferred to Slice 6:** the sheet does NOT close on a "completed" state, no
+evidence node is minted, and the `every_source_evaluated` gate does NOT flip
+from this walk. This is the honest, re-scoped behavior — the schema field
+renderer produces `field_values`, never the `anchors` `EvaluateCompletion`
+requires, so every form-only submit is (correctly) non-satisfying and the
+card stays `active` for refill/resubmit. The **mint path itself is verified**,
+just not via this walk: given a hand-built satisfying anchor set (the shape
+Slice 6's material-annotation surface will produce), `CompleteCard` mints the
+evidence node, sets the edge, and flips the gate (`TestProjectCardSubmit`,
+`apps/api/internal/api/projectcards_test.go`) — that is the transport this
+slice ships and tests. Skipping a proposal records the skip (过程即数据) and
+moves on, independent of the mint bridge. Reload preserves the persisted fill
++ (still-active) card. The old chat workspace + task-scoped cards are
 untouched.
 
 ## Deferred / carry-forward → follow-ons, cleanup, 5d
 
+- **The CRAAP fill→mint bridge:** CRAAP is annotation-based; the schema field
+  renderer produces `field_values`, not `anchors`, so a real form-only submit
+  never satisfies `EvaluateCompletion` and the live mint never fires. The
+  live mint lights up with the **Slice-6 material-annotation surface**
+  (highlight-a-passage + tag-a-dimension), which is what actually produces
+  `anchors`. Until then, the transport (persist → `CompleteCard` gate →
+  refeed) is correct and tested against a hand-built satisfying anchor set,
+  but the running product's form path stays non-satisfying by design.
 - **Follow-on cards:** richer `SurfaceCardCandidates` (concession/sift/steelman trigger logic); mid-fill `ObserveCandidates` nudges.
 - **Cleanup:** Slice-3 debt (task_id NULLABLE + project-scope `GetCardInstance`); the envelope's vestigial `task_id`; live `gate` passed/total (still 0,0 from 5c) — now exercised by the refeed, so wire real counts; unique index on `chat_thread.seeded_project_id`; onboarding live producer.
 - **5d:** retire `RunTurn`/`turn.go`/task-scoped card endpoints/old `workspace/`; the routing flip; gate `StudioContainer.defaultEnsureSession`.

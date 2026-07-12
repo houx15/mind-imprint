@@ -67,9 +67,12 @@ func (a *API) activateProjectCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	_ = store.AppendEvent(r.Context(), agent.EventRow{
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "card_activated", Payload: []byte(`{}`),
-	})
+	}); err != nil {
+		slog.Warn("card activate: append card_activated event failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -102,9 +105,12 @@ func (a *API) skipProjectCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	_ = store.AppendEvent(r.Context(), agent.EventRow{
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "card_skipped", Payload: []byte(`{}`),
-	})
+	}); err != nil {
+		slog.Warn("card skip: append card_skipped event failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -202,11 +208,6 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
-	if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "completed"); err != nil {
-		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.Done()
-		return
-	}
 
 	sk, _ := skills.ByID("writing-project")
 	deps := agent.AgentDeps{
@@ -216,12 +217,27 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 
 	// Mint the evidence node (if the submitted anchors satisfy the spec's
 	// completion predicates) BEFORE the refeed, so the coach's reaction can
-	// see the freshly promoted evidence in the same graph read.
+	// see the freshly promoted evidence in the same graph read. Only a
+	// satisfying submit (CompleteCard's complete == true) flips
+	// card_instance.status to "completed" — student confirmation of a
+	// satisfying submit, not AI adjudication (not a DEC-3 issue). An
+	// unsatisfying submit (every form-only CRAAP fill today, since the
+	// schema field renderer produces field_values, never anchors — the
+	// live mint is deferred to Slice 6's material-annotation surface)
+	// leaves the card "active" so the student can refill/resubmit instead
+	// of being falsely marked done with no evidence node.
 	row, err := store.GetCardInstance(r.Context(), cid)
 	if err == nil {
 		if spec, ok := cards.ByID(row.CardID); ok {
-			if _, err := agent.CompleteCard(r.Context(), deps, spec, cid); err != nil {
+			complete, err := agent.CompleteCard(r.Context(), deps, spec, cid)
+			if err != nil {
 				slog.Error("card submit: CompleteCard", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+			} else if complete {
+				if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "completed"); err != nil {
+					_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+					_ = em.Done()
+					return
+				}
 			}
 		}
 	} else {

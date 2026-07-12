@@ -1,10 +1,11 @@
 package api_test
 
 // studioturn_test.go — Task 6: POST /api/v1/projects/{id}/turn, the SSE loop
-// driver that runs one RunAgentStep with surface-card production off (5c's
-// conversational chat loop). Uses the real testcontainers Postgres + the
-// seeded demo project (00000000-0000-0000-0000-000000000101, owned by
-// Phoebe) so RunAgentStep exercises a real graph, not a fixture.
+// driver that runs one RunAgentStep with surface-card production on (Slice
+// 5c-2's tool-card transport; SkipSurfaceCards: false). Uses the real
+// testcontainers Postgres + the seeded demo project
+// (00000000-0000-0000-0000-000000000101, owned by Phoebe) so RunAgentStep
+// exercises a real graph, not a fixture.
 
 import (
 	"context"
