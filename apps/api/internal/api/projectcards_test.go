@@ -10,6 +10,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -226,6 +227,220 @@ func TestProjectCardSubmit_FormPathDoesNotComplete(t *testing.T) {
 		}
 		if n.Type == "evidence" {
 			t.Fatalf("unexpected NEW evidence node minted by a non-satisfying (anchors:[]) submit: %+v", n)
+		}
+	}
+}
+
+// surfaceCraapAndReadAnchors drives the real HTTP turn endpoint (same trigger
+// as TestProjectTurn_SurfacesCraapCard_GeneratesAnchors) so the Studio surface
+// seam (Task 2) generates + persists AI anchors on a freshly-proposed craap
+// card_instance, then reads those persisted anchors back. Returns the card
+// instance id and its generated anchors — the ONLY legitimate source of
+// anchors for the mint test below; hand-building anchors here would
+// reintroduce the vacuous 5c-2 mint-test bug this task exists to regression-test.
+func surfaceCraapAndReadAnchors(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie, projectID uuid.UUID) (string, []agent.Anchor) {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+projectID.String()+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event:\n%s", body)
+	}
+
+	q := sqlc.New(pool)
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgtype.UUID{Bytes: projectID, Valid: true})
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	var cid uuid.UUID
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "craap" {
+			cid = ci.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no craap card_instance persisted")
+	}
+
+	row, err := q.GetCardInstance(context.Background(), cid)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	var anchors []agent.Anchor
+	if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
+		t.Fatalf("unmarshal persisted anchors: %v — raw: %s", err, row.Anchors)
+	}
+	if len(anchors) == 0 {
+		t.Fatalf("expected generated anchors on the surfaced craap card, got none")
+	}
+	return cid.String(), anchors
+}
+
+// TestProjectCardSubmit_SurfaceFillMintE2E is the non-vacuous keystone
+// regression the 5c-2 whole-branch review demanded: 5c-2's original mint
+// test hand-built a satisfying []Anchor literal, which passed regardless of
+// whether the real surface path ever generated anything — it never proved
+// the surface->fill->submit->mint path actually connects. This test instead
+// (1) surfaces the craap card over the real turn endpoint so Task 2's
+// surface seam generates + persists the 5 tag-keyed anchors (Task 1's
+// generator), (2) fills every generated anchor's answer + appends a student
+// risk_note anchor (the only editing this test does), (3) submits that
+// envelope over the real submit endpoint, and (4) asserts a NEW evidence
+// node is minted and the card completes — proving the whole chain, not a
+// fixture standing in for it.
+func TestProjectCardSubmit_SurfaceFillMintE2E(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	q := sqlc.New(pool)
+
+	cid, anchors := surfaceCraapAndReadAnchors(t, h, pool, cookie, projectID)
+	base := "/api/v1/projects/" + projectID.String() + "/cards/" + cid
+
+	// Fill every GENERATED anchor's answer, then append the student risk_note
+	// anchor — the exact shape craap.json's completion predicates
+	// (every_tag_present + field_written_by risk_note/student) require.
+	for i := range anchors {
+		anchors[i].Answer = "学生的判断与理由，足够长以通过校验"
+	}
+	anchors = append(anchors, agent.Anchor{
+		ID: "risk_note", MaterialID: anchors[0].MaterialID, BlockID: "",
+		Dimension: "risk_note", Author: "student",
+		Question: "这条来源在你的论证里起什么作用？有什么风险？",
+		Answer:   "它支撑我的核心数据，但只有单一来源，需交叉验证。",
+	})
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal filled anchors: %v", err)
+	}
+
+	before, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (before): %v", err)
+	}
+	beforeIDs := make(map[uuid.UUID]bool, len(before))
+	for _, n := range before {
+		beforeIDs[n.ID] = true
+	}
+
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance (after): %v", err)
+	}
+	if got.Status != "completed" {
+		t.Fatalf("status = %q, want completed", got.Status)
+	}
+
+	after, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (after): %v", err)
+	}
+	newEvidenceCount := 0
+	for _, n := range after {
+		if beforeIDs[n.ID] {
+			continue
+		}
+		if n.Type == "evidence" {
+			newEvidenceCount++
+		}
+	}
+	if newEvidenceCount != 1 {
+		t.Fatalf("expected exactly one new evidence node minted, before=%d after=%d new_evidence=%d", len(before), len(after), newEvidenceCount)
+	}
+}
+
+// TestProjectCardSubmit_SurfaceFillMintE2E_IncompleteAnswerDoesNotMint is the
+// negative twin: leaving one GENERATED dimension's answer empty (the
+// risk_note is present and every other tag is filled) must NOT satisfy
+// craap.json's every_tag_present predicate, so the card must stay "active"
+// and no evidence node may be minted. This is also the load-bearing proof —
+// it only passes because submitProjectCard actually gates completion on the
+// predicates; a submit path that always completes (the pre-fix 5c-2 bug)
+// would fail this assertion.
+func TestProjectCardSubmit_SurfaceFillMintE2E_IncompleteAnswerDoesNotMint(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	q := sqlc.New(pool)
+
+	cid, anchors := surfaceCraapAndReadAnchors(t, h, pool, cookie, projectID)
+	base := "/api/v1/projects/" + projectID.String() + "/cards/" + cid
+
+	preSubmit, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance (before): %v", err)
+	}
+	if preSubmit.Status == "completed" {
+		t.Fatalf("card_instance already completed before submit — test setup invalid")
+	}
+
+	// Fill every generated anchor EXCEPT the first — leave it empty so
+	// every_tag_present cannot hold, even though we still append a
+	// well-formed student risk_note.
+	for i := range anchors {
+		if i == 0 {
+			continue
+		}
+		anchors[i].Answer = "学生的判断与理由，足够长以通过校验"
+	}
+	anchors = append(anchors, agent.Anchor{
+		ID: "risk_note", MaterialID: anchors[0].MaterialID, BlockID: "",
+		Dimension: "risk_note", Author: "student",
+		Question: "这条来源在你的论证里起什么作用？有什么风险？",
+		Answer:   "它支撑我的核心数据，但只有单一来源，需交叉验证。",
+	})
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal filled anchors: %v", err)
+	}
+
+	before, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (before): %v", err)
+	}
+	beforeIDs := make(map[uuid.UUID]bool, len(before))
+	for _, n := range before {
+		beforeIDs[n.ID] = true
+	}
+
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance (after): %v", err)
+	}
+	if got.Status == "completed" || got.Status != preSubmit.Status {
+		t.Fatalf("status = %q (was %q pre-submit), want unchanged and not completed (incomplete submit must not complete)", got.Status, preSubmit.Status)
+	}
+
+	after, err := q.ListGraphNodesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject (after): %v", err)
+	}
+	for _, n := range after {
+		if beforeIDs[n.ID] {
+			continue
+		}
+		if n.Type == "evidence" {
+			t.Fatalf("unexpected NEW evidence node minted by an incomplete submit: %+v", n)
 		}
 	}
 }
