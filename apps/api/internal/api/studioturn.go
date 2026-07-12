@@ -8,6 +8,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/agent/enforcement"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/skills"
@@ -53,6 +54,12 @@ func (e *studioEmitter) Heartbeat() error {
 	return e.sse.Heartbeat()
 }
 
+func (e *studioEmitter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.sse.Card(cardInstanceID, cardID, nudgeText, anchors)
+}
+
 // studioSimilarity is the Studio turn endpoint's enforcement.Similarity seam:
 // a keyless, offline lexical-overlap heuristic (no embedding call, no key, no
 // network). A real embedding-backed Similarity is a separate, later task once
@@ -60,9 +67,8 @@ func (e *studioEmitter) Heartbeat() error {
 func studioSimilarity() enforcement.Similarity { return enforcement.LexicalSimilarity{} }
 
 // postProjectTurn drives the agent runtime one step (RunAgentStep) for a
-// Studio project and streams the result over SSE: at most one intervention or
-// gate event, then done. Card production is off (SkipSurfaceCards) — 5c's
-// conversational loop defers card-surfacing to its own dedicated pass.
+// Studio project and streams the result over SSE: at most one card,
+// intervention, or gate event, then done.
 func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -157,7 +163,7 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		Resolved:         resolved,
 		Sim:              studioSimilarity(),
 		Skill:            &sk,
-		SkipSurfaceCards: true,
+		SkipSurfaceCards: false,
 	}
 	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "student_turn"})
 	if err != nil {
@@ -171,6 +177,9 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 	case action == nil:
 		// silence: a legitimate first-class outcome (design §2) — nothing to
 		// stream but done.
+	case action.Kind == "surface_card":
+		spec, _ := cards.ByID(action.CardID)
+		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, []byte("[]"))
 	case action.Kind == "intervention":
 		// Anchor is sent EMPTY, deliberately: a live intervention's anchor is
 		// a {kind,id} node reference, not the seed data's {label} shape — there

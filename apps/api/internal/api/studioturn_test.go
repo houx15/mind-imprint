@@ -89,3 +89,25 @@ func TestProjectTurn(t *testing.T) {
 		t.Fatalf("foreign: want 404, got %d", rr.Code)
 	}
 }
+
+// TestProjectTurn_SurfacesCraapCard — the seeded project's article materials
+// are un-evaluated (no "evaluated-as" edge in migration 0018), so with
+// SkipSurfaceCards off, a turn surfaces the CRAAP card instead of staying
+// silent or emitting an intervention.
+func TestProjectTurn_SurfacesCraapCard(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event:\n%s", body)
+	}
+	// a card_instance (proposed) was persisted for the project
+	cis, _ := sqlc.New(pool).ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse("00000000-0000-0000-0000-000000000101")))
+	if len(cis) == 0 {
+		t.Fatalf("no card_instance persisted")
+	}
+}
