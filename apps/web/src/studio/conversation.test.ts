@@ -60,4 +60,23 @@ describe("createStudioConversation", () => {
     // `set({ card: null })` on "done", this assertion would fail (card would be null).
     expect(s.card).toMatchObject({ cardInstanceId: "ci2", cardId: "craap", status: "proposed" });
   });
+
+  it("carries anchors from the card event onto the card state", async () => {
+    const anchors = [
+      { id: "a1", material_id: "m1", block_id: "b1", start: 0, end: 10, quote: "q1", dimension: "source", author: "ai", question: "谁写的?", answer: "" },
+      { id: "a2", material_id: "m1", block_id: "b2", start: 11, end: 20, quote: "q2", dimension: "claim", author: "ai", question: "证据在哪?", answer: "" },
+    ];
+    const api = {
+      async *studioTurn() { yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors }; yield { type: "done" }; },
+      activateProjectCard: vi.fn(async () => {}),
+      submitProjectCard: vi.fn(),
+      skipProjectCard: vi.fn(async () => {}),
+      postDisposition: vi.fn(async () => {}),
+    } as any;
+    const conv = createStudioConversation({ projectId: "p1", api });
+    await conv.send("hi");
+    const cardAnchors = conv.getSnapshot().card?.anchors;
+    expect(cardAnchors).toHaveLength(2);
+    expect(cardAnchors?.map((a) => a.dimension)).toEqual(["source", "claim"]);
+  });
 });

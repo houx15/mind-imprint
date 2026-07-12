@@ -8,7 +8,7 @@ import {
   skipProjectCard as defaultSkipProjectCard,
 } from "../api/projectCards";
 
-type CardState = { cardInstanceId: string; cardId: string; spec: CardSpec; status: "proposed" | "active" } | null;
+type CardState = { cardInstanceId: string; cardId: string; spec: CardSpec; status: "proposed" | "active"; anchors: Anchor[] } | null;
 
 type Snapshot = {
   messages: CoachMessage[];
@@ -48,7 +48,7 @@ export function createStudioConversation({ projectId, api }: Deps) {
       });
     } else if (e.type === "card") {
       const spec = CARD_REGISTRY[e.cardId];
-      if (spec) set({ card: { cardInstanceId: e.cardInstanceId, cardId: e.cardId, spec, status: "proposed" } });
+      if (spec) set({ card: { cardInstanceId: e.cardInstanceId, cardId: e.cardId, spec, status: "proposed", anchors: e.anchors } });
     } else if (e.type === "error") {
       set({ error: e.message });
     }
