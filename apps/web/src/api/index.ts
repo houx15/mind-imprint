@@ -1,4 +1,4 @@
-import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection } from "@mind-imprint/contracts";
+import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor } from "@mind-imprint/contracts";
 import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
 import { activateCard, submitCard, skipCard } from "./cards";
 import { runEvaluation, getEvaluation } from "./evaluate";
@@ -15,8 +15,10 @@ import {
 import { listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch, MaterialFetchError } from "./materials";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
 import { listProjects, getProject, type ProjectListItem } from "./projects";
+import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
+import type { StudioTurnEvent } from "./studioTurn";
 
-export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem };
+export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent };
 export { ApiError } from "./client";
 export { MaterialFetchError } from "./materials";
 
@@ -59,6 +61,9 @@ export interface ApiClient {
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
   getProject(id: string): Promise<StudioProjection>;
+  activateProjectCard(projectId: string, cid: string): Promise<void>;
+  submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
+  skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
 }
 
 export const api: ApiClient = {
@@ -69,4 +74,5 @@ export const api: ApiClient = {
   listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
   listProjects, getProject,
+  activateProjectCard, submitProjectCard, skipProjectCard,
 };
