@@ -40,4 +40,11 @@ describe("StructureView (结构/S4 shell)", () => {
     expect(screen.getByText(/① 选择相关素材/)).toBeInTheDocument();
     expect(screen.getByText(/② 基于素材，把这一步写成句子/)).toBeInTheDocument();
   });
+
+  it("renders the deferred shell placeholder (never a false green gate) when cards is empty", () => {
+    render(<StructureView cards={[]} />);
+    expect(screen.getByText(/此环节的深入交互将在后续切片接入/)).toBeInTheDocument();
+    expect(screen.queryByText(/门禁通过/)).toBeNull();
+    expect(screen.queryByText(/可以进成稿打磨/)).toBeNull();
+  });
 });

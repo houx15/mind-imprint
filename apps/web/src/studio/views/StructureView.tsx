@@ -7,6 +7,11 @@ export type StructureViewProps = {
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
 const COL: React.CSSProperties = { maxWidth: 760, margin: "0 auto" };
+// Same neutral deferred-shell placeholder as OnboardingView's ShellView
+// (structure deep view is deferred to Slice 7 — StudioContainer stubs
+// `views.structure: []`, so this guards against a vacuously-true
+// `cards.every(...)` rendering a false green "门禁通过" banner on 0 cards).
+const DEFERRED_CARD: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "20px 22px" };
 
 function GateBanner({ allClean }: { allClean: boolean }) {
   if (allClean) {
@@ -175,6 +180,18 @@ function RoleCard({ card }: { card: StructureCardFx }) {
 }
 
 export function StructureView({ cards }: StructureViewProps) {
+  if (cards.length === 0) {
+    return (
+      <div style={WRAP}>
+        <div style={COL}>
+          <div style={{ ...DEFERRED_CARD, textAlign: "center", color: "#8A92A3", fontSize: 13.5, fontWeight: 600 }}>
+            此环节的深入交互将在后续切片接入
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const allClean = cards.every((c) => c.status !== "empty");
 
   return (

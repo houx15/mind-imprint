@@ -242,27 +242,25 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 	if err != nil {
 		return StudioProjection{}, err
 	}
-	currentTitle := ""
-	for i, id := range mustOrder(sk) {
-		if stationCode(i) == current {
-			currentTitle = sk.Contracts[id].Title
-		}
-	}
+	// Look up the current station's title from the stations already built by
+	// projectStations, instead of re-running sk.TopoOrder() a second time.
+	currentTitle := stationTitle(stations, current)
 	coach := projectCoach(d, currentTitle)
+	coach.Equipment = projectEquipment(d, specByID)
 	return StudioProjection{
 		Project:       ProjectHeader{Title: d.Project.Title, QualLabel: d.Project.Qualification},
 		Stations:      stations,
 		ActiveStation: current,
-		Coach: CoachDTO{
-			Anchor:    coach.Anchor,
-			Messages:  coach.Messages,
-			Equipment: projectEquipment(d, specByID),
-		},
-		Onboarding: projectOnboarding(d),
+		Coach:         coach,
+		Onboarding:    projectOnboarding(d),
 	}, nil
 }
 
-func mustOrder(sk skills.Skill) []string {
-	order, _ := sk.TopoOrder()
-	return order
+func stationTitle(stations []StationDTO, code string) string {
+	for _, s := range stations {
+		if s.Code == code {
+			return s.Name
+		}
+	}
+	return ""
 }

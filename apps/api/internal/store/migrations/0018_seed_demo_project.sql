@@ -14,6 +14,11 @@
 -- or her legacy /api/v1/tasks list (TestTasksCRUD) would see it and fail the
 -- "initial list is empty" assertion — the Studio projection below never joins
 -- to task.user_id, so the anchor's owner is otherwise irrelevant.
+-- Known dev-seed side effect: GetSchoolCounts (org.sql) computes
+-- active_student_count = COUNT(DISTINCT t.user_id) over school tasks with no
+-- role filter, so this admin-owned anchor row makes the admin count as +1
+-- "active student" of the Demo School in the admin overview aggregate, until
+-- 5c drops the legacy task_id and this anchor row goes away.
 INSERT INTO tasks (id, user_id, title, status) VALUES
   ('00000000-0000-0000-0000-000000000100', '00000000-0000-0000-0000-000000000005', '思维印记 · 0457 演示', 'active')
 ON CONFLICT (id) DO NOTHING;
