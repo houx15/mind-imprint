@@ -1,3 +1,4 @@
+import type { Anchor } from "@mind-imprint/contracts";
 import { API_BASE } from "./client";
 import { apiFetch } from "./client";
 import { parseSSE } from "./sse";
@@ -5,6 +6,7 @@ import { parseSSE } from "./sse";
 export type StudioTurnEvent =
   | { type: "intervention"; interventionId: string; body: string; anchor: string; criterion: string; level: string }
   | { type: "gate"; contract: string; status: string; passed: number; total: number; missing: string[] }
+  | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string; anchors: Anchor[] }
   | { type: "done" }
   | { type: "error"; code: string; message: string };
 
@@ -27,6 +29,7 @@ export async function* studioTurn(projectId: string, userInput: string): AsyncGe
     switch (frame.event) {
       case "intervention": yield { type: "intervention", interventionId: data.intervention_id, body: data.body, anchor: data.anchor, criterion: data.criterion, level: data.level }; break;
       case "gate": yield { type: "gate", contract: data.contract, status: data.status, passed: data.passed, total: data.total, missing: data.missing ?? [] }; break;
+      case "card": yield { type: "card", cardInstanceId: data.card_instance_id, cardId: data.card_id, nudgeText: data.nudge_text, anchors: data.anchors ?? [] }; break;
       case "done": yield { type: "done" }; break;
       case "error": yield { type: "error", code: data.error?.code ?? "internal_error", message: data.error?.message ?? "" }; break;
     }

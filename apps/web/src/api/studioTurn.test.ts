@@ -21,4 +21,13 @@ describe("studioTurn", () => {
     expect(events[0]).toMatchObject({ type: "intervention", interventionId: "iid", criterion: "D5" });
     expect(events.at(-1)).toEqual({ type: "done" });
   });
+
+  it("yields a card event", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(sseBody(
+      `event: card\ndata: {"card_instance_id":"ci1","card_id":"craap","nudge_text":"CRAAP 五维核查","anchors":[]}\n\n` +
+      `event: done\ndata: {}\n\n`));
+    const events = [];
+    for await (const e of studioTurn("p1", "hi")) events.push(e);
+    expect(events[0]).toMatchObject({ type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "CRAAP 五维核查" });
+  });
 });
