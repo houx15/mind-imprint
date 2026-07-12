@@ -111,6 +111,13 @@ type AgentDeps struct {
 	// check_gate path is skipped entirely — back-compat for every existing
 	// test that constructs AgentDeps without a Skill.
 	Skill *skills.Skill
+
+	// SkipSurfaceCards, when true, stops RunAgentStep from producing
+	// surface_card candidates at all (Slice 5c's conversational loop, which
+	// defers card-surfacing to its own dedicated pass — 5c-2). Zero value
+	// (false) is back-compat for every existing caller/test: candidates are
+	// seeded from SurfaceCardCandidates(g) exactly as before.
+	SkipSurfaceCards bool
 }
 
 // RunAgentStep runs one perceive -> classify -> decide-one -> act -> enforce
@@ -134,7 +141,10 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		return nil, err
 	}
 
-	cands := SurfaceCardCandidates(g)
+	var cands []Candidate
+	if !deps.SkipSurfaceCards {
+		cands = SurfaceCardCandidates(g)
+	}
 
 	// When a Project skill is loaded, reconcile its gates once and hold the
 	// reports: they feed the (lowest-priority) check_gate fallback below and are
@@ -199,8 +209,13 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		return &Action{Kind: "check_gate", GateReport: &report}, nil
 	}
 
-	// TODO(Task 4): pass the real loaded chat history instead of nil.
-	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, nil, deps.Sim)
+	// History is best-effort context for the coach (Slice 5c): on a load
+	// error, fall back to nil rather than failing the whole turn.
+	history, err := deps.Store.LoadChatHistory(ctx, projectID, 12)
+	if err != nil {
+		history = nil
+	}
+	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim)
 	if err != nil {
 		// Enforcement (or the model call itself) rejected the output — log
 		// server-side and stay silent. A rejected output is never persisted

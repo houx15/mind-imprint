@@ -468,6 +468,58 @@ func TestLoop_PostInterventionOutranksCheckGate(t *testing.T) {
 	}
 }
 
+// TestRunAgentStep_SkipSurfaceCards covers Slice 5c's conversational-loop
+// seam: AgentDeps.SkipSurfaceCards defers card-surfacing entirely. Zero value
+// (false) must preserve today's behavior — a project with an unevaluated
+// source material still surfaces the card first (Task 5's ordering). Setting
+// the flag true removes surface_card from the candidate list, so the same
+// project (which also carries an unsupported claim) falls through to the
+// post_intervention nudge instead.
+func TestRunAgentStep_SkipSurfaceCards(t *testing.T) {
+	g := GraphView{
+		Nodes:     []GraphNodeView{{ID: "n1", Type: "claim", Author: "student", Text: "中国的经济转型正在让地球更可持续"}},
+		Materials: []MaterialView{{ID: uuid.New().String(), Kind: "article"}},
+	}
+	body := "这条主张现在还没有素材支撑——它的证据是什么？"
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider(body),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	// Zero value (SkipSurfaceCards=false) -> existing behavior: surface_card wins.
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-A"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" {
+		t.Fatalf("default: want surface_card, got %+v", action)
+	}
+
+	// SkipSurfaceCards=true -> the card candidate is never produced, so the
+	// post_intervention nudge (the other candidate on this graph) fires instead.
+	createCallsBefore := store.createCardInstanceCalls
+	deps.SkipSurfaceCards = true
+	action, err = RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil {
+		t.Fatal("SkipSurfaceCards: want a non-nil Action (post_intervention)")
+	}
+	if action.Kind == "surface_card" {
+		t.Fatalf("SkipSurfaceCards: got a surface_card action %+v", action)
+	}
+	if action.Kind != "intervention" {
+		t.Fatalf("SkipSurfaceCards: want an intervention action, got %+v", action)
+	}
+	if store.createCardInstanceCalls != createCallsBefore {
+		t.Fatalf("SkipSurfaceCards: want no additional card instantiated, before=%d after=%d", createCallsBefore, store.createCardInstanceCalls)
+	}
+}
+
 func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
 	f := &fakeAgentStore{}
 	pid := uuid.New()
