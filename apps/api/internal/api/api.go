@@ -61,6 +61,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/auth/me", protected(a.me))
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))
 	mux.Handle("GET /api/v1/projects/{id}", protected(a.getProject))
+	mux.Handle("POST /api/v1/projects/{id}/turn", protected(a.postProjectTurn))
 	mux.Handle("GET /api/v1/tasks", protected(a.listTasks))
 	mux.Handle("POST /api/v1/tasks", protected(a.createTask))
 	mux.Handle("GET /api/v1/tasks/{id}", protected(a.getTask))
