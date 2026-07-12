@@ -47,8 +47,18 @@ func TestRefactor2SqlcProjectGraphEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListProjectsByUser: %v", err)
 	}
-	if len(projects) != 1 || projects[0].ID != project.ID {
-		t.Fatalf("ListProjectsByUser = %d rows, want 1 matching", len(projects))
+	// Assert the created project is present rather than that the seed student
+	// owns exactly one — migration 0018 seeds a demo project for this same
+	// student (Phoebe) so the live Studio's ?trial path has data to render.
+	var found bool
+	for _, p := range projects {
+		if p.ID == project.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("ListProjectsByUser (%d rows) did not include the created project %s", len(projects), project.ID)
 	}
 
 	node, err := q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
