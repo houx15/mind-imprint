@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StudioProjection } from "@mind-imprint/contracts";
 import { api as defaultApi } from "../api";
 import { StudioShell } from "./StudioShell";
@@ -15,15 +15,14 @@ type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
 const DEMO_EMAIL = "phoebe@demo.mindimprint.local";
 const DEMO_PASSWORD = "phoebe-dev-pass";
 
-// Used before the conversation controller exists yet (project still
-// loading). NOTE: we deliberately don't use React's useSyncExternalStore
-// here — it requires getSnapshot() to return a referentially stable value
-// when nothing changed, which the controller's own getSnapshot (`() =>
-// state`) satisfies, but test doubles that build a fresh snapshot object
-// per call don't; that mismatch causes an infinite re-render loop. Instead
-// we copy the snapshot into local state on subscribe/mount, which only
-// updates on an actual emitted change.
+// Stable fallback used only before the conversation controller exists yet
+// (project still loading) — useSyncExternalStore needs a store, and this
+// constant reference (defined once at module scope, not per-render) keeps
+// getSnapshot referentially stable across renders so it never falsely
+// signals a change.
 const EMPTY_CONV_SNAPSHOT: ConvSnapshot = { messages: [], sending: false, error: null, disposableInterventionId: null };
+const emptyConvSubscribe = () => () => {};
+const emptyConvGetSnapshot = () => EMPTY_CONV_SNAPSHOT;
 
 // Map the lean wire projection into the frontend view-model, stubbing the
 // deferred center-pane views (material → Slice 6, structure/writing/review → 7/8/9).
@@ -72,7 +71,6 @@ export function StudioContainer({
   const [focusMode, setFocusMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conv, setConv] = useState<StudioConversation | null>(null);
-  const [convSnapshot, setConvSnapshot] = useState<ConvSnapshot>(EMPTY_CONV_SNAPSHOT);
   // Guards double-dispatch of the same disposition (carry-forward from Task
   // 10's review): the conversation controller itself doesn't clear
   // disposableInterventionId after a dispose call, so a second click before
@@ -106,15 +104,13 @@ export function StudioContainer({
     setConv(makeConversation({ projectId }));
   }, [projectId, makeConversation]);
 
-  // Mirror the controller's snapshot into local state on subscribe (initial
-  // read + every emitted change) so the render below always has this
-  // session's live turns.
-  useEffect(() => {
-    if (!conv) return;
-    setConvSnapshot(conv.getSnapshot());
-    const unsubscribe = conv.subscribe(() => setConvSnapshot(conv.getSnapshot()));
-    return () => { unsubscribe(); };
-  }, [conv]);
+  // Subscribe to the live conversation's turns via the app's established
+  // external-store pattern (matches agent/useConversation.ts). Falls back to
+  // a stable empty snapshot before `conv` exists (project still loading).
+  const convSnapshot = useSyncExternalStore(
+    conv?.subscribe ?? emptyConvSubscribe,
+    conv?.getSnapshot ?? emptyConvGetSnapshot,
+  );
 
   if (error) return <div className="mk-studio-error">{error}</div>;
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;

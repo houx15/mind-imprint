@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { StudioContainer } from "./StudioContainer";
 
@@ -35,8 +35,20 @@ describe("StudioContainer", () => {
   });
 
   it("sends a composer message and renders the live coach reply", async () => {
+    // NOTE: getSnapshot must return a STABLE reference across calls — the
+    // real createStudioConversation's getSnapshot closes over `let state`
+    // reassigned only in `set()`, so it satisfies useSyncExternalStore's
+    // contract. A fresh object per call here would trip React's infinite
+    // re-render guard, which is exactly the deviation this fixture must not
+    // reintroduce (see StudioContainer.tsx's useSyncExternalStore usage).
+    const snapshot = {
+      messages: [{ kind: "ai", body: "连到治理决心", tag: "D5", anchor: "论证图 · 治理决心主张" }],
+      sending: false,
+      error: null,
+      disposableInterventionId: "iid",
+    };
     const conv = {
-      getSnapshot: () => ({ messages: [{ kind: "ai", body: "连到治理决心", tag: "D5", anchor: "论证图 · 治理决心主张" }], sending: false, error: null, disposableInterventionId: "iid" }),
+      getSnapshot: () => snapshot,
       subscribe: () => () => {},
       send: vi.fn(async () => {}),
       dispose: vi.fn(async () => {}),
@@ -49,5 +61,22 @@ describe("StudioContainer", () => {
     // both in the thread and mirrored in the DispositionCard body, so use
     // getAllByText for the same reason as above.
     await waitFor(() => expect(screen.getAllByText("连到治理决心").length).toBeGreaterThan(0));
+  });
+
+  it("wires the composer's send action through to conv.send", async () => {
+    const snapshot = { messages: [], sending: false, error: null, disposableInterventionId: null };
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+    };
+    render(<StudioContainer api={fakeApi} ensureSession={async () => {}} makeConversation={() => conv as any} />);
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+
+    fireEvent.change(screen.getByPlaceholderText(/发给印记/), { target: { value: "我加了一条证据" } });
+    fireEvent.click(screen.getByLabelText(/发送|send/i));
+
+    expect(conv.send).toHaveBeenCalledWith("我加了一条证据");
   });
 });
