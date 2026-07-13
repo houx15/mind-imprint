@@ -101,6 +101,76 @@ func TestGraphEffects_NoPromoteEffectsAreEmpty(t *testing.T) {
 	}
 }
 
+func TestGraphEffects_CrossCheck(t *testing.T) {
+	spec := cards.Spec{
+		ID:           "sift",
+		Params:       cards.Params{LateralDimension: "find"},
+		GraphEffects: []cards.GraphEffect{{Kind: "cross_check"}},
+	}
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "stop", Answer: "标题很夸张", Author: "student"},
+		{ID: "a2", MaterialID: "mat-nasa", Dimension: "find", Answer: "NASA 只讲绿化面积", Author: "student"},
+		{ID: "a3", MaterialID: "mat-blog", Dimension: "relation", Answer: "限定", Author: "student"},
+		{ID: "a4", MaterialID: "mat-blog", Dimension: "trace_origin", Answer: "NASA Earth Observatory 2019", Author: "student"},
+		{ID: "a5", MaterialID: "mat-blog", Dimension: "tier_after", Answer: "二手评论", Author: "student"},
+		{ID: "a6", MaterialID: "mat-blog", Dimension: "revised_judgment", Answer: "一开始以为是造假，现在看是过度简化的二手转述", Author: "student"},
+	}
+
+	nodes, edges := GraphEffects(spec, "mat-blog", anchors)
+
+	if len(nodes) != 1 || nodes[0].Type != "cross_check" {
+		t.Fatalf("nodes = %+v, want exactly one cross_check node", nodes)
+	}
+	if nodes[0].Author != "student" {
+		t.Fatalf("cross_check author = %q, want student — the relation is her judgment", nodes[0].Author)
+	}
+	if nodes[0].Body["relation"] != "限定" {
+		t.Fatalf("relation = %v, want 限定 (the student's own choice)", nodes[0].Body["relation"])
+	}
+	if nodes[0].Body["trace_origin"] != "NASA Earth Observatory 2019" {
+		t.Fatalf("trace_origin = %v", nodes[0].Body["trace_origin"])
+	}
+	if nodes[0].Body["tier_after"] != "二手评论" {
+		t.Fatalf("tier_after = %v", nodes[0].Body["tier_after"])
+	}
+	// revised_judgment is the student's own written 修正后的判断 — added to the
+	// SIFT card after Task 5's brief was drafted, so it must still be folded in.
+	if nodes[0].Body["revised_judgment"] != "一开始以为是造假，现在看是过度简化的二手转述" {
+		t.Fatalf("revised_judgment = %v", nodes[0].Body["revised_judgment"])
+	}
+
+	// Two edges: the checked source -> the cross_check -> the lateral source.
+	if len(edges) != 2 {
+		t.Fatalf("edges = %+v, want 2", edges)
+	}
+	if edges[0].Type != "cross-checked-by" || edges[0].FromID != "mat-blog" || edges[0].ToID != "$new:0" {
+		t.Fatalf("edge[0] = %+v, want mat-blog --cross-checked-by--> $new:0", edges[0])
+	}
+	// The placeholder on the edge SOURCE is the one an implementer is likely to
+	// get wrong; CompleteCard resolves both endpoints (card_lifecycle.go).
+	if edges[1].Type != "cites" || edges[1].FromID != "$new:0" || edges[1].ToID != "mat-nasa" {
+		t.Fatalf("edge[1] = %+v, want $new:0 --cites--> mat-nasa", edges[1])
+	}
+}
+
+func TestGraphEffects_CrossCheck_NeverPromotesTheLateralSource(t *testing.T) {
+	spec := cards.Spec{
+		ID:           "sift",
+		Params:       cards.Params{LateralDimension: "find"},
+		GraphEffects: []cards.GraphEffect{{Kind: "cross_check"}},
+	}
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "stop", Answer: "夸张", Author: "student"},
+		{ID: "a2", MaterialID: "mat-nasa", Dimension: "find", Answer: "NASA 讲绿化", Author: "student"},
+	}
+	nodes, _ := GraphEffects(spec, "mat-blog", anchors)
+	for _, n := range nodes {
+		if n.Type == "evidence" {
+			t.Fatal("a cross-check must never promote the lateral source to evidence — it has been evaluated by nobody")
+		}
+	}
+}
+
 func TestConsolidationPayload_NonEmptyFramework(t *testing.T) {
 	spec := craapSpecFixture()
 	spec.Consolidation = "reveal_framework_after_completion"

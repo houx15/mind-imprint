@@ -2,14 +2,18 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 
 	"mindimprint/api/internal/cards"
 )
 
 // MintNode is a graph node a graph_effect proposes to create. It has no id —
-// the caller (the loop, Task 5) assigns the real id on insert; MintEdge.ToID
-// carries a deterministic placeholder ("$new:<index into the returned node
-// slice>") the caller resolves to that id.
+// the caller (the loop, Task 5) assigns the real id on insert; a MintEdge's
+// FromID or ToID (either endpoint) can carry a deterministic placeholder
+// ("$new:<index into the returned node slice>") the caller resolves to that
+// id — CompleteCard resolves both endpoints (card_lifecycle.go), not just
+// ToID, which is what cross_check relies on (its edge to the checked
+// material puts the placeholder in FromID).
 type MintNode struct {
 	Type   string
 	Author string
@@ -35,26 +39,67 @@ func GraphEffects(spec cards.Spec, materialID string, anchors []Anchor) ([]MintN
 	var nodes []MintNode
 	var edges []MintEdge
 	for _, effect := range spec.GraphEffects {
-		if effect.Kind != "promote" {
-			continue
+		switch effect.Kind {
+		case "promote":
+			node := MintNode{
+				Type:   effect.To,
+				Author: "student",
+				Body: map[string]any{
+					effect.With: sourceQuality(spec, anchors),
+				},
+			}
+			nodes = append(nodes, node)
+			edges = append(edges, MintEdge{
+				Type:     "evaluated-as",
+				FromKind: effect.From,
+				FromID:   materialID,
+				ToKind:   "graph_node",
+				ToID:     fmt.Sprintf("$new:%d", len(nodes)-1),
+			})
+
+		case "cross_check":
+			// SIFT's lateral read never promotes the source she went and
+			// found — it has been evaluated by nobody yet. Promoting it
+			// would let a source become citable without evaluation and
+			// hollow out the every_source_evaluated gate (design §4.1).
+			lat, ok := lateralAnchor(spec, anchors)
+			if !ok {
+				continue
+			}
+			nodes = append(nodes, MintNode{
+				Type:   "cross_check",
+				Author: "student",
+				Body:   crossCheckBody(anchors),
+			})
+			ref := fmt.Sprintf("$new:%d", len(nodes)-1)
+			edges = append(edges,
+				// the source under review --was checked by--> this cross-check
+				MintEdge{Type: "cross-checked-by", FromKind: "material", FromID: materialID, ToKind: "graph_node", ToID: ref},
+				// ...which --cites--> the independent source she went and found
+				MintEdge{Type: "cites", FromKind: "graph_node", FromID: ref, ToKind: "material", ToID: lat.MaterialID},
+			)
 		}
-		node := MintNode{
-			Type:   effect.To,
-			Author: "student",
-			Body: map[string]any{
-				effect.With: sourceQuality(spec, anchors),
-			},
-		}
-		nodes = append(nodes, node)
-		edges = append(edges, MintEdge{
-			Type:     "evaluated-as",
-			FromKind: effect.From,
-			FromID:   materialID,
-			ToKind:   "graph_node",
-			ToID:     fmt.Sprintf("$new:%d", len(nodes)-1),
-		})
 	}
 	return nodes, edges
+}
+
+// crossCheckBody carries what the student produced by reading laterally: the
+// relation SHE chose (印证/反驳/限定 — the AI never picks it), where she traced
+// the claim to, her first reaction, and the pyramid tier she landed on after
+// checking, plus her own revised judgment in her own words. tier_before is
+// filled by the caller (Task 7) from the source log, which is where her
+// ingestion-time tier lives — it is deliberately absent here.
+func crossCheckBody(anchors []Anchor) map[string]any {
+	body := map[string]any{}
+	for _, dim := range []string{"stop", "investigate", "find", "relation", "trace_origin", "tier_after", "revised_judgment"} {
+		for _, a := range anchors {
+			if a.Dimension == dim && strings.TrimSpace(a.Answer) != "" {
+				body[dim] = a.Answer
+				break
+			}
+		}
+	}
+	return body
 }
 
 // sourceQuality summarizes the card's per-dimension answers (the CRAAP
