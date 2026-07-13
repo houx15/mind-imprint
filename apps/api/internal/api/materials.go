@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
@@ -147,4 +150,77 @@ func (a *API) ingestMaterial(w http.ResponseWriter, r *http.Request) {
 		dto.SourceURL = *mat.SourceUrl
 	}
 	httpx.WriteJSON(w, http.StatusCreated, dto)
+}
+
+// logOpenReq is the body of POST .../materials/{mid}/open — the amount of
+// reading time (seconds) to add for this open.
+type logOpenReq struct {
+	TimeSpentS int32 `json:"time_spent_s"`
+}
+
+// logSourceOpen accumulates reading time on the source-log entry and appends
+// a source_opened event — the ledger Slice 10's assessor reads, and (via
+// Task 7's dossier timer) the first HTTP path that reaches the event table.
+//
+// Best-effort by policy: losing a timing sample must never break a student's
+// reading, so once the request itself is valid, a downstream write failure
+// only warns (slog.Warn) and still returns 204. A malformed body or a
+// negative time_spent_s is a genuine client error and stays a 400 — that is
+// not a "timing sample lost", it's a request that was never valid.
+//
+// mid is scoped to the owned project via the log entry's own project_id
+// (fetched anyway for its url) rather than a separate lookup: an unknown mid,
+// or one belonging to another project, is hidden as 404 — the same
+// ownership-hidden-as-not-found convention loadOwnedProject and
+// loadOwnedProjectCard already use, so a caller can't bump another project's
+// reading-time ledger by guessing a foreign material id.
+func (a *API) logSourceOpen(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	mid, err := uuid.Parse(r.PathValue("mid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	var req logOpenReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TimeSpentS < 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		return
+	}
+
+	midPg := pgtype.UUID{Bytes: mid, Valid: true}
+	logEntry, err := a.d.Queries.GetSourceLogByMaterial(r.Context(), midPg)
+	if err != nil || logEntry.ProjectID != projectID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	if err := a.d.Queries.AddSourceTimeSpent(r.Context(), sqlc.AddSourceTimeSpentParams{
+		MaterialID: midPg,
+		TimeSpentS: req.TimeSpentS,
+	}); err != nil {
+		slog.Warn("log source open: accumulate time_spent_s failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"url":          logEntry.Url,
+		"time_spent_s": req.TimeSpentS,
+	})
+	if err != nil {
+		slog.Warn("log source open: marshal source_opened payload failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	} else {
+		store := agent.NewSqlcAgentStore(a.d.Queries)
+		if err := store.AppendEvent(r.Context(), agent.EventRow{
+			ProjectID: projectID, Surface: "studio", Type: "source_opened", Payload: payload,
+		}); err != nil {
+			slog.Warn("log source open: append source_opened event failed",
+				"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -210,6 +210,145 @@ func TestIngestMaterialEmptyBodyRejected(t *testing.T) {
 	}
 }
 
+// materialBlogID is the demo project's seeded blog source-log entry
+// (migration 0020): time_spent_s starts at 240, url is the pasted-blog URL.
+const materialBlogID = "00000000-0000-0000-0000-000000000110"
+
+func openMaterial(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, mid, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/materials/"+mid+"/open", strings.NewReader(body)), cookie)
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestLogSourceOpenAccumulatesTime — Task 5. Each open call must ADD to
+// time_spent_s, never overwrite it, and must append a source_opened event:
+// this is the ledger Slice 10's assessor reads.
+func TestLogSourceOpenAccumulatesTime(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	for i := 0; i < 2; i++ {
+		rec := openMaterial(t, h, cookie, materialsTestProjectID, materialBlogID, `{"time_spent_s":30}`)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204: %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	var spent int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT time_spent_s FROM source_log_entry WHERE material_id = $1`, materialBlogID).Scan(&spent); err != nil {
+		t.Fatal(err)
+	}
+	// The seed starts this entry at 240s (migration 0020).
+	if spent != 300 {
+		t.Errorf("time_spent_s = %d, want 300 (240 seeded + 30 + 30 — it accumulates, never overwrites)", spent)
+	}
+
+	rows, err := pool.Query(context.Background(),
+		`SELECT surface, payload FROM event WHERE project_id = $1 AND type = 'source_opened' ORDER BY created_at`,
+		materialsTestProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var n int
+	for rows.Next() {
+		n++
+		var surface string
+		var payload []byte
+		if err := rows.Scan(&surface, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if surface != "studio" {
+			t.Errorf("event surface = %q, want studio", surface)
+		}
+		var p struct {
+			URL        string `json:"url"`
+			TimeSpentS int32  `json:"time_spent_s"`
+		}
+		if err := json.Unmarshal(payload, &p); err != nil {
+			t.Fatalf("decode payload: %v — %s", err, payload)
+		}
+		if p.URL != "https://mp.weixin.qq.com/s/demo-china-greening" {
+			t.Errorf("payload.url = %q, want the log entry's url", p.URL)
+		}
+		if p.TimeSpentS != 30 {
+			t.Errorf("payload.time_spent_s = %d, want 30 (this open's contribution)", p.TimeSpentS)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Errorf("source_opened events = %d, want 2 — this is the ledger Slice 10's assessor reads", n)
+	}
+}
+
+// TestLogSourceOpenRejectsNegativeTimeSpent — a client error, not a write
+// failure: must 400, not 204, and must not touch time_spent_s or the event log.
+func TestLogSourceOpenRejectsNegativeTimeSpent(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := openMaterial(t, h, cookie, materialsTestProjectID, materialBlogID, `{"time_spent_s":-5}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+
+	var spent int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT time_spent_s FROM source_log_entry WHERE material_id = $1`, materialBlogID).Scan(&spent); err != nil {
+		t.Fatal(err)
+	}
+	if spent != 240 {
+		t.Errorf("time_spent_s = %d, want unchanged 240 — a negative sample must never write", spent)
+	}
+	if events := countRows(t, pool, "event"); events != 0 {
+		t.Errorf("event rows = %d, want 0 — a rejected client error appends nothing", events)
+	}
+}
+
+// TestLogSourceOpenMalformedBodyIs400 — malformed JSON is a client error, not
+// a best-effort write failure.
+func TestLogSourceOpenMalformedBodyIs400(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := openMaterial(t, h, cookie, materialsTestProjectID, materialBlogID, `{not json`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestLogSourceOpenRejectsOtherUsersMaterial — ownership hidden as not-found,
+// same as every other project-scoped route (loadOwnedProject).
+func TestLogSourceOpenRejectsOtherUsersMaterial(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	other := createStudent(t, pool, SeedSchoolID, "material-open-other@demo.local")
+	cookie := signInAs(t, pool, other)
+
+	rec := openMaterial(t, h, cookie, materialsTestProjectID, materialBlogID, `{"time_spent_s":30}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (ownership hidden as not-found): %s", rec.Code, rec.Body.String())
+	}
+
+	var spent int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT time_spent_s FROM source_log_entry WHERE material_id = $1`, materialBlogID).Scan(&spent); err != nil {
+		t.Fatal(err)
+	}
+	if spent != 240 {
+		t.Errorf("time_spent_s = %d, want unchanged 240 — a non-owner's open must write nothing", spent)
+	}
+}
+
 func TestIngestMaterialRejectsOtherUsersProject(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
