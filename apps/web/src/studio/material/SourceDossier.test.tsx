@@ -1,53 +1,132 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { Anchor } from "@mind-imprint/contracts";
+import type { Anchor, MaterialSource } from "@mind-imprint/contracts";
 import { SourceDossier } from "./SourceDossier";
-import { SOURCE_FIXTURES } from "./fixtures";
+
+// The calibration scenario (AGENTS.md): Phoebe, "中国是否让地球变得更可持续？" —
+// a self-media blog riffing on real NASA/Boston University satellite findings
+// (Chen et al. 2019, Nature Sustainability, DOI 10.1038/s41893-019-0220-7),
+// then the actual NASA/Nature Sustainability finding itself as the source she
+// traces back to. Wire-shaped (MaterialSource), not the deleted fixture.
+
+const BLOG_ID = "src-blog-china-greening";
+const NASA_ID = "src-nasa-nature-sustainability";
+
+const authorityAnchor: Anchor = {
+  id: "span-blog-authority",
+  material_id: BLOG_ID,
+  block_id: "b1",
+  start: 21,
+  end: 33,
+  quote: "根据 NASA 卫星数据",
+  dimension: "权威性",
+  author: "ai",
+  question: "「根据 NASA 卫星数据」——这条往上追，原始出处是谁？能找到 NASA 或论文本身吗，还是只是这篇公众号自己转述的？",
+  answer: "",
+};
+
+const purposeAnchor: Anchor = {
+  id: "span-blog-purpose",
+  material_id: BLOG_ID,
+  block_id: "b3",
+  start: 0,
+  end: 63,
+  quote: "很难不把这读成一个信号",
+  dimension: "目的性",
+  author: "ai",
+  question: "作者把「变绿」直接等同于「环保政策奏效」「更可持续」，这个推论站得住吗？有没有被这篇文章悄悄绕开的对立事实（比如碳排放）？",
+  answer: "",
+};
+
+const blogArticle: MaterialSource = {
+  id: BLOG_ID,
+  title: "《卫星图看中国变绿》",
+  sourceUrl: "https://mp.weixin.qq.com/s/china-greening-satellite",
+  kind: "article",
+  origin: "fetched",
+  blocks: [
+    {
+      id: "b1",
+      text: "过去二十年里发生了一件几乎没人注意到的事：根据 NASA 卫星数据，地球比 2000 年整整绿了一圈，而这背后最大的推手，是中国。",
+    },
+    {
+      id: "b2",
+      text: "变化大到能从太空里看见。2000 到 2017 年间，NASA 的 MODIS 卫星记录到全球绿叶面积增加了 5%，相当于新增了一整片亚马逊雨林那么大的绿色；仅占全球陆地面积 9% 的中国和印度，就贡献了这其中三分之一以上的增量。",
+    },
+    {
+      id: "b3",
+      text: "很难不把这读成一个信号：那个曾经和雾霾、燃煤电厂划等号的国家，如今悄悄成了地球变绿背后最大的力量——中国的环保政策，正在起效。",
+    },
+  ],
+  locked: false,
+  role: "触发关注的入口——数据引用听着权威，但结论被作者悄悄放大了，需要横向核实。",
+  tier: "二手转述",
+  takeaway: "",
+  anchors: [authorityAnchor, purposeAnchor],
+};
+
+const nasaSummary: MaterialSource = {
+  id: NASA_ID,
+  title: "Chen et al. (2019), Nature Sustainability",
+  sourceUrl: "https://doi.org/10.1038/s41893-019-0220-7",
+  kind: "paper",
+  origin: "fetched",
+  blocks: [
+    {
+      id: "b1",
+      text: "基于 NASA MODIS 卫星 2000–2017 年数据：全球绿叶面积净增 5%，中国、印度合计贡献全球净增量的三分之一以上；增量主要来自农业集约化耕作与大规模植树工程，而非森林自然恢复。",
+    },
+  ],
+  locked: true,
+  role: "第一手数据来源，证实了「卫星观测到变绿」这件事本身是真的，但没有说这等于「更可持续」——变绿主要来自农业集约化与植树造林，论文本身并未涉及碳排放。",
+  tier: "一手论文",
+  takeaway:
+    "NASA 与 Nature Sustainability 指出：卫星数据确认地球在变绿，中国是最大贡献者之一，但主要机制是农业集约化与人工造林，不是整体生态系统改善——论文本身不支持「中国让地球更可持续」这个更大的结论，也没有讨论碳排放。",
+  anchors: [],
+};
+
+const SOURCES: MaterialSource[] = [blogArticle, nasaSummary];
 
 describe("SourceDossier", () => {
   it("lists sources with locked count and opens one, emitting source_opened", () => {
     const onEvent = vi.fn();
-    render(<SourceDossier sources={SOURCE_FIXTURES} onEvent={onEvent} />);
+    render(<SourceDossier sources={SOURCES} onEvent={onEvent} />);
 
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
     expect(screen.getByText(/已收集 2 篇/)).toBeInTheDocument();
     expect(screen.getByText(/已锁定 1\/2/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(SOURCE_FIXTURES[0]!.name));
+    fireEvent.click(screen.getByText(blogArticle.title));
     expect(onEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "source_opened", surface: "studio", url: SOURCE_FIXTURES[0]!.id, time_spent_s: 0 }),
+      expect.objectContaining({ type: "source_opened", surface: "studio", url: blogArticle.id, time_spent_s: 0 }),
     );
   });
 
   it("in an article source, clicking a span reveals its question; back returns to the list", () => {
-    render(<SourceDossier sources={SOURCE_FIXTURES} />);
-    const article = SOURCE_FIXTURES.find((s) => s.view === "article")!;
-    const span = article.annotate.spans[0]!;
+    render(<SourceDossier sources={SOURCES} />);
 
-    fireEvent.click(screen.getByText(article.name));
-    expect(screen.queryByText(article.name)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(blogArticle.title));
+    expect(screen.queryByText(blogArticle.title)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("根据 NASA 卫星数据"));
-    expect(screen.getByText(span.tag)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(span.note.slice(0, 10)))).toBeInTheDocument();
+    expect(screen.getByText(authorityAnchor.dimension)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(authorityAnchor.question.slice(0, 10)))).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(/返回信源列表/));
     expect(screen.getByText(/已收集 2 篇/)).toBeInTheDocument();
   });
 
   it("opens a summary source and shows its takeaway", () => {
-    render(<SourceDossier sources={SOURCE_FIXTURES} />);
-    const summary = SOURCE_FIXTURES.find((s) => s.view === "summary")!;
+    render(<SourceDossier sources={SOURCES} />);
 
-    fireEvent.click(screen.getByText(summary.name));
-    expect(screen.getByText(summary.takeaway!)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(nasaSummary.title));
+    expect(screen.getByText(nasaSummary.takeaway)).toBeInTheDocument();
   });
 
   it("highlights a live anchor span in the open article source", () => {
-    const article = SOURCE_FIXTURES.find((s) => s.view === "article")!;
     const liveAnchor: Anchor = {
       id: "anchor-live-b2",
-      material_id: article.annotate.material_id,
+      material_id: blogArticle.id,
       block_id: "b2",
       start: 0,
       end: 11,
@@ -58,8 +137,8 @@ describe("SourceDossier", () => {
       answer: "",
     };
 
-    render(<SourceDossier sources={SOURCE_FIXTURES} anchors={[liveAnchor]} />);
-    fireEvent.click(screen.getByText(article.name));
+    render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
+    fireEvent.click(screen.getByText(blogArticle.title));
 
     fireEvent.click(screen.getByText("变化大到能从太空里看见"));
     expect(screen.getByText(liveAnchor.dimension)).toBeInTheDocument();
@@ -67,10 +146,9 @@ describe("SourceDossier", () => {
   });
 
   it("skips a live anchor with no block_ref and no range (nowhere to highlight)", () => {
-    const article = SOURCE_FIXTURES.find((s) => s.view === "article")!;
     const riskNoteAnchor: Anchor = {
       id: "risk_note",
-      material_id: article.annotate.material_id,
+      material_id: blogArticle.id,
       block_id: "",
       start: 0,
       end: 0,
@@ -81,9 +159,15 @@ describe("SourceDossier", () => {
       answer: "作者说读者应留意的风险",
     };
 
-    render(<SourceDossier sources={SOURCE_FIXTURES} anchors={[riskNoteAnchor]} />);
-    fireEvent.click(screen.getByText(article.name));
+    render(<SourceDossier sources={SOURCES} anchors={[riskNoteAnchor]} />);
+    fireEvent.click(screen.getByText(blogArticle.title));
 
     expect(screen.queryByText("作者说读者应留意的风险")).not.toBeInTheDocument();
+  });
+
+  it("does not render a credibility verdict chip — MaterialSource has no verdict field", () => {
+    render(<SourceDossier sources={SOURCES} />);
+    expect(screen.queryByText("可信")).not.toBeInTheDocument();
+    expect(screen.queryByText("存疑")).not.toBeInTheDocument();
   });
 });

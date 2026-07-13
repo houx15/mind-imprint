@@ -118,4 +118,25 @@ describe("StudioContainer", () => {
     await waitFor(() => expect(screen.getByText("加载失败，请重试")).toBeTruthy());
     expect(signin).not.toHaveBeenCalled();
   });
+
+  it("projects the server's materials into the 素材 view — no fixture", async () => {
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => ({
+        ...projection,
+        // this file's base `projection` only carries S0/S4 — add S3 (素材)
+        // so ViewFrame's station lookup resolves and renders the dossier.
+        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+        activeStation: "S3",
+        materials: [{
+          id: "m1", title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+          origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+          locked: false, role: "", tier: "二手 · 需追源", takeaway: "结论被放大了。", anchors: [],
+        }],
+      }),
+    };
+    render(<StudioContainer api={api as never} />);
+    expect(await screen.findByText("《卫星图看中国变绿》")).toBeInTheDocument();
+    expect(screen.getByText(/信源档案 · 已收集 1 篇/)).toBeInTheDocument();
+  });
 });

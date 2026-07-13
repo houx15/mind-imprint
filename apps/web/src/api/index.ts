@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -11,9 +11,10 @@ import {
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
 import { listProjects, getProject, type ProjectListItem } from "./projects";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
+import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import type { StudioTurnEvent } from "./studioTurn";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -45,6 +46,8 @@ export interface ApiClient {
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
+  addMaterial(projectId: string, body: AddMaterialBody): Promise<MaterialSource>;
+  logSourceOpen(projectId: string, materialId: string, timeSpentS: number): Promise<void>;
 }
 
 export const api: ApiClient = {
@@ -54,4 +57,5 @@ export const api: ApiClient = {
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
   listProjects, getProject,
   activateProjectCard, submitProjectCard, skipProjectCard,
+  addMaterial, logSourceOpen,
 };

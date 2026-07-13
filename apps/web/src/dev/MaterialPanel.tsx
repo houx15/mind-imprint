@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { StudioEvent } from "@mind-imprint/contracts";
 import { SourceDossier } from "../studio/material/SourceDossier";
-import { SOURCE_FIXTURES } from "../studio/material/fixtures";
+import { MATERIAL_FIXTURE } from "../studio/fixtures";
 
 export function MaterialPanel() {
   const [events, setEvents] = useState<StudioEvent[]>([]);
@@ -10,7 +10,7 @@ export function MaterialPanel() {
     <div className="min-h-screen bg-mk-bg p-8 font-sans text-mk-ink">
       <div className="mx-auto max-w-[760px] space-y-5">
         <div className="rounded-mk border border-mk-border bg-white p-5">
-          <SourceDossier sources={SOURCE_FIXTURES} onEvent={(e) => setEvents((prev) => [...prev, e])} />
+          <SourceDossier sources={MATERIAL_FIXTURE} onEvent={(e) => setEvents((prev) => [...prev, e])} />
         </div>
 
         <pre

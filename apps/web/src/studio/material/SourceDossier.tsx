@@ -1,10 +1,9 @@
 import { useState } from "react";
-import type { Anchor, AnnotateState, StudioEvent } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, MaterialSource, StudioEvent } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
-import type { SourceFixture } from "./fixtures";
 
 export type SourceDossierProps = {
-  sources: SourceFixture[];
+  sources: MaterialSource[];
   onEvent?: (e: StudioEvent) => void;
   anchors?: Anchor[];
 };
@@ -28,11 +27,6 @@ function anchorToSpan(anchor: Anchor): AnnotateSpan | null {
     author: anchor.author,
   };
 }
-
-const CRAAP_TONE: Record<string, { background: string; color: string }> = {
-  可信: { background: "#EAF3EE", color: "#2E7D4F" },
-  存疑: { background: "#FBF0E4", color: "#B5762A" },
-};
 
 function LockIcon() {
   return (
@@ -58,19 +52,24 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
 
+  // MaterialSource carries its own persisted anchors (CRAAP-mint / source-log)
+  // directly on `anchors` — there is no separate `annotate` field anymore.
+  // `anchors` (the prop) is this session's live card anchors; both project
+  // onto the same AnnotateSpan shape via anchorToSpan.
+  const baseSpans = openSource
+    ? openSource.anchors.map(anchorToSpan).filter((s): s is AnnotateSpan => s !== null)
+    : [];
   const liveSpans = openSource
     ? (anchors ?? [])
-        .filter((a) => a.material_id === openSource.annotate.material_id)
+        .filter((a) => a.material_id === openSource.id)
         .map(anchorToSpan)
         .filter((s): s is AnnotateSpan => s !== null)
     : [];
-  const annotateState = openSource
-    ? liveSpans.length > 0
-      ? { ...openSource.annotate, spans: [...openSource.annotate.spans, ...liveSpans] }
-      : openSource.annotate
+  const annotateState: AnnotateState | null = openSource
+    ? { material_id: openSource.id, spans: [...baseSpans, ...liveSpans] }
     : null;
 
-  const openSourceView = (source: SourceFixture) => {
+  const openSourceView = (source: MaterialSource) => {
     setOpenId(source.id);
     setActiveSpanId(null);
     onEvent?.({ type: "source_opened", surface: "studio", url: source.id, time_spent_s: 0 });
@@ -92,49 +91,36 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {sources.map((source) => {
-              const tone = CRAAP_TONE[source.craapLabel] ?? { background: "#F1F2F6", color: "#5A6178" };
-              return (
-                <button
-                  key={source.id}
-                  type="button"
-                  onClick={() => openSourceView(source)}
-                  style={{
-                    display: "block",
-                    textAlign: "left",
-                    background: "#fff",
-                    border: "1px solid #E4E6EE",
-                    borderRadius: 12,
-                    padding: "11px 13px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {source.locked && <LockIcon />}
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{source.name}</span>
-                    <span
-                      style={{
-                        marginLeft: "auto",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        borderRadius: 999,
-                        padding: "2px 8px",
-                        background: tone.background,
-                        color: tone.color,
-                      }}
-                    >
-                      {source.craapLabel}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 4 }}>
-                    {source.type} · {source.tier}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>
-                    作用与风险：{source.role}
-                  </div>
-                </button>
-              );
-            })}
+            {sources.map((source) => (
+              <button
+                key={source.id}
+                type="button"
+                onClick={() => openSourceView(source)}
+                style={{
+                  display: "block",
+                  textAlign: "left",
+                  background: "#fff",
+                  border: "1px solid #E4E6EE",
+                  borderRadius: 12,
+                  padding: "11px 13px",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {source.locked && <LockIcon />}
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{source.title}</span>
+                  {/* Task 7: MaterialSource has no verdict field (可信/存疑) by
+                      design (spec §3) — the old fixture's craapLabel chip is
+                      gone here, not replaced with a fabricated value. */}
+                </div>
+                <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 4 }}>
+                  {source.kind} · {source.tier}
+                </div>
+                <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>
+                  作用与风险：{source.role}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -162,10 +148,17 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
             返回信源列表
           </button>
 
-          {openSource.view === "article" && (
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>{openSource.name}</div>
-              {openSource.meta && <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>{openSource.meta}</div>}
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>{openSource.title}</div>
+          <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>
+            {openSource.kind} · {openSource.tier}
+          </div>
+
+          {/* Task 7: the old fixture's `view: "article" | "summary"` toggle
+              had no honest producer on MaterialSource — every source now
+              renders whatever it truthfully has (blocks and/or a takeaway),
+              instead of faking a single-mode switch. */}
+          {openSource.blocks.length > 0 && (
+            <>
               <Annotate
                 blocks={openSource.blocks}
                 state={annotateState!}
@@ -175,31 +168,25 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
               <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>
                 点亮的段落是 AI 标出的可疑处——追问会出现在旁边的陪练轨道。
               </div>
-            </div>
+            </>
           )}
 
-          {openSource.view === "summary" && (
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>{openSource.name}</div>
-              <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>
-                {openSource.type} · {openSource.tier}
-                {openSource.meta ? ` · ${openSource.meta}` : ""}
-              </div>
-              <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6 }}>{openSource.role}</div>
-              {openSource.takeaway && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    background: "#F7F5FB",
-                    border: "1px solid #E3DCF2",
-                    borderRadius: 12,
-                    padding: "13px 15px",
-                  }}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>一句话摘要</div>
-                  <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#3A4256" }}>{openSource.takeaway}</div>
-                </div>
-              )}
+          {openSource.role && (
+            <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 12 }}>{openSource.role}</div>
+          )}
+
+          {openSource.takeaway.trim().length > 0 && (
+            <div
+              style={{
+                marginTop: 14,
+                background: "#F7F5FB",
+                border: "1px solid #E3DCF2",
+                borderRadius: 12,
+                padding: "13px 15px",
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>一句话摘要</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#3A4256" }}>{openSource.takeaway}</div>
             </div>
           )}
         </div>

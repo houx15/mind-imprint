@@ -1,8 +1,7 @@
-import type { SourceFixture } from "./material/fixtures";
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
-  CardInstance, TraceEvent,
+  CardInstance, TraceEvent, MaterialSource,
 } from "@mind-imprint/contracts";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
@@ -34,7 +33,7 @@ export type StudioState = {
     equipment: EquipCard[];
   };
   views: {
-    material: SourceFixture[];
+    material: MaterialSource[];
     structure: StructureCardFx[];
     writing: { draft: string; mode: "edit" | "preview" };
     review: GaugeFx[];

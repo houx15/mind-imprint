@@ -1,13 +1,93 @@
-import { SOURCE_FIXTURES } from "./material/fixtures";
+import type { MaterialSource } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
 
 // The 0457 calibration scenario (AGENTS.md): Phoebe, "To what extent is China
 // making the world more environmentally sustainable?" — dramatized at station
 // S4 (论证构建), mid-way through fixing an "orphan evidence" flag on the
-// argument map. Content is drawn from the real scenario materials already
-// established in ./material/fixtures.ts and the design binding
-// docs/design/思维印记_工作区.dc.html (STA ~L2092, EQ ~L2286, S4META ~L1947,
-// GA ~L2239). Real content throughout — no lorem ipsum.
+// argument map. Content is drawn from the real scenario materials and the
+// design binding docs/design/思维印记_工作区.dc.html (STA ~L2092, EQ ~L2286,
+// S4META ~L1947, GA ~L2239). Real content throughout — no lorem ipsum.
+//
+// The dossier's own material fixture (blog + NASA paper) was server-projected
+// as of Slice 6b (migration 0020 seeds them) and its frontend copy deleted —
+// MATERIAL_FIXTURE below is the wire-shaped (MaterialSource) equivalent kept
+// only for this file's client-side story fixture / the dev harness.
+
+const BLOG_ID = "src-blog-china-greening";
+const NASA_ID = "src-nasa-nature-sustainability";
+
+export const MATERIAL_FIXTURE: MaterialSource[] = [
+  {
+    id: BLOG_ID,
+    title: "《卫星图看中国变绿》",
+    sourceUrl: "https://mp.weixin.qq.com/s/china-greening-satellite",
+    kind: "article",
+    origin: "fetched",
+    blocks: [
+      {
+        id: "b1",
+        text: "过去二十年里发生了一件几乎没人注意到的事：根据 NASA 卫星数据，地球比 2000 年整整绿了一圈，而这背后最大的推手，是中国。",
+      },
+      {
+        id: "b2",
+        text: "变化大到能从太空里看见。2000 到 2017 年间，NASA 的 MODIS 卫星记录到全球绿叶面积增加了 5%，相当于新增了一整片亚马逊雨林那么大的绿色；仅占全球陆地面积 9% 的中国和印度，就贡献了这其中三分之一以上的增量。",
+      },
+      {
+        id: "b3",
+        text: "很难不把这读成一个信号：那个曾经和雾霾、燃煤电厂划等号的国家，如今悄悄成了地球变绿背后最大的力量——中国的环保政策，正在起效。",
+      },
+    ],
+    locked: false,
+    role: "触发关注的入口——数据引用听着权威，但结论被作者悄悄放大了，需要横向核实。",
+    tier: "二手转述",
+    takeaway: "",
+    anchors: [
+      {
+        id: "span-blog-authority",
+        material_id: BLOG_ID,
+        block_id: "b1",
+        start: 21,
+        end: 33,
+        quote: "根据 NASA 卫星数据",
+        dimension: "权威性",
+        author: "ai",
+        question: "「根据 NASA 卫星数据」——这条往上追，原始出处是谁？能找到 NASA 或论文本身吗，还是只是这篇公众号自己转述的？",
+        answer: "",
+      },
+      {
+        id: "span-blog-purpose",
+        material_id: BLOG_ID,
+        block_id: "b3",
+        start: 0,
+        end: 63,
+        quote: "很难不把这读成一个信号",
+        dimension: "目的性",
+        author: "ai",
+        question: "作者把「变绿」直接等同于「环保政策奏效」「更可持续」，这个推论站得住吗？有没有被这篇文章悄悄绕开的对立事实（比如碳排放）？",
+        answer: "",
+      },
+    ],
+  },
+  {
+    id: NASA_ID,
+    title: "Chen et al. (2019), Nature Sustainability",
+    sourceUrl: "https://doi.org/10.1038/s41893-019-0220-7",
+    kind: "paper",
+    origin: "fetched",
+    blocks: [
+      {
+        id: "b1",
+        text: "基于 NASA MODIS 卫星 2000–2017 年数据：全球绿叶面积净增 5%，中国、印度合计贡献全球净增量的三分之一以上；增量主要来自农业集约化耕作与大规模植树工程，而非森林自然恢复。",
+      },
+    ],
+    locked: true,
+    role: "第一手数据来源，证实了「卫星观测到变绿」这件事本身是真的，但没有说这等于「更可持续」——变绿主要来自农业集约化与植树造林，论文本身并未涉及碳排放。",
+    tier: "一手论文",
+    takeaway:
+      "NASA 与 Nature Sustainability 指出：卫星数据确认地球在变绿，中国是最大贡献者之一，但主要机制是农业集约化与人工造林，不是整体生态系统改善——论文本身不支持「中国让地球更可持续」这个更大的结论，也没有讨论碳排放。",
+    anchors: [],
+  },
+];
 
 export const STUDIO_FIXTURE: StudioState = {
   project: {
@@ -55,7 +135,7 @@ export const STUDIO_FIXTURE: StudioState = {
     ],
   },
   views: {
-    material: SOURCE_FIXTURES,
+    material: MATERIAL_FIXTURE,
     structure: [
       {
         id: "claim",
