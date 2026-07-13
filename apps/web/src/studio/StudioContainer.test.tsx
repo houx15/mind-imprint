@@ -236,4 +236,148 @@ describe("StudioContainer", () => {
 
     expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", 30);
   });
+
+  it("refetches the projection after a card submit resolves — the lock and the persisted anchors must render without a page reload", async () => {
+    const materialId = "m1";
+    const anchor = {
+      id: "a1", material_id: materialId, block_id: "b1", start: 0, end: 4,
+      quote: "过去二十年", dimension: "authority", author: "ai",
+      question: "原始出处是谁？", answer: "只是一个博主",
+    };
+    const riskNoteAnchor = {
+      id: "risk_note", material_id: materialId, block_id: "", start: 0, end: 0, quote: "",
+      dimension: "risk_note", author: "student", question: "这条来源在你的论证里起什么作用？有什么风险 / 局限？",
+      answer: "触发关注的入口——需要横向核实。",
+    };
+    const unlockedMaterial = {
+      id: materialId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [],
+    };
+    const lockedMaterial = {
+      ...unlockedMaterial, locked: true, role: "触发关注的入口——需要横向核实。",
+      anchors: [anchor, riskNoteAnchor],
+    };
+
+    let getProjectCalls = 0;
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        const materials = getProjectCalls === 1 ? [unlockedMaterial] : [lockedMaterial];
+        return {
+          ...projection,
+          stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+          activeStation: "S3",
+          materials,
+        };
+      },
+    };
+
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [anchor] },
+    };
+    const submitCard = vi.fn(async () => {});
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      clearMessages: vi.fn(),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+    expect(screen.getByText("待评估")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+      target: { value: "触发关注的入口——需要横向核实。" },
+    });
+    fireEvent.click(screen.getByText("锁定，进下一条"));
+
+    expect(submitCard).toHaveBeenCalled();
+    // The stale-until-reload bug: without a refetch, getProject is never
+    // called a second time and the chip/role never update.
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await waitFor(() => expect(screen.getByText("✓ 已锁定")).toBeInTheDocument());
+    expect(screen.getByText(/作用与风险：触发关注的入口——需要横向核实。/)).toBeInTheDocument();
+  });
+
+  it("does not duplicate the coach thread when a refetch's projection already contains this session's live turns", async () => {
+    const studentTurn = { kind: "student", body: "它想证明中国是认真在转型的。" };
+    const aiTurn = { kind: "ai", body: "连到治理决心", tag: "D5", anchor: "论证图 · 治理决心主张" };
+
+    // A minimal stateful fake mirroring the real conversation controller's
+    // shape closely enough that clearMessages() actually mutates what
+    // getSnapshot returns (a static fixture can't exercise the reconciliation).
+    let convState = { messages: [studentTurn, aiTurn], sending: false, error: null, disposableInterventionId: null, card: null };
+    const listeners = new Set<() => void>();
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(),
+      submitCard: vi.fn(async () => {}),
+      skipCard: vi.fn(async () => {}),
+      clearMessages: vi.fn(() => {
+        convState = { ...convState, messages: [] };
+        listeners.forEach((l) => l());
+      }),
+    };
+
+    const newMaterial = {
+      id: "m2", title: "《IPCC AR6 综合报告》", sourceUrl: "https://ipcc.ch/report", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+      locked: false, role: "", tier: "机构报告", takeaway: "报告本身的口径。", anchors: [],
+    };
+    const baseProjection = {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [] as unknown[],
+    };
+    // The refetched projection already carries THIS session's two live
+    // turns as persisted history — the server-side rebuild projectCoach
+    // does exactly this once a chat_message/intervention row exists.
+    const projectionWithPersistedTurns = {
+      ...baseProjection,
+      coach: { ...baseProjection.coach, messages: [studentTurn, aiTurn] },
+      materials: [newMaterial],
+    };
+    let getProjectCalls = 0;
+    const addMaterial = vi.fn(async () => newMaterial);
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return getProjectCalls === 1 ? baseProjection : projectionWithPersistedTurns;
+      },
+      addMaterial,
+      logSourceOpen: vi.fn(async () => {}),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+    // Pre-refetch: the live turn renders exactly once, straight from the
+    // conversation controller.
+    expect(screen.getAllByText(aiTurn.body)).toHaveLength(1);
+
+    fireEvent.click(screen.getByText("添加信源"));
+    fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
+    fireEvent.change(screen.getByPlaceholderText(/一句话说说/), { target: { value: "报告本身的口径。" } });
+    fireEvent.click(screen.getByLabelText("机构报告"));
+    fireEvent.click(screen.getByText("加入信源档案"));
+
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    // The bug: CoachRail is keyed by array index with no dedupe, so without
+    // reconciliation the turn now renders twice — once from the refetched
+    // projection's history, once still sitting in the conversation buffer.
+    await waitFor(() => expect(screen.getAllByText(aiTurn.body)).toHaveLength(1));
+    expect(screen.getAllByText(studentTurn.body)).toHaveLength(1);
+  });
 });

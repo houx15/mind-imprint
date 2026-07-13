@@ -61,6 +61,24 @@ describe("createStudioConversation", () => {
     expect(s.card).toMatchObject({ cardInstanceId: "ci2", cardId: "craap", status: "proposed" });
   });
 
+  it("clearMessages empties the local turn buffer without touching card/sending/error/disposableInterventionId", async () => {
+    const conv = createStudioConversation({ projectId: "p1", api: fakeApi });
+    await conv.send("它想证明中国在认真转型");
+    const before = conv.getSnapshot();
+    expect(before.messages.length).toBeGreaterThan(0);
+    expect(before.disposableInterventionId).toBe("iid");
+
+    conv.clearMessages();
+    const after = conv.getSnapshot();
+    expect(after.messages).toEqual([]);
+    // Everything else this session already knows must survive — a refetch
+    // landing the persisted history must not also wipe the disposable
+    // intervention id or clobber an in-flight card/sending/error state.
+    expect(after.disposableInterventionId).toBe("iid");
+    expect(after.sending).toBe(false);
+    expect(after.error).toBeNull();
+  });
+
   it("carries anchors from the card event onto the card state", async () => {
     const anchors = [
       { id: "a1", material_id: "m1", block_id: "b1", start: 0, end: 10, quote: "q1", dimension: "source", author: "ai", question: "谁写的?", answer: "" },

@@ -93,6 +93,25 @@ export function StudioContainer({
     setConv(makeConversation({ projectId }));
   }, [projectId, makeConversation]);
 
+  // The projection is the single source of truth for everything the server
+  // derives (materials/locked/role/anchors, the coach thread's persisted
+  // history, …) — refetch it any time a turn changes server state instead of
+  // hand-patching local state. Reused by add-source, card submit, and card
+  // skip; must not touch activeStation/focusMode (client-local view state)
+  // or blow away an in-flight conv beyond its own message buffer.
+  //
+  // conv.clearMessages() empties the conversation controller's local turn
+  // buffer once the refetched projection lands: projectCoach rebuilds the
+  // thread from persisted interventions + chat_messages, which by then
+  // includes this session's own turns — without clearing, CoachRail (keyed
+  // by array index, no dedupe) would render every one of them twice.
+  const refetchProject = async () => {
+    if (!projectId) return;
+    const proj = await api.getProject(projectId);
+    setState(toStudioState(proj));
+    conv?.clearMessages();
+  };
+
   // Subscribe to the live conversation's turns via the app's established
   // external-store pattern (matches agent/useConversation.ts). Falls back to
   // a stable empty snapshot before `conv` exists (project still loading).
@@ -126,8 +145,8 @@ export function StudioContainer({
     onOpenMethodology: () => { /* client-live; StudioShell owns modal state */ },
     onComposerSend: (text) => conv?.send(text),
     onOpenCard: () => conv?.openCard(),
-    onSubmitCard: (finalEnvelope) => conv?.submitCard(finalEnvelope),
-    onSkipCard: (eventTrace) => conv?.skipCard(eventTrace),
+    onSubmitCard: (finalEnvelope) => { conv?.submitCard(finalEnvelope).then(() => refetchProject()); },
+    onSkipCard: (eventTrace) => { conv?.skipCard(eventTrace).then(() => refetchProject()); },
     onAddSource: async (body) => {
       if (!projectId) return;
       try {
@@ -136,8 +155,7 @@ export function StudioContainer({
         // The projection is the single source of truth for 素材 — refetch
         // rather than hand-patch local state so the new source (and any
         // server-side derivations of it) render exactly as stored.
-        const proj = await api.getProject(projectId);
-        setState(toStudioState(proj));
+        await refetchProject();
       } catch (err) {
         setAddSourceError(err instanceof ApiError ? err.message : "添加信源失败，请重试");
         throw err; // AddSourceForm relies on the rejection to skip its own reset()

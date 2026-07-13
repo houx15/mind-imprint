@@ -108,6 +108,16 @@ export function createStudioConversation({ projectId, api }: Deps) {
     set({ card: null });
   }
 
+  // clearMessages empties this session's local turn buffer only — the
+  // projection (fetched via refetchProject) is now the single source of
+  // truth for every turn that has landed server-side, so keeping them here
+  // too would render each one twice (CoachRail is keyed by array index with
+  // no dedupe). card/sending/error/disposableInterventionId are untouched:
+  // a refetch reconciles history, not this session's live interaction state.
+  function clearMessages() {
+    set({ messages: [] });
+  }
+
   return {
     getSnapshot: () => state,
     subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
@@ -116,5 +126,6 @@ export function createStudioConversation({ projectId, api }: Deps) {
     openCard,
     submitCard,
     skipCard,
+    clearMessages,
   };
 }
