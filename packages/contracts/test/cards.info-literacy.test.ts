@@ -56,4 +56,12 @@ describe("sift card (C2 over compare)", () => {
     expect(relation?.type).toBe("single_choice");
     expect(relation?.options).toEqual(["印证", "反驳", "限定"]);
   });
+
+  it("closes with the student's own revised judgment, in her words, after the pyramid re-tier", () => {
+    const trace = sift.steps.find((s) => s.key === "trace");
+    const keys = trace!.fields.map((f) => f.key);
+    const revised = trace!.fields.find((f) => f.key === "revised_judgment");
+    expect(revised?.type).toBe("textarea");
+    expect(keys.indexOf("revised_judgment")).toBeGreaterThan(keys.indexOf("tier_after"));
+  });
 });

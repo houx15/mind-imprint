@@ -92,7 +92,8 @@
       },
       "fields": [
         { "type": "textarea", "key": "trace_origin", "label": "最原始的出处是哪里？", "rows": 2 },
-        { "type": "single_choice", "key": "tier_after", "label": "横向查过之后，你把它放在信源金字塔的哪一层？", "options": ["原始证据", "一手报道", "二手评论", "营销/观点"] }
+        { "type": "single_choice", "key": "tier_after", "label": "横向查过之后，你把它放在信源金字塔的哪一层？", "options": ["原始证据", "一手报道", "二手评论", "营销/观点"] },
+        { "type": "textarea", "key": "revised_judgment", "label": "横向查过之后，你现在怎么判断这条说法？和一开始比，哪里变了？", "rows": 3 }
       ]
     }
   ]
