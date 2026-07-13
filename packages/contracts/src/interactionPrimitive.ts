@@ -42,3 +42,27 @@ export const GraphState = z.object({
   edges: z.array(GraphEdgeUnit),
 });
 export type GraphState = z.infer<typeof GraphState>;
+
+// compare (C1): two materials side by side with paired annotations. `right` is
+// nullable by design — the empty right pane is not a loading state, it is the
+// assignment SIFT exists to resolve. Every pair is student-authored: the
+// relation and the note are her judgment and have no other honest producer.
+export const CompareRelation = z.enum(["corroborates", "contradicts", "qualifies"]);
+export type CompareRelation = z.infer<typeof CompareRelation>;
+
+export const ComparePair = z.object({
+  id: z.string().min(1),
+  l_span: z.string().min(1),
+  r_span: z.string().min(1),
+  note: z.string(),
+  relation: CompareRelation,
+  author: z.literal("student"),
+});
+export type ComparePair = z.infer<typeof ComparePair>;
+
+export const CompareState = z.object({
+  left: AnnotateState,
+  right: AnnotateState.nullable(),
+  pairs: z.array(ComparePair),
+});
+export type CompareState = z.infer<typeof CompareState>;
