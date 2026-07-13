@@ -54,7 +54,7 @@ func TestSqlcAgentStore_CardMutationSeamRoundTrip(t *testing.T) {
 		t.Fatalf("CreateProject: %v", err)
 	}
 	ci, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
-		TaskID:    task.ID,
+		TaskID:    pgtype.UUID{Bytes: task.ID, Valid: true},
 		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
 		CardID:    "craap",
 		Status:    "proposed",

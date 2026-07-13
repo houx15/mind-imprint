@@ -8,6 +8,14 @@
 --    reference their task).
 ALTER TABLE material ALTER COLUMN task_id DROP NOT NULL;
 
+-- 1b. card_instances.task_id has the same debt (migration 0001's original
+--    task-scoped table, extended by 0016 for the project surface). Slice 6b's
+--    source-log ingestion creates materials with no task_id, and the coach
+--    surfaces cards on those materials — CreateCardInstance resolves
+--    task_id from the material it targets, so it must be able to pass NULL
+--    through. Keep the column and its FK; only the NOT NULL goes.
+ALTER TABLE card_instances ALTER COLUMN task_id DROP NOT NULL;
+
 -- 2. source_log_entry gains its material link. The table has never been
 --    written to (no queries existed until this slice), so there is no data to
 --    backfill.
@@ -54,4 +62,5 @@ DROP INDEX IF EXISTS source_log_entry_material_idx;
 ALTER TABLE source_log_entry DROP COLUMN material_id;
 UPDATE material SET blocks = '[]'::jsonb, source_url = NULL
   WHERE id IN ('00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000111');
+ALTER TABLE card_instances ALTER COLUMN task_id SET NOT NULL;
 ALTER TABLE material ALTER COLUMN task_id SET NOT NULL;

@@ -1,9 +1,11 @@
 -- Project-scoped card_instance lifecycle (Slice 3, agent-spec §3). The
 -- table is `card_instances` (Slice-0's task-scoped table, extended by
--- migration 0016 with project_id/contract_ref/framework_fill); task_id
--- stays NOT NULL (legacy FK, not yet dropped) so callers still supply it —
--- the runtime resolves it from the target material's own task_id
--- (agentstore.go), never asking the pure agent code to know about tasks.
+-- migration 0016 with project_id/contract_ref/framework_fill); task_id went
+-- nullable in migration 0020 alongside material.task_id (Slice 6b's
+-- project-scoped source-log ingestion creates materials with no task) —
+-- the runtime resolves it from the target material's own (possibly NULL)
+-- task_id (agentstore.go), never asking the pure agent code to know about
+-- tasks.
 -- The old task-scoped queries in cards.sql (CreateCardInstance, SetCardActive,
 -- SubmitCard, SkipCard, SetCardAnchors) are otherwise unused — there is no
 -- legacy path any more (Slice 5d retired the task-based surface) — they stay

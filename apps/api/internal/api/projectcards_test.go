@@ -35,7 +35,7 @@ func createProjectCardForTest(t *testing.T, pool *pgxpool.Pool) string {
 	t.Helper()
 	q := sqlc.New(pool)
 	ci, err := q.CreateProjectCardInstance(t.Context(), sqlc.CreateProjectCardInstanceParams{
-		TaskID:    mustUUID("00000000-0000-0000-0000-000000000100"),
+		TaskID:    pgtype.UUID{Bytes: mustUUID("00000000-0000-0000-0000-000000000100"), Valid: true},
 		ProjectID: pgtype.UUID{Bytes: mustUUID("00000000-0000-0000-0000-000000000101"), Valid: true},
 		CardID:    "craap",
 		Status:    "active",

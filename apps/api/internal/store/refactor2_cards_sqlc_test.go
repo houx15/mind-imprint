@@ -27,11 +27,12 @@ func jsonEqual(t *testing.T, got, want []byte) bool {
 }
 
 // TestRefactor2CardsSqlcLifecycle exercises the Task 4 project-scoped
-// card_instance queries: seed a project (+ a task, since card_instances.task_id
-// stays NOT NULL — a legacy FK not yet dropped), CreateProjectCardInstance
-// (status proposed) -> SetCardInstanceAnchors -> SetCardInstanceStatus (active)
-// -> SetCardInstanceFramework -> GetCardInstance reflects each step ->
-// ListCardInstancesByProject includes it.
+// card_instance queries: seed a project (+ a task, since a legacy row can
+// still carry a task_id even though the column went nullable in migration
+// 0020), CreateProjectCardInstance (status proposed) -> SetCardInstanceAnchors
+// -> SetCardInstanceStatus (active) -> SetCardInstanceFramework ->
+// GetCardInstance reflects each step -> ListCardInstancesByProject includes
+// it.
 func TestRefactor2CardsSqlcLifecycle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -62,7 +63,7 @@ func TestRefactor2CardsSqlcLifecycle(t *testing.T) {
 
 	contractRef := "craap"
 	created, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
-		TaskID:      task.ID,
+		TaskID:      pgtype.UUID{Bytes: task.ID, Valid: true},
 		ProjectID:   projectID,
 		CardID:      "craap",
 		ContractRef: &contractRef,

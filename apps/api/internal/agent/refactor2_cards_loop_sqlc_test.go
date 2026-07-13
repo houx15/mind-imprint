@@ -79,8 +79,8 @@ func TestRefactor2CardsLoop_UnevaluatedSourceSurfacesCraap(t *testing.T) {
 	if list[0].CardID != "craap" || list[0].Status != "proposed" {
 		t.Fatalf("unexpected card_instance: card_id=%q status=%q", list[0].CardID, list[0].Status)
 	}
-	if list[0].TaskID != task.ID {
-		t.Fatalf("TaskID = %s, want the material's own task %s", list[0].TaskID, task.ID)
+	if !list[0].TaskID.Valid || list[0].TaskID.Bytes != task.ID {
+		t.Fatalf("TaskID = %+v, want the material's own task %s", list[0].TaskID, task.ID)
 	}
 
 	edges, err := q.ListGraphEdgesByProject(ctx, project.ID)
@@ -258,5 +258,59 @@ func TestRefactor2CardsLoop_RecordDispositionRoundTrip(t *testing.T) {
 	reason := "这条追问和我原本的方向不一致，我想先按自己的思路推进"
 	if err := agent.RecordDisposition(ctx, deps, ivn.ID, "reject", reason); err != nil {
 		t.Fatalf("RecordDisposition: %v", err)
+	}
+}
+
+// TestRefactor2CardsLoop_CreateCardInstanceOnTasklessMaterial — the
+// regression this migration exists for. Slice 6b's project-scoped source-log
+// ingestion creates materials with NO task_id (the task surface was deleted
+// in 5d); when the coach later surfaces a card on that material,
+// sqlcAgentStore.CreateCardInstance resolves task_id from the material row
+// and must be able to pass a NULL through rather than narrowing it to the
+// zero UUID (which does not exist in `tasks` and trips the FK). Before the
+// fix (card_instances.task_id NOT NULL + zero-UUID narrowing), this failed
+// with a foreign-key violation.
+func TestRefactor2CardsLoop_CreateCardInstanceOnTasklessMaterial(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q)
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: seededStudentID, Qualification: "EE", Title: "中国是否让地球变得更可持续？", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	// No TaskID set — pgtype.UUID{} zero value is Valid:false, i.e. NULL.
+	material, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "student-pasted source, no task anywhere in sight",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial: %v", err)
+	}
+	if material.TaskID.Valid {
+		t.Fatalf("test setup: material.TaskID = %+v, want NULL", material.TaskID)
+	}
+
+	row, err := store.CreateCardInstance(ctx, project.ID, material.ID, "craap", "evaluate_sources")
+	if err != nil {
+		t.Fatalf("CreateCardInstance on a taskless material: %v", err)
+	}
+
+	got, err := q.GetCardInstance(ctx, row.ID)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if got.TaskID.Valid {
+		t.Fatalf("card_instances.task_id = %+v, want NULL (inherited from the taskless material)", got.TaskID)
 	}
 }

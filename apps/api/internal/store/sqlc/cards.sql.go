@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createCardInstance = `-- name: CreateCardInstance :one
@@ -18,8 +19,8 @@ RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trac
 `
 
 type CreateCardInstanceParams struct {
-	CardID string    `json:"card_id"`
-	TaskID uuid.UUID `json:"task_id"`
+	CardID string      `json:"card_id"`
+	TaskID pgtype.UUID `json:"task_id"`
 }
 
 func (q *Queries) CreateCardInstance(ctx context.Context, arg CreateCardInstanceParams) (CardInstance, error) {
@@ -52,8 +53,8 @@ RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trac
 `
 
 type SetCardActiveParams struct {
-	ID     uuid.UUID `json:"id"`
-	TaskID uuid.UUID `json:"task_id"`
+	ID     uuid.UUID   `json:"id"`
+	TaskID pgtype.UUID `json:"task_id"`
 }
 
 func (q *Queries) SetCardActive(ctx context.Context, arg SetCardActiveParams) (CardInstance, error) {
@@ -85,9 +86,9 @@ RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trac
 `
 
 type SetCardAnchorsParams struct {
-	ID      uuid.UUID `json:"id"`
-	TaskID  uuid.UUID `json:"task_id"`
-	Anchors []byte    `json:"anchors"`
+	ID      uuid.UUID   `json:"id"`
+	TaskID  pgtype.UUID `json:"task_id"`
+	Anchors []byte      `json:"anchors"`
 }
 
 func (q *Queries) SetCardAnchors(ctx context.Context, arg SetCardAnchorsParams) (CardInstance, error) {
@@ -120,9 +121,9 @@ RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trac
 `
 
 type SkipCardParams struct {
-	ID         uuid.UUID `json:"id"`
-	TaskID     uuid.UUID `json:"task_id"`
-	EventTrace []byte    `json:"event_trace"`
+	ID         uuid.UUID   `json:"id"`
+	TaskID     pgtype.UUID `json:"task_id"`
+	EventTrace []byte      `json:"event_trace"`
 }
 
 func (q *Queries) SkipCard(ctx context.Context, arg SkipCardParams) (CardInstance, error) {
@@ -155,10 +156,10 @@ RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trac
 `
 
 type SubmitCardParams struct {
-	ID          uuid.UUID `json:"id"`
-	TaskID      uuid.UUID `json:"task_id"`
-	FieldValues []byte    `json:"field_values"`
-	EventTrace  []byte    `json:"event_trace"`
+	ID          uuid.UUID   `json:"id"`
+	TaskID      pgtype.UUID `json:"task_id"`
+	FieldValues []byte      `json:"field_values"`
+	EventTrace  []byte      `json:"event_trace"`
 }
 
 func (q *Queries) SubmitCard(ctx context.Context, arg SubmitCardParams) (CardInstance, error) {

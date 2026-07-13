@@ -24,7 +24,7 @@ type CardCompetence struct {
 type CardInstance struct {
 	ID            uuid.UUID          `json:"id"`
 	CardID        string             `json:"card_id"`
-	TaskID        uuid.UUID          `json:"task_id"`
+	TaskID        pgtype.UUID        `json:"task_id"`
 	ParentNodeID  pgtype.UUID        `json:"parent_node_id"`
 	Status        string             `json:"status"`
 	FieldValues   []byte             `json:"field_values"`

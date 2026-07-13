@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -23,18 +24,19 @@ func TestCardLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	pgTaskID := pgtype.UUID{Bytes: task.ID, Valid: true}
 
-	c1, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: task.ID})
+	c1, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: pgTaskID})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := q.SetCardActive(ctx, sqlc.SetCardActiveParams{ID: c1.ID, TaskID: task.ID}); err != nil {
+	if _, err := q.SetCardActive(ctx, sqlc.SetCardActiveParams{ID: c1.ID, TaskID: pgTaskID}); err != nil {
 		t.Fatal(err)
 	}
 	done, err := q.SubmitCard(ctx, sqlc.SubmitCardParams{
 		ID:          c1.ID,
-		TaskID:      task.ID,
+		TaskID:      pgTaskID,
 		FieldValues: []byte(`{"sift":{"stop":"x"}}`),
 		EventTrace:  []byte(`[{"kind":"submit"}]`),
 	})
@@ -45,11 +47,11 @@ func TestCardLifecycle(t *testing.T) {
 		t.Fatalf("want completed+completed_at, got %s valid=%v", done.Status, done.CompletedAt.Valid)
 	}
 
-	c2, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "concession", TaskID: task.ID})
+	c2, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "concession", TaskID: pgTaskID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	skip, err := q.SkipCard(ctx, sqlc.SkipCardParams{ID: c2.ID, TaskID: task.ID, EventTrace: []byte(`[{"kind":"skip"}]`)})
+	skip, err := q.SkipCard(ctx, sqlc.SkipCardParams{ID: c2.ID, TaskID: pgTaskID, EventTrace: []byte(`[{"kind":"skip"}]`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,7 @@ func TestCardLifecycle(t *testing.T) {
 	}
 
 	// Wrong-task scoping returns no rows.
-	if _, err := q.SetCardActive(ctx, sqlc.SetCardActiveParams{ID: c1.ID, TaskID: uuid.New()}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.SetCardActive(ctx, sqlc.SetCardActiveParams{ID: c1.ID, TaskID: pgtype.UUID{Bytes: uuid.New(), Valid: true}}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("want ErrNoRows for wrong task, got %v", err)
 	}
 }

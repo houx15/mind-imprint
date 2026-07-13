@@ -27,7 +27,7 @@ func TestSubmitProjectCardInstance(t *testing.T) {
 	projectID := pgtype.UUID{Bytes: uuid.MustParse("00000000-0000-0000-0000-000000000101"), Valid: true}
 
 	ci, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
-		TaskID:      uuid.MustParse("00000000-0000-0000-0000-000000000100"),
+		TaskID:      pgtype.UUID{Bytes: uuid.MustParse("00000000-0000-0000-0000-000000000100"), Valid: true},
 		ProjectID:   projectID,
 		CardID:      "craap",
 		ContractRef: ptr("evaluate_sources"),

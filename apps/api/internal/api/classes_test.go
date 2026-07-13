@@ -86,7 +86,7 @@ func TestClassRoster_CountsProjectsNotTasks(t *testing.T) {
 		t.Fatalf("create anchor task: %v", err)
 	}
 	if _, err := q.CreateProjectCardInstance(context.Background(), sqlc.CreateProjectCardInstanceParams{
-		TaskID:    anchorTask.ID,
+		TaskID:    pgtype.UUID{Bytes: anchorTask.ID, Valid: true},
 		ProjectID: pgtype.UUID{Bytes: proj.ID, Valid: true},
 		CardID:    "craap",
 		Status:    "proposed",
