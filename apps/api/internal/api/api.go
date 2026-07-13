@@ -1,12 +1,21 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// Fetcher turns a student-supplied URL into readable text. Injected so tests
+// can bypass the production SSRF guard (httptest binds loopback, which the
+// guard blocks by design). Never used by the agent — only the student's
+// explicit POST /projects/{id}/materials reaches it (RL-2, spec §4).
+type Fetcher interface {
+	FetchReadable(ctx context.Context, rawURL string) (title, text string, err error)
+}
 
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
@@ -20,6 +29,7 @@ type Deps struct {
 	CookieSecure bool         // Secure flag on the session cookie
 	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
 	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
+	Fetcher      Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
 }
 
 // API holds the handler dependencies.
@@ -45,6 +55,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/auth/me", protected(a.me))
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))
 	mux.Handle("GET /api/v1/projects/{id}", protected(a.getProject))
+	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
 	mux.Handle("POST /api/v1/projects/{id}/turn", protected(a.postProjectTurn))
 	mux.Handle("POST /api/v1/projects/{id}/interventions/{iid}/disposition", protected(a.postInterventionDisposition))
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/activate", protected(a.activateProjectCard))
