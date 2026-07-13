@@ -14,6 +14,8 @@ import (
 
 func pgUUID(u uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: u, Valid: true} }
 
+func strPtr(s string) *string { return &s }
+
 func writingSkill(t *testing.T) skills.Skill {
 	t.Helper()
 	sk, ok := skills.ByID("writing-project")
@@ -191,5 +193,70 @@ func TestProjectCoach_MergesStudentMessages(t *testing.T) {
 	// time order: flag first, then the student bubble.
 	if coach.Messages[0].Kind != "flag" || coach.Messages[1].Kind != "student" || coach.Messages[1].Body != "它想证明中国在认真转型" {
 		t.Fatalf("merged = %+v", coach.Messages)
+	}
+}
+
+// TestProjectDerivesMaterialState is the slice's central claim: a material's
+// dossier state (locked/role/tier/takeaway/anchors) is DERIVED from what the
+// student actually did, never decorated. matA has earned an evaluated-as
+// edge (CRAAP mint) + a source-log entry + a targeting anchor; matB is
+// untouched and must carry none of that state.
+func TestProjectDerivesMaterialState(t *testing.T) {
+	matA := uuid.MustParse("00000000-0000-0000-0000-0000000000aa") // evaluated
+	matB := uuid.MustParse("00000000-0000-0000-0000-0000000000bb") // untouched
+	evid := uuid.MustParse("00000000-0000-0000-0000-0000000000cc")
+
+	sk := writingSkill(t)
+	d := ProjectData{
+		Plan: planNode(`["decode_task"]`),
+		Materials: []sqlc.Material{
+			{ID: matA, Title: "《卫星图看中国变绿》", Kind: "article", Source: "fetched",
+				Blocks: []byte(`[{"id":"b1","text":"过去二十年……"}]`)},
+			{ID: matB, Title: "IEA Renewable Investment", Kind: "article", Source: "pasted",
+				Blocks: []byte(`[{"id":"b1","text":"China ranks first."}]`)},
+		},
+		SourceLog: []sqlc.SourceLogEntry{
+			{MaterialID: pgUUID(matA), Tier: strPtr("二手 · 需追源"), Takeaway: "结论被放大了。"},
+		},
+		// The CRAAP mint: evidence node + evaluated-as edge from the material.
+		Nodes: []sqlc.GraphNode{
+			{ID: evid, Type: "evidence", Author: "student",
+				Body: []byte(`{"source_quality":{"authority":"只是一个博主","risk_note":"入口来源，不能直接引用。"}}`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluated-as", FromKind: "material", FromID: matA, ToKind: "graph_node", ToID: evid},
+		},
+		// A persisted CRAAP card whose anchors target matA.
+		Cards: []sqlc.CardInstance{
+			{CardID: "craap", Status: "completed",
+				Anchors: []byte(`[{"id":"a1","material_id":"` + matA.String() + `","block_id":"b1","start":0,"end":4,"quote":"过去二十年","dimension":"authority","author":"ai","question":"原始出处是谁？","answer":"只是一个博主"}]`)},
+		},
+	}
+
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proj.Materials) != 2 {
+		t.Fatalf("materials = %d, want 2", len(proj.Materials))
+	}
+
+	a := proj.Materials[0]
+	if !a.Locked {
+		t.Error("evaluated material: Locked = false, want true (an evaluated-as edge exists)")
+	}
+	if a.Role != "入口来源，不能直接引用。" {
+		t.Errorf("Role = %q, want the minted evidence node's source_quality.risk_note", a.Role)
+	}
+	if a.Tier != "二手 · 需追源" || a.Takeaway != "结论被放大了。" {
+		t.Errorf("Tier/Takeaway = %q/%q, want the source-log values", a.Tier, a.Takeaway)
+	}
+	if len(a.Anchors) != 1 {
+		t.Errorf("Anchors = %d, want 1 (the card anchor targeting this material)", len(a.Anchors))
+	}
+
+	b := proj.Materials[1]
+	if b.Locked || b.Role != "" || b.Tier != "" || b.Takeaway != "" || len(b.Anchors) != 0 {
+		t.Errorf("untouched material carries state it never earned: %+v", b)
 	}
 }

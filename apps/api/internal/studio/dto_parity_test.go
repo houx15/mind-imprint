@@ -18,16 +18,36 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			Equipment: []EquipCardDTO{{ID: "e1", Name: "钢人卡", Spont: "提示后", Meth: "concession"}},
 		},
 		Onboarding: OnboardingDTO{RestatePrompt: "r", RubricRows: []RubricRowDTO{{Official: "o", Plain: "p", Weak: true}}, PlanSteps: []string{"立题"}},
+		Materials: []MaterialDTO{{
+			ID: "m1", Title: "t", SourceURL: "https://x", Kind: "article", Origin: "fetched",
+			Blocks: []MaterialBlockDTO{{ID: "b1", Text: "x"}}, Locked: true, Role: "r", Tier: "ti", Takeaway: "tk",
+			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)},
+		}},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeStation", "coach", "onboarding", "project", "stations"}
+	want := []string{"activeStation", "coach", "materials", "onboarding", "project", "stations"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
+
+	var mTop map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &mTop); err != nil {
+		t.Fatal(err)
+	}
+	var materials []json.RawMessage
+	if err := json.Unmarshal(mTop["materials"], &materials); err != nil {
+		t.Fatal(err)
+	}
+	if len(materials) != 1 {
+		t.Fatalf("materials len = %d, want 1", len(materials))
+	}
+	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors}
+	// — must match packages/contracts/src/studioState.ts MaterialSource exactly.
+	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "kind", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "title"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

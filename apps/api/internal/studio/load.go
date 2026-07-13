@@ -42,9 +42,18 @@ func Load(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) (ProjectDat
 	if err != nil {
 		return ProjectData{}, err
 	}
+	materials, err := q.ListMaterialsByProject(ctx, pg)
+	if err != nil {
+		return ProjectData{}, err
+	}
+	sourceLog, err := q.ListSourceLogByProject(ctx, projectID)
+	if err != nil {
+		return ProjectData{}, err
+	}
 	d := ProjectData{
 		Project: project, Nodes: nodes, Edges: edges, GateStates: gateStates,
 		Interventions: interventions, Cards: cardRows, ChatMessages: chats,
+		Materials: materials, SourceLog: sourceLog,
 	}
 	plan, err := q.GetPlanNode(ctx, projectID)
 	switch {

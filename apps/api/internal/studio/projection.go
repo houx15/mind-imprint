@@ -24,6 +24,8 @@ type ProjectData struct {
 	Interventions []sqlc.Intervention
 	Cards         []sqlc.CardInstance
 	ChatMessages  []sqlc.ChatMessage
+	Materials     []sqlc.Material
+	SourceLog     []sqlc.SourceLogEntry
 }
 
 type planBody struct {
@@ -273,7 +275,92 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		ActiveStation: current,
 		Coach:         coach,
 		Onboarding:    projectOnboarding(d),
+		Materials:     projectMaterials(d),
 	}, nil
+}
+
+// projectMaterials derives each source's dossier state. Nothing here invents a
+// judgment: locked/role exist only because the student completed a CRAAP card
+// and the mint wrote them (agent.GraphEffects). tier/takeaway exist only
+// because the student wrote a source-log entry. anchors are exactly the
+// persisted card_instances.anchors whose own material_id targets this source.
+func projectMaterials(d ProjectData) []MaterialDTO {
+	nodesByID := map[string]sqlc.GraphNode{}
+	for _, n := range d.Nodes {
+		nodesByID[n.ID.String()] = n
+	}
+	// material id → the evidence node its evaluated-as edge points at.
+	evidence := map[string]sqlc.GraphNode{}
+	for _, e := range d.Edges {
+		if e.Type != "evaluated-as" || e.FromKind != "material" {
+			continue
+		}
+		if n, ok := nodesByID[e.ToID.String()]; ok {
+			evidence[e.FromID.String()] = n
+		}
+	}
+	log := map[string]sqlc.SourceLogEntry{}
+	for _, s := range d.SourceLog {
+		if s.MaterialID.Valid {
+			log[uuid.UUID(s.MaterialID.Bytes).String()] = s
+		}
+	}
+	// Anchors carry their own material_id — card_instances has no such column.
+	anchorsByMaterial := map[string][]json.RawMessage{}
+	for _, c := range d.Cards {
+		var raw []json.RawMessage
+		if err := json.Unmarshal(c.Anchors, &raw); err != nil {
+			continue
+		}
+		for _, a := range raw {
+			var probe struct {
+				MaterialID string `json:"material_id"`
+			}
+			if err := json.Unmarshal(a, &probe); err != nil || probe.MaterialID == "" {
+				continue
+			}
+			anchorsByMaterial[probe.MaterialID] = append(anchorsByMaterial[probe.MaterialID], a)
+		}
+	}
+
+	out := make([]MaterialDTO, 0, len(d.Materials))
+	for _, m := range d.Materials {
+		id := m.ID.String()
+		dto := MaterialDTO{
+			ID: id, Title: m.Title, Kind: m.Kind, Origin: m.Source,
+			Blocks: []MaterialBlockDTO{}, Anchors: []json.RawMessage{},
+		}
+		if m.SourceUrl != nil {
+			dto.SourceURL = *m.SourceUrl
+		}
+		_ = json.Unmarshal(m.Blocks, &dto.Blocks)
+		if n, ok := evidence[id]; ok {
+			dto.Locked = true
+			dto.Role = riskNote(n.Body)
+		}
+		if s, ok := log[id]; ok {
+			dto.Takeaway = s.Takeaway
+			if s.Tier != nil {
+				dto.Tier = *s.Tier
+			}
+		}
+		if as, ok := anchorsByMaterial[id]; ok {
+			dto.Anchors = as
+		}
+		out = append(out, dto)
+	}
+	return out
+}
+
+// riskNote reads body.source_quality.risk_note off a minted evidence node.
+func riskNote(body []byte) string {
+	var b struct {
+		SourceQuality map[string]string `json:"source_quality"`
+	}
+	if err := json.Unmarshal(body, &b); err != nil {
+		return ""
+	}
+	return b.SourceQuality["risk_note"]
 }
 
 func stationTitle(stations []StationDTO, code string) string {
