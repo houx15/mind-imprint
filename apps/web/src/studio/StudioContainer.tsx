@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { StudioProjection } from "@mind-imprint/contracts";
+import type { Anchor, StudioProjection } from "@mind-imprint/contracts";
 import { api as defaultApi, ApiError } from "../api";
 import { StudioShell } from "./StudioShell";
 import { createStudioConversation } from "./conversation";
@@ -60,6 +60,21 @@ export function StudioContainer({
   // Slice 6b Task 9: the server's own honest Chinese message from the last
   // failed 添加信源 attempt — cleared on the next successful add.
   const [addSourceError, setAddSourceError] = useState<string | undefined>(undefined);
+  // Fix-wave bug [B]: submitCard nulls `card` on its SSE "done" frame, well
+  // before refetchProject's GET lands with the persisted anchors — without
+  // this, ViewFrame's `card?.anchors ?? []` goes empty for that whole round
+  // trip and the article's highlights visibly blink out. Held as a
+  // transient overlay from the moment of submit until the refetch resolves
+  // (success OR failure — see onSubmitCard below), so there is never a
+  // frame with neither the live card's anchors nor the refreshed persisted
+  // ones.
+  const [pendingAnchors, setPendingAnchors] = useState<Anchor[] | null>(null);
+  // Fix-wave bugs [C]/[D]: a refetch that fails after a submit/skip/add
+  // already succeeded server-side must not be an unhandled rejection and
+  // must not be misreported as that mutation having failed — this is the
+  // one honest, generic "the screen may be behind the server" notice for
+  // that whole class of failure.
+  const [syncError, setSyncError] = useState<string | null>(null);
   // Guards double-dispatch of the same disposition (carry-forward from Task
   // 10's review): the conversation controller itself doesn't clear
   // disposableInterventionId after a dispose call, so a second click before
@@ -100,16 +115,23 @@ export function StudioContainer({
   // skip; must not touch activeStation/focusMode (client-local view state)
   // or blow away an in-flight conv beyond its own message buffer.
   //
-  // conv.clearMessages() empties the conversation controller's local turn
-  // buffer once the refetched projection lands: projectCoach rebuilds the
-  // thread from persisted interventions + chat_messages, which by then
-  // includes this session's own turns — without clearing, CoachRail (keyed
-  // by array index, no dedupe) would render every one of them twice.
+  // conv.dropFirst(n) empties the conversation controller's local turn
+  // buffer up to the point the GET was issued, once the refetched projection
+  // lands: projectCoach rebuilds the thread from persisted interventions +
+  // chat_messages, which by then includes this session's own turns — so
+  // without dropping them, CoachRail (keyed by array index, no dedupe) would
+  // render every one of them twice. `n` is captured BEFORE the GET fires —
+  // fix-wave bug [A] — so a turn that enters the buffer during the round
+  // trip (the student keeps chatting while the request is in flight) is
+  // never in that prefix and always survives, instead of being silently
+  // deleted by an unconditional clear.
   const refetchProject = async () => {
     if (!projectId) return;
+    const priorMessageCount = conv?.getSnapshot().messages.length ?? 0;
     const proj = await api.getProject(projectId);
     setState(toStudioState(proj));
-    conv?.clearMessages();
+    conv?.dropFirst(priorMessageCount);
+    setSyncError(null);
   };
 
   // Subscribe to the live conversation's turns via the app's established
@@ -145,20 +167,54 @@ export function StudioContainer({
     onOpenMethodology: () => { /* client-live; StudioShell owns modal state */ },
     onComposerSend: (text) => conv?.send(text),
     onOpenCard: () => conv?.openCard(),
-    onSubmitCard: (finalEnvelope) => { conv?.submitCard(finalEnvelope).then(() => refetchProject()); },
-    onSkipCard: (eventTrace) => { conv?.skipCard(eventTrace).then(() => refetchProject()); },
+    onSubmitCard: (finalEnvelope) => {
+      // Capture the live card's anchors BEFORE submitCard's SSE "done" frame
+      // clears `card` — held as an overlay so ViewFrame never sees a frame
+      // with no anchors at all (bug [B]).
+      setPendingAnchors(convSnapshot.card?.anchors ?? null);
+      conv
+        ?.submitCard(finalEnvelope)
+        .then(() => refetchProject())
+        .then(() => setPendingAnchors(null))
+        .catch(() => {
+          // The submit itself already landed server-side — only the refresh
+          // that would confirm the lock/anchors failed. Surface that
+          // instead of an unhandled rejection or silently rendering as if
+          // the lock succeeded (bug [C]). Keep the anchor overlay: since the
+          // refetch didn't land, the persisted anchors it would have
+          // supplied never arrived either.
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+    },
+    onSkipCard: (eventTrace) => {
+      conv
+        ?.skipCard(eventTrace)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+    },
     onAddSource: async (body) => {
       if (!projectId) return;
       try {
         await api.addMaterial(projectId, body);
-        setAddSourceError(undefined);
+      } catch (err) {
+        setAddSourceError(err instanceof ApiError ? err.message : "添加信源失败，请重试");
+        throw err; // AddSourceForm relies on the rejection to skip its own reset()
+      }
+      // The add itself succeeded — clear any previous add-error. From here
+      // on a failure belongs to the refresh, not the add (bug [D]): it must
+      // not be reported as "添加信源失败" (which would leave the form primed
+      // to re-submit and create a duplicate source) and it must not
+      // silently pretend the dossier is already current.
+      setAddSourceError(undefined);
+      try {
         // The projection is the single source of truth for 素材 — refetch
         // rather than hand-patch local state so the new source (and any
         // server-side derivations of it) render exactly as stored.
         await refetchProject();
-      } catch (err) {
-        setAddSourceError(err instanceof ApiError ? err.message : "添加信源失败，请重试");
-        throw err; // AddSourceForm relies on the rejection to skip its own reset()
+      } catch {
+        setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
       }
     },
     onOpenLogged: (materialId, timeSpentS) => {
@@ -176,12 +232,38 @@ export function StudioContainer({
   };
 
   return (
-    <StudioShell
-      state={{ ...mergedState, activeStation, focusMode }}
-      callbacks={callbacks}
-      sending={convSnapshot.sending}
-      card={convSnapshot.card}
-      addSourceError={addSourceError}
-    />
+    <>
+      {syncError && (
+        <div
+          role="status"
+          className="mk-studio-sync-warning"
+          style={{
+            position: "fixed",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 60,
+            background: "#FBEEE7",
+            border: "1px solid #F1D6C8",
+            color: "#C96F4F",
+            borderRadius: 10,
+            padding: "9px 15px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            boxShadow: "0 4px 14px rgba(20,30,60,.14)",
+          }}
+        >
+          {syncError}
+        </div>
+      )}
+      <StudioShell
+        state={{ ...mergedState, activeStation, focusMode }}
+        callbacks={callbacks}
+        sending={convSnapshot.sending}
+        card={convSnapshot.card}
+        pendingAnchors={pendingAnchors}
+        addSourceError={addSourceError}
+      />
+    </>
   );
 }

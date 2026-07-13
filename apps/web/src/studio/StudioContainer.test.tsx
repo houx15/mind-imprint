@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { StudioContainer } from "./StudioContainer";
@@ -287,7 +287,7 @@ describe("StudioContainer", () => {
       openCard: vi.fn(),
       submitCard,
       skipCard: vi.fn(),
-      clearMessages: vi.fn(),
+      dropFirst: vi.fn(),
     };
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
@@ -307,12 +307,305 @@ describe("StudioContainer", () => {
     expect(screen.getByText(/作用与风险：触发关注的入口——需要横向核实。/)).toBeInTheDocument();
   });
 
+  it("keeps a message that enters the buffer AFTER the refetch's GET is issued but BEFORE it resolves (bug A)", async () => {
+    const midFlightTurn = { kind: "student", body: "那反例呢？" };
+    let convState: any = { messages: [], sending: false, error: null, disposableInterventionId: null, card: null };
+    const listeners = new Set<() => void>();
+    const emit = () => listeners.forEach((l) => l());
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(),
+      submitCard: vi.fn(async () => {}),
+      skipCard: vi.fn(async () => {}),
+      dropFirst: vi.fn((n: number) => {
+        convState = { ...convState, messages: convState.messages.slice(n) };
+        emit();
+      }),
+    };
+
+    const newMaterial = {
+      id: "m2", title: "《IPCC AR6 综合报告》", sourceUrl: "https://ipcc.ch/report", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+      locked: false, role: "", tier: "机构报告", takeaway: "报告本身的口径。", anchors: [],
+    };
+    const baseProjection = {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [] as unknown[],
+    };
+
+    let getProjectCalls = 0;
+    let resolveSecondGet!: (v: unknown) => void;
+    const addMaterial = vi.fn(async () => newMaterial);
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        if (getProjectCalls === 1) return baseProjection;
+        // Held open until the test resolves it — models the real network
+        // round trip an add-source ingestion GET takes.
+        return new Promise((resolve) => { resolveSecondGet = resolve; });
+      },
+      addMaterial,
+      logSourceOpen: vi.fn(async () => {}),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+
+    fireEvent.click(screen.getByText("添加信源"));
+    fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
+    fireEvent.change(screen.getByPlaceholderText(/一句话说说/), { target: { value: "报告本身的口径。" } });
+    fireEvent.click(screen.getByLabelText("机构报告"));
+    fireEvent.click(screen.getByText("加入信源档案"));
+
+    // The GET is now in flight (issued, unresolved).
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+
+    // A live turn enters the buffer WHILE the GET is in flight — exactly
+    // what happens if the student keeps chatting during ingestion.
+    act(() => {
+      convState = { ...convState, messages: [midFlightTurn] };
+      emit();
+    });
+    await waitFor(() => expect(screen.getAllByText(midFlightTurn.body).length).toBeGreaterThan(0));
+
+    // Now let the GET resolve.
+    resolveSecondGet({ ...baseProjection, materials: [newMaterial] });
+
+    await waitFor(() =>
+      expect(within(screen.getByTestId("dossier-source-list")).getByText(newMaterial.title)).toBeInTheDocument(),
+    );
+    // The message that arrived mid-flight must still be on screen — exactly
+    // once, not wiped by the reconciliation.
+    expect(screen.getAllByText(midFlightTurn.body)).toHaveLength(1);
+  });
+
+  it("keeps the article's highlighted anchors visible across a card submit → refetch transition (bug B)", async () => {
+    const materialId = "m1";
+    const anchor = {
+      id: "a1", material_id: materialId, block_id: "b1", start: 0, end: 4,
+      quote: "过去二十年", dimension: "authority", author: "ai",
+      question: "原始出处是谁？", answer: "只是一个博主",
+    };
+    const riskNoteAnchor = {
+      id: "risk_note", material_id: materialId, block_id: "", start: 0, end: 0, quote: "",
+      dimension: "risk_note", author: "student", question: "这条来源在你的论证里起什么作用？有什么风险 / 局限？",
+      answer: "触发关注的入口——需要横向核实。",
+    };
+    const unlockedMaterial = {
+      id: materialId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [],
+    };
+    const lockedMaterial = {
+      ...unlockedMaterial, locked: true, role: "触发关注的入口——需要横向核实。",
+      anchors: [anchor, riskNoteAnchor],
+    };
+
+    let getProjectCalls = 0;
+    let resolveSecondGet!: (v: unknown) => void;
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        if (getProjectCalls === 1) {
+          return {
+            ...projection,
+            stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+            activeStation: "S3",
+            materials: [unlockedMaterial],
+          };
+        }
+        return new Promise((resolve) => { resolveSecondGet = resolve; });
+      },
+      // The test opens the source (to render its highlighted spans) and
+      // never navigates back before the component unmounts at test-end —
+      // SourceDossier's unmount cleanup reports the reading-time sample, so
+      // this needs a fake, same as every other test that opens a source.
+      logSourceOpen: vi.fn(async () => {}),
+    };
+
+    let convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [anchor] },
+    };
+    const listeners = new Set<() => void>();
+    const emit = () => listeners.forEach((l) => l());
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(),
+      // Mirrors the real controller: card is nulled as soon as submit's SSE
+      // "done" frame lands — well before the refetch below resolves.
+      submitCard: vi.fn(async () => {
+        convState = { ...convState, card: null };
+        emit();
+      }),
+      skipCard: vi.fn(async () => {}),
+      dropFirst: vi.fn((n: number) => {
+        convState = { ...convState, messages: convState.messages.slice(n) };
+        emit();
+      }),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+
+    // Open the source so its blocks (and the card's live anchor highlight)
+    // actually render.
+    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(unlockedMaterial.title));
+    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+      target: { value: "触发关注的入口——需要横向核实。" },
+    });
+    fireEvent.click(screen.getByText("锁定，进下一条"));
+
+    await waitFor(() => expect(conv.submitCard).toHaveBeenCalled());
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+
+    // The card is gone (submitCard's own "done" cleared it) but the refetch
+    // that would restore the persisted anchors hasn't landed yet — the
+    // highlight must not disappear in this gap.
+    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
+
+    resolveSecondGet({
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [lockedMaterial],
+    });
+
+    // The open article view (not the list) is still on screen — assert on
+    // the persisted role text it shows once the refetch lands.
+    await waitFor(() =>
+      expect(screen.getByText(/作用与风险：触发关注的入口——需要横向核实。/)).toBeInTheDocument(),
+    );
+    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
+  });
+
+  it("catches a refetch failure after a successful card submit — no unhandled rejection, no false success shown (bug C)", async () => {
+    const materialId = "m1";
+    const anchor = {
+      id: "a1", material_id: materialId, block_id: "b1", start: 0, end: 4,
+      quote: "过去二十年", dimension: "authority", author: "ai",
+      question: "原始出处是谁？", answer: "只是一个博主",
+    };
+    const unlockedMaterial = {
+      id: materialId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [],
+    };
+
+    let getProjectCalls = 0;
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        if (getProjectCalls === 1) {
+          return {
+            ...projection,
+            stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+            activeStation: "S3",
+            materials: [unlockedMaterial],
+          };
+        }
+        throw new Error("network blip");
+      },
+    };
+
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [anchor] },
+    };
+    const submitCard = vi.fn(async () => {});
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+      target: { value: "触发关注的入口——需要横向核实。" },
+    });
+    fireEvent.click(screen.getByText("锁定，进下一条"));
+
+    expect(submitCard).toHaveBeenCalled();
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+
+    // The refetch that would confirm the lock failed — the dossier must
+    // still show the pre-refetch (unlocked) state, not a falsely-locked one.
+    expect(screen.getByText("待评估")).toBeInTheDocument();
+    // The failure must be surfaced to the student, not swallowed.
+    await waitFor(() => expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument());
+  });
+
+  it("does not report a post-add refetch failure as an add failure, and still resets the form (bug D)", async () => {
+    const newMaterial = {
+      id: "m2", title: "《IPCC AR6 综合报告》", sourceUrl: "https://ipcc.ch/report", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+      locked: false, role: "", tier: "机构报告", takeaway: "报告本身的口径。", anchors: [],
+    };
+    const baseProjection = {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [] as unknown[],
+    };
+    let getProjectCalls = 0;
+    const addMaterial = vi.fn(async () => newMaterial);
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        if (getProjectCalls === 1) return baseProjection;
+        throw new Error("refetch blew up");
+      },
+      addMaterial,
+      logSourceOpen: vi.fn(async () => {}),
+    };
+
+    render(<StudioContainer api={api as never} />);
+    await screen.findByText(/信源档案/);
+
+    fireEvent.click(screen.getByText("添加信源"));
+    fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
+    fireEvent.change(screen.getByPlaceholderText(/一句话说说/), { target: { value: "报告本身的口径。" } });
+    fireEvent.click(screen.getByLabelText("机构报告"));
+    fireEvent.click(screen.getByText("加入信源档案"));
+
+    await waitFor(() => expect(addMaterial).toHaveBeenCalled());
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+
+    // The add itself succeeded — must NOT show the generic add-failure copy.
+    expect(screen.queryByText("添加信源失败，请重试")).toBeNull();
+    // The form must reset (collapse back to the "添加信源" button) rather
+    // than stay primed to re-submit — a second submit here would duplicate
+    // the source the student already successfully added.
+    await waitFor(() => expect(screen.getByText("添加信源")).toBeInTheDocument());
+  });
+
   it("does not duplicate the coach thread when a refetch's projection already contains this session's live turns", async () => {
     const studentTurn = { kind: "student", body: "它想证明中国是认真在转型的。" };
     const aiTurn = { kind: "ai", body: "连到治理决心", tag: "D5", anchor: "论证图 · 治理决心主张" };
 
     // A minimal stateful fake mirroring the real conversation controller's
-    // shape closely enough that clearMessages() actually mutates what
+    // shape closely enough that dropFirst() actually mutates what
     // getSnapshot returns (a static fixture can't exercise the reconciliation).
     let convState = { messages: [studentTurn, aiTurn], sending: false, error: null, disposableInterventionId: null, card: null };
     const listeners = new Set<() => void>();
@@ -324,8 +617,8 @@ describe("StudioContainer", () => {
       openCard: vi.fn(),
       submitCard: vi.fn(async () => {}),
       skipCard: vi.fn(async () => {}),
-      clearMessages: vi.fn(() => {
-        convState = { ...convState, messages: [] };
+      dropFirst: vi.fn((n: number) => {
+        convState = { ...convState, messages: convState.messages.slice(n) };
         listeners.forEach((l) => l());
       }),
     };

@@ -1,3 +1,4 @@
+import type { Anchor } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
@@ -12,6 +13,11 @@ export type ViewFrameProps = {
   // Live tool-card slot (mirrors StudioShell's `card`): its anchors highlight
   // the spans the coach rail is asking about right now.
   card?: LiveCard | null;
+  // Fix-wave bug [B]: overlay anchors held across a submit → refetch
+  // transition, used ONLY as a fallback when `card` is null (see
+  // StudioShell's prop doc) so the highlights never go empty for that round
+  // trip.
+  pendingAnchors?: Anchor[] | null;
   material?: {
     onAdd?: (body: AddMaterialBody) => Promise<void>;
     onOpenLogged?: (materialId: string, timeSpentS: number) => void;
@@ -58,7 +64,7 @@ function StationIcon() {
   );
 }
 
-export function ViewFrame({ state, card, material }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, material }: ViewFrameProps) {
   const active = state.stations.find((s) => s.code === state.activeStation);
 
   if (!active) {
@@ -84,7 +90,7 @@ export function ViewFrame({ state, card, material }: ViewFrameProps) {
       {effectiveView === "素材" && (
         <SourceDossier
           sources={state.views.material}
-          anchors={card?.anchors ?? []}
+          anchors={card?.anchors ?? pendingAnchors ?? []}
           onAddSource={material?.onAdd}
           addSourceError={material?.addError}
           onOpenLogged={material?.onOpenLogged}
