@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DevApp } from "./DevApp";
 
@@ -14,7 +14,10 @@ describe("DevApp", () => {
     await userEvent.click(screen.getByRole("button", { name: "素材" }));
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByText("《卫星图看中国变绿》"));
+    // The fixture's tier is already set, so 检索日志 (Task 8) legitimately
+    // re-renders this title in the ledger below the list — click inside the
+    // source-list card specifically, not by a page-wide text match.
+    await userEvent.click(within(screen.getByTestId("dossier-source-list")).getByText("《卫星图看中国变绿》"));
     const log = screen.getByTestId("material-event-log");
     expect(log).toHaveTextContent("source_opened");
     expect(log).toHaveTextContent("src-blog-china-greening");

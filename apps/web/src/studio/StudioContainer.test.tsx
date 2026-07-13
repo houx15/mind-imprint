@@ -136,7 +136,10 @@ describe("StudioContainer", () => {
       }),
     };
     render(<StudioContainer api={api as never} />);
-    expect(await screen.findByText("《卫星图看中国变绿》")).toBeInTheDocument();
+    // The material's tier + takeaway are both set, so the title legitimately
+    // renders twice once Slice 6b's 检索日志 ledger (Task 8) mounts below the
+    // source list — assert it projected through at all, not uniqueness.
+    expect((await screen.findAllByText("《卫星图看中国变绿》")).length).toBeGreaterThan(0);
     expect(screen.getByText(/信源档案 · 已收集 1 篇/)).toBeInTheDocument();
   });
 });

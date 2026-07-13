@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { Anchor, AnnotateState, MaterialSource, StudioEvent } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
+import { AddSourceForm } from "./AddSourceForm";
+import { SourceLog } from "./SourceLog";
+import type { AddMaterialBody } from "../../api/materials";
 
 export type SourceDossierProps = {
   sources: MaterialSource[];
   onEvent?: (e: StudioEvent) => void;
   anchors?: Anchor[];
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  onAddSource?: (body: AddMaterialBody) => Promise<void>;
+  addSourceError?: string;
 };
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -46,7 +51,7 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, onEvent, anchors, onOpenLogged }: SourceDossierProps) {
+export function SourceDossier({ sources, onEvent, anchors, onOpenLogged, onAddSource, addSourceError }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
@@ -114,7 +119,14 @@ export function SourceDossier({ sources, onEvent, anchors, onOpenLogged }: Sourc
               已锁定 {lockedCount}/{sources.length}
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+          {/* RL-2: the AI supplies no material — the student searches,
+              themselves. This form is the only way a source enters a
+              project. `onAddSource` is wired by the container (Task 9); a
+              no-op fallback keeps this component usable standalone. */}
+          <AddSourceForm onSubmit={onAddSource ?? (async () => {})} error={addSourceError} />
+
+          <div data-testid="dossier-source-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sources.map((source) => (
               <button
                 key={source.id}
@@ -158,6 +170,8 @@ export function SourceDossier({ sources, onEvent, anchors, onOpenLogged }: Sourc
               </button>
             ))}
           </div>
+
+          <SourceLog sources={sources} />
         </div>
       )}
 

@@ -1,7 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import type { Anchor, MaterialSource } from "@mind-imprint/contracts";
 import { SourceDossier } from "./SourceDossier";
+
+// SourceLog (Task 8) legitimately re-renders a logged source's title in the
+// ledger below the list, so once a source carries a tier/takeaway its title
+// text is no longer unique on the page — open it by clicking inside the
+// source-list card, not by a page-wide text match.
+function openSourceByTitle(title: string) {
+  fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(title));
+}
 
 // The calibration scenario (AGENTS.md): Phoebe, "中国是否让地球变得更可持续？" —
 // a self-media blog riffing on real NASA/Boston University satellite findings
@@ -96,7 +104,7 @@ describe("SourceDossier", () => {
     expect(screen.getByText(/已收集 2 篇/)).toBeInTheDocument();
     expect(screen.getByText(/已锁定 1\/2/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "source_opened", surface: "studio", url: blogArticle.id, time_spent_s: 0 }),
     );
@@ -105,7 +113,7 @@ describe("SourceDossier", () => {
   it("in an article source, clicking a span reveals its question; back returns to the list", () => {
     render(<SourceDossier sources={SOURCES} />);
 
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
     expect(screen.queryByText(blogArticle.title)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("根据 NASA 卫星数据"));
@@ -119,7 +127,7 @@ describe("SourceDossier", () => {
   it("opens a summary source and shows its takeaway", () => {
     render(<SourceDossier sources={SOURCES} />);
 
-    fireEvent.click(screen.getByText(nasaSummary.title));
+    openSourceByTitle(nasaSummary.title);
     expect(screen.getByText(nasaSummary.takeaway)).toBeInTheDocument();
   });
 
@@ -138,7 +146,7 @@ describe("SourceDossier", () => {
     };
 
     render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
 
     fireEvent.click(screen.getByText("变化大到能从太空里看见"));
     expect(screen.getByText(liveAnchor.dimension)).toBeInTheDocument();
@@ -160,7 +168,7 @@ describe("SourceDossier", () => {
     };
 
     render(<SourceDossier sources={SOURCES} anchors={[riskNoteAnchor]} />);
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
 
     expect(screen.queryByText("作者说读者应留意的风险")).not.toBeInTheDocument();
   });
@@ -189,7 +197,7 @@ describe("SourceDossier", () => {
     const onOpenLogged = vi.fn();
     render(<SourceDossier sources={[blogArticle]} onOpenLogged={onOpenLogged} />);
 
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
     vi.advanceTimersByTime(45_000);
     fireEvent.click(screen.getByText("返回信源列表"));
 
@@ -202,11 +210,41 @@ describe("SourceDossier", () => {
     const onOpenLogged = vi.fn();
     render(<SourceDossier sources={[blogArticle]} onOpenLogged={onOpenLogged} />);
 
-    fireEvent.click(screen.getByText(blogArticle.title));
+    openSourceByTitle(blogArticle.title);
     vi.advanceTimersByTime(400);
     fireEvent.click(screen.getByText("返回信源列表"));
 
     expect(onOpenLogged).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it("also reports the time spent when the component unmounts while a source is open", () => {
+    // A student who navigates away from 素材 entirely (not via the in-view
+    // "返回信源列表" back button) must still have their reading time counted.
+    vi.useFakeTimers();
+    const onOpenLogged = vi.fn();
+    const { unmount } = render(<SourceDossier sources={[blogArticle]} onOpenLogged={onOpenLogged} />);
+
+    openSourceByTitle(blogArticle.title);
+    vi.advanceTimersByTime(30_000);
+    unmount();
+
+    expect(onOpenLogged).toHaveBeenCalledWith(blogArticle.id, 30);
+    vi.useRealTimers();
+  });
+
+  it("mounts 添加信源 and 检索日志 only in list mode, not in the read view", () => {
+    render(<SourceDossier sources={SOURCES} />);
+
+    expect(screen.getByText("添加信源")).toBeInTheDocument();
+    expect(screen.getByText(/检索日志/)).toBeInTheDocument();
+
+    openSourceByTitle(blogArticle.title);
+    expect(screen.queryByText("添加信源")).not.toBeInTheDocument();
+    expect(screen.queryByText(/检索日志/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("返回信源列表"));
+    expect(screen.getByText("添加信源")).toBeInTheDocument();
+    expect(screen.getByText(/检索日志/)).toBeInTheDocument();
   });
 });
