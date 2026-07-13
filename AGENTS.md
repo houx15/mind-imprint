@@ -32,7 +32,7 @@
 |---|---|
 | 前端 `apps/web` | React + Vite + TypeScript + Tailwind —— 纯渲染 + API 客户端，不持有密钥、不直连模型 |
 | 后端 `apps/api` | **Go**（`net/http` + `pgx`/`sqlc` + `goose` + `river`）—— 智能网关（系统 prompt / `summon_card` / refeed / turn loop 都在服务端）、数据服务、鉴权、异步评估。唯一持有密钥、唯一访问 DB 与模型的单元 |
-| 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（每轮 token/成本就落在 assistant 行）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；无 `llm_calls` 表（用量入 message/evaluation，组织成本用 `llm_usage` 视图汇总） |
+| 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（旧任务面留存，不再有新写入）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；`project` 面每次真实 LLM 调用（陪练 / 锚点生成 / 课程渲染）都记一行 `llm_call`（档位 + token + 成本），`llm_usage` 视图三路 UNION（`llm_call` + 冻结的 `message`/`evaluation`）供组织成本汇总 |
 | 模型 | China-first：默认 **DeepSeek**，Anthropic 可选。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；评估走旗舰模型**绝不降级** |
 
 **三层解耦（核心心智模型：工具卡 = tool-use 循环里「由人来执行的工具」）：**

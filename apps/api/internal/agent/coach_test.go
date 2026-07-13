@@ -33,6 +33,7 @@ func coachFixture() (GraphView, Candidate) {
 func scriptedProvider(text string) gateway.Provider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: text},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 42, OutputTokens: 17}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
 	})
 }
@@ -44,9 +45,12 @@ func TestProposeIntervention_AnchoredQuestion(t *testing.T) {
 	body := "这条主张现在还没有素材支撑——它的证据是什么？"
 	prov := scriptedProvider(body)
 
-	out, verdict, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	out, verdict, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if usage.InputTokens == 0 && usage.OutputTokens == 0 {
+		t.Fatal("expected non-zero usage from a successful call")
 	}
 	if out.Type != "question" {
 		t.Fatalf("want type=question, got %q", out.Type)
@@ -72,7 +76,7 @@ func TestProposeIntervention_DeclarativeEchoIsIntercepted(t *testing.T) {
 	// the echo threshold against the anchored node's own text.
 	prov := scriptedProvider("中国的经济转型正在让地球更可持续。")
 
-	out, verdict, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	out, verdict, _, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,9 +92,15 @@ func TestProposeIntervention_BannedPhraseIsRejected(t *testing.T) {
 	g, c := coachFixture()
 	prov := scriptedProvider("你有没有考虑过其他角度？")
 
-	_, _, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	_, _, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
 	if err == nil {
 		t.Fatal("expected the banned-phrase output to be rejected before persist")
+	}
+	// A rejected output still cost real money — the model call happened
+	// before enforcement ran. Usage must survive the error return so the
+	// caller can still meter it.
+	if usage.InputTokens == 0 && usage.OutputTokens == 0 {
+		t.Fatal("expected non-zero usage even when the output is rejected")
 	}
 }
 

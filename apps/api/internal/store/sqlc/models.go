@@ -212,16 +212,31 @@ type Intervention struct {
 	CreatedAt          time.Time   `json:"created_at"`
 }
 
+type LlmCall struct {
+	ID               uuid.UUID      `json:"id"`
+	UserID           uuid.UUID      `json:"user_id"`
+	ProjectID        pgtype.UUID    `json:"project_id"`
+	Surface          string         `json:"surface"`
+	Purpose          string         `json:"purpose"`
+	Provider         string         `json:"provider"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     int32          `json:"prompt_tokens"`
+	CompletionTokens int32          `json:"completion_tokens"`
+	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+	CreatedAt        time.Time      `json:"created_at"`
+}
+
 type LlmUsage struct {
 	ID               uuid.UUID      `json:"id"`
 	UserID           uuid.UUID      `json:"user_id"`
 	SchoolID         uuid.UUID      `json:"school_id"`
 	Kind             string         `json:"kind"`
-	Provider         *string        `json:"provider"`
-	Model            *string        `json:"model"`
-	Tier             *string        `json:"tier"`
-	PromptTokens     *int32         `json:"prompt_tokens"`
-	CompletionTokens *int32         `json:"completion_tokens"`
+	Provider         string         `json:"provider"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     int32          `json:"prompt_tokens"`
+	CompletionTokens int32          `json:"completion_tokens"`
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
 	CreatedAt        time.Time      `json:"created_at"`
 }

@@ -5,7 +5,10 @@
 -- the runtime resolves it from the target material's own task_id
 -- (agentstore.go), never asking the pure agent code to know about tasks.
 -- The old task-scoped queries in cards.sql (CreateCardInstance, SetCardActive,
--- SubmitCard, SkipCard, SetCardAnchors) stay untouched for the legacy path.
+-- SubmitCard, SkipCard, SetCardAnchors) are otherwise unused — there is no
+-- legacy path any more (Slice 5d retired the task-based surface) — they stay
+-- alive only because their own tests (store/sqlc_lifecycle_test.go,
+-- api/anchors_store_test.go) still exercise them directly against the table.
 
 -- name: CreateProjectCardInstance :one
 INSERT INTO card_instances (task_id, project_id, card_id, contract_ref, status)

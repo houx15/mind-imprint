@@ -58,12 +58,16 @@ func TestGenerateUsesStubThenPersistsAnchors(t *testing.T) {
 		{Kind: gateway.EventDone},
 	}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	got, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
 	if err != nil {
 		t.Fatal(err)
 	}
+	got := res.Anchors
 	if len(got) != 1 || got[0].Question != "作者是谁？" {
 		t.Fatalf("generate wrong: %+v", got)
+	}
+	if res.Resolved.Provider != "stub" {
+		t.Fatalf("want Resolved carried through on a real call, got %+v", res.Resolved)
 	}
 }
 
@@ -112,9 +116,13 @@ func TestGenerateFallsBackWhenModelUsesOffVocabularyDimensions(t *testing.T) {
 	]`
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	got, err := gen.Generate(context.Background(), spec, mats)
+	res, err := gen.Generate(context.Background(), spec, mats)
 	if err != nil {
 		t.Fatalf("fallback must not error: %v", err)
+	}
+	got := res.Anchors
+	if res.Resolved.Provider != "stub" {
+		t.Fatalf("want Resolved carried through even though parsing fell back (the call still cost money), got %+v", res.Resolved)
 	}
 	wantTags := map[string]bool{"currency": false, "relevance": false, "authority": false, "accuracy": false, "purpose": false}
 	if len(got) != len(wantTags) {
@@ -148,11 +156,11 @@ func TestParseAnchorGenRejectsOffVocabularyDimensionForTaggedCard(t *testing.T) 
 func TestGenerateFallsBackWhenModelReturnsGarbage(t *testing.T) {
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json at all"}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	got, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
 	if err != nil {
 		t.Fatalf("fallback must not error: %v", err)
 	}
-	if len(got) != 2 { // one per dimension
-		t.Fatalf("want 2 fallback anchors, got %d", len(got))
+	if len(res.Anchors) != 2 { // one per dimension
+		t.Fatalf("want 2 fallback anchors, got %d", len(res.Anchors))
 	}
 }

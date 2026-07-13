@@ -26,7 +26,23 @@ type Anchor struct {
 
 // AnchorGenerator produces material-anchored guiding questions for an annotation card.
 type AnchorGenerator interface {
-	Generate(ctx context.Context, spec cards.Spec, materials []Material) ([]Anchor, error)
+	Generate(ctx context.Context, spec cards.Spec, materials []Material) (GenerateResult, error)
+}
+
+// GenerateResult is Generate's return value: the anchors plus the
+// provider/model/tier and token usage of the LLM call that produced them
+// (design's "记录档位 + token + 成本" hard constraint — this is one of the
+// three live gateway.Collect call sites, agent/coach.go and agent/course.go
+// being the other two). Resolved.Provider == "" means no real call was made
+// (the resolver errored, or Collect itself errored before any tokens were
+// spent) — the deterministic fallbackAnchors ran instead, so there is
+// nothing to record. A real call's Usage is populated even when the model's
+// reply then fails to parse and Generate falls back to fallbackAnchors: the
+// call still cost money, so callers must still record it.
+type GenerateResult struct {
+	Anchors  []Anchor
+	Resolved gateway.Resolved
+	Usage    gateway.ChatUsage
 }
 
 type llmAnchorGenerator struct {
@@ -171,10 +187,10 @@ func fallbackAnchors(spec cards.Spec, materials []Material) []Anchor {
 	return out
 }
 
-func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, materials []Material) ([]Anchor, error) {
+func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, materials []Material) (GenerateResult, error) {
 	resolved, err := g.resolver(ctx)
 	if err != nil {
-		return fallbackAnchors(spec, materials), nil
+		return GenerateResult{Anchors: fallbackAnchors(spec, materials)}, nil
 	}
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
@@ -185,13 +201,18 @@ func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, mate
 	}
 	res, err := gateway.Collect(ctx, g.provider, resolved, req)
 	if err != nil {
-		return fallbackAnchors(spec, materials), nil
+		return GenerateResult{Anchors: fallbackAnchors(spec, materials)}, nil
 	}
+	// A real call succeeded — it cost money regardless of what parsing does
+	// next, so Resolved/Usage are always attached from here on.
+	out := GenerateResult{Resolved: resolved, Usage: res.Usage}
 	anchors, perr := parseAnchorGen(res.Text, spec, materials)
 	if perr != nil || len(anchors) == 0 {
-		return fallbackAnchors(spec, materials), nil
+		out.Anchors = fallbackAnchors(spec, materials)
+		return out, nil
 	}
-	return anchors, nil
+	out.Anchors = anchors
+	return out, nil
 }
 
 func buildAnchorPrompt(spec cards.Spec) string {

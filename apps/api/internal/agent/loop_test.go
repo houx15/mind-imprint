@@ -63,6 +63,9 @@ type fakeAgentStore struct {
 	submitCardCalls  int
 	lastFieldValues  []byte
 	lastEventTrace   []byte
+
+	recordLLMCallCalls int
+	lastLLMCall        LLMCallRow
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -211,6 +214,12 @@ func (f *fakeAgentStore) UpsertGateState(_ context.Context, _ uuid.UUID, contrac
 func (f *fakeAgentStore) UpsertPlan(_ context.Context, _ uuid.UUID, body []byte) error {
 	f.upsertPlanCalls++
 	f.lastPlanBody = body
+	return nil
+}
+
+func (f *fakeAgentStore) RecordLLMCall(_ context.Context, row LLMCallRow) error {
+	f.recordLLMCallCalls++
+	f.lastLLMCall = row
 	return nil
 }
 

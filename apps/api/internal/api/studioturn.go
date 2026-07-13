@@ -243,11 +243,24 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		return nil, false
 	}
 	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
-	anchors, err := gen.Generate(ctx, spec, materials)
-	if err != nil || len(anchors) == 0 {
+	result, err := gen.Generate(ctx, spec, materials)
+	if err != nil || len(result.Anchors) == 0 {
 		return nil, false
 	}
-	raw, err := json.Marshal(anchors)
+	// A real call succeeded whenever Resolved is populated (GenerateResult's
+	// contract) — it cost money regardless of whether persisting the
+	// generated anchors below succeeds, so record it unconditionally here,
+	// before any further step can bail out. A metering failure must never
+	// fail the turn (same policy as TouchProject).
+	if result.Resolved.Provider != "" {
+		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "anchors",
+			Resolved: result.Resolved, PromptTokens: int32(result.Usage.InputTokens), CompletionTokens: int32(result.Usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("surface anchors: record llm usage failed", "err", rerr, "request_id", httpx.RequestIDFromContext(ctx))
+		}
+	}
+	raw, err := json.Marshal(result.Anchors)
 	if err != nil {
 		return nil, false
 	}

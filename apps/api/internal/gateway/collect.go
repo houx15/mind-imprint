@@ -3,8 +3,10 @@ package gateway
 import "context"
 
 // Collect drains a provider stream into a full ChatResult — text concatenated,
-// last usage kept, stop reason recorded. Used by non-streaming callers (the
-// evaluator). Honors ctx cancellation via the underlying stream.
+// last usage kept, stop reason recorded. Used by non-streaming callers
+// (agent/coach.go's ProposeIntervention, agent/anchors.go's Generate, and
+// agent/course.go's step render). Honors ctx cancellation via the underlying
+// stream.
 func Collect(ctx context.Context, p Provider, r Resolved, req ChatRequest) (ChatResult, error) {
 	stream, err := p.Stream(ctx, r, req)
 	if err != nil {

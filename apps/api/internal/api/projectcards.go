@@ -244,20 +244,25 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		slog.Error("card submit: GetCardInstance", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
+	// Filling a card is student activity too — the roster's 最近活跃 depends
+	// on it, same as postProjectTurn's touch. Touched here, right after the
+	// card is successfully persisted/completed and BEFORE the refeed below:
+	// the refeed can itself error and return early, and a card submit whose
+	// refeed errors must still advance last_active_at — the exact roster lie
+	// this touch was added to fix. A failure to touch must not fail the
+	// submit, which already succeeded, and must not corrupt the SSE stream
+	// (no error envelope, just a log).
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("card submit: touch project last_active_at",
+			"err", err, "project_id", projectID, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
 	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "card_refeed"})
 	if err != nil {
 		slog.Error("card submit: refeed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
 		_ = em.Done()
 		return
-	}
-	// Filling a card is student activity too — the roster's 最近活跃 depends
-	// on it, same as postProjectTurn's touch. A failure to touch must not
-	// fail the submit, which already succeeded, and must not corrupt the SSE
-	// stream (no error envelope, just a log).
-	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
-		slog.Warn("card submit: touch project last_active_at",
-			"err", err, "project_id", projectID, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 	a.streamAction(r.Context(), em, action, projectID, store)
 	_ = em.Done()

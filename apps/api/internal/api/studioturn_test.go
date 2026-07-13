@@ -28,9 +28,13 @@ import (
 // then closes — the coach may or may not be invoked for the seeded graph
 // (RunAgentStep can legitimately stay silent), but if it is, this is enough
 // for ProposeIntervention/gateway.Collect to complete without a live model.
+// Emits a non-zero EventUsage so every live gateway.Collect call site
+// (coach.go/anchors.go/course.go) has real token counts to meter — the 5d
+// review CRITICAL fix this file's usage-persistence tests exercise.
 func fakeProvider() gateway.Provider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: "先说说你打算怎么把这条证据接上主张？"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 123, OutputTokens: 45}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
 	})
 }
@@ -207,5 +211,156 @@ func TestProjectTurn_TouchesLastActiveAt(t *testing.T) {
 	}
 	if !after.LastActiveAt.After(before.LastActiveAt) {
 		t.Fatalf("last_active_at did not advance: before=%v after=%v", before.LastActiveAt, after.LastActiveAt)
+	}
+}
+
+// TestProjectTurn_PersistsAnchorsUsage — 5d review CRITICAL fix: surfacing
+// the craap card (Task 2's surface seam, same trigger as
+// TestProjectTurn_SurfacesCraapCard_GeneratesAnchors) makes a real
+// gateway.Collect call (agent/anchors.go's Generate) that must be metered.
+// The old task-scoped surface recorded provider/model/tier/tokens/cost on
+// the assistant `messages` row (agent/turn.go, deleted in Slice 5d); the new
+// project surface has no row every LLM call maps onto, so usage gets its own
+// llm_call table (migration 0019). Before this fix, nothing recorded this
+// call at all — this test is RED against the pre-fix code.
+func TestProjectTurn_PersistsAnchorsUsage(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	var anchorsCall *sqlc.LlmCall
+	for i, c := range calls {
+		if c.Purpose == "anchors" {
+			anchorsCall = &calls[i]
+			break
+		}
+	}
+	if anchorsCall == nil {
+		t.Fatalf("no purpose=anchors llm_call row persisted, got %d calls: %+v", len(calls), calls)
+	}
+	if anchorsCall.Surface != "studio" {
+		t.Fatalf("surface = %q, want studio", anchorsCall.Surface)
+	}
+	if anchorsCall.UserID != SeedUserID {
+		t.Fatalf("user_id = %v, want %v", anchorsCall.UserID, SeedUserID)
+	}
+	if !anchorsCall.ProjectID.Valid || anchorsCall.ProjectID.Bytes != projectID {
+		t.Fatalf("project_id not correctly recorded: %+v", anchorsCall.ProjectID)
+	}
+	if anchorsCall.PromptTokens == 0 && anchorsCall.CompletionTokens == 0 {
+		t.Fatalf("expected non-zero token counts, got %+v", anchorsCall)
+	}
+}
+
+// TestProjectTurn_PersistsCoachUsage — same CRITICAL fix, for the other live
+// gateway.Collect call site: the coach's own turn (agent/coach.go's
+// ProposeIntervention, driven from RunAgentStep when the top candidate is
+// post_intervention rather than surface_card). The seeded demo project
+// (migration 0018) plants a bare unsupported claim AND two article
+// materials, so surface_card outranks post_intervention until every
+// material has been surfaced once (SurfaceCard mints the
+// card_instance->material "evaluates" edge immediately at surface time) —
+// repeat turns until the coach path is reached, bounded well above the
+// seed's material count so a regression here fails loudly instead of
+// looping forever.
+func TestProjectTurn_PersistsCoachUsage(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+
+	reachedIntervention := false
+	for i := 0; i < 6; i++ {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条主张要怎么支撑"}`))
+		h.ServeHTTP(rr, withCookie(req, cookie))
+		body := rr.Body.String()
+		if rr.Code != 200 {
+			t.Fatalf("turn %d: %d — %s", i, rr.Code, body)
+		}
+		if strings.Contains(body, "event: intervention") {
+			reachedIntervention = true
+			break
+		}
+		if !strings.Contains(body, "event: card") {
+			t.Fatalf("turn %d: neither a card nor an intervention event: %s", i, body)
+		}
+	}
+	if !reachedIntervention {
+		t.Fatal("never reached the coach path after surfacing every material")
+	}
+
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	var coachCall *sqlc.LlmCall
+	for i, c := range calls {
+		if c.Purpose == "coach" {
+			coachCall = &calls[i]
+			break
+		}
+	}
+	if coachCall == nil {
+		t.Fatalf("no purpose=coach llm_call row persisted, got %d calls: %+v", len(calls), calls)
+	}
+	if coachCall.Surface != "studio" {
+		t.Fatalf("surface = %q, want studio", coachCall.Surface)
+	}
+	if coachCall.UserID != SeedUserID {
+		t.Fatalf("user_id = %v, want %v", coachCall.UserID, SeedUserID)
+	}
+	if coachCall.PromptTokens == 0 && coachCall.CompletionTokens == 0 {
+		t.Fatalf("expected non-zero token counts, got %+v", coachCall)
+	}
+	if coachCall.Provider != "deepseek" || coachCall.Model != "deepseek-chat" || coachCall.Tier != "chaperone" {
+		t.Fatalf("routing not carried through from gateway.Resolved: %+v", coachCall)
+	}
+}
+
+// TestProjectTurn_SchoolUsageAggregateNonEmpty is the test that proves the
+// admin console stops lying: before this fix, GetSchoolUsageByTier (the
+// query behind GET /api/v1/admin/overview's usage panel) always returned an
+// empty slice for every school, because nothing on the live path wrote to
+// llm_usage's underlying tables any more. It must fail against the pre-fix
+// code and pass once a student turn records a metered llm_call row.
+func TestProjectTurn_SchoolUsageAggregateNonEmpty(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != 200 {
+		t.Fatalf("turn: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	rows, err := sqlc.New(pool).GetSchoolUsageByTier(context.Background(), SeedSchoolID)
+	if err != nil {
+		t.Fatalf("GetSchoolUsageByTier: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("GetSchoolUsageByTier returned no rows after a student turn — the admin usage panel would still show 暂无用量")
+	}
+	var totalPrompt, totalCompletion int64
+	for _, r := range rows {
+		totalPrompt += r.PromptTokens
+		totalCompletion += r.CompletionTokens
+	}
+	if totalPrompt == 0 && totalCompletion == 0 {
+		t.Fatalf("aggregated usage is all-zero: %+v", rows)
 	}
 }

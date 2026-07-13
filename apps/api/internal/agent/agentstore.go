@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -330,6 +331,38 @@ func (s *sqlcAgentStore) InsertDisposition(ctx context.Context, interventionID u
 		return uuid.UUID{}, err
 	}
 	return row.ID, nil
+}
+
+// RecordLLMCall persists one live LLM call's usage to `llm_call` (migration
+// 0019). The owning user is resolved from the project row, mirroring
+// AppendEvent/getOrCreateThread's project->user resolution (Slice 2/5c's
+// single-user-per-project model) — the AgentStore seam carries no separate
+// "acting user" concept. Cost is computed here, once, via the shared pricing
+// table (gateway.EstimateCost) rather than trusting a caller-supplied
+// number. Unlike messages/evaluations' nullable cost_estimate (NULL meant
+// "unpriced model" there), llm_call.cost_estimate is NOT NULL DEFAULT 0, so
+// an unpriced model (EstimateCost's ok=false, cost=0) is recorded as an
+// explicit $0.00 — CostNumeric(cost, true), never the ok-derived NULL
+// Numeric CostNumeric(cost, ok) would otherwise produce.
+func (s *sqlcAgentStore) RecordLLMCall(ctx context.Context, row LLMCallRow) error {
+	project, err := s.q.GetProject(ctx, row.ProjectID)
+	if err != nil {
+		return err
+	}
+	cost, _ := gateway.EstimateCost(row.Resolved.Provider, row.Resolved.Model, int(row.PromptTokens), int(row.CompletionTokens))
+	_, err = s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
+		UserID:           project.UserID,
+		ProjectID:        pgtype.UUID{Bytes: row.ProjectID, Valid: true},
+		Surface:          row.Surface,
+		Purpose:          row.Purpose,
+		Provider:         row.Resolved.Provider,
+		Model:            row.Resolved.Model,
+		Tier:             row.Resolved.Tier,
+		PromptTokens:     row.PromptTokens,
+		CompletionTokens: row.CompletionTokens,
+		CostEstimate:     gateway.CostNumeric(cost, true),
+	})
+	return err
 }
 
 // gateStateBody is the gate_state graph_node body shape.

@@ -3,12 +3,14 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -59,6 +61,28 @@ func (a *API) renderCourseStep(w http.ResponseWriter, r *http.Request) {
 		Assets: assets, ChallengeType: step.ChallengeType, AuthoredContent: json.RawMessage(step.AuthoredContent),
 	}
 	rendered := agent.RenderCourseStep(r.Context(), in, a.d.Provider, a.d.EvalResolver)
+
+	// A real call happened whenever RenderCourseStep attached a Resolved
+	// (populated regardless of whether it then fell back to the authored
+	// content — the call still cost money). No project owns a course
+	// render (surface="course", purpose="course_render", project_id NULL);
+	// the acting user is the metering row's owner. A metering failure must
+	// never fail the render, same policy as TouchProject.
+	if rendered.Resolved.Provider != "" {
+		// llm_call.cost_estimate is NOT NULL DEFAULT 0 (migration 0019) — an
+		// unpriced model (EstimateCost's ok=false, cost=0) is recorded as an
+		// explicit $0.00, never the ok-derived NULL Numeric CostNumeric(cost,
+		// ok) would otherwise produce.
+		cost, _ := gateway.EstimateCost(rendered.Resolved.Provider, rendered.Resolved.Model, rendered.Usage.InputTokens, rendered.Usage.OutputTokens)
+		if _, rerr := a.d.Queries.RecordLLMCall(r.Context(), sqlc.RecordLLMCallParams{
+			UserID: u.ID, Surface: "course", Purpose: "course_render",
+			Provider: rendered.Resolved.Provider, Model: rendered.Resolved.Model, Tier: rendered.Resolved.Tier,
+			PromptTokens: int32(rendered.Usage.InputTokens), CompletionTokens: int32(rendered.Usage.OutputTokens),
+			CostEstimate: gateway.CostNumeric(cost, true),
+		}); rerr != nil {
+			slog.Warn("course render: record llm usage failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
 
 	// Cache only successful generations (never pin the authored fallback).
 	if rendered.Source == "generated" {

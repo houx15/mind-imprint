@@ -31,6 +31,14 @@ type RenderedStep struct {
 	Template string          `json:"template"`
 	Content  json.RawMessage `json:"content"`
 	Source   string          `json:"source"`
+
+	// Resolved/Usage carry the LLM call's routing + token usage for the
+	// caller to record as an llm_call row (purpose="course_render", design's
+	// "记录档位 + token + 成本" hard constraint) — zero-value when
+	// authoredStep's fallback ran (no real call was made). Never serialized:
+	// internal cost/usage detail must not leak to the student's browser.
+	Resolved gateway.Resolved  `json:"-"`
+	Usage    gateway.ChatUsage `json:"-"`
 }
 
 func authoredStep(in CourseStepInput, template string) RenderedStep {
@@ -67,6 +75,10 @@ func renderTeaching(ctx context.Context, in CourseStepInput, provider gateway.Pr
 	if err != nil {
 		return authored
 	}
+	// A real call succeeded — it cost money regardless of what parsing does
+	// next, so the fallback we might still return below carries usage too.
+	authored.Resolved = resolved
+	authored.Usage = res.Usage
 	var tc struct {
 		Title             string   `json:"title"`
 		Subtitle          string   `json:"subtitle"`
@@ -80,7 +92,7 @@ func renderTeaching(ctx context.Context, in CourseStepInput, provider gateway.Pr
 	if err != nil {
 		return authored
 	}
-	return RenderedStep{Ordinal: in.Ordinal, Kind: in.Kind, Template: "teaching", Content: raw, Source: "generated"}
+	return RenderedStep{Ordinal: in.Ordinal, Kind: in.Kind, Template: "teaching", Content: raw, Source: "generated", Resolved: resolved, Usage: res.Usage}
 }
 
 func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.Provider, resolver gateway.KeyResolver) RenderedStep {
@@ -110,15 +122,20 @@ func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.P
 	materials := []Material{{ID: "m0", Title: frame.Title, Blocks: mBlocks}}
 	spec := cards.Spec{Name: frame.Title, Steps: challengeDimensions(in.ChallengeType)}
 
-	anchors, err := NewAnchorGenerator(provider, resolver).Generate(ctx, spec, materials)
-	if err != nil || len(anchors) == 0 {
+	gen, err := NewAnchorGenerator(provider, resolver).Generate(ctx, spec, materials)
+	if err != nil || len(gen.Anchors) == 0 {
 		return authored
 	}
+	// A real call succeeded (Generate only returns a non-zero Resolved when
+	// one did) — it cost money regardless of what the anchored-ness check
+	// below decides, so the fallback we might still return carries usage too.
+	authored.Resolved = gen.Resolved
+	authored.Usage = gen.Usage
 	// AnchorGenerator substitutes generic unanchored fallback anchors (empty
 	// BlockID) when the model fails; that means real generation didn't happen —
 	// prefer the curated authored challenge instead of generic placeholders.
 	anchored := false
-	for _, a := range anchors {
+	for _, a := range gen.Anchors {
 		if a.BlockID != "" {
 			anchored = true
 			break
@@ -127,12 +144,12 @@ func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.P
 	if !anchored {
 		return authored
 	}
-	content := map[string]any{"title": frame.Title, "prompt": frame.Prompt, "anchors": anchors, "reason_hint": frame.ReasonHint}
+	content := map[string]any{"title": frame.Title, "prompt": frame.Prompt, "anchors": gen.Anchors, "reason_hint": frame.ReasonHint}
 	raw, err := json.Marshal(content)
 	if err != nil {
 		return authored
 	}
-	return RenderedStep{Ordinal: in.Ordinal, Kind: in.Kind, Template: "challenge", Content: raw, Source: "generated"}
+	return RenderedStep{Ordinal: in.Ordinal, Kind: in.Kind, Template: "challenge", Content: raw, Source: "generated", Resolved: gen.Resolved, Usage: gen.Usage}
 }
 
 func teachingPrompt(in CourseStepInput) string {

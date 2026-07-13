@@ -42,6 +42,23 @@ type EventRow struct {
 	Payload   []byte
 }
 
+// LLMCallRow is the persistence payload for one live LLM call's usage
+// (design's "记录档位 + token + 成本" hard constraint — migration 0019's
+// llm_call table, unioned into the llm_usage view the admin console reads).
+// Surface/Purpose classify which call site produced it ("studio"/"coach" for
+// RunAgentStep's own coach turn, "studio"/"anchors" for a just-surfaced
+// annotate card's anchor generation); Resolved carries the already-resolved
+// provider/model/tier, and PromptTokens/CompletionTokens are the raw usage
+// counts the cost formula (gateway.EstimateCost) is computed from.
+type LLMCallRow struct {
+	ProjectID        uuid.UUID
+	Surface          string
+	Purpose          string
+	Resolved         gateway.Resolved
+	PromptTokens     int32
+	CompletionTokens int32
+}
+
 // CardInstanceRow is the persistence view of one project-scoped
 // card_instance row (Task 5) — just what the card lifecycle (card_lifecycle.go)
 // needs: which project it belongs to, its card id, its live anchors (to
@@ -95,6 +112,13 @@ type AgentStore interface {
 	InsertGraphEdge(ctx context.Context, projectID uuid.UUID, edge MintEdge) error
 
 	InsertDisposition(ctx context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error)
+
+	// RecordLLMCall persists one live LLM call's usage (5d review CRITICAL
+	// fix — every DeepSeek call must be metered, AGENTS.md's "记录档位 +
+	// token + 成本" hard constraint). A failure here must never fail the
+	// student's turn/submit — callers slog.Warn and continue, same policy as
+	// TouchProject (studioturn.go/projectcards.go).
+	RecordLLMCall(ctx context.Context, row LLMCallRow) error
 
 	// Gate/plan graph-node state (Slice 4). gate_state is one graph_node per
 	// (project, contract) keyed on body->>'contract'; plan is one per project.
@@ -224,7 +248,19 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		slog.Warn("agent: load chat history failed; proceeding without it", "project_id", projectID.String(), "err", err.Error())
 		history = nil
 	}
-	out, verdict, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim)
+	out, verdict, usage, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim)
+	// Usage is non-zero whenever the model call itself succeeded — including
+	// when enforcement then rejects the output (err != nil): a rejected
+	// reply still cost real money, so it must still be metered even though
+	// it is never persisted or emitted. Metering must never fail the turn.
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if rerr := deps.Store.RecordLLMCall(ctx, LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "coach",
+			Resolved: deps.Resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("agent: record llm usage failed", "project_id", projectID.String(), "err", rerr.Error())
+		}
+	}
 	if err != nil {
 		// Enforcement (or the model call itself) rejected the output — log
 		// server-side and stay silent. A rejected output is never persisted
