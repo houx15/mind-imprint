@@ -152,6 +152,53 @@ func TestCheckGate_EverySourceEvaluatedAttemptedMirrorsArticleOnlyScan(t *testin
 	}
 }
 
+// TestS3Gate_RequiresARealCrossCheck covers Task 8's promotion: lateral
+// reading used to be self-attested (student_written); now the machine checks
+// for a real cross_check node (Task 5's SIFT-card artifact). A CRAAP
+// evaluation alone (an "evaluated-as" edge into an evidence node) must not
+// satisfy it — she has to have actually left the page and cross-checked.
+func TestS3Gate_RequiresARealCrossCheck(t *testing.T) {
+	g := GraphView{
+		Materials: []MaterialView{{ID: "mat-blog", Kind: "article"}},
+		Nodes:     []GraphNodeView{{ID: "n1", Type: "evidence"}},
+		Edges:     []GraphEdgeView{{FromKind: "material", FromID: "mat-blog", ToKind: "graph_node", ToID: "n1", Type: "evaluated-as"}},
+	}
+	item := skills.MachineItem{Kind: "node_present", Type: "cross_check"}
+	if pass, _ := EvalMachineItemForTest(item, g); pass {
+		t.Fatal("S3 must not pass on a CRAAP alone — she has not left the page")
+	}
+
+	g.Nodes = append(g.Nodes, GraphNodeView{ID: "n2", Type: "cross_check"})
+	if pass, missing := EvalMachineItemForTest(item, g); !pass {
+		t.Fatalf("S3 must pass once a real cross-check exists: %s", missing)
+	}
+}
+
+// TestS3Gate_LateralReadIsNoLongerSelfAttested locks the skill-config side of
+// the promotion: lateral_read_logged must be gone from student_written, and
+// the machine tier must carry {node_present, cross_check} in its place.
+func TestS3Gate_LateralReadIsNoLongerSelfAttested(t *testing.T) {
+	sk, ok := skills.ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill not embedded")
+	}
+	s3 := sk.Contracts["evaluate_sources"]
+	for _, item := range s3.Gate.StudentWritten {
+		if item == "lateral_read_logged" {
+			t.Fatal("lateral_read_logged is still a student_written item — the machine can see it now")
+		}
+	}
+	found := false
+	for _, m := range s3.Gate.Machine {
+		if m.Kind == "node_present" && m.Type == "cross_check" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("S3's machine tier must require a cross_check node")
+	}
+}
+
 func TestCheckGate_SolidOnlyFromRecordedConfirmation(t *testing.T) {
 	sk, _ := skills.ByID("writing-project")
 	g := GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}}

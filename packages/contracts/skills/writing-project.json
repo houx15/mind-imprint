@@ -59,9 +59,10 @@
       "gate": {
         "machine": [
           { "kind": "every_source_evaluated" },
-          { "kind": "no_single_sourced_claim" }
+          { "kind": "no_single_sourced_claim" },
+          { "kind": "node_present", "type": "cross_check" }
         ],
-        "student_written": ["source_risk_notes", "lateral_read_logged"],
+        "student_written": ["source_risk_notes"],
         "human": ["source_quality_spot_check"]
       }
     },
