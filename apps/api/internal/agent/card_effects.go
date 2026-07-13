@@ -58,15 +58,29 @@ func GraphEffects(spec cards.Spec, materialID string, anchors []Anchor) ([]MintN
 }
 
 // sourceQuality summarizes the card's per-dimension answers (the CRAAP
-// verdict for each params.tags dimension) into the evidence node's body.
+// verdict for each params.tags dimension) into the evidence node's body,
+// plus — under the "risk_note" key — the student's own written 作用与风险
+// judgment. The risk_note anchor is special: unlike the tag dimensions
+// (which are the AI's answers to AI-posed questions), it is required for
+// completion (field_written_by, author=student) and is the student's own
+// words, not a verdict on an AI question — the single most valuable thing
+// on the card, and the source the dossier projection reads for its 作用与
+// 风险 line. Keyed off the anchor's dimension (not the card id), so any
+// future card carrying a student risk_note anchor behaves the same.
 func sourceQuality(spec cards.Spec, anchors []Anchor) map[string]string {
-	out := make(map[string]string, len(spec.Params.Tags))
+	out := make(map[string]string, len(spec.Params.Tags)+1)
 	for _, tag := range spec.Params.Tags {
 		for _, a := range anchors {
 			if a.Dimension == tag && a.Answer != "" {
 				out[tag] = a.Answer
 				break
 			}
+		}
+	}
+	for _, a := range anchors {
+		if a.Dimension == "risk_note" && a.Answer != "" {
+			out["risk_note"] = a.Answer
+			break
 		}
 	}
 	return out

@@ -35,6 +35,14 @@ func TestGraphEffects_PromoteMintsEvidenceNodeAndEdge(t *testing.T) {
 	if sqMap["authority"] == "" {
 		t.Fatal("source_quality[authority] empty")
 	}
+	// The risk_note anchor is the student's own written judgment (作用与风险),
+	// required for completion (field_written_by) but not one of the
+	// spec.Params.Tags dimensions — it must still land in source_quality so
+	// the dossier projection (studio/projection.go riskNote) can read it.
+	const wantRiskNote = "仍需留意样本口径是否一致"
+	if sqMap["risk_note"] != wantRiskNote {
+		t.Fatalf("source_quality[risk_note] = %q, want %q (the student's own risk_note anchor)", sqMap["risk_note"], wantRiskNote)
+	}
 
 	if len(edges) != 1 {
 		t.Fatalf("edges = %d, want 1", len(edges))
@@ -63,6 +71,25 @@ func TestGraphEffects_Idempotent(t *testing.T) {
 	}
 	if n1[0].Type != n2[0].Type || e1[0].ToID != e2[0].ToID {
 		t.Fatal("effects not idempotent across calls")
+	}
+}
+
+func TestGraphEffects_EmptyRiskNoteAnswerOmittedFromSourceQuality(t *testing.T) {
+	spec := craapSpecFixture()
+	spec.GraphEffects = []cards.GraphEffect{
+		{Kind: "promote", From: "material", To: "evidence", With: "source_quality"},
+	}
+	anchors := completeAnchors()
+	for i := range anchors {
+		if anchors[i].Dimension == "risk_note" {
+			anchors[i].Answer = ""
+		}
+	}
+
+	nodes, _ := GraphEffects(spec, "material-1", anchors)
+	sqMap := nodes[0].Body["source_quality"].(map[string]string)
+	if _, present := sqMap["risk_note"]; present {
+		t.Fatalf("source_quality[risk_note] = %q, want key absent when the anchor's answer is empty", sqMap["risk_note"])
 	}
 }
 
