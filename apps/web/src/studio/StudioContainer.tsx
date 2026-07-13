@@ -80,6 +80,18 @@ export function StudioContainer({
   // disposableInterventionId after a dispose call, so a second click before
   // a new intervention arrives would re-POST the same id.
   const disposedIdRef = useRef<string | null>(null);
+  // Fix-wave-3 findings [1]+[2]: request-generation guard for overlapping
+  // refetchProject calls (e.g. an add-source refetch still in flight when a
+  // card lock issues its own). Without it, whichever GET happens to RESOLVE
+  // last wins regardless of which was ISSUED last, and each one's
+  // dropFirst(n) applies its own n — captured against the buffer at ITS
+  // issue time — to whatever buffer exists when IT lands, which may since
+  // have been shifted by the other. Incremented synchronously the moment a
+  // refetch is issued; a response is applied only if it is still the
+  // latest-issued one by the time it settles, so the last-ISSUED refetch
+  // always wins and every dropFirst(n) is checked against the buffer it was
+  // actually measured against.
+  const refetchGenRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,11 +139,32 @@ export function StudioContainer({
   // deleted by an unconditional clear.
   const refetchProject = async () => {
     if (!projectId) return;
+    // This refetch's generation — claimed synchronously, before the await,
+    // so an overlapping refetch issued afterward always claims a strictly
+    // higher number.
+    const myGen = ++refetchGenRef.current;
     const priorMessageCount = conv?.getSnapshot().messages.length ?? 0;
-    const proj = await api.getProject(projectId);
-    setState(toStudioState(proj));
-    conv?.dropFirst(priorMessageCount);
-    setSyncError(null);
+    try {
+      const proj = await api.getProject(projectId);
+      // A newer refetch has since been issued — this response is stale.
+      // Discard it entirely: no setState, no dropFirst, no error surfaced.
+      // The newer refetch (still in flight or already landed) owns both the
+      // projection and the reporting from here.
+      if (refetchGenRef.current !== myGen) return;
+      setState(toStudioState(proj));
+      conv?.dropFirst(priorMessageCount);
+      setSyncError(null);
+      // Bug [4]: the overlay has served its purpose the moment the
+      // projection is refreshed — clear it on the winning response.
+      setPendingAnchors(null);
+    } catch (err) {
+      if (refetchGenRef.current !== myGen) return;
+      // Bug [4]: also clear on the winning response's FAILURE path — a
+      // failed refetch never delivers the persisted anchors this overlay
+      // was standing in for, so there is nothing left for it to guard.
+      setPendingAnchors(null);
+      throw err;
+    }
   };
 
   // Subscribe to the live conversation's turns via the app's established
@@ -175,24 +208,32 @@ export function StudioContainer({
       conv
         ?.submitCard(finalEnvelope)
         .then(() => refetchProject())
-        .then(() => setPendingAnchors(null))
         .catch(() => {
           // The submit itself already landed server-side — only the refresh
           // that would confirm the lock/anchors failed. Surface that
           // instead of an unhandled rejection or silently rendering as if
-          // the lock succeeded (bug [C]). Keep the anchor overlay: since the
-          // refetch didn't land, the persisted anchors it would have
-          // supplied never arrived either.
+          // the lock succeeded (bug [C]). refetchProject's own catch clause
+          // has already cleared the anchor overlay (bug [4]) before this
+          // rethrows.
           setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
         });
     },
     onSkipCard: (eventTrace) => {
-      conv
-        ?.skipCard(eventTrace)
-        .then(() => refetchProject())
-        .catch(() => {
-          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
-        });
+      // Bug [3]: skipCard (unlike submitCard) has no internal try/catch —
+      // it rejects when the skip API call itself fails, which is a
+      // genuinely different failure from a post-skip refetch failing. The
+      // two-argument .then() keeps them apart: the reject handler only ever
+      // sees "the skip itself didn't go through" (the card correctly stays
+      // open), never a refetch problem.
+      conv?.skipCard(eventTrace).then(
+        () =>
+          refetchProject().catch(() => {
+            setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+          }),
+        () => {
+          setSyncError("跳过失败，请重试");
+        },
+      );
     },
     onAddSource: async (body) => {
       if (!projectId) return;
