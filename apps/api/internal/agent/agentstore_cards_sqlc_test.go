@@ -41,7 +41,7 @@ func TestSqlcAgentStore_CardMutationSeamRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: seededStudentID, Title: "agentstore-cards-seam"})
 	if err != nil {

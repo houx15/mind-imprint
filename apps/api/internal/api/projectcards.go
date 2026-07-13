@@ -62,7 +62,7 @@ func (a *API) activateProjectCard(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	store := agent.NewSqlcAgentStore(a.d.Queries)
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "active"); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -96,7 +96,7 @@ func (a *API) skipProjectCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	store := agent.NewSqlcAgentStore(a.d.Queries)
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.SubmitProjectCardInstance(r.Context(), projectID, cid, []byte("{}"), body.EventTrace); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -197,7 +197,7 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		<-hbDone
 	}()
 
-	store := agent.NewSqlcAgentStore(a.d.Queries)
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.SetCardInstanceAnchors(r.Context(), projectID, cid, body.Anchors); err != nil {
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
 		_ = em.Done()

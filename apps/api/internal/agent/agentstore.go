@@ -16,13 +16,31 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// TxBeginner is the minimal pool capability CommitCardMint needs: starting a
+// transaction. Mirrors internal/api's TxBeginner (same one-method shape,
+// redeclared here rather than shared — internal/api imports internal/agent,
+// so the reverse import would cycle). Any value satisfying api.TxBeginner
+// (e.g. api.Deps.Pool) also satisfies this interface, and so does a bare
+// *pgxpool.Pool: Go interface assignability only cares about the method set.
+type TxBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // sqlcAgentStore adapts sqlc queries to the AgentStore seam (loop.go): graph
 // reads feed LoadGraph, and InsertIntervention/AppendEvent record the
-// coach's emitted action.
-type sqlcAgentStore struct{ q *sqlc.Queries }
+// coach's emitted action. pool backs CommitCardMint's transaction — every
+// other method still runs unwrapped queries through q.
+type sqlcAgentStore struct {
+	q    *sqlc.Queries
+	pool TxBeginner
+}
 
-// NewSqlcAgentStore adapts sqlc queries to the AgentStore seam.
-func NewSqlcAgentStore(q *sqlc.Queries) *sqlcAgentStore { return &sqlcAgentStore{q: q} }
+// NewSqlcAgentStore adapts sqlc queries to the AgentStore seam. pool is used
+// only by CommitCardMint, to begin the one transaction a completed card's
+// mint (nodes + edges + framework_fill guard) commits inside.
+func NewSqlcAgentStore(q *sqlc.Queries, pool TxBeginner) *sqlcAgentStore {
+	return &sqlcAgentStore{q: q, pool: pool}
+}
 
 // LoadGraph reads the project's graph_node/graph_edge rows into the shallow
 // GraphView the classifier/coach read (design §9 open question 1: the
@@ -219,7 +237,15 @@ func (s *sqlcAgentStore) GetCardInstance(ctx context.Context, id uuid.UUID) (Car
 // SetCardInstanceFramework writes the consolidation payload (R-9: revealed
 // only after completion) to framework_fill.
 func (s *sqlcAgentStore) SetCardInstanceFramework(ctx context.Context, projectID, id uuid.UUID, framework []byte) error {
-	_, err := s.q.SetCardInstanceFramework(ctx, sqlc.SetCardInstanceFrameworkParams{
+	return setCardInstanceFrameworkQ(ctx, s.q, projectID, id, framework)
+}
+
+// setCardInstanceFrameworkQ is SetCardInstanceFramework's body, parameterized
+// over *sqlc.Queries so both the plain method (s.q) and CommitCardMint's
+// transaction (qtx := s.q.WithTx(tx)) share one mapping — no duplicated SQL
+// param-building to drift out of sync.
+func setCardInstanceFrameworkQ(ctx context.Context, q *sqlc.Queries, projectID, id uuid.UUID, framework []byte) error {
+	_, err := q.SetCardInstanceFramework(ctx, sqlc.SetCardInstanceFrameworkParams{
 		ID:            id,
 		ProjectID:     pgtype.UUID{Bytes: projectID, Valid: true},
 		FrameworkFill: framework,
@@ -281,11 +307,17 @@ func toCardInstanceRow(row sqlc.CardInstance) CardInstanceRow {
 // (card_effects.go's MintNode). node.Body is marshaled to jsonb; an empty
 // map still marshals cleanly.
 func (s *sqlcAgentStore) InsertGraphNode(ctx context.Context, projectID uuid.UUID, node MintNode) (uuid.UUID, error) {
+	return insertGraphNodeQ(ctx, s.q, projectID, node)
+}
+
+// insertGraphNodeQ is InsertGraphNode's body, parameterized over
+// *sqlc.Queries — see setCardInstanceFrameworkQ's comment for why.
+func insertGraphNodeQ(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID, node MintNode) (uuid.UUID, error) {
 	body, err := json.Marshal(node.Body)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	row, err := s.q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
+	row, err := q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
 		ProjectID: projectID,
 		Type:      node.Type,
 		Body:      body,
@@ -301,6 +333,12 @@ func (s *sqlcAgentStore) InsertGraphNode(ctx context.Context, projectID uuid.UUI
 // (card_effects.go's MintEdge, ids already resolved by the caller) or
 // SurfaceCard's card_instance->material link.
 func (s *sqlcAgentStore) InsertGraphEdge(ctx context.Context, projectID uuid.UUID, edge MintEdge) error {
+	return insertGraphEdgeQ(ctx, s.q, projectID, edge)
+}
+
+// insertGraphEdgeQ is InsertGraphEdge's body, parameterized over
+// *sqlc.Queries — see setCardInstanceFrameworkQ's comment for why.
+func insertGraphEdgeQ(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID, edge MintEdge) error {
 	fromID, err := uuid.Parse(edge.FromID)
 	if err != nil {
 		return err
@@ -309,7 +347,7 @@ func (s *sqlcAgentStore) InsertGraphEdge(ctx context.Context, projectID uuid.UUI
 	if err != nil {
 		return err
 	}
-	_, err = s.q.InsertGraphEdge(ctx, sqlc.InsertGraphEdgeParams{
+	_, err = q.InsertGraphEdge(ctx, sqlc.InsertGraphEdgeParams{
 		ProjectID: projectID,
 		Type:      edge.Type,
 		FromKind:  edge.FromKind,
@@ -318,6 +356,71 @@ func (s *sqlcAgentStore) InsertGraphEdge(ctx context.Context, projectID uuid.UUI
 		ToID:      toID,
 	})
 	return err
+}
+
+// CardMint is everything a completed card produces (CompleteCard,
+// card_lifecycle.go): the nodes/edges GraphEffects minted, plus the
+// consolidation payload that also serves as the idempotency guard
+// (isFrameworkSet). MintEdge endpoints may still carry "$new:<i>"
+// placeholders into Nodes — CommitCardMint resolves them after inserting
+// each node, exactly as CompleteCard used to.
+type CardMint struct {
+	Nodes     []MintNode
+	Edges     []MintEdge
+	Framework []byte
+}
+
+// CommitCardMint writes everything in m — the minted nodes, their edges
+// (with $new: placeholders resolved against the just-inserted node ids), and
+// the consolidation framework — in ONE transaction.
+//
+// Why this exists: framework_fill is written LAST and is also the
+// idempotency guard CompleteCard checks first (isFrameworkSet). Before this
+// method, CompleteCard called InsertGraphNode, then InsertGraphEdge, then
+// SetCardInstanceFramework as three separate, unwrapped store calls. A
+// failure between the node insert and the framework write left a partial
+// mint on disk with the guard still unset, so a retry sailed past the guard
+// and minted a SECOND node/edge for the same completion. Wrapping all three
+// writes in one transaction makes the mint all-or-nothing: any failure
+// anywhere in the sequence rolls back every write that came before it in
+// this same call, so a retry always starts from "nothing minted yet".
+func (s *sqlcAgentStore) CommitCardMint(ctx context.Context, projectID, cardInstanceID uuid.UUID, m CardMint) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	// A no-op Rollback after a successful Commit is expected pgx behavior
+	// (it errors ErrTxClosed, which we discard) — the defer is just the
+	// safety net for every early return above.
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := s.q.WithTx(tx)
+
+	nodeIDs := make(map[int]uuid.UUID, len(m.Nodes))
+	for i, n := range m.Nodes {
+		id, err := insertGraphNodeQ(ctx, qtx, projectID, n)
+		if err != nil {
+			return err
+		}
+		nodeIDs[i] = id
+	}
+	for _, e := range m.Edges {
+		fromID, err := resolveMintRef(e.FromID, nodeIDs)
+		if err != nil {
+			return err
+		}
+		toID, err := resolveMintRef(e.ToID, nodeIDs)
+		if err != nil {
+			return err
+		}
+		e.FromID, e.ToID = fromID.String(), toID.String()
+		if err := insertGraphEdgeQ(ctx, qtx, projectID, e); err != nil {
+			return err
+		}
+	}
+	if err := setCardInstanceFrameworkQ(ctx, qtx, projectID, cardInstanceID, m.Framework); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // InsertDisposition persists one three-key disposition (product spec

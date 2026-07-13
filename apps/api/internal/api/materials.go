@@ -221,7 +221,7 @@ func (a *API) logSourceOpen(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("log source open: marshal source_opened payload failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	} else {
-		store := agent.NewSqlcAgentStore(a.d.Queries)
+		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 		if err := store.AppendEvent(r.Context(), agent.EventRow{
 			ProjectID: projectID, Surface: "studio", Type: "source_opened", Payload: payload,
 		}); err != nil {

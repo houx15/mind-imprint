@@ -146,7 +146,7 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		<-hbDone
 	}()
 
-	store := agent.NewSqlcAgentStore(a.d.Queries)
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.CreateChatMessage(r.Context(), projectID, "user", body.UserInput); err != nil {
 		slog.Error("studio turn: persist student message",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

@@ -188,6 +188,41 @@ func (f *fakeAgentStore) InsertGraphEdge(_ context.Context, _ uuid.UUID, edge Mi
 	return nil
 }
 
+// CommitCardMint is the fake's in-memory stand-in for the real transaction
+// (agentstore.go): no DB, so no atomicity to prove here — that guarantee is
+// exercised against a real Postgres in
+// internal/store/refactor2_runtime_sqlc_test.go. This just has to apply the
+// same node/edge/framework writes the real method does, through the fake's
+// own InsertGraphNode/InsertGraphEdge/SetCardInstanceFramework, so every
+// existing CRAAP mint test keeps asserting on insertGraphNodeCalls /
+// lastGraphEdge / lastFramework exactly as before CompleteCard switched to
+// calling this instead of the three methods directly.
+func (f *fakeAgentStore) CommitCardMint(ctx context.Context, projectID, cardInstanceID uuid.UUID, m CardMint) error {
+	nodeIDs := make(map[int]uuid.UUID, len(m.Nodes))
+	for i, n := range m.Nodes {
+		id, err := f.InsertGraphNode(ctx, projectID, n)
+		if err != nil {
+			return err
+		}
+		nodeIDs[i] = id
+	}
+	for _, e := range m.Edges {
+		fromID, err := resolveMintRef(e.FromID, nodeIDs)
+		if err != nil {
+			return err
+		}
+		toID, err := resolveMintRef(e.ToID, nodeIDs)
+		if err != nil {
+			return err
+		}
+		e.FromID, e.ToID = fromID.String(), toID.String()
+		if err := f.InsertGraphEdge(ctx, projectID, e); err != nil {
+			return err
+		}
+	}
+	return f.SetCardInstanceFramework(ctx, projectID, cardInstanceID, m.Framework)
+}
+
 func (f *fakeAgentStore) InsertDisposition(_ context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error) {
 	f.insertDispositionCalls++
 	f.lastDisposition.InterventionID = interventionID

@@ -613,7 +613,7 @@ and the body builder:
 // which is where her ingestion-time tier lives.
 func crossCheckBody(anchors []Anchor) map[string]any {
 	body := map[string]any{}
-	for _, dim := range []string{"stop", "investigate", "find", "relation", "trace_origin", "tier_after"} {
+	for _, dim := range []string{"stop", "investigate", "find", "relation", "trace_origin", "tier_after", "revised_judgment"} {
 		for _, a := range anchors {
 			if a.Dimension == dim && strings.TrimSpace(a.Answer) != "" {
 				body[dim] = a.Answer

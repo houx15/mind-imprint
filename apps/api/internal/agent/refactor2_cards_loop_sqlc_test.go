@@ -27,7 +27,7 @@ func TestRefactor2CardsLoop_UnevaluatedSourceSurfacesCraap(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: seededStudentID, Title: "refactor2-cards-loop"})
 	if err != nil {
@@ -113,7 +113,7 @@ func TestRefactor2CardsLoop_CompleteCardMintsEvidenceAndFramework(t *testing.T) 
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: seededStudentID, Title: "refactor2-cards-complete"})
 	if err != nil {
@@ -232,7 +232,7 @@ func TestRefactor2CardsLoop_RecordDispositionRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID: seededStudentID, Qualification: "EE", Title: "中国是否让地球变得更可持续？", BoardCfgVer: 1,
@@ -277,7 +277,7 @@ func TestRefactor2CardsLoop_CreateCardInstanceOnTasklessMaterial(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID: seededStudentID, Qualification: "EE", Title: "中国是否让地球变得更可持续？", BoardCfgVer: 1,

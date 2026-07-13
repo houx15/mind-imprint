@@ -105,34 +105,18 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 	}
 
 	nodes, edges := GraphEffects(spec, materialID, anchors)
-	nodeIDs := make(map[int]uuid.UUID, len(nodes))
-	for i, n := range nodes {
-		id, err := deps.Store.InsertGraphNode(ctx, row.ProjectID, n)
-		if err != nil {
-			return false, err
-		}
-		nodeIDs[i] = id
-	}
-	for _, e := range edges {
-		fromID, err := resolveMintRef(e.FromID, nodeIDs)
-		if err != nil {
-			return false, err
-		}
-		toID, err := resolveMintRef(e.ToID, nodeIDs)
-		if err != nil {
-			return false, err
-		}
-		e.FromID, e.ToID = fromID.String(), toID.String()
-		if err := deps.Store.InsertGraphEdge(ctx, row.ProjectID, e); err != nil {
-			return false, err
-		}
-	}
-
 	framework, err := json.Marshal(ConsolidationPayload(spec))
 	if err != nil {
 		return false, err
 	}
-	if err := deps.Store.SetCardInstanceFramework(ctx, row.ProjectID, cardInstanceID, framework); err != nil {
+	// One transaction (CommitCardMint, agentstore.go): the framework write is
+	// the idempotency guard checked above, and it must land atomically with
+	// the nodes/edges it guards — otherwise a failure between the node
+	// insert and the guard write leaves a partial mint a retry would
+	// duplicate (Task 6).
+	if err := deps.Store.CommitCardMint(ctx, row.ProjectID, cardInstanceID, CardMint{
+		Nodes: nodes, Edges: edges, Framework: framework,
+	}); err != nil {
 		return false, err
 	}
 	return true, nil

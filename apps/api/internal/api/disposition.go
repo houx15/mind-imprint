@@ -63,7 +63,7 @@ func (a *API) postInterventionDisposition(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	deps := agent.AgentDeps{Store: agent.NewSqlcAgentStore(a.d.Queries)}
+	deps := agent.AgentDeps{Store: agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)}
 	if err := agent.RecordDisposition(r.Context(), deps, iid, body.Action, body.Reason); err != nil {
 		if errors.Is(err, agent.ErrDispositionReasonTooShort) {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "处置理由至少 15 个字", nil))

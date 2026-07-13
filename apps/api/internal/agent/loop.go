@@ -111,6 +111,16 @@ type AgentStore interface {
 	InsertGraphNode(ctx context.Context, projectID uuid.UUID, node MintNode) (uuid.UUID, error)
 	InsertGraphEdge(ctx context.Context, projectID uuid.UUID, edge MintEdge) error
 
+	// CommitCardMint writes everything a completed card produces — the
+	// minted nodes, their edges, and the consolidation framework/idempotency
+	// guard (agentstore.go's CardMint) — in ONE transaction (Task 6: closes
+	// the atomicity gap the three calls above left when run separately).
+	// CompleteCard uses this instead of InsertGraphNode/InsertGraphEdge/
+	// SetCardInstanceFramework directly; those three stay on the interface
+	// because SurfaceCard still uses InsertGraphEdge on its own, non-mint
+	// path (the card_instance->material edge).
+	CommitCardMint(ctx context.Context, projectID, cardInstanceID uuid.UUID, m CardMint) error
+
 	InsertDisposition(ctx context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error)
 
 	// RecordLLMCall persists one live LLM call's usage (5d review CRITICAL

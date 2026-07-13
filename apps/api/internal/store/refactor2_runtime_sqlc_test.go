@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -96,3 +100,84 @@ func TestRefactor2RuntimeStoreInterventionQueries(t *testing.T) {
 		t.Fatalf("Anchor = %v, want %v", gotAnchor, wantAnchor)
 	}
 }
+
+// TestCommitCardMint_IsAtomic is Task 6's keystone test: a mint that fails
+// partway must leave NOTHING behind — otherwise the retry mints a duplicate
+// evidence node, because the idempotency guard (framework_fill) is only
+// written at the very end.
+//
+// graph_edge's (from_kind, from_id)/(to_kind, to_id) endpoints are
+// polymorphic (migration 0016) and carry no foreign key — from_id/to_id are
+// bare uuid columns validated by nothing but the from_kind/to_kind CHECK
+// constraint, so a dangling material id would NOT fail the insert. What
+// reliably fails, deterministically, at the database level is an edge whose
+// from_kind falls outside that CHECK's enum — exactly the same shape of
+// problem (a bad edge insert, after the node insert already succeeded in the
+// same transaction), and it is what this test uses to force the rollback.
+func TestCommitCardMint_IsAtomic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	seededStudentID := refactor2SeededStudentID
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "EE",
+		Title:         "TestCommitCardMint_IsAtomic",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	contractRef := "craap"
+	cardInstance, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
+		ProjectID:   pgUUID(project.ID),
+		CardID:      "craap",
+		ContractRef: &contractRef,
+		Status:      "active",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectCardInstance: %v", err)
+	}
+
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	// The edge's from_kind ("nonexistent_kind") is outside graph_edge's CHECK
+	// constraint enum -> the edge insert fails after the node insert already
+	// succeeded inside the same transaction.
+	err = store.CommitCardMint(ctx, project.ID, cardInstance.ID, agent.CardMint{
+		Nodes:     []agent.MintNode{{Type: "evidence", Author: "student", Body: map[string]any{"x": "y"}}},
+		Edges:     []agent.MintEdge{{Type: "evaluated-as", FromKind: "nonexistent_kind", FromID: uuid.New().String(), ToKind: "graph_node", ToID: "$new:0"}},
+		Framework: []byte(`{"strategy":"reveal_framework_after_completion"}`),
+	})
+	if err == nil {
+		t.Fatal("expected the mint to fail on the invalid edge endpoint kind")
+	}
+
+	// The node must have been rolled back with it.
+	nodes, err := q.ListGraphNodesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject: %v", err)
+	}
+	if len(nodes) != 0 {
+		t.Fatalf("partial mint survived: %d node(s) left behind — a retry would duplicate them", len(nodes))
+	}
+
+	// The framework_fill guard must also not have been set — a partial mint
+	// with the guard set would make a legitimate retry a silent no-op.
+	got, err := q.GetCardInstance(ctx, cardInstance.ID)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if fw := string(got.FrameworkFill); fw != "{}" && fw != "" && fw != "null" {
+		t.Fatalf("framework_fill = %s, want unset (rolled back)", fw)
+	}
+}
+
+// pgUUID adapts a uuid.UUID to the pgtype.UUID sqlc params expect for a
+// non-null uuid column.
+func pgUUID(id uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: id, Valid: true} }

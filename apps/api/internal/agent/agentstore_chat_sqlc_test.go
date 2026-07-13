@@ -28,7 +28,7 @@ func TestSqlcAgentStore_ChatHistoryMerge(t *testing.T) {
 	}
 	pool := newTurnTestPool(t) // reuse the existing agent sqlc-test pool helper
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 	ctx := context.Background()
 	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101") // seeded
 

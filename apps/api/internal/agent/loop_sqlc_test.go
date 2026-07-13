@@ -30,7 +30,7 @@ func TestRefactor2LoopSqlcAdapter_UnsupportedClaimPersistsInterventionAndEvent(t
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID:        seededStudentID,
@@ -107,7 +107,7 @@ func TestRefactor2LoopSqlcAdapter_SupportedClaimPersistsNothing(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 
 	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID:        seededStudentID,

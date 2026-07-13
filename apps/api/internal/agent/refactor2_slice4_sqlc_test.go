@@ -23,7 +23,7 @@ func TestSlice4_IntakeReconcileRouteAdvance_Postgres(t *testing.T) {
 	ctx := context.Background()
 	pool := newTurnTestPool(t)
 	q := sqlc.New(pool)
-	store := agent.NewSqlcAgentStore(q)
+	store := agent.NewSqlcAgentStore(q, pool)
 	deps := agent.AgentDeps{Store: store}
 
 	sk, ok := skills.ByID("writing-project")
