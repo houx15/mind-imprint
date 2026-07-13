@@ -34,4 +34,11 @@ describe("Root", () => {
     expect(screen.getByTestId("envelope-json")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "登录" })).toBeNull();
   });
+
+  it("no longer has a ?studio side door — it falls through to the app shell", async () => {
+    window.history.pushState({}, "", "/?studio");
+    render(<Root />);
+    // The shell's auth gate, not a bare Studio: ?studio is retired (Slice 5d).
+    await waitFor(() => expect(screen.getByRole("button", { name: "登录" })).toBeTruthy());
+  });
 });
