@@ -178,6 +178,13 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
+	// A turn is activity — the roster's 最近活跃 depends on it. A failure to
+	// touch must not fail the student's turn, which already succeeded.
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("studio turn: touch project last_active_at",
+			"err", err, "project_id", projectID, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
 	a.streamAction(r.Context(), em, action, projectID, store)
 	_ = em.Done()
 }

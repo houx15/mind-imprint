@@ -111,6 +111,21 @@ func createTeacher(t *testing.T, pool *pgxpool.Pool, schoolID uuid.UUID, email s
 	return u.ID
 }
 
+// createStudent inserts a verified student in schoolID and returns its id.
+func createStudent(t *testing.T, pool *pgxpool.Pool, schoolID uuid.UUID, email string) uuid.UUID {
+	t.Helper()
+	q := sqlc.New(pool)
+	u, err := q.CreateUser(context.Background(), sqlc.CreateUserParams{
+		Email: email, PasswordHash: "x", Role: "student", SchoolID: schoolID,
+		DisplayName: "S " + email, AvatarColor: "#888888",
+		EmailVerifiedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create student: %v", err)
+	}
+	return u.ID
+}
+
 // withCookie attaches c to req and returns it (for inline request building).
 func withCookie(req *http.Request, c *http.Cookie) *http.Request {
 	req.AddCookie(c)
@@ -162,17 +177,6 @@ func enrollStudent(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, classID s
 		RoleInClass: "student",
 	}); err != nil {
 		t.Fatalf("enrollStudent: %v", err)
-	}
-}
-
-// seedTaskFor inserts a dummy task for the given user.
-func seedTaskFor(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID) {
-	t.Helper()
-	q := sqlc.New(pool)
-	if _, err := q.CreateTask(context.Background(), sqlc.CreateTaskParams{
-		UserID: userID, Title: "seed task",
-	}); err != nil {
-		t.Fatalf("seedTaskFor: %v", err)
 	}
 }
 

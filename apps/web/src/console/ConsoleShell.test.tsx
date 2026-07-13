@@ -19,7 +19,7 @@ function client() {
     renameClass: vi.fn(),
     regenerateJoinCode: vi.fn(),
     removeEnrollment: vi.fn(),
-    getOverview: vi.fn(async () => ({ counts: { student: 0, teacher: 0, class: 0, task: 0, evaluation: 0, active_student: 0 }, usage_by_tier: [] })),
+    getOverview: vi.fn(async () => ({ counts: { student: 0, teacher: 0, class: 0, project: 0, evaluation: 0, active_student: 0 }, usage_by_tier: [] })),
     listTeacherInvites: vi.fn(async () => []),
     createTeacherInvite: vi.fn(),
     adminImport: vi.fn(),

@@ -12,8 +12,9 @@ import (
 func TestAdminOverviewCountsScopedToSchool(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()
-	// Seed school already has 1 student (Phoebe), 1 admin, 1 class.
-	seedTaskFor(t, pool, SeedUserID) // 1 task, 1 active student
+	// Seed school already has 1 student (Phoebe), 1 admin, 1 class, and
+	// Phoebe's demo project (migration 0018) — enough for every count to be
+	// non-zero with no extra seeding.
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/admin/overview", nil), signInAdmin(t, pool)))
@@ -24,12 +25,12 @@ func TestAdminOverviewCountsScopedToSchool(t *testing.T) {
 		Counts struct {
 			Student       int `json:"student"`
 			Class         int `json:"class"`
-			Task          int `json:"task"`
+			Project       int `json:"project"`
 			ActiveStudent int `json:"active_student"`
 		} `json:"counts"`
 	}
 	json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.Counts.Student < 1 || resp.Counts.Class < 1 || resp.Counts.Task < 1 || resp.Counts.ActiveStudent < 1 {
+	if resp.Counts.Student < 1 || resp.Counts.Class < 1 || resp.Counts.Project < 1 || resp.Counts.ActiveStudent < 1 {
 		t.Fatalf("counts wrong: %+v", resp.Counts)
 	}
 }

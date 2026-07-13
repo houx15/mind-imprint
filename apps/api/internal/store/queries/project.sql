@@ -10,3 +10,6 @@ SELECT * FROM project WHERE id = $1;
 SELECT * FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC;
+
+-- name: TouchProject :exec
+UPDATE project SET last_active_at = now() WHERE id = $1;

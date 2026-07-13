@@ -211,15 +211,15 @@ func (q *Queries) GetClassBySchoolAndName(ctx context.Context, arg GetClassBySch
 
 const getClassRoster = `-- name: GetClassRoster :many
 SELECT u.id, u.display_name, u.email,
-       MAX(t.last_active_at) AS last_active_at,
-       COUNT(DISTINCT t.id)  AS task_count,
+       MAX(p.last_active_at) AS last_active_at,
+       COUNT(DISTINCT p.id)  AS project_count,
        COUNT(DISTINCT ev.id) AS evaluation_count,
        COUNT(DISTINCT ci.id) AS card_count
 FROM enrollments e
-JOIN users u             ON u.id = e.user_id
-LEFT JOIN tasks t        ON t.user_id = u.id
-LEFT JOIN evaluations ev ON ev.task_id = t.id
-LEFT JOIN card_instances ci ON ci.task_id = t.id
+JOIN users u                ON u.id = e.user_id
+LEFT JOIN project p         ON p.user_id = u.id
+LEFT JOIN evaluations ev    ON ev.project_id = p.id
+LEFT JOIN card_instances ci ON ci.project_id = p.id
 WHERE e.class_id = $1 AND e.role_in_class = 'student'
 GROUP BY u.id, u.display_name, u.email
 ORDER BY u.display_name
@@ -230,7 +230,7 @@ type GetClassRosterRow struct {
 	DisplayName     string      `json:"display_name"`
 	Email           string      `json:"email"`
 	LastActiveAt    interface{} `json:"last_active_at"`
-	TaskCount       int64       `json:"task_count"`
+	ProjectCount    int64       `json:"project_count"`
 	EvaluationCount int64       `json:"evaluation_count"`
 	CardCount       int64       `json:"card_count"`
 }
@@ -249,7 +249,7 @@ func (q *Queries) GetClassRoster(ctx context.Context, classID uuid.UUID) ([]GetC
 			&i.DisplayName,
 			&i.Email,
 			&i.LastActiveAt,
-			&i.TaskCount,
+			&i.ProjectCount,
 			&i.EvaluationCount,
 			&i.CardCount,
 		); err != nil {
@@ -324,16 +324,16 @@ SELECT
   (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'student')   AS student_count,
   (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'teacher')   AS teacher_count,
   (SELECT count(*) FROM classes       WHERE classes.school_id = $1)                            AS class_count,
-  (SELECT count(*) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1)       AS task_count,
-  (SELECT count(*) FROM evaluations e JOIN tasks t ON t.id = e.task_id JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS evaluation_count,
-  (SELECT count(DISTINCT t.user_id) FROM tasks t JOIN users u ON u.id = t.user_id WHERE u.school_id = $1) AS active_student_count
+  (SELECT count(*) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1)  AS project_count,
+  (SELECT count(*) FROM evaluations e JOIN project p ON p.id = e.project_id JOIN users u ON u.id = p.user_id WHERE u.school_id = $1) AS evaluation_count,
+  (SELECT count(DISTINCT p.user_id) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1) AS active_student_count
 `
 
 type GetSchoolCountsRow struct {
 	StudentCount       int64 `json:"student_count"`
 	TeacherCount       int64 `json:"teacher_count"`
 	ClassCount         int64 `json:"class_count"`
-	TaskCount          int64 `json:"task_count"`
+	ProjectCount       int64 `json:"project_count"`
 	EvaluationCount    int64 `json:"evaluation_count"`
 	ActiveStudentCount int64 `json:"active_student_count"`
 }
@@ -345,7 +345,7 @@ func (q *Queries) GetSchoolCounts(ctx context.Context, schoolID uuid.UUID) (GetS
 		&i.StudentCount,
 		&i.TeacherCount,
 		&i.ClassCount,
-		&i.TaskCount,
+		&i.ProjectCount,
 		&i.EvaluationCount,
 		&i.ActiveStudentCount,
 	)

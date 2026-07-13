@@ -9,8 +9,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 func TestClassRosterShowsAggregateSignals(t *testing.T) {
@@ -22,8 +24,8 @@ func TestClassRosterShowsAggregateSignals(t *testing.T) {
 	// Create a class, then enroll the seeded student (Phoebe) into it directly.
 	classID := createClassViaAPI(t, h, teacher, "Roster Class")
 	enrollStudent(t, pool, SeedUserID, classID)
-	// Give Phoebe one task so a count is non-zero.
-	seedTaskFor(t, pool, SeedUserID)
+	// Phoebe already owns the seeded demo project (migration 0018), so her
+	// project_count is non-zero with no extra seeding.
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID, nil), teacher))
@@ -32,17 +34,98 @@ func TestClassRosterShowsAggregateSignals(t *testing.T) {
 	}
 	var resp struct {
 		Roster []struct {
-			Email     string `json:"email"`
-			TaskCount int    `json:"task_count"`
+			Email        string `json:"email"`
+			ProjectCount int    `json:"project_count"`
 		} `json:"roster"`
 	}
 	json.Unmarshal(rec.Body.Bytes(), &resp)
-	if len(resp.Roster) != 1 || resp.Roster[0].TaskCount < 1 {
+	if len(resp.Roster) != 1 || resp.Roster[0].ProjectCount < 1 {
 		t.Fatalf("unexpected roster: %+v", resp.Roster)
 	}
 	// Roster must NOT leak any contents field.
 	if bytes.Contains(rec.Body.Bytes(), []byte("narrative")) {
 		t.Fatal("roster leaked evaluation contents")
+	}
+}
+
+// TestClassRoster_CountsProjectsNotTasks — Slice 5d: the roster counts the
+// PROJECT model, not the retired task model. Seeds a student with one
+// project + one project-scoped card_instance and NO tasks row of her own
+// (the card_instance's legacy task_id FK is anchored to a throwaway task
+// owned by someone else, mirroring the seed's admin-owned placeholder — see
+// migration 0018's note). Against the pre-5d tasks-based query this student
+// reads all-zero; this test is the proof the re-point is real.
+func TestClassRoster_CountsProjectsNotTasks(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacherID := createTeacher(t, pool, SeedSchoolID, "proj-roster@demo.local")
+	teacher := signInAs(t, pool, teacherID)
+	classID := createClassViaAPI(t, h, teacher, "Project Roster Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "proj-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	proj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID:        studentID,
+		Qualification: "0457",
+		Title:         "student's own project",
+		Deadline:      pgtype.Timestamptz{},
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	// Legacy task_id FK anchor — NOT owned by the student, so she genuinely
+	// has zero tasks rows of her own.
+	anchorTask, err := q.CreateTask(context.Background(), sqlc.CreateTaskParams{
+		UserID: SeedAdminID, Title: "legacy task_id FK anchor",
+	})
+	if err != nil {
+		t.Fatalf("create anchor task: %v", err)
+	}
+	if _, err := q.CreateProjectCardInstance(context.Background(), sqlc.CreateProjectCardInstanceParams{
+		TaskID:    anchorTask.ID,
+		ProjectID: pgtype.UUID{Bytes: proj.ID, Valid: true},
+		CardID:    "craap",
+		Status:    "proposed",
+	}); err != nil {
+		t.Fatalf("create card instance: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID, nil), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("roster got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Roster []struct {
+			Email           string  `json:"email"`
+			LastActiveAt    *string `json:"last_active_at"`
+			ProjectCount    int64   `json:"project_count"`
+			EvaluationCount int64   `json:"evaluation_count"`
+			CardCount       int64   `json:"card_count"`
+		} `json:"roster"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode roster: %v — body=%s", err, rec.Body)
+	}
+	if len(resp.Roster) != 1 {
+		t.Fatalf("want 1 roster entry, got %+v", resp.Roster)
+	}
+	entry := resp.Roster[0]
+	if entry.ProjectCount != 1 {
+		t.Fatalf("project_count = %d, want 1: %+v", entry.ProjectCount, entry)
+	}
+	if entry.CardCount != 1 {
+		t.Fatalf("card_count = %d, want 1: %+v", entry.CardCount, entry)
+	}
+	if entry.EvaluationCount != 0 {
+		t.Fatalf("evaluation_count = %d, want 0 (honest — no project-scoped evaluations yet): %+v", entry.EvaluationCount, entry)
+	}
+	if entry.LastActiveAt == nil {
+		t.Fatalf("last_active_at is nil, want project.last_active_at: %+v", entry)
 	}
 }
 

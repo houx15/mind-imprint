@@ -9,7 +9,7 @@ const callOf = (spy: any, i = 0) => spy.mock.calls[i] as unknown as [string, Req
 
 describe("admin api", () => {
   it("getOverview returns counts + usage", async () => {
-    vi.stubGlobal("fetch", ok({ counts: { student: 3, teacher: 1, class: 2, task: 5, evaluation: 1, active_student: 2 }, usage_by_tier: [{ tier: "chaperone", prompt_tokens: 10, completion_tokens: 20, cost: "0.01" }] }));
+    vi.stubGlobal("fetch", ok({ counts: { student: 3, teacher: 1, class: 2, project: 5, evaluation: 1, active_student: 2 }, usage_by_tier: [{ tier: "chaperone", prompt_tokens: 10, completion_tokens: 20, cost: "0.01" }] }));
     const o = await getOverview();
     expect(o.counts.student).toBe(3);
     expect(o.usage_by_tier[0]!.cost).toBe("0.01");

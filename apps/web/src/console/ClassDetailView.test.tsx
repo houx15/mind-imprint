@@ -10,8 +10,8 @@ const NOW = Date.parse("2026-06-26T12:00:00Z");
 const detail = (over: Partial<ClassDetail> = {}): ClassDetail => ({
   class: { id: "c1", name: "11 年级 A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z" },
   roster: [
-    { id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: "2026-06-26T10:00:00Z", task_count: 3, evaluation_count: 1, card_count: 7 },
-    { id: "u2", display_name: "Mia", email: "m@d", last_active_at: null, task_count: 0, evaluation_count: 0, card_count: 0 },
+    { id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: "2026-06-26T10:00:00Z", project_count: 3, evaluation_count: 1, card_count: 7 },
+    { id: "u2", display_name: "Mia", email: "m@d", last_active_at: null, project_count: 0, evaluation_count: 0, card_count: 0 },
   ],
   teachers: [{ id: "t1", display_name: "Ms Chen", email: "chen@x" }],
   ...over,
@@ -44,7 +44,7 @@ describe("ClassDetailView roster", () => {
     const client = makeClient(detail());
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} />);
     expect(await screen.findByText("姓名")).toBeInTheDocument();
-    expect(screen.getByText("任务")).toBeInTheDocument();
+    expect(screen.getByText("项目")).toBeInTheDocument();
     expect(screen.getByText(/暂无学生作品详情/)).toBeInTheDocument();
   });
 

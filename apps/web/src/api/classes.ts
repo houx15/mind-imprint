@@ -13,7 +13,7 @@ export interface RosterStudent {
   display_name: string;
   email: string;
   last_active_at: string | null;
-  task_count: number;
+  project_count: number;
   evaluation_count: number;
   card_count: number;
 }

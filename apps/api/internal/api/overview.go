@@ -32,7 +32,7 @@ func (a *API) adminOverview(w http.ResponseWriter, r *http.Request) {
 			"student":        c.StudentCount,
 			"teacher":        c.TeacherCount,
 			"class":          c.ClassCount,
-			"task":           c.TaskCount,
+			"project":        c.ProjectCount,
 			"evaluation":     c.EvaluationCount,
 			"active_student": c.ActiveStudentCount,
 		},

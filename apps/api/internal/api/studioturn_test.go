@@ -177,3 +177,35 @@ func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
 		}
 	}
 }
+
+// TestProjectTurn_TouchesLastActiveAt — Slice 5d: a turn is activity — the
+// roster's 最近活跃 depends on project.last_active_at, which is otherwise
+// only set once, at project creation. A successful turn must strictly
+// advance it.
+func TestProjectTurn_TouchesLastActiveAt(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+
+	before, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject before: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != 200 {
+		t.Fatalf("turn: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	after, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject after: %v", err)
+	}
+	if !after.LastActiveAt.After(before.LastActiveAt) {
+		t.Fatalf("last_active_at did not advance: before=%v after=%v", before.LastActiveAt, after.LastActiveAt)
+	}
+}

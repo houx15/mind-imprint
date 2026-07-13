@@ -229,7 +229,7 @@ export function ClassDetailView({
                   <th style={TH}>姓名</th>
                   <th style={TH}>邮箱</th>
                   <th style={TH}>最近活跃</th>
-                  <th style={TH}>任务</th>
+                  <th style={TH}>项目</th>
                   <th style={TH}>评估</th>
                   <th style={TH}>卡片</th>
                   <th style={TH} aria-label="操作" />
@@ -241,7 +241,7 @@ export function ClassDetailView({
                     <td style={{ ...TD, fontWeight: 600 }}>{s.display_name}</td>
                     <td style={{ ...TD, color: "#6B7384" }}>{s.email}</td>
                     <td style={TD}>{relativeTime(s.last_active_at, _now)}</td>
-                    <td style={TD}>{s.task_count}</td>
+                    <td style={TD}>{s.project_count}</td>
                     <td style={TD}>{s.evaluation_count}</td>
                     <td style={TD}>{s.card_count}</td>
                     <td style={{ ...TD, textAlign: "right" }}>

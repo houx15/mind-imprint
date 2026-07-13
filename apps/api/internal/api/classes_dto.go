@@ -29,7 +29,7 @@ type rosterEntryDTO struct {
 	DisplayName     string  `json:"display_name"`
 	Email           string  `json:"email"`
 	LastActiveAt    *string `json:"last_active_at"`
-	TaskCount       int64   `json:"task_count"`
+	ProjectCount    int64   `json:"project_count"`
 	EvaluationCount int64   `json:"evaluation_count"`
 	CardCount       int64   `json:"card_count"`
 }
@@ -48,7 +48,7 @@ func toRosterEntryDTO(row sqlc.GetClassRosterRow) rosterEntryDTO {
 		ID:              row.ID.String(),
 		DisplayName:     row.DisplayName,
 		Email:           row.Email,
-		TaskCount:       row.TaskCount,
+		ProjectCount:    row.ProjectCount,
 		EvaluationCount: row.EvaluationCount,
 		CardCount:       row.CardCount,
 	}

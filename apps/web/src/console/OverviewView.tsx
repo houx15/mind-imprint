@@ -8,7 +8,7 @@ const STATS: { key: keyof Overview["counts"]; label: string }[] = [
   { key: "student", label: "学生" },
   { key: "teacher", label: "教师" },
   { key: "class", label: "班级" },
-  { key: "task", label: "任务" },
+  { key: "project", label: "项目" },
   { key: "evaluation", label: "评估" },
   { key: "active_student", label: "活跃学生" },
 ];

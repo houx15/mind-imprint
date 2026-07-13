@@ -105,3 +105,12 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 	}
 	return items, nil
 }
+
+const touchProject = `-- name: TouchProject :exec
+UPDATE project SET last_active_at = now() WHERE id = $1
+`
+
+func (q *Queries) TouchProject(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchProject, id)
+	return err
+}

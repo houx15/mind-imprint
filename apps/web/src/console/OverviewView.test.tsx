@@ -4,7 +4,7 @@ import { OverviewView } from "./OverviewView";
 import type { Overview } from "../api";
 
 const overview = (over: Partial<Overview> = {}): Overview => ({
-  counts: { student: 120, teacher: 8, class: 12, task: 340, evaluation: 95, active_student: 77 },
+  counts: { student: 120, teacher: 8, class: 12, project: 340, evaluation: 95, active_student: 77 },
   usage_by_tier: [{ tier: "chaperone", prompt_tokens: 1000, completion_tokens: 2000, cost: "1.23" }],
   ...over,
 });

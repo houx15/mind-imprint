@@ -8,7 +8,7 @@ export interface Overview {
     student: number;
     teacher: number;
     class: number;
-    task: number;
+    project: number;
     evaluation: number;
     active_student: number;
   };

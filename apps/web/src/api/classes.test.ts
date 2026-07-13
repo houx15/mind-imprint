@@ -29,7 +29,7 @@ describe("classes api", () => {
   it("getClass returns {class, roster}", async () => {
     vi.stubGlobal("fetch", ok({
       class: { id: "c1", name: "11A", join_code: "AB-CD", school_id: "s1", created_at: "z" },
-      roster: [{ id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: null, task_count: 0, evaluation_count: 0, card_count: 0 }],
+      roster: [{ id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: null, project_count: 0, evaluation_count: 0, card_count: 0 }],
     }));
     const d = await getClass("c1");
     expect(d.roster[0]!.last_active_at).toBeNull();
