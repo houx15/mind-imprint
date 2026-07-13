@@ -14,6 +14,28 @@
   "related": ["craap", "money-trail", "source-map"],
   "body_status": "full",
   "rubric_tags": ["D2", "D3"],
+  "primitive": "compare",
+  "target_type": "material.source",
+  "params": {
+    "lateral_dimension": "find",
+    "tags": ["stop", "investigate", "find", "trace_origin"],
+    "tag_prompts": {
+      "stop": "先别急着信也别急着转。你现在的第一反应是什么？",
+      "investigate": "另开一个标签，搜这个来源/作者是谁。它是机构、个人，还是营销号？",
+      "find": "找一个**独立的**来源，看它怎么说同一件事。",
+      "trace_origin": "这条说法/数据/图片，最原始的出处在哪？"
+    }
+  },
+  "completion": [
+    { "kind": "lateral_source_present" },
+    { "kind": "field_written_by", "field": "trace_origin", "author": "student" }
+  ],
+  "graph_effects": [{ "kind": "cross_check" }],
+  "observe": [
+    { "when": "tag=find AND note_len<15", "move": { "verb": "post_intervention", "level": "I2" } }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I3",
   "steps": [
     {
       "key": "stop",
@@ -26,7 +48,7 @@
         "example": "看到「紧急！马上扩散！」这类字眼时，正是最该停下来的时刻。"
       },
       "fields": [
-        { "type": "textarea", "key": "first_reaction", "label": "你看到这条信息的第一反应是什么？你打算用它来说明什么？" }
+        { "type": "textarea", "key": "stop", "label": "你的第一反应是什么？（先写下来——待会儿要回来对照）", "rows": 2 }
       ]
     },
     {
@@ -40,42 +62,22 @@
         "example": "看到一个没听过的「XX 研究院」，别在它官网上打转，去搜「XX 研究院 背景 资助」。"
       },
       "fields": [
-        { "type": "text", "key": "source_name", "label": "这条信息的来源/作者名称" },
-        {
-          "type": "single_choice",
-          "key": "source_type",
-          "label": "它是什么类型的来源？",
-          "options": ["官方机构/政府", "主流媒体", "学术机构/学者", "非营利/智库", "自媒体/个人博主", "营销号/广告", "社交平台帖子", "不明来源"]
-        },
-        { "type": "textarea", "key": "investigate_notes", "label": "你搜到了什么关于这个来源的外部评价？（另开标签搜来源名称 + 可信度/批评）" }
+        { "type": "textarea", "key": "investigate", "label": "这个来源是谁？机构、个人，还是营销号？", "rows": 2 }
       ]
     },
     {
       "key": "find",
-      "title": "F — Find Better Coverage 找更好的报道",
+      "title": "F — Find Better Coverage 找独立来源",
       "disclose": "always",
       "methodology": {
-        "why": "如果一件事**只有一个来源**这么说，它可能是孤证、是误传、甚至是编造。多个**独立**来源互相印证，才托得起信任。",
-        "how": "去找 **2 个以上彼此独立、更可信**的来源（主流媒体、官方、学术），看它们对同一件事怎么说，标注是支持还是矛盾。",
-        "when": "当原说法很关键、你打算拿它当论据时——越是要用的结论，越要有第二、第三个声音背书。",
+        "why": "如果一件事**只有一个来源**这么说，它可能是孤证、是误传、甚至是编造。横向离开原页面，找一个**独立**来源，才能知道它站不站得住。",
+        "how": "去找一个跟原来源**没有关联**的来源，看它对同一件事怎么说——是印证、反驳，还是需要加个限定条件。",
+        "when": "当原说法很关键、你打算拿它当论据时——越是要用的结论，越要有第二个声音背书。",
         "example": "看到「某食物致癌」，别只信那一篇推文，去找 NASA、Nature 或权威医学机构怎么说同一件事。"
       },
       "fields": [
-        {
-          "type": "repeatable_group",
-          "key": "better_sources",
-          "label": "找 2 个独立可信来源，它们怎么说同一件事？",
-          "item_fields": [
-            { "type": "text", "key": "source", "label": "来源名称" },
-            { "type": "textarea", "key": "what_they_say", "label": "它对同一件事怎么说？" },
-            {
-              "type": "single_choice",
-              "key": "consistency",
-              "label": "与原说法的关系",
-              "options": ["一致支持", "部分支持", "中立/补充", "有出入", "明确矛盾"]
-            }
-          ]
-        }
+        { "type": "textarea", "key": "find", "label": "这个独立来源怎么说同一件事？", "rows": 3 },
+        { "type": "single_choice", "key": "relation", "label": "它和原来的说法是什么关系？", "options": ["印证", "反驳", "限定"] }
       ]
     },
     {
@@ -84,19 +86,13 @@
       "disclose": "always",
       "methodology": {
         "why": "信息**转一手就可能变形**——数据被掐头去尾、图片被张冠李戴、引语被断章取义。原始语境才是真相。",
-        "how": "顺着「谁引谁」一路**追到最原始的出处**（论文、官方声明、第一现场），看它在原语境里到底说了什么。",
+        "how": "顺着「谁引谁」一路**追到最原始的出处**（论文、官方声明、第一现场），看它在原语境里到底说了什么，再用信源金字塔给它定位。",
         "when": "当一个数字、一张图、一句「专家说」被反复转发时——尤其是它正好太符合某种立场的时候。",
         "example": "「研究显示 90% 的人……」——追回那篇研究，常会发现样本只有几十人，或结论根本不是这意思。"
       },
       "fields": [
-        { "type": "link_check", "key": "original_source", "label": "溯到原始出处（贴链接），它说的是什么？" },
-        {
-          "type": "single_choice",
-          "key": "pyramid_level",
-          "label": "按信源金字塔，原来那条信息在哪一层？",
-          "options": ["原始证据（数据/研究论文/官方声明）", "一手报道（现场采访/直接来源）", "二手评论（分析/综述）", "营销/观点内容", "来源不明"]
-        },
-        { "type": "textarea", "key": "revised_judgment", "label": "完成 SIFT 后，你对这条信息的判断是否改变了？说说前后有什么不同。" }
+        { "type": "textarea", "key": "trace_origin", "label": "最原始的出处是哪里？", "rows": 2 },
+        { "type": "single_choice", "key": "tier_after", "label": "横向查过之后，你把它放在信源金字塔的哪一层？", "options": ["原始证据", "一手报道", "二手评论", "营销/观点"] }
       ]
     }
   ]
