@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -349,7 +350,13 @@ func (s *sqlcAgentStore) RecordLLMCall(ctx context.Context, row LLMCallRow) erro
 	if err != nil {
 		return err
 	}
-	cost, _ := gateway.EstimateCost(row.Resolved.Provider, row.Resolved.Model, int(row.PromptTokens), int(row.CompletionTokens))
+	cost, priced := gateway.EstimateCost(row.Resolved.Provider, row.Resolved.Model, int(row.PromptTokens), int(row.CompletionTokens))
+	if !priced {
+		// A model routed but absent from the price table bills as $0.00 and would
+		// otherwise look like free usage in the org aggregate. Say so out loud.
+		slog.Warn("llm_call: unpriced model — cost recorded as 0",
+			"provider", row.Resolved.Provider, "model", row.Resolved.Model)
+	}
 	_, err = s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
 		UserID:           project.UserID,
 		ProjectID:        pgtype.UUID{Bytes: row.ProjectID, Valid: true},

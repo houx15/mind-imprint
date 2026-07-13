@@ -260,6 +260,13 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		}); rerr != nil {
 			slog.Warn("agent: record llm usage failed", "project_id", projectID.String(), "err", rerr.Error())
 		}
+	} else if err == nil {
+		// The call succeeded and produced an accepted output, yet reported no
+		// usage — the provider stopped emitting it (e.g. DeepSeek's
+		// stream_options.include_usage). The turn goes unmetered; do not let
+		// that happen quietly.
+		slog.Warn("agent: coach call returned no usage — turn is unmetered",
+			"project_id", projectID.String(), "provider", deps.Resolved.Provider, "model", deps.Resolved.Model)
 	}
 	if err != nil {
 		// Enforcement (or the model call itself) rejected the output — log

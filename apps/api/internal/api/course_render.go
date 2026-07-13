@@ -73,7 +73,11 @@ func (a *API) renderCourseStep(w http.ResponseWriter, r *http.Request) {
 		// unpriced model (EstimateCost's ok=false, cost=0) is recorded as an
 		// explicit $0.00, never the ok-derived NULL Numeric CostNumeric(cost,
 		// ok) would otherwise produce.
-		cost, _ := gateway.EstimateCost(rendered.Resolved.Provider, rendered.Resolved.Model, rendered.Usage.InputTokens, rendered.Usage.OutputTokens)
+		cost, priced := gateway.EstimateCost(rendered.Resolved.Provider, rendered.Resolved.Model, rendered.Usage.InputTokens, rendered.Usage.OutputTokens)
+		if !priced {
+			slog.Warn("llm_call: unpriced model — cost recorded as 0",
+				"provider", rendered.Resolved.Provider, "model", rendered.Resolved.Model)
+		}
 		if _, rerr := a.d.Queries.RecordLLMCall(r.Context(), sqlc.RecordLLMCallParams{
 			UserID: u.ID, Surface: "course", Purpose: "course_render",
 			Provider: rendered.Resolved.Provider, Model: rendered.Resolved.Model, Tier: rendered.Resolved.Tier,
