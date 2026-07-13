@@ -10,10 +10,10 @@ export type StudioCardSheetProps = {
 };
 
 // Lean coach-rail-fit card host: reuses the SAME schema-driven renderer +
-// reducer as CardSheetHost (apps/web/src/workspace/CardSheetHost.tsx), but
-// laid out for the 388px coach-rail column instead of a full-bleed
-// bottom-sheet. No card-specific branching here — pickCardBody(spec.id)
-// resolves any custom renderer, CardRenderer otherwise (schema-driven).
+// reducer as the retired task-workspace card host used to, but laid out for
+// the 388px coach-rail column instead of a full-bleed bottom-sheet. No
+// card-specific branching here — pickCardBody(spec.id) resolves any custom
+// renderer, CardRenderer otherwise (schema-driven).
 export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps) {
   // task_id is a vestigial local artifact — the project submit endpoint
   // ignores it — so an empty string is fine here.

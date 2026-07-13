@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CardSpec, Step } from "@mind-imprint/contracts";
 import { fieldRegistry } from "./fieldRegistry";
-import { Markdown } from "../workspace/Markdown";
+import { Markdown } from "./Markdown";
 
 type Props = {
   card: CardSpec;

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { StudioEvent } from "@mind-imprint/contracts";
-import { SourceDossier } from "../workspace/material/SourceDossier";
-import { SOURCE_FIXTURES } from "../workspace/material/fixtures";
+import { SourceDossier } from "../studio/material/SourceDossier";
+import { SOURCE_FIXTURES } from "../studio/material/fixtures";
 
 export function MaterialPanel() {
   const [events, setEvents] = useState<StudioEvent[]>([]);

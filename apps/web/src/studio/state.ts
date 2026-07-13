@@ -1,4 +1,4 @@
-import type { SourceFixture } from "../workspace/material/fixtures";
+import type { SourceFixture } from "./material/fixtures";
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,

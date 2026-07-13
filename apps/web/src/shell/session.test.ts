@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { makeMemoryStorage } from "../store";
-import { createSession, SESSION_KEY } from "./session";
+import { createSession, makeMemoryStorage, SESSION_KEY } from "./session";
 
 describe("createSession", () => {
   it("defaults to logged-out with the default avatar", () => {

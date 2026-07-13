@@ -9,12 +9,6 @@ describe("DevApp", () => {
     expect(screen.getByRole("button", { name: "卡片" })).toBeInTheDocument();
   });
 
-  it("switches to the store panel", async () => {
-    render(<DevApp />);
-    await userEvent.click(screen.getByRole("button", { name: "存储" }));
-    expect(screen.getByRole("button", { name: "新建任务" })).toBeInTheDocument();
-  });
-
   it("switches to the material panel and logs source_opened on open", async () => {
     render(<DevApp />);
     await userEvent.click(screen.getByRole("button", { name: "素材" }));

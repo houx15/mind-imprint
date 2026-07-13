@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SettingsView } from "./SettingsView";
-import { createSession } from "../session";
-import { makeMemoryStorage } from "../../store";
+import { createSession, makeMemoryStorage } from "../session";
 
 beforeEach(() => localStorage.clear());
 

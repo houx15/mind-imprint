@@ -1,5 +1,5 @@
 import type { StudioState } from "./state";
-import { SourceDossier } from "../workspace/material/SourceDossier";
+import { SourceDossier } from "./material/SourceDossier";
 import { StructureView } from "./views/StructureView";
 import { WritingView } from "./views/WritingView";
 import { ReviewView } from "./views/ReviewView";

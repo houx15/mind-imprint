@@ -1,8 +1,4 @@
-import type { Task, CardInstance, Evaluation, TraceEvent, Material, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor } from "@mind-imprint/contracts";
-import { listTasks, createTask, getTask, type TaskDetail } from "./tasks";
-import { activateCard, submitCard, skipCard } from "./cards";
-import { runEvaluation, getEvaluation } from "./evaluate";
-import { runTurn, type TurnEvent } from "./turn";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -12,26 +8,15 @@ import {
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
-import { listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch, MaterialFetchError } from "./materials";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
 import { listProjects, getProject, type ProjectListItem } from "./projects";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import type { StudioTurnEvent } from "./studioTurn";
 
-export type { TaskDetail, TurnEvent, MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent };
 export { ApiError } from "./client";
-export { MaterialFetchError } from "./materials";
 
 export interface ApiClient {
-  listTasks(): Promise<Task[]>;
-  createTask(input: { title: string; seed: string | null }): Promise<Task>;
-  getTask(id: string): Promise<TaskDetail>;
-  activateCard(taskId: string, cardId: string): Promise<CardInstance>;
-  submitCard(taskId: string, cardId: string, env: CardInstance): Promise<CardInstance>;
-  skipCard(taskId: string, cardId: string, eventTrace: TraceEvent[]): Promise<CardInstance>;
-  runEvaluation(taskId: string): Promise<Evaluation>;
-  getEvaluation(taskId: string): Promise<Evaluation | null>;
-  runTurn(taskId: string, userInput?: string, source?: "voice"): AsyncGenerator<TurnEvent>;
   signup(input: { email: string; password: string; display_name: string; join_code: string }): Promise<void>;
   verifyEmail(token: string): Promise<MeUser>;
   signin(input: { email: string; password: string }): Promise<MeUser>;
@@ -50,10 +35,6 @@ export interface ApiClient {
   listTeachers(): Promise<Teacher[]>;
   assignTeacher(classId: string, teacherUserId: string): Promise<{ teachers: Teacher[] }>;
   removeTeacher(classId: string, userId: string): Promise<void>;
-  listMaterials(taskId: string): Promise<Material[]>;
-  createMaterial(taskId: string, input: { kind: "article" | "draft"; title: string; text: string }): Promise<Material>;
-  fetchMaterialFromSeed(taskId: string): Promise<Material>;
-  saveScratch(taskId: string, materialId: string, scratch: string): Promise<Material>;
   listCourses(): Promise<CourseSummary[]>;
   getCourse(id: string): Promise<Course>;
   getCourseProgress(id: string): Promise<CourseProgress>;
@@ -67,11 +48,9 @@ export interface ApiClient {
 }
 
 export const api: ApiClient = {
-  listTasks, createTask, getTask, activateCard, submitCard, skipCard, runEvaluation, getEvaluation, runTurn,
   signup, verifyEmail, signin, signout, getMe,
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
-  listMaterials, createMaterial, fetchMaterialFromSeed, saveScratch,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
   listProjects, getProject,
   activateProjectCard, submitProjectCard, skipProjectCard,

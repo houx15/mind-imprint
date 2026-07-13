@@ -1,11 +1,11 @@
-import { SOURCE_FIXTURES } from "../workspace/material/fixtures";
+import { SOURCE_FIXTURES } from "./material/fixtures";
 import type { StudioState } from "./state";
 
 // The 0457 calibration scenario (AGENTS.md): Phoebe, "To what extent is China
 // making the world more environmentally sustainable?" — dramatized at station
 // S4 (论证构建), mid-way through fixing an "orphan evidence" flag on the
 // argument map. Content is drawn from the real scenario materials already
-// established in ../workspace/material/fixtures.ts and the design binding
+// established in ./material/fixtures.ts and the design binding
 // docs/design/思维印记_工作区.dc.html (STA ~L2092, EQ ~L2286, S4META ~L1947,
 // GA ~L2239). Real content throughout — no lorem ipsum.
 
