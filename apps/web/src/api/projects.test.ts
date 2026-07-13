@@ -23,6 +23,7 @@ const sample = {
   activeStation: "S4",
   coach: { anchor: "论证图 · 治理决心主张", messages: [{ kind: "ai", body: "b", tag: "D5", anchor: "论证图 · 治理决心主张" }], equipment: [] },
   onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [] },
+  materials: [],
 };
 
 describe("getProject", () => {

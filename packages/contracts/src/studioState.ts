@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Anchor } from "./anchor";
 
 // Slice 5b wire DTO: the server-side StudioState projection (read path). Lean by
 // design — the rich center-pane view types (material/structure/writing/review)
@@ -53,6 +54,30 @@ export const OnboardingFx = z.object({
 });
 export type OnboardingFx = z.infer<typeof OnboardingFx>;
 
+export const MaterialBlock = z.object({ id: z.string(), text: z.string() });
+export type MaterialBlock = z.infer<typeof MaterialBlock>;
+
+// One source in the 素材 dossier. Every field has a real producer (spec §3):
+// locked/role come from the CRAAP mint (evaluated-as edge → evidence node's
+// source_quality.risk_note), tier/takeaway from the student's source-log entry,
+// anchors from the persisted card_instances.anchors targeting this material.
+// There is deliberately NO verdict field — a 可信/存疑 judgment has no honest
+// producer and would have to be fabricated.
+export const MaterialSource = z.object({
+  id: z.string(),
+  title: z.string(),
+  sourceUrl: z.string(),
+  kind: z.string(),
+  origin: z.string(),
+  blocks: z.array(MaterialBlock),
+  locked: z.boolean(),
+  role: z.string(),
+  tier: z.string(),
+  takeaway: z.string(),
+  anchors: z.array(Anchor),
+});
+export type MaterialSource = z.infer<typeof MaterialSource>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -63,5 +88,6 @@ export const StudioProjection = z.object({
     equipment: z.array(EquipCard),
   }),
   onboarding: OnboardingFx,
+  materials: z.array(MaterialSource),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;
