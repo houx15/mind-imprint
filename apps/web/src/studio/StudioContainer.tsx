@@ -9,12 +9,6 @@ type StudioApi = { listProjects: typeof defaultApi.listProjects; getProject: typ
 type StudioConversation = ReturnType<typeof createStudioConversation>;
 type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
 
-// Reuse the trial-signin creds/sequence from AppShell.tsx:26-27 so ?studio is
-// reachable without a class join-code. Public demo creds — see AppShell's
-// comment for the seed-migration source.
-const DEMO_EMAIL = "phoebe@demo.mindimprint.local";
-const DEMO_PASSWORD = "phoebe-dev-pass";
-
 // Stable fallback used only before the conversation controller exists yet
 // (project still loading) — useSyncExternalStore needs a store, and this
 // constant reference (defined once at module scope, not per-render) keeps
@@ -43,26 +37,11 @@ function toStudioState(p: StudioProjection): StudioState {
   };
 }
 
-async function defaultEnsureSession(): Promise<void> {
-  // Reuse the trial-signin path (AppShell): if unauthenticated under ?studio,
-  // sign in as the seeded sample student. Unlike AppShell's ?trial=1 (a
-  // one-shot deep link that gets stripped), ?studio is the routing switch
-  // Root.tsx checks on every load, so we keep the search string on replace.
-  try {
-    await defaultApi.getMe();
-  } catch {
-    await defaultApi.signin({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
-    window.history.replaceState({}, "", window.location.pathname + window.location.search);
-  }
-}
-
 export function StudioContainer({
   api = defaultApi,
-  ensureSession = defaultEnsureSession,
   makeConversation = createStudioConversation,
 }: {
   api?: StudioApi;
-  ensureSession?: () => Promise<void>;
   makeConversation?: typeof createStudioConversation;
 }) {
   const [state, setState] = useState<StudioState | null>(null);
@@ -70,6 +49,7 @@ export function StudioContainer({
   const [activeStation, setActiveStation] = useState<StationCode | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(false);
   const [conv, setConv] = useState<StudioConversation | null>(null);
   // Guards double-dispatch of the same disposition (carry-forward from Task
   // 10's review): the conversation controller itself doesn't clear
@@ -81,9 +61,9 @@ export function StudioContainer({
     let cancelled = false;
     (async () => {
       try {
-        await ensureSession();
         const list = await api.listProjects();
-        if (list.length === 0) throw new Error("no projects");
+        if (cancelled) return;
+        if (list.length === 0) { setEmpty(true); return; }
         const proj = await api.getProject(list[0]!.id);
         if (cancelled) return;
         const s = toStudioState(proj);
@@ -95,7 +75,7 @@ export function StudioContainer({
       }
     })();
     return () => { cancelled = true; };
-  }, [api, ensureSession]);
+  }, [api]);
 
   // Create the live conversation once the projectId is known — guarded by
   // the projectId dependency so it isn't recreated on every render.
@@ -112,6 +92,16 @@ export function StudioContainer({
     conv?.getSnapshot ?? emptyConvGetSnapshot,
   );
 
+  if (empty) {
+    return (
+      <div className="mk-studio-empty" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "#6B7384" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#3A4256" }}>还没有项目</div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.7, maxWidth: 420, textAlign: "center" }}>
+          工作室从一个真实的写作任务开始。创建入口马上就来——在那之前，这里会保持空着。
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="mk-studio-error">{error}</div>;
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;
 
