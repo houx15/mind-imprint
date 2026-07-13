@@ -291,6 +291,179 @@ func TestCommitCardMint_FlipsLateralReadOnTheCheckedSourceOnly(t *testing.T) {
 	}
 }
 
+// TestMarkSourceLateralRead_EmptyTierAfterLeavesIngestionTierAlone is Task
+// 7's review-fix keystone for finding [2]: MarkSourceLateralRead's SQL uses a
+// CASE expression so an empty tier_after leaves the ingestion-time tier
+// alone — a revision that did not happen must not be recorded as one, and
+// must certainly not destroy the tier she set at ingestion. Exercises
+// CommitCardMint with LateralRead.TierAfter == "" and asserts the tier
+// survives unchanged while lateral_read still flips (the read itself did
+// happen — only the re-tier is optional).
+func TestMarkSourceLateralRead_EmptyTierAfterLeavesIngestionTierAlone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	seededStudentID := refactor2SeededStudentID
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "EE",
+		Title:         "TestMarkSourceLateralRead_EmptyTierAfterLeavesIngestionTierAlone",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	contractRef := "sift"
+	cardInstance, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
+		ProjectID:   pgUUID(project.ID),
+		CardID:      "sift",
+		ContractRef: &contractRef,
+		Status:      "active",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectCardInstance: %v", err)
+	}
+
+	blog, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgUUID(project.ID),
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "某博客：中国碳中和进展神速",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial(blog): %v", err)
+	}
+
+	ingestTier := "一手报道"
+	if _, err := q.CreateSourceLogEntry(ctx, sqlc.CreateSourceLogEntryParams{
+		ProjectID:  project.ID,
+		MaterialID: pgUUID(blog.ID),
+		Url:        "https://example-blog.test/china-carbon",
+		Title:      blog.Title,
+		Takeaway:   "中国碳排放正在快速下降",
+		Tier:       &ingestTier,
+	}); err != nil {
+		t.Fatalf("CreateSourceLogEntry(blog): %v", err)
+	}
+
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	// TierAfter is deliberately empty: the student read laterally but did not
+	// change her tier — the CASE expression must leave the ingestion-time
+	// tier alone.
+	err = store.CommitCardMint(ctx, project.ID, cardInstance.ID, agent.CardMint{
+		Framework:   []byte(`{"strategy":"reveal_framework_after_completion"}`),
+		LateralRead: &agent.LateralRead{MaterialID: blog.ID, TierAfter: ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blogLog := getSourceLog(t, ctx, pool, blog.ID)
+	if !blogLog.LateralRead {
+		t.Fatal("lateral_read must still flip — the lateral read itself did happen")
+	}
+	if blogLog.Tier != ingestTier {
+		t.Fatalf("tier = %q, want the ingestion-time tier %q left untouched (no revision happened)", blogLog.Tier, ingestTier)
+	}
+}
+
+// TestCommitCardMint_LateralReadRollsBackWithTheRestOfTheMint is Task 7's
+// review-fix keystone for finding [3]: TestCommitCardMint_IsAtomic (above)
+// never sets LateralRead, so it cannot prove the source-log write shares the
+// mint's transaction — a write moved outside the transaction (e.g. issued
+// through the unwrapped *sqlc.Queries instead of the tx-bound qtx) would
+// leave the suite green. This test forces a failure that happens AFTER the
+// LateralRead write has already executed inside CommitCardMint's sequence
+// (node insert, edge insert, LateralRead, THEN the framework_fill write) by
+// targeting a card_instance id that doesn't exist: SetCardInstanceFramework's
+// UPDATE...RETURNING matches zero rows and returns pgx.ErrNoRows. If the
+// LateralRead write is correctly inside the same transaction, it rolls back
+// with everything else; if it escaped the transaction, it would survive the
+// failure and the log would show lateral_read=true / a changed tier despite
+// the overall mint having failed.
+func TestCommitCardMint_LateralReadRollsBackWithTheRestOfTheMint(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	seededStudentID := refactor2SeededStudentID
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "EE",
+		Title:         "TestCommitCardMint_LateralReadRollsBackWithTheRestOfTheMint",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	blog, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgUUID(project.ID),
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "某博客：中国碳中和进展神速",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial(blog): %v", err)
+	}
+
+	ingestTier := "一手报道"
+	if _, err := q.CreateSourceLogEntry(ctx, sqlc.CreateSourceLogEntryParams{
+		ProjectID:  project.ID,
+		MaterialID: pgUUID(blog.ID),
+		Url:        "https://example-blog.test/china-carbon",
+		Title:      blog.Title,
+		Takeaway:   "中国碳排放正在快速下降",
+		Tier:       &ingestTier,
+	}); err != nil {
+		t.Fatalf("CreateSourceLogEntry(blog): %v", err)
+	}
+
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	// bogusCardInstanceID is never created — the framework write fails after
+	// the node insert, edge insert, and LateralRead write have all already
+	// run inside this same call's transaction.
+	bogusCardInstanceID := uuid.New()
+
+	err = store.CommitCardMint(ctx, project.ID, bogusCardInstanceID, agent.CardMint{
+		Nodes:       []agent.MintNode{{Type: "cross_check", Author: "student", Body: map[string]any{"relation": "限定"}}},
+		Edges:       []agent.MintEdge{{Type: "cross-checked-by", FromKind: "material", FromID: blog.ID.String(), ToKind: "graph_node", ToID: "$new:0"}},
+		Framework:   []byte(`{"strategy":"reveal_framework_after_completion"}`),
+		LateralRead: &agent.LateralRead{MaterialID: blog.ID, TierAfter: "二手 · 需追源"},
+	})
+	if err == nil {
+		t.Fatal("expected the mint to fail: card_instance does not exist")
+	}
+
+	nodes, err := q.ListGraphNodesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject: %v", err)
+	}
+	if len(nodes) != 0 {
+		t.Fatalf("partial mint survived: %d node(s) left behind", len(nodes))
+	}
+
+	blogLog := getSourceLog(t, ctx, pool, blog.ID)
+	if blogLog.LateralRead {
+		t.Fatal("lateral_read flipped even though the mint failed — the log write escaped the transaction")
+	}
+	if blogLog.Tier != ingestTier {
+		t.Fatalf("tier = %q, want unchanged ingestion tier %q — the log write escaped the transaction", blogLog.Tier, ingestTier)
+	}
+}
+
 // sourceLogSnapshot is a test-only flattening of sqlc.SourceLogEntry's
 // nullable Tier (*string) to a plain string, since every caller here only
 // ever compares it against a string literal.

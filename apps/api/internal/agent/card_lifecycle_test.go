@@ -305,6 +305,86 @@ func TestCheckedMaterialID_IgnoresAnchorOrder(t *testing.T) {
 	}
 }
 
+// TestCompleteCard_SiftCrossCheckMarksCheckedSourceNotLateralSource is Task
+// 7's review-fix keystone for finding [1]: it drives CompleteCard through the
+// REAL "sift" card spec (cards.ByID — LateralDimension="find", a cross_check
+// graph_effect) with anchors spanning two materials, and asserts the
+// LateralRead CompleteCard builds points at the CHECKED source (the blog
+// post under review) — never the LATERAL source (the independent NASA page
+// she used as the instrument to check it).
+//
+// The pre-fix test (TestCommitCardMint_FlipsLateralReadOnTheCheckedSourceOnly,
+// internal/store/refactor2_runtime_sqlc_test.go) called store.CommitCardMint
+// directly with a hard-coded LateralRead{MaterialID: blog.ID, ...} — it could
+// never catch a regression in *how* CompleteCard picks which material that
+// struct points at, because the test built the correct answer by hand and
+// handed it straight to the write path. This one drives the real selection
+// logic in card_lifecycle.go (checkedMaterialID/lateralAnchor) end to end.
+func TestCompleteCard_SiftCrossCheckMarksCheckedSourceNotLateralSource(t *testing.T) {
+	spec, ok := cards.ByID("sift")
+	if !ok {
+		t.Fatal("cards.ByID(sift) not found")
+	}
+
+	store := newCardFakeStore()
+	deps := AgentDeps{Store: store}
+	cardInstanceID := uuid.New()
+	checkedID := uuid.New() // the suspicious blog post — the source under review
+	lateralID := uuid.New() // the independent NASA page she used to check it
+
+	// Seed the checked source's ingestion-time tier, exactly as 6b would have
+	// written it — CompleteCard reads this as tier_before before the mint
+	// overwrites the row with her post-check re-tier.
+	store.sourceLogs = map[uuid.UUID]SourceLogRow{
+		checkedID: {Tier: "一手报道"},
+	}
+
+	// The lateral anchor ("find") sorts BEFORE the checked-source anchors —
+	// the same order trap TestCheckedMaterialID_IgnoresAnchorOrder guards
+	// against — so a regression that picks "the first anchor's material"
+	// instead of "the non-lateral anchor's material" would be caught here too.
+	anchors := []Anchor{
+		{ID: "a-find", MaterialID: lateralID.String(), Dimension: "find", Author: "student", Answer: "NASA 数据显示排放仍在上升"},
+		{ID: "a-stop", MaterialID: checkedID.String(), Dimension: "stop", Author: "student", Answer: "感觉有点夸张"},
+		{ID: "a-investigate", MaterialID: checkedID.String(), Dimension: "investigate", Author: "student", Answer: "个人博客，非机构"},
+		{ID: "a-relation", MaterialID: checkedID.String(), Dimension: "relation", Author: "student", Answer: "限定"},
+		{ID: "a-trace", MaterialID: checkedID.String(), Dimension: "trace_origin", Author: "student", Answer: "追到 NASA Earth Observatory 原始页面"},
+		{ID: "a-tier", MaterialID: checkedID.String(), Dimension: "tier_after", Author: "student", Answer: "二手 · 需追源"},
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	store.cardInstances[cardInstanceID] = CardInstanceRow{
+		ID: cardInstanceID, ProjectID: uuid.New(), CardID: spec.ID, Status: "active", Anchors: anchorsJSON,
+	}
+
+	complete, err := CompleteCard(context.Background(), deps, spec, cardInstanceID)
+	if err != nil {
+		t.Fatalf("CompleteCard: %v", err)
+	}
+	if !complete {
+		t.Fatal("want complete = true")
+	}
+
+	if store.lateralReadCalls != 1 {
+		t.Fatalf("want LateralRead written once, got %d", store.lateralReadCalls)
+	}
+	if store.lastLateralRead.MaterialID != checkedID {
+		t.Fatalf("LateralRead.MaterialID = %s, want the CHECKED source %s (not the lateral instrument %s)",
+			store.lastLateralRead.MaterialID, checkedID, lateralID)
+	}
+	if store.lastLateralRead.TierAfter != "二手 · 需追源" {
+		t.Fatalf("LateralRead.TierAfter = %q, want her post-check re-tier", store.lastLateralRead.TierAfter)
+	}
+	if store.lateralReadMaterials[lateralID] {
+		t.Fatal("the LATERAL source is the instrument, not the subject — it must never be marked laterally read")
+	}
+	if !store.lateralReadMaterials[checkedID] {
+		t.Fatal("the CHECKED source must be marked laterally read")
+	}
+}
+
 func TestCheckedMaterialID_CardWithoutLateralDimension_Unchanged(t *testing.T) {
 	// CRAAP and every card that exists today: no lateral_dimension, so this
 	// must degenerate to exactly the old first-anchor behavior.
