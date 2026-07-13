@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { createStore } from "../store/createStore";
+import userEvent from "@testing-library/user-event";
 import { createSession } from "./session";
 import { StudentApp } from "./StudentApp";
 
@@ -19,6 +19,10 @@ vi.mock("../api", async (orig) => {
   };
 });
 
+vi.mock("../studio/StudioContainer", () => ({
+  StudioContainer: () => <div data-testid="studio-container" />,
+}));
+
 function makeSession() {
   let s = "{}";
   const storage = { getItem: () => s, setItem: (_: string, v: string) => { s = v; } };
@@ -30,19 +34,25 @@ function makeSession() {
   return session;
 }
 
+const fakeSession = makeSession();
+
 describe("StudentApp", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("starts on the 批判思维 directory with the user's name", () => {
-    const store = createStore({});
-    render(<StudentApp store={store} session={makeSession()} onLogout={() => {}} />);
-    expect(screen.getByText("你想搞懂什么？")).toBeInTheDocument();
-    expect(screen.getByText("下午好，Phoebe · 批判思维工作台")).toBeInTheDocument();
+  it("renders the Studio on the 工作室 tab (the default landing)", () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    expect(screen.getByTestId("studio-container")).toBeTruthy();
+  });
+
+  it("renders the growth placeholder on 成长报告", async () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    await userEvent.click(screen.getByText("成长报告"));
+    expect(screen.getByText("成长报告正在重建")).toBeTruthy();
+    expect(screen.queryByTestId("studio-container")).toBeNull();
   });
 
   it("switches to the Courses tab and renders the course grid", async () => {
-    const store = createStore({});
-    render(<StudentApp store={store} session={makeSession()} onLogout={() => {}} />);
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
     fireEvent.click(screen.getByText("课程"));
     expect(screen.getByText("系统地学会一种思考方式")).toBeInTheDocument();
     expect(await screen.findByText("一条网络信息，该不该信")).toBeInTheDocument();

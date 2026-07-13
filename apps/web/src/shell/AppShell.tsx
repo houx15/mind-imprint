@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import { createStore } from "../store";
 import { createSession, useSession, type SessionStore } from "./session";
-import type { Store } from "../store/createStore";
 import { api as defaultApi, type ApiClient, type MeUser } from "../api";
 import { AuthScreen } from "./auth/AuthScreen";
 import { StudentApp } from "./StudentApp";
 import { ConsoleShell } from "../console/ConsoleShell";
 
-const defaultStore = createStore({});
 const defaultSession = createSession({ storage: window.localStorage });
 
 type ShellClient = Pick<
@@ -32,11 +29,9 @@ function wantsTrial(): boolean {
 }
 
 export function AppShell({
-  store = defaultStore,
   session = defaultSession,
   client = defaultApi,
 }: {
-  store?: Store;
   session?: SessionStore;
   client?: ShellClient;
 }) {
@@ -86,5 +81,5 @@ export function AppShell({
   if (role === "teacher" || role === "admin") {
     return <ConsoleShell session={session} client={client} onLogout={onLogout} />;
   }
-  return <StudentApp store={store} session={session} onLogout={onLogout} />;
+  return <StudentApp session={session} onLogout={onLogout} />;
 }
