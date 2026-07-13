@@ -135,16 +135,17 @@ func (a *API) ingestMaterial(w http.ResponseWriter, r *http.Request) {
 		dtoBlocks[i] = studio.MaterialBlockDTO{ID: b.ID, Text: b.Text}
 	}
 	dto := studio.MaterialDTO{
-		ID:       mat.ID.String(),
-		Title:    title,
-		Kind:     mat.Kind,
-		Origin:   origin,
-		Blocks:   dtoBlocks,
-		Locked:   false,
-		Role:     "",
-		Tier:     req.Tier,
-		Takeaway: req.Takeaway,
-		Anchors:  []json.RawMessage{},
+		ID:         mat.ID.String(),
+		Title:      title,
+		Kind:       mat.Kind,
+		Origin:     origin,
+		Blocks:     dtoBlocks,
+		Locked:     false,
+		Role:       "",
+		Tier:       req.Tier,
+		Takeaway:   req.Takeaway,
+		Anchors:    []json.RawMessage{},
+		TimeSpentS: 0, // freshly ingested — never opened yet
 	}
 	if mat.SourceUrl != nil {
 		dto.SourceURL = *mat.SourceUrl

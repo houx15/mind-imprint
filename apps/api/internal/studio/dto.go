@@ -90,4 +90,8 @@ type MaterialDTO struct {
 	Tier      string             `json:"tier"`
 	Takeaway  string             `json:"takeaway"`
 	Anchors   []json.RawMessage  `json:"anchors"`
+	// TimeSpentS is the source-log entry's accumulated reading time
+	// (seconds) — spec §5's ledger row binds title/URL, 停留 Nm, the
+	// takeaway, and the tier chip together. 0 for a freshly ingested source.
+	TimeSpentS int32 `json:"timeSpentS"`
 }

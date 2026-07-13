@@ -19,6 +19,7 @@ const loggedSource: MaterialSource = {
   tier: "一手论文",
   takeaway: "卫星数据确认地球在变绿，但论文本身不涉及碳排放。",
   anchors: [],
+  timeSpentS: 610,
 };
 
 describe("SourceLog", () => {
@@ -50,5 +51,16 @@ describe("SourceLog", () => {
   it("shows the ledger's framing copy", () => {
     render(<SourceLog sources={[loggedSource]} />);
     expect(screen.getByText("每一条你打开过的来源都在这里——引用只能从这里来。")).toBeInTheDocument();
+  });
+
+  it("shows the accumulated reading time, rounded to the nearest minute", () => {
+    render(<SourceLog sources={[loggedSource]} />);
+    // 610s = 10.17min, rounds to 10.
+    expect(screen.getByText("停留 10m")).toBeInTheDocument();
+  });
+
+  it("renders nothing for a source with 0 seconds logged, rather than 停留 0m", () => {
+    render(<SourceLog sources={[{ ...loggedSource, timeSpentS: 0 }]} />);
+    expect(screen.queryByText(/停留/)).not.toBeInTheDocument();
   });
 });

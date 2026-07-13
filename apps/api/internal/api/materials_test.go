@@ -108,7 +108,8 @@ func TestIngestMaterialFromURL(t *testing.T) {
 		Blocks []struct {
 			Text string `json:"text"`
 		} `json:"blocks"`
-		Anchors []json.RawMessage `json:"anchors"`
+		Anchors    []json.RawMessage `json:"anchors"`
+		TimeSpentS int32             `json:"timeSpentS"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode response: %v — %s", err, rec.Body.String())
@@ -130,6 +131,9 @@ func TestIngestMaterialFromURL(t *testing.T) {
 	}
 	if out.Anchors == nil || len(out.Anchors) != 0 {
 		t.Errorf("anchors = %v, want empty (never null)", out.Anchors)
+	}
+	if out.TimeSpentS != 0 {
+		t.Errorf("timeSpentS = %d, want 0 for a freshly ingested material (never opened yet)", out.TimeSpentS)
 	}
 
 	// The source-log entry landed in the same transaction.

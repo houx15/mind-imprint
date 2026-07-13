@@ -47,6 +47,7 @@ describe("MaterialSource", () => {
     tier: "二手 · 需追源",
     takeaway: "把 NASA 的图转述成「中国让地球更可持续」。",
     anchors: [],
+    timeSpentS: 240,
   };
 
   it("accepts a projected source", () => {
@@ -56,6 +57,11 @@ describe("MaterialSource", () => {
   it("requires every derived field — no optionals to hide a missing producer", () => {
     const { locked, ...withoutLocked } = valid;
     expect(() => MaterialSource.parse(withoutLocked)).toThrow();
+  });
+
+  it("requires timeSpentS (the source-log entry's accumulated reading time)", () => {
+    const { timeSpentS, ...withoutTimeSpentS } = valid;
+    expect(() => MaterialSource.parse(withoutTimeSpentS)).toThrow();
   });
 
   it("carries materials on the projection", () => {

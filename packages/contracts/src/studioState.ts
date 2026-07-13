@@ -75,6 +75,10 @@ export const MaterialSource = z.object({
   tier: z.string(),
   takeaway: z.string(),
   anchors: z.array(Anchor),
+  // Accumulated reading time (seconds) from the source-log entry's own
+  // time_spent_s column — spec §5's ledger row binds "停留 Nm" alongside the
+  // takeaway/tier. A freshly ingested source (never opened) is 0.
+  timeSpentS: z.number(),
 });
 export type MaterialSource = z.infer<typeof MaterialSource>;
 

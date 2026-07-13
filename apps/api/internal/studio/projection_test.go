@@ -216,7 +216,7 @@ func TestProjectDerivesMaterialState(t *testing.T) {
 				Blocks: []byte(`[{"id":"b1","text":"China ranks first."}]`)},
 		},
 		SourceLog: []sqlc.SourceLogEntry{
-			{MaterialID: pgUUID(matA), Tier: strPtr("二手 · 需追源"), Takeaway: "结论被放大了。"},
+			{MaterialID: pgUUID(matA), Tier: strPtr("二手 · 需追源"), Takeaway: "结论被放大了。", TimeSpentS: 240},
 		},
 		// The CRAAP mint: evidence node + evaluated-as edge from the material.
 		Nodes: []sqlc.GraphNode{
@@ -251,12 +251,15 @@ func TestProjectDerivesMaterialState(t *testing.T) {
 	if a.Tier != "二手 · 需追源" || a.Takeaway != "结论被放大了。" {
 		t.Errorf("Tier/Takeaway = %q/%q, want the source-log values", a.Tier, a.Takeaway)
 	}
+	if a.TimeSpentS != 240 {
+		t.Errorf("TimeSpentS = %d, want 240 (the source-log entry's accumulated reading time)", a.TimeSpentS)
+	}
 	if len(a.Anchors) != 1 {
 		t.Errorf("Anchors = %d, want 1 (the card anchor targeting this material)", len(a.Anchors))
 	}
 
 	b := proj.Materials[1]
-	if b.Locked || b.Role != "" || b.Tier != "" || b.Takeaway != "" || len(b.Anchors) != 0 {
+	if b.Locked || b.Role != "" || b.Tier != "" || b.Takeaway != "" || len(b.Anchors) != 0 || b.TimeSpentS != 0 {
 		t.Errorf("untouched material carries state it never earned: %+v", b)
 	}
 }

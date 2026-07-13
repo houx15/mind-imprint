@@ -12,6 +12,13 @@ function hasLogEntry(source: MaterialSource): boolean {
   return source.takeaway !== "" || source.tier !== "";
 }
 
+// Whole minutes, rounded to the nearest — but a source with nothing logged
+// (0s) renders nothing rather than the misleading "停留 0m".
+function readingMinutesLabel(timeSpentS: number): string | null {
+  if (timeSpentS <= 0) return null;
+  return `停留 ${Math.round(timeSpentS / 60)}m`;
+}
+
 export function SourceLog({ sources }: SourceLogProps) {
   const logged = sources.filter(hasLogEntry);
 
@@ -60,6 +67,9 @@ export function SourceLog({ sources }: SourceLogProps) {
                 >
                   {source.tier}
                 </span>
+              )}
+              {readingMinutesLabel(source.timeSpentS) && (
+                <span style={{ fontSize: 11.5, color: "#8A93A6" }}>{readingMinutesLabel(source.timeSpentS)}</span>
               )}
             </div>
             {source.takeaway !== "" && (

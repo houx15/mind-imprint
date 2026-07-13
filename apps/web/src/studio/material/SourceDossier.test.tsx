@@ -70,6 +70,7 @@ const blogArticle: MaterialSource = {
   role: "触发关注的入口——数据引用听着权威，但结论被作者悄悄放大了，需要横向核实。",
   tier: "二手转述",
   takeaway: "",
+  timeSpentS: 240,
   anchors: [authorityAnchor, purposeAnchor],
 };
 
@@ -90,6 +91,7 @@ const nasaSummary: MaterialSource = {
   tier: "一手论文",
   takeaway:
     "NASA 与 Nature Sustainability 指出：卫星数据确认地球在变绿，中国是最大贡献者之一，但主要机制是农业集约化与人工造林，不是整体生态系统改善——论文本身不支持「中国让地球更可持续」这个更大的结论，也没有讨论碳排放。",
+  timeSpentS: 610,
   anchors: [],
 };
 

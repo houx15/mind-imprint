@@ -14,6 +14,7 @@ const materialBody = {
   role: "",
   tier: "二手 · 需追源",
   takeaway: "结论被放大了。",
+  timeSpentS: 0,
   anchors: [],
 };
 

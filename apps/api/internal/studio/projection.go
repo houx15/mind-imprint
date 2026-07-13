@@ -340,6 +340,7 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 		}
 		if s, ok := log[id]; ok {
 			dto.Takeaway = s.Takeaway
+			dto.TimeSpentS = s.TimeSpentS
 			if s.Tier != nil {
 				dto.Tier = *s.Tier
 			}
