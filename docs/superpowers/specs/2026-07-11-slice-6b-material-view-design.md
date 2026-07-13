@@ -66,7 +66,7 @@ export const MaterialSource = z.object({
 | `locked` | An `evaluated-as` edge exists with `from_kind='material'`, `from_id=<material.id>`. That edge is minted only when the CRAAP card completes (`GraphEffects`). |
 | `role` | The evidence node that edge points to: `body.source_quality.risk_note`. Absent → `""`. |
 | `tier`, `takeaway` | The material's `source_log_entry` row (student wrote them at ingestion). Absent → `""`. |
-| `anchors` | The `card_instances.anchors` of the card instance whose `material_id` is this material (latest wins). |
+| `anchors` | Every `card_instances.anchors` entry across the project whose own `material_id` equals this material's id. (`card_instances` has no `material_id` column — the anchor object carries it.) |
 
 **Deliberately NOT produced.** The binding design's `偏弱` chip (`思维印记_工作区.dc.html:2196`) and the
 current fixture's `可信 / 存疑` chip have **no honest producer** — both are a verdict *on* a source, which
@@ -92,10 +92,11 @@ from a student judgment field on the CRAAP card, designed on purpose.
 
 - **URL path:** `materialize.FetchReadable(ctx, url)` → `(title, text)`; `materialize.Segment(text)` → blocks.
   `source = "fetched"`, `source_url = url`. A fetch error (bad scheme, blocked IP, non-HTML, bad status,
-  empty extraction) returns a **422 with an honest message** — never a material with empty blocks:
-  `取不到这个链接的正文，可以直接把正文粘进来。`
-- **Text path:** `Segment(text)` → blocks. `source = "pasted"`, `source_url = ""`. Empty segmentation → 422
-  `正文是空的。`
+  empty extraction) returns an **honest 400** — never a material with empty blocks — via the existing
+  `httpx.ErrBadRequest("fetch_failed", "取不到这个链接的正文，可以直接把正文粘进来。", nil)`. (No 422 helper
+  exists in `httpx`; 6b reuses the established 400 + stable-code envelope rather than inventing one.)
+- **Text path:** `Segment(text)` → blocks. `source = "pasted"`, `source_url = ""`. Empty segmentation →
+  `httpx.ErrBadRequest("empty_body", "正文是空的。", nil)`.
 - **Both paths, one transaction:** `CreateProjectMaterial` + `CreateSourceLogEntry`. If either fails, neither
   row lands — a material with no log entry would be a source that was never "opened", which is precisely the
   state RL-2 forbids.
@@ -209,8 +210,8 @@ the `risk_note` the test wrote. See §9.
 **Go (testcontainers, `-p 1`):**
 1. `POST /materials` with a URL served by an `httptest` server → 201; a `material` row with segmented blocks
    (>1 block for a multi-paragraph body) and a `source_log_entry` row with the student's takeaway + tier.
-2. `POST /materials` with a URL the fetcher rejects (loopback / non-HTML) → 422, **and neither row exists**
-   (transaction proof).
+2. `POST /materials` with a URL the fetcher rejects (loopback / non-HTML) → 400 `fetch_failed`, **and neither
+   row exists** (transaction proof).
 3. `POST /materials/{mid}/open {time_spent_s: 30}` twice → `time_spent_s == 60` (accumulates, not overwrites)
    and two `source_opened` events in `event`.
 4. **Projection derivation (the non-vacuous one):** seed a project + material → surface a CRAAP card → submit
