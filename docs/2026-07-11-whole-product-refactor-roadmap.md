@@ -83,7 +83,7 @@ started · ◐ in progress · ☑ done.
 | **2** | **Runtime loop + verbs + enforcement stack + classifier & coach** | perceive→evaluate→decide-one→act→record; the verb set (C3) as typed outputs through the enforcement stack (§6); cheap **classifier** (every event) + flagship **coach** (T-A/T-B, one action, I-ladder). No planner yet. | 0,1 | ☑ |
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
-| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ◐ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☐) |
+| **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ◐ (keystone ☑ — CRAAP fill→mint live via coach rail; material center-pane view + source-log S2 → 6b, SIFT lateral → 6c) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
@@ -302,8 +302,71 @@ Each slice appends its spec/plan links and outcome here as it completes.
   highlight) + source-log S2 (search-plan→auto-log→citations, RL-2); **6c** = SIFT lateral; also student *free*
   span-creation (L2/L3) and the R-9 summing-up framework reveal. T4 Minor for triage: `RISK_NOTE_QUESTION` const
   drops "／局限" vs the placeholder's binding copy.
-- **NEXT = Slice 5d** (routing cutover): retire `RunTurn`/`turn.go`/old `workspace/`; flip routing; gate
-  `StudioContainer.defaultEnsureSession` (the silent sign-in-as-Phoebe fallback). Then **6b/6c** (material
-  station + SIFT), then 7–9 (deepen 结构/写作/评估). **Cleanup (any time):** Slice-3 debt (task_id NULLABLE +
-  project-scope `GetCardInstance`); unique index on `chat_thread.seeded_project_id`; onboarding live producer;
-  live `gate` passed/total counts.
+- **Slice 5d** — ☑ **complete** (branch `refactor2-slice5d-routing-cutover`, commits
+  `f627662`..`f1e5230`, 9 tasks subagent-driven TDD). Spec
+  `docs/superpowers/specs/2026-07-11-slice-5d-routing-cutover-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-5d-routing-cutover.md`. **The Studio becomes the only
+  student surface** — the old task-based workspace is retired, routing cut over, and the console
+  re-pointed at the project model. Delivered: (T1) backend — deleted `internal/api/{turn,tasks,
+  cards,evaluate,material,eval_trigger}.go` + `internal/agent/turn.go` (`RunTurn`/`TurnStore`) +
+  the 13 old `/api/v1/tasks/**` routes (route-surface 404 fence added); (T2) deleted the
+  task-coupled evaluator (`eval*.go` + testdata) and its river `EvaluateWorker` registration; (T3)
+  re-pointed `GetClassRoster`/`GetSchoolCounts` at `project`/`evaluations.project_id`/
+  `card_instances.project_id` (was `tasks`, which after the cutover would read 0/never for every
+  real student) + added `TouchProject` and wired it into `postProjectTurn`, with a testcontainers
+  test that **fails against the old `tasks`-based query** as proof the re-point is real, plus
+  `task_count`→`project_count` renamed through the sqlc row/Go DTO/console TS/`ClassDetailView`/
+  `OverviewView`; (T4) left rail moved to the binding design (工作室/成长报告, four items); (T5)
+  `StudentApp`'s 工作室 tab mounts the Studio directly, 成长报告 becomes a placeholder slot; (T6)
+  `StudioContainer` drops `defaultEnsureSession` (the silent sign-in-as-Phoebe fallback) for an
+  honest empty-vs-error state, with a signin-spy test that **fails against the current fallback**
+  as proof it's truly gone; (T7) `Root` drops the `?studio` side door; (T8) the great deletion —
+  `shell/WorkspaceContainer.tsx`, `shell/directory/`, `shell/records/`, `agent/` (old
+  conversation/evaluator hooks), `api/{turn,tasks,cards,evaluate,materials}.ts`, `store/`,
+  `dev/StorePanel.tsx`; `workspace/Markdown.tsx`→`cards/Markdown.tsx` and
+  `workspace/material/`→`studio/material/` (the only two genuinely-shared survivors) moved out so
+  `apps/web/src/workspace/` ceases to exist; (T9, this task) contracts cleanup + sqlc orphan sweep
+  + `TouchProject` on card submit too + whole-repo gate + this roadmap entry.
+  **T9 additions found by the per-task reviews (beyond the T9 brief):** `submitProjectCard`
+  (`internal/api/projectcards.go`) also drives `RunAgentStep` — filling a card is student activity
+  too — so it now touches `last_active_at` the same failure-safe way (`slog.Warn`, never fails the
+  submit/SSE stream), with a new `TestProjectCardSubmit_TouchesLastActiveAt` modeled on T3's touch
+  test; and a caller-less-query sweep of `tasks.sql`/`cards.sql`/`messages.sql` deleted `GetTask`
+  (+ its one test-only round-trip usage in `sqlc_test.go`), `MarkTaskEvaluated`,
+  `CountCompletedCards`, `CountSubstantiveTurns`, `GetCard`, `ListCardsByTask` — all verified
+  zero-caller (production and tests) by repo-wide grep before deletion; the legacy task-scoped
+  `CreateCardInstance`/`SetCardActive`/`SubmitCard`/`SkipCard`/`SetCardAnchors`/`AppendMessage`/
+  `ListMessagesByTask` were left alone (still test-covered generated-code round-trips, and
+  `card_instance.sql`'s own header comment explicitly protects the first five for "the legacy
+  path"). **Contracts:** deleted the orphaned `Task`/`TaskStatus`/`Message`/`MessageRole`
+  (`packages/contracts/src/task.ts`) and `Material`/`MaterialKind`/`MaterialSource`/
+  `MaterialBlock` (`src/material.ts`) schemas + their tests — zero importers anywhere in
+  `apps/web` after T8's deletion, confirmed by grep + `tsc --noEmit`; `Evaluation` was **kept**
+  because `cognitive-model.ts`'s `assembleImprint` still imports it internally within contracts.
+  **Explicitly preserved (per spec §4.2):** the `tasks`/`evaluations` tables and data (no
+  migration — dropping tables is destructive and `evaluations.project_id` is Slice 10's write
+  target); `internal/materialize` (URL→blocks fetcher, no caller — 6b wires it); `material.sql`'s
+  `CreateProjectMaterial` (test-covered but no production caller yet — same forward-looking
+  category as `internal/materialize`, reserved for 6b) + `ListMaterialsByProject` (live production
+  caller). **Accepted gaps (spec §6, inherited by the next slices):** material ingestion stays
+  Studio-unreachable until **6b** wires `internal/materialize` + `CreateProjectMaterial` (no
+  capability lost — the old ingestion endpoints were task-scoped and the Studio could never call
+  them; the seeded project ships its materials so the CRAAP keystone keeps running in the window);
+  evaluation is deferred to **Slice 9/10**'s assessor (a different engine over event-stream
+  projections — the 成长报告 slot is where it lands); project creation (`POST /projects` +
+  intake) has **no home yet** — 5d deliberately stayed a true cutover, a zero-project student sees
+  the honest empty state, and creation needs its own design + slice. **Carry-forwards (spec §9):**
+  Slice-3 debt on `card_instances.task_id`/`material.task_id` NOT NULL is now unblocked (the task
+  *surface* is gone) but still not done — ripples into `pgtype.UUID` Go types + project-scoped
+  `GetCardInstance`; a unique partial index on `chat_thread.seeded_project_id` (TOCTOU); the
+  onboarding live producer (`agent.Intake` writes `{text}`, the reader wants
+  `{restate_prompt, rows}`). Gate (T9): full Go suite serialized `-p 1` exit 0 (all packages) +
+  web **279** (was 475 pre-5d; drop is deleted-suite fallout, not a regression) + contracts
+  **165** (was 181) + `tsc --noEmit` clean.
+- **NEXT = Slice 6b** (material center-pane + source-log S2): un-stub `views.material: []` in
+  `StudioContainer.toStudioState`, thread `card.anchors` via `ViewFrame` to light up Slice 6's T7
+  left-pane highlight seam, wire `internal/materialize` + `CreateProjectMaterial` for real
+  project-scoped ingestion, search-plan→auto-log→citations-only-from-log (RL-2). Then **6c**
+  (SIFT lateral), then 7–9 (deepen 结构/写作/评估). **Cleanup (any time):** Slice-3 debt (task_id
+  NULLABLE + project-scope `GetCardInstance`); unique index on `chat_thread.seeded_project_id`;
+  onboarding live producer; live `gate` passed/total counts.

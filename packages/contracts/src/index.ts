@@ -13,8 +13,6 @@ export * from "./envelope";
 export * from "./anchor";
 export * from "./course";
 export * from "./registry";
-export * from "./task";
-export * from "./material";
 export * from "./summonCard";
 export * from "./refeed";
 export * from "./studioState";

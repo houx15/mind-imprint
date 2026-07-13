@@ -231,6 +231,44 @@ func TestProjectCardSubmit_FormPathDoesNotComplete(t *testing.T) {
 	}
 }
 
+// TestProjectCardSubmit_TouchesLastActiveAt — Slice 5d Task 9 (part 2b):
+// submitProjectCard also drives RunAgentStep — filling a tool card IS
+// student activity, same as postProjectTurn — so it must advance
+// project.last_active_at too (the roster's 最近活跃 column depends on it).
+// Modeled on studioturn_test.go's TestProjectTurn_TouchesLastActiveAt.
+func TestProjectCardSubmit_TouchesLastActiveAt(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	cid := createProjectCardForTest(t, pool) // craap on a seeded material, status active
+	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
+
+	before, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject before: %v", err)
+	}
+
+	// Form-path submit (mirrors TestProjectCardSubmit_FormPathDoesNotComplete)
+	// — the touch must fire regardless of whether the submit completes the
+	// card.
+	body := `{"field_values":{"final_verdict":"存疑"},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":[]}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	after, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject after: %v", err)
+	}
+	if !after.LastActiveAt.After(before.LastActiveAt) {
+		t.Fatalf("last_active_at did not advance: before=%v after=%v", before.LastActiveAt, after.LastActiveAt)
+	}
+}
+
 // surfaceCraapAndReadAnchors drives the real HTTP turn endpoint (same trigger
 // as TestProjectTurn_SurfacesCraapCard_GeneratesAnchors) so the Studio surface
 // seam (Task 2) generates + persists AI anchors on a freshly-proposed craap
