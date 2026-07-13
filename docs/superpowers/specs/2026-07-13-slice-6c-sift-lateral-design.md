@@ -92,12 +92,48 @@ projected on read — there is no second storage shape and no migration:
 | `right` | anchors whose `material_id` is **not** it (`null` when there are none) |
 | `pairs[].l_span` / `r_span` | a right anchor paired with the left anchor sharing its `dimension` |
 | `pairs[].note` | the right anchor's `answer` — what she says the lateral source says |
-| `pairs[].relation` | the card's `relation` field (`field_values`) |
+| `pairs[].relation` | the anchor whose `dimension` is `relation` |
 
-One SIFT card carries one `relation` (a `single_choice` field in the Find step),
-so a card yields one relation for its pairs and mints exactly one `cross_check`
+**Anchors are the answer carrier — `field_values` is not involved.** The
+runtime's pure functions (`EvaluateCompletion`, `GraphEffects`) are defined over
+anchors and never see `field_values`; CRAAP's `risk_note` already rides this
+way, and the coach rail already renders an answer per anchor keyed by
+`dimension`. SIFT's `relation` and `trace_origin` are therefore anchors like any
+other answer. Routing them through `field_values` instead would force a
+signature change through three call sites and buy nothing.
+
+One SIFT card carries one `relation`, so a card mints exactly one `cross_check`
 node (§4.2). Pairs remain a list because the primitive is general — a future
 card may pair several spans — but SIFT's completion needs only one.
+
+### 2.2 Which material is the card's own? (`params.lateral_dimension`)
+
+`CompleteCard` today calls `anchoredMaterialID(anchors)`, which returns *the
+first anchor carrying a material id*. Its own comment states the assumption:
+*"every anchor on one card_instance targets the same material."*
+
+**SIFT is the first card that violates it.** Its anchors span two materials by
+design. Left alone, the mint would attach the cross-check to whichever material
+happened to sort first in the anchor array — a coin flip between the source
+under review and the source used to check it, failing silently and differently
+per card. (Same species as Slice 6b's `card_instances.task_id` trap: an
+invariant that held until the slice that broke it, with nothing that fails
+loudly.)
+
+**The fix is declaration, not inference.** The C2 `params` block gains one
+field:
+
+```json
+"params": { "lateral_dimension": "find" }
+```
+
+- **lateral material** = the `material_id` of the anchor whose `dimension` ==
+  `params.lateral_dimension`.
+- **checked material** = the `material_id` of the first anchor whose
+  `dimension` != `params.lateral_dimension`.
+
+A card with no `lateral_dimension` (every card that exists today) degenerates to
+exactly the current behavior — a required regression test, not an assumption.
 
 ---
 
@@ -131,9 +167,10 @@ primitive, do not special-case the card.
 ```
 
 `lateral_source_present` (new completion kind, `card_completion.go`) is
-satisfied only when the card's anchors contain an anchor whose `material_id`
-differs from the card's own material **and** whose `answer` is non-empty. In
-words: *a real, other source is in the project and she has said what it says.*
+satisfied only when the anchor carrying `params.lateral_dimension` (§2.2) has a
+`material_id` that differs from the card's checked material **and** a non-empty
+`answer`. In words: *a real, other source is in the project and she has said
+what it says.*
 
 This is the hinge of the slice. A written claim of having read laterally is not
 lateral reading. The AI cannot satisfy this predicate — it has no path that
@@ -175,12 +212,14 @@ MintEdge  { $new:0             --cites-->             material(lateral) }
 (`corroborates` / `contradicts` / `qualifies`). **The AI never picks it.** Per
 6b's binding rule, a judgment with no honest producer does not get produced.
 
-**Runtime change required:** `GraphEffects` today handles only `kind:
-"promote"`, and the caller resolves the `$new:<i>` placeholder on an edge's
-**target only**. `cross_check` puts a placeholder on an edge's *source*, so the
-resolver must resolve `$new:` on **both endpoints**. This is a small, honest
-generalization of an existing seam (Slice 7's graph work needs it regardless),
-not a special case for SIFT.
+**Runtime change required:** only that `GraphEffects` learns the `cross_check`
+kind (today it handles `promote` and silently skips everything else).
+
+The placeholder resolver needs **no** change: `CompleteCard` already calls
+`resolveMintRef` on *both* `e.FromID` and `e.ToID` (`card_lifecycle.go:117,121`),
+so a `$new:` on an edge's source already resolves. Only the `MintEdge` doc
+comment claims otherwise ("MintEdge.ToID carries the placeholder") — it is
+stale, and this slice corrects it.
 
 ### 4.3 The source log
 
@@ -318,11 +357,14 @@ to ask her what she sees.
 - **Go — completion:** `lateral_source_present` is RED when the only anchors
   share the card's material id; RED when the other-material anchor has an empty
   `answer`; GREEN when a real other-material anchor with an answer exists.
+- **Go — material disambiguation (§2.2):** with anchors spanning two materials,
+  the checked material is the one declared by `lateral_dimension`, **not** the
+  first in the array — a test that fails if the anchor order is reversed. A card
+  with no `lateral_dimension` (CRAAP) resolves exactly as it does today.
 - **Go — mint:** `cross_check` produces one node and two edges with the
-  placeholder resolved on **both** endpoints (a test that fails if only the
-  target is resolved); `relation` and both tiers land in the node body;
-  `lateral_read` flips on the checked entry and **not** on the lateral one; the
-  lateral source is **not** promoted to `evidence`.
+  placeholder resolved on **both** endpoints; `relation` and both tiers land in
+  the node body; `lateral_read` flips on the checked entry and **not** on the
+  lateral one; the lateral source is **not** promoted to `evidence`.
 - **Go — gate:** S3's machine tier fails without a `cross_check` node and passes
   with one; `every_source_evaluated` still scans the lateral source (R1 is
   asserted, not assumed).

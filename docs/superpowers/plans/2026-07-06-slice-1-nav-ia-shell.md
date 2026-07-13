@@ -653,7 +653,7 @@ Expected: FAIL — clicking `课程` renders nothing (no `courses` branch), so `
 import { CoursesView } from "./courses/CoursesView";
 ```
 
-3b. Widen the `Tab` type:
+3b. Ensure the `Tab` type is the 4-value union (it was already widened during Task 1's typecheck fix; confirm it reads exactly this, and set it if not):
 
 ```tsx
 type Tab = "courses" | "tasks" | "records" | "settings";
