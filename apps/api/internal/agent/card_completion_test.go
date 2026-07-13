@@ -142,3 +142,50 @@ func TestObserveCandidates_UnrelatedTagSilent(t *testing.T) {
 		t.Fatalf("candidates = %v, want none (rule only watches authority)", got)
 	}
 }
+
+// siftSpec mirrors SIFT's lateral-reading completion config: the "find"
+// dimension is where the student names what an INDEPENDENT source says.
+func siftSpec() cards.Spec {
+	return cards.Spec{
+		ID:         "sift",
+		Params:     cards.Params{LateralDimension: "find"},
+		Completion: []cards.CompletionPredicate{{Kind: "lateral_source_present"}},
+	}
+}
+
+func TestLateralSourcePresent_RequiresADifferentMaterial(t *testing.T) {
+	// She wrote a "find" answer, but it is anchored to the SAME source she is
+	// checking. That is not lateral reading — it is reading the page again.
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "stop", Answer: "夸张", Author: "student"},
+		{ID: "a2", MaterialID: "mat-blog", Dimension: "find", Answer: "文章自己说的", Author: "student"},
+	}
+	complete, missing := EvaluateCompletion(siftSpec(), anchors)
+	if complete {
+		t.Fatal("must not complete: the 'lateral' source is the same material")
+	}
+	if len(missing) != 1 || missing[0] != "find" {
+		t.Fatalf("missing = %v, want [find]", missing)
+	}
+}
+
+func TestLateralSourcePresent_RequiresANonEmptyAnswer(t *testing.T) {
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "stop", Answer: "夸张", Author: "student"},
+		{ID: "a2", MaterialID: "mat-nasa", Dimension: "find", Answer: "   ", Author: "student"},
+	}
+	if complete, _ := EvaluateCompletion(siftSpec(), anchors); complete {
+		t.Fatal("must not complete: a source was added but she said nothing about it")
+	}
+}
+
+func TestLateralSourcePresent_CompletesWithARealOtherSource(t *testing.T) {
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "stop", Answer: "夸张", Author: "student"},
+		{ID: "a2", MaterialID: "mat-nasa", Dimension: "find", Answer: "NASA 只说绿化面积，没说可持续", Author: "student"},
+	}
+	complete, missing := EvaluateCompletion(siftSpec(), anchors)
+	if !complete {
+		t.Fatalf("must complete: a real other source is in the project; missing = %v", missing)
+	}
+}

@@ -27,6 +27,10 @@ func EvaluateCompletion(spec cards.Spec, anchors []Anchor) (complete bool, missi
 			if !fieldWrittenBy(anchors, pred.Field, pred.Author) {
 				missing = append(missing, pred.Field)
 			}
+		case "lateral_source_present":
+			if !lateralSourcePresent(spec, anchors) {
+				missing = append(missing, spec.Params.LateralDimension)
+			}
 		}
 	}
 	return len(missing) == 0, missing
@@ -54,6 +58,22 @@ func fieldWrittenBy(anchors []Anchor, field, author string) bool {
 		}
 	}
 	return false
+}
+
+// lateralSourcePresent reports whether the student has actually read
+// laterally: an anchor on the card's lateral dimension, carrying a material
+// that is NOT the one under review, with something written about it. A claim
+// of having read laterally is not lateral reading — and the AI cannot satisfy
+// this, because no agent path creates a material (RL-2).
+func lateralSourcePresent(spec cards.Spec, anchors []Anchor) bool {
+	lat, ok := lateralAnchor(spec, anchors)
+	if !ok {
+		return false
+	}
+	if strings.TrimSpace(lat.Answer) == "" {
+		return false
+	}
+	return lat.MaterialID != checkedMaterialID(spec, anchors)
 }
 
 // observeWhen is the closed-set "when" clause CRAAP's observe rules use:
