@@ -3,14 +3,6 @@ INSERT INTO card_instances (card_id, task_id, status)
 VALUES ($1, $2, 'proposed')
 RETURNING *;
 
--- name: GetCard :one
-SELECT * FROM card_instances WHERE id = $1;
-
--- name: ListCardsByTask :many
-SELECT * FROM card_instances
-WHERE task_id = $1
-ORDER BY created_at, id;
-
 -- name: SetCardActive :one
 UPDATE card_instances
 SET status = 'active'
@@ -28,10 +20,6 @@ UPDATE card_instances
 SET event_trace = $3, status = 'skipped'
 WHERE id = $1 AND task_id = $2
 RETURNING *;
-
--- name: CountCompletedCards :one
-SELECT count(*) FROM card_instances
-WHERE task_id = $1 AND status = 'completed';
 
 -- name: SetCardAnchors :one
 UPDATE card_instances SET anchors = $3

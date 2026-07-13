@@ -11,18 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const countCompletedCards = `-- name: CountCompletedCards :one
-SELECT count(*) FROM card_instances
-WHERE task_id = $1 AND status = 'completed'
-`
-
-func (q *Queries) CountCompletedCards(ctx context.Context, taskID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countCompletedCards, taskID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createCardInstance = `-- name: CreateCardInstance :one
 INSERT INTO card_instances (card_id, task_id, status)
 VALUES ($1, $2, 'proposed')
@@ -54,73 +42,6 @@ func (q *Queries) CreateCardInstance(ctx context.Context, arg CreateCardInstance
 		&i.FrameworkFill,
 	)
 	return i, err
-}
-
-const getCard = `-- name: GetCard :one
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill FROM card_instances WHERE id = $1
-`
-
-func (q *Queries) GetCard(ctx context.Context, id uuid.UUID) (CardInstance, error) {
-	row := q.db.QueryRow(ctx, getCard, id)
-	var i CardInstance
-	err := row.Scan(
-		&i.ID,
-		&i.CardID,
-		&i.TaskID,
-		&i.ParentNodeID,
-		&i.Status,
-		&i.FieldValues,
-		&i.EventTrace,
-		&i.RubricTags,
-		&i.CreatedAt,
-		&i.CompletedAt,
-		&i.Anchors,
-		&i.ProjectID,
-		&i.ContractRef,
-		&i.FrameworkFill,
-	)
-	return i, err
-}
-
-const listCardsByTask = `-- name: ListCardsByTask :many
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill FROM card_instances
-WHERE task_id = $1
-ORDER BY created_at, id
-`
-
-func (q *Queries) ListCardsByTask(ctx context.Context, taskID uuid.UUID) ([]CardInstance, error) {
-	rows, err := q.db.Query(ctx, listCardsByTask, taskID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CardInstance
-	for rows.Next() {
-		var i CardInstance
-		if err := rows.Scan(
-			&i.ID,
-			&i.CardID,
-			&i.TaskID,
-			&i.ParentNodeID,
-			&i.Status,
-			&i.FieldValues,
-			&i.EventTrace,
-			&i.RubricTags,
-			&i.CreatedAt,
-			&i.CompletedAt,
-			&i.Anchors,
-			&i.ProjectID,
-			&i.ContractRef,
-			&i.FrameworkFill,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const setCardActive = `-- name: SetCardActive :one

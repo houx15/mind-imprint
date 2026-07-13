@@ -69,18 +69,6 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 	return i, err
 }
 
-const countSubstantiveTurns = `-- name: CountSubstantiveTurns :one
-SELECT count(*) FROM messages
-WHERE task_id = $1 AND role = 'user' AND char_length(content) >= 20
-`
-
-func (q *Queries) CountSubstantiveTurns(ctx context.Context, taskID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countSubstantiveTurns, taskID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const listMessagesByTask = `-- name: ListMessagesByTask :many
 SELECT id, task_id, role, content, tool_call, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, source FROM messages
 WHERE task_id = $1

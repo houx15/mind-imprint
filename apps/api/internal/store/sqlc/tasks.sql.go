@@ -37,33 +37,3 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 	)
 	return i, err
 }
-
-const getTask = `-- name: GetTask :one
-SELECT id, user_id, title, seed, status, created_at, last_active_at FROM tasks WHERE id = $1
-`
-
-// Still used by loadOwnedTask (api/tasks.go) for the surviving
-// /api/v1/tasks/{id}/evaluate + /evaluation routes, and directly by fixtures.
-func (q *Queries) GetTask(ctx context.Context, id uuid.UUID) (Task, error) {
-	row := q.db.QueryRow(ctx, getTask, id)
-	var i Task
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Title,
-		&i.Seed,
-		&i.Status,
-		&i.CreatedAt,
-		&i.LastActiveAt,
-	)
-	return i, err
-}
-
-const markTaskEvaluated = `-- name: MarkTaskEvaluated :exec
-UPDATE tasks SET status = 'evaluated' WHERE id = $1
-`
-
-func (q *Queries) MarkTaskEvaluated(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markTaskEvaluated, id)
-	return err
-}

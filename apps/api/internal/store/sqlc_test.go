@@ -46,15 +46,6 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("CreateTask: %v", err)
 	}
 
-	// GetTask round-trips.
-	got, err := q.GetTask(ctx, task.ID)
-	if err != nil {
-		t.Fatalf("GetTask: %v", err)
-	}
-	if got.Title != task.Title {
-		t.Fatalf("GetTask title = %q, want %q", got.Title, task.Title)
-	}
-
 	// Append a user message then an assistant message carrying usage.
 	if _, err := q.AppendMessage(ctx, sqlc.AppendMessageParams{
 		TaskID:  task.ID,
