@@ -4,17 +4,9 @@ VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: GetTask :one
+-- Still used by loadOwnedTask (api/tasks.go) for the surviving
+-- /api/v1/tasks/{id}/evaluate + /evaluation routes, and directly by fixtures.
 SELECT * FROM tasks WHERE id = $1;
-
--- name: ListTasksByUser :many
-SELECT * FROM tasks
-WHERE user_id = $1
-ORDER BY last_active_at DESC;
-
--- name: TouchTask :one
-UPDATE tasks SET last_active_at = now()
-WHERE id = $1 AND user_id = $2
-RETURNING *;
 
 -- name: MarkTaskEvaluated :exec
 UPDATE tasks SET status = 'evaluated' WHERE id = $1;

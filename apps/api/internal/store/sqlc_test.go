@@ -55,15 +55,6 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("GetTask title = %q, want %q", got.Title, task.Title)
 	}
 
-	// ListTasksByUser includes it.
-	tasks, err := q.ListTasksByUser(ctx, seededStudentID)
-	if err != nil {
-		t.Fatalf("ListTasksByUser: %v", err)
-	}
-	if len(tasks) != 1 || tasks[0].ID != task.ID {
-		t.Fatalf("ListTasksByUser = %d rows, want 1 matching", len(tasks))
-	}
-
 	// Append a user message then an assistant message carrying usage.
 	if _, err := q.AppendMessage(ctx, sqlc.AppendMessageParams{
 		TaskID:  task.ID,

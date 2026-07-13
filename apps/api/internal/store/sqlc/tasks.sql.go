@@ -42,6 +42,8 @@ const getTask = `-- name: GetTask :one
 SELECT id, user_id, title, seed, status, created_at, last_active_at FROM tasks WHERE id = $1
 `
 
+// Still used by loadOwnedTask (api/tasks.go) for the surviving
+// /api/v1/tasks/{id}/evaluate + /evaluation routes, and directly by fixtures.
 func (q *Queries) GetTask(ctx context.Context, id uuid.UUID) (Task, error) {
 	row := q.db.QueryRow(ctx, getTask, id)
 	var i Task
@@ -57,40 +59,6 @@ func (q *Queries) GetTask(ctx context.Context, id uuid.UUID) (Task, error) {
 	return i, err
 }
 
-const listTasksByUser = `-- name: ListTasksByUser :many
-SELECT id, user_id, title, seed, status, created_at, last_active_at FROM tasks
-WHERE user_id = $1
-ORDER BY last_active_at DESC
-`
-
-func (q *Queries) ListTasksByUser(ctx context.Context, userID uuid.UUID) ([]Task, error) {
-	rows, err := q.db.Query(ctx, listTasksByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Task
-	for rows.Next() {
-		var i Task
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.Title,
-			&i.Seed,
-			&i.Status,
-			&i.CreatedAt,
-			&i.LastActiveAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const markTaskEvaluated = `-- name: MarkTaskEvaluated :exec
 UPDATE tasks SET status = 'evaluated' WHERE id = $1
 `
@@ -98,30 +66,4 @@ UPDATE tasks SET status = 'evaluated' WHERE id = $1
 func (q *Queries) MarkTaskEvaluated(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markTaskEvaluated, id)
 	return err
-}
-
-const touchTask = `-- name: TouchTask :one
-UPDATE tasks SET last_active_at = now()
-WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, title, seed, status, created_at, last_active_at
-`
-
-type TouchTaskParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) TouchTask(ctx context.Context, arg TouchTaskParams) (Task, error) {
-	row := q.db.QueryRow(ctx, touchTask, arg.ID, arg.UserID)
-	var i Task
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Title,
-		&i.Seed,
-		&i.Status,
-		&i.CreatedAt,
-		&i.LastActiveAt,
-	)
-	return i, err
 }

@@ -19,7 +19,6 @@ import (
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/voice"
@@ -135,7 +134,6 @@ func main() {
 		Pool:         pool,
 		CookieSecure: cfg.CookieSecure,
 		Enqueuer:     riverEnqueuer{c: riverClient},
-		Fetcher:      materialize.NewFetcher(),
 		Voice:        buildVoice(cfg),
 		CORSOrigins:  cfg.CORSOrigins,
 	}).Handler()

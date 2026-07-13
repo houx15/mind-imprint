@@ -12,46 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createMaterial = `-- name: CreateMaterial :one
-INSERT INTO material (task_id, kind, source, title, source_url, blocks)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
-`
-
-type CreateMaterialParams struct {
-	TaskID    uuid.UUID `json:"task_id"`
-	Kind      string    `json:"kind"`
-	Source    string    `json:"source"`
-	Title     string    `json:"title"`
-	SourceUrl *string   `json:"source_url"`
-	Blocks    []byte    `json:"blocks"`
-}
-
-func (q *Queries) CreateMaterial(ctx context.Context, arg CreateMaterialParams) (Material, error) {
-	row := q.db.QueryRow(ctx, createMaterial,
-		arg.TaskID,
-		arg.Kind,
-		arg.Source,
-		arg.Title,
-		arg.SourceUrl,
-		arg.Blocks,
-	)
-	var i Material
-	err := row.Scan(
-		&i.ID,
-		&i.TaskID,
-		&i.Kind,
-		&i.Source,
-		&i.Title,
-		&i.SourceUrl,
-		&i.Blocks,
-		&i.Scratch,
-		&i.CreatedAt,
-		&i.ProjectID,
-	)
-	return i, err
-}
-
 const createProjectMaterial = `-- name: CreateProjectMaterial :one
 
 INSERT INTO material (task_id, project_id, kind, source, title, source_url, blocks)
@@ -102,6 +62,8 @@ const getMaterial = `-- name: GetMaterial :one
 SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material WHERE id = $1
 `
 
+// Still used by agentstore.go (the new project turn loop's material context),
+// not just the retired task-scoped material handlers.
 func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, error) {
 	row := q.db.QueryRow(ctx, getMaterial, id)
 	var i Material
@@ -155,71 +117,4 @@ func (q *Queries) ListMaterialsByProject(ctx context.Context, projectID pgtype.U
 		return nil, err
 	}
 	return items, nil
-}
-
-const listMaterialsByTask = `-- name: ListMaterialsByTask :many
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material
-WHERE task_id = $1
-ORDER BY created_at
-`
-
-func (q *Queries) ListMaterialsByTask(ctx context.Context, taskID uuid.UUID) ([]Material, error) {
-	rows, err := q.db.Query(ctx, listMaterialsByTask, taskID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Material
-	for rows.Next() {
-		var i Material
-		if err := rows.Scan(
-			&i.ID,
-			&i.TaskID,
-			&i.Kind,
-			&i.Source,
-			&i.Title,
-			&i.SourceUrl,
-			&i.Blocks,
-			&i.Scratch,
-			&i.CreatedAt,
-			&i.ProjectID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateMaterialScratch = `-- name: UpdateMaterialScratch :one
-UPDATE material SET scratch = $3
-WHERE id = $1 AND task_id = $2
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
-`
-
-type UpdateMaterialScratchParams struct {
-	ID      uuid.UUID `json:"id"`
-	TaskID  uuid.UUID `json:"task_id"`
-	Scratch string    `json:"scratch"`
-}
-
-func (q *Queries) UpdateMaterialScratch(ctx context.Context, arg UpdateMaterialScratchParams) (Material, error) {
-	row := q.db.QueryRow(ctx, updateMaterialScratch, arg.ID, arg.TaskID, arg.Scratch)
-	var i Material
-	err := row.Scan(
-		&i.ID,
-		&i.TaskID,
-		&i.Kind,
-		&i.Source,
-		&i.Title,
-		&i.SourceUrl,
-		&i.Blocks,
-		&i.Scratch,
-		&i.CreatedAt,
-		&i.ProjectID,
-	)
-	return i, err
 }

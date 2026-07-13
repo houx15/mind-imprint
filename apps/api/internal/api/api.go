@@ -16,12 +16,6 @@ type Enqueuer interface {
 	EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error
 }
 
-// Fetcher retrieves readable text from a URL. materialize.HTTPFetcher is the
-// production impl; tests inject a fake.
-type Fetcher interface {
-	FetchReadable(ctx context.Context, url string) (title, text string, err error)
-}
-
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
 	Queries      *sqlc.Queries
@@ -33,7 +27,6 @@ type Deps struct {
 	Pool         TxBeginner   // for multi-statement transactions (signup)
 	CookieSecure bool         // Secure flag on the session cookie
 	Enqueuer     Enqueuer     // enqueues async evaluation jobs
-	Fetcher      Fetcher      // fetches material text from a seed URL
 	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
 	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
 }
@@ -66,19 +59,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/activate", protected(a.activateProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/skip", protected(a.skipProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/submit", protected(a.submitProjectCard))
-	mux.Handle("GET /api/v1/tasks", protected(a.listTasks))
-	mux.Handle("POST /api/v1/tasks", protected(a.createTask))
-	mux.Handle("GET /api/v1/tasks/{id}", protected(a.getTask))
-	mux.Handle("PATCH /api/v1/tasks/{id}/cards/{cid}", protected(a.patchCard))
-	mux.Handle("PUT /api/v1/tasks/{id}/cards/{cid}", protected(a.putCard))
-	mux.Handle("POST /api/v1/tasks/{id}/cards/{cid}/skip", protected(a.skipCard))
-	mux.Handle("POST /api/v1/tasks/{id}/turn", protected(a.postTurn))
 	mux.Handle("POST /api/v1/tasks/{id}/evaluate", protected(a.postEvaluate))
 	mux.Handle("GET /api/v1/tasks/{id}/evaluation", protected(a.getEvaluation))
-	mux.Handle("GET /api/v1/tasks/{id}/materials", protected(a.listMaterials))
-	mux.Handle("POST /api/v1/tasks/{id}/materials", protected(a.createMaterial))
-	mux.Handle("POST /api/v1/tasks/{id}/materials/from-seed", protected(a.materialFromSeed))
-	mux.Handle("PUT /api/v1/tasks/{id}/materials/{mid}/scratch", protected(a.updateMaterialScratch))
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{id}", protected(a.getCourse))
 	mux.Handle("GET /api/v1/courses/{id}/progress", protected(a.getCourseProgress))
