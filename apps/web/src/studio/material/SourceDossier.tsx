@@ -126,8 +126,9 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
           {/* RL-2: the AI supplies no material — the student searches,
               themselves. This form is the only way a source enters a
               project. `onAddSource` is wired by the container (Task 9); a
-              no-op fallback keeps this component usable standalone. */}
-          <AddSourceForm onSubmit={onAddSource ?? (async () => {})} error={addSourceError} />
+              control that cannot actually add anything (no handler) must
+              not be shown at all. */}
+          {onAddSource && <AddSourceForm onSubmit={onAddSource} error={addSourceError} />}
 
           <div data-testid="dossier-source-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sources.map((source) => (

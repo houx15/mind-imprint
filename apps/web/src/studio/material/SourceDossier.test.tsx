@@ -274,7 +274,7 @@ describe("SourceDossier", () => {
   });
 
   it("mounts 添加信源 and 检索日志 only in list mode, not in the read view", () => {
-    render(<SourceDossier sources={SOURCES} />);
+    render(<SourceDossier sources={SOURCES} onAddSource={async () => {}} />);
 
     expect(screen.getByText("添加信源")).toBeInTheDocument();
     expect(screen.getByText(/检索日志/)).toBeInTheDocument();
@@ -285,6 +285,16 @@ describe("SourceDossier", () => {
 
     fireEvent.click(screen.getByText("返回信源列表"));
     expect(screen.getByText("添加信源")).toBeInTheDocument();
+    expect(screen.getByText(/检索日志/)).toBeInTheDocument();
+  });
+
+  it("does not render the 添加信源 form at all when no onAddSource handler is supplied", () => {
+    // A control that cannot do anything (no handler to actually add a
+    // source) must not be shown — no live-looking form that silently no-ops.
+    render(<SourceDossier sources={SOURCES} />);
+
+    expect(screen.queryByText("添加信源")).not.toBeInTheDocument();
+    // The rest of the list still renders fine without it.
     expect(screen.getByText(/检索日志/)).toBeInTheDocument();
   });
 });
