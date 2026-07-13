@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Anchor, AnnotateState, MaterialSource, StudioEvent } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
 
@@ -6,6 +6,7 @@ export type SourceDossierProps = {
   sources: MaterialSource[];
   onEvent?: (e: StudioEvent) => void;
   anchors?: Anchor[];
+  onOpenLogged?: (materialId: string, timeSpentS: number) => void;
 };
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -45,12 +46,33 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps) {
+export function SourceDossier({ sources, onEvent, anchors, onOpenLogged }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
+  const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
+  const onOpenLoggedRef = useRef(onOpenLogged);
+  onOpenLoggedRef.current = onOpenLogged;
 
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
+
+  const reportOpenElapsed = () => {
+    const opened = openedAtRef.current;
+    if (!opened) return;
+    const timeSpentS = Math.round((Date.now() - opened.openedAt) / 1000);
+    openedAtRef.current = null;
+    if (timeSpentS === 0) return;
+    onOpenLoggedRef.current?.(opened.id, timeSpentS);
+  };
+
+  // Report the reading time if the component unmounts while a source is
+  // still open (e.g. the student navigates away from 素材 entirely).
+  useEffect(() => {
+    return () => {
+      reportOpenElapsed();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // MaterialSource carries its own persisted anchors (CRAAP-mint / source-log)
   // directly on `anchors` — there is no separate `annotate` field anymore.
@@ -72,10 +94,12 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
   const openSourceView = (source: MaterialSource) => {
     setOpenId(source.id);
     setActiveSpanId(null);
+    openedAtRef.current = { id: source.id, openedAt: Date.now() };
     onEvent?.({ type: "source_opened", surface: "studio", url: source.id, time_spent_s: 0 });
   };
 
   const backToList = () => {
+    reportOpenElapsed();
     setOpenId(null);
     setActiveSpanId(null);
   };
@@ -109,15 +133,27 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {source.locked && <LockIcon />}
                   <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{source.title}</span>
-                  {/* Task 7: MaterialSource has no verdict field (可信/存疑) by
-                      design (spec §3) — the old fixture's craapLabel chip is
-                      gone here, not replaced with a fabricated value. */}
+                  {/* Chip is derived purely from `locked` (a minted evaluated-as
+                      edge) — there is no verdict field (可信/存疑) on
+                      MaterialSource, and this never fabricates one. */}
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      padding: "2px 9px",
+                      borderRadius: 999,
+                      ...(source.locked ? { background: "#E7F3EE", color: "#4C9A82" } : { background: "#F1F2F6", color: "#5A6178" }),
+                    }}
+                  >
+                    {source.locked ? "✓ 已锁定" : "待评估"}
+                  </span>
                 </div>
                 <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 4 }}>
-                  {source.kind} · {source.tier}
+                  {source.origin === "fetched" ? "网页" : "粘贴"}
+                  {source.tier !== "" && ` · ${source.tier}`}
                 </div>
                 <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>
-                  作用与风险：{source.role}
+                  作用与风险：{source.role || "尚未写「作用与风险」"}
                 </div>
               </button>
             ))}
@@ -150,7 +186,8 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
 
           <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>{openSource.title}</div>
           <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>
-            {openSource.kind} · {openSource.tier}
+            {openSource.origin === "fetched" ? "网页" : "粘贴"}
+            {openSource.tier !== "" && ` · ${openSource.tier}`}
           </div>
 
           {/* Task 7: the old fixture's `view: "article" | "summary"` toggle
@@ -171,9 +208,9 @@ export function SourceDossier({ sources, onEvent, anchors }: SourceDossierProps)
             </>
           )}
 
-          {openSource.role && (
-            <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 12 }}>{openSource.role}</div>
-          )}
+          <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 12 }}>
+            作用与风险：{openSource.role || "尚未写「作用与风险」"}
+          </div>
 
           {openSource.takeaway.trim().length > 0 && (
             <div

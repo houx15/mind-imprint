@@ -170,4 +170,43 @@ describe("SourceDossier", () => {
     expect(screen.queryByText("可信")).not.toBeInTheDocument();
     expect(screen.queryByText("存疑")).not.toBeInTheDocument();
   });
+
+  it("renders the design's state-derived chips, never an invented verdict", () => {
+    render(<SourceDossier sources={[blogArticle, nasaSummary]} />);
+    expect(screen.getByText("待评估")).toBeInTheDocument();
+    expect(screen.getByText("✓ 已锁定")).toBeInTheDocument();
+    expect(screen.queryByText("可信")).not.toBeInTheDocument();
+    expect(screen.queryByText("存疑")).not.toBeInTheDocument();
+  });
+
+  it("shows the design's fallback when 作用与风险 is unwritten", () => {
+    render(<SourceDossier sources={[{ ...blogArticle, role: "" }]} />);
+    expect(screen.getByText(/尚未写「作用与风险」/)).toBeInTheDocument();
+  });
+
+  it("reports the time spent when the student leaves a source", () => {
+    vi.useFakeTimers();
+    const onOpenLogged = vi.fn();
+    render(<SourceDossier sources={[blogArticle]} onOpenLogged={onOpenLogged} />);
+
+    fireEvent.click(screen.getByText(blogArticle.title));
+    vi.advanceTimersByTime(45_000);
+    fireEvent.click(screen.getByText("返回信源列表"));
+
+    expect(onOpenLogged).toHaveBeenCalledWith(blogArticle.id, 45);
+    vi.useRealTimers();
+  });
+
+  it("skips reporting when the elapsed time rounds to 0 seconds", () => {
+    vi.useFakeTimers();
+    const onOpenLogged = vi.fn();
+    render(<SourceDossier sources={[blogArticle]} onOpenLogged={onOpenLogged} />);
+
+    fireEvent.click(screen.getByText(blogArticle.title));
+    vi.advanceTimersByTime(400);
+    fireEvent.click(screen.getByText("返回信源列表"));
+
+    expect(onOpenLogged).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
