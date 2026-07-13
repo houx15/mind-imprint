@@ -84,7 +84,7 @@ started · ◐ in progress · ☑ done.
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
-| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ◐ (keystone ☑ — CRAAP fill→mint live via coach rail; material center-pane view + source-log S2 → 6b, SIFT lateral → 6c) |
+| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ◐ (keystone ☑ — CRAAP fill→mint live via coach rail; 6b ☑ — material center-pane view + project-scoped ingestion + source log live; SIFT lateral → 6c) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
@@ -403,10 +403,67 @@ Each slice appends its spec/plan links and outcome here as it completes.
   ever ships with neither tags nor steps); the Studio composer has no Enter-to-send (the deleted
   composer had it); the binding design itself still says 「批判思维」工作台 in two spots
   (`dc.html:158`, `:2519`) and should be corrected so the next implementer doesn't restore it.
-- **NEXT = Slice 6b** (material center-pane + source-log S2): un-stub `views.material: []` in
-  `StudioContainer.toStudioState`, thread `card.anchors` via `ViewFrame` to light up Slice 6's T7
-  left-pane highlight seam, wire `internal/materialize` + `CreateProjectMaterial` for real
-  project-scoped ingestion, search-plan→auto-log→citations-only-from-log (RL-2). Then **6c**
-  (SIFT lateral), then 7–9 (deepen 结构/写作/评估). **Cleanup (any time):** Slice-3 debt (task_id
-  NULLABLE + project-scope `GetCardInstance`); unique index on `chat_thread.seeded_project_id`;
-  onboarding live producer; live `gate` passed/total counts.
+- **Slice 6b** — ☑ **complete** (branch `refactor2-slice6b-material-view`, commits
+  `b2770e6`..`1096a85`, 10 tasks subagent-driven TDD). Spec
+  `docs/superpowers/specs/2026-07-11-slice-6b-material-view-design.md` · plan
+  `docs/superpowers/plans/2026-07-11-slice-6b-material-view.md`. **The material view goes live** —
+  a student can now open 素材, read the two seeded sources with their real article text, add a
+  third source herself (URL fetch or pasted text), watch the coach's CRAAP anchors light up in the
+  article on the left while she answers on the right, lock the card, and see her own 作用与风险 line
+  reflected in the dossier chip. Delivered: (T1) `MaterialSource`/`MaterialBlock` Zod contracts +
+  `StudioProjection.materials` (required array); (T2, fix `51e213d`) migration `0020` — nullable
+  `material.task_id`, `source_log_entry.material_id` + index, the demo seed's materials filled with
+  the **real article text** (they had carried `blocks='[]'`, meaning the CRAAP anchor generator had
+  been running against empty text since Slice 6), 2 seeded source-log entries, `queries/source_log.sql`
+  (4 queries); (T3, fix `f44cc66`) `studio.Load` loads materials + source log; `MaterialDTO` with
+  DERIVED `locked` (an `evaluated-as` edge exists) / `role` (the minted evidence node's
+  `source_quality.risk_note`) / `tier` + `takeaway` (the student's source-log entry) / `anchors`
+  (anchors whose own `material_id` matches); `dto_parity_test` extended; (T4) `POST
+  /projects/{id}/materials` — student-only ingestion (URL fetch via `internal/materialize`, first
+  production caller, or pasted text), one transaction writes `material` + `source_log_entry`, 201 =
+  `studio.MaterialDTO`, `task_id` NULL, behind `HasEntitlement`, ownership hidden as 404 — **RL-2
+  enforced structurally: the agent has no ingestion path at all**; (T5) `POST
+  /projects/{id}/materials/{mid}/open` — accumulates `time_spent_s` (never overwrites) and appends
+  the system's first `source_opened` events, closing a real IDOR the brief hadn't specified
+  (`AddSourceTimeSpent`/`GetSourceLogByMaterial` had no project filter); (T6) `api/materials.ts`
+  client; `views.material` un-stubbed to the real projection; the `fixtures.ts` stub + its test
+  deleted; (T7) dossier chips derive from state (`待评估` / `✓ 已锁定`), `role === ""` → `尚未写「作用与
+  风险」`, the reading timer reports elapsed seconds (also on unmount); (T8) `AddSourceForm` (URL
+  tab / paste tab, required 一句话摘要 + 层级, `role="alert"` server-error copy) + `SourceLog` (检索日志
+  ledger); (T9, fix `1096a85`) threaded the live card's anchors `StudioShell` → `ViewFrame` →
+  `SourceDossier` — the highlight seam Slice 6 landed dormant and nothing had ever passed through.
+  **Three cross-layer defects found and fixed (the most valuable record of this slice):**
+  1. **T2 — the FK trap.** `card_instances.task_id` was still `NOT NULL REFERENCES tasks(id)` while
+     `CreateCardInstance` narrowed a NULL material `task_id` to the zero UUID — an FK violation the
+     instant 6b's own acceptance path (a task-less material gets a card surfaced on it) ran. RED
+     reproduced by both the implementer and the reviewer (`card_instances_task_id_fkey`, SQLSTATE
+     23503). Fix: migration 0020 drops the NOT NULL on `card_instances.task_id` as well as
+     `material.task_id` — **this also corrects the spec's §8/§11 scope note**, which had said the
+     `card_instances` NOT NULL would stay a carry-forward; it did not survive T2.
+  2. **T3 — a Slice-6 mint defect nothing had ever read.** `agent/card_effects.go`'s
+     `sourceQuality()` folded only `spec.Params.Tags` into the minted evidence node, silently
+     dropping the student-written `risk_note` anchor (作用与风险) captured at mint time. Invisible
+     since Slice 6 because nothing consumed `role` until 6b's dossier did; without the fix `role`
+     would render empty forever.
+  3. **T9 — anchor precedence was backward.** `SourceDossier` built its highlighted spans from
+     PERSISTED anchors first, then appended live ones — and `segmentBlock`/`Annotate` take the
+     *first* span at a given id, so a stale anchor beat the student's in-progress answer. Fixed by
+     making `SourceDossier` the single merge point (live-first, dedupe by id).
+  **Accepted gaps (spec §11):** the search-plan card (AI questions the plan — needs its own coach
+  design); RL-2's citation half (no citation surface until Slice 8/写作 — the log 6b built is the
+  data that enforcement will read); the 偏弱 verdict chip (no honest producer); the S2 perspective map
+  (视角与素材, graph-node-backed — belongs with Slice 7); `source_log_entry.lateral_read` (written by
+  SIFT, 6c). **New, found during 6b:** stored `event` rows keep `type`/`surface` as DB columns while
+  the Zod `StudioEvent` variants are flat objects — a reader must merge columns + payload before Zod-
+  validating (pre-existing, systemic across all 8 event types; Slice 10's assessor must handle it).
+  **Orphan sweep (Task 10):** `SourceFixture`/`SOURCE_FIXTURES` and `views.material: []` greps both
+  empty (already swept in T6); `make sqlc` produced no diff (`git status --short
+  internal/store/sqlc` clean). **Final gate:** `go build`/`go vet` clean; full Go suite serialized
+  `-p 1` exit 0 (14 packages `ok`, 5 `[no test files]`) + web **306** (up from 282 at 5d, +24) +
+  contracts **158** (up from 155, +3) + `tsc --noEmit -p apps/web` clean.
+- **NEXT = Slice 6c** (SIFT lateral read): `source_log_entry.lateral_read`, the SIFT card's lateral-
+  reading step over the material view 6b just wired live. Then 7–9 (deepen 结构/写作/评估).
+  **Cleanup (any time):** project-scope `GetCardInstance` (still takes only `cid`, no project
+  filter — the `task_id` NOT NULL half of this carry-forward is now done, this half is not); unique
+  index on `chat_thread.seeded_project_id`; onboarding live producer; live `gate` passed/total
+  counts.

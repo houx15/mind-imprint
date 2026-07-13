@@ -190,8 +190,14 @@ contract's `MaterialSource` throughout. No orphan may remain.
 carry-forward is explicitly unblocked (5d retired the task surface), reusing a seeded anchor task in a
 production write path would be a lie that outlives this slice, and every real project after project-creation
 lands will have no task at all. 0020 sets `material.task_id` nullable and the ingestion handler writes NULL.
-`CreateProjectMaterial` takes `task_id` as `pgtype.UUID` already. *(Scope note: this drops the constraint on
-`material` only — `card_instances.task_id` stays NOT NULL and remains a carry-forward.)*
+`CreateProjectMaterial` takes `task_id` as `pgtype.UUID` already. *(Scope note, corrected post-T2: `material.
+task_id` was not the only NOT NULL FK in the trap. `card_instances.task_id` was still `NOT NULL REFERENCES
+tasks(id)` while `CreateCardInstance` narrowed a NULL material task_id to the zero UUID — an FK violation the
+moment a task-less material gets a card surfaced on it, which is exactly this slice's own acceptance path
+(item 3: "she opens the blog, the coach surfaces CRAAP"). Migration 0020 therefore also drops `card_instances.
+task_id`'s NOT NULL, not just `material.task_id`'s. This was NOT a carry-forward left for later — it was a
+same-slice blocker, reproduced RED by both the implementer and the reviewer
+(`card_instances_task_id_fkey`, SQLSTATE 23503) before being fixed. See the Slice 6b roadmap entry.)*
 
 **Risk 2 — fetching arbitrary URLs from the server.** `materialize` already guards this (scheme allow-list,
 blocked-IP guard against loopback/link-local/private ranges, non-HTML rejection, status check, size limits) and
@@ -259,4 +265,6 @@ cannot drift.
 - **The S2 perspective map** (视角与素材, design `:930-956`) — graph-node-backed with its own gate; belongs with
   Slice 7's graph work.
 - **Lateral-read flag** (`source_log_entry.lateral_read`) — written by SIFT (6c), not 6b.
-- **`card_instances.task_id` NOT NULL** — still Slice-3 debt; 6b drops it on `material` only (§8).
+- ~~**`card_instances.task_id` NOT NULL** — still Slice-3 debt; 6b drops it on `material` only (§8).~~
+  **Corrected post-T2: this is no longer a carry-forward.** Migration 0020 drops the NOT NULL on
+  `card_instances.task_id` too — see §8's corrected Risk 1 note.
