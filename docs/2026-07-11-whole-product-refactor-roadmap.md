@@ -363,6 +363,46 @@ Each slice appends its spec/plan links and outcome here as it completes.
   `{restate_prompt, rows}`). Gate (T9): full Go suite serialized `-p 1` exit 0 (all packages) +
   web **279** (was 475 pre-5d; drop is deleted-suite fallout, not a regression) + contracts
   **165** (was 181) + `tsc --noEmit` clean.
+  **WHOLE-BRANCH REVIEW (opus) CAUGHT 2 DEFECTS ALL 9 PER-TASK REVIEWS MISSED** — both invisible
+  from inside any single task, both with a green suite, and both FIXED before merge (final commits
+  `83c2a65`, `40f1b8f`, `5e16c4e`):
+  - **CRITICAL — LLM token/cost accounting had no live writer.** The deleted `agent/turn.go` (T1)
+    and rubric evaluator (T2) were the *only* writers of `provider/model/tier/prompt_tokens/
+    completion_tokens/cost_estimate`, and the `llm_usage` view unions exactly those two tables —
+    while the surviving path (`coach.go`/`anchors.go`/`course.go`) called `gateway.Collect` and
+    **discarded `res.Usage`** (a gap dating to 5c; 5d deleted the last thing that still recorded
+    anything). Net effect: every DeepSeek call a student made burned real money persisted
+    **nowhere**, the admin usage panel read 「暂无用量。」 forever, and the `AGENTS.md` hard
+    constraint (记录档位 + token + 成本) was broken. FIX: migration **`0019_llm_call_usage.sql`** —
+    a typed `llm_call` table (the new model has no row every call maps onto: a silence-legal turn
+    persists nothing, anchor-gen writes onto a card) + `llm_usage` re-pointed to a **3-arm UNION**
+    (new `llm_call` + the frozen historical `messages`/`evaluations` arms, kept verbatim so old
+    spend survives); usage plumbed OUT of the three pure call sites and persisted by their callers
+    via a new `AgentStore.RecordLLMCall` seam; cost formula recovered verbatim from the deleted
+    `turn.go` (`gateway.EstimateCost`/`CostNumeric`), not reinvented; best-effort (`slog.Warn`,
+    never fails a turn/submit/render). `AGENTS.md`'s 存储 row updated (its 「无 `llm_calls` 表」
+    note described the schema this slice deleted). Regression test proven RED by mutating the tree.
+    Follow-up `slog.Warn`s added for the two silent-unmetering paths (unpriced model → $0.00 reads
+    as free usage; a usage-silent provider → coach turn records nothing).
+  - **IMPORTANT — voice input was silently dead and the Studio shipped an inert mic.** T8 deleted
+    `workspace/Composer.tsx`, the only host of `AsrStream`/`MicCapture` — while `CoachRail` renders
+    a 语音输入 mic with `role="button"` + `cursor: pointer` and **no `onClick`**. A student would
+    click, speak, and get nothing: no recording, no error, no feedback, and no other way to speak
+    to the coach anywhere in the product. FIX: ported the deleted composer's ASR behavior onto the
+    coach-rail composer (reusing `AsrStream`/`MicCapture` as-is — no fork): real mic handler,
+    recording state, transcript lands **editable** in the composer (never auto-sent), and
+    permission/ASR errors surface in a `role="alert"` banner (the old composer only
+    `console.warn`ed them). Also swept the stale 批判思维 course copy → 写作工作室 (binding design)
+    and deleted the now-orphaned `cognitive-model.ts` + `evaluation.ts` contracts modules.
+  **Final gate:** full Go suite serialized `-p 1` exit 0 + web **282** + contracts **155** +
+  `tsc --noEmit` clean. Whole-branch verdict after fixes: **Ready to merge — Yes.**
+  **NEW carry-forwards out of the review (non-blocking):** the `source:"voice"` turn-provenance tag
+  is gone (the Studio's `conv.send(text)` has no such param — 「过程即数据」 loses the did-this-turn-
+  originate-from-speech signal; needs the turn contract); `surfaceAnchors`/`renderChallenge` bail on
+  empty anchors *before* the metering block (unreachable today, but re-opens the hole if a card spec
+  ever ships with neither tags nor steps); the Studio composer has no Enter-to-send (the deleted
+  composer had it); the binding design itself still says 「批判思维」工作台 in two spots
+  (`dc.html:158`, `:2519`) and should be corrected so the next implementer doesn't restore it.
 - **NEXT = Slice 6b** (material center-pane + source-log S2): un-stub `views.material: []` in
   `StudioContainer.toStudioState`, thread `card.anchors` via `ViewFrame` to light up Slice 6's T7
   left-pane highlight seam, wire `internal/materialize` + `CreateProjectMaterial` for real
