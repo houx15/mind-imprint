@@ -52,7 +52,7 @@ func createProjectCardForTest(t *testing.T, pool *pgxpool.Pool) string {
 // exact shape craap.json's completion predicates
 // (every_tag_present + field_written_by risk_note/student) require. Every
 // anchor is keyed to the seeded material 00000000-0000-0000-0000-000000000110
-// (migration 0018, project …0101) so CompleteCard's anchoredMaterialID +
+// (migration 0018, project …0101) so CompleteCard's checkedMaterialID +
 // GraphEffects have a material to promote into an evidence node.
 func craapCompleteAnchors(t *testing.T, pool *pgxpool.Pool, cid string) string {
 	t.Helper()

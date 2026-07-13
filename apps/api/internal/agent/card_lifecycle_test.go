@@ -287,3 +287,35 @@ func TestSecondCard_SurfaceAndCompleteWithZeroNewRuntimeCode(t *testing.T) {
 		t.Fatalf("want SetCardInstanceFramework called once, got %d", store.setFrameworkCalls)
 	}
 }
+
+func TestCheckedMaterialID_IgnoresAnchorOrder(t *testing.T) {
+	spec := cards.Spec{ID: "sift", Params: cards.Params{LateralDimension: "find"}}
+	// The lateral anchor sorts FIRST — the trap. The checked material must
+	// still be the source under review, not the source used to check it.
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-nasa", Dimension: "find", Answer: "NASA 只说绿化面积", Author: "student"},
+		{ID: "a2", MaterialID: "mat-blog", Dimension: "stop", Answer: "有点夸张", Author: "student"},
+	}
+	if got := checkedMaterialID(spec, anchors); got != "mat-blog" {
+		t.Fatalf("checked material = %q, want mat-blog (the source under review)", got)
+	}
+	lat, ok := lateralAnchor(spec, anchors)
+	if !ok || lat.MaterialID != "mat-nasa" {
+		t.Fatalf("lateral anchor = %+v ok=%v, want mat-nasa", lat, ok)
+	}
+}
+
+func TestCheckedMaterialID_CardWithoutLateralDimension_Unchanged(t *testing.T) {
+	// CRAAP and every card that exists today: no lateral_dimension, so this
+	// must degenerate to exactly the old first-anchor behavior.
+	spec := cards.Spec{ID: "craap"}
+	anchors := []Anchor{
+		{ID: "a1", MaterialID: "mat-blog", Dimension: "authority", Answer: "机构", Author: "student"},
+	}
+	if got := checkedMaterialID(spec, anchors); got != "mat-blog" {
+		t.Fatalf("checked material = %q, want mat-blog", got)
+	}
+	if _, ok := lateralAnchor(spec, anchors); ok {
+		t.Fatal("a card with no lateral_dimension must have no lateral anchor")
+	}
+}

@@ -45,6 +45,11 @@ type Spec struct {
 type Params struct {
 	Tags       []string          `json:"tags"`
 	TagPrompts map[string]string `json:"tag_prompts"`
+
+	// LateralDimension names the dimension whose anchor carries a DIFFERENT
+	// material than the card's own (SIFT's lateral source). Empty for every
+	// single-material card, which is all of them except compare cards.
+	LateralDimension string `json:"lateral_dimension"`
 }
 
 // CompletionPredicate is one closed-set completion check (agent-spec §3):

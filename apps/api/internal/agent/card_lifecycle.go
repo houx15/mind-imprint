@@ -99,7 +99,7 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 		return false, nil
 	}
 
-	materialID := anchoredMaterialID(anchors)
+	materialID := checkedMaterialID(spec, anchors)
 	if materialID == "" {
 		return false, fmt.Errorf("card: card_instance %s has no material-anchored answers to promote", cardInstanceID)
 	}
@@ -145,16 +145,37 @@ func isFrameworkSet(b []byte) bool {
 	return s != "" && s != "{}" && s != "null"
 }
 
-// anchoredMaterialID reads the material a card's anchors are attached to —
-// every anchor on one card_instance targets the same material (Slice 3's
-// fixture-provided anchors; Slice 5's real UI enforces this too).
-func anchoredMaterialID(anchors []Anchor) string {
+// checkedMaterialID reads the material the card is ABOUT — the source under
+// review. For a single-material card (no lateral_dimension: every card but a
+// compare card) this is the first anchored material, exactly as before. For a
+// compare card, whose anchors span two materials by design, the lateral
+// anchor is excluded by declaration — never by array order, which is a coin
+// flip.
+func checkedMaterialID(spec cards.Spec, anchors []Anchor) string {
 	for _, a := range anchors {
-		if a.MaterialID != "" {
-			return a.MaterialID
+		if a.MaterialID == "" {
+			continue
 		}
+		if spec.Params.LateralDimension != "" && a.Dimension == spec.Params.LateralDimension {
+			continue
+		}
+		return a.MaterialID
 	}
 	return ""
+}
+
+// lateralAnchor returns the anchor carrying the lateral source (the source
+// used to check the card's own source). Only compare cards declare one.
+func lateralAnchor(spec cards.Spec, anchors []Anchor) (Anchor, bool) {
+	if spec.Params.LateralDimension == "" {
+		return Anchor{}, false
+	}
+	for _, a := range anchors {
+		if a.Dimension == spec.Params.LateralDimension && a.MaterialID != "" {
+			return a, true
+		}
+	}
+	return Anchor{}, false
 }
 
 // resolveMintRef resolves one MintNode/MintEdge endpoint id (card_effects.go):
