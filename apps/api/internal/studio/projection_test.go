@@ -264,6 +264,52 @@ func TestProjectDerivesMaterialState(t *testing.T) {
 	}
 }
 
+// TestProjectMaterials_LateralReadIsDerivedFromTheMint — a material with a
+// source_log_entry whose lateral_read is true (Task 7's cross_check mint)
+// projects as laterally read; one without does not. Nothing is invented: the
+// flag is written by the mint's atomic transaction and merely read here.
+func TestProjectMaterials_LateralReadIsDerivedFromTheMint(t *testing.T) {
+	blogID := uuid.MustParse("00000000-0000-0000-0000-0000000000b1")
+	nasaID := uuid.MustParse("00000000-0000-0000-0000-0000000000b2")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: blogID, Title: "《卫星图看中国变绿》博客", Kind: "article", Source: "fetched",
+				Blocks: []byte(`[{"id":"b1","text":"过去二十年……"}]`)},
+			{ID: nasaID, Title: "NASA Earth Observatory", Kind: "article", Source: "pasted",
+				Blocks: []byte(`[{"id":"b1","text":"Satellite data shows..."}]`)},
+		},
+		SourceLog: []sqlc.SourceLogEntry{
+			// blog was the subject of the cross-check: its own entry is flipped.
+			{MaterialID: pgUUID(blogID), Tier: strPtr("二手 · 需追源"), LateralRead: true},
+			// nasa is the instrument (the lateral source she checked against) —
+			// its own entry is deliberately untouched by the mint.
+			{MaterialID: pgUUID(nasaID), Tier: strPtr("一手报道")},
+		},
+	}
+
+	got := projectMaterials(d)
+	if len(got) != 2 {
+		t.Fatalf("materials = %d, want 2", len(got))
+	}
+
+	var blog, nasa MaterialDTO
+	for _, m := range got {
+		switch m.ID {
+		case blogID.String():
+			blog = m
+		case nasaID.String():
+			nasa = m
+		}
+	}
+	if !blog.LateralRead {
+		t.Fatal("the checked source must project as laterally read")
+	}
+	if nasa.LateralRead {
+		t.Fatal("the lateral source is the instrument, not the subject")
+	}
+}
+
 // TestProjectExcludesAnchorsFromSkippedCards — a card the student explicitly
 // declined (status "skipped") must not keep re-asking its question: its
 // anchors must not light up the article body on reload. Only "skipped" is

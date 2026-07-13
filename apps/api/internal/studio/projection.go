@@ -282,8 +282,10 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 // projectMaterials derives each source's dossier state. Nothing here invents a
 // judgment: locked/role exist only because the student completed a CRAAP card
 // and the mint wrote them (agent.GraphEffects). tier/takeaway exist only
-// because the student wrote a source-log entry. anchors are exactly the
-// persisted card_instances.anchors whose own material_id targets this source.
+// because the student wrote a source-log entry. lateralRead exists only
+// because a cross_check mint (Slice 6c) flipped source_log_entry.lateral_read
+// on the checked source. anchors are exactly the persisted
+// card_instances.anchors whose own material_id targets this source.
 func projectMaterials(d ProjectData) []MaterialDTO {
 	nodesByID := map[string]sqlc.GraphNode{}
 	for _, n := range d.Nodes {
@@ -347,6 +349,7 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 		if s, ok := log[id]; ok {
 			dto.Takeaway = s.Takeaway
 			dto.TimeSpentS = s.TimeSpentS
+			dto.LateralRead = s.LateralRead
 			if s.Tier != nil {
 				dto.Tier = *s.Tier
 			}

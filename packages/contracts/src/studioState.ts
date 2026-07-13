@@ -79,6 +79,11 @@ export const MaterialSource = z.object({
   // time_spent_s column — spec §5's ledger row binds "停留 Nm" alongside the
   // takeaway/tier. A freshly ingested source (never opened) is 0.
   timeSpentS: z.number(),
+  // Mirrors source_log_entry.lateral_read (Slice 6c): true only once a
+  // cross_check mint has flipped it on THIS source (the one checked, not the
+  // lateral source used to check it). A fact about what happened — still no
+  // credibility verdict here or anywhere else.
+  lateralRead: z.boolean(),
 });
 export type MaterialSource = z.infer<typeof MaterialSource>;
 

@@ -94,4 +94,9 @@ type MaterialDTO struct {
 	// (seconds) — spec §5's ledger row binds title/URL, 停留 Nm, the
 	// takeaway, and the tier chip together. 0 for a freshly ingested source.
 	TimeSpentS int32 `json:"timeSpentS"`
+	// LateralRead mirrors source_log_entry.lateral_read (Slice 6c): true only
+	// once a cross_check mint has flipped it on THIS source (the one that was
+	// checked, not the lateral source used to check it). A fact about what
+	// happened, not a credibility verdict — there is still none of those.
+	LateralRead bool `json:"lateralRead"`
 }

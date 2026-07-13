@@ -20,6 +20,7 @@ const loggedSource: MaterialSource = {
   takeaway: "卫星数据确认地球在变绿，但论文本身不涉及碳排放。",
   anchors: [],
   timeSpentS: 610,
+  lateralRead: false,
 };
 
 describe("SourceLog", () => {

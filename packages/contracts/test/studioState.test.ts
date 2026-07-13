@@ -48,6 +48,7 @@ describe("MaterialSource", () => {
     takeaway: "把 NASA 的图转述成「中国让地球更可持续」。",
     anchors: [],
     timeSpentS: 240,
+    lateralRead: false,
   };
 
   it("accepts a projected source", () => {
@@ -62,6 +63,11 @@ describe("MaterialSource", () => {
   it("requires timeSpentS (the source-log entry's accumulated reading time)", () => {
     const { timeSpentS, ...withoutTimeSpentS } = valid;
     expect(() => MaterialSource.parse(withoutTimeSpentS)).toThrow();
+  });
+
+  it("requires lateralRead (Slice 6c: mirrors source_log_entry.lateral_read, no optional to hide a missing producer)", () => {
+    const { lateralRead, ...withoutLateralRead } = valid;
+    expect(() => MaterialSource.parse(withoutLateralRead)).toThrow();
   });
 
   it("carries materials on the projection", () => {

@@ -23,6 +23,7 @@ const blogSource: MaterialSource = {
   tier: "",
   takeaway: "",
   timeSpentS: 0,
+  lateralRead: false,
   anchors: [],
 };
 const nasaSource: MaterialSource = {
@@ -37,6 +38,7 @@ const nasaSource: MaterialSource = {
   tier: "",
   takeaway: "",
   timeSpentS: 0,
+  lateralRead: false,
   anchors: [],
 };
 const craapSpec = CARD_REGISTRY["craap"]!;
