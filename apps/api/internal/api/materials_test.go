@@ -214,6 +214,28 @@ func TestIngestMaterialEmptyBodyRejected(t *testing.T) {
 	}
 }
 
+// TestIngestMaterialPasteBlankTitleRejected — a blank title on the pasted-text
+// path must be rejected server-side. The `if title == "" { title = req.URL }`
+// fallback is a no-op here (req.URL is "" for a paste), so only the form's
+// client-side 标题-required rule was preventing a nameless dossier card; a
+// direct API call could still create one before this fix.
+func TestIngestMaterialPasteBlankTitleRejected(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+materialsTestProjectID+"/materials",
+		strings.NewReader(`{"title":"","text":"第一段。\n\n第二段。","takeaway":"t","tier":"二手"}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "给这条素材起个名字。") {
+		t.Errorf("body = %s, want the missing-title copy", rec.Body.String())
+	}
+}
+
 // materialBlogID is the demo project's seeded blog source-log entry
 // (migration 0020): time_spent_s starts at 240, url is the pasted-blog URL.
 const materialBlogID = "00000000-0000-0000-0000-000000000110"

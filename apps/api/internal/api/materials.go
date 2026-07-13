@@ -74,6 +74,13 @@ func (a *API) ingestMaterial(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = req.URL // never a blank card in the dossier
 	}
+	if title == "" {
+		// The URL fallback above is a no-op on the paste path (req.URL is ""
+		// there) — only the form's client-side 标题-required rule guarded
+		// against a nameless dossier card; enforce it server-side too.
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_title", "给这条素材起个名字。", nil))
+		return
+	}
 	rawBlocks, err := json.Marshal(blocks)
 	if err != nil {
 		httpx.WriteError(w, r, err)
