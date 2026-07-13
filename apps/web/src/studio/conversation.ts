@@ -108,14 +108,19 @@ export function createStudioConversation({ projectId, api }: Deps) {
     set({ card: null });
   }
 
-  // clearMessages empties this session's local turn buffer only — the
-  // projection (fetched via refetchProject) is now the single source of
-  // truth for every turn that has landed server-side, so keeping them here
-  // too would render each one twice (CoachRail is keyed by array index with
-  // no dedupe). card/sending/error/disposableInterventionId are untouched:
-  // a refetch reconciles history, not this session's live interaction state.
-  function clearMessages() {
-    set({ messages: [] });
+  // dropFirst removes only the first `n` messages from this session's local
+  // turn buffer — the projection (fetched via refetchProject) is now the
+  // single source of truth for that prefix (it's what the GET snapshot
+  // actually contains), so keeping them here too would render each one
+  // twice (CoachRail is keyed by array index with no dedupe). `n` MUST be
+  // captured by the caller before the GET is issued: any message that enters
+  // the buffer during the round trip is not yet in that snapshot and must
+  // survive — dropping it would silently delete the student's own words
+  // (Slice 6b fix-wave bug [A]). card/sending/error/disposableInterventionId
+  // are untouched: a refetch reconciles history, not this session's live
+  // interaction state.
+  function dropFirst(n: number) {
+    set({ messages: state.messages.slice(n) });
   }
 
   return {
@@ -126,6 +131,6 @@ export function createStudioConversation({ projectId, api }: Deps) {
     openCard,
     submitCard,
     skipCard,
-    clearMessages,
+    dropFirst,
   };
 }

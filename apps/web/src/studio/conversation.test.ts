@@ -61,14 +61,14 @@ describe("createStudioConversation", () => {
     expect(s.card).toMatchObject({ cardInstanceId: "ci2", cardId: "craap", status: "proposed" });
   });
 
-  it("clearMessages empties the local turn buffer without touching card/sending/error/disposableInterventionId", async () => {
+  it("dropFirst(n) removes only the first n messages without touching card/sending/error/disposableInterventionId", async () => {
     const conv = createStudioConversation({ projectId: "p1", api: fakeApi });
     await conv.send("它想证明中国在认真转型");
     const before = conv.getSnapshot();
     expect(before.messages.length).toBeGreaterThan(0);
     expect(before.disposableInterventionId).toBe("iid");
 
-    conv.clearMessages();
+    conv.dropFirst(before.messages.length);
     const after = conv.getSnapshot();
     expect(after.messages).toEqual([]);
     // Everything else this session already knows must survive — a refetch
@@ -77,6 +77,21 @@ describe("createStudioConversation", () => {
     expect(after.disposableInterventionId).toBe("iid");
     expect(after.sending).toBe(false);
     expect(after.error).toBeNull();
+  });
+
+  it("dropFirst(n) never drops a message that arrived AFTER n was captured — the refetch race (bug A)", async () => {
+    const conv = createStudioConversation({ projectId: "p1", api: fakeApi });
+    await conv.send("它想证明中国在认真转型");
+    const priorCount = conv.getSnapshot().messages.length;
+
+    // Simulates a turn entering the buffer while a refetch's GET is still in
+    // flight — this must survive a dropFirst keyed to the PRE-flight count.
+    await conv.send("那反例呢？");
+    expect(conv.getSnapshot().messages.length).toBeGreaterThan(priorCount);
+
+    conv.dropFirst(priorCount);
+    const after = conv.getSnapshot();
+    expect(after.messages.some((m) => m.body === "那反例呢？")).toBe(true);
   });
 
   it("carries anchors from the card event onto the card state", async () => {
