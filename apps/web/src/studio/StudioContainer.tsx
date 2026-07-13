@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StudioProjection } from "@mind-imprint/contracts";
-import { api as defaultApi } from "../api";
+import { api as defaultApi, ApiError } from "../api";
 import { StudioShell } from "./StudioShell";
 import { createStudioConversation } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks } from "./state";
 
-type StudioApi = { listProjects: typeof defaultApi.listProjects; getProject: typeof defaultApi.getProject };
+// Narrow structural type, widened (Task 9) to the two ingestion/logging
+// calls the 素材 dossier now needs — still a Pick off the real ApiClient so
+// test fixtures keep injecting plain object literals for just the calls a
+// given test actually exercises.
+type StudioApi = Pick<typeof defaultApi, "listProjects" | "getProject" | "addMaterial" | "logSourceOpen">;
+
 type StudioConversation = ReturnType<typeof createStudioConversation>;
 type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
 
@@ -52,6 +57,9 @@ export function StudioContainer({
   const [error, setError] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
   const [conv, setConv] = useState<StudioConversation | null>(null);
+  // Slice 6b Task 9: the server's own honest Chinese message from the last
+  // failed 添加信源 attempt — cleared on the next successful add.
+  const [addSourceError, setAddSourceError] = useState<string | undefined>(undefined);
   // Guards double-dispatch of the same disposition (carry-forward from Task
   // 10's review): the conversation controller itself doesn't clear
   // disposableInterventionId after a dispose call, so a second click before
@@ -120,6 +128,27 @@ export function StudioContainer({
     onOpenCard: () => conv?.openCard(),
     onSubmitCard: (finalEnvelope) => conv?.submitCard(finalEnvelope),
     onSkipCard: (eventTrace) => conv?.skipCard(eventTrace),
+    onAddSource: async (body) => {
+      if (!projectId) return;
+      try {
+        await api.addMaterial(projectId, body);
+        setAddSourceError(undefined);
+        // The projection is the single source of truth for 素材 — refetch
+        // rather than hand-patch local state so the new source (and any
+        // server-side derivations of it) render exactly as stored.
+        const proj = await api.getProject(projectId);
+        setState(toStudioState(proj));
+      } catch (err) {
+        setAddSourceError(err instanceof ApiError ? err.message : "添加信源失败，请重试");
+        throw err; // AddSourceForm relies on the rejection to skip its own reset()
+      }
+    },
+    onOpenLogged: (materialId, timeSpentS) => {
+      if (!projectId) return;
+      // Fire-and-forget: a lost reading-time sample must never surface as
+      // an error to the student.
+      api.logSourceOpen(projectId, materialId, timeSpentS).catch(() => {});
+    },
   };
 
   // Projection = history on load; controller = this session's live turns.
@@ -134,6 +163,7 @@ export function StudioContainer({
       callbacks={callbacks}
       sending={convSnapshot.sending}
       card={convSnapshot.card}
+      addSourceError={addSourceError}
     />
   );
 }

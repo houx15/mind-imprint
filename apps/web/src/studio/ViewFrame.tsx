@@ -1,4 +1,7 @@
+import type { Anchor } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
+import type { LiveCard } from "./CoachRail";
+import type { AddMaterialBody } from "../api/materials";
 import { SourceDossier } from "./material/SourceDossier";
 import { StructureView } from "./views/StructureView";
 import { WritingView } from "./views/WritingView";
@@ -7,7 +10,26 @@ import { OnboardingView } from "./views/OnboardingView";
 
 export type ViewFrameProps = {
   state: StudioState;
+  // Live tool-card slot (mirrors StudioShell's `card`): its anchors highlight
+  // the spans the coach rail is asking about right now.
+  card?: LiveCard | null;
+  material?: {
+    onAdd?: (body: AddMaterialBody) => Promise<void>;
+    onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+    addError?: string;
+  };
 };
+
+// The live card's anchors carry the student's in-progress answers, so they
+// win over the projection's persisted anchors for the same anchor id.
+// `SourceDossier`'s `anchorToSpan` already filters per open source by
+// `material_id` — this only dedupes, it must not filter by material itself.
+function mergeAnchors(card: LiveCard | null | undefined, materials: StudioState["views"]["material"]): Anchor[] {
+  const live = card?.anchors ?? [];
+  const persisted = materials.flatMap((m) => m.anchors);
+  const seen = new Set(live.map((a) => a.id));
+  return [...live, ...persisted.filter((a) => !seen.has(a.id))];
+}
 
 const FRAME: React.CSSProperties = {
   flex: 1,
@@ -48,7 +70,7 @@ function StationIcon() {
   );
 }
 
-export function ViewFrame({ state }: ViewFrameProps) {
+export function ViewFrame({ state, card, material }: ViewFrameProps) {
   const active = state.stations.find((s) => s.code === state.activeStation);
 
   if (!active) {
@@ -71,7 +93,15 @@ export function ViewFrame({ state }: ViewFrameProps) {
         </div>
         <span style={NAME}>{active.name}</span>
       </div>
-      {effectiveView === "素材" && <SourceDossier sources={state.views.material} />}
+      {effectiveView === "素材" && (
+        <SourceDossier
+          sources={state.views.material}
+          anchors={mergeAnchors(card, state.views.material)}
+          onAddSource={material?.onAdd}
+          addSourceError={material?.addError}
+          onOpenLogged={material?.onOpenLogged}
+        />
+      )}
       {effectiveView === "结构" && <StructureView cards={state.views.structure} />}
       {effectiveView === "写作" && <WritingView {...state.views.writing} />}
       {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}

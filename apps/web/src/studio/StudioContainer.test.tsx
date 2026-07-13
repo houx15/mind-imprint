@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { StudioContainer } from "./StudioContainer";
@@ -138,8 +138,102 @@ describe("StudioContainer", () => {
     render(<StudioContainer api={api as never} />);
     // The material's tier + takeaway are both set, so the title legitimately
     // renders twice once Slice 6b's 检索日志 ledger (Task 8) mounts below the
-    // source list — assert it projected through at all, not uniqueness.
-    expect((await screen.findAllByText("《卫星图看中国变绿》")).length).toBeGreaterThan(0);
-    expect(screen.getByText(/信源档案 · 已收集 1 篇/)).toBeInTheDocument();
+    // source list — scope the query to the source-list card itself (its
+    // sibling, the ledger, is a separate, deliberately duplicate render) so
+    // this doesn't just pass because the title showed up *somewhere*.
+    await screen.findByText(/信源档案 · 已收集 1 篇/);
+    expect(within(screen.getByTestId("dossier-source-list")).getByText("《卫星图看中国变绿》")).toBeInTheDocument();
+  });
+
+  it("posts a new source and shows it in the dossier", async () => {
+    const newMaterial = {
+      id: "m2",
+      title: "《IPCC AR6 综合报告》",
+      sourceUrl: "https://ipcc.ch/report",
+      kind: "article",
+      origin: "fetched",
+      blocks: [{ id: "b1", text: "……" }],
+      locked: false,
+      role: "",
+      tier: "机构报告",
+      takeaway: "报告本身的口径。",
+      anchors: [],
+    };
+    const baseProjection = {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [] as unknown[],
+    };
+    let getProjectCalls = 0;
+    const addMaterial = vi.fn(async () => newMaterial);
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return getProjectCalls === 1 ? baseProjection : { ...baseProjection, materials: [newMaterial] };
+      },
+      addMaterial,
+      logSourceOpen: vi.fn(async () => {}),
+    };
+
+    render(<StudioContainer api={api as never} />);
+    await screen.findByText(/信源档案/);
+
+    fireEvent.click(screen.getByText("添加信源"));
+    fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
+    fireEvent.change(screen.getByPlaceholderText(/一句话说说/), { target: { value: "报告本身的口径。" } });
+    fireEvent.click(screen.getByLabelText("机构报告"));
+    fireEvent.click(screen.getByText("加入信源档案"));
+
+    await waitFor(() =>
+      expect(addMaterial).toHaveBeenCalledWith("p1", { url: "https://ipcc.ch/report", takeaway: "报告本身的口径。", tier: "机构报告" }),
+    );
+    await waitFor(() =>
+      expect(within(screen.getByTestId("dossier-source-list")).getByText(newMaterial.title)).toBeInTheDocument(),
+    );
+  });
+
+  it("posts the reading time when the student leaves a source", async () => {
+    const material = {
+      id: "m1",
+      title: "《卫星图看中国变绿》",
+      sourceUrl: "https://x.test/a",
+      kind: "article",
+      origin: "fetched",
+      blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false,
+      role: "",
+      tier: "二手 · 需追源",
+      takeaway: "结论被放大了。",
+      anchors: [],
+    };
+    const logSourceOpen = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => ({
+        ...projection,
+        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+        activeStation: "S3",
+        materials: [material],
+      }),
+      addMaterial: vi.fn(),
+      logSourceOpen,
+    };
+
+    render(<StudioContainer api={api as never} />);
+    await screen.findByText(/信源档案/);
+
+    // Fake timers only wrap the synchronous open→advance→close sequence —
+    // reportOpenElapsed fires onOpenLogged synchronously from the click
+    // handler, so there's no async gap here that would fight
+    // testing-library's own (real-timer) polling.
+    vi.useFakeTimers();
+    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(material.title));
+    vi.advanceTimersByTime(30_000);
+    fireEvent.click(screen.getByText("返回信源列表"));
+    vi.useRealTimers();
+
+    expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", 30);
   });
 });

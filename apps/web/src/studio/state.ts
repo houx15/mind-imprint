@@ -3,6 +3,7 @@ import type {
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource,
 } from "@mind-imprint/contracts";
+import type { AddMaterialBody } from "../api/materials";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
 
@@ -52,4 +53,9 @@ export type StudioCallbacks = {
   onOpenCard?: (cardInstanceId: string) => void;
   onSubmitCard?: (finalEnvelope: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
+  // Slice 6b Task 9: the 素材 dossier's ingestion form + reading-time ledger.
+  // Optional for the same reason as the card slot above — standalone/story
+  // usages of StudioShell never need them.
+  onAddSource?: (body: AddMaterialBody) => Promise<void>;
+  onOpenLogged?: (materialId: string, timeSpentS: number) => void;
 };

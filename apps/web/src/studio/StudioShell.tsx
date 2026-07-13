@@ -11,8 +11,15 @@ export type StudioShellProps = {
   callbacks: StudioCallbacks;
   sending?: boolean;
   // Live tool-card slot (Task 10): the conversation's card, threaded down
-  // to CoachRail — defaults to null when there's no conversation yet.
+  // to CoachRail (and, as of Task 9, to ViewFrame so its anchors can
+  // highlight the article spans the coach rail is asking about) — defaults
+  // to null when there's no conversation yet.
   card?: LiveCard | null;
+  // Slice 6b Task 9: the 素材 dossier's own transient error state — this
+  // doesn't belong on StudioCallbacks (it isn't a callback, it's the
+  // student-facing result of the last add attempt) so it travels alongside
+  // `card` as its own prop.
+  addSourceError?: string;
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -44,7 +51,7 @@ function ExitFocusIcon() {
   );
 }
 
-export function StudioShell({ state, callbacks, sending = false, card = null }: StudioShellProps) {
+export function StudioShell({ state, callbacks, sending = false, card = null, addSourceError }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
   // covers the whole workspace instead of being clipped to the 388px coach
@@ -130,7 +137,11 @@ export function StudioShell({ state, callbacks, sending = false, card = null }: 
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflowX: "auto" }}>
         <StationRail stations={state.stations} active={state.activeStation} focus={state.focusMode} onSelect={callbacks.onSelectStation} />
-        <ViewFrame state={state} />
+        <ViewFrame
+          state={state}
+          card={card}
+          material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
+        />
         <CoachRail
           anchor={state.coach.anchor}
           messages={state.coach.messages}
