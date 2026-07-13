@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Anchor, CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
+import { AsrStream } from "../api/voice";
+import { MicCapture } from "../audio/capture";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
@@ -166,20 +168,75 @@ export function CoachRail({
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const micRef = useRef<MicCapture | null>(null);
+  const asrRef = useRef<AsrStream | null>(null);
 
   const lastAi = [...messages].reverse().find((m) => m.kind === "ai");
+
+  // Stable across renders (reads only refs + the setState setter, both
+  // stable) so the unmount-cleanup effect below always tears down whatever
+  // mic/ASR connection is live. Safe to call more than once: once torn
+  // down, the refs are null and further calls are no-ops.
+  const stopRecording = useCallback(() => {
+    micRef.current?.stop();
+    asrRef.current?.stop();
+    micRef.current = null;
+    asrRef.current = null;
+    setRecording(false);
+  }, []);
+
+  // If the rail unmounts mid-recording (e.g. the student navigates away),
+  // release the mic + ASR socket instead of leaving them running.
+  useEffect(() => {
+    return () => {
+      stopRecording();
+    };
+  }, [stopRecording]);
+
+  async function handleMicClick() {
+    if (sending) return;
+    if (recording) {
+      stopRecording();
+      return;
+    }
+    setVoiceError(null);
+    setRecording(true);
+    try {
+      const asr = new AsrStream();
+      // Transcript (partial or final) lands in the composer for the student
+      // to see and edit — it is never auto-sent.
+      asr.onPartial((t) => setComposerText(t));
+      asr.onFinal((t) => setComposerText(t));
+      asr.onError((message) => {
+        setVoiceError(message);
+        stopRecording();
+      });
+      asrRef.current = asr;
+
+      const mic = new MicCapture();
+      micRef.current = mic;
+      await mic.start((pcm) => asrRef.current?.sendPCM(pcm));
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : "无法访问麦克风");
+      stopRecording();
+    }
+  }
 
   function handleSend() {
     if (sending) return;
     const text = composerText.trim();
     if (!text) return;
+    if (recording) stopRecording();
     onSend(text);
     setComposerText("");
   }
 
   return (
     <div style={{ width: 388, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column", fontFamily: FONT, position: "relative" }}>
-      <style>{`@keyframes coachRailPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }`}</style>
+      <style>{`@keyframes coachRailPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes coachRailRecPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }`}</style>
 
       {/* header */}
       <div style={{ flex: "none", padding: "15px 18px 13px", borderBottom: "1px solid #EFF0F5" }}>
@@ -297,6 +354,29 @@ export function CoachRail({
 
       {/* composer */}
       <div style={{ flex: "none", padding: "11px 16px 15px", borderTop: "1px solid #EFF0F5" }}>
+        {recording && (
+          <div style={{ display: "flex", alignItems: "center", gap: 9, background: "#FBEEE7", border: "1px solid #F1D6C8", borderRadius: 11, padding: "9px 13px", marginBottom: 9 }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#D9534F", animation: "coachRailRecPulse 1.2s infinite" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#A8543A" }}>正在录音… 说完点麦克风结束</span>
+            <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 2 }}>
+              <span style={{ width: 3, height: 11, background: "#D9853A", borderRadius: 2 }} />
+              <span style={{ width: 3, height: 16, background: "#D9853A", borderRadius: 2 }} />
+              <span style={{ width: 3, height: 8, background: "#D9853A", borderRadius: 2 }} />
+              <span style={{ width: 3, height: 14, background: "#D9853A", borderRadius: 2 }} />
+            </span>
+          </div>
+        )}
+        {voiceError && !recording && (
+          <div
+            role="alert"
+            onClick={() => setVoiceError(null)}
+            title="点击关闭"
+            style={{ display: "flex", alignItems: "center", gap: 8, background: "#FDEEEC", border: "1px solid #F3C9C0", borderRadius: 11, padding: "9px 13px", marginBottom: 9, cursor: "pointer" }}
+          >
+            <FlagIcon />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#C0392B" }}>{voiceError}</span>
+          </div>
+        )}
         <div style={{ background: "#F7F8FB", border: "1px solid #E2E5EE", borderRadius: 13, padding: "8px 8px 8px 10px", display: "flex", alignItems: "flex-end", gap: 6 }}>
           <div
             onClick={() => setEquipOpen((o) => !o)}
@@ -333,9 +413,24 @@ export function CoachRail({
             style={{ flex: 1, border: "none", outline: "none", resize: "none", fontSize: 14, lineHeight: 1.6, color: "#1C2333", background: "transparent", maxHeight: 100, padding: "6px 0", fontFamily: "inherit" }}
           />
           <div
+            onClick={handleMicClick}
             title="语音输入"
             role="button"
-            style={{ flex: "none", width: 32, height: 32, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7384" }}
+            aria-pressed={recording}
+            aria-label={recording ? "正在录音，点击结束" : "语音输入"}
+            style={{
+              flex: "none",
+              width: 32,
+              height: 32,
+              borderRadius: 9,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: sending ? "not-allowed" : "pointer",
+              color: recording ? "#D9534F" : "#6B7384",
+              background: recording ? "#FBEEE7" : "transparent",
+              opacity: sending ? 0.5 : 1,
+            }}
           >
             <MicIcon />
           </div>

@@ -1,8 +1,60 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { CoachRail } from "./CoachRail";
 import { STUDIO_FIXTURE } from "./fixtures";
+
+// Fakes for the voice stack (AsrStream + MicCapture). Defined via vi.hoisted
+// so the vi.mock factories below — which vitest hoists above these imports —
+// can reference them. Each fake tracks its instances so a test can reach
+// into the most recent one and drive its callbacks (partial/final/error) or
+// control whether mic.start() resolves or rejects (permission denial).
+const { FakeAsrStream, FakeMicCapture } = vi.hoisted(() => {
+  class FakeAsrStream {
+    static instances: FakeAsrStream[] = [];
+    partialCb: ((t: string) => void) | null = null;
+    finalCb: ((t: string) => void) | null = null;
+    errorCb: ((m: string) => void) | null = null;
+    stopped = false;
+    constructor() {
+      FakeAsrStream.instances.push(this);
+    }
+    onPartial(cb: (t: string) => void) {
+      this.partialCb = cb;
+    }
+    onFinal(cb: (t: string) => void) {
+      this.finalCb = cb;
+    }
+    onError(cb: (m: string) => void) {
+      this.errorCb = cb;
+    }
+    sendPCM() {}
+    stop() {
+      this.stopped = true;
+    }
+  }
+  class FakeMicCapture {
+    static instances: FakeMicCapture[] = [];
+    static startBehavior: "resolve" | "reject" = "resolve";
+    static rejectMessage = "麦克风权限被拒绝";
+    stopped = false;
+    constructor() {
+      FakeMicCapture.instances.push(this);
+    }
+    async start(_onPcm: (pcm: Int16Array) => void) {
+      if (FakeMicCapture.startBehavior === "reject") {
+        throw new Error(FakeMicCapture.rejectMessage);
+      }
+    }
+    stop() {
+      this.stopped = true;
+    }
+  }
+  return { FakeAsrStream, FakeMicCapture };
+});
+
+vi.mock("../api/voice", () => ({ AsrStream: FakeAsrStream }));
+vi.mock("../audio/capture", () => ({ MicCapture: FakeMicCapture }));
 
 const c = STUDIO_FIXTURE.coach;
 
@@ -136,5 +188,72 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     );
     expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
     expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+  });
+});
+
+describe("CoachRail voice input (5d review IMPORTANT: the mic must not be inert)", () => {
+  beforeEach(() => {
+    FakeAsrStream.instances = [];
+    FakeMicCapture.instances = [];
+    FakeMicCapture.startBehavior = "resolve";
+  });
+
+  it("clicking the mic starts capture, shows a recording state, and lands a transcript in the editable composer", async () => {
+    render(<CoachRail {...baseProps()} />);
+    const micBtn = screen.getByTitle("语音输入");
+
+    fireEvent.click(micBtn);
+
+    // Capture actually started: a MicCapture + AsrStream were instantiated,
+    // not just a click handler firing into the void.
+    expect(await screen.findByText("正在录音… 说完点麦克风结束")).toBeInTheDocument();
+    expect(FakeMicCapture.instances).toHaveLength(1);
+    expect(FakeAsrStream.instances).toHaveLength(1);
+
+    // A transcript (interim or final) lands where the student can see and
+    // edit it — the composer textarea — and is never auto-sent.
+    const asr = FakeAsrStream.instances[0]!;
+    act(() => {
+      asr.partialCb?.("我口述的");
+    });
+    const textarea = screen.getByPlaceholderText(/发给印记/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("我口述的");
+    act(() => {
+      asr.finalCb?.("我口述的一句话");
+    });
+    expect(textarea.value).toBe("我口述的一句话");
+    expect(screen.queryByText(/正在录音/)).toBeInTheDocument(); // still recording, not auto-sent/closed
+
+    // Clicking the mic again ends the recording and releases mic + socket.
+    fireEvent.click(micBtn);
+    expect(screen.queryByText(/正在录音/)).not.toBeInTheDocument();
+    expect(FakeMicCapture.instances[0]!.stopped).toBe(true);
+    expect(FakeAsrStream.instances[0]!.stopped).toBe(true);
+  });
+
+  it("surfaces a mic/ASR error to the student instead of failing silently", async () => {
+    FakeMicCapture.startBehavior = "reject";
+    render(<CoachRail {...baseProps()} />);
+
+    fireEvent.click(screen.getByTitle("语音输入"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(FakeMicCapture.rejectMessage);
+    // Not stuck showing a live recording state after the failure.
+    expect(screen.queryByText(/正在录音/)).not.toBeInTheDocument();
+  });
+
+  it("surfaces an ASR stream error raised mid-recording", async () => {
+    render(<CoachRail {...baseProps()} />);
+    fireEvent.click(screen.getByTitle("语音输入"));
+    await screen.findByText("正在录音… 说完点麦克风结束");
+
+    const asr = FakeAsrStream.instances[0]!;
+    act(() => {
+      asr.errorCb?.("语音连接中断");
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("语音连接中断");
+    expect(screen.queryByText(/正在录音/)).not.toBeInTheDocument();
   });
 });

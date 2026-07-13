@@ -75,7 +75,7 @@ export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => v
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "44px 40px 60px" }}>
         <div style={{ fontSize: 13, color: "#8A92A3", fontWeight: 600 }}>课程</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: "#1C2333", marginTop: 6, letterSpacing: "-0.01em" }}>系统地学会一种思考方式</div>
-        <div style={{ fontSize: 14, color: "#6B7384", marginTop: 8, lineHeight: 1.6, maxWidth: 560 }}>每一门课都是一段 AI 带着你走的学习旅程——有讲解，也有你亲自上手的挑战。学完，去「批判思维」工作台把它用在你自己的问题上。</div>
+        <div style={{ fontSize: 14, color: "#6B7384", marginTop: 8, lineHeight: 1.6, maxWidth: 560 }}>每一门课都是一段 AI 带着你走的学习旅程——有讲解，也有你亲自上手的挑战。学完，去写作工作室把它用在你自己的问题上。</div>
         {courses != null && courses.length === 0 ? (
           <div style={{ fontSize: 14, color: "#9AA1B0", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (

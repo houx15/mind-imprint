@@ -7,8 +7,6 @@ export * from "./skill";
 export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
-export * from "./evaluation";
-export * from "./cognitive-model";
 export * from "./envelope";
 export * from "./anchor";
 export * from "./course";

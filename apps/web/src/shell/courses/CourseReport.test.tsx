@@ -41,7 +41,7 @@ describe("CourseReport", () => {
     await screen.findByText("一条网络信息，该不该信");
     fireEvent.click(screen.getByText("返回课程"));
     expect(onBack).toHaveBeenCalled();
-    fireEvent.click(screen.getByText(/去批判思维工作台/));
+    fireEvent.click(screen.getByText(/去写作工作室/));
     expect(onPortal).toHaveBeenCalled();
   });
 });
