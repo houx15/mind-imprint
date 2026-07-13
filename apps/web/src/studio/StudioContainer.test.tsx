@@ -20,6 +20,34 @@ const fakeApi = {
   getProject: async () => projection,
 } as any;
 
+// Several tests below trigger a click handler that never returns its
+// internal promise chain to the caller (e.g. onSubmitCard's
+// `conv.submitCard(...).then(refetchProject).catch(setSyncError)` is fire-
+// and-forget — fireEvent.click doesn't await it, React doesn't await it,
+// nothing does). The only way to observe it settle is to wait for it —
+// and `waitFor`'s default budget is a REAL 1000ms wall-clock timeout that
+// races against however long the JS engine takes to actually get around to
+// draining a several-hops-deep microtask chain. In isolation that's instant;
+// under full-suite CPU contention (many worker processes competing for the
+// same cores) the process can go unscheduled for long enough that the
+// chain hasn't settled by the time `waitFor` gives up — a false failure,
+// not a logic race (the outcome is always the same; only the wall-clock
+// time to observe it varies).
+//
+// `flush` sidesteps that by never imposing its own budget: a macrotask
+// (setTimeout) only runs once the JS engine has fully drained the
+// microtask queue — including any microtasks newly queued while draining —
+// so awaiting one deterministically waits for an arbitrarily deep .then/
+// .catch chain to finish, however long the engine takes to get there,
+// bounded only by vitest's own generous per-test timeout (not this file's
+// assertions). Wrapped in `act` so the resulting setState calls are
+// flushed/batched the same way React expects.
+async function flush() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 describe("StudioContainer", () => {
   it("renders the Studio from live projection data", async () => {
     render(<StudioContainer api={fakeApi} />);
@@ -179,6 +207,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     fireEvent.click(screen.getByText("添加信源"));
     fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
@@ -223,6 +263,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     // Fake timers only wrap the synchronous open→advance→close sequence —
     // reportOpenElapsed fires onOpenLogged synchronously from the click
@@ -292,9 +344,27 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
     expect(screen.getByText("待评估")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // This field only exists once StudioContainer's second effect (creating
+    // the live conversation, gated on projectId) has committed — a separate,
+    // later render than the one `findByText` above resolved on. Under
+    // full-suite CPU contention that second commit can lag behind a plain
+    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
+    // instead of assuming it already landed.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
@@ -356,6 +426,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     fireEvent.click(screen.getByText("添加信源"));
     fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
@@ -457,13 +539,36 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     // Open the source so its blocks (and the card's live anchor highlight)
     // actually render.
     fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(unlockedMaterial.title));
-    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
+    // The highlight comes from convSnapshot.card, which only exists once
+    // StudioContainer's SECOND effect (creating the live conversation, gated
+    // on projectId) has committed — a separate, later render than the one
+    // `findByText(/信源档案/)` above already resolved on. Under full-suite
+    // CPU contention that second commit can lag behind this synchronous
+    // check; wait for it explicitly instead of assuming it already landed
+    // (this is the shared root cause behind this file's flakiness — see the
+    // `findByPlaceholderText` note below for the same race).
+    await waitFor(() => expect(document.querySelectorAll("mark").length).toBeGreaterThan(0));
 
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // Same race as the `mark` wait above — this field only exists once the
+    // live card (from that second, later effect/commit) is mounted, so use
+    // the awaited `find*` query rather than assuming `getBy*` already sees it.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
@@ -539,20 +644,44 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // This field only exists once StudioContainer's second effect (creating
+    // the live conversation, gated on projectId) has committed — a separate,
+    // later render than the one `findByText` above resolved on. Under
+    // full-suite CPU contention that second commit can lag behind a plain
+    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
+    // instead of assuming it already landed.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
 
     expect(submitCard).toHaveBeenCalled();
-    await waitFor(() => expect(getProjectCalls).toBe(2));
+    // submitCard resolves → refetchProject's GET rejects → its catch clears
+    // pendingAnchors and rethrows → the outer .catch sets syncError. None of
+    // that chain is awaited anywhere in the production code (fire-and-
+    // forget from the click handler), so flush it deterministically rather
+    // than polling with waitFor's real-time budget — see `flush`'s comment.
+    await flush();
+    expect(getProjectCalls).toBe(2);
 
     // The refetch that would confirm the lock failed — the dossier must
     // still show the pre-refetch (unlocked) state, not a falsely-locked one.
     expect(screen.getByText("待评估")).toBeInTheDocument();
     // The failure must be surfaced to the student, not swallowed.
-    await waitFor(() => expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument());
+    expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument();
   });
 
   it("does not report a post-add refetch failure as an add failure, and still resets the form (bug D)", async () => {
@@ -582,6 +711,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     fireEvent.click(screen.getByText("添加信源"));
     fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
@@ -589,15 +730,22 @@ describe("StudioContainer", () => {
     fireEvent.click(screen.getByLabelText("机构报告"));
     fireEvent.click(screen.getByText("加入信源档案"));
 
-    await waitFor(() => expect(addMaterial).toHaveBeenCalled());
-    await waitFor(() => expect(getProjectCalls).toBe(2));
+    // onAddSource awaits addMaterial, then internally awaits+catches
+    // refetchProject's rejection (setting syncError, not rethrowing) —
+    // AddSourceForm's own handleSubmit awaits that whole chain before
+    // reset()/setSubmitting(false). Same unawaited-from-fireEvent's-
+    // perspective shape as bug C — flush deterministically instead of
+    // racing waitFor's real-time budget against however deep this chain is.
+    await flush();
+    expect(addMaterial).toHaveBeenCalled();
+    expect(getProjectCalls).toBe(2);
 
     // The add itself succeeded — must NOT show the generic add-failure copy.
     expect(screen.queryByText("添加信源失败，请重试")).toBeNull();
     // The form must reset (collapse back to the "添加信源" button) rather
     // than stay primed to re-submit — a second submit here would duplicate
     // the source the student already successfully added.
-    await waitFor(() => expect(screen.getByText("添加信源")).toBeInTheDocument());
+    expect(screen.getByText("添加信源")).toBeInTheDocument();
   });
 
   it("does not duplicate the coach thread when a refetch's projection already contains this session's live turns", async () => {
@@ -656,6 +804,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
     // Pre-refetch: the live turn renders exactly once, straight from the
     // conversation controller.
     expect(screen.getAllByText(aiTurn.body)).toHaveLength(1);
@@ -733,6 +893,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
     expect(screen.getByText("待评估")).toBeInTheDocument();
 
     // GET_A: issued by adding a source.
@@ -746,7 +918,13 @@ describe("StudioContainer", () => {
     // GET_B: issued by locking the card, WHILE GET_A is still in flight
     // (anchors is empty here, so allAnchorsAnswered is vacuously true —
     // only the risk-note needs filling to enable the lock button).
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // This field only exists once StudioContainer's second effect (creating
+    // the live conversation, gated on projectId) has committed — a separate,
+    // later render than the one `findByText` above resolved on. Under
+    // full-suite CPU contention that second commit can lag behind a plain
+    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
+    // instead of assuming it already landed.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
@@ -824,6 +1002,18 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     // GET_A: add-source.
     fireEvent.click(screen.getByText("添加信源"));
@@ -835,7 +1025,13 @@ describe("StudioContainer", () => {
 
     // GET_B: card lock, issued while GET_A is still in flight. Both are
     // captured with priorMessageCount === 0 (no turns sent yet).
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // This field only exists once StudioContainer's second effect (creating
+    // the live conversation, gated on projectId) has committed — a separate,
+    // later render than the one `findByText` above resolved on. Under
+    // full-suite CPU contention that second commit can lag behind a plain
+    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
+    // instead of assuming it already landed.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
@@ -926,8 +1122,24 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
-    fireEvent.click(screen.getByText("跳过这张卡"));
+    // The skip button only exists once StudioContainer's second effect
+    // (creating the live conversation, gated on projectId) has committed —
+    // a separate, later render than the one `findByText` above resolved on.
+    // Wait for it explicitly rather than assuming it already landed.
+    fireEvent.click(await screen.findByText("跳过这张卡"));
 
     expect(skipCard).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByText(/跳过失败/)).toBeInTheDocument());
@@ -997,19 +1209,45 @@ describe("StudioContainer", () => {
 
     render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
     await screen.findByText(/信源档案/);
+    // `信源档案` comes from StudioContainer's FIRST effect (loading the
+    // project). The live conversation (conv/card, and anything sourced from
+    // it — the coach thread, the card's fields, its anchor highlights) only
+    // exists once the SECOND effect (gated on projectId, creating the
+    // conversation) has ALSO committed — a separate, later render. Under
+    // full-suite CPU contention that second commit can lag behind the first
+    // enough that a synchronous assertion right after `findByText` above
+    // sees stale (pre-conv) DOM — this is this file's actual shared flake
+    // cause, not a product race (the outcome never depends on interleaving,
+    // only how long it takes to observe). `flush` waits out both effects
+    // deterministically, with no timeout of its own to lose a race against.
+    await flush();
 
     fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(unlockedMaterial.title));
     // The card's live anchor highlights the span before any submit happens.
-    expect(document.querySelectorAll("mark").length).toBe(1);
+    // This depends on convSnapshot.card, which only exists once
+    // StudioContainer's second effect (creating the live conversation) has
+    // committed — a separate, later render than the one `findByText` above
+    // resolved on. Wait for it explicitly rather than assuming it already
+    // landed (see the `findByPlaceholderText` note below for the same race).
+    await waitFor(() => expect(document.querySelectorAll("mark").length).toBe(1));
 
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), {
+    // This field only exists once StudioContainer's second effect (creating
+    // the live conversation, gated on projectId) has committed — a separate,
+    // later render than the one `findByText` above resolved on. Under
+    // full-suite CPU contention that second commit can lag behind a plain
+    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
+    // instead of assuming it already landed.
+    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
     fireEvent.click(screen.getByText("锁定，进下一条"));
 
-    await waitFor(() => expect(getProjectCalls).toBe(2));
+    // Same unawaited submitCard→refetchProject→catch chain as bug C —
+    // flush deterministically instead of racing waitFor's real-time budget.
+    await flush();
+    expect(getProjectCalls).toBe(2);
     // The refetch failed — confirms the failure path actually ran.
-    await waitFor(() => expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument());
+    expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument();
 
     // The card is gone (submitCard nulled it) and the failed refetch never
     // delivered persisted anchors (the material fetched at load time has
