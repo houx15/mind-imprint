@@ -40,7 +40,7 @@ func TestRefactor2CardsLoop_UnevaluatedSourceSurfacesCraap(t *testing.T) {
 		t.Fatalf("CreateProject: %v", err)
 	}
 	material, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
-		TaskID:    task.ID,
+		TaskID:    pgtype.UUID{Bytes: task.ID, Valid: true},
 		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
 		Kind:      "article",
 		Source:    "fetched",
@@ -126,7 +126,7 @@ func TestRefactor2CardsLoop_CompleteCardMintsEvidenceAndFramework(t *testing.T) 
 		t.Fatalf("CreateProject: %v", err)
 	}
 	material, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
-		TaskID:    task.ID,
+		TaskID:    pgtype.UUID{Bytes: task.ID, Valid: true},
 		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
 		Kind:      "article",
 		Source:    "fetched",

@@ -194,7 +194,13 @@ func (s *sqlcAgentStore) CreateCardInstance(ctx context.Context, projectID, mate
 		return CardInstanceRow{}, err
 	}
 	row, err := s.q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
-		TaskID:      mat.TaskID,
+		// mat.TaskID is now pgtype.UUID (material.task_id went nullable in
+		// 0020); card_instances.task_id is still NOT NULL (untouched by this
+		// migration), so this narrows back to uuid.UUID. Every material this
+		// path runs against today still carries a valid task_id (the legacy
+		// FK anchor); project-scoped materials with no task_id are Task 3/4/5
+		// territory (source-log ingestion), not this adapter.
+		TaskID:      uuid.UUID(mat.TaskID.Bytes),
 		ProjectID:   pgtype.UUID{Bytes: projectID, Valid: true},
 		CardID:      cardID,
 		ContractRef: &contractRef,

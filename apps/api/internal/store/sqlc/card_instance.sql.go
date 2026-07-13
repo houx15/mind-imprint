@@ -34,7 +34,10 @@ type CreateProjectCardInstanceParams struct {
 // the runtime resolves it from the target material's own task_id
 // (agentstore.go), never asking the pure agent code to know about tasks.
 // The old task-scoped queries in cards.sql (CreateCardInstance, SetCardActive,
-// SubmitCard, SkipCard, SetCardAnchors) stay untouched for the legacy path.
+// SubmitCard, SkipCard, SetCardAnchors) are otherwise unused — there is no
+// legacy path any more (Slice 5d retired the task-based surface) — they stay
+// alive only because their own tests (store/sqlc_lifecycle_test.go,
+// api/anchors_store_test.go) still exercise them directly against the table.
 func (q *Queries) CreateProjectCardInstance(ctx context.Context, arg CreateProjectCardInstanceParams) (CardInstance, error) {
 	row := q.db.QueryRow(ctx, createProjectCardInstance,
 		arg.TaskID,

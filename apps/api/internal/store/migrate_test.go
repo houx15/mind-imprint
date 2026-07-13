@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -107,5 +108,58 @@ func TestMigrationsCreateTablesAndSeed(t *testing.T) {
 	}
 	if role != "student" {
 		t.Fatalf("role_in_class = %q, want student", role)
+	}
+}
+
+func TestMigration0020MaterialSourceLog(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+
+	// material.task_id is nullable — a project material needs no task.
+	var isNullable string
+	if err := pool.QueryRow(ctx,
+		`SELECT is_nullable FROM information_schema.columns
+		 WHERE table_name='material' AND column_name='task_id'`).Scan(&isNullable); err != nil {
+		t.Fatal(err)
+	}
+	if isNullable != "YES" {
+		t.Fatalf("material.task_id is_nullable = %q, want YES", isNullable)
+	}
+
+	// source_log_entry.material_id exists and points at material.
+	var count int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM information_schema.columns
+		 WHERE table_name='source_log_entry' AND column_name='material_id'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatal("source_log_entry.material_id missing")
+	}
+
+	// The seeded demo materials carry real blocks — not '[]'.
+	var blocks []byte
+	if err := pool.QueryRow(ctx,
+		`SELECT blocks FROM material WHERE id = '00000000-0000-0000-0000-000000000110'`).Scan(&blocks); err != nil {
+		t.Fatal(err)
+	}
+	var parsed []map[string]any
+	if err := json.Unmarshal(blocks, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed) < 3 {
+		t.Fatalf("seeded blog material has %d blocks, want >= 3 (the real article text)", len(parsed))
+	}
+
+	// And each seeded material has a source-log entry.
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM source_log_entry WHERE project_id = '00000000-0000-0000-0000-000000000101'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("seeded source_log_entry count = %d, want 2", count)
 	}
 }

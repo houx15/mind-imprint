@@ -243,7 +243,7 @@ type LlmUsage struct {
 
 type Material struct {
 	ID        uuid.UUID   `json:"id"`
-	TaskID    uuid.UUID   `json:"task_id"`
+	TaskID    pgtype.UUID `json:"task_id"`
 	Kind      string      `json:"kind"`
 	Source    string      `json:"source"`
 	Title     string      `json:"title"`
@@ -299,15 +299,16 @@ type Session struct {
 }
 
 type SourceLogEntry struct {
-	ID          uuid.UUID `json:"id"`
-	ProjectID   uuid.UUID `json:"project_id"`
-	Url         string    `json:"url"`
-	Title       string    `json:"title"`
-	TimeSpentS  int32     `json:"time_spent_s"`
-	Takeaway    string    `json:"takeaway"`
-	Tier        *string   `json:"tier"`
-	LateralRead bool      `json:"lateral_read"`
-	OpenedAt    time.Time `json:"opened_at"`
+	ID          uuid.UUID   `json:"id"`
+	ProjectID   uuid.UUID   `json:"project_id"`
+	Url         string      `json:"url"`
+	Title       string      `json:"title"`
+	TimeSpentS  int32       `json:"time_spent_s"`
+	Takeaway    string      `json:"takeaway"`
+	Tier        *string     `json:"tier"`
+	LateralRead bool        `json:"lateral_read"`
+	OpenedAt    time.Time   `json:"opened_at"`
+	MaterialID  pgtype.UUID `json:"material_id"`
 }
 
 type Task struct {

@@ -4,8 +4,9 @@
 SELECT * FROM material WHERE id = $1;
 
 -- Project-scoped reads/writes (Slice 3): the classifier's surface_card
--- predicate reads a project's source materials; task_id stays required
--- (legacy FK, not yet dropped) so fixtures still supply it.
+-- predicate reads a project's source materials. task_id is nullable as of
+-- 0020 (legacy FK from the deleted task surface); project-scoped ingestion
+-- (6b) passes NULL, old fixtures may still supply it.
 
 -- name: CreateProjectMaterial :one
 INSERT INTO material (task_id, project_id, kind, source, title, source_url, blocks)

@@ -20,7 +20,7 @@ RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created
 `
 
 type CreateProjectMaterialParams struct {
-	TaskID    uuid.UUID   `json:"task_id"`
+	TaskID    pgtype.UUID `json:"task_id"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	Kind      string      `json:"kind"`
 	Source    string      `json:"source"`
@@ -30,8 +30,9 @@ type CreateProjectMaterialParams struct {
 }
 
 // Project-scoped reads/writes (Slice 3): the classifier's surface_card
-// predicate reads a project's source materials; task_id stays required
-// (legacy FK, not yet dropped) so fixtures still supply it.
+// predicate reads a project's source materials. task_id is nullable as of
+// 0020 (legacy FK from the deleted task surface); project-scoped ingestion
+// (6b) passes NULL, old fixtures may still supply it.
 func (q *Queries) CreateProjectMaterial(ctx context.Context, arg CreateProjectMaterialParams) (Material, error) {
 	row := q.db.QueryRow(ctx, createProjectMaterial,
 		arg.TaskID,
