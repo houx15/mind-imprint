@@ -129,3 +129,24 @@ func (q *Queries) ListSourceLogByProject(ctx context.Context, projectID uuid.UUI
 	}
 	return items, nil
 }
+
+const markSourceLateralRead = `-- name: MarkSourceLateralRead :exec
+UPDATE source_log_entry
+SET lateral_read = true,
+    tier = CASE WHEN $1::text = '' THEN tier ELSE $1::text END
+WHERE project_id = $2 AND material_id = $3
+`
+
+type MarkSourceLateralReadParams struct {
+	TierAfter  string      `json:"tier_after"`
+	ProjectID  uuid.UUID   `json:"project_id"`
+	MaterialID pgtype.UUID `json:"material_id"`
+}
+
+// The source that WAS laterally read (not the source used to do it). tier is
+// overwritten only when the student re-tiered it after checking; an empty
+// tier_after leaves her ingestion-time tier alone.
+func (q *Queries) MarkSourceLateralRead(ctx context.Context, arg MarkSourceLateralReadParams) error {
+	_, err := q.db.Exec(ctx, markSourceLateralRead, arg.TierAfter, arg.ProjectID, arg.MaterialID)
+	return err
+}

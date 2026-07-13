@@ -72,6 +72,14 @@ type CardInstanceRow struct {
 	FrameworkFill []byte
 }
 
+// SourceLogRow is the persistence view of one project-scoped
+// source_log_entry row that CompleteCard needs: the pyramid tier the
+// student assigned at ingestion time (Slice 6b), read BEFORE a cross_check's
+// LateralRead write overwrites it with her post-check re-tier.
+type SourceLogRow struct {
+	Tier string
+}
+
 // AgentStore is the runtime loop's persistence seam: perceive (LoadGraph)
 // and record (InsertIntervention, AppendEvent, and the Task 5 card/graph-mint/
 // disposition ops). The sqlc-backed adapter lives in agentstore.go;
@@ -95,6 +103,14 @@ type AgentStore interface {
 	CreateCardInstance(ctx context.Context, projectID, materialID uuid.UUID, cardID, contractRef string) (CardInstanceRow, error)
 	GetCardInstance(ctx context.Context, id uuid.UUID) (CardInstanceRow, error)
 	SetCardInstanceFramework(ctx context.Context, projectID, id uuid.UUID, framework []byte) error
+
+	// GetSourceLogByMaterial reads one source's log row — CompleteCard's
+	// only use is the ingestion-time tier (tier_before) a cross_check
+	// consolidates into its node body before its own LateralRead write
+	// overwrites that same tier with the student's post-check re-tier
+	// (Task 7). A missing log entry is not fatal to card completion:
+	// tier_before is simply absent from the node body.
+	GetSourceLogByMaterial(ctx context.Context, materialID uuid.UUID) (SourceLogRow, error)
 
 	// SetCardInstanceStatus/SetCardInstanceAnchors/SubmitProjectCardInstance
 	// are the Slice 5c-2 card-runtime mutation seam: opening a card

@@ -66,6 +66,17 @@ type fakeAgentStore struct {
 
 	recordLLMCallCalls int
 	lastLLMCall        LLMCallRow
+
+	// sourceLogs backs GetSourceLogByMaterial and is mutated in-memory by
+	// CommitCardMint's LateralRead handling below — a fake that no-opped the
+	// write would let a test assert a re-tier "succeeded" while reading back
+	// the untouched ingestion-time tier, silently masking the exact drift
+	// Task 7 exists to prevent.
+	sourceLogs map[uuid.UUID]SourceLogRow
+
+	lateralReadCalls     int
+	lastLateralRead      LateralRead
+	lateralReadMaterials map[uuid.UUID]bool
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -127,6 +138,18 @@ func (f *fakeAgentStore) GetCardInstance(_ context.Context, id uuid.UUID) (CardI
 	row, ok := f.cardInstances[id]
 	if !ok {
 		return CardInstanceRow{}, fmt.Errorf("fakeAgentStore: no card_instance %s", id)
+	}
+	return row, nil
+}
+
+// GetSourceLogByMaterial reads the fake's in-memory source-log stand-in.
+// Tests seed f.sourceLogs directly (no Create* call exists on the fake); a
+// material with no seeded entry behaves like a real missing row — an error,
+// which CompleteCard treats as tier_before simply absent, not fatal.
+func (f *fakeAgentStore) GetSourceLogByMaterial(_ context.Context, materialID uuid.UUID) (SourceLogRow, error) {
+	row, ok := f.sourceLogs[materialID]
+	if !ok {
+		return SourceLogRow{}, fmt.Errorf("fakeAgentStore: no source_log for material %s", materialID)
 	}
 	return row, nil
 }
@@ -219,6 +242,24 @@ func (f *fakeAgentStore) CommitCardMint(ctx context.Context, projectID, cardInst
 		if err := f.InsertGraphEdge(ctx, projectID, e); err != nil {
 			return err
 		}
+	}
+	if m.LateralRead != nil {
+		f.lateralReadCalls++
+		f.lastLateralRead = *m.LateralRead
+		if f.lateralReadMaterials == nil {
+			f.lateralReadMaterials = map[uuid.UUID]bool{}
+		}
+		f.lateralReadMaterials[m.LateralRead.MaterialID] = true
+		// Mirror the real MarkSourceLateralRead SQL's CASE: an empty
+		// TierAfter leaves the ingestion-time tier alone.
+		if f.sourceLogs == nil {
+			f.sourceLogs = map[uuid.UUID]SourceLogRow{}
+		}
+		row := f.sourceLogs[m.LateralRead.MaterialID]
+		if m.LateralRead.TierAfter != "" {
+			row.Tier = m.LateralRead.TierAfter
+		}
+		f.sourceLogs[m.LateralRead.MaterialID] = row
 	}
 	return f.SetCardInstanceFramework(ctx, projectID, cardInstanceID, m.Framework)
 }

@@ -105,6 +105,29 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 	}
 
 	nodes, edges := GraphEffects(spec, materialID, anchors)
+
+	// A cross_check's re-tier is only meaningful measured against what she
+	// thought the source was BEFORE checking it — read the log's
+	// ingestion-time tier now, into the node body, before the mint's own
+	// write (below) overwrites that same row with her post-check tier.
+	var lateral *LateralRead
+	for _, n := range nodes {
+		if n.Type != "cross_check" {
+			continue
+		}
+		checkedUUID, err := uuid.Parse(materialID)
+		if err != nil {
+			return false, fmt.Errorf("card: checked material id %q: %w", materialID, err)
+		}
+		before, err := deps.Store.GetSourceLogByMaterial(ctx, checkedUUID)
+		if err == nil {
+			// A missing log entry is not fatal — tier_before is simply absent.
+			n.Body["tier_before"] = before.Tier
+		}
+		tierAfter, _ := n.Body["tier_after"].(string)
+		lateral = &LateralRead{MaterialID: checkedUUID, TierAfter: tierAfter}
+	}
+
 	framework, err := json.Marshal(ConsolidationPayload(spec))
 	if err != nil {
 		return false, err
@@ -113,9 +136,11 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 	// the idempotency guard checked above, and it must land atomically with
 	// the nodes/edges it guards — otherwise a failure between the node
 	// insert and the guard write leaves a partial mint a retry would
-	// duplicate (Task 6).
+	// duplicate (Task 6). LateralRead (Task 7) rides the same transaction:
+	// the graph node the gate reads and the log row the dossier/ledger read
+	// must never drift apart.
 	if err := deps.Store.CommitCardMint(ctx, row.ProjectID, cardInstanceID, CardMint{
-		Nodes: nodes, Edges: edges, Framework: framework,
+		Nodes: nodes, Edges: edges, Framework: framework, LateralRead: lateral,
 	}); err != nil {
 		return false, err
 	}

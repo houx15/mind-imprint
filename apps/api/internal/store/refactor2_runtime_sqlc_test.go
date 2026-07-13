@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
@@ -181,3 +182,134 @@ func TestCommitCardMint_IsAtomic(t *testing.T) {
 // pgUUID adapts a uuid.UUID to the pgtype.UUID sqlc params expect for a
 // non-null uuid column.
 func pgUUID(id uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: id, Valid: true} }
+
+// TestCommitCardMint_FlipsLateralReadOnTheCheckedSourceOnly is Task 7's
+// keystone test: a cross_check mint's LateralRead write must flip
+// lateral_read + re-tier the CHECKED source's source_log_entry (the source
+// under review) and must NOT touch the LATERAL source's own entry (the
+// independent source she used as the instrument to do the checking — it is
+// not itself the subject of the check).
+func TestCommitCardMint_FlipsLateralReadOnTheCheckedSourceOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	seededStudentID := refactor2SeededStudentID
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "EE",
+		Title:         "TestCommitCardMint_FlipsLateralReadOnTheCheckedSourceOnly",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	contractRef := "sift_lateral"
+	cardInstance, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
+		ProjectID:   pgUUID(project.ID),
+		CardID:      "sift_lateral",
+		ContractRef: &contractRef,
+		Status:      "active",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectCardInstance: %v", err)
+	}
+
+	// blog = the source under review (checked); nasa = the independent source
+	// she went and found to check it against (the instrument, lateral).
+	blog, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgUUID(project.ID),
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "某博客：中国碳中和进展神速",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial(blog): %v", err)
+	}
+	nasaID, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgUUID(project.ID),
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "NASA Earth Observatory: China emissions",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial(nasa): %v", err)
+	}
+
+	blogIngestTier := "一手报道"
+	if _, err := q.CreateSourceLogEntry(ctx, sqlc.CreateSourceLogEntryParams{
+		ProjectID:  project.ID,
+		MaterialID: pgUUID(blog.ID),
+		Url:        "https://example-blog.test/china-carbon",
+		Title:      blog.Title,
+		Takeaway:   "中国碳排放正在快速下降",
+		Tier:       &blogIngestTier,
+	}); err != nil {
+		t.Fatalf("CreateSourceLogEntry(blog): %v", err)
+	}
+	nasaIngestTier := "一手数据"
+	if _, err := q.CreateSourceLogEntry(ctx, sqlc.CreateSourceLogEntryParams{
+		ProjectID:  project.ID,
+		MaterialID: pgUUID(nasaID.ID),
+		Url:        "https://earthobservatory.nasa.gov/china",
+		Title:      nasaID.Title,
+		Takeaway:   "NASA 卫星数据显示排放仍在上升",
+		Tier:       &nasaIngestTier,
+	}); err != nil {
+		t.Fatalf("CreateSourceLogEntry(nasa): %v", err)
+	}
+
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	err = store.CommitCardMint(ctx, project.ID, cardInstance.ID, agent.CardMint{
+		Nodes:       []agent.MintNode{{Type: "cross_check", Author: "student", Body: map[string]any{"relation": "限定"}}},
+		Edges:       []agent.MintEdge{{Type: "cross-checked-by", FromKind: "material", FromID: blog.ID.String(), ToKind: "graph_node", ToID: "$new:0"}},
+		Framework:   []byte(`{"strategy":"reveal_framework_after_completion"}`),
+		LateralRead: &agent.LateralRead{MaterialID: blog.ID, TierAfter: "二手 · 需追源"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blogLog := getSourceLog(t, ctx, pool, blog.ID)
+	if !blogLog.LateralRead {
+		t.Fatal("the CHECKED source must be marked laterally read")
+	}
+	if blogLog.Tier != "二手 · 需追源" {
+		t.Fatalf("tier = %q, want the re-tier she landed on after checking", blogLog.Tier)
+	}
+
+	nasaLog := getSourceLog(t, ctx, pool, nasaID.ID)
+	if nasaLog.LateralRead {
+		t.Fatal("the LATERAL source is the instrument, not the subject — its own entry must be untouched")
+	}
+}
+
+// sourceLogSnapshot is a test-only flattening of sqlc.SourceLogEntry's
+// nullable Tier (*string) to a plain string, since every caller here only
+// ever compares it against a string literal.
+type sourceLogSnapshot struct {
+	LateralRead bool
+	Tier        string
+}
+
+// getSourceLog reads one source_log_entry row by material id for assertions.
+func getSourceLog(t *testing.T, ctx context.Context, pool *pgxpool.Pool, materialID uuid.UUID) sourceLogSnapshot {
+	t.Helper()
+	q := sqlc.New(pool)
+	row, err := q.GetSourceLogByMaterial(ctx, pgUUID(materialID))
+	if err != nil {
+		t.Fatalf("GetSourceLogByMaterial: %v", err)
+	}
+	tier := ""
+	if row.Tier != nil {
+		tier = *row.Tier
+	}
+	return sourceLogSnapshot{LateralRead: row.LateralRead, Tier: tier}
+}

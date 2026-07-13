@@ -234,6 +234,23 @@ func (s *sqlcAgentStore) GetCardInstance(ctx context.Context, id uuid.UUID) (Car
 	return toCardInstanceRow(row), nil
 }
 
+// GetSourceLogByMaterial reads one source_log_entry's ingestion-time tier —
+// what CompleteCard reads as tier_before, BEFORE a cross_check's mint
+// overwrites it with her post-check re-tier (Task 7). tier is nullable in
+// storage (*string); a NULL collapses to "" here, same as an entry with no
+// tier ever recorded.
+func (s *sqlcAgentStore) GetSourceLogByMaterial(ctx context.Context, materialID uuid.UUID) (SourceLogRow, error) {
+	row, err := s.q.GetSourceLogByMaterial(ctx, pgtype.UUID{Bytes: materialID, Valid: true})
+	if err != nil {
+		return SourceLogRow{}, err
+	}
+	tier := ""
+	if row.Tier != nil {
+		tier = *row.Tier
+	}
+	return SourceLogRow{Tier: tier}, nil
+}
+
 // SetCardInstanceFramework writes the consolidation payload (R-9: revealed
 // only after completion) to framework_fill.
 func (s *sqlcAgentStore) SetCardInstanceFramework(ctx context.Context, projectID, id uuid.UUID, framework []byte) error {
@@ -358,16 +375,28 @@ func insertGraphEdgeQ(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID,
 	return err
 }
 
+// LateralRead is the source-log side of a cross_check: the CHECKED source is
+// marked laterally read and re-tiered to the pyramid level she landed on after
+// checking. Written inside CommitCardMint's transaction, so the graph node
+// (which the gate reads) and the log row (which the dossier chip and the
+// ledger read) cannot disagree.
+type LateralRead struct {
+	MaterialID uuid.UUID
+	TierAfter  string
+}
+
 // CardMint is everything a completed card produces (CompleteCard,
 // card_lifecycle.go): the nodes/edges GraphEffects minted, plus the
 // consolidation payload that also serves as the idempotency guard
 // (isFrameworkSet). MintEdge endpoints may still carry "$new:<i>"
 // placeholders into Nodes — CommitCardMint resolves them after inserting
-// each node, exactly as CompleteCard used to.
+// each node, exactly as CompleteCard used to. LateralRead is nil for every
+// card except a cross_check (only SIFT's lateral-read card sets it).
 type CardMint struct {
-	Nodes     []MintNode
-	Edges     []MintEdge
-	Framework []byte
+	Nodes       []MintNode
+	Edges       []MintEdge
+	Framework   []byte
+	LateralRead *LateralRead
 }
 
 // CommitCardMint writes everything in m — the minted nodes, their edges
@@ -414,6 +443,15 @@ func (s *sqlcAgentStore) CommitCardMint(ctx context.Context, projectID, cardInst
 		}
 		e.FromID, e.ToID = fromID.String(), toID.String()
 		if err := insertGraphEdgeQ(ctx, qtx, projectID, e); err != nil {
+			return err
+		}
+	}
+	if m.LateralRead != nil {
+		if err := qtx.MarkSourceLateralRead(ctx, sqlc.MarkSourceLateralReadParams{
+			ProjectID:  projectID,
+			MaterialID: pgtype.UUID{Bytes: m.LateralRead.MaterialID, Valid: true},
+			TierAfter:  m.LateralRead.TierAfter,
+		}); err != nil {
 			return err
 		}
 	}
