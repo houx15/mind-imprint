@@ -11,7 +11,7 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-func TestCardAndEvalLifecycle(t *testing.T) {
+func TestCardLifecycle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
 	}
@@ -60,31 +60,5 @@ func TestCardAndEvalLifecycle(t *testing.T) {
 	// Wrong-task scoping returns no rows.
 	if _, err := q.SetCardActive(ctx, sqlc.SetCardActiveParams{ID: c1.ID, TaskID: uuid.New()}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("want ErrNoRows for wrong task, got %v", err)
-	}
-
-	pt, ctk := int32(10), int32(20)
-	ev, err := q.CreateEvaluation(ctx, sqlc.CreateEvaluationParams{
-		TaskID:           task.ID,
-		Scores:           []byte(`[{"dim_id":"D1","level":"L3","note":"n"}]`),
-		Narrative:        "你的思维印记",
-		Model:            "deepseek-reasoner",
-		Tier:             "flagship",
-		PromptTokens:     &pt,
-		CompletionTokens: &ctk,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ev.Status != "done" {
-		t.Fatalf("want done, got %s", ev.Status)
-	}
-
-	got, err := q.GetLatestEvaluation(ctx, task.ID)
-	if err != nil || got.ID != ev.ID {
-		t.Fatalf("latest mismatch: %v %v", got.ID, err)
-	}
-
-	if err := q.MarkTaskEvaluated(ctx, task.ID); err != nil {
-		t.Fatal(err)
 	}
 }

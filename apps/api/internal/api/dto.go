@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/store/sqlc"
 )
 
 // numericString converts a pgtype.Numeric cost value to a string representation.
@@ -36,34 +35,6 @@ func decodeJSON(r *http.Request, v any) error {
 		return httpx.ErrBadRequest("validation_failed", "请求体格式错误", nil)
 	}
 	return nil
-}
-
-type evaluationDTO struct {
-	ID          string          `json:"id"`
-	TaskID      string          `json:"task_id"`
-	Scores      json.RawMessage `json:"scores"`
-	Narrative   string          `json:"narrative"`
-	Model       string          `json:"model"`
-	Status      string          `json:"status"`
-	CreatedAt   string          `json:"created_at"`
-	CompletedAt *string         `json:"completed_at"`
-}
-
-func toEvaluationDTO(e sqlc.Evaluation) evaluationDTO {
-	d := evaluationDTO{
-		ID:        e.ID.String(),
-		TaskID:    e.TaskID.String(),
-		Scores:    json.RawMessage(e.Scores),
-		Narrative: e.Narrative,
-		Model:     e.Model,
-		Status:    e.Status,
-		CreatedAt: e.CreatedAt.Format(tsLayout),
-	}
-	if e.CompletedAt.Valid {
-		s := e.CompletedAt.Time.Format(tsLayout)
-		d.CompletedAt = &s
-	}
-	return d
 }
 
 type meSchoolDTO struct {

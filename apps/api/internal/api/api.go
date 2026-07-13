@@ -1,32 +1,23 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
-	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
-
-// Enqueuer hands an evaluation job off to the async queue. The river client is
-// the production implementation; tests inject a fake.
-type Enqueuer interface {
-	EnqueueEvaluate(ctx context.Context, args agent.EvaluateArgs) error
-}
 
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
 	Queries      *sqlc.Queries
 	Provider     gateway.Provider    // the MuxProvider
 	ChatResolver gateway.KeyResolver // chaperone (turn)
-	EvalResolver gateway.KeyResolver // flagship (evaluate)
+	EvalResolver gateway.KeyResolver // flagship (course step render)
 	Catalog      []cards.Spec
 	SpecByID     func(id string) (cards.Spec, bool)
 	Pool         TxBeginner   // for multi-statement transactions (signup)
 	CookieSecure bool         // Secure flag on the session cookie
-	Enqueuer     Enqueuer     // enqueues async evaluation jobs
 	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
 	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
 }
@@ -59,8 +50,6 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/activate", protected(a.activateProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/skip", protected(a.skipProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/submit", protected(a.submitProjectCard))
-	mux.Handle("POST /api/v1/tasks/{id}/evaluate", protected(a.postEvaluate))
-	mux.Handle("GET /api/v1/tasks/{id}/evaluation", protected(a.getEvaluation))
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{id}", protected(a.getCourse))
 	mux.Handle("GET /api/v1/courses/{id}/progress", protected(a.getCourseProgress))

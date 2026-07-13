@@ -50,8 +50,7 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 
 // loadOwnedProject parses {id} and confirms the request user owns it. On any
 // failure it writes a 404 envelope and returns ok=false — ownership is hidden
-// as not-found, never 403, so project existence doesn't leak (mirrors
-// loadOwnedTask in tasks.go).
+// as not-found, never 403, so project existence doesn't leak.
 func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))

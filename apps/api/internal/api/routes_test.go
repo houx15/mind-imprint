@@ -27,6 +27,8 @@ func TestOldTaskRoutesAreGone(t *testing.T) {
 		{"POST", "/api/v1/tasks/00000000-0000-0000-0000-000000000001/turn"},
 		{"PUT", "/api/v1/tasks/00000000-0000-0000-0000-000000000001/cards/c1"},
 		{"GET", "/api/v1/tasks/00000000-0000-0000-0000-000000000001/materials"},
+		{"POST", "/api/v1/tasks/00000000-0000-0000-0000-000000000001/evaluate"},
+		{"GET", "/api/v1/tasks/00000000-0000-0000-0000-000000000001/evaluation"},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, nil)
 		rec := httptest.NewRecorder()
