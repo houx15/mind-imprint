@@ -98,18 +98,18 @@ const nasaSummary: MaterialSource = {
 const SOURCES: MaterialSource[] = [blogArticle, nasaSummary];
 
 describe("SourceDossier", () => {
-  it("lists sources with locked count and opens one, emitting source_opened", () => {
-    const onEvent = vi.fn();
-    render(<SourceDossier sources={SOURCES} onEvent={onEvent} />);
+  it("lists sources with locked count and opens one into the detail view", () => {
+    render(<SourceDossier sources={SOURCES} />);
 
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
     expect(screen.getByText(/已收集 2 篇/)).toBeInTheDocument();
     expect(screen.getByText(/已锁定 1\/2/)).toBeInTheDocument();
 
+    // source_opened is the server's canonical event, written by POST /open
+    // (see the coach-container onOpenLogged wiring) — SourceDossier itself
+    // emits nothing; there is no `onEvent` prop to wire up here.
     openSourceByTitle(blogArticle.title);
-    expect(onEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "source_opened", surface: "studio", url: blogArticle.id, time_spent_s: 0 }),
-    );
+    expect(screen.getByText("返回信源列表")).toBeInTheDocument();
   });
 
   it("in an article source, clicking a span reveals its question; back returns to the list", () => {

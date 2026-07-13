@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Anchor, AnnotateState, MaterialSource, StudioEvent } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, MaterialSource } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
 import { AddSourceForm } from "./AddSourceForm";
 import { SourceLog } from "./SourceLog";
@@ -7,7 +7,6 @@ import type { AddMaterialBody } from "../../api/materials";
 
 export type SourceDossierProps = {
   sources: MaterialSource[];
-  onEvent?: (e: StudioEvent) => void;
   anchors?: Anchor[];
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
@@ -51,7 +50,7 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, onEvent, anchors, onOpenLogged, onAddSource, addSourceError }: SourceDossierProps) {
+export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
@@ -105,7 +104,6 @@ export function SourceDossier({ sources, onEvent, anchors, onOpenLogged, onAddSo
     setOpenId(source.id);
     setActiveSpanId(null);
     openedAtRef.current = { id: source.id, openedAt: Date.now() };
-    onEvent?.({ type: "source_opened", surface: "studio", url: source.id, time_spent_s: 0 });
   };
 
   const backToList = () => {

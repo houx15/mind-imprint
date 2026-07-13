@@ -9,7 +9,7 @@ describe("DevApp", () => {
     expect(screen.getByRole("button", { name: "卡片" })).toBeInTheDocument();
   });
 
-  it("switches to the material panel and logs source_opened on open", async () => {
+  it("switches to the material panel and opens a source into the detail view", async () => {
     render(<DevApp />);
     await userEvent.click(screen.getByRole("button", { name: "素材" }));
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
@@ -18,8 +18,11 @@ describe("DevApp", () => {
     // re-renders this title in the ledger below the list — click inside the
     // source-list card specifically, not by a page-wide text match.
     await userEvent.click(within(screen.getByTestId("dossier-source-list")).getByText("《卫星图看中国变绿》"));
-    const log = screen.getByTestId("material-event-log");
-    expect(log).toHaveTextContent("source_opened");
-    expect(log).toHaveTextContent("src-blog-china-greening");
+    expect(screen.getByText("返回信源列表")).toBeInTheDocument();
+
+    // source_opened is the server's canonical event (written by POST
+    // /open) — the dev harness never had a real event producer wired to
+    // SourceDossier, so it must not render a fake event log.
+    expect(screen.queryByTestId("material-event-log")).not.toBeInTheDocument();
   });
 });
