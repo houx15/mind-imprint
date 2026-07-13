@@ -1,7 +1,8 @@
-// LEFT RAIL — four pillars per binding design 思维印记 工作区.dc.html (left-rail section).
-// Tabs: 课程 (courses) / 批判思维 (tasks portal) / 我的评估 (records) / 设置 (settings).
+// LEFT RAIL — four pillars per binding design 思维印记_工作区.dc.html (left-rail section).
+// Tabs: 课程 (courses) / 工作室 (studio) / 成长报告 (growth) / 设置 (settings).
+// 聊天 is in the design's rail; its surface is Slice 11.
 
-type TabKey = "courses" | "tasks" | "records" | "settings";
+type TabKey = "courses" | "studio" | "growth" | "settings";
 
 interface NavItem {
   key: TabKey;
@@ -22,8 +23,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    key: "tasks",
-    label: "批判思维",
+    key: "studio",
+    label: "工作室",
     icon: (stroke) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z" />
@@ -31,8 +32,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    key: "records",
-    label: "我的评估",
+    key: "growth",
+    label: "成长报告",
     icon: (stroke) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20V10M6 20v-5M18 20V6" />
