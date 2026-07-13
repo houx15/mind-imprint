@@ -81,19 +81,24 @@ export function SourceDossier({ sources, onEvent, anchors, onOpenLogged, onAddSo
 
   // MaterialSource carries its own persisted anchors (CRAAP-mint / source-log)
   // directly on `anchors` — there is no separate `annotate` field anymore.
-  // `anchors` (the prop) is this session's live card anchors; both project
-  // onto the same AnnotateSpan shape via anchorToSpan.
-  const baseSpans = openSource
-    ? openSource.anchors.map(anchorToSpan).filter((s): s is AnnotateSpan => s !== null)
+  // `anchors` (the prop) is this session's live card anchors. This is the
+  // single merge point for the two: live anchors carry the student's
+  // in-progress answer and must win on an id collision, so they're placed
+  // first — `segmentBlock`'s cursor and `Annotate`'s span lookup both take
+  // the first match at a given id/position. Persisted anchors with no live
+  // counterpart still render (so a completed card's highlights survive a
+  // reload). The `material_id` filter applies only to the live side —
+  // `openSource.anchors` is already scoped to this material.
+  const liveForSource = openSource
+    ? (anchors ?? []).filter((a) => a.material_id === openSource.id)
     : [];
-  const liveSpans = openSource
-    ? (anchors ?? [])
-        .filter((a) => a.material_id === openSource.id)
-        .map(anchorToSpan)
-        .filter((s): s is AnnotateSpan => s !== null)
-    : [];
+  const liveIds = new Set(liveForSource.map((a) => a.id));
+  const persistedForSource = openSource ? openSource.anchors.filter((a) => !liveIds.has(a.id)) : [];
+  const mergedSpans = [...liveForSource, ...persistedForSource]
+    .map(anchorToSpan)
+    .filter((s): s is AnnotateSpan => s !== null);
   const annotateState: AnnotateState | null = openSource
-    ? { material_id: openSource.id, spans: [...baseSpans, ...liveSpans] }
+    ? { material_id: openSource.id, spans: mergedSpans }
     : null;
 
   const openSourceView = (source: MaterialSource) => {

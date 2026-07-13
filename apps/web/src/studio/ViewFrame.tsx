@@ -1,4 +1,3 @@
-import type { Anchor } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
@@ -19,17 +18,6 @@ export type ViewFrameProps = {
     addError?: string;
   };
 };
-
-// The live card's anchors carry the student's in-progress answers, so they
-// win over the projection's persisted anchors for the same anchor id.
-// `SourceDossier`'s `anchorToSpan` already filters per open source by
-// `material_id` — this only dedupes, it must not filter by material itself.
-function mergeAnchors(card: LiveCard | null | undefined, materials: StudioState["views"]["material"]): Anchor[] {
-  const live = card?.anchors ?? [];
-  const persisted = materials.flatMap((m) => m.anchors);
-  const seen = new Set(live.map((a) => a.id));
-  return [...live, ...persisted.filter((a) => !seen.has(a.id))];
-}
 
 const FRAME: React.CSSProperties = {
   flex: 1,
@@ -96,7 +84,7 @@ export function ViewFrame({ state, card, material }: ViewFrameProps) {
       {effectiveView === "素材" && (
         <SourceDossier
           sources={state.views.material}
-          anchors={mergeAnchors(card, state.views.material)}
+          anchors={card?.anchors ?? []}
           onAddSource={material?.onAdd}
           addSourceError={material?.addError}
           onOpenLogged={material?.onOpenLogged}

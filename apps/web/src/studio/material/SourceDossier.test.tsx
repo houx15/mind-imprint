@@ -153,6 +153,44 @@ describe("SourceDossier", () => {
     expect(screen.getByText(liveAnchor.question)).toBeInTheDocument();
   });
 
+  it("live wins over a stale persisted anchor with the same id, but a persisted anchor with no live counterpart still renders", () => {
+    // The same anchor id can arrive from two places: the server projection's
+    // persisted `MaterialSource.anchors` (stale — pre-answer) and the
+    // currently-open card's live `anchors` prop (fresh — the student's actual
+    // in-progress answer). Live must win on the collision; a persisted
+    // anchor with no live counterpart (purposeAnchor) must still render so a
+    // completed card's highlights survive a reload.
+    const stalePersisted: Anchor = {
+      ...authorityAnchor,
+      answer: "",
+      question: "「根据 NASA 卫星数据」——这条往上追，原始出处是谁？",
+    };
+    const freshLive: Anchor = {
+      ...authorityAnchor,
+      author: "student",
+      answer: "这篇公众号自己转述的，原文没有链接到 NASA 或论文本身。",
+    };
+    const sourceWithStaleAnchor: MaterialSource = {
+      ...blogArticle,
+      anchors: [stalePersisted, purposeAnchor],
+    };
+
+    render(<SourceDossier sources={[sourceWithStaleAnchor, nasaSummary]} anchors={[freshLive]} />);
+    openSourceByTitle(blogArticle.title);
+
+    // Live wins: clicking the collided span surfaces the student's fresh
+    // answer, not the stale persisted question.
+    fireEvent.click(screen.getByText("根据 NASA 卫星数据"));
+    expect(screen.getByText(freshLive.answer)).toBeInTheDocument();
+    expect(screen.queryByText(stalePersisted.question)).not.toBeInTheDocument();
+
+    // A persisted anchor with no live counterpart (purposeAnchor) still
+    // renders — completed-card highlights survive a reload. purposeAnchor's
+    // range (0..63) spans the entirety of block b3's text.
+    fireEvent.click(screen.getByText(blogArticle.blocks[2]!.text));
+    expect(screen.getByText(purposeAnchor.question)).toBeInTheDocument();
+  });
+
   it("skips a live anchor with no block_ref and no range (nowhere to highlight)", () => {
     const riskNoteAnchor: Anchor = {
       id: "risk_note",
