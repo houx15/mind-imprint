@@ -263,3 +263,38 @@ func TestProjectDerivesMaterialState(t *testing.T) {
 		t.Errorf("untouched material carries state it never earned: %+v", b)
 	}
 }
+
+// TestProjectExcludesAnchorsFromSkippedCards — a card the student explicitly
+// declined (status "skipped") must not keep re-asking its question: its
+// anchors must not light up the article body on reload. Only "skipped" is
+// excluded here — "active"/"completed" cards still surface their anchors
+// (TestProjectDerivesMaterialState covers "completed"; an in-progress
+// "active" card's anchors are exactly what the student is being asked
+// about right now).
+func TestProjectExcludesAnchorsFromSkippedCards(t *testing.T) {
+	mat := uuid.MustParse("00000000-0000-0000-0000-0000000000dd")
+
+	sk := writingSkill(t)
+	d := ProjectData{
+		Plan: planNode(`["decode_task"]`),
+		Materials: []sqlc.Material{
+			{ID: mat, Title: "《卫星图看中国变绿》", Kind: "article", Source: "fetched",
+				Blocks: []byte(`[{"id":"b1","text":"过去二十年……"}]`)},
+		},
+		Cards: []sqlc.CardInstance{
+			{CardID: "craap", Status: "skipped",
+				Anchors: []byte(`[{"id":"a1","material_id":"` + mat.String() + `","block_id":"b1","start":0,"end":4,"quote":"过去二十年","dimension":"authority","author":"ai","question":"原始出处是谁？","answer":""}]`)},
+		},
+	}
+
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proj.Materials) != 1 {
+		t.Fatalf("materials = %d, want 1", len(proj.Materials))
+	}
+	if len(proj.Materials[0].Anchors) != 0 {
+		t.Errorf("Anchors = %d, want 0 — a skipped card's anchors must not persist onto the article", len(proj.Materials[0].Anchors))
+	}
+}

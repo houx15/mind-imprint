@@ -308,6 +308,12 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 	// Anchors carry their own material_id — card_instances has no such column.
 	anchorsByMaterial := map[string][]json.RawMessage{}
 	for _, c := range d.Cards {
+		// A card the student explicitly skipped must not keep re-asking its
+		// question: exclude its anchors from lighting up the article on
+		// every reload. "active"/"completed" cards still surface theirs.
+		if c.Status == "skipped" {
+			continue
+		}
 		var raw []json.RawMessage
 		if err := json.Unmarshal(c.Anchors, &raw); err != nil {
 			continue
