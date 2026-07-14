@@ -284,6 +284,21 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
             作用与风险：{openSource.role || "尚未写「作用与风险」"}
           </div>
 
+          {/* Whole-branch review: her own横向核查 relation + revised judgment
+              (agent/card_effects.go crossCheckBody) had a producer since
+              Slice 6c but no reader anywhere — the third "written but never
+              read" field this project has shipped. Rendered ONLY when she
+              actually has a cross_check (never a placeholder verdict — RL-2's
+              rule holds here too, just for a different field), her own
+              relation choice and her own sentence, unchanged. */}
+          {(openSource.lateralRelation || openSource.lateralJudgment) && (
+            <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 8 }}>
+              横向核查后的判断
+              {openSource.lateralRelation && `（关系：${openSource.lateralRelation}）`}
+              ：{openSource.lateralJudgment}
+            </div>
+          )}
+
           {openSource.takeaway.trim().length > 0 && (
             <div
               style={{

@@ -1,4 +1,4 @@
-import type { Anchor, CardSpec, TraceEvent } from "@mind-imprint/contracts";
+import type { Anchor, ActiveCard, CardSpec, TraceEvent } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { CoachMessage } from "./state";
 import { studioTurn as defaultStudioTurn, postDisposition as defaultPostDisposition, type StudioTurnEvent } from "../api/studioTurn";
@@ -8,7 +8,26 @@ import {
   skipProjectCard as defaultSkipProjectCard,
 } from "../api/projectCards";
 
-type CardState = { cardInstanceId: string; cardId: string; spec: CardSpec; status: "proposed" | "active"; anchors: Anchor[]; materialId?: string } | null;
+export type CardState = { cardInstanceId: string; cardId: string; spec: CardSpec; status: "proposed" | "active"; anchors: Anchor[]; materialId?: string } | null;
+
+// activeCardToState maps the server-projected StudioProjection.activeCard
+// into the same local CardState shape a "card" SSE event produces (the spec
+// is resolved from CARD_REGISTRY either way, never sent over the wire twice).
+// null when there is no open card, or its cardId names a card this build
+// doesn't recognize (defensive — never crash the rehydration path).
+export function activeCardToState(ac: ActiveCard | null): CardState {
+  if (!ac) return null;
+  const spec = CARD_REGISTRY[ac.cardId];
+  if (!spec) return null;
+  return {
+    cardInstanceId: ac.cardInstanceId,
+    cardId: ac.cardId,
+    spec,
+    status: ac.status,
+    anchors: ac.anchors,
+    materialId: ac.materialId || undefined,
+  };
+}
 
 type Snapshot = {
   messages: CoachMessage[];
@@ -20,6 +39,12 @@ type Snapshot = {
 
 type Deps = {
   projectId: string;
+  // The card the server projected as already proposed/active (StudioProjection
+  // .activeCard) — seeds the conversation's local card state so a page reload
+  // rehydrates the open card instead of losing the client's only reference to
+  // it (whole-branch review CRITICAL: FIX-D's suppression would otherwise
+  // block every future card from surfacing, forever, once that happens).
+  initialCard?: CardState;
   api?: {
     studioTurn: typeof defaultStudioTurn;
     postDisposition: typeof defaultPostDisposition;
@@ -29,24 +54,39 @@ type Deps = {
   };
 };
 
-export function createStudioConversation({ projectId, api }: Deps) {
+export function createStudioConversation({ projectId, api, initialCard }: Deps) {
   const turn = api?.studioTurn ?? defaultStudioTurn;
   const dispose = api?.postDisposition ?? defaultPostDisposition;
   const activateCard = api?.activateProjectCard ?? defaultActivateProjectCard;
   const submitCardTurn = api?.submitProjectCard ?? defaultSubmitProjectCard;
   const skipCardApi = api?.skipProjectCard ?? defaultSkipProjectCard;
-  let state: Snapshot = { messages: [], sending: false, error: null, disposableInterventionId: null, card: null };
+  let state: Snapshot = { messages: [], sending: false, error: null, disposableInterventionId: null, card: initialCard ?? null };
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((l) => l());
   const set = (p: Partial<Snapshot>) => { state = { ...state, ...p }; emit(); };
 
-  function applyEvent(e: StudioTurnEvent) {
+  // allowSurfaceOverActive: false (the default, used by an ordinary send()
+  // turn) refuses to let an incoming "card" frame overwrite a DIFFERENT card
+  // that is currently "active" (open, being filled) — whole-branch review
+  // CRITICAL 1's defense in depth. FIX-D already suppresses a competing
+  // surface_card server-side while any card_instance is proposed/active, but
+  // this function must not itself be the kind of thing that discards a
+  // student's open, half-filled card just because a frame arrived. submitCard
+  // passes true: its own post-submit refeed legitimately introduces the NEXT
+  // card in the same round trip, arriving BEFORE this function has even seen
+  // the "done" event that will retire the just-submitted one — at that
+  // instant local state.card is still the old id/status, so the naive check
+  // would otherwise misfire on a completely legitimate transition.
+  function applyEvent(e: StudioTurnEvent, opts?: { allowSurfaceOverActive?: boolean }) {
     if (e.type === "intervention") {
       set({
         messages: [...state.messages, { kind: "ai", body: e.body, tag: e.criterion || undefined, anchor: e.anchor || undefined }],
         disposableInterventionId: e.interventionId,
       });
     } else if (e.type === "card") {
+      if (!opts?.allowSurfaceOverActive && state.card?.status === "active" && state.card.cardInstanceId !== e.cardInstanceId) {
+        return;
+      }
       const spec = CARD_REGISTRY[e.cardId];
       if (spec) set({ card: { cardInstanceId: e.cardInstanceId, cardId: e.cardId, spec, status: "proposed", anchors: e.anchors, materialId: e.materialId } });
     } else if (e.type === "error") {
@@ -88,7 +128,7 @@ export function createStudioConversation({ projectId, api }: Deps) {
     set({ sending: true, error: null });
     try {
       for await (const e of submitCardTurn(projectId, cardInstanceId, finalEnvelope) as AsyncGenerator<StudioTurnEvent>) {
-        applyEvent(e);
+        applyEvent(e, { allowSurfaceOverActive: true });
         if (e.type === "done") {
           if (state.card?.cardInstanceId === submittedId) {
             set({ card: null });

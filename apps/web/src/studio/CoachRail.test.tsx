@@ -199,6 +199,7 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
           blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
+          lateralRelation: "", lateralJudgment: "",
         }]}
       />,
     );
@@ -207,9 +208,15 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
   });
 
-  it("wires the SIFT card's 添加信源 affordance to onSelectStation('S3') — the existing dossier entry point, not a dead button", () => {
+  // Whole-branch review: the SIFT card's own "添加信源" affordance used to be
+  // wired here to onSelectStation("S3") — a no-op (a compare card only ever
+  // surfaces while already on S3) that also never rendered on the seeded
+  // project (it only showed when lateralCandidates.length === 0). Deleted
+  // rather than rewired — StudioCompareCard now shows only honest
+  // informational text with no dead button; CoachRail carries no
+  // onSelectStation prop for it at all.
+  it("shows no 添加信源 button on the SIFT card when no independent source exists yet — the center pane's own flow covers it", () => {
     const spec = CARD_REGISTRY["sift"]!;
-    const onSelectStation = vi.fn();
     render(
       <CoachRail
         {...baseProps()}
@@ -217,12 +224,12 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
           blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
+          lateralRelation: "", lateralJudgment: "",
         }]}
-        onSelectStation={onSelectStation}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "添加信源" }));
-    expect(onSelectStation).toHaveBeenCalledWith("S3");
+    expect(screen.getByText(/还没有独立来源/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加信源" })).not.toBeInTheDocument();
   });
 });
 

@@ -181,7 +181,6 @@ export function StudioShell({
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
           materials={state.views.material}
-          onSelectStation={callbacks.onSelectStation}
           lateralMaterialId={lateralMaterialId}
           onLateralMaterialChange={onLateralMaterialChange}
         />

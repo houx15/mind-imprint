@@ -124,6 +124,37 @@ describe("StudioContainer", () => {
     await waitFor(() => expect(screen.getAllByText(/CRAAP|来源|核查/).length).toBeGreaterThan(0));
   });
 
+  // CRITICAL (whole-branch review): before FIX-D, losing the client's only
+  // reference to an open card was merely a lost card. Now that FIX-D
+  // suppresses EVERY surface_card candidate project-wide while any
+  // card_instance is proposed/active, a page reload that fails to rehydrate
+  // the open card would brick the workspace forever — no card would ever be
+  // able to surface again. This test mounts StudioContainer FRESH (the real
+  // createStudioConversation, no SSE snapshot at all) against a projection
+  // whose server-side `activeCard` is already "active", and proves the card
+  // is actually RENDERED in the coach rail from that alone.
+  it("rehydrates an active card from the projection on a fresh mount — no SSE snapshot at all (CRITICAL)", async () => {
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => ({
+        ...projection,
+        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+        activeStation: "S3",
+        materials: [],
+        activeCard: { cardInstanceId: "ci1", cardId: "craap", status: "active", anchors: [], materialId: "" },
+      }),
+    };
+    // The REAL conversation controller (no makeConversation override) — this
+    // is the actual production wiring, not a stub standing in for it.
+    render(<StudioContainer api={api as never} />);
+    // "工具卡 · CRAAP" alone would be a vacuous assertion — CraapPlaceholder
+    // (the NO-card fallback for this same view) carries the identical label.
+    // "锁定，进下一条" is StudioAnnotateCard's own submit control, rendered
+    // only for an actually-open active card — proof this is the real card,
+    // not the placeholder.
+    await screen.findByText("锁定，进下一条");
+  });
+
   it("shows an honest empty state when the student has no projects", async () => {
     const api = { listProjects: vi.fn(async () => []), getProject: vi.fn() };
     render(<StudioContainer api={api as any} />);

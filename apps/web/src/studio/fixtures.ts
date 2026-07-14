@@ -44,6 +44,8 @@ export const MATERIAL_FIXTURE: MaterialSource[] = [
     timeSpentS: 240,
     lateralRead: false,
     isLateralInstrument: false,
+    lateralRelation: "",
+    lateralJudgment: "",
     anchors: [
       {
         id: "span-blog-authority",
@@ -91,6 +93,8 @@ export const MATERIAL_FIXTURE: MaterialSource[] = [
     timeSpentS: 610,
     lateralRead: false,
     isLateralInstrument: false,
+    lateralRelation: "",
+    lateralJudgment: "",
     anchors: [],
   },
 ];

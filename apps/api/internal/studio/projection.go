@@ -202,6 +202,22 @@ func cardMeth(cardID string) string {
 	}
 }
 
+// materialByCardInstance maps card_instance id -> the material it evaluates,
+// read off the card_instance--evaluates-->material graph edge SurfaceCard
+// mints (agent/card_lifecycle.go). Shared by projectEquipment and
+// projectActiveCard so both derive "which material is this card about" from
+// the exact same edge scan — never guessed independently (whole-branch
+// review finding [5]).
+func materialByCardInstance(d ProjectData) map[string]string {
+	materialOf := map[string]string{}
+	for _, e := range d.Edges {
+		if e.Type == "evaluates" && e.FromKind == "card_instance" && e.ToKind == "material" {
+			materialOf[e.FromID.String()] = e.ToID.String()
+		}
+	}
+	return materialOf
+}
+
 // projectEquipment maps card_instances to the 装备栏 chips. spont = 提示后 when an
 // intervention references the instance (agent-surfaced), else 自发. materialId
 // comes from the card_instance--evaluates-->material edge SurfaceCard mints
@@ -215,12 +231,7 @@ func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) [
 			nudged[uuidFromPg(iv.CardInstanceID)] = true
 		}
 	}
-	materialOf := map[string]string{}
-	for _, e := range d.Edges {
-		if e.Type == "evaluates" && e.FromKind == "card_instance" && e.ToKind == "material" {
-			materialOf[e.FromID.String()] = e.ToID.String()
-		}
-	}
+	materialOf := materialByCardInstance(d)
 	out := make([]EquipCardDTO, 0, len(d.Cards))
 	for _, ci := range d.Cards {
 		name := ci.CardID
@@ -289,7 +300,34 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Coach:         coach,
 		Onboarding:    projectOnboarding(d),
 		Materials:     projectMaterials(d),
+		ActiveCard:    projectActiveCard(d, materialByCardInstance(d)),
 	}, nil
+}
+
+// projectActiveCard projects the one project-wide card_instance that is
+// "proposed" or "active" (agent.SurfaceCardCandidates' own invariant —
+// classifier.go — guarantees at most one exists at a time; this defensively
+// takes the first match rather than assuming exactly one). nil when none is
+// open — a page reload must be able to rehydrate this, or the client loses
+// its only reference to the open card while the row stays open server-side,
+// and FIX-D's suppression then blocks every future card from surfacing ever
+// again (whole-branch review finding, CRITICAL).
+func projectActiveCard(d ProjectData, materialOf map[string]string) *ActiveCardDTO {
+	for _, c := range d.Cards {
+		if c.Status != "proposed" && c.Status != "active" {
+			continue
+		}
+		anchors := []json.RawMessage{}
+		_ = json.Unmarshal(c.Anchors, &anchors)
+		return &ActiveCardDTO{
+			CardInstanceID: c.ID.String(),
+			CardID:         c.CardID,
+			Status:         c.Status,
+			Anchors:        anchors,
+			MaterialID:     materialOf[c.ID.String()],
+		}
+	}
+	return nil
 }
 
 // projectMaterials derives each source's dossier state. Nothing here invents a
@@ -340,6 +378,20 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 	for _, e := range d.Edges {
 		if e.Type == "cites" && e.FromKind == "graph_node" && e.ToKind == "material" && crossCheckNode[e.FromID.String()] {
 			lateralInstrument[e.ToID.String()] = true
+		}
+	}
+	// material id → the cross_check node reached by ITS OWN "cross-checked-by"
+	// edge (the material she actually checked, never the lateral instrument
+	// it cites) — read here so lateralNote() can pull her own relation/
+	// revised_judgment words back out (whole-branch review: "written but
+	// never read").
+	crossCheckOf := map[string]sqlc.GraphNode{}
+	for _, e := range d.Edges {
+		if e.Type != "cross-checked-by" || e.FromKind != "material" {
+			continue
+		}
+		if n, ok := nodesByID[e.ToID.String()]; ok {
+			crossCheckOf[e.FromID.String()] = n
 		}
 	}
 	// Anchors carry their own material_id — card_instances has no such column.
@@ -393,9 +445,28 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 			dto.Anchors = as
 		}
 		dto.IsLateralInstrument = lateralInstrument[id]
+		if n, ok := crossCheckOf[id]; ok {
+			dto.LateralRelation, dto.LateralJudgment = lateralNote(n.Body)
+		}
 		out = append(out, dto)
 	}
 	return out
+}
+
+// lateralNote reads body.relation/body.revised_judgment off a minted
+// cross_check node (agent/card_effects.go's crossCheckBody) — her own chosen
+// relation (印证/反驳/限定) and her own revised-judgment sentence, exactly as
+// written. Empty strings when either was never answered (fields on
+// crossCheckBody are only set when non-blank) — never fabricated.
+func lateralNote(body []byte) (relation, judgment string) {
+	var b struct {
+		Relation        string `json:"relation"`
+		RevisedJudgment string `json:"revised_judgment"`
+	}
+	if err := json.Unmarshal(body, &b); err != nil {
+		return "", ""
+	}
+	return b.Relation, b.RevisedJudgment
 }
 
 // riskNote reads body.source_quality.risk_note off a minted evidence node.

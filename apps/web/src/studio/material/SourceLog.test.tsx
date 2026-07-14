@@ -22,6 +22,8 @@ const loggedSource: MaterialSource = {
   timeSpentS: 610,
   lateralRead: false,
   isLateralInstrument: false,
+  lateralRelation: "",
+  lateralJudgment: "",
 };
 
 describe("SourceLog", () => {

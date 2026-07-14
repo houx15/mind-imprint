@@ -84,7 +84,7 @@ started · ◐ in progress · ☑ done.
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
-| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated**. Carry-forward: the search-plan card still needs its own design) |
+| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
@@ -499,3 +499,34 @@ Each slice appends its spec/plan links and outcome here as it completes.
   citation half needs a citation surface (Slice 8); the perspective map is graph-backed (Slice 7);
   stored `event` rows keep `type`/`surface` as DB columns while the Zod variants are flat, so
   Slice 10's assessor must merge columns + payload before validating.
+
+  **Correction (post-hoc):** the "☑ complete" above was written before a whole-branch review — run
+  three separate times against this same branch — found the feature described above was code-
+  complete but **not actually reachable**, plus a data-loss defect the description above doesn't
+  mention. Fixed across five follow-up commits, FIX-A through FIX-E:
+  - **FIX-A** (`c9c1692`) — SIFT was never server-side eligible: the classifier's lateral-check
+    candidate never actually fired.
+  - **FIX-B** (`df28fd2`) — SIFT was never client-side reachable either, on top of FIX-A.
+  - **FIX-C** (`02c784f`) — deleted a dead compare-pairs UI path and lifted the lateral-pick state
+    so the center pane could actually show it live (whole-branch review finding [3]).
+  - **FIX-D** (`c3c5446`) — the turn loop could surface a NEW card on top of an already-open one;
+    the client applied it unconditionally, silently destroying the open card's in-progress answers
+    and leaving its row a permanently "active" zombie. Fixed server-side: `SurfaceCardCandidates`
+    now suppresses every `surface_card` candidate project-wide while any `card_instance` is
+    `proposed`/`active`. Also closed a cross-project anchor hole (`submitProjectCard` now verifies
+    every submitted anchor's material belongs to the project) and made `CommitCardMint` fail loudly
+    instead of silently leaving `lateral_read` stuck false when the checked material has no
+    source-log entry.
+  - **FIX-E** (this entry) — FIX-D's suppression turned a pre-existing gap into a permanent-brick
+    risk: `StudioProjection` never carried a live card, so a page reload while a card was open lost
+    the client's only reference to it while the row stayed open server-side — and FIX-D's
+    suppression then blocked every future card from surfacing, forever. Now `StudioProjection`
+    projects `activeCard` (status, anchors, materialId) and the client rehydrates it on mount.
+    Also hardened the client itself (`conversation.ts` now refuses to let an ordinary chat turn
+    overwrite an `active` card with a different one — defense in depth alongside FIX-D's server
+    suppression) and gave `relation`/`revised_judgment` — written onto every `cross_check` mint
+    since 6c but read by nothing, anywhere, until now — a reader: `SourceDossier` renders them back
+    to her, on the checked source, exactly as she wrote them (no invented verdict).
+  With all five landed, SIFT is genuinely reachable end to end, a reload can no longer brick the
+  workspace, and the `cross_check` mint's own words are no longer write-only. The line above should
+  be read as "code-complete, made reachable and safe by FIX-A..FIX-E" rather than "complete."

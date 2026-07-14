@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Anchor, StudioProjection } from "@mind-imprint/contracts";
 import { api as defaultApi, ApiError } from "../api";
 import { StudioShell } from "./StudioShell";
-import { createStudioConversation } from "./conversation";
+import { createStudioConversation, activeCardToState } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks } from "./state";
 
 // Narrow structural type, widened (Task 9) to the two ingestion/logging
@@ -105,6 +105,18 @@ export function StudioContainer({
   // always wins and every dropFirst(n) is checked against the buffer it was
   // actually measured against.
   const refetchGenRef = useRef(0);
+  // CRITICAL (whole-branch review): the server's own activeCard (an open
+  // card_instance, status proposed/active) captured from the FIRST project
+  // fetch, for the conversation-creation effect below to seed as its initial
+  // card. Without this, a page reload while a card is open shows NO card
+  // (the client never projected one — it only ever sourced `card` from the
+  // SSE conversation snapshot), while the row stays proposed/active
+  // server-side — and FIX-D's own suppression then blocks EVERY future card
+  // from surfacing, ever, project-wide. A ref (not state) because it only
+  // needs to be read once, synchronously, by the second effect below, which
+  // fires in the same commit as `setProjectId` — no re-render round trip to
+  // race.
+  const initialActiveCardRef = useRef<ReturnType<typeof activeCardToState>>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +130,7 @@ export function StudioContainer({
         const s = toStudioState(proj);
         setState(s);
         setActiveStation(s.activeStation);
+        initialActiveCardRef.current = activeCardToState(proj.activeCard);
         setProjectId(list[0]!.id);
       } catch {
         if (!cancelled) setError("加载失败，请重试");
@@ -127,10 +140,14 @@ export function StudioContainer({
   }, [api]);
 
   // Create the live conversation once the projectId is known — guarded by
-  // the projectId dependency so it isn't recreated on every render.
+  // the projectId dependency so it isn't recreated on every render. Seeded
+  // with the server's own open card (if any) so a fresh mount rehydrates it
+  // instead of showing nothing while FIX-D's suppression waits forever for a
+  // "done" that will never come from a client that never knew the card
+  // existed.
   useEffect(() => {
     if (!projectId) return;
-    setConv(makeConversation({ projectId }));
+    setConv(makeConversation({ projectId, initialCard: initialActiveCardRef.current }));
   }, [projectId, makeConversation]);
 
   // The projection is the single source of truth for everything the server

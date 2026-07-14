@@ -11,6 +11,31 @@ type StudioProjection struct {
 	Coach         CoachDTO      `json:"coach"`
 	Onboarding    OnboardingDTO `json:"onboarding"`
 	Materials     []MaterialDTO `json:"materials"`
+	// ActiveCard projects the one project-wide card_instance that is
+	// "proposed" or "active" (agent.SurfaceCardCandidates' own invariant —
+	// classifier.go — guarantees at most one). nil when none is open. Fixes
+	// the reload-bricks-the-workspace bug: without this, a page reload loses
+	// the client's only reference to the open card while the row stays
+	// proposed/active server-side, and FIX-D's own suppression (which is
+	// otherwise exactly right) then blocks every future card from ever
+	// surfacing again — permanently, project-wide.
+	ActiveCard *ActiveCardDTO `json:"activeCard"`
+}
+
+// ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a
+// live CardState from on load — the same shape the SSE "card" event carries
+// (cardId + status + anchors + materialId), minus the CardSpec itself: the
+// client already looks that up from CARD_REGISTRY by cardId, so it is not
+// duplicated here.
+type ActiveCardDTO struct {
+	CardInstanceID string `json:"cardInstanceId"`
+	CardID         string `json:"cardId"`
+	// Status is "proposed" (offered, not yet opened) or "active" (open,
+	// being filled) — SurfaceCardCandidates' own suppression only ever
+	// leaves one of these two project-wide.
+	Status     string            `json:"status"`
+	Anchors    []json.RawMessage `json:"anchors"`
+	MaterialID string            `json:"materialId"`
 }
 
 type ProjectHeader struct {
@@ -114,4 +139,16 @@ type MaterialDTO struct {
 	// chip can promise a lateral-read workflow the summon rule will never
 	// actually offer (whole-branch review finding [4]).
 	IsLateralInstrument bool `json:"isLateralInstrument"`
+	// LateralRelation/LateralJudgment are derived from the cross_check node
+	// reached by this material's own "cross-checked-by" edge (Slice 6c's SIFT
+	// mint) — her own chosen relation (印证/反驳/限定) and her own revised-
+	// judgment sentence, read back exactly as she wrote them (card_effects.go
+	// crossCheckBody). "" when no cross_check exists for this material yet —
+	// nothing is invented, following riskNote()'s exact derive-never-decorate
+	// pattern; not omitempty, same as role/tier/takeaway (this DTO's
+	// convention: a field with no producer yet is present-and-empty, never
+	// hidden behind an optional key). Nothing else in the product ever read
+	// this node's body before (whole-branch review: "written but never read").
+	LateralRelation string `json:"lateralRelation"`
+	LateralJudgment string `json:"lateralJudgment"`
 }

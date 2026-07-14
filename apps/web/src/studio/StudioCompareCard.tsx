@@ -23,8 +23,6 @@ export type StudioCompareCardProps = {
   // until after a full submit round trip.
   lateralMaterialId: string;
   onLateralMaterialChange: (materialId: string) => void;
-  // Opens 6b's existing 添加信源 entry point (never ingests here — RL-2).
-  onAddLateralSource: () => void;
   onSubmit: (env: CardInstance) => void;
   onSkip: (eventTrace: TraceEvent[]) => void;
 };
@@ -47,14 +45,6 @@ function pillStyle(selected: boolean): React.CSSProperties {
     color: selected ? "#fff" : "#3A4256",
     background: selected ? "#5C4A8A" : "#fff",
   };
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="#5C4A8A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
 }
 
 function CheckIcon() {
@@ -87,7 +77,6 @@ export function StudioCompareCard({
   materials,
   lateralMaterialId,
   onLateralMaterialChange,
-  onAddLateralSource,
   onSubmit,
   onSkip,
 }: StudioCompareCardProps) {
@@ -231,19 +220,17 @@ export function StudioCompareCard({
                   <div style={{ border: "1px dashed #D8CFF0", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#FAF8FE" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>独立信源</div>
                     {lateralCandidates.length === 0 ? (
-                      <>
-                        <div style={{ fontSize: 12, color: "#7A8296", lineHeight: 1.6, marginBottom: 8 }}>
-                          还没有独立来源——去「素材」加一个，再回来选它。
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onAddLateralSource}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#5C4A8A", color: "#fff", border: "none", borderRadius: 10, fontSize: 12.5, fontWeight: 700, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}
-                        >
-                          <PlusIcon />
-                          添加信源
-                        </button>
-                      </>
+                      // No add-source CTA here — the center pane (ViewFrame's
+                      // Compare, and its own "查看信源档案" toggle behind it)
+                      // already offers a fully-wired 添加信源 flow reachable
+                      // from wherever this card is showing (whole-branch
+                      // review: this used to wire onSelectStation("S3"), a
+                      // no-op since a compare card only ever surfaces WHILE
+                      // already on S3, and it never even rendered on the
+                      // seeded project). A dead button is worse than none.
+                      <div style={{ fontSize: 12, color: "#7A8296", lineHeight: 1.6 }}>
+                        还没有独立来源——去中间的「素材」面板加一个，再回来选它。
+                      </div>
                     ) : (
                       <div data-testid="lateral-material-picker" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {lateralCandidates.map((m) => (

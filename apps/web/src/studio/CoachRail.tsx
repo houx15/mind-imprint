@@ -8,7 +8,7 @@ import { EquipmentBar } from "./EquipmentBar";
 import { StudioAnnotateCard } from "./StudioAnnotateCard";
 import { StudioCompareCard } from "./StudioCompareCard";
 import { StudioCardSheet } from "./StudioCardSheet";
-import type { CoachMessage, EquipCard, StationCode, StationView, StudioCallbacks } from "./state";
+import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
 
 export type LiveCard = {
   cardInstanceId: string;
@@ -43,10 +43,6 @@ export type CoachRailProps = {
   // offer lateral-source candidates (everything except the card's own
   // materialId).
   materials?: MaterialSource[];
-  // Wired to 6b's existing add-source entry point (素材/S3) so the SIFT
-  // card's "还没有独立来源" affordance goes somewhere real — it must never
-  // be a dead button (a control with no handler must not be shown at all).
-  onSelectStation?: (code: StationCode) => void;
   // The student's in-progress lateral-source pick for the active compare
   // card, LIFTED (whole-branch review finding [3]) so the center pane's
   // Compare primitive can render the same choice she just made here — see
@@ -186,7 +182,6 @@ export function CoachRail({
   onSubmitCard,
   onSkipCard,
   materials = [],
-  onSelectStation,
   lateralMaterialId = "",
   onLateralMaterialChange,
 }: CoachRailProps) {
@@ -362,7 +357,6 @@ export function CoachRail({
               materials={materials}
               lateralMaterialId={lateralMaterialId}
               onLateralMaterialChange={(id) => onLateralMaterialChange?.(id)}
-              onAddLateralSource={() => onSelectStation?.("S3")}
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
             />

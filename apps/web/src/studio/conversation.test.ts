@@ -94,6 +94,58 @@ describe("createStudioConversation", () => {
     expect(after.messages.some((m) => m.body === "那反例呢？")).toBe(true);
   });
 
+  // Whole-branch review CRITICAL 1: FIX-D suppresses a competing surface_card
+  // server-side while any card_instance is proposed/active, but the client
+  // must not itself be the kind of thing that discards a student's open,
+  // half-filled card just because a frame arrived — defense in depth. This
+  // is a DIFFERENT scenario than the submit-refeed test above: here the
+  // student is just chatting (send()) with an ACTIVE card already open, and
+  // an (in production, now server-suppressed) frame for a totally
+  // unrelated card arrives — the open card must survive untouched.
+  it("refuses to let an ordinary send() turn clobber an ACTIVE card with a different one", async () => {
+    // Models two separate POSTs through the same studioTurn function: the
+    // first call proposes ci1 (which the student then opens); a SECOND,
+    // later send() — not a submit/skip refeed — proposes a completely
+    // different card (ci2) while ci1 is still open and active.
+    let calls = 0;
+    const api = {
+      async *studioTurn() {
+        calls += 1;
+        if (calls === 1) {
+          yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors: [] };
+        } else {
+          yield { type: "card", cardInstanceId: "ci2", cardId: "sift", nudgeText: "n2", anchors: [] };
+        }
+        yield { type: "done" };
+      },
+      activateProjectCard: vi.fn(async () => {}),
+      submitProjectCard: vi.fn(),
+      skipProjectCard: vi.fn(async () => {}),
+      postDisposition: vi.fn(async () => {}),
+    } as any;
+    const conv = createStudioConversation({ projectId: "p1", api });
+    await conv.send("hi");
+    await conv.openCard();
+    expect(conv.getSnapshot().card).toMatchObject({ cardInstanceId: "ci1", status: "active" });
+
+    await conv.send("再来点什么");
+
+    const s = conv.getSnapshot();
+    expect(s.card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "active" });
+  });
+
+  it("still applies a send()-surfaced card when nothing is currently active", async () => {
+    const conv = createStudioConversation({
+      projectId: "p1",
+      api: {
+        async *studioTurn() { yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors: [] }; yield { type: "done" }; },
+        postDisposition: vi.fn(async () => {}),
+      } as any,
+    });
+    await conv.send("hi");
+    expect(conv.getSnapshot().card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "proposed" });
+  });
+
   it("carries anchors from the card event onto the card state", async () => {
     const anchors = [
       { id: "a1", material_id: "m1", block_id: "b1", start: 0, end: 10, quote: "q1", dimension: "source", author: "ai", question: "谁写的?", answer: "" },

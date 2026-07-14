@@ -163,9 +163,13 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
   const [showDossierDuringCompare, setShowDossierDuringCompare] = useState(false);
   // A fresh compare card instance always opens on Compare itself, never
   // wherever a PREVIOUS card happened to leave the toggle — SIFT can
-  // surface repeatedly across a project's materials.
+  // surface repeatedly across a project's materials. showLateralForm resets
+  // for the same reason (minor, whole-branch review): without this, the
+  // inline 添加信源 form stayed mounted under a brand-new card's still-empty
+  // right pane, left over from whatever the PREVIOUS card's student did.
   useEffect(() => {
     setShowDossierDuringCompare(false);
+    setShowLateralForm(false);
   }, [card?.cardInstanceId]);
   const active = state.stations.find((s) => s.code === state.activeStation);
 
@@ -224,7 +228,19 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
               />
               {showLateralForm && material?.onAdd && (
                 <div style={{ marginTop: 16 }}>
-                  <AddSourceForm onSubmit={material.onAdd} error={material.addError} />
+                  <AddSourceForm
+                    onSubmit={async (body) => {
+                      await material.onAdd!(body);
+                      // Minor (whole-branch review): a successful add must
+                      // collapse this wrapper too, not just AddSourceForm's
+                      // own internal expanded/collapsed state — otherwise its
+                      // spent, re-collapsed toggle keeps sitting here,
+                      // redundant with Compare's own "添加信源" CTA, under
+                      // whatever the right pane now shows.
+                      setShowLateralForm(false);
+                    }}
+                    error={material.addError}
+                  />
                 </div>
               )}
             </div>

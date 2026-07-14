@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { MaterialSource } from "@mind-imprint/contracts";
@@ -26,6 +26,8 @@ const blogSource: MaterialSource = {
   timeSpentS: 0,
   lateralRead: false,
   isLateralInstrument: false,
+  lateralRelation: "",
+  lateralJudgment: "",
   anchors: [],
 };
 const nasaSource: MaterialSource = {
@@ -42,6 +44,8 @@ const nasaSource: MaterialSource = {
   timeSpentS: 0,
   lateralRead: false,
   isLateralInstrument: false,
+  lateralRelation: "",
+  lateralJudgment: "",
   anchors: [],
 };
 const craapSpec = CARD_REGISTRY["craap"]!;
@@ -179,6 +183,52 @@ describe("ViewFrame (Task 11 + fix-wave [3]/[5]): render off the card's primitiv
   it("invites adding the lateral source when none has been picked yet, reusing 6b's onAdd", () => {
     render(<ViewFrame state={stateWithMaterials()} card={compareCard()} material={{ onAdd: async () => {} }} />);
     expect(screen.getByText("去找一个独立的来源")).toBeInTheDocument();
+  });
+
+  // Minor (whole-branch review): showLateralForm previously never reset, so
+  // the inline 添加信源 form (ViewFrame's own wrapper around AddSourceForm,
+  // opened via Compare's "添加信源" CTA) stayed mounted under the now-filled
+  // right pane — both after a successful add and across a card change. Note
+  // Compare's OWN "添加信源" CTA (LateralSourceAssignment) is a separate,
+  // always-present control unaffected by this fix — the assertion is on the
+  // COUNT of "添加信源" text: 1 while the inline form is closed (just
+  // Compare's CTA), 2 once it's open (CTA + AddSourceForm's own collapsed
+  // toggle, since expanding IT is a second click).
+  it("collapses the inline 添加信源 form after a successful add", async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn(async () => {});
+    render(<ViewFrame state={stateWithMaterials()} card={compareCard()} material={{ onAdd }} />);
+
+    expect(screen.getAllByText("添加信源")).toHaveLength(1);
+    await user.click(screen.getByText("添加信源")); // Compare's CTA — opens ViewFrame's inline form
+    expect(screen.getAllByText("添加信源")).toHaveLength(2);
+    await user.click(screen.getAllByText("添加信源")[1]!); // AddSourceForm's own collapsed toggle
+    await user.type(screen.getByPlaceholderText(/粘贴链接/), "https://ipcc.ch/report");
+    await user.type(screen.getByPlaceholderText(/一句话说说/), "报告本身的口径。");
+    await user.click(screen.getByLabelText("机构报告"));
+    await user.click(screen.getByText("加入信源档案"));
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalled());
+    // Back down to 1 — the inline form's own leftover collapsed toggle must
+    // not keep sitting there once the add succeeded.
+    await waitFor(() => expect(screen.getAllByText("添加信源")).toHaveLength(1));
+  });
+
+  it("collapses the inline 添加信源 form when the card changes", () => {
+    const { rerender } = render(
+      <ViewFrame state={stateWithMaterials()} card={compareCard()} material={{ onAdd: async () => {} }} />,
+    );
+    fireEvent.click(screen.getByText("添加信源"));
+    expect(screen.getAllByText("添加信源")).toHaveLength(2);
+
+    rerender(
+      <ViewFrame
+        state={stateWithMaterials()}
+        card={compareCard({ cardInstanceId: "ci3" })}
+        material={{ onAdd: async () => {} }}
+      />,
+    );
+    expect(screen.getAllByText("添加信源")).toHaveLength(1);
   });
 
   // Finding [3]: the student's lateral-source choice used to live only in

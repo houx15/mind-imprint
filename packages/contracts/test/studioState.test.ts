@@ -21,8 +21,35 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       },
       onboarding: { restatePrompt: "…", rubricRows: [{ official: "o", plain: "p", weak: true }], planSteps: ["立题"] },
       materials: [],
+      activeCard: null,
     });
     expect(ok.success).toBe(true);
+  });
+
+  it("accepts an open activeCard", () => {
+    const ok = StudioProjection.safeParse({
+      project: { title: "T", qualLabel: "0457 个人报告" },
+      stations: [],
+      activeStation: "S3",
+      coach: { anchor: "", messages: [], equipment: [] },
+      onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
+      materials: [],
+      activeCard: { cardInstanceId: "ci1", cardId: "sift", status: "active", anchors: [], materialId: "m1" },
+    });
+    expect(ok.success).toBe(true);
+  });
+
+  it("requires activeCard (no optional to hide a reload-bricks-the-workspace bug)", () => {
+    const { activeCard, ...rest } = {
+      project: { title: "T", qualLabel: "q" },
+      stations: [],
+      activeStation: "S3",
+      coach: { anchor: "", messages: [], equipment: [] },
+      onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
+      materials: [],
+      activeCard: null,
+    };
+    expect(StudioProjection.safeParse(rest).success).toBe(false);
   });
 
   it("carries the ai anchor field (5a carry-forward)", () => {
@@ -50,6 +77,8 @@ describe("MaterialSource", () => {
     timeSpentS: 240,
     lateralRead: false,
     isLateralInstrument: false,
+    lateralRelation: "",
+    lateralJudgment: "",
   };
 
   it("accepts a projected source", () => {
@@ -76,6 +105,13 @@ describe("MaterialSource", () => {
     expect(() => MaterialSource.parse(withoutIsLateralInstrument)).toThrow();
   });
 
+  it("requires lateralRelation/lateralJudgment (the cross_check mint's own words, no optional to hide a missing producer)", () => {
+    const { lateralRelation, ...withoutLateralRelation } = valid;
+    expect(() => MaterialSource.parse(withoutLateralRelation)).toThrow();
+    const { lateralJudgment, ...withoutLateralJudgment } = valid;
+    expect(() => MaterialSource.parse(withoutLateralJudgment)).toThrow();
+  });
+
   it("carries materials on the projection", () => {
     const proj = StudioProjection.parse({
       project: { title: "t", qualLabel: "q" },
@@ -84,6 +120,7 @@ describe("MaterialSource", () => {
       coach: { anchor: "", messages: [], equipment: [] },
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
       materials: [valid],
+      activeCard: null,
     });
     expect(proj.materials[0]!.title).toBe("《卫星图看中国变绿》");
   });

@@ -98,8 +98,34 @@ export const MaterialSource = z.object({
   // (whole-branch review finding [4]) — otherwise the chip can promise a
   // workflow the summon rule will never actually offer.
   isLateralInstrument: z.boolean(),
+  // Derived from the cross_check node reached by this material's own
+  // "cross-checked-by" edge (Slice 6c's SIFT mint): her own chosen relation
+  // (印证/反驳/限定) and her own revised-judgment sentence, given back exactly
+  // as she wrote them — never an AI verdict. "" when no cross_check exists
+  // for this material yet — required (not optional), same as every other
+  // field on this DTO: a missing producer must never hide behind an
+  // optional key (mirrors riskNote()'s derive-never-decorate pattern).
+  lateralRelation: z.string(),
+  lateralJudgment: z.string(),
 });
 export type MaterialSource = z.infer<typeof MaterialSource>;
+
+// ActiveCard is the one project-wide card_instance that is "proposed" or
+// "active" (agent.SurfaceCardCandidates' own invariant guarantees at most
+// one at a time) — projected so a page reload can rehydrate the open card
+// instead of losing it while the row stays open server-side (which, after
+// FIX-D's suppression, would otherwise block every future card from ever
+// surfacing again). Carries exactly what conversation.ts's "card" SSE event
+// carries, minus the CardSpec itself — the client already resolves that from
+// CARD_REGISTRY by cardId.
+export const ActiveCard = z.object({
+  cardInstanceId: z.string(),
+  cardId: z.string(),
+  status: z.enum(["proposed", "active"]),
+  anchors: z.array(Anchor),
+  materialId: z.string(),
+});
+export type ActiveCard = z.infer<typeof ActiveCard>;
 
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
@@ -112,5 +138,6 @@ export const StudioProjection = z.object({
   }),
   onboarding: OnboardingFx,
   materials: z.array(MaterialSource),
+  activeCard: ActiveCard.nullable(),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;

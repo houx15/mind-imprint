@@ -73,6 +73,8 @@ const blogArticle: MaterialSource = {
   timeSpentS: 240,
   lateralRead: false,
   isLateralInstrument: false,
+  lateralRelation: "",
+  lateralJudgment: "",
   anchors: [authorityAnchor, purposeAnchor],
 };
 
@@ -96,6 +98,8 @@ const nasaSummary: MaterialSource = {
   timeSpentS: 610,
   lateralRead: false,
   isLateralInstrument: false,
+  lateralRelation: "",
+  lateralJudgment: "",
   anchors: [],
 };
 
@@ -395,6 +399,34 @@ describe("SourceDossier", () => {
   it("does not render the 已横向核查 mark for an entry that hasn't been laterally read", () => {
     render(<SourceDossier sources={SOURCES} />);
     expect(screen.queryByText("已横向核查")).not.toBeInTheDocument();
+  });
+
+  // Whole-branch review: crossCheckBody (agent/card_effects.go) has always
+  // written `relation` (印证/反驳/限定) and `revised_judgment` onto the minted
+  // cross_check node, but NOTHING ever read them back — not the coach, not
+  // the projection, not the UI. This is the third "written but never read"
+  // field this project has shipped. The dossier must now give her own words
+  // back to her — her own choice and her own sentence, never an AI verdict.
+  it("gives her own lateral-check relation and revised judgment back to her in the open source", () => {
+    const checkedBlog: MaterialSource = {
+      ...blogArticle,
+      locked: true,
+      lateralRead: true,
+      lateralRelation: "印证",
+      lateralJudgment: "从二手转述降级为需要追源的说法",
+    };
+    render(<SourceDossier sources={[checkedBlog, nasaSummary]} />);
+    openSourceByTitle(checkedBlog.title);
+
+    expect(screen.getByText(/关系：印证/)).toBeInTheDocument();
+    expect(screen.getByText(/从二手转述降级为需要追源的说法/)).toBeInTheDocument();
+  });
+
+  it("renders nothing for the lateral note when there is no cross_check yet — no invented placeholder", () => {
+    render(<SourceDossier sources={[blogArticle, nasaSummary]} />);
+    openSourceByTitle(blogArticle.title);
+
+    expect(screen.queryByText(/横向核查/)).not.toBeInTheDocument();
   });
 
   it("does not render the 添加信源 form at all when no onAddSource handler is supplied", () => {

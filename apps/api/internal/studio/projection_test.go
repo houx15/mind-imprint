@@ -388,6 +388,137 @@ func TestProjectMaterials_IsLateralInstrumentDerivedFromCitesEdge(t *testing.T) 
 	}
 }
 
+// TestProjectActiveCard_NilWhenNoneOpen — the ordinary case: every
+// card_instance is terminal (completed/skipped) or there are none at all.
+// The reload bug this guards against only exists when a card is left
+// proposed/active with nothing projecting it — with none open, ActiveCard
+// must be nil (never a stale terminal card resurrected on the client).
+func TestProjectActiveCard_NilWhenNoneOpen(t *testing.T) {
+	sk := writingSkill(t)
+	d := ProjectData{
+		Plan: planNode(`["decode_task"]`),
+		Cards: []sqlc.CardInstance{
+			{ID: uuid.New(), CardID: "craap", Status: "completed"},
+			{ID: uuid.New(), CardID: "sift", Status: "skipped"},
+		},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.ActiveCard != nil {
+		t.Fatalf("ActiveCard = %+v, want nil (no proposed/active card_instance)", proj.ActiveCard)
+	}
+}
+
+// TestProjectActiveCard_ProjectsTheOpenCard is this fix's central claim: a
+// page reload must be able to rehydrate the open card_instance (status
+// proposed OR active) — its id, card id, status, anchors, and the material
+// it evaluates (via the same card_instance--evaluates-->material edge
+// projectEquipment already reads, whole-branch review finding [5]) — so the
+// client never has to guess it and FIX-D's project-wide suppression
+// (agent.SurfaceCardCandidates) never becomes permanent.
+func TestProjectActiveCard_ProjectsTheOpenCard(t *testing.T) {
+	sk := writingSkill(t)
+	sift := uuid.New()
+	mat := uuid.New()
+	d := ProjectData{
+		Plan: planNode(`["decode_task"]`),
+		Cards: []sqlc.CardInstance{
+			{ID: sift, CardID: "sift", Status: "active",
+				Anchors: []byte(`[{"id":"stop","material_id":"` + mat.String() + `","dimension":"stop","answer":"有点意外"}]`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluates", FromKind: "card_instance", FromID: sift, ToKind: "material", ToID: mat},
+		},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.ActiveCard == nil {
+		t.Fatal("ActiveCard = nil, want the open sift card projected")
+	}
+	if proj.ActiveCard.CardInstanceID != sift.String() || proj.ActiveCard.CardID != "sift" || proj.ActiveCard.Status != "active" {
+		t.Fatalf("ActiveCard = %+v", proj.ActiveCard)
+	}
+	if proj.ActiveCard.MaterialID != mat.String() {
+		t.Fatalf("ActiveCard.MaterialID = %q, want %s (from the evaluates edge)", proj.ActiveCard.MaterialID, mat)
+	}
+	if len(proj.ActiveCard.Anchors) != 1 {
+		t.Fatalf("ActiveCard.Anchors = %d, want 1 (the card's own persisted anchors)", len(proj.ActiveCard.Anchors))
+	}
+}
+
+// TestProjectActiveCard_IgnoresTerminalCardsEvenAlongsideNone covers a
+// "proposed" status too (offered, not yet opened) — the client must be able
+// to rehydrate a proposal bubble on reload just as much as an opened card.
+func TestProjectActiveCard_ProjectsProposedToo(t *testing.T) {
+	craap := uuid.New()
+	d := ProjectData{
+		Cards: []sqlc.CardInstance{
+			{ID: uuid.New(), CardID: "old", Status: "completed"},
+			{ID: craap, CardID: "craap", Status: "proposed"},
+		},
+	}
+	got := projectActiveCard(d, map[string]string{})
+	if got == nil || got.Status != "proposed" || got.CardID != "craap" {
+		t.Fatalf("ActiveCard = %+v, want the proposed craap card", got)
+	}
+}
+
+// TestProjectMaterials_LateralNoteReadsHerOwnWordsFromTheCrossCheckMint —
+// whole-branch review's "written but never read" finding: crossCheckBody
+// (agent/card_effects.go) has always written `relation` and
+// `revised_judgment` onto the minted cross_check node's body, but nothing
+// ever read them back. This proves the dossier now derives them — on the
+// CHECKED material (the "cross-checked-by" edge's FromID), never on the
+// lateral instrument it cites, and never invented when no cross_check exists.
+func TestProjectMaterials_LateralNoteReadsHerOwnWordsFromTheCrossCheckMint(t *testing.T) {
+	blogID := uuid.MustParse("00000000-0000-0000-0000-0000000000e1")
+	nasaID := uuid.MustParse("00000000-0000-0000-0000-0000000000e2")
+	untouchedID := uuid.MustParse("00000000-0000-0000-0000-0000000000e3")
+	crossCheckID := uuid.MustParse("00000000-0000-0000-0000-0000000000e4")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: blogID, Title: "《卫星图看中国变绿》博客", Kind: "article", Source: "fetched", Blocks: []byte(`[]`)},
+			{ID: nasaID, Title: "NASA Earth Observatory", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+			{ID: untouchedID, Title: "IEA Renewable Investment", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+		},
+		Nodes: []sqlc.GraphNode{
+			{ID: crossCheckID, Type: "cross_check", Author: "student",
+				Body: []byte(`{"relation":"印证","revised_judgment":"从二手转述降级为需要追源的说法"}`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "cross-checked-by", FromKind: "material", FromID: blogID, ToKind: "graph_node", ToID: crossCheckID},
+			{Type: "cites", FromKind: "graph_node", FromID: crossCheckID, ToKind: "material", ToID: nasaID},
+		},
+	}
+
+	got := projectMaterials(d)
+	var blog, nasa, untouched MaterialDTO
+	for _, m := range got {
+		switch m.ID {
+		case blogID.String():
+			blog = m
+		case nasaID.String():
+			nasa = m
+		case untouchedID.String():
+			untouched = m
+		}
+	}
+	if blog.LateralRelation != "印证" || blog.LateralJudgment != "从二手转述降级为需要追源的说法" {
+		t.Fatalf("checked material's lateral note = %+v, want her own relation/revised_judgment", blog)
+	}
+	if nasa.LateralRelation != "" || nasa.LateralJudgment != "" {
+		t.Fatalf("lateral instrument must not carry the checked material's own note: %+v", nasa)
+	}
+	if untouched.LateralRelation != "" || untouched.LateralJudgment != "" {
+		t.Fatalf("untouched material must not invent a lateral note: %+v", untouched)
+	}
+}
+
 // TestProjectExcludesAnchorsFromSkippedCards — a card the student explicitly
 // declined (status "skipped") must not keep re-asking its question: its
 // anchors must not light up the article body on reload. Only "skipped" is

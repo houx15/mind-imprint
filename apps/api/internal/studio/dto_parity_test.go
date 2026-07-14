@@ -22,14 +22,19 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			ID: "m1", Title: "t", SourceURL: "https://x", Kind: "article", Origin: "fetched",
 			Blocks: []MaterialBlockDTO{{ID: "b1", Text: "x"}}, Locked: true, Role: "r", Tier: "ti", Takeaway: "tk",
 			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, TimeSpentS: 240, LateralRead: true, IsLateralInstrument: false,
+			LateralRelation: "印证", LateralJudgment: "从二手转述降级为需要追源的说法",
 		}},
+		ActiveCard: &ActiveCardDTO{
+			CardInstanceID: "ci1", CardID: "sift", Status: "active",
+			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, MaterialID: "m1",
+		},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeStation", "coach", "materials", "onboarding", "project", "stations"}
+	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -45,9 +50,9 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if len(materials) != 1 {
 		t.Fatalf("materials len = %d, want 1", len(materials))
 	}
-	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument}
+	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument,lateralRelation,lateralJudgment}
 	// — must match packages/contracts/src/studioState.ts MaterialSource exactly.
-	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralRead", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
+	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralJudgment", "lateralRead", "lateralRelation", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -108,6 +113,57 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		t.Fatalf("stations len = %d, want 1", len(stations))
 	}
 	assertKeys(t, stations[0], []string{"code", "gate", "name", "state", "view"})
+
+	// activeCard: {cardInstanceId,cardId,status,anchors,materialId} — must
+	// match packages/contracts/src/studioState.ts ActiveCard exactly.
+	assertKeys(t, m["activeCard"], []string{"anchors", "cardId", "cardInstanceId", "materialId", "status"})
+}
+
+// TestStudioProjectionActiveCardNil asserts the "no open card" case marshals
+// the key as a literal JSON null, not an omitted key — the client's zod
+// schema (`activeCard: ActiveCard.nullable()`) requires the key present.
+func TestStudioProjectionActiveCardNil(t *testing.T) {
+	p := StudioProjection{Materials: []MaterialDTO{}}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := m["activeCard"]
+	if !ok {
+		t.Fatal("activeCard key missing — want it present (as null) even when no card is open")
+	}
+	if string(got) != "null" {
+		t.Fatalf("activeCard = %s, want the literal null", got)
+	}
+}
+
+// TestMaterialDTOLateralNoteAlwaysPresent asserts lateralRelation/
+// lateralJudgment are present (as "") even with no cross_check yet — this
+// DTO's convention (matching role/tier/takeaway): a field with no producer
+// yet is present-and-empty, never hidden behind an omitted/optional key.
+func TestMaterialDTOLateralNoteAlwaysPresent(t *testing.T) {
+	m := MaterialDTO{ID: "m1", Blocks: []MaterialBlockDTO{}, Anchors: []json.RawMessage{}}
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probe struct {
+		LateralRelation *string `json:"lateralRelation"`
+		LateralJudgment *string `json:"lateralJudgment"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		t.Fatal(err)
+	}
+	if probe.LateralRelation == nil || *probe.LateralRelation != "" {
+		t.Fatalf("lateralRelation = %v, want present and \"\"", probe.LateralRelation)
+	}
+	if probe.LateralJudgment == nil || *probe.LateralJudgment != "" {
+		t.Fatalf("lateralJudgment = %v, want present and \"\"", probe.LateralJudgment)
+	}
 }
 
 // TestCoachMessageDTOKinds asserts each CoachMessageDTO union variant marshals

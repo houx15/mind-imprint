@@ -24,6 +24,8 @@ function material(id: string, title: string): MaterialSource {
     timeSpentS: 0,
     lateralRead: false,
     isLateralInstrument: false,
+    lateralRelation: "",
+    lateralJudgment: "",
   };
 }
 
@@ -42,7 +44,7 @@ function Harness(props: Omit<StudioCompareCardProps, "lateralMaterialId" | "onLa
 describe("StudioCompareCard", () => {
   it("renders a chip + question + textarea per step field, and a single_choice as pill options", () => {
     render(
-      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onSubmit={() => {}} onSkip={() => {}} />,
     );
     // stop/investigate/find/trace_origin dimension chips (params.tags)
     expect(screen.getByText("stop")).toBeInTheDocument();
@@ -55,33 +57,37 @@ describe("StudioCompareCard", () => {
 
   it("does not render a checked-material picker — the checked material is a server fact (finding [5]), not a client choice", () => {
     render(
-      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onSubmit={() => {}} onSkip={() => {}} />,
     );
     expect(screen.queryByTestId("checked-material-picker")).not.toBeInTheDocument();
     expect(screen.queryByText("待查的来源")).not.toBeInTheDocument();
   });
 
-  it("shows the 添加信源 affordance instead of a picker when no independent source exists yet", () => {
-    const onAddLateralSource = vi.fn();
+  // Whole-branch review: this card used to carry its OWN "添加信源" button
+  // here, wired (by CoachRail) to onSelectStation("S3") — a no-op, since a
+  // compare card only ever surfaces while already on S3, so it never even
+  // rendered on the seeded project. Deleted rather than rewired: the center
+  // pane (ViewFrame's Compare + its "查看信源档案" toggle) already offers a
+  // fully-wired 添加信源 flow reachable from wherever this card is showing.
+  // This card now shows only the honest informational text, no dead CTA.
+  it("shows informational text (no button) instead of a picker when no independent source exists yet", () => {
     render(
       <Harness
         spec={spec}
         anchors={[]}
         materialId={blog.id}
         materials={[blog]}
-        onAddLateralSource={onAddLateralSource}
         onSubmit={() => {}}
         onSkip={() => {}}
       />,
     );
     expect(screen.getByText(/还没有独立来源/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "添加信源" }));
-    expect(onAddLateralSource).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "添加信源" })).not.toBeInTheDocument();
   });
 
   it("cannot lock until the lateral source is picked and every field is answered", () => {
     render(
-      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onSubmit={() => {}} onSkip={() => {}} />,
     );
     const lockButton = screen.getByRole("button", { name: "锁定这张卡" });
     expect(lockButton).toBeDisabled();
@@ -106,7 +112,7 @@ describe("StudioCompareCard", () => {
   it("submits anchors keyed by the DECLARED lateral_dimension, not by array position — the anchors[0] trap", () => {
     const onSubmit = vi.fn();
     render(
-      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onSubmit={onSubmit} onSkip={() => {}} />,
     );
 
     fireEvent.change(screen.getByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
@@ -137,7 +143,7 @@ describe("StudioCompareCard", () => {
     const onSkip = vi.fn();
     const onSubmit = vi.fn();
     render(
-      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={onSkip} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onSubmit={onSubmit} onSkip={onSkip} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "跳过这张卡" }));
     expect(onSkip).toHaveBeenCalledTimes(1);
@@ -159,7 +165,6 @@ describe("StudioCompareCard", () => {
             materials={[blog, nasa]}
             lateralMaterialId={lateralMaterialId}
             onLateralMaterialChange={setLateralMaterialId}
-            onAddLateralSource={() => {}}
             onSubmit={() => {}}
             onSkip={() => {}}
           />
