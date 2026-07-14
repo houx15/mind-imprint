@@ -1269,12 +1269,17 @@ describe("StudioContainer", () => {
     const blog = {
       id: blogId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
       origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
+      // locked: true — CRAAP already finished on this source (Task 11's fix:
+      // the chip is derived from `locked && !lateralRead`, a fact about the
+      // SOURCE, not from whether a card happens to be open on it).
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
     };
     const nasa = {
       id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
       kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
-      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
+      // lateralRead: true so this row never carries the chip itself — this
+      // test is only about the blog source's chip transition.
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: true,
     };
     // What the server would honestly persist once the cross_check mints:
     // lateralRead flips true. (The chip's disappearance below doesn't
@@ -1305,8 +1310,10 @@ describe("StudioContainer", () => {
       // Compare once a compare card is ACTIVE (Task 11's own trap #1 — see
       // ViewFrame.test.tsx) — while it's merely proposed (a bubble in the
       // rail awaiting the student's own "打开" click, per the product's
-      // no-forced-open rule), the dossier list is still what's on screen,
-      // and its chip is derived straight off this live anchor.
+      // no-forced-open rule), the dossier list is still what's on screen.
+      // This anchor is otherwise inert for the chip itself — Task 11's fix
+      // derives the chip from `blog.locked && !blog.lateralRead`, not from
+      // any live card's presence.
       card: {
         cardInstanceId: "ci1", cardId: "sift", spec: siftSpec, status: "proposed",
         anchors: [{ id: "a-stop", material_id: blogId, block_id: "", start: 0, end: 0, quote: "", dimension: "stop", author: "ai", question: "", answer: "" }],
@@ -1341,8 +1348,9 @@ describe("StudioContainer", () => {
     // once StudioContainer's second effect has also committed.
     await flush();
 
-    // GET1: the dossier shows the chip on the blog source while the SIFT
-    // card is live and lateralRead is still false.
+    // GET1: the dossier shows the chip on the blog source because it's
+    // locked (CRAAP already evaluated it) and lateralRead is still false —
+    // this holds independent of the SIFT card merely being proposed here.
     expect(within(screen.getByTestId("dossier-source-list")).getByText(/需横向阅读/)).toBeInTheDocument();
 
     // Open the card (coach rail now renders the interactive SIFT form) and

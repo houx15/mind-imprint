@@ -290,66 +290,66 @@ describe("SourceDossier", () => {
     expect(screen.getByText(/检索日志/)).toBeInTheDocument();
   });
 
-  it("shows the derived 需横向阅读 chip on a source with a live active card and no cross-check yet", () => {
-    const liveAnchor: Anchor = {
-      id: "a-stop",
-      material_id: BLOG_ID,
-      block_id: "b1",
-      start: 0,
-      end: 5,
-      quote: "过去二十年",
-      dimension: "stop",
-      author: "student",
-      question: "你的第一反应是什么？",
-      answer: "有点意外",
-    };
-    render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
+  // The chip is a statement about the SOURCE's state (evaluated + no lateral
+  // check yet), never about which card happens to be open on it. `locked`
+  // only flips once a CRAAP evaluation actually finished (a real
+  // `evaluated-as` edge minted server-side, Slice 6b) — so these three cases
+  // pin down the full 2x2 that matters: locked×lateralRead.
+
+  // NOTE: nasaSummary is deliberately excluded from these three cases — its
+  // own fixture state is locked:true/lateralRead:false, so under the new
+  // (correct) derivation it legitimately carries the chip itself. Scoping
+  // each render to the one source under test keeps the assertion about that
+  // source's state, not about fixture noise from an unrelated row.
+
+  it("shows the 需横向阅读 chip once a source is locked (CRAAP finished) but not yet laterally read", () => {
+    const lockedNoLateral: MaterialSource = { ...blogArticle, locked: true, lateralRead: false };
+    // Deliberately no live anchors/cards at all — the chip must not depend
+    // on any card being open.
+    render(<SourceDossier sources={[lockedNoLateral]} />);
 
     const dossier = screen.getByTestId("dossier-source-list");
     expect(within(dossier).getByText(/需横向阅读/)).toBeInTheDocument();
   });
 
-  it("does not show 需横向阅读 once the source's own log carries lateral_read", () => {
-    const liveAnchor: Anchor = {
-      id: "a-stop",
+  // Regression test for the CRITICAL bug found in the Task 11 review: the
+  // old derivation was "a live card has anchors on this material" — but
+  // CRAAP's own anchors carry `material_id` too, and CRAAP auto-surfaces on
+  // every freshly-added source, which starts `locked: false`. So the old
+  // guard told the student "需横向阅读" while she was mid-way through an
+  // ordinary, unrelated vertical CRAAP check. This must show nothing.
+  it("does not show 需横向阅读 while CRAAP is merely open (source not yet locked), even though live anchors exist on this material", () => {
+    const craapLiveAnchor: Anchor = {
+      id: "a-craap-open",
       material_id: BLOG_ID,
       block_id: "b1",
       start: 0,
       end: 5,
       quote: "过去二十年",
-      dimension: "stop",
-      author: "student",
-      question: "你的第一反应是什么？",
-      answer: "有点意外",
+      dimension: "权威性",
+      author: "ai",
+      question: "这条信息最初的出处是谁？",
+      answer: "",
     };
-    const laterallyReadBlog: MaterialSource = { ...blogArticle, lateralRead: true };
-    render(<SourceDossier sources={[laterallyReadBlog, nasaSummary]} anchors={[liveAnchor]} />);
+    // blogArticle.locked is false — CRAAP is open on it, not finished.
+    render(<SourceDossier sources={[blogArticle]} anchors={[craapLiveAnchor]} />);
 
     const dossier = screen.getByTestId("dossier-source-list");
     expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
   });
 
-  it("does not show 需横向阅读 without a live card on this material, even if lateral_read is false", () => {
-    render(<SourceDossier sources={SOURCES} />);
+  it("does not show 需横向阅读 once a locked source has already been laterally read (debt paid)", () => {
+    const paidBlog: MaterialSource = { ...blogArticle, locked: true, lateralRead: true };
+    render(<SourceDossier sources={[paidBlog]} />);
+
     const dossier = screen.getByTestId("dossier-source-list");
     expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
   });
 
-  it("shows the two-line chip header (with the design's verbatim caption) in the open article, replacing the generic one", () => {
-    const liveAnchor: Anchor = {
-      id: "a-stop",
-      material_id: BLOG_ID,
-      block_id: "b1",
-      start: 0,
-      end: 5,
-      quote: "过去二十年",
-      dimension: "stop",
-      author: "student",
-      question: "你的第一反应是什么？",
-      answer: "有点意外",
-    };
-    render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
-    openSourceByTitle(blogArticle.title);
+  it("shows the two-line chip header (with the design's verbatim caption) in the open article once it's locked and lacks a lateral check, replacing the generic one", () => {
+    const lockedNoLateral: MaterialSource = { ...blogArticle, locked: true, lateralRead: false };
+    render(<SourceDossier sources={[lockedNoLateral, nasaSummary]} />);
+    openSourceByTitle(lockedNoLateral.title);
 
     expect(screen.getByText("正在核对 · 需横向阅读")).toBeInTheDocument();
     expect(screen.getByText("点亮的句子 = 印记标出的可疑处")).toBeInTheDocument();

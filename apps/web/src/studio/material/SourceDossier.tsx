@@ -60,14 +60,20 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
 
-  // The chip is DERIVED, never decorated (spec §6): an active (open,
-  // uncompleted) card exists on this material AND it has no cross-check yet.
-  // "on this material" is read the same way the rest of this file already
-  // merges live/persisted anchors — by material_id — so it holds for any
-  // primitive that carries material-scoped anchors, not just `compare`.
-  const liveMaterialIds = new Set((anchors ?? []).map((a) => a.material_id));
+  // The chip is DERIVED, never decorated (spec §6): the source has been
+  // EVALUATED — a real `evaluated-as` graph edge exists, surfaced as
+  // `MaterialSource.locked` (derived server-side, Slice 6b) — and still
+  // lacks a lateral (cross-check) read. This is a statement about the
+  // SOURCE's state, not about which card happens to be open on it: CRAAP's
+  // own anchors also carry this material's id, and CRAAP auto-surfaces on
+  // every freshly-added source, so gating on "a live card has anchors here"
+  // made the chip fire on the ordinary vertical-check path before the
+  // student had finished anything. `locked` only flips once a CRAAP
+  // evaluation actually completes, so the chip now names a real, useful
+  // debt — "you finished the vertical check; it still owes a lateral one" —
+  // surfaced at the moment it becomes true, not as a nag beforehand.
   function needsLateralRead(source: MaterialSource): boolean {
-    return liveMaterialIds.has(source.id) && !source.lateralRead;
+    return source.locked && !source.lateralRead;
   }
 
   const reportOpenElapsed = () => {
@@ -241,8 +247,8 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
               {needsLateralRead(openSource) ? (
                 // Design docs/design/思维印记_工作区.dc.html:1050-1053 — verbatim.
                 // Replaces the generic caption below: this is the same fact
-                // (an active card + no cross-check yet), just spelled out for
-                // the open article's binding UI.
+                // (locked/evaluated + no cross-check yet), just spelled out
+                // for the open article's binding UI.
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 11 }}>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: "#C96F4F", background: "#FBEEE7", padding: "3px 10px", borderRadius: 999 }}>
                     正在核对 · 需横向阅读
