@@ -663,6 +663,50 @@ func TestSurfaceCard_SetsActionCardID(t *testing.T) {
 	}
 }
 
+// TestRunAgentStep_SurfacesSiftCard_CrossesTheSummonHop is the whole-branch
+// review's keystone regression for finding [1]: every pre-fix SIFT test
+// (card_lifecycle_test.go) hand-built a cards.Spec{ID:"sift"} and drove
+// CompleteCard directly, never once going through RunAgentStep's own
+// classify -> decide-one -> act path the way a real turn does. This test
+// drives that real path: a material with a finished CRAAP evaluation
+// (evaluated-as edge) and no cross-check of its own must make RunAgentStep
+// actually call CreateCardInstance for "sift" on that exact material — the
+// summon hop SurfaceCardCandidates (classifier.go) alone cannot prove, since
+// it never touches the store.
+func TestRunAgentStep_SurfacesSiftCard_CrossesTheSummonHop(t *testing.T) {
+	materialID := uuid.New()
+	g := GraphView{
+		Materials: []MaterialView{{ID: materialID.String(), Kind: "article"}},
+		Edges: []GraphEdgeView{
+			{FromKind: "material", FromID: materialID.String(), ToKind: "graph_node", ToID: "e1", Type: "evaluated-as"},
+		},
+	}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("should never be called"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" || action.CardID != "sift" {
+		t.Fatalf("want a surface_card(sift) action, got %+v", action)
+	}
+	if action.MaterialID != materialID.String() {
+		t.Fatalf("Action.MaterialID = %q, want %q — the client must never have to guess which material this card is about", action.MaterialID, materialID.String())
+	}
+	if store.createCardInstanceCalls != 1 {
+		t.Fatalf("want CreateCardInstance called once, got %d", store.createCardInstanceCalls)
+	}
+	if store.lastCreateCardInstance.MaterialID != materialID || store.lastCreateCardInstance.CardID != "sift" {
+		t.Fatalf("unexpected CreateCardInstance call: %+v", store.lastCreateCardInstance)
+	}
+}
+
 func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
 	f := &fakeAgentStore{}
 	pid := uuid.New()

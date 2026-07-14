@@ -6,7 +6,12 @@ import { parseSSE, type SSEFrame } from "./sse";
 export type StudioTurnEvent =
   | { type: "intervention"; interventionId: string; body: string; anchor: string; criterion: string; level: string }
   | { type: "gate"; contract: string; status: string; passed: number; total: number; missing: string[] }
-  | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string; anchors: Anchor[] }
+  // materialId is the material this card is ABOUT (the server's
+  // card_instance--evaluates-->material edge target, whole-branch review
+  // finding [5]) — carried so the client never has to guess it from anchor
+  // contents or array position, which is exactly the coin flip a compare
+  // card's two-material anchor set invites.
+  | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string; anchors: Anchor[]; materialId: string }
   | { type: "done" }
   | { type: "error"; code: string; message: string };
 
@@ -19,7 +24,7 @@ export function mapStudioFrame(frame: SSEFrame): StudioTurnEvent | null {
   switch (frame.event) {
     case "intervention": return { type: "intervention", interventionId: data.intervention_id, body: data.body, anchor: data.anchor, criterion: data.criterion, level: data.level };
     case "gate": return { type: "gate", contract: data.contract, status: data.status, passed: data.passed, total: data.total, missing: data.missing ?? [] };
-    case "card": return { type: "card", cardInstanceId: data.card_instance_id, cardId: data.card_id, nudgeText: data.nudge_text, anchors: data.anchors ?? [] };
+    case "card": return { type: "card", cardInstanceId: data.card_instance_id, cardId: data.card_id, nudgeText: data.nudge_text, anchors: data.anchors ?? [], materialId: data.material_id ?? "" };
     case "done": return { type: "done" };
     case "error": return { type: "error", code: data.error?.code ?? "internal_error", message: data.error?.message ?? "" };
     default: return null;

@@ -182,6 +182,124 @@ func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
 	}
 }
 
+// TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted is the whole-branch
+// review's end-to-end proof for findings [1] + [3] + [5]: SIFT is UNREACHABLE
+// before this fix — SurfaceCardCandidates only ever named "craap", so no
+// material could ever get a SIFT card_instance no matter how the rest of the
+// runtime evolved. This test drives the REAL surface -> fill -> submit path
+// (mirrors projectcards_test.go's TestProjectCardSubmit_SurfaceFillMintE2E)
+// to genuinely complete CRAAP on a material, then asserts that VERY submit's
+// own refeed (agent.RunAgentStep, run at the end of submitProjectCard,
+// exactly like a real student's next moment in the product) surfaces SIFT on
+// that same material — not silence, not another craap — with:
+//   - the SSE card frame's material_id naming the checked material, so the
+//     client never has to guess it (finding [5]);
+//   - AI-authored anchors scoped to that checked material only, and never
+//     inventing a "find" (lateral) anchor — no lateral source has been
+//     chosen yet at surface time (finding [3]).
+func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	q := sqlc.New(pool)
+
+	// Complete CRAAP for real over the surface->fill->submit path so the
+	// graph carries a genuine evaluated-as edge, not a hand-planted fixture.
+	cid, anchors := surfaceCraapAndReadAnchors(t, h, pool, cookie, projectID)
+	checkedMaterialID := anchors[0].MaterialID
+	for i := range anchors {
+		anchors[i].Answer = "学生的判断与理由，足够长以通过校验"
+	}
+	anchors = append(anchors, agent.Anchor{
+		ID: "risk_note", MaterialID: checkedMaterialID, Dimension: "risk_note", Author: "student",
+		Answer: "它支撑我的核心数据，但只有单一来源，需交叉验证。",
+	})
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal filled anchors: %v", err)
+	}
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID.String()+"/cards/"+cid+"/submit", strings.NewReader(body)), cookie))
+	submitBody := rr.Body.String()
+	if rr.Code != 200 || !strings.Contains(submitBody, "event: done") {
+		t.Fatalf("craap submit: %d — %s", rr.Code, submitBody)
+	}
+	if got, _ := q.GetCardInstance(context.Background(), uuid.MustParse(cid)); got.Status != "completed" {
+		t.Fatalf("craap card status = %q, want completed (test setup invalid)", got.Status)
+	}
+
+	// The summon hop: completing CRAAP's own refeed (still inside this same
+	// submit request/response) must surface SIFT on the material that was
+	// just evaluated — the exact reachability the whole-branch review found
+	// missing (finding [1]).
+	if !strings.Contains(submitBody, "event: card") || !strings.Contains(submitBody, `"card_id":"sift"`) {
+		t.Fatalf("expected the craap submit's refeed to surface a sift card:\n%s", submitBody)
+	}
+	if !strings.Contains(submitBody, `"material_id":"`+checkedMaterialID+`"`) {
+		t.Fatalf("card frame material_id must name the checked material %s:\n%s", checkedMaterialID, submitBody)
+	}
+
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	var siftCID uuid.UUID
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "sift" {
+			siftCID = ci.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no sift card_instance persisted")
+	}
+
+	// The evaluates edge SurfaceCard mints for the sift card_instance must
+	// point at the SAME checked material — the server's own source of truth
+	// for "which material is this card about" (finding [5]).
+	edges, err := q.ListGraphEdgesByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListGraphEdgesByProject: %v", err)
+	}
+	edgeMaterialFound := false
+	for _, e := range edges {
+		if e.Type == "evaluates" && e.FromKind == "card_instance" && e.FromID == siftCID {
+			if e.ToID.String() != checkedMaterialID {
+				t.Fatalf("sift card_instance evaluates material %s, want the checked material %s", e.ToID, checkedMaterialID)
+			}
+			edgeMaterialFound = true
+			break
+		}
+	}
+	if !edgeMaterialFound {
+		t.Fatalf("no evaluates edge minted for the sift card_instance")
+	}
+
+	row, err := q.GetCardInstance(context.Background(), siftCID)
+	if err != nil {
+		t.Fatalf("GetCardInstance(sift): %v", err)
+	}
+	var siftAnchors []agent.Anchor
+	if err := json.Unmarshal(row.Anchors, &siftAnchors); err != nil {
+		t.Fatalf("unmarshal sift anchors: %v — %s", err, row.Anchors)
+	}
+	if len(siftAnchors) == 0 {
+		t.Fatalf("expected generated anchors on the surfaced sift card, got none")
+	}
+	for _, a := range siftAnchors {
+		if a.Dimension == "find" {
+			t.Fatalf("sift surface anchors must never author the lateral (find) dimension — no lateral source exists yet: %+v", a)
+		}
+		if a.MaterialID != checkedMaterialID {
+			t.Fatalf("sift surface anchor material_id = %q, want the checked material %q: %+v", a.MaterialID, checkedMaterialID, a)
+		}
+	}
+}
+
 // TestProjectTurn_TouchesLastActiveAt — Slice 5d: a turn is activity — the
 // roster's 最近活跃 depends on project.last_active_at, which is otherwise
 // only set once, at project creation. A successful turn must strictly

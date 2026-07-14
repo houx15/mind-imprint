@@ -176,6 +176,38 @@ func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	}
 }
 
+// TestProjectEquipment_CarriesMaterialID covers whole-branch review finding
+// [5]: an equipment-bar card's materialId must come from the SAME
+// card_instance--evaluates-->material graph edge SurfaceCard mints — never
+// left blank when that edge exists, and never guessed. A card with no such
+// edge (shouldn't happen in practice, but the projection must not panic on
+// it) gets an empty materialId.
+func TestProjectEquipment_CarriesMaterialID(t *testing.T) {
+	sift := uuid.New()
+	orphan := uuid.New()
+	mat := uuid.New()
+	d := ProjectData{
+		Cards: []sqlc.CardInstance{
+			{ID: sift, CardID: "sift"},
+			{ID: orphan, CardID: "craap"},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluates", FromKind: "card_instance", FromID: sift, ToKind: "material", ToID: mat},
+		},
+	}
+	spec := func(id string) (cards.Spec, bool) { return cards.Spec{ID: id, Name: id}, true }
+	eq := projectEquipment(d, spec)
+	if len(eq) != 2 {
+		t.Fatalf("want 2 equip, got %d", len(eq))
+	}
+	if eq[0].MaterialID != mat.String() {
+		t.Fatalf("sift materialId = %q, want %s", eq[0].MaterialID, mat)
+	}
+	if eq[1].MaterialID != "" {
+		t.Fatalf("craap (no evaluates edge) materialId = %q, want empty", eq[1].MaterialID)
+	}
+}
+
 func TestProjectCoach_MergesStudentMessages(t *testing.T) {
 	t1 := time.Now()
 	d := ProjectData{

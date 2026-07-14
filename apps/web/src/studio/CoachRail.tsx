@@ -16,6 +16,11 @@ export type LiveCard = {
   spec: CardSpec;
   status: "proposed" | "active";
   anchors: Anchor[];
+  // The material this card is ABOUT (server's card_instance--evaluates-->
+  // material edge target, whole-branch review finding [5]). Optional/plumbing
+  // only here — consuming it to replace a client-side guess (e.g.
+  // StudioCompareCard's materials[0] default) is a separate follow-up.
+  materialId?: string;
 };
 
 export type CoachRailProps = {

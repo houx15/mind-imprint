@@ -59,10 +59,10 @@ func (e *studioEmitter) Heartbeat() error {
 	return e.sse.Heartbeat()
 }
 
-func (e *studioEmitter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte) error {
+func (e *studioEmitter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte, materialID string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.sse.Card(cardInstanceID, cardID, nudgeText, anchors)
+	return e.sse.Card(cardInstanceID, cardID, nudgeText, anchors, materialID)
 }
 
 // studioSimilarity is the Studio turn endpoint's enforcement.Similarity seam:
@@ -205,12 +205,17 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 		// Guidance level L1: the AI authors these anchors at surface time via
 		// AnchorGenerator. Higher guidance levels populate card_instance.anchors
 		// upstream (from student action) without touching this seam.
-		if spec.Primitive == "annotate" {
-			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID); ok {
+		// A compare card (SIFT) gets anchors too (whole-branch review finding
+		// [3]) — authored on the CHECKED material only (the source under
+		// review), never the lateral one, which does not exist yet at surface
+		// time. surfaceAnchors itself restricts scope + drops the lateral
+		// dimension; see its doc comment.
+		if spec.Primitive == "annotate" || spec.Primitive == "compare" {
+			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID, action.MaterialID); ok {
 				anchors = raw
 			}
 		}
-		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, anchors)
+		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, anchors, action.MaterialID)
 	case action.Kind == "intervention":
 		// Anchor is sent EMPTY, deliberately: a live intervention's anchor is
 		// a {kind,id} node reference, not the seed data's {label} shape — there
@@ -226,14 +231,26 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 	}
 }
 
-// surfaceAnchors generates the L1 AI anchors for a just-surfaced annotate
-// card (e.g. craap), persists them on the card_instance, and returns the
-// JSON to carry on the same SSE `card` frame. Degrades to (nil,false) on
-// any error — parse failure, persistence failure, empty generation — so the
-// card still surfaces with no anchors rather than failing the whole turn;
-// generating pre-anchored questions is a nice-to-have on top of the card
-// existing, not a precondition for it.
-func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID string) ([]byte, bool) {
+// surfaceAnchors generates the L1 AI anchors for a just-surfaced annotate or
+// compare card (e.g. craap, sift), persists them on the card_instance, and
+// returns the JSON to carry on the same SSE `card` frame. Degrades to
+// (nil,false) on any error — parse failure, persistence failure, empty
+// generation — so the card still surfaces with no anchors rather than
+// failing the whole turn; generating pre-anchored questions is a nice-to-have
+// on top of the card existing, not a precondition for it.
+//
+// checkedMaterialID is the card's own material (Action.MaterialID — the
+// card_instance--evaluates-->material edge target, never anchors[0] or
+// project-materials[0]). For a compare card it scopes generation to ONLY
+// that material — a compare card's questions are about the source under
+// review, not every material in the project — and, since spec.Params
+// carries the lateral dimension (SIFT's "find"), the AI-authored anchors
+// generated for it are dropped afterward: no lateral source has been chosen
+// yet at surface time, so authoring a "quote" for that dimension off the
+// checked material alone would misattribute it (whole-branch review finding
+// [3]). An annotate card keeps today's behavior (all project materials in
+// scope) unchanged.
+func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string) ([]byte, bool) {
 	cid, err := uuid.Parse(cardInstanceID)
 	if err != nil {
 		return nil, false
@@ -242,10 +259,16 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 	if err != nil {
 		return nil, false
 	}
+	if spec.Primitive == "compare" && checkedMaterialID != "" {
+		materials = onlyMaterial(materials, checkedMaterialID)
+	}
 	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
 	result, err := gen.Generate(ctx, spec, materials)
 	if err != nil || len(result.Anchors) == 0 {
 		return nil, false
+	}
+	if spec.Params.LateralDimension != "" {
+		result.Anchors = dropDimension(result.Anchors, spec.Params.LateralDimension)
 	}
 	// A real call succeeded whenever Resolved is populated (GenerateResult's
 	// contract) — it cost money regardless of whether persisting the
@@ -269,6 +292,35 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		return nil, false
 	}
 	return raw, true
+}
+
+// onlyMaterial narrows a materials list to the single entry matching id, when
+// present — used to scope a compare card's anchor generation to the checked
+// material only. A miss degrades to the full (unfiltered) list rather than
+// an empty one, the same "never fail the turn over anchor generation"
+// posture the rest of this file follows.
+func onlyMaterial(materials []agent.Material, id string) []agent.Material {
+	for _, m := range materials {
+		if m.ID == id {
+			return []agent.Material{m}
+		}
+	}
+	return materials
+}
+
+// dropDimension removes every anchor authored for dim — used to strip a
+// compare card's lateral-dimension anchor (SIFT's "find") from the AI-
+// authored surface set: that dimension is about a source the student has not
+// chosen yet, so there is nothing honest to anchor it to.
+func dropDimension(anchors []agent.Anchor, dim string) []agent.Anchor {
+	out := make([]agent.Anchor, 0, len(anchors))
+	for _, a := range anchors {
+		if a.Dimension == dim {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
 }
 
 // projectMaterials reads the project's materials into the agent runtime's

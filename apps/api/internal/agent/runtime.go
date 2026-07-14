@@ -95,5 +95,6 @@ type Action struct {
 	Verdict        string
 	CardInstanceID string      // set when Kind == "surface_card"
 	CardID         string      // set when Kind == "surface_card": the card spec id (e.g. "craap")
+	MaterialID     string      // set when Kind == "surface_card": the material this card is ABOUT (the card_instance--evaluates-->material edge target) — carried so callers (the SSE frame, the studio projection) never have to guess it from anchors or array position (whole-branch review finding [5]).
 	GateReport     *GateReport // set when Kind == "check_gate"
 }

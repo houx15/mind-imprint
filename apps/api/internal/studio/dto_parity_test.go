@@ -15,7 +15,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		Coach: CoachDTO{
 			Anchor:    "论证图 · 治理决心主张",
 			Messages:  []CoachMessageDTO{{Kind: "ai", Body: "b", Tag: "D5", Anchor: "论证图 · 治理决心主张"}},
-			Equipment: []EquipCardDTO{{ID: "e1", Name: "钢人卡", Spont: "提示后", Meth: "concession"}},
+			Equipment: []EquipCardDTO{{ID: "e1", Name: "钢人卡", Spont: "提示后", Meth: "concession", MaterialID: "m1"}},
 		},
 		Onboarding: OnboardingDTO{RestatePrompt: "r", RubricRows: []RubricRowDTO{{Official: "o", Plain: "p", Weak: true}}, PlanSteps: []string{"立题"}},
 		Materials: []MaterialDTO{{
@@ -72,7 +72,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	}
 	assertKeys(t, messages[0], []string{"anchor", "body", "kind", "tag"})
 
-	// coach.equipment[0]: {id,name,spont,meth}
+	// coach.equipment[0]: {id,name,spont,meth,materialId}
 	var equipment []json.RawMessage
 	if err := json.Unmarshal(coach["equipment"], &equipment); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if len(equipment) != 1 {
 		t.Fatalf("coach.equipment len = %d, want 1", len(equipment))
 	}
-	assertKeys(t, equipment[0], []string{"id", "meth", "name", "spont"})
+	assertKeys(t, equipment[0], []string{"id", "materialId", "meth", "name", "spont"})
 
 	// onboarding: {restatePrompt, rubricRows, planSteps}
 	assertKeys(t, m["onboarding"], []string{"planSteps", "restatePrompt", "rubricRows"})

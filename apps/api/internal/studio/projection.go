@@ -203,12 +203,22 @@ func cardMeth(cardID string) string {
 }
 
 // projectEquipment maps card_instances to the 装备栏 chips. spont = 提示后 when an
-// intervention references the instance (agent-surfaced), else 自发.
+// intervention references the instance (agent-surfaced), else 自发. materialId
+// comes from the card_instance--evaluates-->material edge SurfaceCard mints
+// (agent/card_lifecycle.go) — the studio projection's own claim to "which
+// material is this card about", so the client never has to guess it from
+// anchor contents or array position (whole-branch review finding [5]).
 func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) []EquipCardDTO {
 	nudged := map[string]bool{}
 	for _, iv := range d.Interventions {
 		if iv.CardInstanceID.Valid {
 			nudged[uuidFromPg(iv.CardInstanceID)] = true
+		}
+	}
+	materialOf := map[string]string{}
+	for _, e := range d.Edges {
+		if e.Type == "evaluates" && e.FromKind == "card_instance" && e.ToKind == "material" {
+			materialOf[e.FromID.String()] = e.ToID.String()
 		}
 	}
 	out := make([]EquipCardDTO, 0, len(d.Cards))
@@ -221,7 +231,10 @@ func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) [
 		if nudged[ci.ID.String()] {
 			spont = "提示后"
 		}
-		out = append(out, EquipCardDTO{ID: ci.ID.String(), Name: name, Spont: spont, Meth: cardMeth(ci.CardID)})
+		out = append(out, EquipCardDTO{
+			ID: ci.ID.String(), Name: name, Spont: spont, Meth: cardMeth(ci.CardID),
+			MaterialID: materialOf[ci.ID.String()],
+		})
 	}
 	return out
 }

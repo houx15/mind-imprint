@@ -41,43 +41,101 @@ func CandidateMoves(g GraphView) []Candidate {
 	return out
 }
 
-// craapCardID is the only card Slice 3 surfaces automatically (agent-spec
+// craapCardID is the first card Slice 3 surfaces automatically (agent-spec
 // §5.7): a source material with no evaluation gets CRAAP proposed onto it.
-// Slice 4's planner generalizes "which card for which target" beyond this
-// single hardcoded mapping.
-const craapCardID = "craap"
+// siftCardID is Slice 6c's follow-on: once CRAAP has finished, the same
+// material becomes eligible for a lateral SIFT check (see the SIFT branch
+// below). Slice 4's planner generalizes "which card for which target" beyond
+// these two hardcoded mappings.
+const (
+	craapCardID = "craap"
+	siftCardID  = "sift"
+)
 
 // SurfaceCardCandidates implements the surface_card trigger predicate
-// (design §3, agent-spec §4.2): a source ("article") material with no
-// card_instance already evaluating it and no evidence node minted from it
-// yields a surface_card candidate naming CRAAP. An already-surfaced or
-// already-evaluated source yields none — surface_card never re-proposes
-// itself onto the same material. Pure, no DB; perceive (loop.go) supplies
-// the GraphView's Materials + Edges. Candidates are returned in material
-// order (stable).
+// (design §3, agent-spec §4.2) for two stages over the same source
+// ("article") material, in sequence:
+//
+//  1. CRAAP: a material with no card_instance already evaluating it and no
+//     evidence node minted from it yields a surface_card candidate naming
+//     CRAAP. An already-surfaced or already-evaluated source yields none —
+//     CRAAP never re-proposes itself onto the same material.
+//  2. SIFT: once CRAAP has finished (an "evaluated-as" edge exists), the
+//     SAME material becomes eligible for a lateral cross-check — UNLESS it
+//     already has one (a "cross-checked-by" edge) or a SIFT card_instance is
+//     already surfaced on it (in flight), or it is itself a lateral
+//     instrument some other cross_check cited (a "cites" edge FROM a
+//     cross_check node TO this material). That last exclusion is the
+//     treadmill guard: without it, adding a lateral source, having it
+//     auto-CRAAP'd, and then having SIFT propose on IT TOO would let every
+//     lateral read manufacture its own next chore, forever.
+//
+// Pure, no DB, no model call; perceive (loop.go) supplies the GraphView's
+// Nodes/Materials/Edges/CardInstances. Candidates are returned in material
+// order (stable), at most one per material.
 func SurfaceCardCandidates(g GraphView) []Candidate {
-	evaluated := make(map[string]bool, len(g.Edges))
+	// card_instance id -> card id: an "evaluates" edge only carries endpoint
+	// ids, so this is how a material's surfaced-card edge gets attributed to
+	// the SPECIFIC card that minted it (CRAAP vs SIFT can both mint one on
+	// the same material, at different stages).
+	cardOf := make(map[string]string, len(g.CardInstances))
+	for _, ci := range g.CardInstances {
+		cardOf[ci.ID] = ci.CardID
+	}
+
+	crossCheckNode := make(map[string]bool, len(g.Nodes))
+	for _, n := range g.Nodes {
+		if n.Type == "cross_check" {
+			crossCheckNode[n.ID] = true
+		}
+	}
+
+	evaluated := make(map[string]bool, len(g.Edges))         // any card (CRAAP or SIFT) already surfaced or promoted here
+	evaluatedAs := make(map[string]bool, len(g.Edges))       // CRAAP has finished on this material
+	crossCheckedBy := make(map[string]bool, len(g.Edges))    // this material already has its own cross_check
+	siftSurfaced := make(map[string]bool, len(g.Edges))      // a SIFT card_instance already targets this material
+	lateralInstrument := make(map[string]bool, len(g.Edges)) // this material IS some cross_check's lateral source
 	for _, e := range g.Edges {
 		switch {
 		case e.FromKind == "card_instance" && e.ToKind == "material":
 			evaluated[e.ToID] = true
+			if cardOf[e.FromID] == siftCardID {
+				siftSurfaced[e.ToID] = true
+			}
 		case e.FromKind == "material" && e.ToKind == "graph_node" && e.Type == "evaluated-as":
 			evaluated[e.FromID] = true
+			evaluatedAs[e.FromID] = true
+		case e.FromKind == "material" && e.ToKind == "graph_node" && e.Type == "cross-checked-by":
+			crossCheckedBy[e.FromID] = true
+		case e.FromKind == "graph_node" && e.ToKind == "material" && e.Type == "cites" && crossCheckNode[e.FromID]:
+			lateralInstrument[e.ToID] = true
 		}
 	}
 
 	var out []Candidate
 	for _, m := range g.Materials {
-		if m.Kind != "article" || evaluated[m.ID] {
+		if m.Kind != "article" {
 			continue
 		}
-		out = append(out, Candidate{
-			Verb:       "surface_card",
-			AnchorKind: "material",
-			AnchorID:   m.ID,
-			CardID:     craapCardID,
-			Reason:     "source material has no evaluation card",
-		})
+		if !evaluated[m.ID] {
+			out = append(out, Candidate{
+				Verb:       "surface_card",
+				AnchorKind: "material",
+				AnchorID:   m.ID,
+				CardID:     craapCardID,
+				Reason:     "source material has no evaluation card",
+			})
+			continue
+		}
+		if evaluatedAs[m.ID] && !crossCheckedBy[m.ID] && !siftSurfaced[m.ID] && !lateralInstrument[m.ID] {
+			out = append(out, Candidate{
+				Verb:       "surface_card",
+				AnchorKind: "material",
+				AnchorID:   m.ID,
+				CardID:     siftCardID,
+				Reason:     "evaluated source has no lateral cross-check yet",
+			})
+		}
 	}
 	return out
 }

@@ -130,12 +130,12 @@ export const STUDIO_FIXTURE: StudioState = {
       },
     ],
     equipment: [
-      { id: "eq-steelman", name: "钢人卡", spont: "提示后", meth: "concession" },
-      { id: "eq-concession-para", name: "让步段卡", spont: "自发", meth: "concession" },
-      { id: "eq-toulmin-map", name: "Toulmin 图", spont: "自发", meth: "concession" },
-      { id: "eq-sift-lateral", name: "SIFT 横向阅读", spont: "自发", meth: "sift_craap" },
-      { id: "eq-craap-five", name: "CRAAP 五维", spont: "提示后", meth: "sift_craap" },
-      { id: "eq-lateral-check", name: "横向核查", spont: "自发", meth: "sift_craap" },
+      { id: "eq-steelman", name: "钢人卡", spont: "提示后", meth: "concession", materialId: "" },
+      { id: "eq-concession-para", name: "让步段卡", spont: "自发", meth: "concession", materialId: "" },
+      { id: "eq-toulmin-map", name: "Toulmin 图", spont: "自发", meth: "concession", materialId: "" },
+      { id: "eq-sift-lateral", name: "SIFT 横向阅读", spont: "自发", meth: "sift_craap", materialId: "" },
+      { id: "eq-craap-five", name: "CRAAP 五维", spont: "提示后", meth: "sift_craap", materialId: "" },
+      { id: "eq-lateral-check", name: "横向核查", spont: "自发", meth: "sift_craap", materialId: "" },
     ],
   },
   views: {

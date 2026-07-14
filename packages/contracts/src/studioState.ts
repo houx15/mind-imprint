@@ -37,6 +37,11 @@ export const EquipCard = z.object({
   name: z.string(),
   spont: z.enum(["自发", "提示后"]),
   meth: z.string(),
+  // The material this card_instance evaluates (its card_instance--evaluates-->
+  // material graph edge target) — carried so the client never has to guess
+  // which material an equipment-bar card is about (whole-branch review
+  // finding [5]). Empty string when no such edge exists.
+  materialId: z.string(),
 });
 export type EquipCard = z.infer<typeof EquipCard>;
 

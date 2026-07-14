@@ -56,7 +56,7 @@ func SurfaceCard(ctx context.Context, deps AgentDeps, projectID uuid.UUID, spec 
 		return nil, err
 	}
 
-	return &Action{Kind: "surface_card", CardInstanceID: row.ID.String(), CardID: spec.ID}, nil
+	return &Action{Kind: "surface_card", CardInstanceID: row.ID.String(), CardID: spec.ID, MaterialID: materialID.String()}, nil
 }
 
 // CompleteCard runs EvaluateCompletion (card_completion.go) over

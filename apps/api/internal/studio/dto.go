@@ -53,6 +53,11 @@ type EquipCardDTO struct {
 	Name  string `json:"name"`
 	Spont string `json:"spont"`
 	Meth  string `json:"meth"`
+	// MaterialID is the material this card_instance evaluates (its
+	// card_instance--evaluates-->material graph edge target), when one
+	// exists. Carried so the client never has to guess which material an
+	// equipment-bar card is about (whole-branch review finding [5]).
+	MaterialID string `json:"materialId"`
 }
 
 type RubricRowDTO struct {

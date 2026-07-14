@@ -48,10 +48,14 @@ func (s *SSEWriter) Text(delta string) error {
 }
 
 // Card emits a summon_card proposal: the persisted card_instance id, the card id,
-// the student-facing nudge, and any AI-generated anchors (a JSON array; "[]" when
-// none). Carrying anchors here means the client has them at summon time rather
-// than depending on a later refetch.
-func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte) error {
+// the student-facing nudge, any AI-generated anchors (a JSON array; "[]" when
+// none), and the id of the material this card is ABOUT. Carrying anchors here
+// means the client has them at summon time rather than depending on a later
+// refetch; carrying materialID means the client never has to guess which
+// material a card targets from anchor contents or array position (whole-branch
+// review finding [5] — a compare card's anchors span two materials by design,
+// so guessing from them is exactly the coin flip this field exists to avoid).
+func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byte, materialID string) error {
 	raw := json.RawMessage(anchors)
 	if len(raw) == 0 {
 		raw = json.RawMessage("[]")
@@ -61,6 +65,7 @@ func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byt
 		"card_id":          cardID,
 		"nudge_text":       nudgeText,
 		"anchors":          raw,
+		"material_id":      materialID,
 	})
 }
 
