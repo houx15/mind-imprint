@@ -48,10 +48,10 @@ func (e *studioEmitter) Done() error {
 }
 
 // DoneCard is submitProjectCard's own Done — see gateway.SSEWriter.DoneCard.
-func (e *studioEmitter) DoneCard(cardStatus string, missing []string) error {
+func (e *studioEmitter) DoneCard(cardStatus string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.sse.DoneCard(cardStatus, missing)
+	return e.sse.DoneCard(cardStatus)
 }
 
 func (e *studioEmitter) ErrorEnvelope(code, msg string) error {

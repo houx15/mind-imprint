@@ -64,3 +64,18 @@ test("refuses to lock a zero-anchor card even once the risk note is filled", () 
   fireEvent.click(lockButton);
   expect(onSubmit).not.toHaveBeenCalled();
 });
+
+// A disabled control with no explanation reads as a broken product. The
+// zero-anchor card's lock button is legitimately dead (it can never satisfy
+// the completion predicate), so the card must SAY so and point at the exit
+// she does have — skipping — rather than leave her clicking a button that
+// will never respond.
+test("explains why a zero-anchor card cannot be locked, instead of just deadening the button", () => {
+  render(<StudioAnnotateCard spec={spec} anchors={[]} onSubmit={vi.fn()} onSkip={() => {}} />);
+  expect(screen.getByText(/没能取到要核对的句子/)).toBeInTheDocument();
+});
+
+test("shows no such explanation when the card has anchors to ask about", () => {
+  render(<StudioAnnotateCard spec={spec} anchors={anchors} onSubmit={vi.fn()} onSkip={() => {}} />);
+  expect(screen.queryByText(/没能取到要核对的句子/)).not.toBeInTheDocument();
+});

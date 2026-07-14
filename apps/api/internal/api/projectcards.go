@@ -242,27 +242,25 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		<-hbDone
 	}()
 
-	// cardStatus/missingTags are the RESULTING state this submit reports on
-	// the "done" frame (FIX 1): "active" (the default, and the honest
-	// answer for every early-return below — nothing has changed the row's
-	// status yet) unless the completion predicate is actually satisfied
-	// further down, in which case it flips to "completed" and missingTags
-	// is cleared. The client (conversation.ts submitCard) only retires its
-	// local card on an explicit "completed" — never on a bare "done" — so
-	// this variable must be honest at every return point, not just the
-	// happy path.
+	// cardStatus is the RESULTING state this submit reports on the "done"
+	// frame: "active" (the default, and the honest answer for every
+	// early-return below — nothing has changed the row's status yet) unless
+	// the completion predicate is actually satisfied further down, in which
+	// case it flips to "completed". The client (conversation.ts submitCard)
+	// only retires its local card on an explicit "completed" — never on a
+	// bare "done" — so this variable must be honest at every return point,
+	// not just the happy path.
 	cardStatus := "active"
-	var missingTags []string
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.SetCardInstanceAnchors(r.Context(), projectID, cid, body.Anchors); err != nil {
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.DoneCard(cardStatus, missingTags)
+		_ = em.DoneCard(cardStatus)
 		return
 	}
 	if err := store.SubmitProjectCardInstance(r.Context(), projectID, cid, body.FieldValues, body.EventTrace); err != nil {
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.DoneCard(cardStatus, missingTags)
+		_ = em.DoneCard(cardStatus)
 		return
 	}
 
@@ -287,18 +285,6 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 	row, err := store.GetCardInstance(r.Context(), cid)
 	if err == nil {
 		if spec, ok := cards.ByID(row.CardID); ok {
-			// missingTags is computed independently of CompleteCard's own
-			// (unexported) completion check, over the SAME just-persisted
-			// row.Anchors, purely so submitProjectCard can report it on
-			// "done" without widening CompleteCard's signature for every
-			// caller (agent package tests included) just to thread one
-			// extra return value out.
-			var anchors []agent.Anchor
-			if len(row.Anchors) > 0 {
-				_ = json.Unmarshal(row.Anchors, &anchors)
-			}
-			_, missingTags = agent.EvaluateCompletion(spec, anchors)
-
 			complete, err := agent.CompleteCard(r.Context(), deps, spec, cid)
 			if err != nil {
 				// FIX 5: a CompleteCard error must not be swallowed and
@@ -308,17 +294,16 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 				// left cleanly active.
 				slog.Error("card submit: CompleteCard", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 				_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-				_ = em.DoneCard(cardStatus, missingTags)
+				_ = em.DoneCard(cardStatus)
 				return
 			}
 			if complete {
 				if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "completed"); err != nil {
 					_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-					_ = em.DoneCard(cardStatus, missingTags)
+					_ = em.DoneCard(cardStatus)
 					return
 				}
 				cardStatus = "completed"
-				missingTags = nil
 			}
 		}
 	} else {
@@ -342,9 +327,9 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("card submit: refeed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.DoneCard(cardStatus, missingTags)
+		_ = em.DoneCard(cardStatus)
 		return
 	}
 	a.streamAction(r.Context(), em, action, projectID, store)
-	_ = em.DoneCard(cardStatus, missingTags)
+	_ = em.DoneCard(cardStatus)
 }

@@ -170,6 +170,16 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
           }}
         />
 
+        {/* A card that arrived with no anchors can never satisfy its completion
+            predicate, so its lock button is legitimately dead (hasAnchors,
+            above). Say WHY, and point at the exit she does have — a disabled
+            control with no explanation reads as a broken product. */}
+        {!hasAnchors && (
+          <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.6, color: "#C96F4F" }}>
+            这张卡没能取到要核对的句子，暂时锁不了。先跳过，稍后再核这条来源。
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
           <button
             type="button"
