@@ -64,4 +64,14 @@ describe("SourceLog", () => {
     render(<SourceLog sources={[{ ...loggedSource, timeSpentS: 0 }]} />);
     expect(screen.queryByText(/停留/)).not.toBeInTheDocument();
   });
+
+  it("marks an entry 已横向核查 once its cross_check mint flips lateral_read", () => {
+    render(<SourceLog sources={[{ ...loggedSource, lateralRead: true }]} />);
+    expect(screen.getByText("已横向核查")).toBeInTheDocument();
+  });
+
+  it("does not mark an entry that hasn't been laterally read yet", () => {
+    render(<SourceLog sources={[loggedSource]} />);
+    expect(screen.queryByText("已横向核查")).not.toBeInTheDocument();
+  });
 });

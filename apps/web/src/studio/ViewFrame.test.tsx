@@ -119,3 +119,51 @@ describe("ViewFrame (station rail = view switcher)", () => {
     expect(screen.queryByText("过去二十年")).not.toBeInTheDocument();
   });
 });
+
+describe("ViewFrame (Task 11): render off the card's primitive, never its id", () => {
+  const siftSpec = CARD_REGISTRY["sift"]!;
+
+  function stateWithMaterials() {
+    return {
+      ...STUDIO_FIXTURE,
+      activeStation: "S3" as const,
+      views: { ...STUDIO_FIXTURE.views, material: [blogSource, nasaSource] },
+    };
+  }
+
+  it("renders Compare's two panes for an active compare-primitive card, not SourceDossier's list", () => {
+    const compareCard: LiveCard = {
+      cardInstanceId: "ci2",
+      cardId: "sift",
+      spec: siftSpec,
+      status: "active",
+      anchors: [
+        { id: "a-stop", material_id: blogSource.id, block_id: "", start: 0, end: 0, quote: "", dimension: "stop", author: "student", question: "", answer: "有点意外" },
+        { id: "a-find", material_id: nasaSource.id, block_id: "", start: 0, end: 0, quote: "", dimension: "find", author: "student", question: "", answer: "NASA 数据显示排放仍在上升" },
+      ],
+    };
+    render(<ViewFrame state={stateWithMaterials()} card={compareCard} />);
+    expect(screen.getAllByTestId("compare-pane").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
+  });
+
+  it("keeps rendering SourceDossier for an active annotate-primitive card (today's path, unchanged)", () => {
+    render(<ViewFrame state={stateWithMaterials()} card={liveCard} />);
+    expect(screen.getByText(/信源档案/)).toBeInTheDocument();
+    expect(screen.queryByTestId("compare-pane")).not.toBeInTheDocument();
+  });
+
+  it("invites adding the lateral source when the compare card has none yet, reusing 6b's onAdd", () => {
+    const compareCard: LiveCard = {
+      cardInstanceId: "ci3",
+      cardId: "sift",
+      spec: siftSpec,
+      status: "active",
+      anchors: [
+        { id: "a-stop", material_id: blogSource.id, block_id: "", start: 0, end: 0, quote: "", dimension: "stop", author: "student", question: "", answer: "有点意外" },
+      ],
+    };
+    render(<ViewFrame state={stateWithMaterials()} card={compareCard} material={{ onAdd: async () => {} }} />);
+    expect(screen.getByText("去找一个独立的来源")).toBeInTheDocument();
+  });
+});

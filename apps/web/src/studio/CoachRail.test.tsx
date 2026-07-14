@@ -189,6 +189,41 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
     expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
   });
+
+  it("primitive === 'compare' (SIFT) forks to StudioCompareCard, not StudioCardSheet — branched on primitive, never on the card id", () => {
+    const spec = CARD_REGISTRY["sift"]!;
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [] }}
+        materials={[{
+          id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false,
+        }]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "锁定这张卡" })).toBeInTheDocument();
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+  });
+
+  it("wires the SIFT card's 添加信源 affordance to onSelectStation('S3') — the existing dossier entry point, not a dead button", () => {
+    const spec = CARD_REGISTRY["sift"]!;
+    const onSelectStation = vi.fn();
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [] }}
+        materials={[{
+          id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false,
+        }]}
+        onSelectStation={onSelectStation}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加信源" }));
+    expect(onSelectStation).toHaveBeenCalledWith("S3");
+  });
 });
 
 describe("CoachRail voice input (5d review IMPORTANT: the mic must not be inert)", () => {

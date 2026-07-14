@@ -71,6 +71,22 @@ export function SourceLog({ sources }: SourceLogProps) {
               {readingMinutesLabel(source.timeSpentS) && (
                 <span style={{ fontSize: 11.5, color: "#8A93A6" }}>{readingMinutesLabel(source.timeSpentS)}</span>
               )}
+              {/* A fact about what happened (a cross_check mint flipped this
+                  source's own log entry), never a credibility verdict. */}
+              {source.lateralRead && (
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "2px 9px",
+                    borderRadius: 999,
+                    background: "#EAE4F7",
+                    color: "#5C4A8A",
+                  }}
+                >
+                  已横向核查
+                </span>
+              )}
             </div>
             {source.takeaway !== "" && (
               <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>{source.takeaway}</div>

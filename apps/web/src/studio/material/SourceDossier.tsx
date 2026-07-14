@@ -19,7 +19,7 @@ type AnnotateSpan = AnnotateState["spans"][number];
 // the coach rail is asking about, but the mint never depends on this mapping.
 // A source-level anchor (empty block_id + a 0..0 range, e.g. risk_note) has
 // nowhere to highlight in the article body, so it's skipped.
-function anchorToSpan(anchor: Anchor): AnnotateSpan | null {
+export function anchorToSpan(anchor: Anchor): AnnotateSpan | null {
   const blockRef = anchor.block_id || undefined;
   const hasRange = anchor.end > anchor.start;
   if (!blockRef && !hasRange) return null;
@@ -59,6 +59,16 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
 
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
+
+  // The chip is DERIVED, never decorated (spec §6): an active (open,
+  // uncompleted) card exists on this material AND it has no cross-check yet.
+  // "on this material" is read the same way the rest of this file already
+  // merges live/persisted anchors — by material_id — so it holds for any
+  // primitive that carries material-scoped anchors, not just `compare`.
+  const liveMaterialIds = new Set((anchors ?? []).map((a) => a.material_id));
+  function needsLateralRead(source: MaterialSource): boolean {
+    return liveMaterialIds.has(source.id) && !source.lateralRead;
+  }
 
   const reportOpenElapsed = () => {
     const opened = openedAtRef.current;
@@ -163,6 +173,20 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
                   >
                     {source.locked ? "✓ 已锁定" : "待评估"}
                   </span>
+                  {needsLateralRead(source) && (
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        padding: "3px 10px",
+                        borderRadius: 999,
+                        color: "#C96F4F",
+                        background: "#FBEEE7",
+                      }}
+                    >
+                      正在核对 · 需横向阅读
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 4 }}>
                   {source.origin === "fetched" ? "网页" : "粘贴"}
@@ -214,15 +238,29 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
               instead of faking a single-mode switch. */}
           {openSource.blocks.length > 0 && (
             <>
+              {needsLateralRead(openSource) ? (
+                // Design docs/design/思维印记_工作区.dc.html:1050-1053 — verbatim.
+                // Replaces the generic caption below: this is the same fact
+                // (an active card + no cross-check yet), just spelled out for
+                // the open article's binding UI.
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 11 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#C96F4F", background: "#FBEEE7", padding: "3px 10px", borderRadius: 999 }}>
+                    正在核对 · 需横向阅读
+                  </span>
+                  <span style={{ fontSize: 11.5, color: "#9AA1B0" }}>点亮的句子 = 印记标出的可疑处</span>
+                </div>
+              ) : null}
               <Annotate
                 blocks={openSource.blocks}
                 state={annotateState!}
                 activeSpanId={activeSpanId}
                 onSelectSpan={setActiveSpanId}
               />
-              <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>
-                点亮的段落是 AI 标出的可疑处——追问会出现在旁边的陪练轨道。
-              </div>
+              {!needsLateralRead(openSource) && (
+                <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>
+                  点亮的段落是 AI 标出的可疑处——追问会出现在旁边的陪练轨道。
+                </div>
+              )}
             </>
           )}
 

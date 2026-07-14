@@ -163,6 +163,8 @@ export function StudioShell({ state, callbacks, sending = false, card = null, pe
           onOpenCard={callbacks.onOpenCard}
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
+          materials={state.views.material}
+          onSelectStation={callbacks.onSelectStation}
         />
       </div>
 

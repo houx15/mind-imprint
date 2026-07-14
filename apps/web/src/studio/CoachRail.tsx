@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Anchor, CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
+import type { Anchor, CardInstance, CardSpec, MaterialSource, TraceEvent } from "@mind-imprint/contracts";
 import { AsrStream } from "../api/voice";
 import { MicCapture } from "../audio/capture";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
 import { StudioAnnotateCard } from "./StudioAnnotateCard";
+import { StudioCompareCard } from "./StudioCompareCard";
 import { StudioCardSheet } from "./StudioCardSheet";
-import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
+import type { CoachMessage, EquipCard, StationCode, StationView, StudioCallbacks } from "./state";
 
 export type LiveCard = {
   cardInstanceId: string;
@@ -33,6 +34,15 @@ export type CoachRailProps = {
   onOpenCard?: (cardInstanceId: string) => void;
   onSubmitCard?: (finalEnvelope: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
+  // Task 11 (SIFT): a `compare` card's anchors span two materials the
+  // server never tells the client apart (unlike `annotate`'s AI-authored,
+  // pre-anchored ones) — StudioCompareCard has the student name both
+  // explicitly, from the project's own material list.
+  materials?: MaterialSource[];
+  // Wired to 6b's existing add-source entry point (素材/S3) so the SIFT
+  // card's "还没有独立来源" affordance goes somewhere real — it must never
+  // be a dead button (a control with no handler must not be shown at all).
+  onSelectStation?: (code: StationCode) => void;
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -165,6 +175,8 @@ export function CoachRail({
   onOpenCard,
   onSubmitCard,
   onSkipCard,
+  materials = [],
+  onSelectStation,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -327,6 +339,15 @@ export function CoachRail({
             <StudioAnnotateCard
               spec={card.spec}
               anchors={card.anchors}
+              onSubmit={(env) => onSubmitCard?.(env)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          ) : card.spec.primitive === "compare" ? (
+            <StudioCompareCard
+              spec={card.spec}
+              anchors={card.anchors}
+              materials={materials}
+              onAddLateralSource={() => onSelectStation?.("S3")}
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
             />

@@ -290,6 +290,92 @@ describe("SourceDossier", () => {
     expect(screen.getByText(/检索日志/)).toBeInTheDocument();
   });
 
+  it("shows the derived 需横向阅读 chip on a source with a live active card and no cross-check yet", () => {
+    const liveAnchor: Anchor = {
+      id: "a-stop",
+      material_id: BLOG_ID,
+      block_id: "b1",
+      start: 0,
+      end: 5,
+      quote: "过去二十年",
+      dimension: "stop",
+      author: "student",
+      question: "你的第一反应是什么？",
+      answer: "有点意外",
+    };
+    render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
+
+    const dossier = screen.getByTestId("dossier-source-list");
+    expect(within(dossier).getByText(/需横向阅读/)).toBeInTheDocument();
+  });
+
+  it("does not show 需横向阅读 once the source's own log carries lateral_read", () => {
+    const liveAnchor: Anchor = {
+      id: "a-stop",
+      material_id: BLOG_ID,
+      block_id: "b1",
+      start: 0,
+      end: 5,
+      quote: "过去二十年",
+      dimension: "stop",
+      author: "student",
+      question: "你的第一反应是什么？",
+      answer: "有点意外",
+    };
+    const laterallyReadBlog: MaterialSource = { ...blogArticle, lateralRead: true };
+    render(<SourceDossier sources={[laterallyReadBlog, nasaSummary]} anchors={[liveAnchor]} />);
+
+    const dossier = screen.getByTestId("dossier-source-list");
+    expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
+  });
+
+  it("does not show 需横向阅读 without a live card on this material, even if lateral_read is false", () => {
+    render(<SourceDossier sources={SOURCES} />);
+    const dossier = screen.getByTestId("dossier-source-list");
+    expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
+  });
+
+  it("shows the two-line chip header (with the design's verbatim caption) in the open article, replacing the generic one", () => {
+    const liveAnchor: Anchor = {
+      id: "a-stop",
+      material_id: BLOG_ID,
+      block_id: "b1",
+      start: 0,
+      end: 5,
+      quote: "过去二十年",
+      dimension: "stop",
+      author: "student",
+      question: "你的第一反应是什么？",
+      answer: "有点意外",
+    };
+    render(<SourceDossier sources={SOURCES} anchors={[liveAnchor]} />);
+    openSourceByTitle(blogArticle.title);
+
+    expect(screen.getByText("正在核对 · 需横向阅读")).toBeInTheDocument();
+    expect(screen.getByText("点亮的句子 = 印记标出的可疑处")).toBeInTheDocument();
+    expect(screen.queryByText(/点亮的段落是 AI 标出的可疑处/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the generic annotate caption in the open article when the chip does not apply", () => {
+    render(<SourceDossier sources={SOURCES} />);
+    openSourceByTitle(blogArticle.title);
+
+    expect(screen.queryByText("正在核对 · 需横向阅读")).not.toBeInTheDocument();
+    expect(screen.getByText(/点亮的段落是 AI 标出的可疑处/)).toBeInTheDocument();
+  });
+
+  it("marks a laterally-read entry 已横向核查 in the 检索日志 ledger", () => {
+    const laterallyReadBlog: MaterialSource = { ...blogArticle, lateralRead: true };
+    render(<SourceDossier sources={[laterallyReadBlog, nasaSummary]} />);
+
+    expect(screen.getByText("已横向核查")).toBeInTheDocument();
+  });
+
+  it("does not render the 已横向核查 mark for an entry that hasn't been laterally read", () => {
+    render(<SourceDossier sources={SOURCES} />);
+    expect(screen.queryByText("已横向核查")).not.toBeInTheDocument();
+  });
+
   it("does not render the 添加信源 form at all when no onAddSource handler is supplied", () => {
     // A control that cannot do anything (no handler to actually add a
     // source) must not be shown — no live-looking form that silently no-ops.
