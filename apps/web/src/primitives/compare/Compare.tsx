@@ -17,16 +17,6 @@ export type CompareProps = {
   rightBlocks?: { id: string; text: string }[];
 };
 
-// Verbatim against the card's own option vocabulary
-// (packages/contracts/cards/sift.json's "relation" single_choice:
-// 印证/反驳/限定) — the card's vocabulary is the product's; the primitive
-// must not invent its own synonym for the same relation.
-const RELATION_LABEL: Record<"corroborates" | "contradicts" | "qualifies", string> = {
-  corroborates: "印证",
-  contradicts: "反驳",
-  qualifies: "限定",
-};
-
 function PlusIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -41,14 +31,6 @@ function LateralSearchIcon() {
       <circle cx="10" cy="10" r="6.5" stroke="#B7ABDB" strokeWidth="2" />
       <path d="M14.8 14.8L20 20" stroke="#B7ABDB" strokeWidth="2" strokeLinecap="round" />
       <path d="M17 5l1.6 4.4L23 11l-4.4 1.6L17 17l-1.6-4.4L11 11l4.4-1.6L17 5z" fill="#D8CFF0" />
-    </svg>
-  );
-}
-
-function LinkIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9 15l6-6M8 16l-2 2a3.5 3.5 0 0 1-5-5l3-3a3.5 3.5 0 0 1 5 0M16 8l2-2a3.5 3.5 0 0 1 5 5l-3 3a3.5 3.5 0 0 1-5 0" stroke="#8A7BB8" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -109,11 +91,6 @@ export function Compare({ state, onAddLateralSource, leftBlocks = [], rightBlock
   const [leftActiveSpanId, setLeftActiveSpanId] = useState<string | null>(null);
   const [rightActiveSpanId, setRightActiveSpanId] = useState<string | null>(null);
 
-  const findSpanTag = (side: "left" | "right", spanId: string) => {
-    const pane = side === "left" ? state.left : state.right;
-    return pane?.spans.find((s) => s.id === spanId)?.tag ?? spanId;
-  };
-
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -136,57 +113,13 @@ export function Compare({ state, onAddLateralSource, leftBlocks = [], rightBlock
         </div>
       </div>
 
-      {/* Pair links visually connect l_span <-> r_span. Two independent
-          Annotate instances live in unrelated DOM subtrees (they may even
-          scroll independently), so a drawn connector line between arbitrary
-          highlight positions would be fragile geometry for no real payoff.
-          A connector list does the same job honestly: it names the two
-          spans, and the relation + note are shown verbatim as the student
-          wrote them (author is always "student" — the AI never proposes a
-          pair, per the contract). */}
-      {state.pairs.length > 0 && (
-        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#8A93A6" }}>对照笔记</div>
-          {state.pairs.map((pair) => (
-            <div
-              key={pair.id}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 10,
-                background: "#F7F5FB",
-                border: "1px solid #E3DCF2",
-                borderRadius: 12,
-                padding: "10px 13px",
-              }}
-            >
-              <LinkIcon />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, color: "#5C4A8A", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700 }}>{findSpanTag("left", pair.l_span)}</span>
-                  <span>↔</span>
-                  <span style={{ fontWeight: 700 }}>{findSpanTag("right", pair.r_span)}</span>
-                  <span
-                    style={{
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      padding: "1px 8px",
-                      borderRadius: 999,
-                      background: "#EAE4F7",
-                      color: "#5C4A8A",
-                    }}
-                  >
-                    {RELATION_LABEL[pair.relation]}
-                  </span>
-                </div>
-                {pair.note.trim().length > 0 && (
-                  <div style={{ fontSize: 13, color: "#3A4256", marginTop: 4, lineHeight: 1.5 }}>{pair.note}</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* No pair-connector rendering here: CompareState.pairs is always []
+          in practice — see ViewFrame.buildCompareState's doc comment for
+          why SIFT's own field layout can never populate it, and why that
+          computation (and this rendering) was removed as dead code rather
+          than kept "just in case" (FIX-B review finding [1]). A future
+          compare card whose two panes genuinely share dimensions can add
+          pair rendering back deliberately, against its own field layout. */}
     </div>
   );
 }

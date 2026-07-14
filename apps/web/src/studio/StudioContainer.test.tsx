@@ -1392,4 +1392,119 @@ describe("StudioContainer", () => {
       expect(within(screen.getByTestId("dossier-source-list")).queryByText(/需横向阅读/)).not.toBeInTheDocument(),
     );
   });
+
+  // --- FIX-C finding [2]: `lateralMaterialId` is LIFTED to StudioContainer
+  // and reset by an effect keyed on the active card instance id (see that
+  // effect, just above `activeCardInstanceId`, in StudioContainer.tsx).
+  // Nothing exercised it: a FIX-B reviewer gutted the effect into a no-op
+  // and all other tests in this file still passed green — proof the reset
+  // was previously unverified. Without it, the lateral source she picked
+  // for one SIFT card would silently bleed into the NEXT SIFT card (a
+  // different instance, on a different material) — pre-filling a source
+  // she never chose for THIS card, and risking a cross_check that cites the
+  // wrong independent source. ---
+
+  it("clears the student's lateral-source pick when a NEW SIFT card instance becomes active (fix-C finding [2])", async () => {
+    const blogId = "m1";
+    const nasaId = "m2";
+    const article2Id = "m3";
+    const blog = {
+      id: blogId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+    };
+    const nasa = {
+      id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
+      kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+    };
+    const article2 = {
+      id: article2Id, title: "《全球气候观察》专栏", sourceUrl: "https://x.test/c", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "另一段完全独立的材料……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+    };
+
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => ({
+        ...projection,
+        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+        activeStation: "S3",
+        materials: [blog, nasa, article2],
+      }),
+    };
+
+    const siftSpec = CARD_REGISTRY["sift"]!;
+    let convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      // Card A starts ACTIVE directly (the proposed→open click is already
+      // covered by the Task 11 test above) — what matters here is her
+      // lateral pick on THIS instance.
+      card: { cardInstanceId: "ci1", cardId: "sift", spec: siftSpec, status: "active", anchors: [], materialId: blogId },
+    };
+    const listeners = new Set<() => void>();
+    const emit = () => listeners.forEach((l) => l());
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(() => {
+        convState = { ...convState, card: { ...convState.card, status: "active" } };
+        emit();
+      }),
+      // Mirrors the real controller: submit clears the live card client-side
+      // the moment its own "done" frame lands.
+      submitCard: vi.fn(async () => {
+        convState = { ...convState, card: null };
+        emit();
+      }),
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+    await flush();
+
+    // Pick NASA as card A's lateral source — the exact interaction
+    // StudioCompareCard's picker exposes (same script as the Task 11 test).
+    fireEvent.click(within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title }));
+    // The center pane reads the SAME lifted pick live (finding [3]) — the
+    // empty-state invitation must be gone once a real pick exists.
+    await waitFor(() => expect(screen.queryByText("去找一个独立的来源")).not.toBeInTheDocument());
+
+    // Complete and submit card A for real — a genuine card transition
+    // driven through the UI, not a hand-rolled state poke.
+    fireEvent.change(await screen.findByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
+    fireEvent.change(screen.getByPlaceholderText(/机构、个人/), { target: { value: "自媒体博主，无机构背景" } });
+    fireEvent.change(screen.getByPlaceholderText(/怎么说同一件事/), { target: { value: "NASA 数据显示排放仍在上升" } });
+    fireEvent.click(screen.getByRole("button", { name: "印证" }));
+    fireEvent.change(screen.getByPlaceholderText(/原始的出处是哪里/), { target: { value: "Nature Sustainability 论文" } });
+    fireEvent.click(screen.getByRole("button", { name: "原始证据" }));
+    fireEvent.change(screen.getByPlaceholderText(/和一开始比/), { target: { value: "从二手转述降级为需要追源的说法" } });
+    fireEvent.click(screen.getByRole("button", { name: "锁定这张卡" }));
+
+    expect(conv.submitCard).toHaveBeenCalled();
+    await flush();
+    // Card A is gone — the dossier list (not Compare) is back on screen.
+    await waitFor(() => expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument());
+
+    // A NEW SIFT card instance (ci2, a DIFFERENT material) is proposed, then
+    // opened by the student — the exact "打开" interaction every proposed
+    // card requires (no-forced-open).
+    act(() => {
+      convState = {
+        ...convState,
+        card: { cardInstanceId: "ci2", cardId: "sift", spec: siftSpec, status: "proposed", anchors: [], materialId: article2Id },
+      };
+      emit();
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /打开|开始/ }));
+
+    // The right pane for card B must be back to its empty invitation — not
+    // pre-filled with card A's stale nasa pick. This is the RENDERED DOM
+    // assertion the reset must actually drive, not a check on props.
+    await waitFor(() => expect(screen.getByText("去找一个独立的来源")).toBeInTheDocument());
+  });
 });

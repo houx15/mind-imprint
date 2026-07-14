@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Anchor, AnnotateState, ComparePair, CompareRelation, CompareState, MaterialSource } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, CompareState, MaterialSource } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
@@ -105,15 +105,6 @@ function FolderIcon() {
   );
 }
 
-// Maps the card's own option vocabulary (packages/contracts/cards/sift.json
-// "relation": 印证/反驳/限定) onto ComparePair.relation — never invented, and
-// never diverging from what the card itself offers.
-const RELATION_BY_ANSWER: Record<string, CompareRelation> = {
-  印证: "corroborates",
-  反驳: "contradicts",
-  限定: "qualifies",
-};
-
 // Projects a live `compare` card's persisted state into the primitive's read
 // shape (design spec §2.1 — CompareState is projected, not stored):
 //
@@ -126,14 +117,19 @@ const RELATION_BY_ANSWER: Record<string, CompareRelation> = {
 //    by which point the card has already gone null and this pane is no
 //    longer even rendered. Waiting on anchors would mean the right pane
 //    could never fill while a student can actually see it.
-//  - pairs = per §2.1's own table: a right-pane anchor paired with the
-//    left-pane anchor sharing its `dimension`, `note` = the right anchor's
-//    answer, `relation` = whichever anchor's dimension is literally
-//    "relation". SIFT's own field layout (only "find" ever lands on the
-//    right) means this degenerates to no pairs today — documented as a
-//    known product characteristic, not a bug — but the projection is real,
-//    not a dead prop, and holds for any future compare card whose two panes
-//    share dimensions.
+//  - pairs = always []. §2.1's own pairing rule (a right-pane anchor joined
+//    to the left-pane anchor sharing its `dimension`) can never fire for
+//    SIFT: `find` (params.lateral_dimension) is the only field ever routed
+//    to the right pane by StudioCompareCard.buildAnchors, and `find`'s own
+//    anchor is deliberately never routed left — so `left.find(a =>
+//    a.dimension === "find")` is always undefined and no pair can ever
+//    form. Two independent FIX-B reviews proved this pairing computation
+//    (plus the "对照笔记" rendering, RELATION_LABEL, and findSpanTag it fed)
+//    was structurally dead code with zero coverage of its populated path,
+//    so it was deleted rather than shipped unverified — "written but never
+//    read" has already bitten this project twice. A future compare card
+//    must design its OWN pairing deliberately against its OWN field layout;
+//    do not resurrect this loop on the assumption it already fits.
 function buildCompareState(anchors: Anchor[], cardMaterialId: string, lateralMaterialId: string): CompareState {
   const left: Anchor[] = [];
   const right: Anchor[] = [];
@@ -143,24 +139,10 @@ function buildCompareState(anchors: Anchor[], cardMaterialId: string, lateralMat
   }
   const toSpans = (list: Anchor[]) => list.map(anchorToSpan).filter((s): s is AnnotateState["spans"][number] => s !== null);
 
-  const relationAnswer = anchors.find((a) => a.dimension === "relation")?.answer ?? "";
-  const relation = RELATION_BY_ANSWER[relationAnswer];
-  const pairs: ComparePair[] = [];
-  if (relation) {
-    for (const r of right) {
-      const l = left.find((a) => a.dimension === r.dimension);
-      if (!l) continue;
-      const lSpan = anchorToSpan(l);
-      const rSpan = anchorToSpan(r);
-      if (!lSpan || !rSpan) continue;
-      pairs.push({ id: r.id, l_span: lSpan.id, r_span: rSpan.id, note: r.answer, relation, author: "student" });
-    }
-  }
-
   return {
     left: { material_id: cardMaterialId, spans: toSpans(left) },
     right: lateralMaterialId ? { material_id: lateralMaterialId, spans: toSpans(right) } : null,
-    pairs,
+    pairs: [],
   };
 }
 
