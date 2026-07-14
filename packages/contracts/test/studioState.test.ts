@@ -17,7 +17,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
           { kind: "flag", label: "孤儿证据", body: "…" },
           { kind: "ai", body: "…", tag: "D5", anchor: "论证图 · 治理决心主张" },
         ],
-        equipment: [{ id: "e1", name: "钢人卡", spont: "提示后", meth: "concession" }],
+        equipment: [{ id: "e1", name: "钢人卡", spont: "提示后", meth: "concession", materialId: "" }],
       },
       onboarding: { restatePrompt: "…", rubricRows: [{ official: "o", plain: "p", weak: true }], planSteps: ["立题"] },
       materials: [],
