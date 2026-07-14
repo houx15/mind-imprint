@@ -1255,4 +1255,127 @@ describe("StudioContainer", () => {
     // pre-submission overlay would go on masking the (empty) truth forever.
     expect(document.querySelectorAll("mark").length).toBe(0);
   });
+
+  // --- Task 11 (SIFT): the compare card is the first primitive whose
+  // anchors span TWO materials. It has NO refetch path of its own — it must
+  // ride the SAME onSubmitCard → refetchProject wiring every other card
+  // already uses (see StudioContainer.tsx's onSubmitCard). This is the test
+  // Slice 6b paid for: locking a card must be visible ON SCREEN, not just a
+  // network call that fired. ---
+
+  it("clears the dossier's 需横向阅读 chip after a SIFT (compare) card submit resolves — no new refetch path, the existing one (Task 11)", async () => {
+    const blogId = "m1";
+    const nasaId = "m2";
+    const blog = {
+      id: blogId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
+    };
+    const nasa = {
+      id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
+      kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
+    };
+    // What the server would honestly persist once the cross_check mints:
+    // lateralRead flips true. (The chip's disappearance below doesn't
+    // actually depend on this value — see the comment at the final
+    // assertion — but a fixture with lateralRead still false would be
+    // dishonest about what the real endpoint does.)
+    const blogAfterSift = { ...blog, lateralRead: true, locked: true, role: "触发关注的入口——已横向核实。" };
+
+    let getProjectCalls = 0;
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        const materials = getProjectCalls === 1 ? [blog, nasa] : [blogAfterSift, nasa];
+        return {
+          ...projection,
+          stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+          activeStation: "S3",
+          materials,
+        };
+      },
+    };
+
+    const siftSpec = CARD_REGISTRY["sift"]!;
+    let convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      // Proposed, not yet active: ViewFrame only swaps the 素材 pane over to
+      // Compare once a compare card is ACTIVE (Task 11's own trap #1 — see
+      // ViewFrame.test.tsx) — while it's merely proposed (a bubble in the
+      // rail awaiting the student's own "打开" click, per the product's
+      // no-forced-open rule), the dossier list is still what's on screen,
+      // and its chip is derived straight off this live anchor.
+      card: {
+        cardInstanceId: "ci1", cardId: "sift", spec: siftSpec, status: "proposed",
+        anchors: [{ id: "a-stop", material_id: blogId, block_id: "", start: 0, end: 0, quote: "", dimension: "stop", author: "ai", question: "", answer: "" }],
+      },
+    };
+    const listeners = new Set<() => void>();
+    const emit = () => listeners.forEach((l) => l());
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(),
+      dispose: vi.fn(),
+      openCard: vi.fn(() => {
+        convState = { ...convState, card: { ...convState.card, status: "active" } };
+        emit();
+      }),
+      // Mirrors the real controller: submit clears the live card client-side
+      // the moment its own "done" frame lands — well before any refetch
+      // settles (fix-wave bug [B]/[4], already fixed in StudioContainer via
+      // pendingAnchors — this test is what exercises that path for `compare`).
+      submitCard: vi.fn(async () => {
+        convState = { ...convState, card: null };
+        emit();
+      }),
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+
+    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await screen.findByText(/信源档案/);
+    // See the flush() doc comment above — the live conversation only exists
+    // once StudioContainer's second effect has also committed.
+    await flush();
+
+    // GET1: the dossier shows the chip on the blog source while the SIFT
+    // card is live and lateralRead is still false.
+    expect(within(screen.getByTestId("dossier-source-list")).getByText(/需横向阅读/)).toBeInTheDocument();
+
+    // Open the card (coach rail now renders the interactive SIFT form) and
+    // complete it exactly the way a student would — same script as
+    // StudioCompareCard.test.tsx's own submit test, which already proves
+    // this form builds its anchors off the DECLARED lateral_dimension, not
+    // array position (Task 11's trap #2).
+    fireEvent.click(await screen.findByRole("button", { name: /打开|开始/ }));
+
+    fireEvent.change(await screen.findByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
+    fireEvent.change(screen.getByPlaceholderText(/机构、个人/), { target: { value: "自媒体博主，无机构背景" } });
+    fireEvent.click(within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title }));
+    fireEvent.change(screen.getByPlaceholderText(/怎么说同一件事/), { target: { value: "NASA 数据显示排放仍在上升" } });
+    fireEvent.click(screen.getByRole("button", { name: "印证" }));
+    fireEvent.change(screen.getByPlaceholderText(/原始的出处是哪里/), { target: { value: "Nature Sustainability 论文" } });
+    fireEvent.click(screen.getByRole("button", { name: "原始证据" }));
+    fireEvent.change(screen.getByPlaceholderText(/和一开始比/), { target: { value: "从二手转述降级为需要追源的说法" } });
+    fireEvent.click(screen.getByRole("button", { name: "锁定这张卡" }));
+
+    expect(conv.submitCard).toHaveBeenCalled();
+    // The stale-until-reload bug this test exists to catch: without a
+    // refetch after submit, getProject is never called a second time.
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+
+    // GET2 (the post-submit refetch): the chip must be GONE from the
+    // dossier — not just "the network call fired", but actually off screen.
+    // (Mechanically this holds even before considering blogAfterSift's own
+    // lateralRead value: submit already cleared the live card, and the
+    // pending-anchors overlay that was standing in for it during the round
+    // trip is cleared only once THIS refetch resolves — so without the
+    // refetch, that overlay — and the chip it drives — would never clear.)
+    await waitFor(() =>
+      expect(within(screen.getByTestId("dossier-source-list")).queryByText(/需横向阅读/)).not.toBeInTheDocument(),
+    );
+  });
 });
