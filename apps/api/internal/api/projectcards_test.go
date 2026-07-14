@@ -269,6 +269,79 @@ func TestProjectCardSubmit_TouchesLastActiveAt(t *testing.T) {
 	}
 }
 
+// TestProjectCardSubmit_RejectsForeignProjectMaterialAnchor is the
+// whole-branch-review IMPORTANT 3 fix: validateAnchors (cards.go) only
+// checks each anchor's shape, never whether its material_id actually
+// belongs to the project the card is being submitted in. Without a
+// server-side check, a client could cite ANOTHER project's material as its
+// SIFT lateral source and CompleteCard would happily mint a "cites" edge to
+// it — satisfying lateral_source_present (and S3's cross_check gate) with a
+// source that isn't hers, the exact hinge ("an INDEPENDENT source that is
+// HERS") the slice depends on. This builds a second project + material the
+// signed-in student does not own in THIS project's scope, submits an anchor
+// naming that foreign material, and asserts the request is rejected (404 —
+// existence hidden, the same convention loadOwnedProject/logSourceOpen use)
+// BEFORE any mutation: the card_instance must be left untouched.
+func TestProjectCardSubmit_RejectsForeignProjectMaterialAnchor(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+
+	// A second project + material that does NOT belong to the seeded demo
+	// project (…0101) the card under test lives in.
+	otherProject, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID:        SeedUserID,
+		Qualification: "EE",
+		Title:         "a wholly different project",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject (other): %v", err)
+	}
+	foreignMaterial, err := q.CreateProjectMaterial(context.Background(), sqlc.CreateProjectMaterialParams{
+		ProjectID: pgtype.UUID{Bytes: otherProject.ID, Valid: true},
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "another project's own source",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial (foreign): %v", err)
+	}
+
+	cid := createProjectCardForTest(t, pool) // craap on the seeded demo project (…0101), status active
+	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
+
+	anchors := []agent.Anchor{
+		{
+			ID: "a0", MaterialID: foreignMaterial.ID.String(), BlockID: "b0",
+			Dimension: "find", Author: "student",
+			Question: "找一个独立来源", Answer: "另一个项目的来源——不该被允许当作横向证据",
+		},
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("want 404 (cross-project material hidden as not-found), got %d — %s", rr.Code, rr.Body.String())
+	}
+
+	// A rejected submit must not have mutated the card at all.
+	got, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if got.Status != "active" {
+		t.Fatalf("status = %q, want unchanged active — a rejected submit must not mutate the card", got.Status)
+	}
+}
+
 // surfaceCraapAndReadAnchors drives the real HTTP turn endpoint (same trigger
 // as TestProjectTurn_SurfacesCraapCard_GeneratesAnchors) so the Studio surface
 // seam (Task 2) generates + persists AI anchors on a freshly-proposed craap

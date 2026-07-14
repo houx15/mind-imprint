@@ -130,7 +130,7 @@ func (q *Queries) ListSourceLogByProject(ctx context.Context, projectID uuid.UUI
 	return items, nil
 }
 
-const markSourceLateralRead = `-- name: MarkSourceLateralRead :exec
+const markSourceLateralRead = `-- name: MarkSourceLateralRead :execrows
 UPDATE source_log_entry
 SET lateral_read = true,
     tier = CASE WHEN $1::text = '' THEN tier ELSE $1::text END
@@ -145,8 +145,15 @@ type MarkSourceLateralReadParams struct {
 
 // The source that WAS laterally read (not the source used to do it). tier is
 // overwritten only when the student re-tiered it after checking; an empty
-// tier_after leaves her ingestion-time tier alone.
-func (q *Queries) MarkSourceLateralRead(ctx context.Context, arg MarkSourceLateralReadParams) error {
-	_, err := q.db.Exec(ctx, markSourceLateralRead, arg.TierAfter, arg.ProjectID, arg.MaterialID)
-	return err
+// tier_after leaves her ingestion-time tier alone. :execrows (not :exec) so
+// the caller (CommitCardMint) can detect a zero-row match — a project/
+// material pair with no source_log_entry at all — and fail loudly instead of
+// silently leaving lateral_read stuck false forever (whole-branch review
+// IMPORTANT 4).
+func (q *Queries) MarkSourceLateralRead(ctx context.Context, arg MarkSourceLateralReadParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markSourceLateralRead, arg.TierAfter, arg.ProjectID, arg.MaterialID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

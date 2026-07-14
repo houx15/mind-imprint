@@ -136,3 +136,78 @@ func TestSurfaceCardCandidates_DraftMaterialIsSilent(t *testing.T) {
 		t.Fatalf("draft material must be silent, got %d", len(got))
 	}
 }
+
+// TestSurfaceCardCandidates_ActiveCardSuppressesAllSurfaceCard is the
+// whole-branch-review CRITICAL 1 fix: a card_instance that is already
+// "active" (open, being filled by the student) must suppress EVERY
+// surface_card candidate project-wide, not just one on its own material. m2
+// is a wholly different, never-touched article — by the bare per-material
+// rule alone it would fire a fresh CRAAP proposal. Before this fix, that
+// candidate would win decide-one over any post_intervention nudge and
+// RunAgentStep would apply it unconditionally, clobbering the open card's
+// unsaved in-progress answers (which live only in client state until
+// submit) and leaving its card_instance a permanently "active" zombie.
+func TestSurfaceCardCandidates_ActiveCardSuppressesAllSurfaceCard(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{ID: "ci1", CardID: siftCardID, Status: "active"},
+		},
+		Materials: []MaterialView{
+			{ID: "m2", Kind: "article"}, // wholly unevaluated — would otherwise fire CRAAP
+		},
+	}
+	if got := SurfaceCardCandidates(g); len(got) != 0 {
+		t.Fatalf("an active card must suppress every surface_card candidate, got %+v", got)
+	}
+}
+
+// TestSurfaceCardCandidates_ProposedCardSuppressesAllSurfaceCard covers the
+// other in-flight status: a card that has been offered but not yet opened
+// ("proposed") must suppress just as hard as "active" — the student hasn't
+// decided whether to open it yet, and a second surface_card in the meantime
+// would let the loop's decide-one silently swap in a different card before
+// she ever gets to respond to the first offer.
+func TestSurfaceCardCandidates_ProposedCardSuppressesAllSurfaceCard(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{ID: "ci1", CardID: craapCardID, Status: "proposed"},
+		},
+		Materials: []MaterialView{
+			{ID: "m2", Kind: "article"},
+		},
+	}
+	if got := SurfaceCardCandidates(g); len(got) != 0 {
+		t.Fatalf("a proposed card must suppress every surface_card candidate, got %+v", got)
+	}
+}
+
+// TestSurfaceCardCandidates_ActiveCardClosesTreadmillWindowToo is IMPORTANT
+// 2's verification: the lateralInstrument exclusion (the treadmill guard)
+// only recognizes a lateral source once its cross_check node exists — while
+// SIFT is in flight, the guard alone is blind to it. This test reconstructs
+// exactly that blind state (m2 is CRAAP-evaluated, has no cross-check of its
+// own, and no "cites" edge from any cross_check node marks it as a lateral
+// instrument yet) WITH an active SIFT card_instance also present, and proves
+// the blanket suppression above closes the window anyway: SurfaceCardCandidates
+// must still be silent, because no surface_card of any kind may fire while
+// any card is in flight, regardless of which material it would target.
+func TestSurfaceCardCandidates_ActiveCardClosesTreadmillWindowToo(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{ID: "ci1", CardID: siftCardID, Status: "active"},
+		},
+		Materials: []MaterialView{
+			{ID: "m2", Kind: "article"},
+		},
+		Edges: []GraphEdgeView{
+			// m2 was CRAAP-evaluated and has no cross-check yet, and — the
+			// treadmill guard's blind spot — no "cites" edge from a
+			// cross_check exists to mark it as a lateral instrument, because
+			// the in-flight SIFT card hasn't minted its cross_check node yet.
+			{FromKind: "material", FromID: "m2", ToKind: "graph_node", ToID: "e2", Type: "evaluated-as"},
+		},
+	}
+	if got := SurfaceCardCandidates(g); len(got) != 0 {
+		t.Fatalf("blanket suppression must close the treadmill window even though the per-material guard alone cannot see it, got %+v", got)
+	}
+}

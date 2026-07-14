@@ -19,10 +19,14 @@ UPDATE source_log_entry
 SET time_spent_s = time_spent_s + $2
 WHERE material_id = $1;
 
--- name: MarkSourceLateralRead :exec
+-- name: MarkSourceLateralRead :execrows
 -- The source that WAS laterally read (not the source used to do it). tier is
 -- overwritten only when the student re-tiered it after checking; an empty
--- tier_after leaves her ingestion-time tier alone.
+-- tier_after leaves her ingestion-time tier alone. :execrows (not :exec) so
+-- the caller (CommitCardMint) can detect a zero-row match — a project/
+-- material pair with no source_log_entry at all — and fail loudly instead of
+-- silently leaving lateral_read stuck false forever (whole-branch review
+-- IMPORTANT 4).
 UPDATE source_log_entry
 SET lateral_read = true,
     tier = CASE WHEN @tier_after::text = '' THEN tier ELSE @tier_after::text END

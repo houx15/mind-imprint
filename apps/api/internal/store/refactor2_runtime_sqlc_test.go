@@ -464,6 +464,93 @@ func TestCommitCardMint_LateralReadRollsBackWithTheRestOfTheMint(t *testing.T) {
 	}
 }
 
+// TestCommitCardMint_LateralReadZeroRowsFailsLoudlyAndRollsBack is the
+// whole-branch-review IMPORTANT 4 fix: MarkSourceLateralRead's UPDATE used to
+// be declared `:exec`, so a zero-row match (the checked material has no
+// source_log_entry at all) returned nil — CompleteCard would go on to mint
+// the cross_check node/edges and the framework guard, leaving lateral_read
+// permanently false with no honest way to ever clear it (SIFT never
+// re-proposes on an already cross-checked material, and the dossier's nag is
+// keyed on this exact flag). This test targets a material that was NEVER
+// ingested through POST .../materials (so it has no source_log_entry row at
+// all) and asserts CommitCardMint now fails LOUDLY — and, because
+// MarkSourceLateralRead runs inside the same transaction as the node/edge
+// inserts, that the whole mint rolls back with it (spec §4.3: "two records,
+// one act, one transaction — they cannot drift").
+func TestCommitCardMint_LateralReadZeroRowsFailsLoudlyAndRollsBack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	seededStudentID := refactor2SeededStudentID
+
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "EE",
+		Title:         "TestCommitCardMint_LateralReadZeroRowsFailsLoudlyAndRollsBack",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	contractRef := "sift"
+	cardInstance, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
+		ProjectID:   pgUUID(project.ID),
+		CardID:      "sift",
+		ContractRef: &contractRef,
+		Status:      "active",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectCardInstance: %v", err)
+	}
+
+	// blogNoLog is a real material row but deliberately has NO
+	// source_log_entry — never ingested through POST .../materials, unlike
+	// every other fixture in this file. MarkSourceLateralRead's UPDATE
+	// matches zero rows against it.
+	blogNoLog, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		ProjectID: pgUUID(project.ID),
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     "一条从未被 ingest 记入 source_log 的素材",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial(blogNoLog): %v", err)
+	}
+
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	err = store.CommitCardMint(ctx, project.ID, cardInstance.ID, agent.CardMint{
+		Nodes:       []agent.MintNode{{Type: "cross_check", Author: "student", Body: map[string]any{"relation": "限定"}}},
+		Edges:       []agent.MintEdge{{Type: "cross-checked-by", FromKind: "material", FromID: blogNoLog.ID.String(), ToKind: "graph_node", ToID: "$new:0"}},
+		Framework:   []byte(`{"strategy":"reveal_framework_after_completion"}`),
+		LateralRead: &agent.LateralRead{MaterialID: blogNoLog.ID, TierAfter: "二手 · 需追源"},
+	})
+	if err == nil {
+		t.Fatal("expected CommitCardMint to fail loudly: the checked material has no source_log_entry to flip lateral_read on")
+	}
+
+	nodes, err := q.ListGraphNodesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject: %v", err)
+	}
+	if len(nodes) != 0 {
+		t.Fatalf("partial mint survived a failed LateralRead write: %d node(s) left behind", len(nodes))
+	}
+
+	ci, err := q.GetCardInstance(ctx, cardInstance.ID)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if len(ci.FrameworkFill) != 0 && string(ci.FrameworkFill) != "{}" && string(ci.FrameworkFill) != "null" {
+		t.Fatalf("framework_fill was written despite the failed mint: %s", ci.FrameworkFill)
+	}
+}
+
 // sourceLogSnapshot is a test-only flattening of sqlc.SourceLogEntry's
 // nullable Tier (*string) to a plain string, since every caller here only
 // ever compares it against a string literal.

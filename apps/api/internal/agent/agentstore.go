@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sort"
 	"time"
@@ -447,12 +448,23 @@ func (s *sqlcAgentStore) CommitCardMint(ctx context.Context, projectID, cardInst
 		}
 	}
 	if m.LateralRead != nil {
-		if err := qtx.MarkSourceLateralRead(ctx, sqlc.MarkSourceLateralReadParams{
+		rows, err := qtx.MarkSourceLateralRead(ctx, sqlc.MarkSourceLateralReadParams{
 			ProjectID:  projectID,
 			MaterialID: pgtype.UUID{Bytes: m.LateralRead.MaterialID, Valid: true},
 			TierAfter:  m.LateralRead.TierAfter,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		// A zero-row match means the checked material has no
+		// source_log_entry at all — a mint that cannot record its own log
+		// flip must not half-land (spec §4.3: "two records, one act, one
+		// transaction — they cannot drift"). Failing loudly here rolls back
+		// the whole transaction (node/edge inserts included) instead of
+		// leaving lateral_read stuck false forever with no honest way to
+		// clear it (whole-branch review IMPORTANT 4).
+		if rows == 0 {
+			return fmt.Errorf("card: MarkSourceLateralRead matched no source_log_entry for project %s material %s", projectID, m.LateralRead.MaterialID)
 		}
 	}
 	if err := setCardInstanceFrameworkQ(ctx, qtx, projectID, cardInstanceID, m.Framework); err != nil {

@@ -73,7 +73,28 @@ const (
 // Pure, no DB, no model call; perceive (loop.go) supplies the GraphView's
 // Nodes/Materials/Edges/CardInstances. Candidates are returned in material
 // order (stable), at most one per material.
+//
+// Whole-branch-review CRITICAL 1: while ANY card_instance is "proposed" (offered,
+// not yet opened) or "active" (open, being filled), this function is silent
+// PROJECT-WIDE — not just on the in-flight card's own material. The loop's
+// decide-one (loop.go) only ever acts on cands[0], and surface_card outranks
+// every post_intervention/observe candidate, so a surface_card proposed on a
+// completely different, untouched material would still win and get applied
+// unconditionally — unmounting the open card and orphaning whatever the
+// student has typed into it (held only in client state until submit; the
+// row itself is left a permanently "active" zombie no later turn can ever
+// re-surface, since surface_card never re-proposes onto an already-spoken-for
+// material). Suppressing here, in the classifier, also means the loop never
+// even reaches SurfaceCard — no zombie card_instance is minted in the first
+// place. This is SUPPRESSION, not queueing: the candidate simply isn't
+// produced this turn: it will be proposed again once nothing is in flight.
 func SurfaceCardCandidates(g GraphView) []Candidate {
+	for _, ci := range g.CardInstances {
+		if ci.Status == "proposed" || ci.Status == "active" {
+			return nil
+		}
+	}
+
 	// card_instance id -> card id: an "evaluates" edge only carries endpoint
 	// ids, so this is how a material's surfaced-card edge gets attributed to
 	// the SPECIFIC card that minted it (CRAAP vs SIFT can both mint one on

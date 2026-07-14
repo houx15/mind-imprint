@@ -707,6 +707,42 @@ func TestRunAgentStep_SurfacesSiftCard_CrossesTheSummonHop(t *testing.T) {
 	}
 }
 
+// TestLoop_ActiveCardSurvivesACompetingSurfaceCardCandidate is the
+// end-to-end proof of the whole-branch-review CRITICAL 1 fix: this is the
+// exact scenario proven live on the seeded acceptance project — SIFT is
+// active (open) on one material while a SECOND, wholly untouched article
+// exists that would otherwise fire its own CRAAP surface_card candidate. One
+// more RunAgentStep (e.g. a chat turn while the card sits open) must never
+// create a second card_instance — the open card survives silently.
+func TestLoop_ActiveCardSurvivesACompetingSurfaceCardCandidate(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{ID: uuid.New().String(), CardID: "sift", Status: "active"},
+		},
+		Materials: []MaterialView{
+			{ID: uuid.New().String(), Kind: "article"}, // untouched — would fire its own CRAAP candidate
+		},
+	}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider("should never be called"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence — the open card must not be clobbered by a competing surface_card, got %+v", action)
+	}
+	if store.createCardInstanceCalls != 0 {
+		t.Fatalf("want CreateCardInstance never called while a card is active, got %d call(s) — a second card_instance was minted on top of the open one", store.createCardInstanceCalls)
+	}
+}
+
 func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
 	f := &fakeAgentStore{}
 	pid := uuid.New()

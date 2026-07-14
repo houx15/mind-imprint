@@ -13,6 +13,7 @@ package api
 // existence never leaks.
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -114,6 +115,46 @@ func (a *API) skipProjectCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// validateAnchorMaterialsBelongToProject verifies every anchor whose
+// material_id is set names a material that actually belongs to projectID.
+// validateAnchors (cards.go) only checks shape — it has no DB access and
+// cannot know whose material an id refers to. Without this check, a client
+// could submit a SIFT lateral anchor naming ANOTHER project's material, and
+// CompleteCard would mint a "cites" edge straight to it (card_effects.go's
+// GraphEffects trusts every anchor's MaterialID verbatim), satisfying
+// lateral_source_present — and S3's cross_check gate — with a source that
+// isn't hers (whole-branch review IMPORTANT 3). A malformed material_id is a
+// genuine client error (400); one that parses but doesn't resolve to a
+// material in THIS project is hidden as 404 — the same
+// ownership-hidden-as-not-found convention loadOwnedProject/logSourceOpen
+// already use, so a caller can't distinguish "no such material" from "that
+// material belongs to someone else".
+func (a *API) validateAnchorMaterialsBelongToProject(ctx context.Context, projectID uuid.UUID, raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var anchors []agent.Anchor
+	if err := json.Unmarshal(raw, &anchors); err != nil {
+		return httpx.ErrBadRequest("validation_failed", "anchors 必须是数组", nil)
+	}
+	seen := make(map[string]bool, len(anchors))
+	for _, an := range anchors {
+		if an.MaterialID == "" || seen[an.MaterialID] {
+			continue
+		}
+		seen[an.MaterialID] = true
+		mid, err := uuid.Parse(an.MaterialID)
+		if err != nil {
+			return httpx.ErrBadRequest("validation_failed", "anchors.material_id 不是合法 id", nil)
+		}
+		mat, err := a.d.Queries.GetMaterial(ctx, mid)
+		if err != nil || !mat.ProjectID.Valid || mat.ProjectID.Bytes != projectID {
+			return httpx.ErrNotFound("资源不存在")
+		}
+	}
+	return nil
+}
+
 // submitProjectCard (SSE, Task 5) persists a filled card envelope, runs
 // CompleteCard (mints the evidence node once the spec's completion
 // predicates hold over the submitted anchors — design §6/agent-spec §3),
@@ -155,6 +196,10 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := validateAnchors(body.Anchors); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := a.validateAnchorMaterialsBelongToProject(r.Context(), projectID, body.Anchors); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
