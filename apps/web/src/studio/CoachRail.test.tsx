@@ -195,10 +195,10 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     render(
       <CoachRail
         {...baseProps()}
-        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [] }}
+        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false,
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
         }]}
       />,
     );
@@ -213,10 +213,10 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     render(
       <CoachRail
         {...baseProps()}
-        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [] }}
+        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false,
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
         }]}
         onSelectStation={onSelectStation}
       />,

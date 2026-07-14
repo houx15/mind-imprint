@@ -49,6 +49,7 @@ describe("MaterialSource", () => {
     anchors: [],
     timeSpentS: 240,
     lateralRead: false,
+    isLateralInstrument: false,
   };
 
   it("accepts a projected source", () => {
@@ -68,6 +69,11 @@ describe("MaterialSource", () => {
   it("requires lateralRead (Slice 6c: mirrors source_log_entry.lateral_read, no optional to hide a missing producer)", () => {
     const { lateralRead, ...withoutLateralRead } = valid;
     expect(() => MaterialSource.parse(withoutLateralRead)).toThrow();
+  });
+
+  it("requires isLateralInstrument (fix-wave finding [4]: the chip's summon-parity fact, no optional to hide a missing producer)", () => {
+    const { isLateralInstrument, ...withoutIsLateralInstrument } = valid;
+    expect(() => MaterialSource.parse(withoutIsLateralInstrument)).toThrow();
   });
 
   it("carries materials on the projection", () => {

@@ -72,8 +72,18 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
   // evaluation actually completes, so the chip now names a real, useful
   // debt — "you finished the vertical check; it still owes a lateral one" —
   // surfaced at the moment it becomes true, not as a nag beforehand.
+  //
+  // `!source.isLateralInstrument` mirrors the SERVER's summon rule exactly
+  // (fix-wave finding [4]): SurfaceCardCandidates' treadmill guard never
+  // proposes a SIFT card on a material that is itself some OTHER
+  // cross_check's lateral (found) source — offering that would let every
+  // lateral read manufacture its own next chore, forever. Without this
+  // exclusion the chip could tell a student a source "needs 横向阅读" when
+  // the summon logic will never actually surface that card, an unclearable
+  // nag with no honest resolution. `isLateralInstrument` is server-derived
+  // from the same graph edges the summon rule reads — never recomputed here.
   function needsLateralRead(source: MaterialSource): boolean {
-    return source.locked && !source.lateralRead;
+    return source.locked && !source.lateralRead && !source.isLateralInstrument;
   }
 
   const reportOpenElapsed = () => {

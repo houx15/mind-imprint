@@ -39,15 +39,20 @@ export type CoachRailProps = {
   onOpenCard?: (cardInstanceId: string) => void;
   onSubmitCard?: (finalEnvelope: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
-  // Task 11 (SIFT): a `compare` card's anchors span two materials the
-  // server never tells the client apart (unlike `annotate`'s AI-authored,
-  // pre-anchored ones) — StudioCompareCard has the student name both
-  // explicitly, from the project's own material list.
+  // Task 11 (SIFT): the project's material list, so StudioCompareCard can
+  // offer lateral-source candidates (everything except the card's own
+  // materialId).
   materials?: MaterialSource[];
   // Wired to 6b's existing add-source entry point (素材/S3) so the SIFT
   // card's "还没有独立来源" affordance goes somewhere real — it must never
   // be a dead button (a control with no handler must not be shown at all).
   onSelectStation?: (code: StationCode) => void;
+  // The student's in-progress lateral-source pick for the active compare
+  // card, LIFTED (whole-branch review finding [3]) so the center pane's
+  // Compare primitive can render the same choice she just made here — see
+  // StudioContainer, which owns this state.
+  lateralMaterialId?: string;
+  onLateralMaterialChange?: (materialId: string) => void;
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -182,6 +187,8 @@ export function CoachRail({
   onSkipCard,
   materials = [],
   onSelectStation,
+  lateralMaterialId = "",
+  onLateralMaterialChange,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -351,7 +358,10 @@ export function CoachRail({
             <StudioCompareCard
               spec={card.spec}
               anchors={card.anchors}
+              materialId={card.materialId ?? ""}
               materials={materials}
+              lateralMaterialId={lateralMaterialId}
+              onLateralMaterialChange={(id) => onLateralMaterialChange?.(id)}
               onAddLateralSource={() => onSelectStation?.("S3")}
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}

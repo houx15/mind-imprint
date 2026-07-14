@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CARD_REGISTRY, type MaterialSource } from "@mind-imprint/contracts";
-import { StudioCompareCard } from "./StudioCompareCard";
+import { StudioCompareCard, type StudioCompareCardProps } from "./StudioCompareCard";
 
 // The real sift.json (primitive: "compare") — realism over a hand-rolled
 // stub, since the exact step/field/param shape is what this card must read.
@@ -22,16 +23,26 @@ function material(id: string, title: string): MaterialSource {
     anchors: [],
     timeSpentS: 0,
     lateralRead: false,
+    isLateralInstrument: false,
   };
 }
 
 const blog = material("mat-blog", "《卫星图看中国变绿》");
 const nasa = material("mat-nasa", "Chen et al. (2019), Nature Sustainability");
 
+// `lateralMaterialId` is lifted state (whole-branch review finding [3]) — in
+// production it lives in StudioContainer. This harness plays that same role
+// for the test: a real controlling parent, not a prop the component holds
+// itself, so these tests exercise the actual controlled-component contract.
+function Harness(props: Omit<StudioCompareCardProps, "lateralMaterialId" | "onLateralMaterialChange">) {
+  const [lateralMaterialId, setLateralMaterialId] = useState("");
+  return <StudioCompareCard {...props} lateralMaterialId={lateralMaterialId} onLateralMaterialChange={setLateralMaterialId} />;
+}
+
 describe("StudioCompareCard", () => {
   it("renders a chip + question + textarea per step field, and a single_choice as pill options", () => {
     render(
-      <StudioCompareCard spec={spec} anchors={[]} materials={[blog]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
     );
     // stop/investigate/find/trace_origin dimension chips (params.tags)
     expect(screen.getByText("stop")).toBeInTheDocument();
@@ -42,12 +53,21 @@ describe("StudioCompareCard", () => {
     expect(screen.getByRole("button", { name: "原始证据" })).toBeInTheDocument();
   });
 
+  it("does not render a checked-material picker — the checked material is a server fact (finding [5]), not a client choice", () => {
+    render(
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+    );
+    expect(screen.queryByTestId("checked-material-picker")).not.toBeInTheDocument();
+    expect(screen.queryByText("待查的来源")).not.toBeInTheDocument();
+  });
+
   it("shows the 添加信源 affordance instead of a picker when no independent source exists yet", () => {
     const onAddLateralSource = vi.fn();
     render(
-      <StudioCompareCard
+      <Harness
         spec={spec}
         anchors={[]}
+        materialId={blog.id}
         materials={[blog]}
         onAddLateralSource={onAddLateralSource}
         onSubmit={() => {}}
@@ -61,7 +81,7 @@ describe("StudioCompareCard", () => {
 
   it("cannot lock until the lateral source is picked and every field is answered", () => {
     render(
-      <StudioCompareCard spec={spec} anchors={[]} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={() => {}} onSkip={() => {}} />,
     );
     const lockButton = screen.getByRole("button", { name: "锁定这张卡" });
     expect(lockButton).toBeDisabled();
@@ -70,9 +90,6 @@ describe("StudioCompareCard", () => {
     fireEvent.change(screen.getByPlaceholderText(/机构、个人/), { target: { value: "自媒体博主，无机构背景" } });
     expect(lockButton).toBeDisabled(); // no lateral source picked yet
 
-    // Picking the lateral source (nasa) among the candidates — scoped to the
-    // lateral picker, since nasa's title also appears in the (unrelated)
-    // checked-material picker once there are 2+ materials.
     fireEvent.click(within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title }));
     fireEvent.change(screen.getByPlaceholderText(/怎么说同一件事/), { target: { value: "NASA 数据显示排放仍在上升" } });
     expect(lockButton).toBeDisabled(); // relation/trace/tier still unanswered
@@ -89,7 +106,7 @@ describe("StudioCompareCard", () => {
   it("submits anchors keyed by the DECLARED lateral_dimension, not by array position — the anchors[0] trap", () => {
     const onSubmit = vi.fn();
     render(
-      <StudioCompareCard spec={spec} anchors={[]} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={() => {}} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog, nasa]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={() => {}} />,
     );
 
     fireEvent.change(screen.getByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
@@ -120,10 +137,39 @@ describe("StudioCompareCard", () => {
     const onSkip = vi.fn();
     const onSubmit = vi.fn();
     render(
-      <StudioCompareCard spec={spec} anchors={[]} materials={[blog]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={onSkip} />,
+      <Harness spec={spec} anchors={[]} materialId={blog.id} materials={[blog]} onAddLateralSource={() => {}} onSubmit={onSubmit} onSkip={onSkip} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "跳过这张卡" }));
     expect(onSkip).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("the lateral pick is a controlled prop, not private state — a parent overwriting it is reflected immediately (finding [3])", () => {
+    function ControlledFromOutside() {
+      const [lateralMaterialId, setLateralMaterialId] = useState("");
+      return (
+        <>
+          <button type="button" onClick={() => setLateralMaterialId(nasa.id)}>
+            外部选中 NASA
+          </button>
+          <StudioCompareCard
+            spec={spec}
+            anchors={[]}
+            materialId={blog.id}
+            materials={[blog, nasa]}
+            lateralMaterialId={lateralMaterialId}
+            onLateralMaterialChange={setLateralMaterialId}
+            onAddLateralSource={() => {}}
+            onSubmit={() => {}}
+            onSkip={() => {}}
+          />
+        </>
+      );
+    }
+    render(<ControlledFromOutside />);
+    const nasaPill = within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title });
+    expect(nasaPill).toHaveStyle({ background: "#fff" });
+    fireEvent.click(screen.getByRole("button", { name: "外部选中 NASA" }));
+    expect(nasaPill).toHaveStyle({ background: "#5C4A8A" });
   });
 });

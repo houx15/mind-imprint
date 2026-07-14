@@ -104,4 +104,14 @@ type MaterialDTO struct {
 	// checked, not the lateral source used to check it). A fact about what
 	// happened, not a credibility verdict — there is still none of those.
 	LateralRead bool `json:"lateralRead"`
+	// IsLateralInstrument is true when this material is itself the lateral
+	// source some OTHER cross_check cited (a "cites" edge from a cross_check
+	// node to this material) — the exact graph fact
+	// agent.SurfaceCardCandidates' treadmill guard already uses to exclude a
+	// lateral instrument from ever being proposed for its own SIFT
+	// (agent/classifier.go). The dossier's chip must derive from this SAME
+	// fact, never recompute graph reachability independently — otherwise the
+	// chip can promise a lateral-read workflow the summon rule will never
+	// actually offer (whole-branch review finding [4]).
+	IsLateralInstrument bool `json:"isLateralInstrument"`
 }

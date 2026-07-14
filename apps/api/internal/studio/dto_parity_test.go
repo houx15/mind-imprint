@@ -21,7 +21,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		Materials: []MaterialDTO{{
 			ID: "m1", Title: "t", SourceURL: "https://x", Kind: "article", Origin: "fetched",
 			Blocks: []MaterialBlockDTO{{ID: "b1", Text: "x"}}, Locked: true, Role: "r", Tier: "ti", Takeaway: "tk",
-			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, TimeSpentS: 240, LateralRead: true,
+			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, TimeSpentS: 240, LateralRead: true, IsLateralInstrument: false,
 		}},
 	}
 	raw, err := json.Marshal(p)
@@ -45,9 +45,9 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if len(materials) != 1 {
 		t.Fatalf("materials len = %d, want 1", len(materials))
 	}
-	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead}
+	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument}
 	// — must match packages/contracts/src/studioState.ts MaterialSource exactly.
-	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "kind", "lateralRead", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
+	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralRead", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

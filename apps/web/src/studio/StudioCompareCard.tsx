@@ -1,18 +1,28 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Anchor, CardInstance, CardSpec, MaterialSource, TraceEvent } from "@mind-imprint/contracts";
 import { newEnvelope } from "../cards/envelopeReducer";
 
 export type StudioCompareCardProps = {
   spec: CardSpec;
   anchors: Anchor[];
-  // The project's materials — SIFT is the first card whose anchors span TWO
-  // materials, and the server has no channel that tells the client which
-  // material a compare card was surfaced against (unlike `annotate`, whose
-  // AI-authored anchors already carry material_id at surface time). Rather
-  // than guess, the student explicitly names both: which source she is
-  // checking, and which independent source she found — the same restraint
-  // rule everywhere else in this product (the AI never decides for her).
+  // The card's OWN material (the source under review) — the server's
+  // card_instance--evaluates-->material edge target, carried end to end as
+  // of FIX-A (`LiveCard.materialId`). This REPLACES the old `materials[0]`
+  // guess (whole-branch review finding [5], the exact coin-flip Task 3 fixed
+  // server-side): the checked material is a server fact, not something the
+  // student picks here, so there is no "待查的来源" picker in this card.
+  materialId: string;
+  // The project's materials — used only to offer LATERAL candidates
+  // (everything except `materialId`). SIFT is the first card whose anchors
+  // span TWO materials.
   materials: MaterialSource[];
+  // The student's in-progress lateral-source pick, LIFTED to the parent
+  // (whole-branch review finding [3]) so the center pane's Compare primitive
+  // can render the same choice live — this card used to hold it in private
+  // local state, which meant nothing else in the Studio could ever see it
+  // until after a full submit round trip.
+  lateralMaterialId: string;
+  onLateralMaterialChange: (materialId: string) => void;
   // Opens 6b's existing 添加信源 entry point (never ingests here — RL-2).
   onAddLateralSource: () => void;
   onSubmit: (env: CardInstance) => void;
@@ -70,14 +80,20 @@ function LockIcon() {
 // CRAAP's risk_note. Guidance levels beyond L1 may one day pre-seed some of
 // these answers via `anchors`; this renderer already seeds from them (same
 // pattern as StudioAnnotateCard) so it needs no change when that lands.
-export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource, onSubmit, onSkip }: StudioCompareCardProps) {
+export function StudioCompareCard({
+  spec,
+  anchors,
+  materialId,
+  materials,
+  lateralMaterialId,
+  onLateralMaterialChange,
+  onAddLateralSource,
+  onSubmit,
+  onSkip,
+}: StudioCompareCardProps) {
   const params = (spec.params ?? {}) as SiftParams;
   const lateralDimension = params.lateral_dimension ?? "";
 
-  const [checkedMaterialId, setCheckedMaterialId] = useState(() => materials[0]?.id ?? "");
-  const [lateralMaterialId, setLateralMaterialId] = useState(
-    () => anchors.find((a) => a.dimension === lateralDimension && a.material_id !== "")?.material_id ?? "",
-  );
   const [answers, setAnswers] = useState<Record<string, string>>(() => {
     const seeded: Record<string, string> = {};
     for (const step of spec.steps) {
@@ -88,18 +104,11 @@ export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource
     return seeded;
   });
 
-  // materials can arrive after mount (the project's dossier loads
-  // asynchronously) — default the checked material the first time a real
-  // candidate shows up, without clobbering a student's own later choice.
-  useEffect(() => {
-    if (!checkedMaterialId && materials[0]) setCheckedMaterialId(materials[0].id);
-  }, [materials, checkedMaterialId]);
-
   function setAnswer(key: string, value: string) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
-  const lateralCandidates = materials.filter((m) => m.id !== checkedMaterialId);
+  const lateralCandidates = materials.filter((m) => m.id !== materialId);
   const answerableFields = spec.steps.flatMap((step) =>
     step.fields.filter((f) => f.type === "textarea" || f.type === "single_choice"),
   );
@@ -108,8 +117,8 @@ export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource
   // "A claim of having read laterally is not lateral reading" (design spec
   // §3.1) — the lateral material must be REAL and DIFFERENT from the one
   // under review, never just "some id got typed in".
-  const hasRealLateralSource = !!lateralMaterialId && lateralMaterialId !== checkedMaterialId;
-  const canLock = !!checkedMaterialId && hasRealLateralSource && allFieldsAnswered;
+  const hasRealLateralSource = !!lateralMaterialId && lateralMaterialId !== materialId;
+  const canLock = !!materialId && hasRealLateralSource && allFieldsAnswered;
 
   function buildAnchors(): Anchor[] {
     return answerableFields.map((field) => {
@@ -121,7 +130,7 @@ export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource
       const isLateral = field.key === lateralDimension;
       return {
         id: field.key,
-        material_id: isLateral ? lateralMaterialId : checkedMaterialId,
+        material_id: isLateral ? lateralMaterialId : materialId,
         block_id: "",
         start: 0,
         end: 0,
@@ -144,6 +153,60 @@ export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource
     onSkip(scaffold.event_trace);
   }
 
+  // Renders one field (chip + question + input) — factored out of the step
+  // loop below so the lateral-source picker (rendered right after THIS
+  // specific field, not after the whole step) can key off the FIELD's own
+  // key, never the step's. `params.lateral_dimension` names a FIELD; SIFT's
+  // step happening to share that key with its lone lateral field is a
+  // coincidence a second compare card is not obligated to repeat (minor
+  // finding: coupling a step key to a field key quietly weakens the
+  // "new card = new JSON, zero renderer code" claim).
+  function renderField(field: CardSpec["steps"][number]["fields"][number]) {
+    if (field.type === "textarea") {
+      const answered = !!answers[field.key]?.trim();
+      return (
+        <div key={field.key} style={{ border: "1px solid #ECEEF3", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#fff" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, color: "#fff", background: "#5C4A8A" }}>
+              {field.key}
+            </span>
+            {answered && <CheckIcon />}
+          </div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500 }}>{field.label}</div>
+          <textarea
+            value={answers[field.key] ?? ""}
+            onChange={(e) => setAnswer(field.key, e.target.value)}
+            placeholder={field.label}
+            rows={field.rows ?? 2}
+            style={{ width: "100%", marginTop: 8, border: "1px solid #E1E4ED", borderRadius: 9, padding: "8px 10px", fontSize: 12, lineHeight: 1.55, color: "#1C2333", background: "#fff", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+          />
+        </div>
+      );
+    }
+    if (field.type === "single_choice") {
+      const answered = !!answers[field.key]?.trim();
+      return (
+        <div key={field.key} style={{ border: "1px solid #ECEEF3", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#fff" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, color: "#fff", background: "#5C4A8A" }}>
+              {field.key}
+            </span>
+            {answered && <CheckIcon />}
+          </div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500, marginBottom: 8 }}>{field.label}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {field.options.map((opt) => (
+              <button key={opt} type="button" onClick={() => setAnswer(field.key, opt)} style={pillStyle(answers[field.key] === opt)}>
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
+
   return (
     <div style={{ border: "1px solid #E3DCF2", borderRadius: 14, overflow: "hidden", boxShadow: "0 3px 14px rgba(92,74,138,.10)", fontFamily: FONT }}>
       <div style={{ height: 4, background: "#5C4A8A" }} />
@@ -159,95 +222,41 @@ export function StudioCompareCard({ spec, anchors, materials, onAddLateralSource
       </div>
 
       <div style={{ padding: "0 15px 14px", maxHeight: 420, overflowY: "auto" }}>
-        {materials.length > 1 && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#9AA1B0", marginBottom: 6 }}>待查的来源</div>
-            <div data-testid="checked-material-picker" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {materials.map((m) => (
-                <button key={m.id} type="button" onClick={() => setCheckedMaterialId(m.id)} style={pillStyle(m.id === checkedMaterialId)}>
-                  {m.title}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {spec.steps.map((step) => (
           <div key={step.key}>
-            {step.fields.map((field) => {
-              if (field.type === "textarea") {
-                const answered = !!answers[field.key]?.trim();
-                return (
-                  <div key={field.key} style={{ border: "1px solid #ECEEF3", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#fff" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, color: "#fff", background: "#5C4A8A" }}>
-                        {field.key}
-                      </span>
-                      {answered && <CheckIcon />}
-                    </div>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500 }}>{field.label}</div>
-                    <textarea
-                      value={answers[field.key] ?? ""}
-                      onChange={(e) => setAnswer(field.key, e.target.value)}
-                      placeholder={field.label}
-                      rows={field.rows ?? 2}
-                      style={{ width: "100%", marginTop: 8, border: "1px solid #E1E4ED", borderRadius: 9, padding: "8px 10px", fontSize: 12, lineHeight: 1.55, color: "#1C2333", background: "#fff", outline: "none", resize: "vertical", fontFamily: "inherit" }}
-                    />
-                  </div>
-                );
-              }
-              if (field.type === "single_choice") {
-                const answered = !!answers[field.key]?.trim();
-                return (
-                  <div key={field.key} style={{ border: "1px solid #ECEEF3", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#fff" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, color: "#fff", background: "#5C4A8A" }}>
-                        {field.key}
-                      </span>
-                      {answered && <CheckIcon />}
-                    </div>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500, marginBottom: 8 }}>{field.label}</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {field.options.map((opt) => (
-                        <button key={opt} type="button" onClick={() => setAnswer(field.key, opt)} style={pillStyle(answers[field.key] === opt)}>
-                          {opt}
+            {step.fields.map((field) => (
+              <div key={field.key}>
+                {renderField(field)}
+                {field.key === lateralDimension && (
+                  <div style={{ border: "1px dashed #D8CFF0", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#FAF8FE" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>独立信源</div>
+                    {lateralCandidates.length === 0 ? (
+                      <>
+                        <div style={{ fontSize: 12, color: "#7A8296", lineHeight: 1.6, marginBottom: 8 }}>
+                          还没有独立来源——去「素材」加一个，再回来选它。
+                        </div>
+                        <button
+                          type="button"
+                          onClick={onAddLateralSource}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#5C4A8A", color: "#fff", border: "none", borderRadius: 10, fontSize: 12.5, fontWeight: 700, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}
+                        >
+                          <PlusIcon />
+                          添加信源
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })}
-
-            {step.key === lateralDimension && (
-              <div style={{ border: "1px dashed #D8CFF0", borderRadius: 12, padding: "13px 15px", marginBottom: 10, background: "#FAF8FE" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>独立信源</div>
-                {lateralCandidates.length === 0 ? (
-                  <>
-                    <div style={{ fontSize: 12, color: "#7A8296", lineHeight: 1.6, marginBottom: 8 }}>
-                      还没有独立来源——去「素材」加一个，再回来选它。
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onAddLateralSource}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#5C4A8A", color: "#fff", border: "none", borderRadius: 10, fontSize: 12.5, fontWeight: 700, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit" }}
-                    >
-                      <PlusIcon />
-                      添加信源
-                    </button>
-                  </>
-                ) : (
-                  <div data-testid="lateral-material-picker" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {lateralCandidates.map((m) => (
-                      <button key={m.id} type="button" onClick={() => setLateralMaterialId(m.id)} style={pillStyle(m.id === lateralMaterialId)}>
-                        {m.title}
-                      </button>
-                    ))}
+                      </>
+                    ) : (
+                      <div data-testid="lateral-material-picker" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {lateralCandidates.map((m) => (
+                          <button key={m.id} type="button" onClick={() => onLateralMaterialChange(m.id)} style={pillStyle(m.id === lateralMaterialId)}>
+                            {m.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            ))}
           </div>
         ))}
       </div>

@@ -72,6 +72,7 @@ const blogArticle: MaterialSource = {
   takeaway: "",
   timeSpentS: 240,
   lateralRead: false,
+  isLateralInstrument: false,
   anchors: [authorityAnchor, purposeAnchor],
 };
 
@@ -94,6 +95,7 @@ const nasaSummary: MaterialSource = {
     "NASA 与 Nature Sustainability 指出：卫星数据确认地球在变绿，中国是最大贡献者之一，但主要机制是农业集约化与人工造林，不是整体生态系统改善——论文本身不支持「中国让地球更可持续」这个更大的结论，也没有讨论碳排放。",
   timeSpentS: 610,
   lateralRead: false,
+  isLateralInstrument: false,
   anchors: [],
 };
 
@@ -341,6 +343,25 @@ describe("SourceDossier", () => {
   it("does not show 需横向阅读 once a locked source has already been laterally read (debt paid)", () => {
     const paidBlog: MaterialSource = { ...blogArticle, locked: true, lateralRead: true };
     render(<SourceDossier sources={[paidBlog]} />);
+
+    const dossier = screen.getByTestId("dossier-source-list");
+    expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
+  });
+
+  // Fix-wave finding [4]: FIX-A's server-side summon rule excludes a lateral
+  // instrument (a material some OTHER cross_check --cites--> ) from ever
+  // being proposed for its own SIFT card — the treadmill guard. The chip
+  // must match that rule exactly, or it promises a lateral-read workflow the
+  // summon logic will never actually offer. `locked && !lateralRead` alone
+  // is not enough once a source can also be `isLateralInstrument`.
+  it("does not show 需横向阅读 on a lateral instrument, even though it is locked and not itself laterally read", () => {
+    const laterallyCheckedInstrument: MaterialSource = {
+      ...blogArticle,
+      locked: true,
+      lateralRead: false,
+      isLateralInstrument: true,
+    };
+    render(<SourceDossier sources={[laterallyCheckedInstrument]} />);
 
     const dossier = screen.getByTestId("dossier-source-list");
     expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();

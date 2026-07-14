@@ -1272,14 +1272,14 @@ describe("StudioContainer", () => {
       // locked: true — CRAAP already finished on this source (Task 11's fix:
       // the chip is derived from `locked && !lateralRead`, a fact about the
       // SOURCE, not from whether a card happens to be open on it).
-      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false,
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
     };
     const nasa = {
       id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
       kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
       // lateralRead: true so this row never carries the chip itself — this
       // test is only about the blog source's chip transition.
-      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: true,
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: true, isLateralInstrument: false,
     };
     // What the server would honestly persist once the cross_check mints:
     // lateralRead flips true. (The chip's disappearance below doesn't
@@ -1317,6 +1317,12 @@ describe("StudioContainer", () => {
       card: {
         cardInstanceId: "ci1", cardId: "sift", spec: siftSpec, status: "proposed",
         anchors: [{ id: "a-stop", material_id: blogId, block_id: "", start: 0, end: 0, quote: "", dimension: "stop", author: "ai", question: "", answer: "" }],
+        // The card's own (checked) material — FIX-A's
+        // card_instance--evaluates-->material edge, carried end to end.
+        // Without it StudioCompareCard can no longer fall back to guessing
+        // materials[0] (whole-branch review finding [5]), so this fixture
+        // must supply the real field to stay a real payload shape.
+        materialId: blogId,
       },
     };
     const listeners = new Set<() => void>();

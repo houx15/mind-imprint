@@ -69,6 +69,19 @@ export function StudioContainer({
   // frame with neither the live card's anchors nor the refreshed persisted
   // ones.
   const [pendingAnchors, setPendingAnchors] = useState<Anchor[] | null>(null);
+  // Whole-branch review finding [3]: the student's in-progress lateral-
+  // source pick for the active compare (SIFT) card. Previously private to
+  // StudioCompareCard, so nothing else in the Studio — least of all
+  // ViewFrame's center-pane Compare primitive, the whole reason SIFT exists
+  // — could ever see it. This is the smallest state location that is
+  // visible to BOTH the coach rail (which sets it, via StudioCompareCard's
+  // lateral-material picker) and the center pane (which reads it to fill
+  // the right pane live): StudioContainer already owns the projection, the
+  // live `card`, and every other cross-pane concern (pendingAnchors above
+  // is the same pattern for a different fix-wave finding). Reset whenever
+  // the ACTIVE card instance changes — not on every conversation snapshot,
+  // which would wipe the student's own pick mid-fill.
+  const [lateralMaterialId, setLateralMaterialId] = useState<string>("");
   // Fix-wave bugs [C]/[D]: a refetch that fails after a submit/skip/add
   // already succeeded server-side must not be an unhandled rejection and
   // must not be misreported as that mutation having failed — this is the
@@ -174,6 +187,29 @@ export function StudioContainer({
     conv?.subscribe ?? emptyConvSubscribe,
     conv?.getSnapshot ?? emptyConvGetSnapshot,
   );
+
+  // Resets `lateralMaterialId` whenever the ACTIVE card instance changes —
+  // a new compare card starts with no pick, and a card going null (submit
+  // resolved, or she skipped) clears any stale pick before the next one
+  // surfaces. Keyed on cardInstanceId alone (not the whole `card` object,
+  // which gets a new reference on every conversation snapshot) so it does
+  // NOT re-fire — and clobber the student's own in-progress pick — merely
+  // because `sending` flipped or a new AI message arrived while she's still
+  // filling the same card. Re-seeds from any lateral-dimension anchor the
+  // card already carries (parity with the pre-lift behavior this replaces:
+  // higher guidance levels may one day pre-seed this via `anchors`).
+  const activeCardInstanceId = convSnapshot.card?.cardInstanceId ?? null;
+  useEffect(() => {
+    const c = convSnapshot.card;
+    if (!c) {
+      setLateralMaterialId("");
+      return;
+    }
+    const dim = ((c.spec.params ?? {}) as { lateral_dimension?: string }).lateral_dimension ?? "";
+    const seeded = dim ? c.anchors.find((a) => a.dimension === dim && a.material_id !== "")?.material_id ?? "" : "";
+    setLateralMaterialId(seeded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCardInstanceId]);
 
   if (empty) {
     return (
@@ -304,6 +340,8 @@ export function StudioContainer({
         card={convSnapshot.card}
         pendingAnchors={pendingAnchors}
         addSourceError={addSourceError}
+        lateralMaterialId={lateralMaterialId}
+        onLateralMaterialChange={setLateralMaterialId}
       />
     </>
   );

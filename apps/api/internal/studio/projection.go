@@ -299,6 +299,10 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 // because a cross_check mint (Slice 6c) flipped source_log_entry.lateral_read
 // on the checked source. anchors are exactly the persisted
 // card_instances.anchors whose own material_id targets this source.
+// isLateralInstrument exists only because some OTHER cross_check node
+// --cites--> this material — the same graph fact agent.SurfaceCardCandidates
+// already reads to keep a lateral instrument from ever getting its own SIFT
+// proposal (fix-wave finding [4]).
 func projectMaterials(d ProjectData) []MaterialDTO {
 	nodesByID := map[string]sqlc.GraphNode{}
 	for _, n := range d.Nodes {
@@ -318,6 +322,24 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 	for _, s := range d.SourceLog {
 		if s.MaterialID.Valid {
 			log[uuid.UUID(s.MaterialID.Bytes).String()] = s
+		}
+	}
+	// lateralInstrument mirrors agent.SurfaceCardCandidates' own treadmill-
+	// guard derivation (classifier.go): a material some cross_check node
+	// --cites--> is that cross_check's lateral (found) source, never the
+	// material under review. Same graph fact, computed once here so the
+	// dossier's chip and the summon rule can never drift apart (whole-branch
+	// review finding [4]).
+	crossCheckNode := map[string]bool{}
+	for _, n := range d.Nodes {
+		if n.Type == "cross_check" {
+			crossCheckNode[n.ID.String()] = true
+		}
+	}
+	lateralInstrument := map[string]bool{}
+	for _, e := range d.Edges {
+		if e.Type == "cites" && e.FromKind == "graph_node" && e.ToKind == "material" && crossCheckNode[e.FromID.String()] {
+			lateralInstrument[e.ToID.String()] = true
 		}
 	}
 	// Anchors carry their own material_id — card_instances has no such column.
@@ -370,6 +392,7 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 		if as, ok := anchorsByMaterial[id]; ok {
 			dto.Anchors = as
 		}
+		dto.IsLateralInstrument = lateralInstrument[id]
 		out = append(out, dto)
 	}
 	return out

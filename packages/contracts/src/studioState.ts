@@ -89,6 +89,15 @@ export const MaterialSource = z.object({
   // lateral source used to check it). A fact about what happened — still no
   // credibility verdict here or anywhere else.
   lateralRead: z.boolean(),
+  // True when this material is itself the lateral source some OTHER
+  // cross_check cited (a "cites" edge from a cross_check node to this
+  // material) — server-derived from the same graph fact
+  // SurfaceCardCandidates' treadmill guard uses to keep a lateral instrument
+  // from ever getting its own SIFT proposal. The client must gate the
+  // 需横向阅读 chip on this instead of recomputing graph reachability itself
+  // (whole-branch review finding [4]) — otherwise the chip can promise a
+  // workflow the summon rule will never actually offer.
+  isLateralInstrument: z.boolean(),
 });
 export type MaterialSource = z.infer<typeof MaterialSource>;
 

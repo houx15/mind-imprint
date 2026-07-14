@@ -17,10 +17,14 @@ export type CompareProps = {
   rightBlocks?: { id: string; text: string }[];
 };
 
+// Verbatim against the card's own option vocabulary
+// (packages/contracts/cards/sift.json's "relation" single_choice:
+// 印证/反驳/限定) — the card's vocabulary is the product's; the primitive
+// must not invent its own synonym for the same relation.
 const RELATION_LABEL: Record<"corroborates" | "contradicts" | "qualifies", string> = {
   corroborates: "印证",
-  contradicts: "矛盾",
-  qualifies: "需要限定",
+  contradicts: "反驳",
+  qualifies: "限定",
 };
 
 function PlusIcon() {

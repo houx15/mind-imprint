@@ -16,6 +16,7 @@ const materialBody = {
   takeaway: "结论被放大了。",
   timeSpentS: 0,
   lateralRead: false,
+  isLateralInstrument: false,
   anchors: [],
 };
 

@@ -342,6 +342,52 @@ func TestProjectMaterials_LateralReadIsDerivedFromTheMint(t *testing.T) {
 	}
 }
 
+// TestProjectMaterials_IsLateralInstrumentDerivedFromCitesEdge — a material
+// that is itself the lateral source some OTHER cross_check cited (a
+// cross_check node --cites--> this material) projects isLateralInstrument =
+// true; the checked material (target of that cross_check's own
+// cross-checked-by edge) does not. This is the exact graph fact
+// agent.SurfaceCardCandidates' treadmill guard already reads
+// (classifier.go) — the dossier's chip must derive from the SAME fact, never
+// recompute graph reachability independently (whole-branch review finding
+// [4]).
+func TestProjectMaterials_IsLateralInstrumentDerivedFromCitesEdge(t *testing.T) {
+	blogID := uuid.MustParse("00000000-0000-0000-0000-0000000000c1")
+	nasaID := uuid.MustParse("00000000-0000-0000-0000-0000000000c2")
+	crossCheckID := uuid.MustParse("00000000-0000-0000-0000-0000000000c3")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: blogID, Title: "《卫星图看中国变绿》博客", Kind: "article", Source: "fetched", Blocks: []byte(`[]`)},
+			{ID: nasaID, Title: "NASA Earth Observatory", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+		},
+		Nodes: []sqlc.GraphNode{
+			{ID: crossCheckID, Type: "cross_check", Author: "student", Body: []byte(`{}`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "cross-checked-by", FromKind: "material", FromID: blogID, ToKind: "graph_node", ToID: crossCheckID},
+			{Type: "cites", FromKind: "graph_node", FromID: crossCheckID, ToKind: "material", ToID: nasaID},
+		},
+	}
+
+	got := projectMaterials(d)
+	var blog, nasa MaterialDTO
+	for _, m := range got {
+		switch m.ID {
+		case blogID.String():
+			blog = m
+		case nasaID.String():
+			nasa = m
+		}
+	}
+	if blog.IsLateralInstrument {
+		t.Fatal("the checked source is not a lateral instrument")
+	}
+	if !nasa.IsLateralInstrument {
+		t.Fatal("the material a cross_check cites IS the lateral instrument")
+	}
+}
+
 // TestProjectExcludesAnchorsFromSkippedCards — a card the student explicitly
 // declined (status "skipped") must not keep re-asking its question: its
 // anchors must not light up the article body on reload. Only "skipped" is

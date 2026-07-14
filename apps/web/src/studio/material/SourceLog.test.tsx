@@ -21,6 +21,7 @@ const loggedSource: MaterialSource = {
   anchors: [],
   timeSpentS: 610,
   lateralRead: false,
+  isLateralInstrument: false,
 };
 
 describe("SourceLog", () => {

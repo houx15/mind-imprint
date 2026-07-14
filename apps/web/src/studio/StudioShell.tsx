@@ -27,6 +27,13 @@ export type StudioShellProps = {
   // student-facing result of the last add attempt) so it travels alongside
   // `card` as its own prop.
   addSourceError?: string;
+  // Whole-branch review finding [3]: the student's in-progress lateral-
+  // source pick for the active compare card, lifted by StudioContainer so
+  // BOTH the coach rail's StudioCompareCard (which sets it) and the center
+  // pane's Compare primitive (which reads it) see the same live value —
+  // travels alongside `card` for the same reason addSourceError does.
+  lateralMaterialId?: string;
+  onLateralMaterialChange?: (materialId: string) => void;
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -58,7 +65,16 @@ function ExitFocusIcon() {
   );
 }
 
-export function StudioShell({ state, callbacks, sending = false, card = null, pendingAnchors = null, addSourceError }: StudioShellProps) {
+export function StudioShell({
+  state,
+  callbacks,
+  sending = false,
+  card = null,
+  pendingAnchors = null,
+  addSourceError,
+  lateralMaterialId,
+  onLateralMaterialChange,
+}: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
   // covers the whole workspace instead of being clipped to the 388px coach
@@ -148,6 +164,7 @@ export function StudioShell({ state, callbacks, sending = false, card = null, pe
           state={state}
           card={card}
           pendingAnchors={pendingAnchors}
+          lateralMaterialId={lateralMaterialId}
           material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
         />
         <CoachRail
@@ -165,6 +182,8 @@ export function StudioShell({ state, callbacks, sending = false, card = null, pe
           onSkipCard={callbacks.onSkipCard}
           materials={state.views.material}
           onSelectStation={callbacks.onSelectStation}
+          lateralMaterialId={lateralMaterialId}
+          onLateralMaterialChange={onLateralMaterialChange}
         />
       </div>
 
