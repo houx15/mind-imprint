@@ -24,7 +24,10 @@ describe("createStudioConversation", () => {
     const api = {
       async *studioTurn() { yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors: [] }; yield { type: "done" }; },
       activateProjectCard: vi.fn(async () => {}),
-      async *submitProjectCard() { yield { type: "intervention", interventionId: "i1", body: "补得不错", anchor: "", criterion: "D5", level: "I2" }; yield { type: "done" }; },
+      // FIX 1: the server reports the card's RESULTING status on "done" —
+      // "completed" here is what makes this a genuine retire, not the bare
+      // "done" the old (buggy) unconditional-null behavior accepted.
+      async *submitProjectCard() { yield { type: "intervention", interventionId: "i1", body: "补得不错", anchor: "", criterion: "D5", level: "I2" }; yield { type: "done", cardStatus: "completed" }; },
       skipProjectCard: vi.fn(async () => {}),
       postDisposition: vi.fn(async () => {}),
     } as any;
@@ -37,6 +40,63 @@ describe("createStudioConversation", () => {
     const s = conv.getSnapshot();
     expect(s.card).toBeNull();
     expect(s.messages.at(-1)).toMatchObject({ kind: "ai", body: "补得不错" });
+  });
+
+  // FIX 1 (whole-branch review CRITICAL) — THE load-bearing regression test:
+  // a submit that does NOT satisfy the card's completion predicate must
+  // leave the card mounted, with its answers/anchors untouched, so the
+  // student can see what's missing and resubmit — and the classifier's
+  // project-wide surface_card suppression (FIX-D) means a subsequent turn
+  // can still surface cards precisely BECAUSE the client never orphaned an
+  // "active" row it thought was gone. RED without the fix: revert
+  // conversation.ts's `e.cardStatus === "completed"` allow-list back to
+  // unconditional `set({ card: null })` and this fails — `s.card` comes back
+  // null despite the server saying "active".
+  it("keeps an incomplete card mounted with its anchors intact when the server reports it is still active, and a later completing submit still unblocks future cards", async () => {
+    const anchors = [
+      { id: "a0", material_id: "m1", block_id: "b0", start: 0, end: 0, quote: "", dimension: "currency", author: "ai" as const, question: "数据是哪一年的？", answer: "" },
+    ];
+    let submitCalls = 0;
+    const api = {
+      async *studioTurn() { yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "n", anchors }; yield { type: "done" }; },
+      activateProjectCard: vi.fn(async () => {}),
+      // First submit mirrors the real degraded-anchor-generation scenario:
+      // the card carries fewer anchors than craap.json's 5-tag completion
+      // predicate needs, so the server leaves it "active" and reports which
+      // tags are still missing — no card frame in this refeed (FIX-D
+      // suppresses surface_card project-wide while this row stays active).
+      // The second submit (her resubmit, now satisfying) completes it and
+      // the refeed surfaces the NEXT card — proving the workspace recovers,
+      // not just that nothing crashed.
+      async *submitProjectCard() {
+        submitCalls += 1;
+        if (submitCalls === 1) {
+          yield { type: "done", cardStatus: "active", missing: ["relevance", "authority", "accuracy", "purpose"] };
+        } else {
+          yield { type: "card", cardInstanceId: "ci2", cardId: "craap", nudgeText: "n2", anchors: [] };
+          yield { type: "done", cardStatus: "completed" };
+        }
+      },
+      skipProjectCard: vi.fn(async () => {}),
+      postDisposition: vi.fn(async () => {}),
+    } as any;
+    const conv = createStudioConversation({ projectId: "p1", api });
+    await conv.send("hi");
+    await conv.openCard();
+    expect(conv.getSnapshot().card?.status).toBe("active");
+
+    await conv.submitCard({ field_values: {}, event_trace: [], anchors } as any);
+    const s = conv.getSnapshot();
+    expect(s.card).not.toBeNull();
+    expect(s.card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "active" });
+    expect(s.card?.anchors).toEqual(anchors);
+
+    // A subsequent (resubmit) turn can still surface cards: this proves the
+    // workspace was never bricked by the first, incomplete submit — the
+    // client kept its reference to the still-active row instead of orphaning
+    // it, so the very next completing submit's refeed can surface ci2.
+    await conv.submitCard({ field_values: {}, event_trace: [], anchors } as any);
+    expect(conv.getSnapshot().card).toMatchObject({ cardInstanceId: "ci2", status: "proposed" });
   });
 
   it("keeps a newly-surfaced card alive when submit refeed surfaces a NEW card before done", async () => {
@@ -132,6 +192,44 @@ describe("createStudioConversation", () => {
 
     const s = conv.getSnapshot();
     expect(s.card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "active" });
+  });
+
+  // FIX 4 (whole-branch review MINOR, but reachable): the guard above only
+  // ever compared cardInstanceId, so it refused a DIFFERENT card while
+  // active but fell straight through for the SAME id — hard-resetting an
+  // open, half-filled card's `status` back to "proposed" and blowing away
+  // whatever the student had typed, exactly where the CRITICAL 1 defense was
+  // supposed to land hardest. This models a stray/duplicate "card" frame
+  // (same id, freshly re-served anchors) arriving on an ordinary send() turn
+  // while ci1 is open.
+  it("refuses to let an ordinary send() turn reset an ACTIVE card even when the frame carries the SAME id", async () => {
+    let calls = 0;
+    const api = {
+      async *studioTurn() {
+        calls += 1;
+        // Both calls propose the SAME card id — the second one simulates a
+        // stray re-surface with different (e.g. freshly regenerated) anchors.
+        yield { type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: calls === 1 ? "n" : "n2", anchors: calls === 1 ? [] : [{ id: "a0", material_id: "m1", block_id: "b0", start: 0, end: 0, quote: "", dimension: "currency", author: "ai" as const, question: "q", answer: "" }] };
+        yield { type: "done" };
+      },
+      activateProjectCard: vi.fn(async () => {}),
+      submitProjectCard: vi.fn(),
+      skipProjectCard: vi.fn(async () => {}),
+      postDisposition: vi.fn(async () => {}),
+    } as any;
+    const conv = createStudioConversation({ projectId: "p1", api });
+    await conv.send("hi");
+    await conv.openCard();
+    expect(conv.getSnapshot().card).toMatchObject({ cardInstanceId: "ci1", status: "active" });
+
+    await conv.send("再来点什么");
+
+    // Still active — a same-id "card" frame from an ordinary turn must not
+    // reset it back to "proposed" (which would unmount the open sheet) or
+    // swap in the new frame's anchors over whatever the student was filling.
+    const s = conv.getSnapshot();
+    expect(s.card).toMatchObject({ cardInstanceId: "ci1", cardId: "craap", status: "active" });
+    expect(s.card?.anchors).toEqual([]);
   });
 
   it("still applies a send()-surfaced card when nothing is currently active", async () => {

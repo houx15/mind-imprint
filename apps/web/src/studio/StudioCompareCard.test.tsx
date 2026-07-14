@@ -24,6 +24,7 @@ function material(id: string, title: string): MaterialSource {
     timeSpentS: 0,
     lateralRead: false,
     isLateralInstrument: false,
+    siftSkipped: false,
     lateralRelation: "",
     lateralJudgment: "",
   };

@@ -44,6 +44,7 @@ export const MATERIAL_FIXTURE: MaterialSource[] = [
     timeSpentS: 240,
     lateralRead: false,
     isLateralInstrument: false,
+    siftSkipped: false,
     lateralRelation: "",
     lateralJudgment: "",
     anchors: [
@@ -93,6 +94,7 @@ export const MATERIAL_FIXTURE: MaterialSource[] = [
     timeSpentS: 610,
     lateralRead: false,
     isLateralInstrument: false,
+    siftSkipped: false,
     lateralRelation: "",
     lateralJudgment: "",
     anchors: [],

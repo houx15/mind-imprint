@@ -17,6 +17,7 @@ const materialBody = {
   timeSpentS: 0,
   lateralRead: false,
   isLateralInstrument: false,
+  siftSkipped: false,
   lateralRelation: "",
   lateralJudgment: "",
   anchors: [],

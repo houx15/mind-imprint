@@ -242,15 +242,27 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		<-hbDone
 	}()
 
+	// cardStatus/missingTags are the RESULTING state this submit reports on
+	// the "done" frame (FIX 1): "active" (the default, and the honest
+	// answer for every early-return below — nothing has changed the row's
+	// status yet) unless the completion predicate is actually satisfied
+	// further down, in which case it flips to "completed" and missingTags
+	// is cleared. The client (conversation.ts submitCard) only retires its
+	// local card on an explicit "completed" — never on a bare "done" — so
+	// this variable must be honest at every return point, not just the
+	// happy path.
+	cardStatus := "active"
+	var missingTags []string
+
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.SetCardInstanceAnchors(r.Context(), projectID, cid, body.Anchors); err != nil {
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.Done()
+		_ = em.DoneCard(cardStatus, missingTags)
 		return
 	}
 	if err := store.SubmitProjectCardInstance(r.Context(), projectID, cid, body.FieldValues, body.EventTrace); err != nil {
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.Done()
+		_ = em.DoneCard(cardStatus, missingTags)
 		return
 	}
 
@@ -266,23 +278,47 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 	// satisfying submit (CompleteCard's complete == true) flips
 	// card_instance.status to "completed" — student confirmation of a
 	// satisfying submit, not AI adjudication (not a DEC-3 issue). An
-	// unsatisfying submit (every form-only CRAAP fill today, since the
-	// schema field renderer produces field_values, never anchors — the
-	// live mint is deferred to Slice 6's material-annotation surface)
-	// leaves the card "active" so the student can refill/resubmit instead
-	// of being falsely marked done with no evidence node.
+	// unsatisfying submit (partial anchors — e.g. the anchor generator
+	// degraded and shipped fewer than the spec's full tag set, studioturn.go
+	// surfaceAnchors) leaves the card "active" so the student can
+	// refill/resubmit instead of being falsely marked done with no evidence
+	// node — and now (FIX 1) reports that honestly on "done" instead of
+	// having the client discard the card regardless.
 	row, err := store.GetCardInstance(r.Context(), cid)
 	if err == nil {
 		if spec, ok := cards.ByID(row.CardID); ok {
+			// missingTags is computed independently of CompleteCard's own
+			// (unexported) completion check, over the SAME just-persisted
+			// row.Anchors, purely so submitProjectCard can report it on
+			// "done" without widening CompleteCard's signature for every
+			// caller (agent package tests included) just to thread one
+			// extra return value out.
+			var anchors []agent.Anchor
+			if len(row.Anchors) > 0 {
+				_ = json.Unmarshal(row.Anchors, &anchors)
+			}
+			_, missingTags = agent.EvaluateCompletion(spec, anchors)
+
 			complete, err := agent.CompleteCard(r.Context(), deps, spec, cid)
 			if err != nil {
+				// FIX 5: a CompleteCard error must not be swallowed and
+				// reported as success — the SSE stream and the client both
+				// need to see the submit failed, not silently proceed to
+				// the refeed as if the card had either completed or been
+				// left cleanly active.
 				slog.Error("card submit: CompleteCard", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
-			} else if complete {
+				_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
+				_ = em.DoneCard(cardStatus, missingTags)
+				return
+			}
+			if complete {
 				if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "completed"); err != nil {
 					_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-					_ = em.Done()
+					_ = em.DoneCard(cardStatus, missingTags)
 					return
 				}
+				cardStatus = "completed"
+				missingTags = nil
 			}
 		}
 	} else {
@@ -306,9 +342,9 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("card submit: refeed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")
-		_ = em.Done()
+		_ = em.DoneCard(cardStatus, missingTags)
 		return
 	}
 	a.streamAction(r.Context(), em, action, projectID, store)
-	_ = em.Done()
+	_ = em.DoneCard(cardStatus, missingTags)
 }

@@ -136,6 +136,12 @@ func TestProjectCardSubmit(t *testing.T) {
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
 		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
 	}
+	// FIX 1: a satisfying submit's "done" frame must report card_status
+	// "completed" — the client (conversation.ts submitCard) only retires its
+	// local card state on this explicit signal, never on a bare "done".
+	if !strings.Contains(rr.Body.String(), `"card_status":"completed"`) {
+		t.Fatalf("done frame missing card_status=completed: %s", rr.Body.String())
+	}
 	// status completed
 	got, _ := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
 	if got.Status != "completed" {
@@ -208,6 +214,13 @@ func TestProjectCardSubmit_FormPathDoesNotComplete(t *testing.T) {
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
 		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+	// FIX 1: a non-satisfying submit's "done" frame must report card_status
+	// "active" (never "completed") — this is exactly the signal
+	// conversation.ts's submitCard needs to keep the card mounted instead of
+	// discarding a student's in-progress answers.
+	if !strings.Contains(rr.Body.String(), `"card_status":"active"`) {
+		t.Fatalf("done frame missing card_status=active: %s", rr.Body.String())
 	}
 
 	// status stays active — NOT completed — so the student can resubmit.
@@ -339,6 +352,66 @@ func TestProjectCardSubmit_RejectsForeignProjectMaterialAnchor(t *testing.T) {
 	}
 	if got.Status != "active" {
 		t.Fatalf("status = %q, want unchanged active — a rejected submit must not mutate the card", got.Status)
+	}
+}
+
+// TestProjectCardSubmit_CompleteCardErrorSurfacesAsSSEError is FIX 5 (fix-D
+// review follow-up): before this fix, an error returned by agent.CompleteCard
+// was only slog.Error'd and the handler fell straight through to the refeed
+// as if nothing had gone wrong — the SSE stream carried no "event: error" at
+// all, so the client had no way to distinguish "your submit failed" from
+// "your submit is still active because it wasn't complete". This drives
+// CompleteCard's own genuine error path (checkedMaterialID returns "" when
+// every submitted anchor has an empty material_id, even though
+// every_tag_present + field_written_by are otherwise satisfied) through the
+// real HTTP submit endpoint and asserts the response actually contains an
+// error event — not a silent, error-free "done".
+func TestProjectCardSubmit_CompleteCardErrorSurfacesAsSSEError(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cardsByID()}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	cid := createProjectCardForTest(t, pool) // craap, status active
+	base := "/api/v1/projects/00000000-0000-0000-0000-000000000101/cards/" + cid
+
+	// Fully satisfies every_tag_present + field_written_by(risk_note,
+	// student) — EvaluateCompletion reports complete == true — but every
+	// anchor's material_id is empty, so checkedMaterialID (card_lifecycle.go)
+	// can't resolve which material to promote and CompleteCard returns a
+	// genuine error instead of minting.
+	anchors := []agent.Anchor{
+		{ID: "a0", Dimension: "currency", Author: "ai", Answer: "无归属来源"},
+		{ID: "a1", Dimension: "relevance", Author: "ai", Answer: "无归属来源"},
+		{ID: "a2", Dimension: "authority", Author: "ai", Answer: "无归属来源"},
+		{ID: "a3", Dimension: "accuracy", Author: "ai", Answer: "无归属来源"},
+		{ID: "a4", Dimension: "purpose", Author: "ai", Answer: "无归属来源"},
+		{ID: "a5", Dimension: "risk_note", Author: "student", Answer: "无归属来源"},
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
+	if rr.Code != 200 {
+		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+	// The load-bearing assertion: an error event must be in the stream. Before
+	// FIX 5 this would fail — the handler swallowed CompleteCard's error and
+	// streamed only intervention/gate/done frames, exactly as if the submit
+	// had cleanly succeeded.
+	if !strings.Contains(rr.Body.String(), "event: error") {
+		t.Fatalf("expected an SSE error event for CompleteCard's swallowed error, got: %s", rr.Body.String())
+	}
+	// A card whose CompleteCard call errored must not be left completed.
+	got, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if got.Status != "active" {
+		t.Fatalf("status = %q, want unchanged active", got.Status)
 	}
 }
 
@@ -532,6 +605,15 @@ func TestProjectCardSubmit_SurfaceFillMintE2E_IncompleteAnswerDoesNotMint(t *tes
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/submit", strings.NewReader(body)), cookie))
 	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
 		t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+	}
+	// FIX 1: still active, and the "done" frame's missing list must name the
+	// dimension that was left empty — EvaluateCompletion's own report,
+	// surfaced instead of silently dropped.
+	if !strings.Contains(rr.Body.String(), `"card_status":"active"`) {
+		t.Fatalf("done frame missing card_status=active: %s", rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), `"missing":[]`) {
+		t.Fatalf("done frame's missing list is empty despite an unanswered dimension: %s", rr.Body.String())
 	}
 
 	got, err := q.GetCardInstance(context.Background(), uuid.MustParse(cid))

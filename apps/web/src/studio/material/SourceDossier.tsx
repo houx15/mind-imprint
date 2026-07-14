@@ -82,8 +82,20 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
   // the summon logic will never actually surface that card, an unclearable
   // nag with no honest resolution. `isLateralInstrument` is server-derived
   // from the same graph edges the summon rule reads — never recomputed here.
+  //
+  // `!source.siftSkipped` is FIX 3 (whole-branch review): the server's
+  // siftSurfaced suppression (classifier.go) treats a SKIPPED SIFT the same
+  // as any in-flight/terminal one and never re-proposes it on this material
+  // — so without this exclusion the chip would keep claiming "正在核对 ·
+  // 需横向阅读" (an ACTIVE process) forever after she explicitly chose to
+  // skip it, the exact unclearable-nag-with-no-honest-resolution class the
+  // isLateralInstrument fix above exists to prevent, just reached by a
+  // different path. Her skip decision is not erased anywhere — it still
+  // lives in the process tree (the card_instance row + its event_trace) —
+  // this only stops the LIVE chip from mis-describing the state as
+  // "currently being verified" once nothing is.
   function needsLateralRead(source: MaterialSource): boolean {
-    return source.locked && !source.lateralRead && !source.isLateralInstrument;
+    return source.locked && !source.lateralRead && !source.isLateralInstrument && !source.siftSkipped;
   }
 
   const reportOpenElapsed = () => {

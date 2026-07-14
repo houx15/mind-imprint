@@ -12,7 +12,15 @@ export type StudioTurnEvent =
   // contents or array position, which is exactly the coin flip a compare
   // card's two-material anchor set invites.
   | { type: "card"; cardInstanceId: string; cardId: string; nudgeText: string; anchors: Anchor[]; materialId: string }
-  | { type: "done" }
+  // cardStatus/missing are only ever set on a card-submit's own "done" frame
+  // (gateway.SSEWriter.DoneCard) — undefined on the ordinary turn endpoint's
+  // ("card_status" absent from the JSON). FIX 1 (whole-branch review): the
+  // client (conversation.ts submitCard) must retire its local card ONLY when
+  // cardStatus is explicitly "completed" — never on a bare "done" — so an
+  // incomplete submit (card_instance left "active" server-side, on purpose)
+  // keeps the card mounted with the student's answers intact instead of
+  // discarding it.
+  | { type: "done"; cardStatus?: string; missing?: string[] }
   | { type: "error"; code: string; message: string };
 
 /** Maps one SSE frame to a StudioTurnEvent (or null for unrecognized/unparsable frames).
@@ -25,7 +33,12 @@ export function mapStudioFrame(frame: SSEFrame): StudioTurnEvent | null {
     case "intervention": return { type: "intervention", interventionId: data.intervention_id, body: data.body, anchor: data.anchor, criterion: data.criterion, level: data.level };
     case "gate": return { type: "gate", contract: data.contract, status: data.status, passed: data.passed, total: data.total, missing: data.missing ?? [] };
     case "card": return { type: "card", cardInstanceId: data.card_instance_id, cardId: data.card_id, nudgeText: data.nudge_text, anchors: data.anchors ?? [], materialId: data.material_id ?? "" };
-    case "done": return { type: "done" };
+    // `missing` is left undefined (not defaulted to []) when the frame
+    // doesn't carry it — the ordinary turn endpoint's "done" has neither
+    // card_status nor missing, and fabricating an empty array here would
+    // make that frame structurally different from a bare `{ type: "done" }`
+    // for no reason.
+    case "done": return { type: "done", cardStatus: data.card_status, missing: data.missing };
     case "error": return { type: "error", code: data.error?.code ?? "internal_error", message: data.error?.message ?? "" };
     default: return null;
   }

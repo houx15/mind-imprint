@@ -22,6 +22,7 @@ const loggedSource: MaterialSource = {
   timeSpentS: 610,
   lateralRead: false,
   isLateralInstrument: false,
+  siftSkipped: false,
   lateralRelation: "",
   lateralJudgment: "",
 };

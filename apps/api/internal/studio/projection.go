@@ -305,13 +305,19 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 }
 
 // projectActiveCard projects the one project-wide card_instance that is
-// "proposed" or "active" (agent.SurfaceCardCandidates' own invariant —
-// classifier.go — guarantees at most one exists at a time; this defensively
-// takes the first match rather than assuming exactly one). nil when none is
-// open — a page reload must be able to rehydrate this, or the client loses
-// its only reference to the open card while the row stays open server-side,
-// and FIX-D's suppression then blocks every future card from surfacing ever
-// again (whole-branch review finding, CRITICAL).
+// "proposed" or "active". agent.SurfaceCardCandidates' suppression
+// (classifier.go) makes at most one such row the INTENDED steady state, but
+// that is not a hard invariant nothing can violate — no unique constraint,
+// no lock spanning its perceive-time read and the SurfaceCard insert it
+// gates, so two concurrent turns could in principle each perceive "nothing
+// in flight" and both mint one (FIX 6, whole-branch review: the comment this
+// replaces overclaimed a guarantee nothing in the schema or transaction
+// boundary actually provides). This defensively takes the first match rather
+// than assuming exactly one. nil when none is open — a page reload must be
+// able to rehydrate this, or the client loses its only reference to the open
+// card while the row stays open server-side, and FIX-D's suppression then
+// blocks every future card from surfacing ever again (whole-branch review
+// finding, CRITICAL).
 func projectActiveCard(d ProjectData, materialOf map[string]string) *ActiveCardDTO {
 	for _, c := range d.Cards {
 		if c.Status != "proposed" && c.Status != "active" {
@@ -340,7 +346,8 @@ func projectActiveCard(d ProjectData, materialOf map[string]string) *ActiveCardD
 // isLateralInstrument exists only because some OTHER cross_check node
 // --cites--> this material — the same graph fact agent.SurfaceCardCandidates
 // already reads to keep a lateral instrument from ever getting its own SIFT
-// proposal (fix-wave finding [4]).
+// proposal (fix-wave finding [4]). siftSkipped exists only because a SIFT
+// card_instance targeting this material was itself skipped (FIX 3).
 func projectMaterials(d ProjectData) []MaterialDTO {
 	nodesByID := map[string]sqlc.GraphNode{}
 	for _, n := range d.Nodes {
@@ -378,6 +385,26 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 	for _, e := range d.Edges {
 		if e.Type == "cites" && e.FromKind == "graph_node" && e.ToKind == "material" && crossCheckNode[e.FromID.String()] {
 			lateralInstrument[e.ToID.String()] = true
+		}
+	}
+	// siftSkipped: material id -> a SIFT card_instance targeting it was
+	// explicitly skipped (FIX 3, whole-branch review). "sift" is the same
+	// literal card id agent/classifier.go's unexported siftCardID constant
+	// names — there is no shared cross-package constant for it today, same
+	// as isLateralInstrument's derivation above needing no shared constant
+	// either. agent.SurfaceCardCandidates' siftSurfaced map treats a skip
+	// exactly like any other in-flight/terminal status and never re-proposes
+	// SIFT on this material again, so a skip here is permanent — the
+	// dossier's 需横向阅读 chip must stop claiming an active workflow the
+	// summon rule will in fact never offer again.
+	siftSkipped := map[string]bool{}
+	materialOfCard := materialByCardInstance(d)
+	for _, c := range d.Cards {
+		if c.CardID != "sift" || c.Status != "skipped" {
+			continue
+		}
+		if mid, ok := materialOfCard[c.ID.String()]; ok {
+			siftSkipped[mid] = true
 		}
 	}
 	// material id → the cross_check node reached by ITS OWN "cross-checked-by"
@@ -445,6 +472,7 @@ func projectMaterials(d ProjectData) []MaterialDTO {
 			dto.Anchors = as
 		}
 		dto.IsLateralInstrument = lateralInstrument[id]
+		dto.SiftSkipped = siftSkipped[id]
 		if n, ok := crossCheckOf[id]; ok {
 			dto.LateralRelation, dto.LateralJudgment = lateralNote(n.Body)
 		}

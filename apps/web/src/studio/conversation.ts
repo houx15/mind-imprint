@@ -84,7 +84,16 @@ export function createStudioConversation({ projectId, api, initialCard }: Deps) 
         disposableInterventionId: e.interventionId,
       });
     } else if (e.type === "card") {
-      if (!opts?.allowSurfaceOverActive && state.card?.status === "active" && state.card.cardInstanceId !== e.cardInstanceId) {
+      // FIX 4 (whole-branch review): this used to compare cardInstanceId too
+      // — refusing only a frame for a DIFFERENT card — which left a hole
+      // exactly where a stray frame carrying the SAME id as the open card
+      // would fall through, unconditionally reset `status` to "proposed",
+      // and unmount the open sheet mid-fill (same bug as CRITICAL 1, just
+      // reachable via the id-equal path instead of id-different). An ACTIVE
+      // card must survive ANY incoming "card" frame from an ordinary send()
+      // turn, same id or not; only submitCard's own post-submit refeed
+      // (allowSurfaceOverActive: true) is allowed to move past it.
+      if (!opts?.allowSurfaceOverActive && state.card?.status === "active") {
         return;
       }
       const spec = CARD_REGISTRY[e.cardId];
@@ -130,7 +139,18 @@ export function createStudioConversation({ projectId, api, initialCard }: Deps) 
       for await (const e of submitCardTurn(projectId, cardInstanceId, finalEnvelope) as AsyncGenerator<StudioTurnEvent>) {
         applyEvent(e, { allowSurfaceOverActive: true });
         if (e.type === "done") {
-          if (state.card?.cardInstanceId === submittedId) {
+          // FIX 1 (whole-branch review CRITICAL): retire the local card ONLY
+          // on an explicit server-reported "completed" — never on a bare
+          // "done". FIX-D deliberately leaves an unsatisfying submit's
+          // card_instance "active" server-side so the student can refill and
+          // resubmit; nulling `card` here regardless (the old behavior) tore
+          // the sheet down anyway, silently discarding her answers and — via
+          // FIX-D's own project-wide suppression while any card is
+          // proposed/active — permanently blocking every future card from
+          // surfacing. An allow-list on "completed" (not a "!== active"
+          // deny-list) is deliberate: an unrecognized/missing cardStatus
+          // must default to keeping the card, the safer failure mode.
+          if (state.card?.cardInstanceId === submittedId && e.cardStatus === "completed") {
             set({ card: null });
           }
         }

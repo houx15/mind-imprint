@@ -98,6 +98,16 @@ export const MaterialSource = z.object({
   // (whole-branch review finding [4]) — otherwise the chip can promise a
   // workflow the summon rule will never actually offer.
   isLateralInstrument: z.boolean(),
+  // True when a SIFT card_instance targeting this material was explicitly
+  // skipped. The server's summon rule (agent/classifier.go's siftSurfaced)
+  // treats a skip the same as any in-flight/terminal status and never
+  // re-proposes SIFT on this material again — so the 需横向阅读 chip must
+  // stop showing once skipped instead of promising a workflow the coach will
+  // in fact never offer again (FIX 3, whole-branch review). The skip itself
+  // is still permanently recorded in the process tree; this field only keeps
+  // the LIVE chip from mis-describing the state as "currently being
+  // verified" once nothing is.
+  siftSkipped: z.boolean(),
   // Derived from the cross_check node reached by this material's own
   // "cross-checked-by" edge (Slice 6c's SIFT mint): her own chosen relation
   // (印证/反驳/限定) and her own revised-judgment sentence, given back exactly

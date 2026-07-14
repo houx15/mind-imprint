@@ -37,3 +37,30 @@ test("renders one answerable row per anchor and locks with filled anchors + risk
   expect(risk.author).toBe("student");
   expect(risk.answer).toBe("支撑核心数据，但单一来源有风险");
 });
+
+// FIX 2 (whole-branch review CRITICAL): `anchors.every(...)` is vacuously
+// true on an empty array — studioturn.go's surfaceAnchors degrades to []
+// anchors on any generator failure (parse error / provider hiccup / empty
+// generation), so a zero-anchor CRAAP card was lockable the instant the
+// student typed only the risk note. The server can never actually complete
+// such a submit (craap.json's every_tag_present needs 5 named tags that
+// don't exist here), so locking it only ever produced the exact FIX 1
+// scenario this whole fix wave exists to close: a stuck-active card with
+// nothing to show for it. RED without the `hasAnchors` guard (revert it and
+// this fails: the button enables immediately after the risk note alone).
+test("refuses to lock a zero-anchor card even once the risk note is filled", () => {
+  const onSubmit = vi.fn();
+  render(<StudioAnnotateCard spec={spec} anchors={[]} onSubmit={onSubmit} onSkip={() => {}} />);
+  // Zero per-anchor rows + the one risk-note field.
+  const boxes = screen.getAllByRole("textbox");
+  expect(boxes).toHaveLength(1);
+
+  const lockButton = screen.getByRole("button", { name: /锁定|评估完成|完成/ });
+  expect(lockButton).toBeDisabled();
+
+  fireEvent.change(boxes[0]!, { target: { value: "支撑核心数据，但单一来源有风险" } });
+  expect(lockButton).toBeDisabled();
+
+  fireEvent.click(lockButton);
+  expect(onSubmit).not.toHaveBeenCalled();
+});

@@ -95,6 +95,25 @@ func (s *SSEWriter) Done(messageID string) error {
 	return s.writeEvent("done", map[string]string{"message_id": messageID})
 }
 
+// DoneCard ends a card-submit stream, additionally reporting the
+// card_instance's RESULTING status ("active" when the submission did not
+// satisfy the card's completion predicate and the row is still open for a
+// refill/resubmit, "completed" when it did) and, while still active, which
+// completion predicates remain unmet (EvaluateCompletion's own `missing`
+// list). The client uses THIS — never the bare Done — to decide whether to
+// retire its local card state: nulling it unconditionally on every submit,
+// regardless of outcome, destroyed a student's in-progress answers on every
+// incomplete submit (whole-branch review CRITICAL 1's fix-wave follow-up:
+// FIX-D leaves an unsatisfied submit's card_instance "active" on purpose so
+// she can refill it, but the client had no way to tell that apart from a
+// genuine retire).
+func (s *SSEWriter) DoneCard(cardStatus string, missing []string) error {
+	if missing == nil {
+		missing = []string{}
+	}
+	return s.writeEvent("done", map[string]any{"message_id": "", "card_status": cardStatus, "missing": missing})
+}
+
 // ErrorEnvelope emits the standard error envelope as an SSE error event.
 func (s *SSEWriter) ErrorEnvelope(code, message string) error {
 	return s.writeEvent("error", map[string]any{

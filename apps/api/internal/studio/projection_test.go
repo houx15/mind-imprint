@@ -388,6 +388,55 @@ func TestProjectMaterials_IsLateralInstrumentDerivedFromCitesEdge(t *testing.T) 
 	}
 }
 
+// TestProjectMaterials_SiftSkippedDerivedFromSkippedCardInstance is FIX 3
+// (whole-branch review): a material whose SIFT card_instance was explicitly
+// skipped must project siftSkipped = true, so the dossier's 需横向阅读 chip
+// (gated on !siftSkipped, SourceDossier.tsx) stops claiming a lateral-read
+// workflow agent.SurfaceCardCandidates will in fact never offer again once a
+// SIFT has been skipped on that material (its siftSurfaced map treats ANY
+// status, including "skipped", as already-surfaced-forever). A material with
+// no SIFT card_instance at all, or one that is still active/completed,
+// projects siftSkipped = false.
+func TestProjectMaterials_SiftSkippedDerivedFromSkippedCardInstance(t *testing.T) {
+	skippedID := uuid.MustParse("00000000-0000-0000-0000-0000000000d1")
+	untouchedID := uuid.MustParse("00000000-0000-0000-0000-0000000000d2")
+	activeID := uuid.MustParse("00000000-0000-0000-0000-0000000000d3")
+	skippedCardID := uuid.MustParse("00000000-0000-0000-0000-0000000000d4")
+	activeCardID := uuid.MustParse("00000000-0000-0000-0000-0000000000d5")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: skippedID, Title: "skipped-sift source", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+			{ID: untouchedID, Title: "no sift yet", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+			{ID: activeID, Title: "sift in progress", Kind: "article", Source: "pasted", Blocks: []byte(`[]`)},
+		},
+		Cards: []sqlc.CardInstance{
+			{ID: skippedCardID, CardID: "sift", Status: "skipped", Anchors: []byte(`[]`)},
+			{ID: activeCardID, CardID: "sift", Status: "active", Anchors: []byte(`[]`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluates", FromKind: "card_instance", FromID: skippedCardID, ToKind: "material", ToID: skippedID},
+			{Type: "evaluates", FromKind: "card_instance", FromID: activeCardID, ToKind: "material", ToID: activeID},
+		},
+	}
+
+	got := projectMaterials(d)
+	byID := map[string]MaterialDTO{}
+	for _, m := range got {
+		byID[m.ID] = m
+	}
+
+	if !byID[skippedID.String()].SiftSkipped {
+		t.Fatal("a material with a skipped SIFT card_instance must project siftSkipped = true")
+	}
+	if byID[untouchedID.String()].SiftSkipped {
+		t.Fatal("a material with no SIFT card_instance at all must not project siftSkipped")
+	}
+	if byID[activeID.String()].SiftSkipped {
+		t.Fatal("a material whose SIFT is still active (not skipped) must not project siftSkipped")
+	}
+}
+
 // TestProjectActiveCard_NilWhenNoneOpen — the ordinary case: every
 // card_instance is terminal (completed/skipped) or there are none at all.
 // The reload bug this guards against only exists when a card is left

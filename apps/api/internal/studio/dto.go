@@ -12,13 +12,19 @@ type StudioProjection struct {
 	Onboarding    OnboardingDTO `json:"onboarding"`
 	Materials     []MaterialDTO `json:"materials"`
 	// ActiveCard projects the one project-wide card_instance that is
-	// "proposed" or "active" (agent.SurfaceCardCandidates' own invariant —
-	// classifier.go — guarantees at most one). nil when none is open. Fixes
-	// the reload-bricks-the-workspace bug: without this, a page reload loses
-	// the client's only reference to the open card while the row stays
-	// proposed/active server-side, and FIX-D's own suppression (which is
-	// otherwise exactly right) then blocks every future card from ever
-	// surfacing again — permanently, project-wide.
+	// "proposed" or "active". agent.SurfaceCardCandidates (classifier.go)
+	// makes at most one in-flight card_instance the INTENDED steady state,
+	// but that is not a hard invariant: nothing (no unique constraint, no
+	// lock spanning its perceive-time read and the SurfaceCard insert it
+	// gates) actually prevents two concurrent turns from both perceiving
+	// "nothing in flight" and each minting one — see projectActiveCard
+	// (projection.go), which accordingly takes the first match rather than
+	// assuming exactly one exists (FIX 6, whole-branch review). nil when none
+	// is open. Fixes the reload-bricks-the-workspace bug: without this, a
+	// page reload loses the client's only reference to the open card while
+	// the row stays proposed/active server-side, and FIX-D's own suppression
+	// (which is otherwise exactly right) then blocks every future card from
+	// ever surfacing again — permanently, project-wide.
 	ActiveCard *ActiveCardDTO `json:"activeCard"`
 }
 
@@ -31,8 +37,10 @@ type ActiveCardDTO struct {
 	CardInstanceID string `json:"cardInstanceId"`
 	CardID         string `json:"cardId"`
 	// Status is "proposed" (offered, not yet opened) or "active" (open,
-	// being filled) — SurfaceCardCandidates' own suppression only ever
-	// leaves one of these two project-wide.
+	// being filled). SurfaceCardCandidates' suppression is DESIGNED to leave
+	// at most one such row project-wide, but nothing enforces that as a hard
+	// invariant (see StudioProjection.ActiveCard's comment) — this is the
+	// intended value, not a guaranteed one.
 	Status     string            `json:"status"`
 	Anchors    []json.RawMessage `json:"anchors"`
 	MaterialID string            `json:"materialId"`
@@ -139,6 +147,17 @@ type MaterialDTO struct {
 	// chip can promise a lateral-read workflow the summon rule will never
 	// actually offer (whole-branch review finding [4]).
 	IsLateralInstrument bool `json:"isLateralInstrument"`
+	// SiftSkipped is true when a SIFT card_instance targeting this material
+	// was explicitly skipped (agent/classifier.go's siftSurfaced treats a
+	// skip the same as any other in-flight/terminal status, so once skipped
+	// SIFT is never re-proposed on this material — the dossier's
+	// 需横向阅读 chip must not keep promising a lateral-read workflow the
+	// summon rule will in fact never offer again; FIX 3, whole-branch
+	// review). A recorded decision, not an erased one: the skip itself still
+	// lives in the process tree (the card_instance row + its event_trace) —
+	// this field only stops the LIVE chip from mis-describing the state as
+	// "currently being verified" once nothing is.
+	SiftSkipped bool `json:"siftSkipped"`
 	// LateralRelation/LateralJudgment are derived from the cross_check node
 	// reached by this material's own "cross-checked-by" edge (Slice 6c's SIFT
 	// mint) — her own chosen relation (印证/反驳/限定) and her own revised-

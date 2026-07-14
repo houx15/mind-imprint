@@ -50,9 +50,9 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if len(materials) != 1 {
 		t.Fatalf("materials len = %d, want 1", len(materials))
 	}
-	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument,lateralRelation,lateralJudgment}
+	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument,siftSkipped,lateralRelation,lateralJudgment}
 	// — must match packages/contracts/src/studioState.ts MaterialSource exactly.
-	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralJudgment", "lateralRead", "lateralRelation", "locked", "origin", "role", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
+	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralJudgment", "lateralRead", "lateralRelation", "locked", "origin", "role", "siftSkipped", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

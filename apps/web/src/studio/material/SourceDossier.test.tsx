@@ -73,6 +73,7 @@ const blogArticle: MaterialSource = {
   timeSpentS: 240,
   lateralRead: false,
   isLateralInstrument: false,
+  siftSkipped: false,
   lateralRelation: "",
   lateralJudgment: "",
   anchors: [authorityAnchor, purposeAnchor],
@@ -98,6 +99,7 @@ const nasaSummary: MaterialSource = {
   timeSpentS: 610,
   lateralRead: false,
   isLateralInstrument: false,
+  siftSkipped: false,
   lateralRelation: "",
   lateralJudgment: "",
   anchors: [],
@@ -366,6 +368,28 @@ describe("SourceDossier", () => {
       isLateralInstrument: true,
     };
     render(<SourceDossier sources={[laterallyCheckedInstrument]} />);
+
+    const dossier = screen.getByTestId("dossier-source-list");
+    expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();
+  });
+
+  // FIX 3 (whole-branch review): classifier.go's siftSurfaced suppression
+  // treats a SKIPPED SIFT card_instance the same as any in-flight/terminal
+  // one and never re-proposes SIFT on that material again — so once she has
+  // skipped it, `locked && !lateralRead` alone would keep the chip claiming
+  // "正在核对 · 需横向阅读" (an ACTIVE process) forever, demanding a workflow
+  // the coach will never actually offer again. This is the RED this fix
+  // wave's own review flagged as the "unclearable nag with no honest
+  // resolution" defect class — revert the `!source.siftSkipped` clause in
+  // SourceDossier.tsx's needsLateralRead and this fails (the chip renders).
+  it("does not show 需横向阅读 once SIFT has been explicitly skipped on this source", () => {
+    const skippedLateral: MaterialSource = {
+      ...blogArticle,
+      locked: true,
+      lateralRead: false,
+      siftSkipped: true,
+    };
+    render(<SourceDossier sources={[skippedLateral]} />);
 
     const dossier = screen.getByTestId("dossier-source-list");
     expect(within(dossier).queryByText(/需横向阅读/)).not.toBeInTheDocument();

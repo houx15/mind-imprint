@@ -27,8 +27,22 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
   // intent. Locking before that leaves the backend's card `active` with no
   // mint, and the frontend has no rehydration path for that state, so we
   // gate the button rather than let the student lose the card in-session.
-  const allAnchorsAnswered = anchors.every((a) => !!(answers[a.id] ?? a.answer)?.trim());
-  const canLock = allAnchorsAnswered && !!riskNote.trim();
+  //
+  // FIX 2 (whole-branch review CRITICAL): `[].every()` is vacuously true —
+  // when `anchors` is empty (studioturn.go's surfaceAnchors degrades to no
+  // anchors on ANY generator failure: a parse error, a provider hiccup, an
+  // empty generation), `allAnchorsAnswered` was true with nothing answered,
+  // so typing only the risk note made a zero-anchor card lockable. The
+  // server's craap.json completion predicate (every_tag_present over 5
+  // fixed tags) can never be satisfied by zero submitted anchors, so that
+  // submit could only ever leave the card_instance "active" with nothing
+  // minted — exactly the FIX 1 "stuck active, card discarded anyway"
+  // scenario this file's own comment above warns about. Requiring at least
+  // one anchor closes the hole at its narrowest: a card this renderer was
+  // handed nothing to ask about must never present a live lock button.
+  const hasAnchors = anchors.length > 0;
+  const allAnchorsAnswered = hasAnchors && anchors.every((a) => !!(answers[a.id] ?? a.answer)?.trim());
+  const canLock = hasAnchors && allAnchorsAnswered && !!riskNote.trim();
 
   function handleAnswerChange(id: string, value: string) {
     setAnswers((prev) => ({ ...prev, [id]: value }));

@@ -77,6 +77,7 @@ describe("MaterialSource", () => {
     timeSpentS: 240,
     lateralRead: false,
     isLateralInstrument: false,
+    siftSkipped: false,
     lateralRelation: "",
     lateralJudgment: "",
   };
@@ -103,6 +104,11 @@ describe("MaterialSource", () => {
   it("requires isLateralInstrument (fix-wave finding [4]: the chip's summon-parity fact, no optional to hide a missing producer)", () => {
     const { isLateralInstrument, ...withoutIsLateralInstrument } = valid;
     expect(() => MaterialSource.parse(withoutIsLateralInstrument)).toThrow();
+  });
+
+  it("requires siftSkipped (FIX 3: the summon-parity fact behind the 需横向阅读 chip's honesty, no optional to hide a missing producer)", () => {
+    const { siftSkipped, ...withoutSiftSkipped } = valid;
+    expect(() => MaterialSource.parse(withoutSiftSkipped)).toThrow();
   });
 
   it("requires lateralRelation/lateralJudgment (the cross_check mint's own words, no optional to hide a missing producer)", () => {

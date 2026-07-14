@@ -198,7 +198,7 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
         card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false, siftSkipped: false,
           lateralRelation: "", lateralJudgment: "",
         }]}
       />,
@@ -223,7 +223,7 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
         card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
         materials={[{
           id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false,
+          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false, siftSkipped: false,
           lateralRelation: "", lateralJudgment: "",
         }]}
       />,

@@ -907,9 +907,18 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
+    // FIX 2 (whole-branch review CRITICAL): a zero-anchor card can no longer
+    // be locked (StudioAnnotateCard.tsx's `hasAnchors` guard) — this test is
+    // about the overlapping-refetch race, not card completion, so it needs
+    // one real (non-vacuous) anchor to legitimately reach the lock button.
+    const craapAnchor = {
+      id: "a0", material_id: materialId, block_id: "b1", start: 0, end: 4,
+      quote: "过去二十年", dimension: "authority", author: "ai",
+      question: "原始出处是谁？", answer: "",
+    };
     const snapshot = {
       messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [] },
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [craapAnchor] },
     };
     const conv = {
       getSnapshot: () => snapshot,
@@ -946,15 +955,22 @@ describe("StudioContainer", () => {
     fireEvent.click(screen.getByText("加入信源档案"));
     await waitFor(() => expect(getProjectCalls).toBe(2));
 
-    // GET_B: issued by locking the card, WHILE GET_A is still in flight
-    // (anchors is empty here, so allAnchorsAnswered is vacuously true —
-    // only the risk-note needs filling to enable the lock button).
+    // GET_B: issued by locking the card, WHILE GET_A is still in flight.
     // This field only exists once StudioContainer's second effect (creating
     // the live conversation, gated on projectId) has committed — a separate,
     // later render than the one `findByText` above resolved on. Under
     // full-suite CPU contention that second commit can lag behind a plain
     // synchronous `getByPlaceholderText`, so use the awaited `find*` query
     // instead of assuming it already landed.
+    // Fill the one real anchor (FIX 2 needs at least one) — it is the only
+    // textbox on the page with NO placeholder (every AddSourceForm field and
+    // the card's own risk-note field all carry one), so filter for that
+    // instead of assuming a document-order index the add-source form above
+    // also contributes textboxes to.
+    await screen.findAllByRole("textbox");
+    const anchorBox = screen.getAllByRole("textbox").find((el) => !el.getAttribute("placeholder"));
+    if (!anchorBox) throw new Error("expected the card's own (placeholder-less) anchor textbox to be present");
+    fireEvent.change(anchorBox, { target: { value: "NASA地球观测团队发布" } });
     fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
@@ -980,9 +996,18 @@ describe("StudioContainer", () => {
 
   it("keeps a turn sent between two overlapping refetches' resolutions on screen exactly once (bug 1+2)", async () => {
     const midFlightTurn = { kind: "student", body: "它想证明中国是认真在转型的。" };
+    // FIX 2 (whole-branch review CRITICAL): a zero-anchor card can no longer
+    // be locked (StudioAnnotateCard.tsx's `hasAnchors` guard) — this test is
+    // about the overlapping-refetch race, not card completion, so it needs
+    // one real (non-vacuous) anchor to legitimately reach the lock button.
+    const craapAnchor = {
+      id: "a0", material_id: "m1", block_id: "b1", start: 0, end: 4,
+      quote: "过去二十年", dimension: "authority", author: "ai",
+      question: "原始出处是谁？", answer: "",
+    };
     let convState: any = {
       messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [] },
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [craapAnchor] },
     };
     const listeners = new Set<() => void>();
     const emit = () => listeners.forEach((l) => l());
@@ -1062,6 +1087,15 @@ describe("StudioContainer", () => {
     // full-suite CPU contention that second commit can lag behind a plain
     // synchronous `getByPlaceholderText`, so use the awaited `find*` query
     // instead of assuming it already landed.
+    // Fill the one real anchor (FIX 2 needs at least one) — it is the only
+    // textbox on the page with NO placeholder (every AddSourceForm field and
+    // the card's own risk-note field all carry one), so filter for that
+    // instead of assuming a document-order index the add-source form above
+    // also contributes textboxes to.
+    await screen.findAllByRole("textbox");
+    const anchorBox = screen.getAllByRole("textbox").find((el) => !el.getAttribute("placeholder"));
+    if (!anchorBox) throw new Error("expected the card's own (placeholder-less) anchor textbox to be present");
+    fireEvent.change(anchorBox, { target: { value: "NASA地球观测团队发布" } });
     fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
       target: { value: "触发关注的入口——需要横向核实。" },
     });
@@ -1303,14 +1337,14 @@ describe("StudioContainer", () => {
       // locked: true — CRAAP already finished on this source (Task 11's fix:
       // the chip is derived from `locked && !lateralRead`, a fact about the
       // SOURCE, not from whether a card happens to be open on it).
-      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
     };
     const nasa = {
       id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
       kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
       // lateralRead: true so this row never carries the chip itself — this
       // test is only about the blog source's chip transition.
-      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: true, isLateralInstrument: false,
+      locked: true, role: "", tier: "", takeaway: "", anchors: [], lateralRead: true, isLateralInstrument: false, siftSkipped: false,
     };
     // What the server would honestly persist once the cross_check mints:
     // lateralRead flips true. (The chip's disappearance below doesn't
@@ -1442,17 +1476,17 @@ describe("StudioContainer", () => {
     const blog = {
       id: blogId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
       origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
     };
     const nasa = {
       id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
       kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
     };
     const article2 = {
       id: article2Id, title: "《全球气候观察》专栏", sourceUrl: "https://x.test/c", kind: "article",
       origin: "fetched", blocks: [{ id: "b1", text: "另一段完全独立的材料……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false,
+      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
     };
 
     const api = {
