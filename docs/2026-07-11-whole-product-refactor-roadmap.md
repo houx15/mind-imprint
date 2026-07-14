@@ -84,7 +84,7 @@ started · ◐ in progress · ☑ done.
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
-| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ◐ (keystone ☑ — CRAAP fill→mint live via coach rail; 6b ☑ — material center-pane view + project-scoped ingestion + source log live; SIFT lateral → 6c) |
+| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated**. Carry-forward: the search-plan card still needs its own design) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
@@ -467,3 +467,35 @@ Each slice appends its spec/plan links and outcome here as it completes.
   filter — the `task_id` NOT NULL half of this carry-forward is now done, this half is not); unique
   index on `chat_thread.seeded_project_id`; onboarding live producer; live `gate` passed/total
   counts.
+
+- **Slice 6c** — ☑ **complete** (branch `refactor2-slice6c-sift`, commits `777f674`..HEAD).
+  Spec `docs/superpowers/specs/2026-07-13-slice-6c-sift-lateral-design.md` · plan
+  `docs/superpowers/plans/2026-07-13-slice-6c-sift-lateral.md`. **Slice 6 is now closed.**
+  Delivered: the **`compare` primitive** (the second C1 primitive, and the first since Slice 1 —
+  its renderer *composes* `Annotate`, one instance per pane, rather than forking span logic);
+  **SIFT as pure C2 config over it** (`params.lateral_dimension`, `lateral_source_present`
+  completion, four steps Stop/Investigate/Find/Trace); the **`cross_check` mint** (a student-
+  authored node + two edges, checked --cross-checked-by--> node --cites--> lateral) which
+  **never promotes the lateral source to `evidence`** — a source that arrived seconds ago has been
+  evaluated by nobody, and promoting it would hollow out `every_source_evaluated`; the source-log
+  flip (`lateral_read` on the CHECKED source — the lateral one is the *instrument*, not the
+  subject) plus the **before/after re-tier** (`tier_before` read pre-mint, `tier_after` her new
+  pyramid choice, and her written 修正后的判断 — the stance change Slice 10's assessor exists to
+  find); and **S3's gate promoted from self-attestation to a machine check**.
+  **Acceptance proven:** SIFT touched **zero card-renderer code** (`git diff --stat` on
+  `apps/web/src/cards/` across the whole branch is empty), and the gate change cost **zero lines of
+  `gate.go`** — `node_present` already took a type, so it is one line of skill config.
+  **Two pre-existing defects fixed on the way** (neither was in scope; both would have shipped):
+  (1) `anchoredMaterialID` resolved a card's material as *the first anchor in the array*, an
+  assumption its own comment stated — SIFT is the first card whose anchors span two materials, so
+  the mint would have attached the cross-check to a coin flip between the source under review and
+  the source used to check it. Now resolved by **declaration** (`params.lateral_dimension`).
+  (2) `CompleteCard` minted node → edge → `framework_fill` as three untransacted writes, and
+  `framework_fill` **is** the idempotency guard, written last — so a mid-sequence failure left a
+  minted node with no guard and the retry minted a **duplicate**. CRAAP had this today. Now one
+  transaction (`CommitCardMint`), all-or-nothing.
+  Gate: Go build/vet + all 14 packages green (uncached); web 344/344 + `tsc` clean; contracts
+  170/170. **Carry-forwards:** the search-plan card (S2) still needs its own design; RL-2's
+  citation half needs a citation surface (Slice 8); the perspective map is graph-backed (Slice 7);
+  stored `event` rows keep `type`/`surface` as DB columns while the Zod variants are flat, so
+  Slice 10's assessor must merge columns + payload before validating.
