@@ -43,8 +43,11 @@ export async function commitSnapshot(projectId: string, content: string): Promis
 // rendering shape (interventionId + disposition) comes from the refetched
 // StudioProjection, not from these raw stream items — callers consume this
 // generator to know when the review is done, not to read its payload.
-export async function* orderReview(projectId: string, snapshotId: string): AsyncGenerator<StudioTurnEvent> {
-  const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/snapshots/${snapshotId}/review`, {
+export type ReviewVoice = "board" | "sceptic" | "layperson" | "executioner";
+
+export async function* orderReview(projectId: string, snapshotId: string, voice: ReviewVoice = "board"): AsyncGenerator<StudioTurnEvent> {
+  const q = voice === "board" ? "" : `?voice=${voice}`;
+  const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/snapshots/${snapshotId}/review${q}`, {
     method: "POST",
     credentials: "include",
     headers: { Accept: "text/event-stream" },

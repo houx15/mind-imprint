@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { putBuffer, commitSnapshot, orderReview, attestGate } from "./writing";
+import { API_BASE } from "./client";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -100,6 +101,37 @@ describe("orderReview", () => {
     const events = [];
     for await (const e of orderReview("p1", "snap-1")) events.push(e);
     expect(events).toEqual([{ type: "error", code: "review_rejected", message: "这次体检没通过内部校验，请再试一次" }]);
+  });
+
+  it("appends ?voice= for a non-board voice", async () => {
+    const spy = vi.fn(async () => sseBody(`event: done\ndata: {}\n\n`));
+    vi.stubGlobal("fetch", spy);
+
+    for await (const _ of orderReview("p1", "snap-1", "sceptic")) { /* drain */ }
+
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/snapshots/snap-1/review?voice=sceptic");
+  });
+
+  it("omits the query for board (URL identical to the keystone call)", async () => {
+    const spy = vi.fn(async () => sseBody(`event: done\ndata: {}\n\n`));
+    vi.stubGlobal("fetch", spy);
+
+    for await (const _ of orderReview("p1", "snap-1", "board")) { /* drain */ }
+
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/snapshots/snap-1/review");
+    expect(url).not.toContain("voice=");
+  });
+
+  it("defaults to board when voice is omitted (URL byte-identical to today's call)", async () => {
+    const spy = vi.fn(async () => sseBody(`event: done\ndata: {}\n\n`));
+    vi.stubGlobal("fetch", spy);
+
+    for await (const _ of orderReview("p1", "snap-1")) { /* drain */ }
+
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toBe(`${API_BASE}/api/v1/projects/p1/snapshots/snap-1/review`);
   });
 });
 
