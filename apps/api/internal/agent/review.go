@@ -38,13 +38,82 @@ const reviewPosturePrompt = `你是 IB/国际课程写作的「整稿体检」�
 铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要补什么/要接什么"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
+// Voice selects the examiner posture the whole-draft review performs. board is
+// the default (the existing reviewPosturePrompt); the three generic voices are
+// board-agnostic postures. Voices change tone and lens only — never the JSON
+// output shape and never the RL-1 iron rule.
+type Voice string
+
+const (
+	VoiceBoard       Voice = "board"
+	VoiceSceptic     Voice = "sceptic"
+	VoiceLayperson   Voice = "layperson"
+	VoiceExecutioner Voice = "executioner"
+)
+
+// ParseVoice maps an untrusted ?voice= value to a Voice; anything unrecognized
+// (including "") falls back to the default board voice, so every existing call
+// stays valid.
+func ParseVoice(s string) Voice {
+	switch Voice(s) {
+	case VoiceSceptic, VoiceLayperson, VoiceExecutioner:
+		return Voice(s)
+	default:
+		return VoiceBoard
+	}
+}
+
+// The three generic postures keep the SAME iron rule and JSON-array output as
+// the board voice; only the stance differs.
+const reviewPostureSceptic = `你是一位「整稿体检」考官，天生不信任每一个论断。学生已提交一版草稿快照。
+对照给定的评分表，逐表指出：哪些说法只是断言、还没把证据摆出来，哪里的结论跑在了支撑前面。
+铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要拿出什么证据/要补什么支撑"的方向，
+不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
+
+const reviewPostureLayperson = `你是一位友善但完全外行的读者，不懂这个领域。学生已提交一版草稿快照。
+对照给定的评分表，逐表指出：哪里有没解释的术语、没定义的概念、跳过了的推理步骤——凡是你这个外行读不懂的地方。
+铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要解释什么/要补哪一步"的方向，
+不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
+
+const reviewPostureExecutioner = `你是一位盯字数的「整稿体检」考官。学生已提交一版草稿快照。
+对照给定的评分表，逐表追问：每一段文字有没有挣到它占的字数——哪些段落不向任何一张表交证据、纯属背景或冗余。
+铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"哪一段可以砍/它本该向哪张表交证据"的方向，
+不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
+
+// The deletion-lens clause appended when the reviewed snapshot is over its word
+// band — it reuses the review's paragraph⇄评分表 mapping to frame cuts as the
+// student's decision. Diagnostic questions only (RL-1): never "删掉这段".
+const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。对交证据最少的那些段落，指出它们各自在向哪张表交证据；
+如果一张表都不向，就把「这 N 字在向哪张表交证据」这个删减决策摆到学生面前，让她自己决定砍哪一段——你不替她删。`
+
+// reviewSystemPrompt builds the system content for a review: the posture for
+// the chosen voice, plus the deletion lens when overBudget. Pure — no I/O — so
+// posture selection is unit-testable without a model.
+func reviewSystemPrompt(voice Voice, overBudget bool) string {
+	var base string
+	switch voice {
+	case VoiceSceptic:
+		base = reviewPostureSceptic
+	case VoiceLayperson:
+		base = reviewPostureLayperson
+	case VoiceExecutioner:
+		base = reviewPostureExecutioner
+	default:
+		base = reviewPosturePrompt
+	}
+	if overBudget {
+		return base + "\n" + reviewOverBudgetLens
+	}
+	return base
+}
+
 // ProposeReview asks the flagship model for a whole-draft work-order over the
 // snapshot's paragraphs, then runs the full enforcement stack on every field
 // before returning. A single banned-phrasing / output-check violation rejects
 // the WHOLE review (nothing is returned or persisted) — the same all-or-nothing
 // discipline as the coach. Usage is populated whenever Collect succeeded (even
 // on a later rejection) so the caller can still record 档位+token+成本.
-func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolved, criteria []skills.ReviewCriterion, paragraphs []string, graphSummary string) ([]ReviewItem, gateway.ChatUsage, error) {
+func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolved, criteria []skills.ReviewCriterion, paragraphs []string, graphSummary string, voice Voice, overBudget bool) ([]ReviewItem, gateway.ChatUsage, error) {
 	name := map[string]string{}
 	codes := make([]string, 0, len(criteria))
 	for _, c := range criteria {
@@ -56,7 +125,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 
 	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: reviewPosturePrompt},
+			{Role: gateway.RoleSystem, Content: reviewSystemPrompt(voice, overBudget)},
 			{Role: gateway.RoleUser, Content: user},
 		},
 	})

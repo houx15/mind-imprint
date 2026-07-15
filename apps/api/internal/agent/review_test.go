@@ -26,7 +26,7 @@ func TestProposeReview_ParsesWorkOrder(t *testing.T) {
       {"criterion_code":"表H","band":"7–8 段","evidence":"结构清楚","missing":"","fix":""}
     ]`
 	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}, {Code: "表H", Name: "表达与组织"}}
-	items, usage, err := ProposeReview(context.Background(), reviewProvider(reply), gateway.Resolved{Provider: "deepseek", Model: "x"}, criteria, []string{"p1", "p2"}, "claims:1 evidence:2")
+	items, usage, err := ProposeReview(context.Background(), reviewProvider(reply), gateway.Resolved{Provider: "deepseek", Model: "x"}, criteria, []string{"p1", "p2"}, "claims:1 evidence:2", VoiceBoard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,11 +42,55 @@ func TestProposeReview_ParsesWorkOrder(t *testing.T) {
 func TestProposeReview_RejectsBannedPhrase(t *testing.T) {
 	// A reply whose fix rewrites the student's sentence for her — must be
 	// rejected by the enforcement stack (banned-phrasing), not returned.
+	// Exercised under a generic voice too, to prove banned-phrasing rejection
+	// is voice-independent.
 	reply := `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"你应该这样写：中国的转型是叠加式的。"}]`
 	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
-	_, _, err := ProposeReview(context.Background(), reviewProvider(reply), gateway.Resolved{Provider: "deepseek", Model: "x"}, criteria, []string{"p1"}, "")
+	_, _, err := ProposeReview(context.Background(), reviewProvider(reply), gateway.Resolved{Provider: "deepseek", Model: "x"}, criteria, []string{"p1"}, "", VoiceSceptic, false)
 	if err == nil {
 		t.Fatal("expected banned-phrasing rejection, got nil")
 	}
 	_ = strings.TrimSpace
+}
+
+func TestParseVoice(t *testing.T) {
+	cases := map[string]Voice{
+		"board": VoiceBoard, "sceptic": VoiceSceptic, "layperson": VoiceLayperson,
+		"executioner": VoiceExecutioner, "": VoiceBoard, "nonsense": VoiceBoard, "BOARD": VoiceBoard,
+	}
+	for in, want := range cases {
+		if got := ParseVoice(in); got != want {
+			t.Errorf("ParseVoice(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestReviewSystemPrompt_DistinctPerVoice(t *testing.T) {
+	board := reviewSystemPrompt(VoiceBoard, false)
+	if board != reviewPosturePrompt {
+		t.Fatal("board voice must be the existing reviewPosturePrompt verbatim")
+	}
+	seen := map[string]bool{}
+	for _, v := range []Voice{VoiceBoard, VoiceSceptic, VoiceLayperson, VoiceExecutioner} {
+		p := reviewSystemPrompt(v, false)
+		if seen[p] {
+			t.Fatalf("voice %q produced a duplicate posture", v)
+		}
+		seen[p] = true
+		// Every voice keeps the RL-1 iron rule (never rewrite / never a model sentence).
+		if !strings.Contains(p, "绝不") {
+			t.Fatalf("voice %q dropped the iron rule", v)
+		}
+	}
+}
+
+func TestReviewSystemPrompt_OverBudgetAppendsDeletionLens(t *testing.T) {
+	base := reviewSystemPrompt(VoiceExecutioner, false)
+	over := reviewSystemPrompt(VoiceExecutioner, true)
+	if base == over {
+		t.Fatal("overBudget must append a deletion-lens instruction")
+	}
+	if !strings.Contains(over, "删减") || !strings.Contains(over, "哪张表") {
+		t.Fatalf("over-budget posture missing the deletion-lens frame: %s", over)
+	}
 }
