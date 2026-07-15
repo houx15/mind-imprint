@@ -136,18 +136,23 @@ in the design's own idiom — no restyle of existing elements:
 
 ### 6.1 `studio/dto.go`, `projection.go`, `load.go`
 - `WritingSnapshotDTO` gains `budget WritingBudgetDTO` (`count/min/max/state/delta`, camelCase JSON).
-- `WritingReviewItemDTO` gains `voice string`.
-- The latest-snapshot review query is no longer collapsed to one voice: `ProjectData` carries all
-  `review_item` rows for the latest snapshot; `projectWriting` groups them by anchor `voice` (missing →
-  `board`) into `reviews: {voice: WritingReviewItemDTO[]}` plus the set of cached voices. Dispositions
-  attach to items as today.
+- `WritingReviewItemDTO` gains `voice string` — the parity-friendly realization of "keyed by voice":
+  rather than a `map[voice][]item` (awkward across Go/Zod with enum keys), the review stays a **flat
+  `items` array** and every item is self-describing via its `voice`. The frontend derives both the
+  current-voice work-order (filter `items` by the selected voice) and the cached-voice set (the distinct
+  `voice`s present) from that one array — so "all run voices carried" and "instant switch between cached
+  voices" both hold.
+- The latest-snapshot review is no longer collapsed to one voice: `projectWriting` includes **every**
+  `review_item` row anchored to the latest snapshot, tagging each with the anchor's `voice` (missing →
+  `board`). Dispositions attach to items as today. `WritingReviewDTO.Ordered` is dropped (the frontend
+  derives per-voice "ordered" from whether any item carries that voice).
 
 ### 6.2 `packages/contracts/src/studioState.ts`
 - `WritingBudget` (`count`, `min`, `max`, `state: "in"|"over"|"under"`, `delta`) as a required field on
   `WritingSnapshot`.
 - `WritingReviewItem` gains `voice: "board"|"sceptic"|"layperson"|"executioner"`.
-- `WritingProjection` review shape becomes voice-keyed (`reviews` map + `cachedVoices`), matching the
-  DTO byte-for-byte (guarded by `dto_parity_test`).
+- `WritingProjection.review` becomes `{ items: WritingReviewItem[] }` (the `ordered` boolean is
+  dropped), matching the DTO byte-for-byte (guarded by `dto_parity_test`).
 
 ## 7. Back-compatibility
 
