@@ -186,3 +186,66 @@ func reconcileWordBudgetNode(ctx context.Context, q *sqlc.Queries, projectID uui
 }
 
 func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
+
+// attestGate records a student_written gate item as solid (or clears it). The
+// gate_state STORAGE already exists (UpsertGateState); nothing else records a
+// student_written item as solid — the planner's Advance deliberately never
+// marks non-machine items. Restricted to the contract's own student_written
+// item names so a caller cannot forge a machine/human item. No model call.
+func (a *API) attestGate(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	contractID := r.PathValue("contractId")
+	var body struct {
+		Item      string `json:"item"`
+		Confirmed bool   `json:"confirmed"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	sk, ok2 := skills.ByID("writing-project")
+	if !ok2 {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	c, ok3 := sk.Contracts[contractID]
+	if !ok3 {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	allowed := false
+	for _, name := range c.Gate.StudentWritten {
+		if name == body.Item {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "该条目不是学生自评项", nil))
+		return
+	}
+
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	recorded, err := store.ListGateStates(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rec := recorded[contractID]
+	if rec.Items == nil {
+		rec.Items = map[string]string{}
+	}
+	if body.Confirmed {
+		rec.Items[body.Item] = "solid"
+	} else {
+		delete(rec.Items, body.Item)
+	}
+	if err := store.UpsertGateState(r.Context(), projectID, contractID, rec); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

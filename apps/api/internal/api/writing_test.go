@@ -18,6 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -163,5 +164,49 @@ func TestCommitSnapshot_EmptyContentRejected(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("commit empty content = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
+
+// TestAttestGate_RecordsStudentWrittenItem — draft_polish's student_written
+// item is "citations_matched" (writing-project.json). Attesting it records
+// the gate_state node as solid — the write path nothing else exercises,
+// since the planner's Advance deliberately never marks non-machine items.
+func TestAttestGate_RecordsStudentWrittenItem(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+materialsTestProjectID+"/gate/draft_polish/attest",
+		strings.NewReader(`{"item":"citations_matched","confirmed":true}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("attest = %d, want 204; body=%s", rec.Code, rec.Body)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	states, err := store.ListGateStates(context.Background(), mustUUID(materialsTestProjectID))
+	if err != nil {
+		t.Fatalf("ListGateStates: %v", err)
+	}
+	if states["draft_polish"].Items["citations_matched"] != "solid" {
+		t.Fatalf("citations_matched = %q, want solid", states["draft_polish"].Items["citations_matched"])
+	}
+}
+
+// TestAttestGate_RejectsUnknownItem — word_budget_ok is draft_polish's
+// MACHINE gate item (computed, not student-attested); a caller must not be
+// able to forge it as solid through this endpoint.
+func TestAttestGate_RejectsUnknownItem(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+materialsTestProjectID+"/gate/draft_polish/attest",
+		strings.NewReader(`{"item":"word_budget_ok","confirmed":true}`)), cookie) // machine item, not student_written
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("attest machine item = %d, want 400; body=%s", rec.Code, rec.Body)
 	}
 }
