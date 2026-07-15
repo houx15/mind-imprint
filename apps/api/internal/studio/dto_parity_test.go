@@ -28,13 +28,14 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			CardInstanceID: "ci1", CardID: "sift", Status: "active",
 			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, MaterialID: "m1",
 		},
+		Structure: []StructureCardDTO{{ID: "claim", Role: "核心主张", Status: "done", Preview: "主张句"}},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations"}
+	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations", "structure"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -53,6 +54,17 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	// material: {id,title,sourceUrl,kind,origin,blocks,locked,role,tier,takeaway,anchors,timeSpentS,lateralRead,isLateralInstrument,siftSkipped,lateralRelation,lateralJudgment}
 	// — must match packages/contracts/src/studioState.ts MaterialSource exactly.
 	assertKeys(t, materials[0], []string{"anchors", "blocks", "id", "isLateralInstrument", "kind", "lateralJudgment", "lateralRead", "lateralRelation", "locked", "origin", "role", "siftSkipped", "sourceUrl", "takeaway", "tier", "timeSpentS", "title"})
+
+	var structure []json.RawMessage
+	if err := json.Unmarshal(mTop["structure"], &structure); err != nil {
+		t.Fatal(err)
+	}
+	if len(structure) != 1 {
+		t.Fatalf("structure len = %d, want 1", len(structure))
+	}
+	// structure card: {id,role,status,preview} — must match
+	// packages/contracts/src/studioState.ts StructureCard exactly.
+	assertKeys(t, structure[0], []string{"id", "preview", "role", "status"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

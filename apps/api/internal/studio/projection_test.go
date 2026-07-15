@@ -601,3 +601,66 @@ func TestProjectExcludesAnchorsFromSkippedCards(t *testing.T) {
 		t.Errorf("Anchors = %d, want 0 — a skipped card's anchors must not persist onto the article", len(proj.Materials[0].Anchors))
 	}
 }
+
+func TestProjectStructure(t *testing.T) {
+	textNode := func(typ, text string) sqlc.GraphNode {
+		return sqlc.GraphNode{Type: typ, Body: []byte(`{"text":"` + text + `"}`)}
+	}
+	order := []string{"claim", "warrant", "evidence", "counter", "concession"}
+
+	// (a) no Toulmin nodes -> empty slice (pane keeps its placeholder).
+	if got := projectStructure(cards.ByID, ProjectData{}); len(got) != 0 {
+		t.Fatalf("no nodes: want empty, got %d cards", len(got))
+	}
+
+	// (b) all five slot nodes minted -> five done cards in spec-slot order.
+	d := ProjectData{Nodes: []sqlc.GraphNode{
+		textNode("claim", "主张句"), textNode("warrant", "理据句"),
+		textNode("evidence", "证据句"), textNode("counter", "反方句"),
+		textNode("concession", "让步句"),
+	}}
+	got := projectStructure(cards.ByID, d)
+	if len(got) != 5 {
+		t.Fatalf("five nodes: want 5 cards, got %d", len(got))
+	}
+	previews := map[string]string{"claim": "主张句", "warrant": "理据句", "evidence": "证据句", "counter": "反方句", "concession": "让步句"}
+	for i, c := range got {
+		if c.ID != order[i] {
+			t.Fatalf("card %d id = %q, want %q (slot order)", i, c.ID, order[i])
+		}
+		if c.Status != "done" {
+			t.Fatalf("card %s status = %q, want done", c.ID, c.Status)
+		}
+		if c.Preview != previews[c.ID] {
+			t.Fatalf("card %s preview = %q, want %q", c.ID, c.Preview, previews[c.ID])
+		}
+		if c.Role == "" {
+			t.Fatalf("card %s has empty role label", c.ID)
+		}
+	}
+
+	// (c) a CRAAP evidence node (source_quality, no text) with no Toulmin
+	// nodes -> still empty (the evidence slot is NOT falsely done).
+	craap := ProjectData{Nodes: []sqlc.GraphNode{{Type: "evidence", Body: []byte(`{"source_quality":{"risk_note":"x"}}`)}}}
+	if got := projectStructure(cards.ByID, craap); len(got) != 0 {
+		t.Fatalf("craap-only: want empty, got %d cards", len(got))
+	}
+
+	// (d) claim + evidence minted, rest absent -> those two done, rest empty,
+	// list present.
+	partial := ProjectData{Nodes: []sqlc.GraphNode{textNode("claim", "主张句"), textNode("evidence", "证据句")}}
+	got = projectStructure(cards.ByID, partial)
+	if len(got) != 5 {
+		t.Fatalf("partial: want 5 cards, got %d", len(got))
+	}
+	doneSet := map[string]bool{"claim": true, "evidence": true}
+	for _, c := range got {
+		wantDone := doneSet[c.ID]
+		if wantDone && c.Status != "done" {
+			t.Fatalf("partial: card %s status = %q, want done", c.ID, c.Status)
+		}
+		if !wantDone && c.Status != "empty" {
+			t.Fatalf("partial: card %s status = %q, want empty", c.ID, c.Status)
+		}
+	}
+}

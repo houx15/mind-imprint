@@ -26,6 +26,10 @@ type StudioProjection struct {
 	// (which is otherwise exactly right) then blocks every future card from
 	// ever surfacing again — permanently, project-wide.
 	ActiveCard *ActiveCardDTO `json:"activeCard"`
+	// Structure projects the five Toulmin argument slots (S4 论证构建) once the
+	// argument has been minted; empty until then so the pane keeps its
+	// placeholder. See projectStructure (projection.go).
+	Structure []StructureCardDTO `json:"structure"`
 }
 
 // ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a
@@ -44,6 +48,20 @@ type ActiveCardDTO struct {
 	Status     string            `json:"status"`
 	Anchors    []json.RawMessage `json:"anchors"`
 	MaterialID string            `json:"materialId"`
+}
+
+// StructureCardDTO is one role in the S4 argument (论证构建). status/preview
+// are DERIVED from the Toulmin mint: a card is "done" (with the student's own
+// sentence as preview) only because a graph node typed for its slot carries a
+// body.text she wrote; otherwise "empty". Nothing here invents an argument —
+// same derive-never-decorate contract as MaterialDTO. The list is present only
+// once the argument exists in the graph; before that it is empty and the 结构
+// pane keeps its placeholder.
+type StructureCardDTO struct {
+	ID      string `json:"id"`      // slot id: claim/warrant/evidence/counter/concession
+	Role    string `json:"role"`    // 核心主张 / 理据 · 推理 / 支撑证据 / 反方 · 钢人 / 让步 · 转折
+	Status  string `json:"status"`  // "done" | "empty"
+	Preview string `json:"preview"` // the student's sentence (body.text); "" when empty
 }
 
 type ProjectHeader struct {

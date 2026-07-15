@@ -3,6 +3,7 @@ package studio
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -301,7 +302,49 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Onboarding:    projectOnboarding(d),
 		Materials:     projectMaterials(d),
 		ActiveCard:    projectActiveCard(d, materialByCardInstance(d)),
+		Structure:     projectStructure(specByID, d),
 	}, nil
+}
+
+// projectStructure projects the five Toulmin argument slots into 论证构建 role
+// cards. Slot order + role labels come from the toulmin card spec (single
+// source of truth); status/preview come from the minted graph nodes. A slot is
+// "done" only when a node typed for it carries a body.text the student wrote —
+// which excludes CRAAP's source_quality evidence node (no text key), so the
+// evidence slot is never falsely done. Returns an empty slice until at least
+// one slot node exists, so the 结构 pane keeps its placeholder before the
+// argument is built.
+func projectStructure(specByID func(string) (cards.Spec, bool), d ProjectData) []StructureCardDTO {
+	spec, ok := specByID("toulmin")
+	if !ok || len(spec.Params.Slots) == 0 {
+		return []StructureCardDTO{}
+	}
+	text := map[string]string{}
+	for _, n := range d.Nodes {
+		if _, seen := text[n.Type]; seen {
+			continue
+		}
+		var b struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(n.Body, &b) == nil && strings.TrimSpace(b.Text) != "" {
+			text[n.Type] = b.Text
+		}
+	}
+	any := false
+	out := make([]StructureCardDTO, 0, len(spec.Params.Slots))
+	for _, slot := range spec.Params.Slots {
+		card := StructureCardDTO{ID: slot.ID, Role: slot.Role, Status: "empty"}
+		if t, ok := text[slot.ID]; ok {
+			card.Status, card.Preview = "done", t
+			any = true
+		}
+		out = append(out, card)
+	}
+	if !any {
+		return []StructureCardDTO{}
+	}
+	return out
 }
 
 // projectActiveCard projects the one project-wide card_instance that is
