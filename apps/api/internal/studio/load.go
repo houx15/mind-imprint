@@ -64,5 +64,31 @@ func Load(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) (ProjectDat
 	default:
 		return ProjectData{}, err
 	}
+
+	// S5 写作: the silent edit buffer, the latest immutable snapshot, and the
+	// dispositions recorded on any of this project's interventions (review
+	// items included).
+	buffer, err := q.GetEditBuffer(ctx, projectID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return ProjectData{}, err
+	}
+	d.EditBuffer = buffer // "" when ErrNoRows
+
+	latest, err := q.GetLatestSnapshot(ctx, projectID)
+	switch {
+	case err == nil:
+		d.LatestSnapshot = &latest
+	case errors.Is(err, pgx.ErrNoRows):
+		// no snapshot committed yet — leave nil.
+	default:
+		return ProjectData{}, err
+	}
+
+	disps, err := q.ListDispositionsByProject(ctx, projectID)
+	if err != nil {
+		return ProjectData{}, err
+	}
+	d.Dispositions = disps
+
 	return d, nil
 }

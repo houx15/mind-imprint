@@ -6,3 +6,9 @@
 INSERT INTO disposition (intervention_id, action, reason)
 VALUES ($1, $2, $3)
 RETURNING *;
+
+-- name: ListDispositionsByProject :many
+SELECT d.* FROM disposition d
+JOIN intervention i ON i.id = d.intervention_id
+WHERE i.project_id = $1
+ORDER BY d.created_at;

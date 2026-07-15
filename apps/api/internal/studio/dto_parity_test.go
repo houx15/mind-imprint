@@ -29,13 +29,22 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			Anchors: []json.RawMessage{json.RawMessage(`{"id":"a1"}`)}, MaterialID: "m1",
 		},
 		Structure: []StructureCardDTO{{ID: "claim", Role: "核心主张", Status: "done", Preview: "主张句"}},
+		Writing: WritingDTO{
+			Buffer: "b", CitationsMatched: true,
+			LatestSnapshot: &WritingSnapshotDTO{ID: "s1", Seq: 1, CommittedAt: "2026-07-13T00:00:00Z", WordCount: 1800, InBand: true},
+			WordBudget:     WordBudgetDTO{Min: 1500, Max: 2000},
+			Review: WritingReviewDTO{Ordered: true, Items: []WritingReviewItemDTO{{
+				InterventionID: "iv1", Criterion: "D 结构", Band: "达标", Evidence: "e", Missing: "m", Fix: "f",
+				Disposition: &DispositionDTO{Action: "accept", Reason: "r"},
+			}}},
+		},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations", "structure"}
+	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -129,6 +138,42 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	// activeCard: {cardInstanceId,cardId,status,anchors,materialId} — must
 	// match packages/contracts/src/studioState.ts ActiveCard exactly.
 	assertKeys(t, m["activeCard"], []string{"anchors", "cardId", "cardInstanceId", "materialId", "status"})
+
+	// writing: {buffer,citationsMatched,latestSnapshot,review,wordBudget} —
+	// must match packages/contracts/src/studioState.ts WritingProjection.
+	assertKeys(t, m["writing"], []string{"buffer", "citationsMatched", "latestSnapshot", "review", "wordBudget"})
+
+	var writing map[string]json.RawMessage
+	if err := json.Unmarshal(m["writing"], &writing); err != nil {
+		t.Fatal(err)
+	}
+
+	// writing.latestSnapshot: {id,seq,committedAt,wordCount,inBand}
+	assertKeys(t, writing["latestSnapshot"], []string{"committedAt", "id", "inBand", "seq", "wordCount"})
+
+	// writing.wordBudget: {min,max}
+	assertKeys(t, writing["wordBudget"], []string{"max", "min"})
+
+	var review map[string]json.RawMessage
+	if err := json.Unmarshal(writing["review"], &review); err != nil {
+		t.Fatal(err)
+	}
+	var reviewItems []json.RawMessage
+	if err := json.Unmarshal(review["items"], &reviewItems); err != nil {
+		t.Fatal(err)
+	}
+	if len(reviewItems) != 1 {
+		t.Fatalf("writing.review.items len = %d, want 1", len(reviewItems))
+	}
+	// writing.review.items[0]: {interventionId,criterion,band,evidence,missing,fix,disposition}
+	assertKeys(t, reviewItems[0], []string{"band", "criterion", "disposition", "evidence", "fix", "interventionId", "missing"})
+
+	var reviewItem map[string]json.RawMessage
+	if err := json.Unmarshal(reviewItems[0], &reviewItem); err != nil {
+		t.Fatal(err)
+	}
+	// disposition: {action,reason}
+	assertKeys(t, reviewItem["disposition"], []string{"action", "reason"})
 }
 
 // TestStudioProjectionActiveCardNil asserts the "no open card" case marshals

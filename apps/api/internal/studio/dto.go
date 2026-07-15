@@ -30,6 +30,10 @@ type StudioProjection struct {
 	// argument has been minted; empty until then so the pane keeps its
 	// placeholder. See projectStructure (projection.go).
 	Structure []StructureCardDTO `json:"structure"`
+	// Writing projects the S5 写作 view: the silent edit buffer, the latest
+	// immutable snapshot, the word budget, the citations attestation, and the
+	// whole-draft review work-order. See projectWriting (projection.go).
+	Writing WritingDTO `json:"writing"`
 }
 
 // ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a
@@ -188,4 +192,66 @@ type MaterialDTO struct {
 	// this node's body before (whole-branch review: "written but never read").
 	LateralRelation string `json:"lateralRelation"`
 	LateralJudgment string `json:"lateralJudgment"`
+}
+
+// WritingSnapshotDTO is the latest immutable draft_snapshot (S5 写作): the
+// committed content is not itself carried here — the client already has it
+// from the commit response / re-fetches it — only the metadata a reload
+// needs (which snapshot, when, and whether it lands in the word budget).
+type WritingSnapshotDTO struct {
+	ID          string `json:"id"`
+	Seq         int    `json:"seq"`
+	CommittedAt string `json:"committedAt"`
+	WordCount   int    `json:"wordCount"`
+	InBand      bool   `json:"inBand"`
+}
+
+// DispositionDTO is the three-key disposition (accept/reject/rewrite + a
+// reason) a student recorded on an intervention — here, one review_item.
+type DispositionDTO struct {
+	Action string `json:"action"`
+	Reason string `json:"reason"`
+}
+
+// WritingReviewItemDTO is one whole-draft-review work-order row: which
+// criterion, the band the draft sits in, the evidence/missing/fix the model
+// produced, and the student's own disposition of it once recorded (nil
+// until then — never invented).
+type WritingReviewItemDTO struct {
+	InterventionID string          `json:"interventionId"`
+	Criterion      string          `json:"criterion"`
+	Band           string          `json:"band"`
+	Evidence       string          `json:"evidence"`
+	Missing        string          `json:"missing"`
+	Fix            string          `json:"fix"`
+	Disposition    *DispositionDTO `json:"disposition"`
+}
+
+// WritingReviewDTO carries the review work-order for the CURRENT latest
+// snapshot only. Ordered is true iff at least one such item exists — the
+// client's cue that a review has been run on this snapshot.
+type WritingReviewDTO struct {
+	Ordered bool                   `json:"ordered"`
+	Items   []WritingReviewItemDTO `json:"items"`
+}
+
+// WordBudgetDTO is the per-qualification legal word band for S5, straight
+// off the skill's sk.WordBudget — needs no persisted state.
+type WordBudgetDTO struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
+}
+
+// WritingDTO is the S5 写作 view: the silent buffer, the latest immutable
+// snapshot, the word budget, the citations attestation (from the
+// draft_polish gate's recorded citations_matched item), and the whole-draft
+// review work-order joined with dispositions. Derive-never-decorate: every
+// field is read back from persisted rows — see projectWriting
+// (projection.go).
+type WritingDTO struct {
+	Buffer           string              `json:"buffer"`
+	LatestSnapshot   *WritingSnapshotDTO `json:"latestSnapshot"`
+	WordBudget       WordBudgetDTO       `json:"wordBudget"`
+	CitationsMatched bool                `json:"citationsMatched"`
+	Review           WritingReviewDTO    `json:"review"`
 }

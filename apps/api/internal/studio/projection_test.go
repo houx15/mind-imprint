@@ -680,3 +680,19 @@ func TestProjectStructure(t *testing.T) {
 		t.Fatalf("spec with no slots: want empty, got %d cards", len(got))
 	}
 }
+
+// TestProjectWriting is the pure-derivation unit test for the S5 写作 view: no
+// buffer, no snapshot, no dispositions, no review interventions yet — the
+// projection must not invent any of them, but the word budget still comes
+// straight off the skill (it needs no persisted state at all).
+func TestProjectWriting(t *testing.T) {
+	sk := writingSkill(t)
+	d := ProjectData{Project: sqlc.Project{}}
+	pw := projectWriting(sk, d)
+	if pw.Buffer != "" || pw.LatestSnapshot != nil || pw.Review.Ordered {
+		t.Fatalf("empty project writing = %+v", pw)
+	}
+	if pw.WordBudget.Min != 1500 || pw.WordBudget.Max != 2000 {
+		t.Fatalf("word budget = %+v", pw.WordBudget)
+	}
+}

@@ -39,3 +39,36 @@ func (q *Queries) InsertDisposition(ctx context.Context, arg InsertDispositionPa
 	)
 	return i, err
 }
+
+const listDispositionsByProject = `-- name: ListDispositionsByProject :many
+SELECT d.id, d.intervention_id, d.action, d.reason, d.created_at FROM disposition d
+JOIN intervention i ON i.id = d.intervention_id
+WHERE i.project_id = $1
+ORDER BY d.created_at
+`
+
+func (q *Queries) ListDispositionsByProject(ctx context.Context, projectID uuid.UUID) ([]Disposition, error) {
+	rows, err := q.db.Query(ctx, listDispositionsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Disposition
+	for rows.Next() {
+		var i Disposition
+		if err := rows.Scan(
+			&i.ID,
+			&i.InterventionID,
+			&i.Action,
+			&i.Reason,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

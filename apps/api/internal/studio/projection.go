@@ -17,16 +17,19 @@ import (
 
 // ProjectData is the fully-loaded read set for one project (spec §3).
 type ProjectData struct {
-	Project       sqlc.Project
-	Nodes         []sqlc.GraphNode
-	Edges         []sqlc.GraphEdge
-	GateStates    []sqlc.GraphNode // gate_state nodes (recorded)
-	Plan          *sqlc.GraphNode  // plan node, nil if none
-	Interventions []sqlc.Intervention
-	Cards         []sqlc.CardInstance
-	ChatMessages  []sqlc.ChatMessage
-	Materials     []sqlc.Material
-	SourceLog     []sqlc.SourceLogEntry
+	Project        sqlc.Project
+	Nodes          []sqlc.GraphNode
+	Edges          []sqlc.GraphEdge
+	GateStates     []sqlc.GraphNode // gate_state nodes (recorded)
+	Plan           *sqlc.GraphNode  // plan node, nil if none
+	Interventions  []sqlc.Intervention
+	Cards          []sqlc.CardInstance
+	ChatMessages   []sqlc.ChatMessage
+	Materials      []sqlc.Material
+	SourceLog      []sqlc.SourceLogEntry
+	EditBuffer     string
+	LatestSnapshot *sqlc.DraftSnapshot
+	Dispositions   []sqlc.Disposition
 }
 
 type planBody struct {
@@ -303,7 +306,86 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Materials:     projectMaterials(d),
 		ActiveCard:    projectActiveCard(d, materialByCardInstance(d)),
 		Structure:     projectStructure(specByID, d),
+		Writing:       projectWriting(sk, d),
 	}, nil
+}
+
+// projectWriting projects the S5 写作 view: the silent buffer, the latest
+// immutable snapshot, the word budget, the citations attestation, and the
+// whole-draft review work-order (review_item interventions ⋈ dispositions).
+// Derive-never-decorate: every field is read back from persisted rows.
+func projectWriting(sk skills.Skill, d ProjectData) WritingDTO {
+	out := WritingDTO{Buffer: d.EditBuffer, Review: WritingReviewDTO{Items: []WritingReviewItemDTO{}}}
+	if sk.WordBudget != nil {
+		out.WordBudget = WordBudgetDTO{Min: sk.WordBudget.Min, Max: sk.WordBudget.Max}
+	}
+	if d.LatestSnapshot != nil {
+		wc := agent.CountWords(d.LatestSnapshot.Content)
+		inBand := sk.WordBudget != nil && wc >= sk.WordBudget.Min && wc <= sk.WordBudget.Max
+		out.LatestSnapshot = &WritingSnapshotDTO{
+			ID:          d.LatestSnapshot.ID.String(),
+			Seq:         int(d.LatestSnapshot.Seq),
+			CommittedAt: d.LatestSnapshot.CreatedAt.Format(time.RFC3339),
+			WordCount:   wc, InBand: inBand,
+		}
+	}
+	// citations_matched from the draft_polish gate state.
+	recorded := agent.RecordedGatesFromNodes(d.GateStates)
+	if rec, ok := recorded["draft_polish"]; ok && rec.Items["citations_matched"] == "solid" {
+		out.CitationsMatched = true
+	}
+	// review_item interventions anchored to the latest snapshot, joined with dispositions.
+	dispByIv := map[string]sqlc.Disposition{}
+	for _, dp := range d.Dispositions {
+		dispByIv[dp.InterventionID.String()] = dp // last write wins (ORDER BY created_at)
+	}
+	for _, iv := range d.Interventions {
+		if iv.Type != "review_item" {
+			continue
+		}
+		if d.LatestSnapshot == nil {
+			continue // only the current snapshot's review is shown
+		}
+		var a struct{ Kind, ID string }
+		_ = json.Unmarshal(iv.Anchor, &a)
+		if a.Kind != "draft_snapshot" || a.ID != d.LatestSnapshot.ID.String() {
+			continue
+		}
+		item, ok := reviewItemDTOFromIntervention(iv)
+		if !ok {
+			continue
+		}
+		if dp, ok := dispByIv[iv.ID.String()]; ok {
+			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
+		}
+		out.Review.Ordered = true
+		out.Review.Items = append(out.Review.Items, item)
+	}
+	return out
+}
+
+// reviewItemDTOFromIntervention reconstructs a WritingReviewItemDTO from a
+// review_item intervention row. iv.Body is the full agent.ReviewItem JSON
+// (Task 6's InsertReviewIntervention) — one json.Unmarshal, never
+// string-splitting the flat Criterion/Level columns that stay duplicated
+// only for SQL filters.
+func reviewItemDTOFromIntervention(iv sqlc.Intervention) (WritingReviewItemDTO, bool) {
+	var it agent.ReviewItem
+	if err := json.Unmarshal([]byte(iv.Body), &it); err != nil {
+		return WritingReviewItemDTO{}, false
+	}
+	criterion := it.CriterionCode + " " + it.CriterionName
+	if iv.Criterion != nil {
+		criterion = *iv.Criterion // the exact flat-column value InsertReviewIntervention persisted
+	}
+	return WritingReviewItemDTO{
+		InterventionID: iv.ID.String(),
+		Criterion:      criterion,
+		Band:           it.Band,
+		Evidence:       it.Evidence,
+		Missing:        it.Missing,
+		Fix:            it.Fix,
+	}, true
 }
 
 // projectStructure projects the five Toulmin argument slots into 论证构建 role
