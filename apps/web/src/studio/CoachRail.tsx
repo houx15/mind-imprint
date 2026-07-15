@@ -168,6 +168,31 @@ function CardProposalBubble({ spec, onOpen }: { spec: CardSpec; onOpen: () => vo
   );
 }
 
+// Active graph (Toulmin) card: its interactive 5-slot builder lives in the
+// 结构 CENTER pane (unlike annotate/compare, whose fill controls are the rail
+// card itself). Rendering a second sheet here would double-render the same
+// card, so the rail shows only a short handoff nudge pointing at that pane —
+// the design's S3→S4 handoff tone.
+function StructureHandoffNudge({ spec }: { spec: CardSpec }) {
+  return (
+    <div style={{ border: "1px solid #F0DACF", borderRadius: 14, overflow: "hidden", boxShadow: "0 3px 14px rgba(217,130,99,.10)" }}>
+      <div style={{ height: 4, background: "#D98263" }} />
+      <div style={{ padding: "12px 15px 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#D98263" }}>工具卡</span>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>
+            {spec.category}
+          </span>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#1C2333" }}>{spec.name}</div>
+      </div>
+      <div style={{ padding: "0 15px 14px", fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6 }}>
+        论证结构在「结构」环节里搭——去中间那一栏，逐张卡片选素材、写句子。我在这儿盯着，一步卡住随时问我。
+      </div>
+    </div>
+  );
+}
+
 export function CoachRail({
   anchor,
   messages,
@@ -360,6 +385,8 @@ export function CoachRail({
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
             />
+          ) : card.spec.primitive === "graph" ? (
+            <StructureHandoffNudge spec={card.spec} />
           ) : (
             <StudioCardSheet
               spec={card.spec}

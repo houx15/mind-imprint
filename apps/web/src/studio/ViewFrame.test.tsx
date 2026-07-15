@@ -263,3 +263,74 @@ describe("ViewFrame (Task 11 + fix-wave [3]/[5]): render off the card's primitiv
     expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
   });
 });
+
+describe("ViewFrame (Task 8): active graph card renders the live Toulmin builder in the 结构 pane", () => {
+  const toulminSpec = CARD_REGISTRY["toulmin"]!;
+
+  function graphCard(overrides: Partial<LiveCard> = {}): LiveCard {
+    return {
+      cardInstanceId: "ci-toulmin",
+      cardId: "toulmin",
+      spec: toulminSpec,
+      status: "active",
+      // A project-scoped card: material_id "" (no material of its own).
+      materialId: "",
+      anchors: [],
+      ...overrides,
+    };
+  }
+
+  function stateS4() {
+    return {
+      ...STUDIO_FIXTURE,
+      activeStation: "S4" as const,
+      // nasaSource is locked → it becomes a citable lockedSource; blogSource
+      // is not locked → it must NOT be offered.
+      views: { ...STUDIO_FIXTURE.views, material: [blogSource, nasaSource] },
+    };
+  }
+
+  it("renders the interactive builder (lock button + its needSrc source picker), not the deferred placeholder", () => {
+    render(<ViewFrame state={stateS4()} card={graphCard()} />);
+    // The Graph primitive's lock button is unique to the live builder.
+    expect(screen.getByRole("button", { name: /全部锁定，完成论证/ })).toBeInTheDocument();
+    // The deferred stub / role-card list is gone.
+    expect(screen.queryByText(/后续切片接入/)).not.toBeInTheDocument();
+  });
+
+  it("offers only the CRAAP-locked materials as citable sources (the design's 信源评估里已锁定的)", () => {
+    render(<ViewFrame state={stateS4()} card={graphCard()} />);
+    // Expand a needSrc slot (支撑证据) to reveal its source picker.
+    fireEvent.click(screen.getByText("支撑证据"));
+    expect(screen.getByRole("button", { name: nasaSource.title })).toBeInTheDocument();
+    // blogSource (locked:false) is never offered.
+    expect(screen.queryByRole("button", { name: blogSource.title })).not.toBeInTheDocument();
+  });
+
+  it("submits the serialized graph anchors through onSubmitCard when the student locks", () => {
+    const onSubmitCard = vi.fn();
+    render(<ViewFrame state={stateS4()} card={graphCard()} onSubmitCard={onSubmitCard} />);
+    // Fill every slot: text on all five, a source on each needSrc slot.
+    for (const slot of toulminSpec.params!.slots as { id: string; role: string; needSrc: boolean }[]) {
+      fireEvent.click(screen.getByText(slot.role));
+      fireEvent.change(screen.getByPlaceholderText("用你自己的话写……"), {
+        target: { value: `这是${slot.role}这一步足够长的一句话表述` },
+      });
+      if (slot.needSrc) fireEvent.click(screen.getByRole("button", { name: nasaSource.title }));
+    }
+    const lock = screen.getByRole("button", { name: /全部锁定，完成论证/ });
+    expect(lock).not.toBeDisabled();
+    fireEvent.click(lock);
+    expect(onSubmitCard).toHaveBeenCalledTimes(1);
+    const env = onSubmitCard.mock.calls[0][0];
+    // Project-scoped card: the envelope carries material_id "" on the card,
+    // and every source anchor points at a REAL locked material id.
+    expect(env.anchors.some((a: any) => a.dimension === "evidence" && a.material_id === nasaSource.id)).toBe(true);
+    expect(env.anchors.every((a: any) => a.author === "student")).toBe(true);
+  });
+
+  it("does NOT render the graph builder when the card is merely proposed (deferred path holds)", () => {
+    render(<ViewFrame state={stateS4()} card={graphCard({ status: "proposed" })} />);
+    expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
+  });
+});

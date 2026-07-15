@@ -1,8 +1,21 @@
+import type { CardInstance, TraceEvent } from "@mind-imprint/contracts";
 import type { StructureCardFx } from "../state";
+import type { LiveCard } from "../CoachRail";
+import type { LockedSource } from "../../primitives/graph";
+import { StudioToulminCard } from "../StudioToulminCard";
 import { Bean } from "../Bean";
 
 export type StructureViewProps = {
   cards: StructureCardFx[];
+  // The active `graph`-primitive (Toulmin) card, when one is open — its
+  // interactive 5-slot builder is the point of this pane (unlike compare,
+  // whose interactive control lives in the rail). Null on every other view
+  // state, in which case the deferred placeholder / role-card path renders.
+  toulminCard?: LiveCard | null;
+  // CRAAP-locked materials the builder's needSrc slots may cite.
+  lockedSources?: LockedSource[];
+  onSubmitCard?: (env: CardInstance) => void;
+  onSkipCard?: (eventTrace: TraceEvent[]) => void;
 };
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
@@ -179,7 +192,28 @@ function RoleCard({ card }: { card: StructureCardFx }) {
   );
 }
 
-export function StructureView({ cards }: StructureViewProps) {
+export function StructureView({ cards, toulminCard, lockedSources = [], onSubmitCard, onSkipCard }: StructureViewProps) {
+  // An open Toulmin card takes over the pane with its live builder — keyed by
+  // instance id so a fresh card remounts (re-seeding its working GraphState)
+  // rather than inheriting the previous one's slots.
+  if (toulminCard) {
+    return (
+      <div style={WRAP}>
+        <div style={COL}>
+          <StudioToulminCard
+            key={toulminCard.cardInstanceId}
+            spec={toulminCard.spec}
+            cardInstanceId={toulminCard.cardInstanceId}
+            anchors={toulminCard.anchors}
+            lockedSources={lockedSources}
+            onSubmit={(env) => onSubmitCard?.(env)}
+            onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <div style={WRAP}>

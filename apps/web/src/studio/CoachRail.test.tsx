@@ -178,6 +178,22 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
   });
 
+  it("primitive === 'graph' (Toulmin) renders only a handoff nudge to the 结构 pane, NOT a second interactive sheet", () => {
+    const spec = CARD_REGISTRY["toulmin"]!;
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci-t", cardId: "toulmin", spec, status: "active", anchors: [], materialId: "" }}
+      />,
+    );
+    // The nudge points at the center pane…
+    expect(screen.getByText(/论证结构在「结构」环节里搭/)).toBeInTheDocument();
+    // …and the rail renders NEITHER a StudioCardSheet (would double-submit)…
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    // …NOR the Graph builder's own lock button (that lives in the 结构 pane).
+    expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
+  });
+
   it("a non-annotate primitive keeps rendering StudioCardSheet", () => {
     const spec = CARD_REGISTRY["concession"]!;
     render(

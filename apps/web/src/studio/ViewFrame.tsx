@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Anchor, AnnotateState, CompareState, MaterialSource } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, CardInstance, CompareState, MaterialSource, TraceEvent } from "@mind-imprint/contracts";
 import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
@@ -33,6 +33,11 @@ export type ViewFrameProps = {
     onOpenLogged?: (materialId: string, timeSpentS: number) => void;
     addError?: string;
   };
+  // Card lock/skip for the center-pane interactive card (the S4 Toulmin
+  // builder) — the SAME handlers the coach rail uses, threaded here so the
+  // 结构 pane can submit its graph. Mirrors the rail's onSubmitCard/onSkipCard.
+  onSubmitCard?: (env: CardInstance) => void;
+  onSkipCard?: (eventTrace: TraceEvent[]) => void;
 };
 
 const FRAME: React.CSSProperties = {
@@ -150,7 +155,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -189,6 +194,16 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
   const compareState = isCompareCardActive
     ? buildCompareState(card.anchors, card.materialId ?? "", lateralMaterialId ?? "")
     : null;
+
+  // The active S4 Toulmin card renders its interactive builder in the 结构
+  // center pane (detected off the primitive, never the id — same pattern as
+  // compare above). Its needSrc slots cite from the project's CRAAP-locked
+  // materials (design copy: 信源评估里已锁定的), NOT from the card's own
+  // material — a toulmin card is project-scoped (material_id "").
+  const isGraphCardActive = card?.status === "active" && card.spec.primitive === "graph";
+  const lockedSources = (state.views.material ?? [])
+    .filter((m) => m.locked)
+    .map((m) => ({ id: m.id, name: m.title }));
 
   return (
     <div style={FRAME}>
@@ -255,7 +270,15 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
           />
         )
       )}
-      {effectiveView === "结构" && <StructureView cards={state.views.structure} />}
+      {effectiveView === "结构" && (
+        <StructureView
+          cards={state.views.structure}
+          toulminCard={isGraphCardActive ? card : null}
+          lockedSources={lockedSources}
+          onSubmitCard={onSubmitCard}
+          onSkipCard={onSkipCard}
+        />
+      )}
       {effectiveView === "写作" && <WritingView {...state.views.writing} />}
       {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}
       {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}

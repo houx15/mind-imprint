@@ -166,6 +166,8 @@ export function StudioShell({
           pendingAnchors={pendingAnchors}
           lateralMaterialId={lateralMaterialId}
           material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
+          onSubmitCard={callbacks.onSubmitCard}
+          onSkipCard={callbacks.onSkipCard}
         />
         <CoachRail
           anchor={state.coach.anchor}
