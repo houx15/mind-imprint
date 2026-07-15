@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { CARD_REGISTRY, deriveCatalog } from "../src/index";
 
 describe("card library is complete", () => {
-  it("registry holds all 33 cards (31 library + 2 demo)", () => {
-    expect(Object.keys(CARD_REGISTRY).length).toBe(33);
+  it("registry holds all 34 cards (32 library + 2 demo)", () => {
+    expect(Object.keys(CARD_REGISTRY).length).toBe(34);
   });
 
   it("every card carries core routing metadata and a valid body_status", () => {
@@ -23,8 +23,8 @@ describe("card library is complete", () => {
     expect(stubs).toEqual([]);
   });
 
-  it("catalog projects all 33 cards", () => {
-    expect(deriveCatalog(CARD_REGISTRY).length).toBe(33);
+  it("catalog projects all 34 cards", () => {
+    expect(deriveCatalog(CARD_REGISTRY).length).toBe(34);
   });
 
   it("the 2 demo cards and key library cards coexist", () => {

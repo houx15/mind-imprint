@@ -33,6 +33,7 @@ import sift from "../cards/sift.json";
 import sourceMap from "../cards/source-map.json";
 import spinDetector from "../cards/spin-detector.json";
 import steelman from "../cards/steelman.json";
+import toulmin from "../cards/toulmin.json";
 
 const DEFAULT_RAW: Record<string, unknown> = {
   // demo cards
@@ -70,6 +71,7 @@ const DEFAULT_RAW: Record<string, unknown> = {
   "source-map": sourceMap,
   "spin-detector": spinDetector,
   steelman,
+  toulmin,
 };
 
 export type CatalogEntry = {

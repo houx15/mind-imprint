@@ -68,6 +68,15 @@ func TestBuildSystemPromptMatchesGolden(t *testing.T) {
 		t.Fatalf("Catalog: %v", err)
 	}
 	got := BuildSystemPrompt(catalog)
+	// The Go builder is the sole authoritative producer of this golden. The old
+	// TS generator (apps/web/scripts/gen-go-fixtures.ts) is dead — its source
+	// modules (apps/web/src/agent/*) were removed on 2026-06-25. Regenerate with:
+	//   UPDATE_GOLDEN=1 CGO_ENABLED=0 go test ./internal/agent/ -run TestBuildSystemPromptMatchesGolden
+	if os.Getenv("UPDATE_GOLDEN") != "" {
+		if err := os.WriteFile(filepath.Join("testdata", "system_prompt_full.txt"), []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+	}
 	wantBytes, err := os.ReadFile(filepath.Join("testdata", "system_prompt_full.txt"))
 	if err != nil {
 		t.Fatalf("read golden: %v", err)

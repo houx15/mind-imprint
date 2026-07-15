@@ -1,14 +1,21 @@
-// Dev-only: regenerates the Go parity fixtures from the canonical TS sources.
+// DEAD SCRIPT — DOES NOT RUN. Kept only for historical reference.
 //
-// Provenance: these fixtures are the *authoritative* TS output. The Go ports in
-// apps/api/internal/agent (BuildSystemPrompt, SerializeCardForRefeed) are tested
-// for byte/semantic equality against them. Regenerate after any change to the
-// TS prompt template, the card registry, or refeed logic:
+// This script used to regenerate the Go parity fixtures from TS sources, back
+// when the browser owned the LLM prompt/eval logic. Those TS sources
+// (../src/agent/prompt.ts, evalPrompt.ts, evalInput.ts, and the functions
+// buildSystemPrompt / buildEvalPrompt / assembleEvalInput) were REMOVED on
+// 2026-06-25 (commit 1cdfcbe, "delete browser LLM/key code") when the platform
+// moved all LLM calls server-side into apps/api. The imports below now resolve
+// to nothing, so `tsx scripts/gen-go-fixtures.ts` throws ERR_MODULE_NOT_FOUND.
 //
-//   pnpm --filter @mind-imprint/web exec tsx scripts/gen-go-fixtures.ts
+// The Go builder (apps/api/internal/agent BuildSystemPrompt) is now the SOLE
+// authoritative producer of the system-prompt golden. Regenerate it via:
 //
-// The Go catalog is sorted by id (cards.Catalog()); we sort the TS catalog by id
-// here too so the category grouping order matches the Go builder exactly.
+//   cd apps/api && UPDATE_GOLDEN=1 CGO_ENABLED=0 \
+//     go test ./internal/agent/ -run TestBuildSystemPromptMatchesGolden
+//
+// (see the UPDATE_GOLDEN branch in apps/api/internal/agent/prompt_test.go).
+// The refeed fixtures (refeed_sift_*.json) are likewise pinned by Go tests.
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
