@@ -86,7 +86,7 @@ started · ◐ in progress · ☑ done.
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
-| **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
+| **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone — see below; examiner-voice switching + board-specific passes → 8b) |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ☐ |
 | **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ☐ |
@@ -590,3 +590,57 @@ review → fix wave). One new backend derivation, no new interaction, no re-edit
 - **Product note (flagged, not fixed):** the in-pane green `GateBanner` ("可以进成稿打磨") goes green when
   all five cards are `done`, but the S4 station gate only reaches `machine_clear` after an external
   Advance — inherited Slice 7 copy; may over-promise if read as the gate verdict.
+
+### Slice 8 (keystone) — writing surface + whole-draft review (S5) (merged `4224231`)
+
+The S5 写作 station goes live end-to-end: a silent client-owned edit buffer → commit an immutable
+draft snapshot → student-triggered 整稿体检 (whole-draft review) → three-key disposition → the S5 gate
+reconciles. Shipped via the full loop (spec `76c7417` → plan `e845023` → 11 subagent-TDD tasks →
+per-task reviews → whole-branch review → fix wave). Scope split (locked in brainstorm): this keystone
+ships **one default board examiner voice**; examiner-voice *switching* + the 3 generic voices +
+board-specific passes (EE evaluation-density, AP org×connection) + richer budget-deletion prompts are
+**Slice 8b**.
+
+- **No migration** — `draft_snapshot`/`edit_buffer` existed since Slice 0. New `writing.sql` queries +
+  endpoints: `PUT /projects/{id}/buffer` (student text only), `POST /projects/{id}/snapshots` (commit =
+  paste = the same immutable object), `POST /projects/{id}/snapshots/{sid}/review` (SSE), `POST
+  /projects/{id}/gate/{contractId}/attest`.
+- **The word-budget machine gate is real.** An in-band commit (word count ∈ the skill's `word_budget`,
+  0457 = `{1500,2000}`) mints a `word_budget_ok` graph node (`author:"ai"`, a typed marker not prose)
+  in the same transaction as the snapshot — satisfying `draft_polish`'s machine gate. CJK-aware
+  `CountWords` (each ideograph = 1 word). Out of band → the node is removed, so the gate reflects the
+  latest snapshot honestly.
+- **`order_review` is a new C3 verb.** `ProposeReview` makes ONE flagship call over the snapshot's
+  paragraphs + the skill's `review_criteria` (0457 表D/E/F/H labels — NOT the Slice-9 band engine),
+  returns a typed work-order, and runs the enforcement stack: a banned-phrasing match on any
+  evidence/missing/fix field rejects the WHOLE review (all-or-nothing). Added banned rule
+  `rewritten-sentence-zh` (你应该这样写…) so a review can never author prose. Each item persists as a
+  `review_item` intervention anchored to the snapshot (the whole `ReviewItem` marshalled into
+  `intervention.body`, reconstructed by one Unmarshal).
+- **One snapshot, one review — idempotent.** An existing review replays its persisted rows with no
+  second model call (proven by an `llm_call`-count assertion). Cross-tenant safe: `sid` is
+  project-scoped via `GetSnapshot`, entitlement gated before the stream only when a model call happens.
+  Cost is recorded even on an enforcement rejection.
+- **RL-1 holds structurally** (whole-branch verdict): every new write path swept — the buffer takes
+  student text only; the review writes only `intervention` rows; even a model-emitted sentence in `fix`
+  is *displayed as advice, never written into the draft*. There is no path where model output becomes
+  prose the student didn't write.
+- **`citations_matched` needed a new write path.** The gate_state storage existed but nothing recorded
+  a student_written item solid (the planner deliberately never does). New `attestGate` endpoint,
+  restricted to the contract's own student_written names (a forged machine/human item → 400).
+- **Three-key disposition** (保持原样→accept / 我来改→rewrite / 说明为什么不改→reject) reuses the
+  Slice-5c disposition endpoint; reason ≥15 runes; persisted choice renders selected on reload.
+  Ordering a review records the S5 human gate item `whole_draft_review` solid — now guarded on
+  `len(persisted) > 0` (fix wave: never mark the gate solid on an all-insert-fail empty persist).
+- **Third consecutive clean whole-branch review** (7, 7b, 8) — no Critical/Important; all four
+  cross-layer hops (SQL → store → handler → projection DTO → Zod → toStudioState → WritingView) traced
+  end-to-end, wire parity guarded by `dto_parity_test`.
+- **Carry-forwards:** **8b** (voice switching + 3 generic voices + board-specific passes + richer
+  budget prompts); **Slice 9** (the five-skin readiness gauge — the review's criteria labels are the
+  minimal seam); **Slice 10** (automated citation front-to-back matching — keystone = the
+  `citations_matched` attestation only; snapshot diffs feeding the process record). Minor follow-ups
+  (non-blocking, from the whole-branch review): the 只读 preview renders the live buffer, not the
+  committed snapshot content (the projection omits snapshot content — a post-commit edit/reload can show
+  drift); the spec §5 "output-check + authorship" enforcement is narrowed to banned-phrasing only for
+  the multi-field work-order (authorship N/A — the review writes no student field; OutputCheck needs a
+  single topic the work-order lacks) — `output_check_verdict` left unset.
