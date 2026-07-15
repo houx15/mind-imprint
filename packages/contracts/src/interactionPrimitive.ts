@@ -31,12 +31,14 @@ export const GraphNodeUnit = z.object({
   text: z.string(),
   author: Author,
 });
+export type GraphNodeUnit = z.infer<typeof GraphNodeUnit>;
 export const GraphEdgeUnit = z.object({
   id: z.string().min(1),
   from: z.string().min(1),
   to: z.string().min(1),
   type: z.string().min(1),
 });
+export type GraphEdgeUnit = z.infer<typeof GraphEdgeUnit>;
 export const GraphState = z.object({
   nodes: z.array(GraphNodeUnit),
   edges: z.array(GraphEdgeUnit),
