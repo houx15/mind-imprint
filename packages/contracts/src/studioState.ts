@@ -137,6 +137,18 @@ export const ActiveCard = z.object({
 });
 export type ActiveCard = z.infer<typeof ActiveCard>;
 
+// StructureCard is one role in the S4 argument (论证构建), projected once the
+// Toulmin card is locked. status/preview are derived from the minted graph
+// nodes server-side (studio.projectStructure) — never invented. The array is
+// empty until the argument exists, so the 结构 pane keeps its placeholder.
+export const StructureCard = z.object({
+  id: z.string(),
+  role: z.string(),
+  status: z.enum(["done", "empty"]),
+  preview: z.string(),
+});
+export type StructureCard = z.infer<typeof StructureCard>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -149,5 +161,6 @@ export const StudioProjection = z.object({
   onboarding: OnboardingFx,
   materials: z.array(MaterialSource),
   activeCard: ActiveCard.nullable(),
+  structure: z.array(StructureCard),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;

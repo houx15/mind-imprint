@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { StudioProjection, Station, CoachMessage, MaterialSource } from "../src/studioState";
+import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard } from "../src/studioState";
 
 describe("StudioProjection (Slice 5b wire DTO)", () => {
   it("accepts a full projection", () => {
@@ -22,6 +22,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       onboarding: { restatePrompt: "…", rubricRows: [{ official: "o", plain: "p", weak: true }], planSteps: ["立题"] },
       materials: [],
       activeCard: null,
+      structure: [],
     });
     expect(ok.success).toBe(true);
   });
@@ -35,6 +36,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
       materials: [],
       activeCard: { cardInstanceId: "ci1", cardId: "sift", status: "active", anchors: [], materialId: "m1" },
+      structure: [],
     });
     expect(ok.success).toBe(true);
   });
@@ -48,6 +50,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
       materials: [],
       activeCard: null,
+      structure: [],
     };
     expect(StudioProjection.safeParse(rest).success).toBe(false);
   });
@@ -127,7 +130,34 @@ describe("MaterialSource", () => {
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
       materials: [valid],
       activeCard: null,
+      structure: [],
     });
     expect(proj.materials[0]!.title).toBe("《卫星图看中国变绿》");
+  });
+});
+
+describe("StructureCard", () => {
+  it("parses a valid done card", () => {
+    const card = { id: "claim", role: "核心主张", status: "done", preview: "主张句" };
+    expect(StructureCard.parse(card)).toEqual(card);
+  });
+  it("rejects an unknown status", () => {
+    expect(() => StructureCard.parse({ id: "claim", role: "核心主张", status: "active", preview: "" })).toThrow();
+  });
+});
+
+describe("StudioProjection", () => {
+  it("requires a structure array", () => {
+    const base = {
+      project: { title: "t", qualLabel: "0457 个人报告" },
+      stations: [],
+      activeStation: "S4",
+      coach: { anchor: "a", messages: [], equipment: [] },
+      onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
+      materials: [],
+      activeCard: null,
+    };
+    expect(() => StudioProjection.parse(base)).toThrow(); // missing structure
+    expect(StudioProjection.parse({ ...base, structure: [] }).structure).toEqual([]);
   });
 });
