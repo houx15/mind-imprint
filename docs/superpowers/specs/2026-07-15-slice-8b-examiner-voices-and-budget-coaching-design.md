@@ -55,12 +55,14 @@ config. Nothing new is stored beyond what already exists.
 4. **The `whole_draft_review` human gate is satisfied by the first review of *any* voice** (with
    `len(persisted) > 0`) — unchanged from the keystone. Voices are alternate lenses on the same
    engagement, not separate gate requirements.
-5. **Budget verdict is deterministic, computed at commit, no model.** `commitSnapshot` already runs
-   `CountWords`; it returns `budget = {count, min, max, state, delta}` where
-   `state ∈ {in, over, under}` and `delta` is a **non-negative magnitude**: words past `max`
-   when `over`, words short of `min` when `under`, `0` when `in` (direction is read from `state`, so the
-   UI renders `超出 {delta}` / `还差 {delta}` directly). The projection carries the same verdict on the
-   latest snapshot so it survives reload.
+5. **Budget verdict is deterministic, from `CountWords`, no model.** A pure helper
+   `agent.BudgetVerdict(wc, band) → (state, delta)`: `state ∈ {in, over, under}`, and `delta` is a
+   **non-negative magnitude** — words past `max` when `over`, words short of `min` when `under`, `0`
+   when `in` (direction is read from `state`, so the UI renders `超出 {delta}` / `还差 {delta}`
+   directly). Carried on the **projection** snapshot as `budget:{state, delta}` (`count`/`min`/`max`
+   are already present as the snapshot's `wordCount` and the projection's top-level `wordBudget`, so
+   they are not duplicated). The commit response is unchanged — `StudioContainer` refetches the
+   projection after every commit, so the verdict reaches the client that way.
 6. **The over-budget deletion lens rides 整稿体检.** When the reviewed snapshot's `state == over`,
    `ProposeReview` appends a deletion-lens instruction to the posture. It reuses the review's existing
    段落⇄评分表 mapping (the only place that mapping is computed). Composes with any voice; the
@@ -122,10 +124,9 @@ in the design's own idiom — no restyle of existing elements:
   `llm_call`. Live run → one model call, persist per-voice rows, record `llm_call`, satisfy the human
   gate on `len(persisted) > 0` (all unchanged except the voice-scoped anchor/filter).
 
-### 5.3 `api/writing.go` — `commitSnapshot`
-- Add `budget` to `snapshotResp`: `{count, min, max, state, delta}` derived from the `word_count`
-  already computed and the skill's `word_budget`. Purely additive to the response; the mint/withhold of
-  `word_budget_ok` is unchanged.
+### 5.3 `commitSnapshot` — unchanged
+The commit response keeps its Slice-8 shape. The budget verdict is projected (§6.1), not returned
+here; `StudioContainer` already refetches the projection on every commit.
 
 ### 5.4 Enforcement
 - Re-verify the three generic postures against `enforcement.BannedPhrasing`. The keystone added
@@ -135,7 +136,8 @@ in the design's own idiom — no restyle of existing elements:
 ## 6. Projection + contracts
 
 ### 6.1 `studio/dto.go`, `projection.go`, `load.go`
-- `WritingSnapshotDTO` gains `budget WritingBudgetDTO` (`count/min/max/state/delta`, camelCase JSON).
+- `WritingSnapshotDTO` gains `budget WritingBudgetDTO` (`{state, delta}`, camelCase JSON), filled from
+  `agent.BudgetVerdict(wc, sk.WordBudget)`.
 - `WritingReviewItemDTO` gains `voice string` — the parity-friendly realization of "keyed by voice":
   rather than a `map[voice][]item` (awkward across Go/Zod with enum keys), the review stays a **flat
   `items` array** and every item is self-describing via its `voice`. The frontend derives both the
@@ -148,7 +150,7 @@ in the design's own idiom — no restyle of existing elements:
   derives per-voice "ordered" from whether any item carries that voice).
 
 ### 6.2 `packages/contracts/src/studioState.ts`
-- `WritingBudget` (`count`, `min`, `max`, `state: "in"|"over"|"under"`, `delta`) as a required field on
+- `WritingBudget` (`state: "in"|"over"|"under"`, `delta: number`) as a required field on
   `WritingSnapshot`.
 - `WritingReviewItem` gains `voice: "board"|"sceptic"|"layperson"|"executioner"`.
 - `WritingProjection.review` becomes `{ items: WritingReviewItem[] }` (the `ordered` boolean is
@@ -169,10 +171,11 @@ in the design's own idiom — no restyle of existing elements:
 - **Go / `api`:** review with `?voice=sceptic` persists rows whose anchor carries `voice:"sceptic"`;
   a second `?voice=sceptic` replays with `llm_call` count unchanged; `?voice=board` and `?voice=sceptic`
   on the same snapshot are independent caches (two `llm_call` rows, two disjoint row sets); a keystone
-  row (anchor without voice) is served under `board`; commit returns a `budget` verdict with correct
-  `state`/`delta` for in/over/under; an over-budget review passes `overBudget=true`.
-- **Go / `studio`:** projection groups review items by voice; missing anchor voice → `board`; budget
-  DTO parity vs Zod (`dto_parity_test`).
+  row (anchor without voice) is served under `board`; an over-budget snapshot passes `overBudget=true`
+  to `ProposeReview`.
+- **Go / `agent`:** `BudgetVerdict` returns correct `state`/`delta` for in/over/under (and a nil band).
+- **Go / `studio`:** projection tags review items with voice; missing anchor voice → `board`; the
+  snapshot `budget` verdict is present; DTO parity vs Zod (`dto_parity_test`).
 - **Web:** voice pills render + selection state + cached-voice marker; picking a voice then 整稿体检
   calls `…/review?voice=…`; `snapshotMeta` shows the correct budget clause per state; over-budget
   work-order shows the budget note; switching to a cached voice renders without a fetch.
