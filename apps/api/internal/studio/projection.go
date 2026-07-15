@@ -322,11 +322,13 @@ func projectWriting(sk skills.Skill, d ProjectData) WritingDTO {
 	if d.LatestSnapshot != nil {
 		wc := agent.CountWords(d.LatestSnapshot.Content)
 		inBand := sk.WordBudget != nil && wc >= sk.WordBudget.Min && wc <= sk.WordBudget.Max
+		bState, bDelta := agent.BudgetVerdict(wc, sk.WordBudget)
 		out.LatestSnapshot = &WritingSnapshotDTO{
 			ID:          d.LatestSnapshot.ID.String(),
 			Seq:         int(d.LatestSnapshot.Seq),
 			CommittedAt: d.LatestSnapshot.CreatedAt.Format(time.RFC3339),
 			WordCount:   wc, InBand: inBand,
+			Budget: WritingBudgetDTO{State: bState, Delta: bDelta},
 		}
 	}
 	// citations_matched from the draft_polish gate state.
@@ -346,7 +348,7 @@ func projectWriting(sk skills.Skill, d ProjectData) WritingDTO {
 		if d.LatestSnapshot == nil {
 			continue // only the current snapshot's review is shown
 		}
-		var a struct{ Kind, ID string }
+		var a struct{ Kind, ID, Voice string }
 		_ = json.Unmarshal(iv.Anchor, &a)
 		if a.Kind != "draft_snapshot" || a.ID != d.LatestSnapshot.ID.String() {
 			continue
@@ -355,10 +357,13 @@ func projectWriting(sk skills.Skill, d ProjectData) WritingDTO {
 		if !ok {
 			continue
 		}
+		item.Voice = a.Voice
+		if item.Voice == "" {
+			item.Voice = "board"
+		}
 		if dp, ok := dispByIv[iv.ID.String()]; ok {
 			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
 		}
-		out.Review.Ordered = true
 		out.Review.Items = append(out.Review.Items, item)
 	}
 	return out

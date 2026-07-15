@@ -31,10 +31,10 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		Structure: []StructureCardDTO{{ID: "claim", Role: "核心主张", Status: "done", Preview: "主张句"}},
 		Writing: WritingDTO{
 			Buffer: "b", CitationsMatched: true,
-			LatestSnapshot: &WritingSnapshotDTO{ID: "s1", Seq: 1, CommittedAt: "2026-07-13T00:00:00Z", WordCount: 1800, InBand: true},
+			LatestSnapshot: &WritingSnapshotDTO{ID: "s1", Seq: 1, CommittedAt: "2026-07-13T00:00:00Z", WordCount: 1800, InBand: true, Budget: WritingBudgetDTO{State: "in", Delta: 0}},
 			WordBudget:     WordBudgetDTO{Min: 1500, Max: 2000},
-			Review: WritingReviewDTO{Ordered: true, Items: []WritingReviewItemDTO{{
-				InterventionID: "iv1", Criterion: "D 结构", Band: "达标", Evidence: "e", Missing: "m", Fix: "f",
+			Review: WritingReviewDTO{Items: []WritingReviewItemDTO{{
+				InterventionID: "iv1", Criterion: "D 结构", Band: "达标", Evidence: "e", Missing: "m", Fix: "f", Voice: "board",
 				Disposition: &DispositionDTO{Action: "accept", Reason: "r"},
 			}}},
 		},
@@ -148,8 +148,8 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// writing.latestSnapshot: {id,seq,committedAt,wordCount,inBand}
-	assertKeys(t, writing["latestSnapshot"], []string{"committedAt", "id", "inBand", "seq", "wordCount"})
+	// writing.latestSnapshot: {id,seq,committedAt,wordCount,inBand,budget}
+	assertKeys(t, writing["latestSnapshot"], []string{"budget", "committedAt", "id", "inBand", "seq", "wordCount"})
 
 	// writing.wordBudget: {min,max}
 	assertKeys(t, writing["wordBudget"], []string{"max", "min"})
@@ -165,8 +165,8 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	if len(reviewItems) != 1 {
 		t.Fatalf("writing.review.items len = %d, want 1", len(reviewItems))
 	}
-	// writing.review.items[0]: {interventionId,criterion,band,evidence,missing,fix,disposition}
-	assertKeys(t, reviewItems[0], []string{"band", "criterion", "disposition", "evidence", "fix", "interventionId", "missing"})
+	// writing.review.items[0]: {interventionId,criterion,band,evidence,missing,fix,voice,disposition}
+	assertKeys(t, reviewItems[0], []string{"band", "criterion", "disposition", "evidence", "fix", "interventionId", "missing", "voice"})
 
 	var reviewItem map[string]json.RawMessage
 	if err := json.Unmarshal(reviewItems[0], &reviewItem); err != nil {

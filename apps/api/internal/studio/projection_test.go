@@ -1,12 +1,15 @@
 package studio
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
@@ -689,10 +692,45 @@ func TestProjectWriting(t *testing.T) {
 	sk := writingSkill(t)
 	d := ProjectData{Project: sqlc.Project{}}
 	pw := projectWriting(sk, d)
-	if pw.Buffer != "" || pw.LatestSnapshot != nil || pw.Review.Ordered {
+	if pw.Buffer != "" || pw.LatestSnapshot != nil || len(pw.Review.Items) > 0 {
 		t.Fatalf("empty project writing = %+v", pw)
 	}
 	if pw.WordBudget.Min != 1500 || pw.WordBudget.Max != 2000 {
 		t.Fatalf("word budget = %+v", pw.WordBudget)
+	}
+}
+
+// TestProjectWriting_VoiceAndBudget asserts the projection tags each review
+// item with the examiner voice its anchor carries (missing voice key ->
+// "board", Task 3) and fills the snapshot's deterministic budget verdict
+// (agent.BudgetVerdict, Task 2) alongside the existing InBand bool.
+func TestProjectWriting_VoiceAndBudget(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	snapID := uuid.New()
+	// One review_item with an explicit sceptic anchor, one keystone-style row
+	// with no anchor voice (→ board).
+	mk := func(voice string) sqlc.Intervention {
+		anchor := map[string]string{"kind": "draft_snapshot", "id": snapID.String()}
+		if voice != "" {
+			anchor["voice"] = voice
+		}
+		b, _ := json.Marshal(anchor)
+		body, _ := json.Marshal(agent.ReviewItem{CriterionCode: "表E", CriterionName: "分析", Band: "5–6 段", Evidence: "e"})
+		return sqlc.Intervention{ID: uuid.New(), Type: "review_item", Anchor: b, Body: string(body)}
+	}
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: snapID, Seq: 3, Content: strings.Repeat("字", 2340), CreatedAt: time.Now()},
+		Interventions:  []sqlc.Intervention{mk("sceptic"), mk("")},
+	}
+	out := projectWriting(sk, d)
+	if out.LatestSnapshot == nil || out.LatestSnapshot.Budget.State != "over" || out.LatestSnapshot.Budget.Delta != 340 {
+		t.Fatalf("budget = %+v, want state=over delta=340", out.LatestSnapshot)
+	}
+	voices := map[string]int{}
+	for _, it := range out.Review.Items {
+		voices[it.Voice]++
+	}
+	if voices["sceptic"] != 1 || voices["board"] != 1 {
+		t.Fatalf("voice tags = %v, want one sceptic + one board", voices)
 	}
 }

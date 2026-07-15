@@ -194,16 +194,26 @@ type MaterialDTO struct {
 	LateralJudgment string `json:"lateralJudgment"`
 }
 
+// WritingBudgetDTO is the deterministic count-vs-band verdict (agent.BudgetVerdict).
+// state ∈ {in, over, under}; delta is a non-negative magnitude (words past max
+// when over, short of min when under, 0 when in) — the client reads direction
+// from state and renders delta directly.
+type WritingBudgetDTO struct {
+	State string `json:"state"`
+	Delta int    `json:"delta"`
+}
+
 // WritingSnapshotDTO is the latest immutable draft_snapshot (S5 写作): the
 // committed content is not itself carried here — the client already has it
 // from the commit response / re-fetches it — only the metadata a reload
 // needs (which snapshot, when, and whether it lands in the word budget).
 type WritingSnapshotDTO struct {
-	ID          string `json:"id"`
-	Seq         int    `json:"seq"`
-	CommittedAt string `json:"committedAt"`
-	WordCount   int    `json:"wordCount"`
-	InBand      bool   `json:"inBand"`
+	ID          string           `json:"id"`
+	Seq         int              `json:"seq"`
+	CommittedAt string           `json:"committedAt"`
+	WordCount   int              `json:"wordCount"`
+	InBand      bool             `json:"inBand"`
+	Budget      WritingBudgetDTO `json:"budget"`
 }
 
 // DispositionDTO is the three-key disposition (accept/reject/rewrite + a
@@ -224,15 +234,16 @@ type WritingReviewItemDTO struct {
 	Evidence       string          `json:"evidence"`
 	Missing        string          `json:"missing"`
 	Fix            string          `json:"fix"`
+	Voice          string          `json:"voice"`
 	Disposition    *DispositionDTO `json:"disposition"`
 }
 
-// WritingReviewDTO carries the review work-order for the CURRENT latest
-// snapshot only. Ordered is true iff at least one such item exists — the
-// client's cue that a review has been run on this snapshot.
+// WritingReviewDTO carries every review work-order row anchored to the CURRENT
+// latest snapshot, across all voices the student has run. Each item is
+// self-describing via its Voice; the client derives the current-voice
+// work-order and the cached-voice set by filtering.
 type WritingReviewDTO struct {
-	Ordered bool                   `json:"ordered"`
-	Items   []WritingReviewItemDTO `json:"items"`
+	Items []WritingReviewItemDTO `json:"items"`
 }
 
 // WordBudgetDTO is the per-qualification legal word band for S5, straight
