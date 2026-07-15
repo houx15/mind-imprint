@@ -273,9 +273,10 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
+	voice := agent.ParseVoice(r.URL.Query().Get("voice"))
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	existing := reviewItemsForSnapshot(r.Context(), a.d.Queries, projectID, sid)
+	existing := reviewItemsForSnapshot(r.Context(), a.d.Queries, projectID, sid, voice)
 
 	// Entitlement gate BEFORE the stream — only when a model call will happen.
 	if len(existing) == 0 {
@@ -313,7 +314,8 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	paras := snapshotParagraphs(snap.Content)
-	items, usage, perr := agent.ProposeReview(r.Context(), a.d.Provider, resolved, sk.ReviewCriteria, paras, graphSummary(r.Context(), a.d.Queries, projectID))
+	sbState, _ := agent.BudgetVerdict(agent.CountWords(snap.Content), sk.WordBudget)
+	items, usage, perr := agent.ProposeReview(r.Context(), a.d.Provider, resolved, sk.ReviewCriteria, paras, graphSummary(r.Context(), a.d.Queries, projectID), voice, sbState == "over")
 	// Record the call cost even if enforcement then rejected the output — a
 	// rejected call still cost money.
 	if resolved.Provider != "" {
@@ -337,7 +339,7 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 	// snapshot. The FULL ReviewItem is marshalled into intervention.body
 	// (lossless reconstruction); criterion/level stay duplicated in their
 	// flat columns for any SQL that filters on them.
-	anchor := mustJSON(map[string]string{"kind": "draft_snapshot", "id": sid.String()})
+	anchor := mustJSON(map[string]string{"kind": "draft_snapshot", "id": sid.String(), "voice": string(voice)})
 	persisted := make([]agent.ReviewItem, 0, len(items))
 	for _, it := range items {
 		if err := store.InsertReviewIntervention(r.Context(), agent.ReviewInterventionRow{
@@ -416,7 +418,7 @@ func snapshotParagraphs(content string) []string {
 // not-yet-reviewed state, which is what makes a review idempotent: seeing
 // none here is exactly the signal to call the model, seeing any is the
 // signal to replay them instead).
-func reviewItemsForSnapshot(ctx context.Context, q *sqlc.Queries, projectID, sid uuid.UUID) []agent.ReviewItem {
+func reviewItemsForSnapshot(ctx context.Context, q *sqlc.Queries, projectID, sid uuid.UUID, voice agent.Voice) []agent.ReviewItem {
 	ivs, err := q.ListInterventionsByProject(ctx, projectID)
 	if err != nil {
 		return nil
@@ -426,11 +428,16 @@ func reviewItemsForSnapshot(ctx context.Context, q *sqlc.Queries, projectID, sid
 		if iv.Type != "review_item" {
 			continue
 		}
-		var anchor struct{ Kind, ID string }
+		var anchor struct{ Kind, ID, Voice string }
 		if err := json.Unmarshal(iv.Anchor, &anchor); err != nil {
 			continue
 		}
-		if anchor.Kind != "draft_snapshot" || anchor.ID != sid.String() {
+		// A keystone row has no anchor voice — read it as board.
+		av := anchor.Voice
+		if av == "" {
+			av = string(agent.VoiceBoard)
+		}
+		if anchor.Kind != "draft_snapshot" || anchor.ID != sid.String() || av != string(voice) {
 			continue
 		}
 		if it, ok := reviewItemFromIntervention(iv); ok {

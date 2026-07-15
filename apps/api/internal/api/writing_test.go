@@ -377,6 +377,106 @@ func TestOrderReview_RejectedProposalPersistsNothing(t *testing.T) {
 	}
 }
 
+// countReviewItemsForVoice counts review_item interventions whose anchor
+// voice matches (a missing anchor voice reads as board — the keystone
+// back-compat case).
+func countReviewItemsForVoice(t *testing.T, pool *pgxpool.Pool, projectID, voice string) int {
+	t.Helper()
+	rows, err := sqlc.New(pool).ListInterventionsByProject(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListInterventionsByProject: %v", err)
+	}
+	n := 0
+	for _, iv := range rows {
+		if iv.Type != "review_item" {
+			continue
+		}
+		var a struct{ Voice string }
+		_ = json.Unmarshal(iv.Anchor, &a)
+		if a.Voice == "" {
+			a.Voice = "board"
+		}
+		if a.Voice == voice {
+			n++
+		}
+	}
+	return n
+}
+
+// Two voices on the SAME snapshot are independent caches: each does one model
+// call and persists its own disjoint row set; re-running a voice replays with
+// no new call. A keystone row (anchor with no voice) is served as board.
+func TestOrderReview_PerVoiceIndependentCaches(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"补定义"}]`
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: reviewStubProvider(reply), ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := materialsTestProjectID
+
+	content := strings.Repeat("字", 1600)
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/snapshots",
+		strings.NewReader(`{"content":`+strconv.Quote(content)+`}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("commit = %d; body=%s", rec.Code, rec.Body)
+	}
+	var snap struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &snap)
+
+	order := func(voice string) string {
+		r := httptest.NewRecorder()
+		url := "/api/v1/projects/" + projectID + "/snapshots/" + snap.ID + "/review"
+		if voice != "" {
+			url += "?voice=" + voice
+		}
+		req := withCookie(httptest.NewRequest("POST", url, strings.NewReader("")), cookie)
+		h.ServeHTTP(r, req)
+		if r.Code != http.StatusOK {
+			t.Fatalf("order review voice=%q = %d; body=%s", voice, r.Code, r.Body)
+		}
+		return r.Body.String()
+	}
+
+	order("board")
+	callsAfterBoard := countLLMCalls(t, pool, projectID)
+	if callsAfterBoard != 1 {
+		t.Fatalf("after board review, llm_calls = %d, want 1", callsAfterBoard)
+	}
+	if n := countReviewItems(t, pool, projectID); n != 1 {
+		t.Fatalf("after board review, review_items = %d, want 1", n)
+	}
+
+	order("sceptic") // distinct voice → a second, independent model call + row
+	if n := countLLMCalls(t, pool, projectID); n != 2 {
+		t.Fatalf("after sceptic review, llm_calls = %d, want 2 (independent cache)", n)
+	}
+	if n := countReviewItems(t, pool, projectID); n != 2 {
+		t.Fatalf("after sceptic review, review_items = %d, want 2 (disjoint set)", n)
+	}
+
+	order("sceptic") // replay — no new call, no new row
+	if n := countLLMCalls(t, pool, projectID); n != 2 {
+		t.Fatalf("after sceptic replay, llm_calls = %d, want 2 (replay, no new call)", n)
+	}
+	if n := countReviewItems(t, pool, projectID); n != 2 {
+		t.Fatalf("after sceptic replay, review_items = %d, want 2 (replay)", n)
+	}
+
+	// Per-voice row counts: exactly one board row, one sceptic row.
+	if n := countReviewItemsForVoice(t, pool, projectID, "board"); n != 1 {
+		t.Fatalf("board rows = %d, want 1", n)
+	}
+	if n := countReviewItemsForVoice(t, pool, projectID, "sceptic"); n != 1 {
+		t.Fatalf("sceptic rows = %d, want 1", n)
+	}
+}
+
 // TestAttestGate_RejectsUnknownItem — word_budget_ok is draft_polish's
 // MACHINE gate item (computed, not student-attested); a caller must not be
 // able to forge it as solid through this endpoint.
