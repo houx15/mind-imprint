@@ -219,7 +219,7 @@ export function StructureView({ cards, toulminCard, lockedSources = [], onSubmit
       <div style={WRAP}>
         <div style={COL}>
           <div style={{ ...DEFERRED_CARD, textAlign: "center", color: "#8A92A3", fontSize: 13.5, fontWeight: 600 }}>
-            此环节的深入交互将在后续切片接入
+            在这里把论证一步步搭成结构——核完来源后，印记会展开这张工具卡。
           </div>
         </div>
       </div>

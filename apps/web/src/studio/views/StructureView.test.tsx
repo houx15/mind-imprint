@@ -43,7 +43,7 @@ describe("StructureView (结构/S4 shell)", () => {
 
   it("renders the deferred shell placeholder (never a false green gate) when cards is empty", () => {
     render(<StructureView cards={[]} />);
-    expect(screen.getByText(/此环节的深入交互将在后续切片接入/)).toBeInTheDocument();
+    expect(screen.getByText(/在这里把论证一步步搭成结构/)).toBeInTheDocument();
     expect(screen.queryByText(/门禁通过/)).toBeNull();
     expect(screen.queryByText(/可以进成稿打磨/)).toBeNull();
   });
