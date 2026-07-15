@@ -31,6 +31,12 @@ func EvaluateCompletion(spec cards.Spec, anchors []Anchor) (complete bool, missi
 			if !lateralSourcePresent(spec, anchors) {
 				missing = append(missing, spec.Params.LateralDimension)
 			}
+		case "graph_slots_complete":
+			for _, slot := range spec.Params.Slots {
+				if !slotComplete(anchors, slot) {
+					missing = append(missing, slot.ID)
+				}
+			}
 		}
 	}
 	return len(missing) == 0, missing
@@ -74,6 +80,28 @@ func lateralSourcePresent(spec cards.Spec, anchors []Anchor) bool {
 		return false
 	}
 	return lat.MaterialID != checkedMaterialID(spec, anchors)
+}
+
+// slotComplete reports whether a graph-primitive slot is done: some anchor on
+// the slot's dimension carries a student sentence of ≥12 runes, and — when the
+// slot needs a source — some anchor on the slot's dimension carries a
+// non-empty material_id. Text anchors (material_id "") and source anchors
+// (answer "") never collide.
+func slotComplete(anchors []Anchor, slot cards.Slot) bool {
+	hasText := false
+	hasSource := false
+	for _, a := range anchors {
+		if a.Dimension != slot.ID {
+			continue
+		}
+		if utf8.RuneCountInString(strings.TrimSpace(a.Answer)) >= 12 {
+			hasText = true
+		}
+		if strings.TrimSpace(a.MaterialID) != "" {
+			hasSource = true
+		}
+	}
+	return hasText && (!slot.NeedSrc || hasSource)
 }
 
 // observeWhen is the closed-set "when" clause CRAAP's observe rules use:

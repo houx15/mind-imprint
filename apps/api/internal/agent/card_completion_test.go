@@ -189,3 +189,53 @@ func TestLateralSourcePresent_CompletesWithARealOtherSource(t *testing.T) {
 		t.Fatalf("must complete: a real other source is in the project; missing = %v", missing)
 	}
 }
+
+// toulminSpec loads the real embedded "toulmin" card spec (Slice 7 Task 1)
+// so this test exercises the graph_slots_complete predicate against the
+// actual params.slots config, not a hand-rolled fixture.
+func toulminSpec(t *testing.T) cards.Spec {
+	t.Helper()
+	s, ok := cards.ByID("toulmin")
+	if !ok {
+		t.Fatalf("toulmin card not found")
+	}
+	return s
+}
+
+func TestGraphSlotsComplete(t *testing.T) {
+	spec := toulminSpec(t)
+
+	// One text anchor per slot; needSrc slots (warrant/evidence/concession)
+	// also get a source anchor. All five text anchors ≥12 chars.
+	full := []Anchor{
+		{Dimension: "claim", Answer: "中国的政策在净效果上让全球更可持续。", Author: "student"},
+		{Dimension: "warrant", Answer: "卫星植被数据到可持续判断之间的推理如下所述。", Author: "student"},
+		{Dimension: "warrant", MaterialID: "m_nasa", Author: "student"},
+		{Dimension: "evidence", Answer: "NASA 观测显示中国主导了全球变绿的增量。", Author: "student"},
+		{Dimension: "evidence", MaterialID: "m_nasa", Author: "student"},
+		{Dimension: "counter", Answer: "反方最强点：中国碳排放总量全球第一。", Author: "student"},
+		{Dimension: "concession", Answer: "承认排放第一，但人均与历史累积远低于发达国家。", Author: "student"},
+		{Dimension: "concession", MaterialID: "m_bp", Author: "student"},
+	}
+	if ok, missing := EvaluateCompletion(spec, full); !ok {
+		t.Fatalf("full graph should complete, missing=%v", missing)
+	}
+
+	// Drop the evidence source anchor -> evidence slot is unsourced.
+	noSrc := append([]Anchor{}, full[:4]...)
+	noSrc = append(noSrc, full[5:]...) // skip the evidence source anchor
+	ok, missing := EvaluateCompletion(spec, noSrc)
+	if ok {
+		t.Fatalf("evidence with no source must not complete")
+	}
+	if len(missing) != 1 || missing[0] != "evidence" {
+		t.Fatalf("missing = %v, want [evidence]", missing)
+	}
+
+	// Short claim text (<12 chars) -> claim slot incomplete.
+	shortClaim := append([]Anchor{}, full...)
+	shortClaim[0].Answer = "太短"
+	if ok, _ := EvaluateCompletion(spec, shortClaim); ok {
+		t.Fatalf("claim under 12 chars must not complete")
+	}
+}
