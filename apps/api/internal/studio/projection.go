@@ -331,17 +331,17 @@ func projectStructure(specByID func(string) (cards.Spec, bool), d ProjectData) [
 			text[n.Type] = b.Text
 		}
 	}
-	any := false
+	minted := false
 	out := make([]StructureCardDTO, 0, len(spec.Params.Slots))
 	for _, slot := range spec.Params.Slots {
 		card := StructureCardDTO{ID: slot.ID, Role: slot.Role, Status: "empty"}
 		if t, ok := text[slot.ID]; ok {
 			card.Status, card.Preview = "done", t
-			any = true
+			minted = true
 		}
 		out = append(out, card)
 	}
-	if !any {
+	if !minted {
 		return []StructureCardDTO{}
 	}
 	return out

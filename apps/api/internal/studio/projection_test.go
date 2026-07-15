@@ -663,4 +663,20 @@ func TestProjectStructure(t *testing.T) {
 			t.Fatalf("partial: card %s status = %q, want empty", c.ID, c.Status)
 		}
 	}
+
+	// (e) specByID reports the toulmin spec not found -> empty slice (the
+	// `!ok` half of the guard).
+	notFound := func(string) (cards.Spec, bool) { return cards.Spec{}, false }
+	if got := projectStructure(notFound, d); len(got) != 0 {
+		t.Fatalf("spec not found: want empty, got %d cards", len(got))
+	}
+
+	// (f) specByID reports the toulmin spec found but with no slots -> empty
+	// slice (the `len(spec.Params.Slots)==0` half of the guard).
+	noSlots := func(string) (cards.Spec, bool) {
+		return cards.Spec{Params: cards.Params{Slots: nil}}, true
+	}
+	if got := projectStructure(noSlots, d); len(got) != 0 {
+		t.Fatalf("spec with no slots: want empty, got %d cards", len(got))
+	}
 }

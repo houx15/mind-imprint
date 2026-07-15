@@ -19,10 +19,12 @@ export type StructureViewProps = {
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
 const COL: React.CSSProperties = { maxWidth: 760, margin: "0 auto" };
-// Same neutral deferred-shell placeholder as OnboardingView's ShellView
-// (structure deep view is deferred to Slice 7 — StudioContainer stubs
-// `views.structure: []`, so this guards against a vacuously-true
-// `cards.every(...)` rendering a false green "门禁通过" banner on 0 cards).
+// Same neutral deferred-shell placeholder as OnboardingView's ShellView.
+// This is the legitimate PRE-MINT state: the projection returns an empty
+// `structure` slice until the student locks the Toulmin card (7b made the
+// slot projection live — this is not a stub). It guards against a
+// vacuously-true `cards.every(...)` rendering a false green "门禁通过"
+// banner on 0 cards.
 const DEFERRED_CARD: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "20px 22px" };
 
 function GateBanner({ allClean }: { allClean: boolean }) {

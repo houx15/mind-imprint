@@ -551,10 +551,6 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	// Slice 7b: the same minted rows must project into five done structure
 	// cards — the completed argument shown back in the 结构 pane. Proves the
 	// projection over a genuine mint, not hand-built nodes.
-	sk, ok = skills.ByID("writing-project")
-	if !ok {
-		t.Fatal("skills.ByID(writing-project) not found")
-	}
 	pd, err := studio.Load(ctx, q, project.ID)
 	if err != nil {
 		t.Fatalf("studio.Load: %v", err)
