@@ -36,3 +36,6 @@ LIMIT 1;
 
 -- name: UpdateGraphNodeBody :one
 UPDATE graph_node SET body = $2 WHERE id = $1 RETURNING *;
+
+-- name: DeleteGraphNode :exec
+DELETE FROM graph_node WHERE id = $1 AND project_id = $2;

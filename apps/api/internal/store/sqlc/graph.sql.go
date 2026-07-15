@@ -11,6 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteGraphNode = `-- name: DeleteGraphNode :exec
+DELETE FROM graph_node WHERE id = $1 AND project_id = $2
+`
+
+type DeleteGraphNodeParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) DeleteGraphNode(ctx context.Context, arg DeleteGraphNodeParams) error {
+	_, err := q.db.Exec(ctx, deleteGraphNode, arg.ID, arg.ProjectID)
+	return err
+}
+
 const getGateStateNode = `-- name: GetGateStateNode :one
 SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
 WHERE project_id = $1 AND type = 'gate_state' AND body->>'contract' = $2::text
