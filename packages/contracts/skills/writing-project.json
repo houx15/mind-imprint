@@ -4,6 +4,13 @@
   "vocabulary": "per-board",
   "cards": ["craap", "sift", "concession", "steelman", "toulmin"],
   "intake": { "procedure": "decompose_imported_to_graph" },
+  "word_budget": { "min": 1500, "max": 2000 },
+  "review_criteria": [
+    { "code": "表D", "name": "来源与证据" },
+    { "code": "表E", "name": "分析" },
+    { "code": "表F", "name": "评估" },
+    { "code": "表H", "name": "表达与组织" }
+  ],
   "contracts": {
     "decode_task": {
       "requires": [],

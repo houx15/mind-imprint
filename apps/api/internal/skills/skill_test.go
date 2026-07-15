@@ -120,3 +120,28 @@ func TestWritingProjectContractTitles(t *testing.T) {
 		}
 	}
 }
+
+func TestWritingProjectWordBudgetAndReviewCriteria(t *testing.T) {
+	sk, ok := ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill not loaded")
+	}
+	if sk.WordBudget == nil {
+		t.Fatal("WordBudget is nil")
+	}
+	if sk.WordBudget.Min != 1500 || sk.WordBudget.Max != 2000 {
+		t.Fatalf("WordBudget = %+v, want {1500 2000}", *sk.WordBudget)
+	}
+	codes := map[string]bool{}
+	for _, c := range sk.ReviewCriteria {
+		if c.Code == "" || c.Name == "" {
+			t.Fatalf("review criterion has empty field: %+v", c)
+		}
+		codes[c.Code] = true
+	}
+	for _, want := range []string{"表D", "表E", "表F", "表H"} {
+		if !codes[want] {
+			t.Errorf("review_criteria missing %q", want)
+		}
+	}
+}

@@ -52,16 +52,35 @@ type Contract struct {
 	Gate       Gate     `json:"gate"`
 }
 
+// WordBudget is the per-qualification legal word band for S5 (draft_polish).
+// An in-band commit mints the word_budget_ok node that satisfies the S5
+// machine gate. Single source of truth; the commit path and the projection
+// both read it.
+type WordBudget struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
+}
+
+// ReviewCriterion is one mark-scheme table the whole-draft review assesses the
+// draft against (0457's 表D/E/F/H). Minimal labels — NOT the Slice-9 readiness
+// band engine.
+type ReviewCriterion struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
 // Skill is a project/course type: a contract DAG plus card references and
 // pedagogy metadata. Intake is the declared procedure (run by the planner);
 // Slice 4 keeps it as raw config it does not interpret.
 type Skill struct {
-	ID         string              `json:"id"`
-	Kind       string              `json:"kind"`
-	Contracts  map[string]Contract `json:"contracts"`
-	Intake     json.RawMessage     `json:"intake"`
-	Vocabulary string              `json:"vocabulary"`
-	Cards      []string            `json:"cards"`
+	ID             string              `json:"id"`
+	Kind           string              `json:"kind"`
+	Contracts      map[string]Contract `json:"contracts"`
+	Intake         json.RawMessage     `json:"intake"`
+	Vocabulary     string              `json:"vocabulary"`
+	Cards          []string            `json:"cards"`
+	WordBudget     *WordBudget         `json:"word_budget,omitempty"`
+	ReviewCriteria []ReviewCriterion   `json:"review_criteria,omitempty"`
 }
 
 // Load parses and validates one skill JSON blob.
