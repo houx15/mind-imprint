@@ -9,8 +9,9 @@ export type WritingViewProps = WritingProjection & {
   // the view awaits it (spec §7: committing switches to preview, but only
   // once the commit has actually landed).
   onCommit?: (text: string) => void | Promise<void>;
-  // Task 10: triggers 整稿体检 over the given committed snapshot.
-  onOrderReview?: (snapshotId: string) => void;
+  // Task 10: triggers 整稿体检 over the given committed snapshot. Slice 8b
+  // Task 7 adds the examiner-voice arg — the currently-selected pill.
+  onOrderReview?: (snapshotId: string, voice: ReviewVoice) => void;
   // Task 10: the three-key disposition on one review-item intervention.
   onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
   // Task 10: the S5 student-written citations_matched gate item.
@@ -35,6 +36,19 @@ function tabStyle(active: boolean): React.CSSProperties {
     boxShadow: active ? "0 1px 2px rgba(28,35,51,0.08)" : "none",
   };
 }
+
+// Slice 8b Task 7: the examiner-voice switcher. Kept as a view-local type
+// (not imported from apps/web/src/api/writing.ts) since views are pure
+// presentation and take no dependency on the API layer — the literal union
+// is structurally identical to that module's ReviewVoice and to contracts'
+// WritingReviewItem.voice enum.
+export type ReviewVoice = "board" | "sceptic" | "layperson" | "executioner";
+const VOICES: Array<{ voice: ReviewVoice; label: string }> = [
+  { voice: "board", label: "考官" },
+  { voice: "sceptic", label: "怀疑" },
+  { voice: "layperson", label: "外行" },
+  { voice: "executioner", label: "字数" },
+];
 
 // Mirrors the backend's own paragraph unit (paragraphSpanIndex /
 // snapshotParagraphs in apps/api/internal/api/writing.go): split on blank
@@ -276,6 +290,7 @@ function PreviewPane({
   buffer,
   reviewOrdered,
   reviewItems,
+  overBudgetDelta,
   citationsMatched,
   onReviewDisposition,
   onAttestCitations,
@@ -283,6 +298,7 @@ function PreviewPane({
   buffer: string;
   reviewOrdered: boolean;
   reviewItems: WritingReviewItem[];
+  overBudgetDelta: number | null;
   citationsMatched: boolean;
   onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
   onAttestCitations?: (confirmed: boolean) => void;
@@ -305,6 +321,11 @@ function PreviewPane({
             </span>
             <span style={{ fontSize: 11.5, color: "#9AA1B0", fontWeight: 600 }}>一稿一检 · 只读</span>
           </div>
+          {overBudgetDelta !== null && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#C96F4F", background: "#FBEEE7", borderRadius: 10, padding: "8px 12px", margin: "0 0 14px" }}>
+              超预算 {overBudgetDelta} 字 · 删减决策按「这段在向哪张表交证据」来做
+            </div>
+          )}
           <div style={{ fontSize: 12.5, color: "#8A92A3", lineHeight: 1.6, margin: "8px 0 16px" }}>
             它只告诉你：哪一段在向哪张表交证据、还缺什么。它从不替你改句子——改，是你自己的事。
           </div>
@@ -339,6 +360,12 @@ export function WritingView({
 }: WritingViewProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const isEdit = mode === "edit";
+  const [voice, setVoice] = useState<ReviewVoice>("board");
+  const items = review?.items ?? [];
+  const cachedVoices = new Set(items.map((i) => i.voice));
+  const itemsForVoice = items.filter((i) => i.voice === voice);
+  const reviewOrdered = itemsForVoice.length > 0;
+  const budget = latestSnapshot?.budget;
 
   // spec §7: committing a snapshot switches the view to preview — but only
   // once the commit has actually succeeded. onCommit may be async
@@ -354,11 +381,16 @@ export function WritingView({
     }
     setMode("preview");
   }
+  const budgetClause = budget
+    ? budget.state === "over"
+      ? ` · 超出 ${budget.delta} 字`
+      : budget.state === "under"
+        ? ` · 还差 ${budget.delta} 字`
+        : " · 在预算内"
+    : "";
   const snapshotMeta = latestSnapshot
-    ? `第 ${latestSnapshot.seq} 版快照 · ${monthDayOf(latestSnapshot.committedAt)} 提交 · 只读`
+    ? `第 ${latestSnapshot.seq} 版快照 · ${monthDayOf(latestSnapshot.committedAt)} 提交 · 只读${budgetClause}`
     : "还没有提交过快照";
-  const reviewOrdered = review?.ordered ?? false;
-  const reviewItems = review?.items ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -372,11 +404,22 @@ export function WritingView({
           </button>
         </div>
         <span style={{ fontSize: 11.5, color: "#AEB4C2", fontWeight: 600 }}>{snapshotMeta}</span>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", gap: 3, background: "#EBEDF2", borderRadius: 9, padding: 3 }}>
+            {VOICES.map((v) => {
+              const active = voice === v.voice;
+              const cached = cachedVoices.has(v.voice);
+              return (
+                <button key={v.voice} type="button" onClick={() => setVoice(v.voice)} style={tabStyle(active)}>
+                  {v.label}{cached ? " ·" : ""}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
             disabled={!latestSnapshot}
-            onClick={() => latestSnapshot && onOrderReview?.(latestSnapshot.id)}
+            onClick={() => latestSnapshot && onOrderReview?.(latestSnapshot.id, voice)}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -407,7 +450,8 @@ export function WritingView({
             <PreviewPane
               buffer={buffer}
               reviewOrdered={reviewOrdered}
-              reviewItems={reviewItems}
+              reviewItems={itemsForVoice}
+              overBudgetDelta={budget?.state === "over" ? budget.delta : null}
               citationsMatched={citationsMatched}
               onReviewDisposition={onReviewDisposition}
               onAttestCitations={onAttestCitations}
