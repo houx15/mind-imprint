@@ -149,12 +149,19 @@ export const StructureCard = z.object({
 });
 export type StructureCard = z.infer<typeof StructureCard>;
 
+export const WritingBudget = z.object({
+  state: z.enum(["in", "over", "under"]),
+  delta: z.number().int(),
+});
+export type WritingBudget = z.infer<typeof WritingBudget>;
+
 export const WritingSnapshot = z.object({
   id: z.string(),
   seq: z.number().int(),
   committedAt: z.string(),
   wordCount: z.number().int(),
   inBand: z.boolean(),
+  budget: WritingBudget,
 });
 export type WritingSnapshot = z.infer<typeof WritingSnapshot>;
 
@@ -165,6 +172,7 @@ export const WritingReviewItem = z.object({
   evidence: z.string(),
   missing: z.string(),
   fix: z.string(),
+  voice: z.enum(["board", "sceptic", "layperson", "executioner"]),
   disposition: z
     .object({ action: z.enum(["accept", "reject", "rewrite"]), reason: z.string() })
     .nullable(),
@@ -176,7 +184,7 @@ export const WritingProjection = z.object({
   latestSnapshot: WritingSnapshot.nullable(),
   wordBudget: z.object({ min: z.number().int(), max: z.number().int() }),
   citationsMatched: z.boolean(),
-  review: z.object({ ordered: z.boolean(), items: z.array(WritingReviewItem) }),
+  review: z.object({ items: z.array(WritingReviewItem) }),
 });
 export type WritingProjection = z.infer<typeof WritingProjection>;
 

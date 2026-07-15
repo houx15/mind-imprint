@@ -1,12 +1,12 @@
 import { describe, it, expect, test } from "vitest";
-import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection } from "../src/studioState";
+import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection, WritingReviewItem } from "../src/studioState";
 
 const emptyWriting = {
   buffer: "",
   latestSnapshot: null,
   wordBudget: { min: 1500, max: 2000 },
   citationsMatched: false,
-  review: { ordered: false, items: [] },
+  review: { items: [] },
 };
 
 describe("StudioProjection (Slice 5b wire DTO)", () => {
@@ -179,12 +179,12 @@ describe("WritingProjection", () => {
   test("WritingProjection parses a full writing view", () => {
     const ok = {
       buffer: "我在写",
-      latestSnapshot: { id: "s1", seq: 3, committedAt: "2026-07-15T00:00:00Z", wordCount: 1723, inBand: true },
+      latestSnapshot: { id: "s1", seq: 3, committedAt: "2026-07-15T00:00:00Z", wordCount: 1723, inBand: true, budget: { state: "in", delta: 0 } },
       wordBudget: { min: 1500, max: 2000 },
       citationsMatched: false,
-      review: { ordered: true, items: [
+      review: { items: [
         { interventionId: "i1", criterion: "表E 分析", band: "5–6 段", evidence: "e", missing: "m", fix: "f",
-          disposition: { action: "rewrite", reason: "我打算把跳步补成一段推理，至少十五个字。" } },
+          voice: "board", disposition: { action: "rewrite", reason: "我打算把跳步补成一段推理，至少十五个字。" } },
       ] },
     };
     expect(() => WritingProjection.parse(ok)).not.toThrow();
@@ -192,8 +192,8 @@ describe("WritingProjection", () => {
 
   test("WritingReviewItem rejects a bad disposition action", () => {
     const bad = { buffer: "", latestSnapshot: null, wordBudget: { min: 1, max: 2 }, citationsMatched: false,
-      review: { ordered: true, items: [
-        { interventionId: "i", criterion: "c", band: "b", evidence: "", missing: "", fix: "",
+      review: { items: [
+        { interventionId: "i", criterion: "c", band: "b", evidence: "", missing: "", fix: "", voice: "board",
           disposition: { action: "keep", reason: "x" } }] } };
     expect(() => WritingProjection.parse(bad)).toThrow();
   });
@@ -212,5 +212,29 @@ describe("WritingProjection", () => {
     };
     delete p.writing;
     expect(() => StudioProjection.parse(p)).toThrow();
+  });
+
+  test("WritingReviewItem carries a voice enum", () => {
+    const ok = WritingReviewItem.safeParse({
+      interventionId: "i1", criterion: "表E 分析", band: "5–6 段",
+      evidence: "e", missing: "m", fix: "", voice: "sceptic", disposition: null,
+    });
+    expect(ok.success).toBe(true);
+    const bad = WritingReviewItem.safeParse({
+      interventionId: "i1", criterion: "表E", band: "5–6 段",
+      evidence: "e", missing: "m", fix: "", voice: "nope", disposition: null,
+    });
+    expect(bad.success).toBe(false);
+  });
+
+  test("WritingProjection review is a flat items array with a snapshot budget", () => {
+    const parsed = WritingProjection.safeParse({
+      buffer: "",
+      latestSnapshot: { id: "s1", seq: 3, committedAt: "2026-07-15T00:00:00Z", wordCount: 2340, inBand: false, budget: { state: "over", delta: 340 } },
+      wordBudget: { min: 1500, max: 2000 },
+      citationsMatched: false,
+      review: { items: [] },
+    });
+    expect(parsed.success).toBe(true);
   });
 });
