@@ -559,9 +559,34 @@ card as pure C2 config over it + a live S4 结构 center pane. Shipped via the f
   both satisfiable by finishing the card. Whole-branch review then caught that S3 STILL referenced
   `no_single_sourced_claim` (the spec mis-stated this) and toulmin's single-evidence claim regressed S3 —
   fixed by dropping it from S3 too (it was vacuous there pre-Slice-7).
-- **CARRY-FORWARD (7b):** post-completion the 结构 pane shows an honest neutral placeholder, but the
-  design's completed-state (read-only role-cards + green gate banner) is not yet projected — the lean
-  StudioProjection doesn't send the minted graph nodes. Reviving that dead `RoleCard`/`GateBanner` path
-  needs a backend structure DTO + frontend wiring. Also: no skills canonical/mirror guard test;
-  `gen-go-fixtures.ts` is dead (its TS prompt sources were deleted 2026-06-25 — the Go golden now
-  regenerates via `UPDATE_GOLDEN` in-test); pre-existing `packages/contracts` tsc failure (not ours).
+- **CARRY-FORWARD (7b): DONE — see the Slice 7b section below** (merged `2c882a3`). Remaining minor
+  carry-forwards untouched: no skills canonical/mirror guard test; `gen-go-fixtures.ts` is dead (its TS
+  prompt sources were deleted 2026-06-25 — the Go golden now regenerates via `UPDATE_GOLDEN` in-test);
+  pre-existing `packages/contracts` tsc failure (not ours).
+
+### Slice 7b — project the completed Toulmin argument into the 结构 view (merged `2c882a3`)
+
+Revived the dead completed-state path from Slice 7: after the student locks the Toulmin card, the five
+role cards (with her own sentences) + the green gate banner now render in the 结构 pane. Shipped via the
+full loop (spec `7907e79` → plan `de44ac2` → 4 subagent-TDD tasks → per-task reviews → whole-branch
+review → fix wave). One new backend derivation, no new interaction, no re-edit of a locked argument.
+
+- **`projectStructure` (studio/projection.go)** reads the `toulmin` card spec's five slots (order + role
+  labels — single source of truth, no second hardcoded list) and the minted graph nodes, emitting five
+  `StructureCardDTO{id,role,status,preview}` on a new required `StudioProjection.structure` field.
+  `done` + the student's `body.text` verbatim where a slot node exists, else `empty`; **empty slice until
+  the argument is minted, so the pane keeps its pre-mint placeholder** (product decision — no 5-card
+  skeleton up front).
+- **The CRAAP-evidence trap is closed by `type == slot.id && body.text != ""`.** CRAAP's `promote` mints
+  an `evidence`-typed node with `body.source_quality` (no `text`); only Toulmin mints slot nodes with
+  `body.text`. The whole-branch review (Opus) swept every card spec with `graph_effects` and proved the
+  discriminator + the `minted` gate cannot let an orphan CRAAP evidence node falsely fill the evidence
+  slot or replace the placeholder with a skeleton pre-mint.
+- **Second consecutive clean whole-branch review** (no Critical/Important) — all four cross-layer hops
+  (mint → project → wire DTO → `toStudioState` → render) traced end-to-end against real code, and the
+  e2e projects with the production `cards.ByID` loader, not a hand-built double.
+- **Frontend cleanup:** deleted the now-unreachable `active` inline-edit branch of `RoleCard` (that live
+  state is the full-pane `StudioToulminCard`); `StructureCardFx` is now the wire `StructureCard` verbatim.
+- **Product note (flagged, not fixed):** the in-pane green `GateBanner` ("可以进成稿打磨") goes green when
+  all five cards are `done`, but the S4 station gate only reaches `machine_clear` after an external
+  Advance — inherited Slice 7 copy; may over-promise if read as the gate verdict.
