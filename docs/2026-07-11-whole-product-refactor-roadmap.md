@@ -86,7 +86,7 @@ started · ◐ in progress · ☑ done.
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
-| **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone — see below; examiner-voice switching + board-specific passes → 8b) |
+| **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone + 8b — see below; **8b ☑** examiner-voice switching + budget-deletion coaching; EE/AP board-specific passes still deferred to their board packs) |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ☐ |
 | **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ☐ |
@@ -644,3 +644,47 @@ board-specific passes (EE evaluation-density, AP org×connection) + richer budge
   drift); the spec §5 "output-check + authorship" enforcement is narrowed to banned-phrasing only for
   the multi-field work-order (authorship N/A — the review writes no student field; OutputCheck needs a
   single topic the work-order lacks) — `output_check_verdict` left unset.
+
+### Slice 8b — examiner-voice switching + budget-deletion coaching (S5) (merged `PENDING`)
+
+The two deferred pieces of the S5 写作 station land: switchable examiner voices on 整稿体检, and
+over-budget deletion coaching. Shipped via the full loop (spec `fd3d563` → plan `a44c06d` → 8
+subagent-TDD tasks → per-task reviews → whole-branch review → 2-test fast-follow). Scope locked in
+brainstorm: **EE/AP board-specific passes stay deferred** to their Phase-2 board packs (only the 0457
+skill is seeded — no board to drive an EE evaluation-density or AP org×connection pass).
+
+- **No migration, no skill-config change.** Voice is a fixed Go enum (`board | sceptic | layperson |
+  executioner`), not skill config; `board` = the keystone's existing `reviewPosturePrompt` verbatim, the
+  three generic postures are board-agnostic. Voice rides inside the existing intervention `anchor` jsonb
+  (`{kind,id,voice}`), so the review's idempotency key extends from `snapshot` to `(snapshot, voice)`
+  with zero schema change.
+- **Same snapshot, many examiners.** `?voice=` on the review endpoint (absent/unknown → board) selects
+  the `ProposeReview` posture; each voice is one flagship call cached independently; re-running a voice
+  replays its persisted rows with NO second model call (proven by an `llm_call`-count assertion). A
+  keystone review row (anchor with no `voice` key) reads back as `board` at **both** read sites — the
+  replay filter and the studio projection — so Slice-8 data stays valid with no backfill.
+- **RL-1 holds structurally** (whole-branch verdict): voices swap only the system prompt; the
+  banned-phrasing enforcement and the intervention-only write path are voice-invariant; the over-budget
+  deletion lens asks diagnostic questions (「这段在向哪张表交证据」) and hands the cut to the student
+  (「你不替她删」) — never a "删掉…" imperative or a rewritten sentence. No path turns model output into
+  prose the student didn't write.
+- **Budget coaching, no model for the verdict.** A pure `agent.BudgetVerdict(wc, band) → (state, delta)`
+  (state ∈ in/over/under; delta a non-negative magnitude) is projected onto the snapshot as
+  `budget:{state,delta}`; the 写作 `snapshotMeta` gains `· 超出 N 字` / `· 还差 N 字` / `· 在预算内`.
+  When a snapshot is over `max`, the review runs with an appended deletion-lens instruction and the
+  work-order shows the verbatim note `超预算 N 字 · 删减决策按「这段在向哪张表交证据」来做` — reusing the
+  review's existing 段落⇄评分表 mapping, one model surface.
+- **Voice-keyed read path.** The projection carries **every** run voice's work-order for the current
+  snapshot as a flat `review.items[]` where each item is self-describing via its `voice` (the
+  parity-friendly realization of "keyed by voice" — no `map` with enum keys). `WritingView` derives the
+  current-voice work-order and the cached-voice pill markers by filtering; the `ordered` boolean is
+  dropped on both Go and Zod sides. Segmented voice pills (考官/怀疑/外行/字数) reuse the 编辑/预览 styling.
+- **Fourth consecutive clean whole-branch review** (7, 7b, 8, 8b) — no Critical/Important; Go↔Zod wire
+  parity byte-clean (SQL → store → projection DTO → Zod → toStudioState → WritingView), the voice enum
+  uncorruptable because the sole anchor writer serializes only `ParseVoice` output. Two logged Minor
+  coverage gaps (under-budget clause, cached-pill marker) closed by fast-follow `1cc0194`.
+- **Carry-forwards:** EE/AP board-specific passes → their board-pack slices; **Slice 9** (readiness
+  gauge — the review's criteria labels are the minimal seam) is next. Non-blocking (from the
+  whole-branch review, not fixed): the selected voice state isn't reset when the snapshot/project
+  changes (cosmetic — cached markers + `itemsForVoice` re-derive from the projection, so nothing renders
+  wrong); plus the keystone's still-open preview-renders-live-buffer follow-up, untouched by this slice.
