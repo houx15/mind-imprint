@@ -37,6 +37,16 @@ function paragraphsOf(text: string): string[] {
     .filter((p) => p.length > 0);
 }
 
+// The binding design (docs/design/思维印记_工作区.dc.html:2334) reads
+// "第 3 版快照 · 10-14 提交 · 只读" — version · MM-DD · 提交 · 只读. `committedAt`
+// is an ISO datetime string (YYYY-MM-DDTHH:mm:ssZ); slice the MM-DD straight
+// out of it rather than round-tripping through `Date`, which would re-derive
+// the calendar day in the *local* timezone and could shift it a day off from
+// what the server actually recorded as committed.
+function monthDayOf(committedAt: string): string {
+  return committedAt.slice(5, 10);
+}
+
 function EditPane({ buffer, onBufferChange, onCommit }: { buffer: string; onBufferChange?: (t: string) => void; onCommit?: (t: string) => void }) {
   return (
     <>
@@ -119,7 +129,9 @@ function PreviewPane({ buffer, reviewOrdered }: { buffer: string; reviewOrdered:
 export function WritingView({ buffer, latestSnapshot, review, onBufferChange, onCommit }: WritingViewProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const isEdit = mode === "edit";
-  const snapshotMeta = latestSnapshot ? `第 ${latestSnapshot.seq} 版快照 · 提交 · 只读` : "还没有提交过快照";
+  const snapshotMeta = latestSnapshot
+    ? `第 ${latestSnapshot.seq} 版快照 · ${monthDayOf(latestSnapshot.committedAt)} 提交 · 只读`
+    : "还没有提交过快照";
   const reviewOrdered = review?.ordered ?? false;
 
   return (

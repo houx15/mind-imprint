@@ -45,7 +45,10 @@ describe("WritingView (写作/S5 live)", () => {
       latestSnapshot: { id: "s1", seq: 3, committedAt: "2026-07-10T00:00:00Z", wordCount: 420, inBand: true },
     };
     render(<WritingView {...projection} />);
-    expect(screen.getByText("第 3 版快照 · 提交 · 只读")).toBeInTheDocument();
+    // committedAt "2026-07-10T00:00:00Z" → MM-DD "07-10", per the binding
+    // design (docs/design/思维印记_工作区.dc.html:2334 — "第 3 版快照 · 10-14 提交 ·
+    // 只读": version · MM-DD · 提交 · 只读).
+    expect(screen.getByText("第 3 版快照 · 07-10 提交 · 只读")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /整稿体检/ })).not.toBeDisabled();
   });
 

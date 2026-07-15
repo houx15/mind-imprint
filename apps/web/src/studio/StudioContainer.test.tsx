@@ -1573,4 +1573,110 @@ describe("StudioContainer", () => {
     // assertion the reset must actually drive, not a check on props.
     await waitFor(() => expect(screen.getByText("去找一个独立的来源")).toBeInTheDocument());
   });
+
+  // --- Task 9 (写作 view live wiring): onBufferChange (debounced putBuffer +
+  // an optimistic local buffer patch) and onCommit (commitSnapshot → refetch
+  // so latestSnapshot/gate refresh) shipped with ZERO coverage — these tests
+  // close that gap by driving the actual rendered WritingView (textarea +
+  // "提交快照" button), never StudioContainer internals directly. ---
+
+  function writingProjection(writing: {
+    buffer: string;
+    latestSnapshot: { id: string; seq: number; committedAt: string; wordCount: number; inBand: boolean } | null;
+  }) {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S5", name: "成稿", view: "写作", state: "current" }],
+      activeStation: "S5",
+      writing: {
+        buffer: writing.buffer,
+        latestSnapshot: writing.latestSnapshot,
+        wordBudget: { min: 300, max: 500 },
+        citationsMatched: false,
+        review: { ordered: false, items: [] },
+      },
+    };
+  }
+
+  it("debounces the 写作 textarea's edits through to api.putBuffer, patching the buffer locally first", async () => {
+    const putBuffer = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => writingProjection({ buffer: "初稿第一句。", latestSnapshot: null }),
+      putBuffer,
+    };
+    render(<StudioContainer api={api as never} />);
+    const textarea = (await screen.findByDisplayValue("初稿第一句。")) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "初稿第一句，改了一下。" } });
+    // Optimistic local patch: the keystroke shows immediately, with no
+    // network call yet — putBuffer is debounced, not synchronous.
+    expect(textarea.value).toBe("初稿第一句，改了一下。");
+    expect(putBuffer).not.toHaveBeenCalled();
+
+    // The debounce fires ~600ms later — await it rather than faking timers
+    // (this file already has a helper, `flush`, tuned for microtask chains,
+    // not a real macrotask delay; a generous waitFor budget is simpler and
+    // just as deterministic here since the assertion is "eventually true").
+    await waitFor(() => expect(putBuffer).toHaveBeenCalledWith("p1", "初稿第一句，改了一下。"), { timeout: 3000 });
+  });
+
+  it("commits the buffer via api.commitSnapshot then refetches the project so latestSnapshot refreshes", async () => {
+    let getProjectCalls = 0;
+    const commitSnapshot = vi.fn(async () => ({ id: "s2", seq: 2, committedAt: "2026-07-15T00:00:00Z", wordCount: 12, inBand: true }));
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return writingProjection({
+          buffer: "定稿正文。",
+          latestSnapshot: getProjectCalls === 1 ? null : { id: "s2", seq: 2, committedAt: "2026-07-15T00:00:00Z", wordCount: 12, inBand: true },
+        });
+      },
+      commitSnapshot,
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByDisplayValue("定稿正文。");
+    expect(screen.getByText("还没有提交过快照")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /提交快照/ }));
+
+    expect(commitSnapshot).toHaveBeenCalledWith("p1", "定稿正文。");
+    // The stale-until-reload bug this wiring exists to avoid: without a
+    // refetch after commit, getProject is never called a second time and
+    // latestSnapshot/the gate never update.
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await waitFor(() => expect(screen.getByText(/第 2 版快照/)).toBeInTheDocument());
+  });
+
+  it("surfaces a rejected putBuffer/commitSnapshot as the sync warning instead of crashing the view (Task 9 error paths)", async () => {
+    const putBuffer = vi.fn(async () => { throw new Error("network blip"); });
+    const commitSnapshot = vi.fn(async () => { throw new Error("commit blew up"); });
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => writingProjection({ buffer: "草稿。", latestSnapshot: null }),
+      putBuffer,
+      commitSnapshot,
+    };
+    render(<StudioContainer api={api as never} />);
+    const textarea = (await screen.findByDisplayValue("草稿。")) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "草稿，改了。" } });
+    await waitFor(() => expect(putBuffer).toHaveBeenCalled(), { timeout: 3000 });
+    // The rejected debounced save is caught, not an unhandled rejection —
+    // the honest generic sync warning renders instead.
+    await waitFor(() => expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument());
+    // The view is still up (not crashed) — the textarea and its typed value
+    // are still on screen.
+    expect(textarea.value).toBe("草稿，改了。");
+
+    fireEvent.click(screen.getByRole("button", { name: /提交快照/ }));
+    await waitFor(() => expect(commitSnapshot).toHaveBeenCalledWith("p1", "草稿，改了。"));
+    // A failed commit gets its own, distinct failure copy — not the generic
+    // sync warning left over from the buffer save above.
+    await waitFor(() => expect(screen.getByText(/提交失败，请重试/)).toBeInTheDocument());
+    // Still rendered, still interactive — no uncaught rejection tore down
+    // the tree.
+    expect(screen.getByRole("button", { name: /提交快照/ })).toBeInTheDocument();
+  });
 });
