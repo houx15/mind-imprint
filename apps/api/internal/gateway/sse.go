@@ -119,6 +119,17 @@ func (s *SSEWriter) ErrorEnvelope(code, message string) error {
 	})
 }
 
+// Review streams the whole-draft work-order as one event (the review is a
+// batch, not incremental — spec §12, one snapshot = one review). items is
+// the JSON-encoded []ReviewItem (or its wire equivalent).
+func (s *SSEWriter) Review(items []byte) error {
+	raw := json.RawMessage(items)
+	if len(raw) == 0 {
+		raw = json.RawMessage("[]")
+	}
+	return s.writeEvent("review", raw)
+}
+
 // Heartbeat writes an SSE comment to keep the connection alive.
 func (s *SSEWriter) Heartbeat() error {
 	if _, err := fmt.Fprint(s.w, ": ping\n\n"); err != nil {

@@ -3,12 +3,15 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
@@ -248,4 +251,214 @@ func (a *API) attestGate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// orderReview runs the student-triggered whole-draft review over a committed
+// snapshot. One snapshot, one review (spec §12): if review_item interventions
+// already anchor this snapshot, stream them back — NO second model call. The
+// review writes ONLY intervention rows (typed advice), never prose (RL-1).
+func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	sid, err := uuid.Parse(r.PathValue("sid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	snap, err := a.d.Queries.GetSnapshot(r.Context(), sqlc.GetSnapshotParams{ID: sid, ProjectID: projectID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	existing := reviewItemsForSnapshot(r.Context(), a.d.Queries, projectID, sid)
+
+	// Entitlement gate BEFORE the stream — only when a model call will happen.
+	if len(existing) == 0 {
+		entitled, eerr := HasEntitlement(r.Context(), u)
+		if eerr != nil {
+			httpx.WriteError(w, r, eerr)
+			return
+		}
+		if !entitled {
+			httpx.WriteError(w, r, httpx.ErrNotEntitled())
+			return
+		}
+	}
+
+	sse, err := gateway.NewSSEWriter(w)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	em := &studioEmitter{sse: sse}
+	stop, hbDone := startHeartbeat(r.Context(), em)
+	defer func() { close(stop); <-hbDone }()
+
+	if len(existing) > 0 { // idempotent replay — no second model call.
+		_ = em.Review(mustJSON(existing))
+		_ = em.Done()
+		return
+	}
+
+	sk, _ := skills.ByID("writing-project")
+	resolved, rerr := a.d.ChatResolver(r.Context())
+	if rerr != nil {
+		_ = em.ErrorEnvelope("internal_error", "体检失败，请重试")
+		_ = em.Done()
+		return
+	}
+	paras := snapshotParagraphs(snap.Content)
+	items, usage, perr := agent.ProposeReview(r.Context(), a.d.Provider, resolved, sk.ReviewCriteria, paras, graphSummary(r.Context(), a.d.Queries, projectID))
+	// Record the call cost even if enforcement then rejected the output — a
+	// rejected call still cost money.
+	if resolved.Provider != "" {
+		if err := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "order_review",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); err != nil {
+			slog.Warn("order_review: record llm call", "err", err)
+		}
+	}
+	if perr != nil {
+		// Enforcement rejection or parse failure: persist NOTHING, stream an
+		// error envelope + done.
+		slog.Warn("order_review: proposal rejected", "err", perr)
+		_ = em.ErrorEnvelope("review_rejected", "这次体检没通过内部校验，请再试一次")
+		_ = em.Done()
+		return
+	}
+
+	// Persist each item as a review_item intervention anchored to the
+	// snapshot. The FULL ReviewItem is marshalled into intervention.body
+	// (lossless reconstruction); criterion/level stay duplicated in their
+	// flat columns for any SQL that filters on them.
+	anchor := mustJSON(map[string]string{"kind": "draft_snapshot", "id": sid.String()})
+	persisted := make([]agent.ReviewItem, 0, len(items))
+	for _, it := range items {
+		if err := store.InsertReviewIntervention(r.Context(), agent.ReviewInterventionRow{
+			ProjectID: projectID, Anchor: anchor,
+			Criterion: it.CriterionCode + " " + it.CriterionName,
+			Body:      string(mustJSON(it)), Level: it.Band,
+		}); err != nil {
+			slog.Warn("order_review: persist item", "err", err)
+			continue
+		}
+		persisted = append(persisted, it)
+	}
+
+	// Ordering a review satisfies the S5 HUMAN gate item whole_draft_review.
+	// Like citations_matched (attestGate), nothing else records a human item
+	// as solid, so do it here (best-effort — never fails the stream). Guard
+	// on the item actually being in draft_polish's Gate.Human.
+	if c, ok := sk.Contracts["draft_polish"]; ok {
+		for _, hi := range c.Gate.Human {
+			if hi == "whole_draft_review" {
+				recorded, gerr := store.ListGateStates(r.Context(), projectID)
+				if gerr != nil {
+					slog.Warn("order_review: list gate states", "err", gerr)
+					break
+				}
+				rec := recorded["draft_polish"]
+				if rec.Items == nil {
+					rec.Items = map[string]string{}
+				}
+				rec.Items["whole_draft_review"] = "solid"
+				if err := store.UpsertGateState(r.Context(), projectID, "draft_polish", rec); err != nil {
+					slog.Warn("order_review: record whole_draft_review", "err", err)
+				}
+				break
+			}
+		}
+	}
+
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "review_ordered",
+		Payload: mustJSON(map[string]any{"snapshot_id": sid.String(), "items": len(persisted)}),
+	}); err != nil {
+		slog.Warn("order_review: append event", "err", err)
+	}
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("order_review: touch project", "err", err)
+	}
+	_ = em.Review(mustJSON(persisted))
+	_ = em.Done()
+}
+
+// snapshotParagraphs splits a committed snapshot's content into non-empty
+// paragraphs on blank lines — the same paragraph unit ProposeReview reasons
+// over (mirrors paragraphSpanIndex's break rule, but returns text, not spans).
+func snapshotParagraphs(content string) []string {
+	out := []string{}
+	for _, p := range strings.Split(content, "\n\n") {
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// reviewItemsForSnapshot returns the persisted review items anchored to sid,
+// reconstructed from their intervention rows (empty if none — the
+// not-yet-reviewed state, which is what makes a review idempotent: seeing
+// none here is exactly the signal to call the model, seeing any is the
+// signal to replay them instead).
+func reviewItemsForSnapshot(ctx context.Context, q *sqlc.Queries, projectID, sid uuid.UUID) []agent.ReviewItem {
+	ivs, err := q.ListInterventionsByProject(ctx, projectID)
+	if err != nil {
+		return nil
+	}
+	out := []agent.ReviewItem{}
+	for _, iv := range ivs {
+		if iv.Type != "review_item" {
+			continue
+		}
+		var anchor struct{ Kind, ID string }
+		if err := json.Unmarshal(iv.Anchor, &anchor); err != nil {
+			continue
+		}
+		if anchor.Kind != "draft_snapshot" || anchor.ID != sid.String() {
+			continue
+		}
+		if it, ok := reviewItemFromIntervention(iv); ok {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// reviewItemFromIntervention reconstructs the full agent.ReviewItem from an
+// intervention row's body — the body IS the marshalled ReviewItem (Task 6),
+// so reconstruction is one json.Unmarshal, never string-splitting.
+func reviewItemFromIntervention(iv sqlc.Intervention) (agent.ReviewItem, bool) {
+	var it agent.ReviewItem
+	if err := json.Unmarshal([]byte(iv.Body), &it); err != nil {
+		return agent.ReviewItem{}, false
+	}
+	return it, true
+}
+
+// graphSummary counts the project's claim/evidence graph nodes into a short
+// string ProposeReview's prompt carries as argument context (e.g. "主张 1 ·
+// 证据 2") — never an error: a read failure just yields an empty summary,
+// the same "never fail the turn over enrichment" posture surfaceAnchors uses.
+func graphSummary(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) string {
+	nodes, err := q.ListGraphNodesByProject(ctx, projectID)
+	if err != nil {
+		return ""
+	}
+	claims, evidence := 0, 0
+	for _, n := range nodes {
+		switch n.Type {
+		case "claim":
+			claims++
+		case "evidence":
+			evidence++
+		}
+	}
+	return fmt.Sprintf("主张 %d · 证据 %d", claims, evidence)
 }

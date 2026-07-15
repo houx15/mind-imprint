@@ -139,6 +139,10 @@ type AgentStore interface {
 
 	InsertDisposition(ctx context.Context, interventionID uuid.UUID, action, reason string) (uuid.UUID, error)
 
+	// InsertReviewIntervention persists one whole-draft-review work-order
+	// item (Task 6, orderReview) as a review_item intervention row.
+	InsertReviewIntervention(ctx context.Context, row ReviewInterventionRow) error
+
 	// RecordLLMCall persists one live LLM call's usage (5d review CRITICAL
 	// fix — every DeepSeek call must be metered, AGENTS.md's "记录档位 +
 	// token + 成本" hard constraint). A failure here must never fail the

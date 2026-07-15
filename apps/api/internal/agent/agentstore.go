@@ -496,6 +496,33 @@ func (s *sqlcAgentStore) InsertDisposition(ctx context.Context, interventionID u
 	return row.ID, nil
 }
 
+// ReviewInterventionRow is one persisted whole-draft-review work-order item
+// (Task 6, orderReview). Body is the JSON of the full agent.ReviewItem — a
+// review reconstructs it with one json.Unmarshal, never by string-splitting
+// the flat Criterion/Level columns, which stay duplicated only for SQL
+// filters.
+type ReviewInterventionRow struct {
+	ProjectID uuid.UUID
+	Anchor    []byte
+	Criterion string
+	Body      string
+	Level     string
+}
+
+// InsertReviewIntervention writes one review_item intervention row. No
+// card_instance_id — a whole-draft review is not a card submission.
+func (s *sqlcAgentStore) InsertReviewIntervention(ctx context.Context, row ReviewInterventionRow) error {
+	_, err := s.q.InsertIntervention(ctx, sqlc.InsertInterventionParams{
+		ProjectID: row.ProjectID,
+		Type:      "review_item",
+		Anchor:    row.Anchor,
+		Criterion: &row.Criterion,
+		Body:      row.Body,
+		Level:     &row.Level,
+	})
+	return err
+}
+
 // RecordLLMCall persists one live LLM call's usage to `llm_call` (migration
 // 0019). The owning user is resolved from the project row, mirroring
 // AppendEvent/getOrCreateThread's project->user resolution (Slice 2/5c's

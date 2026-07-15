@@ -67,6 +67,9 @@ type fakeAgentStore struct {
 	recordLLMCallCalls int
 	lastLLMCall        LLMCallRow
 
+	insertReviewInterventionCalls int
+	lastReviewIntervention        ReviewInterventionRow
+
 	// sourceLogs backs GetSourceLogByMaterial and is mutated in-memory by
 	// CommitCardMint's LateralRead handling below — a fake that no-opped the
 	// write would let a test assert a re-tier "succeeded" while reading back
@@ -270,6 +273,12 @@ func (f *fakeAgentStore) InsertDisposition(_ context.Context, interventionID uui
 	f.lastDisposition.Action = action
 	f.lastDisposition.Reason = reason
 	return uuid.New(), nil
+}
+
+func (f *fakeAgentStore) InsertReviewIntervention(_ context.Context, row ReviewInterventionRow) error {
+	f.insertReviewInterventionCalls++
+	f.lastReviewIntervention = row
+	return nil
 }
 
 func (f *fakeAgentStore) ListGateStates(context.Context, uuid.UUID) (map[string]RecordedGate, error) {

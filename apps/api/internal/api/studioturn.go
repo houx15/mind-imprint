@@ -72,6 +72,41 @@ func (e *studioEmitter) Card(cardInstanceID, cardID, nudgeText string, anchors [
 	return e.sse.Card(cardInstanceID, cardID, nudgeText, anchors, materialID)
 }
 
+// Review streams the whole-draft review's work-order as one batch event
+// (Task 6, orderReview).
+func (e *studioEmitter) Review(items []byte) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.sse.Review(items)
+}
+
+// startHeartbeat starts the heartbeat goroutine shared by every Studio SSE
+// endpoint (postProjectTurn, orderReview): a 15s-cadence ping until the
+// caller closes stop or the request context is done, so a heartbeat write
+// can never outlive the handler (the ResponseWriter is invalid once
+// ServeHTTP returns). The caller must always `close(stop); <-hbDone` in a
+// defer, in that order, before returning.
+func startHeartbeat(ctx context.Context, em *studioEmitter) (stop chan struct{}, hbDone chan struct{}) {
+	stop = make(chan struct{})
+	hbDone = make(chan struct{})
+	go func() {
+		defer close(hbDone)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_ = em.Heartbeat()
+			}
+		}
+	}()
+	return stop, hbDone
+}
+
 // studioSimilarity is the Studio turn endpoint's enforcement.Similarity seam:
 // a keyless, offline lexical-overlap heuristic (no embedding call, no key, no
 // network). A real embedding-backed Similarity is a separate, later task once
@@ -127,27 +162,8 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	em := &studioEmitter{sse: sse}
 
-	// Heartbeat until the turn returns or the client disconnects — clones
-	// turn.go's shape (postTurn) exactly: same 15s cadence, same
-	// stop/hbDone handshake so a heartbeat write can never outlive the
-	// handler (the ResponseWriter is invalid once ServeHTTP returns).
-	stop := make(chan struct{})
-	hbDone := make(chan struct{})
-	go func() {
-		defer close(hbDone)
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-r.Context().Done():
-				return
-			case <-ticker.C:
-				_ = em.Heartbeat()
-			}
-		}
-	}()
+	// Heartbeat until the turn returns or the client disconnects.
+	stop, hbDone := startHeartbeat(r.Context(), em)
 	defer func() {
 		close(stop)
 		<-hbDone
