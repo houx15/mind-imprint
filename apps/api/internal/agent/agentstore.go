@@ -209,12 +209,20 @@ func (s *sqlcAgentStore) LoadChatHistory(ctx context.Context, projectID uuid.UUI
 // task_id straight through (NULL stays NULL), keeping the pure agent code
 // (card_lifecycle.go) ignorant of tasks either way.
 func (s *sqlcAgentStore) CreateCardInstance(ctx context.Context, projectID, materialID uuid.UUID, cardID, contractRef string) (CardInstanceRow, error) {
-	mat, err := s.q.GetMaterial(ctx, materialID)
-	if err != nil {
-		return CardInstanceRow{}, err
+	// A project-scoped card (materialID == uuid.Nil, e.g. toulmin) is not about
+	// any one material, so there is no material row to inherit a task_id from —
+	// it simply carries a NULL task_id. Only look a material up when there is one
+	// (GetMaterial(uuid.Nil) would error with no rows).
+	var taskID pgtype.UUID
+	if materialID != uuid.Nil {
+		mat, err := s.q.GetMaterial(ctx, materialID)
+		if err != nil {
+			return CardInstanceRow{}, err
+		}
+		taskID = mat.TaskID
 	}
 	row, err := s.q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
-		TaskID:      mat.TaskID,
+		TaskID:      taskID,
 		ProjectID:   pgtype.UUID{Bytes: projectID, Valid: true},
 		CardID:      cardID,
 		ContractRef: &contractRef,

@@ -28,21 +28,31 @@ func SurfaceCard(ctx context.Context, deps AgentDeps, projectID uuid.UUID, spec 
 		return nil, err
 	}
 
-	edge := MintEdge{
-		Type:     "evaluates",
-		FromKind: "card_instance",
-		FromID:   row.ID.String(),
-		ToKind:   "material",
-		ToID:     materialID.String(),
-	}
-	if err := deps.Store.InsertGraphEdge(ctx, projectID, edge); err != nil {
-		return nil, err
+	// A project-scoped card (materialID == uuid.Nil, e.g. toulmin) is ABOUT the
+	// whole project, not one source: there is no material to point an
+	// `evaluates` edge at, so skip the edge entirely. The frame the client sees
+	// must carry the EMPTY string as material_id — never uuid.Nil.String() (the
+	// all-zeros uuid), which would read as a real, missing material — so the
+	// client knows this card has no material.
+	materialRef := ""
+	if materialID != uuid.Nil {
+		materialRef = materialID.String()
+		edge := MintEdge{
+			Type:     "evaluates",
+			FromKind: "card_instance",
+			FromID:   row.ID.String(),
+			ToKind:   "material",
+			ToID:     materialRef,
+		}
+		if err := deps.Store.InsertGraphEdge(ctx, projectID, edge); err != nil {
+			return nil, err
+		}
 	}
 
 	eventPayload, err := json.Marshal(map[string]any{
 		"card_instance_id": row.ID.String(),
 		"card_id":          spec.ID,
-		"material_id":      materialID.String(),
+		"material_id":      materialRef,
 	})
 	if err != nil {
 		return nil, err
@@ -56,7 +66,7 @@ func SurfaceCard(ctx context.Context, deps AgentDeps, projectID uuid.UUID, spec 
 		return nil, err
 	}
 
-	return &Action{Kind: "surface_card", CardInstanceID: row.ID.String(), CardID: spec.ID, MaterialID: materialID.String()}, nil
+	return &Action{Kind: "surface_card", CardInstanceID: row.ID.String(), CardID: spec.ID, MaterialID: materialRef}, nil
 }
 
 // CompleteCard runs EvaluateCompletion (card_completion.go) over

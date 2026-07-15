@@ -17,6 +17,7 @@ import (
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -313,4 +314,224 @@ func TestRefactor2CardsLoop_CreateCardInstanceOnTasklessMaterial(t *testing.T) {
 	if got.TaskID.Valid {
 		t.Fatalf("card_instances.task_id = %+v, want NULL (inherited from the taskless material)", got.TaskID)
 	}
+}
+
+// TestRefactor2CardsLoop_ToulminBuildsArgument is Slice 7's load-bearing
+// end-to-end pass: it crosses the exact summon→submit→mint→gate seam the
+// previous slice shipped broken. A project seeded at S4 (a source evaluated,
+// no argument started) must surface the PROJECT-scoped toulmin card
+// (materialID == "" — never the zero uuid, never an error), accept a complete
+// argument-graph submit, mint the five Toulmin nodes plus a supports and a
+// cites edge, and drive the build_argument gate's machine tier to clear.
+//
+// The precondition is seeded at the graph level rather than by running real
+// CRAAP/SIFT cards on purpose: a real CRAAP mint would leave an orphan
+// evidence node that both (a) makes the evidence-node count 2, not 1, and (b)
+// keeps build_argument's no_orphan_evidence failing — neither reflects the
+// seam under test. So the seed writes only the two edges the classifier reads
+// to conclude "this source is spoken for by both CRAAP and SIFT, and no
+// argument exists yet": an `evaluated-as` edge (so CRAAP does not re-surface
+// and the toulmin trigger sees an evaluated source) and a `cross-checked-by`
+// edge (so SIFT does not re-surface and preempt toulmin as cands[0]). graph_edge
+// has no FK to graph_node, so their targets are intentionally dangling — the
+// toulmin-minted subgraph is the only thing the gate assertions inspect.
+func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: seededStudentID, Title: "refactor2-toulmin"})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: seededStudentID, Qualification: "EE", Title: "中国是否让地球变得更可持续？", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	material, err := q.CreateProjectMaterial(ctx, sqlc.CreateProjectMaterialParams{
+		TaskID:    pgtype.UUID{Bytes: task.ID, Valid: true},
+		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
+		Kind:      "article",
+		Source:    "fetched",
+		Title:     "NASA: China's renewable build-out",
+		Blocks:    []byte(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectMaterial: %v", err)
+	}
+
+	// Seed S4 precondition: the source is evaluated (CRAAP done) AND already
+	// cross-checked (SIFT done), so neither re-surfaces and toulmin is the sole
+	// candidate. Targets are dangling by design (see the doc comment above).
+	if err := store.InsertGraphEdge(ctx, project.ID, agent.MintEdge{
+		Type: "evaluated-as", FromKind: "material", FromID: material.ID.String(),
+		ToKind: "graph_node", ToID: uuid.NewString(),
+	}); err != nil {
+		t.Fatalf("seed evaluated-as edge: %v", err)
+	}
+	if err := store.InsertGraphEdge(ctx, project.ID, agent.MintEdge{
+		Type: "cross-checked-by", FromKind: "material", FromID: material.ID.String(),
+		ToKind: "graph_node", ToID: uuid.NewString(),
+	}); err != nil {
+		t.Fatalf("seed cross-checked-by edge: %v", err)
+	}
+
+	// Sanity: build_argument's machine tier is NOT yet clear (no concession node).
+	sk, ok := skills.ByID("writing-project")
+	if !ok {
+		t.Fatal("skills.ByID(writing-project) not found")
+	}
+	if before := agent.CheckGate(sk, "build_argument", loadGraphView(ctx, t, q, project.ID), agent.RecordedGate{}); before.Status == "machine_clear" {
+		t.Fatalf("build_argument should not be machine_clear before the mint, got %q", before.Status)
+	}
+
+	// Act 1 — Summon: RunAgentStep must surface toulmin, project-scoped, with
+	// an EMPTY MaterialID (the whole point: not the zero uuid, not an error).
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "should never be called"},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	deps := agent.AgentDeps{Store: store, Provider: prov, Resolved: gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "coach"}}
+
+	action, err := agent.RunAgentStep(ctx, deps, project.ID, agent.Trigger{Kind: "T-B"})
+	if err != nil {
+		t.Fatalf("RunAgentStep: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" {
+		t.Fatalf("want a surface_card action, got %+v", action)
+	}
+	if action.CardID != "toulmin" {
+		t.Fatalf("surfaced card = %q, want toulmin (CRAAP/SIFT suppressed, toulmin is cands[0])", action.CardID)
+	}
+	if action.MaterialID != "" {
+		t.Fatalf("toulmin MaterialID = %q, want empty (project-scoped)", action.MaterialID)
+	}
+	cardInstanceID, err := uuid.Parse(action.CardInstanceID)
+	if err != nil {
+		t.Fatalf("parse CardInstanceID: %v", err)
+	}
+
+	// Surfacing a project-scoped card mints NO evaluates edge — only the two
+	// seed edges exist.
+	edges, err := q.ListGraphEdgesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphEdgesByProject: %v", err)
+	}
+	for _, e := range edges {
+		if e.Type == "evaluates" {
+			t.Fatalf("project-scoped toulmin must not mint an evaluates edge, got %+v", e)
+		}
+	}
+
+	// Act 2 — Submit: a COMPLETE Toulmin graph. Each slot gets a text anchor
+	// (≥12 runes); the three needSrc slots (warrant/evidence/concession) also
+	// get a source anchor citing the real seeded material.
+	matID := material.ID.String()
+	anchors := []agent.Anchor{
+		{ID: "s-claim", Dimension: "claim", Author: "student", Answer: "中国的可再生能源建设正在让地球变得更可持续"},
+		{ID: "s-warrant-t", Dimension: "warrant", Author: "student", Answer: "大规模光伏与风电的装机数据能直接支撑这一主张"},
+		{ID: "s-warrant-src", Dimension: "warrant", Author: "student", MaterialID: matID},
+		{ID: "s-evidence-t", Dimension: "evidence", Author: "student", Answer: "NASA地球观测数据显示中国绿化与减排的成效显著"},
+		{ID: "s-evidence-src", Dimension: "evidence", Author: "student", MaterialID: matID},
+		{ID: "s-counter", Dimension: "counter", Author: "student", Answer: "反方指出中国仍是全球最大的碳排放国这一硬事实"},
+		{ID: "s-concession-t", Dimension: "concession", Author: "student", Answer: "承认碳排放总量第一但人均与增速指标正在快速改善"},
+		{ID: "s-concession-src", Dimension: "concession", Author: "student", MaterialID: matID},
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	if _, err := q.SetCardInstanceAnchors(ctx, sqlc.SetCardInstanceAnchorsParams{
+		ID:        cardInstanceID,
+		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
+		Anchors:   anchorsJSON,
+	}); err != nil {
+		t.Fatalf("SetCardInstanceAnchors: %v", err)
+	}
+
+	spec, ok := cards.ByID("toulmin")
+	if !ok {
+		t.Fatal("cards.ByID(toulmin) not found — Task 1's registry config is missing")
+	}
+	complete, err := agent.CompleteCard(ctx, deps, spec, cardInstanceID)
+	if err != nil {
+		t.Fatalf("CompleteCard: %v", err)
+	}
+	if !complete {
+		t.Fatal("want complete = true for a full Toulmin graph")
+	}
+
+	// Assert the mint: exactly one node per slot, all authored by the student.
+	nodes, err := q.ListGraphNodesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject: %v", err)
+	}
+	byType := map[string][]sqlc.GraphNode{}
+	for _, n := range nodes {
+		byType[n.Type] = append(byType[n.Type], n)
+	}
+	for _, typ := range []string{"claim", "warrant", "evidence", "counter", "concession"} {
+		if len(byType[typ]) != 1 {
+			t.Fatalf("node %s count = %d, want 1", typ, len(byType[typ]))
+		}
+		if byType[typ][0].Author != "student" {
+			t.Fatalf("node %s author = %q, want student", typ, byType[typ][0].Author)
+		}
+	}
+
+	// supports: evidence -> claim.
+	claimID := byType["claim"][0].ID
+	evidenceID := byType["evidence"][0].ID
+	edges, err = q.ListGraphEdgesByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListGraphEdgesByProject: %v", err)
+	}
+	supports, cites := 0, 0
+	for _, e := range edges {
+		if e.Type == "supports" && e.FromKind == "graph_node" && e.FromID == evidenceID && e.ToKind == "graph_node" && e.ToID == claimID {
+			supports++
+		}
+		if e.Type == "cites" && e.FromKind == "graph_node" && e.ToKind == "material" && e.ToID == material.ID {
+			cites++
+		}
+	}
+	if supports != 1 {
+		t.Fatalf("want 1 supports edge evidence->claim, got %d among %+v", supports, edges)
+	}
+	if cites == 0 {
+		t.Fatalf("want ≥1 cites edge to the seeded material, got 0 among %+v", edges)
+	}
+
+	// Assert the gate: build_argument's machine tier now clears (no orphan
+	// evidence, claim supported, concession present). DEC-3 caps the machine
+	// Status at "machine_clear"; a "solid"/"done" station additionally needs an
+	// external confirmation (Advance + recorded student_written items) this mint
+	// does not — and must not — write.
+	after := agent.CheckGate(sk, "build_argument", loadGraphView(ctx, t, q, project.ID), agent.RecordedGate{})
+	if after.Status != "machine_clear" {
+		t.Fatalf("build_argument gate = %q after the mint, want machine_clear (missing: %v)", after.Status, after.Missing)
+	}
+}
+
+// loadGraphView reconstructs the project's GraphView from its persisted rows
+// for a gate reconciliation — the same nodes/edges/cards the studio projection
+// reads. Materials are omitted: build_argument's machine predicates read only
+// nodes and edges.
+func loadGraphView(ctx context.Context, t *testing.T, q *sqlc.Queries, projectID uuid.UUID) agent.GraphView {
+	t.Helper()
+	nodes, err := q.ListGraphNodesByProject(ctx, projectID)
+	if err != nil {
+		t.Fatalf("ListGraphNodesByProject: %v", err)
+	}
+	edges, err := q.ListGraphEdgesByProject(ctx, projectID)
+	if err != nil {
+		t.Fatalf("ListGraphEdgesByProject: %v", err)
+	}
+	return agent.GraphViewFromRows(nodes, edges, nil, nil)
 }

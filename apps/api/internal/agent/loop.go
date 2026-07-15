@@ -245,9 +245,18 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 			slog.Warn("agent: surface_card candidate names an unknown card", "project_id", projectID.String(), "card_id", c.CardID)
 			return nil, nil
 		}
-		materialID, err := uuid.Parse(c.AnchorID)
-		if err != nil {
-			return nil, err
+		// A project-scoped candidate (AnchorKind "project", e.g. toulmin) is not
+		// about any one material — its AnchorID is empty by design. Parsing that
+		// empty string as a uuid would hard-error ("invalid UUID length: 0"), so
+		// branch: pass uuid.Nil straight through and let SurfaceCard skip the
+		// material wiring. Every other candidate carries a real material id.
+		materialID := uuid.Nil
+		if c.AnchorKind != "project" {
+			var err error
+			materialID, err = uuid.Parse(c.AnchorID)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return SurfaceCard(ctx, deps, projectID, spec, materialID)
 	}
