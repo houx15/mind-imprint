@@ -12,10 +12,10 @@ import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCo
 import { listProjects, getProject, type ProjectListItem } from "./projects";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
-import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult } from "./writing";
+import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -51,7 +51,7 @@ export interface ApiClient {
   logSourceOpen(projectId: string, materialId: string, timeSpentS: number): Promise<void>;
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
-  orderReview(projectId: string, snapshotId: string): AsyncGenerator<StudioTurnEvent>;
+  orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
 }

@@ -1582,9 +1582,11 @@ describe("StudioContainer", () => {
 
   function writingProjection(writing: {
     buffer: string;
-    latestSnapshot: { id: string; seq: number; committedAt: string; wordCount: number; inBand: boolean } | null;
+    latestSnapshot:
+      | { id: string; seq: number; committedAt: string; wordCount: number; inBand: boolean; budget: { state: "in" | "over" | "under"; delta: number } }
+      | null;
     citationsMatched?: boolean;
-    review?: { ordered: boolean; items: unknown[] };
+    review?: { items: unknown[] };
   }) {
     return {
       ...projection,
@@ -1595,7 +1597,7 @@ describe("StudioContainer", () => {
         latestSnapshot: writing.latestSnapshot,
         wordBudget: { min: 300, max: 500 },
         citationsMatched: writing.citationsMatched ?? false,
-        review: writing.review ?? { ordered: false, items: [] },
+        review: writing.review ?? { items: [] },
       },
     };
   }
@@ -1632,7 +1634,7 @@ describe("StudioContainer", () => {
         getProjectCalls += 1;
         return writingProjection({
           buffer: "定稿正文。",
-          latestSnapshot: getProjectCalls === 1 ? null : { id: "s2", seq: 2, committedAt: "2026-07-15T00:00:00Z", wordCount: 12, inBand: true },
+          latestSnapshot: getProjectCalls === 1 ? null : { id: "s2", seq: 2, committedAt: "2026-07-15T00:00:00Z", wordCount: 12, inBand: true, budget: { state: "in" as const, delta: 0 } },
         });
       },
       commitSnapshot,
@@ -1695,10 +1697,11 @@ describe("StudioContainer", () => {
     evidence: "第 2 段接住了反方，但跳步没补上。",
     missing: "「可持续」的定义还没写出来。",
     fix: "补上「可持续」的定义",
+    voice: "board" as const,
     disposition: null,
   };
 
-  it("orders 整稿体检 via api.orderReview(projectId, snapshotId) then refetches so the work order renders", async () => {
+  it("orders 整稿体检 via api.orderReview(projectId, snapshotId, voice) then refetches so the work order renders", async () => {
     let getProjectCalls = 0;
     const orderReview = vi.fn(async function* () {
       yield { type: "done" as const };
@@ -1709,8 +1712,8 @@ describe("StudioContainer", () => {
         getProjectCalls += 1;
         return writingProjection({
           buffer: "定稿正文。",
-          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
-          review: getProjectCalls === 1 ? { ordered: false, items: [] } : { ordered: true, items: [reviewItem] },
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true, budget: { state: "in", delta: 0 } },
+          review: getProjectCalls === 1 ? { items: [] } : { items: [reviewItem] },
         });
       },
       orderReview,
@@ -1720,10 +1723,38 @@ describe("StudioContainer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /整稿体检/ }));
 
-    expect(orderReview).toHaveBeenCalledWith("p1", "snap-1");
+    // Default voice pill is 考官/board — no pill click in this test.
+    expect(orderReview).toHaveBeenCalledWith("p1", "snap-1", "board");
     await waitFor(() => expect(getProjectCalls).toBe(2));
     fireEvent.click(screen.getByText("预览 · 批注"));
     await waitFor(() => expect(screen.getByText("表E 分析")).toBeInTheDocument());
+  });
+
+  it("passes the chosen voice through to api.orderReview", async () => {
+    let getProjectCalls = 0;
+    const orderReview = vi.fn(async function* () {
+      yield { type: "done" as const };
+    });
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return writingProjection({
+          buffer: "定稿正文。",
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true, budget: { state: "in", delta: 0 } },
+          review: { items: [] },
+        });
+      },
+      orderReview,
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByDisplayValue("定稿正文。");
+
+    fireEvent.click(screen.getByText("怀疑"));
+    fireEvent.click(screen.getByRole("button", { name: /整稿体检/ }));
+
+    expect(orderReview).toHaveBeenCalledWith(expect.any(String), expect.any(String), "sceptic");
+    await waitFor(() => expect(getProjectCalls).toBe(2));
   });
 
   it("records a review item's disposition via api.postDisposition then refetches", async () => {
@@ -1735,8 +1766,8 @@ describe("StudioContainer", () => {
         getProjectCalls += 1;
         return writingProjection({
           buffer: "定稿正文。",
-          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
-          review: { ordered: true, items: [reviewItem] },
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true, budget: { state: "in", delta: 0 } },
+          review: { items: [reviewItem] },
         });
       },
       postDisposition,
@@ -1768,8 +1799,8 @@ describe("StudioContainer", () => {
         getProjectCalls += 1;
         return writingProjection({
           buffer: "定稿正文。",
-          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
-          review: { ordered: true, items: [reviewItem] },
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true, budget: { state: "in", delta: 0 } },
+          review: { items: [reviewItem] },
         });
       },
       attestGate,

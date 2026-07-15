@@ -377,10 +377,10 @@ export function StudioContainer({
     // refetched, so this drains the generator purely to know when the
     // review is done (and to surface a review_rejected error, if any)
     // before refetching.
-    onOrderReview: (snapshotId) => {
+    onOrderReview: (snapshotId, voice) => {
       if (!projectId) return;
       (async () => {
-        for await (const ev of api.orderReview(projectId, snapshotId)) {
+        for await (const ev of api.orderReview(projectId, snapshotId, voice)) {
           if (ev.type === "error") setSyncError(ev.message || "体检失败，请重试。");
         }
         await refetchProject();

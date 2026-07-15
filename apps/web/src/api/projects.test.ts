@@ -31,7 +31,7 @@ const sample = {
     latestSnapshot: null,
     wordBudget: { min: 300, max: 500 },
     citationsMatched: false,
-    review: { ordered: false, items: [] },
+    review: { items: [] },
   },
 };
 

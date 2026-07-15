@@ -4,6 +4,7 @@ import type {
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
+import type { ReviewVoice } from "../api/writing";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem };
 
@@ -65,7 +66,7 @@ export type StudioCallbacks = {
   // committed snapshot, record a three-key disposition on one review item,
   // and attest the student-written citations_matched gate item. Optional for
   // the same reason as the rest of this group.
-  onOrderReview?: (snapshotId: string) => void;
+  onOrderReview?: (snapshotId: string, voice: ReviewVoice) => void;
   onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
   onAttestCitations?: (confirmed: boolean) => void;
 };

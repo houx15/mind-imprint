@@ -3,6 +3,7 @@ import type { Anchor, AnnotateState, CardInstance, CompareState, MaterialSource,
 import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
+import type { ReviewVoice } from "../api/writing";
 import { SourceDossier, anchorToSpan } from "./material/SourceDossier";
 import { AddSourceForm } from "./material/AddSourceForm";
 import { Compare } from "../primitives/compare";
@@ -46,7 +47,7 @@ export type ViewFrameProps = {
   writing?: {
     onBufferChange?: (text: string) => void;
     onCommit?: (text: string) => void;
-    onOrderReview?: (snapshotId: string) => void;
+    onOrderReview?: (snapshotId: string, voice: ReviewVoice) => void;
     onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
     onAttestCitations?: (confirmed: boolean) => void;
   };
