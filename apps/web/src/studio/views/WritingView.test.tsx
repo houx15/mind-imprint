@@ -240,3 +240,28 @@ test("over-budget preview shows the deletion note", () => {
   fireEvent.click(screen.getByText("预览 · 批注"));
   expect(screen.getByText(/删减决策按「这段在向哪张表交证据」来做/)).toBeInTheDocument();
 });
+
+test("snapshotMeta shows the under-budget clause", () => {
+  const underSnap = {
+    id: "s2",
+    seq: 4,
+    committedAt: "2026-07-15T00:00:00Z",
+    wordCount: 1290,
+    inBand: false,
+    budget: { state: "under" as const, delta: 210 },
+  };
+  render(<WritingView {...(base as any)} latestSnapshot={underSnap} />);
+  expect(screen.getByText(/还差 210 字/)).toBeInTheDocument();
+});
+
+test("cached-voice pill shows the cached marker only on the cached, non-selected voice", () => {
+  const items = [
+    { interventionId: "s1", criterion: "表E 分析", band: "5–6 段", evidence: "sceptic-ev", missing: "", fix: "", voice: "sceptic", disposition: null },
+  ];
+  render(<WritingView {...(base as any)} review={{ items }} />);
+  // default selected voice is "board" — the sceptic pill is cached but not
+  // selected, so it should carry the " ·" marker (WritingView.tsx:415).
+  expect(screen.getByText("怀疑 ·")).toBeInTheDocument();
+  // layperson has no items in this fixture, so no marker on its pill.
+  expect(screen.getByText("外行")).toBeInTheDocument();
+});
