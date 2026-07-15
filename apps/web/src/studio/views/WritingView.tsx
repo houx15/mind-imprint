@@ -5,7 +5,10 @@ import type { WritingProjection, WritingReviewItem } from "../state";
 // (review/disposition/citations attest) produce.
 export type WritingViewProps = WritingProjection & {
   onBufferChange?: (text: string) => void;
-  onCommit?: (text: string) => void;
+  // May be async (StudioContainer's onCommit is commitSnapshot → refetch) —
+  // the view awaits it (spec §7: committing switches to preview, but only
+  // once the commit has actually landed).
+  onCommit?: (text: string) => void | Promise<void>;
   // Task 10: triggers 整稿体检 over the given committed snapshot.
   onOrderReview?: (snapshotId: string) => void;
   // Task 10: the three-key disposition on one review-item intervention.
@@ -336,6 +339,21 @@ export function WritingView({
 }: WritingViewProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const isEdit = mode === "edit";
+
+  // spec §7: committing a snapshot switches the view to preview — but only
+  // once the commit has actually succeeded. onCommit may be async
+  // (StudioContainer's onCommit is commitSnapshot → refetch); awaiting it
+  // here means a failed commit (which StudioContainer surfaces as its own
+  // sync-error banner and rethrows) leaves the view on 编辑 · 安静 instead of
+  // switching to a preview of a draft that was never actually captured.
+  async function handleCommit(text: string) {
+    try {
+      await onCommit?.(text);
+    } catch {
+      return;
+    }
+    setMode("preview");
+  }
   const snapshotMeta = latestSnapshot
     ? `第 ${latestSnapshot.seq} 版快照 · ${monthDayOf(latestSnapshot.committedAt)} 提交 · 只读`
     : "还没有提交过快照";
@@ -384,7 +402,7 @@ export function WritingView({
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 30px 40px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           {isEdit ? (
-            <EditPane buffer={buffer} onBufferChange={onBufferChange} onCommit={onCommit} />
+            <EditPane buffer={buffer} onBufferChange={onBufferChange} onCommit={handleCommit} />
           ) : (
             <PreviewPane
               buffer={buffer}

@@ -222,6 +222,20 @@ func countReviewItems(t *testing.T, pool *pgxpool.Pool, projectID string) int {
 	return n
 }
 
+// countLLMCalls counts the project's metered llm_call rows (same query
+// studioturn_test.go's TestProjectTurn_PersistsAnchorsUsage uses) — the
+// idempotent-replay test asserts this does NOT move on a second order, and
+// the rejected-proposal test asserts it DOES move by exactly one (a rejected
+// call still cost money).
+func countLLMCalls(t *testing.T, pool *pgxpool.Pool, projectID string) int {
+	t.Helper()
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(mustUUID(projectID)))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	return len(calls)
+}
+
 // TestOrderReview_PersistsWorkOrderAndIsIdempotent — Task 6: ordering a
 // review over a committed snapshot streams the work-order over SSE,
 // persists each item as a review_item intervention anchored to the
@@ -277,6 +291,7 @@ func TestOrderReview_PersistsWorkOrderAndIsIdempotent(t *testing.T) {
 	if n := countReviewItems(t, pool, projectID); n != 1 {
 		t.Fatalf("review_item interventions = %d, want 1", n)
 	}
+	callsAfterFirst := countLLMCalls(t, pool, projectID)
 
 	// Second review on the SAME snapshot returns the SAME rows, no new
 	// model call (the stub would still satisfy a second call, so what this
@@ -296,6 +311,11 @@ func TestOrderReview_PersistsWorkOrderAndIsIdempotent(t *testing.T) {
 	}
 	if n := countReviewItems(t, pool, projectID); n != 1 {
 		t.Fatalf("after 2nd review, review_item interventions = %d, want 1 (idempotent)", n)
+	}
+	// The replay must not have made a second model call — llm_call row
+	// count must be unchanged from after the first (real) review.
+	if n := countLLMCalls(t, pool, projectID); n != callsAfterFirst {
+		t.Fatalf("llm_call rows after 2nd (replayed) review = %d, want %d (no second model call)", n, callsAfterFirst)
 	}
 
 	// Ordering the review recorded the S5 human gate item.
@@ -349,6 +369,11 @@ func TestOrderReview_RejectedProposalPersistsNothing(t *testing.T) {
 	}
 	if n := countReviewItems(t, pool, projectID); n != 0 {
 		t.Fatalf("rejected proposal persisted %d review_item interventions, want 0", n)
+	}
+	// A rejected proposal still cost money — the llm_call row must exist
+	// even though nothing was persisted as advice.
+	if n := countLLMCalls(t, pool, projectID); n != 1 {
+		t.Fatalf("llm_call rows after rejected review = %d, want 1 (cost-on-rejection)", n)
 	}
 }
 

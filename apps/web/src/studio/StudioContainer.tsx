@@ -347,14 +347,27 @@ export function StudioContainer({
         });
       }, 600);
     },
-    onCommit: (text) => {
+    onCommit: async (text) => {
       if (!projectId) return;
-      api
-        .commitSnapshot(projectId, text)
-        .then(() => refetchProject())
-        .catch(() => {
-          setSyncError("提交失败，请重试。");
-        });
+      // WritingView awaits this to know whether to switch to preview (spec
+      // §7) — must return (not fire-and-forget) the promise, and rethrow
+      // after surfacing the error so a failed commit does NOT flip the view
+      // to a preview of a draft that was never actually captured.
+      try {
+        await api.commitSnapshot(projectId, text);
+      } catch (err) {
+        setSyncError("提交失败，请重试。");
+        throw err;
+      }
+      // The commit itself succeeded — a refetch hiccup from here is display
+      // staleness, not a failed commit (same split as onAddSource above): it
+      // gets the generic sync-error banner and does NOT block the view from
+      // switching to preview.
+      try {
+        await refetchProject();
+      } catch {
+        setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+      }
     },
     // Slice 8 Task 10: 整稿体检 — orderReview is a plain SSE generator (no
     // conversation controller involved, unlike submitCard/skipCard above).

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { WritingView } from "./WritingView";
 import type { WritingProjection, WritingReviewItem } from "../state";
 
@@ -26,11 +26,29 @@ describe("WritingView (写作/S5 live)", () => {
     expect(screen.getByText(/想听意见，点「整稿体检」/)).toBeInTheDocument();
   });
 
-  it("commits the current buffer via onCommit", () => {
-    const onCommit = vi.fn();
+  it("commits the current buffer via onCommit and switches to preview once the commit succeeds (spec §7)", async () => {
+    const onCommit = vi.fn().mockResolvedValue(undefined);
     render(<WritingView {...baseProjection} onCommit={onCommit} />);
     fireEvent.click(screen.getByRole("button", { name: /提交快照/ }));
     expect(onCommit).toHaveBeenCalledWith(baseProjection.buffer);
+
+    // The textarea (edit mode) disappears and preview's own not-yet-reviewed
+    // placeholder appears — the view switched to 预览 · 批注 on its own,
+    // without the student having to click the tab.
+    expect(await screen.findByText(/还没做体检/)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("does not switch to preview when onCommit rejects (a failed commit must not be shown as captured)", async () => {
+    const onCommit = vi.fn().mockRejectedValue(new Error("commit blew up"));
+    render(<WritingView {...baseProjection} onCommit={onCommit} />);
+    fireEvent.click(screen.getByRole("button", { name: /提交快照/ }));
+    expect(onCommit).toHaveBeenCalledWith(baseProjection.buffer);
+
+    // Let the rejected promise settle, then confirm the view stayed on
+    // 编辑 · 安静 — the textarea is still here, not the preview pane.
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
   it("shows the not-yet-committed snapshotMeta and a disabled 整稿体检 button when there is no snapshot yet", () => {

@@ -351,36 +351,45 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 		persisted = append(persisted, it)
 	}
 
-	// Ordering a review satisfies the S5 HUMAN gate item whole_draft_review.
-	// Like citations_matched (attestGate), nothing else records a human item
-	// as solid, so do it here (best-effort — never fails the stream). Guard
-	// on the item actually being in draft_polish's Gate.Human.
-	if c, ok := sk.Contracts["draft_polish"]; ok {
-		for _, hi := range c.Gate.Human {
-			if hi == "whole_draft_review" {
-				recorded, gerr := store.ListGateStates(r.Context(), projectID)
-				if gerr != nil {
-					slog.Warn("order_review: list gate states", "err", gerr)
+	// Ordering a review satisfies the S5 HUMAN gate item whole_draft_review —
+	// but only if at least one item actually persisted. If every insert above
+	// failed, `persisted` is empty: the gate must NOT be marked solid (the
+	// gate and the UI would otherwise disagree — solid gate, zero visible
+	// review items) and the review_ordered event must NOT fire (so the next
+	// order attempt still sees existing==0 above and re-runs the review
+	// instead of silently no-op'ing forever on a phantom "already ordered"
+	// event with nothing to show for it). Like citations_matched (attestGate),
+	// nothing else records a human item as solid, so do it here (best-effort
+	// — never fails the stream). Guard on the item actually being in
+	// draft_polish's Gate.Human.
+	if len(persisted) > 0 {
+		if c, ok := sk.Contracts["draft_polish"]; ok {
+			for _, hi := range c.Gate.Human {
+				if hi == "whole_draft_review" {
+					recorded, gerr := store.ListGateStates(r.Context(), projectID)
+					if gerr != nil {
+						slog.Warn("order_review: list gate states", "err", gerr)
+						break
+					}
+					rec := recorded["draft_polish"]
+					if rec.Items == nil {
+						rec.Items = map[string]string{}
+					}
+					rec.Items["whole_draft_review"] = "solid"
+					if err := store.UpsertGateState(r.Context(), projectID, "draft_polish", rec); err != nil {
+						slog.Warn("order_review: record whole_draft_review", "err", err)
+					}
 					break
 				}
-				rec := recorded["draft_polish"]
-				if rec.Items == nil {
-					rec.Items = map[string]string{}
-				}
-				rec.Items["whole_draft_review"] = "solid"
-				if err := store.UpsertGateState(r.Context(), projectID, "draft_polish", rec); err != nil {
-					slog.Warn("order_review: record whole_draft_review", "err", err)
-				}
-				break
 			}
 		}
-	}
 
-	if err := store.AppendEvent(r.Context(), agent.EventRow{
-		ProjectID: projectID, Surface: "studio", Type: "review_ordered",
-		Payload: mustJSON(map[string]any{"snapshot_id": sid.String(), "items": len(persisted)}),
-	}); err != nil {
-		slog.Warn("order_review: append event", "err", err)
+		if err := store.AppendEvent(r.Context(), agent.EventRow{
+			ProjectID: projectID, Surface: "studio", Type: "review_ordered",
+			Payload: mustJSON(map[string]any{"snapshot_id": sid.String(), "items": len(persisted)}),
+		}); err != nil {
+			slog.Warn("order_review: append event", "err", err)
+		}
 	}
 	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
 		slog.Warn("order_review: touch project", "err", err)
