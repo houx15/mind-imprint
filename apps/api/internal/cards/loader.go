@@ -50,6 +50,22 @@ type Params struct {
 	// material than the card's own (SIFT's lateral source). Empty for every
 	// single-material card, which is all of them except compare cards.
 	LateralDimension string `json:"lateral_dimension"`
+
+	// Slots is the graph primitive's typed-slot config (Slice 7 Toulmin card):
+	// one entry per argument role the student authors. Empty for every
+	// non-graph card.
+	Slots []Slot `json:"slots"`
+}
+
+// Slot is one typed argument role in a graph-primitive card. ID is the node
+// type it mints (claim/warrant/evidence/counter/concession); Role is the
+// verbatim design label; NeedSrc requires ≥1 cited source material; Q is the
+// coach's guiding question for the slot.
+type Slot struct {
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	NeedSrc bool   `json:"needSrc"`
+	Q       string `json:"q"`
 }
 
 // CompletionPredicate is one closed-set completion check (agent-spec §3):

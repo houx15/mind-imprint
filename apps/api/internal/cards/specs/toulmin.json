@@ -1,0 +1,98 @@
+{
+  "id": "toulmin",
+  "category": "论证结构",
+  "name": "论证构建卡（图尔敏）",
+  "name_en": "Toulmin Argument Builder",
+  "purpose": "把论点搭成能立住的结构：主张、理据、证据、反方与让步，一步步写成句子",
+  "trigger_condition": "学生核完来源、要开始把观点搭成完整论证结构时",
+  "trigger_keywords": ["论证", "主张", "理据", "反方", "让步", "搭论证"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "画布导图卡",
+  "rubric_dims": ["D4", "D5", "D7"],
+  "related": ["argument-map", "steelman", "concession"],
+  "body_status": "full",
+  "rubric_tags": ["D4", "D5", "D7"],
+  "primitive": "graph",
+  "target_type": "project",
+  "params": {
+    "slots": [
+      { "id": "claim",      "role": "核心主张",   "needSrc": false, "q": "你要论证的核心判断，用一句话说清。" },
+      { "id": "warrant",    "role": "理据 · 推理", "needSrc": true,  "q": "为什么这些证据能支撑主张？把中间的推理写出来。" },
+      { "id": "evidence",   "role": "支撑证据",   "needSrc": true,  "q": "挑一条证据，用自己的话概括它如何支撑主张。" },
+      { "id": "counter",    "role": "反方 · 钢人", "needSrc": false, "q": "坐到反方席——对方最硬的一张牌是什么？" },
+      { "id": "concession", "role": "让步 · 转折", "needSrc": true,  "q": "承认反方后如何转折？给一条能核查的证据。" }
+    ]
+  },
+  "completion": [
+    { "kind": "graph_slots_complete" }
+  ],
+  "graph_effects": [
+    { "kind": "toulmin" }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I3",
+  "steps": [
+    {
+      "key": "claim",
+      "title": "核心主张",
+      "methodology": {
+        "why": "论证读起来「有道理」常常是结构感骗了你——先把你要证明的那一句话钉死，后面才有靶心。",
+        "how": "用一句话写清你要论证的核心判断，不堆修饰、不留模糊。",
+        "when": "在动手搭论证结构的第一步。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "claim", "label": "你要论证的核心判断，用一句话说清。" }
+      ]
+    },
+    {
+      "key": "warrant",
+      "title": "理据 · 推理",
+      "methodology": {
+        "why": "证据不会自己说话——中间那步「为什么这些证据能支撑主张」如果不写出来，读者就得替你脑补，论证就有跳步。",
+        "how": "把证据到主张之间的推理链条明确写出来，指明它默认了什么前提。",
+        "when": "当你有了证据，却还没说清它凭什么支撑主张时。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "warrant", "label": "为什么这些证据能支撑主张？把中间的推理写出来。" }
+      ]
+    },
+    {
+      "key": "evidence",
+      "title": "支撑证据",
+      "methodology": {
+        "why": "读者没法验证的断言，examiner 会当成未支撑——每个主张都要接到你核过的可信来源上。",
+        "how": "从信源评估里锁定的来源中挑一条，用自己的话概括它如何支撑主张。",
+        "when": "在写完主张、要给它找落脚点时。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "evidence", "label": "挑一条证据，用自己的话概括它如何支撑主张。" }
+      ]
+    },
+    {
+      "key": "counter",
+      "title": "反方 · 钢人",
+      "methodology": {
+        "why": "只说对自己有利的，读者会觉得你没看见反方——论证显得片面。先把反方最强的版本说出来，反而证明你看全了。",
+        "how": "坐到反方席，把对方最硬的那张牌用最强的方式说出来，别打稻草人。",
+        "when": "当你只论证了自己一方、还没认真对待反方时。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "counter", "label": "坐到反方席——对方最硬的一张牌是什么？" }
+      ]
+    },
+    {
+      "key": "concession",
+      "title": "让步 · 转折",
+      "methodology": {
+        "why": "先承认反方最强的事实，再转折反驳，论证从「片面」变「可信」，结论更站得住。",
+        "how": "真诚承认反方那个事实（让步），再给一条能核查的证据说明它为什么不足以推翻你的主张（转折）。",
+        "when": "在写出反方最强点之后，要以退为进时。"
+      },
+      "fields": [
+        { "type": "textarea", "key": "concession", "label": "承认反方后如何转折？给一条能核查的证据。" }
+      ]
+    }
+  ]
+}

@@ -13,8 +13,8 @@ func TestCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Catalog: %v", err)
 	}
-	if len(specs) != 33 {
-		t.Fatalf("catalog has %d specs, want 33", len(specs))
+	if len(specs) != 34 {
+		t.Fatalf("catalog has %d specs, want 34", len(specs))
 	}
 
 	seen := map[string]bool{}
@@ -93,5 +93,28 @@ func TestMirrorMatchesCanonical(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("mirror drift in %s (run `make sync-cards`)", name)
 		}
+	}
+}
+
+func TestToulminSlotsParse(t *testing.T) {
+	spec, ok := ByID("toulmin")
+	if !ok {
+		t.Fatal("toulmin not found")
+	}
+	if spec.Primitive != "graph" {
+		t.Fatalf("primitive = %q, want graph", spec.Primitive)
+	}
+	if got := len(spec.Params.Slots); got != 5 {
+		t.Fatalf("slots = %d, want 5", got)
+	}
+	byID := map[string]Slot{}
+	for _, s := range spec.Params.Slots {
+		byID[s.ID] = s
+	}
+	if !byID["evidence"].NeedSrc || byID["claim"].NeedSrc {
+		t.Fatalf("needSrc wrong: evidence must need a source, claim must not")
+	}
+	if byID["claim"].Role != "核心主张" {
+		t.Fatalf("claim role = %q, want 核心主张", byID["claim"].Role)
 	}
 }
