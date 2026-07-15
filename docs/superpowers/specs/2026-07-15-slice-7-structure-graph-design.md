@@ -115,10 +115,24 @@ GraphEdgeUnit = { id, from, to, type }            // type ∈ {supports, cites}
   completing the evidence slot (the structural fact that evidence backs the
   claim), not free-drawn.
 
-`GraphState` cannot ride in the envelope's `anchors` (each `Anchor` holds a
-single `material_id`; a slot cites a *list* of materials). It rides in the
-envelope's **`field_values`** as the `GraphState` object. This is the one new
-plumbing path relative to CRAAP/SIFT (which are anchor-based) — see §4.
+**Carrier — anchors, no shared-spine signature change.** A slot cites a *list*
+of materials, and each `Anchor` holds a single `material_id`, so a slot is
+serialized to **multiple anchors, all keyed by `dimension: <slotId>`**:
+
+- one **text anchor** per slot: `{dimension: slotId, answer: <sentence>,
+  author: "student", material_id: ""}`;
+- one **source anchor** per selected material on a needSrc slot:
+  `{dimension: slotId, answer: "", author: "student", material_id: <sourceId>}`.
+
+Text vs source anchors never collide (a text anchor has `material_id: ""`; a
+source anchor has `answer: ""`). This reuses the anchor spine wholesale:
+`EvaluateCompletion(spec, anchors)` and `GraphEffects(spec, materialID,
+anchors)` keep their exact signatures — Slice 7 only adds new `switch` cases
+(`graph_slots_complete`, `toulmin`), the same additive move 6c used for
+`lateral_source_present` / `cross_check`. `GraphState` remains the **frontend
+primitive's working type**; the studio card serializes it to anchors on lock
+(exactly as `StudioAnnotateCard.handleLock` builds `[]Anchor` from its state
+today) and rebuilds it from anchors on rehydrate.
 
 ### 2.2 Events (C4)
 
@@ -174,48 +188,53 @@ example) and are authored, not lorem.
 
 ### 3.1 Completion — `graph_slots_complete`
 
-New completion predicate: over the envelope's `field_values` `GraphState`, every
-slot declared in `params.slots` has a node with `text` trimmed length ≥ 12, and
-every slot with `needSrc: true` has ≥ 1 `cites` edge from its node. Returns the
-missing slot ids on failure (for the banner / refill). This is exactly the
-design's `s4complete` predicate, server-side.
+New completion predicate (a `switch` case in `EvaluateCompletion`, anchor-based):
+for every slot declared in `params.slots`, some anchor with `dimension == slotId`
+has trimmed `answer` length ≥ 12; and every slot with `needSrc: true` has ≥ 1
+anchor with `dimension == slotId` and non-empty `material_id`. Returns the
+missing slot ids (for the banner / refill). This is exactly the design's
+`s4complete` predicate, server-side.
 
 ### 3.2 Mint — the `toulmin` graph effect
 
-**File:** `apps/api/internal/agent/card_effects.go` (+ `agentstore.go`
-`CommitCardMint`).
+**File:** `apps/api/internal/agent/card_effects.go` (a `switch` case in
+`GraphEffects`), reusing the existing `CompleteCard` insert/placeholder-resolve
+path (`card_lifecycle.go`) and the atomic commit already used by cross_check.
 
-On the card reaching `completed`, one atomic `CommitCardMint` transaction mints,
-from the `field_values` `GraphState`:
+On the card reaching `completed`, `GraphEffects(spec, materialID, anchors)`
+returns, from the slot anchors:
 
-- workspace `graph_node` rows: `claim`, `warrant`, `evidence`, `counter`,
-  `concession` (each `author=student`, `body` = slot text).
-- `supports` edge `evidence → claim` (`from_kind=graph_node`,
-  `to_kind=graph_node`).
-- `cites` edges: one per selected material, `needSrc slot node → material`
-  (`from_kind=graph_node`, `to_kind=material`).
-- the `framework_fill` idempotency guard row, written **last** (same pattern as
-  cross_check; re-submission is a no-op).
+- `MintNode`s (`Type` = slot id, `Author: "student"`, `Body: {"text": sentence}`)
+  for `claim`, `warrant`, `evidence`, `counter`, `concession` — one per slot that
+  has a text anchor.
+- a `MintEdge` `supports`: `FromKind/ToKind = graph_node`, `FromID =
+  "$new:<evidence idx>"`, `ToID = "$new:<claim idx>"` (both endpoints are
+  placeholders — `CompleteCard` already resolves both, per the `card_effects.go`
+  header comment).
+- `MintEdge` `cites` per source anchor: `FromKind = graph_node`, `FromID =
+  "$new:<slot idx>"`, `ToKind = material`, `ToID = <material_id>` (the material
+  already exists — a real id, not a placeholder).
+
+The `framework_fill` idempotency guard is written **last** by the same commit
+path cross_check uses; re-submission is a no-op.
 
 After the mint, the S4 gate re-reconciles: `no_unsupported_claim` passes (claim
 now has a `supports` from evidence) and `node_present{concession}` passes
 (concession node exists) → S4 flips to solid, S5 unlocks. This is the assertion
 the mint test verifies.
 
-## 4. Data flow & the one new plumbing path
+## 4. Data flow — no shared-spine signature change
 
-`EvaluateCompletion(spec, anchors)` is anchor-only today. The graph card's state
-lives in `field_values`, so completion needs to see it. **Extend the signature**
-to `EvaluateCompletion(spec, anchors, fieldValues)` (or pass the whole
-`CardInstance`); the existing anchor-based predicates ignore the new argument, so
-CRAAP/SIFT are unaffected. Update the two call sites (`projectcards.go`
-submit-path, and any refeed/observe caller). This is the single deliberate
-extension to the shared completion spine and is called out as its own task so a
-reviewer gates it explicitly.
+Because the slot state is carried in **anchors** (§2.1), both shared entry
+points keep their signatures: `EvaluateCompletion(spec, anchors)` and
+`GraphEffects(spec, materialID, anchors)` gain only new `switch` cases. No call
+site changes shape. This is the same additive pattern 6c used, and it is why R1
+(below) is small: CRAAP/SIFT code is not touched at all.
 
-Refeed (`serializeCardForRefeed`) already reads `field_values[step.key]`; the
-Toulmin card's `field_values` are chaperone-visible for the "one question at a
-time" coach loop with no extra work.
+The frontend graph primitive holds `GraphState` (nodes + edges) as its working
+type; the studio card serializes it to text + source anchors on lock and rebuilds
+it from anchors on rehydrate — the `StudioAnnotateCard.handleLock` /
+`activeCardToState` pattern, applied to a graph shape.
 
 ## 5. Summon + render wiring (the 6c-lesson task)
 
@@ -266,13 +285,11 @@ This is the test class that did not exist in 6c and let an unsummonable card pas
 - `apps/web/src/studio/views/StructureView.tsx` — stubs → live graph primitive
 - `apps/web/src/studio/StudioContainer.tsx` — project live `views.structure`
 - `apps/web/src/studio/state.ts` — `StructureCardFx` gains source-pick + text-commit handlers
-- `apps/api/internal/agent/card_completion.go` — `graph_slots_complete`; signature extension
-- `apps/api/internal/agent/card_effects.go` + `agentstore.go` — `toulmin` mint
+- `apps/api/internal/agent/card_completion.go` — `graph_slots_complete` case (no signature change)
+- `apps/api/internal/agent/card_effects.go` — `toulmin` case in `GraphEffects` (no signature change)
 - `apps/api/internal/agent/classifier.go` — Toulmin surface rule
 - `apps/api/internal/skills/specs/writing-project.json` — S4 gate: drop `no_single_sourced_claim`; add `toulmin` to `cards`/`repertoire`
-- `apps/api/internal/api/projectcards.go` (+ callers) — completion signature
-- `packages/contracts/src/interactionPrimitive.ts` — only if `GraphState` needs a
-  documented `cites`-to-material convention comment (no schema change expected)
+- `apps/api/internal/cards/loader.go` — add `Slots []Slot` to `Params` (+ `Slot{ID, Role string; NeedSrc bool; Q string}`) so the Go side reads `params.slots`
 
 ## 7. Testing
 
@@ -284,18 +301,19 @@ This is the test class that did not exist in 6c and let an unsummonable card pas
 - **Mint** (Go): the five nodes + `supports` + `cites` edges land atomically;
   re-submit is a no-op (framework_fill guard); S4 gate flips solid.
 - **Summon** (Go): §5.3 end-to-end.
-- **Contract**: `TestMirrorMatchesCanonical`; `GraphState` round-trips a
-  Toulmin `field_values` payload.
+- **Contract**: `TestMirrorMatchesCanonical`; the studio card's
+  `GraphState → anchors → GraphState` round-trip is loss-free (serialize on lock,
+  rebuild on rehydrate).
 - **Suite hygiene**: `CGO_ENABLED=0 go test -p 1 ./...` on a **quiet** Docker
   daemon (the 6c "hang" was contention from concurrent testcontainer runs, not a
   bug); web `vitest`; `tsc`.
 
 ## 8. Risks
 
-- **R1 — the completion-signature extension touches the shared spine.** CRAAP/
-  SIFT call `EvaluateCompletion`. Mitigation: additive argument, existing
-  predicates ignore it; a regression test asserts CRAAP/SIFT completion is
-  byte-identical before/after.
+- **R1 — new predicate/effect cases share `EvaluateCompletion` / `GraphEffects`
+  with CRAAP/SIFT.** No signature change (§4), only additive `switch` cases, so
+  the existing cases are untouched. Mitigation: the existing CRAAP/SIFT
+  completion + mint tests must stay green unchanged, proving no regression.
 - **R2 — center-pane card rendering is a new host.** All prior cards live in the
   rail. Mitigation: the §5.3 end-to-end test exercises the real render path, not
   a fixture.
