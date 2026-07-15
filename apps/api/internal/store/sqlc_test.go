@@ -88,6 +88,69 @@ func TestStoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDraftSnapshotAndBufferRoundTrip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newStoreTestPool(t)
+	q := sqlc.New(pool)
+	projectID := seedTestProject(t, ctx, q)
+
+	// Buffer upsert is idempotent per project.
+	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, Content: "draft one"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, Content: "draft two"}); err != nil {
+		t.Fatal(err)
+	}
+	buf, err := q.GetEditBuffer(ctx, projectID)
+	if err != nil || buf != "draft two" {
+		t.Fatalf("GetEditBuffer = %q, %v; want \"draft two\"", buf, err)
+	}
+
+	// Snapshot seq is monotonic and content immutable.
+	next, err := q.NextSnapshotSeq(ctx, projectID)
+	if err != nil || next != 1 {
+		t.Fatalf("NextSnapshotSeq = %d, %v; want 1", next, err)
+	}
+	s1, err := q.InsertDraftSnapshot(ctx, sqlc.InsertDraftSnapshotParams{
+		ProjectID: projectID, Seq: 1, Content: "v1 body", SpanIndex: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next2, _ := q.NextSnapshotSeq(ctx, projectID)
+	if next2 != 2 {
+		t.Fatalf("NextSnapshotSeq after one = %d, want 2", next2)
+	}
+	latest, err := q.GetLatestSnapshot(ctx, projectID)
+	if err != nil || latest.ID != s1.ID {
+		t.Fatalf("GetLatestSnapshot = %v, %v; want %v", latest.ID, err, s1.ID)
+	}
+	got, err := q.GetSnapshot(ctx, sqlc.GetSnapshotParams{ID: s1.ID, ProjectID: projectID})
+	if err != nil || got.Content != "v1 body" {
+		t.Fatalf("GetSnapshot = %q, %v; want \"v1 body\"", got.Content, err)
+	}
+}
+
+// seedTestProject creates a project owned by the fixed seeded student for
+// tests that need a project_id foreign key (writing.sql's edit_buffer and
+// draft_snapshot both cascade off project).
+func seedTestProject(t *testing.T, ctx context.Context, q *sqlc.Queries) uuid.UUID {
+	t.Helper()
+	p, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        seededStudentID,
+		Qualification: "IB",
+		Title:         "中国是否让地球变得更可持续？",
+		BoardCfgVer:   1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	return p.ID
+}
+
 func ptr(s string) *string { return &s }
 func ptrInt32(n int32) *int32 { return &n }
 
