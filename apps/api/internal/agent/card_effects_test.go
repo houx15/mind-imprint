@@ -171,6 +171,76 @@ func TestGraphEffects_CrossCheck_NeverPromotesTheLateralSource(t *testing.T) {
 	}
 }
 
+func TestToulminGraphEffect(t *testing.T) {
+	spec := toulminSpec(t) // helper from card_completion_test.go (same package)
+	anchors := []Anchor{
+		{Dimension: "claim", Answer: "中国的政策在净效果上让全球更可持续。", Author: "student"},
+		{Dimension: "warrant", Answer: "从植被数据到可持续判断的推理链条。", Author: "student"},
+		{Dimension: "warrant", MaterialID: "m_nasa", Author: "student"},
+		{Dimension: "evidence", Answer: "NASA 观测显示中国主导了全球变绿增量。", Author: "student"},
+		{Dimension: "evidence", MaterialID: "m_nasa", Author: "student"},
+		{Dimension: "counter", Answer: "反方最强点：碳排放总量全球第一。", Author: "student"},
+		{Dimension: "concession", Answer: "承认排放第一，但人均与历史累积远低。", Author: "student"},
+		{Dimension: "concession", MaterialID: "m_bp", Author: "student"},
+	}
+
+	nodes, edges := GraphEffects(spec, "", anchors)
+
+	// Five nodes, one per slot, all student-authored, body carries the text.
+	if len(nodes) != 5 {
+		t.Fatalf("nodes = %d, want 5", len(nodes))
+	}
+	idxByType := map[string]int{}
+	for i, n := range nodes {
+		if n.Author != "student" {
+			t.Fatalf("node %s author = %q, want student", n.Type, n.Author)
+		}
+		if n.Body["text"] == "" || n.Body["text"] == nil {
+			t.Fatalf("node %s has empty text", n.Type)
+		}
+		idxByType[n.Type] = i
+	}
+	for _, want := range []string{"claim", "warrant", "evidence", "counter", "concession"} {
+		if _, ok := idxByType[want]; !ok {
+			t.Fatalf("missing node type %q", want)
+		}
+	}
+
+	// Exactly one supports edge, evidence -> claim, both placeholder endpoints.
+	supports := 0
+	for _, e := range edges {
+		if e.Type != "supports" {
+			continue
+		}
+		supports++
+		if e.FromID != mintRef(idxByType["evidence"]) || e.ToID != mintRef(idxByType["claim"]) {
+			t.Fatalf("supports edge = %s->%s, want evidence->claim placeholders", e.FromID, e.ToID)
+		}
+		if e.FromKind != "graph_node" || e.ToKind != "graph_node" {
+			t.Fatalf("supports endpoints must be graph_node")
+		}
+	}
+	if supports != 1 {
+		t.Fatalf("supports edges = %d, want 1", supports)
+	}
+
+	// One cites edge per source anchor (warrant m_nasa, evidence m_nasa,
+	// concession m_bp), each graph_node -> material with a real material id.
+	cites := map[string]int{}
+	for _, e := range edges {
+		if e.Type != "cites" {
+			continue
+		}
+		if e.FromKind != "graph_node" || e.ToKind != "material" {
+			t.Fatalf("cites endpoints wrong: %s->%s", e.FromKind, e.ToKind)
+		}
+		cites[e.ToID]++
+	}
+	if cites["m_nasa"] != 2 || cites["m_bp"] != 1 {
+		t.Fatalf("cites = %v, want m_nasa:2 m_bp:1", cites)
+	}
+}
+
 func TestConsolidationPayload_NonEmptyFramework(t *testing.T) {
 	spec := craapSpecFixture()
 	spec.Consolidation = "reveal_framework_after_completion"

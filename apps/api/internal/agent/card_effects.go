@@ -78,10 +78,54 @@ func GraphEffects(spec cards.Spec, materialID string, anchors []Anchor) ([]MintN
 				// ...which --cites--> the independent source she went and found
 				MintEdge{Type: "cites", FromKind: "graph_node", FromID: ref, ToKind: "material", ToID: lat.MaterialID},
 			)
+
+		case "toulmin":
+			// One node per slot that has a text anchor; index each by slot id
+			// so the supports edge can reference claim/evidence by placeholder.
+			nodeIdx := make(map[string]int, len(spec.Params.Slots))
+			for _, slot := range spec.Params.Slots {
+				text := slotText(anchors, slot.ID)
+				if text == "" {
+					continue
+				}
+				nodes = append(nodes, MintNode{
+					Type:   slot.ID,
+					Author: "student",
+					Body:   map[string]any{"text": text},
+				})
+				nodeIdx[slot.ID] = len(nodes) - 1
+			}
+			// supports: evidence -> claim (both placeholders).
+			if ei, ok := nodeIdx["evidence"]; ok {
+				if ci, ok := nodeIdx["claim"]; ok {
+					edges = append(edges, MintEdge{
+						Type: "supports", FromKind: "graph_node", FromID: mintRef(ei),
+						ToKind: "graph_node", ToID: mintRef(ci),
+					})
+				}
+			}
+			// cites: one edge per source anchor on any minted slot.
+			for _, a := range anchors {
+				if strings.TrimSpace(a.MaterialID) == "" {
+					continue
+				}
+				si, ok := nodeIdx[a.Dimension]
+				if !ok {
+					continue
+				}
+				edges = append(edges, MintEdge{
+					Type: "cites", FromKind: "graph_node", FromID: mintRef(si),
+					ToKind: "material", ToID: a.MaterialID,
+				})
+			}
 		}
 	}
 	return nodes, edges
 }
+
+// mintRef builds the deterministic placeholder a MintEdge uses to point at the
+// i-th node in the returned nodes slice; CompleteCard resolves it to the real id.
+func mintRef(i int) string { return fmt.Sprintf("$new:%d", i) }
 
 // crossCheckBody carries what the student produced by reading laterally: the
 // relation SHE chose (印证/反驳/限定 — the AI never picks it), where she traced
@@ -129,6 +173,19 @@ func sourceQuality(spec cards.Spec, anchors []Anchor) map[string]string {
 		}
 	}
 	return out
+}
+
+// slotText returns the first non-empty student sentence anchored on the given
+// slot dimension (the text anchor; source anchors carry an empty answer).
+func slotText(anchors []Anchor, slotID string) string {
+	for _, a := range anchors {
+		if a.Dimension == slotID {
+			if t := strings.TrimSpace(a.Answer); t != "" {
+				return t
+			}
+		}
+	}
+	return ""
 }
 
 // ConsolidationPayload builds the framework (methodology) map revealed to
