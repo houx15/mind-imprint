@@ -85,7 +85,7 @@ started · ◐ in progress · ☑ done.
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
-| **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☐ |
+| **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☐ |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ☐ |
@@ -530,3 +530,38 @@ Each slice appends its spec/plan links and outcome here as it completes.
   With all five landed, SIFT is genuinely reachable end to end, a reload can no longer brick the
   workspace, and the `cross_check` mint's own words are no longer write-only. The line above should
   be read as "code-complete, made reachable and safe by FIX-A..FIX-E" rather than "complete."
+
+### Slice 7 — 结构 view + `graph` primitive / Toulmin card (merged `608ed8c`)
+
+The third hand-built interaction primitive (`graph`, a typed-slot argument builder) + the Toulmin
+card as pure C2 config over it + a live S4 结构 center pane. Shipped via the full loop (spec → plan →
+8 subagent-TDD tasks → per-task reviews → whole-branch review → fix wave).
+
+- **`graph` primitive resolved the Slice-1 "card-driven vs map-viz" deferral in favor of the binding
+  design: a card-driven five-slot flow** (claim / warrant / evidence / counter·steelman / concession),
+  NOT a spatial map. `map⇄outline` is dropped (not in the binding design — the row text above is the
+  original ambition; the design governs). Its *state* is still a node/edge `GraphState`; "graph" names
+  the state it produces, not a canvas.
+- **Slots ride in the envelope's anchors** (one text anchor + one source anchor per cited material, keyed
+  `dimension=slotId`), so completion (`graph_slots_complete`) and the `toulmin` mint reuse the anchor
+  spine with ZERO signature change — the additive-switch-case pattern from 6c.
+- **The Toulmin card auto-surfaces project-scoped** (`AnchorKind:"project"`, no material): the summon
+  dispatch, `SurfaceCard`, and `CreateCardInstance` now tolerate a material-less card (empty `material_id`,
+  never a zero-uuid; no `evaluates` edge; NULL task_id). No migration (`card_instances` has no material
+  column). This is the FIRST project-targeted card.
+- **The summon-hop seam that shipped broken in 6c is now closed AND proven** by a real-Postgres end-to-end
+  test crossing summon→submit→mint→gate — the exact test class whose absence let 6c ship unsummonable.
+  The whole-branch review (Opus) confirmed the loop works in the real product code, not just tests — the
+  first slice in six with no CRITICAL cross-layer finding.
+- **S4 gate re-scoped to "card completion"** (product decision, twice): dropped `no_single_sourced_claim`
+  (S3 owns source quality) AND `no_orphan_evidence` (CRAAP mints orphan `evidence` nodes that made it
+  unsatisfiable in the real flow). S4 machine gate = `{no_unsupported_claim, node_present concession}`,
+  both satisfiable by finishing the card. Whole-branch review then caught that S3 STILL referenced
+  `no_single_sourced_claim` (the spec mis-stated this) and toulmin's single-evidence claim regressed S3 —
+  fixed by dropping it from S3 too (it was vacuous there pre-Slice-7).
+- **CARRY-FORWARD (7b):** post-completion the 结构 pane shows an honest neutral placeholder, but the
+  design's completed-state (read-only role-cards + green gate banner) is not yet projected — the lean
+  StudioProjection doesn't send the minted graph nodes. Reviving that dead `RoleCard`/`GateBanner` path
+  needs a backend structure DTO + frontend wiring. Also: no skills canonical/mirror guard test;
+  `gen-go-fixtures.ts` is dead (its TS prompt sources were deleted 2026-06-25 — the Go golden now
+  regenerates via `UPDATE_GOLDEN` in-test); pre-existing `packages/contracts` tsc failure (not ours).
