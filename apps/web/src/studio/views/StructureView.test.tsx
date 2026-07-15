@@ -27,18 +27,10 @@ describe("StructureView (结构/S4 shell)", () => {
     expect(screen.getByText(/本环节门禁通过/)).toBeInTheDocument();
   });
 
-  it("shows the collapsed preview for done cards and the AI question bubble for the active card", () => {
+  it("shows the collapsed preview sentence for done cards", () => {
     render(<StructureView cards={STUDIO_FIXTURE.views.structure} />);
     const doneCard = STUDIO_FIXTURE.views.structure.find((c) => c.status === "done")!;
-    const activeCard = STUDIO_FIXTURE.views.structure.find((c) => c.status === "active")!;
     expect(screen.getByText(doneCard.preview!)).toBeInTheDocument();
-    expect(screen.getByText(activeCard.question!)).toBeInTheDocument();
-  });
-
-  it("shows the disabled 选择相关素材/写成句子 hint on the active card", () => {
-    render(<StructureView cards={STUDIO_FIXTURE.views.structure} />);
-    expect(screen.getByText(/① 选择相关素材/)).toBeInTheDocument();
-    expect(screen.getByText(/② 基于素材，把这一步写成句子/)).toBeInTheDocument();
   });
 
   it("renders the deferred shell placeholder (never a false green gate) when cards is empty", () => {

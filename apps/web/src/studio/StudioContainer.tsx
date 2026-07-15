@@ -24,8 +24,8 @@ const emptyConvSubscribe = () => () => {};
 const emptyConvGetSnapshot = () => EMPTY_CONV_SNAPSHOT;
 
 // Map the lean wire projection into the frontend view-model, stubbing the
-// deferred center-pane views (structure/writing/review → Slices 7/8/9).
-// material is live as of Slice 6b — projected straight from the server.
+// deferred center-pane views (writing/review → Slices 8/9). material (6b) and
+// structure (7b) are live — projected straight from the server.
 function toStudioState(p: StudioProjection): StudioState {
   return {
     project: p.project,
@@ -35,7 +35,7 @@ function toStudioState(p: StudioProjection): StudioState {
     coach: p.coach,
     views: {
       material: p.materials,
-      structure: [],
+      structure: p.structure,
       writing: { draft: "", mode: "edit" },
       review: [],
       onboarding: p.onboarding,

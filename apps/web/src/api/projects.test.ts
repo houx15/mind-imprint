@@ -25,6 +25,7 @@ const sample = {
   onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [] },
   materials: [],
   activeCard: null,
+  structure: [],
 };
 
 describe("getProject", () => {

@@ -160,12 +160,14 @@ export const STUDIO_FIXTURE: StudioState = {
         id: "warrant",
         role: "理据 · 推理",
         status: "empty",
+        preview: "",
       },
       {
         id: "evidence",
         role: "支撑证据",
-        status: "active",
-        question: "挑一条证据，用自己的话概括它如何支撑主张。",
+        status: "done",
+        preview:
+          "Chen 等（Nature Sustainability, 2019）用卫星数据证实，2000 年以来全球新增绿叶面积中约四分之一来自中国，主要由农业集约化与植树造林驱动。",
       },
       {
         id: "counter",
@@ -177,6 +179,7 @@ export const STUDIO_FIXTURE: StudioState = {
         id: "concession",
         role: "让步 · 转折",
         status: "empty",
+        preview: "",
       },
     ],
     writing: {

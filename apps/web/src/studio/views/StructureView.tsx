@@ -3,7 +3,6 @@ import type { StructureCardFx } from "../state";
 import type { LiveCard } from "../CoachRail";
 import type { LockedSource } from "../../primitives/graph";
 import { StudioToulminCard } from "../StudioToulminCard";
-import { Bean } from "../Bean";
 
 export type StructureViewProps = {
   cards: StructureCardFx[];
@@ -76,18 +75,17 @@ function GateBanner({ allClean }: { allClean: boolean }) {
 
 function RoleCard({ card }: { card: StructureCardFx }) {
   const done = card.status === "done";
-  const active = card.status === "active";
   const empty = card.status === "empty";
 
-  const statusLabel = done ? "已完成" : active ? "进行中" : "待开始";
-  const statusColor = done ? "#4C9A82" : active ? "#2A3B7A" : "#AEB4C2";
-  const statusBg = done ? "#E7F3EE" : active ? "#EDEFF9" : "#F1F2F5";
+  const statusLabel = done ? "已完成" : "待开始";
+  const statusColor = done ? "#4C9A82" : "#AEB4C2";
+  const statusBg = done ? "#E7F3EE" : "#F1F2F5";
 
   return (
     <div
       style={{
         background: "#fff",
-        border: active ? "1px solid #D7DCF3" : "1px solid #ECEEF3",
+        border: "1px solid #ECEEF3",
         borderRadius: 14,
         padding: "14px 16px",
         marginBottom: 12,
@@ -127,67 +125,6 @@ function RoleCard({ card }: { card: StructureCardFx }) {
       {empty && (
         <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "#AEB4C2" }}>还没开始——点开这张卡片开始。</div>
       )}
-
-      {active && (
-        <>
-          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", margin: "13px 0 14px" }}>
-            <Bean size={26} />
-            <div
-              style={{
-                flex: 1,
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: "#5B6373",
-                background: "#F7F8FB",
-                border: "1px solid #EEF0F5",
-                borderRadius: 10,
-                padding: "9px 12px",
-              }}
-            >
-              {card.question}
-            </div>
-          </div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0", marginBottom: 8 }}>
-            ① 选择相关素材（信源评估里已锁定的）
-          </div>
-          <div
-            aria-disabled="true"
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              marginBottom: 14,
-              fontSize: 12,
-              color: "#C2C8D6",
-              border: "1px dashed #E1E4ED",
-              borderRadius: 10,
-              padding: "10px 12px",
-            }}
-          >
-            素材选择器（Slice 7 接入）
-          </div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0", margin: "6px 0 6px" }}>
-            ② 基于素材，把这一步写成句子
-          </div>
-          <textarea
-            disabled
-            rows={3}
-            placeholder="用你自己的话写……"
-            style={{
-              width: "100%",
-              border: "1px solid #E1E4ED",
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 13.5,
-              lineHeight: 1.65,
-              color: "#1C2333",
-              background: "#F7F8FB",
-              outline: "none",
-              resize: "vertical",
-            }}
-          />
-        </>
-      )}
     </div>
   );
 }
@@ -226,7 +163,7 @@ export function StructureView({ cards, toulminCard, lockedSources = [], onSubmit
     );
   }
 
-  const allClean = cards.every((c) => c.status !== "empty");
+  const allClean = cards.every((c) => c.status === "done");
 
   return (
     <div style={WRAP}>

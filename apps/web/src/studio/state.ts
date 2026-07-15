@@ -1,19 +1,17 @@
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
-  CardInstance, TraceEvent, MaterialSource,
+  CardInstance, TraceEvent, MaterialSource, StructureCard,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
 
-export type StructureCardFx = {
-  id: string;
-  role: string;         // 核心主张 / 理据·推理 / 支撑证据 / 反方·钢人 / 让步·转折
-  status: "done" | "active" | "empty";
-  preview?: string;     // collapsed text when done
-  question?: string;    // AI question when active
-};
+// The five S4 argument role cards are the wire StructureCard verbatim — one
+// shape across the boundary. status is only "done" | "empty"; the live
+// inline-edit state the old "active" value modeled is now the full-pane
+// StudioToulminCard, not a row in this list.
+export type StructureCardFx = StructureCard;
 
 export type GaugeFx = {
   table: string;        // 表A .. 表H
