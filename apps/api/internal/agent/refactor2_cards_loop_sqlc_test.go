@@ -19,6 +19,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/studio"
 )
 
 func TestRefactor2CardsLoop_UnevaluatedSourceSurfacesCraap(t *testing.T) {
@@ -545,6 +546,33 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	after := agent.CheckGate(sk, "build_argument", loadGraphView(ctx, t, q, project.ID), agent.RecordedGate{})
 	if after.Status != "machine_clear" {
 		t.Fatalf("build_argument gate = %q after the mint, want machine_clear (missing: %v)", after.Status, after.Missing)
+	}
+
+	// Slice 7b: the same minted rows must project into five done structure
+	// cards — the completed argument shown back in the 结构 pane. Proves the
+	// projection over a genuine mint, not hand-built nodes.
+	sk, ok = skills.ByID("writing-project")
+	if !ok {
+		t.Fatal("skills.ByID(writing-project) not found")
+	}
+	pd, err := studio.Load(ctx, q, project.ID)
+	if err != nil {
+		t.Fatalf("studio.Load: %v", err)
+	}
+	proj, err := studio.Project(sk, cards.ByID, pd)
+	if err != nil {
+		t.Fatalf("studio.Project: %v", err)
+	}
+	if len(proj.Structure) != 5 {
+		t.Fatalf("projected structure = %d cards, want 5", len(proj.Structure))
+	}
+	for _, c := range proj.Structure {
+		if c.Status != "done" {
+			t.Fatalf("structure card %s = %q, want done (argument fully minted)", c.ID, c.Status)
+		}
+		if c.Preview == "" {
+			t.Fatalf("structure card %s has empty preview", c.ID)
+		}
 	}
 }
 
