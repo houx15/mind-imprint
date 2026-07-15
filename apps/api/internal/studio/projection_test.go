@@ -70,15 +70,15 @@ func TestProjectStations_S4Current(t *testing.T) {
 
 func TestProjectStations_GateProgress(t *testing.T) {
 	sk := writingSkill(t)
-	// build_argument gate: 4 machine + 2 student_written + 1 human = 7 items.
+	// build_argument gate: 3 machine + 2 student_written + 1 human = 6 items.
 	d := ProjectData{Plan: planNode(`["decode_task"]`)}
 	stations, _, err := projectStations(sk, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 7 {
-		t.Fatalf("S4 gate = %+v, want total 7", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 6 {
+		t.Fatalf("S4 gate = %+v, want total 6", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (empty graph)", s4.Gate.Passed)
@@ -113,8 +113,8 @@ func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T)
 		t.Fatalf("current = %q, want S4", current)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 7 {
-		t.Fatalf("S4 gate = %+v, want total 7", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 6 {
+		t.Fatalf("S4 gate = %+v, want total 6", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (no claim/evidence nodes yet — vacuous negation passes must not count on a non-empty graph)", s4.Gate.Passed)
