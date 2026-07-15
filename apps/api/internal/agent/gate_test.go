@@ -199,6 +199,34 @@ func TestS3Gate_LateralReadIsNoLongerSelfAttested(t *testing.T) {
 	}
 }
 
+// TestBuildArgumentGateSolidAfterToulminMint covers Task 4's contract change:
+// S4 (build_argument) drops no_single_sourced_claim from its machine gate —
+// source quality is S3's job now — leaving no_orphan_evidence,
+// no_unsupported_claim, and node_present{concession}. The toulmin mint (Task
+// 3) produces exactly evidence -[supports]-> claim plus a concession node,
+// which must satisfy all three remaining predicates, including a claim with
+// only a single supporting source.
+func TestBuildArgumentGateSolidAfterToulminMint(t *testing.T) {
+	g := GraphView{
+		Nodes: []GraphNodeView{
+			{ID: "c1", Type: "claim"},
+			{ID: "e1", Type: "evidence"},
+			{ID: "cc1", Type: "concession"},
+		},
+		Edges: []GraphEdgeView{
+			{FromKind: "graph_node", FromID: "e1", ToKind: "graph_node", ToID: "c1", Type: "supports"},
+		},
+	}
+	for _, kind := range []string{"no_orphan_evidence", "no_unsupported_claim"} {
+		if pass, msg := EvalMachineItemForTest(skills.MachineItem{Kind: kind}, g); !pass {
+			t.Fatalf("%s failed: %s", kind, msg)
+		}
+	}
+	if pass, msg := EvalMachineItemForTest(skills.MachineItem{Kind: "node_present", Type: "concession"}, g); !pass {
+		t.Fatalf("concession node_present failed: %s", msg)
+	}
+}
+
 func TestCheckGate_SolidOnlyFromRecordedConfirmation(t *testing.T) {
 	sk, _ := skills.ByID("writing-project")
 	g := GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}}
