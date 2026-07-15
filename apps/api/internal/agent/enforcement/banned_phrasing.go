@@ -12,7 +12,7 @@ type Rule struct {
 // bannedPhrasingVersion tracks the corpus revision. Bump it whenever
 // Rules changes so downstream logs/evaluations can record which
 // version of the corpus flagged a turn.
-const bannedPhrasingVersion = 1
+const bannedPhrasingVersion = 2
 
 // Rules is the versioned corpus of forbidden AI moves (design §9): the
 // AI must never hand the student an unanchored question, a suggested
@@ -47,6 +47,10 @@ var Rules = []Rule{
 	{
 		Name:    "unanchored-question-zh",
 		Pattern: regexp.MustCompile(`你有没有考虑过`),
+	},
+	{
+		Name:    "rewritten-sentence-zh",
+		Pattern: regexp.MustCompile(`你应该这样写|应该这样写[：:]`),
 	},
 }
 

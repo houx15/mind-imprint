@@ -12,6 +12,7 @@ export const Verb = z.enum([
   "invite_commit",
   "reply",
   "propose",
+  "order_review",
 ]);
 export type Verb = z.infer<typeof Verb>;
 

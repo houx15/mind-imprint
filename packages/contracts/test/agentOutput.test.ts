@@ -4,10 +4,13 @@ import { Verb, AgentOutput } from "../src/agentOutput";
 describe("agent output (C3)", () => {
   it("verb set is the closed list", () => {
     for (const v of ["surface_card","post_intervention","check_gate","plan","replan",
-                     "advance","route","invite_commit","reply","propose"]) {
+                     "advance","route","invite_commit","reply","propose","order_review"]) {
       expect(Verb.safeParse(v).success).toBe(true);
     }
     expect(Verb.safeParse("write_essay").success).toBe(false);
+  });
+  it("order_review verb is accepted (S5 whole-draft review work-order)", () => {
+    expect(Verb.parse("order_review")).toBe("order_review");
   });
   it("question/diagnostic carry anchor + criterion + body", () => {
     expect(AgentOutput.safeParse({ type: "question", anchor: { kind: "graph_node", id: "n1" },
