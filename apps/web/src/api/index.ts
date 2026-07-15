@@ -12,9 +12,10 @@ import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCo
 import { listProjects, getProject, type ProjectListItem } from "./projects";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
+import { putBuffer, commitSnapshot, type CommitSnapshotResult } from "./writing";
 import type { StudioTurnEvent } from "./studioTurn";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -48,6 +49,8 @@ export interface ApiClient {
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
   addMaterial(projectId: string, body: AddMaterialBody): Promise<MaterialSource>;
   logSourceOpen(projectId: string, materialId: string, timeSpentS: number): Promise<void>;
+  putBuffer(projectId: string, content: string): Promise<void>;
+  commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
 }
 
 export const api: ApiClient = {
@@ -58,4 +61,5 @@ export const api: ApiClient = {
   listProjects, getProject,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
+  putBuffer, commitSnapshot,
 };

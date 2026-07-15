@@ -9,7 +9,7 @@ import type { StationCode, StudioState, StudioCallbacks } from "./state";
 // calls the 素材 dossier now needs — still a Pick off the real ApiClient so
 // test fixtures keep injecting plain object literals for just the calls a
 // given test actually exercises.
-type StudioApi = Pick<typeof defaultApi, "listProjects" | "getProject" | "addMaterial" | "logSourceOpen">;
+type StudioApi = Pick<typeof defaultApi, "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot">;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
 type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
@@ -24,8 +24,9 @@ const emptyConvSubscribe = () => () => {};
 const emptyConvGetSnapshot = () => EMPTY_CONV_SNAPSHOT;
 
 // Map the lean wire projection into the frontend view-model, stubbing the
-// deferred center-pane views (writing/review → Slices 8/9). material (6b) and
-// structure (7b) are live — projected straight from the server.
+// still-deferred review center-pane view (→ Slice 9). material (6b),
+// structure (7b), and writing (Slice 8 Task 9) are live — projected straight
+// from the server.
 function toStudioState(p: StudioProjection): StudioState {
   return {
     project: p.project,
@@ -36,7 +37,7 @@ function toStudioState(p: StudioProjection): StudioState {
     views: {
       material: p.materials,
       structure: p.structure,
-      writing: { draft: "", mode: "edit" },
+      writing: p.writing,
       review: [],
       onboarding: p.onboarding,
     },
@@ -117,6 +118,17 @@ export function StudioContainer({
   // fires in the same commit as `setProjectId` — no re-render round trip to
   // race.
   const initialActiveCardRef = useRef<ReturnType<typeof activeCardToState>>(null);
+  // Slice 8 Task 9: debounce timer for the 写作 view's silent-edit buffer
+  // autosave — the textarea itself is a controlled input updated
+  // synchronously on every keystroke (below), but the PUT /buffer network
+  // call is debounced so typing doesn't fire a request per character.
+  const bufferSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Clears any pending debounced save on unmount — a fired setTimeout after
+  // unmount would call setState-less `api.putBuffer` fine (it doesn't touch
+  // React state), but leaving it dangling is needless work for a screen
+  // nobody is looking at anymore, and it would race a fresh mount's own
+  // timer if the Studio ever remounted with the same projectId.
+  useEffect(() => () => { if (bufferSaveTimerRef.current) clearTimeout(bufferSaveTimerRef.current); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,6 +328,30 @@ export function StudioContainer({
       // Fire-and-forget: a lost reading-time sample must never surface as
       // an error to the student.
       api.logSourceOpen(projectId, materialId, timeSpentS).catch(() => {});
+    },
+    onBufferChange: (text) => {
+      // Optimistic local update FIRST — the textarea is controlled by
+      // state.views.writing.buffer, so without this the keystroke would
+      // never appear (it'd just get overwritten back to the last-fetched
+      // value on the next render). The network PUT is debounced separately
+      // below; the student's own view of what she typed is never delayed.
+      setState((prev) => (prev ? { ...prev, views: { ...prev.views, writing: { ...prev.views.writing, buffer: text } } } : prev));
+      if (!projectId) return;
+      if (bufferSaveTimerRef.current) clearTimeout(bufferSaveTimerRef.current);
+      bufferSaveTimerRef.current = setTimeout(() => {
+        api.putBuffer(projectId, text).catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+      }, 600);
+    },
+    onCommit: (text) => {
+      if (!projectId) return;
+      api
+        .commitSnapshot(projectId, text)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("提交失败，请重试。");
+        });
     },
   };
 

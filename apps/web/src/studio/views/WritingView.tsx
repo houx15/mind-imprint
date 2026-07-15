@@ -1,6 +1,11 @@
-export type WritingViewProps = {
-  draft: string;
-  mode: "edit" | "preview";
+import { useState } from "react";
+import type { WritingProjection } from "../state";
+
+// WritingProjection + the two callbacks this task produces (consumed by
+// Task 10, which adds review/disposition/attest props alongside these).
+export type WritingViewProps = WritingProjection & {
+  onBufferChange?: (text: string) => void;
+  onCommit?: (text: string) => void;
 };
 
 const TAB_BASE: React.CSSProperties = {
@@ -22,15 +27,25 @@ function tabStyle(active: boolean): React.CSSProperties {
   };
 }
 
-function EditPane({ draft }: { draft: string }) {
+// Mirrors the backend's own paragraph unit (paragraphSpanIndex /
+// snapshotParagraphs in apps/api/internal/api/writing.go): split on blank
+// lines, trim, drop empties.
+function paragraphsOf(text: string): string[] {
+  return text
+    .split("\n\n")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
+
+function EditPane({ buffer, onBufferChange, onCommit }: { buffer: string; onBufferChange?: (t: string) => void; onCommit?: (t: string) => void }) {
   return (
     <>
       <div style={{ fontSize: 11.5, color: "#9AA1B0", marginBottom: 8 }}>
         直接在这里写，也可以在别处写好后粘进来。写作时印记不会打断你——想听意见，点「整稿体检」。
       </div>
       <textarea
-        readOnly
-        value={draft}
+        value={buffer}
+        onChange={(e) => onBufferChange?.(e.target.value)}
         style={{
           width: "100%",
           minHeight: 440,
@@ -46,12 +61,37 @@ function EditPane({ draft }: { draft: string }) {
           fontFamily: "inherit",
         }}
       />
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => onCommit?.(buffer)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            background: "#EDEFF9",
+            color: "#2A3B7A",
+            border: "none",
+            fontSize: 13,
+            fontWeight: 700,
+            padding: "9px 15px",
+            borderRadius: 10,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3v12M7 8l5-5 5 5M5 21h14" />
+          </svg>
+          提交快照 · 定格这一稿
+        </button>
+      </div>
     </>
   );
 }
 
-function PreviewPane({ draft }: { draft: string }) {
-  const paras = draft.split("\n\n").filter((p) => p.trim().length > 0);
+function PreviewPane({ buffer, reviewOrdered }: { buffer: string; reviewOrdered: boolean }) {
+  const paras = paragraphsOf(buffer);
   return (
     <>
       <div style={{ background: "#fff", border: "1px solid #ECEEF3", borderRadius: 14, padding: "30px 34px", minHeight: 300 }}>
@@ -61,47 +101,55 @@ function PreviewPane({ draft }: { draft: string }) {
           </p>
         ))}
       </div>
-      <div style={{ marginTop: 18, border: "1px dashed #DDE1EB", borderRadius: 14, padding: 22, textAlign: "center" }}>
-        <div style={{ fontSize: 13.5, color: "#8A92A3", lineHeight: 1.7 }}>
-          还没做体检。点右上角「整稿体检」，印记会告诉你每段在向哪张评分表交证据。
-          <br />
-          一稿一检——想再体检一次，先提交新的快照。
+      {/* Task 10 fills the work-order block (段落⇄评分表) once review.ordered
+          is true — for now only the design's "还没做体检" empty state ships. */}
+      {!reviewOrdered && (
+        <div style={{ marginTop: 18, border: "1px dashed #DDE1EB", borderRadius: 14, padding: 22, textAlign: "center" }}>
+          <div style={{ fontSize: 13.5, color: "#8A92A3", lineHeight: 1.7 }}>
+            还没做体检。点右上角「整稿体检」，印记会告诉你每段在向哪张评分表交证据。
+            <br />
+            一稿一检——想再体检一次，先提交新的快照。
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
 
-export function WritingView({ draft, mode }: WritingViewProps) {
+export function WritingView({ buffer, latestSnapshot, review, onBufferChange, onCommit }: WritingViewProps) {
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
   const isEdit = mode === "edit";
+  const snapshotMeta = latestSnapshot ? `第 ${latestSnapshot.seq} 版快照 · 提交 · 只读` : "还没有提交过快照";
+  const reviewOrdered = review?.ordered ?? false;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 12, padding: "12px 30px 0" }}>
         <div style={{ display: "flex", gap: 3, background: "#EBEDF2", borderRadius: 9, padding: 3 }}>
-          <button type="button" style={tabStyle(isEdit)}>
+          <button type="button" onClick={() => setMode("edit")} style={tabStyle(isEdit)}>
             编辑 · 安静
           </button>
-          <button type="button" style={tabStyle(!isEdit)}>
+          <button type="button" onClick={() => setMode("preview")} style={tabStyle(!isEdit)}>
             预览 · 批注
           </button>
         </div>
+        <span style={{ fontSize: 11.5, color: "#AEB4C2", fontWeight: 600 }}>{snapshotMeta}</span>
         <div style={{ marginLeft: "auto" }}>
           <button
             type="button"
-            disabled
+            disabled={!latestSnapshot}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 7,
-              background: "#B9C0D6",
+              background: latestSnapshot ? "#2A3B7A" : "#B9C0D6",
               border: "none",
               color: "#fff",
               fontSize: 13,
               fontWeight: 700,
               padding: "9px 15px",
               borderRadius: 10,
-              cursor: "not-allowed",
+              cursor: latestSnapshot ? "pointer" : "not-allowed",
               fontFamily: "inherit",
             }}
           >
@@ -113,7 +161,13 @@ export function WritingView({ draft, mode }: WritingViewProps) {
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 30px 40px" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>{isEdit ? <EditPane draft={draft} /> : <PreviewPane draft={draft} />}</div>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          {isEdit ? (
+            <EditPane buffer={buffer} onBufferChange={onBufferChange} onCommit={onCommit} />
+          ) : (
+            <PreviewPane buffer={buffer} reviewOrdered={reviewOrdered} />
+          )}
+        </div>
       </div>
     </div>
   );

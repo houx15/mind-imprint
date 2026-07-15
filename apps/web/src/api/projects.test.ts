@@ -26,6 +26,13 @@ const sample = {
   materials: [],
   activeCard: null,
   structure: [],
+  writing: {
+    buffer: "",
+    latestSnapshot: null,
+    wordBudget: { min: 300, max: 500 },
+    citationsMatched: false,
+    review: { ordered: false, items: [] },
+  },
 };
 
 describe("getProject", () => {

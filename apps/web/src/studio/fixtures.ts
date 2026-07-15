@@ -183,10 +183,13 @@ export const STUDIO_FIXTURE: StudioState = {
       },
     ],
     writing: {
-      draft:
+      buffer:
         "这篇文章想讨论一个常见的说法：中国是否让地球更可持续。\n\n" +
         "卫星数据显示，2000 年以来地球明显变绿，其中中国的贡献最大。照这个趋势，可以说中国正在让整个地球更可持续。当然，有人会说中国的碳排放总量是全球第一，但这并不能抹掉绿化的成绩。",
-      mode: "edit",
+      latestSnapshot: { id: "snap-3", seq: 3, committedAt: "2026-07-10T09:00:00Z", wordCount: 420, inBand: true },
+      wordBudget: { min: 300, max: 500 },
+      citationsMatched: true,
+      review: { ordered: false, items: [] },
     },
     review: [
       { table: "表A", total: 2, lit: 2, note: "问题聚焦、可回答", level: "full" },

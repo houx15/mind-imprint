@@ -1,11 +1,11 @@
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
-  CardInstance, TraceEvent, MaterialSource, StructureCard,
+  CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection };
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -34,7 +34,7 @@ export type StudioState = {
   views: {
     material: MaterialSource[];
     structure: StructureCardFx[];
-    writing: { draft: string; mode: "edit" | "preview" };
+    writing: WritingProjection;
     review: GaugeFx[];
     onboarding: OnboardingFx;
   };
@@ -56,4 +56,9 @@ export type StudioCallbacks = {
   // usages of StudioShell never need them.
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  // Slice 8 Task 9: the 写作 view's silent buffer autosave + snapshot commit.
+  // Optional for the same reason as the pair above — standalone/story usages
+  // of StudioShell never need them.
+  onBufferChange?: (text: string) => void;
+  onCommit?: (text: string) => void;
 };

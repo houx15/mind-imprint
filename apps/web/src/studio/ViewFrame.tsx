@@ -38,6 +38,13 @@ export type ViewFrameProps = {
   // 结构 pane can submit its graph. Mirrors the rail's onSubmitCard/onSkipCard.
   onSubmitCard?: (env: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
+  // Slice 8 Task 9: the 写作 view's silent-buffer autosave + snapshot commit
+  // — a separate prop object (not folded into StudioCallbacks-only usage)
+  // mirroring `material`'s own onAdd/onOpenLogged grouping above.
+  writing?: {
+    onBufferChange?: (text: string) => void;
+    onCommit?: (text: string) => void;
+  };
 };
 
 const FRAME: React.CSSProperties = {
@@ -155,7 +162,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -279,7 +286,9 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
           onSkipCard={onSkipCard}
         />
       )}
-      {effectiveView === "写作" && <WritingView {...state.views.writing} />}
+      {effectiveView === "写作" && (
+        <WritingView {...state.views.writing} onBufferChange={writing?.onBufferChange} onCommit={writing?.onCommit} />
+      )}
       {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}
       {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}
     </div>
