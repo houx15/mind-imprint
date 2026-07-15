@@ -78,12 +78,18 @@ func TestSurfaceCardCandidates_SIFT_FiresAfterCraapEvaluated(t *testing.T) {
 		},
 	}
 	got := SurfaceCardCandidates(g)
-	if len(got) != 1 {
-		t.Fatalf("candidates = %d, want 1", len(got))
+	// Slice 7: this same evaluated-as-edge/no-claim state also satisfies the
+	// project-scoped Toulmin surface rule, so both the per-material SIFT
+	// candidate and the project-scoped Toulmin candidate are expected here.
+	if len(got) != 2 {
+		t.Fatalf("candidates = %d, want 2 (SIFT + toulmin), got %+v", len(got), got)
 	}
 	c := got[0]
 	if c.Verb != "surface_card" || c.AnchorID != "m1" || c.CardID != siftCardID {
 		t.Fatalf("unexpected candidate: %+v", c)
+	}
+	if !hasCard(got, toulminCardID) {
+		t.Fatalf("expected toulmin to also surface alongside SIFT, got %+v", got)
 	}
 }
 
@@ -101,8 +107,11 @@ func TestSurfaceCardCandidates_SIFT_AlreadyCrossCheckedIsSilent(t *testing.T) {
 			{FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "cc1", Type: "cross-checked-by"},
 		},
 	}
-	if got := SurfaceCardCandidates(g); len(got) != 0 {
-		t.Fatalf("already cross-checked material must be silent, got %+v", got)
+	// Slice 7: the evaluated-as edge with no claim node also satisfies the
+	// project-scoped Toulmin surface rule, so this asserts SIFT specifically
+	// does not re-propose, not that the candidate list is empty overall.
+	if got := SurfaceCardCandidates(g); hasCard(got, siftCardID) {
+		t.Fatalf("already cross-checked material must not re-propose SIFT, got %+v", got)
 	}
 }
 
@@ -123,7 +132,11 @@ func TestSurfaceCardCandidates_SIFT_LateralInstrumentIsSilent(t *testing.T) {
 			{FromKind: "graph_node", FromID: "cc1", ToKind: "material", ToID: "m2", Type: "cites"},
 		},
 	}
-	if got := SurfaceCardCandidates(g); len(got) != 0 {
+	// Slice 7: the evaluated-as edge with no claim node also satisfies the
+	// project-scoped Toulmin surface rule, so this asserts SIFT specifically
+	// does not fire on the lateral instrument, not that the candidate list
+	// is empty overall.
+	if got := SurfaceCardCandidates(g); hasCard(got, siftCardID) {
 		t.Fatalf("lateral instrument must never get its own SIFT proposed, got %+v", got)
 	}
 }
@@ -209,5 +222,53 @@ func TestSurfaceCardCandidates_ActiveCardClosesTreadmillWindowToo(t *testing.T) 
 	}
 	if got := SurfaceCardCandidates(g); len(got) != 0 {
 		t.Fatalf("blanket suppression must close the treadmill window even though the per-material guard alone cannot see it, got %+v", got)
+	}
+}
+
+// hasCard reports whether cands contains a surface_card candidate naming
+// cardID, regardless of anchor.
+func hasCard(cands []Candidate, cardID string) bool {
+	for _, c := range cands {
+		if c.Verb == "surface_card" && c.CardID == cardID {
+			return true
+		}
+	}
+	return false
+}
+
+// TestSurfaceToulminWhenEvaluatedNoClaim covers Slice 7's Toulmin surface
+// rule: once any source has been evaluated (an "evaluated-as" edge exists),
+// there is material to argue from, and — with no claim node yet — no
+// argument has been started, so the argument-builder card should surface.
+func TestSurfaceToulminWhenEvaluatedNoClaim(t *testing.T) {
+	g := GraphView{
+		Materials: []MaterialView{{ID: "m1", Kind: "article"}},
+		Nodes:     []GraphNodeView{{ID: "q1", Type: "source_quality"}},
+		Edges: []GraphEdgeView{
+			{Type: "evaluated-as", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "q1"},
+		},
+	}
+	cands := SurfaceCardCandidates(g)
+	if !hasCard(cands, "toulmin") {
+		t.Fatalf("expected toulmin surfaced when a source is evaluated and no claim exists; got %v", cands)
+	}
+}
+
+// TestNoToulminOnceClaimExists proves the rule stops firing once the
+// student has begun an argument (a claim node exists), even though the
+// evaluated-as edge that unlocked it is still present.
+func TestNoToulminOnceClaimExists(t *testing.T) {
+	g := GraphView{
+		Materials: []MaterialView{{ID: "m1", Kind: "article"}},
+		Nodes: []GraphNodeView{
+			{ID: "q1", Type: "source_quality"},
+			{ID: "c1", Type: "claim"},
+		},
+		Edges: []GraphEdgeView{
+			{Type: "evaluated-as", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "q1"},
+		},
+	}
+	if hasCard(SurfaceCardCandidates(g), "toulmin") {
+		t.Fatalf("toulmin must not surface once a claim node exists")
 	}
 }

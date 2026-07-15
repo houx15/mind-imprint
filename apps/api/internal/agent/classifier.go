@@ -50,6 +50,12 @@ func CandidateMoves(g GraphView) []Candidate {
 const (
 	craapCardID = "craap"
 	siftCardID  = "sift"
+
+	// toulminCardID surfaces once the student has evaluated material to argue
+	// from (any evaluated-as edge) and has not yet started an argument (no
+	// claim node). It is project-scoped, not per-material, so it is decided
+	// after the per-material loop, from graph-wide facts.
+	toulminCardID = "toulmin"
 )
 
 // SurfaceCardCandidates implements the surface_card trigger predicate
@@ -158,6 +164,39 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 			})
 		}
 	}
+
+	// Project-scoped Toulmin surface (Slice 7): the argument builder is not
+	// about one material, so it is decided from graph-wide state, not inside
+	// the per-material loop above. Trigger once ANY source is evaluated
+	// (there is something to argue from) and NO claim node exists yet (no
+	// argument started). This is deliberately the cheapest honest signal
+	// available here — "S3 has produced its structural output" — rather than
+	// re-deriving the full gate DAG (that lives in ReconcileGates); it does
+	// not check per-material completeness or which specific evidence a claim
+	// might eventually cite. The in-flight guard at the top of this function
+	// already suppresses it while any card_instance is proposed/active.
+	anyEvaluated := false
+	hasClaim := false
+	for _, e := range g.Edges {
+		if e.Type == "evaluated-as" && e.FromKind == "material" {
+			anyEvaluated = true
+		}
+	}
+	for _, n := range g.Nodes {
+		if n.Type == "claim" {
+			hasClaim = true
+		}
+	}
+	if anyEvaluated && !hasClaim {
+		out = append(out, Candidate{
+			Verb:       "surface_card",
+			AnchorKind: "project",
+			AnchorID:   "",
+			CardID:     toulminCardID,
+			Reason:     "sources evaluated but no argument started",
+		})
+	}
+
 	return out
 }
 
