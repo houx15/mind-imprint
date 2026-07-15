@@ -4,7 +4,7 @@ import { loadRegistry, deriveCatalog } from "../src/registry";
 describe("loadRegistry", () => {
   it("loads the full registry including the 2 demo cards", () => {
     const reg = loadRegistry();
-    expect(Object.keys(reg)).toHaveLength(33);
+    expect(Object.keys(reg)).toHaveLength(34);
     expect(reg.sift_craap).toBeDefined();
     expect(reg.concession).toBeDefined();
   });
@@ -22,7 +22,7 @@ describe("loadRegistry", () => {
 describe("deriveCatalog", () => {
   it("projects one trigger_condition line per card and nothing stale", () => {
     const cat = deriveCatalog(loadRegistry());
-    expect(cat).toHaveLength(33);
+    expect(cat).toHaveLength(34);
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
     expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
   });
