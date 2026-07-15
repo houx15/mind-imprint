@@ -149,6 +149,37 @@ export const StructureCard = z.object({
 });
 export type StructureCard = z.infer<typeof StructureCard>;
 
+export const WritingSnapshot = z.object({
+  id: z.string(),
+  seq: z.number().int(),
+  committedAt: z.string(),
+  wordCount: z.number().int(),
+  inBand: z.boolean(),
+});
+export type WritingSnapshot = z.infer<typeof WritingSnapshot>;
+
+export const WritingReviewItem = z.object({
+  interventionId: z.string(),
+  criterion: z.string(),
+  band: z.string(),
+  evidence: z.string(),
+  missing: z.string(),
+  fix: z.string(),
+  disposition: z
+    .object({ action: z.enum(["accept", "reject", "rewrite"]), reason: z.string() })
+    .nullable(),
+});
+export type WritingReviewItem = z.infer<typeof WritingReviewItem>;
+
+export const WritingProjection = z.object({
+  buffer: z.string(),
+  latestSnapshot: WritingSnapshot.nullable(),
+  wordBudget: z.object({ min: z.number().int(), max: z.number().int() }),
+  citationsMatched: z.boolean(),
+  review: z.object({ ordered: z.boolean(), items: z.array(WritingReviewItem) }),
+});
+export type WritingProjection = z.infer<typeof WritingProjection>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -162,5 +193,6 @@ export const StudioProjection = z.object({
   materials: z.array(MaterialSource),
   activeCard: ActiveCard.nullable(),
   structure: z.array(StructureCard),
+  writing: WritingProjection,
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;

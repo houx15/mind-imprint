@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard } from "../src/studioState";
+import { describe, it, expect, test } from "vitest";
+import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection } from "../src/studioState";
+
+const emptyWriting = {
+  buffer: "",
+  latestSnapshot: null,
+  wordBudget: { min: 1500, max: 2000 },
+  citationsMatched: false,
+  review: { ordered: false, items: [] },
+};
 
 describe("StudioProjection (Slice 5b wire DTO)", () => {
   it("accepts a full projection", () => {
@@ -23,6 +31,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       materials: [],
       activeCard: null,
       structure: [],
+      writing: emptyWriting,
     });
     expect(ok.success).toBe(true);
   });
@@ -37,6 +46,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       materials: [],
       activeCard: { cardInstanceId: "ci1", cardId: "sift", status: "active", anchors: [], materialId: "m1" },
       structure: [],
+      writing: emptyWriting,
     });
     expect(ok.success).toBe(true);
   });
@@ -51,6 +61,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       materials: [],
       activeCard: null,
       structure: [],
+      writing: emptyWriting,
     };
     expect(StudioProjection.safeParse(rest).success).toBe(false);
   });
@@ -131,6 +142,7 @@ describe("MaterialSource", () => {
       materials: [valid],
       activeCard: null,
       structure: [],
+      writing: emptyWriting,
     });
     expect(proj.materials[0]!.title).toBe("《卫星图看中国变绿》");
   });
@@ -156,8 +168,49 @@ describe("StudioProjection", () => {
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
       materials: [],
       activeCard: null,
+      writing: emptyWriting,
     };
     expect(() => StudioProjection.parse(base)).toThrow(); // missing structure
     expect(StudioProjection.parse({ ...base, structure: [] }).structure).toEqual([]);
+  });
+});
+
+describe("WritingProjection", () => {
+  test("WritingProjection parses a full writing view", () => {
+    const ok = {
+      buffer: "我在写",
+      latestSnapshot: { id: "s1", seq: 3, committedAt: "2026-07-15T00:00:00Z", wordCount: 1723, inBand: true },
+      wordBudget: { min: 1500, max: 2000 },
+      citationsMatched: false,
+      review: { ordered: true, items: [
+        { interventionId: "i1", criterion: "表E 分析", band: "5–6 段", evidence: "e", missing: "m", fix: "f",
+          disposition: { action: "rewrite", reason: "我打算把跳步补成一段推理，至少十五个字。" } },
+      ] },
+    };
+    expect(() => WritingProjection.parse(ok)).not.toThrow();
+  });
+
+  test("WritingReviewItem rejects a bad disposition action", () => {
+    const bad = { buffer: "", latestSnapshot: null, wordBudget: { min: 1, max: 2 }, citationsMatched: false,
+      review: { ordered: true, items: [
+        { interventionId: "i", criterion: "c", band: "b", evidence: "", missing: "", fix: "",
+          disposition: { action: "keep", reason: "x" } }] } };
+    expect(() => WritingProjection.parse(bad)).toThrow();
+  });
+
+  test("StudioProjection requires writing", () => {
+    const p: any = {
+      project: { title: "T", qualLabel: "0457 个人报告" },
+      stations: [],
+      activeStation: "S4",
+      coach: { anchor: "", messages: [], equipment: [] },
+      onboarding: { restatePrompt: "", rubricRows: [], planSteps: [] },
+      materials: [],
+      activeCard: null,
+      structure: [],
+      writing: emptyWriting,
+    };
+    delete p.writing;
+    expect(() => StudioProjection.parse(p)).toThrow();
   });
 });
