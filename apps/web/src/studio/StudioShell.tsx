@@ -168,7 +168,13 @@ export function StudioShell({
           material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
-          writing={{ onBufferChange: callbacks.onBufferChange, onCommit: callbacks.onCommit }}
+          writing={{
+            onBufferChange: callbacks.onBufferChange,
+            onCommit: callbacks.onCommit,
+            onOrderReview: callbacks.onOrderReview,
+            onReviewDisposition: callbacks.onReviewDisposition,
+            onAttestCitations: callbacks.onAttestCitations,
+          }}
         />
         <CoachRail
           anchor={state.coach.anchor}

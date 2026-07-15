@@ -1583,6 +1583,8 @@ describe("StudioContainer", () => {
   function writingProjection(writing: {
     buffer: string;
     latestSnapshot: { id: string; seq: number; committedAt: string; wordCount: number; inBand: boolean } | null;
+    citationsMatched?: boolean;
+    review?: { ordered: boolean; items: unknown[] };
   }) {
     return {
       ...projection,
@@ -1592,8 +1594,8 @@ describe("StudioContainer", () => {
         buffer: writing.buffer,
         latestSnapshot: writing.latestSnapshot,
         wordBudget: { min: 300, max: 500 },
-        citationsMatched: false,
-        review: { ordered: false, items: [] },
+        citationsMatched: writing.citationsMatched ?? false,
+        review: writing.review ?? { ordered: false, items: [] },
       },
     };
   }
@@ -1678,5 +1680,108 @@ describe("StudioContainer", () => {
     // Still rendered, still interactive — no uncaught rejection tore down
     // the tree.
     expect(screen.getByRole("button", { name: /提交快照/ })).toBeInTheDocument();
+  });
+
+  // --- Task 10 (整稿体检 work-order live wiring): onOrderReview (drains the
+  // SSE generator, then refetches), onReviewDisposition (posts the three-key
+  // disposition on a review item, then refetches), and onAttestCitations
+  // (attests the citations_matched gate item, then refetches) — mirrors Task
+  // 9's tests, driving the actual rendered WritingView. ---
+
+  const reviewItem = {
+    interventionId: "iid-1",
+    criterion: "表E 分析",
+    band: "5–6 段",
+    evidence: "第 2 段接住了反方，但跳步没补上。",
+    missing: "「可持续」的定义还没写出来。",
+    fix: "补上「可持续」的定义",
+    disposition: null,
+  };
+
+  it("orders 整稿体检 via api.orderReview(projectId, snapshotId) then refetches so the work order renders", async () => {
+    let getProjectCalls = 0;
+    const orderReview = vi.fn(async function* () {
+      yield { type: "done" as const };
+    });
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return writingProjection({
+          buffer: "定稿正文。",
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
+          review: getProjectCalls === 1 ? { ordered: false, items: [] } : { ordered: true, items: [reviewItem] },
+        });
+      },
+      orderReview,
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByDisplayValue("定稿正文。");
+
+    fireEvent.click(screen.getByRole("button", { name: /整稿体检/ }));
+
+    expect(orderReview).toHaveBeenCalledWith("p1", "snap-1");
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    fireEvent.click(screen.getByText("预览 · 批注"));
+    await waitFor(() => expect(screen.getByText("表E 分析")).toBeInTheDocument());
+  });
+
+  it("records a review item's disposition via api.postDisposition then refetches", async () => {
+    let getProjectCalls = 0;
+    const postDisposition = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return writingProjection({
+          buffer: "定稿正文。",
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
+          review: { ordered: true, items: [reviewItem] },
+        });
+      },
+      postDisposition,
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByDisplayValue("定稿正文。");
+    fireEvent.click(screen.getByText("预览 · 批注"));
+    await screen.findByText("表E 分析");
+
+    fireEvent.click(screen.getByText("我来改"));
+    const reason = "这一段的推理跳步确实需要我自己重新组织一下";
+    // The coach rail's own DispositionCard (a DIFFERENT three-key disposal,
+    // for the live conversation's disposable intervention) also renders on
+    // this station with a similarly-worded placeholder — an exact match on
+    // the work-order item's OWN (shorter) placeholder disambiguates them.
+    fireEvent.change(screen.getByPlaceholderText("写下你的理由（至少 15 字）"), { target: { value: reason } });
+    fireEvent.click(screen.getByText("记录处置"));
+
+    expect(postDisposition).toHaveBeenCalledWith("p1", "iid-1", "rewrite", reason);
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+  });
+
+  it("attests citations_matched via api.attestGate(projectId, 'draft_polish', 'citations_matched', true) then refetches", async () => {
+    let getProjectCalls = 0;
+    const attestGate = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S5" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return writingProjection({
+          buffer: "定稿正文。",
+          latestSnapshot: { id: "snap-1", seq: 1, committedAt: "2026-07-10T00:00:00Z", wordCount: 400, inBand: true },
+          review: { ordered: true, items: [reviewItem] },
+        });
+      },
+      attestGate,
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByDisplayValue("定稿正文。");
+    fireEvent.click(screen.getByText("预览 · 批注"));
+    await screen.findByText("表E 分析");
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    expect(attestGate).toHaveBeenCalledWith("p1", "draft_polish", "citations_matched", true);
+    await waitFor(() => expect(getProjectCalls).toBe(2));
   });
 });

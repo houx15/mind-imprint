@@ -9,7 +9,10 @@ import type { StationCode, StudioState, StudioCallbacks } from "./state";
 // calls the 素材 dossier now needs — still a Pick off the real ApiClient so
 // test fixtures keep injecting plain object literals for just the calls a
 // given test actually exercises.
-type StudioApi = Pick<typeof defaultApi, "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot">;
+type StudioApi = Pick<
+  typeof defaultApi,
+  "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate"
+>;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
 type ConvSnapshot = ReturnType<StudioConversation["getSnapshot"]>;
@@ -351,6 +354,49 @@ export function StudioContainer({
         .then(() => refetchProject())
         .catch(() => {
           setSyncError("提交失败，请重试。");
+        });
+    },
+    // Slice 8 Task 10: 整稿体检 — orderReview is a plain SSE generator (no
+    // conversation controller involved, unlike submitCard/skipCard above).
+    // The stream's own "review" items are raw model output with no
+    // interventionId/disposition (studioTurn.ts's doc comment); the
+    // work-order's actual render shape only exists once the projection is
+    // refetched, so this drains the generator purely to know when the
+    // review is done (and to surface a review_rejected error, if any)
+    // before refetching.
+    onOrderReview: (snapshotId) => {
+      if (!projectId) return;
+      (async () => {
+        for await (const ev of api.orderReview(projectId, snapshotId)) {
+          if (ev.type === "error") setSyncError(ev.message || "体检失败，请重试。");
+        }
+        await refetchProject();
+      })().catch(() => {
+        setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+      });
+    },
+    // The review work-order's own three-key disposition — same disposition
+    // endpoint Slice 5c already wired for the coach rail's own intervention
+    // disposal (api.postDisposition), just keyed off a review_item
+    // intervention instead of the live conversation's disposableInterventionId.
+    onReviewDisposition: (interventionId, action, reason) => {
+      if (!projectId) return;
+      api
+        .postDisposition(projectId, interventionId, action, reason)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+    },
+    // The S5 student-written citations_matched gate item — draft_polish is
+    // the only contract this attestation is ever recorded against.
+    onAttestCitations: (confirmed) => {
+      if (!projectId) return;
+      api
+        .attestGate(projectId, "draft_polish", "citations_matched", confirmed)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
         });
     },
   };

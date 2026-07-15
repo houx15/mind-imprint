@@ -1,11 +1,11 @@
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
-  CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection,
+  CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem };
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -61,4 +61,11 @@ export type StudioCallbacks = {
   // of StudioShell never need them.
   onBufferChange?: (text: string) => void;
   onCommit?: (text: string) => void;
+  // Slice 8 Task 10: 整稿体检 work-order — order a review over the given
+  // committed snapshot, record a three-key disposition on one review item,
+  // and attest the student-written citations_matched gate item. Optional for
+  // the same reason as the rest of this group.
+  onOrderReview?: (snapshotId: string) => void;
+  onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
+  onAttestCitations?: (confirmed: boolean) => void;
 };

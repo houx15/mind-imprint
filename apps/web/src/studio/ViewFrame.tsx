@@ -40,10 +40,15 @@ export type ViewFrameProps = {
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
   // Slice 8 Task 9: the 写作 view's silent-buffer autosave + snapshot commit
   // — a separate prop object (not folded into StudioCallbacks-only usage)
-  // mirroring `material`'s own onAdd/onOpenLogged grouping above.
+  // mirroring `material`'s own onAdd/onOpenLogged grouping above. Task 10
+  // adds the 整稿体检 work-order trigger, its per-item disposition, and the
+  // citations_matched attestation to the same group.
   writing?: {
     onBufferChange?: (text: string) => void;
     onCommit?: (text: string) => void;
+    onOrderReview?: (snapshotId: string) => void;
+    onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
+    onAttestCitations?: (confirmed: boolean) => void;
   };
 };
 
@@ -287,7 +292,14 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
         />
       )}
       {effectiveView === "写作" && (
-        <WritingView {...state.views.writing} onBufferChange={writing?.onBufferChange} onCommit={writing?.onCommit} />
+        <WritingView
+          {...state.views.writing}
+          onBufferChange={writing?.onBufferChange}
+          onCommit={writing?.onCommit}
+          onOrderReview={writing?.onOrderReview}
+          onReviewDisposition={writing?.onReviewDisposition}
+          onAttestCitations={writing?.onAttestCitations}
+        />
       )}
       {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}
       {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}

@@ -30,4 +30,16 @@ describe("studioTurn", () => {
     for await (const e of studioTurn("p1", "hi")) events.push(e);
     expect(events[0]).toMatchObject({ type: "card", cardInstanceId: "ci1", cardId: "craap", nudgeText: "CRAAP 五维核查" });
   });
+
+  it("yields a review event carrying the raw work-order array", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(sseBody(
+      `event: review\ndata: [{"criterion_code":"表E","criterion_name":"分析","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}]\n\n` +
+      `event: done\ndata: {}\n\n`));
+    const events = [];
+    for await (const e of studioTurn("p1", "hi")) events.push(e);
+    expect(events[0]).toEqual({
+      type: "review",
+      items: [{ criterion_code: "表E", criterion_name: "分析", band: "5–6 段", evidence: "e", missing: "m", fix: "f" }],
+    });
+  });
 });
