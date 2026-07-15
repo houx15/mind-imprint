@@ -70,6 +70,53 @@ test("lock is gated until every slot has text and needSrc slots have a source, t
   expect(state.edges).toContainEqual(expect.objectContaining({ from: "evidence", to: "m_nasa", type: "cites" }));
 });
 
+// Isolates the needSrc-source clause of canLock: every slot's text is filled
+// (>=12 runes), but the evidence slot's REQUIRED source is left unselected —
+// so the ONLY thing gating the lock is the missing source. If canLock ever
+// stopped requiring hasSource on needSrc slots, this test bites (the button
+// would wrongly enable). This is the guard against a stuck-active card: the
+// student locks, but the server's slotComplete refuses a needSrc slot with no
+// source anchor, leaving the card active with nothing minted.
+test("lock stays disabled when a needSrc slot has text but no source, and enables once a source is added", () => {
+  const onLock = vi.fn();
+  let state: GraphState = { nodes: [], edges: [] };
+  const onChange = (s: GraphState) => {
+    state = s;
+  };
+  const { rerender } = render(
+    <Graph slots={slots} state={state} lockedSources={lockedSources} onChange={onChange} onLock={onLock} onSkip={() => {}} />,
+  );
+  const rerenderWithState = () =>
+    rerender(<Graph slots={slots} state={state} lockedSources={lockedSources} onChange={onChange} onLock={onLock} onSkip={() => {}} />);
+
+  const lock = screen.getByRole("button", { name: /锁定|完成/ });
+
+  // Fill claim (active by default, needSrc: false) with >=12 runes.
+  fireEvent.change(screen.getByPlaceholderText("用你自己的话写……"), { target: { value: "核心判断一句话说清楚不能少于十二个字。" } });
+  rerenderWithState();
+
+  // Open evidence and fill its text (>=12 runes) — but DO NOT select a source.
+  fireEvent.click(screen.getByText("支撑证据"));
+  rerenderWithState();
+  fireEvent.change(screen.getByPlaceholderText("用你自己的话写……"), { target: { value: "证据如何支撑主张写满十二个字以上。" } });
+  rerenderWithState();
+
+  // Every slot has enough text, but the needSrc evidence slot has no source:
+  // the source requirement is the only thing gating the lock.
+  expect(state.nodes.find((n) => n.id === "evidence")?.text.trim().length).toBeGreaterThanOrEqual(12);
+  expect(state.edges.filter((e) => e.type === "cites")).toHaveLength(0);
+  expect(lock).toBeDisabled();
+
+  fireEvent.click(lock);
+  expect(onLock).not.toHaveBeenCalled();
+
+  // Now add the missing source — the lock must enable, proving the source
+  // requirement (not the text) was the gate.
+  fireEvent.click(screen.getByText("NASA Earth Observatory"));
+  rerenderWithState();
+  expect(lock).not.toBeDisabled();
+});
+
 test("toggling a source chip twice removes the cites edge again", () => {
   let state: GraphState = { nodes: [], edges: [] };
   const onChange = (s: GraphState) => {
