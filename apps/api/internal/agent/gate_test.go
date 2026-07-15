@@ -199,13 +199,14 @@ func TestS3Gate_LateralReadIsNoLongerSelfAttested(t *testing.T) {
 	}
 }
 
-// TestBuildArgumentGateSolidAfterToulminMint covers Task 4's contract change:
-// S4 (build_argument) drops no_single_sourced_claim from its machine gate —
-// source quality is S3's job now — leaving no_orphan_evidence,
-// no_unsupported_claim, and node_present{concession}. The toulmin mint (Task
-// 3) produces exactly evidence -[supports]-> claim plus a concession node,
-// which must satisfy all three remaining predicates, including a claim with
-// only a single supporting source.
+// TestBuildArgumentGateSolidAfterToulminMint covers the S4 (build_argument)
+// machine gate: no_unsupported_claim and node_present{concession}.
+// no_orphan_evidence was dropped from S4 — a real CRAAP `promote` mint leaves an
+// orphan evidence node (evaluated source, not yet wired into an argument), so
+// the predicate is unsatisfiable in the real flow; S4 is card completion, and
+// finishing the toulmin card satisfies the two predicates that remain. The
+// toulmin mint (Task 3) produces exactly evidence -[supports]-> claim plus a
+// concession node, which must satisfy both.
 func TestBuildArgumentGateSolidAfterToulminMint(t *testing.T) {
 	g := GraphView{
 		Nodes: []GraphNodeView{
@@ -217,10 +218,8 @@ func TestBuildArgumentGateSolidAfterToulminMint(t *testing.T) {
 			{FromKind: "graph_node", FromID: "e1", ToKind: "graph_node", ToID: "c1", Type: "supports"},
 		},
 	}
-	for _, kind := range []string{"no_orphan_evidence", "no_unsupported_claim"} {
-		if pass, msg := EvalMachineItemForTest(skills.MachineItem{Kind: kind}, g); !pass {
-			t.Fatalf("%s failed: %s", kind, msg)
-		}
+	if pass, msg := EvalMachineItemForTest(skills.MachineItem{Kind: "no_unsupported_claim"}, g); !pass {
+		t.Fatalf("no_unsupported_claim failed: %s", msg)
 	}
 	if pass, msg := EvalMachineItemForTest(skills.MachineItem{Kind: "node_present", Type: "concession"}, g); !pass {
 		t.Fatalf("concession node_present failed: %s", msg)

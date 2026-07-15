@@ -74,7 +74,6 @@
       "repertoire": ["toulmin", "concession", "steelman"],
       "gate": {
         "machine": [
-          { "kind": "no_orphan_evidence" },
           { "kind": "no_unsupported_claim" },
           { "kind": "node_present", "type": "concession" }
         ],

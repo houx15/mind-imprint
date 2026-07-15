@@ -324,17 +324,17 @@ func TestRefactor2CardsLoop_CreateCardInstanceOnTasklessMaterial(t *testing.T) {
 // argument-graph submit, mint the five Toulmin nodes plus a supports and a
 // cites edge, and drive the build_argument gate's machine tier to clear.
 //
-// The precondition is seeded at the graph level rather than by running real
-// CRAAP/SIFT cards on purpose: a real CRAAP mint would leave an orphan
-// evidence node that both (a) makes the evidence-node count 2, not 1, and (b)
-// keeps build_argument's no_orphan_evidence failing — neither reflects the
-// seam under test. So the seed writes only the two edges the classifier reads
-// to conclude "this source is spoken for by both CRAAP and SIFT, and no
-// argument exists yet": an `evaluated-as` edge (so CRAAP does not re-surface
-// and the toulmin trigger sees an evaluated source) and a `cross-checked-by`
-// edge (so SIFT does not re-surface and preempt toulmin as cands[0]). graph_edge
-// has no FK to graph_node, so their targets are intentionally dangling — the
-// toulmin-minted subgraph is the only thing the gate assertions inspect.
+// The seed reproduces the REAL post-CRAAP/SIFT graph: a real CRAAP `promote`
+// mint leaves an ORPHAN evidence node (the evaluated source, not yet wired into
+// any argument) plus an `evaluated-as` edge to it, and SIFT leaves a
+// `cross-checked-by` edge. So the seed writes an actual orphan `evidence`
+// graph_node + the two edges the classifier reads to conclude "this source is
+// spoken for by both CRAAP and SIFT, and no argument exists yet". This is the
+// point of the strengthened test: build_argument's machine tier must clear
+// DESPITE the orphan CRAAP evidence — which it does because no_orphan_evidence
+// was dropped from S4 (it is unsatisfiable in the real flow). The
+// cross-checked-by target is dangling (graph_edge has no FK to graph_node); it
+// only needs to exist as a fact so SIFT does not preempt toulmin as cands[0].
 func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -366,12 +366,21 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 		t.Fatalf("CreateProjectMaterial: %v", err)
 	}
 
-	// Seed S4 precondition: the source is evaluated (CRAAP done) AND already
-	// cross-checked (SIFT done), so neither re-surfaces and toulmin is the sole
-	// candidate. Targets are dangling by design (see the doc comment above).
+	// Seed S4 precondition, production-faithful: the source is evaluated (CRAAP
+	// done) AND already cross-checked (SIFT done), so neither re-surfaces and
+	// toulmin is the sole candidate. CRAAP's `promote` leaves a REAL orphan
+	// evidence node (no outgoing supports edge) + an evaluated-as edge to it.
+	craapEvidenceID, err := store.InsertGraphNode(ctx, project.ID, agent.MintNode{
+		Type:   "evidence",
+		Author: "student",
+		Body:   map[string]any{"source_quality": map[string]any{"authority": "NASA地球观测团队发布，具备权威性"}},
+	})
+	if err != nil {
+		t.Fatalf("seed CRAAP evidence node: %v", err)
+	}
 	if err := store.InsertGraphEdge(ctx, project.ID, agent.MintEdge{
 		Type: "evaluated-as", FromKind: "material", FromID: material.ID.String(),
-		ToKind: "graph_node", ToID: uuid.NewString(),
+		ToKind: "graph_node", ToID: craapEvidenceID.String(),
 	}); err != nil {
 		t.Fatalf("seed evaluated-as edge: %v", err)
 	}
@@ -467,7 +476,12 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 		t.Fatal("want complete = true for a full Toulmin graph")
 	}
 
-	// Assert the mint: exactly one node per slot, all authored by the student.
+	// Assert the mint. The toulmin-only slot types (claim/warrant/counter/
+	// concession) get exactly one student-authored node each. `evidence` is the
+	// exception: the toulmin mint adds ONE, and the seeded orphan CRAAP evidence
+	// is still present, so there are TWO — proving the mint/gate hold with the
+	// orphan present. We identify the toulmin evidence node specifically as the
+	// one carrying the supports->claim edge (below), not by a raw type count.
 	nodes, err := q.ListGraphNodesByProject(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ListGraphNodesByProject: %v", err)
@@ -476,7 +490,7 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	for _, n := range nodes {
 		byType[n.Type] = append(byType[n.Type], n)
 	}
-	for _, typ := range []string{"claim", "warrant", "evidence", "counter", "concession"} {
+	for _, typ := range []string{"claim", "warrant", "counter", "concession"} {
 		if len(byType[typ]) != 1 {
 			t.Fatalf("node %s count = %d, want 1", typ, len(byType[typ]))
 		}
@@ -484,18 +498,27 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 			t.Fatalf("node %s author = %q, want student", typ, byType[typ][0].Author)
 		}
 	}
+	if len(byType["evidence"]) != 2 {
+		t.Fatalf("evidence node count = %d, want 2 (seeded orphan CRAAP evidence + toulmin's)", len(byType["evidence"]))
+	}
+	evidenceIDs := map[uuid.UUID]bool{}
+	for _, n := range byType["evidence"] {
+		evidenceIDs[n.ID] = true
+	}
 
-	// supports: evidence -> claim.
+	// supports: exactly one evidence -> claim edge (the toulmin evidence; the
+	// orphan CRAAP evidence has no supports edge, by construction).
 	claimID := byType["claim"][0].ID
-	evidenceID := byType["evidence"][0].ID
 	edges, err = q.ListGraphEdgesByProject(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ListGraphEdgesByProject: %v", err)
 	}
 	supports, cites := 0, 0
+	var toulminEvidenceID uuid.UUID
 	for _, e := range edges {
-		if e.Type == "supports" && e.FromKind == "graph_node" && e.FromID == evidenceID && e.ToKind == "graph_node" && e.ToID == claimID {
+		if e.Type == "supports" && e.FromKind == "graph_node" && evidenceIDs[e.FromID] && e.ToKind == "graph_node" && e.ToID == claimID {
 			supports++
+			toulminEvidenceID = e.FromID
 		}
 		if e.Type == "cites" && e.FromKind == "graph_node" && e.ToKind == "material" && e.ToID == material.ID {
 			cites++
@@ -507,12 +530,18 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	if cites == 0 {
 		t.Fatalf("want ≥1 cites edge to the seeded material, got 0 among %+v", edges)
 	}
+	// The toulmin evidence node (the one wired to the claim) is distinct from the
+	// seeded orphan CRAAP evidence, which keeps NO supports edge.
+	if toulminEvidenceID == craapEvidenceID {
+		t.Fatalf("supports edge came from the orphan CRAAP evidence %s, not the toulmin evidence", craapEvidenceID)
+	}
 
-	// Assert the gate: build_argument's machine tier now clears (no orphan
-	// evidence, claim supported, concession present). DEC-3 caps the machine
-	// Status at "machine_clear"; a "solid"/"done" station additionally needs an
-	// external confirmation (Advance + recorded student_written items) this mint
-	// does not — and must not — write.
+	// Assert the gate: build_argument's machine tier clears (claim supported,
+	// concession present) DESPITE the orphan CRAAP evidence node — proving the
+	// gate works in the real flow now that no_orphan_evidence was dropped from
+	// S4. DEC-3 caps the machine Status at "machine_clear"; a "solid"/"done"
+	// station additionally needs an external confirmation (Advance + recorded
+	// student_written items) this mint does not — and must not — write.
 	after := agent.CheckGate(sk, "build_argument", loadGraphView(ctx, t, q, project.ID), agent.RecordedGate{})
 	if after.Status != "machine_clear" {
 		t.Fatalf("build_argument gate = %q after the mint, want machine_clear (missing: %v)", after.Status, after.Missing)
