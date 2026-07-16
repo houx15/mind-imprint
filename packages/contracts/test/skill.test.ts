@@ -15,7 +15,7 @@ describe("skill format (C5)", () => {
           view: "OutlineView",
           repertoire: ["tree", "order"],
           gate: {
-            machine: ["grammar"],
+            machine: [{ kind: "node_present", type: "grammar" }],
             student_written: ["thesis"],
             human: ["peer_review"],
           },

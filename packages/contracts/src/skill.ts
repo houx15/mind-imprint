@@ -4,9 +4,8 @@ export const SkillKind = z.enum(["project", "course"]);
 export type SkillKind = z.infer<typeof SkillKind>;
 
 // MachineItem is one machine-checkable gate item (mirrors Go's skills.MachineItem).
-// gate.machine accepts either this object form (what the authored skill JSON
-// actually uses) or a bare string, for backward compatibility with callers
-// that pass a machine kind alone.
+// Object shape only — every real skill JSON and the Go struct always emit
+// {kind, type?, n?}; there is no bare-string form in the wild.
 export const MachineItem = z.object({
   kind: z.string(),
   type: z.string().optional(),
@@ -15,7 +14,7 @@ export const MachineItem = z.object({
 export type MachineItem = z.infer<typeof MachineItem>;
 
 export const Gate = z.object({
-  machine: z.array(z.union([z.string(), MachineItem])).default([]),
+  machine: z.array(MachineItem).default([]),
   student_written: z.array(z.string()).default([]),
   human: z.array(z.string()).default([]),
 });
