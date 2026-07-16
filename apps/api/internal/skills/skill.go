@@ -50,6 +50,53 @@ type Contract struct {
 	Title      string   `json:"title"`
 	Repertoire []string `json:"repertoire"`
 	Gate       Gate     `json:"gate"`
+
+	// Course-only fields (Slice 12). All optional — writing-project.json sets
+	// none of them and must keep loading unchanged.
+	Goal           string          `json:"goal,omitempty"`
+	Steps          []int           `json:"steps,omitempty"`
+	Page           *PhasePage      `json:"page,omitempty"`
+	Cards          []string        `json:"cards,omitempty"`
+	AnchorMaterial *AnchorMaterial `json:"anchor_material,omitempty"`
+	AskChips       []string        `json:"ask_chips,omitempty"`
+	Floor          []FloorItem     `json:"floor,omitempty"`
+	SoftCondition  string          `json:"soft_condition,omitempty"`
+}
+
+// CourseFloorKinds is the closed set of course phase-floor kinds (Slice 12,
+// DEC-12.2). The names live here (config validation); the evaluation lives in
+// the agent package — the same split MachineKinds uses. The floor is the
+// structural half of phase advance: it can only ever REFUSE. The positive
+// pedagogical call is the coach's (DEC-3 discipline).
+var CourseFloorKinds = map[string]bool{
+	"steps_viewed":           true,
+	"card_dispositioned":     true,
+	"student_turns_at_least": true,
+}
+
+// FloorItem is one machine-checkable phase floor. Steps/CardID/N are read only
+// by the kind that uses them, mirroring MachineItem.
+type FloorItem struct {
+	Kind   string `json:"kind"`
+	Steps  []int  `json:"steps"`
+	CardID string `json:"card_id"`
+	N      int    `json:"n"`
+}
+
+// PhasePage is a step-less phase's authored page (the guided phase's page is
+// the card; the reflect phase's is the dialogue). Phases that wrap course_step
+// ordinals render from those rows instead and leave this nil.
+type PhasePage struct {
+	Title    string   `json:"title"`
+	Subtitle string   `json:"subtitle"`
+	Body     []string `json:"body"`
+}
+
+// AnchorMaterial is the case a phase's card practice hangs on — minted as a
+// session material the first time the card surfaces.
+type AnchorMaterial struct {
+	Title string `json:"title"`
+	Text  string `json:"text"`
 }
 
 // WordBudget is the per-qualification legal word band for S5 (draft_polish).
@@ -82,6 +129,7 @@ type Skill struct {
 	Cards          []string            `json:"cards"`
 	WordBudget     *WordBudget         `json:"word_budget,omitempty"`
 	ReviewCriteria []ReviewCriterion   `json:"review_criteria,omitempty"`
+	CourseID       string              `json:"course_id,omitempty"`
 }
 
 // Load parses and validates one skill JSON blob.
@@ -116,16 +164,79 @@ func (s Skill) Validate() error {
 				return fmt.Errorf("skill %s: contract %s unknown machine kind %q", s.ID, id, m.Kind)
 			}
 		}
+		for _, f := range c.Floor {
+			if !CourseFloorKinds[f.Kind] {
+				return fmt.Errorf("skill %s: contract %s unknown floor kind %q", s.ID, id, f.Kind)
+			}
+			if f.CardID != "" && !contains(s.Cards, f.CardID) {
+				return fmt.Errorf("skill %s: contract %s floor references card %s not in the skill's cards", s.ID, id, f.CardID)
+			}
+		}
+		for _, cd := range c.Cards {
+			if !contains(s.Cards, cd) {
+				return fmt.Errorf("skill %s: contract %s declares card %s not in the skill's cards", s.ID, id, cd)
+			}
+		}
 	}
 	for _, c := range s.ReviewCriteria {
 		if c.Points < 1 {
 			return fmt.Errorf("skill %s: review criterion %s needs points >= 1", s.ID, c.Code)
 		}
 	}
+	// A course's phase order is BINDING (agent-spec §5.3): it is a chain, not a
+	// general DAG. Enforce that at load — a branching course skill is a config
+	// error, not a runtime surprise.
+	if s.Kind == "course" {
+		if _, err := s.LinearOrder(); err != nil {
+			return err
+		}
+		return nil
+	}
 	if _, err := s.TopoOrder(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func contains(xs []string, x string) bool {
+	for _, s := range xs {
+		if s == x {
+			return true
+		}
+	}
+	return false
+}
+
+// LinearOrder returns a course skill's phases in their binding order. It errors
+// unless the requires-chain is strictly linear: exactly one root, every other
+// contract requiring exactly one predecessor, and no contract required by two
+// successors. TopoOrder does the cycle check.
+func (s Skill) LinearOrder() ([]string, error) {
+	order, err := s.TopoOrder()
+	if err != nil {
+		return nil, err
+	}
+	successors := map[string]int{}
+	roots := 0
+	for id, c := range s.Contracts {
+		switch len(c.Requires) {
+		case 0:
+			roots++
+		case 1:
+			successors[c.Requires[0]]++
+		default:
+			return nil, fmt.Errorf("skill %s: contract %s requires %d predecessors — a course order must be linear", s.ID, id, len(c.Requires))
+		}
+	}
+	if roots != 1 {
+		return nil, fmt.Errorf("skill %s: a course order must have exactly one first phase, found %d", s.ID, roots)
+	}
+	for id, n := range successors {
+		if n > 1 {
+			return nil, fmt.Errorf("skill %s: phase %s is followed by %d phases — a course order must be linear", s.ID, id, n)
+		}
+	}
+	return order, nil
 }
 
 // TopoOrder returns the contract ids in a deterministic topological order

@@ -1,0 +1,54 @@
+{
+  "id": "info-literacy-course",
+  "kind": "course",
+  "course_id": "00000000-0000-0000-0000-0000000000c1",
+  "cards": ["craap"],
+  "contracts": {
+    "demonstrate": {
+      "requires": [], "produces": [], "title": "演示",
+      "goal": "让学生意识到「随手一信」的风险，建立停一下的习惯",
+      "steps": [0, 1],
+      "repertoire": [],
+      "ask_chips": ["为什么不能只看一篇文章？", "横向溯源到底怎么做？"],
+      "floor": [{ "kind": "steps_viewed", "steps": [0, 1] }],
+      "soft_condition": "学生能说出「随手一信」的风险，或提出了一个真实的疑问",
+      "gate": { "machine": [], "student_written": [], "human": [] }
+    },
+    "guided": {
+      "requires": ["demonstrate"], "title": "引导",
+      "goal": "在这条真实说法上，带学生做一次完整的信源辨识",
+      "steps": [],
+      "page": {
+        "title": "现在，对这条说法做一次溯源",
+        "subtitle": "印记会陪你走一遍——但判断是你的。",
+        "body": ["「卫星图显示，过去二十年地球变绿，主要是中国的功劳。」"]
+      },
+      "cards": ["craap"],
+      "anchor_material": {
+        "title": "待核实的说法",
+        "text": "卫星图显示，过去二十年地球变绿，主要是中国的功劳。"
+      },
+      "ask_chips": ["这张卡要我做什么？", "我该先查哪一步？"],
+      "floor": [{ "kind": "card_dispositioned", "card_id": "craap" }],
+      "soft_condition": "学生对这条说法做完了一次真实的溯源，不是走过场",
+      "gate": { "machine": [], "student_written": [], "human": [] }
+    },
+    "independent": {
+      "requires": ["guided"], "title": "独立", "steps": [2],
+      "goal": "学生独立给出判断，并说得出理由",
+      "ask_chips": ["我可以说「不确定」吗？"],
+      "floor": [{ "kind": "student_turns_at_least", "n": 1 }],
+      "soft_condition": "学生给出了判断并说得出理由，理由指向证据而不是感觉",
+      "gate": { "machine": [], "student_written": [], "human": [] }
+    },
+    "reflect": {
+      "requires": ["independent"], "title": "回看", "steps": [],
+      "goal": "让方法从这次经验里抽象出来",
+      "page": { "title": "回看这一趟", "subtitle": "你刚才用的，是一套可以带走的方法。", "body": [] },
+      "ask_chips": ["下次遇到类似的信息，我该先做什么？"],
+      "floor": [{ "kind": "student_turns_at_least", "n": 1 }],
+      "soft_condition": "学生说得出这次用的方法，而不只是这次的结论",
+      "gate": { "machine": [], "student_written": [], "human": [] }
+    }
+  }
+}

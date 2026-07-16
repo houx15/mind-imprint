@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { Skill, Contract, Gate } from "../src/skill";
+import { Skill, Contract, Gate, FloorItem } from "../src/skill";
+import courseSkill from "../skills/info-literacy-course.json";
+import projectSkill from "../skills/writing-project.json";
 
 describe("skill format (C5)", () => {
   it("a writing-project fixture with kind, contracts, and gate parses", () => {
@@ -47,5 +49,20 @@ describe("skill format (C5)", () => {
       expect(gate.data.student_written).toEqual([]);
       expect(gate.data.human).toEqual([]);
     }
+  });
+});
+
+describe("course skill", () => {
+  it("parses the authored course skill", () => {
+    const r = Skill.safeParse(courseSkill);
+    expect(r.success).toBe(true);
+  });
+
+  it("still parses the project skill unchanged", () => {
+    expect(Skill.safeParse(projectSkill).success).toBe(true);
+  });
+
+  it("rejects a floor kind outside the closed set", () => {
+    expect(FloorItem.safeParse({ kind: "vibes_ok" }).success).toBe(false);
   });
 });

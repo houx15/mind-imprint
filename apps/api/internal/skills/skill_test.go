@@ -180,3 +180,67 @@ func TestSeededWritingSkillHasCriterionPoints(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadCourseSkill(t *testing.T) {
+	s, ok := ByID("info-literacy-course")
+	if !ok {
+		t.Fatal("course skill must load")
+	}
+	if s.Kind != "course" {
+		t.Fatalf("kind = %q, want course", s.Kind)
+	}
+	order, err := s.LinearOrder()
+	if err != nil {
+		t.Fatalf("course chain must be linear: %v", err)
+	}
+	want := []string{"demonstrate", "guided", "independent", "reflect"}
+	if len(order) != len(want) {
+		t.Fatalf("order = %v, want %v", order, want)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("order = %v, want %v", order, want)
+		}
+	}
+	g := s.Contracts["guided"]
+	if len(g.Floor) != 1 || g.Floor[0].Kind != "card_dispositioned" || g.Floor[0].CardID != "craap" {
+		t.Fatalf("guided floor = %+v, want one card_dispositioned craap", g.Floor)
+	}
+	if g.AnchorMaterial == nil || g.AnchorMaterial.Text == "" {
+		t.Fatal("guided must declare an anchor material")
+	}
+	if s.Contracts["demonstrate"].SoftCondition == "" {
+		t.Fatal("every phase needs a soft condition")
+	}
+}
+
+func TestCourseValidationRejectsBadConfig(t *testing.T) {
+	cases := map[string]string{
+		"unknown floor kind": `{"id":"x","kind":"course","cards":["craap"],"contracts":{
+			"a":{"floor":[{"kind":"vibes_ok"}],"gate":{}}}}`,
+		"floor card not in skill cards": `{"id":"x","kind":"course","cards":[],"contracts":{
+			"a":{"floor":[{"kind":"card_dispositioned","card_id":"craap"}],"gate":{}}}}`,
+		"branching chain": `{"id":"x","kind":"course","contracts":{
+			"a":{"gate":{}},
+			"b":{"requires":["a"],"gate":{}},
+			"c":{"requires":["a"],"gate":{}}}}`,
+		"two roots": `{"id":"x","kind":"course","contracts":{
+			"a":{"gate":{}},
+			"b":{"gate":{}}}}`,
+	}
+	for name, blob := range cases {
+		if _, err := Load([]byte(blob)); err == nil {
+			t.Fatalf("%s: must be rejected at load", name)
+		}
+	}
+}
+
+func TestProjectSkillStillLoads(t *testing.T) {
+	s, ok := ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project must keep loading unchanged")
+	}
+	if _, err := s.TopoOrder(); err != nil {
+		t.Fatalf("writing-project DAG must stay valid: %v", err)
+	}
+}
