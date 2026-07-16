@@ -38,13 +38,14 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 				Disposition: &DispositionDTO{Action: "accept", Reason: "r"},
 			}}},
 		},
+		Readiness: []GaugeDTO{{Code: "表D", Name: "来源与证据", Lit: 3, Total: 4, Note: "n", Level: "partial"}},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "readiness", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -74,6 +75,17 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	// structure card: {id,role,status,preview} — must match
 	// packages/contracts/src/studioState.ts StructureCard exactly.
 	assertKeys(t, structure[0], []string{"id", "preview", "role", "status"})
+
+	var readiness []json.RawMessage
+	if err := json.Unmarshal(mTop["readiness"], &readiness); err != nil {
+		t.Fatal(err)
+	}
+	if len(readiness) != 1 {
+		t.Fatalf("readiness len = %d, want 1", len(readiness))
+	}
+	// readiness gauge: {code,name,lit,total,note,level} — must match
+	// packages/contracts/src/studioState.ts Gauge exactly.
+	assertKeys(t, readiness[0], []string{"code", "level", "lit", "name", "note", "total"})
 
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {

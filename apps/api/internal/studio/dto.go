@@ -34,6 +34,11 @@ type StudioProjection struct {
 	// immutable snapshot, the word budget, the citations attestation, and the
 	// whole-draft review work-order. See projectWriting (projection.go).
 	Writing WritingDTO `json:"writing"`
+	// Readiness projects the 评估 view's 就绪度 gauge (Slice 9): one card per 0457
+	// review table (表D/E/F/H), lit from the latest board-voice whole-draft
+	// review ⋈ skill config. Always the full config set (4 unlit cards
+	// pre-review). See projectReadiness (projection.go).
+	Readiness []GaugeDTO `json:"readiness"`
 }
 
 // ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a
@@ -265,4 +270,18 @@ type WritingDTO struct {
 	WordBudget       WordBudgetDTO       `json:"wordBudget"`
 	CitationsMatched bool                `json:"citationsMatched"`
 	Review           WritingReviewDTO    `json:"review"`
+}
+
+// GaugeDTO is one 0457 mark-scheme table on the 就绪度 readiness display: the
+// descriptor cell the latest BOARD-voice review placed the draft in. Lit/Total
+// are lamp counts (which cell), never a predicted grade (RL-3). Note is the
+// review's own `missing` — what's absent, so the next step is legible; "" when
+// the table is full. Level is derived from lit/total.
+type GaugeDTO struct {
+	Code  string `json:"code"`  // 表D..表H
+	Name  string `json:"name"`  // 来源与证据 / 分析 / 评估 / 表达与组织
+	Lit   int    `json:"lit"`   // clamp(review.points, 0, total); 0 when no board review
+	Total int    `json:"total"` // skill config points
+	Note  string `json:"note"`  // review.missing; "" when full / no review
+	Level string `json:"level"` // "full" | "partial" | "empty"
 }

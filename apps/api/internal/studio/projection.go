@@ -307,6 +307,7 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		ActiveCard:    projectActiveCard(d, materialByCardInstance(d)),
 		Structure:     projectStructure(specByID, d),
 		Writing:       projectWriting(sk, d),
+		Readiness:     projectReadiness(sk, d),
 	}, nil
 }
 
@@ -365,6 +366,62 @@ func projectWriting(sk skills.Skill, d ProjectData) WritingDTO {
 			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
 		}
 		out.Review.Items = append(out.Review.Items, item)
+	}
+	return out
+}
+
+// projectReadiness projects the 评估 view's 就绪度 gauge: one GaugeDTO per skill
+// review criterion (0457 表D/E/F/H, config order), lit from the latest snapshot's
+// BOARD-voice review (sceptic/layperson/executioner are coaching lenses and never
+// light readiness — Slice 9 DEC-9.2/board-only). Always emits the full config set,
+// so the display is stable and honest before any review (4 unlit cards). RL-3: lit
+// is a descriptor cell, never a grade; the projection is the single clamp site.
+func projectReadiness(sk skills.Skill, d ProjectData) []GaugeDTO {
+	out := make([]GaugeDTO, 0, len(sk.ReviewCriteria))
+	// Board-voice review items for the latest snapshot, keyed by criterion code.
+	byCode := map[string]agent.ReviewItem{}
+	if d.LatestSnapshot != nil {
+		for _, iv := range d.Interventions {
+			if iv.Type != "review_item" {
+				continue
+			}
+			var a struct{ Kind, ID, Voice string }
+			_ = json.Unmarshal(iv.Anchor, &a)
+			if a.Kind != "draft_snapshot" || a.ID != d.LatestSnapshot.ID.String() {
+				continue
+			}
+			if a.Voice != "" && a.Voice != "board" {
+				continue // only the board voice is the assessment of record
+			}
+			var it agent.ReviewItem
+			if err := json.Unmarshal([]byte(iv.Body), &it); err != nil {
+				continue
+			}
+			byCode[it.CriterionCode] = it
+		}
+	}
+	for _, c := range sk.ReviewCriteria {
+		g := GaugeDTO{Code: c.Code, Name: c.Name, Total: c.Points, Level: "empty"}
+		if it, ok := byCode[c.Code]; ok {
+			lit := it.Points
+			if lit < 0 {
+				lit = 0
+			}
+			if lit > c.Points {
+				lit = c.Points
+			}
+			g.Lit = lit
+			g.Note = it.Missing
+			switch {
+			case g.Total > 0 && g.Lit == g.Total:
+				g.Level = "full"
+			case g.Lit == 0:
+				g.Level = "empty"
+			default:
+				g.Level = "partial"
+			}
+		}
+		out = append(out, g)
 	}
 	return out
 }

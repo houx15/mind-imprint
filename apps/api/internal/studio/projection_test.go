@@ -734,3 +734,119 @@ func TestProjectWriting_VoiceAndBudget(t *testing.T) {
 		t.Fatalf("voice tags = %v, want one sceptic + one board", voices)
 	}
 }
+
+// reviewItemIntervention builds one review_item intervention row anchored to
+// snapID, mirroring TestProjectWriting_VoiceAndBudget's `mk` helper: the
+// anchor carries {kind:"draft_snapshot",id,voice} (voice key omitted ->
+// board), the body is the full marshalled agent.ReviewItem (Task 2's Points
+// included).
+func reviewItemIntervention(snapID uuid.UUID, voice, code, name string, points int) sqlc.Intervention {
+	anchor := map[string]string{"kind": "draft_snapshot", "id": snapID.String()}
+	if voice != "" {
+		anchor["voice"] = voice
+	}
+	b, _ := json.Marshal(anchor)
+	body, _ := json.Marshal(agent.ReviewItem{
+		CriterionCode: code, CriterionName: name, Points: points, Missing: "结论段未回应让步",
+	})
+	return sqlc.Intervention{ID: uuid.New(), Type: "review_item", Anchor: b, Body: string(body)}
+}
+
+// TestProjectReadiness_LitFromBoardReview: a board-voice review_item for 表D
+// with points 3 (config total 4) lights a partial gauge; the other three
+// criteria stay at their pre-review empty default (0/N).
+func TestProjectReadiness_LitFromBoardReview(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	snapID := uuid.New()
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: snapID, Seq: 1, Content: "draft", CreatedAt: time.Now()},
+		Interventions:  []sqlc.Intervention{reviewItemIntervention(snapID, "", "表D", "来源与证据", 3)},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := gaugeByCode(proj.Readiness, "表D")
+	if g.Lit != 3 || g.Total != 4 || g.Level != "partial" {
+		t.Fatalf("表D want 3/4 partial, got %+v", g)
+	}
+	if g.Note == "" {
+		t.Fatalf("表D want the review's missing note carried through, got %+v", g)
+	}
+	if e := gaugeByCode(proj.Readiness, "表E"); e.Lit != 0 || e.Level != "empty" {
+		t.Fatalf("表E want 0 empty, got %+v", e)
+	}
+	if len(proj.Readiness) != 4 {
+		t.Fatalf("want 4 gauges, got %d", len(proj.Readiness))
+	}
+}
+
+// TestProjectReadiness_BoardVoiceOnly: a SCEPTIC-voice review_item never
+// lights readiness — coaching-lens voices are not the assessment of record.
+func TestProjectReadiness_BoardVoiceOnly(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	snapID := uuid.New()
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: snapID, Seq: 1, Content: "draft", CreatedAt: time.Now()},
+		Interventions:  []sqlc.Intervention{reviewItemIntervention(snapID, "sceptic", "表D", "来源与证据", 4)},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g := gaugeByCode(proj.Readiness, "表D"); g.Lit != 0 || g.Level != "empty" {
+		t.Fatalf("表D want 0 empty (sceptic ignored), got %+v", g)
+	}
+}
+
+// TestProjectReadiness_EmptyBeforeReview: with a latest snapshot but no
+// review_item interventions at all, the gauge set still comes back as the
+// full 4-criterion config set, all unlit — the display is stable and honest
+// before any review ever runs.
+func TestProjectReadiness_EmptyBeforeReview(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: uuid.New(), Seq: 1, Content: "draft", CreatedAt: time.Now()},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proj.Readiness) != 4 {
+		t.Fatalf("want 4 config gauges pre-review, got %d", len(proj.Readiness))
+	}
+	for _, g := range proj.Readiness {
+		if g.Lit != 0 || g.Level != "empty" || g.Total < 1 {
+			t.Fatalf("pre-review gauge should be 0/N empty, got %+v", g)
+		}
+	}
+}
+
+// TestProjectReadiness_ClampsAndFull: an out-of-range points value (9, table
+// total 3) clamps to the table total and reads as "full" — the projection is
+// the single clamp site (Task 2 deliberately left the stored value
+// un-clamped).
+func TestProjectReadiness_ClampsAndFull(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	snapID := uuid.New()
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: snapID, Seq: 1, Content: "draft", CreatedAt: time.Now()},
+		Interventions:  []sqlc.Intervention{reviewItemIntervention(snapID, "board", "表F", "评估", 9)},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g := gaugeByCode(proj.Readiness, "表F"); g.Lit != 3 || g.Level != "full" {
+		t.Fatalf("表F want 3/3 full (clamped), got %+v", g)
+	}
+}
+
+func gaugeByCode(gs []GaugeDTO, code string) GaugeDTO {
+	for _, g := range gs {
+		if g.Code == code {
+			return g
+		}
+	}
+	return GaugeDTO{}
+}
