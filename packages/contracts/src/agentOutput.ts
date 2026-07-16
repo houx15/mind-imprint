@@ -58,5 +58,9 @@ export const AgentOutput = z.discriminatedUnion("type", [
     type: z.literal("reply"),
     body: z.string().min(1),
   }),
+  z.object({
+    type: z.literal("advance"),
+    to: z.string().min(1),
+  }),
 ]);
 export type AgentOutput = z.infer<typeof AgentOutput>;

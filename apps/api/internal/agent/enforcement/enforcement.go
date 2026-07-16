@@ -19,6 +19,7 @@ import (
 //	{ type: "proposal",   anchor, criterion, body }
 //	{ type: "plan",       route }
 //	{ type: "reply",      body }
+//	{ type: "advance",    to }
 //
 // Go mirrors the union as a single struct with all fields optional;
 // ValidateOutput enforces the per-type shape.
@@ -30,6 +31,7 @@ type AgentOutput struct {
 	Quote      string       `json:"quote,omitempty"`
 	Provenance string       `json:"provenance,omitempty"`
 	Route      []string     `json:"route,omitempty"`
+	To         string       `json:"to,omitempty"`
 }
 
 // OutputAnchor mirrors the Zod OutputAnchor: a typed reference to a node the
@@ -47,6 +49,7 @@ var validOutputTypes = map[string]bool{
 	"proposal":   true,
 	"plan":       true,
 	"reply":      true,
+	"advance":    true,
 }
 
 // ValidateOutput enforces the typed-output guard (design §9): reject
@@ -80,6 +83,10 @@ func ValidateOutput(out AgentOutput) error {
 	case "reply":
 		if strings.TrimSpace(out.Body) == "" {
 			return fmt.Errorf("enforcement: reply output requires a body")
+		}
+	case "advance":
+		if strings.TrimSpace(out.To) == "" {
+			return fmt.Errorf("enforcement: advance output requires a target phase")
 		}
 	}
 	return nil

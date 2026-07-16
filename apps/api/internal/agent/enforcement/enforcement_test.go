@@ -128,3 +128,15 @@ func TestValidateOutputReply(t *testing.T) {
 		t.Fatalf("empty-body reply should be rejected")
 	}
 }
+
+func TestValidateOutputAdvance(t *testing.T) {
+	if err := ValidateOutput(AgentOutput{Type: "advance", To: "guided"}); err != nil {
+		t.Fatalf("advance with a target must validate, got %v", err)
+	}
+	if err := ValidateOutput(AgentOutput{Type: "advance"}); err == nil {
+		t.Fatal("advance with no target must be rejected")
+	}
+	if err := ValidateOutput(AgentOutput{Type: "advance", To: "   "}); err == nil {
+		t.Fatal("advance with a blank target must be rejected")
+	}
+}

@@ -29,3 +29,20 @@ describe("agent output (C3)", () => {
     expect(AgentOutput.safeParse({ type: "reply", body: "" }).success).toBe(false);
   });
 });
+
+describe("advance output", () => {
+  it("accepts an advance naming a target phase", () => {
+    const r = AgentOutput.safeParse({ type: "advance", to: "guided" });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects an advance with no target", () => {
+    expect(AgentOutput.safeParse({ type: "advance", to: "" }).success).toBe(false);
+    expect(AgentOutput.safeParse({ type: "advance" }).success).toBe(false);
+  });
+
+  it("leaves the existing output types unchanged", () => {
+    expect(AgentOutput.safeParse({ type: "reply", body: "嗯？" }).success).toBe(true);
+    expect(AgentOutput.safeParse({ type: "plan", route: ["a"] }).success).toBe(true);
+  });
+});
