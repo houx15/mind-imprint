@@ -45,7 +45,7 @@ func BuildChatContext(history []ChatTurn, threadSummary, flag string) string {
 	return b.String()
 }
 
-// ProposeChatReply asks the flagship model for one conversational reply, then
+// ProposeChatReply asks the coach model (mid-tier chaperone, downgradeable) for one conversational reply, then
 // runs the chat enforcement subset: ValidateOutput (reply shape) + BannedPhrasing.
 // There is no OutputCheck echo pass — chat has no draft to echo. Usage is
 // populated whenever Collect succeeded, INCLUDING when enforcement then rejects

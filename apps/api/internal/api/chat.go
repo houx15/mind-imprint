@@ -216,7 +216,9 @@ func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = em.Text(res.Reply)
+	if res.Reply != "" {
+		_ = em.Text(res.Reply)
+	}
 	if res.Offer != nil {
 		_ = em.Card(res.Offer.CardInstanceID.String(), res.Offer.CardID, "", []byte("[]"), res.Offer.MaterialID.String())
 	}
