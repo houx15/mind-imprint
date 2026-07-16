@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -15,8 +15,9 @@ import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment, generateAssessment } from "./assessment";
+import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -57,6 +58,12 @@ export interface ApiClient {
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
   getAssessment(projectId: string): Promise<Assessment | null>;
   generateAssessment(projectId: string): Promise<Assessment>;
+  listThreads(): Promise<ChatThread[]>;
+  createThread(title?: string): Promise<ChatThread>;
+  getMessages(threadId: string): Promise<ChatMessage[]>;
+  submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
+  skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
+  chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
 }
 
 export const api: ApiClient = {
@@ -69,4 +76,5 @@ export const api: ApiClient = {
   addMaterial, logSourceOpen,
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
   getAssessment, generateAssessment,
+  listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
 };

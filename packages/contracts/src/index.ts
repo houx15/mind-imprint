@@ -8,6 +8,7 @@ export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
 export * from "./assessment";
+export * from "./chat";
 export * from "./envelope";
 export * from "./anchor";
 export * from "./course";
