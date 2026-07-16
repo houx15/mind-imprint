@@ -26,6 +26,7 @@ const sample = {
   materials: [],
   activeCard: null,
   structure: [],
+  readiness: [],
   writing: {
     buffer: "",
     latestSnapshot: null,
