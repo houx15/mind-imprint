@@ -188,6 +188,16 @@ export const WritingProjection = z.object({
 });
 export type WritingProjection = z.infer<typeof WritingProjection>;
 
+export const Gauge = z.object({
+  code: z.string(),
+  name: z.string(),
+  lit: z.number().int(),
+  total: z.number().int(),
+  note: z.string(),
+  level: z.enum(["full", "partial", "empty"]),
+});
+export type Gauge = z.infer<typeof Gauge>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -202,5 +212,6 @@ export const StudioProjection = z.object({
   activeCard: ActiveCard.nullable(),
   structure: z.array(StructureCard),
   writing: WritingProjection,
+  readiness: z.array(Gauge),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;

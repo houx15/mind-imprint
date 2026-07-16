@@ -1,5 +1,5 @@
 import { describe, it, expect, test } from "vitest";
-import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection, WritingReviewItem } from "../src/studioState";
+import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge } from "../src/studioState";
 
 const emptyWriting = {
   buffer: "",
@@ -32,6 +32,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       activeCard: null,
       structure: [],
       writing: emptyWriting,
+      readiness: [],
     });
     expect(ok.success).toBe(true);
   });
@@ -47,6 +48,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       activeCard: { cardInstanceId: "ci1", cardId: "sift", status: "active", anchors: [], materialId: "m1" },
       structure: [],
       writing: emptyWriting,
+      readiness: [],
     });
     expect(ok.success).toBe(true);
   });
@@ -62,6 +64,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       activeCard: null,
       structure: [],
       writing: emptyWriting,
+      readiness: [],
     };
     expect(StudioProjection.safeParse(rest).success).toBe(false);
   });
@@ -143,6 +146,7 @@ describe("MaterialSource", () => {
       activeCard: null,
       structure: [],
       writing: emptyWriting,
+      readiness: [],
     });
     expect(proj.materials[0]!.title).toBe("《卫星图看中国变绿》");
   });
@@ -169,6 +173,7 @@ describe("StudioProjection", () => {
       materials: [],
       activeCard: null,
       writing: emptyWriting,
+      readiness: [],
     };
     expect(() => StudioProjection.parse(base)).toThrow(); // missing structure
     expect(StudioProjection.parse({ ...base, structure: [] }).structure).toEqual([]);
@@ -209,6 +214,7 @@ describe("WritingProjection", () => {
       activeCard: null,
       structure: [],
       writing: emptyWriting,
+      readiness: [],
     };
     delete p.writing;
     expect(() => StudioProjection.parse(p)).toThrow();
@@ -236,5 +242,21 @@ describe("WritingProjection", () => {
       review: { items: [] },
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("Gauge (readiness table)", () => {
+  test("Gauge parses a readiness table row", () => {
+    const g = Gauge.parse({ code: "表D", name: "来源与证据", lit: 3, total: 4, note: "孤儿证据", level: "partial" });
+    expect(g.total).toBe(4);
+  });
+
+  test("Gauge rejects an unknown level", () => {
+    expect(() => Gauge.parse({ code: "表D", name: "x", lit: 0, total: 4, note: "", level: "sorta" })).toThrow();
+  });
+
+  test("StudioProjection carries a readiness array", () => {
+    const keys = Object.keys((StudioProjection as any).shape);
+    expect(keys).toContain("readiness");
   });
 });
