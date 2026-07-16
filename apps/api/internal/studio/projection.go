@@ -238,6 +238,11 @@ func materialByCardInstance(d ProjectData) map[string]string {
 // (agent/card_lifecycle.go) — the studio projection's own claim to "which
 // material is this card about", so the client never has to guess it from
 // anchor contents or array position (whole-branch review finding [5]).
+//
+// Note: the assessor's cardUsesFromProject (internal/api/assessment.go) zips
+// d.Cards with this function's output by index, assuming identical 1:1
+// iteration order — a future filter/reorder here must not silently misalign
+// that digest.
 func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) []EquipCardDTO {
 	nudged := map[string]bool{}
 	for _, iv := range d.Interventions {

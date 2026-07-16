@@ -52,10 +52,17 @@ func TestAssessCoercesUnknownLevelToNA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	found := false
 	for _, d := range a.Dimensions {
-		if d.Code == "D1" && d.Level != "NA" {
-			t.Errorf("unknown level should coerce to NA, got %q", d.Level)
+		if d.Code == "D1" {
+			found = true
+			if d.Level != "NA" {
+				t.Errorf("unknown level should coerce to NA, got %q", d.Level)
+			}
 		}
+	}
+	if !found {
+		t.Fatal("D1 not present in output")
 	}
 }
 

@@ -136,6 +136,9 @@ func (a *API) generateAssessment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("generate_assessment: touch project", "err", err)
+	}
 	dto, derr := dtoFromEvaluationRow(row)
 	if derr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
