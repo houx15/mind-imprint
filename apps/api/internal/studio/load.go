@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -89,6 +90,23 @@ func Load(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) (ProjectDat
 		return ProjectData{}, err
 	}
 	d.Dispositions = disps
+
+	// Append-only event stream (C4), for the assessment path — inert to the
+	// studio views themselves (Project never reads d.Events).
+	eventRows, err := q.ListEventsByProject(ctx, pg)
+	if err != nil {
+		return ProjectData{}, err
+	}
+	events := make([]Event, len(eventRows))
+	for i, ev := range eventRows {
+		events[i] = Event{
+			Type:      ev.Type,
+			Surface:   ev.Surface,
+			Payload:   json.RawMessage(ev.Payload),
+			CreatedAt: ev.CreatedAt,
+		}
+	}
+	d.Events = events
 
 	return d, nil
 }

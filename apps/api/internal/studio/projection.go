@@ -30,6 +30,16 @@ type ProjectData struct {
 	EditBuffer     string
 	LatestSnapshot *sqlc.DraftSnapshot
 	Dispositions   []sqlc.Disposition
+	Events         []Event
+}
+
+// Event is one row of the append-only event stream, projected for the assessor.
+// Payload is opaque; consumers read known keys defensively.
+type Event struct {
+	Type      string          `json:"type"`
+	Surface   string          `json:"surface"`
+	Payload   json.RawMessage `json:"payload"`
+	CreatedAt time.Time       `json:"createdAt"`
 }
 
 type planBody struct {
