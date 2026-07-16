@@ -89,7 +89,7 @@ started · ◐ in progress · ☑ done.
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone + 8b — see below; **8b ☑** examiner-voice switching + budget-deletion coaching; EE/AP board-specific passes still deferred to their board packs) |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ◐ (**readiness gauge ☑** — 0457 就绪度 made real from the whole-draft review, `644e1d2`; reflect / prediction-loop S0↔S6 / self-score / AI-usage declaration / export forks + the other 4 skins still deferred) |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ◐ (**assessor keystone ☑** — isolated few-shot MVP engine scores the seeded CT rubric over the project event-stream projection → per-dim L1–L4 + evidence + growth narrative in the 成长报告 slot, `50bda49`; T1–T7 leaps / depth-vs-independence radar / teacher+parent report versions / OPCVL / benchmark+fine-tune / chat+course aggregation still deferred) |
-| **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ☐ |
+| **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ◐ (**coach+card-as-offer keystone ☑** — standalone Chat surface: coach-alone `RunChatStep` (reply typed output, guiding posture), classifier link→CRAAP moment, `surface_card`@I3 in-thread offer (confirm-to-open, reuses StudioCardSheet), thread-scoped card runtime via additive `thread_id` on material/card_instances (0022), on-record disclosure (binding dc.html), chat events → stream at supplementary weight, `d1b0d4c`; multimodal / project-seeding / off-record control / competence wiring / thread evidence nodes / semantic non-link moments still deferred) |
 | **12** | **Course policy + surface alignment** | Course skill (binding-order phases), coach-as-script-executor (`advance`), fold the existing course player onto the card contract + assessor. Mostly configuration. | 3,10 | ☐ |
 | **13** | **Teacher dashboard** (3 layers) | Class heatmap + risk column, individual trajectory, single-conversation replay, one-click actions. | 10, **teacher-side design** | ☐ deferred |
 
@@ -778,5 +778,53 @@ recommended path): **rubric + narrative only** (depth-vs-independence radar + T1
   async assessment (this keystone is inline). Non-blocking (from the whole-branch review): card
   `Dimension` in the digest is the card's method tag not a CT D-code (no `ct_dimension` on `cards.Spec`
   today); `WordCounts` only 0–1 entries (ProjectData carries only `LatestSnapshot`, no history query).
-  **Slice 11** (Chat policy + surface) or **Slice 12** (Course policy + surface alignment, depends on 10)
-  is next.
+  **Slice 12** (Course policy + surface alignment, depends on 10) is next.
+
+### Slice 11 (keystone) — Chat surface + coach-alone + card-as-offer (聊天) (merged `d1b0d4c`)
+
+The standalone **Chat (聊天)** surface goes live: a free conversation where the coach runs **alone**
+(planner off, no project graph), replies in a guiding-not-answering posture, and — when the student
+pastes a link — offers a source-evaluation (CRAAP) card **in-thread** at I3, reproducing the agent-spec
+§5.6 trace end-to-end. Shipped via the full loop (spec `ca72deb` → plan `6fa09a7` → 7 subagent-TDD tasks
+→ per-task reviews → whole-branch review → 2-Minor fix wave `d1b0d4c`). Scope locked in brainstorm:
+**coach + card-as-offer keystone** (the "same runtime" differentiator) over an **additive `thread_id`
+scope**; multimodal / project-seeding / off-record control deferred.
+
+- **`reply` becomes a typed output (the C3 seam of this slice).** `reply` was already in the `Verb`
+  enum but absent from the `AgentOutput` shape union. Added `{type:"reply", body}` (anchor-free) to the
+  Zod union + the Go `enforcement.ValidateOutput` mirror. A chat reply is typed and banned-phrasing-
+  enforced, but runs **no** OutputCheck echo pass (chat has no draft to echo); the five existing output
+  types are unchanged.
+- **The thread graph is an additive scope, not a new world.** Migration `0022` adds nullable `thread_id`
+  to `material` + `card_instances` with a `num_nonnulls(task_id, project_id, thread_id) >= 1` CHECK —
+  mirroring `0021`'s pattern. Chat reuses the SAME card runtime + enforcement, just thread-scoped;
+  thread and project stay clean siblings (so the deferred project-seeding remains a real copy operation).
+  `intervention` is untouched (the coach reply is a chat_message, not an anchored intervention).
+- **`RunChatStep` is the Chat-policy turn, isolated from the project loop.** It ties a pure URL→CRAAP
+  classifier (reusing the `craap` card + the `SurfaceCardCandidates` shape, one offer per thread,
+  suppressed once proposed/active/completed/skipped) to `ProposeChatReply`, persisting through a
+  project-free `ChatStore` seam. Metering is single-counted through `llm_call` (`surface="chat"`,
+  `project_id` NULL, `user_id` set) and recorded **even on enforcement reject**; a rejected reply stays
+  silent (no message, no error). The dormant `AppendEvent`/`RecordLLMCall` sqlc queries already took
+  `user_id` + nullable `project_id`, so no new event/llm queries were needed.
+- **The in-thread card is confirm-to-open and reuses the live runtime.** The offer renders as the binding
+  dc.html card preview; an explicit 接受 mounts `StudioCardSheet` (schema-driven, `{spec, onSubmit,
+  onSkip}` — cleanly decoupled) in place, and submit flows through a **thin** thread-scoped completion
+  path (persist field_values + flip to `completed`) — NO project graph_effects, NO refeed, NO competence
+  write (competence is dormant platform-wide; deferred). CRAAP is self-contained (step-1 `link_check`
+  captures the URL), so a pasted-but-unfetched link needs no article body.
+- **The on-record disclosure is binding and verbatim** (product §2.2): the subtitle 「自由对话 · AI 只提问，
+  不替你下结论」, the green 「计入成长评估」 pill + tooltip, the composer placeholder, and the footer 「AI 会陪你
+  把想法想深，但不替你得出结论 · 你的对话只属于你」 all render exactly as the dc.html CHAT block (527–666)
+  specifies; the rail order 课程,聊天,工作室,成长报告,设置 matches the binding design.
+- **Seventh consecutive clean whole-branch review** (7, 7b, 8, 8b, 9, 10, 11) — no Critical/Important; all
+  8 cross-layer invariants traced (reply seam, metering-on-reject single-count, thread/project isolation,
+  ownership/IDOR on all 6 routes, RL-1/RL-4, binding disclosure + rail order, SSE coherence + confirm-to-
+  open, keystone honesty). 3 new Minors — 2 closed by fix wave `d1b0d4c` (skip empty text frame on silent
+  reject; corrected a "flagship"→chaperone doc comment) + 1 carry-forward (`ChatCardOfferDTO` parity is
+  decorative — the offer ships via snake_case `sse.Card`, not that DTO).
+- **Carry-forwards:** multimodal input (composer icons render but inert); chat→project **intake seeding**
+  (`chat_thread.seeded_project_id` + fragment copy); off-record thread control (open product Q §606);
+  semantic non-link card-moments (opinion→steelman, comparison→matrix — need a model classifier);
+  thread evidence nodes / graph_effects + chat→assessment aggregation; competence wiring (shared, dormant
+  everywhere). **Slice 12** (Course policy + surface alignment, depends on 10) is next.
