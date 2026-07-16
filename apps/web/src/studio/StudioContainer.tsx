@@ -26,10 +26,9 @@ const EMPTY_CONV_SNAPSHOT: ConvSnapshot = { messages: [], sending: false, error:
 const emptyConvSubscribe = () => () => {};
 const emptyConvGetSnapshot = () => EMPTY_CONV_SNAPSHOT;
 
-// Map the lean wire projection into the frontend view-model, stubbing the
-// still-deferred review center-pane view (→ Slice 9). material (6b),
-// structure (7b), and writing (Slice 8 Task 9) are live — projected straight
-// from the server.
+// Map the lean wire projection into the frontend view-model. material (6b),
+// structure (7b), writing (Slice 8 Task 9), and review/readiness (Slice 9
+// Task 5) are all live — projected straight from the server.
 function toStudioState(p: StudioProjection): StudioState {
   return {
     project: p.project,
@@ -41,7 +40,7 @@ function toStudioState(p: StudioProjection): StudioState {
       material: p.materials,
       structure: p.structure,
       writing: p.writing,
-      review: [],
+      review: p.readiness,
       onboarding: p.onboarding,
     },
   };

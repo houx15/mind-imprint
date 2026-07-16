@@ -192,14 +192,10 @@ export const STUDIO_FIXTURE: StudioState = {
       review: { items: [] },
     },
     review: [
-      { table: "表A", total: 2, lit: 2, note: "问题聚焦、可回答", level: "full" },
-      { table: "表B", total: 3, lit: 3, note: "本地—国家—全球三层齐备", level: "full" },
-      { table: "表C", total: 3, lit: 2, note: "两方视角在，反方仍偏薄", level: "partial" },
-      { table: "表D", total: 4, lit: 3, note: "已溯到一手源；仍有 1 条孤儿证据", level: "partial" },
-      { table: "表E", total: 4, lit: 2, note: "「变绿→可持续」的跳步还没补上", level: "partial" },
-      { table: "表F", total: 3, lit: 1, note: "对来源风险的评估还不足", level: "partial" },
-      { table: "表G", total: 2, lit: 0, note: "S6 尚未开始", level: "empty" },
-      { table: "表H", total: 3, lit: 3, note: "结构清楚、语言干净", level: "full" },
+      { code: "表D", name: "来源与证据", lit: 3, total: 4, note: "已溯到一手源；仍有 1 条孤儿证据", level: "partial" },
+      { code: "表E", name: "分析", lit: 2, total: 4, note: "「变绿→可持续」的跳步还没补上", level: "partial" },
+      { code: "表F", name: "评估", lit: 1, total: 3, note: "对来源风险的评估还不足", level: "partial" },
+      { code: "表H", name: "表达与组织", lit: 3, total: 3, note: "结构清楚、语言干净", level: "full" },
     ],
     onboarding: {
       restatePrompt:

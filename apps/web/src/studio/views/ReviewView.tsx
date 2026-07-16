@@ -13,14 +13,16 @@ const LEVEL_COLOR: Record<GaugeFx["level"], string> = {
 function GaugeCard({ g }: { g: GaugeFx }) {
   const color = LEVEL_COLOR[g.level];
   const lamps = Array.from({ length: g.total }, (_, i) => i < g.lit);
-
   return (
     <div
-      data-testid={`gauge-${g.table}`}
+      data-testid={`gauge-${g.code}`}
       style={{ background: "#fff", border: "1px solid #ECEEF3", borderRadius: 14, padding: "14px 16px" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{g.table}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color }}>{g.code}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{g.name}</span>
+        </div>
         <span style={{ fontSize: 11.5, fontWeight: 800, color }}>
           {g.lit}/{g.total}
         </span>
@@ -30,12 +32,7 @@ function GaugeCard({ g }: { g: GaugeFx }) {
           <span
             key={i}
             data-lamp={lit ? "lit" : "empty"}
-            style={{
-              flex: 1,
-              height: 6,
-              borderRadius: 4,
-              background: lit ? color : "#EEF0F5",
-            }}
+            style={{ flex: 1, height: 6, borderRadius: 4, background: lit ? color : "#EEF0F5" }}
           />
         ))}
       </div>
@@ -45,6 +42,8 @@ function GaugeCard({ g }: { g: GaugeFx }) {
 }
 
 export function ReviewView({ gauges }: ReviewViewProps) {
+  const litSum = gauges.reduce((n, g) => n + g.lit, 0);
+  const totalSum = gauges.reduce((n, g) => n + g.total, 0);
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -54,26 +53,21 @@ export function ReviewView({ gauges }: ReviewViewProps) {
             <span
               title="就绪度显示你的草稿现在落在评分表的哪一格，用来定位下一步，不是预估分数"
               style={{
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                background: "#EEF0F5",
-                color: "#9AA1B0",
-                fontSize: 11,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "help",
+                width: 16, height: 16, borderRadius: "50%", background: "#EEF0F5", color: "#9AA1B0",
+                fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "help",
               }}
             >
               ?
             </span>
           </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "#6B7384" }}>
+            已点亮 {litSum}/{totalSum} 格
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginTop: 14 }}>
           {gauges.map((g) => (
-            <GaugeCard key={g.table} g={g} />
+            <GaugeCard key={g.code} g={g} />
           ))}
         </div>
       </div>

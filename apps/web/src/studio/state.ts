@@ -1,12 +1,12 @@
 import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
-  CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem,
+  CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge };
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -14,13 +14,9 @@ export type { Station, StationCode, StationView, StationState, CoachMessage, Equ
 // StudioToulminCard, not a row in this list.
 export type StructureCardFx = StructureCard;
 
-export type GaugeFx = {
-  table: string;        // 表A .. 表H
-  total: number;
-  lit: number;
-  note: string;
-  level: "full" | "partial" | "empty";
-};
+// The 就绪度 gauge is now the contract `Gauge` type verbatim — one shape
+// across the boundary (Slice 9 Task 5, mirrors StructureCardFx above).
+export type GaugeFx = Gauge;
 
 export type StudioState = {
   project: { title: string; qualLabel: string };

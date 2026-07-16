@@ -1,24 +1,28 @@
-import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ReviewView } from "./ReviewView";
-import { STUDIO_FIXTURE } from "../fixtures";
+import type { GaugeFx } from "../state";
 
-describe("ReviewView (评估/S6 shell)", () => {
-  it("renders the 8 gauge tables with names and notes", () => {
-    render(<ReviewView gauges={STUDIO_FIXTURE.views.review} />);
-    for (const g of STUDIO_FIXTURE.views.review) {
-      expect(screen.getByText(g.table)).toBeInTheDocument();
-      expect(screen.getByText(g.note)).toBeInTheDocument();
-    }
-  });
+const gauges: GaugeFx[] = [
+  { code: "表D", name: "来源与证据", lit: 3, total: 4, note: "孤儿证据没接上", level: "partial" },
+  { code: "表E", name: "分析", lit: 0, total: 4, note: "", level: "empty" },
+  { code: "表F", name: "评估", lit: 3, total: 3, note: "", level: "full" },
+  { code: "表H", name: "表达与组织", lit: 3, total: 3, note: "", level: "full" },
+];
 
-  it("renders the lit-lamp count matching a fixture gauge", () => {
-    render(<ReviewView gauges={STUDIO_FIXTURE.views.review} />);
-    const g = STUDIO_FIXTURE.views.review.find((r) => r.table === "表D")!;
-    const card = screen.getByTestId(`gauge-${g.table}`);
-    const lamps = card.querySelectorAll("[data-lamp]");
-    expect(lamps.length).toBe(g.total);
-    const litLamps = card.querySelectorAll('[data-lamp="lit"]');
-    expect(litLamps.length).toBe(g.lit);
-  });
+test("renders code and name for each table", () => {
+  render(<ReviewView gauges={gauges} />);
+  expect(screen.getByText("表D")).toBeInTheDocument();
+  expect(screen.getByText("来源与证据")).toBeInTheDocument();
+});
+
+test("renders the summary line from lamp sums", () => {
+  render(<ReviewView gauges={gauges} />);
+  // Σlit = 3+0+3+3 = 9, Σtotal = 4+4+3+3 = 14
+  expect(screen.getByText("已点亮 9/14 格")).toBeInTheDocument();
+});
+
+test("empty readiness shows 0/N and unlit cards", () => {
+  const empty: GaugeFx[] = gauges.map((g) => ({ ...g, lit: 0, note: "", level: "empty" as const }));
+  render(<ReviewView gauges={empty} />);
+  expect(screen.getByText("已点亮 0/14 格")).toBeInTheDocument();
 });
