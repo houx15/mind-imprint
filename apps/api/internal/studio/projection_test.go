@@ -840,6 +840,12 @@ func TestProjectReadiness_ClampsAndFull(t *testing.T) {
 	if g := gaugeByCode(proj.Readiness, "表F"); g.Lit != 3 || g.Level != "full" {
 		t.Fatalf("表F want 3/3 full (clamped), got %+v", g)
 	}
+	// A full gauge must have no "missing" note, even though the seeded
+	// review_item carries a non-empty Missing — GaugeDTO.Note's contract is
+	// "" when full (dto.go), so the projection must blank it here.
+	if g := gaugeByCode(proj.Readiness, "表F"); g.Note != "" {
+		t.Fatalf("表F full gauge want empty Note, got %q", g.Note)
+	}
 }
 
 func gaugeByCode(gs []GaugeDTO, code string) GaugeDTO {

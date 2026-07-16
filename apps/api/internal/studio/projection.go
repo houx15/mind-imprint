@@ -420,6 +420,9 @@ func projectReadiness(sk skills.Skill, d ProjectData) []GaugeDTO {
 			default:
 				g.Level = "partial"
 			}
+			if g.Level == "full" {
+				g.Note = ""
+			}
 		}
 		out = append(out, g)
 	}
