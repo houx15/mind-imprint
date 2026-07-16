@@ -131,7 +131,7 @@ func TestProposeReviewPromptCarriesCriterionTotal(t *testing.T) {
 		t.Fatalf("propose: %v", err)
 	}
 	lastMsg := prov.LastRequest.Messages[len(prov.LastRequest.Messages)-1]
-	if !strings.Contains(lastMsg.Content, "4") {
-		t.Fatalf("user prompt should carry the table total 4; got %q", lastMsg.Content)
+	if !strings.Contains(lastMsg.Content, "共 4 分点") {
+		t.Fatalf("user prompt should carry the table total as '共 4 分点'; got %q", lastMsg.Content)
 	}
 }

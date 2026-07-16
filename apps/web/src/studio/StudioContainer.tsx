@@ -40,7 +40,7 @@ function toStudioState(p: StudioProjection): StudioState {
       material: p.materials,
       structure: p.structure,
       writing: p.writing,
-      review: p.readiness,
+      review: p.readiness ?? [],
       onboarding: p.onboarding,
     },
   };

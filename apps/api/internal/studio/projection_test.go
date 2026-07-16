@@ -848,6 +848,36 @@ func TestProjectReadiness_ClampsAndFull(t *testing.T) {
 	}
 }
 
+// TestProjectReadiness_MissingPointsIsEmpty covers spec §7's back-compat
+// case: a review_item persisted before Slice 9 shipped the `points` field at
+// all — its body JSON simply has no "points" key (not a zero value written
+// deliberately). The body here is a raw JSON string literal built WITHOUT a
+// "points" key, on purpose — marshalling an agent.ReviewItem would always
+// serialize points:0 and would not distinguish "field absent" from "field
+// present and zero." json.Unmarshal into agent.ReviewItem leaves Points at
+// its Go zero value (0) when the key is missing, so the gauge must degrade to
+// lit 0 / level "empty" — never crash, never misread the missing key as any
+// other sentinel.
+func TestProjectReadiness_MissingPointsIsEmpty(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	snapID := uuid.New()
+	anchor, _ := json.Marshal(map[string]string{"kind": "draft_snapshot", "id": snapID.String()})
+	// Deliberately no "points" key — simulates a row persisted before Slice 9.
+	body := `{"criterion_code":"表D","criterion_name":"来源与证据","band":"到达 identify","evidence":"有一手源","missing":"来源仍单薄","fix":"把它接到主张"}`
+	d := ProjectData{
+		LatestSnapshot: &sqlc.DraftSnapshot{ID: snapID, Seq: 1, Content: "draft", CreatedAt: time.Now()},
+		Interventions:  []sqlc.Intervention{{ID: uuid.New(), Type: "review_item", Anchor: anchor, Body: body}},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := gaugeByCode(proj.Readiness, "表D")
+	if g.Lit != 0 || g.Level != "empty" || g.Total != 4 {
+		t.Fatalf("表D want 0/4 empty (pre-Slice-9 body with no points key), got %+v", g)
+	}
+}
+
 func gaugeByCode(gs []GaugeDTO, code string) GaugeDTO {
 	for _, g := range gs {
 		if g.Code == code {
