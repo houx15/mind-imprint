@@ -11,8 +11,10 @@ import (
 
 // reviewProvider returns a canned model reply, reusing the same
 // gateway.NewStubProvider fake pattern already used by coach_test.go /
-// anchors_test.go (scriptedProvider) — no new provider interface.
-func reviewProvider(reply string) gateway.Provider {
+// anchors_test.go (scriptedProvider) — no new provider interface. Returns the
+// concrete *gateway.StubProvider (which still satisfies gateway.Provider) so
+// callers can inspect .LastRequest after ProposeReview runs.
+func reviewProvider(reply string) *gateway.StubProvider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: reply},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 42, OutputTokens: 17}},
@@ -67,8 +69,12 @@ func TestParseVoice(t *testing.T) {
 
 func TestReviewSystemPrompt_DistinctPerVoice(t *testing.T) {
 	board := reviewSystemPrompt(VoiceBoard, false)
-	if board != reviewPosturePrompt {
-		t.Fatal("board voice must be the existing reviewPosturePrompt verbatim")
+	// Slice 9 T2 appends a voice-invariant points instruction to every voice,
+	// so board is no longer byte-identical to reviewPosturePrompt — but it
+	// must still be built ON TOP OF the unmodified board posture (never
+	// swapped for one of the three generic postures).
+	if !strings.HasPrefix(board, reviewPosturePrompt) {
+		t.Fatal("board voice must be built on the existing reviewPosturePrompt verbatim")
 	}
 	seen := map[string]bool{}
 	for _, v := range []Voice{VoiceBoard, VoiceSceptic, VoiceLayperson, VoiceExecutioner} {
@@ -92,5 +98,40 @@ func TestReviewSystemPrompt_OverBudgetAppendsDeletionLens(t *testing.T) {
 	}
 	if !strings.Contains(over, "删减") || !strings.Contains(over, "哪张表") {
 		t.Fatalf("over-budget posture missing the deletion-lens frame: %s", over)
+	}
+}
+
+func TestReviewSystemPromptAsksForPoints_AllVoices(t *testing.T) {
+	for _, v := range []Voice{VoiceBoard, VoiceSceptic, VoiceLayperson, VoiceExecutioner} {
+		p := reviewSystemPrompt(v, false)
+		if !strings.Contains(p, "points") {
+			t.Fatalf("voice %s: prompt missing points instruction", v)
+		}
+	}
+}
+
+func TestProposeReviewParsesPoints(t *testing.T) {
+	prov := reviewProvider(`[{"criterion_code":"表D","band":"到达 identify","evidence":"有一手源","missing":"孤儿证据没接上","fix":"把它接到主张","points":3}]`)
+	criteria := []skills.ReviewCriterion{{Code: "表D", Name: "来源与证据", Points: 4}}
+	items, _, err := ProposeReview(context.Background(), prov, gateway.Resolved{}, criteria,
+		[]string{"第一段"}, "摘要", VoiceBoard, false)
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if len(items) != 1 || items[0].Points != 3 {
+		t.Fatalf("want points 3, got %+v", items)
+	}
+}
+
+func TestProposeReviewPromptCarriesCriterionTotal(t *testing.T) {
+	prov := reviewProvider(`[{"criterion_code":"表D","band":"b","evidence":"e","missing":"m","fix":"f","points":2}]`)
+	criteria := []skills.ReviewCriterion{{Code: "表D", Name: "来源与证据", Points: 4}}
+	if _, _, err := ProposeReview(context.Background(), prov, gateway.Resolved{}, criteria,
+		[]string{"第一段"}, "摘要", VoiceBoard, false); err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	lastMsg := prov.LastRequest.Messages[len(prov.LastRequest.Messages)-1]
+	if !strings.Contains(lastMsg.Content, "4") {
+		t.Fatalf("user prompt should carry the table total 4; got %q", lastMsg.Content)
 	}
 }

@@ -21,6 +21,7 @@ type ReviewItem struct {
 	Evidence      string `json:"evidence"`
 	Missing       string `json:"missing"`
 	Fix           string `json:"fix"`
+	Points        int    `json:"points"` // descriptor points evidenced, 0..criterion total (RL-3: which cell, not a grade)
 }
 
 // reviewItemWire is the model's per-item JSON contract (name is resolved
@@ -31,6 +32,7 @@ type reviewItemWire struct {
 	Evidence      string `json:"evidence"`
 	Missing       string `json:"missing"`
 	Fix           string `json:"fix"`
+	Points        int    `json:"points"`
 }
 
 const reviewPosturePrompt = `你是 IB/国际课程写作的「整稿体检」考官。学生已提交一版草稿快照。
@@ -86,9 +88,16 @@ const reviewPostureExecutioner = `你是一位盯字数的「整稿体检」考�
 const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。对交证据最少的那些段落，指出它们各自在向哪张表交证据；
 如果一张表都不向，就把「这 N 字在向哪张表交证据」这个删减决策摆到学生面前，让她自己决定砍哪一段——你不替她删。`
 
+// reviewPointsInstruction is appended for EVERY voice — points is assessment
+// data (which descriptor cell the draft reaches), not part of the coaching
+// lens, so it is voice-invariant. RL-3: points names a cell, never a grade.
+const reviewPointsInstruction = `每个对象另外给出 points：这张表当前收到的证据够到第几分点，
+取 0 到该表总分点之间的整数（题面已给出每张表的总分点）。points 只表示"落在评分表的哪一格"，不是预估分数。`
+
 // reviewSystemPrompt builds the system content for a review: the posture for
-// the chosen voice, plus the deletion lens when overBudget. Pure — no I/O — so
-// posture selection is unit-testable without a model.
+// the chosen voice, the voice-invariant points instruction, plus the deletion
+// lens when overBudget. Pure — no I/O — so posture selection is unit-testable
+// without a model.
 func reviewSystemPrompt(voice Voice, overBudget bool) string {
 	var base string
 	switch voice {
@@ -101,6 +110,7 @@ func reviewSystemPrompt(voice Voice, overBudget bool) string {
 	default:
 		base = reviewPosturePrompt
 	}
+	base = base + "\n" + reviewPointsInstruction
 	if overBudget {
 		return base + "\n" + reviewOverBudgetLens
 	}
@@ -118,7 +128,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 	codes := make([]string, 0, len(criteria))
 	for _, c := range criteria {
 		name[c.Code] = c.Name
-		codes = append(codes, c.Code+"（"+c.Name+"）")
+		codes = append(codes, fmt.Sprintf("%s（%s，共 %d 分点）", c.Code, c.Name, c.Points))
 	}
 	user := fmt.Sprintf("评分表：%s\n\n论证摘要：%s\n\n草稿（分段）：\n%s",
 		strings.Join(codes, "、"), graphSummary, strings.Join(paragraphs, "\n\n"))
@@ -156,6 +166,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 		items = append(items, ReviewItem{
 			CriterionCode: wv.CriterionCode, CriterionName: nm,
 			Band: wv.Band, Evidence: wv.Evidence, Missing: wv.Missing, Fix: wv.Fix,
+			Points: wv.Points,
 		})
 	}
 	if len(items) == 0 {
