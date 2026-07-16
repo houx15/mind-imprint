@@ -5,8 +5,9 @@ import { CoursesContainer } from "./courses/CoursesContainer";
 import { StudioContainer } from "../studio/StudioContainer";
 import { GrowthReport } from "./growth/GrowthReport";
 import { SettingsView } from "./settings/SettingsView";
+import { ChatContainer } from "./chat/ChatContainer";
 
-type Tab = "courses" | "studio" | "growth" | "settings";
+type Tab = "chat" | "courses" | "studio" | "growth" | "settings";
 
 export function StudentApp({
   session,
@@ -21,6 +22,7 @@ export function StudentApp({
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
       <LeftRail tab={tab} onTab={setTab} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        {tab === "chat" && <ChatContainer />}
         {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("studio")} />}
         {tab === "studio" && <StudioContainer />}
         {tab === "growth" && <GrowthReport />}

@@ -3,10 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { LeftRail } from "./LeftRail";
 
 describe("LeftRail", () => {
-  it("renders the four pillar tabs in order", () => {
+  it("renders the five pillar tabs in order", () => {
     render(<LeftRail tab="studio" onTab={() => {}} />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["课程", "工作室", "成长报告", "设置"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["聊天", "课程", "工作室", "成长报告", "设置"]);
   });
 
   it("marks the active tab via aria-selected", () => {
@@ -25,14 +25,13 @@ describe("LeftRail", () => {
     expect(onTab).toHaveBeenCalledWith("settings");
   });
 
-  it("renders the four shipped rail items per the binding design", () => {
+  it("renders the five shipped rail items per the binding design", () => {
     render(<LeftRail tab="studio" onTab={() => {}} />);
+    expect(screen.getByText("聊天")).toBeTruthy();
     expect(screen.getByText("课程")).toBeTruthy();
     expect(screen.getByText("工作室")).toBeTruthy();
     expect(screen.getByText("成长报告")).toBeTruthy();
     expect(screen.getByText("设置")).toBeTruthy();
-    // 聊天 is in the design's rail but its content is Slice 11.
-    expect(screen.queryByText("聊天")).toBeNull();
     // The retired labels are gone.
     expect(screen.queryByText("批判思维")).toBeNull();
     expect(screen.queryByText("我的评估")).toBeNull();

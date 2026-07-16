@@ -27,6 +27,10 @@ vi.mock("./growth/GrowthReport", () => ({
   GrowthReport: () => <div data-testid="growth-report" />,
 }));
 
+vi.mock("./chat/ChatContainer", () => ({
+  ChatContainer: () => <div data-testid="chat-container" />,
+}));
+
 function makeSession() {
   let s = "{}";
   const storage = { getItem: () => s, setItem: (_: string, v: string) => { s = v; } };
@@ -52,6 +56,13 @@ describe("StudentApp", () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
     await userEvent.click(screen.getByText("成长报告"));
     expect(screen.getByTestId("growth-report")).toBeTruthy();
+    expect(screen.queryByTestId("studio-container")).toBeNull();
+  });
+
+  it("renders the chat surface on 聊天", async () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    fireEvent.click(screen.getByText("聊天"));
+    expect(screen.getByTestId("chat-container")).toBeTruthy();
     expect(screen.queryByTestId("studio-container")).toBeNull();
   });
 
