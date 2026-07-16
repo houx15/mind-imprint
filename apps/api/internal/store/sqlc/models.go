@@ -147,7 +147,7 @@ type Enrollment struct {
 
 type Evaluation struct {
 	ID               uuid.UUID          `json:"id"`
-	TaskID           uuid.UUID          `json:"task_id"`
+	TaskID           pgtype.UUID        `json:"task_id"`
 	Scores           []byte             `json:"scores"`
 	Narrative        string             `json:"narrative"`
 	Model            string             `json:"model"`
