@@ -47,6 +47,15 @@ func (e *studioEmitter) Done() error {
 	return e.sse.Done("")
 }
 
+// Text emits an assistant prose delta (Chat surface, Task 5) — the older
+// Text/Card/Done vocabulary Chat's postChatTurn reuses via this same emitter
+// rather than standing up a second emitter type.
+func (e *studioEmitter) Text(delta string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.sse.Text(delta)
+}
+
 // DoneCard is submitProjectCard's own Done — see gateway.SSEWriter.DoneCard.
 func (e *studioEmitter) DoneCard(cardStatus string) error {
 	e.mu.Lock()
