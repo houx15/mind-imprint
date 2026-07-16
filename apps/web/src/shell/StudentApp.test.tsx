@@ -23,6 +23,10 @@ vi.mock("../studio/StudioContainer", () => ({
   StudioContainer: () => <div data-testid="studio-container" />,
 }));
 
+vi.mock("./growth/GrowthReport", () => ({
+  GrowthReport: () => <div data-testid="growth-report" />,
+}));
+
 function makeSession() {
   let s = "{}";
   const storage = { getItem: () => s, setItem: (_: string, v: string) => { s = v; } };
@@ -44,10 +48,10 @@ describe("StudentApp", () => {
     expect(screen.getByTestId("studio-container")).toBeTruthy();
   });
 
-  it("renders the growth placeholder on 成长报告", async () => {
+  it("renders the growth report on 成长报告", async () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
     await userEvent.click(screen.getByText("成长报告"));
-    expect(screen.getByText("成长报告正在重建")).toBeTruthy();
+    expect(screen.getByTestId("growth-report")).toBeTruthy();
     expect(screen.queryByTestId("studio-container")).toBeNull();
   });
 

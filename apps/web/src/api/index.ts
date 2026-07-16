@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -14,6 +14,7 @@ import { activateProjectCard, submitProjectCard, skipProjectCard } from "./proje
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
+import { getAssessment, generateAssessment } from "./assessment";
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice };
 export { ApiError } from "./client";
@@ -54,6 +55,8 @@ export interface ApiClient {
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
+  getAssessment(projectId: string): Promise<Assessment | null>;
+  generateAssessment(projectId: string): Promise<Assessment>;
 }
 
 export const api: ApiClient = {
@@ -65,4 +68,5 @@ export const api: ApiClient = {
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
+  getAssessment, generateAssessment,
 };
