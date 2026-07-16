@@ -287,12 +287,13 @@ type CourseStore interface {
 }
 
 type CourseDeps struct {
-    Store     CourseStore
-    Provider  gateway.Provider
-    Resolved  gateway.Resolved
-    Skill     skills.Skill
-    UserID    uuid.UUID
-    SessionID uuid.UUID
+    Store       CourseStore
+    Provider    gateway.Provider
+    Resolved    gateway.Resolved
+    Skill       skills.Skill
+    CourseTitle string    // the script's course name for the context recipe
+    UserID      uuid.UUID
+    SessionID   uuid.UUID
 }
 
 type CourseIntent string // "ask" | "request_advance"
