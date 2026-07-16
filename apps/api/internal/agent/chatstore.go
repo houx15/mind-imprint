@@ -47,18 +47,18 @@ func (s *sqlcChatStore) CreateThreadMessage(ctx context.Context, threadID uuid.U
 	return m.ID, nil
 }
 
-func (s *sqlcChatStore) ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ThreadMaterial, error) {
+func (s *sqlcChatStore) ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ScopedMaterial, error) {
 	rows, err := s.q.ListMaterialsByThread(ctx, pgUUID(threadID))
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ThreadMaterial, 0, len(rows))
+	out := make([]ScopedMaterial, 0, len(rows))
 	for _, r := range rows {
 		sourceURL := ""
 		if r.SourceUrl != nil {
 			sourceURL = *r.SourceUrl
 		}
-		out = append(out, ThreadMaterial{ID: r.ID, Kind: r.Kind, SourceURL: sourceURL})
+		out = append(out, ScopedMaterial{ID: r.ID, Kind: r.Kind, SourceURL: sourceURL})
 	}
 	return out, nil
 }
@@ -78,14 +78,14 @@ func (s *sqlcChatStore) CreateThreadMaterial(ctx context.Context, threadID uuid.
 	return m.ID, nil
 }
 
-func (s *sqlcChatStore) ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ThreadCard, error) {
+func (s *sqlcChatStore) ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ScopedCard, error) {
 	rows, err := s.q.ListCardInstancesByThread(ctx, pgUUID(threadID))
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ThreadCard, 0, len(rows))
+	out := make([]ScopedCard, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ThreadCard{ID: r.ID, CardID: r.CardID, Status: r.Status})
+		out = append(out, ScopedCard{ID: r.ID, CardID: r.CardID, Status: r.Status})
 	}
 	return out, nil
 }

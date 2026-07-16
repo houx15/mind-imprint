@@ -27,14 +27,15 @@ func DetectURL(s string) (string, bool) {
 	return "", false
 }
 
-// ThreadMaterial / ThreadCard are the thread graph's minimal projection the
-// classifier reads.
-type ThreadMaterial struct {
+// ScopedMaterial / ScopedCard are the minimal projection of a scoped graph
+// (a chat thread's, a course session's) that the classifier reads. Surface-
+// neutral by design: the same shapes serve Chat and Course.
+type ScopedMaterial struct {
 	ID        uuid.UUID
 	Kind      string
 	SourceURL string
 }
-type ThreadCard struct {
+type ScopedCard struct {
 	ID     uuid.UUID
 	CardID string
 	Status string
@@ -46,7 +47,7 @@ type ThreadCard struct {
 // skipped) — an offer, once made or declined, is not re-raised in the thread.
 // One source-evaluation offer per thread is a deliberate keystone simplification
 // (card_instances carry no material link without the deferred thread graph edges).
-func ChatCardCandidate(materials []ThreadMaterial, cards []ThreadCard) (uuid.UUID, string, bool) {
+func ChatCardCandidate(materials []ScopedMaterial, cards []ScopedCard) (uuid.UUID, string, bool) {
 	for _, c := range cards {
 		if c.CardID == craapCardID {
 			return uuid.Nil, "", false
@@ -71,9 +72,9 @@ func ChatCardCandidate(materials []ThreadMaterial, cards []ThreadCard) (uuid.UUI
 type ChatStore interface {
 	LoadThreadHistory(ctx context.Context, threadID uuid.UUID, limit int) ([]ChatTurn, error)
 	CreateThreadMessage(ctx context.Context, threadID uuid.UUID, role, content, modality string) (uuid.UUID, error)
-	ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ThreadMaterial, error)
+	ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ScopedMaterial, error)
 	CreateThreadMaterial(ctx context.Context, threadID uuid.UUID, kind, source, title, sourceURL string) (uuid.UUID, error)
-	ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ThreadCard, error)
+	ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ScopedCard, error)
 	CreateThreadCardInstance(ctx context.Context, threadID uuid.UUID, cardID string) (uuid.UUID, error)
 	InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error
 	RecordChatLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error
@@ -87,14 +88,15 @@ type ChatDeps struct {
 	ThreadID uuid.UUID
 }
 
-type ChatCardOffer struct {
-	CardInstanceID uuid.UUID
-	MaterialID     uuid.UUID
-	CardID         string
+// CardOffer is one card surfaced to a student as an offer — the card
+// instance, the card it renders, and the material it hangs on.
+type CardOffer struct {
+	CardInstanceID, MaterialID uuid.UUID
+	CardID                     string
 }
 type ChatStepResult struct {
 	Reply string
-	Offer *ChatCardOffer
+	Offer *CardOffer
 }
 
 // RunChatStep is the Chat-policy turn (agent-spec §5.4): coach alone, planner
@@ -174,7 +176,7 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 		if err != nil {
 			return ChatStepResult{}, err
 		}
-		result.Offer = &ChatCardOffer{CardInstanceID: ciID, MaterialID: materialID, CardID: cardID}
+		result.Offer = &CardOffer{CardInstanceID: ciID, MaterialID: materialID, CardID: cardID}
 		payload, _ := json.Marshal(map[string]string{"card_id": cardID})
 		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "chat", "card_surfaced", payload); err != nil {
 			slog.Warn("chat: append card_surfaced event failed", "thread_id", deps.ThreadID.String(), "err", err.Error())
@@ -183,7 +185,7 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 	return result, nil
 }
 
-func threadMaterialSummary(mats []ThreadMaterial) string {
+func threadMaterialSummary(mats []ScopedMaterial) string {
 	var parts []string
 	for _, m := range mats {
 		if m.Kind == "article" {

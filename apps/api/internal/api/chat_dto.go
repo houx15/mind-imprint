@@ -30,7 +30,7 @@ type ChatMessageDTO struct {
 }
 
 // ChatCardOfferDTO is the SSE `card` frame's wire shape for a fresh chat card
-// offer (agent.ChatCardOffer) — kept as a named type for the DTO parity test
+// offer (agent.CardOffer) — kept as a named type for the DTO parity test
 // even though postChatTurn (chat.go) emits its fields inline via
 // studioEmitter.Card, not by marshaling this struct directly.
 type ChatCardOfferDTO struct {

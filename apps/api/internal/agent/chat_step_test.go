@@ -20,7 +20,7 @@ func TestDetectURL(t *testing.T) {
 
 func TestChatCardCandidate(t *testing.T) {
 	m := uuid.New()
-	mats := []ThreadMaterial{{ID: m, Kind: "article", SourceURL: "https://e.com"}}
+	mats := []ScopedMaterial{{ID: m, Kind: "article", SourceURL: "https://e.com"}}
 
 	// fresh article, no card yet → offer craap on it
 	mid, cid, ok := ChatCardCandidate(mats, nil)
@@ -30,7 +30,7 @@ func TestChatCardCandidate(t *testing.T) {
 
 	// a craap card already exists in the thread (any status) → suppressed
 	for _, st := range []string{"proposed", "active", "completed", "skipped"} {
-		if _, _, ok := ChatCardCandidate(mats, []ThreadCard{{ID: uuid.New(), CardID: "craap", Status: st}}); ok {
+		if _, _, ok := ChatCardCandidate(mats, []ScopedCard{{ID: uuid.New(), CardID: "craap", Status: st}}); ok {
 			t.Fatalf("status %s should suppress re-offer", st)
 		}
 	}
@@ -40,8 +40,8 @@ func TestChatCardCandidate(t *testing.T) {
 // materials/cards/history by default, counters for the calls RunChatStep is
 // expected to make.
 type fakeChatStore struct {
-	materials []ThreadMaterial
-	cards     []ThreadCard
+	materials []ScopedMaterial
+	cards     []ScopedCard
 	history   []ChatTurn
 
 	llmCalls         int
@@ -64,24 +64,24 @@ func (f *fakeChatStore) CreateThreadMessage(ctx context.Context, threadID uuid.U
 	return uuid.New(), nil
 }
 
-func (f *fakeChatStore) ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ThreadMaterial, error) {
+func (f *fakeChatStore) ListThreadMaterials(ctx context.Context, threadID uuid.UUID) ([]ScopedMaterial, error) {
 	return f.materials, nil
 }
 
 func (f *fakeChatStore) CreateThreadMaterial(ctx context.Context, threadID uuid.UUID, kind, source, title, sourceURL string) (uuid.UUID, error) {
 	id := uuid.New()
-	f.materials = append(f.materials, ThreadMaterial{ID: id, Kind: kind, SourceURL: sourceURL})
+	f.materials = append(f.materials, ScopedMaterial{ID: id, Kind: kind, SourceURL: sourceURL})
 	f.materialsCreated++
 	return id, nil
 }
 
-func (f *fakeChatStore) ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ThreadCard, error) {
+func (f *fakeChatStore) ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ScopedCard, error) {
 	return f.cards, nil
 }
 
 func (f *fakeChatStore) CreateThreadCardInstance(ctx context.Context, threadID uuid.UUID, cardID string) (uuid.UUID, error) {
 	id := uuid.New()
-	f.cards = append(f.cards, ThreadCard{ID: id, CardID: cardID, Status: "proposed"})
+	f.cards = append(f.cards, ScopedCard{ID: id, CardID: cardID, Status: "proposed"})
 	f.cardsCreated++
 	return id, nil
 }
