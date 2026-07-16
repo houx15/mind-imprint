@@ -119,3 +119,12 @@ func TestOutputCheck_CrossDomainExamplePasses(t *testing.T) {
 		t.Fatal("cross-domain example is exempt")
 	}
 }
+
+func TestValidateOutputReply(t *testing.T) {
+	if err := ValidateOutput(AgentOutput{Type: "reply", Body: "让我们想想。"}); err != nil {
+		t.Fatalf("well-formed reply rejected: %v", err)
+	}
+	if err := ValidateOutput(AgentOutput{Type: "reply", Body: ""}); err == nil {
+		t.Fatalf("empty-body reply should be rejected")
+	}
+}

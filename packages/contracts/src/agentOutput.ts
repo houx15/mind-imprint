@@ -24,7 +24,7 @@ export const OutputAnchor = z.object({
 });
 export type OutputAnchor = z.infer<typeof OutputAnchor>;
 
-// Agent output is a discriminated union across the five output types
+// Agent output is a discriminated union across the six output types
 export const AgentOutput = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("question"),
@@ -53,6 +53,10 @@ export const AgentOutput = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("plan"),
     route: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("reply"),
+    body: z.string().min(1),
   }),
 ]);
 export type AgentOutput = z.infer<typeof AgentOutput>;

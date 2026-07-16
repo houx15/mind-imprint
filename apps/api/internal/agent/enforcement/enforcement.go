@@ -18,6 +18,7 @@ import (
 //	{ type: "reference",  anchor, quote, provenance }
 //	{ type: "proposal",   anchor, criterion, body }
 //	{ type: "plan",       route }
+//	{ type: "reply",      body }
 //
 // Go mirrors the union as a single struct with all fields optional;
 // ValidateOutput enforces the per-type shape.
@@ -45,6 +46,7 @@ var validOutputTypes = map[string]bool{
 	"reference":  true,
 	"proposal":   true,
 	"plan":       true,
+	"reply":      true,
 }
 
 // ValidateOutput enforces the typed-output guard (design §9): reject
@@ -75,6 +77,10 @@ func ValidateOutput(out AgentOutput) error {
 		}
 	case "plan":
 		// route may be empty per the contract; no additional shape check.
+	case "reply":
+		if strings.TrimSpace(out.Body) == "" {
+			return fmt.Errorf("enforcement: reply output requires a body")
+		}
 	}
 	return nil
 }

@@ -22,4 +22,10 @@ describe("agent output (C3)", () => {
     expect(AgentOutput.safeParse({ type: "reference", anchor: { kind: "artifact", id: "a1" },
       quote: "x" }).success).toBe(false); // provenance required
   });
+  it("accepts a reply with a body", () => {
+    expect(AgentOutput.safeParse({ type: "reply", body: "让我们想想。" }).success).toBe(true);
+  });
+  it("rejects a reply with an empty body", () => {
+    expect(AgentOutput.safeParse({ type: "reply", body: "" }).success).toBe(false);
+  });
 });
