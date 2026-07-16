@@ -62,11 +62,12 @@ type WordBudget struct {
 }
 
 // ReviewCriterion is one mark-scheme table the whole-draft review assesses the
-// draft against (0457's 表D/E/F/H). Minimal labels — NOT the Slice-9 readiness
-// band engine.
+// draft against (0457's 表D/E/F/H). Points is the table's total descriptor-point
+// count — the number of lamps the Slice-9 readiness gauge renders for it.
 type ReviewCriterion struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Points int    `json:"points"`
 }
 
 // Skill is a project/course type: a contract DAG plus card references and
@@ -114,6 +115,11 @@ func (s Skill) Validate() error {
 			if !MachineKinds[m.Kind] {
 				return fmt.Errorf("skill %s: contract %s unknown machine kind %q", s.ID, id, m.Kind)
 			}
+		}
+	}
+	for _, c := range s.ReviewCriteria {
+		if c.Points < 1 {
+			return fmt.Errorf("skill %s: review criterion %s needs points >= 1", s.ID, c.Code)
 		}
 	}
 	if _, err := s.TopoOrder(); err != nil {

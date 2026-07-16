@@ -145,3 +145,38 @@ func TestWritingProjectWordBudgetAndReviewCriteria(t *testing.T) {
 		}
 	}
 }
+
+func TestReviewCriterionPointsParsed(t *testing.T) {
+	s, err := Load([]byte(`{"id":"x","kind":"project","contracts":{},
+		"review_criteria":[{"code":"表D","name":"来源与证据","points":4}]}`))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(s.ReviewCriteria) != 1 || s.ReviewCriteria[0].Points != 4 {
+		t.Fatalf("want points 4, got %+v", s.ReviewCriteria)
+	}
+}
+
+func TestReviewCriterionPointsMustBePositive(t *testing.T) {
+	_, err := Load([]byte(`{"id":"x","kind":"project","contracts":{},
+		"review_criteria":[{"code":"表D","name":"来源与证据","points":0}]}`))
+	if err == nil {
+		t.Fatal("want error for points < 1, got nil")
+	}
+}
+
+func TestSeededWritingSkillHasCriterionPoints(t *testing.T) {
+	sk, ok := ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill missing")
+	}
+	want := map[string]int{"表D": 4, "表E": 4, "表F": 3, "表H": 3}
+	if len(sk.ReviewCriteria) != len(want) {
+		t.Fatalf("want %d criteria, got %d", len(want), len(sk.ReviewCriteria))
+	}
+	for _, c := range sk.ReviewCriteria {
+		if want[c.Code] != c.Points {
+			t.Fatalf("%s: want points %d, got %d", c.Code, want[c.Code], c.Points)
+		}
+	}
+}
