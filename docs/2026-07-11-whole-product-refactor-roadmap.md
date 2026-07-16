@@ -87,7 +87,7 @@ started · ◐ in progress · ☑ done.
 | **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone + 8b — see below; **8b ☑** examiner-voice switching + budget-deletion coaching; EE/AP board-specific passes still deferred to their board packs) |
-| **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ☐ |
+| **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ◐ (**readiness gauge ☑** — 0457 就绪度 made real from the whole-draft review, `644e1d2`; reflect / prediction-loop S0↔S6 / self-score / AI-usage declaration / export forks + the other 4 skins still deferred) |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ☐ |
 | **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ☐ |
 | **12** | **Course policy + surface alignment** | Course skill (binding-order phases), coach-as-script-executor (`advance`), fold the existing course player onto the card contract + assessor. Mostly configuration. | 3,10 | ☐ |
@@ -645,7 +645,7 @@ board-specific passes (EE evaluation-density, AP org×connection) + richer budge
   the multi-field work-order (authorship N/A — the review writes no student field; OutputCheck needs a
   single topic the work-order lacks) — `output_check_verdict` left unset.
 
-### Slice 8b — examiner-voice switching + budget-deletion coaching (S5) (merged `PENDING`)
+### Slice 8b — examiner-voice switching + budget-deletion coaching (S5) (merged `9a7356e`)
 
 The two deferred pieces of the S5 写作 station land: switchable examiner voices on 整稿体检, and
 over-budget deletion coaching. Shipped via the full loop (spec `fd3d563` → plan `a44c06d` → 8
@@ -688,3 +688,44 @@ skill is seeded — no board to drive an EE evaluation-density or AP org×connec
   whole-branch review, not fixed): the selected voice state isn't reset when the snapshot/project
   changes (cosmetic — cached markers + `itemsForVoice` re-derive from the projection, so nothing renders
   wrong); plus the keystone's still-open preview-renders-live-buffer follow-up, untouched by this slice.
+
+### Slice 9 (keystone) — 0457 readiness gauge, made real (评估) (merged `644e1d2`)
+
+The 评估 view's 就绪度 display stops being a static 表A–表H fixture and becomes real, projected from
+the whole-draft review's per-table judgment. Shipped via the full loop (spec `6cd61e4` → plan `8c5b8e4`
+→ 5 subagent-TDD tasks → per-task reviews → whole-branch review → 3-Minor fix wave `644e1d2`). Scope
+locked in brainstorm (all four the recommended path): **gauge only** (self-score / retro / RL-4
+reflection editor / AI-usage declaration blocks stay deferred), **0457 only but pluggable** (one
+interface, one seeded renderer — no other skins built), **4 review tables** (表D/E/F/H, the tables a
+written draft evidences), **extend the review output** (one new `points` int; no 2nd model call).
+
+- **The seam is one integer, `points`.** The skill config's `ReviewCriterion` gains `points` = each
+  0457 table's total lamp count (表D 4 · 表E 4 · 表F 3 · 表H 3), and the whole-draft review — already
+  judging each table's band — also emits `points` = how many descriptor points the draft evidences. It
+  rides the **existing** `review_item` intervention body (`mustJSON`), so **no migration, no schema
+  change, no second model call**. A pre-Slice-9 review body with no `points` degrades cleanly to
+  lit 0 / empty (proven by `TestProjectReadiness_MissingPointsIsEmpty`).
+- **The projection is the single clamp site.** `ProposeReview` copies the model's `points` verbatim;
+  `projectReadiness` clamps to `[0, total]`, derives level (`full` iff lit==total>0 / `empty` iff
+  lit==0 / else `partial`), and blanks the note when full (a full table has nothing missing — the
+  fix that turned the field's `""`-when-full contract into behavior). Note = the review's own `missing`.
+- **Board-voice-only lights readiness** (the assessment of record). The points instruction is
+  voice-invariant (all four voices emit it — it's assessment data, not the coaching lens), but
+  `projectReadiness` reads only the board-voice review items, using the **same** `{kind,id,voice}`
+  anchor convention Slice 8b's work-order uses — read identically at both sites, so a Slice-8 keystone
+  row (anchor with no `voice` key) reads back as board with no backfill.
+- **RL-3 held.** Lamps show which descriptor cell, never a predicted grade; the tooltip copy is
+  unchanged (「落在评分表的哪一格……不是预估分数」); the summary 「已点亮 N/M 格」 is derived in the view
+  from the lamp sums, not carried on the wire.
+- **Design fidelity fix folded in.** `GaugeFx` graduated from a client-invented type to the
+  contract-backed `Gauge` (Go `GaugeDTO` ↔ Zod ↔ TS, guarded by `dto_parity_test`), and `ReviewView`
+  gained the design's summary line + separate `code`/`name` per table (the old `.tsx` crammed them into
+  one field and omitted the summary).
+- **Fifth consecutive clean whole-branch review** (7, 7b, 8, 8b, 9) — no Critical/Important; the
+  `points` seam traced byte-consistent at every hop (config → ProposeReview → intervention body →
+  projectReadiness → GaugeDTO → Zod → toStudioState → ReviewView). Three Minors (loose prompt assert,
+  missing-points coverage, a `?? []` map guard) all closed by fix wave `644e1d2`.
+- **Carry-forwards:** the other four skins (9239 grid, AP switches, AP band-portraits, TOK needle) —
+  each later config + one renderer behind the interface this slice established; the deferred 评估 blocks
+  (self-score / retro / declaration); 表A/B/C/G cross-station readiness. **Slice 10** (assessment engine
+  / growth report) is next.
