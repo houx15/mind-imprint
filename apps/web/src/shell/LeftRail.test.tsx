@@ -6,7 +6,7 @@ describe("LeftRail", () => {
   it("renders the five pillar tabs in order", () => {
     render(<LeftRail tab="studio" onTab={() => {}} />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["聊天", "课程", "工作室", "成长报告", "设置"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["课程", "聊天", "工作室", "成长报告", "设置"]);
   });
 
   it("marks the active tab via aria-selected", () => {
