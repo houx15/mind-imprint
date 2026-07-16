@@ -19,3 +19,18 @@ SELECT cm.* FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1
 ORDER BY cm.created_at, cm.id;
+
+-- Standalone Chat surface (Slice 11): threads owned by a user, not a project.
+-- The existing CreateChatMessage above is already thread-keyed and is reused.
+
+-- name: ListThreadsByUser :many
+SELECT * FROM chat_thread WHERE user_id = $1 ORDER BY created_at DESC;
+
+-- name: CreateStandaloneThread :one
+INSERT INTO chat_thread (user_id, title) VALUES ($1, $2) RETURNING *;
+
+-- name: GetThread :one
+SELECT * FROM chat_thread WHERE id = $1;
+
+-- name: ListMessagesByThread :many
+SELECT * FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id;

@@ -16,7 +16,7 @@ const createProjectMaterial = `-- name: CreateProjectMaterial :one
 
 INSERT INTO material (task_id, project_id, kind, source, title, source_url, blocks)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id
 `
 
 type CreateProjectMaterialParams struct {
@@ -55,12 +55,56 @@ func (q *Queries) CreateProjectMaterial(ctx context.Context, arg CreateProjectMa
 		&i.Scratch,
 		&i.CreatedAt,
 		&i.ProjectID,
+		&i.ThreadID,
+	)
+	return i, err
+}
+
+const createThreadMaterial = `-- name: CreateThreadMaterial :one
+
+INSERT INTO material (thread_id, kind, source, title, source_url, blocks)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id
+`
+
+type CreateThreadMaterialParams struct {
+	ThreadID  pgtype.UUID `json:"thread_id"`
+	Kind      string      `json:"kind"`
+	Source    string      `json:"source"`
+	Title     string      `json:"title"`
+	SourceUrl *string     `json:"source_url"`
+	Blocks    []byte      `json:"blocks"`
+}
+
+// Thread-scoped materials (Slice 11): task_id + project_id NULL, thread_id set.
+func (q *Queries) CreateThreadMaterial(ctx context.Context, arg CreateThreadMaterialParams) (Material, error) {
+	row := q.db.QueryRow(ctx, createThreadMaterial,
+		arg.ThreadID,
+		arg.Kind,
+		arg.Source,
+		arg.Title,
+		arg.SourceUrl,
+		arg.Blocks,
+	)
+	var i Material
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Kind,
+		&i.Source,
+		&i.Title,
+		&i.SourceUrl,
+		&i.Blocks,
+		&i.Scratch,
+		&i.CreatedAt,
+		&i.ProjectID,
+		&i.ThreadID,
 	)
 	return i, err
 }
 
 const getMaterial = `-- name: GetMaterial :one
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material WHERE id = $1
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material WHERE id = $1
 `
 
 // Still used by agentstore.go (the new project turn loop's material context),
@@ -79,12 +123,13 @@ func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, erro
 		&i.Scratch,
 		&i.CreatedAt,
 		&i.ProjectID,
+		&i.ThreadID,
 	)
 	return i, err
 }
 
 const listMaterialsByProject = `-- name: ListMaterialsByProject :many
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id FROM material
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material
 WHERE project_id = $1
 ORDER BY created_at
 `
@@ -109,6 +154,43 @@ func (q *Queries) ListMaterialsByProject(ctx context.Context, projectID pgtype.U
 			&i.Scratch,
 			&i.CreatedAt,
 			&i.ProjectID,
+			&i.ThreadID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMaterialsByThread = `-- name: ListMaterialsByThread :many
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material WHERE thread_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) ListMaterialsByThread(ctx context.Context, threadID pgtype.UUID) ([]Material, error) {
+	rows, err := q.db.Query(ctx, listMaterialsByThread, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Material
+	for rows.Next() {
+		var i Material
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Kind,
+			&i.Source,
+			&i.Title,
+			&i.SourceUrl,
+			&i.Blocks,
+			&i.Scratch,
+			&i.CreatedAt,
+			&i.ProjectID,
+			&i.ThreadID,
 		); err != nil {
 			return nil, err
 		}

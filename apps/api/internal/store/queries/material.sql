@@ -17,3 +17,13 @@ RETURNING *;
 SELECT * FROM material
 WHERE project_id = $1
 ORDER BY created_at;
+
+-- Thread-scoped materials (Slice 11): task_id + project_id NULL, thread_id set.
+
+-- name: CreateThreadMaterial :one
+INSERT INTO material (thread_id, kind, source, title, source_url, blocks)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: ListMaterialsByThread :many
+SELECT * FROM material WHERE thread_id = $1 ORDER BY created_at;

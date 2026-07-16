@@ -46,6 +46,28 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 	return i, err
 }
 
+const createStandaloneThread = `-- name: CreateStandaloneThread :one
+INSERT INTO chat_thread (user_id, title) VALUES ($1, $2) RETURNING id, user_id, title, seeded_project_id, created_at
+`
+
+type CreateStandaloneThreadParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Title  string    `json:"title"`
+}
+
+func (q *Queries) CreateStandaloneThread(ctx context.Context, arg CreateStandaloneThreadParams) (ChatThread, error) {
+	row := q.db.QueryRow(ctx, createStandaloneThread, arg.UserID, arg.Title)
+	var i ChatThread
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.SeededProjectID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createThread = `-- name: CreateThread :one
 INSERT INTO chat_thread (user_id, seeded_project_id) VALUES ($1, $2)
 RETURNING id, user_id, title, seeded_project_id, created_at
@@ -58,6 +80,23 @@ type CreateThreadParams struct {
 
 func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (ChatThread, error) {
 	row := q.db.QueryRow(ctx, createThread, arg.UserID, arg.SeededProjectID)
+	var i ChatThread
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.SeededProjectID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getThread = `-- name: GetThread :one
+SELECT id, user_id, title, seeded_project_id, created_at FROM chat_thread WHERE id = $1
+`
+
+func (q *Queries) GetThread(ctx context.Context, id uuid.UUID) (ChatThread, error) {
+	row := q.db.QueryRow(ctx, getThread, id)
 	var i ChatThread
 	err := row.Scan(
 		&i.ID,
@@ -114,6 +153,72 @@ func (q *Queries) ListChatMessagesByProject(ctx context.Context, seededProjectID
 			&i.Modality,
 			&i.Attachments,
 			&i.QuotedFragment,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMessagesByThread = `-- name: ListMessagesByThread :many
+SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListMessagesByThread(ctx context.Context, threadID uuid.UUID) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listMessagesByThread, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listThreadsByUser = `-- name: ListThreadsByUser :many
+
+SELECT id, user_id, title, seeded_project_id, created_at FROM chat_thread WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+// Standalone Chat surface (Slice 11): threads owned by a user, not a project.
+// The existing CreateChatMessage above is already thread-keyed and is reused.
+func (q *Queries) ListThreadsByUser(ctx context.Context, userID uuid.UUID) ([]ChatThread, error) {
+	rows, err := q.db.Query(ctx, listThreadsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatThread
+	for rows.Next() {
+		var i ChatThread
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.SeededProjectID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

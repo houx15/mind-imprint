@@ -44,3 +44,23 @@ SELECT * FROM card_instances WHERE id = $1;
 SELECT * FROM card_instances
 WHERE project_id = $1
 ORDER BY created_at, id;
+
+-- Thread-scoped card_instances (Slice 11): thread_id set, task_id/project_id NULL.
+
+-- name: CreateThreadCardInstance :one
+INSERT INTO card_instances (thread_id, card_id, status)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: ListCardInstancesByThread :many
+SELECT * FROM card_instances WHERE thread_id = $1 ORDER BY created_at, id;
+
+-- name: SubmitThreadCardInstance :one
+UPDATE card_instances SET field_values = $3, event_trace = $4, status = $5
+WHERE id = $1 AND thread_id = $2
+RETURNING *;
+
+-- name: SetThreadCardInstanceStatus :one
+UPDATE card_instances SET status = $3
+WHERE id = $1 AND thread_id = $2
+RETURNING *;

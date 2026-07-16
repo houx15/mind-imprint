@@ -36,6 +36,7 @@ type CardInstance struct {
 	ProjectID     pgtype.UUID        `json:"project_id"`
 	ContractRef   *string            `json:"contract_ref"`
 	FrameworkFill []byte             `json:"framework_fill"`
+	ThreadID      pgtype.UUID        `json:"thread_id"`
 }
 
 type ChatMessage struct {
@@ -252,6 +253,7 @@ type Material struct {
 	Scratch   string      `json:"scratch"`
 	CreatedAt time.Time   `json:"created_at"`
 	ProjectID pgtype.UUID `json:"project_id"`
+	ThreadID  pgtype.UUID `json:"thread_id"`
 }
 
 type Message struct {
