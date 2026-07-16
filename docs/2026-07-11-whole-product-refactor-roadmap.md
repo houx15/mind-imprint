@@ -88,7 +88,7 @@ started · ◐ in progress · ☑ done.
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone + 8b — see below; **8b ☑** examiner-voice switching + budget-deletion coaching; EE/AP board-specific passes still deferred to their board packs) |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ◐ (**readiness gauge ☑** — 0457 就绪度 made real from the whole-draft review, `644e1d2`; reflect / prediction-loop S0↔S6 / self-score / AI-usage declaration / export forks + the other 4 skins still deferred) |
-| **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ☐ |
+| **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ◐ (**assessor keystone ☑** — isolated few-shot MVP engine scores the seeded CT rubric over the project event-stream projection → per-dim L1–L4 + evidence + growth narrative in the 成长报告 slot, `50bda49`; T1–T7 leaps / depth-vs-independence radar / teacher+parent report versions / OPCVL / benchmark+fine-tune / chat+course aggregation still deferred) |
 | **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ☐ |
 | **12** | **Course policy + surface alignment** | Course skill (binding-order phases), coach-as-script-executor (`advance`), fold the existing course player onto the card contract + assessor. Mostly configuration. | 3,10 | ☐ |
 | **13** | **Teacher dashboard** (3 layers) | Class heatmap + risk column, individual trajectory, single-conversation replay, one-click actions. | 10, **teacher-side design** | ☐ deferred |
@@ -729,3 +729,54 @@ written draft evidences), **extend the review output** (one new `points` int; no
   each later config + one renderer behind the interface this slice established; the deferred 评估 blocks
   (self-score / retro / declaration); 表A/B/C/G cross-station readiness. **Slice 10** (assessment engine
   / growth report) is next.
+
+### Slice 10 (keystone) — the isolated assessor + growth report (成长报告) (merged `50bda49`)
+
+The fourth subagent — the **assessor** — is wired live for the first time: the 成长报告 slot stops
+being a static placeholder and renders a real assessment projected from the project's event stream.
+Shipped via the full loop (spec `ae536d5` → plan `4b16ec0` → 7 subagent-TDD tasks → per-task reviews →
+whole-branch review → 2-Minor fix wave `50bda49`). Scope locked in brainstorm (all three the
+recommended path): **rubric + narrative only** (depth-vs-independence radar + T1–T7 leaps deferred),
+**event stream projected** (reads the process record, not just the current-state snapshot),
+**minimal anchor few-shot now** (1–2 compact samples; full golden set + benchmark = deferred).
+
+- **The rubric goes single-source.** The seeded CT rubric (D1–D10 + L1–L4 SOLO ladders) was TS-only;
+  the Go assessor can't score without it. Per the AGENTS.md single-source law, `FULL_RUBRIC` was
+  extracted to canonical `packages/contracts/src/ct-rubric.json` (TS imports + `assertRubricComplete`s
+  it — so the hand-maintained array can no longer drift), and Go `go:embed`s a synced mirror
+  (`internal/rubric/`, `make sync-rubric`). `rubric.test.ts` stayed green unchanged (byte-faithful),
+  and the whole-branch `diff` of canonical↔mirror is byte-identical.
+- **The seam that lights the gauge here is the engine, not a column.** `agent.Assess` is one **isolated
+  flagship call** (never downgraded, never in the coach loop) that reads a pure `BuildAssessmentInput`
+  digest of the event-stream projection (card uses w/ 自发/提示后, dispositions, gate progress, snapshot
+  word counts, review bands, graph shape, event timeline) and returns per-dimension `{level, evidence}`
+  + a growth narrative. Every rubric dimension is emitted in declared order; a missing dim or an unknown
+  level coerces to `NA` (never a crash, never an invented level).
+- **This lands the event stream's first reader.** Slice 0's append-only `event` table was written but
+  never consumed; `studio.ProjectData` now loads `Events`, and the assessor is its first consumer.
+- **RL-5 held structurally** (the named invariant): the assessment is **diagnostic evidence framed for
+  growth, never a grade/rank/overall score**. No aggregate can exist because no field holds one — the
+  engine's `Assessment`, the `AssessmentDTO`, and the Zod `Assessment` all carry only per-dimension
+  level+evidence + narrative; `GrowthReport` renders diagnostic chips (SOLO labels / muted NA) with the
+  hero copy 「不是分数，是证据」; the posture prompt forbids grade/rank. The teacher makes the final call.
+- **Isolation + cost, both correct.** The POST path writes exactly one `evaluations` row (reusing the
+  dormant table via `0021` — additive: `task_id` nullable + scope CHECK, `project_id` already existed
+  from 0016) + one `llm_call`. Because the `llm_usage` view's evaluations arm joins through `tasks`
+  (dropping project-scoped rows), the `llm_call` (`Purpose:"assessment"`) is the sole path assessment
+  cost reaches org aggregation — verified wired, recorded even on enforcement rejection. Enforcement is
+  all-or-nothing (banned-phrasing over narrative + every evidence field); RL-1 structurally holds (writes
+  `evaluations`, never the student's draft). GET is a pure read (no model call, proven by an
+  `llm_call`-count assertion).
+- **Sixth consecutive clean whole-branch review** (7, 7b, 8, 8b, 9, 10) — no Critical/Important; all 8
+  cross-layer invariants traced (rubric byte-consistency, RL-5 no-aggregate, isolation, single-counted
+  cost, all-or-nothing enforcement, level integrity, migration back-compat, Go↔Zod parity). 4 Minors
+  triaged: 2 closed by fix wave `50bda49` (D1-presence test assert, `TouchProject` on generate) + an
+  order-dependence comment; 2 genuine carry-forwards.
+- **Carry-forwards:** the depth-vs-independence radar + T1–T7 thinking leaps (derived views composing on
+  this rubric data + the 自发/提示后 signal); the teacher & parent report versions (→ teacher-dashboard
+  Slice 13); OPCVL (HS-D*) rubric; the benchmark + fine-tune stages; chat/course surface aggregation;
+  async assessment (this keystone is inline). Non-blocking (from the whole-branch review): card
+  `Dimension` in the digest is the card's method tag not a CT D-code (no `ct_dimension` on `cards.Spec`
+  today); `WordCounts` only 0–1 entries (ProjectData carries only `LatestSnapshot`, no history query).
+  **Slice 11** (Chat policy + surface) or **Slice 12** (Course policy + surface alignment, depends on 10)
+  is next.
