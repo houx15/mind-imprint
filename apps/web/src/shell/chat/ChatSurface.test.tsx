@@ -73,7 +73,11 @@ describe("Chat surface", () => {
     fireEvent.click(screen.getByLabelText("发送"));
 
     await waitFor(() => expect(api.chatTurn).toHaveBeenCalledWith("t1", "帮我想想这个反例"));
-    expect(await screen.findByText("先说说这个反例具体是什么。")).toBeInTheDocument();
+    // The reply arrives over an async generator, so the last delta lands a
+    // tick or more after chatTurn resolves. findByText's 1s default is enough
+    // in isolation but not always under full-suite parallel load — this
+    // flaked ~1 run in 3 with the default while passing 8/8 alone.
+    expect(await screen.findByText("先说说这个反例具体是什么。", undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText("帮我想想这个反例")).toBeInTheDocument();
   });
 
