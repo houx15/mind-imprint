@@ -82,6 +82,11 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
   // DEC-A1.5: 通过 = reached, not graded — completed_ordinals is recorded
   // server-side by the render handler, so this is not client-assertable.
   const reachedChallenges = challenges.filter((c) => completed.includes(c.ordinal));
+  // Filtered (not raw) length gates the block — a session whose collected
+  // ids are all absent from CARD_REGISTRY must not render an empty card row.
+  const collectedCards = collectedCardIds
+    .map((cardId) => ({ cardId, spec: CARD_REGISTRY[cardId] }))
+    .filter((c): c is { cardId: string; spec: NonNullable<typeof c.spec> } => c.spec != null);
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "#F3F4F8" }}>
@@ -154,20 +159,16 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         {/* tools collected — dc.html:482-494. No empty state exists in the
             design; an empty block would wrongly imply nothing was collected
             when the student may simply not have reached a card. */}
-        {collectedCardIds.length > 0 && (
+        {collectedCards.length > 0 && (
           <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>收集到的工具</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {collectedCardIds.map((cardId, i) => {
-                const spec = CARD_REGISTRY[cardId];
-                if (!spec) return null; // unknown card id — skip rather than render a raw id
-                return (
-                  <div key={`${cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
-                    {spec.name}
-                  </div>
-                );
-              })}
+              {collectedCards.map((c, i) => (
+                <div key={`${c.cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
+                  {c.spec.name}
+                </div>
+              ))}
             </div>
           </div>
         )}
