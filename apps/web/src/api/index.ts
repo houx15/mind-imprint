@@ -17,6 +17,7 @@ import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment, generateAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 import { startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
+import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent };
 export { ApiError } from "./client";
@@ -71,6 +72,8 @@ export interface ApiClient {
   skipCourseCard(courseId: string, cardInstanceId: string): Promise<void>;
   courseAsk(courseId: string, userInput: string): AsyncGenerator<CourseTurnEvent>;
   courseAdvance(courseId: string): AsyncGenerator<CourseTurnEvent>;
+  getCourseAssessment(courseId: string): Promise<Assessment | null>;
+  generateCourseAssessment(courseId: string): Promise<Assessment>;
 }
 
 export const api: ApiClient = {
@@ -85,4 +88,5 @@ export const api: ApiClient = {
   getAssessment, generateAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
   startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
+  getCourseAssessment, generateCourseAssessment,
 };
