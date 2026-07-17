@@ -134,8 +134,14 @@ type CourseStore interface {
 	// again, dead-ending the course forever).
 	OpenCardOffers(ctx context.Context, sessionID uuid.UUID) ([]CardOffer, error)
 	ViewedSteps(ctx context.Context, userID, courseID uuid.UUID) ([]int32, error) // course_progress.completed_ordinals
-	InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error
-	RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error
+	// InsertSessionEvent appends one course event scoped to the session.
+	// A1 (DEC-A1.2): this REPLACES InsertUserEvent, whose scopeless signature
+	// was the bug — it hard-coded project_id NULL with no scope column to fill,
+	// so every course event was written unreadable. Neither user nor surface is
+	// a parameter: user_id is resolved from the session row, and a CourseStore
+	// writes "course" events and nothing else.
+	InsertSessionEvent(ctx context.Context, sessionID uuid.UUID, typ string, payload []byte) error
+	RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error
 }
 
 // CourseDeps carries everything one course turn needs. CourseTitle is the
@@ -242,7 +248,7 @@ func courseMeter(ctx context.Context, deps CourseDeps, usage gateway.ChatUsage) 
 	if usage.InputTokens == 0 && usage.OutputTokens == 0 {
 		return
 	}
-	if err := deps.Store.RecordCourseLLMCall(ctx, deps.UserID, deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); err != nil {
+	if err := deps.Store.RecordCourseLLMCall(ctx, deps.UserID, "coach", deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); err != nil {
 		slog.Warn("course step: record llm_call failed", "err", err)
 	}
 }
@@ -281,7 +287,7 @@ func mintPhaseCard(ctx context.Context, deps CourseDeps, sess CourseSession, pha
 		return nil, err
 	}
 	payload, _ := json.Marshal(map[string]string{"card_id": cardID})
-	if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "card_surfaced", payload); err != nil {
+	if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "card_surfaced", payload); err != nil {
 		slog.Warn("course: append card_surfaced event failed", "err", err)
 	}
 	return &CardOffer{CardInstanceID: ciID, MaterialID: matID, CardID: cardID}, nil
@@ -295,7 +301,7 @@ func runCourseAsk(ctx context.Context, deps CourseDeps, sess CourseSession, phas
 	// from intent — an `ask` is student-initiated. Only STUDENT messages get
 	// this event; an assistant reply is not student evidence.
 	askPayload, _ := json.Marshal(map[string]bool{"unprompted": true})
-	if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "course_message", askPayload); err != nil {
+	if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "course_message", askPayload); err != nil {
 		slog.Warn("course ask: append course_message event failed", "err", err)
 	}
 	history, err := deps.Store.LoadPhaseHistory(ctx, sess.ID, sess.Phase, 12)
@@ -390,7 +396,7 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 		if err := deps.Store.SetSessionStatus(ctx, sess.ID, "finished"); err != nil {
 			return CourseStepResult{}, err
 		}
-		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "course_finished", []byte(`{}`)); err != nil {
+		if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "course_finished", []byte(`{}`)); err != nil {
 			slog.Warn("course advance: append course_finished event failed", "err", err)
 		}
 		return CourseStepResult{Reply: done}, nil
@@ -416,7 +422,7 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 			return CourseStepResult{}, err
 		}
 		payload, _ := json.Marshal(map[string]string{"to": next})
-		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "phase_advanced", payload); err != nil {
+		if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "phase_advanced", payload); err != nil {
 			slog.Warn("course advance: append phase_advanced event failed", "err", err)
 		}
 		return CourseStepResult{Advanced: next}, nil

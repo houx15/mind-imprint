@@ -81,37 +81,54 @@ func TestMigration0024SessionScope(t *testing.T) {
 		t.Fatalf("session-scoped event must satisfy event_scope_ck: %v", err)
 	}
 
-	// 2. A brand-new scopeless event is REJECTED — the hole A1 closes.
+	// 2. A brand-new scopeless COURSE event is REJECTED — the hole A1 closes.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, surface, type, payload)
 		VALUES ($1, 'course', 'course_message', '{}'::jsonb)`,
 		refactor2SeededStudentID); err == nil {
-		t.Fatal("a new event with project_id AND session_id both NULL should violate event_scope_ck, got no error")
+		t.Fatal("a new course event with project_id AND session_id both NULL should violate event_scope_ck, got no error")
+	}
+
+	// 2b. But an unscoped CHAT event is still ACCEPTED — the explicit
+	// `surface = 'chat'` exemption. Chat has no scope column until A2, and its
+	// three event writes swallow errors into slog.Warn: without the exemption
+	// this constraint would silently stop chat recording evidence and no test
+	// would fail. A2 deletes the arm when it scopes chat's writes. This
+	// assertion is the regression guard for that silent data loss.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO event (user_id, surface, type, payload)
+		VALUES ($1, 'chat', 'prompt_sent', '{}'::jsonb)`,
+		refactor2SeededStudentID); err != nil {
+		t.Fatalf("an unscoped chat event must still be accepted until A2 scopes chat's writes — "+
+			"enforcing before the writer has a scope silently kills chat evidence: %v", err)
 	}
 
 	// 3. NOT VALID's actual contract: a pre-existing unattributable row still
-	// reads fine. Simulate one by inserting with the constraint disabled the
-	// only way an old row could exist — via a direct pre-validation path.
+	// reads fine. Simulate one by dropping the constraint, inserting the kind
+	// of row that only pre-A1 code could have written, then re-adding NOT VALID
+	// over it. Use surface='course' — a 'chat' row would pass the exemption arm
+	// and prove nothing about NOT VALID.
 	if _, err := pool.Exec(ctx, `ALTER TABLE event DROP CONSTRAINT event_scope_ck`); err != nil {
 		t.Fatalf("drop constraint: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, surface, type, payload)
-		VALUES ($1, 'chat', 'prompt_sent', '{}'::jsonb)`, refactor2SeededStudentID); err != nil {
+		VALUES ($1, 'course', 'course_message', '{}'::jsonb)`, refactor2SeededStudentID); err != nil {
 		t.Fatalf("seed legacy unattributable row: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
 		ALTER TABLE event ADD CONSTRAINT event_scope_ck
-		CHECK (num_nonnulls(project_id, session_id) >= 1) NOT VALID`); err != nil {
+		CHECK (surface = 'chat' OR num_nonnulls(project_id, session_id) >= 1) NOT VALID`); err != nil {
 		t.Fatalf("re-add NOT VALID constraint over a legacy row — this is the whole point of NOT VALID: %v", err)
 	}
 	var legacy int
 	if err := pool.QueryRow(ctx, `
-		SELECT count(*) FROM event WHERE project_id IS NULL AND session_id IS NULL`).Scan(&legacy); err != nil {
+		SELECT count(*) FROM event
+		WHERE surface = 'course' AND project_id IS NULL AND session_id IS NULL`).Scan(&legacy); err != nil {
 		t.Fatalf("read legacy row: %v", err)
 	}
 	if legacy != 1 {
-		t.Fatalf("legacy unattributable rows = %d, want 1 (grandfathered, never deleted)", legacy)
+		t.Fatalf("legacy unattributable course rows = %d, want 1 (grandfathered, never deleted)", legacy)
 	}
 
 	// 4. evaluations accepts a session-scoped row and still rejects a scopeless one.
@@ -227,9 +244,19 @@ ALTER TABLE evaluations ADD CONSTRAINT evaluations_scope_ck
 -- existed to fill): those rows are permanently unattributable and there is
 -- nothing to backfill FROM. NOT VALID enforces every new row while
 -- grandfathering the old ones, rather than deleting real records or inventing
--- a scope they never had. A2 widens this to include thread_id.
+-- a scope they never had.
+--
+-- The `surface = 'chat'` arm is an EXPLICIT, TEMPORARY exemption. Chat has no
+-- scope column until A2, and all three of its event writes are best-effort
+-- (error swallowed to a slog.Warn — chat.go:195, chat.go:268,
+-- chat_step.go:181). Without this arm the constraint would reject every chat
+-- event and chat would silently stop recording evidence, with no test failing.
+-- A constraint cannot be enforced one slice before its writers have a scope to
+-- satisfy it. A2 adds thread_id, scopes chat's writes, and MUST delete this
+-- arm — the exemption is written into the schema so it stays louder than the
+-- hole it stands in for.
 ALTER TABLE event ADD CONSTRAINT event_scope_ck
-  CHECK (num_nonnulls(project_id, session_id) >= 1) NOT VALID;
+  CHECK (surface = 'chat' OR num_nonnulls(project_id, session_id) >= 1) NOT VALID;
 
 -- +goose Down
 ALTER TABLE event       DROP CONSTRAINT IF EXISTS event_scope_ck;

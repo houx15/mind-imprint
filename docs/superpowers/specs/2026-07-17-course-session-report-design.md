@@ -200,9 +200,18 @@ ALTER TABLE evaluations ADD CONSTRAINT evaluations_scope_ck
 -- those rows are permanently unattributable and there is nothing to backfill
 -- FROM. NOT VALID enforces every new row while grandfathering the old ones,
 -- rather than deleting real records or inventing a scope they never had.
--- A2 widens this to include thread_id.
+--
+-- The `surface = 'chat'` arm is an EXPLICIT, TEMPORARY exemption. Chat has no
+-- scope column until A2, and all three of its event writes are best-effort
+-- (error swallowed to a slog.Warn — chat.go:195, chat.go:268,
+-- chat_step.go:181). Without this arm the constraint would reject every chat
+-- event and chat would silently stop recording evidence, with no test failing.
+-- A constraint cannot be enforced one slice before its writers have a scope to
+-- satisfy it. A2 adds thread_id, scopes chat's writes, and MUST delete this
+-- arm — the exemption is written into the schema so it stays louder than the
+-- hole it stands in for.
 ALTER TABLE event ADD CONSTRAINT event_scope_ck
-  CHECK (num_nonnulls(project_id, session_id) >= 1) NOT VALID;
+  CHECK (surface = 'chat' OR num_nonnulls(project_id, session_id) >= 1) NOT VALID;
 
 -- +goose Down
 ALTER TABLE event       DROP CONSTRAINT IF EXISTS event_scope_ck;
@@ -342,7 +351,9 @@ every post-`Collect` return, **including rejection**, per the established rule.
 
 ## 9. Non-goals and carry-forwards
 
-**Not in A1:** chat reports and `event.thread_id` (A2, which widens both CHECKs);
+**Not in A1:** chat reports and `event.thread_id` (A2, which adds the column,
+scopes chat's three event writes, and **must delete `event_scope_ck`'s
+`surface = 'chat'` exemption arm** — see §3);
 the project terminal / finish button and 成长报告's history entrance (A3); the
 DualAxis model and the 9-vs-10-vs-6 dimension question (B); any cross-session
 aggregation or student-level model (C).

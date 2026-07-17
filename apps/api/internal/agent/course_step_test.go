@@ -113,7 +113,7 @@ type fakeCourseStore struct {
 	events           []courseEventRecord
 }
 
-// courseEventRecord is what fakeCourseStore.InsertUserEvent captured — kept as
+// courseEventRecord is what fakeCourseStore.InsertSessionEvent captured — kept as
 // a (type, payload) pair, not just the type string, so tests can assert on
 // event payload shape (card_id / to / unprompted), not merely presence.
 type courseEventRecord struct {
@@ -231,12 +231,12 @@ func (f *fakeCourseStore) ViewedSteps(ctx context.Context, userID, courseID uuid
 	return out, nil
 }
 
-func (f *fakeCourseStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
+func (f *fakeCourseStore) InsertSessionEvent(ctx context.Context, sessionID uuid.UUID, typ string, payload []byte) error {
 	f.events = append(f.events, courseEventRecord{typ: typ, payload: append([]byte(nil), payload...)})
 	return nil
 }
 
-func (f *fakeCourseStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error {
+func (f *fakeCourseStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
 	f.llmCalls++
 	return nil
 }

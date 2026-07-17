@@ -195,22 +195,30 @@ func (s *sqlcCourseStore) ViewedSteps(ctx context.Context, userID, courseID uuid
 	return p.CompletedOrdinals, nil
 }
 
-func (s *sqlcCourseStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
-	_, err := s.q.AppendEvent(ctx, sqlc.AppendEventParams{
-		ProjectID: pgtype.UUID{Valid: false}, UserID: userID,
-		Surface: surface, Type: typ, Payload: payload,
+func (s *sqlcCourseStore) InsertSessionEvent(ctx context.Context, sessionID uuid.UUID, typ string, payload []byte) error {
+	sess, err := s.q.GetCourseSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	_, err = s.q.AppendEvent(ctx, sqlc.AppendEventParams{
+		ProjectID: pgtype.UUID{Valid: false},
+		UserID:    sess.UserID,
+		SessionID: pgtype.UUID{Bytes: sessionID, Valid: true},
+		Surface:   "course",
+		Type:      typ,
+		Payload:   payload,
 	})
 	return err
 }
 
-func (s *sqlcCourseStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error {
+func (s *sqlcCourseStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
 	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, int(prompt), int(completion))
 	if !priced {
 		slog.Warn("course llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
 	}
 	_, err := s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
 		UserID: userID, ProjectID: pgtype.UUID{Valid: false},
-		Surface: "course", Purpose: "coach",
+		Surface: "course", Purpose: purpose,
 		Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
 		PromptTokens: prompt, CompletionTokens: completion, CostEstimate: gateway.CostNumeric(cost, true),
 	})

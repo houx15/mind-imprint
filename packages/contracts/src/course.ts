@@ -80,6 +80,12 @@ export const CourseCardOffer = z.object({
   materialId: z.string(),
 });
 
+// CourseCollectedCard is one tool the student completed in this session — the
+// 收集到的工具 block's row. Distinct from CourseCardOffer, which carries only
+// undispositioned offers (proposed/active) for reload rehydration.
+export const CourseCollectedCard = z.object({ cardId: z.string() });
+export type CourseCollectedCard = z.infer<typeof CourseCollectedCard>;
+
 export const CourseSession = z.object({
   id: z.string(),
   courseId: z.string(),
@@ -88,6 +94,7 @@ export const CourseSession = z.object({
   status: z.enum(["active", "finished"]),
   messages: z.array(CourseMessage),
   openCards: z.array(CourseCardOffer),
+  collectedCards: z.array(CourseCollectedCard),
 });
 
 export type CourseMessage = z.infer<typeof CourseMessage>;

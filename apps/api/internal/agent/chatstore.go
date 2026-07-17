@@ -101,7 +101,8 @@ func (s *sqlcChatStore) CreateThreadCardInstance(ctx context.Context, threadID u
 func (s *sqlcChatStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
 	_, err := s.q.AppendEvent(ctx, sqlc.AppendEventParams{
 		ProjectID: pgtype.UUID{Valid: false}, UserID: userID,
-		Surface: surface, Type: typ, Payload: payload,
+		SessionID: pgtype.UUID{Valid: false}, // chat has no session scope until A2 (DEC-A1.2)
+		Surface:   surface, Type: typ, Payload: payload,
 	})
 	return err
 }

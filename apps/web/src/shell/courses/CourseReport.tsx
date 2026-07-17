@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Course } from "@mind-imprint/contracts";
+import type { Assessment, Course, DimensionScore } from "@mind-imprint/contracts";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { api } from "../../api";
 
 function Stat({ value, label, color }: { value: string; label: string; color?: string }) {
@@ -11,9 +12,40 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
   );
 }
 
+// dc.html:2643 lvlBar — 4 segments, lit up to the level with the given
+// colour, unlit ones stay #ECEEF4. NA lights zero (never "L0" — that level
+// does not exist; NA renders 未涉及 instead of a level string, RL-5's
+// diagnostic-not-graded posture applies here too).
+const LIT_SEGMENT_COUNT: Record<DimensionScore["level"], number> = { L1: 1, L2: 2, L3: 3, L4: 4, NA: 0 };
+
+function DimensionRow({ dim }: { dim: DimensionScore }) {
+  const lit = LIT_SEGMENT_COUNT[dim.level];
+  return (
+    <div style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{dim.name}</span>
+        {dim.level === "NA" ? (
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#9AA1B0", background: "#F3F4F7", padding: "2px 10px", borderRadius: 999 }}>未涉及</span>
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#D98263", background: "#FBEEE7", padding: "2px 10px", borderRadius: 999 }}>{dim.level}</span>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
+        {[1, 2, 3, 4].map((n) => (
+          <span key={n} style={{ flex: 1, height: 6, borderRadius: 3, background: n <= lit ? "#D98263" : "#ECEEF4" }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 12.5, color: "#8A92A3" }}>{dim.evidence}</div>
+    </div>
+  );
+}
+
 export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void }) {
   const [course, setCourse] = useState<Course | null>(null);
   const [completed, setCompleted] = useState<number[]>([]);
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [assessErr, setAssessErr] = useState(false);
+  const [collectedCardIds, setCollectedCardIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,6 +56,21 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
       if (cancelled) return;
       setCompleted(comp);
       setCourse(c);
+
+      try {
+        const session = await api.getCourseSession(courseId);
+        if (!cancelled) setCollectedCardIds(session.collectedCards.map((cc) => cc.cardId));
+      } catch { /* no session yet */ }
+
+      // DEC-A1.4: auto-generate once, never a loop or a button — GET first,
+      // POST only when the session has no report yet.
+      try {
+        let a = await api.getCourseAssessment(courseId);
+        if (a == null) a = await api.generateCourseAssessment(courseId);
+        if (!cancelled) setAssessment(a);
+      } catch {
+        if (!cancelled) setAssessErr(true);
+      }
     })();
     return () => { cancelled = true; };
   }, [courseId]);
@@ -32,6 +79,14 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
 
   const challenges = course.steps.filter((s) => s.kind === "challenge");
   const learnings = course.steps.filter((s) => s.kind === "teaching" && s.purpose).map((s) => s.purpose);
+  // DEC-A1.5: 通过 = reached, not graded — completed_ordinals is recorded
+  // server-side by the render handler, so this is not client-assertable.
+  const reachedChallenges = challenges.filter((c) => completed.includes(c.ordinal));
+  // Filtered (not raw) length gates the block — a session whose collected
+  // ids are all absent from CARD_REGISTRY must not render an empty card row.
+  const collectedCards = collectedCardIds
+    .map((cardId) => ({ cardId, spec: CARD_REGISTRY[cardId] }))
+    .filter((c): c is { cardId: string; spec: NonNullable<typeof c.spec> } => c.spec != null);
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "#F3F4F8" }}>
@@ -52,8 +107,14 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 16 }}>
           <Stat value={course.time_label} label="用时" />
           <Stat value={`${completed.length} / ${course.steps.length}`} label="阶段完成" />
-          <Stat value={`${challenges.length}`} label="挑战通过" color="#D98263" />
-          <Stat value={`${course.tools_count}`} label="工具收集" color="#4C9A82" />
+          <Stat value={`${reachedChallenges.length}`} label="挑战通过" color="#D98263" />
+          {/* A1: was course.tools_count — the static authored catalogue number
+              (0011_courses.sql seed), same as the course card's "N 个工具".
+              collectedCards.length (CARD_REGISTRY-filtered, not raw
+              collectedCardIds) so this tile can never say N while the 收集到的
+              工具 block below it — gated on this exact same filtered list —
+              renders fewer than N pills or is omitted entirely. */}
+          <Stat value={`${collectedCards.length}`} label="工具收集" color="#4C9A82" />
         </div>
 
         {/* learned */}
@@ -79,9 +140,42 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{c.purpose || "挑战"}</div>
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 5 }}><path d="M20 6L9 17l-5-5" /></svg>
+                {completed.includes(c.ordinal) && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 5 }}><path d="M20 6L9 17l-5-5" /></svg>
+                )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* evaluation — dc.html:466-480. Diagnostic per-dimension only, never
+            a total/rank/aggregate (RL-5). */}
+        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 4 }}>能力评估</div>
+          <div style={{ fontSize: 12.5, color: "#8A92A3", marginBottom: 14 }}>按 SOLO 四级 · 来自这门课里你的表现</div>
+          {assessErr ? (
+            <div style={{ fontSize: 13.5, color: "#8A92A3" }}>能力评估暂时没能生成，稍后再看看。</div>
+          ) : assessment ? (
+            assessment.dimensions.map((d) => <DimensionRow key={d.code} dim={d} />)
+          ) : (
+            <div style={{ fontSize: 13.5, color: "#9AA1B0" }}>正在整理你的学习报告…</div>
+          )}
+        </div>
+
+        {/* tools collected — dc.html:482-494. No empty state exists in the
+            design; an empty block would wrongly imply nothing was collected
+            when the student may simply not have reached a card. */}
+        {collectedCards.length > 0 && (
+          <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>收集到的工具</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {collectedCards.map((c, i) => (
+                <div key={`${c.cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
+                  {c.spec.name}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

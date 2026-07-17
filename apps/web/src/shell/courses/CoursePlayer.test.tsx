@@ -39,7 +39,7 @@ const course: Course = {
 // to 1 never crosses the phase boundary; a next-click from ordinal 1 always
 // does (matches packages/contracts/skills/info-literacy-course.json).
 const demonstrateSession: CourseSession = {
-  id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], openCards: [],
+  id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], openCards: [], collectedCards: [],
 };
 
 // Every real courseAsk/courseAdvance stream ends with a `done` frame
@@ -223,7 +223,7 @@ describe("CoursePlayer", () => {
   it("hides 上一步 in a step-less phase even when ordinal > 0", async () => {
     (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 1, completed_ordinals: [0], updated_at: "" });
     const guidedSession: CourseSession = {
-      id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [], openCards: [],
+      id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [], openCards: [], collectedCards: [],
     };
     (api.startCourseSession as any).mockResolvedValue(guidedSession);
     (api.getCourseSession as any).mockResolvedValue(guidedSession);
@@ -246,7 +246,7 @@ describe("CoursePlayer", () => {
   it("rehydrates an open card offer from the session on load", async () => {
     const guidedSessionWithOffer: CourseSession = {
       id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [],
-      openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }],
+      openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }], collectedCards: [],
     };
     (api.startCourseSession as any).mockResolvedValue(guidedSessionWithOffer);
     (api.getCourseSession as any).mockResolvedValue(guidedSessionWithOffer);

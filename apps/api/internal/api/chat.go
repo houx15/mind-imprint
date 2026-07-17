@@ -194,7 +194,8 @@ func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := a.d.Queries.AppendEvent(r.Context(), sqlc.AppendEventParams{
 		ProjectID: pgtype.UUID{Valid: false}, UserID: u.ID,
-		Surface: "chat", Type: "prompt_sent", Payload: []byte(`{}`),
+		SessionID: pgtype.UUID{Valid: false}, // chat has no session scope until A2 (DEC-A1.2)
+		Surface:   "chat", Type: "prompt_sent", Payload: []byte(`{}`),
 	}); err != nil {
 		slog.Warn("chat turn: append prompt_sent event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -267,7 +268,8 @@ func (a *API) submitChatCard(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := a.d.Queries.AppendEvent(r.Context(), sqlc.AppendEventParams{
 		ProjectID: pgtype.UUID{Valid: false}, UserID: u.ID,
-		Surface: "chat", Type: "card_completed", Payload: []byte(`{}`),
+		SessionID: pgtype.UUID{Valid: false}, // chat has no session scope until A2 (DEC-A1.2)
+		Surface:   "chat", Type: "card_completed", Payload: []byte(`{}`),
 	}); err != nil {
 		slog.Warn("chat card submit: append card_completed event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

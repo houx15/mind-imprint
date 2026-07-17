@@ -125,6 +125,7 @@ func (s *sqlcAgentStore) AppendEvent(ctx context.Context, row EventRow) error {
 	_, err = s.q.AppendEvent(ctx, sqlc.AppendEventParams{
 		ProjectID: pgtype.UUID{Bytes: row.ProjectID, Valid: true},
 		UserID:    project.UserID,
+		SessionID: pgtype.UUID{Valid: false},
 		Surface:   row.Surface,
 		Type:      row.Type,
 		Payload:   row.Payload,

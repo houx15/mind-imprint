@@ -20,7 +20,7 @@ describe("Course contracts", () => {
   it("parses a session with an open card offer", () => {
     const parsed = CourseSession.parse({
       id: "s1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active",
-      messages: [], openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }],
+      messages: [], openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }], collectedCards: [],
     });
     expect(parsed.openCards).toHaveLength(1);
     expect(parsed.openCards[0]!.cardId).toBe("craap");
@@ -28,7 +28,25 @@ describe("Course contracts", () => {
 
   it("rejects a session missing openCards", () => {
     expect(CourseSession.parse.bind(null, {
-      id: "s1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [],
+      id: "s1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], collectedCards: [],
+    })).toThrow();
+  });
+
+  // A1: collectedCards carries the session's COMPLETED cards — the report's
+  // 收集到的工具 block. Distinct from openCards, which is undispositioned
+  // offers only.
+  it("parses a session with a collected card", () => {
+    const parsed = CourseSession.parse({
+      id: "s1", courseId: "co1", phase: "reflect", phaseTitle: "回看", status: "finished",
+      messages: [], openCards: [], collectedCards: [{ cardId: "craap" }],
+    });
+    expect(parsed.collectedCards).toHaveLength(1);
+    expect(parsed.collectedCards[0]!.cardId).toBe("craap");
+  });
+
+  it("rejects a session missing collectedCards", () => {
+    expect(CourseSession.parse.bind(null, {
+      id: "s1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], openCards: [],
     })).toThrow();
   });
 });
