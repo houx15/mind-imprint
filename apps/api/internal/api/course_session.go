@@ -297,7 +297,6 @@ func (a *API) submitCourseCard(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	u, _ := UserFromContext(r.Context())
 
 	var body struct {
 		FieldValues json.RawMessage `json:"field_values"`
@@ -328,10 +327,7 @@ func (a *API) submitCourseCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if _, err := a.d.Queries.AppendEvent(r.Context(), sqlc.AppendEventParams{
-		ProjectID: pgtype.UUID{Valid: false}, UserID: u.ID,
-		Surface: "course", Type: "card_completed", Payload: []byte(`{}`),
-	}); err != nil {
+	if err := agent.NewSqlcCourseStore(a.d.Queries).InsertSessionEvent(r.Context(), sess.ID, "card_completed", []byte("{}")); err != nil {
 		slog.Warn("course card submit: append card_completed event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
