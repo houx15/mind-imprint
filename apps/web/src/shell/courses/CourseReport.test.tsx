@@ -93,6 +93,19 @@ describe("CourseReport", () => {
     const tile = await screen.findByText("挑战通过");
     // Reached ordinal 1 only — ordinal 2 was never opened.
     expect(tile.parentElement).toHaveTextContent("1");
+
+    // The per-row ✓ must track the SAME reached/unreached split as the tile
+    // count above — find each challenge row by its purpose text, then assert
+    // the inline checkmark <svg> is present only in the reached row. Each row
+    // always renders one <svg> for its icon badge (a sibling wrapper, not a
+    // direct child of the row), so querying the row's DIRECT-CHILD svg
+    // isolates the conditional checkmark from that always-present icon.
+    const reachedPurpose = await screen.findByText("核查一处断言");
+    const unreachedPurpose = screen.getByText("找一个反例");
+    const reachedRow = reachedPurpose.parentElement!.parentElement as HTMLElement;
+    const unreachedRow = unreachedPurpose.parentElement!.parentElement as HTMLElement;
+    expect(reachedRow.querySelector(":scope > svg")).not.toBeNull();
+    expect(unreachedRow.querySelector(":scope > svg")).toBeNull();
   });
 
   it("generates the report once when none exists, and renders its dimensions with evidence", async () => {
@@ -161,6 +174,20 @@ describe("CourseReport", () => {
   // wrongly imply the student collected nothing when they may simply not have
   // reached a card yet.
   it("omits the 收集到的工具 block when no cards were collected", async () => {
+    render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
+    await screen.findByText("能力评估");
+    expect(screen.queryByText("收集到的工具")).toBeNull();
+  });
+
+  // commit 7a45183: the gate must check the CARD_REGISTRY-filtered list, not
+  // collectedCardIds.length — a session can carry a cardId with no matching
+  // spec (e.g. a retired/renamed card), and that must render as empty too,
+  // never a card block with zero pills.
+  it("omits the 收集到的工具 block when every collected cardId is absent from CARD_REGISTRY", async () => {
+    (api.getCourseSession as any).mockResolvedValue({
+      id: "sess1", courseId: "co1", phase: "done", phaseTitle: "完成", status: "finished",
+      messages: [], openCards: [], collectedCards: [{ cardId: "no-such-card" }],
+    });
     render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
     await screen.findByText("能力评估");
     expect(screen.queryByText("收集到的工具")).toBeNull();

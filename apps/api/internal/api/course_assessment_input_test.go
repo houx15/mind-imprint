@@ -33,6 +33,15 @@ func TestBuildAssessmentInputFromSession(t *testing.T) {
 	if len(in.CardUses) != 2 || in.CardUses[0].CardID != "craap" {
 		t.Fatalf("CardUses = %+v, want one per session card", in.CardUses)
 	}
+	// A course session has no Equipment projection to zip Spont against, and no
+	// studio derivation for Dimension — both must stay empty rather than a
+	// fabricated guess (a course session's evidence must never invent a
+	// 自发/提示后 signal that does not exist for it).
+	for _, cu := range in.CardUses {
+		if cu.Spont != "" || cu.Dimension != "" {
+			t.Fatalf("CardUses = %+v, want Spont and Dimension left empty (unknowable for a course session)", in.CardUses)
+		}
+	}
 	if len(in.Dispositions) != 2 {
 		t.Fatalf("Dispositions = %+v, want one per session card (completed and skipped both count)", in.Dispositions)
 	}

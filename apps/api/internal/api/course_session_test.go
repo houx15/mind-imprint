@@ -524,6 +524,51 @@ func TestGetCourseSession_CarriesCollectedCards(t *testing.T) {
 	}
 }
 
+// TestGetCourseSession_DedupsRepeatedCompletedCard — the SAME cardId
+// completed twice (e.g. the student re-summoned and re-finished the same
+// tool card within one session) must collapse to exactly one collected
+// entry: "the same tool completed twice is one collected tool," not two.
+func TestGetCourseSession_DedupsRepeatedCompletedCard(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	startSession(t, h, cookie, courseSeededCourseID)
+
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	sess, err := q.GetCourseSessionByUserCourse(ctx, sqlc.GetCourseSessionByUserCourseParams{
+		UserID: SeedUserID, CourseID: uuid.MustParse(courseSeededCourseID),
+	})
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	sid := pgUUID(sess.ID)
+	for i := 0; i < 2; i++ {
+		if _, err := q.CreateSessionCardInstance(ctx, sqlc.CreateSessionCardInstanceParams{
+			SessionID: sid, CardID: "craap", Status: "completed",
+		}); err != nil {
+			t.Fatalf("create craap completion %d: %v", i, err)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+courseSeededCourseID+"/session", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET session = %d; body=%s", rec.Code, rec.Body)
+	}
+	var dto struct {
+		CollectedCards []struct {
+			CardID string `json:"cardId"`
+		} `json:"collectedCards"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(dto.CollectedCards) != 1 || dto.CollectedCards[0].CardID != "craap" {
+		t.Fatalf("collectedCards = %+v, want exactly one deduped craap entry — the same card_id completed twice must collapse to one collected tool", dto.CollectedCards)
+	}
+}
+
 // TestCourseSession_ReloadSurfacesOpenCardOffer is the Critical-2 regression
 // test: a card offer that exists in the DB (status proposed) but was never
 // dispositioned must reappear in GET /session's openCards — this is exactly
