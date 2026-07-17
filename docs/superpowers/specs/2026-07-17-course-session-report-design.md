@@ -353,6 +353,8 @@ aggregation or student-level model (C).
   `event_scope_ck` constraint stays `NOT VALID` forever unless those rows are
   someday deleted.
 - `ChatStore.InsertUserEvent` keeps the unscoped signature until A2.
+- `HasEntitlement` has no injection seam, so no entitlement path anywhere in
+  the product is tested. Billing/entitlement work must add one.
 - Challenges still have no notion of quality — only of engagement.
 - `EVENT_TYPES` / `StudioEvent` in `packages/contracts/src/event.ts` remain dead
   code that matches neither the DB row shape nor any type string actually
@@ -376,7 +378,15 @@ aggregation or student-level model (C).
 - `POST` → one `llm_call` row with `surface="course", purpose="assessment"`;
   cost recorded on rejection too.
 - Ownership: another user's course 404s and leaks nothing.
-- `HasEntitlement` false → no model call.
+
+**Not tested, deliberately:** `HasEntitlement` false → no model call. The seam
+does not exist — `HasEntitlement` is a package-level `return true, nil`
+(`api/entitlement.go:9`) with no injection point, so the false branch is
+unreachable from a test. Building one (a `Deps.Entitled` field, threaded
+through every existing call site) is a cross-cutting refactor that belongs with
+the billing/entitlement work, not with assessment plumbing. The gate is verified
+by reading the handler instead: it precedes every model call. Recorded as a
+carry-forward in §9.
 
 **Web**
 - `CourseReport` renders the assessor's dimensions with evidence; no total/rank
