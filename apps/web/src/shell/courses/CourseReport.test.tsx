@@ -170,6 +170,32 @@ describe("CourseReport", () => {
     expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
   });
 
+  // A1: 工具收集 counted course.tools_count — the static authored catalogue
+  // number (4, same as the course card's "4 个工具") — while the block right
+  // below it showed only what was actually collected. A student who skipped
+  // the one offered card saw "工具收集 4" directly above an omitted 收集到的
+  // 工具 block: the page contradicted itself. This fixture sets tools_count=4
+  // but collects only 1 card, so it fails if the tile ever reverts to
+  // course.tools_count (which would render "4", not "1").
+  it("counts collected tools, not the course's authored tools_count", async () => {
+    (api.getCourse as any).mockResolvedValue({ ...course, tools_count: 4 });
+    (api.getCourseSession as any).mockResolvedValue({
+      id: "sess1", courseId: "co1", phase: "done", phaseTitle: "完成", status: "finished",
+      messages: [], openCards: [], collectedCards: [{ cardId: "sift_craap" }],
+    });
+
+    render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
+
+    const tile = await screen.findByText("工具收集");
+    expect(tile.parentElement).toHaveTextContent("1");
+    expect(tile.parentElement).not.toHaveTextContent("4");
+
+    // Agreement check: the tile's count must equal the number of pills the
+    // 收集到的工具 block actually renders below it.
+    expect(await screen.findByText("收集到的工具")).toBeInTheDocument();
+    expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+  });
+
   // No fabricated empty state — the design has none, and an empty block would
   // wrongly imply the student collected nothing when they may simply not have
   // reached a card yet.

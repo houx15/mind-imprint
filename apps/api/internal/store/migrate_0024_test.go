@@ -102,12 +102,34 @@ func TestMigration0024SessionScope(t *testing.T) {
 // runs a migration Down anywhere (pre-existing, repo-wide gap) — A1 does it
 // for its own migration. Safe because newTestPool gives this test its own
 // container.
+//
+// It seeds a session-scoped evaluation (task_id AND project_id NULL,
+// session_id set — exactly what InsertSessionEvaluation writes for a real
+// 学习报告) BEFORE running Down. Without that seed the Down runs against an
+// empty evaluations table and the restored 0021 CHECK validates trivially,
+// which is precisely how the original version of this test passed while the
+// Down it exercised could not survive a real course report.
 func TestMigration0024Down(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
 	}
 	ctx := context.Background()
 	pool := newTestPool(t)
+	courseID := "00000000-0000-0000-0000-0000000000c1"
+
+	var sessionID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO course_session (user_id, course_id, skill_id, phase)
+		VALUES ($1, $2, 'info-literacy-course', 'demonstrate')
+		RETURNING id::text`, refactor2SeededStudentID, courseID).Scan(&sessionID); err != nil {
+		t.Fatalf("seed course_session: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO evaluations (session_id, scores, narrative, model, tier, status)
+		VALUES ($1, '[]'::jsonb, 'course narrative', 'deepseek-reasoner', 'flagship', 'done')`,
+		sessionID); err != nil {
+		t.Fatalf("seed session-scoped evaluation (what a real 学习报告 writes): %v", err)
+	}
 
 	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()
@@ -117,7 +139,7 @@ func TestMigration0024Down(t *testing.T) {
 	}
 
 	if err := goose.DownContext(ctx, db, "migrations"); err != nil {
-		t.Fatalf("goose down 0024: %v", err)
+		t.Fatalf("goose down 0024 with a session-scoped evaluation present: %v", err)
 	}
 
 	// The columns and constraints are gone.

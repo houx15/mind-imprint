@@ -108,7 +108,13 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
           <Stat value={course.time_label} label="用时" />
           <Stat value={`${completed.length} / ${course.steps.length}`} label="阶段完成" />
           <Stat value={`${reachedChallenges.length}`} label="挑战通过" color="#D98263" />
-          <Stat value={`${course.tools_count}`} label="工具收集" color="#4C9A82" />
+          {/* A1: was course.tools_count — the static authored catalogue number
+              (0011_courses.sql seed), same as the course card's "N 个工具".
+              collectedCards.length (CARD_REGISTRY-filtered, not raw
+              collectedCardIds) so this tile can never say N while the 收集到的
+              工具 block below it — gated on this exact same filtered list —
+              renders fewer than N pills or is omitted entirely. */}
+          <Stat value={`${collectedCards.length}`} label="工具收集" color="#4C9A82" />
         </div>
 
         {/* learned */}

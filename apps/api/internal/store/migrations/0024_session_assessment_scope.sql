@@ -38,6 +38,14 @@ ALTER TABLE event ADD CONSTRAINT event_scope_ck
 -- +goose Down
 ALTER TABLE event       DROP CONSTRAINT IF EXISTS event_scope_ck;
 ALTER TABLE evaluations DROP CONSTRAINT IF EXISTS evaluations_scope_ck;
+-- Down necessarily discards session-scoped reports: session_id itself is
+-- dropped a few lines below, so these rows have no scope to fall back to and
+-- the restored 0021 CHECK (task_id OR project_id) would reject them. Delete
+-- them explicitly rather than letting ADD CONSTRAINT abort the whole Down —
+-- validation runs against existing rows, so with even one course report
+-- present the rollback would fail exactly where it is most needed.
+DELETE FROM evaluations
+ WHERE session_id IS NOT NULL AND task_id IS NULL AND project_id IS NULL;
 ALTER TABLE evaluations ADD CONSTRAINT evaluations_scope_ck
   CHECK (task_id IS NOT NULL OR project_id IS NOT NULL);
 DROP INDEX IF EXISTS event_session_created_idx;
