@@ -118,6 +118,7 @@ func containsStr(xs []string, x string) bool {
 type CourseStore interface {
 	GetSession(ctx context.Context, sessionID uuid.UUID) (CourseSession, error)
 	SetSessionPhase(ctx context.Context, sessionID uuid.UUID, phase string) error
+	SetSessionStatus(ctx context.Context, sessionID uuid.UUID, status string) error
 	LoadPhaseHistory(ctx context.Context, sessionID uuid.UUID, phase string, limit int) ([]ChatTurn, error)
 	CountStudentTurns(ctx context.Context, sessionID uuid.UUID, phase string) (int, error)
 	CreateSessionMessage(ctx context.Context, sessionID uuid.UUID, phase, role, content string) (uuid.UUID, error)
@@ -368,9 +369,22 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 
 	next, ok := NextPhase(deps.Skill, sess.Phase)
 	if !ok {
+		// The terminal: the student pressed next in the last phase (reflect)
+		// with the floor MET. This is the course's only legitimate exit — the
+		// backend mints it (never the client, never ordinal arithmetic): the
+		// session status flips to finished and a course_finished event marks
+		// the boundary. The floor above still guards this (reflect's floor is
+		// student_turns_at_least 1), so a student who never engages with 回看
+		// cannot reach here.
 		done := "这节课到这里就走完了。"
 		if _, err := deps.Store.CreateSessionMessage(ctx, sess.ID, sess.Phase, "assistant", done); err != nil {
 			return CourseStepResult{}, err
+		}
+		if err := deps.Store.SetSessionStatus(ctx, sess.ID, "finished"); err != nil {
+			return CourseStepResult{}, err
+		}
+		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "course_finished", []byte(`{}`)); err != nil {
+			slog.Warn("course advance: append course_finished event failed", "err", err)
 		}
 		return CourseStepResult{Reply: done}, nil
 	}

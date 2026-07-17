@@ -74,8 +74,12 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
 
   useEffect(() => {
     if (!course) return;
-    if (!session) return;
-    if (phaseSteps(session.phase).length === 0) return; // step-less phase: authored `page` renders instead
+    // The session runtime is additive on top of the page layer: when it is
+    // unavailable (session null — the start call failed), pages still render
+    // like the pre-Slice-12 player did — content survives the runtime being
+    // down. Only a step-less phase (session PRESENT and phase-less) skips the
+    // course_step render in favor of the authored `page` block.
+    if (session && phaseSteps(session.phase).length === 0) return;
     let cancelled = false;
     setRendered(null);
     void api.renderCourseStep(courseId, ordinal).then((r) => { if (!cancelled) setRendered(r); }).catch(() => {});
@@ -97,7 +101,13 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
 
   // Consumes one courseAsk/courseAdvance SSE stream, threading a running
   // assistant message + any card offer + a phase move — mirrors ChatContainer's
-  // handleSend, plus the new `phase` frame (Slice 12).
+  // handleSend, plus the new `phase` frame (Slice 12). `done` is NOT handled
+  // here: the server emits it unconditionally at the end of EVERY turn
+  // (including the error path), so it is a stream terminator, not a
+  // completion signal — exactly like ChatContainer, which handles only
+  // reply/card/error and lets the `for await` loop's natural end be the
+  // "done" semantic. The course's actual completion is learned from the
+  // session's own `status` field (see handleNext), never from this frame.
   async function consumeCourseTurn(stream: AsyncGenerator<import("../../api").CourseTurnEvent>): Promise<{ phaseMoved: boolean }> {
     const assistantId = nextAskId("assistant");
     let phaseMoved = false;
@@ -124,13 +134,6 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         setSession(fresh);
         const nextSteps = phaseSteps(event.to);
         if (nextSteps.length > 0) go(nextSteps[0]!);
-      } else if (event.type === "done") {
-        // A completion, like a phase move, is a settled boundary request —
-        // never a refusal — so the panel is not force-expanded for it either.
-        phaseMoved = true;
-        const fresh = await api.getCourseSession(courseId).catch(() => null);
-        if (fresh) setSession(fresh);
-        onFinish();
       } else if (event.type === "error") {
         if (!started) {
           started = true;
@@ -158,9 +161,17 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // advance is never a modal or a lock (铁律 2) — it is a sentence in the
   // ask panel, which auto-expands because an unanswered request is worse
   // than an expanded panel.
+  //
+  // Without a session (the start call failed), the runtime layer is down but
+  // the content layer must survive it: page locally like the pre-Slice-12
+  // player, and never call courseAdvance against a session that does not
+  // exist.
   async function handleNext() {
-    const currentPhase = session?.phase ?? "";
-    const steps = phaseSteps(currentPhase);
+    if (!session) {
+      if (course && ordinal < course.steps.length - 1) go(ordinal + 1);
+      return;
+    }
+    const steps = phaseSteps(session.phase);
     const nextOrdinal = ordinal + 1;
     if (steps.includes(nextOrdinal)) {
       go(nextOrdinal);
@@ -172,6 +183,15 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
       if (!phaseMoved) setAskExpanded(true);
     } finally {
       setAskPending(false);
+    }
+    // The course's only legitimate exit is minted by the backend, never a
+    // frame: after the stream settles, refetch the session and learn whether
+    // it is now finished (the terminal branch sets status without emitting a
+    // `phase` frame, since the phase itself does not move).
+    const fresh = await api.getCourseSession(courseId).catch(() => null);
+    if (fresh) {
+      setSession(fresh);
+      if (fresh.status === "finished") onFinish();
     }
   }
 
@@ -206,8 +226,10 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // The Finish control is gated on the SESSION's own status, not on ordinal
   // position — the linear phase chain (demonstrate → guided → independent →
   // reflect) means the last course_step ordinal is reached mid-chain
-  // (independent), well before the coach's terminal "done" frame; ordinal
-  // math alone would let a student skip straight past 回看 (reflect).
+  // (independent), well before the backend mints the terminal (reflect's
+  // floor met); ordinal math alone would let a student skip straight past
+  // 回看 (reflect). The backend is the only writer of `status: "finished"`
+  // (see handleNext) — never client-side ordinal arithmetic.
   const courseFinished = session?.status === "finished";
 
   return (

@@ -20,6 +20,11 @@ UPDATE course_session SET phase = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
+-- name: SetCourseSessionStatus :one
+UPDATE course_session SET status = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: CreateCourseMessage :one
 INSERT INTO course_message (session_id, phase, role, content)
 VALUES ($1, $2, $3, $4)

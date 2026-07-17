@@ -108,6 +108,8 @@ type fakeCourseStore struct {
 	materialsCreated int
 	cardsCreated     int
 	phaseSets        int
+	statusSets       int
+	lastStatus       string
 	events           []courseEventRecord
 }
 
@@ -153,6 +155,12 @@ func (f *fakeCourseStore) GetSession(ctx context.Context, sessionID uuid.UUID) (
 func (f *fakeCourseStore) SetSessionPhase(ctx context.Context, sessionID uuid.UUID, phase string) error {
 	f.session.Phase = phase
 	f.phaseSets++
+	return nil
+}
+
+func (f *fakeCourseStore) SetSessionStatus(ctx context.Context, sessionID uuid.UUID, status string) error {
+	f.lastStatus = status
+	f.statusSets++
 	return nil
 }
 
@@ -497,6 +505,66 @@ func TestRunCourseStepSurfacesThePhaseCardOnce(t *testing.T) {
 	}
 	if st.materialsCreated != 1 || st.cardsCreated != 1 {
 		t.Fatalf("no second mint, got m=%d c=%d", st.materialsCreated, st.cardsCreated)
+	}
+}
+
+// TestRunCourseStepReflectFloorMetFinishesSession is Critical-3's test: the
+// terminal branch (advance in the LAST phase, reflect, with the floor met —
+// NextPhase has no successor) must set the session status to finished and
+// emit course_finished, spending zero model calls (the terminal is a pure
+// store operation, not a coach decision).
+func TestRunCourseStepReflectFloorMetFinishesSession(t *testing.T) {
+	st := newFakeCourseStore("reflect")
+	st.turns = 1 // reflect's floor: student_turns_at_least 1 — met
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"nowhere"}`), // unreachable: the terminal returns before any model call
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "" {
+		t.Fatalf("reflect has no successor — Advanced must stay empty, got %q", res.Advanced)
+	}
+	if st.statusSets != 1 || st.lastStatus != "finished" {
+		t.Fatalf("expected session status set to finished exactly once, got sets=%d status=%q", st.statusSets, st.lastStatus)
+	}
+	if !st.hasEvent("course_finished") {
+		t.Fatal("reaching the terminal must emit course_finished")
+	}
+	if st.llmCalls != 0 {
+		t.Fatalf("the terminal is a pure store operation — llmCalls = %d, want 0", st.llmCalls)
+	}
+}
+
+// TestRunCourseStepReflectFloorUnmetDoesNotFinish is the terminal test's
+// negative case: a student who never engages with 回看 (reflect's floor,
+// student_turns_at_least 1, is unmet) must NOT finish the course — the floor
+// still guards the only exit, exactly why the old ordinal-only finish logic
+// was wrong to begin with.
+func TestRunCourseStepReflectFloorUnmetDoesNotFinish(t *testing.T) {
+	st := newFakeCourseStore("reflect")
+	st.turns = 0 // reflect's floor unmet
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"nowhere"}`), // unreachable
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "" {
+		t.Fatal("an unmet floor must not advance")
+	}
+	if st.statusSets != 0 {
+		t.Fatalf("an unmet floor must NOT set the session status finished, got sets=%d", st.statusSets)
+	}
+	if st.hasEvent("course_finished") {
+		t.Fatal("an unmet floor must NOT emit course_finished")
+	}
+	if st.llmCalls != 0 {
+		t.Fatalf("an unmet floor must short-circuit BEFORE the model: llmCalls = %d, want 0", st.llmCalls)
 	}
 }
 

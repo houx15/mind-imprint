@@ -202,3 +202,30 @@ func (q *Queries) SetCourseSessionPhase(ctx context.Context, arg SetCourseSessio
 	)
 	return i, err
 }
+
+const setCourseSessionStatus = `-- name: SetCourseSessionStatus :one
+UPDATE course_session SET status = $2, updated_at = now()
+WHERE id = $1
+RETURNING id, user_id, course_id, skill_id, phase, status, created_at, updated_at
+`
+
+type SetCourseSessionStatusParams struct {
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+}
+
+func (q *Queries) SetCourseSessionStatus(ctx context.Context, arg SetCourseSessionStatusParams) (CourseSession, error) {
+	row := q.db.QueryRow(ctx, setCourseSessionStatus, arg.ID, arg.Status)
+	var i CourseSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CourseID,
+		&i.SkillID,
+		&i.Phase,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

@@ -42,8 +42,16 @@ const demonstrateSession: CourseSession = {
   id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [],
 };
 
+// Every real courseAsk/courseAdvance stream ends with a `done` frame
+// unconditionally — the server emits it at the end of EVERY turn, including
+// the error path (apps/api/internal/api/course_session.go's runCourseTurn
+// calls em.Done() unconditionally). A mock stream that omits it encodes a
+// shape the backend cannot produce, so `done` is always appended here to
+// keep every mock faithful to the real client's contract
+// (apps/web/src/api/courseSession.ts's runCourseTurn always yields it last).
 async function* gen(events: unknown[]) {
   for (const e of events) yield e;
+  yield { type: "done" };
 }
 
 describe("CoursePlayer", () => {
@@ -96,7 +104,7 @@ describe("CoursePlayer", () => {
     expect(screen.getAllByText("演示").length).toBe(2);
   });
 
-  it("pages inside a phase without touching the network", async () => {
+  it("pages inside a phase without calling courseAdvance", async () => {
     render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByText("第 0 步");
     fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, both inside "demonstrate"
@@ -142,6 +150,39 @@ describe("CoursePlayer", () => {
     fireEvent.click(screen.getByLabelText("下一步")); // 1 -> boundary, coach advances
 
     await waitFor(() => expect(screen.getAllByText("引导").length).toBeGreaterThan(0));
+  });
+
+  it("finishes the course when a courseAdvance stream settles into a finished session", async () => {
+    // The terminal never arrives as a frame — the coach's reply is a plain
+    // `reply` frame (the phase does not move: reflect has no successor). The
+    // player learns completion by refetching the session after the stream
+    // settles and finding status: "finished" (Critical-3 — the backend mints
+    // the terminal; the client learns it from the session, not a frame).
+    (api.courseAdvance as any).mockImplementation(() => gen([{ type: "reply", body: "这节课到这里就走完了。" }]));
+    (api.getCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "reflect", phaseTitle: "回看", status: "finished", messages: [] });
+    const onFinish = vi.fn();
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={onFinish} />);
+    await screen.findByText("第 0 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, local
+    await screen.findByText("第 1 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 1 -> boundary, coach settles the terminal
+
+    await waitFor(() => expect(onFinish).toHaveBeenCalled());
+  });
+
+  it("degrades to local paging with no courseAdvance calls when the session fails to start", async () => {
+    // Important-5: a failed startCourseSession must not brick the page — the
+    // content layer (course_step pages) survives the runtime layer being
+    // down, exactly like the pre-Slice-12 player, and handleNext must never
+    // fire courseAdvance against a session that does not exist.
+    (api.startCourseSession as any).mockRejectedValue(new Error("session runtime unavailable"));
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    expect(await screen.findByText("第 0 步")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("下一步"));
+    expect(await screen.findByText("第 1 步")).toBeInTheDocument();
+
+    expect(api.courseAdvance).not.toHaveBeenCalled();
   });
 
   it("requires 接受 before the card sheet mounts", async () => {

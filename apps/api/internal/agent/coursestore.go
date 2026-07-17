@@ -37,6 +37,11 @@ func (s *sqlcCourseStore) SetSessionPhase(ctx context.Context, sessionID uuid.UU
 	return err
 }
 
+func (s *sqlcCourseStore) SetSessionStatus(ctx context.Context, sessionID uuid.UUID, status string) error {
+	_, err := s.q.SetCourseSessionStatus(ctx, sqlc.SetCourseSessionStatusParams{ID: sessionID, Status: status})
+	return err
+}
+
 func (s *sqlcCourseStore) LoadPhaseHistory(ctx context.Context, sessionID uuid.UUID, phase string, limit int) ([]ChatTurn, error) {
 	rows, err := s.q.ListMessagesBySession(ctx, sessionID)
 	if err != nil {
