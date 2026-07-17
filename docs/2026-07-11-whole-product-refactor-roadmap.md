@@ -90,7 +90,7 @@ started · ◐ in progress · ☑ done.
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ◐ (**readiness gauge ☑** — 0457 就绪度 made real from the whole-draft review, `644e1d2`; reflect / prediction-loop S0↔S6 / self-score / AI-usage declaration / export forks + the other 4 skins still deferred) |
 | **10** | **Assessment engine (assessor) + growth report** | The isolated **assessor** wired live: few-shot MVP engine over event-stream projections, thinking leaps T1–T7, depth-vs-independence, the three reports. | 9 | ◐ (**assessor keystone ☑** — isolated few-shot MVP engine scores the seeded CT rubric over the project event-stream projection → per-dim L1–L4 + evidence + growth narrative in the 成长报告 slot, `50bda49`; T1–T7 leaps / depth-vs-independence radar / teacher+parent report versions / OPCVL / benchmark+fine-tune / chat+course aggregation still deferred) |
 | **11** | **Chat policy + surface** | Coach-alone + classifier moment-detection, thread-scoped graph, multimodal input, card surfacing as offer, project seeding via intake, supplementary+disclosed evidence. Mostly configuration by now. | 2 | ◐ (**coach+card-as-offer keystone ☑** — standalone Chat surface: coach-alone `RunChatStep` (reply typed output, guiding posture), classifier link→CRAAP moment, `surface_card`@I3 in-thread offer (confirm-to-open, reuses StudioCardSheet), thread-scoped card runtime via additive `thread_id` on material/card_instances (0022), on-record disclosure (binding dc.html), chat events → stream at supplementary weight, `d1b0d4c`; multimodal / project-seeding / off-record control / competence wiring / thread evidence nodes / semantic non-link moments still deferred) |
-| **12** | **Course policy + surface alignment** | Course skill (binding-order phases), coach-as-script-executor (`advance`), fold the existing course player onto the card contract + assessor. Mostly configuration. | 3,10 | ☐ |
+| **12** | **Course policy + surface alignment** | Course skill (binding-order phases), coach-as-script-executor (`advance`), fold the existing course player onto the card contract + assessor. Mostly configuration. | 3,10 | ◐ (**coach-as-script-executor keystone ☑** — 课程 runs on the runtime under Course policy: a course skill of 4 binding phases wrapping the existing steps, `RunCourseStep` with the coach holding `advance` behind a **structural floor** enforced in Go, session-scoped card practice, the binding 问印记 ask panel, course events → stream at **full** weight, `ed7e019`; assessor aggregation into 成长报告 / terminal-assessment adjudication / golden+banned packs / voice / competence / course→project seeding / multi-course authoring / session restart still deferred) |
 | **13** | **Teacher dashboard** (3 layers) | Class heatmap + risk column, individual trajectory, single-conversation replay, one-click actions. | 10, **teacher-side design** | ☐ deferred |
 
 Cambridge-first (0457 + GPR 9239). Foundations 0–4 = the runtime; surfaces 5–9 = the
@@ -828,3 +828,61 @@ scope**; multimodal / project-seeding / off-record control deferred.
   semantic non-link card-moments (opinion→steelman, comparison→matrix — need a model classifier);
   thread evidence nodes / graph_effects + chat→assessment aggregation; competence wiring (shared, dormant
   everywhere). **Slice 12** (Course policy + surface alignment, depends on 10) is next.
+
+- **Slice 12 (keystone)** — ☑ **complete** (branch `refactor2-slice12-course-policy`, commits
+  `2d1912d`..`ed7e019`, merged `ed7e019`). Spec `docs/superpowers/specs/2026-07-17-slice-12-course-policy-design.md`
+  · plan `docs/superpowers/plans/2026-07-17-slice-12-course-policy.md`. **课程 was the last pre-runtime
+  surface** (a dumb linear step player: LLM-rendered pages, ordinal progress, no runtime/cards/dialogue/
+  events). It now runs on the one runtime under **Course policy** (agent-spec §5.3).
+  Delivered: **DEC-12.1 phases wrap steps** — `course`/`course_step`/`course_progress` + the teaching/
+  challenge renderer survive untouched as authored **content**; the course skill (`info-literacy-course.json`,
+  `kind:"course"`) adds the **runtime** layer above them (4 phases 演示→引导→独立→回看 in a binding order —
+  a strictly linear `requires` chain, validated at load by `LinearOrder`; a branching course skill is a
+  config error). **Pages are content, phases are runtime.** · **DEC-12.2 floor + judgment**: a closed set
+  of course floor kinds (`steps_viewed` · `card_dispositioned` · `student_turns_at_least`) named in
+  `skills`, evaluated in `agent` (the Slice-4 split); the floor is **enforcement below the policy** — an
+  unmet floor short-circuits BEFORE the model (zero LLM calls) and the coach physically cannot pass it;
+  the soft authored condition is the coach's judgment (DEC-3 discipline: machine only ever refuses).
+  `card_dispositioned` is satisfied by **completed OR skipped** — a card is an offer, never a wall ·
+  **DEC-12.3 `advance` typed output** (Zod + Go `ValidateOutput`), the C3 seam this slice closes — it was
+  in the Verb enum but never had an output type, exactly as `reply` was Slice 11's seam. Forward-only,
+  one phase at a time, enforced by the runtime not the prompt · **DEC-12.4 session scope** (migration
+  `0023`, additive): `course_session` + `course_message` + a 4th owner column on material/card_instances
+  (`num_nonnulls(task_id, project_id, thread_id, session_id) >= 1`) — Course/Chat/Project stay clean
+  siblings, each with its own store seam · **DEC-12.5** the next-arrow pages freely inside a phase (no
+  network) and *asks* at a boundary; a refusal is a sentence in an auto-expanded panel — never a modal,
+  lock, or streak (铁律 2) · **DEC-12.6** renamed Chat's `ThreadMaterial`/`ThreadCard`/`ChatCardOffer` →
+  `ScopedMaterial`/`ScopedCard`/`CardOffer` (surface-neutral; Course needs the same shapes) · the binding
+  **问印记 ask panel** (dc.html 349–410, copy verbatim, voice button inert) · six endpoints; course events
+  → the stream at **full** weight (`surface="course"`), `llm_call` surface=course/purpose=coach/project
+  NULL, metered even on reject. Gate: full Go suite all packages ok; web 90 files/471; contracts 203;
+  tsc 0; zero sqlc/skills drift.
+  **The whole-branch review again earned its keep — and this time so did the per-task ones.** T8 was
+  **Not approved** on 3 Criticals from ONE misread frame: the server ends *every* turn with `done`, but
+  the player treated it as "course complete", so asking a single question ejected the student to the
+  report screen; the same line made the auto-expand-on-refusal path dead code; and nothing anywhere wrote
+  `status='finished'` (**a hole in the spec** — it never said how a course finishes), so the only thing
+  "finishing" a course was the bug. The whole-branch review then found 3 MORE Criticals the per-task
+  reviews structurally could not see: **the course was unusable from its very first phase boundary**
+  (`go()` recorded the ordinal being *left*, but leaving a phase's last ordinal routes through
+  `courseAdvance` — so `demonstrate`'s `steps_viewed [0,1]` floor could never be met, and every advance
+  was refused forever); **guided dead-ended after a page reload** (the offer lived only in React state
+  while `CourseCardCandidate` won't re-mint a `proposed` card → the floor became unsatisfiable — an offer
+  turned into a wall); and **the floor was client-asserted** (`PUT /progress` let the client write
+  `completed_ordinals` wholesale, falsifying DEC-12.2's central claim). Fixes: the terminal is minted
+  server-side at `NextPhase !ok` with the floor met (`reflect`'s floor still guards 回看, so it can't be
+  skipped); view-recording moved **server-side** into the per-ordinal render handler (fixing the first
+  and third together — and it records before the cache-hit branch, or the bug returns); open card offers
+  rehydrate via `CourseSessionDTO.openCards`.
+  **Root cause of five of the six Criticals: test-mock infidelity** — mocks encoded stream/state shapes
+  the backend cannot produce, so the tests confirmed a belief instead of testing the code. Every mock now
+  routes through one helper that appends the real `done` frame; the API test drives the real render path
+  instead of seeding `completed_ordinals`; a fake-testing-the-fake test was deleted.
+  **Carry-forwards:** assessor aggregation of course evidence into 成长报告 (the `course_message` event with
+  `{"unprompted":true}` now lands in the stream — nothing reads it yet); terminal-assessment challenge +
+  its machine-never-`solid` adjudication; golden/banned example packs per phase; voice (按住说话 renders,
+  inert); competence wiring (dormant platform-wide, zero update sites); course→project seeding;
+  multi-course authoring (one skill, one seeded course); session restart; non-transactional positional
+  material↔card pairing in `mintPhaseCard` (unreachable at one card/session); the terminal is not
+  idempotent at the API layer; an unawaited card submit/skip can leave an in-page (reload-recoverable)
+  wall; no test runs migrations **Down** anywhere (pre-existing, repo-wide).
