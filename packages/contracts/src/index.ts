@@ -12,6 +12,7 @@ export * from "./chat";
 export * from "./envelope";
 export * from "./anchor";
 export * from "./course";
+export * from "./courseSkill";
 export * from "./registry";
 export * from "./summonCard";
 export * from "./refeed";

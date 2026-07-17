@@ -1,0 +1,284 @@
+import { useState } from "react";
+import type { CardInstance } from "@mind-imprint/contracts";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import { Bean } from "../../studio/Bean";
+import { StudioCardSheet } from "../../studio/StudioCardSheet";
+
+// The 问印记 ask panel — binding design docs/design/思维印记_工作区.dc.html
+// lines 349-397. Copy is verbatim: 问印记 · 随时打断我，问任何问题 ·
+// 正在看： · 你可能想问 · 输入你的问题…… · 按住说话，问老师. Confirm-to-open
+// (铁律 2 不操纵) holds here exactly as Chat's in-thread card offer does: a
+// card offer never auto-mounts the card runtime — it renders as a preview
+// with an explicit 接受 button, and only that click mounts StudioCardSheet.
+
+export type AskCardOffer = { cardInstanceId: string; cardId: string; materialId: string };
+
+export type AskMessage = {
+  id: string;
+  role: "student" | "assistant";
+  text: string;
+  offer?: AskCardOffer;
+  offerPhase?: "offered" | "accepted" | "resolved";
+};
+
+export type AskPanelProps = {
+  expanded: boolean;
+  onToggle: () => void;
+  branchColor: string;
+  context: string;
+  chips: string[];
+  messages: AskMessage[];
+  pending: boolean;
+  onSend: (text: string) => void;
+  onAcceptOffer?: (messageId: string) => void;
+  onDismissOffer?: (messageId: string) => void;
+  onCardSubmit?: (messageId: string, env: CardInstance) => void;
+  onCardSkip?: (messageId: string) => void;
+};
+
+function ChevronRightIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7384" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#D98263" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
+      <path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4" />
+    </svg>
+  );
+}
+
+// The in-panel card offer preview — same shape as Chat's CardOfferBlock
+// (dc.html precedent proven decoupled), scaled to the 330px column.
+function AskCardOfferBlock({
+  messageId,
+  offer,
+  phase,
+  onAccept,
+  onDismiss,
+  onSubmit,
+  onSkip,
+}: {
+  messageId: string;
+  offer: AskCardOffer;
+  phase: "offered" | "accepted" | "resolved";
+  onAccept?: (messageId: string) => void;
+  onDismiss?: (messageId: string) => void;
+  onSubmit?: (messageId: string, env: CardInstance) => void;
+  onSkip?: (messageId: string) => void;
+}) {
+  const spec = CARD_REGISTRY[offer.cardId];
+  if (!spec || phase === "resolved") return null;
+
+  if (phase === "accepted") {
+    return (
+      <div style={{ marginTop: 8, width: "100%" }}>
+        <StudioCardSheet spec={spec} onSubmit={(env) => onSubmit?.(messageId, env)} onSkip={() => onSkip?.(messageId)} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 8, width: "100%", background: "#fff", border: "1px solid #E4E8F5", borderRadius: 12, padding: "12px 14px" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#1C2333" }}>{spec.name}</div>
+      <div style={{ fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6, marginTop: 4 }}>{spec.purpose}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => onAccept?.(messageId)}
+          style={{ background: "#2A3B7A", color: "#fff", border: "none", padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          接受
+        </button>
+        <button
+          type="button"
+          onClick={() => onDismiss?.(messageId)}
+          style={{ background: "none", border: "none", color: "#9AA1B0", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+        >
+          暂不需要
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function AskPanel({
+  expanded,
+  onToggle,
+  branchColor,
+  context,
+  chips,
+  messages,
+  pending,
+  onSend,
+  onAcceptOffer,
+  onDismissOffer,
+  onCardSubmit,
+  onCardSkip,
+}: AskPanelProps) {
+  const [text, setText] = useState("");
+
+  function handleSend() {
+    const value = text.trim();
+    if (!value || pending) return;
+    onSend(value);
+    setText("");
+  }
+
+  function handleChip(value: string) {
+    if (pending) return;
+    onSend(value);
+  }
+
+  if (!expanded) {
+    return (
+      <div
+        onClick={onToggle}
+        role="button"
+        aria-label="展开问印记"
+        style={{ width: 46, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 16, gap: 14, cursor: "pointer" }}
+      >
+        <ChevronLeftIcon />
+        <Bean color={branchColor} size={26} />
+        <span style={{ writingMode: "vertical-rl", fontSize: 12.5, fontWeight: 700, color: "#6B7384", letterSpacing: ".08em" }}>问印记</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: 330, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column" }}>
+      <style>{`@keyframes mkPulse { 0%,100% { opacity:.5;} 50% { opacity:1;} }`}</style>
+      <div style={{ flex: "none", padding: "16px 18px 14px", borderBottom: "1px solid #EFF0F5" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Bean color={branchColor} size={30} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333" }}>问印记</div>
+            <div style={{ fontSize: 11.5, color: "#9AA1B0", fontWeight: 500 }}>随时打断我，问任何问题</div>
+          </div>
+          <div
+            onClick={onToggle}
+            role="button"
+            aria-label="收起问印记"
+            style={{ flex: "none", width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9AA1B0" }}
+          >
+            <ChevronRightIcon />
+          </div>
+        </div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, fontSize: 11.5, fontWeight: 600, color: "#2A3B7A", background: "#EDEFF9", padding: "5px 11px", borderRadius: 999 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4C9A82", animation: "mkPulse 1.6s infinite" }} />
+          正在看：{context}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 20px" }}>
+        {messages.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
+            {messages.map((m) => (
+              <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "assistant" ? "flex-start" : "flex-end" }}>
+                <div
+                  style={
+                    m.role === "assistant"
+                      ? { background: "#fff", border: "1px solid #E4E7F0", borderRadius: "4px 12px 12px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.65, color: "#1C2333", maxWidth: "92%" }
+                      : { background: "#2A3B7A", color: "#fff", borderRadius: "12px 12px 4px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.55, maxWidth: "92%" }
+                  }
+                >
+                  {m.text}
+                </div>
+                {m.offer && m.offerPhase && (
+                  <AskCardOfferBlock
+                    messageId={m.id}
+                    offer={m.offer}
+                    phase={m.offerPhase}
+                    onAccept={onAcceptOffer}
+                    onDismiss={onDismissOffer}
+                    onSubmit={onCardSubmit}
+                    onSkip={onCardSkip}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: "#9AA1B0", fontWeight: 600, marginBottom: 11 }}>你可能想问</div>
+        {chips.map((c, i) => (
+          <div
+            key={i}
+            onClick={() => handleChip(c)}
+            style={{ border: "1px solid #EAECF2", borderRadius: 12, padding: "11px 14px", marginBottom: 9, fontSize: 13.5, color: "#3A4256", cursor: "pointer", lineHeight: 1.5 }}
+          >
+            {c}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ flex: "none", padding: "14px 18px 18px", borderTop: "1px solid #EFF0F5" }}>
+        <div style={{ background: "#F7F8FB", border: "1px solid #E2E5EE", borderRadius: 14, padding: "8px 8px 8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="输入你的问题……"
+            disabled={pending}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "#1C2333" }}
+          />
+          <button
+            type="button"
+            aria-label="发送"
+            onClick={handleSend}
+            disabled={pending || text.trim().length === 0}
+            style={{
+              flex: "none",
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: pending || text.trim().length === 0 ? "#C7CCDA" : "#2A3B7A",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: pending || text.trim().length === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <SendIcon />
+          </button>
+        </div>
+        {/* Voice is deferred this slice (same honest-deferral posture as
+            Chat's multimodal icons) — the control renders but has NO
+            onClick; it is inert by design, not a stub bug. */}
+        <button
+          type="button"
+          style={{ width: "100%", marginTop: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: "#fff", border: "1.5px solid #D98263", color: "#D98263", fontSize: 14, fontWeight: 700, padding: 11, borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          <MicIcon />
+          按住说话，问老师
+        </button>
+      </div>
+    </div>
+  );
+}

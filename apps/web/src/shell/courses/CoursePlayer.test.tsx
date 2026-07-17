@@ -1,10 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import type { Course } from "@mind-imprint/contracts";
+import userEvent from "@testing-library/user-event";
+import type { Course, CourseSession } from "@mind-imprint/contracts";
 
 vi.mock("../../api", async (orig) => {
   const real = await orig<typeof import("../../api")>();
-  return { ...real, api: { ...real.api, getCourse: vi.fn(), getCourseProgress: vi.fn(), saveCourseProgress: vi.fn(), renderCourseStep: vi.fn() } };
+  return {
+    ...real,
+    api: {
+      ...real.api,
+      getCourse: vi.fn(),
+      getCourseProgress: vi.fn(),
+      saveCourseProgress: vi.fn(),
+      renderCourseStep: vi.fn(),
+      startCourseSession: vi.fn(),
+      getCourseSession: vi.fn(),
+      courseAsk: vi.fn(),
+      courseAdvance: vi.fn(),
+      submitCourseCard: vi.fn(),
+      skipCourseCard: vi.fn(),
+    },
+  };
 });
 
 import { api } from "../../api";
@@ -18,6 +34,18 @@ const course: Course = {
   ],
 };
 
+// The real seeded skill's "demonstrate" phase covers ordinals [0, 1] — this
+// fixture's two steps sit entirely inside it, so a next-click from ordinal 0
+// to 1 never crosses the phase boundary; a next-click from ordinal 1 always
+// does (matches packages/contracts/skills/info-literacy-course.json).
+const demonstrateSession: CourseSession = {
+  id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [],
+};
+
+async function* gen(events: unknown[]) {
+  for (const e of events) yield e;
+}
+
 describe("CoursePlayer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,6 +56,12 @@ describe("CoursePlayer", () => {
       ordinal: ord, kind: "teaching", template: "teaching", source: "generated",
       content: { title: `第 ${ord} 步`, subtitle: "导语", body: ["正文。"], foreground_asset_id: null },
     }));
+    (api.startCourseSession as any).mockResolvedValue(demonstrateSession);
+    (api.getCourseSession as any).mockResolvedValue(demonstrateSession);
+    (api.courseAsk as any).mockImplementation(() => gen([]));
+    (api.courseAdvance as any).mockImplementation(() => gen([]));
+    (api.submitCourseCard as any).mockResolvedValue(undefined);
+    (api.skipCourseCard as any).mockResolvedValue(undefined);
   });
 
   it("renders the first step and advances to the next on 下一步", async () => {
@@ -52,5 +86,76 @@ describe("CoursePlayer", () => {
     expect(await screen.findByText("第 1 步")).toBeInTheDocument();
     expect(api.renderCourseStep).toHaveBeenCalledWith("co1", 1);
     expect(api.renderCourseStep).not.toHaveBeenCalledWith("co1", 0);
+  });
+
+  it("renders the phase title as the stage label", async () => {
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+    // header pill + the small label above the page title — both read the
+    // session's phaseTitle ("演示"), never a hardcoded phase id.
+    expect(screen.getAllByText("演示").length).toBe(2);
+  });
+
+  it("pages inside a phase without touching the network", async () => {
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, both inside "demonstrate"
+    await screen.findByText("第 1 步");
+    expect(api.courseAdvance).not.toHaveBeenCalled();
+  });
+
+  it("asks the coach when next would cross a phase boundary", async () => {
+    (api.courseAdvance as any).mockImplementation(() => gen([{ type: "phase", to: "guided" }]));
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, local
+    await screen.findByText("第 1 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 1 -> boundary, asks the coach
+    await waitFor(() => expect(api.courseAdvance).toHaveBeenCalledTimes(1));
+  });
+
+  it("auto-expands the panel when the coach refuses to advance", async () => {
+    (api.courseAdvance as any).mockImplementation(() => gen([{ type: "reply", body: "先把第二步也看完，再往下走。" }]));
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+    // collapse the panel first so the auto-expand-on-refusal behavior is
+    // actually observable (the panel starts expanded by default).
+    fireEvent.click(screen.getByLabelText("收起问印记"));
+    expect(screen.queryByPlaceholderText("输入你的问题……")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, local (panel stays collapsed)
+    await screen.findByText("第 1 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 1 -> boundary, refused
+
+    expect(await screen.findByText("先把第二步也看完，再往下走。")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("输入你的问题……")).toBeInTheDocument(); // re-expanded
+    expect(screen.getByText("第 1 步")).toBeInTheDocument(); // the page has not moved
+  });
+
+  it("moves the phase when the coach advances", async () => {
+    (api.courseAdvance as any).mockImplementation(() => gen([{ type: "phase", to: "guided" }]));
+    (api.getCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [] });
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 0 -> 1, local
+    await screen.findByText("第 1 步");
+    fireEvent.click(screen.getByLabelText("下一步")); // 1 -> boundary, coach advances
+
+    await waitFor(() => expect(screen.getAllByText("引导").length).toBeGreaterThan(0));
+  });
+
+  it("requires 接受 before the card sheet mounts", async () => {
+    (api.courseAsk as any).mockImplementation(() => gen([{ type: "card", cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }]));
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步");
+
+    await userEvent.type(screen.getByPlaceholderText("输入你的问题……"), "这张卡要我做什么？");
+    await userEvent.click(screen.getByLabelText("发送"));
+
+    expect(await screen.findByText("接受")).toBeInTheDocument();
+    expect(screen.queryByText("跳过这张卡")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("接受"));
+    expect(await screen.findByText("跳过这张卡")).toBeInTheDocument();
   });
 });
