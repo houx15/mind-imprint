@@ -56,6 +56,14 @@ func (e *studioEmitter) Text(delta string) error {
 	return e.sse.Text(delta)
 }
 
+// Phase announces a course phase transition (Slice 12). Mutex-guarded like the
+// emitter's other frames.
+func (e *studioEmitter) Phase(to string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.sse.Phase(to)
+}
+
 // DoneCard is submitProjectCard's own Done — see gateway.SSEWriter.DoneCard.
 func (e *studioEmitter) DoneCard(cardStatus string) error {
 	e.mu.Lock()

@@ -56,3 +56,27 @@ export type CourseSummary = z.infer<typeof CourseSummary>;
 export type Course = z.infer<typeof Course>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
 export type RenderedStep = z.infer<typeof RenderedStep>;
+
+// Slice 12 (Course policy): the session runtime layer above the page-position
+// layer above. camelCase, matching the Go DTOs' JSON tags (a fresh runtime
+// surface, following Chat's convention rather than this file's older
+// snake_case one).
+export const CourseMessage = z.object({
+  id: z.string(),
+  phase: z.string(),
+  role: z.enum(["student", "assistant"]),
+  content: z.string(),
+  createdAt: z.string(),
+});
+
+export const CourseSession = z.object({
+  id: z.string(),
+  courseId: z.string(),
+  phase: z.string(),
+  phaseTitle: z.string(),
+  status: z.enum(["active", "finished"]),
+  messages: z.array(CourseMessage),
+});
+
+export type CourseMessage = z.infer<typeof CourseMessage>;
+export type CourseSession = z.infer<typeof CourseSession>;

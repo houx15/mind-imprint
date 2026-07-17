@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage, CourseSession } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -16,8 +16,9 @@ import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshot
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment, generateAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
+import { startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -64,6 +65,12 @@ export interface ApiClient {
   submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
   chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
+  startCourseSession(courseId: string): Promise<CourseSession>;
+  getCourseSession(courseId: string): Promise<CourseSession>;
+  submitCourseCard(courseId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
+  skipCourseCard(courseId: string, cardInstanceId: string): Promise<void>;
+  courseAsk(courseId: string, userInput: string): AsyncGenerator<CourseTurnEvent>;
+  courseAdvance(courseId: string): AsyncGenerator<CourseTurnEvent>;
 }
 
 export const api: ApiClient = {
@@ -77,4 +84,5 @@ export const api: ApiClient = {
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
   getAssessment, generateAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
+  startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
 };

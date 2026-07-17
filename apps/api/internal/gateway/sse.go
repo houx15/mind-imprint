@@ -69,6 +69,14 @@ func (s *SSEWriter) Card(cardInstanceID, cardID, nudgeText string, anchors []byt
 	})
 }
 
+// Phase announces a course phase transition (Slice 12): the structural floor
+// was met and the coach's `advance` moved the student's session to a new
+// phase. Reuses the same per-event write path as Text/Card — no generic
+// Event method exists on this writer, so each frame kind gets its own method.
+func (s *SSEWriter) Phase(to string) error {
+	return s.writeEvent("phase", map[string]string{"to": to})
+}
+
 // Intervention emits one coach intervention (Slice 5c Studio turn).
 func (s *SSEWriter) Intervention(interventionID, body, anchor, criterion, level string) error {
 	return s.writeEvent("intervention", map[string]any{
