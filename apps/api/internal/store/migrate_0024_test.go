@@ -38,12 +38,25 @@ func TestMigration0024SessionScope(t *testing.T) {
 		t.Fatalf("session-scoped event must satisfy event_scope_ck: %v", err)
 	}
 
-	// 2. A brand-new scopeless event is REJECTED — the hole A1 closes.
+	// 2. A brand-new scopeless COURSE event is REJECTED — the hole A1 closes.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, surface, type, payload)
 		VALUES ($1, 'course', 'course_message', '{}'::jsonb)`,
 		refactor2SeededStudentID); err == nil {
-		t.Fatal("a new event with project_id AND session_id both NULL should violate event_scope_ck, got no error")
+		t.Fatal("a new course event with project_id AND session_id both NULL should violate event_scope_ck, got no error")
+	}
+
+	// 2b. But an unscoped CHAT event is still ACCEPTED — the explicit
+	// `surface = 'chat'` exemption. Chat has no scope column until A2, and its
+	// three event writes swallow errors into slog.Warn: without the exemption
+	// this constraint would silently stop chat recording evidence and no test
+	// would fail. A2 deletes the arm when it scopes chat's writes.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO event (user_id, surface, type, payload)
+		VALUES ($1, 'chat', 'prompt_sent', '{}'::jsonb)`,
+		refactor2SeededStudentID); err != nil {
+		t.Fatalf("an unscoped chat event must still be accepted until A2 scopes chat's writes — "+
+			"enforcing before the writer has a scope silently kills chat evidence: %v", err)
 	}
 
 	// 3. NOT VALID's actual contract: a pre-existing unattributable row still
@@ -54,21 +67,21 @@ func TestMigration0024SessionScope(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, surface, type, payload)
-		VALUES ($1, 'chat', 'prompt_sent', '{}'::jsonb)`, refactor2SeededStudentID); err != nil {
+		VALUES ($1, 'course', 'course_message', '{}'::jsonb)`, refactor2SeededStudentID); err != nil {
 		t.Fatalf("seed legacy unattributable row: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
 		ALTER TABLE event ADD CONSTRAINT event_scope_ck
-		CHECK (num_nonnulls(project_id, session_id) >= 1) NOT VALID`); err != nil {
+		CHECK (surface = 'chat' OR num_nonnulls(project_id, session_id) >= 1) NOT VALID`); err != nil {
 		t.Fatalf("re-add NOT VALID constraint over a legacy row — this is the whole point of NOT VALID: %v", err)
 	}
 	var legacy int
 	if err := pool.QueryRow(ctx, `
-		SELECT count(*) FROM event WHERE project_id IS NULL AND session_id IS NULL`).Scan(&legacy); err != nil {
-		t.Fatalf("read legacy row: %v", err)
+		SELECT count(*) FROM event WHERE surface = 'course' AND project_id IS NULL AND session_id IS NULL`).Scan(&legacy); err != nil {
+		t.Fatalf("read legacy unattributable course rows: %v", err)
 	}
 	if legacy != 1 {
-		t.Fatalf("legacy unattributable rows = %d, want 1 (grandfathered, never deleted)", legacy)
+		t.Fatalf("legacy unattributable course rows = %d, want 1 (grandfathered, never deleted)", legacy)
 	}
 
 	// 4. evaluations accepts a session-scoped row and still rejects a scopeless one.
