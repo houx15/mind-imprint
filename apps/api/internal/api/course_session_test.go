@@ -474,6 +474,56 @@ func TestCourseSession_CardSubmitIsThin(t *testing.T) {
 	}
 }
 
+// TestGetCourseSession_CarriesCollectedCards — A1: the report's 收集到的工具
+// block needs the session's COMPLETED cards. openCards deliberately carries
+// only undispositioned offers, so a completed card would otherwise never
+// reach the client. A skipped card is NOT collected — the student declined
+// it, and saying otherwise would be a fabrication.
+func TestGetCourseSession_CarriesCollectedCards(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	startSession(t, h, cookie, courseSeededCourseID)
+
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	sess, err := q.GetCourseSessionByUserCourse(ctx, sqlc.GetCourseSessionByUserCourseParams{
+		UserID: SeedUserID, CourseID: uuid.MustParse(courseSeededCourseID),
+	})
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	sid := pgUUID(sess.ID)
+	for _, c := range []struct{ cardID, status string }{
+		{"craap", "completed"},
+		{"concession", "skipped"},
+		{"steelman", "proposed"},
+	} {
+		if _, err := q.CreateSessionCardInstance(ctx, sqlc.CreateSessionCardInstanceParams{
+			SessionID: sid, CardID: c.cardID, Status: c.status,
+		}); err != nil {
+			t.Fatalf("create %s: %v", c.cardID, err)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+courseSeededCourseID+"/session", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET session = %d; body=%s", rec.Code, rec.Body)
+	}
+	var dto struct {
+		CollectedCards []struct {
+			CardID string `json:"cardId"`
+		} `json:"collectedCards"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(dto.CollectedCards) != 1 || dto.CollectedCards[0].CardID != "craap" {
+		t.Fatalf("collectedCards = %+v, want only the completed craap — a skipped or still-proposed card is not collected", dto.CollectedCards)
+	}
+}
+
 // TestCourseSession_ReloadSurfacesOpenCardOffer is the Critical-2 regression
 // test: a card offer that exists in the DB (status proposed) but was never
 // dispositioned must reappear in GET /session's openCards — this is exactly

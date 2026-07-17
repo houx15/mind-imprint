@@ -18,13 +18,14 @@ import (
 // (proposed/active). Page position stays in course_progress and ships
 // through the existing progress endpoints.
 type CourseSessionDTO struct {
-	ID         string               `json:"id"`
-	CourseID   string               `json:"courseId"`
-	Phase      string               `json:"phase"`
-	PhaseTitle string               `json:"phaseTitle"`
-	Status     string               `json:"status"`
-	Messages   []CourseMessageDTO   `json:"messages"`
-	OpenCards  []CourseCardOfferDTO `json:"openCards"`
+	ID             string                   `json:"id"`
+	CourseID       string                   `json:"courseId"`
+	Phase          string                   `json:"phase"`
+	PhaseTitle     string                   `json:"phaseTitle"`
+	Status         string                   `json:"status"`
+	Messages       []CourseMessageDTO       `json:"messages"`
+	OpenCards      []CourseCardOfferDTO     `json:"openCards"`
+	CollectedCards []CourseCollectedCardDTO `json:"collectedCards"`
 }
 
 // CourseMessageDTO is one row of a course session's dialogue.
@@ -47,19 +48,30 @@ type CourseCardOfferDTO struct {
 	MaterialID     string `json:"materialId"`
 }
 
+// CourseCollectedCardDTO is one tool the student actually completed in this
+// session — the 收集到的工具 block's row. Distinct from CourseCardOfferDTO:
+// that carries UNdispositioned offers (proposed/active) for reload
+// rehydration, so a completed card never appears in it. A skipped card is not
+// collected — Slice 12 made offers skippable by design, and a skip is a
+// decline, not a collection.
+type CourseCollectedCardDTO struct {
+	CardID string `json:"cardId"`
+}
+
 // toCourseSessionDTO converts a sqlc.CourseSession row + its resolved
 // phaseTitle (the skill Contract.Title for the session's current phase,
 // resolved by the caller since it needs the skill) + the session's messages +
-// its open card offers.
-func toCourseSessionDTO(s sqlc.CourseSession, phaseTitle string, messages []CourseMessageDTO, openCards []CourseCardOfferDTO) CourseSessionDTO {
+// its open card offers + the cards it actually collected (completed, deduped).
+func toCourseSessionDTO(s sqlc.CourseSession, phaseTitle string, messages []CourseMessageDTO, openCards []CourseCardOfferDTO, collected []CourseCollectedCardDTO) CourseSessionDTO {
 	return CourseSessionDTO{
-		ID:         s.ID.String(),
-		CourseID:   s.CourseID.String(),
-		Phase:      s.Phase,
-		PhaseTitle: phaseTitle,
-		Status:     s.Status,
-		Messages:   messages,
-		OpenCards:  openCards,
+		ID:             s.ID.String(),
+		CourseID:       s.CourseID.String(),
+		Phase:          s.Phase,
+		PhaseTitle:     phaseTitle,
+		Status:         s.Status,
+		Messages:       messages,
+		OpenCards:      openCards,
+		CollectedCards: collected,
 	}
 }
 

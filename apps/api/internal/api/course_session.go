@@ -109,11 +109,37 @@ func (a *API) buildCourseSessionDTO(ctx context.Context, sess sqlc.CourseSession
 			MaterialID:     o.MaterialID.String(),
 		})
 	}
+	collected, err := a.collectedCourseSessionCards(ctx, sess.ID)
+	if err != nil {
+		return CourseSessionDTO{}, err
+	}
 	phaseTitle := ""
 	if c, ok := sk.Contracts[sess.Phase]; ok {
 		phaseTitle = c.Title
 	}
-	return toCourseSessionDTO(sess, phaseTitle, messages, openCards), nil
+	return toCourseSessionDTO(sess, phaseTitle, messages, openCards, collected), nil
+}
+
+// collectedCourseSessionCards is the report's 收集到的工具 block: cards the
+// student actually COMPLETED, deduped by card_id (completing the same tool
+// twice is one collected tool). A skipped or still-open card is deliberately
+// excluded — Slice 12 made offers skippable by design, so a skip is a
+// decline, not a collection.
+func (a *API) collectedCourseSessionCards(ctx context.Context, sessionID uuid.UUID) ([]CourseCollectedCardDTO, error) {
+	cis, err := a.d.Queries.ListCardInstancesBySession(ctx, pgtype.UUID{Bytes: sessionID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, len(cis))
+	collected := make([]CourseCollectedCardDTO, 0, len(cis))
+	for _, ci := range cis {
+		if ci.Status != "completed" || seen[ci.CardID] {
+			continue
+		}
+		seen[ci.CardID] = true
+		collected = append(collected, CourseCollectedCardDTO{CardID: ci.CardID})
+	}
+	return collected, nil
 }
 
 // startCourseSession gets-or-creates the caller's session for course {id}.
