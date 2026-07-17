@@ -79,6 +79,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/courses/{id}/session/advance", protected(a.postCourseAdvance))
 	mux.Handle("POST /api/v1/courses/{id}/session/cards/{cid}/submit", protected(a.submitCourseCard))
 	mux.Handle("POST /api/v1/courses/{id}/session/cards/{cid}/skip", protected(a.skipCourseCard))
+	mux.Handle("GET /api/v1/courses/{id}/session/assessment", protected(a.getCourseAssessment))
+	mux.Handle("POST /api/v1/courses/{id}/session/assessment", protected(a.generateCourseAssessment))
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
 	mux.Handle("GET /api/v1/chat/threads", protected(a.getChatThreads))
