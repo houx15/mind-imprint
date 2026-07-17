@@ -47,6 +47,17 @@ func fakeResolver() gateway.KeyResolver {
 	}
 }
 
+// fakeEvalResolver is the flagship-tier counterpart to fakeResolver, mirroring
+// its shape — no real key, no network; the fake provider never reads it. Use
+// this for Deps.EvalResolver in tests that exercise the growth assessor
+// (assessment.go / course_assessment.go), which must resolve flagship, never
+// chaperone (评估走旗舰模型绝不降级).
+func fakeEvalResolver() gateway.KeyResolver {
+	return func(context.Context) (gateway.Resolved, error) {
+		return gateway.Resolved{Provider: "deepseek", Model: "deepseek-reasoner", Tier: "flagship", APIKey: "sk-test"}, nil
+	}
+}
+
 // pgUUID converts a uuid.UUID to the pgtype.UUID sqlc expects.
 func pgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}

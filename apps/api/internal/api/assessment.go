@@ -87,7 +87,7 @@ func (a *API) generateAssessment(w http.ResponseWriter, r *http.Request) {
 
 	in := buildAssessmentInputFromProject(d, proj, graphSummary(r.Context(), a.d.Queries, projectID))
 
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.d.EvalResolver(r.Context())
 	if rerr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return

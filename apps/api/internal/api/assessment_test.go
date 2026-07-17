@@ -67,6 +67,7 @@ func TestGenerateAssessment_PersistsAndReturnsDTO(t *testing.T) {
 		Pool:         pool,
 		Provider:     assessStubProvider(assessReply),
 		ChatResolver: fakeResolver(),
+		EvalResolver: fakeEvalResolver(),
 		SpecByID:     cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)

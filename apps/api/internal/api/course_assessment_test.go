@@ -65,7 +65,7 @@ func TestGenerateCourseAssessment_PersistsAtSessionScope(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	startSession(t, h, cookie, seededCourseID)
@@ -102,6 +102,19 @@ func TestGenerateCourseAssessment_PersistsAtSessionScope(t *testing.T) {
 		t.Fatalf("llm_call = (%s,%s), want (course,assessment)", surface, purpose)
 	}
 
+	// 评估走旗舰模型绝不降级 — the assessor must resolve the flagship tier, never
+	// the chaperone tier the coach turn uses. Regression guard for the bug
+	// where both assessors called a.d.ChatResolver instead of a.d.EvalResolver.
+	var tier string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT tier FROM llm_call WHERE surface = 'course' AND purpose = 'assessment'
+		 ORDER BY created_at DESC LIMIT 1`).Scan(&tier); err != nil {
+		t.Fatalf("read llm_call tier: %v", err)
+	}
+	if tier != "flagship" {
+		t.Fatalf("assessment ran on tier %q, want flagship — 评估走旗舰模型绝不降级", tier)
+	}
+
 	// Persisted at session scope: GET now replays it with no second model call.
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+seededCourseID+"/session/assessment", nil), cookie))
@@ -127,7 +140,7 @@ func TestGenerateCourseAssessment_RecordsCostOnRejection(t *testing.T) {
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
 		Provider:     assessStubProvider(`{"dimensions":[],"narrative":"你应该这样写：先摆结论，再给证据。"}`),
-		ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	startSession(t, h, cookie, seededCourseID)

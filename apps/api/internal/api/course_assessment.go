@@ -85,7 +85,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 
 	in := buildAssessmentInputFromSession(events, cards)
 
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.d.EvalResolver(r.Context())
 	if rerr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
