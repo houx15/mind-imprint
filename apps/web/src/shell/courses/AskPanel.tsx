@@ -196,15 +196,23 @@ export function AskPanel({
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
             {messages.map((m) => (
               <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "assistant" ? "flex-start" : "flex-end" }}>
-                <div
-                  style={
-                    m.role === "assistant"
-                      ? { background: "#fff", border: "1px solid #E4E7F0", borderRadius: "4px 12px 12px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.65, color: "#1C2333", maxWidth: "92%" }
-                      : { background: "#2A3B7A", color: "#fff", borderRadius: "12px 12px 4px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.55, maxWidth: "92%" }
-                  }
-                >
-                  {m.text}
-                </div>
+                {/* A message may legitimately be offer-only (a rehydrated open
+                    card offer, or a live `card` frame with no reply text) —
+                    render the bubble only when there is text, matching the
+                    server's own guard against an empty frame
+                    (course_session.go's Text-on-non-empty-Reply). */}
+                {m.text !== "" && (
+                  <div
+                    data-testid="ask-bubble"
+                    style={
+                      m.role === "assistant"
+                        ? { background: "#fff", border: "1px solid #E4E7F0", borderRadius: "4px 12px 12px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.65, color: "#1C2333", maxWidth: "92%" }
+                        : { background: "#2A3B7A", color: "#fff", borderRadius: "12px 12px 4px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.55, maxWidth: "92%" }
+                    }
+                  >
+                    {m.text}
+                  </div>
+                )}
                 {m.offer && m.offerPhase && (
                   <AskCardOfferBlock
                     messageId={m.id}

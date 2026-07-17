@@ -51,4 +51,41 @@ describe("AskPanel", () => {
     expect(screen.queryByPlaceholderText("输入你的问题……")).not.toBeInTheDocument();
     expect(screen.getByText("问印记")).toBeInTheDocument();
   });
+
+  // Minor 3 (whole-branch): a message may legitimately be offer-only — a
+  // rehydrated open card offer (CoursePlayer.tsx) or a live `card` frame with
+  // no reply body — and must not render an empty bordered bubble above the
+  // card preview. Mirrors the server's own guard against an empty frame
+  // (course_session.go's Text-on-non-empty-Reply).
+  it("renders no empty bubble for an offer-only message", () => {
+    render(
+      <AskPanel
+        {...props}
+        messages={[
+          {
+            id: "offer-1",
+            role: "assistant",
+            text: "",
+            offer: { cardInstanceId: "ci1", cardId: "craap", materialId: "m1" },
+            offerPhase: "offered",
+          },
+        ]}
+      />,
+    );
+    expect(screen.queryByTestId("ask-bubble")).not.toBeInTheDocument();
+    // The card preview itself still renders.
+    expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeInTheDocument();
+    expect(screen.getByText("接受")).toBeInTheDocument();
+  });
+
+  it("still renders the bubble for a message with text", () => {
+    render(
+      <AskPanel
+        {...props}
+        messages={[{ id: "m1", role: "assistant", text: "你觉得这句话里，哪一部分是证据？" }]}
+      />,
+    );
+    expect(screen.getByTestId("ask-bubble")).toBeInTheDocument();
+    expect(screen.getByText("你觉得这句话里，哪一部分是证据？")).toBeInTheDocument();
+  });
 });

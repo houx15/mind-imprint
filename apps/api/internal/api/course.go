@@ -93,10 +93,11 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 // putCourseProgress writes ONLY the resume position (current_ordinal) — a UX
 // convenience, not a floor input. Slice-12 whole-branch C1+C3 fix:
 // completed_ordinals (the steps_viewed floor's input) is never accepted from
-// the client here; the request body may still carry it (the existing web
-// client's saveCourseProgress does, unchanged), but it is silently ignored —
-// decodeJSON has no DisallowUnknownFields, so an unread field is simply
-// dropped. The only writer of completed_ordinals is the render handler
+// the client here; even if a request body were to carry it, decodeJSON has
+// no DisallowUnknownFields, so an unread field is simply dropped (the web
+// client's saveCourseProgress no longer sends it at all — pre-merge Minor 4
+// dropped it from the write-side type once this handler stopped honoring
+// it). The only writer of completed_ordinals is the render handler
 // (course_render.go), which records a step as viewed exactly when the
 // student's browser actually opens it. A floor the client can assert is not
 // a floor.

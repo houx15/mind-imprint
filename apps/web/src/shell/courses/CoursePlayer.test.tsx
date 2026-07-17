@@ -77,12 +77,14 @@ describe("CoursePlayer", () => {
     expect(await screen.findByText("第 0 步")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("下一步"));
     expect(await screen.findByText("第 1 步")).toBeInTheDocument();
-    // Whole-branch C1+C3 regression: what the client persists at a boundary
-    // is ONLY current_ordinal-shaped UX state — the server (not this call)
-    // is now the sole writer of the steps_viewed floor's real input
-    // (course_render.go's RecordCourseStepViewed). This asserts the actual
-    // payload a real saveCourseProgress call carries, not just that it fired.
-    await waitFor(() => expect(api.saveCourseProgress).toHaveBeenCalledWith("co1", { current_ordinal: 1, completed_ordinals: [0] }));
+    // Whole-branch C1+C3 regression, sharpened by Minor 4: the write payload
+    // carries ONLY current_ordinal — completed_ordinals was dropped from the
+    // write-side type entirely (courses.ts/index.ts), since the server (not
+    // this call) is the sole writer of the steps_viewed floor's real input
+    // (course_render.go's RecordCourseStepViewed). Asserting the exact
+    // payload here (not just that the call fired) is what would have caught
+    // a future reintroduction of a client-writable completed_ordinals.
+    await waitFor(() => expect(api.saveCourseProgress).toHaveBeenCalledWith("co1", { current_ordinal: 1 }));
   });
 
   it("exits via the back control", async () => {
@@ -200,6 +202,14 @@ describe("CoursePlayer", () => {
 
     expect(await screen.findByText("接受")).toBeInTheDocument();
     expect(screen.queryByText("跳过这张卡")).not.toBeInTheDocument();
+    // Minor 3 (whole-branch): the live `card` frame carries no reply text —
+    // the assistant turn that carries the offer must not also render an
+    // empty bubble above the card preview. (The student's own typed message
+    // legitimately renders a bubble, so this checks every rendered bubble
+    // has text, rather than asserting none exist at all.)
+    for (const bubble of screen.queryAllByTestId("ask-bubble")) {
+      expect(bubble.textContent).not.toBe("");
+    }
 
     await userEvent.click(screen.getByText("接受"));
     expect(await screen.findByText("跳过这张卡")).toBeInTheDocument();
@@ -245,6 +255,9 @@ describe("CoursePlayer", () => {
     expect(await screen.findByText("接受")).toBeInTheDocument();
     expect(api.courseAsk).not.toHaveBeenCalled();
     expect(api.courseAdvance).not.toHaveBeenCalled();
+    // Minor 3 (whole-branch): the rehydrated offer carries text: "" — it
+    // must not render an empty bubble above the card preview.
+    expect(screen.queryByTestId("ask-bubble")).not.toBeInTheDocument();
 
     // And it is still a confirm-to-open offer (铁律 2): accepting mounts the
     // card sheet, exactly like a freshly-surfaced offer would.

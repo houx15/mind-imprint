@@ -13,7 +13,13 @@ export async function getCourseProgress(id: string): Promise<CourseProgress> {
   const r = await apiFetch<{ progress: CourseProgress }>(`/api/v1/courses/${id}/progress`);
   return r.progress;
 }
-export async function saveCourseProgress(id: string, input: { current_ordinal: number; completed_ordinals: number[] }): Promise<CourseProgress> {
+// completed_ordinals is intentionally ABSENT from this write-side type: the
+// server (course.go's putCourseProgress) only ever accepts current_ordinal —
+// completed_ordinals is the steps_viewed floor's input and is written solely
+// by the render handler (course_render.go) when a step is actually opened.
+// It still appears on the READ side (CourseProgress, from getCourseProgress)
+// for resume + the progress-bar stepper.
+export async function saveCourseProgress(id: string, input: { current_ordinal: number }): Promise<CourseProgress> {
   const r = await apiFetch<{ progress: CourseProgress }>(`/api/v1/courses/${id}/progress`, { method: "PUT", body: JSON.stringify(input) });
   return r.progress;
 }

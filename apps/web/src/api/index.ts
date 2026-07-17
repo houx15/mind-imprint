@@ -43,7 +43,7 @@ export interface ApiClient {
   listCourses(): Promise<CourseSummary[]>;
   getCourse(id: string): Promise<Course>;
   getCourseProgress(id: string): Promise<CourseProgress>;
-  saveCourseProgress(id: string, input: { current_ordinal: number; completed_ordinals: number[] }): Promise<CourseProgress>;
+  saveCourseProgress(id: string, input: { current_ordinal: number }): Promise<CourseProgress>;
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
   getProject(id: string): Promise<StudioProjection>;

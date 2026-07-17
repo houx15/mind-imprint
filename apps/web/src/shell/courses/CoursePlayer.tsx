@@ -105,9 +105,15 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   if (!course) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在载入课程…</div>;
 
   function go(next: number) {
+    // completed_ordinals is READ-side only (drives resume + the progress-bar
+    // stepper below); the server silently discards it if sent, since the
+    // steps_viewed floor's input must not be client-writable (Critical 3) —
+    // only the render handler (course_render.go) writes it. Local state here
+    // still tracks it for the stepper; the write call sends current_ordinal
+    // alone.
     const nextCompleted = Array.from(new Set([...completed, ordinal])).sort((a, b) => a - b);
     setCompleted(nextCompleted);
-    void api.saveCourseProgress(courseId, { current_ordinal: next, completed_ordinals: nextCompleted }).catch(() => {});
+    void api.saveCourseProgress(courseId, { current_ordinal: next }).catch(() => {});
     setOrdinal(next);
   }
 
