@@ -886,3 +886,77 @@ scope**; multimodal / project-seeding / off-record control deferred.
   material↔card pairing in `mintPhaseCard` (unreachable at one card/session); the terminal is not
   idempotent at the API layer; an unawaited card submit/skip can leave an in-page (reload-recoverable)
   wall; no test runs migrations **Down** anywhere (pre-existing, repo-wide).
+
+### A1 (sub-project) — Course session report: session-scoped assessment (merged `8509940`)
+
+**Not a roadmap slice.** A1 is the first of three sub-projects closing the largest carry-forward left
+after Slice 12: chat + course evidence lands in the event stream and **nothing reads it**. Sequence:
+**A1 course → A2 chat → A3 project terminal + 成长报告 history entrance**, then **B** (the DualAxis
+assessment model replaces the CT rubric) and **C** (the student-level ability model — the binding
+design's own 能力素养 radar: 「九个维度…等级来自每次任务评估的归并，不是测验分数」).
+
+**The blocker was structural, not a missing query.** `event` had exactly one scope column
+(`project_id`); every course/chat write hard-coded it NULL; the only SELECT ever authored was
+`WHERE project_id = $1`, which can never match a NULL. Course evidence was written, stored, and
+unreachable **by construction**.
+
+**Shipped:** migration 0024 (`session_id` on `event` + `evaluations`) · `InsertSessionEvent` REPLACES
+the scopeless `InsertUserEvent` on `CourseStore` (its signature *was* the bug) · `ListEventsBySession`
+· `buildAssessmentInputFromSession` (pure) · GET/POST `/api/v1/courses/{id}/session/assessment` ·
+`collectedCards` on the session DTO · `CourseReport` gains 能力评估 + 收集到的工具 from real data.
+Auto-generation is GET→null→POST-once on first report open, never inside the SSE turn (a flagship
+call there would stall the student's last 回看 turn).
+
+**Decisions.** `event`'s CHECK is **NOT VALID**: pre-A1 chat/course rows are permanently
+unattributable — there is nothing to backfill FROM, and neither deleting real records nor inventing a
+scope is honest. **The rubric and assessor are untouched** — B replaces them; the dimension count is
+knowingly three-way inconsistent today (binding design **9**, `ct-rubric.json` **10**, DualAxis
+reference **6**) and A1 bakes in none of it.
+
+**Honesty fixes (both pre-existing, both shipped-to-students):** `挑战通过` counted the challenges the
+course *contains* — every student was told they passed every challenge, including ones never opened,
+each with a green ✓. There is no pass record in the schema. **通过 is now defined as engagement**
+(`completed_ordinals`, server-recorded, not client-assertable); a coach-judged verdict was **rejected**
+because RL-5 reads «never a grade **or verdict**», and every judgment in this product lands on the work
+(`solid`, `已扎实`), never on the student. `工具收集` rendered the authored catalogue count (seeded `4`)
+while the 收集到的工具 block below showed nothing collected — the page contradicted itself.
+
+**Fixed en route, pre-existing since Slice 10:** both assessors called `ChatResolver` (**chaperone**)
+while their doc-comments claimed "ONE flagship call (never downgraded)" — violating
+「评估走旗舰模型绝不降级」 and recording every assessment as chaperone spend. `EvalResolver` existed, was
+wired, and was called by nothing but course *rendering*. Now correct in both, with a tier guard test.
+
+**What the reviews caught that per-task review structurally could not** — the whole-branch review
+returned **DO NOT MERGE** on two Importants:
+1. **0024's Down aborted the moment any course report existed** (`ADD CONSTRAINT` validates existing
+   rows; a session-scoped evaluation has neither task_id nor project_id). **The repo's first migration
+   Down test passed only because it seeded nothing** — the Slice-12 mock-infidelity pattern in
+   migration form: it confirmed the belief "Down reverses" while never testing the case that breaks it.
+   The only environment you'd ever roll back is one where the feature ran.
+2. The `工具收集` fabrication above.
+
+**Also caught mid-flight:** enforcing `event_scope_ck` a slice before chat has a scope column would
+have **silently killed all chat evidence** (chat's 3 event writes swallow errors into `slog.Warn`, so
+no test fails) → an explicit, schema-level `surface = 'chat'` exemption arm; **A2 MUST delete it**.
+And the spec's own rejection-test fixture matched **no real banned-phrasing rule** — the test would
+have passed for the wrong reason.
+
+**LESSON (new, repo-wide):** "verify call sites by compiling" is **false in Go** — keyed struct
+literals permit omitted fields, so a missed `AppendEventParams{…}` site compiles and silently writes an
+unscoped row. Use grep. This found 2 sites a brief's list had missed.
+
+**Carry-forwards:** chat keeps its unscoped `InsertUserEvent` + the exemption arm until A2 ·
+`我的学习笔记` / `导出笔记` designed but no feature exists anywhere (`导出` = zero hits) · pre-A1 event
+rows stay permanently unattributable (the CHECK stays NOT VALID) · **no entitlement path anywhere is
+tested** — `HasEntitlement` is a package-level `return true, nil` with no injection seam; billing work
+must add one · challenges still have no notion of quality, only engagement · the report re-POSTs a
+flagship call on every mount after a 422, and StrictMode double-fires it in dev ·
+`EVENT_TYPES`/`StudioEvent` remain dead code matching neither the DB row nor any type string written.
+
+**URGENT, next:** DeepSeek deprecates `deepseek-chat` + `deepseek-reasoner` on **2026/07/24 15:59 UTC**.
+Both resolvers name models about to stop existing. Decided: **both tiers → `deepseek-v4-pro`**. Blast
+radius = `gateway/keyresolver.go:28,56` + `gateway/pricing.go:13-14` (+ tests, `apps/web/e2e/RUNBOOK.md`).
+`EstimateCost` has no cache-hit concept → use cache-miss (v4-pro 0.435/0.87 per 1M); **an unpriced model
+records $0.00 with only a slog.Warn**, so `pricing.go` must change in the same commit or
+「记录档位+token+成本」 breaks silently. (`deepseek-reasoner` actually mapped to v4-**flash** thinking-mode,
+so the flagship tier genuinely upgrades for the first time.)
