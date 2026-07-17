@@ -41,6 +41,19 @@ func (a *API) renderCourseStep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Record the view server-side (Slice-12 whole-branch C1+C3 fix): this
+	// handler fires exactly once per page the student actually opens, which
+	// is precisely the semantic the `steps_viewed` floor wants — and, unlike
+	// PUT /progress, it can never be spoofed by the client. Idempotent
+	// (RecordCourseStepViewed dedupes); best-effort like the metering write
+	// below it — a failure here must not block the render the student asked
+	// for.
+	if _, verr := a.d.Queries.RecordCourseStepViewed(r.Context(), sqlc.RecordCourseStepViewedParams{
+		UserID: u.ID, CourseID: c.ID, Ordinal: step.Ordinal,
+	}); verr != nil {
+		slog.Warn("course render: record step viewed failed", "err", verr, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
 	// Cache hit → return it.
 	if cached, err := a.d.Queries.GetCourseStepRender(r.Context(), step.ID); err == nil {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"rendered": map[string]any{

@@ -69,6 +69,17 @@ export const CourseMessage = z.object({
   createdAt: z.string(),
 });
 
+// CourseCardOffer is one card offer the session has not yet dispositioned
+// (status proposed or active) — carried on session load so a reload can
+// restore an offer that would otherwise live only in React state (Slice 12
+// whole-branch Critical-2: without this, a reload during `guided` erased the
+// offer and the card_dispositioned floor could never be met again).
+export const CourseCardOffer = z.object({
+  cardInstanceId: z.string(),
+  cardId: z.string(),
+  materialId: z.string(),
+});
+
 export const CourseSession = z.object({
   id: z.string(),
   courseId: z.string(),
@@ -76,7 +87,9 @@ export const CourseSession = z.object({
   phaseTitle: z.string(),
   status: z.enum(["active", "finished"]),
   messages: z.array(CourseMessage),
+  openCards: z.array(CourseCardOffer),
 });
 
 export type CourseMessage = z.infer<typeof CourseMessage>;
+export type CourseCardOffer = z.infer<typeof CourseCardOffer>;
 export type CourseSession = z.infer<typeof CourseSession>;

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -257,22 +258,34 @@ func TestCourseSession_AdvanceUnmetFloorSpendsNothing(t *testing.T) {
 // TestCourseSession_AdvanceMovesThePhase — with course_progress reporting
 // both demonstrate steps viewed, the floor is met, the coach's advance is
 // accepted, and the SSE stream carries a phase frame; the DB row moves.
+//
+// Slice-12 whole-branch Critical-1 regression test: `steps_viewed` is earned
+// by driving the REAL path a student uses — POSTing the per-ordinal render
+// endpoint — rather than seeding course_progress.completed_ordinals directly
+// via UpsertCourseProgress. Before the fix, NOTHING wrote completed_ordinals
+// at that moment (CoursePlayer.tsx's `go()` only records the ordinal being
+// LEFT, and never runs at all for the last ordinal of a phase, which routes
+// through courseAdvance instead), so this exact sequence — render 0, render
+// 1, then advance — reproduces the bug: without the render-handler fix, the
+// floor would stay unmet forever and this test would fail at the phase
+// frame / DB-phase assertions below.
 func TestCourseSession_AdvanceMovesThePhase(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
 		Provider:     courseProvider(`{"type":"advance","to":"guided"}`),
-		ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+		ChatResolver: fakeResolver(), EvalResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
-	q := sqlc.New(pool)
 	cookie := signInSeed(t, pool)
-	courseID := uuid.MustParse(courseSeededCourseID)
 	startSession(t, h, cookie, courseSeededCourseID)
 
-	if _, err := q.UpsertCourseProgress(context.Background(), sqlc.UpsertCourseProgressParams{
-		UserID: SeedUserID, CourseID: courseID, CurrentOrdinal: 1, CompletedOrdinals: []int32{0, 1},
-	}); err != nil {
-		t.Fatalf("seed progress: %v", err)
+	for _, ord := range []int{0, 1} {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST",
+			"/api/v1/courses/"+courseSeededCourseID+"/steps/"+strconv.Itoa(ord)+"/render", nil), cookie))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("render step %d: %d — %s", ord, rr.Code, rr.Body.String())
+		}
 	}
 
 	rr := httptest.NewRecorder()
@@ -293,6 +306,71 @@ func TestCourseSession_AdvanceMovesThePhase(t *testing.T) {
 	}
 	if phase != "guided" {
 		t.Fatalf("phase = %q, want guided", phase)
+	}
+}
+
+// TestCourseSession_ClientCannotAssertCompletedOrdinals is the Critical-3
+// regression test: PUT /courses/{id}/progress carrying a spoofed
+// completed_ordinals must NOT satisfy the steps_viewed floor — the client
+// never rendered anything, it only asserted the array. Before the fix,
+// putCourseProgress wrote the client's completed_ordinals verbatim via
+// UpsertCourseProgress, so this exact PUT would have made the floor
+// (falsely) met; after the fix it is silently ignored (current_ordinal is
+// the only column PUT can write) and the advance is refused, zero llm_call.
+func TestCourseSession_ClientCannotAssertCompletedOrdinals(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider:     courseProvider(`{"type":"advance","to":"guided"}`),
+		ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	startSession(t, h, cookie, courseSeededCourseID)
+
+	// The spoof: assert both demonstrate ordinals viewed without ever
+	// rendering either.
+	putBody := `{"current_ordinal":1,"completed_ordinals":[0,1]}`
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", "/api/v1/courses/"+courseSeededCourseID+"/progress", strings.NewReader(putBody)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("put progress: %d — %s", rr.Code, rr.Body.String())
+	}
+
+	// The spoofed array must not have landed — the DB's completed_ordinals
+	// stays empty, only current_ordinal took.
+	var completed []int32
+	var currentOrdinal int32
+	if err := pool.QueryRow(context.Background(),
+		`SELECT current_ordinal, completed_ordinals FROM course_progress WHERE user_id = $1 AND course_id = $2`,
+		SeedUserID, courseSeededCourseID,
+	).Scan(&currentOrdinal, &completed); err != nil {
+		t.Fatalf("query course_progress: %v", err)
+	}
+	if currentOrdinal != 1 {
+		t.Fatalf("current_ordinal = %d, want 1 (still a legitimate UX write)", currentOrdinal)
+	}
+	if len(completed) != 0 {
+		t.Fatalf("completed_ordinals = %v, want empty — PUT /progress must never write the floor's input", completed)
+	}
+
+	rr2 := httptest.NewRecorder()
+	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/advance", nil), cookie))
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("advance: %d — %s", rr2.Code, rr2.Body.String())
+	}
+	body := rr2.Body.String()
+	if strings.Contains(body, "event: phase") {
+		t.Fatalf("a client-spoofed completed_ordinals must NOT satisfy the floor:\n%s", body)
+	}
+
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM llm_call WHERE surface = 'course'`,
+	).Scan(&n); err != nil {
+		t.Fatalf("count llm_call: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("llm_call count = %d, want 0 — the (still unmet) floor must short-circuit before the model", n)
 	}
 }
 
@@ -393,5 +471,74 @@ func TestCourseSession_CardSubmitIsThin(t *testing.T) {
 	h.ServeHTTP(rr3, withCookie(req3, otherCookie))
 	if rr3.Code != http.StatusNotFound {
 		t.Fatalf("cross-user card skip: want 404, got %d — %s", rr3.Code, rr3.Body.String())
+	}
+}
+
+// TestCourseSession_ReloadSurfacesOpenCardOffer is the Critical-2 regression
+// test: a card offer that exists in the DB (status proposed) but was never
+// dispositioned must reappear in GET /session's openCards — this is exactly
+// what a page reload during `guided` needs, since the offer otherwise lived
+// only in React state and could never be re-offered, dead-ending the floor
+// (card_dispositioned) forever. Mirrors mintPhaseCard's own invariant: the
+// anchor material is created immediately before its card instance, in that
+// order — the only creation path either row ever has for a course session,
+// which is what lets OpenCardOffers pair them (card_instances has no
+// material_id column).
+func TestCourseSession_ReloadSurfacesOpenCardOffer(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	sessDTO := startSession(t, h, cookie, courseSeededCourseID)
+	sessID := uuid.MustParse(sessDTO.ID)
+
+	mat, err := q.CreateSessionMaterial(context.Background(), sqlc.CreateSessionMaterialParams{
+		SessionID: pgUUID(sessID), Kind: "article", Source: "pasted", Title: "待核实的说法", Blocks: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("create material: %v", err)
+	}
+	ci, err := q.CreateSessionCardInstance(context.Background(), sqlc.CreateSessionCardInstanceParams{
+		SessionID: pgUUID(sessID), CardID: "craap", Status: "proposed",
+	})
+	if err != nil {
+		t.Fatalf("create card instance: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+courseSeededCourseID+"/session", nil), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("get session: %d — %s", rr.Code, rr.Body.String())
+	}
+	var got CourseSessionDTO
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got.OpenCards) != 1 {
+		t.Fatalf("openCards = %+v, want exactly 1 — the un-dispositioned offer must survive a reload", got.OpenCards)
+	}
+	oc := got.OpenCards[0]
+	if oc.CardInstanceID != ci.ID.String() || oc.CardID != "craap" || oc.MaterialID != mat.ID.String() {
+		t.Fatalf("openCards[0] = %+v, want cardInstanceId=%s cardId=craap materialId=%s", oc, ci.ID, mat.ID)
+	}
+
+	// Once dispositioned (skipped), it must not resurface — a resolved offer
+	// stays resolved.
+	if _, err := q.SetSessionCardInstanceStatus(context.Background(), sqlc.SetSessionCardInstanceStatusParams{
+		ID: ci.ID, SessionID: pgUUID(sessID), Status: "skipped",
+	}); err != nil {
+		t.Fatalf("skip card: %v", err)
+	}
+	rr2 := httptest.NewRecorder()
+	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+courseSeededCourseID+"/session", nil), cookie))
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("get session after skip: %d — %s", rr2.Code, rr2.Body.String())
+	}
+	var got2 CourseSessionDTO
+	if err := json.Unmarshal(rr2.Body.Bytes(), &got2); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got2.OpenCards) != 0 {
+		t.Fatalf("openCards after skip = %+v, want empty — a dispositioned card must not resurface", got2.OpenCards)
 	}
 }

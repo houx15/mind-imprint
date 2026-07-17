@@ -144,6 +144,40 @@ func (s *sqlcCourseStore) ListSessionMaterials(ctx context.Context, sessionID uu
 	return out, nil
 }
 
+// OpenCardOffers pairs the session's card instances with their anchor
+// materials by CREATION ORDER: mintPhaseCard (course_step.go) is the ONLY
+// site that ever creates either row for a course session, and it always
+// creates the material immediately before the card instance, in that order —
+// so the i-th card_instance (ListCardInstancesBySession orders by created_at,
+// id) pairs with the i-th material (ListMaterialsBySession, same ordering).
+// card_instances has no material_id column (verified across every migration
+// through 0023), so this positional pairing is the only link available;
+// index-matching over the FULL lists (not just the open ones) keeps the
+// pairing correct even though only "open" (proposed/active) entries are
+// returned.
+func (s *sqlcCourseStore) OpenCardOffers(ctx context.Context, sessionID uuid.UUID) ([]CardOffer, error) {
+	cards, err := s.ListSessionCards(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	mats, err := s.ListSessionMaterials(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	var out []CardOffer
+	for i, c := range cards {
+		if c.Status != "proposed" && c.Status != "active" {
+			continue
+		}
+		var matID uuid.UUID
+		if i < len(mats) {
+			matID = mats[i].ID
+		}
+		out = append(out, CardOffer{CardInstanceID: c.ID, MaterialID: matID, CardID: c.CardID})
+	}
+	return out, nil
+}
+
 // ViewedSteps reads course_progress.completed_ordinals — the existing,
 // already-persisted page position. Server-side only (DEC-12.2): a floor the
 // client can assert is not a floor.

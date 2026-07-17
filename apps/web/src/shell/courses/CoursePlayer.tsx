@@ -63,7 +63,23 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         const s = await api.startCourseSession(courseId);
         if (cancelled) return;
         setSession(s);
-        setAskMessages(s.messages.map((m) => ({ id: m.id, role: m.role, text: m.content })));
+        // Restore any card offer the session still has open (status
+        // proposed/active) as a synthetic assistant message carrying the
+        // offer — this is what lets a page reload during `guided` recover
+        // an offer that otherwise lived only in React state (Critical-2):
+        // without it, the card_dispositioned floor could never be met again
+        // after a reload, dead-ending the course forever.
+        const restored: AskMessage[] = s.messages.map((m) => ({ id: m.id, role: m.role, text: m.content }));
+        for (const oc of s.openCards ?? []) {
+          restored.push({
+            id: `offer-${oc.cardInstanceId}`,
+            role: "assistant",
+            text: "",
+            offer: { cardInstanceId: oc.cardInstanceId, cardId: oc.cardId, materialId: oc.materialId },
+            offerPhase: "offered",
+          });
+        }
+        setAskMessages(restored);
       } catch {
         /* the session runtime is additive on top of the page layer below —
            its unavailability must not block page rendering. */
@@ -220,7 +236,15 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const currentContract = session ? INFO_LITERACY_COURSE_SKILL.contracts[session.phase] : undefined;
   const askChips = currentContract?.ask_chips ?? [];
   const pageBlock = currentContract?.page;
-  const showAuthoredPage = !!session && phaseSteps(session.phase).length === 0 && !!pageBlock;
+  // I2 (whole-branch Important-2): a step-less phase (guided/reflect) has no
+  // course_step render to page through — its render effect early-returns and
+  // the authored `page` block just stays put, so 上一步 would visibly do
+  // nothing but change the `n / total` counter. Hide it there; backward
+  // paging within a step-ful phase stays ungated (gates govern unlock, never
+  // revisit — DEC-12.5).
+  const stepless = !!session && phaseSteps(session.phase).length === 0;
+  const showAuthoredPage = stepless && !!pageBlock;
+  const showBackArrow = ordinal > 0 && !stepless;
 
   const total = course.steps.length;
   // The Finish control is gated on the SESSION's own status, not on ordinal
@@ -275,7 +299,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
           </div>
 
           {/* nav */}
-          {ordinal > 0 && (
+          {showBackArrow && (
             <div aria-label="上一步" onClick={() => setOrdinal(ordinal - 1)} style={{ position: "absolute", left: 14, top: "44%", width: 40, height: 40, borderRadius: "50%", background: "#fff", border: "1px solid #E7E9F0", boxShadow: "0 3px 12px rgba(20,30,60,.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7384" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             </div>

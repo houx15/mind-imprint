@@ -126,6 +126,13 @@ type CourseStore interface {
 	CreateSessionCardInstance(ctx context.Context, sessionID uuid.UUID, cardID string) (uuid.UUID, error)
 	CreateSessionMaterial(ctx context.Context, sessionID uuid.UUID, title, text string) (uuid.UUID, error)
 	ListSessionMaterials(ctx context.Context, sessionID uuid.UUID) ([]ScopedMaterial, error)
+	// OpenCardOffers returns the session's cards not yet dispositioned (status
+	// proposed or active), each paired with its anchor material — used to
+	// rehydrate an offer that otherwise lives only in React state (Slice-12
+	// whole-branch Critical-2: without this, a page reload during `guided`
+	// erased the offer and the card_dispositioned floor could never be met
+	// again, dead-ending the course forever).
+	OpenCardOffers(ctx context.Context, sessionID uuid.UUID) ([]CardOffer, error)
 	ViewedSteps(ctx context.Context, userID, courseID uuid.UUID) ([]int32, error) // course_progress.completed_ordinals
 	InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error
 	RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error

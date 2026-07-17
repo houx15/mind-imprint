@@ -84,7 +84,10 @@ func (a *API) loadOwnedSessionCard(w http.ResponseWriter, r *http.Request) (sqlc
 
 // buildCourseSessionDTO assembles the session DTO: the row itself, the
 // current phase's title resolved from the skill (phaseTitle comes from
-// Contract.Title — spec §5), and the session's full dialogue.
+// Contract.Title — spec §5), the session's full dialogue, and any card offer
+// still open (Slice-12 whole-branch Critical-2: without this, a reload
+// during `guided` erased the offer and the card_dispositioned floor could
+// never be met again).
 func (a *API) buildCourseSessionDTO(ctx context.Context, sess sqlc.CourseSession, sk skills.Skill) (CourseSessionDTO, error) {
 	rows, err := a.d.Queries.ListMessagesBySession(ctx, sess.ID)
 	if err != nil {
@@ -94,11 +97,23 @@ func (a *API) buildCourseSessionDTO(ctx context.Context, sess sqlc.CourseSession
 	for _, m := range rows {
 		messages = append(messages, toCourseMessageDTO(m))
 	}
+	offers, err := agent.NewSqlcCourseStore(a.d.Queries).OpenCardOffers(ctx, sess.ID)
+	if err != nil {
+		return CourseSessionDTO{}, err
+	}
+	openCards := make([]CourseCardOfferDTO, 0, len(offers))
+	for _, o := range offers {
+		openCards = append(openCards, CourseCardOfferDTO{
+			CardInstanceID: o.CardInstanceID.String(),
+			CardID:         o.CardID,
+			MaterialID:     o.MaterialID.String(),
+		})
+	}
 	phaseTitle := ""
 	if c, ok := sk.Contracts[sess.Phase]; ok {
 		phaseTitle = c.Title
 	}
-	return toCourseSessionDTO(sess, phaseTitle, messages), nil
+	return toCourseSessionDTO(sess, phaseTitle, messages, openCards), nil
 }
 
 // startCourseSession gets-or-creates the caller's session for course {id}.

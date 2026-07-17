@@ -39,7 +39,7 @@ const course: Course = {
 // to 1 never crosses the phase boundary; a next-click from ordinal 1 always
 // does (matches packages/contracts/skills/info-literacy-course.json).
 const demonstrateSession: CourseSession = {
-  id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [],
+  id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], openCards: [],
 };
 
 // Every real courseAsk/courseAdvance stream ends with a `done` frame
@@ -77,7 +77,12 @@ describe("CoursePlayer", () => {
     expect(await screen.findByText("第 0 步")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("下一步"));
     expect(await screen.findByText("第 1 步")).toBeInTheDocument();
-    await waitFor(() => expect(api.saveCourseProgress).toHaveBeenCalled());
+    // Whole-branch C1+C3 regression: what the client persists at a boundary
+    // is ONLY current_ordinal-shaped UX state — the server (not this call)
+    // is now the sole writer of the steps_viewed floor's real input
+    // (course_render.go's RecordCourseStepViewed). This asserts the actual
+    // payload a real saveCourseProgress call carries, not just that it fired.
+    await waitFor(() => expect(api.saveCourseProgress).toHaveBeenCalledWith("co1", { current_ordinal: 1, completed_ordinals: [0] }));
   });
 
   it("exits via the back control", async () => {
@@ -196,6 +201,53 @@ describe("CoursePlayer", () => {
     expect(await screen.findByText("接受")).toBeInTheDocument();
     expect(screen.queryByText("跳过这张卡")).not.toBeInTheDocument();
 
+    await userEvent.click(screen.getByText("接受"));
+    expect(await screen.findByText("跳过这张卡")).toBeInTheDocument();
+  });
+
+  // Whole-branch Important-2: a step-less phase (guided/reflect) has no
+  // course_step render to page through, so 上一步 must not render there even
+  // when ordinal > 0 (the resumed position from a prior step-ful phase) —
+  // before the fix it rendered and visibly did nothing but change the
+  // counter.
+  it("hides 上一步 in a step-less phase even when ordinal > 0", async () => {
+    (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 1, completed_ordinals: [0], updated_at: "" });
+    const guidedSession: CourseSession = {
+      id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [], openCards: [],
+    };
+    (api.startCourseSession as any).mockResolvedValue(guidedSession);
+    (api.getCourseSession as any).mockResolvedValue(guidedSession);
+
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    // guided's authored page block renders (steps: [] in the skill config).
+    expect(await screen.findByText("现在，对这条说法做一次溯源")).toBeInTheDocument();
+
+    expect(screen.queryByLabelText("上一步")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("下一步")).toBeInTheDocument();
+  });
+
+  // Whole-branch Critical-2: a card offer that already exists in the DB
+  // (status proposed/active, carried on the session as `openCards`) must be
+  // restored into the ask panel on load — this is exactly what a page reload
+  // during `guided` needs, since before the fix the offer lived only in
+  // React state and a reload erased it, dead-ending card_dispositioned
+  // forever. No turn is driven to produce it — it comes purely from session
+  // load.
+  it("rehydrates an open card offer from the session on load", async () => {
+    const guidedSessionWithOffer: CourseSession = {
+      id: "sess1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active", messages: [],
+      openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }],
+    };
+    (api.startCourseSession as any).mockResolvedValue(guidedSessionWithOffer);
+    (api.getCourseSession as any).mockResolvedValue(guidedSessionWithOffer);
+
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    expect(await screen.findByText("接受")).toBeInTheDocument();
+    expect(api.courseAsk).not.toHaveBeenCalled();
+    expect(api.courseAdvance).not.toHaveBeenCalled();
+
+    // And it is still a confirm-to-open offer (铁律 2): accepting mounts the
+    // card sheet, exactly like a freshly-surfaced offer would.
     await userEvent.click(screen.getByText("接受"));
     expect(await screen.findByText("跳过这张卡")).toBeInTheDocument();
   });

@@ -26,6 +26,35 @@ SET current_ordinal = EXCLUDED.current_ordinal,
     updated_at = now()
 RETURNING *;
 
+-- name: SetCourseCurrentOrdinal :one
+-- The resume-position write (PUT /courses/{id}/progress): current_ordinal is
+-- UX, never a floor input (Slice-12 whole-branch C1+C3 fix), so this is the
+-- ONLY column it touches. completed_ordinals is left untouched on conflict —
+-- RecordCourseStepViewed below is its only writer — and defaults to empty on
+-- a fresh row (no step has been server-recorded as viewed yet).
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
+VALUES ($1, $2, $3, '{}')
+ON CONFLICT (user_id, course_id) DO UPDATE
+SET current_ordinal = EXCLUDED.current_ordinal, updated_at = now()
+RETURNING *;
+
+-- name: RecordCourseStepViewed :one
+-- The `steps_viewed` floor's ONLY input writer (DEC-12.2 / whole-branch
+-- C1+C3): called once per real POST .../steps/{ordinal}/render — the moment
+-- the student's browser actually opens that page — appending the ordinal to
+-- completed_ordinals idempotently (array_agg DISTINCT dedupes a re-render of
+-- an already-viewed page). A client can never assert this column: PUT
+-- /progress (SetCourseCurrentOrdinal above) does not accept it.
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
+VALUES ($1, $2, sqlc.arg(ordinal), ARRAY[sqlc.arg(ordinal)]::int[])
+ON CONFLICT (user_id, course_id) DO UPDATE
+SET completed_ordinals = (
+        SELECT array_agg(DISTINCT v ORDER BY v)
+        FROM unnest(array_append(course_progress.completed_ordinals, sqlc.arg(ordinal)::int)) AS v
+    ),
+    updated_at = now()
+RETURNING *;
+
 -- name: GetCourseStepByOrdinal :one
 SELECT * FROM course_step WHERE course_id = $1 AND ordinal = $2;
 

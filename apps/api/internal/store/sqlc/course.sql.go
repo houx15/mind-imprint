@@ -190,6 +190,77 @@ func (q *Queries) ListCourses(ctx context.Context) ([]ListCoursesRow, error) {
 	return items, nil
 }
 
+const recordCourseStepViewed = `-- name: RecordCourseStepViewed :one
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
+VALUES ($1, $2, $3, ARRAY[$3]::int[])
+ON CONFLICT (user_id, course_id) DO UPDATE
+SET completed_ordinals = (
+        SELECT array_agg(DISTINCT v ORDER BY v)
+        FROM unnest(array_append(course_progress.completed_ordinals, $3::int)) AS v
+    ),
+    updated_at = now()
+RETURNING id, user_id, course_id, current_ordinal, completed_ordinals, updated_at
+`
+
+type RecordCourseStepViewedParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+	Ordinal  int32     `json:"ordinal"`
+}
+
+// The `steps_viewed` floor's ONLY input writer (DEC-12.2 / whole-branch
+// C1+C3): called once per real POST .../steps/{ordinal}/render — the moment
+// the student's browser actually opens that page — appending the ordinal to
+// completed_ordinals idempotently (array_agg DISTINCT dedupes a re-render of
+// an already-viewed page). A client can never assert this column: PUT
+// /progress (SetCourseCurrentOrdinal above) does not accept it.
+func (q *Queries) RecordCourseStepViewed(ctx context.Context, arg RecordCourseStepViewedParams) (CourseProgress, error) {
+	row := q.db.QueryRow(ctx, recordCourseStepViewed, arg.UserID, arg.CourseID, arg.Ordinal)
+	var i CourseProgress
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CourseID,
+		&i.CurrentOrdinal,
+		&i.CompletedOrdinals,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setCourseCurrentOrdinal = `-- name: SetCourseCurrentOrdinal :one
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
+VALUES ($1, $2, $3, '{}')
+ON CONFLICT (user_id, course_id) DO UPDATE
+SET current_ordinal = EXCLUDED.current_ordinal, updated_at = now()
+RETURNING id, user_id, course_id, current_ordinal, completed_ordinals, updated_at
+`
+
+type SetCourseCurrentOrdinalParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	CourseID       uuid.UUID `json:"course_id"`
+	CurrentOrdinal int32     `json:"current_ordinal"`
+}
+
+// The resume-position write (PUT /courses/{id}/progress): current_ordinal is
+// UX, never a floor input (Slice-12 whole-branch C1+C3 fix), so this is the
+// ONLY column it touches. completed_ordinals is left untouched on conflict —
+// RecordCourseStepViewed below is its only writer — and defaults to empty on
+// a fresh row (no step has been server-recorded as viewed yet).
+func (q *Queries) SetCourseCurrentOrdinal(ctx context.Context, arg SetCourseCurrentOrdinalParams) (CourseProgress, error) {
+	row := q.db.QueryRow(ctx, setCourseCurrentOrdinal, arg.UserID, arg.CourseID, arg.CurrentOrdinal)
+	var i CourseProgress
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CourseID,
+		&i.CurrentOrdinal,
+		&i.CompletedOrdinals,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertCourseProgress = `-- name: UpsertCourseProgress :one
 INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
 VALUES ($1, $2, $3, $4)

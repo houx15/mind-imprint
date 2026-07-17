@@ -33,14 +33,23 @@ func TestCourseSessionScope(t *testing.T) {
 	}
 
 	// One session per (user, course): re-creating resumes, never duplicates.
+	// The second call passes a DIFFERENT phase ("guided") than the first
+	// ("demonstrate") — a regression guard for the ON CONFLICT clause: it
+	// must NOT include `phase = EXCLUDED.phase` (whole-branch Minor), which
+	// would silently restart a student's course back to the skill's first
+	// phase on every re-entry. The first phase must survive untouched.
 	again, err := q.CreateCourseSession(ctx, sqlc.CreateCourseSessionParams{
-		UserID: seededStudentID, CourseID: courseID, SkillID: "info-literacy-course", Phase: "demonstrate",
+		UserID: seededStudentID, CourseID: courseID, SkillID: "info-literacy-course", Phase: "guided",
 	})
 	if err != nil {
 		t.Fatalf("re-create session: %v", err)
 	}
 	if again.ID != s.ID {
 		t.Fatalf("second create minted a new session %s, want the existing %s", again.ID, s.ID)
+	}
+	if again.Phase != "demonstrate" {
+		t.Fatalf("phase after conflict = %q, want the FIRST phase (demonstrate) to survive — "+
+			"ON CONFLICT must never overwrite phase", again.Phase)
 	}
 
 	// GetCourseSession / GetCourseSessionByUserCourse both resolve the same row.

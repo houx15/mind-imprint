@@ -90,6 +90,16 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": toCourseProgressDTO(p)})
 }
 
+// putCourseProgress writes ONLY the resume position (current_ordinal) — a UX
+// convenience, not a floor input. Slice-12 whole-branch C1+C3 fix:
+// completed_ordinals (the steps_viewed floor's input) is never accepted from
+// the client here; the request body may still carry it (the existing web
+// client's saveCourseProgress does, unchanged), but it is silently ignored —
+// decodeJSON has no DisallowUnknownFields, so an unread field is simply
+// dropped. The only writer of completed_ordinals is the render handler
+// (course_render.go), which records a step as viewed exactly when the
+// student's browser actually opens it. A floor the client can assert is not
+// a floor.
 func (a *API) putCourseProgress(w http.ResponseWriter, r *http.Request) {
 	c, ok := a.loadCourse(w, r)
 	if !ok {
@@ -97,18 +107,14 @@ func (a *API) putCourseProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	u, _ := UserFromContext(r.Context())
 	var body struct {
-		CurrentOrdinal    int32   `json:"current_ordinal"`
-		CompletedOrdinals []int32 `json:"completed_ordinals"`
+		CurrentOrdinal int32 `json:"current_ordinal"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if body.CompletedOrdinals == nil {
-		body.CompletedOrdinals = []int32{}
-	}
-	p, err := a.d.Queries.UpsertCourseProgress(r.Context(), sqlc.UpsertCourseProgressParams{
-		UserID: u.ID, CourseID: c.ID, CurrentOrdinal: body.CurrentOrdinal, CompletedOrdinals: body.CompletedOrdinals,
+	p, err := a.d.Queries.SetCourseCurrentOrdinal(r.Context(), sqlc.SetCourseCurrentOrdinalParams{
+		UserID: u.ID, CourseID: c.ID, CurrentOrdinal: body.CurrentOrdinal,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

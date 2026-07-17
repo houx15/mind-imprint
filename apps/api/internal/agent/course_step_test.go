@@ -205,6 +205,24 @@ func (f *fakeCourseStore) ListSessionMaterials(ctx context.Context, sessionID uu
 	return f.materials, nil
 }
 
+// OpenCardOffers mirrors sqlcCourseStore's positional pairing (coursestore.go)
+// over the fake's own cards/materials slices, which mintPhaseCard already
+// appends to in lockstep (CreateSessionMaterial then CreateSessionCardInstance).
+func (f *fakeCourseStore) OpenCardOffers(ctx context.Context, sessionID uuid.UUID) ([]CardOffer, error) {
+	var out []CardOffer
+	for i, c := range f.cards {
+		if c.Status != "proposed" && c.Status != "active" {
+			continue
+		}
+		var matID uuid.UUID
+		if i < len(f.materials) {
+			matID = f.materials[i].ID
+		}
+		out = append(out, CardOffer{CardInstanceID: c.ID, MaterialID: matID, CardID: c.CardID})
+	}
+	return out, nil
+}
+
 func (f *fakeCourseStore) ViewedSteps(ctx context.Context, userID, courseID uuid.UUID) ([]int32, error) {
 	out := make([]int32, 0, len(f.viewedSteps))
 	for _, v := range f.viewedSteps {
@@ -221,6 +239,36 @@ func (f *fakeCourseStore) InsertUserEvent(ctx context.Context, userID uuid.UUID,
 func (f *fakeCourseStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error {
 	f.llmCalls++
 	return nil
+}
+
+// TestOpenCardOffersPairsByCreationOrderAndFiltersDispositioned is Critical-2's
+// pure-store test: mintPhaseCard's invariant (material created immediately
+// before its card instance, always in that order) is what OpenCardOffers'
+// positional pairing relies on — this proves the pairing survives a
+// dispositioned card sitting alongside an open one, and that only the open
+// (proposed/active) entries surface.
+func TestOpenCardOffersPairsByCreationOrderAndFiltersDispositioned(t *testing.T) {
+	f := newFakeCourseStore("guided")
+	closedMat := uuid.New()
+	closedCard := uuid.New()
+	openMat := uuid.New()
+	openCard := uuid.New()
+	f.materials = []ScopedMaterial{{ID: closedMat}, {ID: openMat}}
+	f.cards = []ScopedCard{
+		{ID: closedCard, CardID: "craap", Status: "completed"}, // already dispositioned — must not surface
+		{ID: openCard, CardID: "craap", Status: "proposed"},    // the surviving offer
+	}
+
+	offers, err := f.OpenCardOffers(context.Background(), f.session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(offers) != 1 {
+		t.Fatalf("offers = %+v, want exactly 1 (the dispositioned card must not resurface)", offers)
+	}
+	if offers[0].CardInstanceID != openCard || offers[0].MaterialID != openMat || offers[0].CardID != "craap" {
+		t.Fatalf("offers[0] = %+v, want cardInstanceId=%s materialId=%s (paired by creation order)", offers[0], openCard, openMat)
+	}
 }
 
 func TestRunCourseStepAskGetsAReply(t *testing.T) {
