@@ -26,7 +26,7 @@ A browser-driven smoke over the real stack (web → Go API → throwaway Postgre
 - `golden-path` — the full cross-role lifecycle: admin invite → teacher signup → class → student join → Phoebe task (card summon → SIFT envelope → process tree → refeed → evaluation 你的思维印记) → teacher sees roster signals → admin overview.
 
 ## Expected model variance
-`tool_choice` is `auto`, so the AI decides whether to summon a card. The golden path nudges once and waits generously; an occasional "model declined to summon" failure is live-model variance, not a platform break — re-run (`retries:1` already absorbs one). The evaluation uses the flagship `deepseek-reasoner` (`MaxTokens: 8000`) and can take up to ~90s.
+`tool_choice` is `auto`, so the AI decides whether to summon a card. The golden path nudges once and waits generously; an occasional "model declined to summon" failure is live-model variance, not a platform break — re-run (`retries:1` already absorbs one). The evaluation uses the flagship `deepseek-v4-pro` (`MaxTokens: 8000`) and can take up to ~90s.
 
 ## Pass criteria (live)
 A real `summon_card` proposal appears, the SIFT envelope pins a process-tree node, the refeed turn streams a reply without error, and the evaluation renders a real 你的思维印记 rubric. Teacher roster shows the student with non-zero signals; admin overview reflects the new class.

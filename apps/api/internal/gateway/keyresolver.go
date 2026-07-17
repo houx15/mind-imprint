@@ -25,7 +25,7 @@ func NewKeyResolver(cfg config.Config) KeyResolver {
 			return Resolved{
 				Provider: "deepseek",
 				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-chat",
+				Model:    "deepseek-v4-pro",
 				APIKey:   cfg.DeepSeekKey,
 				Tier:     "chaperone",
 			}, nil
@@ -44,7 +44,7 @@ func NewKeyResolver(cfg config.Config) KeyResolver {
 }
 
 // NewEvalKeyResolver builds the FLAGSHIP resolver for evaluation — never
-// downgraded (评估走旗舰模型绝不降级). DeepSeek's reasoner is the China-first
+// downgraded (评估走旗舰模型绝不降级). DeepSeek's v4-pro is the China-first
 // default; Anthropic is the fallback. Same seam shape as NewKeyResolver.
 func NewEvalKeyResolver(cfg config.Config) KeyResolver {
 	return func(_ context.Context) (Resolved, error) {
@@ -53,7 +53,7 @@ func NewEvalKeyResolver(cfg config.Config) KeyResolver {
 			return Resolved{
 				Provider: "deepseek",
 				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-reasoner",
+				Model:    "deepseek-v4-pro",
 				APIKey:   cfg.DeepSeekKey,
 				Tier:     "flagship",
 			}, nil

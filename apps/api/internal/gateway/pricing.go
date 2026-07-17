@@ -10,8 +10,9 @@ import (
 // Unpriced models yield ok=false so callers persist a NULL cost rather than a
 // wrong number. Update when adding a model.
 var priceTable = map[string]struct{ in, out float64 }{
-	"deepseek/deepseek-chat":             {0.27, 1.10},
-	"deepseek/deepseek-reasoner":         {0.55, 2.19},
+	// Both tiers (chaperone + flagship) name deepseek-v4-pro; cache-miss prices
+	// (the conservative choice — cannot under-report spend).
+	"deepseek/deepseek-v4-pro":           {0.435, 0.87},
 	"anthropic/claude-3-5-sonnet-latest": {3.00, 15.00},
 }
 

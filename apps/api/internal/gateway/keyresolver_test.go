@@ -19,7 +19,7 @@ func TestKeyResolverPrefersDeepSeek(t *testing.T) {
 	if got.BaseURL != "https://api.deepseek.com/v1" {
 		t.Fatalf("baseURL = %q", got.BaseURL)
 	}
-	if got.Model != "deepseek-chat" {
+	if got.Model != "deepseek-v4-pro" {
 		t.Fatalf("model = %q", got.Model)
 	}
 	if got.APIKey != "sk-deepseek" {
@@ -58,8 +58,8 @@ func TestKeyResolverErrorsWhenNoKey(t *testing.T) {
 func TestEvalResolverIsFlagship(t *testing.T) {
 	r, err := NewEvalKeyResolver(config.Config{DeepSeekKey: "k"})(context.Background())
 	if err != nil { t.Fatal(err) }
-	if r.Tier != "flagship" || r.Model != "deepseek-reasoner" {
-		t.Fatalf("want flagship deepseek-reasoner, got %s/%s", r.Tier, r.Model)
+	if r.Tier != "flagship" || r.Model != "deepseek-v4-pro" {
+		t.Fatalf("want flagship deepseek-v4-pro, got %s/%s", r.Tier, r.Model)
 	}
 	if _, err := NewEvalKeyResolver(config.Config{})(context.Background()); err == nil {
 		t.Fatal("want error when no provider configured")
