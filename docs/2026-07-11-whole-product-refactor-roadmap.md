@@ -953,10 +953,10 @@ must add one · challenges still have no notion of quality, only engagement · t
 flagship call on every mount after a 422, and StrictMode double-fires it in dev ·
 `EVENT_TYPES`/`StudioEvent` remain dead code matching neither the DB row nor any type string written.
 
-**URGENT, next:** DeepSeek deprecates `deepseek-chat` + `deepseek-reasoner` on **2026/07/24 15:59 UTC**.
-Both resolvers name models about to stop existing. Decided: **both tiers → `deepseek-v4-pro`**. Blast
-radius = `gateway/keyresolver.go:28,56` + `gateway/pricing.go:13-14` (+ tests, `apps/web/e2e/RUNBOOK.md`).
-`EstimateCost` has no cache-hit concept → use cache-miss (v4-pro 0.435/0.87 per 1M); **an unpriced model
-records $0.00 with only a slog.Warn**, so `pricing.go` must change in the same commit or
-「记录档位+token+成本」 breaks silently. (`deepseek-reasoner` actually mapped to v4-**flash** thinking-mode,
-so the flagship tier genuinely upgrades for the first time.)
+**DONE `a03682e` (2026-07-18, ahead of the 2026/07/24 15:59 UTC deadline):** migrated both tiers off
+the deprecated `deepseek-chat` + `deepseek-reasoner` → `deepseek-v4-pro`. `gateway/keyresolver.go` both
+Model literals (tiers unchanged); `gateway/pricing.go` old two rows collapsed to one
+`deepseek/deepseek-v4-pro {0.435, 0.87}` (cache-miss) **in the same commit** so cost tracking stays real;
+gateway tests + `apps/web/e2e/RUNBOOK.md` updated. Verified `deepseek.go` doesn't branch on the literal
+model name, so the rename carries no hidden reasoning-mode coupling; flagship genuinely upgrades
+(`deepseek-reasoner` had mapped to v4-**flash** thinking-mode). Full Go suite green; no codegen touched.
