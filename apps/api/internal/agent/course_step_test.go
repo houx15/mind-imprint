@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -56,12 +57,8 @@ func TestCheckFloor(t *testing.T) {
 	// card is an offer; a floor only a completed card can satisfy would turn
 	// the offer into a wall.
 	item := []skills.FloorItem{{Kind: "card_dispositioned", CardID: "craap"}}
-	for _, st := range []FloorState{
-		{DispositionedCards: []string{"craap"}},
-	} {
-		if unmet := CheckFloor(item, st); len(unmet) != 0 {
-			t.Fatalf("a dispositioned card meets the floor, got unmet %+v", unmet)
-		}
+	if unmet := CheckFloor(item, FloorState{DispositionedCards: []string{"craap"}}); len(unmet) != 0 {
+		t.Fatalf("a dispositioned card meets the floor, got unmet %+v", unmet)
 	}
 	if unmet := CheckFloor(item, FloorState{}); len(unmet) != 1 {
 		t.Fatalf("an untouched card leaves the floor unmet, got %+v", unmet)
@@ -111,7 +108,15 @@ type fakeCourseStore struct {
 	materialsCreated int
 	cardsCreated     int
 	phaseSets        int
-	eventTypes       []string
+	events           []courseEventRecord
+}
+
+// courseEventRecord is what fakeCourseStore.InsertUserEvent captured — kept as
+// a (type, payload) pair, not just the type string, so tests can assert on
+// event payload shape (card_id / to / unprompted), not merely presence.
+type courseEventRecord struct {
+	typ     string
+	payload []byte
 }
 
 func newFakeCourseStore(phase string) *fakeCourseStore {
@@ -122,12 +127,23 @@ func newFakeCourseStore(phase string) *fakeCourseStore {
 }
 
 func (f *fakeCourseStore) hasEvent(typ string) bool {
-	for _, e := range f.eventTypes {
-		if e == typ {
+	for _, e := range f.events {
+		if e.typ == typ {
 			return true
 		}
 	}
 	return false
+}
+
+// eventPayload returns the payload of the first captured event of typ, or nil
+// if none was recorded.
+func (f *fakeCourseStore) eventPayload(typ string) []byte {
+	for _, e := range f.events {
+		if e.typ == typ {
+			return e.payload
+		}
+	}
+	return nil
 }
 
 func (f *fakeCourseStore) GetSession(ctx context.Context, sessionID uuid.UUID) (CourseSession, error) {
@@ -190,7 +206,7 @@ func (f *fakeCourseStore) ViewedSteps(ctx context.Context, userID, courseID uuid
 }
 
 func (f *fakeCourseStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
-	f.eventTypes = append(f.eventTypes, typ)
+	f.events = append(f.events, courseEventRecord{typ: typ, payload: append([]byte(nil), payload...)})
 	return nil
 }
 
@@ -220,6 +236,20 @@ func TestRunCourseStepAskGetsAReply(t *testing.T) {
 	}
 	if st.llmCalls != 1 {
 		t.Fatalf("llmCalls = %d, want exactly 1", st.llmCalls)
+	}
+	// Spec §7: a course_message event rides alongside the persisted student
+	// message, unprompted=true because `ask` is student-initiated.
+	if !st.hasEvent("course_message") {
+		t.Fatal("an ask must emit a course_message event for the student turn")
+	}
+	var cm struct {
+		Unprompted bool `json:"unprompted"`
+	}
+	if err := json.Unmarshal(st.eventPayload("course_message"), &cm); err != nil {
+		t.Fatalf("course_message payload must unmarshal: %v", err)
+	}
+	if !cm.Unprompted {
+		t.Fatal("an ask's course_message must be unprompted=true")
 	}
 }
 
@@ -269,6 +299,145 @@ func TestRunCourseStepMetFloorAdvances(t *testing.T) {
 	if !st.hasEvent("phase_advanced") {
 		t.Fatal("advancing must emit phase_advanced")
 	}
+	var pa struct {
+		To string `json:"to"`
+	}
+	if err := json.Unmarshal(st.eventPayload("phase_advanced"), &pa); err != nil {
+		t.Fatalf("phase_advanced payload must unmarshal: %v", err)
+	}
+	if pa.To != "guided" {
+		t.Fatalf("phase_advanced payload.to = %q, want guided", pa.To)
+	}
+}
+
+// TestRunCourseStepSkippedCardSatisfiesFloorAndAdvances proves DEC-12.2's
+// no-dead-end guarantee through the real RunCourseStep path, not just the
+// pure CheckFloor helper: a session card in status `skipped` meets the
+// `guided` phase's `card_dispositioned craap` floor and the coach's `advance`
+// actually moves the phase. This is the only path where card_dispositioned
+// matters at all — guided + request_advance.
+func TestRunCourseStepSkippedCardSatisfiesFloorAndAdvances(t *testing.T) {
+	st := newFakeCourseStore("guided")
+	st.cards = []ScopedCard{{ID: uuid.New(), CardID: "craap", Status: "skipped"}}
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"reflect"}`),
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "reflect" {
+		t.Fatalf("a SKIPPED card must meet the floor and let the coach advance, got Advanced=%q", res.Advanced)
+	}
+	if st.phaseSets != 1 {
+		t.Fatalf("the phase must move once, got sets=%d", st.phaseSets)
+	}
+	if st.llmCalls != 1 {
+		t.Fatalf("the floor was met, so the coach IS called: llmCalls = %d, want 1", st.llmCalls)
+	}
+}
+
+// TestRunCourseStepCompletedCardSatisfiesFloorAndAdvances is the `skipped`
+// test's twin: a COMPLETED card must satisfy the same floor identically. Both
+// dispositions are equally "met" — completion is not a stricter requirement.
+func TestRunCourseStepCompletedCardSatisfiesFloorAndAdvances(t *testing.T) {
+	st := newFakeCourseStore("guided")
+	st.cards = []ScopedCard{{ID: uuid.New(), CardID: "craap", Status: "completed"}}
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"reflect"}`),
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "reflect" {
+		t.Fatalf("a COMPLETED card must meet the floor and let the coach advance, got Advanced=%q", res.Advanced)
+	}
+	if st.phaseSets != 1 {
+		t.Fatalf("the phase must move once, got sets=%d", st.phaseSets)
+	}
+	if st.llmCalls != 1 {
+		t.Fatalf("the floor was met, so the coach IS called: llmCalls = %d, want 1", st.llmCalls)
+	}
+}
+
+// TestRunCourseStepUntouchedCardLeavesFloorUnmetNoLLMCall is the no-dead-end
+// guarantee's negative case: a card the student has neither completed nor
+// skipped (still `proposed`) must NOT satisfy the floor, and the model must
+// never be called — zero LLM calls, zero tokens, whatever the (unreachable)
+// scripted model output would have said.
+func TestRunCourseStepUntouchedCardLeavesFloorUnmetNoLLMCall(t *testing.T) {
+	st := newFakeCourseStore("guided")
+	st.cards = []ScopedCard{{ID: uuid.New(), CardID: "craap", Status: "proposed"}}
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"reflect"}`),
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "" {
+		t.Fatalf("an untouched (proposed) card must NOT meet the floor, got Advanced=%q", res.Advanced)
+	}
+	if st.llmCalls != 0 {
+		t.Fatalf("an unmet floor must short-circuit BEFORE the model: llmCalls = %d, want 0", st.llmCalls)
+	}
+	if st.phaseSets != 0 {
+		t.Fatal("the phase must not move")
+	}
+	if res.Reply == "" {
+		t.Fatal("a refused advance must tell the student what is still owed")
+	}
+}
+
+// TestRunCourseStepRefusalCarriesCardOfferMintedOnce is Important-2's test: a
+// request_advance refusal on the card_dispositioned floor must arrive WITH
+// the card it is asking for (the offer), not just a sentence about a card
+// that does not exist yet — and repeated refusals must not re-mint it.
+func TestRunCourseStepRefusalCarriesCardOfferMintedOnce(t *testing.T) {
+	st := newFakeCourseStore("guided")
+	// No session card yet — the student pressed next-arrow before ever
+	// chatting, so runCourseAsk's mint path was never reached.
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"reflect"}`),
+		Resolved: gateway.Resolved{}, Skill: courseTestSkill(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "" {
+		t.Fatal("the floor is unmet (no card at all yet) — must not advance")
+	}
+	if res.Offer == nil || res.Offer.CardID != "craap" {
+		t.Fatalf("the refusal must carry the card offer it is asking about, got %+v", res.Offer)
+	}
+	if st.materialsCreated != 1 || st.cardsCreated != 1 {
+		t.Fatalf("exactly one anchor material + one card instance minted, got m=%d c=%d", st.materialsCreated, st.cardsCreated)
+	}
+	if st.llmCalls != 0 {
+		t.Fatalf("minting a card is store-only — it must not spend a model call: llmCalls = %d, want 0", st.llmCalls)
+	}
+
+	// A second refusal (the student still hasn't touched the card) must not
+	// mint a second material/card instance — surface-once still holds.
+	res2, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res2.Advanced != "" {
+		t.Fatal("still unmet — must still not advance")
+	}
+	if res2.Offer != nil {
+		t.Fatalf("the card already exists (status proposed) — must not be re-offered, got %+v", res2.Offer)
+	}
+	if st.materialsCreated != 1 || st.cardsCreated != 1 {
+		t.Fatalf("no second mint across repeated refusals, got m=%d c=%d", st.materialsCreated, st.cardsCreated)
+	}
 }
 
 func TestRunCourseStepRejectsAdvanceToANonSuccessor(t *testing.T) {
@@ -304,6 +473,18 @@ func TestRunCourseStepSurfacesThePhaseCardOnce(t *testing.T) {
 	}
 	if st.materialsCreated != 1 || st.cardsCreated != 1 {
 		t.Fatalf("one anchor material + one card, got m=%d c=%d", st.materialsCreated, st.cardsCreated)
+	}
+	if !st.hasEvent("card_surfaced") {
+		t.Fatal("minting a card offer must emit card_surfaced")
+	}
+	var cs struct {
+		CardID string `json:"card_id"`
+	}
+	if err := json.Unmarshal(st.eventPayload("card_surfaced"), &cs); err != nil {
+		t.Fatalf("card_surfaced payload must unmarshal: %v", err)
+	}
+	if cs.CardID != "craap" {
+		t.Fatalf("card_surfaced payload.card_id = %q, want craap", cs.CardID)
 	}
 
 	// Second turn: the card exists now, so it must not be offered again.

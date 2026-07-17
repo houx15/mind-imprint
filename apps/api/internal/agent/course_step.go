@@ -7,6 +7,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -225,9 +226,11 @@ func floorOwedText(unmet []skills.FloorItem, phase skills.Contract) string {
 	}
 }
 
-// meter records the llm_call row whenever tokens were spent — including when
-// enforcement rejected the output. The call happened; the cost is real.
-func meter(ctx context.Context, deps CourseDeps, usage gateway.ChatUsage) {
+// courseMeter records the llm_call row whenever tokens were spent — including
+// when enforcement rejected the output. The call happened; the cost is real.
+// Named courseMeter (not meter) to avoid a collision-inviting bare name in the
+// shared agent package.
+func courseMeter(ctx context.Context, deps CourseDeps, usage gateway.ChatUsage) {
 	if usage.InputTokens == 0 && usage.OutputTokens == 0 {
 		return
 	}
@@ -236,9 +239,56 @@ func meter(ctx context.Context, deps CourseDeps, usage gateway.ChatUsage) {
 	}
 }
 
+// mintPhaseCard mints the phase's declared card offer — the anchor material,
+// the session card_instance, and the card_surfaced event — if the phase
+// declares a card not yet surfaced (CourseCardCandidate's any-status check)
+// and has an anchor material to hang it on. Store-only: it never calls the
+// model, so calling it from the unmet-floor refusal path in runCourseAdvance
+// does not break that path's zero-LLM-call guarantee.
+//
+// Called from BOTH runCourseAsk and runCourseAdvance's card_dispositioned-
+// unmet refusal, so a refusal always arrives WITH the card it is asking for —
+// DEC-12.2's no-dead-end guarantee. Without this, a student entering `guided`
+// and pressing next-arrow before ever chatting would be told to "go do the
+// card" about a card that does not exist yet.
+func mintPhaseCard(ctx context.Context, deps CourseDeps, sess CourseSession, phase skills.Contract, cards []ScopedCard) (*CardOffer, error) {
+	cardID, ok := CourseCardCandidate(deps.Skill, sess.Phase, cards)
+	if !ok {
+		return nil, nil
+	}
+	if phase.AnchorMaterial == nil {
+		// A misauthored phase: it declares a card but no anchor material to
+		// hang it on. Distinct from "no card declared" — this is a config
+		// bug, not a normal no-op, so it gets a warning naming the phase.
+		slog.Warn("course: phase declares a card but has no anchor material — cannot mint offer",
+			"phase", sess.Phase, "card_id", cardID)
+		return nil, nil
+	}
+	matID, err := deps.Store.CreateSessionMaterial(ctx, sess.ID, phase.AnchorMaterial.Title, phase.AnchorMaterial.Text)
+	if err != nil {
+		return nil, err
+	}
+	ciID, err := deps.Store.CreateSessionCardInstance(ctx, sess.ID, cardID)
+	if err != nil {
+		return nil, err
+	}
+	payload, _ := json.Marshal(map[string]string{"card_id": cardID})
+	if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "card_surfaced", payload); err != nil {
+		slog.Warn("course: append card_surfaced event failed", "err", err)
+	}
+	return &CardOffer{CardInstanceID: ciID, MaterialID: matID, CardID: cardID}, nil
+}
+
 func runCourseAsk(ctx context.Context, deps CourseDeps, sess CourseSession, phase skills.Contract, studentMessage string) (CourseStepResult, error) {
 	if _, err := deps.Store.CreateSessionMessage(ctx, sess.ID, sess.Phase, "student", studentMessage); err != nil {
 		return CourseStepResult{}, err
+	}
+	// Spec §7: course events are full-weight evidence. `unprompted` is derived
+	// from intent — an `ask` is student-initiated. Only STUDENT messages get
+	// this event; an assistant reply is not student evidence.
+	askPayload, _ := json.Marshal(map[string]bool{"unprompted": true})
+	if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "course_message", askPayload); err != nil {
+		slog.Warn("course ask: append course_message event failed", "err", err)
 	}
 	history, err := deps.Store.LoadPhaseHistory(ctx, sess.ID, sess.Phase, 12)
 	if err != nil {
@@ -252,7 +302,7 @@ func runCourseAsk(ctx context.Context, deps CourseDeps, sess CourseSession, phas
 	script := buildScript(deps.Skill, deps.CourseTitle, sess.Phase)
 	out, usage, err := ProposeCourseReply(ctx, deps.Provider, deps.Resolved,
 		BuildCourseContext(script, phase, history, cardSummary(deps.Skill, phase, cards), "ask"))
-	meter(ctx, deps, usage)
+	courseMeter(ctx, deps, usage)
 	if err != nil {
 		// Silence, not an error: a rejected output is never shown, never
 		// persisted, and never surfaced to the student as a failure.
@@ -270,22 +320,11 @@ func runCourseAsk(ctx context.Context, deps CourseDeps, sess CourseSession, phas
 	}
 
 	res := CourseStepResult{Reply: out.Body}
-	cardID, ok := CourseCardCandidate(deps.Skill, sess.Phase, cards)
-	if !ok || phase.AnchorMaterial == nil {
-		return res, nil
-	}
-	matID, err := deps.Store.CreateSessionMaterial(ctx, sess.ID, phase.AnchorMaterial.Title, phase.AnchorMaterial.Text)
+	offer, err := mintPhaseCard(ctx, deps, sess, phase, cards)
 	if err != nil {
 		return CourseStepResult{}, err
 	}
-	ciID, err := deps.Store.CreateSessionCardInstance(ctx, sess.ID, cardID)
-	if err != nil {
-		return CourseStepResult{}, err
-	}
-	if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "card_surfaced", []byte(`{}`)); err != nil {
-		slog.Warn("course ask: append card_surfaced event failed", "err", err)
-	}
-	res.Offer = &CardOffer{CardInstanceID: ciID, MaterialID: matID, CardID: cardID}
+	res.Offer = offer
 	return res, nil
 }
 
@@ -317,7 +356,14 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 		if _, err := deps.Store.CreateSessionMessage(ctx, sess.ID, sess.Phase, "assistant", owed); err != nil {
 			return CourseStepResult{}, err
 		}
-		return CourseStepResult{Reply: owed}, nil
+		// A refusal must arrive WITH the card it is asking for (DEC-12.2's
+		// no-dead-end guarantee) — mint it here too, not only on `ask`.
+		// Store-only: no model call, so llmCalls stays 0 on this path.
+		offer, err := mintPhaseCard(ctx, deps, sess, phase, cards)
+		if err != nil {
+			return CourseStepResult{}, err
+		}
+		return CourseStepResult{Reply: owed, Offer: offer}, nil
 	}
 
 	next, ok := NextPhase(deps.Skill, sess.Phase)
@@ -336,7 +382,7 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 	script := buildScript(deps.Skill, deps.CourseTitle, sess.Phase)
 	out, usage, err := ProposeCourseReply(ctx, deps.Provider, deps.Resolved,
 		BuildCourseContext(script, phase, history, cardSummary(deps.Skill, phase, cards), "advance"))
-	meter(ctx, deps, usage)
+	courseMeter(ctx, deps, usage)
 	if err != nil {
 		slog.Warn("course advance: output rejected — staying silent", "err", err, "phase", sess.Phase)
 		return CourseStepResult{}, nil
@@ -348,7 +394,8 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 		if err := deps.Store.SetSessionPhase(ctx, sess.ID, next); err != nil {
 			return CourseStepResult{}, err
 		}
-		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "phase_advanced", []byte(`{}`)); err != nil {
+		payload, _ := json.Marshal(map[string]string{"to": next})
+		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "course", "phase_advanced", payload); err != nil {
 			slog.Warn("course advance: append phase_advanced event failed", "err", err)
 		}
 		return CourseStepResult{Advanced: next}, nil
