@@ -12,7 +12,7 @@ import (
 )
 
 const getLatestProjectEvaluation = `-- name: GetLatestProjectEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id FROM evaluations
 WHERE project_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -42,6 +42,43 @@ func (q *Queries) GetLatestProjectEvaluation(ctx context.Context, projectID pgty
 		&i.ProjectID,
 		&i.Rubric,
 		&i.Leaps,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const getLatestSessionEvaluation = `-- name: GetLatestSessionEvaluation :one
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id FROM evaluations
+WHERE session_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestSessionEvaluation(ctx context.Context, sessionID pgtype.UUID) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, getLatestSessionEvaluation, sessionID)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -52,7 +89,7 @@ INSERT INTO evaluations (project_id, scores, narrative, model, tier,
   prompt_tokens, completion_tokens, cost_estimate, status)
 VALUES ($1, $2, $3, $4, $5,
   $6, $7, $8, 'done')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id
 `
 
 type InsertProjectEvaluationParams struct {
@@ -102,6 +139,67 @@ func (q *Queries) InsertProjectEvaluation(ctx context.Context, arg InsertProject
 		&i.ProjectID,
 		&i.Rubric,
 		&i.Leaps,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const insertSessionEvaluation = `-- name: InsertSessionEvaluation :one
+
+INSERT INTO evaluations (session_id, scores, narrative, model, tier,
+  prompt_tokens, completion_tokens, cost_estimate, status)
+VALUES ($1, $2, $3, $4, $5,
+  $6, $7, $8, 'done')
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id
+`
+
+type InsertSessionEvaluationParams struct {
+	SessionID        pgtype.UUID    `json:"session_id"`
+	Scores           []byte         `json:"scores"`
+	Narrative        string         `json:"narrative"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     *int32         `json:"prompt_tokens"`
+	CompletionTokens *int32         `json:"completion_tokens"`
+	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+}
+
+// Course session scope (A1): mirrors the project-scoped pair above. A course
+// session's report is one evaluations row scoped by session_id alone.
+func (q *Queries) InsertSessionEvaluation(ctx context.Context, arg InsertSessionEvaluationParams) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, insertSessionEvaluation,
+		arg.SessionID,
+		arg.Scores,
+		arg.Narrative,
+		arg.Model,
+		arg.Tier,
+		arg.PromptTokens,
+		arg.CompletionTokens,
+		arg.CostEstimate,
+	)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
+		&i.SessionID,
 	)
 	return i, err
 }

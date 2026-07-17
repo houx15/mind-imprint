@@ -14,14 +14,15 @@ import (
 
 const appendEvent = `-- name: AppendEvent :one
 
-INSERT INTO event (project_id, user_id, surface, type, payload)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, user_id, surface, type, payload, created_at
+INSERT INTO event (project_id, user_id, session_id, surface, type, payload)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, project_id, user_id, surface, type, payload, created_at, session_id
 `
 
 type AppendEventParams struct {
 	ProjectID pgtype.UUID `json:"project_id"`
 	UserID    uuid.UUID   `json:"user_id"`
+	SessionID pgtype.UUID `json:"session_id"`
 	Surface   string      `json:"surface"`
 	Type      string      `json:"type"`
 	Payload   []byte      `json:"payload"`
@@ -32,6 +33,7 @@ func (q *Queries) AppendEvent(ctx context.Context, arg AppendEventParams) (Event
 	row := q.db.QueryRow(ctx, appendEvent,
 		arg.ProjectID,
 		arg.UserID,
+		arg.SessionID,
 		arg.Surface,
 		arg.Type,
 		arg.Payload,
@@ -45,12 +47,13 @@ func (q *Queries) AppendEvent(ctx context.Context, arg AppendEventParams) (Event
 		&i.Type,
 		&i.Payload,
 		&i.CreatedAt,
+		&i.SessionID,
 	)
 	return i, err
 }
 
 const listEventsByProject = `-- name: ListEventsByProject :many
-SELECT id, project_id, user_id, surface, type, payload, created_at FROM event
+SELECT id, project_id, user_id, surface, type, payload, created_at, session_id FROM event
 WHERE project_id = $1
 ORDER BY created_at, id
 `
@@ -72,6 +75,42 @@ func (q *Queries) ListEventsByProject(ctx context.Context, projectID pgtype.UUID
 			&i.Type,
 			&i.Payload,
 			&i.CreatedAt,
+			&i.SessionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEventsBySession = `-- name: ListEventsBySession :many
+SELECT id, project_id, user_id, surface, type, payload, created_at, session_id FROM event
+WHERE session_id = $1
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListEventsBySession(ctx context.Context, sessionID pgtype.UUID) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.UserID,
+			&i.Surface,
+			&i.Type,
+			&i.Payload,
+			&i.CreatedAt,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}

@@ -14,3 +14,19 @@ SELECT * FROM evaluations
 WHERE project_id = @project_id
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- Course session scope (A1): mirrors the project-scoped pair above. A course
+-- session's report is one evaluations row scoped by session_id alone.
+
+-- name: InsertSessionEvaluation :one
+INSERT INTO evaluations (session_id, scores, narrative, model, tier,
+  prompt_tokens, completion_tokens, cost_estimate, status)
+VALUES (@session_id, @scores, @narrative, @model, @tier,
+  @prompt_tokens, @completion_tokens, @cost_estimate, 'done')
+RETURNING *;
+
+-- name: GetLatestSessionEvaluation :one
+SELECT * FROM evaluations
+WHERE session_id = @session_id
+ORDER BY created_at DESC
+LIMIT 1;
