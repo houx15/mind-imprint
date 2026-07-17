@@ -16,7 +16,7 @@ const createProjectMaterial = `-- name: CreateProjectMaterial :one
 
 INSERT INTO material (task_id, project_id, kind, source, title, source_url, blocks)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id
 `
 
 type CreateProjectMaterialParams struct {
@@ -56,6 +56,52 @@ func (q *Queries) CreateProjectMaterial(ctx context.Context, arg CreateProjectMa
 		&i.CreatedAt,
 		&i.ProjectID,
 		&i.ThreadID,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const createSessionMaterial = `-- name: CreateSessionMaterial :one
+
+INSERT INTO material (session_id, kind, source, title, blocks)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id
+`
+
+type CreateSessionMaterialParams struct {
+	SessionID pgtype.UUID `json:"session_id"`
+	Kind      string      `json:"kind"`
+	Source    string      `json:"source"`
+	Title     string      `json:"title"`
+	Blocks    []byte      `json:"blocks"`
+}
+
+// Course session scope (Slice 12): task_id/project_id/thread_id NULL,
+// session_id set. No source_url — a course anchor material is an authored
+// claim, not a fetched/pasted link (kind/source stay within the existing
+// ('article','draft') / ('fetched','pasted') CHECKs; see course_step.go).
+func (q *Queries) CreateSessionMaterial(ctx context.Context, arg CreateSessionMaterialParams) (Material, error) {
+	row := q.db.QueryRow(ctx, createSessionMaterial,
+		arg.SessionID,
+		arg.Kind,
+		arg.Source,
+		arg.Title,
+		arg.Blocks,
+	)
+	var i Material
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Kind,
+		&i.Source,
+		&i.Title,
+		&i.SourceUrl,
+		&i.Blocks,
+		&i.Scratch,
+		&i.CreatedAt,
+		&i.ProjectID,
+		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -64,7 +110,7 @@ const createThreadMaterial = `-- name: CreateThreadMaterial :one
 
 INSERT INTO material (thread_id, kind, source, title, source_url, blocks)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id
+RETURNING id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id
 `
 
 type CreateThreadMaterialParams struct {
@@ -99,12 +145,13 @@ func (q *Queries) CreateThreadMaterial(ctx context.Context, arg CreateThreadMate
 		&i.CreatedAt,
 		&i.ProjectID,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
 
 const getMaterial = `-- name: GetMaterial :one
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material WHERE id = $1
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id FROM material WHERE id = $1
 `
 
 // Still used by agentstore.go (the new project turn loop's material context),
@@ -124,12 +171,13 @@ func (q *Queries) GetMaterial(ctx context.Context, id uuid.UUID) (Material, erro
 		&i.CreatedAt,
 		&i.ProjectID,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
 
 const listMaterialsByProject = `-- name: ListMaterialsByProject :many
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id FROM material
 WHERE project_id = $1
 ORDER BY created_at
 `
@@ -155,6 +203,44 @@ func (q *Queries) ListMaterialsByProject(ctx context.Context, projectID pgtype.U
 			&i.CreatedAt,
 			&i.ProjectID,
 			&i.ThreadID,
+			&i.SessionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMaterialsBySession = `-- name: ListMaterialsBySession :many
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id FROM material WHERE session_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListMaterialsBySession(ctx context.Context, sessionID pgtype.UUID) ([]Material, error) {
+	rows, err := q.db.Query(ctx, listMaterialsBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Material
+	for rows.Next() {
+		var i Material
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Kind,
+			&i.Source,
+			&i.Title,
+			&i.SourceUrl,
+			&i.Blocks,
+			&i.Scratch,
+			&i.CreatedAt,
+			&i.ProjectID,
+			&i.ThreadID,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -167,7 +253,7 @@ func (q *Queries) ListMaterialsByProject(ctx context.Context, projectID pgtype.U
 }
 
 const listMaterialsByThread = `-- name: ListMaterialsByThread :many
-SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id FROM material WHERE thread_id = $1 ORDER BY created_at
+SELECT id, task_id, kind, source, title, source_url, blocks, scratch, created_at, project_id, thread_id, session_id FROM material WHERE thread_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMaterialsByThread(ctx context.Context, threadID pgtype.UUID) ([]Material, error) {
@@ -191,6 +277,7 @@ func (q *Queries) ListMaterialsByThread(ctx context.Context, threadID pgtype.UUI
 			&i.CreatedAt,
 			&i.ProjectID,
 			&i.ThreadID,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}

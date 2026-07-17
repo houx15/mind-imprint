@@ -64,3 +64,26 @@ RETURNING *;
 UPDATE card_instances SET status = $3
 WHERE id = $1 AND thread_id = $2
 RETURNING *;
+
+-- Course session scope (Slice 12): mirrors the thread-scoped queries above
+-- exactly (card_instances has no material_id/tool_id column — the offer's
+-- material link is carried in Go's CardOffer struct, not the row).
+
+-- name: CreateSessionCardInstance :one
+INSERT INTO card_instances (session_id, card_id, status)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: ListCardInstancesBySession :many
+SELECT * FROM card_instances WHERE session_id = $1 ORDER BY created_at, id;
+
+-- name: SubmitSessionCardInstance :one
+UPDATE card_instances
+SET field_values = $3, event_trace = $4, status = $5, completed_at = now()
+WHERE id = $1 AND session_id = $2
+RETURNING *;
+
+-- name: SetSessionCardInstanceStatus :one
+UPDATE card_instances SET status = $3
+WHERE id = $1 AND session_id = $2
+RETURNING *;

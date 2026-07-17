@@ -16,7 +16,7 @@ const createProjectCardInstance = `-- name: CreateProjectCardInstance :one
 
 INSERT INTO card_instances (task_id, project_id, card_id, contract_ref, status)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type CreateProjectCardInstanceParams struct {
@@ -65,6 +65,47 @@ func (q *Queries) CreateProjectCardInstance(ctx context.Context, arg CreateProje
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const createSessionCardInstance = `-- name: CreateSessionCardInstance :one
+
+INSERT INTO card_instances (session_id, card_id, status)
+VALUES ($1, $2, $3)
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
+`
+
+type CreateSessionCardInstanceParams struct {
+	SessionID pgtype.UUID `json:"session_id"`
+	CardID    string      `json:"card_id"`
+	Status    string      `json:"status"`
+}
+
+// Course session scope (Slice 12): mirrors the thread-scoped queries above
+// exactly (card_instances has no material_id/tool_id column — the offer's
+// material link is carried in Go's CardOffer struct, not the row).
+func (q *Queries) CreateSessionCardInstance(ctx context.Context, arg CreateSessionCardInstanceParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, createSessionCardInstance, arg.SessionID, arg.CardID, arg.Status)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Anchors,
+		&i.ProjectID,
+		&i.ContractRef,
+		&i.FrameworkFill,
+		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -73,7 +114,7 @@ const createThreadCardInstance = `-- name: CreateThreadCardInstance :one
 
 INSERT INTO card_instances (thread_id, card_id, status)
 VALUES ($1, $2, $3)
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type CreateThreadCardInstanceParams struct {
@@ -102,12 +143,13 @@ func (q *Queries) CreateThreadCardInstance(ctx context.Context, arg CreateThread
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
 
 const getCardInstance = `-- name: GetCardInstance :one
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id FROM card_instances WHERE id = $1
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id FROM card_instances WHERE id = $1
 `
 
 func (q *Queries) GetCardInstance(ctx context.Context, id uuid.UUID) (CardInstance, error) {
@@ -129,12 +171,13 @@ func (q *Queries) GetCardInstance(ctx context.Context, id uuid.UUID) (CardInstan
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
 
 const listCardInstancesByProject = `-- name: ListCardInstancesByProject :many
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id FROM card_instances
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id FROM card_instances
 WHERE project_id = $1
 ORDER BY created_at, id
 `
@@ -164,6 +207,48 @@ func (q *Queries) ListCardInstancesByProject(ctx context.Context, projectID pgty
 			&i.ContractRef,
 			&i.FrameworkFill,
 			&i.ThreadID,
+			&i.SessionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCardInstancesBySession = `-- name: ListCardInstancesBySession :many
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id FROM card_instances WHERE session_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListCardInstancesBySession(ctx context.Context, sessionID pgtype.UUID) ([]CardInstance, error) {
+	rows, err := q.db.Query(ctx, listCardInstancesBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CardInstance
+	for rows.Next() {
+		var i CardInstance
+		if err := rows.Scan(
+			&i.ID,
+			&i.CardID,
+			&i.TaskID,
+			&i.ParentNodeID,
+			&i.Status,
+			&i.FieldValues,
+			&i.EventTrace,
+			&i.RubricTags,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.Anchors,
+			&i.ProjectID,
+			&i.ContractRef,
+			&i.FrameworkFill,
+			&i.ThreadID,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -176,7 +261,7 @@ func (q *Queries) ListCardInstancesByProject(ctx context.Context, projectID pgty
 }
 
 const listCardInstancesByThread = `-- name: ListCardInstancesByThread :many
-SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id FROM card_instances WHERE thread_id = $1 ORDER BY created_at, id
+SELECT id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id FROM card_instances WHERE thread_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListCardInstancesByThread(ctx context.Context, threadID pgtype.UUID) ([]CardInstance, error) {
@@ -204,6 +289,7 @@ func (q *Queries) ListCardInstancesByThread(ctx context.Context, threadID pgtype
 			&i.ContractRef,
 			&i.FrameworkFill,
 			&i.ThreadID,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -218,7 +304,7 @@ func (q *Queries) ListCardInstancesByThread(ctx context.Context, threadID pgtype
 const setCardInstanceAnchors = `-- name: SetCardInstanceAnchors :one
 UPDATE card_instances SET anchors = $3
 WHERE id = $1 AND project_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SetCardInstanceAnchorsParams struct {
@@ -246,6 +332,7 @@ func (q *Queries) SetCardInstanceAnchors(ctx context.Context, arg SetCardInstanc
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -253,7 +340,7 @@ func (q *Queries) SetCardInstanceAnchors(ctx context.Context, arg SetCardInstanc
 const setCardInstanceFramework = `-- name: SetCardInstanceFramework :one
 UPDATE card_instances SET framework_fill = $3
 WHERE id = $1 AND project_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SetCardInstanceFrameworkParams struct {
@@ -281,6 +368,7 @@ func (q *Queries) SetCardInstanceFramework(ctx context.Context, arg SetCardInsta
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -288,7 +376,7 @@ func (q *Queries) SetCardInstanceFramework(ctx context.Context, arg SetCardInsta
 const setCardInstanceStatus = `-- name: SetCardInstanceStatus :one
 UPDATE card_instances SET status = $3
 WHERE id = $1 AND project_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SetCardInstanceStatusParams struct {
@@ -316,6 +404,43 @@ func (q *Queries) SetCardInstanceStatus(ctx context.Context, arg SetCardInstance
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const setSessionCardInstanceStatus = `-- name: SetSessionCardInstanceStatus :one
+UPDATE card_instances SET status = $3
+WHERE id = $1 AND session_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
+`
+
+type SetSessionCardInstanceStatusParams struct {
+	ID        uuid.UUID   `json:"id"`
+	SessionID pgtype.UUID `json:"session_id"`
+	Status    string      `json:"status"`
+}
+
+func (q *Queries) SetSessionCardInstanceStatus(ctx context.Context, arg SetSessionCardInstanceStatusParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, setSessionCardInstanceStatus, arg.ID, arg.SessionID, arg.Status)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Anchors,
+		&i.ProjectID,
+		&i.ContractRef,
+		&i.FrameworkFill,
+		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -323,7 +448,7 @@ func (q *Queries) SetCardInstanceStatus(ctx context.Context, arg SetCardInstance
 const setThreadCardInstanceStatus = `-- name: SetThreadCardInstanceStatus :one
 UPDATE card_instances SET status = $3
 WHERE id = $1 AND thread_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SetThreadCardInstanceStatusParams struct {
@@ -351,6 +476,7 @@ func (q *Queries) SetThreadCardInstanceStatus(ctx context.Context, arg SetThread
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -358,7 +484,7 @@ func (q *Queries) SetThreadCardInstanceStatus(ctx context.Context, arg SetThread
 const submitProjectCardInstance = `-- name: SubmitProjectCardInstance :one
 UPDATE card_instances SET field_values = $3, event_trace = $4
 WHERE id = $1 AND project_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SubmitProjectCardInstanceParams struct {
@@ -392,6 +518,52 @@ func (q *Queries) SubmitProjectCardInstance(ctx context.Context, arg SubmitProje
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
+	)
+	return i, err
+}
+
+const submitSessionCardInstance = `-- name: SubmitSessionCardInstance :one
+UPDATE card_instances
+SET field_values = $3, event_trace = $4, status = $5, completed_at = now()
+WHERE id = $1 AND session_id = $2
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
+`
+
+type SubmitSessionCardInstanceParams struct {
+	ID          uuid.UUID   `json:"id"`
+	SessionID   pgtype.UUID `json:"session_id"`
+	FieldValues []byte      `json:"field_values"`
+	EventTrace  []byte      `json:"event_trace"`
+	Status      string      `json:"status"`
+}
+
+func (q *Queries) SubmitSessionCardInstance(ctx context.Context, arg SubmitSessionCardInstanceParams) (CardInstance, error) {
+	row := q.db.QueryRow(ctx, submitSessionCardInstance,
+		arg.ID,
+		arg.SessionID,
+		arg.FieldValues,
+		arg.EventTrace,
+		arg.Status,
+	)
+	var i CardInstance
+	err := row.Scan(
+		&i.ID,
+		&i.CardID,
+		&i.TaskID,
+		&i.ParentNodeID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.RubricTags,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Anchors,
+		&i.ProjectID,
+		&i.ContractRef,
+		&i.FrameworkFill,
+		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -399,7 +571,7 @@ func (q *Queries) SubmitProjectCardInstance(ctx context.Context, arg SubmitProje
 const submitThreadCardInstance = `-- name: SubmitThreadCardInstance :one
 UPDATE card_instances SET field_values = $3, event_trace = $4, status = $5
 WHERE id = $1 AND thread_id = $2
-RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id
+RETURNING id, card_id, task_id, parent_node_id, status, field_values, event_trace, rubric_tags, created_at, completed_at, anchors, project_id, contract_ref, framework_fill, thread_id, session_id
 `
 
 type SubmitThreadCardInstanceParams struct {
@@ -435,6 +607,7 @@ func (q *Queries) SubmitThreadCardInstance(ctx context.Context, arg SubmitThread
 		&i.ContractRef,
 		&i.FrameworkFill,
 		&i.ThreadID,
+		&i.SessionID,
 	)
 	return i, err
 }

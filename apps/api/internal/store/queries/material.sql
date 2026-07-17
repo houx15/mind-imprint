@@ -27,3 +27,16 @@ RETURNING *;
 
 -- name: ListMaterialsByThread :many
 SELECT * FROM material WHERE thread_id = $1 ORDER BY created_at;
+
+-- Course session scope (Slice 12): task_id/project_id/thread_id NULL,
+-- session_id set. No source_url — a course anchor material is an authored
+-- claim, not a fetched/pasted link (kind/source stay within the existing
+-- ('article','draft') / ('fetched','pasted') CHECKs; see course_step.go).
+
+-- name: CreateSessionMaterial :one
+INSERT INTO material (session_id, kind, source, title, blocks)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListMaterialsBySession :many
+SELECT * FROM material WHERE session_id = $1 ORDER BY created_at, id;

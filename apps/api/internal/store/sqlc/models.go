@@ -37,6 +37,7 @@ type CardInstance struct {
 	ContractRef   *string            `json:"contract_ref"`
 	FrameworkFill []byte             `json:"framework_fill"`
 	ThreadID      pgtype.UUID        `json:"thread_id"`
+	SessionID     pgtype.UUID        `json:"session_id"`
 }
 
 type ChatMessage struct {
@@ -78,6 +79,15 @@ type Course struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
+type CourseMessage struct {
+	ID        uuid.UUID `json:"id"`
+	SessionID uuid.UUID `json:"session_id"`
+	Phase     string    `json:"phase"`
+	Role      string    `json:"role"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type CourseProgress struct {
 	ID                uuid.UUID `json:"id"`
 	UserID            uuid.UUID `json:"user_id"`
@@ -85,6 +95,17 @@ type CourseProgress struct {
 	CurrentOrdinal    int32     `json:"current_ordinal"`
 	CompletedOrdinals []int32   `json:"completed_ordinals"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type CourseSession struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	CourseID  uuid.UUID `json:"course_id"`
+	SkillID   string    `json:"skill_id"`
+	Phase     string    `json:"phase"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CourseStep struct {
@@ -254,6 +275,7 @@ type Material struct {
 	CreatedAt time.Time   `json:"created_at"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	ThreadID  pgtype.UUID `json:"thread_id"`
+	SessionID pgtype.UUID `json:"session_id"`
 }
 
 type Message struct {
