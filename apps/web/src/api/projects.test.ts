@@ -27,6 +27,8 @@ const sample = {
   activeCard: null,
   structure: [],
   readiness: [],
+  finished: false,
+  canFinish: false,
   writing: {
     buffer: "",
     latestSnapshot: null,
