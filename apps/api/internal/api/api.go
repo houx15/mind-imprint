@@ -89,6 +89,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/chat/threads/{id}/turn", protected(a.postChatTurn))
 	mux.Handle("POST /api/v1/chat/threads/{id}/cards/{cid}/submit", protected(a.submitChatCard))
 	mux.Handle("POST /api/v1/chat/threads/{id}/cards/{cid}/skip", protected(a.skipChatCard))
+	mux.Handle("GET /api/v1/chat/threads/{id}/assessment", protected(a.getChatAssessment))
+	mux.Handle("POST /api/v1/chat/threads/{id}/assessment", protected(a.generateChatAssessment))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {
