@@ -46,18 +46,12 @@ func TestMigration0024SessionScope(t *testing.T) {
 		t.Fatal("a new course event with project_id AND session_id both NULL should violate event_scope_ck, got no error")
 	}
 
-	// 2b. But an unscoped CHAT event is still ACCEPTED — the explicit
-	// `surface = 'chat'` exemption. Chat has no scope column until A2, and its
-	// three event writes swallow errors into slog.Warn: without the exemption
-	// this constraint would silently stop chat recording evidence and no test
-	// would fail. A2 deletes the arm when it scopes chat's writes.
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO event (user_id, surface, type, payload)
-		VALUES ($1, 'chat', 'prompt_sent', '{}'::jsonb)`,
-		refactor2SeededStudentID); err != nil {
-		t.Fatalf("an unscoped chat event must still be accepted until A2 scopes chat's writes — "+
-			"enforcing before the writer has a scope silently kills chat evidence: %v", err)
-	}
+	// 2b. (Superseded by A2.) 0024 added a temporary `surface = 'chat'`
+	// exemption so an unscoped chat event was accepted until chat had a scope to
+	// satisfy. Migration 0025 closes that arm now that chat's writes carry
+	// thread_id, so at head an unscoped chat event is REJECTED — asserted in
+	// TestMigration0025ThreadScope. This harness migrates to head, so the old
+	// acceptance assertion no longer holds and there is nothing to assert here.
 
 	// 3. NOT VALID's actual contract: a pre-existing unattributable row still
 	// reads fine. Simulate one by inserting with the constraint disabled the
@@ -109,6 +103,11 @@ func TestMigration0024SessionScope(t *testing.T) {
 // empty evaluations table and the restored 0021 CHECK validates trivially,
 // which is precisely how the original version of this test passed while the
 // Down it exercised could not survive a real course report.
+//
+// A2 note: newTestPool migrates to head, which is now 0025, so a single
+// goose Down would reverse 0025, not 0024. DownTo(23) rolls back to before
+// 0024 (reversing 0025 then 0024), so 0024's own Down block still runs with
+// its load-bearing session-scoped row present.
 func TestMigration0024Down(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -138,8 +137,8 @@ func TestMigration0024Down(t *testing.T) {
 		t.Fatalf("dialect: %v", err)
 	}
 
-	if err := goose.DownContext(ctx, db, "migrations"); err != nil {
-		t.Fatalf("goose down 0024 with a session-scoped evaluation present: %v", err)
+	if err := goose.DownToContext(ctx, db, "migrations", 23); err != nil {
+		t.Fatalf("goose down to v23 (reversing 0025 then 0024) with a session-scoped evaluation present: %v", err)
 	}
 
 	// The columns and constraints are gone.

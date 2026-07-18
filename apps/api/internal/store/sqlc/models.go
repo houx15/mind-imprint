@@ -189,6 +189,7 @@ type Evaluation struct {
 	Rubric           *string            `json:"rubric"`
 	Leaps            []byte             `json:"leaps"`
 	SessionID        pgtype.UUID        `json:"session_id"`
+	ThreadID         pgtype.UUID        `json:"thread_id"`
 }
 
 type Event struct {
@@ -200,6 +201,7 @@ type Event struct {
 	Payload   []byte      `json:"payload"`
 	CreatedAt time.Time   `json:"created_at"`
 	SessionID pgtype.UUID `json:"session_id"`
+	ThreadID  pgtype.UUID `json:"thread_id"`
 }
 
 type GraphEdge struct {

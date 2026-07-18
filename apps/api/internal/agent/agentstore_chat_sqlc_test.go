@@ -61,3 +61,48 @@ func TestSqlcAgentStore_ChatHistoryMerge(t *testing.T) {
 		t.Fatalf("want 2 user msgs on one thread, got %d (thread %s)", len(msgs), th.ID)
 	}
 }
+
+// TestSqlcChatStore_InsertThreadEventReachable proves A2's whole point: a
+// sqlcChatStore.InsertThreadEvent write is reachable via ListEventsByThread,
+// carrying the thread_id that migration 0025's event_scope_ck now requires.
+func TestSqlcChatStore_InsertThreadEventReachable(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	th, err := q.CreateStandaloneThread(ctx, sqlc.CreateStandaloneThreadParams{
+		UserID: seededStudentID, Title: "",
+	})
+	if err != nil {
+		t.Fatalf("seed chat_thread: %v", err)
+	}
+
+	store := agent.NewSqlcChatStore(q)
+	if err := store.InsertThreadEvent(ctx, th.ID, "prompt_sent", []byte(`{}`)); err != nil {
+		t.Fatalf("InsertThreadEvent: %v", err)
+	}
+
+	rows, err := q.ListEventsByThread(ctx, pgUUID(th.ID))
+	if err != nil {
+		t.Fatalf("ListEventsByThread: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("ListEventsByThread = %d rows, want 1 reachable event", len(rows))
+	}
+	got := rows[0]
+	if got.Surface != "chat" {
+		t.Fatalf("Surface = %q, want %q", got.Surface, "chat")
+	}
+	if got.Type != "prompt_sent" {
+		t.Fatalf("Type = %q, want %q", got.Type, "prompt_sent")
+	}
+	if !got.ThreadID.Valid || got.ThreadID.Bytes != th.ID {
+		t.Fatalf("ThreadID = %+v, want valid and equal to %s", got.ThreadID, th.ID)
+	}
+	if got.UserID != seededStudentID {
+		t.Fatalf("UserID = %s, want resolved from chat_thread (%s)", got.UserID, seededStudentID)
+	}
+}

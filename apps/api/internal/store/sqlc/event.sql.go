@@ -14,15 +14,16 @@ import (
 
 const appendEvent = `-- name: AppendEvent :one
 
-INSERT INTO event (project_id, user_id, session_id, surface, type, payload)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, user_id, surface, type, payload, created_at, session_id
+INSERT INTO event (project_id, user_id, session_id, thread_id, surface, type, payload)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, user_id, surface, type, payload, created_at, session_id, thread_id
 `
 
 type AppendEventParams struct {
 	ProjectID pgtype.UUID `json:"project_id"`
 	UserID    uuid.UUID   `json:"user_id"`
 	SessionID pgtype.UUID `json:"session_id"`
+	ThreadID  pgtype.UUID `json:"thread_id"`
 	Surface   string      `json:"surface"`
 	Type      string      `json:"type"`
 	Payload   []byte      `json:"payload"`
@@ -34,6 +35,7 @@ func (q *Queries) AppendEvent(ctx context.Context, arg AppendEventParams) (Event
 		arg.ProjectID,
 		arg.UserID,
 		arg.SessionID,
+		arg.ThreadID,
 		arg.Surface,
 		arg.Type,
 		arg.Payload,
@@ -48,12 +50,13 @@ func (q *Queries) AppendEvent(ctx context.Context, arg AppendEventParams) (Event
 		&i.Payload,
 		&i.CreatedAt,
 		&i.SessionID,
+		&i.ThreadID,
 	)
 	return i, err
 }
 
 const listEventsByProject = `-- name: ListEventsByProject :many
-SELECT id, project_id, user_id, surface, type, payload, created_at, session_id FROM event
+SELECT id, project_id, user_id, surface, type, payload, created_at, session_id, thread_id FROM event
 WHERE project_id = $1
 ORDER BY created_at, id
 `
@@ -76,6 +79,7 @@ func (q *Queries) ListEventsByProject(ctx context.Context, projectID pgtype.UUID
 			&i.Payload,
 			&i.CreatedAt,
 			&i.SessionID,
+			&i.ThreadID,
 		); err != nil {
 			return nil, err
 		}
@@ -88,7 +92,7 @@ func (q *Queries) ListEventsByProject(ctx context.Context, projectID pgtype.UUID
 }
 
 const listEventsBySession = `-- name: ListEventsBySession :many
-SELECT id, project_id, user_id, surface, type, payload, created_at, session_id FROM event
+SELECT id, project_id, user_id, surface, type, payload, created_at, session_id, thread_id FROM event
 WHERE session_id = $1
 ORDER BY created_at, id
 `
@@ -111,6 +115,43 @@ func (q *Queries) ListEventsBySession(ctx context.Context, sessionID pgtype.UUID
 			&i.Payload,
 			&i.CreatedAt,
 			&i.SessionID,
+			&i.ThreadID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEventsByThread = `-- name: ListEventsByThread :many
+SELECT id, project_id, user_id, surface, type, payload, created_at, session_id, thread_id FROM event
+WHERE thread_id = $1
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListEventsByThread(ctx context.Context, threadID pgtype.UUID) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsByThread, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.UserID,
+			&i.Surface,
+			&i.Type,
+			&i.Payload,
+			&i.CreatedAt,
+			&i.SessionID,
+			&i.ThreadID,
 		); err != nil {
 			return nil, err
 		}

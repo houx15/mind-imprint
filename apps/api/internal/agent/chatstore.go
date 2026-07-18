@@ -98,23 +98,31 @@ func (s *sqlcChatStore) CreateThreadCardInstance(ctx context.Context, threadID u
 	return ci.ID, nil
 }
 
-func (s *sqlcChatStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
-	_, err := s.q.AppendEvent(ctx, sqlc.AppendEventParams{
-		ProjectID: pgtype.UUID{Valid: false}, UserID: userID,
-		SessionID: pgtype.UUID{Valid: false}, // chat has no session scope until A2 (DEC-A1.2)
-		Surface:   surface, Type: typ, Payload: payload,
+func (s *sqlcChatStore) InsertThreadEvent(ctx context.Context, threadID uuid.UUID, typ string, payload []byte) error {
+	th, err := s.q.GetThread(ctx, threadID)
+	if err != nil {
+		return err
+	}
+	_, err = s.q.AppendEvent(ctx, sqlc.AppendEventParams{
+		ProjectID: pgtype.UUID{Valid: false},
+		UserID:    th.UserID,
+		SessionID: pgtype.UUID{Valid: false},
+		ThreadID:  pgUUID(threadID),
+		Surface:   "chat",
+		Type:      typ,
+		Payload:   payload,
 	})
 	return err
 }
 
-func (s *sqlcChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error {
+func (s *sqlcChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
 	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, int(prompt), int(completion))
 	if !priced {
 		slog.Warn("chat llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
 	}
 	_, err := s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
 		UserID: userID, ProjectID: pgtype.UUID{Valid: false},
-		Surface: "chat", Purpose: "coach",
+		Surface: "chat", Purpose: purpose,
 		Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
 		PromptTokens: prompt, CompletionTokens: completion, CostEstimate: gateway.CostNumeric(cost, true),
 	})

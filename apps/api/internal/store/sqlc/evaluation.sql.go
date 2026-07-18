@@ -12,7 +12,7 @@ import (
 )
 
 const getLatestProjectEvaluation = `-- name: GetLatestProjectEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id FROM evaluations
 WHERE project_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -43,12 +43,13 @@ func (q *Queries) GetLatestProjectEvaluation(ctx context.Context, projectID pgty
 		&i.Rubric,
 		&i.Leaps,
 		&i.SessionID,
+		&i.ThreadID,
 	)
 	return i, err
 }
 
 const getLatestSessionEvaluation = `-- name: GetLatestSessionEvaluation :one
-SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id FROM evaluations
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id FROM evaluations
 WHERE session_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -79,6 +80,7 @@ func (q *Queries) GetLatestSessionEvaluation(ctx context.Context, sessionID pgty
 		&i.Rubric,
 		&i.Leaps,
 		&i.SessionID,
+		&i.ThreadID,
 	)
 	return i, err
 }
@@ -89,7 +91,7 @@ INSERT INTO evaluations (project_id, scores, narrative, model, tier,
   prompt_tokens, completion_tokens, cost_estimate, status)
 VALUES ($1, $2, $3, $4, $5,
   $6, $7, $8, 'done')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id
 `
 
 type InsertProjectEvaluationParams struct {
@@ -140,6 +142,7 @@ func (q *Queries) InsertProjectEvaluation(ctx context.Context, arg InsertProject
 		&i.Rubric,
 		&i.Leaps,
 		&i.SessionID,
+		&i.ThreadID,
 	)
 	return i, err
 }
@@ -150,7 +153,7 @@ INSERT INTO evaluations (session_id, scores, narrative, model, tier,
   prompt_tokens, completion_tokens, cost_estimate, status)
 VALUES ($1, $2, $3, $4, $5,
   $6, $7, $8, 'done')
-RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id
 `
 
 type InsertSessionEvaluationParams struct {
@@ -200,6 +203,7 @@ func (q *Queries) InsertSessionEvaluation(ctx context.Context, arg InsertSession
 		&i.Rubric,
 		&i.Leaps,
 		&i.SessionID,
+		&i.ThreadID,
 	)
 	return i, err
 }

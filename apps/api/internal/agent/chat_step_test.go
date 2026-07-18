@@ -49,6 +49,10 @@ type fakeChatStore struct {
 	materialsCreated int
 	cardsCreated     int
 	events           int
+
+	lastEventThreadID uuid.UUID
+	lastEventType     string
+	lastEventPayload  []byte
 }
 
 func newFakeChatStore() *fakeChatStore { return &fakeChatStore{} }
@@ -86,12 +90,15 @@ func (f *fakeChatStore) CreateThreadCardInstance(ctx context.Context, threadID u
 	return id, nil
 }
 
-func (f *fakeChatStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error {
+func (f *fakeChatStore) InsertThreadEvent(ctx context.Context, threadID uuid.UUID, typ string, payload []byte) error {
 	f.events++
+	f.lastEventThreadID = threadID
+	f.lastEventType = typ
+	f.lastEventPayload = payload
 	return nil
 }
 
-func (f *fakeChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error {
+func (f *fakeChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
 	f.llmCalls++
 	return nil
 }
@@ -117,7 +124,8 @@ func TestRunChatStepReplyOnly(t *testing.T) {
 func TestRunChatStepMintsMaterialAndOffers(t *testing.T) {
 	fs := newFakeChatStore()
 	prov := scriptedProvider("这确实值得核实一下。")
-	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: gateway.Resolved{Provider: "deepseek", Model: "x"}, UserID: uuid.New(), ThreadID: uuid.New()}, "看 https://nasa.gov/x 它证明了我的观点")
+	threadID := uuid.New()
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: gateway.Resolved{Provider: "deepseek", Model: "x"}, UserID: uuid.New(), ThreadID: threadID}, "看 https://nasa.gov/x 它证明了我的观点")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -126,6 +134,10 @@ func TestRunChatStepMintsMaterialAndOffers(t *testing.T) {
 	}
 	if res.Offer == nil || res.Offer.CardID != "craap" {
 		t.Fatalf("want a craap offer, got %+v", res.Offer)
+	}
+	if fs.events != 1 || fs.lastEventType != "card_surfaced" || fs.lastEventThreadID != threadID {
+		t.Fatalf("want exactly one thread-scoped card_surfaced event for thread %s, got events=%d type=%q threadID=%s",
+			threadID, fs.events, fs.lastEventType, fs.lastEventThreadID)
 	}
 }
 

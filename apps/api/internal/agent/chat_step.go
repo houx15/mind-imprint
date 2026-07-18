@@ -76,8 +76,8 @@ type ChatStore interface {
 	CreateThreadMaterial(ctx context.Context, threadID uuid.UUID, kind, source, title, sourceURL string) (uuid.UUID, error)
 	ListThreadCards(ctx context.Context, threadID uuid.UUID) ([]ScopedCard, error)
 	CreateThreadCardInstance(ctx context.Context, threadID uuid.UUID, cardID string) (uuid.UUID, error)
-	InsertUserEvent(ctx context.Context, userID uuid.UUID, surface, typ string, payload []byte) error
-	RecordChatLLMCall(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, prompt, completion int32) error
+	InsertThreadEvent(ctx context.Context, threadID uuid.UUID, typ string, payload []byte) error
+	RecordChatLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error
 }
 
 type ChatDeps struct {
@@ -154,7 +154,7 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 	// (2) Coach reply, metered even on reject.
 	out, usage, err := ProposeChatReply(ctx, deps.Provider, deps.Resolved, history, summary, flag)
 	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		if rerr := deps.Store.RecordChatLLMCall(ctx, deps.UserID, deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); rerr != nil {
+		if rerr := deps.Store.RecordChatLLMCall(ctx, deps.UserID, "coach", deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); rerr != nil {
 			slog.Warn("chat: record llm usage failed", "thread_id", deps.ThreadID.String(), "err", rerr.Error())
 		}
 	}
@@ -178,7 +178,7 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 		}
 		result.Offer = &CardOffer{CardInstanceID: ciID, MaterialID: materialID, CardID: cardID}
 		payload, _ := json.Marshal(map[string]string{"card_id": cardID})
-		if err := deps.Store.InsertUserEvent(ctx, deps.UserID, "chat", "card_surfaced", payload); err != nil {
+		if err := deps.Store.InsertThreadEvent(ctx, deps.ThreadID, "card_surfaced", payload); err != nil {
 			slog.Warn("chat: append card_surfaced event failed", "thread_id", deps.ThreadID.String(), "err", err.Error())
 		}
 	}
