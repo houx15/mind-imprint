@@ -1,4 +1,4 @@
-import { StudioProjection } from "@mind-imprint/contracts";
+import { Assessment, StudioProjection } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 export type ProjectListItem = {
@@ -16,4 +16,12 @@ export async function listProjects(): Promise<ProjectListItem[]> {
 export async function getProject(id: string): Promise<StudioProjection> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}`);
   return StudioProjection.parse(raw); // fail loud on drift
+}
+
+// A3: the project terminal — closes out the project and returns the
+// freshly persisted growth report (same posture as generateAssessment's
+// POST, but this is the one-time terminal action, not repeatable generation).
+export async function finishProject(id: string): Promise<Assessment> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/finish`, { method: "POST" });
+  return Assessment.parse(raw);
 }

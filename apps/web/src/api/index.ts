@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage, CourseSession } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -9,7 +9,8 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
-import { listProjects, getProject, type ProjectListItem } from "./projects";
+import { listProjects, getProject, finishProject, type ProjectListItem } from "./projects";
+import { getGrowthHistory } from "./growth";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
@@ -49,6 +50,7 @@ export interface ApiClient {
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
   getProject(id: string): Promise<StudioProjection>;
+  finishProject(id: string): Promise<Assessment>;
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
@@ -77,6 +79,7 @@ export interface ApiClient {
   courseAdvance(courseId: string): AsyncGenerator<CourseTurnEvent>;
   getCourseAssessment(courseId: string): Promise<Assessment | null>;
   generateCourseAssessment(courseId: string): Promise<Assessment>;
+  getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
 }
 
 export const api: ApiClient = {
@@ -84,7 +87,7 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
-  listProjects, getProject,
+  listProjects, getProject, finishProject,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
@@ -93,4 +96,5 @@ export const api: ApiClient = {
   getChatAssessment, generateChatAssessment,
   startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
   getCourseAssessment, generateCourseAssessment,
+  getGrowthHistory,
 };
