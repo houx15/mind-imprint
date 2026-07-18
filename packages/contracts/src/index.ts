@@ -17,3 +17,4 @@ export * from "./registry";
 export * from "./summonCard";
 export * from "./refeed";
 export * from "./studioState";
+export * from "./growthHistory";
