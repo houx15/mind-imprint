@@ -10,11 +10,3 @@ export async function getAssessment(projectId: string): Promise<Assessment | nul
   if (raw == null) return null;
   return Assessment.parse(raw);
 }
-
-// Runs the flagship assessor (Task 6's POST .../assessment) and returns the
-// freshly persisted report — fails loud on schema drift, same posture as
-// writing.ts's commitSnapshot.
-export async function generateAssessment(projectId: string): Promise<Assessment> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/assessment`, { method: "POST" });
-  return Assessment.parse(raw);
-}

@@ -15,7 +15,7 @@ import { activateProjectCard, submitProjectCard, skipProjectCard } from "./proje
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
-import { getAssessment, generateAssessment } from "./assessment";
+import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 import { startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
 import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
@@ -62,7 +62,6 @@ export interface ApiClient {
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
   getAssessment(projectId: string): Promise<Assessment | null>;
-  generateAssessment(projectId: string): Promise<Assessment>;
   listThreads(): Promise<ChatThread[]>;
   createThread(title?: string): Promise<ChatThread>;
   getMessages(threadId: string): Promise<ChatMessage[]>;
@@ -91,7 +90,7 @@ export const api: ApiClient = {
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
-  getAssessment, generateAssessment,
+  getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
   getChatAssessment, generateChatAssessment,
   startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,

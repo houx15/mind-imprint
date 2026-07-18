@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getAssessment, generateAssessment } from "./assessment";
+import { getAssessment } from "./assessment";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -47,32 +47,5 @@ describe("getAssessment", () => {
     vi.stubGlobal("fetch", spy);
 
     await expect(getAssessment("p1")).rejects.toThrow();
-  });
-});
-
-describe("generateAssessment", () => {
-  it("POSTs to .../assessment and parses the freshly generated DTO", async () => {
-    const spy = vi.fn(async () => new Response(
-      JSON.stringify(dto),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    const result = await generateAssessment("p1");
-
-    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain("/api/v1/projects/p1/assessment");
-    expect(init.method).toBe("POST");
-    expect(result).toEqual(dto);
-  });
-
-  it("surfaces the server's Chinese error message on failure, verbatim", async () => {
-    const spy = vi.fn(async () => new Response(
-      JSON.stringify({ error: { code: "assessment_rejected", message: "这次评估没通过内部校验，请再试一次" } }),
-      { status: 422, headers: { "Content-Type": "application/json" } },
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(generateAssessment("p1")).rejects.toThrow("这次评估没通过内部校验，请再试一次");
   });
 });

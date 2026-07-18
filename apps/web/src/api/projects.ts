@@ -19,8 +19,8 @@ export async function getProject(id: string): Promise<StudioProjection> {
 }
 
 // A3: the project terminal — closes out the project and returns the
-// freshly persisted growth report (same posture as generateAssessment's
-// POST, but this is the one-time terminal action, not repeatable generation).
+// freshly persisted growth report; this is the one-time terminal action,
+// not a repeatable generation endpoint.
 export async function finishProject(id: string): Promise<Assessment> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/finish`, { method: "POST" });
   return Assessment.parse(raw);
