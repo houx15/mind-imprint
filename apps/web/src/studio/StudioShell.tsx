@@ -34,6 +34,14 @@ export type StudioShellProps = {
   // travels alongside `card` for the same reason addSourceError does.
   lateralMaterialId?: string;
   onLateralMaterialChange?: (materialId: string) => void;
+  // A3 Task 9: the 就绪度 view's project terminal — see ViewFrameProps'
+  // `review` for why finishing/finishError/onFinish travel here instead of
+  // on StudioCallbacks (canFinish/finished are already on `state` itself).
+  review?: {
+    finishing?: boolean;
+    finishError?: string | null;
+    onFinish?: () => void;
+  };
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -74,6 +82,7 @@ export function StudioShell({
   addSourceError,
   lateralMaterialId,
   onLateralMaterialChange,
+  review,
 }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
@@ -175,6 +184,7 @@ export function StudioShell({
             onReviewDisposition: callbacks.onReviewDisposition,
             onAttestCitations: callbacks.onAttestCitations,
           }}
+          review={review}
         />
         <CoachRail
           anchor={state.coach.anchor}

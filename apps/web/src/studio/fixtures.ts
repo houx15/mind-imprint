@@ -225,4 +225,6 @@ export const STUDIO_FIXTURE: StudioState = {
       planSteps: ["立题", "找素材", "评估来源", "搭论证", "成稿", "反思归档"],
     },
   },
+  finished: false,
+  canFinish: false,
 };

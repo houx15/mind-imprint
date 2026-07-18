@@ -14,6 +14,8 @@ const projection = {
   coach: { anchor: "论证图 · 治理决心主张", messages: [], equipment: [] },
   onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [] },
   structure: [] as unknown[],
+  finished: false,
+  canFinish: false,
 };
 
 const fakeApi = {
@@ -1814,5 +1816,78 @@ describe("StudioContainer", () => {
 
     expect(attestGate).toHaveBeenCalledWith("p1", "draft_polish", "citations_matched", true);
     await waitFor(() => expect(getProjectCalls).toBe(2));
+  });
+
+  // --- A3 Task 9: the 就绪度 view's project terminal — canFinish renders the
+  // 完成任务·归档 button; clicking it calls api.finishProject then the
+  // onFinished callback the shell uses to route to 成长报告. ---
+
+  function reviewProjection(overrides: { canFinish?: boolean; finished?: boolean }) {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S6", name: "反思归档", view: "评估", state: "current" }],
+      activeStation: "S6",
+      readiness: [
+        { code: "表D", name: "来源与证据", lit: 4, total: 4, note: "", level: "full" as const },
+      ],
+      finished: overrides.finished ?? false,
+      canFinish: overrides.canFinish ?? false,
+    };
+  }
+
+  it("shows the 完成任务·归档 button when canFinish, and calls api.finishProject then onFinished on click", async () => {
+    const finishProject = vi.fn(async () => ({ dims: [], narrative: "" }));
+    const onFinished = vi.fn();
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
+      getProject: async () => reviewProjection({ canFinish: true }),
+      finishProject,
+    };
+    render(<StudioContainer api={api as never} onFinished={onFinished} />);
+    await screen.findByText("已点亮 4/4 格");
+
+    const button = screen.getByText("完成任务 · 归档");
+    fireEvent.click(button);
+
+    await waitFor(() => expect(finishProject).toHaveBeenCalledWith("p1"));
+    await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
+  });
+
+  it("shows the inert 已归档 state (no button) when the project is already finished", async () => {
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
+      getProject: async () => reviewProjection({ finished: true }),
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByText("已归档 · 成长报告已生成");
+    expect(screen.queryByText("完成任务 · 归档")).toBeNull();
+  });
+
+  it("surfaces a rejected finishProject as a finish error, without calling onFinished", async () => {
+    const finishProject = vi.fn(async () => { throw new Error("boom"); });
+    const onFinished = vi.fn();
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
+      getProject: async () => reviewProjection({ canFinish: true }),
+      finishProject,
+    };
+    render(<StudioContainer api={api as never} onFinished={onFinished} />);
+    await screen.findByText("完成任务 · 归档");
+
+    fireEvent.click(screen.getByText("完成任务 · 归档"));
+
+    await waitFor(() => expect(screen.getByText("归档失败，请重试")).toBeInTheDocument());
+    expect(onFinished).not.toHaveBeenCalled();
+  });
+
+  it("hides the finish terminal entirely when neither canFinish nor finished", async () => {
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
+      getProject: async () => reviewProjection({}),
+    };
+    render(<StudioContainer api={api as never} />);
+    await screen.findByText("已点亮 4/4 格");
+    expect(screen.queryByText("完成任务 · 归档")).toBeNull();
+    expect(screen.queryByText("已归档 · 成长报告已生成")).toBeNull();
   });
 });

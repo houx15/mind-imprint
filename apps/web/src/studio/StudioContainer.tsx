@@ -11,7 +11,7 @@ import type { StationCode, StudioState, StudioCallbacks } from "./state";
 // given test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate"
+  "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -43,15 +43,22 @@ function toStudioState(p: StudioProjection): StudioState {
       review: p.readiness ?? [],
       onboarding: p.onboarding,
     },
+    finished: p.finished,
+    canFinish: p.canFinish,
   };
 }
 
 export function StudioContainer({
   api = defaultApi,
   makeConversation = createStudioConversation,
+  onFinished,
 }: {
   api?: StudioApi;
   makeConversation?: typeof createStudioConversation;
+  // A3 Task 9: fired once `api.finishProject` resolves — the shell routes to
+  // the 成长报告 tab. Optional so standalone/story usages of StudioContainer
+  // (which never need tab routing) don't have to supply it.
+  onFinished?: () => void;
 }) {
   const [state, setState] = useState<StudioState | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -63,6 +70,12 @@ export function StudioContainer({
   // Slice 6b Task 9: the server's own honest Chinese message from the last
   // failed 添加信源 attempt — cleared on the next successful add.
   const [addSourceError, setAddSourceError] = useState<string | undefined>(undefined);
+  // A3 Task 9: the project terminal's own transient state — not a callback
+  // result folded into StudioCallbacks (same reasoning as addSourceError
+  // above: this is the student-facing outcome of the last finish attempt,
+  // not a callback itself).
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   // Fix-wave bug [B]: submitCard nulls `card` on its SSE "done" frame, well
   // before refetchProject's GET lands with the persisted anchors — without
   // this, ViewFrame's `card?.anchors ?? []` goes empty for that whole round
@@ -210,6 +223,25 @@ export function StudioContainer({
       throw err;
     }
   };
+
+  // A3 Task 9: the project terminal — POSTs the finish, then routes to the
+  // 成长报告 tab via `onFinished`. Deliberately does NOT refetchProject on
+  // success: the project is closed out and StudentApp is about to unmount
+  // this whole surface for the growth tab, so there is nothing left here to
+  // keep in sync.
+  async function handleFinish() {
+    if (!projectId || finishing) return;
+    setFinishing(true);
+    setFinishError(null);
+    try {
+      await api.finishProject(projectId);
+      onFinished?.();
+    } catch {
+      setFinishError("归档失败，请重试");
+    } finally {
+      setFinishing(false);
+    }
+  }
 
   // Subscribe to the live conversation's turns via the app's established
   // external-store pattern (matches agent/useConversation.ts). Falls back to
@@ -453,6 +485,7 @@ export function StudioContainer({
         addSourceError={addSourceError}
         lateralMaterialId={lateralMaterialId}
         onLateralMaterialChange={setLateralMaterialId}
+        review={{ finishing, finishError, onFinish: handleFinish }}
       />
     </>
   );

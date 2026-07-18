@@ -35,6 +35,12 @@ export type StudioState = {
     review: GaugeFx[];
     onboarding: OnboardingFx;
   };
+  // A3 Task 9: the project terminal — whether the project has already been
+  // finished (archived, growth report generated) and whether it currently
+  // qualifies to be. Mirrors `p.finished` / `p.canFinish` off the projection
+  // verbatim (Task 3's fields), same pattern as GaugeFx/StructureCardFx above.
+  finished: boolean;
+  canFinish: boolean;
 };
 
 export type StudioCallbacks = {

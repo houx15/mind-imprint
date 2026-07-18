@@ -24,7 +24,7 @@ export function StudentApp({
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {tab === "chat" && <ChatContainer />}
         {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("studio")} />}
-        {tab === "studio" && <StudioContainer />}
+        {tab === "studio" && <StudioContainer onFinished={() => setTab("growth")} />}
         {tab === "growth" && <GrowthReport />}
         {tab === "settings" && (
           <SettingsView session={session} user={session.getUser()} onLogout={onLogout} />

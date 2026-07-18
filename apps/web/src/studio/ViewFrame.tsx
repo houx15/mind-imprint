@@ -51,6 +51,15 @@ export type ViewFrameProps = {
     onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
     onAttestCitations?: (confirmed: boolean) => void;
   };
+  // A3 Task 9: the 就绪度 view's project terminal — canFinish/finished travel
+  // on `state` itself (they're projection fields, same as state.views.review),
+  // but finishing/finishError/onFinish are container-local transient handler
+  // state, so they travel as their own group, mirroring `writing` above.
+  review?: {
+    finishing?: boolean;
+    finishError?: string | null;
+    onFinish?: () => void;
+  };
 };
 
 const FRAME: React.CSSProperties = {
@@ -168,7 +177,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing, review }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -302,7 +311,16 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
           onAttestCitations={writing?.onAttestCitations}
         />
       )}
-      {effectiveView === "评估" && <ReviewView gauges={state.views.review} />}
+      {effectiveView === "评估" && (
+        <ReviewView
+          gauges={state.views.review}
+          canFinish={state.canFinish}
+          finished={state.finished}
+          finishing={review?.finishing ?? false}
+          finishError={review?.finishError ?? null}
+          onFinish={review?.onFinish ?? (() => {})}
+        />
+      )}
       {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}
     </div>
   );

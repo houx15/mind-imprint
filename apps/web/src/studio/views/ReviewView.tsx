@@ -2,6 +2,11 @@ import type { GaugeFx } from "../state";
 
 export type ReviewViewProps = {
   gauges: GaugeFx[];
+  canFinish: boolean;
+  finished: boolean;
+  finishing: boolean;
+  finishError: string | null;
+  onFinish: () => void;
 };
 
 const LEVEL_COLOR: Record<GaugeFx["level"], string> = {
@@ -41,7 +46,7 @@ function GaugeCard({ g }: { g: GaugeFx }) {
   );
 }
 
-export function ReviewView({ gauges }: ReviewViewProps) {
+export function ReviewView({ gauges, canFinish, finished, finishing, finishError, onFinish }: ReviewViewProps) {
   const litSum = gauges.reduce((n, g) => n + g.lit, 0);
   const totalSum = gauges.reduce((n, g) => n + g.total, 0);
   return (
@@ -70,6 +75,22 @@ export function ReviewView({ gauges }: ReviewViewProps) {
             <GaugeCard key={g.code} g={g} />
           ))}
         </div>
+        {finished ? (
+          <div style={{ marginTop: 22, textAlign: "center", fontSize: 13.5, fontWeight: 700, color: "#4C9A82" }}>已归档 · 成长报告已生成</div>
+        ) : canFinish ? (
+          <div style={{ marginTop: 22, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              onClick={onFinish}
+              disabled={finishing}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: finishing ? "#9CB6A9" : "#4C9A82", color: "#fff", border: "none", fontSize: 14.5, fontWeight: 700, padding: "13px 26px", borderRadius: 12, cursor: finishing ? "default" : "pointer", fontFamily: "inherit" }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              {finishing ? "正在归档…" : "完成任务 · 归档"}
+            </button>
+            {finishError && <div style={{ fontSize: 12.5, color: "#B0432E" }}>{finishError}</div>}
+          </div>
+        ) : null}
       </div>
     </div>
   );
