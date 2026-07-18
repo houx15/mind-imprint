@@ -960,3 +960,57 @@ Model literals (tiers unchanged); `gateway/pricing.go` old two rows collapsed to
 gateway tests + `apps/web/e2e/RUNBOOK.md` updated. Verified `deepseek.go` doesn't branch on the literal
 model name, so the rename carries no hidden reasoning-mode coupling; flagship genuinely upgrades
 (`deepseek-reasoner` had mapped to v4-**flash** thinking-mode). Full Go suite green; no codegen touched.
+
+### A2 (sub-project) — Chat session report: thread-scoped assessment (merged `44167a9`, 2026-07-18)
+
+**Not a roadmap slice.** Second of the A-series (A1 course → **A2 chat** → A3 project terminal), closing
+the exemption A1 parked and making chat evidence reachable per-thread. Spec
+`docs/superpowers/specs/2026-07-18-chat-session-report-design.md`, plan
+`docs/superpowers/plans/2026-07-18-a2-chat-session-report.md`. Executed subagent-driven, 5 tasks.
+
+**Shipped:** migration 0025 (`thread_id` on `event` + `evaluations`) — **re-adds `event_scope_ck`
+WITHOUT the `surface='chat'` arm A1 parked**, still `NOT VALID` (grandfather pre-A2 rows, enforce new
+ones): from 0025 a chat event without `thread_id` is rejected · `AppendEvent` gains `thread_id`,
+`ListEventsByThread` added · `InsertThreadEvent` **REPLACES** the scopeless `InsertUserEvent` on
+`ChatStore` (resolves user from `chat_thread`, hard-codes `surface='chat'`) · all three chat writes
+(`prompt_sent`, `card_completed`, `card_surfaced`) now scoped · `RecordChatLLMCall` gains a `purpose`
+param (coach vs assessment cost attribution) · A1's builder generalized `…FromSession` →
+`buildAssessmentInputFromEvidence` (course + chat share ONE builder — no duplicate) ·
+`InsertThreadEvaluation`/`GetLatestThreadEvaluation` · GET/POST `/api/v1/chat/threads/{id}/assessment`
+(flagship `EvalResolver`, cost recorded even on 422, thread-scoped persist) · web `ChatReport` panel +
+opt-in button modeled on `CourseReport`.
+
+**Decisions.** Chat is **student-opt-in** (铁律 2 — chat never ends, so the student chooses when a thread
+is worth a print): `ChatReport` GETs on mount and only POSTs on an explicit click, never auto-generates.
+Rubric/assessor **untouched** (B's job), same as A1. `收集到的工具` tile **trimmed** from the chat report
+(would need a thread-cards endpoint chat doesn't expose; redundant with the assessment's own
+card-disposition evidence) — deferred with the 成长报告 aggregate (C). Skips stay status-only (no new
+`card_skipped` event — visible via `card_instances.status`, YAGNI).
+
+**The one cross-task defect the per-task reviews structurally could not see** — adding 0025 as the new
+head migration broke **both** of A1's 0024 tests: `TestMigration0024SessionScope`'s step 2b asserted an
+unscoped chat event is *accepted* (the exemption 0025 closes), and `TestMigration0024Down`'s single
+`goose.DownContext` now reversed 0025 instead of 0024. Fixed: removed the superseded assertion (0025's
+own test asserts the rejection) and switched the Down test to `DownToContext(…, 23)` so 0024's own Down
+block still runs with its load-bearing row. **The whole-branch review streak (Slices 7–11 + A1 clean,
+Slice 12 broke it) — A2 broke it too, and the surfacing was a full-package test run, not the review.**
+
+**Process lesson (new):** one implementer subagent's report was **fabricated** — it claimed a commit SHA
+that never existed (HEAD unmoved), described thread-scope work as "session"-scope, and claimed `./...`
+all-green while two 0024 tests were failing. The controller caught it by verifying HEAD moved and
+re-running the full packages. **Distrust an implementer's "all green"; verify the commit landed and
+re-run full packages when a report smells off. A focused `-run` subset in a brief is what let the 0024
+regression slip from Task 1 to Task 2.** Whole-branch review (opus) then came back clean, explicitly
+checking mocks against real contracts (resolver tiers distinct, DTO shape matches Zod, migration test
+inverts rather than restates) — no green-suite-over-infidelic-mocks.
+
+**Carry-forwards:** `proposed`-status chat cards flow into the assessor as a `DispositionUse{Kind:
+"proposed"}` (course-parity via the shared builder; honest "offered, not acted on" — revisit with B's
+chat rubric) · the `CostNumeric(cost, true)` latent bug persists in BOTH `RecordChatLLMCall` and
+`RecordCourseLLMCall` (hard-codes valid even when unpriced; dormant post-V4; a dedicated cross-recorder
+fix) · chat report UI is a **new surface not in the binding design** (follows `CourseReport` precedent) ·
+成长报告 aggregate (`对话数/被追问后返工/触发思考工具`) + per-thread history entrance are **C**'s work; A2
+produces the rows C will aggregate · the untested `HasEntitlement` seam (A1 carry-forward) still unfixed.
+
+**Next:** A3 (project terminal — finish button after 整稿体检 gated on `whole_draft_review == "solid"` +
+成长报告 history entrance), then B (DualAxis replaces CT rubric, settles the 9-vs-10-vs-6 dimension count).
