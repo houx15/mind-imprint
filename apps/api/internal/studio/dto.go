@@ -39,6 +39,12 @@ type StudioProjection struct {
 	// review ⋈ skill config. Always the full config set (4 unlit cards
 	// pre-review). See projectReadiness (projection.go).
 	Readiness []GaugeDTO `json:"readiness"`
+	// Finished is true once the project's terminal has run (project.status ==
+	// "finished"). CanFinish is true when the S5 整稿体检 gate item
+	// whole_draft_review is "solid" AND the project is not already finished —
+	// the studio shows 完成任务·归档 exactly then (A3). Derived, never stored.
+	Finished  bool `json:"finished"`
+	CanFinish bool `json:"canFinish"`
 }
 
 // ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a

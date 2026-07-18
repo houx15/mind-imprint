@@ -312,6 +312,10 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 	currentTitle := stationTitle(stations, current)
 	coach := projectCoach(d, currentTitle)
 	coach.Equipment = projectEquipment(d, specByID)
+	finished := d.Project.Status == "finished"
+	recordedGates := agent.RecordedGatesFromNodes(d.GateStates)
+	// nil-map read is safe; absent gate/item → "" → not solid.
+	canFinish := !finished && recordedGates["draft_polish"].Items["whole_draft_review"] == "solid"
 	return StudioProjection{
 		Project:       ProjectHeader{Title: d.Project.Title, QualLabel: d.Project.Qualification},
 		Stations:      stations,
@@ -323,6 +327,8 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Structure:     projectStructure(specByID, d),
 		Writing:       projectWriting(sk, d),
 		Readiness:     projectReadiness(sk, d),
+		Finished:      finished,
+		CanFinish:     canFinish,
 	}, nil
 }
 

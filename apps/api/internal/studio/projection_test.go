@@ -886,3 +886,35 @@ func gaugeByCode(gs []GaugeDTO, code string) GaugeDTO {
 	}
 	return GaugeDTO{}
 }
+
+// TestProjectCanFinishAndFinished: the S5 整稿体检 gate item
+// draft_polish.whole_draft_review recorded "solid" makes CanFinish true while
+// the project is still active; once project.status flips to "finished",
+// Finished flips true and CanFinish flips false even though the gate is still
+// solid (A3 — the studio shows 完成任务·归档 exactly once, not after).
+func TestProjectCanFinishAndFinished(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	draftPolishSolid := sqlc.GraphNode{ID: uuid.New(), Type: "gate_state",
+		Body: []byte(`{"contract":"draft_polish","confirmed_solid":true,"items":{"whole_draft_review":"solid"}}`)}
+	d := ProjectData{
+		Project:    sqlc.Project{Status: "active"},
+		GateStates: []sqlc.GraphNode{draftPolishSolid},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if !proj.CanFinish || proj.Finished {
+		t.Fatalf("solid+active: canFinish=%v finished=%v, want true/false", proj.CanFinish, proj.Finished)
+	}
+
+	// Already finished → canFinish false even though the gate is solid.
+	d.Project.Status = "finished"
+	proj, err = Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if proj.CanFinish || !proj.Finished {
+		t.Fatalf("finished: canFinish=%v finished=%v, want false/true", proj.CanFinish, proj.Finished)
+	}
+}

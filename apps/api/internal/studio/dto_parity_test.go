@@ -41,13 +41,15 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			}}},
 		},
 		Readiness: []GaugeDTO{{Code: "表D", Name: "来源与证据", Lit: 3, Total: 4, Note: "n", Level: "partial"}},
+		Finished:  false,
+		CanFinish: false,
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "coach", "materials", "onboarding", "project", "readiness", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "materials", "onboarding", "project", "readiness", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}

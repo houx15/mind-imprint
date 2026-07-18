@@ -213,5 +213,7 @@ export const StudioProjection = z.object({
   structure: z.array(StructureCard),
   writing: WritingProjection,
   readiness: z.array(Gauge),
+  finished: z.boolean(),
+  canFinish: z.boolean(),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;

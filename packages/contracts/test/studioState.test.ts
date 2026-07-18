@@ -33,6 +33,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     });
     expect(ok.success).toBe(true);
   });
@@ -49,6 +51,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     });
     expect(ok.success).toBe(true);
   });
@@ -65,6 +69,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     };
     expect(StudioProjection.safeParse(rest).success).toBe(false);
   });
@@ -147,6 +153,8 @@ describe("MaterialSource", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     });
     expect(proj.materials[0]!.title).toBe("《卫星图看中国变绿》");
   });
@@ -174,6 +182,8 @@ describe("StudioProjection", () => {
       activeCard: null,
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     };
     expect(() => StudioProjection.parse(base)).toThrow(); // missing structure
     expect(StudioProjection.parse({ ...base, structure: [] }).structure).toEqual([]);
@@ -215,6 +225,8 @@ describe("WritingProjection", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      finished: false,
+      canFinish: false,
     };
     delete p.writing;
     expect(() => StudioProjection.parse(p)).toThrow();
