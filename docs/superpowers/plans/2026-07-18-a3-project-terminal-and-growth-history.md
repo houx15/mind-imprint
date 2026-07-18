@@ -735,21 +735,19 @@ func (a *API) getGrowthHistory(w http.ResponseWriter, r *http.Request) {
 			// A malformed row must not sink the whole list; skip it.
 			continue
 		}
-		var sub *string
-		if row.Sublabel.Valid {
-			s := row.Sublabel.String
-			sub = &s
-		}
+		// sqlc actual types (verified in Task 2): row.Sublabel is *string (nil
+		// when absent), row.CreatedAt is time.Time, row.ScopeID is pgtype.UUID.
+		created := row.CreatedAt.Format(time.RFC3339)
 		entries = append(entries, growthHistoryEntry{
 			Surface:   row.Surface,
 			ScopeID:   uuidText(row.ScopeID),
 			Label:     row.Label,
-			Sublabel:  sub,
-			CreatedAt: row.CreatedAt.Time.Format(time.RFC3339),
+			Sublabel:  row.Sublabel,
+			CreatedAt: created,
 			Report: studio.AssessmentDTO{
 				Dimensions:  dims,
 				Narrative:   row.Narrative,
-				GeneratedAt: row.CreatedAt.Time.Format(time.RFC3339),
+				GeneratedAt: created,
 			},
 		})
 	}
@@ -757,7 +755,7 @@ func (a *API) getGrowthHistory(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Confirm the sqlc row field types before compiling: `row.Scores` (`[]byte`), `row.Sublabel` (`pgtype.Text` → `.Valid`/`.String`), `row.CreatedAt` (`pgtype.Timestamptz` → `.Time`), `row.ScopeID` (`pgtype.UUID`). For `uuidText`, reuse whatever helper the `api` package already uses to render a `pgtype.UUID` as a string (grep `pgtype.UUID` + `.String()` / `uuid.UUID(` in `apps/api/internal/api`); if none exists, inline `uuid.UUID(row.ScopeID.Bytes).String()` and import `github.com/google/uuid`).
+Actual sqlc row field types (verified in Task 2): `row.Scores` (`[]byte`), `row.Sublabel` (`*string`, nil when absent — pass straight through), `row.CreatedAt` (`time.Time` — call `.Format(time.RFC3339)` directly, NOT `.Time`), `row.ScopeID` (`pgtype.UUID`). For `uuidText`, reuse whatever helper the `api` package already uses to render a `pgtype.UUID` as a string (grep `pgtype.UUID` + `.String()` / `uuid.UUID(` in `apps/api/internal/api`); if none exists, inline `uuid.UUID(row.ScopeID.Bytes).String()` and import `github.com/google/uuid`).
 
 - [ ] **Step 2: Add the route**
 
