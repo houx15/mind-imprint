@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -48,81 +50,61 @@ func (a *API) getAssessment(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
-// generateAssessment runs the isolated flagship growth-assessor over the
-// project's whole process record: load the project, digest it into the
-// agent's compact primitives, make ONE flagship call (agent.Assess, never
-// downgraded), record the call's cost regardless of outcome, and — only on
-// success — persist the report and return it. Never in the coach loop.
-func (a *API) generateAssessment(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
-	if !ok {
-		return
-	}
-	u, _ := UserFromContext(r.Context())
-	entitled, eerr := HasEntitlement(r.Context(), u)
-	if eerr != nil {
-		httpx.WriteError(w, r, eerr)
-		return
-	}
-	if !entitled {
-		httpx.WriteError(w, r, httpx.ErrNotEntitled())
-		return
-	}
+// errAssessmentRejected marks a generated report that failed internal
+// enforcement — the caller maps it to 422 assessment_rejected. Cost is already
+// recorded when this is returned.
+var errAssessmentRejected = errors.New("assessment rejected")
 
-	d, err := studio.Load(r.Context(), a.d.Queries, projectID)
+// generateProjectReport runs the isolated flagship growth-assessor over the
+// project's whole process record and persists ONE project-scoped evaluation.
+// It records the call's cost even when the output is then rejected. Returns the
+// wire DTO on success; errAssessmentRejected on a rejected output; any other
+// error on I/O failure. This is A3's single project-report generation core —
+// the finish endpoint is its only caller (the standalone regenerate route is
+// gone; one-time generation, DEC-A3.5).
+func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (studio.AssessmentDTO, error) {
+	d, err := studio.Load(ctx, a.d.Queries, projectID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return studio.AssessmentDTO{}, err
 	}
 	sk, skOK := skills.ByID("writing-project")
 	if !skOK {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
+		return studio.AssessmentDTO{}, httpx.ErrInternal()
 	}
 	proj, err := studio.Project(sk, a.d.SpecByID, d)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return studio.AssessmentDTO{}, err
 	}
+	in := buildAssessmentInputFromProject(d, proj, graphSummary(ctx, a.d.Queries, projectID))
 
-	in := buildAssessmentInputFromProject(d, proj, graphSummary(r.Context(), a.d.Queries, projectID))
-
-	resolved, rerr := a.d.EvalResolver(r.Context())
+	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
+		return studio.AssessmentDTO{}, httpx.ErrInternal()
 	}
-	assessment, usage, aerr := agent.Assess(r.Context(), a.d.Provider, resolved, rubric.CT(), in, agent.EmbeddedAnchors())
+	assessment, usage, aerr := agent.Assess(ctx, a.d.Provider, resolved, rubric.CT(), in, agent.EmbeddedAnchors())
 
-	// Record the call's cost even if enforcement below then rejects the
-	// output — a rejected call still cost money (mirrors orderReview).
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if resolved.Provider != "" {
-		if err := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+		if err := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "assessment",
 			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
 		}); err != nil {
-			slog.Warn("generate_assessment: record llm call", "err", err)
+			slog.Warn("generate_project_report: record llm call", "err", err)
 		}
 	}
 	if aerr != nil {
-		slog.Warn("generate_assessment: rejected", "err", aerr)
-		httpx.WriteError(w, r, &httpx.APIError{
-			Status: http.StatusUnprocessableEntity, Code: "assessment_rejected",
-			Message: "这次评估没通过内部校验，请再试一次",
-		})
-		return
+		slog.Warn("generate_project_report: rejected", "err", aerr)
+		return studio.AssessmentDTO{}, errAssessmentRejected
 	}
 
 	scoresJSON, merr := json.Marshal(assessment.Dimensions)
 	if merr != nil {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
+		return studio.AssessmentDTO{}, httpx.ErrInternal()
 	}
 	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 	promptTokens := int32(usage.InputTokens)
 	completionTokens := int32(usage.OutputTokens)
-	row, err := a.d.Queries.InsertProjectEvaluation(r.Context(), sqlc.InsertProjectEvaluationParams{
+	row, err := a.d.Queries.InsertProjectEvaluation(ctx, sqlc.InsertProjectEvaluationParams{
 		ProjectID:        pgtype.UUID{Bytes: projectID, Valid: true},
 		Scores:           scoresJSON,
 		Narrative:        assessment.Narrative,
@@ -133,22 +115,13 @@ func (a *API) generateAssessment(w http.ResponseWriter, r *http.Request) {
 		CostEstimate:     gateway.CostNumeric(cost, priced),
 	})
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return studio.AssessmentDTO{}, err
 	}
-	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
-		slog.Warn("generate_assessment: touch project", "err", err)
-	}
-	dto, derr := dtoFromEvaluationRow(row)
-	if derr != nil {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, dto)
+	return dtoFromEvaluationRow(row)
 }
 
 // dtoFromEvaluationRow reconstructs the wire DTO from a persisted evaluations
-// row: row.Scores IS the marshalled []agent.DimensionScore (generateAssessment's
+// row: row.Scores IS the marshalled []agent.DimensionScore (generateProjectReport's
 // own json.Marshal above) — reconstruction is one json.Unmarshal, never
 // string-splitting.
 func dtoFromEvaluationRow(row sqlc.Evaluation) (studio.AssessmentDTO, error) {

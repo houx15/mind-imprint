@@ -1,9 +1,9 @@
 package api_test
 
-// assessment_test.go — Task 6: GET/POST /api/v1/projects/{id}/assessment.
-// GET is the growth-report read path (no model call, ever); POST runs the
-// isolated flagship growth-assessor once over the project's process record,
-// persists the report, and returns it. Never in the coach loop.
+// assessment_test.go — GET /api/v1/projects/{id}/assessment: the growth-report
+// read path (no model call, ever). Generation itself moved to the project's
+// one-time terminal, POST /api/v1/projects/{id}/finish (project_finish_test.go,
+// A3 Task 4) — this endpoint no longer has a POST sibling.
 
 import (
 	"encoding/json"
@@ -12,9 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
-	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -33,9 +31,10 @@ func assessStubProvider(reply string) gateway.Provider {
 
 const assessReply = `{"dimensions":[{"code":"D2","level":"L4","evidence":"交叉验证两个一手源"},{"code":"D5","level":"L3","evidence":"论证拆解清楚"}],"narrative":"你这次最大的跃迁在信源辨识。"}`
 
-// TestGetAssessment_EmptyBeforeGenerate — before any POST, GET must return
-// 200 with an explicit JSON null (a normal "not yet assessed" state, never a
-// 404) and must record NO llm_call — the read path never calls a model.
+// TestGetAssessment_EmptyBeforeGenerate — before any report exists, GET must
+// return 200 with an explicit JSON null (a normal "not yet assessed" state,
+// never a 404) and must record NO llm_call — the read path never calls a
+// model.
 func TestGetAssessment_EmptyBeforeGenerate(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
@@ -56,36 +55,40 @@ func TestGetAssessment_EmptyBeforeGenerate(t *testing.T) {
 	}
 }
 
-// TestGenerateAssessment_PersistsAndReturnsDTO — POST makes one flagship
-// call, persists the report, records its cost, and returns an AssessmentDTO
-// covering all 10 rubric dimensions. A subsequent GET replays the SAME
-// persisted report with NO second model call.
-func TestGenerateAssessment_PersistsAndReturnsDTO(t *testing.T) {
+// TestGetAssessment_ReturnsPersistedReport — GET replays a report persisted
+// directly (standing in for finishProject's InsertProjectEvaluation write,
+// covered end-to-end by project_finish_test.go) with no model call.
+func TestGetAssessment_ReturnsPersistedReport(t *testing.T) {
 	pool := newAPITestPool(t)
-	h := New(Deps{
-		Queries:      sqlc.New(pool),
-		Pool:         pool,
-		Provider:     assessStubProvider(assessReply),
-		ChatResolver: fakeResolver(),
-		EvalResolver: fakeEvalResolver(),
-		SpecByID:     cards.ByID,
-	}).Handler()
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
-	rec := httptest.NewRecorder()
-	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/assessment", strings.NewReader("")), cookie)
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST assessment = %d, want 200; body=%s", rec.Code, rec.Body)
+	scoresJSON, err := json.Marshal([]map[string]string{
+		{"code": "D2", "level": "L4", "evidence": "交叉验证两个一手源"},
+	})
+	if err != nil {
+		t.Fatalf("marshal scores: %v", err)
+	}
+	if _, err := sqlc.New(pool).InsertProjectEvaluation(t.Context(), sqlc.InsertProjectEvaluationParams{
+		ProjectID: pgUUID(mustUUID(projectID)),
+		Scores:    scoresJSON,
+		Narrative: "你这次最大的跃迁在信源辨识。",
+		Model:     "deepseek-v4-pro",
+		Tier:      "flagship",
+	}); err != nil {
+		t.Fatalf("InsertProjectEvaluation: %v", err)
 	}
 
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET assessment (persisted) = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
 	var dto struct {
 		Dimensions []struct {
-			Code     string `json:"code"`
-			Name     string `json:"name"`
-			Level    string `json:"level"`
-			Evidence string `json:"evidence"`
+			Code string `json:"code"`
 		} `json:"dimensions"`
 		Narrative   string `json:"narrative"`
 		GeneratedAt string `json:"generatedAt"`
@@ -93,103 +96,32 @@ func TestGenerateAssessment_PersistsAndReturnsDTO(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode assessment DTO: %v — body=%s", err, rec.Body)
 	}
-	if len(dto.Dimensions) != 10 {
-		t.Fatalf("dimensions len = %d, want 10 (every rubric dimension, defaulting to NA)", len(dto.Dimensions))
-	}
-	codes := map[string]bool{}
-	for _, d := range dto.Dimensions {
-		codes[d.Code] = true
-	}
-	for i := 1; i <= 10; i++ {
-		code := "D" + string(rune('0'+i))
-		if i == 10 {
-			code = "D10"
-		}
-		if !codes[code] {
-			t.Errorf("dimensions missing code %s: %+v", code, dto.Dimensions)
-		}
-	}
-	if dto.Narrative == "" {
-		t.Error("narrative empty, want the model's growth narrative")
+	if dto.Narrative != "你这次最大的跃迁在信源辨识。" {
+		t.Fatalf("narrative = %q, want the persisted narrative", dto.Narrative)
 	}
 	if dto.GeneratedAt == "" {
 		t.Error("generatedAt empty, want RFC3339 timestamp")
 	}
-
-	// Persisted: GetLatestProjectEvaluation returns the same report.
-	row, err := sqlc.New(pool).GetLatestProjectEvaluation(req.Context(), pgUUID(mustUUID(projectID)))
-	if err != nil {
-		t.Fatalf("GetLatestProjectEvaluation: %v", err)
-	}
-	var scores []agent.DimensionScore
-	if err := json.Unmarshal(row.Scores, &scores); err != nil {
-		t.Fatalf("decode persisted scores: %v", err)
-	}
-	if len(scores) != 10 {
-		t.Fatalf("persisted scores len = %d, want 10", len(scores))
-	}
-	if row.Narrative != dto.Narrative {
-		t.Fatalf("persisted narrative = %q, want %q", row.Narrative, dto.Narrative)
-	}
-
-	// One llm_call recorded for this generation.
-	if n := countLLMCalls(t, pool, projectID); n != 1 {
-		t.Fatalf("llm_call rows after generate = %d, want 1", n)
-	}
-
-	// GET after POST returns the persisted assessment, no new model call.
-	rec2 := httptest.NewRecorder()
-	req2 := withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie)
-	h.ServeHTTP(rec2, req2)
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("GET assessment (after generate) = %d, want 200; body=%s", rec2.Code, rec2.Body)
-	}
-	var dto2 struct {
-		Dimensions []struct {
-			Code string `json:"code"`
-		} `json:"dimensions"`
-		Narrative string `json:"narrative"`
-	}
-	if err := json.Unmarshal(rec2.Body.Bytes(), &dto2); err != nil {
-		t.Fatalf("decode GET-after-POST DTO: %v — body=%s", err, rec2.Body)
-	}
-	if len(dto2.Dimensions) != 10 || dto2.Narrative != dto.Narrative {
-		t.Fatalf("GET-after-POST assessment mismatch: %+v", dto2)
-	}
-	if n := countLLMCalls(t, pool, projectID); n != 1 {
-		t.Fatalf("llm_call rows after GET replay = %d, want 1 (no new model call)", n)
+	if n := countLLMCalls(t, pool, projectID); n != 0 {
+		t.Fatalf("llm_call rows after GET of persisted report = %d, want 0 (no model call on read path)", n)
 	}
 }
 
-// TestGenerateAssessment_RejectsOtherUsersProject — ownership hidden as
+// TestGetAssessment_RejectsOtherUsersProject — ownership hidden as
 // not-found, same as every other project-scoped route (loadOwnedProject).
-func TestGenerateAssessment_RejectsOtherUsersProject(t *testing.T) {
+func TestGetAssessment_RejectsOtherUsersProject(t *testing.T) {
 	pool := newAPITestPool(t)
-	h := New(Deps{
-		Queries:      sqlc.New(pool),
-		Pool:         pool,
-		Provider:     assessStubProvider(assessReply),
-		ChatResolver: fakeResolver(),
-		SpecByID:     cards.ByID,
-	}).Handler()
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
 	other := createStudent(t, pool, SeedSchoolID, "assessment-other@demo.local")
 	cookie := signInAs(t, pool, other)
 	projectID := materialsTestProjectID
 
 	rec := httptest.NewRecorder()
-	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/assessment", strings.NewReader("")), cookie)
+	req := withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("POST assessment (other user) = %d, want 404 (ownership hidden as not-found); body=%s", rec.Code, rec.Body)
+		t.Fatalf("GET assessment (other user) = %d, want 404 (ownership hidden as not-found); body=%s", rec.Code, rec.Body)
 	}
-
-	rec2 := httptest.NewRecorder()
-	req2 := withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie)
-	h.ServeHTTP(rec2, req2)
-	if rec2.Code != http.StatusNotFound {
-		t.Fatalf("GET assessment (other user) = %d, want 404 (ownership hidden as not-found); body=%s", rec2.Code, rec2.Body)
-	}
-
 	if n := countLLMCalls(t, pool, projectID); n != 0 {
 		t.Fatalf("llm_call rows after other-user attempt = %d, want 0", n)
 	}
