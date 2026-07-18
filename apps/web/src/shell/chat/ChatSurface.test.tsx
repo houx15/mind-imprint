@@ -14,6 +14,8 @@ vi.mock("../../api", async (orig) => {
       chatTurn: vi.fn(),
       submitChatCard: vi.fn(),
       skipChatCard: vi.fn(),
+      getChatAssessment: vi.fn(),
+      generateChatAssessment: vi.fn(),
     },
   };
 });
@@ -111,5 +113,28 @@ describe("Chat surface", () => {
     expect(screen.queryByText(userMsg.content)).toBeNull();
     expect(screen.queryByText(aiMsg.content)).toBeNull();
     expect(api.getMessages).not.toHaveBeenCalled();
+  });
+
+  it("disables the report button while no assistant turn exists", async () => {
+    (api.listThreads as any).mockResolvedValue([thread]);
+    (api.getMessages as any).mockResolvedValue([userMsg]); // user-only, no assistant reply yet
+    render(<ChatContainer />);
+
+    const reportButton = await screen.findByRole("button", { name: "生成本次对话的思维印记" });
+    expect(reportButton).toBeDisabled();
+    fireEvent.click(reportButton);
+    expect(screen.queryByText("本次对话评估")).toBeNull();
+  });
+
+  it("enables the report button once an assistant turn exists and opens the report on click", async () => {
+    (api.listThreads as any).mockResolvedValue([thread]);
+    (api.getMessages as any).mockResolvedValue([userMsg, aiMsg]);
+    (api.getChatAssessment as any).mockResolvedValue(null);
+    render(<ChatContainer />);
+
+    const reportButton = await screen.findByRole("button", { name: "生成本次对话的思维印记" });
+    await waitFor(() => expect(reportButton).not.toBeDisabled());
+    fireEvent.click(reportButton);
+    expect(await screen.findByText("本次对话评估")).toBeInTheDocument();
   });
 });

@@ -18,6 +18,7 @@ import { getAssessment, generateAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 import { startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
 import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
+import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent };
 export { ApiError } from "./client";
@@ -66,6 +67,8 @@ export interface ApiClient {
   submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
   chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
+  getChatAssessment(threadId: string): Promise<Assessment | null>;
+  generateChatAssessment(threadId: string): Promise<Assessment>;
   startCourseSession(courseId: string): Promise<CourseSession>;
   getCourseSession(courseId: string): Promise<CourseSession>;
   submitCourseCard(courseId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
@@ -87,6 +90,7 @@ export const api: ApiClient = {
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
   getAssessment, generateAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
+  getChatAssessment, generateChatAssessment,
   startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
   getCourseAssessment, generateCourseAssessment,
 };

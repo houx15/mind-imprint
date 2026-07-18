@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CardInstance, ChatCardOffer, ChatThread } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { ChatSurface, type ChatEntry } from "./ChatSurface";
+import { ChatReport } from "./ChatReport";
 
 let localIdSeq = 0;
 function nextLocalId(prefix: string) {
@@ -20,6 +21,7 @@ export function ChatContainer() {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const entriesRef = useRef<ChatEntry[]>([]);
   entriesRef.current = entries;
 
@@ -35,6 +37,7 @@ export function ChatContainer() {
   }, []);
 
   useEffect(() => {
+    setReportOpen(false);
     if (!activeThreadId) { setEntries([]); return; }
     let cancelled = false;
     void (async () => {
@@ -54,10 +57,12 @@ export function ChatContainer() {
     setThreads((prev) => [thread, ...prev]);
     setActiveThreadId(thread.id);
     setEntries([]);
+    setReportOpen(false);
   }
 
   function handleSelectThread(id: string) {
     setActiveThreadId(id);
+    setReportOpen(false);
   }
 
   async function handleSend() {
@@ -121,6 +126,15 @@ export function ChatContainer() {
     handleDismissOffer(entryId);
   }
 
+  // Gate: the report is only worth generating once the thread has an actual
+  // AI reply to reflect on — an all-user or empty thread has nothing to
+  // assess yet.
+  const canOpenReport = !!activeThreadId && entries.some((e) => e.role === "assistant" && e.text.trim().length > 0);
+
+  if (reportOpen && activeThreadId) {
+    return <ChatReport threadId={activeThreadId} onClose={() => setReportOpen(false)} />;
+  }
+
   return (
     <ChatSurface
       threads={threads}
@@ -136,6 +150,8 @@ export function ChatContainer() {
       onDismissOffer={handleDismissOffer}
       onCardSubmit={handleCardSubmit}
       onCardSkip={handleCardSkip}
+      canOpenReport={canOpenReport}
+      onOpenReport={() => setReportOpen(true)}
     />
   );
 }

@@ -31,6 +31,8 @@ export type ChatSurfaceProps = {
   onDismissOffer: (entryId: string) => void;
   onCardSubmit: (entryId: string, env: CardInstance) => void;
   onCardSkip: (entryId: string) => void;
+  canOpenReport: boolean;
+  onOpenReport: () => void;
 };
 
 // ===== inline icons (dc.html 思维印记_工作区.dc.html lines 527-666 — the
@@ -188,6 +190,8 @@ export function ChatSurface({
   onDismissOffer,
   onCardSubmit,
   onCardSkip,
+  canOpenReport,
+  onOpenReport,
 }: ChatSurfaceProps) {
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
   const activeTitle = activeThread?.title?.trim() ? activeThread.title : "新对话";
@@ -242,6 +246,15 @@ export function ChatSurface({
             <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{activeTitle}</div>
             <div style={{ fontSize: 11.5, color: "#8A92A3", fontWeight: 600 }}>自由对话 · AI 只提问，不替你下结论</div>
           </div>
+          <button
+            type="button"
+            onClick={onOpenReport}
+            disabled={!canOpenReport}
+            title={canOpenReport ? "为这次对话生成思维印记" : "先和 AI 聊几句，再生成"}
+            style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: canOpenReport ? "#2A3B7A" : "#C7CCDA", background: canOpenReport ? "#EDEFF9" : "#F3F4F7", border: "none", padding: "6px 12px", borderRadius: 999, cursor: canOpenReport ? "pointer" : "not-allowed", fontFamily: "inherit" }}
+          >
+            生成本次对话的思维印记
+          </button>
           <div
             title="这些对话会成为你成长评估的一部分"
             style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "#4C9A82", background: "#E7F3EE", padding: "6px 11px", borderRadius: 999 }}
