@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -8,11 +9,11 @@ import (
 	"mindimprint/api/internal/studio"
 )
 
-// TestBuildAssessmentInputFromSession: a course session's evidence is its
-// event stream and its cards. It has no gates, snapshots, or graph — those
-// stay empty, and Assess's own NA defaults report the unevidenced dimensions
-// honestly (spec §4). Pure function, no I/O.
-func TestBuildAssessmentInputFromSession(t *testing.T) {
+// TestBuildAssessmentInputFromEvidence_CourseShape: a course session's
+// evidence is its event stream and its cards. It has no gates, snapshots, or
+// graph — those stay empty, and Assess's own NA defaults report the
+// unevidenced dimensions honestly (spec §4). Pure function, no I/O.
+func TestBuildAssessmentInputFromEvidence_CourseShape(t *testing.T) {
 	events := []studio.Event{
 		{Type: "course_message", Surface: "course", Payload: []byte(`{"unprompted":true}`)},
 		{Type: "phase_advanced", Surface: "course", Payload: []byte(`{"to":"guided"}`)},
@@ -22,7 +23,7 @@ func TestBuildAssessmentInputFromSession(t *testing.T) {
 		{CardID: "concession", Status: "skipped"},
 	}
 
-	in := buildAssessmentInputFromSession(events, cards)
+	in := buildAssessmentInputFromEvidence(events, cards)
 
 	if len(in.Timeline) != 2 {
 		t.Fatalf("Timeline = %v, want one line per event", in.Timeline)
@@ -58,9 +59,28 @@ func TestBuildAssessmentInputFromSession(t *testing.T) {
 }
 
 // An empty session must not panic and must not invent evidence.
-func TestBuildAssessmentInputFromSessionEmpty(t *testing.T) {
-	in := buildAssessmentInputFromSession(nil, nil)
+func TestBuildAssessmentInputFromEvidenceEmpty(t *testing.T) {
+	in := buildAssessmentInputFromEvidence(nil, nil)
 	if len(in.Timeline) != 0 || len(in.CardUses) != 0 || len(in.Dispositions) != 0 {
 		t.Fatalf("empty session produced evidence: %+v", in)
+	}
+}
+
+// TestBuildAssessmentInputFromEvidence_ChatShape confirms the shared builder
+// produces NA output dimensions for chat evidence — a chat thread has no
+// gates/word-counts/review-bands/graph — those args are empty so Assess
+// reports the writing dimensions NA (spec §DEC-A2.4).
+func TestBuildAssessmentInputFromEvidence_ChatShape(t *testing.T) {
+	events := []studio.Event{
+		{Type: "prompt_sent", Surface: "chat", Payload: json.RawMessage(`{}`)},
+		{Type: "card_surfaced", Surface: "chat", Payload: json.RawMessage(`{"card_id":"sift_craap"}`)},
+	}
+	cards := []sqlc.CardInstance{{CardID: "sift_craap", Status: "completed"}}
+	in := buildAssessmentInputFromEvidence(events, cards)
+	if len(in.GateProgress) != 0 || len(in.WordCounts) != 0 || in.GraphSummary != "" {
+		t.Fatalf("chat evidence must carry no gate/wordcount/graph args: %+v", in)
+	}
+	if len(in.CardUses) != 1 || in.CardUses[0].CardID != "sift_craap" {
+		t.Fatalf("card evidence not mapped: %+v", in.CardUses)
 	}
 }

@@ -83,7 +83,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	in := buildAssessmentInputFromSession(events, cards)
+	in := buildAssessmentInputFromEvidence(events, cards)
 
 	resolved, rerr := a.d.EvalResolver(r.Context())
 	if rerr != nil {

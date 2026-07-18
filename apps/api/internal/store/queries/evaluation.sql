@@ -30,3 +30,19 @@ SELECT * FROM evaluations
 WHERE session_id = @session_id
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- Chat thread scope (A2): mirrors the session-scoped pair above. A chat
+-- thread's report is one evaluations row scoped by thread_id alone.
+
+-- name: InsertThreadEvaluation :one
+INSERT INTO evaluations (thread_id, scores, narrative, model, tier,
+  prompt_tokens, completion_tokens, cost_estimate, status)
+VALUES (@thread_id, @scores, @narrative, @model, @tier,
+  @prompt_tokens, @completion_tokens, @cost_estimate, 'done')
+RETURNING *;
+
+-- name: GetLatestThreadEvaluation :one
+SELECT * FROM evaluations
+WHERE thread_id = @thread_id
+ORDER BY created_at DESC
+LIMIT 1;

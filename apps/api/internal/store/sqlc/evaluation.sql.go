@@ -85,6 +85,43 @@ func (q *Queries) GetLatestSessionEvaluation(ctx context.Context, sessionID pgty
 	return i, err
 }
 
+const getLatestThreadEvaluation = `-- name: GetLatestThreadEvaluation :one
+SELECT id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id FROM evaluations
+WHERE thread_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestThreadEvaluation(ctx context.Context, threadID pgtype.UUID) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, getLatestThreadEvaluation, threadID)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
+		&i.SessionID,
+		&i.ThreadID,
+	)
+	return i, err
+}
+
 const insertProjectEvaluation = `-- name: InsertProjectEvaluation :one
 
 INSERT INTO evaluations (project_id, scores, narrative, model, tier,
@@ -172,6 +209,67 @@ type InsertSessionEvaluationParams struct {
 func (q *Queries) InsertSessionEvaluation(ctx context.Context, arg InsertSessionEvaluationParams) (Evaluation, error) {
 	row := q.db.QueryRow(ctx, insertSessionEvaluation,
 		arg.SessionID,
+		arg.Scores,
+		arg.Narrative,
+		arg.Model,
+		arg.Tier,
+		arg.PromptTokens,
+		arg.CompletionTokens,
+		arg.CostEstimate,
+	)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Scores,
+		&i.Narrative,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.Status,
+		&i.Error,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.Signals,
+		&i.RubricVersion,
+		&i.Trigger,
+		&i.TriggerMilestone,
+		&i.ProjectID,
+		&i.Rubric,
+		&i.Leaps,
+		&i.SessionID,
+		&i.ThreadID,
+	)
+	return i, err
+}
+
+const insertThreadEvaluation = `-- name: InsertThreadEvaluation :one
+
+INSERT INTO evaluations (thread_id, scores, narrative, model, tier,
+  prompt_tokens, completion_tokens, cost_estimate, status)
+VALUES ($1, $2, $3, $4, $5,
+  $6, $7, $8, 'done')
+RETURNING id, task_id, scores, narrative, model, tier, prompt_tokens, completion_tokens, cost_estimate, status, error, created_at, completed_at, signals, rubric_version, trigger, trigger_milestone, project_id, rubric, leaps, session_id, thread_id
+`
+
+type InsertThreadEvaluationParams struct {
+	ThreadID         pgtype.UUID    `json:"thread_id"`
+	Scores           []byte         `json:"scores"`
+	Narrative        string         `json:"narrative"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     *int32         `json:"prompt_tokens"`
+	CompletionTokens *int32         `json:"completion_tokens"`
+	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+}
+
+// Chat thread scope (A2): mirrors the session-scoped pair above. A chat
+// thread's report is one evaluations row scoped by thread_id alone.
+func (q *Queries) InsertThreadEvaluation(ctx context.Context, arg InsertThreadEvaluationParams) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, insertThreadEvaluation,
+		arg.ThreadID,
 		arg.Scores,
 		arg.Narrative,
 		arg.Model,
