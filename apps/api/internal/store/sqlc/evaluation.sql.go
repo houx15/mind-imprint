@@ -7,7 +7,9 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -304,4 +306,81 @@ func (q *Queries) InsertThreadEvaluation(ctx context.Context, arg InsertThreadEv
 		&i.ThreadID,
 	)
 	return i, err
+}
+
+const listGrowthHistory = `-- name: ListGrowthHistory :many
+
+SELECT surface, scope_id, label, sublabel, created_at, scores, narrative
+FROM (
+  (SELECT DISTINCT ON (e.project_id)
+     'project'::text AS surface, e.project_id AS scope_id,
+     p.title AS label, NULL::text AS sublabel,
+     e.created_at AS created_at, e.scores AS scores, e.narrative AS narrative
+   FROM evaluations e JOIN project p ON p.id = e.project_id
+   WHERE e.project_id IS NOT NULL AND p.user_id = $1
+   ORDER BY e.project_id, e.created_at DESC)
+  UNION ALL
+  (SELECT DISTINCT ON (e.session_id)
+     'course'::text, e.session_id,
+     c.title, cs.phase,
+     e.created_at, e.scores, e.narrative
+   FROM evaluations e
+     JOIN course_session cs ON cs.id = e.session_id
+     JOIN course c ON c.id = cs.course_id
+   WHERE e.session_id IS NOT NULL AND cs.user_id = $1
+   ORDER BY e.session_id, e.created_at DESC)
+  UNION ALL
+  (SELECT DISTINCT ON (e.thread_id)
+     'chat'::text, e.thread_id,
+     t.title, NULL::text,
+     e.created_at, e.scores, e.narrative
+   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
+   WHERE e.thread_id IS NOT NULL AND t.user_id = $1
+   ORDER BY e.thread_id, e.created_at DESC)
+) rows
+ORDER BY created_at DESC
+`
+
+type ListGrowthHistoryRow struct {
+	Surface   string      `json:"surface"`
+	ScopeID   pgtype.UUID `json:"scope_id"`
+	Label     string      `json:"label"`
+	Sublabel  *string     `json:"sublabel"`
+	CreatedAt time.Time   `json:"created_at"`
+	Scores    []byte      `json:"scores"`
+	Narrative string      `json:"narrative"`
+}
+
+// A3 growth history: every report the caller owns, across all three scopes,
+// newest-first, one row per scope (reports are one-time; DISTINCT ON is
+// defensive — if two ever share a scope, the latest wins). Owner-filtered
+// through each scope's own join, so the returned ids are guaranteed owned and
+// the embedded report needs no second per-row auth. Labels: project.title /
+// course.title (+ session phase as sublabel) / chat_thread.title.
+func (q *Queries) ListGrowthHistory(ctx context.Context, userID uuid.UUID) ([]ListGrowthHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listGrowthHistory, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrowthHistoryRow
+	for rows.Next() {
+		var i ListGrowthHistoryRow
+		if err := rows.Scan(
+			&i.Surface,
+			&i.ScopeID,
+			&i.Label,
+			&i.Sublabel,
+			&i.CreatedAt,
+			&i.Scores,
+			&i.Narrative,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

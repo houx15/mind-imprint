@@ -106,6 +106,16 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 	return items, nil
 }
 
+const setProjectFinished = `-- name: SetProjectFinished :exec
+UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1
+`
+
+// A3 terminal: the first and only writer of project.status='finished'.
+func (q *Queries) SetProjectFinished(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setProjectFinished, id)
+	return err
+}
+
 const touchProject = `-- name: TouchProject :exec
 UPDATE project SET last_active_at = now() WHERE id = $1
 `
