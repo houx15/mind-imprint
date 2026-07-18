@@ -89,6 +89,11 @@ func TestMigration0025ThreadScope(t *testing.T) {
 // the wrong reason, exactly the gap A1's whole-branch review caught in 0024).
 // It also asserts the surface='chat' exemption is RESTORED: after Down an
 // unscoped chat event must be accepted again.
+//
+// A3 note: newTestPool migrates to head, which is now 0026, so a bare goose
+// Down would reverse 0026, not 0025. DownTo(24) rolls back to before 0025
+// (reversing 0026 then 0025), mirroring how TestMigration0024Down was fixed
+// when 0025 landed on top of 0024.
 func TestMigration0025Down(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -116,8 +121,8 @@ func TestMigration0025Down(t *testing.T) {
 		t.Fatalf("dialect: %v", err)
 	}
 
-	if err := goose.DownContext(ctx, db, "migrations"); err != nil {
-		t.Fatalf("goose down 0025 with a thread-scoped evaluation present: %v", err)
+	if err := goose.DownToContext(ctx, db, "migrations", 24); err != nil {
+		t.Fatalf("goose down to v24 (reversing 0026 then 0025) with a thread-scoped evaluation present: %v", err)
 	}
 
 	// Columns and the thread indexes are gone.
