@@ -59,7 +59,9 @@ The binding design frames chat's distinct value as "问题有没有变得更锋�
 The report is generated only when the student explicitly asks. **No auto-generation, no nudge, no badge.** This is why chat's trigger differs from A1/course (which finishes) and A3/project (which finishes): a chat thread never ends, so the student chooses when a thread is worth a print. Re-clicking regenerates (a fresh flagship call) — an explicit, consented choice, latest-wins.
 
 ### DEC-A2.6 — In-surface `ChatReport`, modeled on `CourseReport`
-A `生成本次对话的思维印记` button appears in the chat thread once the thread has a real exchange (**≥1 assistant message** — a light client-side gate so flagship calls stay meaningful; an empty thread produces an all-`NA` report and wastes a flagship call). Click → `POST` → renders a `本次对话评估` block: per-dimension L1–L4 bars, `未涉及` for `NA` dims, the narrative, and `收集到的工具` when the thread completed the CRAAP card (`ListCardInstancesByThread` filtered to `status='completed'`, deduped by card_id, CARD_REGISTRY-filtered so the tile and the block cannot disagree — the fabrication A1's review caught). GET-on-mount shows a stored report if one exists.
+A `生成本次对话的思维印记` button appears in the chat thread once the thread has a real exchange (**≥1 assistant message** — a light client-side gate so flagship calls stay meaningful; an empty thread produces an all-`NA` report and wastes a flagship call). Click → opens the report panel; the panel GETs on mount, shows a stored report if one exists, else runs one `POST` (the opening click is the opt-in), with an explicit `重新生成` for a fresh run and `返回对话` to close. The panel renders a `本次对话评估` block: per-dimension L1–L4 bars, `未涉及` for `NA` dims, and the narrative.
+
+**Scope trim (plan reconciliation):** the `收集到的工具` tile is **not** in A2's chat report. Rendering it would require a new thread-cards GET endpoint (chat exposes none to the client today, unlike course's `getCourseSession().collectedCards`), and the card-disposition evidence already feeds the assessment's dimensions — a separate decorative tile is redundant with the diagnostic and not worth a new endpoint. Deferred to the same follow-up as the 成长报告 aggregate (which is where `触发思考工具` counts belong anyway).
 
 ### DEC-A2.7 — Skips stay status-only (YAGNI)
 `skipChatCard` continues to emit no event. A skip is already visible to the assessor through `card_instances.status='skipped'` (the same channel A1 read course card dispositions from), so a dedicated `card_skipped` event would be redundant evidence. 铁律 4 (过程即数据) is satisfied by the card row; no new write.
@@ -89,7 +91,7 @@ A `生成本次对话的思维印记` button appears in the chat thread once the
 - **Event scoping** — all three writes carry `thread_id`; and a new chat event inserted **without** a `thread_id` is now **rejected** by `event_scope_ck` (proves the arm is gone and enforced for new rows). Run the FULL `store`/`api`/`agent` packages (a card/gate/projection-adjacent change), never `-run` subsets.
 - **Assessor input builder** — `buildAssessmentInputFromThread` maps chat events + cards; output dims empty → `NA`; `Spont` empty, not fabricated.
 - **Endpoints** — GET returns `null` when unassessed; POST generates + persists + returns; entitlement-false blocks (note the untestable seam — `HasEntitlement` is a package-level `return true, nil` with no injection point; carry-forward from A1, log rather than fake); ownership 404; tier is `flagship`.
-- **Web** — button gated on ≥1 assistant message; POST renders the report; `收集到的工具` tile count equals the CARD_REGISTRY-filtered completed-card block (cannot disagree); GET-on-mount rehydrates a stored report.
+- **Web** — button gated on ≥1 assistant message; opening the panel GET-then-POST-once renders the report; a stored report rehydrates via GET-on-mount without a second model call; `重新生成` triggers a fresh POST.
 
 ---
 
@@ -97,6 +99,7 @@ A `生成本次对话的思维印记` button appears in the chat thread once the
 
 - **成长报告 aggregate + history entrance** — chat's `对话数/被追问后返工/触发思考工具` counters and the per-thread report drill-in are **C**'s work. A2 produces the per-thread evaluation rows C will aggregate; it does not touch 成长报告.
 - **B's chat lens** — the 提示词透镜 / 追问深度 chat-specific dimensions are B's rubric redesign; A2 stays on the CT rubric.
+- **`收集到的工具` tile in the chat report** — needs a thread-cards client endpoint chat doesn't expose; redundant with the assessment's own card-disposition evidence. Deferred with the 成长报告 aggregate (C).
 - **Entitlement-false test** — no injection seam exists (A1 carry-forward); logged, not faked.
 - **Multimodal / off-record chat, thread evidence nodes in the process tree** — Slice 11 deferrals, still deferred.
 - **Latent cost-validity bug (noted, not fixed here)** — both `RecordChatLLMCall` (`chatstore.go:120`) and `RecordCourseLLMCall` (`coursestore.go:221`) call `gateway.CostNumeric(cost, true)` — hard-coding `true` even when the model is unpriced, so an unknown model would record `$0` as a *valid* number rather than NULL. Latent post-V4-migration (every current model is priced). A2 adds a `purpose` param to `RecordChatLLMCall` but deliberately does **not** widen scope into a cross-cutting cost-correctness fix touching both recorders; logged for a dedicated follow-up.
