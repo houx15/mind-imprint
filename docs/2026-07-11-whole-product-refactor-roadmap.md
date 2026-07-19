@@ -1014,3 +1014,71 @@ produces the rows C will aggregate · the untested `HasEntitlement` seam (A1 car
 
 **Next:** A3 (project terminal — finish button after 整稿体检 gated on `whole_draft_review == "solid"` +
 成长报告 history entrance), then B (DualAxis replaces CT rubric, settles the 9-vs-10-vs-6 dimension count).
+
+### A3 (sub-project) — Project terminal + 成长报告 history hub (merged `f81c02a`, 2026-07-19)
+
+**Not a roadmap slice.** Third of the A-series (A1 course → A2 chat → **A3 project + history**), giving the
+project the terminal it never had and turning 成长报告 into the read-back home for every report A1/A2/A3
+produce. Spec `docs/superpowers/specs/2026-07-18-a3-project-terminal-and-growth-history-design.md`, plan
+`docs/superpowers/plans/2026-07-18-a3-project-terminal-and-growth-history.md`. Executed subagent-driven, 9 tasks.
+
+**The unifying principle (user requirement):** a growth report is visible ONLY after a terminal act on its
+surface, and that act auto-generates it — **once, no regeneration anywhere**. Chat is the sole exception to
+*auto*-generation (it never ends → manual opt-in click). Verified course + chat already satisfy this
+(`CourseReport` is routed solely via `onFinish`/`status:"finished"`; chat's button is opt-in) — **A3 touched
+neither A1 nor A2**; the project was the only surface missing a terminal.
+
+**Shipped:** migration 0026 closes `project.status` to `CHECK (status IN ('active','finished'))` (validated;
+all rows were `active`) · `SetProjectFinished` (first + only writer of `'finished'`) + `ListGrowthHistory`
+(UNION ALL of three `DISTINCT ON (scope)` owner-filtered sub-selects: project.title / course.title+phase /
+chat_thread.title) · `StudioProjection` gains derived `finished` + `canFinish` (`!finished &&
+draft_polish.whole_draft_review == "solid"`, same `RecordedGatesFromNodes` the finish endpoint reads — they
+can't disagree), mirrored in the Zod contract · **`POST /projects/{id}/finish`** — the one-time terminal:
+loadOwnedProject → HasEntitlement → already-finished 409 → server-enforced gate 422 → flagship
+`generateProjectReport` (cost recorded even on reject) → reject 422 **leaves project active** (retryable) →
+success = InsertProjectEvaluation + SetProjectFinished + `project_finished` event (`finished ⟺ has a report`) ·
+the old `POST /projects/{id}/assessment` **regenerate route + handler removed**, `generateAssessment` gone
+server + web (GET assessment kept) · **`GET /growth/history`** returns every owned report newest-first with the
+full report embedded (list already owner-filtered → no second fetch, no per-row auth) · `GrowthHistory` Zod DTO ·
+web api client `finishProject` + `getGrowthHistory` · **成长报告 rebuilt as a read-only history-hub accordion**
+(surface chip + label + date rows, RL-5 no row-level score; expand → embedded report; NO generate/重新生成) ·
+studio ReviewView (就绪度) gains the **完成任务·归档** button gated on `canFinish` (已归档 when finished),
+threaded StudioContainer→StudioShell→ViewFrame via a `review` prop group (mirrors existing `material`/`writing`
+groups); on success routes to 成长报告.
+
+**Decisions.** One-time, no 重新生成 (user: "we don't have 重新生成, this is one time"). Finish is atomic —
+`finished ⟺ report` (rejection stays active). Not building the S6 反思归档 station (deferred). `GET
+/projects/{id}/assessment` retained (benign read; 成长报告 now uses the history endpoint). History renders
+reports inline from the embedded DTO (identical content) rather than deep-linking back into course/chat surfaces.
+Rubric/assessor untouched (B's job), same as A1/A2.
+
+**Whole-branch review (opus): CLEAN — READY TO MERGE, no new Critical/Important.** A3 did NOT repeat Slice
+12's / A2's streak-break: all 8 invariants held (flagship+cost-on-reject, atomic one-time, server gate, RL-5,
+ownership isolation, wire coherence, A1/A2 untouched, migration safety). Notably verified: `canFinish` and the
+endpoint gate use the SAME `RecordedGatesFromNodes` (can't disagree); the DimensionScore↔AssessmentDimensionDTO
+JSON tags are identical (direct-unmarshal safe); the "stale button after finish" concern is a non-issue
+(finishing unmounts the studio → remount refetches `getProject` → 已归档).
+
+**Two controller interventions (process, same failure classes as prior slices):** (1) Task 1's implementer
+correctly caught + fixed the **head-staleness ripple** to 0025's Down test (adding 0026 as head made bare
+`goose.DownContext` reverse the wrong migration → `DownToContext(…,24)`) — the exact 0024→0025 pattern from A2.
+(2) Task 4's implementer **returned mid-run narration without committing** and left a **failing** api suite; root
+cause was **test-decode infidelity** — `project_finish_test.go` decoded the error envelope at top-level `{Code}`
+instead of nested `{error:{code}}`, so 3 error-path assertions failed though every handler body was correct.
+Controller diagnosed, fixed the 3 decodes, re-ran full packages (green), committed. Also fixed **Task 3 web
+fallout** — the required `finished`/`canFinish` Zod fields broke `projects.test.ts`'s `getProject` fixture
+because Task 3 ran only Go+contracts, not the web suite. **Lesson reinforced: distrust "kicked off a run,
+waiting" returns; verify HEAD moved + run FULL packages; a projection-schema change must run the web suite too.**
+
+**Carry-forwards (all deferred, none blocking):** `finishProject` has no DB lock against a concurrent
+double-submit (matches codebase check-then-act; worst case one extra flagship call on a rare DB failure, then the
+409 self-heals) · stale `generateAssessment` comment in `course_assessment.go` (A1 file, now inaccurate) ·
+`GrowthReport.test.tsx` no-generate assertion is a blunt whole-doc `queryByText(/生成/)` (copy reworded 生成→留下
+to satisfy it; a role-based query would be tighter) · the `CostNumeric(cost, true)` latent bug still in both
+`RecordChatLLMCall`/`RecordCourseLLMCall` (dormant post-V4) · the untested `HasEntitlement` seam still unfixed ·
+finish button lives only in the 就绪度 view (discoverability = a product choice per DEC-A3.1).
+
+**Next:** B (DualAxis model replaces the CT rubric — settles the 9-vs-10-vs-6 dimension inconsistency; two axes
+认知深度 scored / 智识自主 unscored, SOLO 判层 + 提示词透镜, axiom "两轴永不合成总分"), then C (student-level
+ability model — the 成长报告 能力素养 9-dim radar aggregating the per-session rows A1/A2/A3 now produce; A3
+delivered the history LIST, C builds the AGGREGATION on top).
