@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -11,6 +11,7 @@ import {
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
 import { listProjects, getProject, finishProject, type ProjectListItem } from "./projects";
 import { getGrowthHistory } from "./growth";
+import { getAbilityModel } from "./ability";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
@@ -79,6 +80,7 @@ export interface ApiClient {
   getCourseAssessment(courseId: string): Promise<DualAxisReport | null>;
   generateCourseAssessment(courseId: string): Promise<DualAxisReport>;
   getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
+  getAbilityModel(): Promise<AbilityModel>;
 }
 
 export const api: ApiClient = {
@@ -96,4 +98,5 @@ export const api: ApiClient = {
   startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
   getCourseAssessment, generateCourseAssessment,
   getGrowthHistory,
+  getAbilityModel,
 };
