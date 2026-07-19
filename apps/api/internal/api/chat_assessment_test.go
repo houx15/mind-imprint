@@ -25,6 +25,19 @@ func countChatAssessmentLLMCalls(t *testing.T, pool *pgxpool.Pool) int {
 	return n
 }
 
+// countThreadEvaluations counts evaluation rows scoped to the given chat
+// thread — used to prove a rejected assessment persists nothing (mirrors
+// countProjectEvaluations in project_finish_test.go).
+func countThreadEvaluations(t *testing.T, pool *pgxpool.Pool, threadID string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM evaluations WHERE thread_id = $1`, threadID).Scan(&n); err != nil {
+		t.Fatalf("count thread evaluations: %v", err)
+	}
+	return n
+}
+
 // createThread POSTs /chat/threads and returns the new thread id.
 func createThread(t *testing.T, h http.Handler, cookie *http.Cookie) string {
 	t.Helper()
@@ -69,7 +82,7 @@ func TestGenerateChatAssessment_PersistsAtThreadScope(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+		Provider: assessStubProvider(dualAxisReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	threadID := createThread(t, h, cookie)
@@ -80,15 +93,17 @@ func TestGenerateChatAssessment_PersistsAtThreadScope(t *testing.T) {
 		t.Fatalf("POST = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var dto struct {
-		Dimensions  []struct{ Code, Name, Level, Evidence string } `json:"dimensions"`
-		Narrative   string                                         `json:"narrative"`
-		GeneratedAt string                                         `json:"generatedAt"`
+		DepthAxis struct {
+			Subtotal int `json:"subtotal"`
+		} `json:"depthAxis"`
+		Narrative   string `json:"narrative"`
+		GeneratedAt string `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode DTO: %v — body=%s", err, rec.Body)
 	}
-	if len(dto.Dimensions) != 10 {
-		t.Fatalf("dimensions len = %d, want 10 (every rubric dimension, unevidenced ones NA)", len(dto.Dimensions))
+	if dto.DepthAxis.Subtotal != 11 {
+		t.Fatalf("depthAxis.subtotal = %d, want 11", dto.DepthAxis.Subtotal)
 	}
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
@@ -120,15 +135,15 @@ func TestGenerateChatAssessment_PersistsAtThreadScope(t *testing.T) {
 }
 
 // TestGenerateChatAssessment_RecordsCostOnRejection — a rejected call still cost
-// money, so the llm_call row exists even though nothing is persisted. The
-// narrative contains "你应该这样写" — verified to trip enforcement's
-// "rewritten-sentence-zh" rule (banned_phrasing.go), the same fixture A1 used
-// after its infidelity fix.
+// money, so the llm_call row exists even though nothing is persisted. The reject
+// body carries "你应该这样写" — verified to trip enforcement's
+// "rewritten-sentence-zh" rule (banned_phrasing.go) — in the minimal valid
+// DualAxis shape (mirrors the project surface's reject fixture).
 func TestGenerateChatAssessment_RecordsCostOnRejection(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"dimensions":[],"narrative":"你应该这样写：先摆结论，再给证据。"}`),
+		Provider:     assessStubProvider(`{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"你应该这样写：先摆结论"}]},"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},"narrative":"n"}`),
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
@@ -141,6 +156,9 @@ func TestGenerateChatAssessment_RecordsCostOnRejection(t *testing.T) {
 	}
 	if n := countChatAssessmentLLMCalls(t, pool); n != 1 {
 		t.Fatalf("llm_call rows after rejection = %d, want 1 — a rejected call still cost money", n)
+	}
+	if n := countThreadEvaluations(t, pool, threadID); n != 0 {
+		t.Fatalf("evaluation rows after rejection = %d, want 0 — nothing persisted", n)
 	}
 }
 

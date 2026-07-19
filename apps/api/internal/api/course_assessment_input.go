@@ -26,8 +26,27 @@ func buildAssessmentInputFromEvidence(events []studio.Event, cards []sqlc.CardIn
 		nil, // WordCounts   — no draft snapshots
 		nil, // ReviewBands  — no whole-draft review
 		"",  // GraphSummary — no argument graph
-		nil, // Rounds — not yet wired for this surface
+		roundsFromEvidence(events),
 	)
+}
+
+// roundsFromEvidence pairs student-message events into ordered rounds. Course/chat
+// have no separate AI-context projection, so AiContext is left empty; the student
+// prompt alone still drives SOLO + prompt-lens. Reuses the exact same "prompt_sent"
+// predicate roundsFromProject (assessment.go) keys on, and eventText — the same
+// payload-to-text renderer eventDigestsFromProject already trusts — so rounds and
+// the timeline agree on what a "student turn" is and how its text reads.
+func roundsFromEvidence(events []studio.Event) []agent.Round {
+	rounds := make([]agent.Round, 0)
+	n := 0
+	for _, e := range events {
+		if e.Type != "prompt_sent" {
+			continue
+		}
+		n++
+		rounds = append(rounds, agent.Round{N: n, StudentPrompt: eventText(e), AiContext: ""})
+	}
+	return rounds
 }
 
 // cardUsesFromEvidence carries each card. Unlike the project side there is no

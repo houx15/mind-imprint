@@ -35,7 +35,7 @@ func (a *API) getCourseAssessment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	dto, derr := dtoFromEvaluationRow(row)
+	dto, derr := reportDTOFromEvaluationRow(row)
 	if derr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -90,7 +90,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
 	}
-	assessment, usage, aerr := agent.Assess(r.Context(), a.d.Provider, resolved, rubric.CT(), in, agent.EmbeddedAnchors())
+	report, usage, aerr := agent.AssessReport(r.Context(), a.d.Provider, resolved, rubric.Model(), in)
 
 	// Record the call's cost even if enforcement then rejects the output — a
 	// rejected call still cost money (mirrors generateAssessment/orderReview).
@@ -112,7 +112,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scoresJSON, merr := json.Marshal(assessment.Dimensions)
+	scoresJSON, merr := json.Marshal(report)
 	if merr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -123,7 +123,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 	row, err := a.d.Queries.InsertSessionEvaluation(r.Context(), sqlc.InsertSessionEvaluationParams{
 		SessionID:        sid,
 		Scores:           scoresJSON,
-		Narrative:        assessment.Narrative,
+		Narrative:        report.Narrative,
 		Model:            resolved.Model,
 		Tier:             resolved.Tier,
 		PromptTokens:     &promptTokens,
@@ -134,7 +134,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	dto, derr := dtoFromEvaluationRow(row)
+	dto, derr := reportDTOFromEvaluationRow(row)
 	if derr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return

@@ -38,6 +38,19 @@ func countCourseLLMCalls(t *testing.T, pool *pgxpool.Pool) int {
 	return n
 }
 
+// countSessionEvaluations counts evaluation rows scoped to the given course
+// session — used to prove a rejected assessment persists nothing (mirrors
+// countProjectEvaluations in project_finish_test.go).
+func countSessionEvaluations(t *testing.T, pool *pgxpool.Pool, sessionID string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM evaluations WHERE session_id = $1`, sessionID).Scan(&n); err != nil {
+		t.Fatalf("count session evaluations: %v", err)
+	}
+	return n
+}
+
 // TestGetCourseAssessment_EmptyBeforeGenerate — "not yet assessed" is a normal
 // state, never a 404: 200 + literal JSON null, and ZERO llm_call rows.
 func TestGetCourseAssessment_EmptyBeforeGenerate(t *testing.T) {
@@ -65,7 +78,7 @@ func TestGenerateCourseAssessment_PersistsAtSessionScope(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+		Provider: assessStubProvider(dualAxisReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	startSession(t, h, cookie, seededCourseID)
@@ -77,17 +90,17 @@ func TestGenerateCourseAssessment_PersistsAtSessionScope(t *testing.T) {
 	}
 
 	var dto struct {
-		Dimensions []struct {
-			Code, Name, Level, Evidence string
-		} `json:"dimensions"`
+		DepthAxis struct {
+			Subtotal int `json:"subtotal"`
+		} `json:"depthAxis"`
 		Narrative   string `json:"narrative"`
 		GeneratedAt string `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode DTO: %v — body=%s", err, rec.Body)
 	}
-	if len(dto.Dimensions) != 10 {
-		t.Fatalf("dimensions len = %d, want 10 (every rubric dimension, unevidenced ones NA)", len(dto.Dimensions))
+	if dto.DepthAxis.Subtotal != 11 {
+		t.Fatalf("depthAxis.subtotal = %d, want 11", dto.DepthAxis.Subtotal)
 	}
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
@@ -129,21 +142,20 @@ func TestGenerateCourseAssessment_PersistsAtSessionScope(t *testing.T) {
 // TestGenerateCourseAssessment_RecordsCostOnRejection — a rejected call still
 // cost money, so the llm_call row must exist even though nothing is persisted.
 //
-// The narrative below deliberately contains "你应该这样写" — verified against
+// The reject body below deliberately contains "你应该这样写" — verified against
 // apps/api/internal/agent/enforcement/banned_phrasing.go's "rewritten-sentence-zh"
-// rule, which matches that substring regardless of what follows. (The brief's
-// original candidate, "作为一个 AI 语言模型，我认为你做得很好。", matches NONE of
-// the corpus's regexes and would have made this test pass for the wrong
-// reason — the Slice 12 mock-infidelity lesson.)
+// rule, which matches that substring regardless of what follows. It carries the
+// minimal valid DualAxis shape (mirrors the project surface's reject fixture in
+// project_finish_test.go) so it fails enforcement, not JSON decoding.
 func TestGenerateCourseAssessment_RecordsCostOnRejection(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"dimensions":[],"narrative":"你应该这样写：先摆结论，再给证据。"}`),
+		Provider:     assessStubProvider(`{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"你应该这样写：先摆结论"}]},"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},"narrative":"n"}`),
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
-	startSession(t, h, cookie, seededCourseID)
+	sess := startSession(t, h, cookie, seededCourseID)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+seededCourseID+"/session/assessment", strings.NewReader("")), cookie))
@@ -152,6 +164,9 @@ func TestGenerateCourseAssessment_RecordsCostOnRejection(t *testing.T) {
 	}
 	if n := countCourseLLMCalls(t, pool); n != 1 {
 		t.Fatalf("llm_call rows after rejection = %d, want 1 — a rejected call still cost money", n)
+	}
+	if n := countSessionEvaluations(t, pool, sess.ID); n != 0 {
+		t.Fatalf("evaluation rows after rejection = %d, want 0 — nothing persisted", n)
 	}
 }
 
