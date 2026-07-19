@@ -84,3 +84,23 @@ FROM (
    ORDER BY e.thread_id, e.created_at DESC)
 ) rows
 ORDER BY created_at DESC;
+
+-- C ability model: EVERY evaluation the caller owns across all three scopes
+-- (not latest-per-scope like ListGrowthHistory), oldest-first, for cross-session
+-- aggregation. Owner-filtered through each scope's own join.
+
+-- name: ListEvaluationsByUser :many
+SELECT scores, created_at FROM (
+  (SELECT e.scores AS scores, e.created_at AS created_at
+   FROM evaluations e JOIN project p ON p.id = e.project_id
+   WHERE e.project_id IS NOT NULL AND p.user_id = @user_id)
+  UNION ALL
+  (SELECT e.scores, e.created_at
+   FROM evaluations e JOIN course_session cs ON cs.id = e.session_id
+   WHERE e.session_id IS NOT NULL AND cs.user_id = @user_id)
+  UNION ALL
+  (SELECT e.scores, e.created_at
+   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
+   WHERE e.thread_id IS NOT NULL AND t.user_id = @user_id)
+) rows
+ORDER BY created_at ASC;

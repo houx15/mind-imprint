@@ -308,6 +308,52 @@ func (q *Queries) InsertThreadEvaluation(ctx context.Context, arg InsertThreadEv
 	return i, err
 }
 
+const listEvaluationsByUser = `-- name: ListEvaluationsByUser :many
+
+SELECT scores, created_at FROM (
+  (SELECT e.scores AS scores, e.created_at AS created_at
+   FROM evaluations e JOIN project p ON p.id = e.project_id
+   WHERE e.project_id IS NOT NULL AND p.user_id = $1)
+  UNION ALL
+  (SELECT e.scores, e.created_at
+   FROM evaluations e JOIN course_session cs ON cs.id = e.session_id
+   WHERE e.session_id IS NOT NULL AND cs.user_id = $1)
+  UNION ALL
+  (SELECT e.scores, e.created_at
+   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
+   WHERE e.thread_id IS NOT NULL AND t.user_id = $1)
+) rows
+ORDER BY created_at ASC
+`
+
+type ListEvaluationsByUserRow struct {
+	Scores    []byte    `json:"scores"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// C ability model: EVERY evaluation the caller owns across all three scopes
+// (not latest-per-scope like ListGrowthHistory), oldest-first, for cross-session
+// aggregation. Owner-filtered through each scope's own join.
+func (q *Queries) ListEvaluationsByUser(ctx context.Context, userID uuid.UUID) ([]ListEvaluationsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listEvaluationsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEvaluationsByUserRow
+	for rows.Next() {
+		var i ListEvaluationsByUserRow
+		if err := rows.Scan(&i.Scores, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrowthHistory = `-- name: ListGrowthHistory :many
 
 SELECT surface, scope_id, label, sublabel, created_at, scores, narrative
