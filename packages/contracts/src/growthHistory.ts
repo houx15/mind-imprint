@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Assessment } from "./assessment";
+import { DualAxisReport } from "./dualAxisReport";
 
 // A3: one row of the 成长报告 history hub. surface + label + date, with the full
 // report embedded. RL-5: no score/level at row level — only inside report.
@@ -9,7 +9,7 @@ export const GrowthHistoryEntry = z.object({
   label: z.string(),
   sublabel: z.string().nullable(),
   createdAt: z.string(),
-  report: Assessment,
+  report: DualAxisReport,
 });
 export type GrowthHistoryEntry = z.infer<typeof GrowthHistoryEntry>;
 

@@ -1,40 +1,13 @@
 import { useEffect, useState } from "react";
-import type { Assessment, DimensionScore } from "@mind-imprint/contracts";
+import type { DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
 import { api } from "../../api";
-
-// dc.html:2643 lvlBar — 4 segments, lit up to the level with the given
-// colour, unlit ones stay #ECEEF4. NA lights zero (never "L0" — that level
-// does not exist; NA renders 未涉及 instead of a level string, RL-5's
-// diagnostic-not-graded posture applies here too). Mirrors CourseReport.tsx.
-const LIT_SEGMENT_COUNT: Record<DimensionScore["level"], number> = { L1: 1, L2: 2, L3: 3, L4: 4, NA: 0 };
-
-function DimensionRow({ dim }: { dim: DimensionScore }) {
-  const lit = LIT_SEGMENT_COUNT[dim.level];
-  return (
-    <div style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{dim.name}</span>
-        {dim.level === "NA" ? (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#9AA1B0", background: "#F3F4F7", padding: "2px 10px", borderRadius: 999 }}>未涉及</span>
-        ) : (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#D98263", background: "#FBEEE7", padding: "2px 10px", borderRadius: 999 }}>{dim.level}</span>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
-        {[1, 2, 3, 4].map((n) => (
-          <span key={n} style={{ flex: 1, height: 6, borderRadius: 3, background: n <= lit ? "#D98263" : "#ECEEF4" }} />
-        ))}
-      </div>
-      <div style={{ fontSize: 12.5, color: "#8A92A3" }}>{dim.evidence}</div>
-    </div>
-  );
-}
+import { DualAxisReport } from "../report/DualAxisReport";
 
 // A2: the chat thread's report panel. Student-opt-in (铁律 2) — this
 // component GETs a stored report on mount but never auto-POSTs; generation
 // only ever happens from the student's explicit click on 生成/重新生成.
 export function ChatReport({ threadId, onClose }: { threadId: string; onClose: () => void }) {
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [assessment, setAssessment] = useState<DualAxisReportT | null>(null);
   const [state, setState] = useState<"loading" | "empty" | "generating" | "ready" | "error">("loading");
 
   // GET on mount — show a stored report if one exists, else the opt-in CTA.
@@ -90,14 +63,7 @@ export function ChatReport({ threadId, onClose }: { threadId: string; onClose: (
           )}
           {state === "generating" && <div style={{ fontSize: 13.5, color: "#9AA1B0" }}>正在生成本次对话的思维印记…</div>}
           {state === "ready" && assessment && (
-            <>
-              {assessment.dimensions.map((d) => <DimensionRow key={d.code} dim={d} />)}
-              {assessment.narrative && (
-                <div style={{ fontSize: 13.5, color: "#2B3346", lineHeight: 1.7, marginTop: 16, background: "#F7F8FB", borderRadius: 12, padding: "14px 16px" }}>
-                  {assessment.narrative}
-                </div>
-              )}
-            </>
+            <DualAxisReport report={assessment} />
           )}
         </div>
 

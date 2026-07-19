@@ -1,4 +1,4 @@
-import { Assessment, StudioProjection } from "@mind-imprint/contracts";
+import { DualAxisReport, StudioProjection } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 export type ProjectListItem = {
@@ -21,7 +21,7 @@ export async function getProject(id: string): Promise<StudioProjection> {
 // A3: the project terminal — closes out the project and returns the
 // freshly persisted growth report; this is the one-time terminal action,
 // not a repeatable generation endpoint.
-export async function finishProject(id: string): Promise<Assessment> {
+export async function finishProject(id: string): Promise<DualAxisReport> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/finish`, { method: "POST" });
-  return Assessment.parse(raw);
+  return DualAxisReport.parse(raw);
 }

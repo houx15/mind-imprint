@@ -1,49 +1,11 @@
 import { useEffect, useState } from "react";
-import type { DimensionScore, GrowthHistoryEntry, ScoredLevel } from "@mind-imprint/contracts";
-import { SOLO_LABELS } from "@mind-imprint/contracts";
+import type { GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { DualAxisReport } from "../report/DualAxisReport";
 
 const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
   project: "项目", course: "课程", chat: "聊天",
 };
-
-// Per-dimension diagnostic chip: SOLO_LABELS for a scored level, or a muted
-// "insufficient evidence" note for NA — RL-5 (no total/rank/aggregate score
-// anywhere, ever): this always renders a label + its evidence, never a
-// number or grade.
-function LevelChip({ level }: { level: DimensionScore["level"] }) {
-  if (level === "NA") {
-    return (
-      <span style={{ fontSize: 12, fontWeight: 700, color: "#9AA1B0", background: "#F1F2F6", borderRadius: 999, padding: "3px 10px" }}>
-        证据不足 · NA
-      </span>
-    );
-  }
-  const colors: Record<ScoredLevel, { fg: string; bg: string }> = {
-    L1: { fg: "#B0691F", bg: "#FBF0E3" }, L2: { fg: "#8A6D1F", bg: "#FBF6E3" },
-    L3: { fg: "#2E7D5B", bg: "#E7F5EF" }, L4: { fg: "#2A5FA8", bg: "#E8F0FB" },
-  };
-  const c = colors[level];
-  return (
-    <span style={{ fontSize: 12, fontWeight: 700, color: c.fg, background: c.bg, borderRadius: 999, padding: "3px 10px" }}>
-      {SOLO_LABELS[level]}
-    </span>
-  );
-}
-
-function DimensionRow({ dim }: { dim: DimensionScore }) {
-  return (
-    <div style={{ padding: "14px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333" }}>{dim.name}</div>
-        <LevelChip level={dim.level} />
-      </div>
-      {dim.evidence && (
-        <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.6, marginTop: 6 }}>{dim.evidence}</div>
-      )}
-    </div>
-  );
-}
 
 function HistoryRow({ entry, open, onToggle }: { entry: GrowthHistoryEntry; open: boolean; onToggle: () => void }) {
   const date = entry.createdAt.slice(0, 10);
@@ -68,10 +30,7 @@ function HistoryRow({ entry, open, onToggle }: { entry: GrowthHistoryEntry; open
       </button>
       {open && (
         <div style={{ padding: "0 20px 20px" }}>
-          <div style={{ borderTop: "1px solid #F0F1F5", paddingTop: 8 }}>
-            {entry.report.dimensions.map((d) => <DimensionRow key={d.code} dim={d} />)}
-          </div>
-          <div style={{ marginTop: 16, fontSize: 14, color: "#2B3346", lineHeight: 1.8 }}>{entry.report.narrative}</div>
+          <DualAxisReport report={entry.report} />
         </div>
       )}
     </div>

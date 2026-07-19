@@ -20,13 +20,30 @@ vi.mock("../../api", async (orig) => {
 import { api } from "../../api";
 import { CourseReport } from "./CourseReport";
 
-// Real DTO shapes (checked against packages/contracts): camelCase generatedAt,
-// dimensions[].{code,name,level,evidence}, no total field anywhere.
+// Real DTO shape (checked against packages/contracts/src/dualAxisReport.ts):
+// a full DualAxisReport, reusing the exact fixture shape from Task 8's
+// apps/web/src/shell/report/DualAxisReport.test.tsx so it parses .strict()
+// and renders via the shared <DualAxisReport> component.
 const assessmentFixture = {
-  dimensions: [
-    { code: "D2", name: "信源辨识", level: "L3", evidence: "学生在第 3 轮追问了来源的作者与机构。" },
-  ],
+  depthAxis: { dims: [
+    { code: "D1", name: "任务理解与问题表述", score: 3, evidence: "限定判断", promptEvidence: "R4" },
+    { code: "D3", name: "证据与信源意识", score: 2, evidence: "学生在第 3 轮追问了来源的作者与机构。", promptEvidence: "" },
+    { code: "D4", name: "论证结构意识", score: 3, evidence: "warrant", promptEvidence: "" },
+    { code: "D5", name: "反馈理解与修改理由", score: 3, evidence: "理由", promptEvidence: "" },
+  ], subtotal: 11 },
+  autonomyAxis: { code: "D2", name: "学生主体性 / AI 依赖度", observation: "入场即设边界", anchoredSignals: ["R1"], promptedSignals: ["R3"], adversaryInvites: 0, promptEvidence: "" },
+  crossAxis: { code: "D6", name: "元认知与反思", depthLevel: "L3", initiative: "引导后", prose: "能反思，尚未自发反思", promptEvidence: "" },
+  solo: [{ round: 4, excerpt: "限定判断", level: "L3", rationale: "组织者", initiative: "自发" }],
+  promptLens: { directiveRounds: 3, totalRounds: 10, boundarySettings: 3, adversaryInvites: 0,
+    questions: [{ title: "一问 · 任务说清了吗", body: "…" }],
+    bestPrompt: { round: 8, quote: "检查是否回扣 thesis", annotation: "齐备" },
+    takeaway: { round: 0, quote: "扮演苛刻审稿人", annotation: "P4 模板" },
+    perRound: [{ round: 1, tier: "P3", label: "要过程·设边界" }] },
+  timeline: [{ round: 1, task: "上传草稿", prompt: "不要直接重写", pTag: "P3", dimTags: ["D1=2"] }],
+  keyEvidence: [{ label: "任务理解", quote: "我想把 thesis 改成…" }],
+  guidance: { anchored: "主动限定 thesis", prompted: "SIFT 核查", risk: "D3 仍停留在来源等级", nextSteps: [{ title: "下一步强化 D3", body: "跑一张 SIFT 记录" }] },
   narrative: "这门课里，你从接受说法转向了追问说法的来源。",
+  axiom: "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
   generatedAt: "2026-07-17T09:00:00Z",
 };
 
@@ -108,7 +125,7 @@ describe("CourseReport", () => {
     expect(unreachedRow.querySelector(":scope > svg")).toBeNull();
   });
 
-  it("generates the report once when none exists, and renders its dimensions with evidence", async () => {
+  it("generates the report once when none exists, and renders the DualAxisReport body", async () => {
     (api.getCourseAssessment as any).mockResolvedValue(null);
     (api.generateCourseAssessment as any).mockResolvedValue(assessmentFixture);
 
@@ -116,7 +133,7 @@ describe("CourseReport", () => {
 
     expect(await screen.findByText("能力评估")).toBeInTheDocument();
     expect(screen.getByText("按 SOLO 四级 · 来自这门课里你的表现")).toBeInTheDocument();
-    expect(screen.getByText("信源辨识")).toBeInTheDocument();
+    expect(screen.getByText("证据与信源意识")).toBeInTheDocument();
     expect(screen.getByText("学生在第 3 轮追问了来源的作者与机构。")).toBeInTheDocument();
     await waitFor(() => expect(api.generateCourseAssessment).toHaveBeenCalledTimes(1));
   });
@@ -128,24 +145,27 @@ describe("CourseReport", () => {
     expect(api.generateCourseAssessment).not.toHaveBeenCalled();
   });
 
-  // RL-5: no total, no rank, no aggregate anywhere in the DOM.
-  it("renders no total, rank, or aggregate score", async () => {
+  // RL-5: no rank, no aggregate anywhere in the DOM. The DualAxisReport DOES
+  // legitimately say "总分" once — inside its axiom disclaimer ("两轴永不合成
+  // 总分…"), which asserts the ABSENCE of a combined total, not a score.
+  it("renders no rank or aggregate score, and states via the axiom that the two axes are never combined", async () => {
     (api.getCourseAssessment as any).mockResolvedValue(assessmentFixture);
     const { container } = render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
     await screen.findByText("能力评估");
-    expect(container.textContent).not.toMatch(/总分|排名|平均分|\d+\s*\/\s*40/);
+    expect(container.textContent).not.toMatch(/排名|平均分|\d+\s*\/\s*40/);
+    expect(screen.getByText(/两轴永不合成总分/)).toBeInTheDocument();
   });
 
-  // An NA dimension is rendered, not hidden — "this course produced no evidence
-  // here" is true and useful; dropping the row would overstate the coverage.
-  it("renders an NA dimension as 未涉及 with no lit segments", async () => {
+  // An NA cross-axis level is rendered as 未涉及, never as a bare "NA" or a
+  // fabricated "L0" — RL-5's diagnostic-not-graded posture (mirrors the OLD
+  // per-dimension NA-rendering contract, now expressed via SoloLevel "NA").
+  it("renders a NA level as 未涉及, never as a bare level string", async () => {
     (api.getCourseAssessment as any).mockResolvedValue({
       ...assessmentFixture,
-      dimensions: [{ code: "D7", name: "论证质量", level: "NA", evidence: "这门课没有产出书面论证。" }],
+      crossAxis: { ...assessmentFixture.crossAxis, depthLevel: "NA" },
     });
     render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
-    expect(await screen.findByText("未涉及")).toBeInTheDocument();
-    expect(screen.getByText("这门课没有产出书面论证。")).toBeInTheDocument();
+    expect(await screen.findByText(/未涉及/)).toBeInTheDocument();
     expect(screen.queryByText("L0")).toBeNull();
   });
 

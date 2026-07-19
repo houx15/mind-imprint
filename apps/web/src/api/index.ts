@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, Assessment, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -50,7 +50,7 @@ export interface ApiClient {
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
   getProject(id: string): Promise<StudioProjection>;
-  finishProject(id: string): Promise<Assessment>;
+  finishProject(id: string): Promise<DualAxisReport>;
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
@@ -61,23 +61,23 @@ export interface ApiClient {
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
-  getAssessment(projectId: string): Promise<Assessment | null>;
+  getAssessment(projectId: string): Promise<DualAxisReport | null>;
   listThreads(): Promise<ChatThread[]>;
   createThread(title?: string): Promise<ChatThread>;
   getMessages(threadId: string): Promise<ChatMessage[]>;
   submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
   chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
-  getChatAssessment(threadId: string): Promise<Assessment | null>;
-  generateChatAssessment(threadId: string): Promise<Assessment>;
+  getChatAssessment(threadId: string): Promise<DualAxisReport | null>;
+  generateChatAssessment(threadId: string): Promise<DualAxisReport>;
   startCourseSession(courseId: string): Promise<CourseSession>;
   getCourseSession(courseId: string): Promise<CourseSession>;
   submitCourseCard(courseId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipCourseCard(courseId: string, cardInstanceId: string): Promise<void>;
   courseAsk(courseId: string, userInput: string): AsyncGenerator<CourseTurnEvent>;
   courseAdvance(courseId: string): AsyncGenerator<CourseTurnEvent>;
-  getCourseAssessment(courseId: string): Promise<Assessment | null>;
-  generateCourseAssessment(courseId: string): Promise<Assessment>;
+  getCourseAssessment(courseId: string): Promise<DualAxisReport | null>;
+  generateCourseAssessment(courseId: string): Promise<DualAxisReport>;
   getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
 }
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Assessment, Course, DimensionScore } from "@mind-imprint/contracts";
+import type { Course, DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { DualAxisReport } from "../report/DualAxisReport";
 
 function Stat({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
@@ -12,38 +13,10 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
   );
 }
 
-// dc.html:2643 lvlBar — 4 segments, lit up to the level with the given
-// colour, unlit ones stay #ECEEF4. NA lights zero (never "L0" — that level
-// does not exist; NA renders 未涉及 instead of a level string, RL-5's
-// diagnostic-not-graded posture applies here too).
-const LIT_SEGMENT_COUNT: Record<DimensionScore["level"], number> = { L1: 1, L2: 2, L3: 3, L4: 4, NA: 0 };
-
-function DimensionRow({ dim }: { dim: DimensionScore }) {
-  const lit = LIT_SEGMENT_COUNT[dim.level];
-  return (
-    <div style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{dim.name}</span>
-        {dim.level === "NA" ? (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#9AA1B0", background: "#F3F4F7", padding: "2px 10px", borderRadius: 999 }}>未涉及</span>
-        ) : (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#D98263", background: "#FBEEE7", padding: "2px 10px", borderRadius: 999 }}>{dim.level}</span>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
-        {[1, 2, 3, 4].map((n) => (
-          <span key={n} style={{ flex: 1, height: 6, borderRadius: 3, background: n <= lit ? "#D98263" : "#ECEEF4" }} />
-        ))}
-      </div>
-      <div style={{ fontSize: 12.5, color: "#8A92A3" }}>{dim.evidence}</div>
-    </div>
-  );
-}
-
 export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void }) {
   const [course, setCourse] = useState<Course | null>(null);
   const [completed, setCompleted] = useState<number[]>([]);
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [assessment, setAssessment] = useState<DualAxisReportT | null>(null);
   const [assessErr, setAssessErr] = useState(false);
   const [collectedCardIds, setCollectedCardIds] = useState<string[]>([]);
 
@@ -156,7 +129,7 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
           {assessErr ? (
             <div style={{ fontSize: 13.5, color: "#8A92A3" }}>能力评估暂时没能生成，稍后再看看。</div>
           ) : assessment ? (
-            assessment.dimensions.map((d) => <DimensionRow key={d.code} dim={d} />)
+            <DualAxisReport report={assessment} />
           ) : (
             <div style={{ fontSize: 13.5, color: "#9AA1B0" }}>正在整理你的学习报告…</div>
           )}
