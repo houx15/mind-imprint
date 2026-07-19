@@ -192,11 +192,16 @@ func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
+	promptPayload, perr := json.Marshal(map[string]string{"text": body.UserInput})
+	if perr != nil {
+		// Never fail the turn over telemetry — fall back to an empty payload.
+		promptPayload = []byte(`{}`)
+	}
 	if _, err := a.d.Queries.AppendEvent(r.Context(), sqlc.AppendEventParams{
 		ProjectID: pgtype.UUID{Valid: false}, UserID: u.ID,
 		SessionID: pgtype.UUID{Valid: false},
 		ThreadID:  pgtype.UUID{Bytes: threadID, Valid: true}, // A2: chat events are thread-scoped
-		Surface:   "chat", Type: "prompt_sent", Payload: []byte(`{}`),
+		Surface:   "chat", Type: "prompt_sent", Payload: promptPayload,
 	}); err != nil {
 		slog.Warn("chat turn: append prompt_sent event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

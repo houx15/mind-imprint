@@ -120,3 +120,49 @@ func TestAssessReportPromptCarriesLaddersAndAxiom(t *testing.T) {
 		}
 	}
 }
+
+// The system prompt must carry an explicit anti-fabrication guard: SOLO /
+// promptLens / timeline are grounded ONLY in the real 逐轮学生提示词 supplied
+// in the user input, and must NOT invent student prompts when a round (or
+// the whole surface, e.g. course) supplies none (whole-branch review C1c).
+func TestAssessReportPromptCarriesAntiFabricationGuard(t *testing.T) {
+	sys := assessReportSystemPrompt(rubric.Model())
+	if !strings.Contains(sys, "禁止杜撰学生提示词") {
+		t.Fatalf("system prompt missing anti-fabrication guard: %q", sys)
+	}
+}
+
+// The posture must say P0–P3 (the actual config/output-format/Zod contract),
+// never the stale "P0–P4" that used to drift from the tier enum (I1).
+func TestAssessReportPromptPromptTierRangeMatchesContract(t *testing.T) {
+	sys := assessReportSystemPrompt(rubric.Model())
+	if strings.Contains(sys, "P0–P4") || strings.Contains(sys, "P0-P4") {
+		t.Fatalf("system prompt still claims P0-P4: %q", sys)
+	}
+}
+
+// A perRound tier outside the P0..P3 contract (e.g. a stray "P4") must
+// normalize to "P0" before the report is persisted — otherwise every web
+// DualAxisReport.parse (strict P0-P3 enum) rejects it and, for the one-time
+// project finish with no regenerate, the report becomes permanently
+// unviewable (whole-branch review I1).
+func TestAssessReportNormalizesOutOfRangePerRoundTier(t *testing.T) {
+	reply := `{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"x"}]},
+		"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},
+		"promptLens":{"perRound":[{"round":1,"tier":"P4","label":"要过程"},{"round":2,"tier":"P2","label":"正常档位"}]},
+		"narrative":"n"}`
+	rep, _, err := AssessReport(context.Background(), reportProvider(reply),
+		gateway.Resolved{Tier: "flagship"}, rubric.Model(), AssessmentInput{})
+	if err != nil {
+		t.Fatalf("AssessReport: %v", err)
+	}
+	if len(rep.PromptLens.PerRound) != 2 {
+		t.Fatalf("perRound len = %d, want 2", len(rep.PromptLens.PerRound))
+	}
+	if rep.PromptLens.PerRound[0].Tier != "P0" {
+		t.Fatalf("out-of-range tier %q not normalized to P0", rep.PromptLens.PerRound[0].Tier)
+	}
+	if rep.PromptLens.PerRound[1].Tier != "P2" {
+		t.Fatalf("valid tier %q was mutated, want unchanged P2", rep.PromptLens.PerRound[1].Tier)
+	}
+}

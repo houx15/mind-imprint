@@ -58,6 +58,71 @@ func TestBuildAssessmentInputFromEvidence_CourseShape(t *testing.T) {
 	}
 }
 
+// TestPromptText_RealTextVsHonestEmpty proves the C1 fix: a prompt_sent event
+// whose payload actually carries {"text": "..."} (as studioturn.go/chat.go
+// now enrich it) yields that real text, and an empty payload yields "" —
+// NEVER eventText's bare event-type fallback ("prompt_sent" itself), which
+// would otherwise be fed to the assessor and read as fabricatable "real"
+// evidence (whole-branch review C1).
+func TestPromptText_RealTextVsHonestEmpty(t *testing.T) {
+	withText := studio.Event{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{"text":"我想改 thesis"}`)}
+	if got := promptText(withText); got != "我想改 thesis" {
+		t.Fatalf("promptText(with text) = %q, want %q", got, "我想改 thesis")
+	}
+	empty := studio.Event{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{}`)}
+	if got := promptText(empty); got != "" {
+		t.Fatalf("promptText(empty payload) = %q, want \"\" (not the bare event type)", got)
+	}
+	if got := promptText(empty); got == empty.Type {
+		t.Fatalf("promptText(empty payload) fell back to the event type %q — must be honest empty", empty.Type)
+	}
+	noPayload := studio.Event{Type: "prompt_sent", Surface: "studio"}
+	if got := promptText(noPayload); got != "" {
+		t.Fatalf("promptText(nil payload) = %q, want \"\"", got)
+	}
+}
+
+// TestRoundsFromProject_UsesRealPromptText proves roundsFromProject reads the
+// real student text via promptText, not eventText — a prompt_sent event with
+// real text yields that text on the Round, and one with an empty payload
+// yields "" rather than the literal "prompt_sent" (whole-branch review C1).
+func TestRoundsFromProject_UsesRealPromptText(t *testing.T) {
+	d := studio.ProjectData{Events: []studio.Event{
+		{Type: "card_surfaced", Surface: "studio", Payload: []byte(`{"card_id":"sift_craap"}`)},
+		{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{"text":"我想改 thesis"}`)},
+		{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{}`)},
+	}}
+	rounds := roundsFromProject(d)
+	if len(rounds) != 2 {
+		t.Fatalf("rounds = %+v, want 2", rounds)
+	}
+	if rounds[0].StudentPrompt != "我想改 thesis" {
+		t.Fatalf("rounds[0].StudentPrompt = %q, want the real text", rounds[0].StudentPrompt)
+	}
+	if rounds[1].StudentPrompt != "" {
+		t.Fatalf("rounds[1].StudentPrompt = %q, want honest empty (not \"prompt_sent\")", rounds[1].StudentPrompt)
+	}
+}
+
+// TestRoundsFromEvidence_UsesRealPromptText mirrors the project-side test for
+// the course/chat evidence path (course_assessment_input.go).
+func TestRoundsFromEvidence_UsesRealPromptText(t *testing.T) {
+	events := []studio.Event{
+		{Type: "prompt_sent", Surface: "chat", Payload: []byte(`{"text":"这段论据够吗"}`)},
+		{Type: "prompt_sent", Surface: "chat", Payload: []byte(`{}`)},
+	}
+	rounds := roundsFromEvidence(events)
+	if len(rounds) != 2 {
+		t.Fatalf("rounds = %+v, want 2", rounds)
+	}
+	if rounds[0].StudentPrompt != "这段论据够吗" {
+		t.Fatalf("rounds[0].StudentPrompt = %q, want the real text", rounds[0].StudentPrompt)
+	}
+	if rounds[1].StudentPrompt != "" {
+		t.Fatalf("rounds[1].StudentPrompt = %q, want honest empty (not \"prompt_sent\")", rounds[1].StudentPrompt)
+	}
+}
+
 // An empty session must not panic and must not invent evidence.
 func TestBuildAssessmentInputFromEvidenceEmpty(t *testing.T) {
 	in := buildAssessmentInputFromEvidence(nil, nil)

@@ -33,9 +33,12 @@ func buildAssessmentInputFromEvidence(events []studio.Event, cards []sqlc.CardIn
 // roundsFromEvidence pairs student-message events into ordered rounds. Course/chat
 // have no separate AI-context projection, so AiContext is left empty; the student
 // prompt alone still drives SOLO + prompt-lens. Reuses the exact same "prompt_sent"
-// predicate roundsFromProject (assessment.go) keys on, and eventText — the same
-// payload-to-text renderer eventDigestsFromProject already trusts — so rounds and
-// the timeline agree on what a "student turn" is and how its text reads.
+// predicate roundsFromProject (assessment.go) keys on, and promptText — the same
+// payload-to-real-text reader roundsFromProject trusts — so rounds and the timeline
+// agree on what a "student turn" is and how its text reads. Course emits no
+// prompt_sent events, so this honestly yields zero rounds there — never a fabricated
+// one — and the assessor's per-round surfaces (SOLO/promptLens/timeline) are left
+// empty rather than invented (see reportPosture's anti-fabrication guard).
 func roundsFromEvidence(events []studio.Event) []agent.Round {
 	rounds := make([]agent.Round, 0)
 	n := 0
@@ -44,7 +47,7 @@ func roundsFromEvidence(events []studio.Event) []agent.Round {
 			continue
 		}
 		n++
-		rounds = append(rounds, agent.Round{N: n, StudentPrompt: eventText(e), AiContext: ""})
+		rounds = append(rounds, agent.Round{N: n, StudentPrompt: promptText(e), AiContext: ""})
 	}
 	return rounds
 }

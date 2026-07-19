@@ -194,8 +194,13 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
+	promptPayload, perr := json.Marshal(map[string]string{"text": body.UserInput})
+	if perr != nil {
+		// Never fail the turn over telemetry — fall back to an empty payload.
+		promptPayload = []byte(`{}`)
+	}
 	if err := store.AppendEvent(r.Context(), agent.EventRow{
-		ProjectID: projectID, Surface: "studio", Type: "prompt_sent", Payload: []byte(`{}`),
+		ProjectID: projectID, Surface: "studio", Type: "prompt_sent", Payload: promptPayload,
 	}); err != nil {
 		slog.Warn("studio turn: append prompt_sent event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

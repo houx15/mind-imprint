@@ -171,6 +171,25 @@ func normSolo(l string) string {
 	return "NA"
 }
 
+// validTier is the closed set of prompt-tier values the config/output-format/
+// Zod contract all agree on: P0..P3. (The posture prose historically drifted
+// to "P0–P4"; that drift is fixed separately, but a model can still emit an
+// out-of-set value, so this guard stays regardless.)
+var validTier = map[string]bool{"P0": true, "P1": true, "P2": true, "P3": true}
+
+// normTier normalizes a model-emitted perRound prompt tier to the config's
+// P0..P3 set — mirrors normSolo's guard for SOLO levels. Any out-of-set value
+// (e.g. a stray "P4") normalizes to "P0", the neutral 应答轮, rather than
+// persisting a value every web DualAxisReport.parse (strict P0–P3 enum) would
+// reject — for the one-time project finish (no regenerate), an unnormalized
+// tier would permanently brick that report.
+func normTier(t string) string {
+	if validTier[t] {
+		return t
+	}
+	return "P0"
+}
+
 // AssessReport makes ONE isolated flagship call emitting the entire DualAxis
 // report, runs banned-phrasing over every free-text field, fills dim names +
 // axiom from the model, computes the depth subtotal (Σ scores), and emits every
@@ -253,6 +272,13 @@ func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved
 
 	auto := rubric.AutonomyDim()
 	cross := rubric.CrossDim()
+
+	// Normalize perRound tiers into the P0..P3 contract before they're
+	// persisted — timeline[].pTag stays a lenient z.string() on the Zod side
+	// and is deliberately left alone.
+	for i := range wire.PromptLens.PerRound {
+		wire.PromptLens.PerRound[i].Tier = normTier(wire.PromptLens.PerRound[i].Tier)
+	}
 
 	rep := Report{
 		DepthAxis: depth,

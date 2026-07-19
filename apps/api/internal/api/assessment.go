@@ -168,7 +168,7 @@ func roundsFromProject(d studio.ProjectData) []agent.Round {
 	for _, e := range d.Events {
 		if e.Type == "prompt_sent" {
 			n++
-			rounds = append(rounds, agent.Round{N: n, StudentPrompt: eventText(e), AiContext: lastContext})
+			rounds = append(rounds, agent.Round{N: n, StudentPrompt: promptText(e), AiContext: lastContext})
 			lastContext = ""
 			continue
 		}
@@ -293,4 +293,23 @@ func eventText(e studio.Event) string {
 		parts = append(parts, fmt.Sprintf("%s=%v", k, m[k]))
 	}
 	return e.Type + "：" + strings.Join(parts, "，")
+}
+
+// promptText extracts the student's real prompt text from a prompt_sent
+// event payload — "" when absent (honest empty; NEVER eventText's bare
+// event-type fallback, which would read as the literal string "prompt_sent"
+// and get treated as real evidence by the assessor). studioturn.go and
+// chat.go both enrich the prompt_sent payload with {"text": body.UserInput}
+// at append time; this is the one place that reads it back.
+func promptText(e studio.Event) string {
+	var p struct {
+		Text string `json:"text"`
+	}
+	if len(e.Payload) == 0 {
+		return ""
+	}
+	if err := json.Unmarshal(e.Payload, &p); err != nil {
+		return ""
+	}
+	return p.Text
 }
