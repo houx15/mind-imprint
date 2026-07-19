@@ -1,11 +1,18 @@
+import { DUALAXIS_MODEL } from "@mind-imprint/contracts";
 import type { DualAxisReport as DualAxisReportT, SoloLevel } from "@mind-imprint/contracts";
 
-// Chinese-numeral labels for SOLO levels, reused wherever a level needs to
-// read as prose rather than as the raw "L1"-"L4" code (the code itself is
-// reserved for the SOLO 判层 table, so it stays the one place that literal
-// string renders — avoids the crossAxis prose and the table both rendering
-// the exact same code as a separate, independently-queryable text node).
-const LEVEL_LABEL: Record<SoloLevel, string> = { L1: "一级", L2: "二级", L3: "三级", L4: "四级", NA: "未涉及" };
+// SOLO level vocabulary comes from the DualAxis single-source config
+// (DUALAXIS_MODEL.soloLevels), NOT a hand-rolled label map — 单点/多点/关联/
+// 抽象扩展 is the canonical structural-level naming, distinct from the OLD CT
+// dimension mastery-band vocabulary (萌芽/发展中/熟练/卓越 in SOLO_LABELS).
+// Rendered as "code name" (e.g. "L3 关联") everywhere a SOLO level appears.
+const SOLO_LEVEL_NAME: Record<string, string> = Object.fromEntries(
+  DUALAXIS_MODEL.soloLevels.map((s) => [s.level, s.name])
+);
+function levelLabel(level: SoloLevel): string {
+  if (level === "NA") return "未涉及";
+  return `${level} ${SOLO_LEVEL_NAME[level] ?? ""}`.trim();
+}
 
 // Shared visual language: white card / #EAECF2 border / 16px radius / 22-24px
 // padding, matching apps/web/src/shell/courses/CourseReport.tsx. This
@@ -81,7 +88,8 @@ export function DualAxisReport({ report }: { report: DualAxisReportT }) {
           </header>
           <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "0 0 6px" }}>{autonomyAxis.observation}</p>
           <p style={{ fontSize: 12, color: "#6B7384", margin: "0 0 3px" }}>能力锚定：{autonomyAxis.anchoredSignals.join("、") || "无"}</p>
-          <p style={{ fontSize: 12, color: "#6B7384", margin: 0 }}>引导后：{autonomyAxis.promptedSignals.join("、") || "无"}</p>
+          <p style={{ fontSize: 12, color: "#6B7384", margin: "0 0 3px" }}>引导后：{autonomyAxis.promptedSignals.join("、") || "无"}</p>
+          <p style={{ fontSize: 12, color: "#6B7384", margin: 0 }}>对手邀请：{autonomyAxis.adversaryInvites} 次</p>
         </article>
 
         <div style={SUB_TITLE_STYLE}>跨轴 · 元认知</div>
@@ -90,7 +98,7 @@ export function DualAxisReport({ report }: { report: DualAxisReportT }) {
             <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{crossAxis.name}</span>
             <ScoreBadge tone="cross">跨轴</ScoreBadge>
           </header>
-          <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "0 0 4px" }}>深度面 {LEVEL_LABEL[crossAxis.depthLevel]}／自主面 {crossAxis.initiative}</p>
+          <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "0 0 4px" }}>深度面 {levelLabel(crossAxis.depthLevel)}／自主面 {crossAxis.initiative}</p>
           <p style={{ fontSize: 13, color: "#2B3346", margin: 0, lineHeight: 1.6 }}>{crossAxis.prose}</p>
         </article>
       </div>
@@ -114,7 +122,7 @@ export function DualAxisReport({ report }: { report: DualAxisReportT }) {
                 <tr key={s.round} style={{ borderTop: "1px solid #F3F4F7" }}>
                   <td style={{ padding: "8px" }}>R{s.round}</td>
                   <td style={{ padding: "8px", color: "#2B3346" }}>{s.excerpt}</td>
-                  <td style={{ padding: "8px" }}><ScoreBadge tone="score">{LEVEL_LABEL[s.level]}</ScoreBadge></td>
+                  <td style={{ padding: "8px" }}><ScoreBadge tone="score">{levelLabel(s.level)}</ScoreBadge></td>
                   <td style={{ padding: "8px", color: "#6B7384" }}>{s.rationale}</td>
                   <td style={{ padding: "8px", color: "#6B7384" }}>{s.initiative}</td>
                 </tr>

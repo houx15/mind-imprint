@@ -43,7 +43,14 @@ describe("DualAxisReport", () => {
   });
   it("renders SOLO rows and prompt-lens counts", () => {
     render(<DualAxisReport report={report} />);
-    expect(screen.getByText(/L3/)).toBeTruthy();
-    expect(screen.getByText(/对手邀请/)).toBeTruthy();
+    // Content unique to a SOLO row (not the narrative, which also mentions "L3"):
+    // the fixture's SOLO rationale text and the SOLO level name. The level
+    // name also legitimately renders a second time in the crossAxis card
+    // (same L3 depthLevel in this fixture), so use getAllByText for it.
+    expect(screen.getByText(/组织者/)).toBeTruthy();
+    expect(screen.getAllByText(/关联/).length).toBeGreaterThan(0);
+    // prompt-lens count (space-separated, distinct from the autonomy card's
+    // colon-separated "对手邀请：" line for the different adversaryInvites field).
+    expect(screen.getByText(/对手邀请 \d/)).toBeTruthy();
   });
 });
