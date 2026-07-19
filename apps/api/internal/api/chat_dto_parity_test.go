@@ -1,7 +1,7 @@
 package api_test
 
 // chat_dto_parity_test.go — Task 5 (Slice 11): locks the Chat surface's wire
-// key sets, mirroring studio/dto_parity_test.go's TestAssessmentDTOJSONKeys
+// key sets, mirroring studio/dto_parity_test.go's DTO key-set assertions
 // (marshal a literal, assert the exact sorted key set). Must match the T6 web
 // client's Zod contracts once those land (packages/contracts).
 import (

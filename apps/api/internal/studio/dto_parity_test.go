@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"sort"
 	"testing"
-
-	"mindimprint/api/internal/agent"
 )
 
 // The wire key set must match packages/contracts/src/studioState.ts (StudioProjection).
@@ -318,36 +316,6 @@ func TestStationDTOGateBackflowOmission(t *testing.T) {
 			t.Fatalf("keys = %v, want %v (raw=%s)", got, want, raw)
 		}
 	})
-}
-
-// TestAssessmentDTOJSONKeys asserts the growth report's own wire shape —
-// AssessmentDTO is NOT part of StudioProjection (the assessor is isolated),
-// so this locks its key set independently, mirroring the assertion style
-// above. Must match packages/contracts' Zod side (Task 7).
-func TestAssessmentDTOJSONKeys(t *testing.T) {
-	dto := ToAssessmentDTO(agent.Assessment{
-		Dimensions: []agent.DimensionScore{{Code: "D1", Name: "论证结构", Level: "L3", Evidence: "e"}},
-		Narrative:  "n",
-	}, "2026-07-13T00:00:00Z")
-	raw, err := json.Marshal(dto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertKeys(t, raw, []string{"dimensions", "generatedAt", "narrative"})
-
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		t.Fatal(err)
-	}
-	var dims []json.RawMessage
-	if err := json.Unmarshal(m["dimensions"], &dims); err != nil {
-		t.Fatal(err)
-	}
-	if len(dims) != 1 {
-		t.Fatalf("dimensions len = %d, want 1", len(dims))
-	}
-	// dimension: {code,name,level,evidence}
-	assertKeys(t, dims[0], []string{"code", "evidence", "level", "name"})
 }
 
 // marshalKeys unmarshals raw JSON into a map and returns its sorted key set.

@@ -86,7 +86,7 @@ func TestFinishProject_GateNotMet(t *testing.T) {
 
 // TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport — the happy
 // path: gate solid, provider returns a valid report -> 200 with the
-// AssessmentDTO; project.status becomes 'finished'; exactly one flagship
+// DualAxis ReportDTO; project.status becomes 'finished'; exactly one flagship
 // evaluation persisted; a project_finished event exists.
 func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.T) {
 	pool := newAPITestPool(t)

@@ -11,7 +11,7 @@ import (
 const canonicalDir = "../../packages/contracts/src"
 const mirrorDir = "internal/rubric"
 
-var files = []string{"ct-rubric.json", "dualaxis.json"}
+var files = []string{"dualaxis.json"}
 
 func main() {
 	if err := os.MkdirAll(mirrorDir, 0o755); err != nil {

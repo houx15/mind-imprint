@@ -123,30 +123,14 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 // reportDTOFromEvaluationRow reconstructs the DualAxis wire DTO from a
 // persisted evaluations row: row.Scores IS the marshalled agent.Report
 // (generateProjectReport's own json.Marshal above) — reconstruction is one
-// json.Unmarshal, never string-splitting. Project-only for now: chat/course
-// still write the flat []agent.DimensionScore shape (dtoFromEvaluationRow,
-// below) until Task 6 flips them onto AssessReport too.
+// json.Unmarshal, never string-splitting. Shared by project/chat/course —
+// every surface now writes via AssessReport (Task 6).
 func reportDTOFromEvaluationRow(row sqlc.Evaluation) (studio.ReportDTO, error) {
 	var report agent.Report
 	if err := json.Unmarshal(row.Scores, &report); err != nil {
 		return studio.ReportDTO{}, err
 	}
 	return studio.ToReportDTO(report, row.CreatedAt.Format(time.RFC3339)), nil
-}
-
-// dtoFromEvaluationRow reconstructs the flat wire DTO from a persisted
-// evaluations row: row.Scores IS the marshalled []agent.DimensionScore
-// (generateChatAssessment/generateCourseAssessment's own json.Marshal) —
-// reconstruction is one json.Unmarshal, never string-splitting. Still used by
-// chat_assessment.go and course_assessment.go, which have not yet flipped to
-// AssessReport (Task 6).
-func dtoFromEvaluationRow(row sqlc.Evaluation) (studio.AssessmentDTO, error) {
-	var dims []agent.DimensionScore
-	if err := json.Unmarshal(row.Scores, &dims); err != nil {
-		return studio.AssessmentDTO{}, err
-	}
-	assessment := agent.Assessment{Dimensions: dims, Narrative: row.Narrative}
-	return studio.ToAssessmentDTO(assessment, row.CreatedAt.Format(time.RFC3339)), nil
 }
 
 // buildAssessmentInputFromProject maps the loaded ProjectData + its already-

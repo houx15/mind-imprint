@@ -7,7 +7,6 @@ export * from "./skill";
 export * from "./primitives";
 export * from "./cardSpec";
 export * from "./rubric";
-export * from "./assessment";
 export * from "./dualAxisReport";
 export * from "./chat";
 export * from "./envelope";
