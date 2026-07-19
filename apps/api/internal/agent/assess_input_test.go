@@ -14,6 +14,7 @@ func TestBuildAssessmentInputDigestsProcessRecord(t *testing.T) {
 		[]int{1780},
 		[]string{"表D 熟练", "表E 发展中"},
 		"claims:1 evidence:2 concession:1（钢人由学生撰写）",
+		nil,
 	)
 	if len(in.CardUses) != 1 || in.CardUses[0].Spont != "自发" {
 		t.Fatalf("card uses not carried: %+v", in.CardUses)
@@ -30,7 +31,7 @@ func TestBuildAssessmentInputDigestsProcessRecord(t *testing.T) {
 }
 
 func TestBuildAssessmentInputEmptyProjectIsMinimal(t *testing.T) {
-	in := BuildAssessmentInput(nil, nil, nil, nil, nil, nil, "")
+	in := BuildAssessmentInput(nil, nil, nil, nil, nil, nil, "", nil)
 	if len(in.Timeline) != 0 || in.SnapshotCount != 0 || in.GraphSummary != "" {
 		t.Fatalf("empty project should digest to a minimal input: %+v", in)
 	}

@@ -19,7 +19,7 @@ func assessProvider(reply string) *gateway.StubProvider {
 
 func TestAssessParsesScoresAndNarrative(t *testing.T) {
 	reply := `{"dimensions":[{"code":"D2","level":"L4","evidence":"交叉验证两个一手源"}],"narrative":"你这次最大的跃迁在 S3。"}`
-	in := BuildAssessmentInput(nil, []CardUse{{CardID: "sift", Dimension: "D3", Spont: "自发"}}, nil, nil, []int{1780}, nil, "claims:1")
+	in := BuildAssessmentInput(nil, []CardUse{{CardID: "sift", Dimension: "D3", Spont: "自发"}}, nil, nil, []int{1780}, nil, "claims:1", nil)
 	a, usage, err := Assess(context.Background(), assessProvider(reply), gateway.Resolved{Provider: "deepseek", Model: "x"}, rubric.CT(), in, EmbeddedAnchors())
 	if err != nil {
 		t.Fatal(err)

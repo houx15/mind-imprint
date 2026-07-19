@@ -26,6 +26,14 @@ type DispositionUse struct {
 	Reason string
 }
 
+// Round is one student turn in order: the student's prompt plus the AI ask/act
+// that framed it. Drives SOLO per-round judging and the 提示词透镜.
+type Round struct {
+	N             int
+	StudentPrompt string
+	AiContext     string
+}
+
 // AssessmentInput is the compact, temporal, model-ready digest of one project's
 // process record. Pure data; built by BuildAssessmentInput, consumed by Assess.
 type AssessmentInput struct {
@@ -37,10 +45,13 @@ type AssessmentInput struct {
 	ReviewBands   []string
 	GraphSummary  string
 	Timeline      []string
+	Rounds        []Round
 }
 
 // BuildAssessmentInput digests the process record. Pure — no I/O; the handler
 // extracts the primitive slices from studio.ProjectData at the call site.
+// `rounds` is the ordered per-round student-turn stream (SOLO + prompt-lens);
+// pass nil when a surface cannot supply it (dims fall to NA / empty honestly).
 func BuildAssessmentInput(
 	events []EventDigest,
 	cards []CardUse,
@@ -49,6 +60,7 @@ func BuildAssessmentInput(
 	wordCounts []int,
 	reviewBands []string,
 	graphSummary string,
+	rounds []Round,
 ) AssessmentInput {
 	timeline := make([]string, 0, len(events))
 	for _, e := range events {
@@ -63,5 +75,6 @@ func BuildAssessmentInput(
 		ReviewBands:   reviewBands,
 		GraphSummary:  graphSummary,
 		Timeline:      timeline,
+		Rounds:        rounds,
 	}
 }

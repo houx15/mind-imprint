@@ -149,6 +149,7 @@ func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioPro
 		wordCountsFromProject(d),
 		reviewBandsFromProject(proj.Readiness),
 		graph,
+		nil, // Rounds — not yet wired for this surface
 	)
 }
 
