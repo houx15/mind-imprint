@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { DualAxisReport } from "../report/DualAxisReport";
+import { AbilityModel } from "./AbilityModel";
 
 const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
   project: "项目", course: "课程", chat: "聊天",
@@ -37,7 +38,7 @@ function HistoryRow({ entry, open, onToggle }: { entry: GrowthHistoryEntry; open
   );
 }
 
-export function GrowthReport() {
+function LearningRecord() {
   const [entries, setEntries] = useState<GrowthHistoryEntry[] | undefined>(undefined);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,34 +63,52 @@ export function GrowthReport() {
   }
 
   return (
+    <>
+      <div style={{ background: "linear-gradient(135deg,#2A3B7A 0%,#34468C 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(42,59,122,.20)" }}>
+        <div style={{ flex: "none", width: 60, height: 60, borderRadius: 18, background: "rgba(255,255,255,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 1 5v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c0-2 1-3 1-5a5 5 0 0 0-5-5z" /><path d="M9 21h6" /></svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "#AEB8E4" }}>成长报告</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 6, lineHeight: 1.3 }}>你的思维印记</div>
+          <div style={{ fontSize: 13, color: "#C3CBEC", marginTop: 6 }}>每完成一个任务、一节课，或在聊天里留下一次思维印记，都会汇集到这里——按真实过程给出的诊断，不是分数。</div>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ marginTop: 14, fontSize: 13, color: "#B0432E", background: "#FBEDEA", borderRadius: 10, padding: "10px 14px" }}>{error}</div>
+      )}
+
+      {entries.length === 0 ? (
+        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "34px 24px", marginTop: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 14.5, color: "#3A4256", fontWeight: 700 }}>还没有报告</div>
+          <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.7, maxWidth: 420, margin: "8px auto 0" }}>完成一个任务、一节课，或在聊天里留下一次思维印记，报告会在这里汇集。</div>
+        </div>
+      ) : (
+        entries.map((e) => {
+          const id = `${e.surface}:${e.scopeId}`;
+          return <HistoryRow key={id} entry={e} open={openId === id} onToggle={() => setOpenId(openId === id ? null : id)} />;
+        })
+      )}
+    </>
+  );
+}
+
+export function GrowthReport() {
+  const [tab, setTab] = useState<"learning" | "ability">("learning");
+  const tabStyle = (active: boolean) => ({
+    padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
+    fontSize: 13.5, fontWeight: 700,
+    background: active ? "#2A3B7A" : "transparent", color: active ? "#fff" : "#6B7384",
+  });
+  return (
     <div style={{ flex: 1, minHeight: 0, height: "100%", overflowY: "auto", background: "#F3F4F8" }}>
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
-        <div style={{ background: "linear-gradient(135deg,#2A3B7A 0%,#34468C 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(42,59,122,.20)" }}>
-          <div style={{ flex: "none", width: 60, height: 60, borderRadius: 18, background: "rgba(255,255,255,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 1 5v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c0-2 1-3 1-5a5 5 0 0 0-5-5z" /><path d="M9 21h6" /></svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "#AEB8E4" }}>成长报告</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 6, lineHeight: 1.3 }}>你的思维印记</div>
-            <div style={{ fontSize: 13, color: "#C3CBEC", marginTop: 6 }}>每完成一个任务、一节课，或在聊天里留下一次思维印记，都会汇集到这里——按真实过程给出的诊断，不是分数。</div>
-          </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+          <button type="button" style={tabStyle(tab === "learning")} onClick={() => setTab("learning")}>学习记录</button>
+          <button type="button" style={tabStyle(tab === "ability")} onClick={() => setTab("ability")}>能力素养</button>
         </div>
-
-        {error && (
-          <div style={{ marginTop: 14, fontSize: 13, color: "#B0432E", background: "#FBEDEA", borderRadius: 10, padding: "10px 14px" }}>{error}</div>
-        )}
-
-        {entries.length === 0 ? (
-          <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "34px 24px", marginTop: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 14.5, color: "#3A4256", fontWeight: 700 }}>还没有报告</div>
-            <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.7, maxWidth: 420, margin: "8px auto 0" }}>完成一个任务、一节课，或在聊天里留下一次思维印记，报告会在这里汇集。</div>
-          </div>
-        ) : (
-          entries.map((e) => {
-            const id = `${e.surface}:${e.scopeId}`;
-            return <HistoryRow key={id} entry={e} open={openId === id} onToggle={() => setOpenId(openId === id ? null : id)} />;
-          })
-        )}
+        {tab === "learning" ? <LearningRecord /> : <AbilityModel />}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { GrowthReport } from "./GrowthReport";
 import { api } from "../../api";
 
@@ -45,5 +45,30 @@ describe("GrowthReport", () => {
     expect(screen.getByText(/11/)).toBeTruthy();
     expect(screen.getByText(/两轴永不合成总分/)).toBeTruthy();
     expect(screen.queryByText(/生成/)).toBeNull();
+  });
+});
+
+const emptyAbility = {
+  totalSessions: 0,
+  depth: ["D1", "D3", "D4", "D5"].map((code) => ({ code, name: code, level: -1, levelLabel: "", evidenceCount: 0 })),
+  autonomy: { sessions: 0, boundarySettings: 0, adversaryInvites: 0, anchoredSignals: 0, promptedSignals: 0 },
+  metacognition: { highestSolo: "", distribution: { L1: 0, L2: 0, L3: 0, L4: 0 }, spontaneous: 0, prompted: 0 },
+};
+
+describe("GrowthReport tabs", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("defaults to 学习记录 and switches to 能力素养", async () => {
+    vi.spyOn(api, "getGrowthHistory").mockResolvedValue([]);
+    vi.spyOn(api, "getAbilityModel").mockResolvedValue(emptyAbility as never);
+    render(<GrowthReport />);
+    // both tabs present
+    expect(screen.getByRole("button", { name: /学习记录/ })).toBeTruthy();
+    const abilityTab = screen.getByRole("button", { name: /能力素养/ });
+    // default tab is history (empty-state copy from the history hub)
+    await waitFor(() => expect(screen.getByText(/还没有报告/)).toBeTruthy());
+    // switch
+    fireEvent.click(abilityTab);
+    await waitFor(() => expect(screen.getByText(/还没有足够的数据/)).toBeTruthy());
   });
 });
