@@ -8,21 +8,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/studio"
 )
 
 // growthHistoryEntry is one row of the 成长报告 history hub: a surface + label +
-// date, with the full report embedded (the list is already owner-filtered, so
-// no second fetch and no per-report auth). RL-5: no score/level at this level —
-// the diagnostic lives inside report.dimensions only.
+// date, with the full DualAxis report embedded (the list is already
+// owner-filtered, so no second fetch and no per-report auth). RL-5: no
+// score/level/rank at this level — the diagnostic lives inside
+// report.depthAxis/autonomyAxis/crossAxis only.
 type growthHistoryEntry struct {
-	Surface   string               `json:"surface"` // "project" | "course" | "chat"
-	ScopeID   string               `json:"scopeId"`
-	Label     string               `json:"label"`
-	Sublabel  *string              `json:"sublabel"`
-	CreatedAt string               `json:"createdAt"`
-	Report    studio.AssessmentDTO `json:"report"`
+	Surface   string           `json:"surface"` // "project" | "course" | "chat"
+	ScopeID   string           `json:"scopeId"`
+	Label     string           `json:"label"`
+	Sublabel  *string          `json:"sublabel"`
+	CreatedAt string           `json:"createdAt"`
+	Report    studio.ReportDTO `json:"report"`
 }
 
 // getGrowthHistory returns every report the caller owns across project, course,
@@ -36,8 +38,8 @@ func (a *API) getGrowthHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	entries := make([]growthHistoryEntry, 0, len(rows))
 	for _, row := range rows {
-		var dims []studio.AssessmentDimensionDTO
-		if err := json.Unmarshal(row.Scores, &dims); err != nil {
+		var report agent.Report
+		if err := json.Unmarshal(row.Scores, &report); err != nil {
 			// A malformed row must not sink the whole list; skip it.
 			continue
 		}
@@ -50,11 +52,7 @@ func (a *API) getGrowthHistory(w http.ResponseWriter, r *http.Request) {
 			Label:     row.Label,
 			Sublabel:  row.Sublabel,
 			CreatedAt: created,
-			Report: studio.AssessmentDTO{
-				Dimensions:  dims,
-				Narrative:   row.Narrative,
-				GeneratedAt: created,
-			},
+			Report:    studio.ToReportDTO(report, created),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"entries": entries})

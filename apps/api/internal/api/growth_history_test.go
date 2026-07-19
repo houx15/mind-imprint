@@ -8,9 +8,30 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// dualAxisReportFixture marshals a minimal axis-structured agent.Report — the
+// only shape evaluations.scores now holds (flat []DimensionScore rows were
+// cleared by migration 0027; the product is not in use, so there is nothing
+// to stay backward-compatible with).
+func dualAxisReportFixture(t *testing.T, narrative string) []byte {
+	t.Helper()
+	b, err := json.Marshal(agent.Report{
+		DepthAxis: agent.DepthAxis{
+			Dims:     []agent.DepthDimScore{{Code: "D1", Name: "任务理解与问题表述", Score: 3}},
+			Subtotal: 3,
+		},
+		Narrative: narrative,
+		Axiom:     "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
+	})
+	if err != nil {
+		t.Fatalf("marshal report fixture: %v", err)
+	}
+	return b
+}
 
 // seedGrowthHistoryFixture seeds a project eval + a chat-thread eval for the
 // seeded student (2 owned reports), plus one project eval for a DIFFERENT
@@ -29,8 +50,8 @@ func seedGrowthHistoryFixture(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status)
-		VALUES ($1, '[]'::jsonb, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		projectID); err != nil {
+		VALUES ($1, $2, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
+		projectID, dualAxisReportFixture(t, "proj narrative")); err != nil {
 		t.Fatalf("seed project eval: %v", err)
 	}
 
@@ -43,8 +64,8 @@ func seedGrowthHistoryFixture(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (thread_id, scores, narrative, model, tier, status)
-		VALUES ($1, '[]'::jsonb, 'chat narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		threadID); err != nil {
+		VALUES ($1, $2, 'chat narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
+		threadID, dualAxisReportFixture(t, "chat narrative")); err != nil {
 		t.Fatalf("seed thread eval: %v", err)
 	}
 
@@ -120,8 +141,12 @@ func TestGetGrowthHistory_CrossSurfaceOwnerFiltered(t *testing.T) {
 		if !ok {
 			t.Fatalf("entry.report missing or wrong shape: %+v", e)
 		}
-		if _, ok := report["dimensions"]; !ok {
-			t.Errorf("report.dimensions missing: %+v", report)
+		depthAxis, ok := report["depthAxis"].(map[string]any)
+		if !ok {
+			t.Fatalf("report.depthAxis missing or wrong shape: %+v", report)
+		}
+		if subtotal, _ := depthAxis["subtotal"].(float64); subtotal != 3 {
+			t.Errorf("report.depthAxis.subtotal = %v, want 3: %+v", depthAxis["subtotal"], depthAxis)
 		}
 		if narrative, _ := report["narrative"].(string); narrative == "" {
 			t.Errorf("report.narrative empty: %+v", report)

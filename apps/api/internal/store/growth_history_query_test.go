@@ -2,10 +2,12 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -17,6 +19,21 @@ func TestListGrowthHistory(t *testing.T) {
 	pool := newTestPool(t)
 	q := sqlc.New(pool)
 
+	// scores is now the marshalled axis-structured agent.Report (flat
+	// []DimensionScore rows were cleared by migration 0027; the product is
+	// not in use, so nothing needs to stay compatible with the old shape).
+	reportJSON, err := json.Marshal(agent.Report{
+		DepthAxis: agent.DepthAxis{
+			Dims:     []agent.DepthDimScore{{Code: "D1", Score: 3}},
+			Subtotal: 3,
+		},
+		Narrative: "n",
+		Axiom:     "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
+	})
+	if err != nil {
+		t.Fatalf("marshal report fixture: %v", err)
+	}
+
 	// Owned project + its report.
 	var projectID pgtype.UUID
 	if err := pool.QueryRow(ctx, `
@@ -26,8 +43,8 @@ func TestListGrowthHistory(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status)
-		VALUES ($1, '[]'::jsonb, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		projectID); err != nil {
+		VALUES ($1, $2, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
+		projectID, reportJSON); err != nil {
 		t.Fatalf("seed project eval: %v", err)
 	}
 
@@ -41,8 +58,8 @@ func TestListGrowthHistory(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (session_id, scores, narrative, model, tier, status)
-		VALUES ($1, '[]'::jsonb, 'course narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		sessionID); err != nil {
+		VALUES ($1, $2, 'course narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
+		sessionID, reportJSON); err != nil {
 		t.Fatalf("seed session eval: %v", err)
 	}
 
@@ -55,8 +72,8 @@ func TestListGrowthHistory(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (thread_id, scores, narrative, model, tier, status)
-		VALUES ($1, '[]'::jsonb, 'chat narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		threadID); err != nil {
+		VALUES ($1, $2, 'chat narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
+		threadID, reportJSON); err != nil {
 		t.Fatalf("seed thread eval: %v", err)
 	}
 
@@ -93,8 +110,10 @@ func TestListGrowthHistory(t *testing.T) {
 		t.Fatalf("got %d rows, want 3 (own project+course+chat, other user excluded)", len(rows))
 	}
 	surfaces := map[string]string{}
+	scoresBySurface := map[string][]byte{}
 	for _, r := range rows {
 		surfaces[r.Surface] = r.Label
+		scoresBySurface[r.Surface] = r.Scores
 	}
 	if surfaces["project"] != "中国可持续" {
 		t.Errorf("project label = %q, want 中国可持续", surfaces["project"])
@@ -104,5 +123,15 @@ func TestListGrowthHistory(t *testing.T) {
 	}
 	if surfaces["chat"] != "CRAAP 溯源" {
 		t.Errorf("chat label = %q, want CRAAP 溯源", surfaces["chat"])
+	}
+
+	// scores is axis-structured: the raw column decodes straight into
+	// agent.Report, and DepthAxis.Subtotal survives the round-trip.
+	var report agent.Report
+	if err := json.Unmarshal(scoresBySurface["project"], &report); err != nil {
+		t.Fatalf("unmarshal project scores into agent.Report: %v", err)
+	}
+	if report.DepthAxis.Subtotal != 3 {
+		t.Errorf("report.DepthAxis.Subtotal = %d, want 3", report.DepthAxis.Subtotal)
 	}
 }
