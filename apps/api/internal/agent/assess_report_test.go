@@ -98,6 +98,20 @@ func TestAssessReportBannedPhrasingRejects(t *testing.T) {
 	}
 }
 
+// The 提示词透镜 per-round label is model-authored free text and must also be
+// enforced — a banned phrase there rejects the whole report (Task 3 review gap).
+func TestAssessReportBannedPhrasingInPerRoundLabelRejects(t *testing.T) {
+	reply := `{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"x"}]},
+		"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},
+		"promptLens":{"perRound":[{"round":1,"tier":"P3","label":"你应该这样写：先摆结论"}]},
+		"narrative":"n"}`
+	_, _, err := AssessReport(context.Background(), reportProvider(reply),
+		gateway.Resolved{Tier: "flagship"}, rubric.Model(), AssessmentInput{})
+	if err == nil {
+		t.Fatalf("expected banned-phrasing rejection for perRound label")
+	}
+}
+
 func TestAssessReportPromptCarriesLaddersAndAxiom(t *testing.T) {
 	sys := assessReportSystemPrompt(rubric.Model())
 	for _, want := range []string{"认知深度", "智识自主", "两轴永不合成总分", "不排名", "SOLO"} {

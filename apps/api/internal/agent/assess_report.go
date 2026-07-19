@@ -212,6 +212,9 @@ func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved
 	for _, tl := range wire.Timeline {
 		texts = append(texts, tl.Task, tl.Prompt)
 	}
+	for _, pr := range wire.PromptLens.PerRound {
+		texts = append(texts, pr.Label)
+	}
 	for _, ke := range wire.KeyEvidence {
 		texts = append(texts, ke.Label, ke.Quote)
 	}
