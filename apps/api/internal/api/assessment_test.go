@@ -31,6 +31,25 @@ func assessStubProvider(reply string) gateway.Provider {
 
 const assessReply = `{"dimensions":[{"code":"D2","level":"L4","evidence":"交叉验证两个一手源"},{"code":"D5","level":"L3","evidence":"论证拆解清楚"}],"narrative":"你这次最大的跃迁在信源辨识。"}`
 
+// dualAxisReply is a valid DualAxis report reply (agent.AssessReport's wire
+// shape) — the shared success fixture for both the project surface
+// (project_finish_test.go) and, later, course/chat once they flip too.
+const dualAxisReply = `{"depthAxis":{"dims":[
+  {"code":"D1","score":3,"evidence":"限定判断","promptEvidence":"R4"},
+  {"code":"D3","score":2,"evidence":"NASA","promptEvidence":""},
+  {"code":"D4","score":3,"evidence":"warrant","promptEvidence":""},
+  {"code":"D5","score":3,"evidence":"理由","promptEvidence":""}]},
+  "autonomyAxis":{"observation":"设边界","anchoredSignals":["R1"],"promptedSignals":["R3"],"adversaryInvites":0,"promptEvidence":""},
+  "crossAxis":{"depthLevel":"L3","initiative":"引导后","prose":"能反思","promptEvidence":""},
+  "solo":[{"round":4,"excerpt":"限定","level":"L3","rationale":"组织者","initiative":"自发"}],
+  "promptLens":{"directiveRounds":3,"totalRounds":10,"boundarySettings":3,"adversaryInvites":0,
+    "questions":[{"title":"一问","body":"…"}],"bestPrompt":{"round":8,"quote":"检查回扣","annotation":"齐备"},
+    "takeaway":{"round":0,"quote":"苛刻审稿人","annotation":"P4"},"perRound":[{"round":1,"tier":"P3","label":"要过程·设边界"}]},
+  "timeline":[{"round":1,"task":"上传","prompt":"不要重写","pTag":"P3","dimTags":["D1=2"]}],
+  "keyEvidence":[{"label":"任务理解","quote":"改 thesis"}],
+  "guidance":{"anchored":"限定 thesis","prompted":"SIFT","risk":"D3","nextSteps":[{"title":"强化 D3","body":"SIFT 记录"}]},
+  "narrative":"深度 L3 稳定复现。"}`
+
 // TestGetAssessment_EmptyBeforeGenerate — before any report exists, GET must
 // return 200 with an explicit JSON null (a normal "not yet assessed" state,
 // never a 404) and must record NO llm_call — the read path never calls a
@@ -64,16 +83,10 @@ func TestGetAssessment_ReturnsPersistedReport(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
-	scoresJSON, err := json.Marshal([]map[string]string{
-		{"code": "D2", "level": "L4", "evidence": "交叉验证两个一手源"},
-	})
-	if err != nil {
-		t.Fatalf("marshal scores: %v", err)
-	}
 	if _, err := sqlc.New(pool).InsertProjectEvaluation(t.Context(), sqlc.InsertProjectEvaluationParams{
 		ProjectID: pgUUID(mustUUID(projectID)),
-		Scores:    scoresJSON,
-		Narrative: "你这次最大的跃迁在信源辨识。",
+		Scores:    []byte(dualAxisReply),
+		Narrative: "深度 L3 稳定复现。",
 		Model:     "deepseek-v4-pro",
 		Tier:      "flagship",
 	}); err != nil {
@@ -87,16 +100,16 @@ func TestGetAssessment_ReturnsPersistedReport(t *testing.T) {
 		t.Fatalf("GET assessment (persisted) = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var dto struct {
-		Dimensions []struct {
-			Code string `json:"code"`
-		} `json:"dimensions"`
+		DepthAxis struct {
+			Subtotal int `json:"subtotal"`
+		} `json:"depthAxis"`
 		Narrative   string `json:"narrative"`
 		GeneratedAt string `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode assessment DTO: %v — body=%s", err, rec.Body)
 	}
-	if dto.Narrative != "你这次最大的跃迁在信源辨识。" {
+	if dto.Narrative != "深度 L3 稳定复现。" {
 		t.Fatalf("narrative = %q, want the persisted narrative", dto.Narrative)
 	}
 	if dto.GeneratedAt == "" {

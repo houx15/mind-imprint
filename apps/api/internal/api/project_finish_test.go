@@ -92,7 +92,7 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+		Provider: assessStubProvider(dualAxisReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
@@ -112,15 +112,20 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 		t.Fatalf("finish (success) = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var dto struct {
-		Dimensions  []struct{ Code, Level, Evidence string } `json:"dimensions"`
-		Narrative   string                                    `json:"narrative"`
-		GeneratedAt string                                    `json:"generatedAt"`
+		DepthAxis struct {
+			Subtotal int `json:"subtotal"`
+		} `json:"depthAxis"`
+		Narrative   string `json:"narrative"`
+		GeneratedAt string `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode finish DTO: %v — body=%s", err, rec.Body)
 	}
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
+	}
+	if dto.DepthAxis.Subtotal != 11 {
+		t.Fatalf("depthAxis.subtotal = %d, want 11", dto.DepthAxis.Subtotal)
 	}
 
 	assertProjectStatus(t, pool, projectID, "finished")
@@ -159,7 +164,7 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(assessReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+		Provider: assessStubProvider(dualAxisReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
@@ -207,7 +212,7 @@ func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"dimensions":[],"narrative":"你应该这样写：先摆结论，再给证据。"}`),
+		Provider:     assessStubProvider(`{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"你应该这样写：先摆结论"}]},"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},"narrative":"n"}`),
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)

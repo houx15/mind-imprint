@@ -42,7 +42,7 @@ func (a *API) getAssessment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	dto, derr := dtoFromEvaluationRow(row)
+	dto, derr := reportDTOFromEvaluationRow(row)
 	if derr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -62,26 +62,26 @@ var errAssessmentRejected = errors.New("assessment rejected")
 // error on I/O failure. This is A3's single project-report generation core —
 // the finish endpoint is its only caller (the standalone regenerate route is
 // gone; one-time generation, DEC-A3.5).
-func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (studio.AssessmentDTO, error) {
+func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (studio.ReportDTO, error) {
 	d, err := studio.Load(ctx, a.d.Queries, projectID)
 	if err != nil {
-		return studio.AssessmentDTO{}, err
+		return studio.ReportDTO{}, err
 	}
 	sk, skOK := skills.ByID("writing-project")
 	if !skOK {
-		return studio.AssessmentDTO{}, httpx.ErrInternal()
+		return studio.ReportDTO{}, httpx.ErrInternal()
 	}
 	proj, err := studio.Project(sk, a.d.SpecByID, d)
 	if err != nil {
-		return studio.AssessmentDTO{}, err
+		return studio.ReportDTO{}, err
 	}
 	in := buildAssessmentInputFromProject(d, proj, graphSummary(ctx, a.d.Queries, projectID))
 
 	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
-		return studio.AssessmentDTO{}, httpx.ErrInternal()
+		return studio.ReportDTO{}, httpx.ErrInternal()
 	}
-	assessment, usage, aerr := agent.Assess(ctx, a.d.Provider, resolved, rubric.CT(), in, agent.EmbeddedAnchors())
+	report, usage, aerr := agent.AssessReport(ctx, a.d.Provider, resolved, rubric.Model(), in)
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if resolved.Provider != "" {
@@ -94,12 +94,12 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 	}
 	if aerr != nil {
 		slog.Warn("generate_project_report: rejected", "err", aerr)
-		return studio.AssessmentDTO{}, errAssessmentRejected
+		return studio.ReportDTO{}, errAssessmentRejected
 	}
 
-	scoresJSON, merr := json.Marshal(assessment.Dimensions)
+	scoresJSON, merr := json.Marshal(report)
 	if merr != nil {
-		return studio.AssessmentDTO{}, httpx.ErrInternal()
+		return studio.ReportDTO{}, httpx.ErrInternal()
 	}
 	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 	promptTokens := int32(usage.InputTokens)
@@ -107,7 +107,7 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 	row, err := a.d.Queries.InsertProjectEvaluation(ctx, sqlc.InsertProjectEvaluationParams{
 		ProjectID:        pgtype.UUID{Bytes: projectID, Valid: true},
 		Scores:           scoresJSON,
-		Narrative:        assessment.Narrative,
+		Narrative:        report.Narrative,
 		Model:            resolved.Model,
 		Tier:             resolved.Tier,
 		PromptTokens:     &promptTokens,
@@ -115,15 +115,31 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 		CostEstimate:     gateway.CostNumeric(cost, priced),
 	})
 	if err != nil {
-		return studio.AssessmentDTO{}, err
+		return studio.ReportDTO{}, err
 	}
-	return dtoFromEvaluationRow(row)
+	return studio.ToReportDTO(report, row.CreatedAt.Format(time.RFC3339)), nil
 }
 
-// dtoFromEvaluationRow reconstructs the wire DTO from a persisted evaluations
-// row: row.Scores IS the marshalled []agent.DimensionScore (generateProjectReport's
-// own json.Marshal above) — reconstruction is one json.Unmarshal, never
-// string-splitting.
+// reportDTOFromEvaluationRow reconstructs the DualAxis wire DTO from a
+// persisted evaluations row: row.Scores IS the marshalled agent.Report
+// (generateProjectReport's own json.Marshal above) — reconstruction is one
+// json.Unmarshal, never string-splitting. Project-only for now: chat/course
+// still write the flat []agent.DimensionScore shape (dtoFromEvaluationRow,
+// below) until Task 6 flips them onto AssessReport too.
+func reportDTOFromEvaluationRow(row sqlc.Evaluation) (studio.ReportDTO, error) {
+	var report agent.Report
+	if err := json.Unmarshal(row.Scores, &report); err != nil {
+		return studio.ReportDTO{}, err
+	}
+	return studio.ToReportDTO(report, row.CreatedAt.Format(time.RFC3339)), nil
+}
+
+// dtoFromEvaluationRow reconstructs the flat wire DTO from a persisted
+// evaluations row: row.Scores IS the marshalled []agent.DimensionScore
+// (generateChatAssessment/generateCourseAssessment's own json.Marshal) —
+// reconstruction is one json.Unmarshal, never string-splitting. Still used by
+// chat_assessment.go and course_assessment.go, which have not yet flipped to
+// AssessReport (Task 6).
 func dtoFromEvaluationRow(row sqlc.Evaluation) (studio.AssessmentDTO, error) {
 	var dims []agent.DimensionScore
 	if err := json.Unmarshal(row.Scores, &dims); err != nil {
@@ -149,8 +165,32 @@ func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioPro
 		wordCountsFromProject(d),
 		reviewBandsFromProject(proj.Readiness),
 		graph,
-		nil, // Rounds — not yet wired for this surface
+		roundsFromProject(d),
 	)
+}
+
+// roundsFromProject pairs each student-message event ("prompt_sent" — the
+// same event studioturn.go appends right after persisting the student's chat
+// message, see agent.RunAgentStep's caller) with the immediately preceding
+// event as its AI/context frame, numbering rounds 1..N in stream order.
+// Reuses eventText — the exact same event-text renderer eventDigestsFromProject
+// already trusts — rather than inventing a second reading of the payload. When
+// there is no preceding event (a student turn opens the stream), AiContext is
+// left empty; that's an honest gap, not invented context.
+func roundsFromProject(d studio.ProjectData) []agent.Round {
+	rounds := make([]agent.Round, 0)
+	var lastContext string
+	n := 0
+	for _, e := range d.Events {
+		if e.Type == "prompt_sent" {
+			n++
+			rounds = append(rounds, agent.Round{N: n, StudentPrompt: eventText(e), AiContext: lastContext})
+			lastContext = ""
+			continue
+		}
+		lastContext = eventText(e)
+	}
+	return rounds
 }
 
 // cardUsesFromProject zips d.Cards with proj.Coach.Equipment — projectEquipment
