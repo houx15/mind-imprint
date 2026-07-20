@@ -275,9 +275,16 @@ func uuidFromPg(u pgtype.UUID) string {
 
 // projectOnboarding reads the decode_task graph nodes for the S0 view.
 func projectOnboarding(d ProjectData) OnboardingDTO {
-	ob := OnboardingDTO{RubricRows: []RubricRowDTO{}, PlanSteps: []string{}}
+	ob := OnboardingDTO{RubricRows: []RubricRowDTO{}, PlanSteps: []string{}, StudentWeakPicks: []int{}}
 	for _, n := range d.Nodes {
 		switch n.Type {
+		case "assignment_brief":
+			var body struct {
+				Text string `json:"text"`
+			}
+			if json.Unmarshal(n.Body, &body) == nil && body.Text != "" {
+				ob.AssignmentText = body.Text
+			}
 		case "rubric_translation":
 			var body struct {
 				RestatePrompt string         `json:"restate_prompt"`
@@ -295,6 +302,20 @@ func projectOnboarding(d ProjectData) OnboardingDTO {
 			}
 			if json.Unmarshal(n.Body, &body) == nil {
 				ob.PlanSteps = append(ob.PlanSteps, body.Steps...)
+			}
+		case "task_restatement":
+			var body struct {
+				Restate   string `json:"restate"`
+				WeakPicks []int  `json:"weak_picks"`
+			}
+			// Nodes arrive ordered by created_at (ListGraphNodesByProject),
+			// so the last task_restatement seen wins — latest restate.
+			if json.Unmarshal(n.Body, &body) == nil {
+				ob.StudentRestate = body.Restate
+				ob.StudentWeakPicks = body.WeakPicks
+				if ob.StudentWeakPicks == nil {
+					ob.StudentWeakPicks = []int{}
+				}
 			}
 		}
 	}

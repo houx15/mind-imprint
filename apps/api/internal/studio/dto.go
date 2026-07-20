@@ -133,9 +133,12 @@ type RubricRowDTO struct {
 }
 
 type OnboardingDTO struct {
-	RestatePrompt string         `json:"restatePrompt"`
-	RubricRows    []RubricRowDTO `json:"rubricRows"`
-	PlanSteps     []string       `json:"planSteps"`
+	RestatePrompt    string         `json:"restatePrompt"`
+	RubricRows       []RubricRowDTO `json:"rubricRows"`
+	PlanSteps        []string       `json:"planSteps"`
+	AssignmentText   string         `json:"assignmentText"`
+	StudentRestate   string         `json:"studentRestate"`
+	StudentWeakPicks []int          `json:"studentWeakPicks"`
 }
 
 type MaterialBlockDTO struct {

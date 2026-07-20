@@ -17,7 +17,10 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			Messages:  []CoachMessageDTO{{Kind: "ai", Body: "b", Tag: "D5", Anchor: "论证图 · 治理决心主张"}},
 			Equipment: []EquipCardDTO{{ID: "e1", Name: "钢人卡", Spont: "提示后", Meth: "concession", MaterialID: "m1"}},
 		},
-		Onboarding: OnboardingDTO{RestatePrompt: "r", RubricRows: []RubricRowDTO{{Official: "o", Plain: "p", Weak: true}}, PlanSteps: []string{"立题"}},
+		Onboarding: OnboardingDTO{
+			RestatePrompt: "r", RubricRows: []RubricRowDTO{{Official: "o", Plain: "p", Weak: true}}, PlanSteps: []string{"立题"},
+			AssignmentText: "讨论 X", StudentRestate: "最终版", StudentWeakPicks: []int{1, 2},
+		},
 		Materials: []MaterialDTO{{
 			ID: "m1", Title: "t", SourceURL: "https://x", Kind: "article", Origin: "fetched",
 			Blocks: []MaterialBlockDTO{{ID: "b1", Text: "x"}}, Locked: true, Role: "r", Tier: "ti", Takeaway: "tk",
@@ -122,8 +125,8 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	}
 	assertKeys(t, equipment[0], []string{"id", "materialId", "meth", "name", "spont"})
 
-	// onboarding: {restatePrompt, rubricRows, planSteps}
-	assertKeys(t, m["onboarding"], []string{"planSteps", "restatePrompt", "rubricRows"})
+	// onboarding: {restatePrompt, rubricRows, planSteps, assignmentText, studentRestate, studentWeakPicks}
+	assertKeys(t, m["onboarding"], []string{"assignmentText", "planSteps", "restatePrompt", "rubricRows", "studentRestate", "studentWeakPicks"})
 
 	var onboarding map[string]json.RawMessage
 	if err := json.Unmarshal(m["onboarding"], &onboarding); err != nil {
