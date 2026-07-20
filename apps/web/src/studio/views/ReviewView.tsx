@@ -1,4 +1,5 @@
-import type { GaugeFx } from "../state";
+import { useState } from "react";
+import type { GaugeFx, SelfScoreFx, PredictionFx, ReflectionFx } from "../state";
 
 export type ReviewViewProps = {
   gauges: GaugeFx[];
@@ -7,12 +8,47 @@ export type ReviewViewProps = {
   finishing: boolean;
   finishError: string | null;
   onFinish: () => void;
+  // N2 Task 8: the three post-gauge cards below the 就绪度 grid.
+  selfScore: SelfScoreFx;
+  prediction: PredictionFx;
+  reflection: ReflectionFx;
+  onSelfScore: (body: { scores: { code: string; band: number }[] }) => void;
+  onReflection: (body: { text: string }) => void;
 };
 
 const LEVEL_COLOR: Record<GaugeFx["level"], string> = {
   full: "#4C9A82",
   partial: "#D9A23D",
   empty: "#AEB4C2",
+};
+
+// Shared idiom for the three new cards below the gauge grid — verbatim the
+// existing GaugeCard style (white, #ECEEF3 border, radius 14).
+const CARD: React.CSSProperties = { background: "#fff", border: "1px solid #ECEEF3", borderRadius: 14, padding: "16px 18px" };
+const CARD_TITLE: React.CSSProperties = { fontSize: 14.5, fontWeight: 800, color: "#1C2333" };
+const CARD_SUB: React.CSSProperties = { fontSize: 12, color: "#8A92A3", margin: "4px 0 12px", lineHeight: 1.6 };
+const BODY_LINE: React.CSSProperties = { fontSize: 13, color: "#4A5165", lineHeight: 1.7 };
+const NOTE_LINE: React.CSSProperties = { fontSize: 12.5, color: "#6B7384", lineHeight: 1.7, marginTop: 4 };
+const CHIP_BASE: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  padding: "6px 13px",
+  borderRadius: 999,
+  border: "1px solid #E1E4ED",
+  background: "#fff",
+  color: "#6B7384",
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+const CHIP_ACTIVE: React.CSSProperties = { border: "1px solid #2A3B7A", background: "#EDEFF9", color: "#2A3B7A" };
+const BADGE: React.CSSProperties = {
+  flex: "none",
+  fontSize: 11.5,
+  fontWeight: 800,
+  color: "#2A3B7A",
+  background: "#EDEFF9",
+  padding: "3px 10px",
+  borderRadius: 999,
 };
 
 function GaugeCard({ g }: { g: GaugeFx }) {
@@ -46,7 +82,179 @@ function GaugeCard({ g }: { g: GaugeFx }) {
   );
 }
 
-export function ReviewView({ gauges, canFinish, finished, finishing, finishError, onFinish }: ReviewViewProps) {
+// Prediction reveal: what the student called weakest at S0, held up against
+// the actual weakest tables once the whole-draft review has run. `overlap`
+// is a descriptive count, never a score (RL-3/5) — deliberately not styled
+// as a grade.
+function PredictionCard({ prediction }: { prediction: PredictionFx }) {
+  const predictedNames = prediction.predicted.map((p) => p.name).join("、");
+  const actualNames = prediction.actual.map((p) => p.name).join("、");
+  return (
+    <div style={CARD} data-testid="prediction-card">
+      <div style={CARD_TITLE}>开头的预测 vs 实际</div>
+      {prediction.predicted.length === 0 ? (
+        <div style={{ ...BODY_LINE, marginTop: 8 }} data-testid="prediction-line-predicted">
+          你在开头还没有预测最弱项
+        </div>
+      ) : (
+        <div style={{ ...BODY_LINE, marginTop: 8 }} data-testid="prediction-line-predicted">
+          开头你预测最弱的是 {predictedNames}
+        </div>
+      )}
+      {prediction.revealed ? (
+        <>
+          <div style={BODY_LINE} data-testid="prediction-line-actual">
+            跑完这轮，评分表上实际最弱的是 {actualNames}
+          </div>
+          <div style={NOTE_LINE} data-testid="prediction-line-overlap">
+            你的预测和实际吻合 {prediction.overlap} 项
+          </div>
+        </>
+      ) : (
+        <div style={NOTE_LINE} data-testid="prediction-line-pending">
+          跑完整稿体检后，这里会对照实际
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SelfScoreCard({
+  selfScore,
+  onSelfScore,
+}: {
+  selfScore: SelfScoreFx;
+  onSelfScore: (body: { scores: { code: string; band: number }[] }) => void;
+}) {
+  const scoredCount = selfScore.dims.filter((d) => d.band >= 0).length;
+  return (
+    <div style={CARD} data-testid="self-score-card">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={CARD_TITLE}>先自己评一评</div>
+        <span style={BADGE} data-testid="self-score-badge">
+          已评 {scoredCount}/{selfScore.dims.length}
+        </span>
+      </div>
+      <div style={CARD_SUB}>对照上面的就绪度，给自己每一块打个档</div>
+      {selfScore.dims.map((dim) => (
+        <div
+          key={dim.code}
+          data-testid={`self-score-row-${dim.code}`}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0" }}
+        >
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{dim.name}</span>
+          <div style={{ display: "flex", gap: 6, flex: "none" }}>
+            {selfScore.bands.map((label, band) => {
+              const active = dim.band === band;
+              return (
+                <button
+                  key={band}
+                  type="button"
+                  data-testid={`self-score-chip-${dim.code}-${band}`}
+                  data-active={active ? "true" : "false"}
+                  onClick={() => onSelfScore({ scores: [{ code: dim.code, band }] })}
+                  style={{ ...CHIP_BASE, ...(active ? CHIP_ACTIVE : {}) }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReflectionCard({
+  reflection,
+  onReflection,
+}: {
+  reflection: ReflectionFx;
+  onReflection: (body: { text: string }) => void;
+}) {
+  const [text, setText] = useState(reflection.text);
+  const canSubmit = [...text].length >= 20;
+  return (
+    <div style={CARD} data-testid="reflection-card">
+      <div style={CARD_TITLE}>写一段研究回顾</div>
+      <div style={CARD_SUB}>这段反思由你自己写——印记只提供问题，不代笔。</div>
+      {reflection.prompts.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+          {reflection.prompts.map((p) => (
+            <span
+              key={p}
+              style={{
+                fontSize: 11.5,
+                color: "#6B7384",
+                background: "#F7F8FC",
+                border: "1px solid #EAECF2",
+                borderRadius: 999,
+                padding: "4px 11px",
+              }}
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+      <textarea
+        data-testid="reflection-textarea"
+        rows={4}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{
+          width: "100%",
+          border: "1px solid #E1E4ED",
+          borderRadius: 12,
+          padding: "12px 14px",
+          fontSize: 14,
+          lineHeight: 1.7,
+          color: "#1C2333",
+          background: "#fff",
+          outline: "none",
+          resize: "vertical",
+          fontFamily: "inherit",
+        }}
+      />
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+        <button
+          type="button"
+          data-testid="reflection-submit"
+          disabled={!canSubmit}
+          onClick={() => onReflection({ text })}
+          style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: "#fff",
+            background: canSubmit ? "#2A3B7A" : "#B7BBCB",
+            border: "none",
+            borderRadius: 10,
+            padding: "8px 16px",
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            fontFamily: "inherit",
+          }}
+        >
+          记下我的反思
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function ReviewView({
+  gauges,
+  canFinish,
+  finished,
+  finishing,
+  finishError,
+  onFinish,
+  selfScore,
+  prediction,
+  reflection,
+  onSelfScore,
+  onReflection,
+}: ReviewViewProps) {
   const litSum = gauges.reduce((n, g) => n + g.lit, 0);
   const totalSum = gauges.reduce((n, g) => n + g.total, 0);
   return (
@@ -74,6 +282,11 @@ export function ReviewView({ gauges, canFinish, finished, finishing, finishError
           {gauges.map((g) => (
             <GaugeCard key={g.code} g={g} />
           ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+          <PredictionCard prediction={prediction} />
+          <SelfScoreCard selfScore={selfScore} onSelfScore={onSelfScore} />
+          <ReflectionCard reflection={reflection} onReflection={onReflection} />
         </div>
         {finished ? (
           <div style={{ marginTop: 22, textAlign: "center", fontSize: 13.5, fontWeight: 700, color: "#4C9A82" }}>已归档 · 成长报告已生成</div>

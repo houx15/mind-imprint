@@ -14,7 +14,7 @@ import type { StationCode, StudioState, StudioCallbacks } from "./state";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -45,6 +45,11 @@ function toStudioState(p: StudioProjection): StudioState {
       writing: p.writing,
       review: p.readiness ?? [],
       onboarding: p.onboarding,
+      // N2 Task 8: same defensive fallback as `readiness` above — older test
+      // fixtures/mocks predating this slice may omit these fields entirely.
+      selfScore: p.selfScore ?? { dims: [], bands: [] },
+      prediction: p.prediction ?? { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: p.reflection ?? { text: "", prompts: [] },
     },
     finished: p.finished,
     canFinish: p.canFinish,
@@ -260,6 +265,21 @@ export function StudioContainer({
   const submitOnboarding = async (body: { restate: string; weakPicks: number[] }) => {
     if (!projectId) return;
     await api.submitOnboarding(projectId, body);
+    await refetchProject();
+  };
+
+  // N2 Task 8: the 评估 view's self-score + retro submits — same shape as
+  // submitOnboarding above (pure DB writes, no llm_call, refetch to
+  // rehydrate from what actually persisted).
+  const submitSelfScore = async (body: { scores: { code: string; band: number }[] }) => {
+    if (!projectId) return;
+    await api.submitSelfScore(projectId, body);
+    await refetchProject();
+  };
+
+  const submitReflection = async (body: { text: string }) => {
+    if (!projectId) return;
+    await api.submitReflection(projectId, body);
     await refetchProject();
   };
 
@@ -578,7 +598,7 @@ export function StudioContainer({
         addSourceError={addSourceError}
         lateralMaterialId={lateralMaterialId}
         onLateralMaterialChange={setLateralMaterialId}
-        review={{ finishing, finishError, onFinish: handleFinish }}
+        review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection }}
         onSubmitOnboarding={submitOnboarding}
       />
     </>

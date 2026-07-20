@@ -2,11 +2,12 @@ import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
+  SelfScoreFx, PredictionFx, ReflectionFx,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx };
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -34,6 +35,12 @@ export type StudioState = {
     writing: WritingProjection;
     review: GaugeFx[];
     onboarding: OnboardingFx;
+    // N2 Task 8: the 评估 view's self-score/prediction/reflection panels —
+    // wire-shaped verbatim (SelfScoreFx/PredictionFx/ReflectionFx), same
+    // pattern as GaugeFx/StructureCardFx above.
+    selfScore: SelfScoreFx;
+    prediction: PredictionFx;
+    reflection: ReflectionFx;
   };
   // A3 Task 9: the project terminal — whether the project has already been
   // finished (archived, growth report generated) and whether it currently

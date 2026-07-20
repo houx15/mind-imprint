@@ -41,6 +41,10 @@ export type StudioShellProps = {
     finishing?: boolean;
     finishError?: string | null;
     onFinish?: () => void;
+    // N2 Task 8: mirrors ViewFrameProps' `review` group — forwarded straight
+    // through to ViewFrame unchanged (see below).
+    onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
+    onReflection?: (body: { text: string }) => void;
   };
   // N1 Task 8: the S0 view's restate + weak-picks submit — threaded straight
   // through to ViewFrame (which threads it straight through to

@@ -197,6 +197,25 @@ export const STUDIO_FIXTURE: StudioState = {
       { code: "表F", name: "评估", lit: 1, total: 3, note: "对来源风险的评估还不足", level: "partial" },
       { code: "表H", name: "表达与组织", lit: 3, total: 3, note: "结构清楚、语言干净", level: "full" },
     ],
+    // N2 Task 8: the 评估 view's self-score/prediction/reflection panels. The
+    // project is mid-way through S4 with S6 still locked, so nothing here has
+    // actually been done yet — bands all -1 (not yet picked), no weak-picks
+    // prediction submitted (mirrors onboarding.studentWeakPicks: [] above),
+    // reflection unwritten. Dim identity (code/name) matches `review` above.
+    selfScore: {
+      dims: [
+        { code: "表D", name: "来源与证据", band: -1 },
+        { code: "表E", name: "分析", band: -1 },
+        { code: "表F", name: "评估", band: -1 },
+        { code: "表H", name: "表达与组织", band: -1 },
+      ],
+      bands: ["还需努力", "基本达到", "稳了"],
+    },
+    prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+    reflection: {
+      text: "",
+      prompts: ["整个研究过程里，你觉得最费劲的一步是什么？", "如果现在从头再来一次，你会先做哪件不一样的事？"],
+    },
     onboarding: {
       restatePrompt:
         "这次要写的是一篇个人报告：「中国在多大程度上让世界变得更具环境可持续性？」（0457 全球社会中的环境系统与社会）。用你自己的话说说，这道题到底在问什么，你打算怎么回答，以及评分标准里你觉得最容易被忽略的是哪一条。",

@@ -59,6 +59,11 @@ export type ViewFrameProps = {
     finishing?: boolean;
     finishError?: string | null;
     onFinish?: () => void;
+    // N2 Task 8: the 评估 view's self-score + retro submit — canFinish/
+    // finished/selfScore/prediction/reflection travel on `state` itself
+    // (projection fields), same as finishing/finishError/onFinish above.
+    onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
+    onReflection?: (body: { text: string }) => void;
   };
   // N1 Task 8: the S0 view's restate + weak-picks submit — mirrors the flat
   // shape OnboardingView's own `onSubmit` takes (no wrapper group, unlike
@@ -323,6 +328,11 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
           finishing={review?.finishing ?? false}
           finishError={review?.finishError ?? null}
           onFinish={review?.onFinish ?? (() => {})}
+          selfScore={state.views.selfScore}
+          prediction={state.views.prediction}
+          reflection={state.views.reflection}
+          onSelfScore={review?.onSelfScore ?? (() => {})}
+          onReflection={review?.onReflection ?? (() => {})}
         />
       )}
       {effectiveView === "onboarding" && (
