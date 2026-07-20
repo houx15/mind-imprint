@@ -301,6 +301,67 @@ func (q *Queries) ListCardInstancesByThread(ctx context.Context, threadID pgtype
 	return items, nil
 }
 
+const listCollectedCardsByUser = `-- name: ListCollectedCardsByUser :many
+SELECT card_id,
+       count(*)::int AS uses,
+       array_agg(DISTINCT surface)::text[] AS surfaces,
+       max(created_at) AS last_used
+FROM (
+  (SELECT ci.card_id AS card_id, 'project'::text AS surface, ci.created_at AS created_at
+   FROM card_instances ci JOIN project p ON p.id = ci.project_id
+   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = $1)
+  UNION ALL
+  (SELECT ci.card_id, 'course'::text, ci.created_at
+   FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
+   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed' AND cs.user_id = $1)
+  UNION ALL
+  (SELECT ci.card_id, 'chat'::text, ci.created_at
+   FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
+   WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed' AND t.user_id = $1)
+) rows
+GROUP BY card_id
+ORDER BY uses DESC, last_used DESC
+`
+
+type ListCollectedCardsByUserRow struct {
+	CardID   string      `json:"card_id"`
+	Uses     int32       `json:"uses"`
+	Surfaces []string    `json:"surfaces"`
+	LastUsed interface{} `json:"last_used"`
+}
+
+// Every tool card the caller has COMPLETED at least once, across all three
+// scopes, deduped to one row per card_id with a usage summary. status='completed'
+// only (a skip is a decline, matching collectedCourseSessionCards). Owner-filtered
+// through each scope's own parent join (card_instances has no user_id). No cost,
+// no model — a pure read for the 工具卡 tab. created_at (always non-null) is the
+// usage timestamp; completed_at is only set on the session-scope path, so it is
+// not used here.
+func (q *Queries) ListCollectedCardsByUser(ctx context.Context, userID uuid.UUID) ([]ListCollectedCardsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listCollectedCardsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCollectedCardsByUserRow
+	for rows.Next() {
+		var i ListCollectedCardsByUserRow
+		if err := rows.Scan(
+			&i.CardID,
+			&i.Uses,
+			&i.Surfaces,
+			&i.LastUsed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCardInstanceAnchors = `-- name: SetCardInstanceAnchors :one
 UPDATE card_instances SET anchors = $3
 WHERE id = $1 AND project_id = $2

@@ -87,3 +87,31 @@ RETURNING *;
 UPDATE card_instances SET status = $3
 WHERE id = $1 AND session_id = $2
 RETURNING *;
+
+-- name: ListCollectedCardsByUser :many
+-- Every tool card the caller has COMPLETED at least once, across all three
+-- scopes, deduped to one row per card_id with a usage summary. status='completed'
+-- only (a skip is a decline, matching collectedCourseSessionCards). Owner-filtered
+-- through each scope's own parent join (card_instances has no user_id). No cost,
+-- no model — a pure read for the 工具卡 tab. created_at (always non-null) is the
+-- usage timestamp; completed_at is only set on the session-scope path, so it is
+-- not used here.
+SELECT card_id,
+       count(*)::int AS uses,
+       array_agg(DISTINCT surface)::text[] AS surfaces,
+       max(created_at) AS last_used
+FROM (
+  (SELECT ci.card_id AS card_id, 'project'::text AS surface, ci.created_at AS created_at
+   FROM card_instances ci JOIN project p ON p.id = ci.project_id
+   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = @user_id)
+  UNION ALL
+  (SELECT ci.card_id, 'course'::text, ci.created_at
+   FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
+   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed' AND cs.user_id = @user_id)
+  UNION ALL
+  (SELECT ci.card_id, 'chat'::text, ci.created_at
+   FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
+   WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed' AND t.user_id = @user_id)
+) rows
+GROUP BY card_id
+ORDER BY uses DESC, last_used DESC;
