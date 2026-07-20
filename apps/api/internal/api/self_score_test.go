@@ -75,3 +75,20 @@ func TestSubmitSelfScore_RejectsBadBandOrCode(t *testing.T) {
 		}
 	}
 }
+
+func TestSubmitSelfScore_OtherUsersProject404(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+
+	other := createStudent(t, pool, SeedSchoolID, "selfscore-other@demo.local")
+	otherCookie := signInAs(t, pool, other)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/self-score",
+		strings.NewReader(`{"scores":[{"code":"表D","band":1}]}`)), otherCookie))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("other user's self-score submit = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+}
