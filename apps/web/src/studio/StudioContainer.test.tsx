@@ -12,7 +12,7 @@ const projection = {
   ],
   activeStation: "S4",
   coach: { anchor: "论证图 · 治理决心主张", messages: [], equipment: [] },
-  onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [] },
+  onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
   structure: [] as unknown[],
   finished: false,
   canFinish: false,
