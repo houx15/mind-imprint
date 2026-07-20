@@ -51,9 +51,22 @@ async function flush() {
   });
 }
 
+// N1 Task 7 made StudioContainer directory-first: on mount it shows the
+// <Directory>, NOT the studio, until the student opens a project. Every test
+// below that asserts studio content must first open the (single, seeded)
+// project — this helper renders, waits for the directory to list it, clicks
+// the row, and returns. The test's own `findBy*`/`flush` awaits then wait out
+// the projection load + conversation-creation effects exactly as before.
+async function renderAndOpen(props: Parameters<typeof StudioContainer>[0]) {
+  const utils = render(<StudioContainer {...props} />);
+  const rows = await screen.findAllByTestId("directory-project-row");
+  fireEvent.click(rows[0]!);
+  return utils;
+}
+
 describe("StudioContainer", () => {
   it("renders the Studio from live projection data", async () => {
-    render(<StudioContainer api={fakeApi} />);
+    await renderAndOpen({ api: fakeApi });
     // "论证构建" renders twice by design: once in the station rail item, once
     // as the ViewFrame header for the active station — use getAllByText.
     await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
@@ -86,7 +99,7 @@ describe("StudioContainer", () => {
       send: vi.fn(async () => {}),
       dispose: vi.fn(async () => {}),
     };
-    render(<StudioContainer api={fakeApi} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: fakeApi, makeConversation: () => conv as any });
     // "论证构建" renders twice (rail item + ViewFrame header) — see the first
     // test's comment above; use getAllByText for the same reason here.
     await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
@@ -104,7 +117,7 @@ describe("StudioContainer", () => {
       send: vi.fn(async () => {}),
       dispose: vi.fn(async () => {}),
     };
-    render(<StudioContainer api={fakeApi} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: fakeApi, makeConversation: () => conv as any });
     await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
 
     fireEvent.change(screen.getByPlaceholderText(/发给印记/), { target: { value: "我加了一条证据" } });
@@ -120,7 +133,7 @@ describe("StudioContainer", () => {
     // triggers React's infinite-update guard.
     const snapshot = { messages: [], sending: false, error: null, disposableInterventionId: null, card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "proposed" } };
     const conv = { getSnapshot: () => snapshot, subscribe: () => () => {}, send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn() };
-    render(<StudioContainer api={fakeApi} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: fakeApi, makeConversation: () => conv as any });
     await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
     // the craap proposal is visible in the rail (name + purpose text both
     // match the regex, so use getAllByText per this file's convention above)
@@ -149,7 +162,7 @@ describe("StudioContainer", () => {
     };
     // The REAL conversation controller (no makeConversation override) — this
     // is the actual production wiring, not a stub standing in for it.
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     // "工具卡 · CRAAP" alone would be a vacuous assertion — CraapPlaceholder
     // (the NO-card fallback for this same view) carries the identical label.
     // "锁定，进下一条" is StudioAnnotateCard's own submit control, rendered
@@ -158,10 +171,14 @@ describe("StudioContainer", () => {
     await screen.findByText("锁定，进下一条");
   });
 
-  it("shows an honest empty state when the student has no projects", async () => {
+  it("shows the directory's honest empty affordance when the student has no projects", async () => {
     const api = { listProjects: vi.fn(async () => []), getProject: vi.fn() };
     render(<StudioContainer api={api as any} />);
-    await waitFor(() => expect(screen.getByText("还没有项目")).toBeTruthy());
+    // N1 Task 7: directory-first. With no projects the <Directory> still
+    // renders its 新建论文 create affordance — the honest empty state now, in
+    // place of the old static "还没有项目" placeholder. Nothing is auto-opened,
+    // so getProject is never called.
+    await waitFor(() => expect(screen.getByRole("button", { name: "新建论文" })).toBeTruthy());
     expect(screen.queryByText("加载失败，请重试")).toBeNull();
     expect(api.getProject).not.toHaveBeenCalled();
   });
@@ -197,7 +214,7 @@ describe("StudioContainer", () => {
         }],
       }),
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     // The material's tier + takeaway are both set, so the title legitimately
     // renders twice once Slice 6b's 检索日志 ledger (Task 8) mounts below the
     // source list — scope the query to the source-list card itself (its
@@ -239,7 +256,7 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -295,7 +312,7 @@ describe("StudioContainer", () => {
       logSourceOpen,
     };
 
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -376,7 +393,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -458,7 +475,7 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -571,7 +588,7 @@ describe("StudioContainer", () => {
       }),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -676,7 +693,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -743,7 +760,7 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -836,7 +853,7 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -934,7 +951,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -1059,7 +1076,7 @@ describe("StudioContainer", () => {
       logSourceOpen: vi.fn(async () => {}),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -1188,7 +1205,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -1275,7 +1292,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // `信源档案` comes from StudioContainer's FIRST effect (loading the
     // project). The live conversation (conv/card, and anything sourced from
@@ -1416,7 +1433,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     // See the flush() doc comment above — the live conversation only exists
     // once StudioContainer's second effect has also committed.
@@ -1531,7 +1548,7 @@ describe("StudioContainer", () => {
       dropFirst: vi.fn(),
     };
 
-    render(<StudioContainer api={api as never} makeConversation={() => conv as any} />);
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
     await screen.findByText(/信源档案/);
     await flush();
 
@@ -1611,7 +1628,7 @@ describe("StudioContainer", () => {
       getProject: async () => writingProjection({ buffer: "初稿第一句。", latestSnapshot: null }),
       putBuffer,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     const textarea = (await screen.findByDisplayValue("初稿第一句。")) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "初稿第一句，改了一下。" } });
@@ -1641,7 +1658,7 @@ describe("StudioContainer", () => {
       },
       commitSnapshot,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByDisplayValue("定稿正文。");
     expect(screen.getByText("还没有提交过快照")).toBeInTheDocument();
 
@@ -1664,7 +1681,7 @@ describe("StudioContainer", () => {
       putBuffer,
       commitSnapshot,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     const textarea = (await screen.findByDisplayValue("草稿。")) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "草稿，改了。" } });
@@ -1720,7 +1737,7 @@ describe("StudioContainer", () => {
       },
       orderReview,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByDisplayValue("定稿正文。");
 
     fireEvent.click(screen.getByRole("button", { name: /整稿体检/ }));
@@ -1749,7 +1766,7 @@ describe("StudioContainer", () => {
       },
       orderReview,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByDisplayValue("定稿正文。");
 
     fireEvent.click(screen.getByText("怀疑"));
@@ -1774,7 +1791,7 @@ describe("StudioContainer", () => {
       },
       postDisposition,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByDisplayValue("定稿正文。");
     fireEvent.click(screen.getByText("预览 · 批注"));
     await screen.findByText("表E 分析");
@@ -1807,7 +1824,7 @@ describe("StudioContainer", () => {
       },
       attestGate,
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByDisplayValue("定稿正文。");
     fireEvent.click(screen.getByText("预览 · 批注"));
     await screen.findByText("表E 分析");
@@ -1843,7 +1860,7 @@ describe("StudioContainer", () => {
       getProject: async () => reviewProjection({ canFinish: true }),
       finishProject,
     };
-    render(<StudioContainer api={api as never} onFinished={onFinished} />);
+    await renderAndOpen({ api: api as never, onFinished });
     await screen.findByText("已点亮 4/4 格");
 
     const button = screen.getByText("完成任务 · 归档");
@@ -1858,7 +1875,7 @@ describe("StudioContainer", () => {
       listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
       getProject: async () => reviewProjection({ finished: true }),
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByText("已归档 · 成长报告已生成");
     expect(screen.queryByText("完成任务 · 归档")).toBeNull();
   });
@@ -1871,7 +1888,7 @@ describe("StudioContainer", () => {
       getProject: async () => reviewProjection({ canFinish: true }),
       finishProject,
     };
-    render(<StudioContainer api={api as never} onFinished={onFinished} />);
+    await renderAndOpen({ api: api as never, onFinished });
     await screen.findByText("完成任务 · 归档");
 
     fireEvent.click(screen.getByText("完成任务 · 归档"));
@@ -1885,7 +1902,7 @@ describe("StudioContainer", () => {
       listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S6" }],
       getProject: async () => reviewProjection({}),
     };
-    render(<StudioContainer api={api as never} />);
+    await renderAndOpen({ api: api as never });
     await screen.findByText("已点亮 4/4 格");
     expect(screen.queryByText("完成任务 · 归档")).toBeNull();
     expect(screen.queryByText("已归档 · 成长报告已生成")).toBeNull();

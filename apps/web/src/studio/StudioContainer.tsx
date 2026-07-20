@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Anchor, StudioProjection } from "@mind-imprint/contracts";
 import { api as defaultApi, ApiError } from "../api";
+import type { ProjectListItem } from "../api/projects";
 import { StudioShell } from "./StudioShell";
+import { Directory } from "./Directory";
 import { createStudioConversation, activeCardToState } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks } from "./state";
 
 // Narrow structural type, widened (Task 9) to the two ingestion/logging
-// calls the 素材 dossier now needs — still a Pick off the real ApiClient so
-// test fixtures keep injecting plain object literals for just the calls a
-// given test actually exercises.
+// calls the 素材 dossier now needs, then (N1 Task 7) to createProject for the
+// directory-first create flow — still a Pick off the real ApiClient so test
+// fixtures keep injecting plain object literals for just the calls a given
+// test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -65,8 +68,14 @@ export function StudioContainer({
   const [activeStation, setActiveStation] = useState<StationCode | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [empty, setEmpty] = useState(false);
   const [conv, setConv] = useState<StudioConversation | null>(null);
+  // N1 Task 7: directory-first. `projects` holds the student's list (fetched
+  // on mount, refreshed after a create); `openId` is the project currently
+  // opened into the studio — null means the <Directory> is showing, not the
+  // studio. `creating` is the transient in-flight state of the 新建论文 form.
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   // Slice 6b Task 9: the server's own honest Chinese message from the last
   // failed 添加信源 attempt — cleared on the next successful add.
   const [addSourceError, setAddSourceError] = useState<string | undefined>(undefined);
@@ -145,26 +154,46 @@ export function StudioContainer({
   // timer if the Studio ever remounted with the same projectId.
   useEffect(() => () => { if (bufferSaveTimerRef.current) clearTimeout(bufferSaveTimerRef.current); }, []);
 
+  // N1 Task 7: on mount, fetch the student's project list into state — do NOT
+  // auto-open. The <Directory> renders from this; opening a row (or creating)
+  // is what sets `openId`, which the projection-load effect below reacts to.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const list = await api.listProjects();
         if (cancelled) return;
-        if (list.length === 0) { setEmpty(true); return; }
-        const proj = await api.getProject(list[0]!.id);
-        if (cancelled) return;
-        const s = toStudioState(proj);
-        setState(s);
-        setActiveStation(s.activeStation);
-        initialActiveCardRef.current = activeCardToState(proj.activeCard);
-        setProjectId(list[0]!.id);
+        setProjects(list);
       } catch {
         if (!cancelled) setError("加载失败，请重试");
       }
     })();
     return () => { cancelled = true; };
   }, [api]);
+
+  // N1 Task 7: load the opened project's projection whenever `openId` changes
+  // (student clicked a directory row, or a create just resolved). Keyed on
+  // `openId` rather than `list[0]` — this is what makes the studio show the
+  // project the student actually chose. Seeds the same initialActiveCardRef /
+  // projectId the conversation-creation effect below still consumes.
+  useEffect(() => {
+    if (!openId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const proj = await api.getProject(openId);
+        if (cancelled) return;
+        const s = toStudioState(proj);
+        setState(s);
+        setActiveStation(s.activeStation);
+        initialActiveCardRef.current = activeCardToState(proj.activeCard);
+        setProjectId(openId);
+      } catch {
+        if (!cancelled) setError("加载失败，请重试");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [openId, api]);
 
   // Create the live conversation once the projectId is known — guarded by
   // the projectId dependency so it isn't recreated on every render. Seeded
@@ -243,6 +272,35 @@ export function StudioContainer({
     }
   }
 
+  // N1 Task 7: the 新建论文 create flow — POST the new project, refresh the
+  // list so the directory is current, then open straight into it. `creating`
+  // gates the form's submit; the finally guarantees it clears even if the
+  // create or the refresh throws.
+  const handleCreate = async (body: { title: string; prompt: string }) => {
+    setCreating(true);
+    try {
+      const { id } = await api.createProject(body);
+      setProjects(await api.listProjects());
+      setOpenId(id);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // N1 Task 7: ← 返回 — drop back to the directory. Tears down the opened
+  // project's studio state (projection, live conversation, view-local station/
+  // focus) so a later re-open loads cleanly rather than flashing the previous
+  // project's projection.
+  const handleBack = () => {
+    setOpenId(null);
+    setProjectId(null);
+    setState(null);
+    setActiveStation(null);
+    setConv(null);
+    setFocusMode(false);
+    setError(null);
+  };
+
   // Subscribe to the live conversation's turns via the app's established
   // external-store pattern (matches agent/useConversation.ts). Falls back to
   // a stable empty snapshot before `conv` exists (project still loading).
@@ -274,17 +332,15 @@ export function StudioContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCardInstanceId]);
 
-  if (empty) {
-    return (
-      <div className="mk-studio-empty" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "#6B7384" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#3A4256" }}>还没有项目</div>
-        <div style={{ fontSize: 13.5, lineHeight: 1.7, maxWidth: 420, textAlign: "center" }}>
-          工作室从一个真实的写作任务开始。创建入口马上就来——在那之前，这里会保持空着。
-        </div>
-      </div>
-    );
-  }
+  // N1 Task 7: directory-first. A load error (listProjects, or a failed
+  // open) is surfaced first; otherwise, nothing open ⇒ the <Directory>
+  // (its own create form carries the honest empty affordance, replacing the
+  // old static "还没有项目" placeholder). Only an actually-opened project
+  // falls through to the studio render below.
   if (error) return <div className="mk-studio-error">{error}</div>;
+  if (openId == null) {
+    return <Directory projects={projects} onOpen={setOpenId} onCreate={handleCreate} creating={creating} />;
+  }
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;
 
   const callbacks: StudioCallbacks = {
@@ -453,6 +509,33 @@ export function StudioContainer({
 
   return (
     <>
+      {/* N1 Task 7: ← 返回 to the directory. */}
+      <button
+        type="button"
+        aria-label="返回"
+        onClick={handleBack}
+        style={{
+          position: "fixed",
+          top: 10,
+          left: 12,
+          zIndex: 60,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#fff",
+          border: "1px solid #EAECF2",
+          color: "#3A4256",
+          borderRadius: 10,
+          padding: "7px 12px",
+          fontSize: 12.5,
+          fontWeight: 700,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          boxShadow: "0 2px 8px rgba(20,30,60,.08)",
+        }}
+      >
+        ← 返回
+      </button>
       {syncError && (
         <div
           role="status"
