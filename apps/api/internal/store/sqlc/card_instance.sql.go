@@ -304,7 +304,7 @@ func (q *Queries) ListCardInstancesByThread(ctx context.Context, threadID pgtype
 const listCollectedCardsByUser = `-- name: ListCollectedCardsByUser :many
 SELECT card_id,
        count(*)::int AS uses,
-       array_agg(DISTINCT surface)::text[] AS surfaces,
+       array_agg(DISTINCT surface ORDER BY surface)::text[] AS surfaces,
        max(created_at) AS last_used
 FROM (
   (SELECT ci.card_id AS card_id, 'project'::text AS surface, ci.created_at AS created_at
