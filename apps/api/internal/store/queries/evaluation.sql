@@ -85,22 +85,34 @@ FROM (
 ) rows
 ORDER BY created_at DESC;
 
--- C ability model: EVERY evaluation the caller owns across all three scopes
--- (not latest-per-scope like ListGrowthHistory), oldest-first, for cross-session
--- aggregation. Owner-filtered through each scope's own join.
+-- C ability model: the latest evaluation per scope the caller owns across all
+-- three scopes, oldest-first, for cross-session aggregation. One report per
+-- session is the product invariant (terminal reports are one-time; chat opt-in
+-- is UI-gated to one), but the generate endpoints INSERT with no upsert guard,
+-- so the invariant is client-side-only. DISTINCT ON makes this query defend it
+-- itself: identical to a raw UNION ALL when no scope has a duplicate, and if one
+-- ever does, the latest row wins — so evidenceCount / recency weight /
+-- totalSessions never inflate. Mirrors ListGrowthHistory's latest-per-scope
+-- shape (it projects surface/label too; this projects only scores/created_at).
 
 -- name: ListEvaluationsByUser :many
 SELECT scores, created_at FROM (
-  (SELECT e.scores AS scores, e.created_at AS created_at
+  (SELECT DISTINCT ON (e.project_id)
+     e.scores AS scores, e.created_at AS created_at
    FROM evaluations e JOIN project p ON p.id = e.project_id
-   WHERE e.project_id IS NOT NULL AND p.user_id = @user_id)
+   WHERE e.project_id IS NOT NULL AND p.user_id = @user_id
+   ORDER BY e.project_id, e.created_at DESC)
   UNION ALL
-  (SELECT e.scores, e.created_at
+  (SELECT DISTINCT ON (e.session_id)
+     e.scores, e.created_at
    FROM evaluations e JOIN course_session cs ON cs.id = e.session_id
-   WHERE e.session_id IS NOT NULL AND cs.user_id = @user_id)
+   WHERE e.session_id IS NOT NULL AND cs.user_id = @user_id
+   ORDER BY e.session_id, e.created_at DESC)
   UNION ALL
-  (SELECT e.scores, e.created_at
+  (SELECT DISTINCT ON (e.thread_id)
+     e.scores, e.created_at
    FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
-   WHERE e.thread_id IS NOT NULL AND t.user_id = @user_id)
+   WHERE e.thread_id IS NOT NULL AND t.user_id = @user_id
+   ORDER BY e.thread_id, e.created_at DESC)
 ) rows
 ORDER BY created_at ASC;
