@@ -19,6 +19,12 @@ func TestLoad0457(t *testing.T) {
 	if len(f.Steps) == 0 {
 		t.Error("Steps empty")
 	}
+	wantOfficial := []string{"来源与证据（表D）", "分析（表E）", "评估（表F）", "表达与组织（表H）"}
+	for i, w := range wantOfficial {
+		if f.Rows[i].Official != w {
+			t.Errorf("row %d official = %q, want %q (review_criteria order)", i, f.Rows[i].Official, w)
+		}
+	}
 }
 
 func TestLoadUnknownQualification(t *testing.T) {
