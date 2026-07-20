@@ -1847,6 +1847,9 @@ describe("StudioContainer", () => {
       readiness: [
         { code: "表D", name: "来源与证据", lit: 4, total: 4, note: "", level: "full" as const },
       ],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: overrides.finished ?? false,
       canFinish: overrides.canFinish ?? false,
     };

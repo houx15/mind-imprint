@@ -201,6 +201,28 @@ export const Gauge = z.object({
 });
 export type Gauge = z.infer<typeof Gauge>;
 
+// N2: the 评估 view's self-score/prediction/reflection panels. dims/predicted/
+// actual carry the same {code,name} shape as Gauge's rubric identity so the
+// client never has to reconcile two different criterion vocabularies; band
+// is a signed int (student's own self-rating, not a derived grade — mirrors
+// RL-5's diagnostic-not-grade posture from the assessor).
+export const SelfScoreFx = z.object({
+  dims: z.array(z.object({ code: z.string(), name: z.string(), band: z.number().int() })),
+  bands: z.array(z.string()),
+});
+export type SelfScoreFx = z.infer<typeof SelfScoreFx>;
+
+export const PredictionFx = z.object({
+  predicted: z.array(z.object({ code: z.string(), name: z.string() })),
+  actual: z.array(z.object({ code: z.string(), name: z.string() })),
+  overlap: z.number().int(),
+  revealed: z.boolean(),
+});
+export type PredictionFx = z.infer<typeof PredictionFx>;
+
+export const ReflectionFx = z.object({ text: z.string(), prompts: z.array(z.string()) });
+export type ReflectionFx = z.infer<typeof ReflectionFx>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -216,6 +238,9 @@ export const StudioProjection = z.object({
   structure: z.array(StructureCard),
   writing: WritingProjection,
   readiness: z.array(Gauge),
+  selfScore: SelfScoreFx,
+  prediction: PredictionFx,
+  reflection: ReflectionFx,
   finished: z.boolean(),
   canFinish: z.boolean(),
 });
@@ -235,3 +260,11 @@ export const OnboardingSubmitBody = z.object({
   weakPicks: z.array(z.number().int()),
 });
 export type OnboardingSubmitBody = z.infer<typeof OnboardingSubmitBody>;
+
+export const SelfScoreSubmitBody = z.object({
+  scores: z.array(z.object({ code: z.string(), band: z.number().int() })),
+});
+export type SelfScoreSubmitBody = z.infer<typeof SelfScoreSubmitBody>;
+
+export const ReflectionSubmitBody = z.object({ text: z.string() });
+export type ReflectionSubmitBody = z.infer<typeof ReflectionSubmitBody>;

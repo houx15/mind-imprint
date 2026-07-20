@@ -33,6 +33,9 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     });
@@ -51,6 +54,9 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     });
@@ -69,6 +75,9 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     };
@@ -153,6 +162,9 @@ describe("MaterialSource", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     });
@@ -182,6 +194,9 @@ describe("StudioProjection", () => {
       activeCard: null,
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     };
@@ -225,6 +240,9 @@ describe("WritingProjection", () => {
       structure: [],
       writing: emptyWriting,
       readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
       finished: false,
       canFinish: false,
     };

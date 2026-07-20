@@ -27,6 +27,9 @@ const sample = {
   activeCard: null,
   structure: [],
   readiness: [],
+  selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+  prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+  reflection: { text: "", prompts: [] },
   finished: false,
   canFinish: false,
   writing: {
