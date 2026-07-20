@@ -45,6 +45,10 @@ type StudioProjection struct {
 	// Reflection projects the S6 写一段研究回顾 card: the student's latest
 	// reflection text + the prompt chips. See projectReflection (projection.go).
 	Reflection ReflectionDTO `json:"reflection"`
+	// Prediction projects the S0↔S6 reveal: the criteria the student predicted
+	// weakest at S0 vs. the criteria the board review actually found weak. See
+	// projectPrediction (projection.go).
+	Prediction PredictionDTO `json:"prediction"`
 	// Finished is true once the project's terminal has run (project.status ==
 	// "finished"). CanFinish is true when the S5 整稿体检 gate item
 	// whole_draft_review is "solid" AND the project is not already finished —
@@ -306,6 +310,23 @@ type SelfScoreDTO struct {
 type ReflectionDTO struct {
 	Text    string   `json:"text"`
 	Prompts []string `json:"prompts"`
+}
+
+// PredCritDTO is one review criterion by code+name (used in the prediction reveal).
+type PredCritDTO struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// PredictionDTO is the S0↔S6 reveal: the criteria the student predicted weakest
+// at S0 vs. the criteria the board review actually found weak. Overlap is a
+// descriptive self-knowledge count, NEVER a score (RL-3/RL-5). Actual/Revealed
+// are empty/false until a whole-draft review has informed the gauge.
+type PredictionDTO struct {
+	Predicted []PredCritDTO `json:"predicted"`
+	Actual    []PredCritDTO `json:"actual"`
+	Overlap   int           `json:"overlap"`
+	Revealed  bool          `json:"revealed"`
 }
 
 // GaugeDTO is one 0457 mark-scheme table on the 就绪度 readiness display: the

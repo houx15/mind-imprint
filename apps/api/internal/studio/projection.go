@@ -350,6 +350,7 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Readiness:     projectReadiness(sk, d),
 		SelfScore:     projectSelfScore(sk, d),
 		Reflection:    projectReflection(d),
+		Prediction:    projectPrediction(sk, d),
 		Finished:      finished,
 		CanFinish:     canFinish,
 	}, nil
@@ -469,6 +470,43 @@ func projectReadiness(sk skills.Skill, d ProjectData) []GaugeDTO {
 			}
 		}
 		out = append(out, g)
+	}
+	return out
+}
+
+// projectPrediction pairs the student's S0 predicted-weakest criteria
+// (task_restatement.weak_picks, indices into review_criteria) with the criteria
+// the board review actually found non-full. Read-only; no new capture.
+func projectPrediction(sk skills.Skill, d ProjectData) PredictionDTO {
+	out := PredictionDTO{Predicted: []PredCritDTO{}, Actual: []PredCritDTO{}}
+	// Predicted: weak_picks → review_criteria[i].
+	predictedCodes := map[string]bool{}
+	for _, i := range projectOnboarding(d).StudentWeakPicks {
+		if i >= 0 && i < len(sk.ReviewCriteria) {
+			c := sk.ReviewCriteria[i]
+			out.Predicted = append(out.Predicted, PredCritDTO{Code: c.Code, Name: c.Name})
+			predictedCodes[c.Code] = true
+		}
+	}
+	// Actual: non-full gauges — only meaningful once a review has informed them.
+	gauges := projectReadiness(sk, d)
+	revealed := false
+	for _, g := range gauges {
+		if g.Lit > 0 || g.Note != "" {
+			revealed = true
+			break
+		}
+	}
+	out.Revealed = revealed
+	if revealed {
+		for _, g := range gauges {
+			if g.Level != "full" {
+				out.Actual = append(out.Actual, PredCritDTO{Code: g.Code, Name: g.Name})
+				if predictedCodes[g.Code] {
+					out.Overlap++
+				}
+			}
+		}
 	}
 	return out
 }

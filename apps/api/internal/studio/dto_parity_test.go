@@ -50,7 +50,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "materials", "onboarding", "project", "readiness", "reflection", "selfScore", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "materials", "onboarding", "prediction", "project", "readiness", "reflection", "selfScore", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
