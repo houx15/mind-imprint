@@ -67,6 +67,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/gate/{contractId}/attest", protected(a.attestGate))
 	mux.Handle("POST /api/v1/projects/{id}/snapshots/{sid}/review", protected(a.orderReview))
 	mux.Handle("POST /api/v1/projects/{id}/self-score", protected(a.submitSelfScore))
+	mux.Handle("POST /api/v1/projects/{id}/reflection", protected(a.submitReflection))
 	mux.Handle("GET /api/v1/projects/{id}/assessment", protected(a.getAssessment))
 	mux.Handle("POST /api/v1/projects/{id}/finish", protected(a.finishProject))
 	mux.Handle("POST /api/v1/projects/{id}/turn", protected(a.postProjectTurn))
