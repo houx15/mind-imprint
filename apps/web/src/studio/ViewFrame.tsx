@@ -60,6 +60,10 @@ export type ViewFrameProps = {
     finishError?: string | null;
     onFinish?: () => void;
   };
+  // N1 Task 8: the S0 view's restate + weak-picks submit — mirrors the flat
+  // shape OnboardingView's own `onSubmit` takes (no wrapper group, unlike
+  // `writing`/`review`, since this is the view's only callback).
+  onSubmitOnboarding?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
 };
 
 const FRAME: React.CSSProperties = {
@@ -177,7 +181,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing, review }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -321,7 +325,9 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
           onFinish={review?.onFinish ?? (() => {})}
         />
       )}
-      {effectiveView === "onboarding" && <OnboardingView station={active} data={state.views.onboarding} />}
+      {effectiveView === "onboarding" && (
+        <OnboardingView station={active} data={state.views.onboarding} onSubmit={onSubmitOnboarding} />
+      )}
     </div>
   );
 }

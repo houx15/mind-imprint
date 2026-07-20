@@ -14,7 +14,7 @@ import type { StationCode, StudioState, StudioCallbacks } from "./state";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -251,6 +251,16 @@ export function StudioContainer({
       setPendingAnchors(null);
       throw err;
     }
+  };
+
+  // N1 Task 8: the S0 view's restate + weak-picks submit — a pure DB write
+  // (no llm_call, no migration), so unlike onSubmitCard/onCommit above there
+  // is nothing to reconcile beyond re-pulling the projection so the
+  // textarea/rubric-picks re-hydrate from what actually persisted.
+  const submitOnboarding = async (body: { restate: string; weakPicks: number[] }) => {
+    if (!projectId) return;
+    await api.submitOnboarding(projectId, body);
+    await refetchProject();
   };
 
   // A3 Task 9: the project terminal — POSTs the finish, then routes to the
@@ -569,6 +579,7 @@ export function StudioContainer({
         lateralMaterialId={lateralMaterialId}
         onLateralMaterialChange={setLateralMaterialId}
         review={{ finishing, finishError, onFinish: handleFinish }}
+        onSubmitOnboarding={submitOnboarding}
       />
     </>
   );

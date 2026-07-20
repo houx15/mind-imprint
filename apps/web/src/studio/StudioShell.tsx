@@ -42,6 +42,10 @@ export type StudioShellProps = {
     finishError?: string | null;
     onFinish?: () => void;
   };
+  // N1 Task 8: the S0 view's restate + weak-picks submit — threaded straight
+  // through to ViewFrame (which threads it straight through to
+  // OnboardingView's own `onSubmit`), same flat shape at every hop.
+  onSubmitOnboarding?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -83,6 +87,7 @@ export function StudioShell({
   lateralMaterialId,
   onLateralMaterialChange,
   review,
+  onSubmitOnboarding,
 }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
@@ -185,6 +190,7 @@ export function StudioShell({
             onAttestCitations: callbacks.onAttestCitations,
           }}
           review={review}
+          onSubmitOnboarding={onSubmitOnboarding}
         />
         <CoachRail
           anchor={state.coach.anchor}

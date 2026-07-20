@@ -4,14 +4,30 @@ import type { OnboardingFx, Station } from "../state";
 export type OnboardingViewProps = {
   station: Station;
   data: OnboardingFx;
+  // N1 Task 8: persists the student's restate + weak-picks. Optional so
+  // standalone/story usages of OnboardingView (and the S1/S2 stub branches,
+  // which never render S0View) don't need to supply it.
+  onSubmit?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
 };
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
 const COL: React.CSSProperties = { maxWidth: 720, margin: "0 auto" };
 const CARD: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "20px 22px" };
 
-function S0View({ data }: { data: OnboardingFx }) {
-  const [weak, setWeak] = useState<Set<number>>(() => new Set(data.rubricRows.flatMap((r, i) => (r.weak ? [i] : []))));
+function S0View({ data, onSubmit }: { data: OnboardingFx; onSubmit?: (body: { restate: string; weakPicks: number[] }) => Promise<void> }) {
+  // First-visit suggestion falls back to the fixture's `weak` flags; once the
+  // student has actually picked (studentWeakPicks non-empty), their own
+  // picks win — mirrors `restate` hydrating from studentRestate below.
+  const [weak, setWeak] = useState<Set<number>>(
+    () =>
+      new Set(
+        data.studentWeakPicks.length > 0
+          ? data.studentWeakPicks
+          : data.rubricRows.flatMap((r, i) => (r.weak ? [i] : [])),
+      ),
+  );
+  const [restate, setRestate] = useState(data.studentRestate);
+  const [submitting, setSubmitting] = useState(false);
 
   function toggle(i: number) {
     setWeak((prev) => {
@@ -22,9 +38,29 @@ function S0View({ data }: { data: OnboardingFx }) {
     });
   }
 
+  const restateLongEnough = [...restate].length >= 15;
+  const canSubmit = restateLongEnough && !!onSubmit && !submitting;
+
+  async function handleSubmit() {
+    if (!canSubmit || !onSubmit) return;
+    setSubmitting(true);
+    try {
+      await onSubmit({ restate, weakPicks: [...weak] });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div style={WRAP}>
       <div style={COL}>
+        {data.assignmentText && (
+          <div style={{ ...CARD, marginBottom: 14, background: "#F7F8FC" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0", marginBottom: 6 }}>你粘贴的任务</div>
+            <div style={{ fontSize: 13, lineHeight: 1.7, color: "#4A5165" }}>{data.assignmentText}</div>
+          </div>
+        )}
+
         {/* Card 1: restate */}
         <div style={CARD}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -36,6 +72,8 @@ function S0View({ data }: { data: OnboardingFx }) {
           <textarea
             rows={3}
             placeholder={data.restatePrompt}
+            value={restate}
+            onChange={(e) => setRestate(e.target.value)}
             style={{
               width: "100%",
               border: "1px solid #E1E4ED",
@@ -49,6 +87,25 @@ function S0View({ data }: { data: OnboardingFx }) {
               resize: "vertical",
             }}
           />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: "#fff",
+                background: canSubmit ? "#2A3B7A" : "#B7BBCB",
+                border: "none",
+                borderRadius: 10,
+                padding: "8px 16px",
+                cursor: canSubmit ? "pointer" : "not-allowed",
+              }}
+            >
+              {submitting ? "记录中…" : "记下我的理解"}
+            </button>
+          </div>
         </div>
 
         {/* Card 2: rubric */}
@@ -136,9 +193,9 @@ function ShellView({ station }: { station: Station }) {
   );
 }
 
-export function OnboardingView({ station, data }: OnboardingViewProps) {
+export function OnboardingView({ station, data, onSubmit }: OnboardingViewProps) {
   if (station.code === "S0") {
-    return <S0View data={data} />;
+    return <S0View data={data} onSubmit={onSubmit} />;
   }
   return <ShellView station={station} />;
 }
