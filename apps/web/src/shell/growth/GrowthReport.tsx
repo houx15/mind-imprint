@@ -3,6 +3,7 @@ import type { GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { DualAxisReport } from "../report/DualAxisReport";
 import { AbilityModel } from "./AbilityModel";
+import { ToolkitCards } from "./ToolkitCards";
 
 const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
   project: "项目", course: "课程", chat: "聊天",
@@ -95,7 +96,7 @@ function LearningRecord() {
 }
 
 export function GrowthReport() {
-  const [tab, setTab] = useState<"learning" | "ability">("learning");
+  const [tab, setTab] = useState<"learning" | "cards" | "ability">("learning");
   const tabStyle = (active: boolean) => ({
     padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
     fontSize: 13.5, fontWeight: 700,
@@ -106,9 +107,10 @@ export function GrowthReport() {
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
           <button type="button" style={tabStyle(tab === "learning")} onClick={() => setTab("learning")}>学习记录</button>
+          <button type="button" style={tabStyle(tab === "cards")} onClick={() => setTab("cards")}>工具卡</button>
           <button type="button" style={tabStyle(tab === "ability")} onClick={() => setTab("ability")}>能力素养</button>
         </div>
-        {tab === "learning" ? <LearningRecord /> : <AbilityModel />}
+        {tab === "learning" ? <LearningRecord /> : tab === "cards" ? <ToolkitCards /> : <AbilityModel />}
       </div>
     </div>
   );

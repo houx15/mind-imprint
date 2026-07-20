@@ -58,16 +58,20 @@ const emptyAbility = {
 describe("GrowthReport tabs", () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it("defaults to 学习记录 and switches to 能力素养", async () => {
+  it("shows all three tabs and switches between them", async () => {
     vi.spyOn(api, "getGrowthHistory").mockResolvedValue([]);
     vi.spyOn(api, "getAbilityModel").mockResolvedValue(emptyAbility as never);
+    vi.spyOn(api, "getGrowthCards").mockResolvedValue([] as never);
     render(<GrowthReport />);
-    // both tabs present
     expect(screen.getByRole("button", { name: /学习记录/ })).toBeTruthy();
+    const cardsTab = screen.getByRole("button", { name: /工具卡/ });
     const abilityTab = screen.getByRole("button", { name: /能力素养/ });
-    // default tab is history (empty-state copy from the history hub)
+    // default tab is the history hub
     await waitFor(() => expect(screen.getByText(/还没有报告/)).toBeTruthy());
-    // switch
+    // 工具卡
+    fireEvent.click(cardsTab);
+    await waitFor(() => expect(screen.getByText(/还没有收集到工具卡/)).toBeTruthy());
+    // 能力素养
     fireEvent.click(abilityTab);
     await waitFor(() => expect(screen.getByText(/还没有足够的数据/)).toBeTruthy());
   });
