@@ -56,6 +56,9 @@ export const OnboardingFx = z.object({
   restatePrompt: z.string(),
   rubricRows: z.array(RubricRow),
   planSteps: z.array(z.string()),
+  assignmentText: z.string(),
+  studentRestate: z.string(),
+  studentWeakPicks: z.array(z.number().int()),
 });
 export type OnboardingFx = z.infer<typeof OnboardingFx>;
 
@@ -217,3 +220,18 @@ export const StudioProjection = z.object({
   canFinish: z.boolean(),
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;
+
+export const CreateProjectBody = z.object({
+  title: z.string().optional(),
+  prompt: z.string().min(1),
+});
+export type CreateProjectBody = z.infer<typeof CreateProjectBody>;
+
+export const CreateProjectResult = z.object({ id: z.string() });
+export type CreateProjectResult = z.infer<typeof CreateProjectResult>;
+
+export const OnboardingSubmitBody = z.object({
+  restate: z.string(),
+  weakPicks: z.array(z.number().int()),
+});
+export type OnboardingSubmitBody = z.infer<typeof OnboardingSubmitBody>;
