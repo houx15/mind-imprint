@@ -1,4 +1,4 @@
-import { DualAxisReport, StudioProjection } from "@mind-imprint/contracts";
+import { CreateProjectResult, DualAxisReport, StudioProjection } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 export type ProjectListItem = {
@@ -24,4 +24,13 @@ export async function getProject(id: string): Promise<StudioProjection> {
 export async function finishProject(id: string): Promise<DualAxisReport> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/finish`, { method: "POST" });
   return DualAxisReport.parse(raw);
+}
+
+export async function createProject(body: { title?: string; prompt: string }): Promise<{ id: string }> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects`, { method: "POST", body: JSON.stringify(body) });
+  return CreateProjectResult.parse(raw);
+}
+
+export async function submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/onboarding`, { method: "POST", body: JSON.stringify(body) });
 }
