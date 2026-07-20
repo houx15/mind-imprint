@@ -269,13 +269,19 @@ func TestRunCourseStepAskGetsAReply(t *testing.T) {
 		t.Fatal("an ask must emit a course_message event for the student turn")
 	}
 	var cm struct {
-		Unprompted bool `json:"unprompted"`
+		Unprompted bool   `json:"unprompted"`
+		Text       string `json:"text"`
 	}
 	if err := json.Unmarshal(st.eventPayload("course_message"), &cm); err != nil {
 		t.Fatalf("course_message payload must unmarshal: %v", err)
 	}
 	if !cm.Unprompted {
 		t.Fatal("an ask's course_message must be unprompted=true")
+	}
+	// The real student text rides in the payload so the assessor's per-round
+	// surfaces have honest course-surface evidence (read back via promptText).
+	if cm.Text != "这条是真的吗？" {
+		t.Fatalf("course_message text = %q, want the student's real message", cm.Text)
 	}
 }
 

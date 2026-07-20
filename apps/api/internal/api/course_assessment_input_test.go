@@ -123,6 +123,29 @@ func TestRoundsFromEvidence_UsesRealPromptText(t *testing.T) {
 	}
 }
 
+// TestRoundsFromEvidence_CourseMessageIsARound proves the course surface now
+// yields per-round evidence: a course_message event carrying real text becomes a
+// Round via the same {"text":…} reader chat's prompt_sent uses, so course SOLO /
+// 提示词透镜 are no longer empty by construction. A course_message with no text
+// still yields an honest empty prompt (never a fabricated one).
+func TestRoundsFromEvidence_CourseMessageIsARound(t *testing.T) {
+	events := []studio.Event{
+		{Type: "card_surfaced", Surface: "course", Payload: []byte(`{"card_id":"sift_craap"}`)},
+		{Type: "course_message", Surface: "course", Payload: []byte(`{"unprompted":true,"text":"这条数据可信吗？"}`)},
+		{Type: "course_message", Surface: "course", Payload: []byte(`{"unprompted":true}`)},
+	}
+	rounds := roundsFromEvidence(events)
+	if len(rounds) != 2 {
+		t.Fatalf("rounds = %+v, want 2 (two course_message turns, card_surfaced is not a turn)", rounds)
+	}
+	if rounds[0].StudentPrompt != "这条数据可信吗？" {
+		t.Fatalf("rounds[0].StudentPrompt = %q, want the real course text", rounds[0].StudentPrompt)
+	}
+	if rounds[1].StudentPrompt != "" {
+		t.Fatalf("rounds[1].StudentPrompt = %q, want honest empty (no text in payload)", rounds[1].StudentPrompt)
+	}
+}
+
 // An empty session must not panic and must not invent evidence.
 func TestBuildAssessmentInputFromEvidenceEmpty(t *testing.T) {
 	in := buildAssessmentInputFromEvidence(nil, nil)

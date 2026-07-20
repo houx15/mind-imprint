@@ -32,18 +32,20 @@ func buildAssessmentInputFromEvidence(events []studio.Event, cards []sqlc.CardIn
 
 // roundsFromEvidence pairs student-message events into ordered rounds. Course/chat
 // have no separate AI-context projection, so AiContext is left empty; the student
-// prompt alone still drives SOLO + prompt-lens. Reuses the exact same "prompt_sent"
-// predicate roundsFromProject (assessment.go) keys on, and promptText — the same
-// payload-to-real-text reader roundsFromProject trusts — so rounds and the timeline
-// agree on what a "student turn" is and how its text reads. Course emits no
-// prompt_sent events, so this honestly yields zero rounds there — never a fabricated
-// one — and the assessor's per-round surfaces (SOLO/promptLens/timeline) are left
-// empty rather than invented (see reportPosture's anti-fabrication guard).
+// prompt alone still drives SOLO + prompt-lens. A "student turn" is a chat
+// prompt_sent event OR a course course_message event — the two surfaces name their
+// student turn differently but both carry the real text in a {"text":…} payload,
+// read back via promptText (the same payload-to-real-text reader roundsFromProject
+// trusts) so rounds and the timeline agree on what a turn is and how it reads. The
+// two event types are disjoint by surface, so a chat stream still yields only its
+// prompt_sent rounds and a course stream only its course_message rounds. A turn
+// whose payload lacks text yields an honest empty prompt — never a fabricated one
+// (see reportPosture's anti-fabrication guard).
 func roundsFromEvidence(events []studio.Event) []agent.Round {
 	rounds := make([]agent.Round, 0)
 	n := 0
 	for _, e := range events {
-		if e.Type != "prompt_sent" {
+		if e.Type != "prompt_sent" && e.Type != "course_message" {
 			continue
 		}
 		n++

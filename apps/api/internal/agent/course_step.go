@@ -299,8 +299,11 @@ func runCourseAsk(ctx context.Context, deps CourseDeps, sess CourseSession, phas
 	}
 	// Spec §7: course events are full-weight evidence. `unprompted` is derived
 	// from intent — an `ask` is student-initiated. Only STUDENT messages get
-	// this event; an assistant reply is not student evidence.
-	askPayload, _ := json.Marshal(map[string]bool{"unprompted": true})
+	// this event; an assistant reply is not student evidence. `text` carries the
+	// real student message so the assessor's per-round surfaces (SOLO / 提示词透镜)
+	// have honest evidence on the course surface too — read back via promptText,
+	// the same {"text":…} reader the studio/chat prompt_sent payload uses.
+	askPayload, _ := json.Marshal(map[string]any{"unprompted": true, "text": studentMessage})
 	if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "course_message", askPayload); err != nil {
 		slog.Warn("course ask: append course_message event failed", "err", err)
 	}
