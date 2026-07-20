@@ -55,6 +55,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/auth/me", protected(a.me))
 	mux.Handle("GET /api/v1/growth/history", protected(a.getGrowthHistory))
 	mux.Handle("GET /api/v1/growth/ability", protected(a.getAbilityModel))
+	mux.Handle("GET /api/v1/growth/cards", protected(a.getGrowthCards))
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))
 	mux.Handle("GET /api/v1/projects/{id}", protected(a.getProject))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
