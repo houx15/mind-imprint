@@ -17,6 +17,10 @@ import (
 // the assessor). No model call.
 func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	projectID, ok := a.loadOwnedProject(w, r) // writes 404 itself on miss
+	if !ok {
+		return
+	}
 	entitled, err := HasEntitlement(r.Context(), u)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -24,10 +28,6 @@ func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 	if !entitled {
 		httpx.WriteError(w, r, httpx.ErrNotEntitled())
-		return
-	}
-	projectID, ok := a.loadOwnedProject(w, r) // writes 404 itself on miss
-	if !ok {
 		return
 	}
 	var req struct {
