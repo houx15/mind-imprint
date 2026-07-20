@@ -31,9 +31,11 @@ ON CONFLICT (id) DO NOTHING;
 -- decode_task nodes → S0 onboarding.
 INSERT INTO graph_node (id, project_id, type, author, body) VALUES
   ('00000000-0000-0000-0000-000000000140', '00000000-0000-0000-0000-000000000101', 'rubric_translation', 'ai',
-   '{"restate_prompt":"这次要写的是一篇个人报告：「中国在多大程度上让世界变得更具环境可持续性？」（0457 全球社会中的环境系统与社会）。用你自己的话说说，这道题到底在问什么，你打算怎么回答，以及评分标准里你觉得最容易被忽略的是哪一条。","rows":[{"official":"Analysis of different perspectives","plain":"能从不同视角分析，不只罗列观点","weak":true},{"official":"Use & evaluation of evidence / sources","plain":"用可信来源，并说清它可不可信","weak":true},{"official":"Personal response & reflection","plain":"给出自己的判断，并回看研究过程","weak":true},{"official":"Communication & organisation","plain":"结构清楚、表达清晰","weak":false}]}'::jsonb),
+   '{"restate_prompt":"这次要写的是一篇个人报告：「中国在多大程度上让世界变得更具环境可持续性？」（0457 全球社会中的环境系统与社会）。用你自己的话说说，这道题到底在问什么，你打算怎么回答，以及评分标准里你觉得最容易被忽略的是哪一条。","rows":[{"official":"来源与证据（表D）","plain":"用可信来源，并说清它可不可信","weak":true},{"official":"分析（表E）","plain":"能从不同视角分析，不只罗列观点","weak":true},{"official":"评估（表F）","plain":"权衡取舍、指出局限，而不是各打五十大板","weak":false},{"official":"表达与组织（表H）","plain":"结构清楚、表达清晰","weak":false}]}'::jsonb),
   ('00000000-0000-0000-0000-000000000141', '00000000-0000-0000-0000-000000000101', 'milestone_plan', 'student',
-   '{"steps":["立题","找素材","评估来源","搭论证","成稿","反思归档"]}'::jsonb)
+   '{"steps":["立题","找素材","评估来源","搭论证","成稿","反思归档"]}'::jsonb),
+  ('00000000-0000-0000-0000-000000000145', '00000000-0000-0000-0000-000000000101', 'task_restatement', 'student',
+   '{"restate":"我想弄清楚中国的环境治理到底算不算让世界更可持续，而不是只看碳排放总量。","weak_picks":[0,1]}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 -- build_argument (S4) graph: a done core claim, a bare "治理决心" claim, and an

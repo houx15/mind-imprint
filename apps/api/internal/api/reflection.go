@@ -47,8 +47,30 @@ func (a *API) submitReflection(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	payload, _ := json.Marshal(map[string]string{"text": req.Text})
+
+	// Advance the S6 reflect_archive gate's student_written "reflection" item.
+	// gate_state items are the ONLY thing the gate checker reads (agent.CheckGate) —
+	// the graph_node above is necessary but not sufficient. Merge into any existing
+	// recorded gate_state so a future declaration_signed (human) item isn't clobbered.
+	// This is core to the feature, so it hard-fails the request (unlike the
+	// best-effort event append below).
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	recorded, err := store.ListGateStates(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rec := recorded["reflect_archive"]
+	if rec.Items == nil {
+		rec.Items = map[string]string{}
+	}
+	rec.Items["reflection"] = "solid"
+	if err := store.UpsertGateState(r.Context(), projectID, "reflect_archive", rec); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]string{"text": req.Text})
 	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "reflection_written", Payload: payload,
 	}); err != nil {

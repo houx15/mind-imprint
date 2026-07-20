@@ -54,6 +54,25 @@ func TestSubmitReflection_PersistsNodeAndEvent(t *testing.T) {
 	if gotNode.Text != reflectionText {
 		t.Errorf("node body text = %q, want %q", gotNode.Text, reflectionText)
 	}
+
+	// Writing the retro must advance the S6 reflect_archive gate's
+	// student_written "reflection" item — the gate checker reads gate_state,
+	// not the reflection node itself.
+	var gateBody []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT body FROM graph_node WHERE project_id=$1 AND type='gate_state' AND body->>'contract'='reflect_archive'`, pid).
+		Scan(&gateBody); err != nil {
+		t.Fatalf("select reflect_archive gate_state: %v", err)
+	}
+	var gotGate struct {
+		Items map[string]string `json:"items"`
+	}
+	if err := json.Unmarshal(gateBody, &gotGate); err != nil {
+		t.Fatalf("unmarshal gate_state body: %v; raw=%s", err, gateBody)
+	}
+	if gotGate.Items["reflection"] != "solid" {
+		t.Errorf("reflect_archive gate items[reflection] = %q, want %q", gotGate.Items["reflection"], "solid")
+	}
 }
 
 func TestSubmitReflection_RejectsTooShort(t *testing.T) {
