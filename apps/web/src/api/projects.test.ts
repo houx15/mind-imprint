@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getProject, listProjects, createProject, submitOnboarding } from "./projects";
+import { getProject, listProjects, createProject, submitOnboarding, submitSelfScore, submitReflection } from "./projects";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -74,5 +74,20 @@ describe("submitOnboarding", () => {
     const [url, init] = spy.mock.calls[0]!;
     expect(String(url)).toContain("/projects/p-1/onboarding");
     expect(JSON.parse(init?.body as string).weakPicks).toEqual([0, 1]);
+  });
+});
+
+describe("submitSelfScore / submitReflection", () => {
+  it("posts self-score", async () => {
+    const spy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    await submitSelfScore("p1", { scores: [{ code: "表D", band: 2 }] });
+    const [url, init] = spy.mock.calls[0]!;
+    expect(String(url)).toContain("/projects/p1/self-score");
+    expect(JSON.parse(init!.body as string).scores[0].band).toBe(2);
+  });
+  it("posts reflection", async () => {
+    const spy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    await submitReflection("p1", { text: "我的回顾至少二十个字这样才够长可以通过校验规则" });
+    expect(String(spy.mock.calls[0]![0])).toContain("/projects/p1/reflection");
   });
 });

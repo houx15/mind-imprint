@@ -9,7 +9,7 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
-import { listProjects, getProject, finishProject, createProject, submitOnboarding, type ProjectListItem } from "./projects";
+import { listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, type ProjectListItem } from "./projects";
 import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards } from "./cards";
@@ -55,6 +55,8 @@ export interface ApiClient {
   finishProject(id: string): Promise<DualAxisReport>;
   createProject(body: { title?: string; prompt: string }): Promise<{ id: string }>;
   submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
+  submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void>;
+  submitReflection(projectId: string, body: { text: string }): Promise<void>;
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
@@ -92,7 +94,7 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
-  listProjects, getProject, finishProject, createProject, submitOnboarding,
+  listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
   putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,

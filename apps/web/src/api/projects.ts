@@ -34,3 +34,11 @@ export async function createProject(body: { title?: string; prompt: string }): P
 export async function submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void> {
   await apiFetch<void>(`/api/v1/projects/${projectId}/onboarding`, { method: "POST", body: JSON.stringify(body) });
 }
+
+export async function submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/self-score`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function submitReflection(projectId: string, body: { text: string }): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/reflection`, { method: "POST", body: JSON.stringify(body) });
+}
