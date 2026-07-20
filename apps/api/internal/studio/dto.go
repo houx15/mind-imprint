@@ -39,6 +39,12 @@ type StudioProjection struct {
 	// review ⋈ skill config. Always the full config set (4 unlit cards
 	// pre-review). See projectReadiness (projection.go).
 	Readiness []GaugeDTO `json:"readiness"`
+	// SelfScore projects the 先自己评一评 card (S6): one dim per review criterion
+	// with the student's own picked band. See projectSelfScore (projection.go).
+	SelfScore SelfScoreDTO `json:"selfScore"`
+	// Reflection projects the S6 写一段研究回顾 card: the student's latest
+	// reflection text + the prompt chips. See projectReflection (projection.go).
+	Reflection ReflectionDTO `json:"reflection"`
 	// Finished is true once the project's terminal has run (project.status ==
 	// "finished"). CanFinish is true when the S5 整稿体检 gate item
 	// whole_draft_review is "solid" AND the project is not already finished —
@@ -279,6 +285,27 @@ type WritingDTO struct {
 	WordBudget       WordBudgetDTO       `json:"wordBudget"`
 	CitationsMatched bool                `json:"citationsMatched"`
 	Review           WritingReviewDTO    `json:"review"`
+}
+
+// SelfScoreDimDTO is one review criterion the student rates against the mark
+// scheme. Band is 0..2 (还需努力/基本达到/稳了), or -1 when not yet picked.
+// RL-5: the student's own per-criterion judgement, never an aggregate grade.
+type SelfScoreDimDTO struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+	Band int    `json:"band"`
+}
+
+type SelfScoreDTO struct {
+	Dims  []SelfScoreDimDTO `json:"dims"`
+	Bands []string          `json:"bands"`
+}
+
+// ReflectionDTO is the S6 研究回顾: the student's own text (RL-4, AI never
+// authors it) + the prompt chips the platform offers.
+type ReflectionDTO struct {
+	Text    string   `json:"text"`
+	Prompts []string `json:"prompts"`
 }
 
 // GaugeDTO is one 0457 mark-scheme table on the 就绪度 readiness display: the

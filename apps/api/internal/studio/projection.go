@@ -348,6 +348,8 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		Structure:     projectStructure(specByID, d),
 		Writing:       projectWriting(sk, d),
 		Readiness:     projectReadiness(sk, d),
+		SelfScore:     projectSelfScore(sk, d),
+		Reflection:    projectReflection(d),
 		Finished:      finished,
 		CanFinish:     canFinish,
 	}, nil
@@ -469,6 +471,66 @@ func projectReadiness(sk skills.Skill, d ProjectData) []GaugeDTO {
 		out = append(out, g)
 	}
 	return out
+}
+
+// selfScoreBands are the 3 universal self-assessment levels (band index 0..2).
+var selfScoreBands = []string{"还需努力", "基本达到", "稳了"}
+
+// retroPrompts nudge causal reflection (RL-4: prompts only, never prose).
+var retroPrompts = []string{
+	"哪一步真正改变了你的判断？为什么？",
+	"如果重来一次，你会在哪一步做得不同？",
+	"有没有一个证据或反例，让你不得不修改原来的想法？",
+}
+
+// projectSelfScore projects the 先自己评一评 card: one dim per review criterion
+// with the student's latest picked band (or -1 unpicked). Bands are universal.
+func projectSelfScore(sk skills.Skill, d ProjectData) SelfScoreDTO {
+	picked := map[string]int{}
+	for _, n := range d.Nodes {
+		if n.Type != "self_score" {
+			continue
+		}
+		var body struct {
+			Scores []struct {
+				Code string `json:"code"`
+				Band int    `json:"band"`
+			} `json:"scores"`
+		}
+		if json.Unmarshal(n.Body, &body) != nil {
+			continue
+		}
+		for _, s := range body.Scores { // last self_score node wins
+			picked[s.Code] = s.Band
+		}
+	}
+	dims := make([]SelfScoreDimDTO, 0, len(sk.ReviewCriteria))
+	for _, c := range sk.ReviewCriteria {
+		band := -1
+		if b, ok := picked[c.Code]; ok {
+			band = b
+		}
+		dims = append(dims, SelfScoreDimDTO{Code: c.Code, Name: c.Name, Band: band})
+	}
+	return SelfScoreDTO{Dims: dims, Bands: selfScoreBands}
+}
+
+// projectReflection projects the 写一段研究回顾 card: the latest student
+// reflection text + the prompt chips.
+func projectReflection(d ProjectData) ReflectionDTO {
+	text := ""
+	for _, n := range d.Nodes {
+		if n.Type != "reflection" {
+			continue
+		}
+		var body struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(n.Body, &body) == nil {
+			text = body.Text // latest wins (nodes ordered by created_at)
+		}
+	}
+	return ReflectionDTO{Text: text, Prompts: retroPrompts}
 }
 
 // reviewItemDTOFromIntervention reconstructs a WritingReviewItemDTO from a
