@@ -55,11 +55,21 @@ to model.
 
 Consequences that fall out for free:
 
-- **Refeed works with a one-line change.** `agent.anchorSteps` already folds
-  answered anchors into the 摘要回灌 payload, grouping by `dimension` and
-  labelling each answer with `a.Question`. These primitives have no
-  AI-authored question, so the label must fall back to `quote` (the sentence /
-  the row) before `dimension`. One line, and it improves every primitive.
+- **Refeed is prepared, but NOT live** (corrected post-build — the original
+  draft of this line claimed it "works for free", which the whole-branch review
+  disproved). `agent.anchorSteps` folds answered anchors into the 摘要回灌
+  payload, and this slice fixes its label fallback to `question → quote →
+  dimension` so a sort/scale/matrix answer reads legibly instead of being
+  labelled with its own bucket name. But `anchorSteps` is reachable only via
+  `SerializeCardForRefeed` ← `BuildLlmMessages`, which has **no production
+  caller** (legacy 任务面 code). The live post-submit refeed is
+  `RunAgentStep(Trigger{card_refeed})`, whose coach context is the graph
+  neighborhood plus chat history — never card anchors. **Consequence:** a card
+  reaches the coach only through its `graph_effects`. `perspective-matrix` does
+  (its `perspective` nodes are graph facts); `fact-opinion-value` and
+  `certainty-spectrum` declare no effects and are therefore write-only sinks
+  until a real anchor-refeed seam exists. Carried forward with their wiring
+  (see below).
 - **The assessor sees them.** Card completion already emits events at full
   weight; nothing primitive-specific is needed.
 - **Rehydration works.** `Studio*Card` hosts seed from persisted anchors on
@@ -290,6 +300,25 @@ three branches beside the existing three.
 - **Web:** each `serialize.ts` round-trips state→anchors→state; each primitive
   component renders and edits; each `Studio*Card` seeds from anchors and
   submits the expected envelope; `CoachRail` forks on each new primitive.
+
+## Delivered vs carried forward (post-build, after the whole-branch review)
+
+**Live end-to-end:** `matrix` / `perspective-matrix`. It is wired into
+`SurfaceCardCandidates` as a project-scoped moment (fires once any source is
+evaluated, while fewer than 2 `perspective` nodes exist and no instance of it
+has been dispositioned), and it is the **only producer of `perspective` graph
+nodes in the system** — `writing-project.json`'s `evaluate_perspectives`
+station gates on `node_count_at_least{perspective, 2}` and is a `requires`
+prerequisite of `evaluate_sources`, so before this slice that gate was
+unsatisfiable and the station chain was walled behind it.
+
+**Built but not yet reachable:** `sort` / `fact-opinion-value` and `scale` /
+`certainty-spectrum`. Both are complete and tested through every layer, but
+their honest trigger is a semantic judgment about what the student just wrote,
+which needs the cheap-model classifier scoped to **N3b**. They are deliberately
+NOT wired into the structural classifier — a structural proxy would fire them
+at the wrong moment. Wiring them is N3b's job, together with the anchor-refeed
+seam noted above (without it they reach the coach not at all).
 
 ## Risks
 
