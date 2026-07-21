@@ -420,6 +420,22 @@ func refeedCandidate(ctx context.Context, deps AgentDeps, cardInstanceID string)
 	inst := CardInstance{ID: cardInstanceID, CardID: row.CardID, Status: row.Status}
 	_ = json.Unmarshal(row.Anchors, &inst.Anchors)         // absent/invalid → no anchor steps
 	_ = json.Unmarshal(row.FieldValues, &inst.FieldValues) // absent/invalid → no field steps
+	payload := SerializeCardForRefeed(spec, inst)
+
+	// A card can complete with NO steps: e.g. steelman.json declares no
+	// completion predicates, so EvaluateCompletion reports complete=true over
+	// zero predicates, and a student who opens the card and immediately
+	// submits gets status "completed" with nothing in it. An empty card is
+	// not a thinking moment to respond to — asking the coach to produce one
+	// anchored question about nothing would invent a question with no basis
+	// in what the student actually wrote, which is exactly what 铁律 1 (AI
+	// 克制，绝不替学生定论) forbids. Silence here, not a fabricated prompt.
+	// This belongs in Go, not in the card JSON: it is correct for ANY card
+	// that completes empty, not just steelman, and card JSON changes are out
+	// of scope for this slice.
+	if len(payload.Steps) == 0 {
+		return Candidate{}, RefeedPayload{}, false
+	}
 	return Candidate{
 		Verb:       "post_intervention",
 		AnchorKind: "card_instance",
@@ -427,7 +443,7 @@ func refeedCandidate(ctx context.Context, deps AgentDeps, cardInstanceID string)
 		Criterion:  "D6", // 元认知与反思
 		Level:      "I2",
 		Reason:     "学生刚完成了一张工具卡",
-	}, SerializeCardForRefeed(spec, inst), true
+	}, payload, true
 }
 
 // hasSurfaceCard reports whether any structural surface_card candidate already

@@ -1189,6 +1189,45 @@ func TestRunAgentStepRefeedSilentOnSkipped(t *testing.T) {
 	}
 }
 
+// TestRunAgentStepRefeedSilentOnEmptyCompletedCard is the regression for
+// whole-branch review MINOR 5: steelman.json declares no `completion`
+// predicates, so EvaluateCompletion reports complete=true over zero
+// predicates — a student who opens the card and immediately submits gets
+// status "completed" with nothing filled in. Before the fix, refeedCandidate
+// would still fire, handing the coach a payload with only the card name and
+// no steps, asking it to invent one anchored question about nothing — a
+// fabrication 铁律 1 forbids. An empty completed card must get silence, same
+// as a skipped one.
+func TestRunAgentStepRefeedSilentOnEmptyCompletedCard(t *testing.T) {
+	instanceID := uuid.New()
+	store := &fakeAgentStore{
+		graph: GraphView{},
+		cardInstances: map[uuid.UUID]CardInstanceRow{
+			// No FieldValues, no Anchors: nothing for the serializer to turn
+			// into a step, even though status is "completed".
+			instanceID: {ID: instanceID, CardID: "steelman", Status: "completed"},
+		},
+	}
+	prov := &countingProvider{inner: scriptedProvider("should never be called")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "card_refeed", CardInstanceID: instanceID.String()})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence for an empty completed card, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero provider calls for an empty completed card, got %d", prov.calls)
+	}
+}
+
 // TestRunAgentStepRefeedOutranksOtherCandidates covers the refeed's
 // first-priority ordering: a graph that would also yield an ordinary
 // post_intervention candidate (an unsupported claim) must still surface the
