@@ -140,6 +140,26 @@ func TestRefeedFoldsAnnotationAnchors(t *testing.T) {
 	}
 }
 
+func TestAnchorStepsLabelsFallBackToQuoteBeforeDimension(t *testing.T) {
+	inst := CardInstance{Anchors: []Anchor{
+		// no Question — a sort/scale/matrix anchor. The sentence (quote) is
+		// the only useful label; the dimension is already the step title.
+		{Quote: "中国碳排放全球第一", Dimension: "事实", Answer: "可以去核查"},
+		// no Question and no Quote — falls all the way back to the dimension.
+		{Dimension: "观点", Answer: "需要给理由"},
+	}}
+	steps := anchorSteps(inst)
+	if len(steps) != 2 {
+		t.Fatalf("want 2 steps, got %d", len(steps))
+	}
+	if steps[0].Title != "事实" || steps[0].Answers[0].Label != "中国碳排放全球第一" {
+		t.Fatalf("step0 = %+v", steps[0])
+	}
+	if steps[1].Answers[0].Label != "观点" {
+		t.Fatalf("step1 label = %q, want 观点", steps[1].Answers[0].Label)
+	}
+}
+
 // jsonEqual compares two JSON byte slices semantically (key order independent).
 func jsonEqual(t *testing.T, a, b []byte) bool {
 	t.Helper()

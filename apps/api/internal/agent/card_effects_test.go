@@ -241,6 +241,36 @@ func TestToulminGraphEffect(t *testing.T) {
 	}
 }
 
+func TestGraphEffectsPerspectivesMintsOneNodePerCompleteRow(t *testing.T) {
+	spec := cards.Spec{
+		Params:       cards.Params{Cols: []cards.Axis{{ID: "position"}, {ID: "grounds"}}},
+		GraphEffects: []cards.GraphEffect{{Kind: "perspectives"}},
+	}
+	anchors := []Anchor{
+		{Quote: "政府", Dimension: "position", Answer: "治理有决心"},
+		{Quote: "政府", Dimension: "grounds", Answer: "植树与限排政策"},
+		{Quote: "环保组织", Dimension: "position", Answer: "进展不足"}, // incomplete → skipped
+	}
+	nodes, edges := GraphEffects(spec, "", anchors)
+	if len(edges) != 0 {
+		t.Fatalf("perspectives mints no edges, got %d", len(edges))
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("want 1 node (only the complete row), got %d", len(nodes))
+	}
+	n := nodes[0]
+	if n.Type != "perspective" || n.Author != "student" {
+		t.Fatalf("node type/author = %s/%s", n.Type, n.Author)
+	}
+	if n.Body["text"] != "政府" {
+		t.Fatalf("body text = %v, want 政府", n.Body["text"])
+	}
+	cells, ok := n.Body["cells"].(map[string]string)
+	if !ok || cells["position"] != "治理有决心" || cells["grounds"] != "植树与限排政策" {
+		t.Fatalf("body cells = %v", n.Body["cells"])
+	}
+}
+
 func TestConsolidationPayload_NonEmptyFramework(t *testing.T) {
 	spec := craapSpecFixture()
 	spec.Consolidation = "reveal_framework_after_completion"

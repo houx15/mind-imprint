@@ -152,7 +152,15 @@ func anchorSteps(inst CardInstance) []RefeedStep {
 		if dim == "" {
 			dim = "标注"
 		}
+		// question → quote → dimension. Annotate/compare anchors carry an
+		// AI-authored question; sort/scale/matrix anchors carry none, and for
+		// them the quote (the sentence sorted / the item placed / the
+		// perspective row) is the only thing that makes the refed answer
+		// legible — the dimension is already the step title.
 		label := a.Question
+		if label == "" {
+			label = a.Quote
+		}
 		if label == "" {
 			label = dim
 		}

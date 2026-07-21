@@ -118,6 +118,22 @@ func GraphEffects(spec cards.Spec, materialID string, anchors []Anchor) ([]MintN
 					ToKind: "material", ToID: a.MaterialID,
 				})
 			}
+
+		case "perspectives":
+			// One node per COMPLETE row of the matrix (same row rule as
+			// matrix_complete: keyed by the student's own perspective label,
+			// every column filled). A half-filled row is a real state we keep
+			// on the card_instance, but it is not yet a perspective the
+			// workspace graph should assert. No edges — perspectives are
+			// free-standing project nodes; nothing links them today (the S2
+			// perspective view that reads them is N3d).
+			for _, row := range completeMatrixRows(spec, anchors) {
+				nodes = append(nodes, MintNode{
+					Type:   "perspective",
+					Author: "student",
+					Body:   map[string]any{"text": row.Label, "cells": row.Cells},
+				})
+			}
 		}
 	}
 	return nodes, edges
@@ -202,4 +218,43 @@ func ConsolidationPayload(spec cards.Spec) map[string]any {
 		"dimensions":  spec.Params.Tags,
 		"tag_prompts": spec.Params.TagPrompts,
 	}
+}
+
+// matrixRow is one complete student-authored matrix row.
+type matrixRow struct {
+	Label string
+	Cells map[string]string
+}
+
+// completeMatrixRows returns the matrix rows every column of which the student
+// filled, in first-seen order. Shares its row rule with
+// firstIncompleteMatrixRow (card_completion.go): a row is keyed by
+// Anchor.Quote and a cell is Anchor.Dimension -> Anchor.Answer.
+func completeMatrixRows(spec cards.Spec, anchors []Anchor) []matrixRow {
+	var order []string
+	cells := map[string]map[string]string{}
+	for _, a := range anchors {
+		if a.Quote == "" || strings.TrimSpace(a.Answer) == "" {
+			continue
+		}
+		if _, seen := cells[a.Quote]; !seen {
+			cells[a.Quote] = map[string]string{}
+			order = append(order, a.Quote)
+		}
+		cells[a.Quote][a.Dimension] = a.Answer
+	}
+	var out []matrixRow
+	for _, label := range order {
+		done := true
+		for _, col := range spec.Params.Cols {
+			if cells[label][col.ID] == "" {
+				done = false
+				break
+			}
+		}
+		if done {
+			out = append(out, matrixRow{Label: label, Cells: cells[label]})
+		}
+	}
+	return out
 }
