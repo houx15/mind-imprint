@@ -9,6 +9,7 @@ import { StudioAnnotateCard } from "./StudioAnnotateCard";
 import { StudioCompareCard } from "./StudioCompareCard";
 import { StudioSortCard } from "./StudioSortCard";
 import { StudioScaleCard } from "./StudioScaleCard";
+import { StudioMatrixCard } from "./StudioMatrixCard";
 import { StudioCardSheet } from "./StudioCardSheet";
 import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
 
@@ -397,6 +398,14 @@ export function CoachRail({
             />
           ) : card.spec.primitive === "scale" ? (
             <StudioScaleCard
+              spec={card.spec}
+              cardInstanceId={card.cardInstanceId}
+              anchors={card.anchors}
+              onSubmit={(env) => onSubmitCard?.(env)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          ) : card.spec.primitive === "matrix" ? (
+            <StudioMatrixCard
               spec={card.spec}
               cardInstanceId={card.cardInstanceId}
               anchors={card.anchors}

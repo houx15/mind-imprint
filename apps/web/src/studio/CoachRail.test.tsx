@@ -317,6 +317,42 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
     expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
   });
+
+  // Made-up column vocabulary (not the real perspective-matrix.json
+  // 立场主张/依据/盲区 labels) — same rationale as the sort/scale tests above.
+  it("primitive === 'matrix' forks to StudioMatrixCard, not StudioCardSheet", () => {
+    const spec = {
+      id: "made-up-matrix",
+      name: "多视角卡",
+      category: "知识工具",
+      purpose: "补齐遗漏的视角",
+      primitive: "matrix",
+      params: {
+        cols: [
+          { id: "view", label: "看法", q: "这个人怎么看？" },
+          { id: "reason", label: "理由", q: "为什么这么想？" },
+        ],
+        min_items: 1,
+        row_prompt: "这是谁的视角？",
+      },
+    } as any;
+    // Matrix only renders its column headers per row (there is no decorative
+    // axis header like Scale's), so seed one row via a persisted anchor —
+    // the same rehydration path StudioMatrixCard uses.
+    const anchors = [
+      { id: "a0", material_id: "", block_id: "", start: 0, end: 0, quote: "一个视角", dimension: "view", author: "student" as const, question: "", answer: "" },
+    ];
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci6", cardId: "made-up-matrix", spec, status: "active", anchors }}
+      />,
+    );
+    expect(screen.getByText("看法")).toBeInTheDocument();
+    expect(screen.getByText("理由")).toBeInTheDocument();
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+  });
 });
 
 describe("CoachRail voice input (5d review IMPORTANT: the mic must not be inert)", () => {
