@@ -369,6 +369,30 @@ func TestNoPerspectiveMatrixOnceDispositioned(t *testing.T) {
 	}
 }
 
+// TestSurfaceCardCandidatesToulminNotReofferedAfterSkip is N3b's toulmin
+// carry-forward fix: mirrors TestNoPerspectiveMatrixOnceDispositioned above —
+// an offer is never a wall. Skipping (or completing) toulmin mints no claim
+// node (see GraphEffects' "toulmin" case, card_effects.go — a claim node is
+// only minted from a filled "claim" slot), so the bare
+// anyEvaluated && !hasClaim predicate stays true forever and would re-offer
+// on every single turn without this. Suppress on ANY toulmin card_instance,
+// in ANY status, exactly like perspective-matrix.
+func TestSurfaceCardCandidatesToulminNotReofferedAfterSkip(t *testing.T) {
+	for _, status := range []string{"skipped", "completed"} {
+		g := GraphView{
+			Materials: []MaterialView{{ID: "m1", Kind: "article"}},
+			Nodes:     []GraphNodeView{{ID: "q1", Type: "source_quality"}},
+			Edges: []GraphEdgeView{
+				{Type: "evaluated-as", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "q1"},
+			},
+			CardInstances: []CardInstanceView{{ID: "ci1", CardID: toulminCardID, Status: status}},
+		}
+		if hasCard(SurfaceCardCandidates(g), toulminCardID) {
+			t.Fatalf("status %q: toulmin must never be re-offered once dispositioned", status)
+		}
+	}
+}
+
 // TestPerspectiveMatrixOutranksToulmin pins the placement choice: when both
 // project-scoped rules are eligible in the same turn, the perspective card
 // comes first. The loop only ever acts on cands[0] (loop.go), so list order IS

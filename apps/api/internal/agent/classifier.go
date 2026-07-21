@@ -249,7 +249,20 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 	// re-deriving the full gate DAG (that lives in ReconcileGates); it does not
 	// check per-material completeness or which specific evidence a claim might
 	// eventually cite.
-	if anyEvaluated && !hasClaim {
+	//
+	// Toulmin skip-suppression (N3b): like perspective-matrix above, ANY
+	// toulmin card_instance — including a skipped one — retires the offer.
+	// Without this, skipping toulmin mints no claim node (GraphEffects'
+	// "toulmin" case only mints a node from a filled slot), so
+	// anyEvaluated && !hasClaim stays true and the card re-offers forever. An
+	// offer is never a wall (铁律 2 · 不操纵).
+	toulminSeen := false
+	for _, ci := range g.CardInstances {
+		if ci.CardID == toulminCardID {
+			toulminSeen = true
+		}
+	}
+	if anyEvaluated && !hasClaim && !toulminSeen {
 		out = append(out, Candidate{
 			Verb:       "surface_card",
 			AnchorKind: "project",

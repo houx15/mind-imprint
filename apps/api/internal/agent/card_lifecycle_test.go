@@ -491,6 +491,43 @@ func TestCompleteCard_MaterialConsumingCardStillErrorsWithoutMaterial(t *testing
 	}
 }
 
+// TestNeedsMaterialCoversEveryGraphEffectKind is a completeness guard, not a
+// bug fix (N3b carry-forward): materialConsumingEffects (above) is a closed
+// set hand-maintained against GraphEffects' switch (card_effects.go) — there
+// is no compile-time link between the two, so a future graph_effect kind
+// added to the switch and forgotten here would break card completion
+// silently at runtime (needsMaterial would say "no material required" for a
+// kind that actually mints an edge against one, or vice versa). This
+// enumerates every kind GraphEffects' switch handles today, read by hand from
+// that switch, and pins both its presence and its classification:
+//   - "promote": material --evaluated-as--> evidence — consumes the material.
+//   - "cross_check": material --cross-checked-by--> cross_check — consumes it.
+//   - "toulmin": mints slot nodes + cites edges addressed to PER-ANCHOR
+//     materials (each source cited from a slot), never the checked material
+//     itself — does not consume it.
+//   - "perspectives": mints free-standing project nodes with no edges at
+//     all — does not consume it.
+//
+// This test may well pass the moment it is written — that is expected and
+// correct. It is a net for the future, not proof of a present bug.
+func TestNeedsMaterialCoversEveryGraphEffectKind(t *testing.T) {
+	wantConsumesMaterial := map[string]bool{
+		"promote":      true,
+		"cross_check":  true,
+		"toulmin":      false,
+		"perspectives": false,
+	}
+	for kind, want := range wantConsumesMaterial {
+		if got := materialConsumingEffects[kind]; got != want {
+			t.Fatalf("materialConsumingEffects[%q] = %v, want %v", kind, got, want)
+		}
+	}
+	if len(materialConsumingEffects) != 2 {
+		t.Fatalf("materialConsumingEffects has %d entries, want exactly 2 (promote, cross_check); got %+v",
+			len(materialConsumingEffects), materialConsumingEffects)
+	}
+}
+
 func TestCheckedMaterialID_CardWithoutLateralDimension_Unchanged(t *testing.T) {
 	// CRAAP and every card that exists today: no lateral_dimension, so this
 	// must degenerate to exactly the old first-anchor behavior.
