@@ -475,6 +475,14 @@ func semanticCardCandidate(ctx context.Context, deps AgentDeps, projectID uuid.U
 		}); rerr != nil {
 			slog.Warn("agent: record classifier usage failed", "project_id", projectID.String(), "err", rerr.Error())
 		}
+	} else if err == nil {
+		// The call succeeded and produced an answer, yet reported no usage —
+		// the provider stopped emitting it (e.g. DeepSeek's
+		// stream_options.include_usage). Mirrors the coach call's warning
+		// below: the classify call goes unmetered; do not let that happen
+		// quietly.
+		slog.Warn("agent: classify call returned no usage — turn is unmetered",
+			"project_id", projectID.String(), "provider", deps.Resolved.Provider, "model", deps.Resolved.Model)
 	}
 	if err != nil {
 		slog.Warn("agent: moment classifier failed; staying silent", "project_id", projectID.String(), "err", err.Error())

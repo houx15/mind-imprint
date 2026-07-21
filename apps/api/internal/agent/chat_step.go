@@ -187,6 +187,13 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 			if rerr := deps.Store.RecordChatLLMCall(ctx, deps.UserID, "classify", deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); rerr != nil {
 				slog.Warn("chat: record classifier usage failed", "thread_id", deps.ThreadID.String(), "err", rerr.Error())
 			}
+		} else if cerr == nil {
+			// The call succeeded and produced an answer, yet reported no
+			// usage — the provider stopped emitting it. Mirrors loop.go's
+			// coach/classify warnings: the classify call goes unmetered; do
+			// not let that happen quietly.
+			slog.Warn("chat: classify call returned no usage — turn is unmetered",
+				"thread_id", deps.ThreadID.String(), "provider", deps.Resolved.Provider, "model", deps.Resolved.Model)
 		}
 		if cerr != nil {
 			slog.Warn("chat: moment classifier failed; staying silent", "thread_id", deps.ThreadID.String(), "err", cerr.Error())

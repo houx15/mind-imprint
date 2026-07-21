@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -305,6 +307,38 @@ func TestRunChatStepSuppressedByInFlightCard(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestRunChatStepClassifyNoUsageWarnsUnmetered is the Chat-surface regression
+// for whole-branch review MINOR 4, mirroring
+// TestRunAgentStepClassifyNoUsageWarnsUnmetered in loop_test.go: the classify
+// metering block here only ever ran `if usage.InputTokens > 0 || ...`, with
+// no `else` — a provider that stops reporting usage would silently drop the
+// classify call from the cost ledger. The turn must still succeed.
+func TestRunChatStepClassifyNoUsageWarnsUnmetered(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(prev)
+
+	fs := newFakeChatStore()
+	prov := scriptedProviderNoUsage("one_sided")
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Offer == nil || res.Offer.CardID != "steelman" {
+		t.Fatalf("want a steelman offer from the one_sided moment despite zero usage, got %+v", res.Offer)
+	}
+	for _, p := range fs.llmCallPurposes {
+		if p == "classify" {
+			t.Fatalf("want no metered classify call when usage is zero (nothing to meter), got purposes=%v", fs.llmCallPurposes)
+		}
+	}
+	if !strings.Contains(buf.String(), "classify call returned no usage") {
+		t.Fatalf("want a warning that the classify call went unmetered, got log:\n%s", buf.String())
 	}
 }
 

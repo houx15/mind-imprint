@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -822,6 +824,17 @@ func (e erroringProvider) Stream(context.Context, gateway.Resolved, gateway.Chat
 	return nil, e.err
 }
 
+// scriptedProviderNoUsage streams the same text+done shape as scriptedProvider
+// but never emits a gateway.EventUsage event — simulating a provider that
+// stops reporting usage (whole-branch review MINOR 4: a metering block with
+// no `else` branch lets such a call vanish from the cost ledger silently).
+func scriptedProviderNoUsage(text string) gateway.Provider {
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: text},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+}
+
 // longEnoughText clears MinClassifyRunes (12) by a comfortable margin, so the
 // N3b classifier tests exercise the semantic path rather than the pre-gate.
 const longEnoughText = "这句话足够长，可以触发分类器进行判断。"
@@ -937,6 +950,44 @@ func TestRunAgentStepSemanticSuppressedByAnyStatus(t *testing.T) {
 	}
 	if prov.calls != 0 {
 		t.Fatalf("want zero classify calls when every moment's card already has an instance, got %d", prov.calls)
+	}
+}
+
+// TestRunAgentStepClassifyNoUsageWarnsUnmetered is the regression for
+// whole-branch review MINOR 4: the classify metering block only ever ran
+// `if usage.InputTokens > 0 || usage.OutputTokens > 0`, with no `else` —
+// unlike the coach path a few lines below it in the same function, which
+// already warns "turn is unmetered" when a successful call reports zero
+// usage. A provider that stops emitting usage (as DeepSeek's
+// stream_options.include_usage can) would silently drop the classify call
+// from the cost ledger with no trace at all. The turn must still succeed —
+// only the metering discipline is under test here.
+func TestRunAgentStepClassifyNoUsageWarnsUnmetered(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(prev)
+
+	store := &fakeAgentStore{graph: GraphView{}, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProviderNoUsage("one_sided"),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" || action.CardID != "steelman" {
+		t.Fatalf("want the semantic steelman candidate to still surface despite zero usage, got %+v", action)
+	}
+	if store.recordLLMCallCalls != 0 {
+		t.Fatalf("want zero RecordLLMCall calls when usage is zero (nothing to meter), got %d", store.recordLLMCallCalls)
+	}
+	if !strings.Contains(buf.String(), "classify call returned no usage") {
+		t.Fatalf("want a warning that the classify call went unmetered, got log:\n%s", buf.String())
 	}
 }
 
