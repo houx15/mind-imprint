@@ -51,8 +51,16 @@ function PlusIcon() {
 // not a renderer edit.
 export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewritePrompt, onChange, onLock, onSkip }: ScaleProps) {
   // 铁律 2: this counts placement progress in plain language, never a
-  // score/streak/bar. placedCount is rows placed onto a stop (may still lack
-  // a reason).
+  // score/streak/bar.
+  //
+  // Whole-branch review IMPORTANT 2: the progress line must be counted from
+  // the SAME number the lock gate uses. It used to read from placedCount
+  // (placed on a stop, reason or not) while the lock read completeCount, so a
+  // student who placed 3 sentences but reasoned about only 2 saw "还差 0 句"
+  // next to a greyed-out, unexplained lock button — a dead end. The line now
+  // names exactly what the lock needs: placed AND reasoned, plus the rewrite
+  // clause once the sentences themselves are done (that predicate is the other
+  // half of the same gate, and silently withholding it is the same dead end).
   //
   // The lock gate counts COMPLETE rows the way the server does —
   // bucketedCount in apps/api/internal/agent/card_completion.go counts
@@ -64,9 +72,8 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
   // field_written_by{field:"rewrite"}, only applies when the card actually
   // asks for a rewrite (rewritePrompt non-empty) — a card with no rewrite
   // field must not gate on one.
-  const placedCount = state.items.filter(isPlaced).length;
   const completeCount = state.items.filter(isComplete).length;
-  const remaining = Math.max(0, minItems - placedCount);
+  const remaining = Math.max(0, minItems - completeCount);
   const rewriteOk = rewritePrompt.trim() === "" || state.rewrite.trim() !== "";
   const canLock = completeCount >= minItems && rewriteOk;
 
@@ -262,7 +269,8 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
       )}
 
       <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>
-        已放置 {placedCount} 句 · 还差 {remaining} 句
+        已放置并写下理由 {completeCount} 句 · 还差 {remaining} 句
+        {remaining === 0 && !rewriteOk ? " · 还需完成上面的改写" : ""}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

@@ -48,8 +48,7 @@ function PlusIcon() {
 // `buckets` from the card spec's params — it does not know the words
 // 事实/观点/价值判断; a new sort card is a new JSON, not a renderer edit.
 export function Sort({ buckets, state, minItems, itemPrompt, reasonPrompt, onChange, onLock, onSkip }: SortProps) {
-  // 铁律 2: this counts classification progress in plain language, never a
-  // score/streak/bar. classifiedCount ("已归类") is rows sorted into a bucket.
+  // 铁律 2: this counts progress in plain language, never a score/streak/bar.
   //
   // The lock gate counts COMPLETE rows only, and it counts them the same way
   // the server does — `bucketedCount` in apps/api/internal/agent/card_completion.go
@@ -59,9 +58,15 @@ export function Sort({ buckets, state, minItems, itemPrompt, reasonPrompt, onCha
   // `every(isComplete)` gate would wall a student who has finished her
   // minimum and then started one more row she has not reasoned about yet —
   // blocking a lock the backend would happily accept.
-  const classifiedCount = state.items.filter(isClassified).length;
+  //
+  // Whole-branch review IMPORTANT 2: the progress line must be counted from
+  // the SAME number the lock gate uses. It used to read from classifiedCount
+  // (bucketed, reason or not) while the lock read completeCount, so a student
+  // who bucketed 3 sentences but reasoned about only 2 saw "还差 0 句" next to
+  // a greyed-out, unexplained lock button — a dead end. The line now names
+  // exactly what the lock needs: bucketed AND reasoned.
   const completeCount = state.items.filter(isComplete).length;
-  const remaining = Math.max(0, minItems - classifiedCount);
+  const remaining = Math.max(0, minItems - completeCount);
   const canLock = completeCount >= minItems;
 
   function handleTextChange(id: string, value: string) {
@@ -211,7 +216,7 @@ export function Sort({ buckets, state, minItems, itemPrompt, reasonPrompt, onCha
       </button>
 
       <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>
-        已归类 {classifiedCount} 句 · 还差 {remaining} 句
+        已归类并写下理由 {completeCount} 句 · 还差 {remaining} 句
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

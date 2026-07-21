@@ -173,6 +173,42 @@ test("progress line is plain text, never a bar or score", () => {
   render(
     <Scale stops={stops} state={oneItemState} minItems={3} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} rewritePrompt={rewritePrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
   );
-  expect(screen.getByText("已放置 0 句 · 还差 3 句")).toBeInTheDocument();
+  expect(screen.getByText("已放置并写下理由 0 句 · 还差 3 句")).toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+// Whole-branch review IMPORTANT 2: the progress line used to count placedCount
+// while the lock counted completeCount, so this exact state — 3 sentences
+// placed on a stop, only 2 of them reasoned about, minItems 3 — rendered
+// "已放置 3 句 · 还差 0 句" next to a greyed-out lock button with nothing on
+// screen saying a 理由 was required. A dead end.
+test("progress line counts what the lock actually needs: placed AND reasoned", () => {
+  const state: ScaleState = {
+    items: [
+      { id: "i1", text: "地球在变暖", stop: "科学共识", reason: "IPCC 多份报告共识", author: "student" },
+      { id: "i2", text: "海平面正在上升", stop: "强证据", reason: "多组卫星测高数据一致", author: "student" },
+      // placed, but she has not written a 理由 for this one yet
+      { id: "i3", text: "人类会在火星定居", stop: "个人猜测", reason: "", author: "student" },
+    ],
+    rewrite: "地球大概率正在变暖",
+  };
+  render(
+    <Scale stops={stops} state={state} minItems={3} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} rewritePrompt={rewritePrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: "完成并钉到过程树" })).toBeDisabled();
+  expect(screen.getByText("已放置并写下理由 2 句 · 还差 1 句")).toBeInTheDocument();
+});
+
+// The other half of the same gate: every sentence is done, but the rewrite the
+// card asks for is still blank. Withholding that is the same dead end.
+test("progress line names the blank rewrite once every sentence is done", () => {
+  const state: ScaleState = {
+    items: [{ id: "i1", text: "地球在变暖", stop: "科学共识", reason: "IPCC 多份报告共识", author: "student" }],
+    rewrite: "",
+  };
+  render(
+    <Scale stops={stops} state={state} minItems={1} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} rewritePrompt={rewritePrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: "完成并钉到过程树" })).toBeDisabled();
+  expect(screen.getByText("已放置并写下理由 1 句 · 还差 0 句 · 还需完成上面的改写")).toBeInTheDocument();
 });

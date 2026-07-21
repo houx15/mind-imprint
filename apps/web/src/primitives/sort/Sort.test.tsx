@@ -89,7 +89,7 @@ test("lock is gated below minItems and gated on bucket+reason completeness, then
   // classify the one row, but leave its reason blank.
   fireEvent.click(screen.getByText("可查证的事实"));
   rerenderWithState();
-  expect(lock).toBeDisabled(); // classifiedCount 1 < minItems 2
+  expect(lock).toBeDisabled(); // 0 complete rows (no reason yet) < minItems 2
 
   // add a second row and classify it too, both reasons still blank.
   fireEvent.click(screen.getByText("＋ 添加一句"));
@@ -99,7 +99,7 @@ test("lock is gated below minItems and gated on bucket+reason completeness, then
   rerenderWithState();
   fireEvent.click(screen.getAllByText("藏价值的判断")[1]!);
   rerenderWithState();
-  expect(lock).toBeDisabled(); // classifiedCount 2 >= minItems, but reasons are blank
+  expect(lock).toBeDisabled(); // 2 bucketed, but 0 complete — reasons are blank
 
   // fill both reasons.
   const reasonBoxes = screen.getAllByPlaceholderText(reasonPrompt);
@@ -145,6 +145,27 @@ test("progress line is plain text, never a bar or score", () => {
   render(
     <Sort buckets={buckets} state={twoItemState} minItems={3} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
   );
-  expect(screen.getByText("已归类 0 句 · 还差 3 句")).toBeInTheDocument();
+  expect(screen.getByText("已归类并写下理由 0 句 · 还差 3 句")).toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+// Whole-branch review IMPORTANT 2: the progress line used to count
+// classifiedCount while the lock counted completeCount, so this exact state —
+// fact-opinion-value's own min_items of 3, all 3 sentences bucketed, only 2
+// reasoned about — rendered "已归类 3 句 · 还差 0 句" next to a greyed-out
+// lock button with nothing on screen saying a 理由 was required. A dead end.
+test("progress line counts what the lock actually needs: bucketed AND reasoned", () => {
+  const state: SortState = {
+    items: [
+      { id: "i1", text: "中国是碳排放第一大国", bucket: "事实", reason: "可用官方数据核查", author: "student" },
+      { id: "i2", text: "中国应该做得更多", bucket: "价值判断", reason: "藏着「应该」的价值排序", author: "student" },
+      // bucketed, but she has not written a 理由 for this one yet
+      { id: "i3", text: "中国的治理是认真的", bucket: "观点", reason: "", author: "student" },
+    ],
+  };
+  render(
+    <Sort buckets={buckets} state={state} minItems={3} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: "完成并钉到过程树" })).toBeDisabled();
+  expect(screen.getByText("已归类并写下理由 2 句 · 还差 1 句")).toBeInTheDocument();
 });
