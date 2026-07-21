@@ -241,7 +241,8 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
           fontFamily: "inherit",
         }}
       >
-        <PlusIcon />＋ 添加一句
+        <PlusIcon />
+        添加一句
       </button>
 
       {rewritePrompt.trim() !== "" && (

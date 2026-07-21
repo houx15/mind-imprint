@@ -52,12 +52,12 @@ test("clicking a stop assigns it to the item and calls onChange", () => {
   });
 });
 
-test("＋ 添加一句 appends an empty student-authored row", () => {
+test("添加一句 appends an empty student-authored row", () => {
   const onChange = vi.fn();
   render(
     <Scale stops={stops} state={{ items: [], rewrite: "" }} minItems={1} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} rewritePrompt={rewritePrompt} onChange={onChange} onLock={() => {}} onSkip={() => {}} />,
   );
-  fireEvent.click(screen.getByText("＋ 添加一句"));
+  fireEvent.click(screen.getByText("添加一句"));
   expect(onChange).toHaveBeenCalledTimes(1);
   const call = onChange.mock.calls[0][0] as ScaleState;
   expect(call.items).toHaveLength(1);

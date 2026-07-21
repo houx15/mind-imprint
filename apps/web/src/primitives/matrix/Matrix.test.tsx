@@ -61,10 +61,10 @@ test("typing a row's label calls onChange with that row's label set", () => {
   });
 });
 
-test("＋ 添加一个视角 appends an empty student-authored row with every column pre-keyed", () => {
+test("添加一个视角 appends an empty student-authored row with every column pre-keyed", () => {
   const onChange = vi.fn();
   render(<Matrix cols={cols} state={{ rows: [] }} minItems={2} rowPrompt={rowPrompt} onChange={onChange} onLock={() => {}} onSkip={() => {}} />);
-  fireEvent.click(screen.getByText("＋ 添加一个视角"));
+  fireEvent.click(screen.getByText("添加一个视角"));
   expect(onChange).toHaveBeenCalledTimes(1);
   const call = onChange.mock.calls[0][0] as MatrixState;
   expect(call.rows).toHaveLength(1);
@@ -102,7 +102,7 @@ test("lock is disabled at 1 complete row when minItems is 2, enabled at 2", () =
   expect(lock).toBeDisabled(); // 1 complete row < minItems 2
 
   // add a second row and fully complete it too.
-  fireEvent.click(screen.getByText("＋ 添加一个视角"));
+  fireEvent.click(screen.getByText("添加一个视角"));
   rerenderWithState();
   const labelBoxes = screen.getAllByPlaceholderText(rowPrompt);
   fireEvent.change(labelBoxes[1]!, { target: { value: "环保组织" } });

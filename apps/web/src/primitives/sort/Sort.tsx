@@ -212,7 +212,8 @@ export function Sort({ buckets, state, minItems, itemPrompt, reasonPrompt, onCha
           fontFamily: "inherit",
         }}
       >
-        <PlusIcon />＋ 添加一句
+        <PlusIcon />
+        添加一句
       </button>
 
       <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>

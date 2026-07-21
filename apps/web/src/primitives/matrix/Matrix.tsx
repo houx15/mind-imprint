@@ -195,7 +195,8 @@ export function Matrix({ cols, state, minItems, rowPrompt, onChange, onLock, onS
           fontFamily: "inherit",
         }}
       >
-        <PlusIcon />＋ 添加一个视角
+        <PlusIcon />
+        添加一个视角
       </button>
 
       <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>

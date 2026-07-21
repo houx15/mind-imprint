@@ -44,12 +44,12 @@ test("picking a bucket calls onChange with that item's bucket set", () => {
   });
 });
 
-test("＋ 添加一句 appends an empty student-authored row", () => {
+test("添加一句 appends an empty student-authored row", () => {
   const onChange = vi.fn();
   render(
     <Sort buckets={buckets} state={{ items: [] }} minItems={2} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} onChange={onChange} onLock={() => {}} onSkip={() => {}} />,
   );
-  fireEvent.click(screen.getByText("＋ 添加一句"));
+  fireEvent.click(screen.getByText("添加一句"));
   expect(onChange).toHaveBeenCalledTimes(1);
   const call = onChange.mock.calls[0][0] as SortState;
   expect(call.items).toHaveLength(1);
@@ -92,7 +92,7 @@ test("lock is gated below minItems and gated on bucket+reason completeness, then
   expect(lock).toBeDisabled(); // 0 complete rows (no reason yet) < minItems 2
 
   // add a second row and classify it too, both reasons still blank.
-  fireEvent.click(screen.getByText("＋ 添加一句"));
+  fireEvent.click(screen.getByText("添加一句"));
   rerenderWithState();
   const secondTextBox = screen.getAllByPlaceholderText(itemPrompt)[1]!;
   fireEvent.change(secondTextBox, { target: { value: "中国应该做得更多" } });
