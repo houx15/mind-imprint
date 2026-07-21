@@ -79,10 +79,11 @@ func TestSurfaceCardCandidates_SIFT_FiresAfterCraapEvaluated(t *testing.T) {
 	}
 	got := SurfaceCardCandidates(g)
 	// Slice 7: this same evaluated-as-edge/no-claim state also satisfies the
-	// project-scoped Toulmin surface rule, so both the per-material SIFT
-	// candidate and the project-scoped Toulmin candidate are expected here.
-	if len(got) != 2 {
-		t.Fatalf("candidates = %d, want 2 (SIFT + toulmin), got %+v", len(got), got)
+	// project-scoped Toulmin surface rule. N3a: and the project-scoped
+	// perspective-matrix rule (a source is evaluated, zero perspective nodes),
+	// so all three are expected here.
+	if len(got) != 3 {
+		t.Fatalf("candidates = %d, want 3 (SIFT + perspective-matrix + toulmin), got %+v", len(got), got)
 	}
 	c := got[0]
 	if c.Verb != "surface_card" || c.AnchorID != "m1" || c.CardID != siftCardID {
@@ -90,6 +91,9 @@ func TestSurfaceCardCandidates_SIFT_FiresAfterCraapEvaluated(t *testing.T) {
 	}
 	if !hasCard(got, toulminCardID) {
 		t.Fatalf("expected toulmin to also surface alongside SIFT, got %+v", got)
+	}
+	if !hasCard(got, perspectiveMatrixCardID) {
+		t.Fatalf("expected perspective-matrix to also surface alongside SIFT, got %+v", got)
 	}
 }
 
@@ -270,5 +274,116 @@ func TestNoToulminOnceClaimExists(t *testing.T) {
 	}
 	if hasCard(SurfaceCardCandidates(g), "toulmin") {
 		t.Fatalf("toulmin must not surface once a claim node exists")
+	}
+}
+
+// evaluatedProjectGraph is the minimal graph state the project-scoped surface
+// rules key off: one article with a finished CRAAP evaluation (an
+// "evaluated-as" edge) and nothing else. Extra nodes/card_instances are layered
+// on per test.
+func evaluatedProjectGraph() GraphView {
+	return GraphView{
+		Materials: []MaterialView{{ID: "m1", Kind: "article"}},
+		Nodes:     []GraphNodeView{{ID: "q1", Type: "source_quality"}},
+		Edges: []GraphEdgeView{
+			{Type: "evaluated-as", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "q1"},
+			// already cross-checked, so the per-material SIFT rule stays quiet
+			// and these tests are about the project-scoped branch alone.
+			{Type: "cross-checked-by", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "cc1"},
+		},
+	}
+}
+
+// TestSurfacePerspectiveMatrixWhenFewerThanTwoPerspectives is whole-branch
+// review CRITICAL 2: before this, perspective-matrix was dead config — nothing
+// in the system could mint a card_instance for it, so nothing could ever
+// produce a `perspective` graph node, so writing-project.json's
+// evaluate_perspectives gate (node_count_at_least{perspective,2}) was
+// permanently unsatisfiable and evaluate_sources — which `requires` it — was
+// walled behind it.
+func TestSurfacePerspectiveMatrixWhenFewerThanTwoPerspectives(t *testing.T) {
+	g := evaluatedProjectGraph()
+	if !hasCard(SurfaceCardCandidates(g), perspectiveMatrixCardID) {
+		t.Fatal("expected perspective-matrix surfaced: a source is evaluated and the project has zero perspectives")
+	}
+
+	// One perspective is still short of the gate's n=2 — keep offering.
+	g.Nodes = append(g.Nodes, GraphNodeView{ID: "p1", Type: "perspective", Author: "student"})
+	if !hasCard(SurfaceCardCandidates(g), perspectiveMatrixCardID) {
+		t.Fatal("expected perspective-matrix still surfaced at one perspective node (gate needs two)")
+	}
+}
+
+// TestNoPerspectiveMatrixOnBareProject: firing on a project with nothing in it
+// would be an ambush (铁律 2). The branch uses the same anyEvaluated moment the
+// Toulmin branch does — there must be real substance in the project first.
+func TestNoPerspectiveMatrixOnBareProject(t *testing.T) {
+	if hasCard(SurfaceCardCandidates(GraphView{}), perspectiveMatrixCardID) {
+		t.Fatal("perspective-matrix must not surface on a bare empty project")
+	}
+	// A pasted-but-unevaluated article is still not the moment: CRAAP owns it.
+	g := GraphView{Materials: []MaterialView{{ID: "m1", Kind: "article"}}}
+	if hasCard(SurfaceCardCandidates(g), perspectiveMatrixCardID) {
+		t.Fatal("perspective-matrix must not surface before any source is evaluated")
+	}
+}
+
+// TestNoPerspectiveMatrixOnceTwoPerspectivesExist: the gate is satisfied, so
+// the offer has done its job and stops.
+func TestNoPerspectiveMatrixOnceTwoPerspectivesExist(t *testing.T) {
+	g := evaluatedProjectGraph()
+	g.Nodes = append(g.Nodes,
+		GraphNodeView{ID: "p1", Type: "perspective", Author: "student"},
+		GraphNodeView{ID: "p2", Type: "perspective", Author: "student"},
+	)
+	if hasCard(SurfaceCardCandidates(g), perspectiveMatrixCardID) {
+		t.Fatal("perspective-matrix must not re-surface once two perspective nodes exist")
+	}
+}
+
+// TestNoPerspectiveMatrixWhileInFlight: the function-wide in-flight guard.
+func TestNoPerspectiveMatrixWhileInFlight(t *testing.T) {
+	for _, status := range []string{"proposed", "active"} {
+		g := evaluatedProjectGraph()
+		g.CardInstances = []CardInstanceView{{ID: "ci1", CardID: perspectiveMatrixCardID, Status: status}}
+		if got := SurfaceCardCandidates(g); len(got) != 0 {
+			t.Fatalf("status %q: nothing may surface while a card is in flight, got %+v", status, got)
+		}
+	}
+}
+
+// TestNoPerspectiveMatrixOnceDispositioned is the "an offer is never a wall"
+// rule: a card the student already COMPLETED or SKIPPED must never be
+// re-offered. A project-scoped SurfaceCard mints no card_instance->material
+// edge (there is no material), so the per-material bookkeeping cannot see it —
+// suppression has to read the card_instance list directly. A skipped card
+// mints no perspective nodes, so without this the offer would return on every
+// single turn, forever.
+func TestNoPerspectiveMatrixOnceDispositioned(t *testing.T) {
+	for _, status := range []string{"skipped", "completed"} {
+		g := evaluatedProjectGraph()
+		g.CardInstances = []CardInstanceView{{ID: "ci1", CardID: perspectiveMatrixCardID, Status: status}}
+		if hasCard(SurfaceCardCandidates(g), perspectiveMatrixCardID) {
+			t.Fatalf("status %q: perspective-matrix must never be re-offered once dispositioned", status)
+		}
+	}
+}
+
+// TestPerspectiveMatrixOutranksToulmin pins the placement choice: when both
+// project-scoped rules are eligible in the same turn, the perspective card
+// comes first. The loop only ever acts on cands[0] (loop.go), so list order IS
+// the priority here, and the skill's station chain puts evaluate_perspectives
+// strictly upstream of the argument work.
+func TestPerspectiveMatrixOutranksToulmin(t *testing.T) {
+	g := evaluatedProjectGraph()
+	got := SurfaceCardCandidates(g)
+	if len(got) != 2 {
+		t.Fatalf("candidates = %d, want 2 (perspective-matrix + toulmin), got %+v", len(got), got)
+	}
+	if got[0].CardID != perspectiveMatrixCardID || got[1].CardID != toulminCardID {
+		t.Fatalf("order = [%s %s], want [perspective-matrix toulmin]", got[0].CardID, got[1].CardID)
+	}
+	if got[0].AnchorKind != "project" || got[0].AnchorID != "" {
+		t.Fatalf("perspective-matrix must be project-scoped with no anchor id, got %+v", got[0])
 	}
 }

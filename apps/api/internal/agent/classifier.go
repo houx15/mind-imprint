@@ -56,6 +56,19 @@ const (
 	// claim node). It is project-scoped, not per-material, so it is decided
 	// after the per-material loop, from graph-wide facts.
 	toulminCardID = "toulmin"
+
+	// perspectiveMatrixCardID is N3a's matrix card, and the ONLY producer of
+	// `perspective` graph nodes anywhere in the system. That is why it must be
+	// wired: writing-project.json's `evaluate_perspectives` station gates on
+	// node_count_at_least{type:"perspective", n:2} and is a `requires`
+	// prerequisite of `evaluate_sources` — with no producer, that gate is
+	// unsatisfiable and the whole station chain is walled behind it. The card's
+	// own min_items (2) lines up with the gate's n (2) by construction.
+	//
+	// N3a's other two cards (fact-opinion-value / certainty-spectrum) are
+	// deliberately NOT wired here: their moment is a semantic judgment about
+	// what the student just wrote, which needs the classifier scoped to N3b.
+	perspectiveMatrixCardID = "perspective-matrix"
 )
 
 // SurfaceCardCandidates implements the surface_card trigger predicate
@@ -165,18 +178,14 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 		}
 	}
 
-	// Project-scoped Toulmin surface (Slice 7): the argument builder is not
-	// about one material, so it is decided from graph-wide state, not inside
-	// the per-material loop above. Trigger once ANY source is evaluated
-	// (there is something to argue from) and NO claim node exists yet (no
-	// argument started). This is deliberately the cheapest honest signal
-	// available here — "S3 has produced its structural output" — rather than
-	// re-deriving the full gate DAG (that lives in ReconcileGates); it does
-	// not check per-material completeness or which specific evidence a claim
-	// might eventually cite. The in-flight guard at the top of this function
-	// already suppresses it while any card_instance is proposed/active.
+	// Graph-wide facts for the PROJECT-SCOPED branches below (Toulmin,
+	// perspective-matrix): those cards are not about one material, so they are
+	// decided from the graph as a whole rather than inside the per-material
+	// loop above. The in-flight guard at the top of this function already
+	// suppresses all of them while any card_instance is proposed/active.
 	anyEvaluated := false
 	hasClaim := false
+	perspectiveNodes := 0
 	for _, e := range g.Edges {
 		if e.Type == "evaluated-as" && e.FromKind == "material" {
 			anyEvaluated = true
@@ -186,7 +195,60 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 		if n.Type == "claim" {
 			hasClaim = true
 		}
+		if n.Type == "perspective" {
+			perspectiveNodes++
+		}
 	}
+
+	// Project-scoped perspective-matrix surface (N3a): the missing producer for
+	// evaluate_perspectives' node_count_at_least{perspective,2} gate.
+	//
+	// PLACEMENT — before the Toulmin branch, after the per-material loop:
+	//   * after the per-material loop, because like Toulmin this is a card ABOUT
+	//     the project, decided from graph-wide facts rather than one source;
+	//   * before Toulmin, because the skill's station chain puts
+	//     evaluate_perspectives strictly upstream of the argument work (it is a
+	//     `requires` prerequisite of evaluate_sources, whose evidence a claim
+	//     argues from). The loop only ever acts on cands[0], so when both are
+	//     eligible in the same turn, list order IS the priority — and mapping
+	//     the terrain should precede committing to a position on it.
+	//
+	// MOMENT — gated on anyEvaluated, exactly the signal the Toulmin branch
+	// uses: the cheapest honest "this project has real substance in it now"
+	// fact available here. Firing on a bare, empty project would be an ambush
+	// (铁律 2), and re-deriving the full gate DAG belongs in ReconcileGates,
+	// not in a trigger predicate.
+	//
+	// SUPPRESSION — the in-flight guard at the top of this function covers
+	// proposed/active. It does NOT cover a card the student already finished or
+	// SKIPPED: a project-scoped SurfaceCard mints no card_instance->material
+	// edge (there is no material), so the per-material `evaluated` bookkeeping
+	// above cannot see it. So suppress on the existence of ANY
+	// perspective-matrix card_instance in ANY status. An offer is never a wall:
+	// once she has said no, we do not ask again.
+	perspectiveMatrixSeen := false
+	for _, ci := range g.CardInstances {
+		if ci.CardID == perspectiveMatrixCardID {
+			perspectiveMatrixSeen = true
+		}
+	}
+	if anyEvaluated && perspectiveNodes < 2 && !perspectiveMatrixSeen {
+		out = append(out, Candidate{
+			Verb:       "surface_card",
+			AnchorKind: "project",
+			AnchorID:   "",
+			CardID:     perspectiveMatrixCardID,
+			Reason:     "project argues from fewer than two perspectives",
+		})
+	}
+
+	// Project-scoped Toulmin surface (Slice 7): trigger once ANY source is
+	// evaluated (there is something to argue from) and NO claim node exists yet
+	// (no argument started). This is deliberately the cheapest honest signal
+	// available here — "S3 has produced its structural output" — rather than
+	// re-deriving the full gate DAG (that lives in ReconcileGates); it does not
+	// check per-material completeness or which specific evidence a claim might
+	// eventually cite.
 	if anyEvaluated && !hasClaim {
 		out = append(out, Candidate{
 			Verb:       "surface_card",
