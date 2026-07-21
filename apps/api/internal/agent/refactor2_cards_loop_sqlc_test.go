@@ -391,6 +391,23 @@ func TestRefactor2CardsLoop_ToulminBuildsArgument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed cross-checked-by edge: %v", err)
 	}
+	// N3a: the project-scoped perspective-matrix surface sits AHEAD of toulmin
+	// (classifier.go) — the skill's station chain puts evaluate_perspectives
+	// strictly upstream of the argument work. So the S4 precondition now also
+	// includes evaluate_perspectives being satisfied: two student-authored
+	// `perspective` nodes, exactly as perspective-matrix's `perspectives`
+	// graph_effect mints them. Without this the perspective card, not toulmin,
+	// would be cands[0] — which is the correct production behavior, and this
+	// test is about the toulmin hop.
+	for _, who := range []string{"地方政府", "受影响居民"} {
+		if _, err := store.InsertGraphNode(ctx, project.ID, agent.MintNode{
+			Type:   "perspective",
+			Author: "student",
+			Body:   map[string]any{"text": who},
+		}); err != nil {
+			t.Fatalf("seed perspective node %s: %v", who, err)
+		}
+	}
 
 	// Sanity: build_argument's machine tier is NOT yet clear (no concession node).
 	sk, ok := skills.ByID("writing-project")
