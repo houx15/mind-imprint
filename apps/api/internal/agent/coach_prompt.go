@@ -52,7 +52,13 @@ func neighborEdges(g GraphView, nodeID string) []GraphEdgeView {
 // user turn — a system-only request is rejected by real providers. The model
 // only ever sees these two — the anchor and criterion on the returned
 // AgentOutput come from c, not from parsing the model's reply.
-func BuildCoachContext(g GraphView, c Candidate, history []ChatTurn) string {
+//
+// refeed is non-nil only for the N3b Seam B refeed candidate (c.AnchorKind ==
+// "card_instance"): in that case the just-submitted card's own contents
+// replace the graph-node/edges blocks below — the coach's one question must
+// be about what the student just wrote, not a stale graph neighborhood. For
+// every other anchor kind, refeed is ignored and the output is unchanged.
+func BuildCoachContext(g GraphView, c Candidate, history []ChatTurn, refeed *RefeedPayload) string {
 	var b strings.Builder
 	if len(history) > 0 {
 		b.WriteString("# 对话记录（最近在前为旧、在后为新）\n")
@@ -65,21 +71,33 @@ func BuildCoachContext(g GraphView, c Candidate, history []ChatTurn) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("# 当前锚点节点\n")
-	if n, ok := findNode(g, c.AnchorID); ok {
-		fmt.Fprintf(&b, "- id=%s type=%s author=%s", n.ID, n.Type, n.Author)
-		if n.Text != "" {
-			fmt.Fprintf(&b, " text=%q", n.Text)
-		}
-		b.WriteString("\n")
-	} else {
-		fmt.Fprintf(&b, "- id=%s（该节点内容未在当前视图中）\n", c.AnchorID)
-	}
 
-	if edges := neighborEdges(g, c.AnchorID); len(edges) > 0 {
-		b.WriteString("\n# 相关边\n")
-		for _, e := range edges {
-			fmt.Fprintf(&b, "- %s:%s --%s--> %s:%s\n", e.FromKind, e.FromID, e.Type, e.ToKind, e.ToID)
+	if c.AnchorKind == "card_instance" && refeed != nil {
+		b.WriteString("# 学生刚完成的工具卡\n")
+		fmt.Fprintf(&b, "卡片：%s\n", refeed.CardName)
+		for _, step := range refeed.Steps {
+			fmt.Fprintf(&b, "## %s\n", step.Title)
+			for _, a := range step.Answers {
+				fmt.Fprintf(&b, "- %s：%v\n", a.Label, a.Value)
+			}
+		}
+	} else {
+		b.WriteString("# 当前锚点节点\n")
+		if n, ok := findNode(g, c.AnchorID); ok {
+			fmt.Fprintf(&b, "- id=%s type=%s author=%s", n.ID, n.Type, n.Author)
+			if n.Text != "" {
+				fmt.Fprintf(&b, " text=%q", n.Text)
+			}
+			b.WriteString("\n")
+		} else {
+			fmt.Fprintf(&b, "- id=%s（该节点内容未在当前视图中）\n", c.AnchorID)
+		}
+
+		if edges := neighborEdges(g, c.AnchorID); len(edges) > 0 {
+			b.WriteString("\n# 相关边\n")
+			for _, e := range edges {
+				fmt.Fprintf(&b, "- %s:%s --%s--> %s:%s\n", e.FromKind, e.FromID, e.Type, e.ToKind, e.ToID)
+			}
 		}
 	}
 

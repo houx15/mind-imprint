@@ -2,8 +2,10 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -793,6 +795,24 @@ func (c *countingProvider) Stream(ctx context.Context, r gateway.Resolved, req g
 	return c.inner.Stream(ctx, r, req)
 }
 
+// capturingProvider decorates any gateway.Provider and records the full user
+// message it was sent, so the N3b Seam B refeed test can assert the prompt
+// actually carried the card's field values — proving the serializer really
+// reached the model, not just that some candidate fired.
+type capturingProvider struct {
+	inner      gateway.Provider
+	lastPrompt string
+}
+
+func (c *capturingProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	for _, m := range req.Messages {
+		if m.Role == gateway.RoleUser {
+			c.lastPrompt = m.Content
+		}
+	}
+	return c.inner.Stream(ctx, r, req)
+}
+
 // erroringProvider is a minimal gateway.Provider double that always fails the
 // model call — scriptedProvider's StubProvider has no way to do this, so this
 // is a small, non-duplicative extension for the one test that needs it.
@@ -964,5 +984,150 @@ func TestRunAgentStepSkipSurfaceCardsSuppressesSemantic(t *testing.T) {
 	}
 	if prov.calls != 0 {
 		t.Fatalf("want zero classify calls when SkipSurfaceCards is set, got %d", prov.calls)
+	}
+}
+
+// siftFieldValues marshals a minimal sift_craap field_values jsonb blob —
+// exactly the shape SubmitProjectCardInstance persists and GetCardInstance
+// reads back — for the N3b Seam B refeed tests below.
+func siftFieldValues(t *testing.T) []byte {
+	t.Helper()
+	b, err := json.Marshal(map[string]map[string]any{
+		"sift": {
+			"stop":   "证明中国让地球更可持续",
+			"better": "原始研究来自 NASA / Nature Sustainability",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal field values: %v", err)
+	}
+	return b
+}
+
+// TestRunAgentStepRefeedAsksAboutTheCompletedCard covers N3b Seam B's
+// mainline: a completed card_instance triggers RunAgentStep(Trigger{Kind:
+// "card_refeed"}) into exactly one coach question, anchored on the card
+// instance itself (not a graph node) — and the prompt actually sent to the
+// model must carry the card's own field values, proving the serializer
+// (refeed.go) is really wired in, not just present in the package.
+func TestRunAgentStepRefeedAsksAboutTheCompletedCard(t *testing.T) {
+	instanceID := uuid.New()
+	store := &fakeAgentStore{
+		graph: GraphView{},
+		cardInstances: map[uuid.UUID]CardInstanceRow{
+			instanceID: {
+				ID:          instanceID,
+				CardID:      "sift_craap",
+				Status:      "completed",
+				FieldValues: siftFieldValues(t),
+			},
+		},
+	}
+	body := "这条信息最初来自哪里，你是怎么溯源到 NASA 的？"
+	prov := &capturingProvider{inner: scriptedProvider(body)}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "card_refeed", CardInstanceID: instanceID.String()})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "intervention" {
+		t.Fatalf("want an intervention action, got %+v", action)
+	}
+	if action.Output.Anchor.Kind != "card_instance" {
+		t.Fatalf("want anchor kind card_instance, got %q", action.Output.Anchor.Kind)
+	}
+	if action.Output.Anchor.ID != instanceID.String() {
+		t.Fatalf("want anchor id %q, got %q", instanceID.String(), action.Output.Anchor.ID)
+	}
+	if prov.lastPrompt == "" {
+		t.Fatal("expected the provider to have been called with a non-empty prompt")
+	}
+	if !strings.Contains(prov.lastPrompt, "证明中国让地球更可持续") {
+		t.Fatalf("prompt did not carry the card's field values:\n%s", prov.lastPrompt)
+	}
+	if !strings.Contains(prov.lastPrompt, "原始研究来自 NASA / Nature Sustainability") {
+		t.Fatalf("prompt did not carry the card's second field value:\n%s", prov.lastPrompt)
+	}
+}
+
+// TestRunAgentStepRefeedSilentOnSkipped covers 铁律 2/4: a SKIPPED card gets
+// silence, never a coach question. Answering a decline with a question is
+// the nagging posture the product forbids; the skip itself is already
+// recorded as data.
+func TestRunAgentStepRefeedSilentOnSkipped(t *testing.T) {
+	instanceID := uuid.New()
+	store := &fakeAgentStore{
+		graph: GraphView{},
+		cardInstances: map[uuid.UUID]CardInstanceRow{
+			instanceID: {ID: instanceID, CardID: "sift_craap", Status: "skipped"},
+		},
+	}
+	prov := &countingProvider{inner: scriptedProvider("should never be called")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "card_refeed", CardInstanceID: instanceID.String()})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence for a skipped card, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero provider calls for a skipped card, got %d", prov.calls)
+	}
+}
+
+// TestRunAgentStepRefeedOutranksOtherCandidates covers the refeed's
+// first-priority ordering: a graph that would also yield an ordinary
+// post_intervention candidate (an unsupported claim) must still surface the
+// refeed question — it is a direct response to something the student just
+// did, so it outranks every other candidate, including surface_card.
+func TestRunAgentStepRefeedOutranksOtherCandidates(t *testing.T) {
+	instanceID := uuid.New()
+	store := &fakeAgentStore{
+		graph: GraphView{
+			Nodes:     []GraphNodeView{{ID: "n1", Type: "claim", Author: "student", Text: "中国的经济转型正在让地球更可持续"}},
+			Materials: []MaterialView{{ID: uuid.New().String(), Kind: "article"}},
+		},
+		cardInstances: map[uuid.UUID]CardInstanceRow{
+			instanceID: {
+				ID:          instanceID,
+				CardID:      "sift_craap",
+				Status:      "completed",
+				FieldValues: siftFieldValues(t),
+			},
+		},
+	}
+	body := "溯源之后，你还需要核查哪个来源？"
+	deps := AgentDeps{
+		Store:    store,
+		Provider: scriptedProvider(body),
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "card_refeed", CardInstanceID: instanceID.String()})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "intervention" {
+		t.Fatalf("want the refeed intervention to win, got %+v", action)
+	}
+	if action.Output.Anchor.Kind != "card_instance" {
+		t.Fatalf("want the refeed candidate (anchor kind card_instance) to outrank surface_card/post_intervention, got anchor=%+v", action.Output.Anchor)
+	}
+	if store.createCardInstanceCalls != 0 {
+		t.Fatalf("want no competing surface_card dispatched, got %d CreateCardInstance calls", store.createCardInstanceCalls)
 	}
 }

@@ -71,6 +71,10 @@ type CardInstanceRow struct {
 	Status        string
 	Anchors       []byte
 	FrameworkFill []byte
+
+	// FieldValues is the card's submitted field_values jsonb — the refeed
+	// serializer's other half beside Anchors (N3b Seam B).
+	FieldValues []byte
 }
 
 // SourceLogRow is the persistence view of one project-scoped
@@ -204,9 +208,28 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		return nil, err
 	}
 
+	// N3b Seam B — 摘要回灌. A card the student just COMPLETED gets exactly one
+	// coach question about what she wrote in it. This is the acceptance
+	// mainline's 摘要回灌, and it outranks every other candidate: it is a direct
+	// response to something she just did.
+	//
+	// A SKIPPED card gets silence. The skip is recorded as data (铁律 4 ·
+	// 过程即数据); answering a decline with a question is the nagging posture
+	// 铁律 2 forbids.
+	var refeedCand *Candidate
+	var refeedPayload *RefeedPayload
+	if trigger.Kind == "card_refeed" && trigger.CardInstanceID != "" {
+		if cand, payload, ok := refeedCandidate(ctx, deps, trigger.CardInstanceID); ok {
+			refeedCand, refeedPayload = &cand, &payload
+		}
+	}
+
 	var cands []Candidate
+	if refeedCand != nil {
+		cands = append(cands, *refeedCand)
+	}
 	if !deps.SkipSurfaceCards {
-		cands = SurfaceCardCandidates(g)
+		cands = append(cands, SurfaceCardCandidates(g)...)
 	}
 
 	// When a Project skill is loaded, reconcile its gates once and hold the
@@ -302,7 +325,7 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		slog.Warn("agent: load chat history failed; proceeding without it", "project_id", projectID.String(), "err", err.Error())
 		history = nil
 	}
-	out, verdict, usage, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim)
+	out, verdict, usage, err := ProposeIntervention(ctx, deps.Provider, deps.Resolved, g, c, history, deps.Sim, refeedPayload)
 	// Usage is non-zero whenever the model call itself succeeded — including
 	// when enforcement then rejects the output (err != nil): a rejected
 	// reply still cost real money, so it must still be metered even though
@@ -370,6 +393,41 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		InterventionID: interventionID.String(),
 		Verdict:        verdict,
 	}, nil
+}
+
+// refeedCandidate loads the just-submitted card instance and, when it is
+// COMPLETED, returns the coach candidate + the serialized payload the coach
+// context renders. Any failure — unknown instance, unknown card id, load error
+// — is silence: the submit itself already succeeded and must not be failed by
+// its follow-up question.
+func refeedCandidate(ctx context.Context, deps AgentDeps, cardInstanceID string) (Candidate, RefeedPayload, bool) {
+	id, err := uuid.Parse(cardInstanceID)
+	if err != nil {
+		return Candidate{}, RefeedPayload{}, false
+	}
+	row, err := deps.Store.GetCardInstance(ctx, id)
+	if err != nil {
+		slog.Warn("agent: refeed load card instance failed", "card_instance_id", cardInstanceID, "err", err.Error())
+		return Candidate{}, RefeedPayload{}, false
+	}
+	if row.Status != "completed" {
+		return Candidate{}, RefeedPayload{}, false
+	}
+	spec, ok := cards.ByID(row.CardID)
+	if !ok {
+		return Candidate{}, RefeedPayload{}, false
+	}
+	inst := CardInstance{ID: cardInstanceID, CardID: row.CardID, Status: row.Status}
+	_ = json.Unmarshal(row.Anchors, &inst.Anchors)         // absent/invalid → no anchor steps
+	_ = json.Unmarshal(row.FieldValues, &inst.FieldValues) // absent/invalid → no field steps
+	return Candidate{
+		Verb:       "post_intervention",
+		AnchorKind: "card_instance",
+		AnchorID:   cardInstanceID,
+		Criterion:  "D6", // 元认知与反思
+		Level:      "I2",
+		Reason:     "学生刚完成了一张工具卡",
+	}, SerializeCardForRefeed(spec, inst), true
 }
 
 // hasSurfaceCard reports whether any structural surface_card candidate already

@@ -323,7 +323,7 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 			"err", err, "project_id", projectID, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
-	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "card_refeed"})
+	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "card_refeed", CardInstanceID: cid.String()})
 	if err != nil {
 		slog.Error("card submit: refeed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		_ = em.ErrorEnvelope("internal_error", "提交失败，请重试")

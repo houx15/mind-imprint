@@ -327,6 +327,7 @@ func toCardInstanceRow(row sqlc.CardInstance) CardInstanceRow {
 		Status:        row.Status,
 		Anchors:       row.Anchors,
 		FrameworkFill: row.FrameworkFill,
+		FieldValues:   row.FieldValues,
 	}
 }
 

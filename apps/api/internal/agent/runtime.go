@@ -86,6 +86,11 @@ type Trigger struct {
 	// runs before it. Set for Kind == "student_turn"; empty elsewhere, which
 	// disables the semantic classifier by construction (N3b).
 	StudentText string
+
+	// CardInstanceID names the card_instance whose completion provoked this
+	// step. Set for Kind == "card_refeed"; empty elsewhere, which disables the
+	// refeed branch by construction (N3b Seam B).
+	CardInstanceID string
 }
 
 // Action is the loop's single emitted step for one RunAgentStep call

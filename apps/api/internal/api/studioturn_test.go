@@ -199,10 +199,16 @@ func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
 // material could ever get a SIFT card_instance no matter how the rest of the
 // runtime evolved. This test drives the REAL surface -> fill -> submit path
 // (mirrors projectcards_test.go's TestProjectCardSubmit_SurfaceFillMintE2E)
-// to genuinely complete CRAAP on a material, then asserts that VERY submit's
-// own refeed (agent.RunAgentStep, run at the end of submitProjectCard,
-// exactly like a real student's next moment in the product) surfaces SIFT on
-// that same material — not silence, not another craap — with:
+// to genuinely complete CRAAP on a material.
+//
+// N3b Seam B (Task 5) made the "card_refeed" trigger a REAL coaching
+// question about the card the student just completed, and that refeed
+// candidate deliberately outranks every other candidate including
+// surface_card (agent/loop.go's RunAgentStep) — so the craap submit's OWN
+// response is now that coaching question, not the sift surface. SIFT's
+// reachability (finding [1]) still holds, just one hop later: the student's
+// NEXT turn (postProjectTurn) is asserted below to surface SIFT on the same
+// checked material, with:
 //   - the SSE card frame's material_id naming the checked material, so the
 //     client never has to guess it (finding [5]);
 //   - AI-authored anchors scoped to that checked material only, and never
@@ -241,15 +247,31 @@ func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
 		t.Fatalf("craap card status = %q, want completed (test setup invalid)", got.Status)
 	}
 
-	// The summon hop: completing CRAAP's own refeed (still inside this same
-	// submit request/response) must surface SIFT on the material that was
-	// just evaluated — the exact reachability the whole-branch review found
-	// missing (finding [1]).
-	if !strings.Contains(submitBody, "event: card") || !strings.Contains(submitBody, `"card_id":"sift"`) {
-		t.Fatalf("expected the craap submit's refeed to surface a sift card:\n%s", submitBody)
+	// The craap submit's OWN refeed (N3b Seam B, Task 5) is now a real
+	// coaching question about the card the student just completed — it
+	// outranks surface_card by construction, so this same response carries
+	// an intervention, never a card frame.
+	if !strings.Contains(submitBody, "event: intervention") {
+		t.Fatalf("expected the craap submit's own refeed to be a coaching question about the just-completed card:\n%s", submitBody)
 	}
-	if !strings.Contains(submitBody, `"material_id":"`+checkedMaterialID+`"`) {
-		t.Fatalf("card frame material_id must name the checked material %s:\n%s", checkedMaterialID, submitBody)
+	if strings.Contains(submitBody, "event: card") {
+		t.Fatalf("the refeed candidate must outrank surface_card on this same submit — got a card frame too:\n%s", submitBody)
+	}
+
+	// The summon hop: the student's NEXT turn (the refeed question having
+	// already been answered/is a separate moment) must surface SIFT on the
+	// material that was just evaluated — the exact reachability the
+	// whole-branch review found missing (finding [1]), now proved one hop
+	// after the refeed instead of on the same submit.
+	turnRR := httptest.NewRecorder()
+	turnReq := httptest.NewRequest("POST", "/api/v1/projects/"+projectID.String()+"/turn", strings.NewReader(`{"user_input":"这条来源核查完了，接下来该怎么办？"}`))
+	h.ServeHTTP(turnRR, withCookie(turnReq, cookie))
+	turnBody := turnRR.Body.String()
+	if turnRR.Code != 200 || !strings.Contains(turnBody, "event: card") || !strings.Contains(turnBody, `"card_id":"sift"`) {
+		t.Fatalf("expected the next turn to surface a sift card: %d — %s", turnRR.Code, turnBody)
+	}
+	if !strings.Contains(turnBody, `"material_id":"`+checkedMaterialID+`"`) {
+		t.Fatalf("card frame material_id must name the checked material %s:\n%s", checkedMaterialID, turnBody)
 	}
 
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))

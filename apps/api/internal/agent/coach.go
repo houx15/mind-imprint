@@ -35,11 +35,15 @@ import (
 // so the caller must still record it even though it is never persisted or
 // emitted. Usage is the zero value only when Collect itself errored (no
 // tokens were spent).
-func ProposeIntervention(ctx context.Context, prov gateway.Provider, r gateway.Resolved, g GraphView, c Candidate, history []ChatTurn, sim enforcement.Similarity) (enforcement.AgentOutput, string, gateway.ChatUsage, error) {
+//
+// refeed is threaded straight through to BuildCoachContext (N3b Seam B): it
+// is non-nil only when c is the refeed candidate (AnchorKind ==
+// "card_instance"); every other caller passes nil.
+func ProposeIntervention(ctx context.Context, prov gateway.Provider, r gateway.Resolved, g GraphView, c Candidate, history []ChatTurn, sim enforcement.Similarity, refeed *RefeedPayload) (enforcement.AgentOutput, string, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: coachPosturePrompt},
-			{Role: gateway.RoleUser, Content: BuildCoachContext(g, c, history)},
+			{Role: gateway.RoleUser, Content: BuildCoachContext(g, c, history, refeed)},
 		},
 	}
 	res, err := gateway.Collect(ctx, prov, r, req)

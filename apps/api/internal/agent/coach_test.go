@@ -45,7 +45,7 @@ func TestProposeIntervention_AnchoredQuestion(t *testing.T) {
 	body := "这条主张现在还没有素材支撑——它的证据是什么？"
 	prov := scriptedProvider(body)
 
-	out, verdict, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	out, verdict, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestProposeIntervention_DeclarativeEchoIsIntercepted(t *testing.T) {
 	// the echo threshold against the anchored node's own text.
 	prov := scriptedProvider("中国的经济转型正在让地球更可持续。")
 
-	out, verdict, _, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	out, verdict, _, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestProposeIntervention_BannedPhraseIsRejected(t *testing.T) {
 	g, c := coachFixture()
 	prov := scriptedProvider("你有没有考虑过其他角度？")
 
-	_, _, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99))
+	_, _, usage, err := ProposeIntervention(context.Background(), prov, testResolved, g, c, nil, constSim(0.99), nil)
 	if err == nil {
 		t.Fatal("expected the banned-phrase output to be rejected before persist")
 	}
@@ -108,10 +108,10 @@ func TestBuildCoachContext_IncludesChatHistory(t *testing.T) {
 	g := GraphView{Nodes: []GraphNodeView{{ID: "n1", Type: "claim", Author: "student", Text: "中国有治理决心"}}}
 	c := Candidate{Verb: "post_intervention", AnchorKind: "graph_node", AnchorID: "n1", Criterion: "D5", Reason: "裸主张", Level: "I2"}
 	history := []ChatTurn{{Role: "user", Content: "它想证明中国在认真转型"}, {Role: "assistant", Content: "那要连到哪条主张？"}}
-	ctxStr := BuildCoachContext(g, c, history)
+	ctxStr := BuildCoachContext(g, c, history, nil)
 	if !strings.Contains(ctxStr, "它想证明中国在认真转型") {
 		t.Fatalf("coach context missing the student turn:\n%s", ctxStr)
 	}
 	// Empty history is transparent (no history section / no crash).
-	_ = BuildCoachContext(g, c, nil)
+	_ = BuildCoachContext(g, c, nil, nil)
 }
