@@ -37,6 +37,14 @@ func EvaluateCompletion(spec cards.Spec, anchors []Anchor) (complete bool, missi
 					missing = append(missing, slot.ID)
 				}
 			}
+		case "items_bucketed":
+			if bucketedCount(anchors, pred.Tags) < pred.Min {
+				missing = append(missing, "items")
+			}
+		case "matrix_complete":
+			if row, ok := firstIncompleteMatrixRow(spec, anchors); ok {
+				missing = append(missing, row)
+			}
 		}
 	}
 	return len(missing) == 0, missing
@@ -145,4 +153,70 @@ func ObserveCandidates(spec cards.Spec, cardInstanceID string, anchors []Anchor)
 		}
 	}
 	return out
+}
+
+// bucketedCount counts anchors the student actually placed: dimension in the
+// card's bucket/stop vocabulary AND a non-empty reason. Anchors outside the
+// vocabulary are IGNORED, not rejected — certainty-spectrum's `rewrite` anchor
+// rides the same anchor list as its five spectrum stops and must not make the
+// placement predicate unsatisfiable.
+func bucketedCount(anchors []Anchor, vocab []string) int {
+	in := make(map[string]bool, len(vocab))
+	for _, t := range vocab {
+		in[t] = true
+	}
+	n := 0
+	for _, a := range anchors {
+		if in[a.Dimension] && strings.TrimSpace(a.Answer) != "" {
+			n++
+		}
+	}
+	return n
+}
+
+// firstIncompleteMatrixRow reports why a matrix card is not done yet. A row is
+// keyed by Anchor.Quote (the student's perspective label — a matrix's rows are
+// student-authored, so the row's identity IS what she wrote) and counts only
+// when every column in spec.Params.Cols has a non-empty answer for it.
+// Returns ("<row quote>", true) for the first incomplete row in first-seen
+// order, ("rows", true) when there are simply fewer complete rows than
+// MinItems, and ("", false) when the card is done.
+func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) {
+	var order []string
+	filled := map[string]map[string]bool{}
+	for _, a := range anchors {
+		row := a.Quote
+		if row == "" || strings.TrimSpace(a.Answer) == "" {
+			continue
+		}
+		if _, seen := filled[row]; !seen {
+			filled[row] = map[string]bool{}
+			order = append(order, row)
+		}
+		filled[row][a.Dimension] = true
+	}
+	completeRows := 0
+	for _, row := range order {
+		done := true
+		for _, col := range spec.Params.Cols {
+			if !filled[row][col.ID] {
+				done = false
+				break
+			}
+		}
+		if done {
+			completeRows++
+			continue
+		}
+		// An incomplete row is the most actionable thing to name — but only
+		// once we already have enough rows started; otherwise "rows" is the
+		// honest answer (see below).
+		if len(order) >= spec.Params.MinItems {
+			return row, true
+		}
+	}
+	if completeRows < spec.Params.MinItems {
+		return "rows", true
+	}
+	return "", false
 }

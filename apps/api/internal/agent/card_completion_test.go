@@ -239,3 +239,83 @@ func TestGraphSlotsComplete(t *testing.T) {
 		t.Fatalf("claim under 12 chars must not complete")
 	}
 }
+
+func TestItemsBucketedCountsOnlyInVocabularyAnsweredAnchors(t *testing.T) {
+	spec := cards.Spec{Completion: []cards.CompletionPredicate{
+		{Kind: "items_bucketed", Tags: []string{"事实", "观点"}, Min: 2},
+	}}
+	anchors := []Anchor{
+		{Dimension: "事实", Answer: "可以去核查"},
+		{Dimension: "观点", Answer: " "},        // blank answer — not counted
+		{Dimension: "rewrite", Answer: "改写句"}, // out of vocabulary — ignored
+	}
+	complete, missing := EvaluateCompletion(spec, anchors)
+	if complete {
+		t.Fatal("expected incomplete: only 1 of 2 items bucketed")
+	}
+	if len(missing) != 1 || missing[0] != "items" {
+		t.Fatalf("missing = %v, want [items]", missing)
+	}
+
+	anchors = append(anchors, Anchor{Dimension: "观点", Answer: "需要给理由"})
+	if complete, _ := EvaluateCompletion(spec, anchors); !complete {
+		t.Fatal("expected complete at min")
+	}
+}
+
+func TestItemsBucketedCoexistsWithFieldWrittenBy(t *testing.T) {
+	spec := cards.Spec{Completion: []cards.CompletionPredicate{
+		{Kind: "items_bucketed", Tags: []string{"强证据"}, Min: 1},
+		{Kind: "field_written_by", Field: "rewrite", Author: "student"},
+	}}
+	placed := []Anchor{{Dimension: "强证据", Answer: "多个独立来源"}}
+	if complete, missing := EvaluateCompletion(spec, placed); complete || len(missing) != 1 || missing[0] != "rewrite" {
+		t.Fatalf("want incomplete missing [rewrite], got complete=%v missing=%v", complete, missing)
+	}
+	withRewrite := append(placed, Anchor{Dimension: "rewrite", Author: "student", Answer: "中国很可能……"})
+	if complete, _ := EvaluateCompletion(spec, withRewrite); !complete {
+		t.Fatal("expected complete once rewrite is written")
+	}
+}
+
+func TestMatrixCompleteRequiresEveryCellOfEnoughRows(t *testing.T) {
+	spec := cards.Spec{
+		Params: cards.Params{
+			Cols:     []cards.Axis{{ID: "position"}, {ID: "grounds"}, {ID: "blind_spot"}},
+			MinItems: 2,
+		},
+		Completion: []cards.CompletionPredicate{{Kind: "matrix_complete"}},
+	}
+	// One complete row, one row missing blind_spot.
+	anchors := []Anchor{
+		{Quote: "政府", Dimension: "position", Answer: "治理有决心"},
+		{Quote: "政府", Dimension: "grounds", Answer: "植树与限排政策"},
+		{Quote: "政府", Dimension: "blind_spot", Answer: "回避了排放总量"},
+		{Quote: "环保组织", Dimension: "position", Answer: "进展不足"},
+		{Quote: "环保组织", Dimension: "grounds", Answer: "碳排放全球第一"},
+	}
+	complete, missing := EvaluateCompletion(spec, anchors)
+	if complete {
+		t.Fatal("expected incomplete: 环保组织 has no blind_spot cell")
+	}
+	if len(missing) != 1 || missing[0] != "环保组织" {
+		t.Fatalf("missing = %v, want [环保组织]", missing)
+	}
+
+	anchors = append(anchors, Anchor{Quote: "环保组织", Dimension: "blind_spot", Answer: "低估了转型速度"})
+	if complete, _ := EvaluateCompletion(spec, anchors); !complete {
+		t.Fatal("expected complete once every cell is filled")
+	}
+}
+
+func TestMatrixCompleteReportsRowsWhenTooFewRows(t *testing.T) {
+	spec := cards.Spec{
+		Params:     cards.Params{Cols: []cards.Axis{{ID: "position"}}, MinItems: 2},
+		Completion: []cards.CompletionPredicate{{Kind: "matrix_complete"}},
+	}
+	anchors := []Anchor{{Quote: "政府", Dimension: "position", Answer: "治理有决心"}}
+	complete, missing := EvaluateCompletion(spec, anchors)
+	if complete || len(missing) != 1 || missing[0] != "rows" {
+		t.Fatalf("want incomplete missing [rows], got complete=%v missing=%v", complete, missing)
+	}
+}
