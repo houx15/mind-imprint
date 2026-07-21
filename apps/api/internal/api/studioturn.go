@@ -215,7 +215,7 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		Skill:            &sk,
 		SkipSurfaceCards: false,
 	}
-	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "student_turn"})
+	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "student_turn", StudentText: body.UserInput})
 	if err != nil {
 		slog.Error("studio turn: RunAgentStep",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

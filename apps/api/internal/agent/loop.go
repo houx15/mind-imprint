@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -238,6 +239,20 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 	// nudge (post_intervention / observe) outrank it, so a gate report never
 	// starves the coaching that moves the student toward the gate.
 	cands = append(cands, checkGateCands...)
+
+	// N3b Seam A — the semantic moment classifier. It runs ONLY when the
+	// structural classifier said nothing about cards: decide-one acts on
+	// cands[0], so a semantic answer produced alongside a structural
+	// surface_card would simply be discarded, and paying a model call for a
+	// discarded answer is waste. The resulting behaviour is also the right
+	// one: structure first, semantics as the fallback that notices what
+	// structure cannot see.
+	if !deps.SkipSurfaceCards && trigger.Kind == "student_turn" && !hasSurfaceCard(cands) {
+		if c, ok := semanticCardCandidate(ctx, deps, projectID, g, trigger.StudentText); ok {
+			cands = append([]Candidate{c}, cands...)
+		}
+	}
+
 	if len(cands) == 0 {
 		return nil, nil // silence: nothing to say
 	}
@@ -355,4 +370,56 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		InterventionID: interventionID.String(),
 		Verdict:        verdict,
 	}, nil
+}
+
+// hasSurfaceCard reports whether any structural surface_card candidate already
+// fired this turn.
+func hasSurfaceCard(cands []Candidate) bool {
+	for _, c := range cands {
+		if c.Verb == "surface_card" {
+			return true
+		}
+	}
+	return false
+}
+
+// semanticCardCandidate runs N3b's classifier behind its structural pre-gate
+// and turns a named moment into a project-scoped surface_card candidate.
+//
+// The call is metered even when the answer is `none` or the reply was
+// unparseable — it cost real money either way. A metering failure logs and
+// continues; a classifier failure is silence. Neither ever fails the turn.
+func semanticCardCandidate(ctx context.Context, deps AgentDeps, projectID uuid.UUID, g GraphView, text string) (Candidate, bool) {
+	if len([]rune(strings.TrimSpace(text))) < MinClassifyRunes {
+		return Candidate{}, false
+	}
+	eligible := EligibleMoments(g.CardInstances)
+	if len(eligible) == 0 {
+		return Candidate{}, false
+	}
+	moment, usage, err := ClassifyMoment(ctx, deps.Provider, deps.Resolved, text, eligible)
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if rerr := deps.Store.RecordLLMCall(ctx, LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "classify",
+			Resolved: deps.Resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("agent: record classifier usage failed", "project_id", projectID.String(), "err", rerr.Error())
+		}
+	}
+	if err != nil {
+		slog.Warn("agent: moment classifier failed; staying silent", "project_id", projectID.String(), "err", err.Error())
+		return Candidate{}, false
+	}
+	if moment == MomentNone {
+		return Candidate{}, false
+	}
+	e := momentCard[moment]
+	return Candidate{
+		Verb:       "surface_card",
+		AnchorKind: "project",
+		AnchorID:   "",
+		CardID:     e.CardID,
+		Criterion:  e.Criterion,
+		Reason:     e.Reason,
+	}, true
 }

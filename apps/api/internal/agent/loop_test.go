@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/skills"
 )
 
@@ -773,5 +775,194 @@ func TestFakeStore_GateStateAndPlanRoundTrip(t *testing.T) {
 	}
 	if f.upsertPlanCalls != 1 {
 		t.Fatalf("want 1 plan upsert, got %d", f.upsertPlanCalls)
+	}
+}
+
+// countingProvider decorates any gateway.Provider and counts Stream calls, so
+// N3b's tests can assert the classifier (or the coach) was never invoked
+// without needing a new fake AgentStore/Provider shape — scriptedProvider
+// (coach_test.go) has no way to count on its own, so this wraps it rather
+// than duplicating it.
+type countingProvider struct {
+	inner gateway.Provider
+	calls int
+}
+
+func (c *countingProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	c.calls++
+	return c.inner.Stream(ctx, r, req)
+}
+
+// erroringProvider is a minimal gateway.Provider double that always fails the
+// model call — scriptedProvider's StubProvider has no way to do this, so this
+// is a small, non-duplicative extension for the one test that needs it.
+type erroringProvider struct{ err error }
+
+func (e erroringProvider) Stream(context.Context, gateway.Resolved, gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	return nil, e.err
+}
+
+// longEnoughText clears MinClassifyRunes (12) by a comfortable margin, so the
+// N3b classifier tests exercise the semantic path rather than the pre-gate.
+const longEnoughText = "这句话足够长，可以触发分类器进行判断。"
+
+// TestRunAgentStepSkipsClassifierWhenStructuralCardWins covers N3b's cost
+// rule: when a structural surface_card candidate already exists (here, an
+// un-evaluated article material fires CRAAP), the semantic classifier must
+// never run — decide-one would discard its answer anyway, so paying for a
+// model call would be pure waste.
+func TestRunAgentStepSkipsClassifierWhenStructuralCardWins(t *testing.T) {
+	g := GraphView{Materials: []MaterialView{{ID: uuid.New().String(), Kind: "article"}}}
+	store := &fakeAgentStore{graph: g, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	prov := &countingProvider{inner: scriptedProvider("should never be called")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" || action.CardID != "craap" {
+		t.Fatalf("want the structural surface_card(craap) action, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero provider calls (classifier must not run when a structural card already won), got %d", prov.calls)
+	}
+}
+
+// TestRunAgentStepSkipsClassifierOnShortText covers the pre-gate: a student
+// turn shorter than MinClassifyRunes is never classified, even when nothing
+// structural is competing for the turn.
+func TestRunAgentStepSkipsClassifierOnShortText(t *testing.T) {
+	store := &fakeAgentStore{graph: GraphView{}}
+	prov := &countingProvider{inner: scriptedProvider("should never be called")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: "嗯"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence for short text, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero provider calls for text under MinClassifyRunes, got %d", prov.calls)
+	}
+}
+
+// TestRunAgentStepSemanticMomentSurfacesItsCard covers the happy path: with no
+// structural candidate competing, a named moment ("one_sided") becomes a
+// surface_card candidate for that moment's card (steelman, per momentCard).
+func TestRunAgentStepSemanticMomentSurfacesItsCard(t *testing.T) {
+	store := &fakeAgentStore{graph: GraphView{}, cardInstances: map[uuid.UUID]CardInstanceRow{}}
+	prov := &countingProvider{inner: scriptedProvider("one_sided")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action == nil || action.Kind != "surface_card" || action.CardID != "steelman" {
+		t.Fatalf("want a surface_card(steelman) action, got %+v", action)
+	}
+	if prov.calls != 1 {
+		t.Fatalf("want exactly one classify call, got %d", prov.calls)
+	}
+	if store.recordLLMCallCalls != 1 || store.lastLLMCall.Purpose != "classify" || store.lastLLMCall.Surface != "studio" {
+		t.Fatalf("want one metered classify call, got calls=%d last=%+v", store.recordLLMCallCalls, store.lastLLMCall)
+	}
+}
+
+// TestRunAgentStepSemanticSuppressedByAnyStatus covers EligibleMoments'
+// suppression rule: once every moment's target card already has a
+// card_instance in ANY status (here, all three "skipped"), nothing is
+// eligible, so the classifier must not even be called.
+func TestRunAgentStepSemanticSuppressedByAnyStatus(t *testing.T) {
+	g := GraphView{
+		CardInstances: []CardInstanceView{
+			{ID: uuid.New().String(), CardID: "steelman", Status: "skipped"},
+			{ID: uuid.New().String(), CardID: "fact-opinion-value", Status: "skipped"},
+			{ID: uuid.New().String(), CardID: "certainty-spectrum", Status: "skipped"},
+		},
+	}
+	store := &fakeAgentStore{graph: g}
+	prov := &countingProvider{inner: scriptedProvider("should never be called")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence when nothing is eligible, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero classify calls when every moment's card already has an instance, got %d", prov.calls)
+	}
+}
+
+// TestRunAgentStepClassifierErrorIsSilent covers the failure policy: a
+// classifier model-call error is silence, never a turn failure.
+func TestRunAgentStepClassifierErrorIsSilent(t *testing.T) {
+	store := &fakeAgentStore{graph: GraphView{}}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: erroringProvider{err: errors.New("model unavailable")},
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("want a classifier error to stay internal (silence), got err=%v", err)
+	}
+	if action != nil {
+		t.Fatalf("want a nil action on classifier error, got %+v", action)
+	}
+}
+
+// TestRunAgentStepSkipSurfaceCardsSuppressesSemantic covers Slice 5c's
+// SkipSurfaceCards seam extended to N3b: when set, the SEMANTIC candidate
+// must be suppressed exactly like the structural one, even though the
+// classifier would otherwise name a moment.
+func TestRunAgentStepSkipSurfaceCardsSuppressesSemantic(t *testing.T) {
+	store := &fakeAgentStore{graph: GraphView{}}
+	prov := &countingProvider{inner: scriptedProvider("one_sided")}
+	deps := AgentDeps{
+		Store:            store,
+		Provider:         prov,
+		Resolved:         testResolved,
+		Sim:              constSim(0.0),
+		SkipSurfaceCards: true,
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence when SkipSurfaceCards suppresses the semantic candidate, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero classify calls when SkipSurfaceCards is set, got %d", prov.calls)
 	}
 }

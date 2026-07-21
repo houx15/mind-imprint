@@ -79,6 +79,13 @@ type Candidate struct {
 // (summon), T-B (structural), T-C (fine-grained — context-only in Slice 2).
 type Trigger struct {
 	Kind string
+
+	// StudentText is the message that provoked this step, carried on the
+	// trigger rather than re-read from history: RunAgentStep loads chat
+	// history only AFTER the surface-card branch, and the semantic pre-gate
+	// runs before it. Set for Kind == "student_turn"; empty elsewhere, which
+	// disables the semantic classifier by construction (N3b).
+	StudentText string
 }
 
 // Action is the loop's single emitted step for one RunAgentStep call
