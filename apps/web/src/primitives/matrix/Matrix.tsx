@@ -59,7 +59,17 @@ export function Matrix({ cols, state, minItems, rowPrompt, onChange, onLock, onS
   // who has two complete perspectives and starts a third must still be able
   // to lock; an `every(isComplete)` gate would wall her out of a lock the
   // backend would happily accept.
-  const completeCount = state.rows.filter((r) => isComplete(r, cols)).length;
+  //
+  // Whole-branch review IMPORTANT 3: count DISTINCT trimmed labels. A row's
+  // identity on the server IS the label the student wrote — anchors are grouped
+  // by Anchor.Quote (completeMatrixRows / firstIncompleteMatrixRow), so two
+  // rows both labelled 政府 collapse into ONE row there. Counting them as two
+  // here would enable the lock, the submit would find matrix_complete false,
+  // and the student would get back done{status:"active"} with no error and no
+  // explanation — the card stuck open forever.
+  const completeCount = new Set(
+    state.rows.filter((r) => isComplete(r, cols)).map((r) => r.label.trim()),
+  ).size;
   const remaining = Math.max(0, minItems - completeCount);
   const canLock = completeCount >= minItems;
 

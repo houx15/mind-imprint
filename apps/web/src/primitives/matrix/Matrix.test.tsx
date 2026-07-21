@@ -157,3 +157,24 @@ test("progress line is plain text, never a bar or score", () => {
   expect(screen.getByText("已完成 0 个视角 · 还差 3 个")).toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
+
+// Whole-branch review IMPORTANT 3: a row's identity on the server IS the label
+// the student wrote — anchors are grouped by Anchor.Quote — so two rows both
+// labelled 政府 collapse into ONE row there. Counting them as two here enabled
+// the lock, the submit then found matrix_complete false, and the student got
+// back done{status:"active"} with no error and no explanation: the card stuck
+// open forever with no way to tell why.
+test("two identically-labelled complete rows count as one — the lock stays disabled", () => {
+  const state: MatrixState = {
+    rows: [
+      { id: "r1", label: "政府", cells: { position: "发展优先", grounds: "GDP 指标", blind_spot: "环境成本" }, author: "student" },
+      // same label (trailing whitespace and all) — the server sees ONE row.
+      { id: "r2", label: " 政府 ", cells: { position: "治理优先", grounds: "环境公报", blind_spot: "就业冲击" }, author: "student" },
+    ],
+  };
+  render(
+    <Matrix cols={cols} state={state} minItems={2} rowPrompt={rowPrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: "完成并钉到过程树" })).toBeDisabled();
+  expect(screen.getByText("已完成 1 个视角 · 还差 1 个")).toBeInTheDocument();
+});
