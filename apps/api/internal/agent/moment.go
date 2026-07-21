@@ -96,6 +96,24 @@ func EligibleMoments(cards []CardInstanceView) []Moment {
 	return out
 }
 
+// EligibleMomentsScoped mirrors EligibleMoments over ScopedCard — the Chat/
+// Course scoped-graph projection (chat_step.go), rather than the project
+// GraphView's CardInstanceView. Same rule: a moment is ineligible as soon as
+// its target card has a card_instance in ANY status, including "skipped".
+func EligibleMomentsScoped(cards []ScopedCard) []Moment {
+	seen := make(map[string]bool, len(cards))
+	for _, c := range cards {
+		seen[c.CardID] = true
+	}
+	out := make([]Moment, 0, len(AllMoments))
+	for _, m := range AllMoments {
+		if !seen[momentCard[m].CardID] {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // MinClassifyRunes is the floor below which a student turn is never
 // classified. Cost discipline AND product: 「嗯」 carries no moment, and paying
 // a model call to be told so is waste.

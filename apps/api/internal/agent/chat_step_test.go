@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -45,6 +46,7 @@ type fakeChatStore struct {
 	history   []ChatTurn
 
 	llmCalls         int
+	llmCallPurposes  []string
 	assistantMsgs    int
 	materialsCreated int
 	cardsCreated     int
@@ -100,6 +102,7 @@ func (f *fakeChatStore) InsertThreadEvent(ctx context.Context, threadID uuid.UUI
 
 func (f *fakeChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
 	f.llmCalls++
+	f.llmCallPurposes = append(f.llmCallPurposes, purpose)
 	return nil
 }
 
@@ -156,5 +159,156 @@ func TestRunChatStepBannedReplyStaysSilentButMeters(t *testing.T) {
 	}
 	if fs.assistantMsgs != 0 {
 		t.Fatalf("rejected reply must not be persisted")
+	}
+}
+
+// failOnceThenProvider fails the first Stream call (the classifier's), then
+// delegates to `after` for every subsequent call (the coach's) — countingProvider
+// and erroringProvider (loop_test.go) can't express "fails once, then succeeds",
+// so this small, non-duplicative double covers the one Chat test that needs it:
+// proving a classifier failure does not block the coach reply that follows it
+// on the same provider.
+type failOnceThenProvider struct {
+	failed bool
+	err    error
+	after  gateway.Provider
+}
+
+func (f *failOnceThenProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	if !f.failed {
+		f.failed = true
+		return nil, f.err
+	}
+	return f.after.Stream(ctx, r, req)
+}
+
+// The structural link→CRAAP moment still wins; no classifier call is made.
+func TestRunChatStepStructuralMomentWinsOverClassifier(t *testing.T) {
+	fs := newFakeChatStore()
+	articleID := uuid.New()
+	fs.materials = []ScopedMaterial{{ID: articleID, Kind: "article", SourceURL: "https://e.com"}}
+	prov := &countingProvider{inner: scriptedProvider("这确实值得核实一下。")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Offer == nil || res.Offer.CardID != "craap" || res.Offer.MaterialID != articleID {
+		t.Fatalf("want the structural craap offer on the article, got %+v", res.Offer)
+	}
+	if prov.calls != 1 {
+		t.Fatalf("want exactly one provider call (coach only; classifier must not run), got %d", prov.calls)
+	}
+	if fs.llmCalls != 1 || len(fs.llmCallPurposes) != 1 || fs.llmCallPurposes[0] != "coach" {
+		t.Fatalf("want exactly one metered coach call and no classify call, got calls=%d purposes=%v", fs.llmCalls, fs.llmCallPurposes)
+	}
+}
+
+// With no link and no CRAAP moment, a named semantic moment mints that card.
+func TestRunChatStepSemanticMomentOffersItsCard(t *testing.T) {
+	fs := newFakeChatStore()
+	prov := &countingProvider{inner: scriptedProvider("one_sided")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Offer == nil || res.Offer.CardID != "steelman" {
+		t.Fatalf("want a steelman offer from the one_sided moment, got %+v", res.Offer)
+	}
+	if prov.calls != 2 {
+		t.Fatalf("want two provider calls (classify + coach), got %d", prov.calls)
+	}
+	if fs.cardsCreated != 1 {
+		t.Fatalf("want exactly one card instance minted, got %d", fs.cardsCreated)
+	}
+}
+
+// The semantic offer carries a nil material and still emits card_surfaced.
+func TestRunChatStepSemanticOfferHasNoMaterial(t *testing.T) {
+	fs := newFakeChatStore()
+	prov := scriptedProvider("one_sided")
+	threadID := uuid.New()
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: threadID}, longEnoughText)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Offer == nil || res.Offer.MaterialID != uuid.Nil {
+		t.Fatalf("want a semantic offer with a nil material, got %+v", res.Offer)
+	}
+	if fs.events != 1 || fs.lastEventType != "card_surfaced" || fs.lastEventThreadID != threadID {
+		t.Fatalf("want one thread-scoped card_surfaced event, got events=%d type=%q threadID=%s",
+			fs.events, fs.lastEventType, fs.lastEventThreadID)
+	}
+}
+
+// Any-status suppression: a skipped steelman is never re-offered in the thread.
+func TestRunChatStepSemanticSuppressedByAnyStatus(t *testing.T) {
+	fs := newFakeChatStore()
+	fs.cards = []ScopedCard{{ID: uuid.New(), CardID: "steelman", Status: "skipped"}}
+	// The classifier still names one_sided (a real, but now-ineligible, moment) —
+	// ClassifyMoment's exact-match-against-eligible contract must collapse this
+	// to MomentNone rather than re-offering the already-skipped steelman.
+	prov := &countingProvider{inner: scriptedProvider("one_sided")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Offer != nil {
+		t.Fatalf("want no offer — steelman was already dispositioned (skipped), got %+v", res.Offer)
+	}
+	if fs.cardsCreated != 0 {
+		t.Fatalf("want no card instance minted, got %d", fs.cardsCreated)
+	}
+	// fact_opinion and overclaim are still eligible, so the classifier still runs.
+	if prov.calls != 2 {
+		t.Fatalf("want two provider calls (classify still runs for the remaining eligible moments, + coach), got %d", prov.calls)
+	}
+}
+
+// The classify call is metered through RecordChatLLMCall with purpose "classify".
+func TestRunChatStepMetersClassifyCall(t *testing.T) {
+	fs := newFakeChatStore()
+	prov := scriptedProvider("one_sided")
+
+	if _, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	classifyCount, coachCount := 0, 0
+	for _, p := range fs.llmCallPurposes {
+		switch p {
+		case "classify":
+			classifyCount++
+		case "coach":
+			coachCount++
+		}
+	}
+	if classifyCount != 1 {
+		t.Fatalf("want exactly one classify-purpose metered call, got %d in %v", classifyCount, fs.llmCallPurposes)
+	}
+	if coachCount != 1 {
+		t.Fatalf("want exactly one coach-purpose metered call, got %d in %v", coachCount, fs.llmCallPurposes)
+	}
+}
+
+// A classifier failure leaves the coach reply intact — silence, not failure.
+func TestRunChatStepClassifierErrorStillReplies(t *testing.T) {
+	fs := newFakeChatStore()
+	prov := &failOnceThenProvider{err: errors.New("model unavailable"), after: scriptedProvider("我们接着聊聊这个。")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+	if err != nil {
+		t.Fatalf("a classifier failure must not fail the turn: %v", err)
+	}
+	if res.Reply == "" {
+		t.Fatalf("want the coach reply to still go through despite the classifier failing, got empty reply")
+	}
+	if res.Offer != nil {
+		t.Fatalf("want no offer when the classifier failed, got %+v", res.Offer)
+	}
+	if fs.llmCalls != 1 || len(fs.llmCallPurposes) != 1 || fs.llmCallPurposes[0] != "coach" {
+		t.Fatalf("want only the successful coach call metered (the classifier errored before Collect returned usage), got calls=%d purposes=%v", fs.llmCalls, fs.llmCallPurposes)
 	}
 }

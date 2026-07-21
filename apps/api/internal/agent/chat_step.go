@@ -143,6 +143,27 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 	flag := ""
 	if moment {
 		flag = "学生贴进了一个来源链接，并把它当成论据——这是做「信源辨识（CRAAP）」的时机。"
+	} else if len([]rune(strings.TrimSpace(studentMessage))) >= MinClassifyRunes {
+		// N3b Seam A in Chat: the structural link moment did not fire, so ask
+		// the classifier whether a SEMANTIC one did. Metered even on `none`
+		// or a parse failure; a classifier error is silence, never a failed
+		// turn — the coach still replies below.
+		eligible := EligibleMomentsScoped(cards)
+		m, usage, cerr := ClassifyMoment(ctx, deps.Provider, deps.Resolved, studentMessage, eligible)
+		if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+			if rerr := deps.Store.RecordChatLLMCall(ctx, deps.UserID, "classify", deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); rerr != nil {
+				slog.Warn("chat: record classifier usage failed", "thread_id", deps.ThreadID.String(), "err", rerr.Error())
+			}
+		}
+		if cerr != nil {
+			slog.Warn("chat: moment classifier failed; staying silent", "thread_id", deps.ThreadID.String(), "err", cerr.Error())
+		} else if m != MomentNone {
+			e := momentCard[m]
+			flag = e.Flag
+			cardID = e.CardID
+			materialID = uuid.Nil // a semantic offer is not about one source
+			moment = true
+		}
 	}
 	history, err := deps.Store.LoadThreadHistory(ctx, deps.ThreadID, 12)
 	if err != nil {
