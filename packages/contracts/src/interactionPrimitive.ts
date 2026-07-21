@@ -68,3 +68,47 @@ export const CompareState = z.object({
   pairs: z.array(ComparePair),
 });
 export type CompareState = z.infer<typeof CompareState>;
+
+// sort (C1): statements dropped into a fixed vocabulary of buckets, each with
+// the student's own test/reason. Persists 1:1 into Anchor[]:
+// quote = text, dimension = bucket, answer = reason, author = student.
+export const SortItem = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  bucket: z.string(),
+  reason: z.string(),
+  author: Author,
+});
+export type SortItem = z.infer<typeof SortItem>;
+export const SortState = z.object({ items: z.array(SortItem) });
+export type SortState = z.infer<typeof SortState>;
+
+// scale (C1): items placed on an ORDERED axis of named stops. Same Anchor
+// mapping as sort (dimension = stop); `rewrite` is a separate student-written
+// field carried on its own anchor (dimension "rewrite") so it can ride the
+// existing field_written_by completion predicate.
+export const ScaleItem = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  stop: z.string(),
+  reason: z.string(),
+  author: Author,
+});
+export type ScaleItem = z.infer<typeof ScaleItem>;
+export const ScaleState = z.object({ items: z.array(ScaleItem), rewrite: z.string() });
+export type ScaleState = z.infer<typeof ScaleState>;
+
+// matrix (C1): student-authored rows x fixed columns. `id` is a client-only
+// React key — the row's PERSISTED identity is `label` (Anchor.quote), which is
+// what completion groups on and what the perspectives graph effect names the
+// node. cells maps column id -> the student's cell text (Anchor.dimension ->
+// Anchor.answer).
+export const MatrixRow = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  cells: z.record(z.string()),
+  author: Author,
+});
+export type MatrixRow = z.infer<typeof MatrixRow>;
+export const MatrixState = z.object({ rows: z.array(MatrixRow) });
+export type MatrixState = z.infer<typeof MatrixState>;

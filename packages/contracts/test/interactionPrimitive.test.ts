@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Author, AnnotateState, GraphState, PRIMITIVE_KINDS } from "../src/interactionPrimitive";
+import { Author, AnnotateState, GraphState, PRIMITIVE_KINDS, SortState, ScaleState, MatrixState } from "../src/interactionPrimitive";
 import { CompareState, ComparePair } from "../src/interactionPrimitive";
 
 describe("interaction primitives (C1)", () => {
@@ -59,5 +59,33 @@ describe("CompareState", () => {
     expect(() =>
       ComparePair.parse({ id: "p1", l_span: "s1", r_span: "s2", note: "x", relation: "debunks", author: "student" }),
     ).toThrow();
+  });
+});
+
+describe("sort/scale/matrix states", () => {
+  it("parses a sort state", () => {
+    const s = SortState.parse({
+      items: [{ id: "s1", text: "中国碳排放全球第一", bucket: "事实", reason: "可以去核查", author: "student" }],
+    });
+    expect(s.items[0]!.bucket).toBe("事实");
+  });
+
+  it("parses a scale state with a rewrite", () => {
+    const s = ScaleState.parse({
+      items: [{ id: "i1", text: "中国让地球更可持续", stop: "有据推断", reason: "证据只覆盖绿化", author: "student" }],
+      rewrite: "中国很可能在绿化上做出了最大贡献",
+    });
+    expect(s.rewrite).toContain("很可能");
+  });
+
+  it("parses a matrix state", () => {
+    const s = MatrixState.parse({
+      rows: [{ id: "r1", label: "环保组织", cells: { position: "进展不足" }, author: "student" }],
+    });
+    expect(s.rows[0]!.cells.position).toBe("进展不足");
+  });
+
+  it("rejects a row with a non-string cell", () => {
+    expect(() => MatrixState.parse({ rows: [{ id: "r1", label: "x", cells: { position: 1 }, author: "student" }] })).toThrow();
   });
 });
