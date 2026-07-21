@@ -85,7 +85,7 @@ func (s *sqlcChatStore) ListThreadCards(ctx context.Context, threadID uuid.UUID)
 	}
 	out := make([]ScopedCard, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ScopedCard{ID: r.ID, CardID: r.CardID, Status: r.Status})
+		out = append(out, ScopedCard{ID: r.ID, CardID: r.CardID, Status: r.Status, FieldValues: r.FieldValues, Anchors: r.Anchors})
 	}
 	return out, nil
 }

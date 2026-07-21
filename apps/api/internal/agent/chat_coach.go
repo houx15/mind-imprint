@@ -23,9 +23,13 @@ const chatCoachPosturePrompt = `你是「思维印记」的自由对话陪练。
 只输出你要对学生说的那段话本身，不要任何前缀、标签或格式。`
 
 // BuildChatContext assembles the chat-variant coach user message: the recent
-// conversation, an optional one-line thread-graph summary, and an optional
-// classifier flag naming a fresh card moment. Kept pure for testing.
-func BuildChatContext(history []ChatTurn, threadSummary, flag string) string {
+// conversation, an optional one-line thread-graph summary, an optional
+// summary of the thread's COMPLETED cards (N3b Seam B — chat manufactures no
+// post-submit turn of its own, so a just-finished card rides the student's
+// NEXT message instead), and an optional classifier flag naming a fresh card
+// moment. Kept pure for testing. Output is byte-identical to before this
+// argument existed when cardSummary is empty.
+func BuildChatContext(history []ChatTurn, threadSummary, cardSummary, flag string) string {
 	var b strings.Builder
 	b.WriteString("对话（从旧到新）：\n")
 	for _, t := range history {
@@ -37,6 +41,9 @@ func BuildChatContext(history []ChatTurn, threadSummary, flag string) string {
 	}
 	if strings.TrimSpace(threadSummary) != "" {
 		b.WriteString("\n此对话中已有的材料：" + threadSummary + "\n")
+	}
+	if strings.TrimSpace(cardSummary) != "" {
+		b.WriteString("\n此对话中已完成的工具卡：" + cardSummary + "\n")
 	}
 	if strings.TrimSpace(flag) != "" {
 		b.WriteString("\n刚刚发生的思考时机：" + flag + "\n")
@@ -50,11 +57,11 @@ func BuildChatContext(history []ChatTurn, threadSummary, flag string) string {
 // There is no OutputCheck echo pass — chat has no draft to echo. Usage is
 // populated whenever Collect succeeded, INCLUDING when enforcement then rejects
 // (a rejected reply still cost money; the caller must still meter it).
-func ProposeChatReply(ctx context.Context, prov gateway.Provider, r gateway.Resolved, history []ChatTurn, threadSummary, flag string) (enforcement.AgentOutput, gateway.ChatUsage, error) {
+func ProposeChatReply(ctx context.Context, prov gateway.Provider, r gateway.Resolved, history []ChatTurn, threadSummary, cardSummary, flag string) (enforcement.AgentOutput, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: chatCoachPosturePrompt},
-			{Role: gateway.RoleUser, Content: BuildChatContext(history, threadSummary, flag)},
+			{Role: gateway.RoleUser, Content: BuildChatContext(history, threadSummary, cardSummary, flag)},
 		},
 	}
 	res, err := gateway.Collect(ctx, prov, r, req)

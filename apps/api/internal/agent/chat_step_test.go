@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -310,5 +311,68 @@ func TestRunChatStepClassifierErrorStillReplies(t *testing.T) {
 	}
 	if fs.llmCalls != 1 || len(fs.llmCallPurposes) != 1 || fs.llmCallPurposes[0] != "coach" {
 		t.Fatalf("want only the successful coach call metered (the classifier errored before Collect returned usage), got calls=%d purposes=%v", fs.llmCalls, fs.llmCallPurposes)
+	}
+}
+
+// TestRunChatStepFoldsCompletedCardsIntoContext covers N3b Seam B's chat
+// variant mainline: chat manufactures no dedicated post-submit turn (unlike
+// the Studio's card_refeed trigger, Task 5), so a completed card's summary
+// must ride the context of the student's very next message instead. The
+// prompt actually sent to the model must carry the card's own name and a
+// submitted answer, proving completedCardSummary → SerializeCardForRefeed is
+// really wired into RunChatStep, not just present in the package.
+func TestRunChatStepFoldsCompletedCardsIntoContext(t *testing.T) {
+	fs := newFakeChatStore()
+	fs.cards = []ScopedCard{{
+		ID: uuid.New(), CardID: "sift_craap", Status: "completed",
+		FieldValues: siftFieldValues(t),
+	}}
+	prov := &capturingProvider{inner: scriptedProvider("你为什么这么想？")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, "我觉得我对")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Reply == "" {
+		t.Fatalf("want a reply")
+	}
+	if prov.lastPrompt == "" {
+		t.Fatal("expected the provider to have been called with a non-empty prompt")
+	}
+	if !strings.Contains(prov.lastPrompt, "SIFT×CRAAP 信息核查") {
+		t.Fatalf("prompt did not carry the completed card's name:\n%s", prov.lastPrompt)
+	}
+	if !strings.Contains(prov.lastPrompt, "证明中国让地球更可持续") {
+		t.Fatalf("prompt did not carry the completed card's submitted answer:\n%s", prov.lastPrompt)
+	}
+}
+
+// TestRunChatStepIgnoresIncompleteCardsInContext covers 铁律 2/4 for the chat
+// variant: a proposed or active card has nothing finished to say, and a
+// skipped one is a decline we do not re-raise — only "completed" contributes.
+func TestRunChatStepIgnoresIncompleteCardsInContext(t *testing.T) {
+	fs := newFakeChatStore()
+	fs.cards = []ScopedCard{
+		{ID: uuid.New(), CardID: "sift_craap", Status: "proposed", FieldValues: siftFieldValues(t)},
+		{ID: uuid.New(), CardID: "sift_craap", Status: "active", FieldValues: siftFieldValues(t)},
+		{ID: uuid.New(), CardID: "sift_craap", Status: "skipped", FieldValues: siftFieldValues(t)},
+	}
+	prov := &capturingProvider{inner: scriptedProvider("你为什么这么想？")}
+
+	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, "我觉得我对")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Reply == "" {
+		t.Fatalf("want a reply")
+	}
+	if strings.Contains(prov.lastPrompt, "SIFT×CRAAP 信息核查") {
+		t.Fatalf("an incomplete card must not contribute to the context:\n%s", prov.lastPrompt)
+	}
+	if strings.Contains(prov.lastPrompt, "证明中国让地球更可持续") {
+		t.Fatalf("an incomplete card's answers must not leak into the context:\n%s", prov.lastPrompt)
+	}
+	if strings.Contains(prov.lastPrompt, "此对话中已完成的工具卡") {
+		t.Fatalf("no completed-card heading should appear when nothing is completed:\n%s", prov.lastPrompt)
 	}
 }

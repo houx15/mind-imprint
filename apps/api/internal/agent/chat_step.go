@@ -3,12 +3,14 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 )
 
@@ -39,6 +41,13 @@ type ScopedCard struct {
 	ID     uuid.UUID
 	CardID string
 	Status string
+
+	// FieldValues/Anchors carry the submitted card body so a COMPLETED card
+	// can be refed into the coach's context on the student's next message
+	// (N3b Seam B, chat variant). Additive and optional: zero values are
+	// valid and every existing fixture keeps compiling.
+	FieldValues []byte
+	Anchors     []byte
 }
 
 // ChatCardCandidate implements the keystone card-moment predicate: offer CRAAP
@@ -171,9 +180,10 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 		history = nil
 	}
 	summary := threadMaterialSummary(mats)
+	cardSummary := completedCardSummary(cards)
 
 	// (2) Coach reply, metered even on reject.
-	out, usage, err := ProposeChatReply(ctx, deps.Provider, deps.Resolved, history, summary, flag)
+	out, usage, err := ProposeChatReply(ctx, deps.Provider, deps.Resolved, history, summary, cardSummary, flag)
 	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if rerr := deps.Store.RecordChatLLMCall(ctx, deps.UserID, "coach", deps.Resolved, int32(usage.InputTokens), int32(usage.OutputTokens)); rerr != nil {
 			slog.Warn("chat: record llm usage failed", "thread_id", deps.ThreadID.String(), "err", rerr.Error())
@@ -204,6 +214,47 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 		}
 	}
 	return result, nil
+}
+
+// completedCardSummary serializes the thread's COMPLETED cards for the coach's
+// context. Only completed cards contribute: a proposed or active card has
+// nothing finished to say, and a skipped one is a decline we do not re-raise.
+// Unlike the Studio surface (Task 5's refeedCandidate, a dedicated post-submit
+// turn), chat manufactures no turn of its own — this rides the student's NEXT
+// message, so it must tolerate an unknown card id (skip, not fail) exactly
+// like refeedCandidate does.
+func completedCardSummary(scoped []ScopedCard) string {
+	var parts []string
+	for _, sc := range scoped {
+		if sc.Status != "completed" {
+			continue
+		}
+		spec, ok := cards.ByID(sc.CardID)
+		if !ok {
+			continue
+		}
+		inst := CardInstance{ID: sc.ID.String(), CardID: sc.CardID, Status: sc.Status}
+		_ = json.Unmarshal(sc.Anchors, &inst.Anchors)         // absent/invalid → no anchor steps
+		_ = json.Unmarshal(sc.FieldValues, &inst.FieldValues) // absent/invalid → no field steps
+		parts = append(parts, renderCompletedCard(SerializeCardForRefeed(spec, inst)))
+	}
+	return strings.Join(parts, "\n")
+}
+
+// renderCompletedCard renders one completed card's refeed payload as text —
+// the same card-name + step-title + answer shape BuildCoachContext's Studio
+// refeed block uses (coach_prompt.go), reused here as plain text rather than
+// a prompt-writer method since chat has no graph/edges block to sit beside.
+func renderCompletedCard(p RefeedPayload) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "卡片：%s", p.CardName)
+	for _, step := range p.Steps {
+		fmt.Fprintf(&b, "\n## %s", step.Title)
+		for _, a := range step.Answers {
+			fmt.Fprintf(&b, "\n- %s：%v", a.Label, a.Value)
+		}
+	}
+	return b.String()
 }
 
 func threadMaterialSummary(mats []ScopedMaterial) string {
