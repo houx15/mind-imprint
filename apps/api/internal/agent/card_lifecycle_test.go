@@ -385,6 +385,112 @@ func TestCompleteCard_SiftCrossCheckMarksCheckedSourceNotLateralSource(t *testin
 	}
 }
 
+// TestCompleteCard_MaterialLessCardCompletes is the whole-branch-review
+// CRITICAL 1 regression: every COMPLETE submit of the three new N3a cards
+// (sort/scale/matrix) hard-failed on the server, because CompleteCard demanded
+// a material-anchored answer unconditionally while those cards correctly write
+// material_id "" on every anchor. Perversely, an INCOMPLETE submit worked (it
+// returns early at the !complete branch) — the card broke only once the
+// student did the whole job.
+//
+// Every other card test in this package exercises EvaluateCompletion /
+// GraphEffects as PURE functions, which is exactly why none of them could see
+// this: the guard lives between the two, in CompleteCard. So this drives the
+// real "perspective-matrix" spec (cards.ByID) through CompleteCard end to end.
+func TestCompleteCard_MaterialLessCardCompletes(t *testing.T) {
+	spec, ok := cards.ByID("perspective-matrix")
+	if !ok {
+		t.Fatal("cards.ByID(perspective-matrix) not found")
+	}
+
+	store := newCardFakeStore()
+	deps := AgentDeps{Store: store}
+	cardInstanceID := uuid.New()
+
+	// Two COMPLETE rows (label = Anchor.Quote, column = Anchor.Dimension),
+	// every anchor material-less and student-authored — exactly what
+	// matrixStateToAnchors (apps/web/src/primitives/matrix/serialize.ts) writes.
+	var anchors []Anchor
+	for _, row := range []struct {
+		label string
+		cells map[string]string
+	}{
+		{"地方政府", map[string]string{"position": "治理见效，指标逐年改善", "grounds": "本地环境公报的年度数据", "blind_spot": "没算迁出企业转移出去的排放"}},
+		{"受影响居民", map[string]string{"position": "空气好了，但生计被砍掉了", "grounds": "关停后本地就业数据下滑", "blind_spot": "看不到全国层面的减排收益"}},
+	} {
+		for _, col := range spec.Params.Cols {
+			anchors = append(anchors, Anchor{
+				ID: row.label + "-" + col.ID, Quote: row.label, Dimension: col.ID,
+				Author: "student", Answer: row.cells[col.ID], MaterialID: "",
+			})
+		}
+	}
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	store.cardInstances[cardInstanceID] = CardInstanceRow{
+		ID: cardInstanceID, ProjectID: uuid.New(), CardID: spec.ID, Status: "active", Anchors: anchorsJSON,
+	}
+
+	complete, err := CompleteCard(context.Background(), deps, spec, cardInstanceID)
+	if err != nil {
+		t.Fatalf("CompleteCard: %v", err)
+	}
+	if !complete {
+		t.Fatal("want complete = true — a material-less card must complete, not error")
+	}
+	if store.insertGraphNodeCalls != 2 {
+		t.Fatalf("want 2 minted perspective nodes, got %d", store.insertGraphNodeCalls)
+	}
+	for _, n := range store.minted {
+		if n.Type != "perspective" {
+			t.Fatalf("minted node type = %q, want perspective", n.Type)
+		}
+		if n.Author != "student" {
+			t.Fatalf("minted node author = %q, want student (RL-4)", n.Author)
+		}
+	}
+	// perspectives mints no edges — the nodes are free-standing project nodes.
+	if store.insertGraphEdgeCalls != 0 {
+		t.Fatalf("want 0 minted edges, got %d", store.insertGraphEdgeCalls)
+	}
+	if store.setFrameworkCalls != 1 {
+		t.Fatalf("want SetCardInstanceFramework called once, got %d", store.setFrameworkCalls)
+	}
+}
+
+// TestCompleteCard_MaterialConsumingCardStillErrorsWithoutMaterial pins the
+// other half of the CRITICAL 1 fix: relaxing the guard must NOT relax it for
+// the cards whose graph_effects actually address the checked material. A CRAAP
+// (promote) that somehow reaches completion with no material anchor has
+// nothing to hang its evaluated-as edge on and must still hard-fail.
+func TestCompleteCard_MaterialConsumingCardStillErrorsWithoutMaterial(t *testing.T) {
+	spec := craapSpecFixture()
+	spec.GraphEffects = []cards.GraphEffect{{Kind: "promote", From: "material", To: "evidence", With: "source_quality"}}
+
+	store := newCardFakeStore()
+	deps := AgentDeps{Store: store}
+	cardInstanceID := uuid.New()
+
+	anchors := completeAnchors() // complete, but no anchor carries a material_id
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	store.cardInstances[cardInstanceID] = CardInstanceRow{
+		ID: cardInstanceID, ProjectID: uuid.New(), CardID: spec.ID, Status: "active", Anchors: anchorsJSON,
+	}
+
+	if _, err := CompleteCard(context.Background(), deps, spec, cardInstanceID); err == nil {
+		t.Fatal("want an error: a promote effect with no material anchor cannot mint its edge")
+	}
+	if store.insertGraphNodeCalls != 0 || store.setFrameworkCalls != 0 {
+		t.Fatalf("failed completion must persist nothing, got nodes=%d framework=%d",
+			store.insertGraphNodeCalls, store.setFrameworkCalls)
+	}
+}
+
 func TestCheckedMaterialID_CardWithoutLateralDimension_Unchanged(t *testing.T) {
 	// CRAAP and every card that exists today: no lateral_dimension, so this
 	// must degenerate to exactly the old first-anchor behavior.

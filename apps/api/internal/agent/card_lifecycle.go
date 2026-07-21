@@ -110,7 +110,7 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 	}
 
 	materialID := checkedMaterialID(spec, anchors)
-	if materialID == "" {
+	if materialID == "" && needsMaterial(spec) {
 		return false, fmt.Errorf("card: card_instance %s has no material-anchored answers to promote", cardInstanceID)
 	}
 
@@ -162,6 +162,39 @@ func CompleteCard(ctx context.Context, deps AgentDeps, spec cards.Spec, cardInst
 func isFrameworkSet(b []byte) bool {
 	s := strings.TrimSpace(string(b))
 	return s != "" && s != "{}" && s != "null"
+}
+
+// materialConsumingEffects is the closed set of graph_effect kinds whose
+// minted edges are ADDRESSED TO the checked material (see GraphEffects,
+// card_effects.go): `promote` builds material --evaluated-as--> evidence, and
+// `cross_check` builds material --cross-checked-by--> cross_check. The other
+// kinds never touch it: `toulmin` mints slot nodes and cites edges addressed
+// to per-anchor materials, and `perspectives` mints free-standing project
+// nodes with no edges at all.
+//
+// Keying off effect KIND, not card id, is what keeps this true for cards that
+// do not exist yet: a new material-less JSON card needs no change here.
+var materialConsumingEffects = map[string]bool{
+	"promote":     true,
+	"cross_check": true,
+}
+
+// needsMaterial reports whether spec declares any graph_effect that would mint
+// an edge against the checked material. Only then is a missing material a hard
+// failure: a card ABOUT the project rather than a source (sort/scale/matrix —
+// fact-opinion-value, certainty-spectrum, perspective-matrix — all write
+// material_id "" on every anchor, correctly) has nothing to point an edge at,
+// and completing it must proceed with an empty materialID, which GraphEffects
+// already ignores for those kinds. Before this guard existed, every COMPLETE
+// submit of such a card hard-failed on the server while an INCOMPLETE one
+// succeeded — the card broke only once the student did the whole job.
+func needsMaterial(spec cards.Spec) bool {
+	for _, effect := range spec.GraphEffects {
+		if materialConsumingEffects[effect.Kind] {
+			return true
+		}
+	}
+	return false
 }
 
 // checkedMaterialID reads the material the card is ABOUT — the source under
