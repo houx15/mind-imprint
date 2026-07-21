@@ -353,7 +353,11 @@ func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) 
 		}
 		filled[row][a.Dimension] = true
 	}
+	// Tally EVERYTHING before deciding. The complete-row count alone governs:
+	// a student who starts and abandons an extra perspective must not be
+	// walled by it once she already has enough complete rows.
 	completeRows := 0
+	firstIncomplete, haveIncomplete := "", false
 	for _, row := range order {
 		done := true
 		for _, col := range spec.Params.Cols {
@@ -366,17 +370,19 @@ func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) 
 			completeRows++
 			continue
 		}
-		// An incomplete row is the most actionable thing to name — but only
-		// once we already have enough rows started; otherwise "rows" is the
-		// honest answer (see below).
-		if len(order) >= spec.Params.MinItems {
-			return row, true
+		if !haveIncomplete {
+			firstIncomplete, haveIncomplete = row, true
 		}
 	}
-	if completeRows < spec.Params.MinItems {
-		return "rows", true
+	if completeRows >= spec.Params.MinItems {
+		return "", false
 	}
-	return "", false
+	// An incomplete row is the most actionable thing to name; "rows" is the
+	// honest answer when she simply has not started enough of them.
+	if haveIncomplete {
+		return firstIncomplete, true
+	}
+	return "rows", true
 }
 ```
 
