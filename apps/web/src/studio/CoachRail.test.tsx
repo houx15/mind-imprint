@@ -247,6 +247,76 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     expect(screen.getByText(/还没有独立来源/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "添加信源" })).not.toBeInTheDocument();
   });
+
+  // Made-up bucket vocabulary (not the real fact-opinion-value.json labels) —
+  // proves the fork renders StudioSortCard, not that any particular card's
+  // wording made it through, and keeps this file config-agnostic like the
+  // host itself.
+  it("primitive === 'sort' forks to StudioSortCard, not StudioCardSheet", () => {
+    const spec = {
+      id: "made-up-sort",
+      name: "分类卡",
+      category: "知识工具",
+      purpose: "把陈述分类",
+      primitive: "sort",
+      params: {
+        buckets: [
+          { id: "红", label: "红桶", hint: "" },
+          { id: "蓝", label: "蓝桶", hint: "" },
+        ],
+        min_items: 1,
+        item_prompt: "写一句话",
+        reason_prompt: "为什么",
+      },
+    } as any;
+    // Sort only renders bucket chips per row, so seed one row via a
+    // persisted anchor (the same rehydration path StudioSortCard uses).
+    const anchors = [
+      { id: "a0", material_id: "", block_id: "", start: 0, end: 0, quote: "一句话", dimension: "红", author: "student" as const, question: "", answer: "" },
+    ];
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci4", cardId: "made-up-sort", spec, status: "active", anchors }}
+      />,
+    );
+    expect(screen.getByText("红桶")).toBeInTheDocument();
+    expect(screen.getByText("蓝桶")).toBeInTheDocument();
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+  });
+
+  // Made-up stop vocabulary (not the real certainty-spectrum.json labels) —
+  // same rationale as the sort test above.
+  it("primitive === 'scale' forks to StudioScaleCard, not StudioCardSheet", () => {
+    const spec = {
+      id: "made-up-scale",
+      name: "光谱卡",
+      category: "知识工具",
+      purpose: "把结论放到光谱上",
+      primitive: "scale",
+      params: {
+        buckets: [
+          { id: "低", label: "低确定度", hint: "" },
+          { id: "高", label: "高确定度", hint: "" },
+        ],
+        min_items: 1,
+        item_prompt: "你的结论是什么？",
+        reason_prompt: "为什么",
+        rewrite_prompt: "重写这句话",
+      },
+    } as any;
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci5", cardId: "made-up-scale", spec, status: "active", anchors: [] }}
+      />,
+    );
+    expect(screen.getByText("低确定度")).toBeInTheDocument();
+    expect(screen.getByText("高确定度")).toBeInTheDocument();
+    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+  });
 });
 
 describe("CoachRail voice input (5d review IMPORTANT: the mic must not be inert)", () => {

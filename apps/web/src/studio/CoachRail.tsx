@@ -7,6 +7,8 @@ import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
 import { StudioAnnotateCard } from "./StudioAnnotateCard";
 import { StudioCompareCard } from "./StudioCompareCard";
+import { StudioSortCard } from "./StudioSortCard";
+import { StudioScaleCard } from "./StudioScaleCard";
 import { StudioCardSheet } from "./StudioCardSheet";
 import type { CoachMessage, EquipCard, StationView, StudioCallbacks } from "./state";
 
@@ -382,6 +384,22 @@ export function CoachRail({
               materials={materials}
               lateralMaterialId={lateralMaterialId}
               onLateralMaterialChange={(id) => onLateralMaterialChange?.(id)}
+              onSubmit={(env) => onSubmitCard?.(env)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          ) : card.spec.primitive === "sort" ? (
+            <StudioSortCard
+              spec={card.spec}
+              cardInstanceId={card.cardInstanceId}
+              anchors={card.anchors}
+              onSubmit={(env) => onSubmitCard?.(env)}
+              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+            />
+          ) : card.spec.primitive === "scale" ? (
+            <StudioScaleCard
+              spec={card.spec}
+              cardInstanceId={card.cardInstanceId}
+              anchors={card.anchors}
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
             />
