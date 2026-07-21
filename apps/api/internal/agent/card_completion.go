@@ -178,9 +178,16 @@ func bucketedCount(anchors []Anchor, vocab []string) int {
 // keyed by Anchor.Quote (the student's perspective label — a matrix's rows are
 // student-authored, so the row's identity IS what she wrote) and counts only
 // when every column in spec.Params.Cols has a non-empty answer for it.
-// Returns ("<row quote>", true) for the first incomplete row in first-seen
-// order, ("rows", true) when there are simply fewer complete rows than
-// MinItems, and ("", false) when the card is done.
+//
+// The binding rule is: the card is complete once the COUNT OF COMPLETE ROWS
+// reaches spec.Params.MinItems — regardless of how many additional incomplete
+// rows also exist. A student who starts (and abandons) an extra perspective
+// must not be walled out of a card two other perspectives already satisfy, so
+// the full tally is taken BEFORE any row is named as the blocker: count
+// complete rows first, and only if that count still falls short do we name
+// the first incomplete row (first-seen order) as the most actionable next
+// step, falling back to ("rows", true) when no row has even been started.
+// Returns ("", false) when the card is done.
 func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) {
 	var order []string
 	filled := map[string]map[string]bool{}
@@ -196,6 +203,8 @@ func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) 
 		filled[row][a.Dimension] = true
 	}
 	completeRows := 0
+	firstIncomplete := ""
+	haveIncomplete := false
 	for _, row := range order {
 		done := true
 		for _, col := range spec.Params.Cols {
@@ -208,15 +217,16 @@ func firstIncompleteMatrixRow(spec cards.Spec, anchors []Anchor) (string, bool) 
 			completeRows++
 			continue
 		}
-		// An incomplete row is the most actionable thing to name — but only
-		// once we already have enough rows started; otherwise "rows" is the
-		// honest answer (see below).
-		if len(order) >= spec.Params.MinItems {
-			return row, true
+		if !haveIncomplete {
+			firstIncomplete = row
+			haveIncomplete = true
 		}
 	}
-	if completeRows < spec.Params.MinItems {
-		return "rows", true
+	if completeRows >= spec.Params.MinItems {
+		return "", false
 	}
-	return "", false
+	if haveIncomplete {
+		return firstIncomplete, true
+	}
+	return "rows", true
 }

@@ -319,3 +319,42 @@ func TestMatrixCompleteReportsRowsWhenTooFewRows(t *testing.T) {
 		t.Fatalf("want incomplete missing [rows], got complete=%v missing=%v", complete, missing)
 	}
 }
+
+// TestMatrixCompleteIgnoresAnExtraIncompleteRowOnceEnoughRowsAreComplete
+// regression-covers the boundary the old first-seen-order scan got wrong: an
+// INCOMPLETE row ("政府") ordered first, followed by two COMPLETE rows
+// ("环保组织", "企业"), with MinItems=2. The old code returned as soon as
+// len(order) >= MinItems, so it named "政府" as the blocker even though two
+// other rows already satisfy MinItems — permanently walling a student who
+// started (and abandoned) a third perspective. The card must complete once
+// the COUNT OF COMPLETE ROWS reaches MinItems, regardless of what she left
+// unfinished elsewhere.
+func TestMatrixCompleteIgnoresAnExtraIncompleteRowOnceEnoughRowsAreComplete(t *testing.T) {
+	spec := cards.Spec{
+		Params: cards.Params{
+			Cols:     []cards.Axis{{ID: "position"}, {ID: "grounds"}, {ID: "blind_spot"}},
+			MinItems: 2,
+		},
+		Completion: []cards.CompletionPredicate{{Kind: "matrix_complete"}},
+	}
+	anchors := []Anchor{
+		// Row 1 (first-seen): started, then abandoned — missing blind_spot.
+		{Quote: "政府", Dimension: "position", Answer: "治理有决心"},
+		{Quote: "政府", Dimension: "grounds", Answer: "植树与限排政策"},
+		// Row 2: complete.
+		{Quote: "环保组织", Dimension: "position", Answer: "进展不足"},
+		{Quote: "环保组织", Dimension: "grounds", Answer: "碳排放全球第一"},
+		{Quote: "环保组织", Dimension: "blind_spot", Answer: "低估了转型速度"},
+		// Row 3: complete.
+		{Quote: "企业", Dimension: "position", Answer: "转型有成本"},
+		{Quote: "企业", Dimension: "grounds", Answer: "新能源投资全球领先"},
+		{Quote: "企业", Dimension: "blind_spot", Answer: "回避了产能过剩"},
+	}
+	complete, missing := EvaluateCompletion(spec, anchors)
+	if !complete {
+		t.Fatalf("expected complete: 2 rows fully done meets MinItems=2 even with an extra incomplete row; missing=%v", missing)
+	}
+	if missing != nil {
+		t.Fatalf("missing = %v, want nil", missing)
+	}
+}
