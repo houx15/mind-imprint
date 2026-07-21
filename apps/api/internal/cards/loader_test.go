@@ -2,6 +2,7 @@ package cards
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,5 +117,46 @@ func TestToulminSlotsParse(t *testing.T) {
 	}
 	if byID["claim"].Role != "核心主张" {
 		t.Fatalf("claim role = %q, want 核心主张", byID["claim"].Role)
+	}
+}
+
+func TestSpecParsesSortScaleMatrixParams(t *testing.T) {
+	raw := []byte(`{
+	  "id": "x", "name": "X",
+	  "primitive": "sort",
+	  "params": {
+	    "buckets": [{"id":"事实","label":"可查证的事实","hint":"能被独立核查的陈述"}],
+	    "cols": [{"id":"position","label":"立场主张","q":"这个视角主张什么？"}],
+	    "min_items": 3
+	  },
+	  "completion": [{"kind":"items_bucketed","tags":["事实"],"min":3}]
+	}`)
+	var s Spec
+	if err := json.Unmarshal(raw, &s); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(s.Params.Buckets) != 1 || s.Params.Buckets[0].ID != "事实" ||
+		s.Params.Buckets[0].Label != "可查证的事实" || s.Params.Buckets[0].Hint != "能被独立核查的陈述" {
+		t.Fatalf("buckets: %+v", s.Params.Buckets)
+	}
+	if len(s.Params.Cols) != 1 || s.Params.Cols[0].ID != "position" ||
+		s.Params.Cols[0].Label != "立场主张" || s.Params.Cols[0].Q != "这个视角主张什么？" {
+		t.Fatalf("cols: %+v", s.Params.Cols)
+	}
+	if s.Params.MinItems != 3 {
+		t.Fatalf("min_items: %d", s.Params.MinItems)
+	}
+	if len(s.Completion) != 1 || s.Completion[0].Min != 3 {
+		t.Fatalf("completion min: %+v", s.Completion)
+	}
+}
+
+func TestLegacyCardStillParsesWithZeroValuedNewParams(t *testing.T) {
+	s, ok := ByID("steelman")
+	if !ok {
+		t.Fatal("steelman spec missing")
+	}
+	if len(s.Params.Buckets) != 0 || len(s.Params.Cols) != 0 || s.Params.MinItems != 0 {
+		t.Fatalf("legacy card picked up C2 params: %+v", s.Params)
 	}
 }

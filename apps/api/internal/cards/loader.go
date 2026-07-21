@@ -55,6 +55,21 @@ type Params struct {
 	// one entry per argument role the student authors. Empty for every
 	// non-graph card.
 	Slots []Slot `json:"slots"`
+
+	// Buckets is the sort/scale primitive's target vocabulary. For a sort card
+	// the order is presentational; for a scale card it is the axis order and
+	// is meaningful (left-to-right = the continuum). Empty for every
+	// non-sort/scale card.
+	Buckets []Bucket `json:"buckets"`
+
+	// Cols is the matrix primitive's FIXED column axis. Matrix rows are
+	// student-authored (identifying whose view is missing is the thinking),
+	// so there is deliberately no Rows counterpart. Empty for non-matrix cards.
+	Cols []Axis `json:"cols"`
+
+	// MinItems is the minimum number of bucketed items (sort/scale) or
+	// complete rows (matrix) the card requires. 0 means no minimum.
+	MinItems int `json:"min_items"`
 }
 
 // Slot is one typed argument role in a graph-primitive card. ID is the node
@@ -68,6 +83,24 @@ type Slot struct {
 	Q       string `json:"q"`
 }
 
+// Bucket is one target of a sort/scale primitive: ID is the value persisted
+// as Anchor.Dimension, Label is the verbatim design label, Hint is the short
+// disambiguating gloss shown under the label.
+type Bucket struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Hint  string `json:"hint"`
+}
+
+// Axis is one column of a matrix primitive: ID is the value persisted as
+// Anchor.Dimension, Label is the column header, Q is the guiding question
+// shown with the header.
+type Axis struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Q     string `json:"q"`
+}
+
 // CompletionPredicate is one closed-set completion check (agent-spec §3):
 // "every_tag_present" (Tags) or "field_written_by" (Field + Author).
 type CompletionPredicate struct {
@@ -75,6 +108,10 @@ type CompletionPredicate struct {
 	Tags   []string `json:"tags"`
 	Field  string   `json:"field"`
 	Author string   `json:"author"`
+
+	// Min is the threshold for count-based predicates (items_bucketed). 0 for
+	// every other predicate kind.
+	Min int `json:"min"`
 }
 
 // GraphEffect is one closed-set graph mutation applied on card completion
