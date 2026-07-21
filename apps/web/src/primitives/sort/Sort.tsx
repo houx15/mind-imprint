@@ -49,12 +49,20 @@ function PlusIcon() {
 // 事实/观点/价值判断; a new sort card is a new JSON, not a renderer edit.
 export function Sort({ buckets, state, minItems, itemPrompt, reasonPrompt, onChange, onLock, onSkip }: SortProps) {
   // 铁律 2: this counts classification progress in plain language, never a
-  // score/streak/bar. classifiedCount ("已归类") is rows sorted into a
-  // bucket; the lock gate additionally requires every filled row to also
-  // carry a non-empty reason (a row can be classified but not yet complete).
+  // score/streak/bar. classifiedCount ("已归类") is rows sorted into a bucket.
+  //
+  // The lock gate counts COMPLETE rows only, and it counts them the same way
+  // the server does — `bucketedCount` in apps/api/internal/agent/card_completion.go
+  // counts anchors whose dimension is a declared bucket AND whose answer is
+  // non-empty, then asks whether that count reaches the minimum. It never
+  // demands that every anchor qualify. Mirroring that exactly matters: an
+  // `every(isComplete)` gate would wall a student who has finished her
+  // minimum and then started one more row she has not reasoned about yet —
+  // blocking a lock the backend would happily accept.
   const classifiedCount = state.items.filter(isClassified).length;
+  const completeCount = state.items.filter(isComplete).length;
   const remaining = Math.max(0, minItems - classifiedCount);
-  const canLock = classifiedCount >= minItems && state.items.filter(isFilled).every(isComplete);
+  const canLock = completeCount >= minItems;
 
   function handleTextChange(id: string, value: string) {
     onChange({ items: state.items.map((it) => (it.id === id ? { ...it, text: value } : it)) });

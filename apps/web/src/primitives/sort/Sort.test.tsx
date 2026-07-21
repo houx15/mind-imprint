@@ -113,6 +113,25 @@ test("lock is gated below minItems and gated on bucket+reason completeness, then
   expect(onLock).toHaveBeenCalledTimes(1);
 });
 
+// The lock gate must count COMPLETE rows the way the server's bucketedCount
+// does, not demand that EVERY started row be complete. A student who has
+// finished her minimum and then starts one more row she has not reasoned
+// about yet must not be walled out of a lock the backend would accept.
+test("an extra half-filled row does not block the lock once minItems rows are complete", () => {
+  const state: SortState = {
+    items: [
+      { id: "i1", text: "中国是碳排放第一大国", bucket: "事实", reason: "可用官方数据核查", author: "student" },
+      { id: "i2", text: "中国应该做得更多", bucket: "价值判断", reason: "藏着「应该」的价值排序", author: "student" },
+      // started, classified, but not yet reasoned about
+      { id: "i3", text: "中国的治理是认真的", bucket: "观点", reason: "", author: "student" },
+    ],
+  };
+  render(
+    <Sort buckets={buckets} state={state} minItems={2} itemPrompt={itemPrompt} reasonPrompt={reasonPrompt} onChange={() => {}} onLock={() => {}} onSkip={() => {}} />,
+  );
+  expect(screen.getByRole("button", { name: "完成并钉到过程树" })).not.toBeDisabled();
+});
+
 test("skip fires onSkip without requiring completion", () => {
   const onSkip = vi.fn();
   render(
