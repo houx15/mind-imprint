@@ -90,7 +90,19 @@ is one identifier.
 
 A four-part **structural pre-gate**, evaluated before the call:
 
-1. no `card_instance` is `proposed` or `active` (the existing in-flight guard);
+1. no `card_instance` is `proposed` or `active` — checked directly by
+   `semanticCardCandidate` itself, over `g.CardInstances`, before every other
+   check (so it also costs no model call). This is a DIFFERENT condition
+   from (4) below and must not be conflated with it, as an earlier draft of
+   this spec did: `SurfaceCardCandidates` (the structural predicate) happens
+   to signal "a card is in flight" by returning `nil` project-wide, so the
+   call site's `!hasSurfaceCard(cands)` used in (4) is *also* true whenever
+   one is — but that check only orders the semantic pass BEHIND the
+   structural one, it does not itself gate on in-flight status. The
+   whole-branch review's CRITICAL 1 was exactly this gap: without the
+   classifier checking status directly, a student typing her next message
+   before opening (or while filling) an offered card would get a second
+   card_instance minted over the first, stranding the original;
 2. at least one moment is still eligible — a moment is ineligible once its
    target card has a `card_instance` in **any** status;
 3. the student's text is at least 12 runes (never classify 「嗯」);
@@ -231,6 +243,18 @@ The refeed candidate fires on `completed` **only**. A skipped card is recorded
 as data (铁律 4 · 过程即数据) and produces no coach turn. Answering a decline
 with a question is the nagging posture 铁律 2 forbids.
 
+**This path is defensive and unit-level only — no live request reaches it
+today.** `skipProjectCard` (`internal/api/projectcards.go`) records the skip
+(`SubmitProjectCardInstance` + `SetCardInstanceStatus("skipped")` +
+`card_skipped` event) and returns; it never calls `RunAgentStep`, on
+`Trigger{Kind:"card_refeed"}` or otherwise. Only `submitProjectCard` calls
+`RunAgentStep` with `Kind:"card_refeed"`, and it does so on the completion
+path, not the skip one. So `refeedCandidate`'s `row.Status != "completed"`
+branch is a correctness guarantee tested directly at the unit level
+(`TestRunAgentStepRefeedSilentOnSkipped`), not a behavior any student request
+currently exercises end to end. If a future caller ever does refeed a skip
+(e.g. a status-change webhook), this is the guard that keeps it silent.
+
 ### 3.3 Chat: the summary joins the next turn, not a new one
 
 Chat's card submit is thin by policy — no `CompleteCard`, no graph effects, and
@@ -283,9 +307,21 @@ one of three real cards, and any-status suppression caps the damage at **one
 badly-timed offer per card per project**, declined once and never seen again.
 
 **Cost.** The pre-gate means the classifier call happens only on a student turn
-where nothing structural fired and an un-offered card is still eligible — a
-strictly bounded subset of turns, and monotonically decreasing over a project's
-life as the three cards get offered.
+where nothing structural fired and at least one moment is still eligible.
+
+An earlier draft of this section claimed this was "a strictly bounded subset
+of turns… monotonically decreasing over a project's life" — that claim is
+**false**, and the whole-branch review was right to flag it: a `none` answer
+retires nothing. Eligibility only shrinks when a moment's target card gets an
+actual `card_instance` (any status). In a mature project where
+`SurfaceCardCandidates` stays silent every turn (all three moment cards
+still un-offered, nothing structural pending) and the classifier keeps
+answering `none`, the classifier runs on **every** student turn ≥12 runes,
+indefinitely, for the life of the project. The honest bound is: at most
+three classifier-producing offers total (one per moment), but **no bound at
+all** on the number of `none`-answer classify calls that precede them. A
+per-project cap or backoff on repeated `none` answers is an accepted open
+follow-up, not yet built.
 
 ---
 
