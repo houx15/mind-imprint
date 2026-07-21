@@ -227,7 +227,16 @@ func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
 		_ = em.Text(res.Reply)
 	}
 	if res.Offer != nil {
-		_ = em.Card(res.Offer.CardInstanceID.String(), res.Offer.CardID, "", []byte("[]"), res.Offer.MaterialID.String())
+		// A semantic offer (agent/chat_step.go's RunChatStep) carries
+		// uuid.Nil for MaterialID — it is not about any one source. The
+		// Studio invariant (card_lifecycle.go:34-38) is that the client must
+		// see the EMPTY string in that case, never uuid.Nil.String() (the
+		// all-zeros uuid), which would read as a real, missing material.
+		materialID := ""
+		if res.Offer.MaterialID != uuid.Nil {
+			materialID = res.Offer.MaterialID.String()
+		}
+		_ = em.Card(res.Offer.CardInstanceID.String(), res.Offer.CardID, "", []byte("[]"), materialID)
 	}
 	_ = em.Done()
 }
