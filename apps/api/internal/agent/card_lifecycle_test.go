@@ -497,9 +497,27 @@ func TestCompleteCard_MaterialConsumingCardStillErrorsWithoutMaterial(t *testing
 // is no compile-time link between the two, so a future graph_effect kind
 // added to the switch and forgotten here would break card completion
 // silently at runtime (needsMaterial would say "no material required" for a
-// kind that actually mints an edge against one, or vice versa). This
-// enumerates every kind GraphEffects' switch handles today, read by hand from
-// that switch, and pins both its presence and its classification:
+// kind that actually mints an edge against one, or vice versa).
+//
+// Whole-branch review MINOR 6: the original version of this test asserted
+// against a SECOND hand-written list (wantConsumesMaterial) plus a
+// `len(materialConsumingEffects) != 2` count check — so it caught an
+// ADDITION to the map (the count would drift) but not the failure it
+// actually advertised: a new effect kind arriving in GraphEffects' switch
+// (card_effects.go) and simply being omitted from materialConsumingEffects.
+// That omission leaves both maps agreeing with each other while a real card
+// silently breaks needsMaterial at runtime — and a second hand-written list
+// can drift from the real switch exactly as easily as the map under test
+// can.
+//
+// This version reads the SOURCE OF TRUTH instead: every graph_effect kind
+// that actually appears in the embedded card catalog (internal/cards,
+// Go-embedded JSON — the only place a new kind can arrive from, since "new
+// card = new JSON, not new renderer code" is a Global Constraint). Each kind
+// found there must be classified in materialConsumingEffects; a new kind
+// shipped via card JSON and never classified now fails HERE instead of
+// silently breaking card completion in production.
+//
 //   - "promote": material --evaluated-as--> evidence — consumes the material.
 //   - "cross_check": material --cross-checked-by--> cross_check — consumes it.
 //   - "toulmin": mints slot nodes + cites edges addressed to PER-ANCHOR
@@ -507,24 +525,39 @@ func TestCompleteCard_MaterialConsumingCardStillErrorsWithoutMaterial(t *testing
 //     itself — does not consume it.
 //   - "perspectives": mints free-standing project nodes with no edges at
 //     all — does not consume it.
-//
-// This test may well pass the moment it is written — that is expected and
-// correct. It is a net for the future, not proof of a present bug.
 func TestNeedsMaterialCoversEveryGraphEffectKind(t *testing.T) {
-	wantConsumesMaterial := map[string]bool{
+	knownClassification := map[string]bool{
 		"promote":      true,
 		"cross_check":  true,
 		"toulmin":      false,
 		"perspectives": false,
 	}
-	for kind, want := range wantConsumesMaterial {
-		if got := materialConsumingEffects[kind]; got != want {
-			t.Fatalf("materialConsumingEffects[%q] = %v, want %v", kind, got, want)
+
+	catalog, err := cards.Catalog()
+	if err != nil {
+		t.Fatalf("load embedded card catalog: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, spec := range catalog {
+		for _, effect := range spec.GraphEffects {
+			seen[effect.Kind] = true
+			want, ok := knownClassification[effect.Kind]
+			if !ok {
+				t.Fatalf("card %q ships graph_effect kind %q with NO known classification in materialConsumingEffects — "+
+					"a real card just shipped a kind this test's completeness net does not cover", spec.ID, effect.Kind)
+			}
+			if got := materialConsumingEffects[effect.Kind]; got != want {
+				t.Fatalf("materialConsumingEffects[%q] = %v, want %v (card %q)", effect.Kind, got, want, spec.ID)
+			}
 		}
 	}
-	if len(materialConsumingEffects) != 2 {
-		t.Fatalf("materialConsumingEffects has %d entries, want exactly 2 (promote, cross_check); got %+v",
-			len(materialConsumingEffects), materialConsumingEffects)
+	// Today's four kinds must all actually be exercised by the catalog —
+	// otherwise this test would silently stop testing a kind the moment its
+	// one card were deleted, without anyone noticing.
+	for kind := range knownClassification {
+		if !seen[kind] {
+			t.Fatalf("no embedded card ships graph_effect kind %q — this test's coverage claim is stale", kind)
+		}
 	}
 }
 
