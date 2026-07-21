@@ -1,5 +1,13 @@
 package agent
 
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"mindimprint/api/internal/gateway"
+)
+
 // Moment is one member of the CLOSED SET of semantic card-moments the
 // classifier may name. It is a closed enum on purpose: the classifier picks
 // from a fixed vocabulary and can never invent a card id, which is the same
@@ -86,4 +94,70 @@ func EligibleMoments(cards []CardInstanceView) []Moment {
 		}
 	}
 	return out
+}
+
+// MinClassifyRunes is the floor below which a student turn is never
+// classified. Cost discipline AND product: 「嗯」 carries no moment, and paying
+// a model call to be told so is waste.
+const MinClassifyRunes = 12
+
+// momentSystemPrompt is the classifier's posture. It is deliberately unlike
+// every other prompt in this package: the classifier does not talk to the
+// student, does not coach, and does not write prose. Its entire output is one
+// identifier from a closed set.
+const momentSystemPrompt = `# 角色
+你是「思维印记」的时机识别器。你不与学生对话，也不给任何建议——你唯一的任务，是判断学生刚写下的这段话里，是否正在发生下面列出的某一个「思考时机」。
+
+# 规则
+- 只能从下面给出的候选 id 中选**一个**，或者回答 none。
+- 拿不准就回答 none。宁可错过，也不要打断学生。
+- 只输出那个 id 本身，不要解释、不要标点、不要任何其他文字。`
+
+// ClassifyMoment asks the chaperone-tier model whether the student's latest
+// text exhibits one of the eligible moments.
+//
+// Contract:
+//   - Empty eligible set → MomentNone with NO model call (cost discipline).
+//   - The reply is matched by EXACT equality against the eligible ids after
+//     trimming. A chatty reply, an unknown id, or an id that is real but NOT
+//     eligible all collapse to MomentNone — the last case matters most: it is
+//     what stops a suppressed card from being re-offered by a model that
+//     ignored its instructions.
+//   - Usage is returned whenever gateway.Collect succeeded, INCLUDING when the
+//     answer is `none` or unparseable. That call cost real money and the caller
+//     must meter it (AGENTS.md 记录档位 + token + 成本). Usage is the zero
+//     value only when Collect itself errored.
+//   - An error is returned ONLY for a failed model call. Callers treat it as
+//     silence, never as a turn failure.
+func ClassifyMoment(ctx context.Context, prov gateway.Provider, r gateway.Resolved, text string, eligible []Moment) (Moment, gateway.ChatUsage, error) {
+	if len(eligible) == 0 {
+		return MomentNone, gateway.ChatUsage{}, nil
+	}
+
+	var b strings.Builder
+	b.WriteString("# 候选时机\n")
+	for _, m := range eligible {
+		fmt.Fprintf(&b, "- %s：%s\n", m, momentCard[m].Desc)
+	}
+	b.WriteString("\n# 学生刚写下的话\n")
+	b.WriteString(text)
+	b.WriteString("\n\n只输出一个 id，或 none。")
+
+	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+		Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: momentSystemPrompt},
+			{Role: gateway.RoleUser, Content: b.String()},
+		},
+	})
+	if err != nil {
+		return MomentNone, gateway.ChatUsage{}, err
+	}
+
+	answer := strings.TrimSpace(res.Text)
+	for _, m := range eligible {
+		if answer == string(m) {
+			return m, res.Usage, nil
+		}
+	}
+	return MomentNone, res.Usage, nil
 }
