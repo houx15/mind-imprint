@@ -9,6 +9,7 @@ package agent_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -604,4 +605,258 @@ func loadGraphView(ctx context.Context, t *testing.T, q *sqlc.Queries, projectID
 		t.Fatalf("ListGraphEdgesByProject: %v", err)
 	}
 	return agent.GraphViewFromRows(nodes, edges, nil, nil)
+}
+
+// TestRefactor2CardsLoop_SemanticMomentToRefeed is Task 8's whole-chain
+// proof: it walks N3b's two seams — the semantic classifier (Seam A) and the
+// completed-card refeed (Seam B) — back to back, over the real testcontainers
+// stack, through the exact store calls the HTTP handlers use
+// (projectcards.go's card-submit path: SetCardInstanceAnchors ->
+// SubmitProjectCardInstance -> CompleteCard -> SetCardInstanceStatus ->
+// RunAgentStep(card_refeed)). Every assertion below reads back real database
+// rows, never a fixture.
+//
+// This file's package is `agent_test` (black-box), not `agent`: the
+// project's own countingProvider/capturingProvider test doubles
+// (internal/agent/loop_test.go) live in the internal `agent` test package and
+// are unexported, so they are not visible here. gateway.StubProvider already
+// exports the equivalent capability (LastRequest, the ChatRequest the engine
+// actually built), so this test uses that directly rather than redeclaring a
+// capturing provider.
+func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+	resolved := gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: "coach"}
+
+	// Step 1: a project with NO material at all — the per-material and
+	// project-scoped structural surface_card branches (classifier.go) all
+	// require a material or an "evaluated-as" edge to fire, so this project
+	// yields no structural surface_card candidate, ever. The semantic
+	// classifier (Seam A) is therefore the ONLY thing that can produce a
+	// surface_card candidate here.
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: seededStudentID, Qualification: "EE", Title: "核电是否应该取代化石能源？", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	// A real one-sided paragraph: argues from one side only, dismisses the
+	// opposing case outright — exactly momentCard[MomentOneSided]'s Desc.
+	studentText := "核电就是绝对清洁又绝对安全的能源，我们现在就应该把所有化石能源都换成核电。" +
+		"反对核电的人根本没有认真研究过数据，他们的担心毫无根据，完全不值得认真对待。"
+
+	// Step 2: RunAgentStep with Trigger{Kind:"student_turn"} and a stubbed
+	// classifier reply of "one_sided".
+	classifyProv := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "one_sided"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 20, OutputTokens: 2}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	deps1 := agent.AgentDeps{Store: store, Provider: classifyProv, Resolved: resolved}
+
+	action1, err := agent.RunAgentStep(ctx, deps1, project.ID, agent.Trigger{Kind: "student_turn", StudentText: studentText})
+	if err != nil {
+		t.Fatalf("RunAgentStep (student_turn): %v", err)
+	}
+	if classifyProv.LastRequest.Messages == nil {
+		t.Fatal("want the classifier to have actually been called (LastRequest unset)")
+	}
+	if action1 == nil || action1.Kind != "surface_card" {
+		t.Fatalf("want a surface_card action from the named moment, got %+v", action1)
+	}
+	if action1.CardID != "steelman" {
+		t.Fatalf("surfaced card = %q, want steelman (the one_sided moment's card)", action1.CardID)
+	}
+	if action1.MaterialID != "" {
+		t.Fatalf("steelman MaterialID = %q, want empty (project-scoped, per momentCard)", action1.MaterialID)
+	}
+	cardInstanceID, err := uuid.Parse(action1.CardInstanceID)
+	if err != nil {
+		t.Fatalf("parse CardInstanceID: %v", err)
+	}
+
+	// Step 3: assert a REAL card_instance row for "steelman" exists, proposed.
+	list, err := q.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: project.ID, Valid: true})
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != cardInstanceID {
+		t.Fatalf("ListCardInstancesByProject = %+v, want 1 row matching %s", list, cardInstanceID)
+	}
+	if list[0].CardID != "steelman" || list[0].Status != "proposed" {
+		t.Fatalf("unexpected card_instance: card_id=%q status=%q", list[0].CardID, list[0].Status)
+	}
+
+	// Step 4: submit it completed with real field_values, through the exact
+	// store-call sequence projectcards.go's handler runs: SetCardInstanceAnchors
+	// -> SubmitProjectCardInstance -> GetCardInstance -> CompleteCard ->
+	// SetCardInstanceStatus("completed"). steelman is a field-only card (no
+	// "completion" predicates, no "graph_effects" in its spec JSON), so its
+	// anchors are empty and its real content lives entirely in field_values,
+	// keyed step-key -> field-key, exactly as SerializeCardForRefeed
+	// (refeed.go) reads it back.
+	counterStrongest := "反方最强点是：福岛与切尔诺贝利证明重大核事故一旦发生，后果不可逆、代价极其巨大，选址与监管一旦失误便无法挽回。"
+	concede := "我承认严重核事故一旦发生，后果确实可能不可逆、代价巨大，这一点不能回避。"
+	rebuttal := "但只要采用第三代反应堆设计并强化独立监管，事故概率可以降到极低水平，而气候变化的长期代价更加确定且同样不可逆。"
+	fieldValues := map[string]map[string]any{
+		"stance":            {"your_stance": "大规模推广核电是让能源结构变得可持续的关键一步"},
+		"strongest_counter": {"counter_strongest": counterStrongest},
+		"concession":        {"concede": concede, "rebuttal": rebuttal, "self_check": []string{"让步是真诚的，没有弱化反方", "回应扣住了反方最强点，而不是旁枝末节"}},
+	}
+	fieldValuesJSON, err := json.Marshal(fieldValues)
+	if err != nil {
+		t.Fatalf("marshal field values: %v", err)
+	}
+
+	if err := store.SetCardInstanceAnchors(ctx, project.ID, cardInstanceID, []byte(`[]`)); err != nil {
+		t.Fatalf("SetCardInstanceAnchors: %v", err)
+	}
+	if err := store.SubmitProjectCardInstance(ctx, project.ID, cardInstanceID, fieldValuesJSON, []byte(`[]`)); err != nil {
+		t.Fatalf("SubmitProjectCardInstance: %v", err)
+	}
+
+	spec, ok := cards.ByID("steelman")
+	if !ok {
+		t.Fatal("cards.ByID(steelman) not found")
+	}
+	deps2 := agent.AgentDeps{Store: store}
+	complete, err := agent.CompleteCard(ctx, deps2, spec, cardInstanceID)
+	if err != nil {
+		t.Fatalf("CompleteCard: %v", err)
+	}
+	if !complete {
+		t.Fatal("want complete = true for a fully filled steelman card")
+	}
+	if err := store.SetCardInstanceStatus(ctx, project.ID, cardInstanceID, "completed"); err != nil {
+		t.Fatalf("SetCardInstanceStatus: %v", err)
+	}
+
+	// Real-row confirmation that the submit actually landed: status flipped to
+	// completed, and field_values round-trips the exact text the student wrote.
+	completedRow, err := q.GetCardInstance(ctx, cardInstanceID)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if completedRow.Status != "completed" {
+		t.Fatalf("Status = %q, want completed", completedRow.Status)
+	}
+	var storedFields map[string]map[string]any
+	if err := json.Unmarshal(completedRow.FieldValues, &storedFields); err != nil {
+		t.Fatalf("unmarshal stored field_values: %v", err)
+	}
+	if storedFields["concession"]["concede"] != concede {
+		t.Fatalf("stored field_values did not round-trip the concession text: %+v", storedFields["concession"])
+	}
+
+	// Step 5+6: RunAgentStep with Trigger{Kind:"card_refeed", CardInstanceID}.
+	// Assert the intervention row persists, anchored to that card_instance, AND
+	// that the prompt the provider received actually carried the submitted
+	// field values (proving the serializer really reached the model over the
+	// real DB round-trip, not just in the pure-function tests).
+	coachBody := "你的让步段有没有正面回应「福岛事故后果不可逆」这一点，而不是绕开它去谈别的？"
+	refeedProv := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: coachBody},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 30, OutputTokens: 20}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	deps3 := agent.AgentDeps{Store: store, Provider: refeedProv, Resolved: resolved}
+
+	action2, err := agent.RunAgentStep(ctx, deps3, project.ID, agent.Trigger{Kind: "card_refeed", CardInstanceID: cardInstanceID.String()})
+	if err != nil {
+		t.Fatalf("RunAgentStep (card_refeed): %v", err)
+	}
+	if action2 == nil || action2.Kind != "intervention" {
+		t.Fatalf("want an intervention action from the refeed, got %+v", action2)
+	}
+	if action2.Output.Anchor.Kind != "card_instance" || action2.Output.Anchor.ID != cardInstanceID.String() {
+		t.Fatalf("want the intervention anchored to the card_instance, got %+v", action2.Output.Anchor)
+	}
+
+	var refeedPrompt string
+	for _, m := range refeedProv.LastRequest.Messages {
+		if m.Role == gateway.RoleUser {
+			refeedPrompt = m.Content
+		}
+	}
+	if refeedPrompt == "" {
+		t.Fatal("want a non-empty user prompt sent to the coach")
+	}
+	if !strings.Contains(refeedPrompt, counterStrongest) {
+		t.Fatalf("refeed prompt did not carry the submitted counter_strongest text:\n%s", refeedPrompt)
+	}
+	if !strings.Contains(refeedPrompt, concede) {
+		t.Fatalf("refeed prompt did not carry the submitted concede text:\n%s", refeedPrompt)
+	}
+
+	// The intervention row itself, read back from the real table: anchored to
+	// the card_instance via the anchor jsonb (InsertIntervention never sets
+	// the separate card_instance_id FK column — see loop.go's InterventionRow
+	// literal — the anchor blob is the real anchoring mechanism here).
+	ivns, err := q.ListInterventionsByProject(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ListInterventionsByProject: %v", err)
+	}
+	if len(ivns) != 1 {
+		t.Fatalf("want exactly 1 intervention row, got %d", len(ivns))
+	}
+	var anchor struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id"`
+	}
+	if err := json.Unmarshal(ivns[0].Anchor, &anchor); err != nil {
+		t.Fatalf("unmarshal intervention anchor: %v", err)
+	}
+	if anchor.Kind != "card_instance" || anchor.ID != cardInstanceID.String() {
+		t.Fatalf("intervention anchor = %+v, want {card_instance %s}", anchor, cardInstanceID)
+	}
+	if ivns[0].Body != coachBody {
+		t.Fatalf("intervention body = %q, want %q", ivns[0].Body, coachBody)
+	}
+
+	// Step 7: suppression. A second student_turn with the SAME text must NOT
+	// mint a second steelman instance. The completed steelman card_instance
+	// already retires the one_sided moment (EligibleMoments suppresses on ANY
+	// status, including "completed"), but "fact_opinion"/"overclaim" are still
+	// eligible, so the classifier DOES run again — its answer just must not
+	// win. Stub it to (wrongly) say "one_sided" again: EligibleMoments must
+	// exclude it from the candidate set it hands ClassifyMoment, so even a
+	// model that ignored its own instructions collapses to none. This is the
+	// real suppression path (classifier.go/moment.go), not a mocked shortcut.
+	secondProv := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "one_sided"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 20, OutputTokens: 2}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	deps4 := agent.AgentDeps{Store: store, Provider: secondProv, Resolved: resolved}
+
+	action3, err := agent.RunAgentStep(ctx, deps4, project.ID, agent.Trigger{Kind: "student_turn", StudentText: studentText})
+	if err != nil {
+		t.Fatalf("RunAgentStep (2nd student_turn): %v", err)
+	}
+	if secondProv.LastRequest.Messages == nil {
+		t.Fatal("want the classifier to have been called again (fact_opinion/overclaim are still eligible)")
+	}
+	if action3 != nil {
+		t.Fatalf("want silence — steelman is suppressed in ANY status — got %+v", action3)
+	}
+
+	list2, err := q.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: project.ID, Valid: true})
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject (2nd pass): %v", err)
+	}
+	steelmanCount := 0
+	for _, row := range list2 {
+		if row.CardID == "steelman" {
+			steelmanCount++
+		}
+	}
+	if len(list2) != 1 || steelmanCount != 1 {
+		t.Fatalf("want exactly 1 steelman card_instance total after the 2nd student_turn, got %+v", list2)
+	}
 }
