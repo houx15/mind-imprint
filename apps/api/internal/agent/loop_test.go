@@ -940,6 +940,56 @@ func TestRunAgentStepSemanticSuppressedByAnyStatus(t *testing.T) {
 	}
 }
 
+// TestRunAgentStepSemanticSuppressedByInFlightCard is the regression for
+// whole-branch review CRITICAL 1: SurfaceCardCandidates signals "a card is
+// in flight" by returning NIL, so the call site's `!hasSurfaceCard(cands)`
+// is true precisely when one already is. That only orders the semantic pass
+// BEHIND the structural one — it does not, by itself, stop the semantic
+// pass from firing over an in-flight card. Before the fix, a student who
+// types her next message before opening (or while filling out) the card she
+// was just offered would get a SECOND card_instance minted over the first.
+//
+// No existing test caught this: fakeAgentStore.graph is a static fixture,
+// and no prior test put a proposed/active card_instance on a student_turn —
+// TestRunAgentStepSemanticSuppressedByAnyStatus instead exercises
+// EligibleMoments' own per-moment-card suppression (all THREE moment cards
+// already have instances), which is a different condition entirely: here
+// the in-flight instance is for an UNRELATED card ("craap"), so all three
+// moments stay eligible and only the in-flight guard can suppress them.
+func TestRunAgentStepSemanticSuppressedByInFlightCard(t *testing.T) {
+	for _, status := range []string{"proposed", "active"} {
+		t.Run(status, func(t *testing.T) {
+			g := GraphView{
+				CardInstances: []CardInstanceView{
+					{ID: uuid.New().String(), CardID: "craap", Status: status},
+				},
+			}
+			store := &fakeAgentStore{graph: g}
+			prov := &countingProvider{inner: scriptedProvider("one_sided")}
+			deps := AgentDeps{
+				Store:    store,
+				Provider: prov,
+				Resolved: testResolved,
+				Sim:      constSim(0.0),
+			}
+
+			action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if action != nil {
+				t.Fatalf("want silence while a card_instance (%s) is in flight, got %+v", status, action)
+			}
+			if prov.calls != 0 {
+				t.Fatalf("want zero classify calls while a card_instance (%s) is in flight, got %d", status, prov.calls)
+			}
+			if store.createCardInstanceCalls != 0 {
+				t.Fatalf("want zero minted card_instances while one (%s) is already in flight, got %d", status, store.createCardInstanceCalls)
+			}
+		})
+	}
+}
+
 // TestRunAgentStepClassifierErrorIsSilent covers the failure policy: a
 // classifier model-call error is silence, never a turn failure.
 func TestRunAgentStepClassifierErrorIsSilent(t *testing.T) {

@@ -448,6 +448,18 @@ func hasSurfaceCard(cands []Candidate) bool {
 // unparseable — it cost real money either way. A metering failure logs and
 // continues; a classifier failure is silence. Neither ever fails the turn.
 func semanticCardCandidate(ctx context.Context, deps AgentDeps, projectID uuid.UUID, g GraphView, text string) (Candidate, bool) {
+	// The REAL in-flight guard. SurfaceCardCandidates signals "a card is in
+	// flight" by returning nil, so `!hasSurfaceCard(cands)` at the call site
+	// is true PRECISELY when one is — it orders the semantic pass behind the
+	// structural one, it does not gate on in-flight state. Without this, a
+	// student who types another message before opening the card she was just
+	// offered gets a second card minted over the first (whole-branch review
+	// CRITICAL 1). An offer is never a wall, but nor is it a pile-up.
+	for _, ci := range g.CardInstances {
+		if ci.Status == "proposed" || ci.Status == "active" {
+			return Candidate{}, false
+		}
+	}
 	if len([]rune(strings.TrimSpace(text))) < MinClassifyRunes {
 		return Candidate{}, false
 	}
