@@ -76,6 +76,25 @@ func ChatCardCandidate(materials []ScopedMaterial, cards []ScopedCard) (uuid.UUI
 	return target, craapCardID, true
 }
 
+// hasInFlightScopedCard reports whether any thread-scoped card is still
+// `proposed` (offered, not yet opened) or `active` (open, being filled) —
+// the Chat mirror of loop.go's in-flight guard (whole-branch review
+// IMPORTANT 2). ChatCardCandidate already suppresses a re-offer of CRAAP
+// once any CRAAP instance exists, but nothing stopped the classifier branch
+// below from minting a SECOND, DIFFERENT card on top of an unanswered one:
+// a student could rack up several unanswered offers across consecutive
+// messages (CRAAP, then steelman, then certainty-spectrum, ...), which is
+// exactly the nagging posture AGENTS.md's 铁律 2 forbids and undercuts
+// 一次只问一个.
+func hasInFlightScopedCard(cards []ScopedCard) bool {
+	for _, c := range cards {
+		if c.Status == "proposed" || c.Status == "active" {
+			return true
+		}
+	}
+	return false
+}
+
 // ChatStore is RunChatStep's isolated persistence seam (project-free). The
 // sqlc adapter is chatstore.go; chat_step_test.go uses an in-memory fake.
 type ChatStore interface {
@@ -152,11 +171,16 @@ func RunChatStep(ctx context.Context, deps ChatDeps, studentMessage string) (Cha
 	flag := ""
 	if moment {
 		flag = "学生贴进了一个来源链接，并把它当成论据——这是做「信源辨识（CRAAP）」的时机。"
-	} else if len([]rune(strings.TrimSpace(studentMessage))) >= MinClassifyRunes {
+	} else if !hasInFlightScopedCard(cards) && len([]rune(strings.TrimSpace(studentMessage))) >= MinClassifyRunes {
 		// N3b Seam A in Chat: the structural link moment did not fire, so ask
 		// the classifier whether a SEMANTIC one did. Metered even on `none`
 		// or a parse failure; a classifier error is silence, never a failed
 		// turn — the coach still replies below.
+		//
+		// Gated on hasInFlightScopedCard (whole-branch review IMPORTANT 2):
+		// while any thread card is proposed/active, skip the classifier
+		// entirely rather than pile a second unanswered offer on top of the
+		// first.
 		eligible := EligibleMomentsScoped(cards)
 		m, usage, cerr := ClassifyMoment(ctx, deps.Provider, deps.Resolved, studentMessage, eligible)
 		if usage.InputTokens > 0 || usage.OutputTokens > 0 {

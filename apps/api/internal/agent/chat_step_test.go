@@ -269,6 +269,45 @@ func TestRunChatStepSemanticSuppressedByAnyStatus(t *testing.T) {
 	}
 }
 
+// TestRunChatStepSuppressedByInFlightCard is the regression for whole-branch
+// review IMPORTANT 2: ChatCardCandidate only suppresses a re-offer of the
+// SAME card id (CRAAP), so nothing stopped the classifier branch from
+// minting a second, DIFFERENT card offer on top of one still unanswered —
+// a student could rack up CRAAP, then steelman, then certainty-spectrum,
+// ... across consecutive messages with none of them opened, which is the
+// nagging posture 铁律 2 forbids. Here a "craap" card is already `proposed`
+// (unrelated to the moment cards), no link is in the message, and the
+// classifier would otherwise name "one_sided" — the fix must suppress the
+// classifier call entirely.
+func TestRunChatStepSuppressedByInFlightCard(t *testing.T) {
+	for _, status := range []string{"proposed", "active"} {
+		t.Run(status, func(t *testing.T) {
+			fs := newFakeChatStore()
+			fs.cards = []ScopedCard{{ID: uuid.New(), CardID: "craap", Status: status}}
+			prov := &countingProvider{inner: scriptedProvider("one_sided")}
+
+			res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if res.Offer != nil {
+				t.Fatalf("want no offer while a card (%s) is in flight, got %+v", status, res.Offer)
+			}
+			if fs.cardsCreated != 0 {
+				t.Fatalf("want no second card instance minted while one (%s) is in flight, got %d", status, fs.cardsCreated)
+			}
+			if prov.calls != 1 {
+				t.Fatalf("want exactly one provider call (coach only; classifier must not run), got %d", prov.calls)
+			}
+			for _, p := range fs.llmCallPurposes {
+				if p == "classify" {
+					t.Fatalf("want no metered classify call while a card is in flight, got purposes=%v", fs.llmCallPurposes)
+				}
+			}
+		})
+	}
+}
+
 // The classify call is metered through RecordChatLLMCall with purpose "classify".
 func TestRunChatStepMetersClassifyCall(t *testing.T) {
 	fs := newFakeChatStore()
