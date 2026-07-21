@@ -1,0 +1,56 @@
+{
+  "id": "perspective-matrix",
+  "category": "溯源与多视角",
+  "name": "视角对照矩阵",
+  "name_en": "Perspective Matrix",
+  "purpose": "把「不同视角」从一句口号变成一张能填的表：每个视角主张什么、凭什么、又看不见什么",
+  "trigger_condition": "学生只从一个视角论证，或把「有人认为」当成了对立面却说不出对方的依据",
+  "trigger_keywords": ["不同视角", "有人认为", "另一方面", "多角度", "利益相关"],
+  "priority": "P0",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "画布导图卡",
+  "rubric_dims": ["D4", "D7"],
+  "related": ["belief-spectrum", "steelman", "toulmin"],
+  "body_status": "full",
+  "rubric_tags": ["D4", "D7"],
+  "primitive": "matrix",
+  "target_type": "project",
+  "params": {
+    "cols": [
+      { "id": "position",   "label": "立场主张", "q": "这个视角主张什么？用一句话说清。" },
+      { "id": "grounds",    "label": "依据",     "q": "它凭什么这么主张？它最强的依据是什么？" },
+      { "id": "blind_spot", "label": "盲区",     "q": "这个视角看不见什么？它绕开了哪个事实？" }
+    ],
+    "min_items": 2,
+    "row_prompt": "这是谁的视角？（例：地方政府 / 环保组织 / 受影响居民 / 能源企业）"
+  },
+  "completion": [
+    { "kind": "matrix_complete" }
+  ],
+  "graph_effects": [
+    { "kind": "perspectives" }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I3",
+  "steps": [
+    {
+      "key": "rows",
+      "title": "列出视角",
+      "disclose": "always",
+      "methodology": {
+        "why": "「多视角」最常见的失败不是没写，而是只写了**两个都属于自己那一边**的视角——真正的对立面被悄悄跳过了。先把「这件事上谁会不同意」摊开列出来，分析才有对象。",
+        "how": "沿着**利益**和**代价**去找：谁受益、谁承担代价、谁负责、谁没有发言权。每个都是一行。",
+        "when": "当你的论证从头到尾只有一个声音时。"
+      },
+      "fields": [
+        { "type": "repeatable_group", "key": "perspectives", "label": "每行一个视角", "item_fields": [
+          { "type": "text",     "key": "who",        "label": "这是谁的视角？" },
+          { "type": "textarea", "key": "position",   "label": "它主张什么？" },
+          { "type": "textarea", "key": "grounds",    "label": "它的依据是什么？" },
+          { "type": "textarea", "key": "blind_spot", "label": "它看不见什么？" }
+        ] }
+      ]
+    }
+  ]
+}

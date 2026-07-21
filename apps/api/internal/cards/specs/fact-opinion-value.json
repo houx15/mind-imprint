@@ -14,6 +14,23 @@
   "related": ["argument-map", "certainty-spectrum", "cda"],
   "body_status": "full",
   "rubric_tags": ["D4", "D5"],
+  "primitive": "sort",
+  "target_type": "project",
+  "params": {
+    "buckets": [
+      { "id": "事实",     "label": "可查证的事实", "hint": "能被独立核查的陈述" },
+      { "id": "观点",     "label": "需论证的观点", "hint": "成立需要给出理由" },
+      { "id": "价值判断", "label": "藏价值的判断", "hint": "带「应该/好坏」，藏着价值排序" }
+    ],
+    "min_items": 3,
+    "item_prompt": "把一句话贴进来或写下来",
+    "reason_prompt": "检验/理由（它能被查证吗？需要理由吗？藏了「应该」吗？）"
+  },
+  "completion": [
+    { "kind": "items_bucketed", "tags": ["事实", "观点", "价值判断"], "min": 3 }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I2",
   "steps": [
     {
       "key": "paste",

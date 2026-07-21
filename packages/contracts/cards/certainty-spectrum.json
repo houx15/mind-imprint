@@ -14,6 +14,27 @@
   "related": ["fact-opinion-value", "science-knowing"],
   "body_status": "full",
   "rubric_tags": ["D6", "D9"],
+  "primitive": "scale",
+  "target_type": "project",
+  "params": {
+    "buckets": [
+      { "id": "个人猜测", "label": "个人猜测", "hint": "只有直觉，没有证据" },
+      { "id": "有据推断", "label": "有据推断", "hint": "有证据，但推理仍可争议" },
+      { "id": "强证据",   "label": "强证据",   "hint": "多个独立来源支撑" },
+      { "id": "科学共识", "label": "科学共识", "hint": "领域内已达成共识" },
+      { "id": "逻辑必然", "label": "逻辑必然", "hint": "由定义或推理必然为真" }
+    ],
+    "min_items": 1,
+    "item_prompt": "你的结论是什么？",
+    "reason_prompt": "为什么是这个位置？支撑它的证据类型是什么？",
+    "rewrite_prompt": "用与该位置相称的语气词重写结论句（可能 / 大概 / 很可能 / 几乎确定 / 必然）"
+  },
+  "completion": [
+    { "kind": "items_bucketed", "tags": ["个人猜测", "有据推断", "强证据", "科学共识", "逻辑必然"], "min": 1 },
+    { "kind": "field_written_by", "field": "rewrite", "author": "student" }
+  ],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I2",
   "steps": [
     {
       "key": "main",

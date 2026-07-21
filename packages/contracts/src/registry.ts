@@ -26,6 +26,7 @@ import moneyTrail from "../cards/money-trail.json";
 import multimodalDecode from "../cards/multimodal-decode.json";
 import opcvl from "../cards/opcvl.json";
 import pee from "../cards/pee.json";
+import perspectiveMatrix from "../cards/perspective-matrix.json";
 import questionCard from "../cards/question-card.json";
 import rabbitHole from "../cards/rabbit-hole.json";
 import scienceKnowing from "../cards/science-knowing.json";
@@ -64,6 +65,7 @@ const DEFAULT_RAW: Record<string, unknown> = {
   "multimodal-decode": multimodalDecode,
   opcvl,
   pee,
+  "perspective-matrix": perspectiveMatrix,
   "question-card": questionCard,
   "rabbit-hole": rabbitHole,
   "science-knowing": scienceKnowing,

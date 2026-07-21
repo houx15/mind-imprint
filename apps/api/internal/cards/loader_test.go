@@ -14,8 +14,8 @@ func TestCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Catalog: %v", err)
 	}
-	if len(specs) != 34 {
-		t.Fatalf("catalog has %d specs, want 34", len(specs))
+	if len(specs) != 35 {
+		t.Fatalf("catalog has %d specs, want 35", len(specs))
 	}
 
 	seen := map[string]bool{}
@@ -158,5 +158,72 @@ func TestLegacyCardStillParsesWithZeroValuedNewParams(t *testing.T) {
 	}
 	if len(s.Params.Buckets) != 0 || len(s.Params.Cols) != 0 || s.Params.MinItems != 0 {
 		t.Fatalf("legacy card picked up C2 params: %+v", s.Params)
+	}
+}
+
+// TestNewPrimitiveCardsAreWiredConsistently proves the three C2 sort/scale/
+// matrix bindings authored onto fact-opinion-value, certainty-spectrum, and
+// the new perspective-matrix card are internally consistent: primitive kind,
+// completion predicate, declared vocabulary/columns, and (for the matrix)
+// the perspectives graph effect.
+func TestNewPrimitiveCardsAreWiredConsistently(t *testing.T) {
+	for _, tc := range []struct {
+		id, primitive, predicate string
+	}{
+		{"fact-opinion-value", "sort", "items_bucketed"},
+		{"certainty-spectrum", "scale", "items_bucketed"},
+		{"perspective-matrix", "matrix", "matrix_complete"},
+	} {
+		s, ok := ByID(tc.id)
+		if !ok {
+			t.Fatalf("%s: spec missing", tc.id)
+		}
+		if s.Primitive != tc.primitive {
+			t.Fatalf("%s: primitive = %q, want %q", tc.id, s.Primitive, tc.primitive)
+		}
+		found := false
+		for _, p := range s.Completion {
+			if p.Kind == tc.predicate {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s: no %s completion predicate", tc.id, tc.predicate)
+		}
+	}
+
+	// sort/scale: every completion tag must be a declared bucket, else the
+	// card can never complete.
+	for _, id := range []string{"fact-opinion-value", "certainty-spectrum"} {
+		s, _ := ByID(id)
+		declared := map[string]bool{}
+		for _, b := range s.Params.Buckets {
+			declared[b.ID] = true
+		}
+		if len(declared) == 0 {
+			t.Fatalf("%s: no buckets", id)
+		}
+		for _, p := range s.Completion {
+			if p.Kind != "items_bucketed" {
+				continue
+			}
+			if p.Min <= 0 {
+				t.Fatalf("%s: items_bucketed min = %d", id, p.Min)
+			}
+			for _, tag := range p.Tags {
+				if !declared[tag] {
+					t.Fatalf("%s: completion tag %q is not a declared bucket", id, tag)
+				}
+			}
+		}
+	}
+
+	// matrix: cols + a positive MinItems + the perspectives effect.
+	m, _ := ByID("perspective-matrix")
+	if len(m.Params.Cols) != 3 || m.Params.MinItems < 2 {
+		t.Fatalf("perspective-matrix params: %+v", m.Params)
+	}
+	if len(m.GraphEffects) != 1 || m.GraphEffects[0].Kind != "perspectives" {
+		t.Fatalf("perspective-matrix graph_effects: %+v", m.GraphEffects)
 	}
 }
