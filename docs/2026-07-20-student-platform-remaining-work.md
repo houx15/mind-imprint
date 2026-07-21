@@ -26,7 +26,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 |---|---|---|---|
 | **N1 · Close the loop** | Project-creation entry point + S0 任务解码 intake + directory | S–M | Makes the product **reachable end-to-end**. **✅ DONE — merged `f3c4b31` (2026-07-20).** `POST /projects` (atomic project + 3 onboarding graph nodes from a board-static 0457 fixture, no LLM, no migration) + `POST /projects/{id}/onboarding` (persist restate + weak-picks as node+event) + projection surfaces them + directory-first `StudioContainer` with 新建论文 paste-prompt flow + OnboardingView submit/hydrate. Spec `docs/superpowers/specs/2026-07-20-n1-close-the-loop-design.md`, plan `…/plans/2026-07-20-n1-close-the-loop.md`. **Correctness seams were NOT bundled (deferred to N6, see below).** N1 carry-forwards → N6: back-less error screen on failed project-open (add ← to directory); `handleBack` drops `conv` without `dispose()` (SSE leak); directory shows raw station code + `0457` (no status badge / station-name label); create-atomicity has no rollback test (no fault-injection seam). |
 | **N2 · 评估 view (S0/S6)** | Reflection pack, prediction loop S0↔S6, self-score, AI-usage declaration, export forks (RL-4) | L | The biggest unbuilt student surface. **◐ PARTIAL — N2a+N2b+N2c DONE, merged `3273c01` (2026-07-20)**: self-score card + S0↔S6 prediction reveal + retro editor, all on one unified `review_criteria` taxonomy (rewrote N1's fixture rows); 2 student-write endpoints (self_score/reflection nodes, no LLM/migration); retro advances the reflect_archive S6 gate; seed 0018 migrated onto the taxonomy so the demo shows it. Spec `docs/superpowers/specs/2026-07-20-n2-review-view-completion-design.md`. **Still deferred: N2d · AI-usage declaration** (needs the event ledger) and **N2e · export forks** (own item, format undecided). |
-| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. |
+| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** Remaining in N3 → **N3b** below. |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | Config/rubric breadth behind existing interfaces. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | Finishes the two keystone-only surfaces. |
 | **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
@@ -38,15 +38,24 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 Each item tagged with its target finishing slice `[N#]`. Line numbers are into the
 roadmap file.
 
+### N3b · what remains of N3 (after N3a)
+The primitives exist; what is missing is the **semantic moment** that summons
+them and the **seam that feeds them back to the coach**.
+
+- **[N3b]** `sort` (`fact-opinion-value`) and `scale` (`certainty-spectrum`) are built and tested through every layer but **deliberately unwired** — their honest trigger is a semantic judgment about what the student just wrote, not a structural graph fact. `SurfaceCardCandidates` hardcodes card ids by design; a structural proxy would fire them at the wrong moment. Needs the cheap-model classifier.
+- **[N3b]** **No live anchor-refeed seam.** `agent.anchorSteps` (whose label fallback N3a fixed) is reachable only from `BuildLlmMessages`, which has **no production caller**; the live `RunAgentStep(Trigger{card_refeed})` passes the graph neighborhood + chat history, never card anchors. So a card reaches the coach ONLY through its `graph_effects` — `perspective-matrix` does; `fact-opinion-value` and `certainty-spectrum` are write-only sinks until this exists.
+- **[N3b]** Toulmin has **no skip-suppression** (skip → no claim node → re-offers forever). Pre-existing; `perspective-matrix` deliberately does not copy that shape.
+- **[N3b/N6]** `needsMaterial`'s closed effect set (`promote`/`cross_check`) in `card_lifecycle.go` has no compile-time link to `GraphEffects`' switch — a new material-addressed effect kind must be added to both.
+
 ### Cross-cutting / Slice 0
-- **[N3]** Interaction primitives incomplete: `sort`, `matrix`, `scale` not built (only `annotate`/`graph`/`compare`). *(31–32)*
+- ~~**[N3]** Interaction primitives incomplete: `sort`, `matrix`, `scale` not built.~~ **DONE (N3a, `27492fd`) — C1 library is 6/6.** *(31–32)*
 - **[N4]** OPCVL (HS-D\*) rubric + behavior ladders never built. *(115, 777)*
 
 ### Slice 1 — annotate
-- **[N3]** Student free span-creation (text-selection) — guidance L2/L3; only L1 ships. *(124–126, 302–304)*
+- **[N3c]** Student free span-creation (text-selection) — guidance L2/L3; only L1 ships. *(124–126, 302–304)*
 
 ### Slice 2 — runtime loop / classifier
-- **[N3]** Cheap-model classifier hook is a seam only (needed for semantic card-moments). *(140–141)*
+- **[N3b]** Cheap-model classifier hook is a seam only (needed for semantic card-moments — and now also to summon N3a's `sort`/`scale` cards). *(140–141)*
 
 ### Slice 3 — card runtime
 - **[N1]** `GetCardInstance` not project-scoped (takes only `cid`). *(154–157, 468)*
@@ -74,13 +83,13 @@ roadmap file.
 - **[N1]** dc.html still says 「批判思维」工作台 in 2 spots (`dc.html:158`, `:2519`). *(404–405)*
 
 ### Slice 6 — CRAAP fill→mint
-- **[N3]** R-9 summing-up framework reveal. *(303–304)*
+- **[N3d]** R-9 summing-up framework reveal. *(303–304)*
 - **[N4]** `RISK_NOTE_QUESTION` drops "／局限" vs binding copy. *(304)*
 
 ### Slice 6b / 6c — material / SIFT
-- **[N3]** Search-plan card (S2) — needs its own coach design. *(452, 468, 498)*
+- **[N3d]** Search-plan card (S2) — needs its own coach design. *(452, 468, 498)*
 - **[N2]** RL-2 citation half — no citation surface yet (tied to 写作/Slice 8). *(452–453, 499)*
-- **[N3]** S2 perspective map (视角与素材) — graph-node-backed. *(454, 499)*
+- **[N3d]** S2 perspective map (the graph-node PRODUCER now exists via N3a's perspective-matrix; only the VIEW remains) (视角与素材) — graph-node-backed. *(454, 499)*
 - **[N6]** 偏弱 verdict chip has no honest producer. *(453–454)*
 - **[N1/N6]** Event-model normalization — DB `type`/`surface` columns vs flat Zod `StudioEvent`; reader must merge before validating (systemic, all 8 event types; dead `EVENT_TYPES`). *(455–458, 500–501, 954)*
 
@@ -119,7 +128,7 @@ roadmap file.
 - **[N5]** Multimodal input (icons render, inert). *(826)*
 - **[N5]** Chat→project intake seeding (`seeded_project_id` + fragment copy). *(826–827)*
 - **[N5]** Off-record thread control (open product Q §606). *(827–828)*
-- **[N3]** Semantic non-link card-moments (opinion→steelman, comparison→matrix). *(828)*
+- **[N3b]** Semantic non-link card-moments (opinion→steelman, comparison→matrix). *(828)*
 - **[N5]** Thread evidence nodes / `graph_effects`. *(829)*
 - **[N5]** Competence wiring (dormant platform-wide). *(829–830, 887)*
 - **[N6]** `ChatCardOfferDTO` parity decorative (ships via snake_case `sse.Card`). *(824–825)*
