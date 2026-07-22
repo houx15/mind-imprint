@@ -26,7 +26,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 |---|---|---|---|
 | **N1 · Close the loop** | Project-creation entry point + S0 任务解码 intake + directory | S–M | Makes the product **reachable end-to-end**. **✅ DONE — merged `f3c4b31` (2026-07-20).** `POST /projects` (atomic project + 3 onboarding graph nodes from a board-static 0457 fixture, no LLM, no migration) + `POST /projects/{id}/onboarding` (persist restate + weak-picks as node+event) + projection surfaces them + directory-first `StudioContainer` with 新建论文 paste-prompt flow + OnboardingView submit/hydrate. Spec `docs/superpowers/specs/2026-07-20-n1-close-the-loop-design.md`, plan `…/plans/2026-07-20-n1-close-the-loop.md`. **Correctness seams were NOT bundled (deferred to N6, see below).** N1 carry-forwards → N6: back-less error screen on failed project-open (add ← to directory); `handleBack` drops `conv` without `dispose()` (SSE leak); directory shows raw station code + `0457` (no status badge / station-name label); create-atomicity has no rollback test (no fault-injection seam). |
 | **N2 · 评估 view (S0/S6)** | Reflection pack, prediction loop S0↔S6, self-score, AI-usage declaration, export forks (RL-4) | L | The biggest unbuilt student surface. **◐ PARTIAL — N2a+N2b+N2c DONE, merged `3273c01` (2026-07-20)**: self-score card + S0↔S6 prediction reveal + retro editor, all on one unified `review_criteria` taxonomy (rewrote N1's fixture rows); 2 student-write endpoints (self_score/reflection nodes, no LLM/migration); retro advances the reflect_archive S6 gate; seed 0018 migrated onto the taxonomy so the demo shows it. Spec `docs/superpowers/specs/2026-07-20-n2-review-view-completion-design.md`. **Still deferred: N2d · AI-usage declaration** (needs the event ledger) and **N2e · export forks** (own item, format undecided). |
-| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3 is now ◐ only for N3c (span-creation) and N3d (R-9 reveal / search-plan card / S2 perspective view).** |
+| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3 is now ◐ only for N3d (R-9 reveal / search-plan card / S2 perspective view).** |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | Config/rubric breadth behind existing interfaces. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | Finishes the two keystone-only surfaces. |
 | **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
@@ -37,6 +37,84 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 
 Each item tagged with its target finishing slice `[N#]`. Line numbers are into the
 roadmap file.
+
+### N3c · DONE — merged (2026-07-22)
+Spec `docs/superpowers/specs/2026-07-22-n3c-guidance-fade-and-span-creation-design.md`,
+plan `…/plans/2026-07-22-n3c-guidance-fade-and-span-creation.md`; 10 tasks
+subagent-driven plus two per-task fix waves and a whole-branch fix wave.
+**NO migration, NO card JSON change** — verified by diff; the one
+`internal/store/sqlc/` change is genuinely generated (a fresh `make sqlc`
+reproduces it byte-identically).
+
+**The guidance ladder is live.** The AI stops handing her the sentence (L2), then
+stops handing her the question too (L3). **The level is never stored anywhere** —
+it is carried entirely by the anchors' own shape: `author:"ai"` + question + span
+= L1; `author:"student"` + question + blank span = L2; `author:"student"` + blank
+question + blank span = L3. So there is no new column, no new API field, no
+contracts change for the level, and the reload path re-derives it for free.
+
+- **The fade has a real producer** (`agent.GuidanceFor` + a new project-scope
+  `CountCompletedCardUsesByUser`): 0 completions → L1, 1 → L2, 2+ → L3, computed
+  at surface time in `surfaceAnchors`, `annotate` primitive only (compare/SIFT
+  stays L1). Silent — no badge, no level name, nothing congratulatory (铁律 2).
+- **L2 gets its own prompt**, not a stripped L1: an L1 question points *at* a
+  sentence and would hand her the answer to the locating task. **L3 makes ZERO
+  LLM calls** — the scaffold fading also removes the spend (nothing to meter,
+  which is not the "bailed before metering" defect class).
+- **Locating is never a wall** (铁律 2): no completion predicate changed, so a
+  span is never required server-side and a card can never strand `active`. The
+  card offers 「找不到合适的句子」, and both that escape and a located span can be
+  undone/re-picked. Escapes and locations are recorded (`span_not_found` /
+  `span_located`, an additive `TraceEvent` extension in lockstep across the Zod
+  union and Go's `traceKinds`) — friction becomes signal (铁律 4).
+- **Bug fixed en route:** anchor span offsets were Go **byte** offsets consumed
+  by the web as UTF-16 slice indices. On Chinese material every AI anchor that
+  found its quote highlighted the *wrong text*. Offsets are now **rune indices**
+  on both sides.
+
+**The whole-branch review again caught what per-task reviews structurally could
+not — and the per-task reviews were clean.** Two Criticals in-slice, both
+invisible because no task's fixtures could reach the bad state:
+1. **L2/L3 anchors pinned to the project's OLDEST material.** `surfaceAnchors`
+   narrows the material list only for `compare`, so an annotate card gets every
+   project material and `materials[0]` is the first article ever pasted — not the
+   one under review. On submit `checkedMaterialID` reads the anchors, so evidence
+   would be promoted from the **wrong article**. Root cause was the PLAN's own
+   text asserting "the card is single-material at L2". Invisible because every
+   test round used a fresh one-material project.
+2. **The fade's counter was fed by two ungated producers.** `chat.go` and
+   `course_session.go` write `status='completed'` **unconditionally** — no
+   predicate, no anchors (thin by design) — and chat surfaces the same `craap`
+   card. Two throwaway in-chat submits would have put her FIRST-EVER Studio CRAAP
+   at L3. Query narrowed to project scope (still across all her projects); the
+   spec's original "parity with the 工具卡 tab" justification was **replaced**,
+   not appended to.
+
+Also controller-found, not by any reviewer: the three new cross-pane tests were
+**flaky (~50% under load)** — they awaited a project-projection label then
+synchronously queried a conversation-snapshot button. A green suite you cannot
+trust is the documented root cause of five Criticals in an earlier slice.
+
+**Carried out of N3c → N6:**
+- **[RAISED PRIORITY] At L1, anchors pin to the wrong material when a project has
+  ≥2 materials.** `blockLookup` builds one flat `map[blockID]` across ALL
+  materials and is last-wins, while `materialize/segment.go` numbers blocks
+  `b0..bN` **per material** — so every id collides and resolves to whichever
+  material sorts last. CRAAP on M2 in a 3-material project mints `evaluated-as`
+  against M3 and highlights the wrong article. **Pre-existing**, and N3c fixed
+  this shape for L2/L3 only — which now leaves *the beginner path as the only
+  broken one*. Fixing it changes what every first-time student sees, so it needs
+  its own design call.
+- `apps/web/src/shell/chat/ChatSurface.test.tsx` has a pre-existing
+  load-sensitive 5s timeout flake — it makes `npm test` unreliable as a gate.
+- Minor: `computeOffsets`' doc comment claims "quote stays authoritative for the
+  UI"; no UI path uses `quote` for positioning.
+- Minor: an L2 anchor whose model question comes back empty silently renders as
+  L3 (degradation only).
+- Minor: a reload mid-fill silently discards in-progress located spans and the
+  pending trace (persisted anchors are still blank, so nothing lies).
+- Spec §8's promised *immediate* green article highlight is **not shipped** — the
+  located span reaches the article only after submit + refetch. Amended in place.
 
 ### N3b · DONE — merged `eb0c419` (2026-07-21)
 Spec `docs/superpowers/specs/2026-07-21-n3b-moment-classifier-and-refeed-design.md`,
@@ -62,7 +140,7 @@ plus a whole-branch fix wave. **Go-only: no migration, no sqlc regeneration, no
 - **[N4]** OPCVL (HS-D\*) rubric + behavior ladders never built. *(115, 777)*
 
 ### Slice 1 — annotate
-- **[N3c]** Student free span-creation (text-selection) — guidance L2/L3; only L1 ships. *(124–126, 302–304)*
+- ~~**[N3c]** Student free span-creation (text-selection) — guidance L2/L3; only L1 ships.~~ **DONE — merged (2026-07-22).** See the N3c section below. *(124–126, 302–304)*
 
 ### Slice 2 — runtime loop / classifier
 - **[N3b]** Cheap-model classifier hook is a seam only (needed for semantic card-moments — and now also to summon N3a's `sort`/`scale` cards). *(140–141)*
