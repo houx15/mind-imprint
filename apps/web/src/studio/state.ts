@@ -2,13 +2,18 @@ import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
-  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx,
+  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 import type { CreatedSpan } from "../primitives/annotate";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx };
+
+// N3f Task 7: the contract id of one of the two stations that have a
+// spot-check defined — mirrors agent.SpotCheckSources/SpotCheckArgument
+// verbatim (never a third value; an unknown contractId 404s server-side).
+export type SpotCheckContractId = "evaluate_sources" | "build_argument";
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -47,6 +52,11 @@ export type StudioState = {
     selfScore: SelfScoreFx;
     prediction: PredictionFx;
     reflection: ReflectionFx;
+    // N3f Task 7: the S3/S4 station spot-check panels — wire-shaped verbatim
+    // (SpotCheckFx per station), same pattern as GaugeFx/framing/perspectives
+    // above. Pure projected data; the order/disposition actions travel on
+    // `spotCheck` below, not here.
+    spotChecks: { evaluateSources: SpotCheckFx; buildArgument: SpotCheckFx };
   };
   // A3 Task 9: the project terminal — whether the project has already been
   // finished (archived, growth report generated) and whether it currently
@@ -54,6 +64,22 @@ export type StudioState = {
   // verbatim (Task 3's fields), same pattern as GaugeFx/StructureCardFx above.
   finished: boolean;
   canFinish: boolean;
+  // N3f Task 7: the S3/S4 spot-check panels' order-in-flight flags + actions.
+  // Deliberately lives on StudioState rather than StudioCallbacks: `state` is
+  // the one prop ViewFrame receives verbatim through StudioShell with no
+  // manual per-field routing in between (every StudioCallbacks member, by
+  // contrast, is explicitly picked into one of ViewFrame's prop groups inside
+  // StudioShell.tsx) — folding the two callbacks + two pending flags in here
+  // is the smallest change that reaches ViewFrame without touching
+  // StudioShell.tsx, which this task's brief does not list. Optional so
+  // standalone/story usages of ViewFrame (which never order a spot-check)
+  // don't have to supply it.
+  spotCheck?: {
+    pendingEvaluateSources: boolean;
+    pendingBuildArgument: boolean;
+    onOrder: (contractId: SpotCheckContractId) => void;
+    onDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
+  };
 };
 
 export type StudioCallbacks = {

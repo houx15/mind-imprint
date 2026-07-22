@@ -5,7 +5,7 @@ import type { ProjectListItem } from "../api/projects";
 import { StudioShell } from "./StudioShell";
 import { Directory } from "./Directory";
 import { createStudioConversation, activeCardToState } from "./conversation";
-import type { StationCode, StudioState, StudioCallbacks } from "./state";
+import type { StationCode, StudioState, StudioCallbacks, SpotCheckContractId } from "./state";
 import type { LocatedSpan } from "./StudioAnnotateCard";
 
 // Narrow structural type, widened (Task 9) to the two ingestion/logging
@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -56,6 +56,13 @@ function toStudioState(p: StudioProjection): StudioState {
       selfScore: p.selfScore ?? { dims: [], bands: [] },
       prediction: p.prediction ?? { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: p.reflection ?? { text: "", prompts: [] },
+      // N3f Task 7: same defensive fallback as selfScore/prediction/reflection
+      // above — older test fixtures/mocks predating this task may omit
+      // spotChecks entirely.
+      spotChecks: p.spotChecks ?? {
+        evaluateSources: { items: [], orderable: false },
+        buildArgument: { items: [], orderable: false },
+      },
     },
     finished: p.finished,
     canFinish: p.canFinish,
@@ -96,6 +103,15 @@ export function StudioContainer({
   // not a callback itself).
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  // N3f Task 7: the S3/S4 spot-check panels' order-in-flight flags — mirrors
+  // `finishing` above (a transient result of the last button press, not a
+  // callback), keyed per station since a student could plausibly have both
+  // stations' panels mounted (素材 branch's compare-mode dossier view is one
+  // of two 素材 render sites, but 结构's panel is a separate station entirely).
+  const [pendingSpotCheck, setPendingSpotCheck] = useState<{ evaluateSources: boolean; buildArgument: boolean }>({
+    evaluateSources: false,
+    buildArgument: false,
+  });
   // Fix-wave bug [B]: submitCard nulls `card` on its SSE "done" frame, well
   // before refetchProject's GET lands with the persisted anchors — without
   // this, ViewFrame's `card?.anchors ?? []` goes empty for that whole round
@@ -332,6 +348,28 @@ export function StudioContainer({
     if (!projectId) return;
     await api.submitReflection(projectId, body);
     await refetchProject();
+  };
+
+  // N3f Task 7: order a station's spot-check (信源体检 / 论证体检). Unlike
+  // `onOrderReview` (Slice 8 Task 10), which drains an SSE generator itself,
+  // `api.orderSpotCheck` already does that draining internally and resolves/
+  // rejects — so this only needs to track the per-station pending flag and
+  // refetch on success. N3d's Important finding I2 was exactly a
+  // fire-and-forget write whose gate closed server-side while the rail kept
+  // lying until reload — refetchProject here (not a fire-and-forget `.then`)
+  // is what closes that gap.
+  const orderSpotCheck = async (contractId: SpotCheckContractId) => {
+    if (!projectId) return;
+    const key = contractId === "evaluate_sources" ? "evaluateSources" : "buildArgument";
+    setPendingSpotCheck((prev) => ({ ...prev, [key]: true }));
+    try {
+      await api.orderSpotCheck(projectId, contractId);
+      await refetchProject();
+    } catch {
+      setSyncError("体检失败，请重试。");
+    } finally {
+      setPendingSpotCheck((prev) => ({ ...prev, [key]: false }));
+    }
   };
 
   // A3 Task 9: the project terminal — POSTs the finish, then routes to the
@@ -793,7 +831,22 @@ export function StudioContainer({
         </div>
       )}
       <StudioShell
-        state={{ ...mergedState, activeStation, focusMode }}
+        state={{
+          ...mergedState,
+          activeStation,
+          focusMode,
+          // N3f Task 7: see state.ts's `spotCheck` doc comment for why this
+          // travels on `state` rather than as a StudioCallbacks member —
+          // `onDisposition` reuses the SAME generic postDisposition-backed
+          // handler `writing.onReviewDisposition` already wires (disposition
+          // is generic across intervention types, not review-specific).
+          spotCheck: {
+            pendingEvaluateSources: pendingSpotCheck.evaluateSources,
+            pendingBuildArgument: pendingSpotCheck.buildArgument,
+            onOrder: orderSpotCheck,
+            onDisposition: callbacks.onReviewDisposition,
+          },
+        }}
         callbacks={callbacks}
         sending={convSnapshot.sending}
         card={convSnapshot.card}

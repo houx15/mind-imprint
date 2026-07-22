@@ -8,6 +8,7 @@ import type { CreatedSpan } from "../primitives/annotate";
 import { SourceDossier, anchorToSpan } from "./material/SourceDossier";
 import { AddSourceForm } from "./material/AddSourceForm";
 import { Compare } from "../primitives/compare";
+import { SpotCheckPanel } from "./SpotCheckPanel";
 import { StructureView } from "./views/StructureView";
 import { WritingView } from "./views/WritingView";
 import { ReviewView } from "./views/ReviewView";
@@ -290,6 +291,16 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
                 addSourceError={material?.addError}
                 onOpenLogged={material?.onOpenLogged}
               />
+              {/* N3f Task 7: a student in cross-check mode has not left S3 —
+                  信源体检 must render here too, not only the non-compare
+                  branch below. */}
+              <SpotCheckPanel
+                title="信源体检"
+                data={state.views.spotChecks.evaluateSources}
+                onOrder={() => state.spotCheck?.onOrder("evaluate_sources")}
+                onDisposition={state.spotCheck?.onDisposition}
+                pending={state.spotCheck?.pendingEvaluateSources ?? false}
+              />
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" }}>
@@ -323,27 +334,53 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
             </div>
           )
         ) : (
-          <SourceDossier
-            sources={state.views.material}
-            anchors={card?.anchors ?? pendingAnchors ?? []}
-            onAddSource={material?.onAdd}
-            addSourceError={material?.addError}
-            onOpenLogged={material?.onOpenLogged}
-            openSourceId={locating?.materialId ?? null}
-            openToken={locating?.token}
-            selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}
-            onCreateSpan={onCreateSpan}
-          />
+          <>
+            <SourceDossier
+              sources={state.views.material}
+              anchors={card?.anchors ?? pendingAnchors ?? []}
+              onAddSource={material?.onAdd}
+              addSourceError={material?.addError}
+              onOpenLogged={material?.onOpenLogged}
+              openSourceId={locating?.materialId ?? null}
+              openToken={locating?.token}
+              selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}
+              onCreateSpan={onCreateSpan}
+            />
+            <SpotCheckPanel
+              title="信源体检"
+              data={state.views.spotChecks.evaluateSources}
+              onOrder={() => state.spotCheck?.onOrder("evaluate_sources")}
+              onDisposition={state.spotCheck?.onDisposition}
+              pending={state.spotCheck?.pendingEvaluateSources ?? false}
+            />
+          </>
         )
       )}
       {effectiveView === "结构" && (
-        <StructureView
-          cards={state.views.structure}
-          toulminCard={isGraphCardActive ? card : null}
-          lockedSources={lockedSources}
-          onSubmitCard={onSubmitCard}
-          onSkipCard={onSkipCard}
-        />
+        // StructureView owns its own scroll/padding (WRAP/COL, unmodified by
+        // this task — the brief scopes this addition to ViewFrame's 结构
+        // branch, not StructureView.tsx). This outer div is the ONE scroll
+        // region for the branch as a whole, so the panel scrolls together
+        // with the role cards above it instead of fighting them for a
+        // second flex:1 share of the column.
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <StructureView
+            cards={state.views.structure}
+            toulminCard={isGraphCardActive ? card : null}
+            lockedSources={lockedSources}
+            onSubmitCard={onSubmitCard}
+            onSkipCard={onSkipCard}
+          />
+          <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 30px 40px" }}>
+            <SpotCheckPanel
+              title="论证体检"
+              data={state.views.spotChecks.buildArgument}
+              onOrder={() => state.spotCheck?.onOrder("build_argument")}
+              onDisposition={state.spotCheck?.onDisposition}
+              pending={state.spotCheck?.pendingBuildArgument ?? false}
+            />
+          </div>
+        </div>
       )}
       {effectiveView === "写作" && (
         <WritingView

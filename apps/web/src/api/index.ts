@@ -15,7 +15,7 @@ import { getAbilityModel } from "./ability";
 import { getGrowthCards } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
-import { putBuffer, commitSnapshot, orderReview, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
+import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
@@ -67,6 +67,10 @@ export interface ApiClient {
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
+  // N3f Task 7: S3/S4 station spot-check (信源体检 / 论证体检) — `contractId`
+  // is `evaluate_sources` | `build_argument`, the only two contracts with a
+  // spot-check defined.
+  orderSpotCheck(projectId: string, contractId: string): Promise<void>;
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
   getAssessment(projectId: string): Promise<DualAxisReport | null>;
@@ -99,7 +103,7 @@ export const api: ApiClient = {
   listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
-  putBuffer, commitSnapshot, orderReview, postDisposition, attestGate,
+  putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate,
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
   getChatAssessment, generateChatAssessment,

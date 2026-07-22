@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { API_BASE, apiFetch } from "./client";
+import { API_BASE, apiFetch, ApiError } from "./client";
 import { parseSSE } from "./sse";
 import { mapStudioFrame, type StudioTurnEvent } from "./studioTurn";
 
@@ -61,6 +61,35 @@ export async function* orderReview(projectId: string, snapshotId: string, voice:
   for await (const frame of parseSSE(res.body)) {
     const event = mapStudioFrame(frame);
     if (event) yield event;
+  }
+}
+
+// Runs a station's spot-check (S3 信源体检 / S4 论证体检 — N3f Task 7). Same
+// SSE endpoint shape as orderReview above (fingerprint-keyed idempotent
+// replay instead of snapshot-keyed), but the caller here only needs to know
+// whether it succeeded: unlike orderReview, whose stream is the only place a
+// caller could see the whole-draft work order it just produced, a
+// spot-check's items are read straight off the refetched
+// StudioProjection.spotChecks (SpotCheckPanel never reads this generator's
+// own items). So this resolves once the stream reports "done" and REJECTS on
+// an "error" frame — same error-envelope handling as orderReview and the
+// same non-OK-response handling, just surfaced as a rejected Promise (mirrors
+// apiFetch's throw-on-failure posture) instead of a yielded event, matching
+// the plain `Promise<void>` shape SpotCheckPanel's caller wants.
+export async function orderSpotCheck(projectId: string, contractId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/contracts/${contractId}/spot-check`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "text/event-stream" },
+  });
+  if (!res.ok || !res.body) {
+    let code = "internal_error", message = `HTTP ${res.status}`;
+    try { const b = await res.json(); if (b?.error) { code = b.error.code ?? code; message = b.error.message ?? message; } } catch { /* non-JSON */ }
+    throw new ApiError(code, message, res.status);
+  }
+  for await (const frame of parseSSE(res.body)) {
+    const event = mapStudioFrame(frame);
+    if (event?.type === "error") throw new ApiError(event.code, event.message, res.status);
   }
 }
 

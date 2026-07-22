@@ -266,6 +266,28 @@ export const STUDIO_FIXTURE: StudioState = {
       ],
       sourcesPerPerspective: true,
     },
+    // N3f Task 7: the S3/S4 spot-check panels. S3 (信源评估) is already
+    // `state: "done"` above, so it dramatizes a completed batch (orderable
+    // false — nothing new since); S4 (论证构建) is `current` and has never
+    // been ordered (empty items, orderable true — the warrant slot above is
+    // still empty, so there IS something to check).
+    spotChecks: {
+      evaluateSources: {
+        items: [
+          {
+            interventionId: "iv-spotcheck-nasa",
+            targetId: NASA_ID,
+            targetName: "Chen et al. (2019), Nature Sustainability",
+            evidence: "写清楚了这条一手论文能回答什么：证实了卫星观测到的变绿，也标注了主要机制是农业集约化与植树造林。",
+            missing: "还没写这条数据不能回答什么——论文本身没有涉及碳排放，不能单独支撑「更可持续」这个更大的结论。",
+            fix: "在「作用与风险」里补一句：这条证据能回答什么、不能回答什么。",
+            disposition: null,
+          },
+        ],
+        orderable: false,
+      },
+      buildArgument: { items: [], orderable: true },
+    },
   },
   finished: false,
   canFinish: false,

@@ -145,7 +145,11 @@ describe("ViewFrame (station rail = view switcher)", () => {
       views: { ...STUDIO_FIXTURE.views, material: [blogSource, nasaSource] },
     };
     render(<ViewFrame state={state} card={liveCard} />);
-    fireEvent.click(screen.getByText(nasaSource.title));
+    // Scoped to the source list (not a bare screen.getByText): N3f Task 7's
+    // spot-check panel can legitimately echo a material's own title as an
+    // item's targetName (STUDIO_FIXTURE's evaluateSources item names this
+    // very NASA paper), so an unscoped query is no longer guaranteed unique.
+    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(nasaSource.title));
     // nasaSource's block b1 shares the same leading substring + block id
     // "b1" as blogSource's — if the material_id filter were ever dropped,
     // this anchor (targeting only blogSource) would split nasaSource's
