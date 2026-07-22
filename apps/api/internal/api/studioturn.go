@@ -372,8 +372,11 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 }
 
 // onlyMaterial narrows a materials list to the single entry matching id, when
-// present — used to scope a compare card's anchor generation to the checked
-// material only. A miss degrades to the full (unfiltered) list rather than
+// present — used to scope anchor generation to the checked material only:
+// for a compare card at every level, and for an annotate card at L2/L3 (where
+// the anchors carry materials[0] rather than a per-block resolution, so an
+// unnarrowed list would pin them to the project's OLDEST material — see the
+// annotate branch above). A miss degrades to the full (unfiltered) list rather than
 // an empty one, the same "never fail the turn over anchor generation"
 // posture the rest of this file follows.
 func onlyMaterial(materials []agent.Material, id string) []agent.Material {
