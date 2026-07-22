@@ -2040,12 +2040,17 @@ describe("StudioContainer", () => {
     });
   });
 
-  // Task-9 review MINOR 3: an anchor whose `material_id` is empty can never
-  // be satisfied by the locate control — forcing SourceDossier to "open ''"
-  // would switch the station, open nothing, and show no hint bar, with no
-  // way back out. A control that cannot work must not be offered, so the
-  // click must simply no-op rather than switching the station at all.
-  it("does nothing when the locate control's anchor has no material_id", async () => {
+  // Task-9 review MINOR 3 + task-9 correctness fix (item 2): an anchor whose
+  // `material_id` is empty can never be satisfied by the locate control —
+  // forcing SourceDossier to "open ''" would switch the station, open
+  // nothing, and show no hint bar, with no way back out. A control that
+  // cannot work must not be offered at all: StudioAnnotateCard's own
+  // per-anchor DEAD-CONTROL RULE now hides 「去文章里选出这句」 outright for
+  // such an anchor (superseding the old "renders but no-ops on click"
+  // behavior this test used to pin — there is no longer a button to click),
+  // while the escape control stays fully live so the card is never left with
+  // no way out.
+  it("offers no locate button for an anchor with no material_id, and never switches station away from it", async () => {
     const craapSpec = CARD_REGISTRY["craap"]!;
     const anchorNoMaterial = {
       id: "a0", material_id: "", block_id: "", start: 0, end: 0, quote: "",
@@ -2067,15 +2072,15 @@ describe("StudioContainer", () => {
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    expect(screen.queryByRole("button", { name: "去文章里选出这句" })).not.toBeInTheDocument();
     await flush();
 
     // Station never switched to 素材 at all — SourceDossier's own list
     // header would render if it had (locating would still be null, so no
-    // force-open, just the list) — its absence proves the guard fired
-    // before `setActiveStation`, not merely before opening a source.
+    // force-open, just the list) — its absence proves nothing ever fired
+    // `setActiveStation`, not merely that a click would have no-opped.
     expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
     expect(screen.queryByText(locateMaterial.title)).not.toBeInTheDocument();
   });
@@ -2377,5 +2382,87 @@ describe("StudioContainer", () => {
     expect(env.event_trace).toContainEqual(
       expect.objectContaining({ kind: "span_not_found", dimension: "currency" }),
     );
+  });
+
+  // Task-9 correctness fix (item 1): the pending trace reconciled by
+  // DIMENSION, but escapes/located spans are tracked per ANCHOR. Two anchors
+  // sharing the same dimension string is reachable (the server's anchor
+  // validation — apps/api/internal/agent/anchors.go — checks tag coverage
+  // and vocabulary, never uniqueness; legacy untagged cards are unvalidated
+  // entirely), so locating on one anchor must never erase a DIFFERENT
+  // anchor's still-standing span_not_found merely because they share a
+  // dimension. RED against the old dimension-filtered spanTrace: locating on
+  // "a0" would have dropped "b0"'s span_not_found from the submitted trace.
+  it("locating one anchor does not erase a different anchor's span_not_found when both share the same dimension", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: {
+        cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active",
+        anchors: [
+          l2Anchor("a0", "currency", "这条信息是什么时候发布的？"),
+          l2Anchor("b0", "currency", "这条信息是什么时候更新的？"),
+        ],
+        materialId: locateMaterialId,
+      },
+    };
+    const submitCard = vi.fn(async (_env: any) => {});
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "找不到合适的句子" })).toHaveLength(2));
+
+    // Escape on anchor B (the second row) FIRST.
+    fireEvent.click(screen.getAllByRole("button", { name: "找不到合适的句子" })[1]!);
+    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
+
+    // Then locate on anchor A — the only remaining locate button, since B's
+    // now-escaped row hides its own.
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
+
+    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
+    const textNode = blockEl.firstChild!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 9);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    fireEvent.mouseUp(blockEl.parentElement!);
+
+    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
+    // B's escape record must still be showing, untouched by A's locate.
+    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
+
+    const answerBoxes = screen.getAllByRole("textbox", { name: "currency-answer" });
+    expect(answerBoxes).toHaveLength(2);
+    fireEvent.change(answerBoxes[0]!, { target: { value: "2019年" } });
+    fireEvent.change(answerBoxes[1]!, { target: { value: "2020年" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    expect(env.event_trace).toContainEqual(
+      expect.objectContaining({ kind: "span_located", dimension: "currency", block_id: "b1" }),
+    );
+    expect(env.event_trace).toContainEqual(
+      expect.objectContaining({ kind: "span_not_found", dimension: "currency" }),
+    );
+    expect(env.event_trace.filter((e: any) => e.kind === "span_located")).toHaveLength(1);
+    expect(env.event_trace.filter((e: any) => e.kind === "span_not_found")).toHaveLength(1);
   });
 });

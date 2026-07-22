@@ -107,7 +107,12 @@ export function StudioAnnotateCard({
   // span OR a taken escape, and the escape is always available. DEAD-CONTROL
   // RULE: when the host gave us no onRequestLocate, we render no locate/
   // escape controls at all (below), so we must not gate on them either — a
-  // gate with no way to satisfy it is a wall.
+  // gate with no way to satisfy it is a wall. Per-anchor DEAD-CONTROL RULE
+  // (below, at the locate button itself): an anchor with an empty
+  // material_id renders no 「去文章里选出这句」 (the container's own
+  // onRequestLocate would no-op for it), but ALWAYS still renders the escape
+  // — this gate is never widened to require the dead control, only the
+  // escape it can always fall back to.
   const nonAnswerAnchors = anchors.filter((a) => anchorMode(a) !== "answer");
   const allLocatedOrEscaped =
     !onRequestLocate || nonAnswerAnchors.every((a) => !!locatedSpans?.[a.id] || !!escapes[a.id]);
@@ -330,23 +335,38 @@ export function StudioAnnotateCard({
                     </div>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => onRequestLocate(a.id, a.dimension)}
-                        style={{
-                          background: "none",
-                          border: "1px solid #2A3B7A",
-                          color: "#2A3B7A",
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          padding: "5px 10px",
-                          borderRadius: 8,
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        去文章里选出这句
-                      </button>
+                      {/* Per-anchor DEAD-CONTROL RULE: an anchor with no
+                          material_id can never be satisfied by this control —
+                          the container's own onRequestLocate no-ops for it
+                          (nowhere to switch to, nothing to open). Offering a
+                          button that silently does nothing reads as broken,
+                          so say why instead. The escape button below is still
+                          fully live regardless of material_id, so the lock
+                          stays reachable either way (allLocatedOrEscaped only
+                          ever needs ONE of the two paths). */}
+                      {a.material_id ? (
+                        <button
+                          type="button"
+                          onClick={() => onRequestLocate(a.id, a.dimension)}
+                          style={{
+                            background: "none",
+                            border: "1px solid #2A3B7A",
+                            color: "#2A3B7A",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            padding: "5px 10px",
+                            borderRadius: 8,
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          去文章里选出这句
+                        </button>
+                      ) : (
+                        <div style={{ fontSize: 11.5, color: "#9AA1B0" }}>
+                          这条没有关联的文章内容，没法去定位——
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleNotFound(a.id, a.dimension)}

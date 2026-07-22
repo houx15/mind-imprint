@@ -140,7 +140,24 @@ export function StudioContainer({
   // envelope after the fact. Only this container can honestly timestamp a
   // `span_located` event — it happens on the article pane, at selection
   // time, not whenever the card later gets around to locking.
-  const [spanTrace, setSpanTrace] = useState<TraceEvent[]>([]);
+  //
+  // Task-9 correctness fix: keyed by ANCHOR ID (a map, not an append-only
+  // array), holding at most one event per anchor BY CONSTRUCTION. The prior
+  // shape reconciled by filtering on `dimension` — but escapes/located spans
+  // are tracked per ANCHOR (`locatedSpans` above is keyed by anchor id, and
+  // StudioAnnotateCard's own fallback filter is per anchor too), and nothing
+  // stops two anchors from sharing the same `dimension` string (the server's
+  // anchor validation checks tag coverage/vocabulary, never uniqueness — see
+  // apps/api/internal/agent/anchors.go — and legacy untagged cards are
+  // unvalidated entirely). Filtering by dimension meant locating on anchor A
+  // could silently delete anchor B's still-standing `span_not_found` the
+  // instant the two happened to share a dimension — erasing a true record.
+  // Keying by anchor id instead makes that structurally impossible: setting
+  // one anchor's entry can never touch another anchor's, whatever dimension
+  // strings they carry. Flattened via `Object.values(...)` wherever this is
+  // handed to the card as `pendingTrace`, so the card's own interface (a
+  // flat array) is unchanged.
+  const [spanTrace, setSpanTrace] = useState<Record<string, TraceEvent>>({});
   // Fix-wave bugs [C]/[D]: a refetch that fails after a submit/skip/add
   // already succeeded server-side must not be an unhandled rejection and
   // must not be misreported as that mutation having failed — this is the
@@ -385,7 +402,7 @@ export function StudioContainer({
       setLateralMaterialId("");
       setLocating(null);
       setLocatedSpans({});
-      setSpanTrace([]);
+      setSpanTrace({});
       return;
     }
     const dim = ((c.spec.params ?? {}) as { lateral_dimension?: string }).lateral_dimension ?? "";
@@ -400,7 +417,7 @@ export function StudioContainer({
     // card she already locked.
     setLocating(null);
     setLocatedSpans({});
-    setSpanTrace([]);
+    setSpanTrace({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCardInstanceId]);
 
@@ -484,42 +501,47 @@ export function StudioContainer({
     // DATA, not an error — recorded as its own trace event, never surfaced
     // as a failure.
     //
-    // IMPORTANT 2 fix (task-9 review): dedupe by dimension before appending.
-    // Without this, undo→retake ("重新找一下" then 「找不到合适的句子」 again
-    // on the same anchor) appended a SECOND span_not_found for the same
-    // dimension instead of replacing the first — an honest single fact
-    // ("she couldn't find it, as of now") turning into duplicate rows.
+    // Task-9 correctness fix: this anchor's own map entry is simply SET,
+    // never filtered/appended — undo→retake ("重新找一下" then 「找不到合适
+    // 的句子」 again on the same anchor) just overwrites the same key, so an
+    // honest single fact ("she couldn't find it, as of now") can never turn
+    // into duplicate rows, and — unlike the old dimension-keyed filter —
+    // setting THIS anchor's entry can never touch a DIFFERENT anchor's, even
+    // one sharing the same dimension string.
     onSpanNotFound: (anchorId, dimension) => {
-      setSpanTrace((prev) => [
-        ...prev.filter((e) => !(e.kind === "span_not_found" && e.dimension === dimension)),
-        { kind: "span_not_found", dimension, at: new Date().toISOString() },
-      ]);
+      setSpanTrace((prev) => ({
+        ...prev,
+        [anchorId]: { kind: "span_not_found", dimension, at: new Date().toISOString() },
+      }));
     },
     // She released the mouse over a real selection in the article pane —
     // write it onto the anchor she was locating, record when it happened
     // (the ONLY honest place to timestamp this — see `spanTrace`'s doc
     // comment), and clear the pending request so the hint bar disappears.
     //
-    // IMPORTANT 2 fix (task-9 review): a located span SUPERSEDES any earlier
-    // `span_not_found` recorded for the same dimension — drop it before
-    // appending `span_located`. Without this, escape → 「重新找一下」 →
-    // locate produced BOTH events for the same anchor, and because
-    // StudioAnnotateCard's own submit uses `pendingTrace` verbatim when the
-    // container supplies one (never rebuilding it), that false
-    // "couldn't find it" record would ride straight into the submitted
-    // envelope alongside the sentence she in fact found — the process
-    // record actively lying about what happened, which this product treats
-    // as worse than recording nothing.
+    // Task-9 correctness fix: a located span SUPERSEDES any earlier
+    // `span_not_found` recorded for THIS anchor — setting `locating.anchorId`'s
+    // map entry naturally replaces whatever was there (an escape or nothing),
+    // regardless of what dimension string this anchor happens to share with
+    // any other. Without keying by anchor, escape → 「重新找一下」 → locate
+    // produced BOTH events for the same anchor (fixed in an earlier pass by
+    // filtering on dimension) — but that dimension-filter fix then went on to
+    // erase a DIFFERENT anchor's still-standing `span_not_found` whenever the
+    // two anchors shared a dimension, because StudioAnnotateCard's own submit
+    // uses `pendingTrace` verbatim when the container supplies one (never
+    // rebuilding it): a false "couldn't find it" surviving, or a true one
+    // vanishing, both count as the process record lying about what happened,
+    // which this product treats as worse than recording nothing.
     onCreateSpan: (span) => {
       if (!locating) return;
       setLocatedSpans((prev) => ({
         ...prev,
         [locating.anchorId]: { block_id: span.blockId, start: span.start, end: span.end, quote: span.text },
       }));
-      setSpanTrace((prev) => [
-        ...prev.filter((e) => !(e.kind === "span_not_found" && e.dimension === locating.dimension)),
-        { kind: "span_located", dimension: locating.dimension, block_id: span.blockId, at: new Date().toISOString() },
-      ]);
+      setSpanTrace((prev) => ({
+        ...prev,
+        [locating.anchorId]: { kind: "span_located", dimension: locating.dimension, block_id: span.blockId, at: new Date().toISOString() },
+      }));
       setLocating(null);
     },
     // The article pane's own inline "取消" — she's stepping back from THIS
@@ -707,7 +729,7 @@ export function StudioContainer({
         onLateralMaterialChange={setLateralMaterialId}
         locating={locating}
         locatedSpans={locatedSpans}
-        pendingTrace={spanTrace}
+        pendingTrace={Object.values(spanTrace)}
         review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection }}
         onSubmitOnboarding={submitOnboarding}
       />

@@ -335,3 +335,38 @@ test("without onRequestLocate, L2/L3 anchors render no locate control and are no
   fireEvent.click(lockButton);
   expect(onSubmit).toHaveBeenCalledTimes(1);
 });
+
+// Per-anchor DEAD-CONTROL RULE (task 9 correctness fix, item 2): unlike the
+// host-level rule above, here the HOST does offer onRequestLocate, but THIS
+// anchor's own material_id is empty — the container's onRequestLocate
+// correctly no-ops for it (nowhere to switch to, nothing to open), so
+// 「去文章里选出这句」 must not even render for this one anchor. The escape
+// stays fully live regardless (it never depended on material_id), so the
+// lock must still be reachable through it.
+test("an anchor with no material_id offers no locate button, but the escape keeps the lock reachable", () => {
+  const onSubmit = vi.fn();
+  const noMaterial = [makeAnchor({ id: "k0", material_id: "", author: "student", question: "这条信息是什么时候发布的？" })];
+  render(
+    <StudioAnnotateCard
+      spec={spec}
+      anchors={noMaterial}
+      onSubmit={onSubmit}
+      onSkip={vi.fn()}
+      onRequestLocate={vi.fn()}
+      onSpanNotFound={vi.fn()}
+    />,
+  );
+
+  expect(screen.queryByRole("button", { name: "去文章里选出这句" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "答案" } });
+  fireEvent.change(screen.getAllByRole("textbox").at(-1)!, { target: { value: "风险说明" } });
+  const lockButton = screen.getByRole("button", { name: /锁定|评估完成|完成/ });
+  expect(lockButton).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+  expect(lockButton).not.toBeDisabled();
+  fireEvent.click(lockButton);
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+});
