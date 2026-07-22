@@ -105,10 +105,15 @@ func TestParseAnchorGenRejectsUnknownBlock(t *testing.T) {
 // fail-closed contract: blockLookup is qualified-only (no bare-id fallback),
 // so a reply that emits the bare form the L1 prompt no longer asks for must
 // error rather than silently resolve to either material.
+// The two materials deliberately have DIFFERENT block ids, so the bare "b0" is
+// unambiguous — the one shape that discriminates. An earlier revision indexed
+// bare ids when only one material carried them, and a fixture where both
+// materials own "b0" errors under that revision too, so it would have pinned
+// nothing.
 func TestParseAnchorGenRejectsUnqualifiedBlockIDWithMultipleMaterials(t *testing.T) {
 	materials := []Material{
 		{ID: "mat-a", Title: "NASA 观测", Blocks: []MaterialBlock{{ID: "b0", Text: "叶面积指数上升。"}}},
-		{ID: "mat-b", Title: "BP 统计", Blocks: []MaterialBlock{{ID: "b0", Text: "煤炭消费仍在上升。"}}},
+		{ID: "mat-b", Title: "BP 统计", Blocks: []MaterialBlock{{ID: "c0", Text: "煤炭消费仍在上升。"}}},
 	}
 	raw := `[{"block_id":"b0","quote":"叶面积指数上升","dimension":"authority","question":"这条数据出自谁？"}]`
 	_, err := parseAnchorGen(raw, cards.Spec{}, materials, GuidanceL1)
