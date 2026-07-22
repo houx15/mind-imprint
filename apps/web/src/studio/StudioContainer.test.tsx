@@ -1975,6 +1975,12 @@ describe("StudioContainer", () => {
     // the conversation snapshot. Those two settle independently, so waiting
     // on the former and then querying the latter SYNCHRONOUSLY raced under
     // CPU load and failed ~1 run in 2 on a loaded machine.
+    // `flush` first, for this file's documented reason (see its doc comment):
+    // renderAndOpen leaves a several-hops-deep promise chain settling, and
+    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
+    // under full-suite CPU contention. Draining deterministically first means
+    // the waitFor below observes an already-settled DOM.
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
@@ -2021,6 +2027,12 @@ describe("StudioContainer", () => {
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    // `flush` first, for this file's documented reason (see its doc comment):
+    // renderAndOpen leaves a several-hops-deep promise chain settling, and
+    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
+    // under full-suite CPU contention. Draining deterministically first means
+    // the waitFor below observes an already-settled DOM.
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
@@ -2111,6 +2123,12 @@ describe("StudioContainer", () => {
     // the conversation snapshot. Those two settle independently, so waiting
     // on the former and then querying the latter SYNCHRONOUSLY raced under
     // CPU load and failed ~1 run in 2 on a loaded machine.
+    // `flush` first, for this file's documented reason (see its doc comment):
+    // renderAndOpen leaves a several-hops-deep promise chain settling, and
+    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
+    // under full-suite CPU contention. Draining deterministically first means
+    // the waitFor below observes an already-settled DOM.
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
@@ -2188,6 +2206,12 @@ describe("StudioContainer", () => {
     // the conversation snapshot. Those two settle independently, so waiting
     // on the former and then querying the latter SYNCHRONOUSLY raced under
     // CPU load and failed ~1 run in 2 on a loaded machine.
+    // `flush` first, for this file's documented reason (see its doc comment):
+    // renderAndOpen leaves a several-hops-deep promise chain settling, and
+    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
+    // under full-suite CPU contention. Draining deterministically first means
+    // the waitFor below observes an already-settled DOM.
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
