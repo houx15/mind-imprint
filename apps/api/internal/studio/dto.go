@@ -10,7 +10,15 @@ type StudioProjection struct {
 	ActiveStation string        `json:"activeStation"`
 	Coach         CoachDTO      `json:"coach"`
 	Onboarding    OnboardingDTO `json:"onboarding"`
-	Materials     []MaterialDTO `json:"materials"`
+	// Framing projects the S1 立题 view: the research question, the student's
+	// term definitions/answers/search plan. See projectFraming (projection.go).
+	Framing FramingDTO `json:"framing"`
+	// Perspectives projects the S2 视角与素材 view's perspective list: rows the
+	// station view wrote (editable) alongside rows the perspective-matrix tool
+	// card minted (read-only), plus the recorded sources_per_perspective
+	// attestation. See projectPerspectives (projection.go).
+	Perspectives PerspectivesDTO `json:"perspectives"`
+	Materials    []MaterialDTO   `json:"materials"`
 	// ActiveCard projects the one project-wide card_instance that is
 	// "proposed" or "active". agent.SurfaceCardCandidates (classifier.go)
 	// makes at most one in-flight card_instance the INTENDED steady state,
@@ -149,6 +157,39 @@ type OnboardingDTO struct {
 	AssignmentText   string         `json:"assignmentText"`
 	StudentRestate   string         `json:"studentRestate"`
 	StudentWeakPicks []int          `json:"studentWeakPicks"`
+}
+
+// TermDefinitionDTO is one key-term row in S1's glossary: the student's own
+// term + her own definition (spec §6.1's term_definition node), never AI-authored.
+type TermDefinitionDTO struct {
+	Term       string `json:"term"`
+	Definition string `json:"definition"`
+}
+
+// FramingDTO projects S1 立题. ResearchQuestion is the research_question node's
+// text (minted from the project title at creation), not the project row's title
+// — so the banner shows what the graph actually asserts.
+type FramingDTO struct {
+	ResearchQuestion string              `json:"researchQuestion"`
+	Terms            []TermDefinitionDTO `json:"terms"`
+	Answers          []string            `json:"answers"`
+	SearchPlan       []string            `json:"searchPlan"`
+}
+
+// PerspectiveRowDTO is one row of S2's list. Editable is false for rows minted
+// by the perspective-matrix card: they carry no level and this view must not
+// rewrite them (the S2 write is origin-scoped for exactly this reason).
+type PerspectiveRowDTO struct {
+	Text     string `json:"text"`
+	Level    string `json:"level"`
+	Editable bool   `json:"editable"`
+}
+
+// PerspectivesDTO projects S2 视角与素材's perspective list + the recorded
+// sources_per_perspective attestation (spec §6.2).
+type PerspectivesDTO struct {
+	Rows                  []PerspectiveRowDTO `json:"rows"`
+	SourcesPerPerspective bool                `json:"sourcesPerPerspective"`
 }
 
 type MaterialBlockDTO struct {

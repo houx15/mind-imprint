@@ -322,6 +322,85 @@ func projectOnboarding(d ProjectData) OnboardingDTO {
 	return ob
 }
 
+// projectFraming reads the frame_question graph nodes for the S1 view.
+// research_question is minted once at project creation (project_create.go);
+// term_definition/provisional_answer/preregistration are written by the S1
+// station view (framing.go). A node whose body fails to unmarshal is
+// skipped, never fabricated into a blank row (projectOnboarding's own
+// defensive rule).
+func projectFraming(d ProjectData) FramingDTO {
+	fr := FramingDTO{Terms: []TermDefinitionDTO{}, Answers: []string{}, SearchPlan: []string{}}
+	for _, n := range d.Nodes {
+		switch n.Type {
+		case "research_question":
+			var body struct {
+				Text string `json:"text"`
+			}
+			if json.Unmarshal(n.Body, &body) != nil {
+				continue
+			}
+			fr.ResearchQuestion = body.Text
+		case "term_definition":
+			var body struct {
+				Term       string `json:"term"`
+				Definition string `json:"definition"`
+			}
+			if json.Unmarshal(n.Body, &body) != nil {
+				continue
+			}
+			fr.Terms = append(fr.Terms, TermDefinitionDTO{Term: body.Term, Definition: body.Definition})
+		case "provisional_answer":
+			var body struct {
+				Text string `json:"text"`
+			}
+			if json.Unmarshal(n.Body, &body) != nil {
+				continue
+			}
+			fr.Answers = append(fr.Answers, body.Text)
+		case "preregistration":
+			var body struct {
+				Directions []string `json:"directions"`
+			}
+			if json.Unmarshal(n.Body, &body) != nil {
+				continue
+			}
+			fr.SearchPlan = append(fr.SearchPlan, body.Directions...)
+		}
+	}
+	return fr
+}
+
+// projectPerspectives reads every `perspective` node for the S2 view. Rows the
+// station view wrote (origin=="station_view") are editable and carry a level;
+// rows minted by perspective-matrix carry neither origin nor level and render
+// read-only ("" level, editable=false) — the graph does not care which
+// surface asserted them, so a card-minted row still counts toward the list.
+// recordedGates is Project()'s own recordedGates variable, reused rather than
+// recomputed (mirrors canFinish's own read of the whole_draft_review gate).
+func projectPerspectives(d ProjectData, recordedGates map[string]agent.RecordedGate) PerspectivesDTO {
+	pv := PerspectivesDTO{Rows: []PerspectiveRowDTO{}}
+	for _, n := range d.Nodes {
+		if n.Type != "perspective" {
+			continue
+		}
+		var body struct {
+			Text   string `json:"text"`
+			Level  string `json:"level"`
+			Origin string `json:"origin"`
+		}
+		if json.Unmarshal(n.Body, &body) != nil {
+			continue
+		}
+		pv.Rows = append(pv.Rows, PerspectiveRowDTO{
+			Text:     body.Text,
+			Level:    body.Level,
+			Editable: body.Origin == "station_view",
+		})
+	}
+	pv.SourcesPerPerspective = recordedGates["evaluate_perspectives"].Items["sources_per_perspective"] == "solid"
+	return pv
+}
+
 // Project builds the full StudioProjection. Pure; no I/O.
 func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d ProjectData) (StudioProjection, error) {
 	stations, current, err := projectStations(sk, d)
@@ -343,6 +422,8 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		ActiveStation: current,
 		Coach:         coach,
 		Onboarding:    projectOnboarding(d),
+		Framing:       projectFraming(d),
+		Perspectives:  projectPerspectives(d, recordedGates),
 		Materials:     projectMaterials(d),
 		ActiveCard:    projectActiveCard(d, materialByCardInstance(d)),
 		Structure:     projectStructure(specByID, d),
