@@ -1,5 +1,6 @@
 import { describe, it, expect, test } from "vitest";
 import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge } from "../src/studioState";
+import { FramingFx, PerspectivesFx, FramingSubmitBody, PerspectivesSubmitBody } from "../src/studioState";
 
 const emptyWriting = {
   buffer: "",
@@ -28,6 +29,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
         equipment: [{ id: "e1", name: "钢人卡", spont: "提示后", meth: "concession", materialId: "" }],
       },
       onboarding: { restatePrompt: "…", rubricRows: [{ official: "o", plain: "p", weak: true }], planSteps: ["立题"], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
       materials: [],
       activeCard: null,
       structure: [],
@@ -49,6 +52,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       activeStation: "S3",
       coach: { anchor: "", messages: [], equipment: [] },
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
       materials: [],
       activeCard: { cardInstanceId: "ci1", cardId: "sift", status: "active", anchors: [], materialId: "m1" },
       structure: [],
@@ -70,6 +75,8 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       activeStation: "S3",
       coach: { anchor: "", messages: [], equipment: [] },
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
       materials: [],
       activeCard: null,
       structure: [],
@@ -157,6 +164,8 @@ describe("MaterialSource", () => {
       activeStation: "S3",
       coach: { anchor: "", messages: [], equipment: [] },
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
       materials: [valid],
       activeCard: null,
       structure: [],
@@ -190,6 +199,8 @@ describe("StudioProjection", () => {
       activeStation: "S4",
       coach: { anchor: "a", messages: [], equipment: [] },
       onboarding: { restatePrompt: "", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
       materials: [],
       activeCard: null,
       writing: emptyWriting,
@@ -288,5 +299,40 @@ describe("Gauge (readiness table)", () => {
   test("StudioProjection carries a readiness array", () => {
     const keys = Object.keys((StudioProjection as any).shape);
     expect(keys).toContain("readiness");
+  });
+});
+
+describe("N3d station view shapes", () => {
+  it("parses a framing projection", () => {
+    const fx = FramingFx.parse({
+      researchQuestion: "中国在多大程度上让世界更可持续？",
+      terms: [{ term: "sustainable", definition: "资源使用不损害后代的能力" }],
+      answers: ["趋势变好不等于问题已解决"],
+      searchPlan: ["官方一手数据（NASA / IEA / BP）"],
+    });
+    expect(fx.terms[0]!.term).toBe("sustainable");
+  });
+
+  it("carries card-minted perspectives as non-editable rows with a blank level", () => {
+    const fx = PerspectivesFx.parse({
+      rows: [
+        { text: "中国政府视角", level: "national", editable: true },
+        { text: "来自矩阵卡的一行", level: "", editable: false },
+      ],
+      sourcesPerPerspective: false,
+    });
+    expect(fx.rows[1]!.editable).toBe(false);
+    expect(fx.rows[1]!.level).toBe("");
+  });
+
+  it("rejects an unknown perspective level in a submit body", () => {
+    expect(() =>
+      PerspectivesSubmitBody.parse({ perspectives: [{ text: "x", level: "cosmic" }] }),
+    ).toThrow();
+  });
+
+  it("accepts a framing submit body", () => {
+    const b = FramingSubmitBody.parse({ terms: [], answers: [], searchPlan: [] });
+    expect(b.answers).toEqual([]);
   });
 });
