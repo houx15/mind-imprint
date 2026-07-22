@@ -152,3 +152,72 @@ func Advance(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills
 	}
 	return true, nil
 }
+
+// AdvanceAll confirms every contract that is now genuinely finished, walking
+// the contract DAG once in topological order, and returns the ids it newly
+// advanced. It is the live caller Advance never had: before N3d nothing in
+// production ever set RecordedGate.Confirmed, so no station could become
+// `done` for any project whose gate_state rows weren't hand-written by a seed
+// migration.
+//
+// A contract advances iff (a) it is not already solid, (b) every id in its
+// Requires is solid — already recorded, or advanced earlier in THIS walk — and
+// (c) its own gate has nothing Missing. Rule (b) is deliberately stricter than
+// Route's reachability (which admits a machine_clear predecessor): work may
+// begin once predecessors are structurally sound, but a station is only
+// FINISHED behind finished predecessors.
+//
+// DEC-3 holds throughout: this delegates the confirm to Advance, which never
+// records a student_written or human item itself.
+func AdvanceAll(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills.Skill) ([]string, error) {
+	order, err := sk.TopoOrder()
+	if err != nil {
+		return nil, err
+	}
+	g, err := deps.Store.LoadGraph(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	recorded, err := deps.Store.ListGateStates(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	solid := make(map[string]bool, len(order))
+	for _, id := range order {
+		solid[id] = recorded[id].Confirmed
+	}
+
+	var advanced []string
+	for _, id := range order {
+		if solid[id] {
+			continue
+		}
+		ready := true
+		for _, req := range sk.Contracts[id].Requires {
+			if !solid[req] {
+				ready = false
+				break
+			}
+		}
+		if !ready {
+			continue
+		}
+		if len(CheckGate(sk, id, g, recorded[id]).Missing) > 0 {
+			continue
+		}
+		ok, err := Advance(ctx, deps, projectID, sk, id)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			solid[id] = true
+			advanced = append(advanced, id)
+		}
+	}
+	if len(advanced) > 0 {
+		if _, err := Replan(ctx, deps, projectID, sk, "advanced"); err != nil {
+			return nil, err
+		}
+	}
+	return advanced, nil
+}

@@ -21,6 +21,16 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			RestatePrompt: "r", RubricRows: []RubricRowDTO{{Official: "o", Plain: "p", Weak: true}}, PlanSteps: []string{"立题"},
 			AssignmentText: "讨论 X", StudentRestate: "最终版", StudentWeakPicks: []int{1, 2},
 		},
+		Framing: FramingDTO{
+			ResearchQuestion: "中国是否让地球变得更可持续？",
+			Terms:            []TermDefinitionDTO{{Term: "可持续性", Definition: "长期维持而不耗尽资源的能力"}},
+			Answers:          []string{"是，因为可再生能源投资全球第一"},
+			SearchPlan:       []string{"查 IEA 年度报告"},
+		},
+		Perspectives: PerspectivesDTO{
+			Rows:                  []PerspectiveRowDTO{{Text: "国家视角", Level: "national", Editable: true}},
+			SourcesPerPerspective: true,
+		},
 		Materials: []MaterialDTO{{
 			ID: "m1", Title: "t", SourceURL: "https://x", Kind: "article", Origin: "fetched",
 			Blocks: []MaterialBlockDTO{{ID: "b1", Text: "x"}}, Locked: true, Role: "r", Tier: "ti", Takeaway: "tk",
@@ -50,7 +60,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "materials", "onboarding", "prediction", "project", "readiness", "reflection", "selfScore", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "framing", "materials", "onboarding", "perspectives", "prediction", "project", "readiness", "reflection", "selfScore", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -141,6 +151,44 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	}
 	// rubric row: {official,plain,weak}
 	assertKeys(t, rubricRows[0], []string{"official", "plain", "weak"})
+
+	// framing: {researchQuestion,terms,answers,searchPlan} — must match
+	// packages/contracts/src/studioState.ts FramingFx exactly.
+	assertKeys(t, m["framing"], []string{"answers", "researchQuestion", "searchPlan", "terms"})
+
+	var framing map[string]json.RawMessage
+	if err := json.Unmarshal(m["framing"], &framing); err != nil {
+		t.Fatal(err)
+	}
+	var terms []json.RawMessage
+	if err := json.Unmarshal(framing["terms"], &terms); err != nil {
+		t.Fatal(err)
+	}
+	if len(terms) != 1 {
+		t.Fatalf("framing.terms len = %d, want 1", len(terms))
+	}
+	// term: {term,definition} — must match packages/contracts/src/studioState.ts
+	// TermDefinition exactly.
+	assertKeys(t, terms[0], []string{"definition", "term"})
+
+	// perspectives: {rows,sourcesPerPerspective} — must match
+	// packages/contracts/src/studioState.ts PerspectivesFx exactly.
+	assertKeys(t, m["perspectives"], []string{"rows", "sourcesPerPerspective"})
+
+	var perspectives map[string]json.RawMessage
+	if err := json.Unmarshal(m["perspectives"], &perspectives); err != nil {
+		t.Fatal(err)
+	}
+	var perspectiveRows []json.RawMessage
+	if err := json.Unmarshal(perspectives["rows"], &perspectiveRows); err != nil {
+		t.Fatal(err)
+	}
+	if len(perspectiveRows) != 1 {
+		t.Fatalf("perspectives.rows len = %d, want 1", len(perspectiveRows))
+	}
+	// perspective row: {text,level,editable} — must match
+	// packages/contracts/src/studioState.ts PerspectiveRow exactly.
+	assertKeys(t, perspectiveRows[0], []string{"editable", "level", "text"})
 
 	// station: {code,name,view,state,gate} (backflow omitted when false, gate present)
 	var stations []json.RawMessage

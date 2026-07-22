@@ -39,3 +39,14 @@ UPDATE graph_node SET body = $2 WHERE id = $1 RETURNING *;
 
 -- name: DeleteGraphNode :exec
 DELETE FROM graph_node WHERE id = $1 AND project_id = $2;
+
+-- name: DeleteStationViewNodes :exec
+-- Deletes ONLY the nodes the S0/S1/S2 station views themselves wrote, identified
+-- by the body marker origin='station_view'. This scoping is load-bearing: the
+-- perspective-matrix tool card also mints `perspective` nodes (agent/card_effects.go),
+-- and a re-save of the S2 view must never delete them. Callers pass an explicit
+-- type list; there is deliberately no "delete everything for this project" form.
+DELETE FROM graph_node
+WHERE project_id = $1
+  AND type = ANY(@types::text[])
+  AND body->>'origin' = 'station_view';

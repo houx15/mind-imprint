@@ -300,14 +300,18 @@ describe("StudioContainer", () => {
       anchors: [],
     };
     const logSourceOpen = vi.fn(async () => {});
+    let getProjectCalls = 0;
     const api = {
       listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
-      getProject: async () => ({
-        ...projection,
-        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-        activeStation: "S3",
-        materials: [material],
-      }),
+      getProject: async () => {
+        getProjectCalls += 1;
+        return {
+          ...projection,
+          stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+          activeStation: "S3",
+          materials: [material],
+        };
+      },
       addMaterial: vi.fn(),
       logSourceOpen,
     };
@@ -326,6 +330,7 @@ describe("StudioContainer", () => {
     // only how long it takes to observe). `flush` waits out both effects
     // deterministically, with no timeout of its own to lose a race against.
     await flush();
+    const getProjectCallsBeforeClose = getProjectCalls;
 
     // Fake timers only wrap the synchronous open→advance→close sequence —
     // reportOpenElapsed fires onOpenLogged synchronously from the click
@@ -338,6 +343,14 @@ describe("StudioContainer", () => {
     vi.useRealTimers();
 
     expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", 30);
+
+    // I2 fix (whole-branch review): this call now also attests recon_logged
+    // and runs AdvanceAll server-side — without a refetch here, the rail
+    // would keep showing the OLD station/gate state until a full page
+    // reload. `flush` (not `waitFor`, see this file's own doc comment above)
+    // waits out the fire-and-forget `.then(() => refetchProject())` chain.
+    await flush();
+    expect(getProjectCalls).toBeGreaterThan(getProjectCallsBeforeClose);
   });
 
   it("refetches the projection after a card submit resolves — the lock and the persisted anchors must render without a page reload", async () => {
@@ -1833,6 +1846,133 @@ describe("StudioContainer", () => {
 
     expect(attestGate).toHaveBeenCalledWith("p1", "draft_polish", "citations_matched", true);
     await waitFor(() => expect(getProjectCalls).toBe(2));
+  });
+
+  // --- N3d Task 12: StudioContainer wiring for the S1 立题 / S2 视角与素材
+  // station views — onSubmitFraming/onSubmitPerspectives (each a plain DB
+  // write + refetch, mirroring submitOnboarding/submitSelfScore/
+  // submitReflection above) and onAttestSourcesPerPerspective (the generic
+  // gate-attest client, mirroring onAttestCitations just above). Both
+  // submits' fixtures deliberately pass THROUGH `state.activeStation` to
+  // findBy the actual control being clicked (this file's "sends a composer
+  // message" test's own precedent for STABLE fixtures) rather than awaiting
+  // any label from a different projection slice first. ---
+
+  function framingProjection() {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S1", name: "立题", view: "结构", state: "current" }],
+      activeStation: "S1",
+      framing: {
+        researchQuestion: "中国在多大程度上让世界变得更具环境可持续性？",
+        terms: [{ term: "可持续性", definition: "在不损害后代满足自身需求能力的前提下的发展方式。" }],
+        answers: ["初步判断：有真实进展，但存量排放问题尚未解决。"],
+        searchPlan: ["查 NASA 卫星植被数据"],
+      },
+    };
+  }
+
+  it("refetches the projection after saving S1", async () => {
+    let getProjectCalls = 0;
+    const submitFraming = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S1" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return framingProjection();
+      },
+      submitFraming,
+    };
+    await renderAndOpen({ api: api as never });
+    // findBy the actual control being clicked, not a proxy label from a
+    // different projection slice (this file's documented flake cause).
+    const button = await screen.findByRole("button", { name: "记下我的立题" });
+
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(submitFraming).toHaveBeenCalledWith("p1", {
+        terms: framingProjection().framing.terms,
+        answers: framingProjection().framing.answers,
+        searchPlan: framingProjection().framing.searchPlan,
+      }),
+    );
+    // The station rail reflects a gate that just closed only if the
+    // projection actually gets refetched after the save resolves.
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await flush();
+  });
+
+  function perspectivesProjection(overrides?: { sourcesPerPerspective?: boolean; materials?: unknown[] }) {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S2", name: "视角与素材", view: "素材", state: "current" }],
+      activeStation: "S2",
+      perspectives: {
+        rows: [
+          { text: "中国官方立场：治理决心真实且持续增强。", level: "national", editable: true },
+          { text: "支持方（全球）：卫星数据证实变绿趋势。", level: "global_for", editable: true },
+        ],
+        sourcesPerPerspective: overrides?.sourcesPerPerspective ?? false,
+      },
+      materials: overrides?.materials ?? [
+        {
+          id: "m1", title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
+          origin: "fetched", blocks: [{ id: "b1", text: "……" }],
+          locked: false, role: "", tier: "", takeaway: "", anchors: [],
+        },
+      ],
+    };
+  }
+
+  it("refetches the projection after saving S2", async () => {
+    let getProjectCalls = 0;
+    const submitPerspectives = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S2" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return perspectivesProjection();
+      },
+      submitPerspectives,
+    };
+    await renderAndOpen({ api: api as never });
+    const button = await screen.findByRole("button", { name: "记下我的视角" });
+
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(submitPerspectives).toHaveBeenCalledWith("p1", {
+        perspectives: perspectivesProjection().perspectives.rows.map((r) => ({ text: r.text, level: r.level })),
+      }),
+    );
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await flush();
+  });
+
+  it("attests sources_per_perspective against evaluate_perspectives", async () => {
+    let getProjectCalls = 0;
+    const attestGate = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S2" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return perspectivesProjection({ sourcesPerPerspective: false });
+      },
+      attestGate,
+    };
+    await renderAndOpen({ api: api as never });
+    // findBy the actual control being clicked (the checkbox itself), not a
+    // proxy label from a different projection slice.
+    const checkbox = await screen.findByRole("checkbox");
+
+    fireEvent.click(checkbox);
+
+    await waitFor(() =>
+      expect(attestGate).toHaveBeenCalledWith("p1", "evaluate_perspectives", "sources_per_perspective", true),
+    );
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await flush();
   });
 
   // --- A3 Task 9: the 就绪度 view's project terminal — canFinish renders the

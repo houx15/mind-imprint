@@ -25,6 +25,28 @@ func (q *Queries) DeleteGraphNode(ctx context.Context, arg DeleteGraphNodeParams
 	return err
 }
 
+const deleteStationViewNodes = `-- name: DeleteStationViewNodes :exec
+DELETE FROM graph_node
+WHERE project_id = $1
+  AND type = ANY($2::text[])
+  AND body->>'origin' = 'station_view'
+`
+
+type DeleteStationViewNodesParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Types     []string  `json:"types"`
+}
+
+// Deletes ONLY the nodes the S0/S1/S2 station views themselves wrote, identified
+// by the body marker origin='station_view'. This scoping is load-bearing: the
+// perspective-matrix tool card also mints `perspective` nodes (agent/card_effects.go),
+// and a re-save of the S2 view must never delete them. Callers pass an explicit
+// type list; there is deliberately no "delete everything for this project" form.
+func (q *Queries) DeleteStationViewNodes(ctx context.Context, arg DeleteStationViewNodesParams) error {
+	_, err := q.db.Exec(ctx, deleteStationViewNodes, arg.ProjectID, arg.Types)
+	return err
+}
+
 const getGateStateNode = `-- name: GetGateStateNode :one
 SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
 WHERE project_id = $1 AND type = 'gate_state' AND body->>'contract' = $2::text

@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -46,6 +46,11 @@ function toStudioState(p: StudioProjection): StudioState {
       writing: p.writing,
       review: p.readiness ?? [],
       onboarding: p.onboarding,
+      // N3d Task 9: mapped straight through, exactly as `onboarding` above —
+      // both are top-level StudioProjection fields (siblings of `onboarding`,
+      // not nested under a "views" object on the wire).
+      framing: p.framing,
+      perspectives: p.perspectives,
       // N2 Task 8: same defensive fallback as `readiness` above — older test
       // fixtures/mocks predating this slice may omit these fields entirely.
       selfScore: p.selfScore ?? { dims: [], bands: [] },
@@ -599,9 +604,21 @@ export function StudioContainer({
     },
     onOpenLogged: (materialId, timeSpentS) => {
       if (!projectId) return;
-      // Fire-and-forget: a lost reading-time sample must never surface as
-      // an error to the student.
-      api.logSourceOpen(projectId, materialId, timeSpentS).catch(() => {});
+      // I2 fix (whole-branch review): this call now also attests
+      // recon_logged and runs AdvanceAll server-side (S2's own gate item) —
+      // station switching is client-local and nothing polls, so without a
+      // refetch here the rail would keep showing the OLD station as
+      // `current` until a full page reload, even though the gate closed on
+      // the server. Still never throws to the caller: a failed log or a
+      // failed refresh must never break the source-close interaction itself
+      // (same split SourceDossier's own onOpenLogged callers already rely
+      // on), it only surfaces the generic sync-staleness banner.
+      api
+        .logSourceOpen(projectId, materialId, timeSpentS)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
     },
     onBufferChange: (text) => {
       // Optimistic local update FIRST — the textarea is controlled by
@@ -678,6 +695,38 @@ export function StudioContainer({
       if (!projectId) return;
       api
         .attestGate(projectId, "draft_polish", "citations_matched", confirmed)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+    },
+    // N3d Task 12: the S1 立题 / S2 视角与素材 station views' whole-panel
+    // saves — same shape as submitOnboarding/submitSelfScore/submitReflection
+    // above (a pure DB write, no llm_call, refetch to rehydrate from what
+    // actually persisted). No try/catch here either, matching those three:
+    // a rejection propagates to the view's own submit handler, which already
+    // resets its local `submitting` flag in a `finally`.
+    onSubmitFraming: async (body) => {
+      if (!projectId) return;
+      await api.submitFraming(projectId, body);
+      await refetchProject();
+    },
+    onSubmitPerspectives: async (body) => {
+      if (!projectId) return;
+      await api.submitPerspectives(projectId, body);
+      await refetchProject();
+    },
+    // N3d Task 12: the S2 view's one explicit attestation — mirrors
+    // onAttestCitations's shape above exactly, just against the
+    // evaluate_perspectives contract's sources_per_perspective item. Fires
+    // in both directions unchanged: an unchecked confirm clears the item
+    // through the same generic gate-attest client just as readily as a
+    // checked one sets it — PerspectivesView's own toggle handler is what
+    // decides which boolean to pass.
+    onAttestSourcesPerPerspective: (confirmed) => {
+      if (!projectId) return;
+      api
+        .attestGate(projectId, "evaluate_perspectives", "sources_per_perspective", confirmed)
         .then(() => refetchProject())
         .catch(() => {
           setSyncError("画面可能未同步到最新状态，请刷新页面重试。");

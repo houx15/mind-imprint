@@ -493,3 +493,171 @@ func TestAttestGate_RejectsUnknownItem(t *testing.T) {
 		t.Fatalf("attest machine item = %d, want 400; body=%s", rec.Code, rec.Body)
 	}
 }
+
+// confirmSolid marks a contract's gate_state as confirmed_solid directly
+// through the store — test-only scaffolding used by the two tests below to
+// satisfy a prerequisite contract the seed fixture deliberately leaves
+// un-confirmed, so AdvanceAll will even consider the contract under test.
+func confirmSolid(t *testing.T, store agent.AgentStore, projectID, contract string) {
+	t.Helper()
+	recorded, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates (confirmSolid %s): %v", contract, err)
+	}
+	rec := recorded[contract]
+	rec.Confirmed = true
+	if err := store.UpsertGateState(context.Background(), mustUUID(projectID), contract, rec); err != nil {
+		t.Fatalf("UpsertGateState (confirmSolid %s): %v", contract, err)
+	}
+}
+
+// TestCommitSnapshot_AdvancesGateInTheSameRequest — I3 (whole-branch review
+// IMPORTANT): commitSnapshot mints/removes word_budget_ok, draft_polish's
+// only MACHINE item, so a commit can complete the gate entirely on its own.
+// Before this fix, advanceGates was never called here, so Confirmed stayed
+// stale until some OTHER write happened to call it. This pre-solidifies the
+// other two items directly, then asserts Confirmed flips true from the
+// commit request ALONE — no second request in between.
+func TestCommitSnapshot_AdvancesGateInTheSameRequest(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := materialsTestProjectID
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+
+	// The seeded demo project deliberately leaves build_argument (S4)
+	// current, not confirmed (0018_seed_demo_project.sql) — draft_polish's
+	// own prerequisite. AdvanceAll only ever considers a contract once its
+	// requires are solid, so without this the test would fail regardless of
+	// the fix under test. Pre-confirming it here is test-only scaffolding,
+	// not part of what's being asserted.
+	confirmSolid(t, store, projectID, "build_argument")
+
+	// Pre-solidify whole_draft_review (human item) directly through the
+	// store — its real producer is orderReview, exercised separately by
+	// TestOrderReview_AdvancesGateInTheSameRequest below; this test is about
+	// commitSnapshot's own advance.
+	recorded, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates: %v", err)
+	}
+	rec := recorded["draft_polish"]
+	if rec.Items == nil {
+		rec.Items = map[string]string{}
+	}
+	rec.Items["whole_draft_review"] = "solid"
+	if err := store.UpsertGateState(context.Background(), mustUUID(projectID), "draft_polish", rec); err != nil {
+		t.Fatalf("UpsertGateState: %v", err)
+	}
+
+	// citations_matched (student_written item) through its real endpoint.
+	recAttest := httptest.NewRecorder()
+	h.ServeHTTP(recAttest, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/gate/draft_polish/attest",
+		strings.NewReader(`{"item":"citations_matched","confirmed":true}`)), cookie))
+	if recAttest.Code != http.StatusNoContent {
+		t.Fatalf("attest citations_matched = %d, want 204; body=%s", recAttest.Code, recAttest.Body)
+	}
+
+	// Confirm the gate is NOT solid yet — word_budget_ok (the last item) is
+	// still missing. This is asserting the test's own setup, not the fix.
+	before, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates (before commit): %v", err)
+	}
+	if before["draft_polish"].Confirmed {
+		t.Fatal("draft_polish already Confirmed before the commit — test setup is wrong")
+	}
+
+	// The ONE request under test: committing an in-band snapshot mints
+	// word_budget_ok, completing all three draft_polish items.
+	content := strings.Repeat("字", 1600)
+	recCommit := httptest.NewRecorder()
+	h.ServeHTTP(recCommit, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/snapshots",
+		strings.NewReader(`{"content":`+strconv.Quote(content)+`}`)), cookie))
+	if recCommit.Code != http.StatusCreated {
+		t.Fatalf("commit snapshot = %d, want 201; body=%s", recCommit.Code, recCommit.Body)
+	}
+
+	after, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates (after commit): %v", err)
+	}
+	if !after["draft_polish"].Confirmed {
+		t.Fatal("draft_polish.Confirmed = false after the commit that completed its last item — advanceGates missing from commitSnapshot")
+	}
+}
+
+// TestOrderReview_AdvancesGateInTheSameRequest — I3 (whole-branch review
+// IMPORTANT): orderReview writes whole_draft_review, draft_polish's only
+// HUMAN item, so ordering a review can complete the gate entirely on its
+// own. Pre-solidifies the other two items, then asserts Confirmed flips
+// true from the review request ALONE — no second request in between.
+func TestOrderReview_AdvancesGateInTheSameRequest(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[{"criterion_code":"表E","band":"5–6 段","evidence":"第2段接住反方","missing":"跳步没补","fix":"补上定义"}]`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     reviewStubProvider(reply),
+		ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := materialsTestProjectID
+
+	// See TestCommitSnapshot_AdvancesGateInTheSameRequest's own comment:
+	// build_argument (S4) is deliberately left un-confirmed by the seed
+	// fixture — pre-confirm it here so draft_polish is even considered by
+	// AdvanceAll. Test-only scaffolding, not part of what's being asserted.
+	confirmSolid(t, agent.NewSqlcAgentStore(sqlc.New(pool), pool), projectID, "build_argument")
+
+	// Commit an in-band snapshot first — mints word_budget_ok (the machine
+	// item) and is also the prerequisite snapshot a review is ordered over.
+	content := strings.Repeat("字", 1600)
+	recCommit := httptest.NewRecorder()
+	h.ServeHTTP(recCommit, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/snapshots",
+		strings.NewReader(`{"content":`+strconv.Quote(content)+`}`)), cookie))
+	if recCommit.Code != http.StatusCreated {
+		t.Fatalf("commit snapshot = %d, want 201; body=%s", recCommit.Code, recCommit.Body)
+	}
+	var snap struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(recCommit.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+
+	// citations_matched (student_written item) through its real endpoint.
+	recAttest := httptest.NewRecorder()
+	h.ServeHTTP(recAttest, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/gate/draft_polish/attest",
+		strings.NewReader(`{"item":"citations_matched","confirmed":true}`)), cookie))
+	if recAttest.Code != http.StatusNoContent {
+		t.Fatalf("attest citations_matched = %d, want 204; body=%s", recAttest.Code, recAttest.Body)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	before, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates (before review): %v", err)
+	}
+	if before["draft_polish"].Confirmed {
+		t.Fatal("draft_polish already Confirmed before the review — test setup is wrong")
+	}
+
+	// The ONE request under test: ordering the review writes
+	// whole_draft_review, completing all three draft_polish items.
+	recReview := httptest.NewRecorder()
+	h.ServeHTTP(recReview, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/snapshots/"+snap.ID+"/review",
+		strings.NewReader("")), cookie))
+	if recReview.Code != http.StatusOK {
+		t.Fatalf("order review = %d, want 200; body=%s", recReview.Code, recReview.Body)
+	}
+
+	after, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates (after review): %v", err)
+	}
+	if !after["draft_polish"].Confirmed {
+		t.Fatal("draft_polish.Confirmed = false after the review that completed its last item — advanceGates missing from orderReview")
+	}
+}

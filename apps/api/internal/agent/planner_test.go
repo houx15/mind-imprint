@@ -233,3 +233,146 @@ func TestAdvance_PassesWhenAllItemsSatisfied(t *testing.T) {
 		t.Fatalf("Advance = %v,%v; want true", ok, err)
 	}
 }
+
+// TestAdvanceAll_HoldsBehindUnsolidPredecessor is the rule Advance alone
+// cannot enforce (it only ever inspects one contract's own gate items):
+// evaluate_perspectives's own gate is made GENUINELY fully satisfied — its
+// machine item (2 "perspective" nodes) passes on the graph AND both its
+// student_written items ("recon_logged", "sources_per_perspective") are
+// recorded solid — while frame_question (its predecessor, and in turn
+// decode_task) is left with nothing on the graph to satisfy its own machine
+// items. If AdvanceAll only checked each contract's own gate (as Advance
+// does), evaluate_perspectives would confirm here — the assertion below would
+// pass vacuously. It must not confirm, because its predecessor chain never
+// went solid.
+func TestAdvanceAll_HoldsBehindUnsolidPredecessor(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph: GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}},
+		gateStates: map[string]RecordedGate{
+			"evaluate_perspectives": {Items: map[string]string{"recon_logged": "solid", "sources_per_perspective": "solid"}},
+		},
+	}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+
+	// Sanity check the fixture is not accidentally vacuous: evaluate_
+	// perspectives's OWN gate must report nothing missing before we ever call
+	// AdvanceAll, and frame_question's own gate must be unmet.
+	g, _ := f.LoadGraph(context.Background(), pid)
+	if rep := CheckGate(sk, "evaluate_perspectives", g, f.gateStates["evaluate_perspectives"]); len(rep.Missing) != 0 {
+		t.Fatalf("fixture invalid: evaluate_perspectives must be fully satisfied on its own gate, got Missing=%v", rep.Missing)
+	}
+	if rep := CheckGate(sk, "frame_question", g, RecordedGate{}); len(rep.Missing) == 0 {
+		t.Fatal("fixture invalid: frame_question must be left unmet")
+	}
+
+	advanced, err := AdvanceAll(context.Background(), deps, pid, sk)
+	if err != nil {
+		t.Fatalf("AdvanceAll: %v", err)
+	}
+	for _, id := range advanced {
+		if id == "evaluate_perspectives" {
+			t.Fatalf("evaluate_perspectives must not advance behind an unsolid predecessor, got advanced=%v", advanced)
+		}
+	}
+	if len(advanced) != 0 {
+		t.Fatalf("nothing in this DAG should advance (every contract sits behind an unsolid predecessor), got %v", advanced)
+	}
+	states, _ := f.ListGateStates(context.Background(), pid)
+	if states["evaluate_perspectives"].Confirmed {
+		t.Fatal("evaluate_perspectives must not be recorded confirmed")
+	}
+}
+
+// TestAdvanceAll_CascadesInTopoOrder proves the single-pass walk: one call can
+// legitimately close several stations, because a contract confirmed earlier in
+// the SAME walk counts as solid for its successors' `requires` check.
+// decode_task and frame_question are both built to be genuinely, fully
+// satisfiable on the graph — but frame_question requires decode_task, which
+// starts unconfirmed. Only a single-pass walk that lets decode_task's
+// just-earned solidity feed frame_question's readiness check can close both
+// in one call.
+func TestAdvanceAll_CascadesInTopoOrder(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph: GraphView{Nodes: []GraphNodeView{
+			{ID: "rt", Type: "rubric_translation"},
+			{ID: "wp1", Type: "weakness_prediction"},
+			{ID: "wp2", Type: "weakness_prediction"},
+			{ID: "rq", Type: "research_question"},
+			{ID: "pa", Type: "provisional_answer"},
+			{ID: "pr", Type: "preregistration"},
+		}},
+		gateStates: map[string]RecordedGate{
+			"decode_task":    {Items: map[string]string{"milestone_plan": "solid"}},
+			"frame_question": {Items: map[string]string{"terms_defined": "solid"}},
+		},
+	}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+
+	advanced, err := AdvanceAll(context.Background(), deps, pid, sk)
+	if err != nil {
+		t.Fatalf("AdvanceAll: %v", err)
+	}
+	want := []string{"decode_task", "frame_question"}
+	if len(advanced) != len(want) {
+		t.Fatalf("advanced = %v, want %v", advanced, want)
+	}
+	for i, id := range want {
+		if advanced[i] != id {
+			t.Fatalf("advanced = %v, want %v (topo order matters)", advanced, want)
+		}
+	}
+	states, _ := f.ListGateStates(context.Background(), pid)
+	if !states["decode_task"].Confirmed {
+		t.Fatal("decode_task must be recorded confirmed")
+	}
+	if !states["frame_question"].Confirmed {
+		t.Fatal("frame_question must be recorded confirmed — it was only reachable because decode_task advanced earlier in this same walk")
+	}
+	// evaluate_perspectives has no perspective nodes and no recorded items on
+	// this fixture, so the cascade correctly stops there rather than running
+	// away through the rest of the DAG.
+	for _, id := range advanced {
+		if id == "evaluate_perspectives" {
+			t.Fatalf("evaluate_perspectives has an unmet gate on this fixture and must not have advanced, got %v", advanced)
+		}
+	}
+	if f.upsertPlanCalls != 1 {
+		t.Fatalf("want Replan called exactly once when something advanced, got %d plan upserts", f.upsertPlanCalls)
+	}
+}
+
+// TestAdvanceAll_NoopWhenNothingChanged covers both halves of the noop
+// contract: an already-solid contract (decode_task, seeded Confirmed:true) is
+// skipped outright — no CheckGate/Advance call, hence no duplicate
+// gate_attempt event — and every other contract in this DAG has an
+// (unavoidably) unmet own-gate on an empty graph, so nothing else advances
+// either. An empty result means Replan must not be called.
+func TestAdvanceAll_NoopWhenNothingChanged(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph: GraphView{}, // nothing on the graph for any other contract's machine items
+		gateStates: map[string]RecordedGate{
+			"decode_task": {Confirmed: true, Items: map[string]string{"milestone_plan": "solid"}},
+		},
+	}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+
+	advanced, err := AdvanceAll(context.Background(), deps, pid, sk)
+	if err != nil {
+		t.Fatalf("AdvanceAll: %v", err)
+	}
+	if len(advanced) != 0 {
+		t.Fatalf("want no contract to advance, got %v", advanced)
+	}
+	if f.appendEventCalls != 0 {
+		t.Fatalf("want zero gate_attempt events (decode_task already solid must be skipped without a re-check, and every other contract's own gate is unmet on an empty graph so Advance is never called), got %d", f.appendEventCalls)
+	}
+	if f.upsertPlanCalls != 0 {
+		t.Fatal("want Replan not called when the result is empty")
+	}
+}

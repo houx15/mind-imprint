@@ -215,6 +215,16 @@ export function StudioShell({
           }}
           review={review}
           onSubmitOnboarding={onSubmitOnboarding}
+          // N3d Task 12: S1/S2's whole-panel saves + S2's one attestation —
+          // these three live on `callbacks` (StudioCallbacks), unlike
+          // onSubmitOnboarding above, so they're pulled off it here rather
+          // than threaded as their own StudioShellProps fields (mirrors how
+          // `writing.onAttestCitations` below is sourced from `callbacks`
+          // too, just flattened onto ViewFrame's own top-level props instead
+          // of a group, matching onSubmitFraming's own flat shape).
+          onSubmitFraming={callbacks.onSubmitFraming}
+          onSubmitPerspectives={callbacks.onSubmitPerspectives}
+          onAttestSourcesPerPerspective={callbacks.onAttestSourcesPerPerspective}
         />
         <CoachRail
           anchor={state.coach.anchor}

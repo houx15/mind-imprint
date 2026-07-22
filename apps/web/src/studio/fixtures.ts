@@ -246,6 +246,26 @@ export const STUDIO_FIXTURE: StudioState = {
       studentRestate: "",
       studentWeakPicks: [],
     },
+    // N3d Task 9: S1 立题 / S2 视角与素材's own panels — both stations are
+    // `state: "done"` above (this fixture dramatizes S4, mid-project), so
+    // these carry real, already-filled content rather than fresh/empty ones.
+    framing: {
+      researchQuestion: "中国在多大程度上让世界变得更具环境可持续性？",
+      terms: [
+        { term: "可持续性", definition: "在不损害后代满足自身需求能力的前提下，满足当代人需求的发展方式。" },
+        { term: "环境系统", definition: "地球上相互作用的自然要素（大气、水文、土壤、生物）构成的整体。" },
+      ],
+      answers: ["初步判断：有真实进展，但存量排放问题尚未解决——「趋势变好」不等于「问题已解决」。"],
+      searchPlan: ["查 NASA/卫星植被数据", "查中国官方碳排放与治理政策文件", "查独立机构对治理成效的评估"],
+    },
+    perspectives: {
+      rows: [
+        { text: "中国官方立场：治理决心真实且持续增强，政策工具在起效。", level: "national", editable: true },
+        { text: "支持方（全球）：卫星数据证实变绿趋势，中国是最大贡献者之一。", level: "global_for", editable: true },
+        { text: "反对方（全球）：中国仍是全球碳排放总量第一，「变绿」不等于「更可持续」。", level: "global_against", editable: true },
+      ],
+      sourcesPerPerspective: true,
+    },
   },
   finished: false,
   canFinish: false,

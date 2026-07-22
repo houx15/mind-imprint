@@ -231,5 +231,12 @@ func (a *API) logSourceOpen(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Opening and logging a source IS the recon evaluate_perspectives'
+	// recon_logged item names (spec §6.2) — attest it, then re-derive gate
+	// state from the graph. Both are best-effort (advance.go): neither may
+	// fail this request.
+	a.attestReconLogged(r.Context(), projectID)
+	a.advanceGates(r.Context(), projectID)
+
 	w.WriteHeader(http.StatusNoContent)
 }

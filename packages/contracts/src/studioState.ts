@@ -62,6 +62,43 @@ export const OnboardingFx = z.object({
 });
 export type OnboardingFx = z.infer<typeof OnboardingFx>;
 
+// N3d: S1 立题. The terms are the STUDENT's own — she names which words in her
+// own question need defining (spec §5.2). researchQuestion is the read-only
+// banner, minted from the project title at creation.
+export const TermDefinition = z.object({ term: z.string(), definition: z.string() });
+export type TermDefinition = z.infer<typeof TermDefinition>;
+
+export const FramingFx = z.object({
+  researchQuestion: z.string(),
+  terms: z.array(TermDefinition),
+  answers: z.array(z.string()),
+  searchPlan: z.array(z.string()),
+});
+export type FramingFx = z.infer<typeof FramingFx>;
+
+// N3d: S2 视角与素材. The three levels are the binding design's own
+// (dc.html:2158). A row minted by the perspective-matrix card carries NO level
+// (that card has no level field) and is not editable here — but it still counts
+// toward the station's node_count_at_least gate, so `level` is a plain string
+// with "" for those rows rather than the enum.
+export const PerspectiveLevel = z.enum(["national", "global_for", "global_against"]);
+export type PerspectiveLevel = z.infer<typeof PerspectiveLevel>;
+
+export const PerspectiveRow = z.object({
+  text: z.string(),
+  level: z.string(),
+  editable: z.boolean(),
+});
+export type PerspectiveRow = z.infer<typeof PerspectiveRow>;
+
+export const PerspectivesFx = z.object({
+  rows: z.array(PerspectiveRow),
+  // The recorded sources_per_perspective attestation (spec §6.2) — the one
+  // explicit confirm in this slice.
+  sourcesPerPerspective: z.boolean(),
+});
+export type PerspectivesFx = z.infer<typeof PerspectivesFx>;
+
 export const MaterialBlock = z.object({ id: z.string(), text: z.string() });
 export type MaterialBlock = z.infer<typeof MaterialBlock>;
 
@@ -233,6 +270,8 @@ export const StudioProjection = z.object({
     equipment: z.array(EquipCard),
   }),
   onboarding: OnboardingFx,
+  framing: FramingFx,
+  perspectives: PerspectivesFx,
   materials: z.array(MaterialSource),
   activeCard: ActiveCard.nullable(),
   structure: z.array(StructureCard),
@@ -260,6 +299,18 @@ export const OnboardingSubmitBody = z.object({
   weakPicks: z.array(z.number().int()),
 });
 export type OnboardingSubmitBody = z.infer<typeof OnboardingSubmitBody>;
+
+export const FramingSubmitBody = z.object({
+  terms: z.array(TermDefinition),
+  answers: z.array(z.string()),
+  searchPlan: z.array(z.string()),
+});
+export type FramingSubmitBody = z.infer<typeof FramingSubmitBody>;
+
+export const PerspectivesSubmitBody = z.object({
+  perspectives: z.array(z.object({ text: z.string(), level: PerspectiveLevel })),
+});
+export type PerspectivesSubmitBody = z.infer<typeof PerspectivesSubmitBody>;
 
 export const SelfScoreSubmitBody = z.object({
   scores: z.array(z.object({ code: z.string(), band: z.number().int() })),

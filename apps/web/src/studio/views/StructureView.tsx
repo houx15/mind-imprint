@@ -19,7 +19,8 @@ export type StructureViewProps = {
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
 const COL: React.CSSProperties = { maxWidth: 760, margin: "0 auto" };
-// Same neutral deferred-shell placeholder as OnboardingView's ShellView.
+// Same neutral deferred-shell placeholder style OnboardingView used before
+// N3d gave S1/S2 their own routes (ShellView deleted there).
 // This is the legitimate PRE-MINT state: the projection returns an empty
 // `structure` slice until the student locks the Toulmin card (7b made the
 // slot projection live — this is not a stub). It guards against a

@@ -12,6 +12,8 @@ import { StructureView } from "./views/StructureView";
 import { WritingView } from "./views/WritingView";
 import { ReviewView } from "./views/ReviewView";
 import { OnboardingView } from "./views/OnboardingView";
+import { FramingView } from "./views/FramingView";
+import { PerspectivesView } from "./views/PerspectivesView";
 
 export type ViewFrameProps = {
   state: StudioState;
@@ -84,6 +86,16 @@ export type ViewFrameProps = {
   // shape OnboardingView's own `onSubmit` takes (no wrapper group, unlike
   // `writing`/`review`, since this is the view's only callback).
   onSubmitOnboarding?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
+  // N3d Task 10: the S1 立题 view's whole-panel submit — mirrors
+  // onSubmitOnboarding's flat shape above (FramingView's only callback).
+  // Task 12 wires the real handler in from the container; this task only
+  // threads the prop through.
+  onSubmitFraming?: (body: { terms: { term: string; definition: string }[]; answers: string[]; searchPlan: string[] }) => Promise<void>;
+  // N3d Task 11: the S2 视角与素材 view's whole-panel submit + its one
+  // explicit attestation — mirrors onSubmitFraming's flat shape above.
+  // Task 12 wires the real handlers in from the container.
+  onSubmitPerspectives?: (body: { perspectives: { text: string; level: string }[] }) => Promise<void>;
+  onAttestSourcesPerPerspective?: (confirmed: boolean) => void;
 };
 
 const FRAME: React.CSSProperties = {
@@ -201,7 +213,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -228,13 +240,17 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
     return <div style={FRAME} />;
   }
 
-  // S0/S1/S2 render bespoke onboarding screens regardless of their `.view`
-  // tag (which is the station's four-view *association* from the design's STA,
-  // not what renders during onboarding). The design gates these by station
-  // code — `stnS0 || stnS1 || stnS2` — while S3–S6 render their view
+  // S0/S1/S2 each render their OWN screen (regardless of their `.view` tag,
+  // which is the station's four-view *association* from the design's STA,
+  // not what renders during onboarding) — while S3–S6 render their view
   // (viewIsMaterial=S3, viewIsStructure=S4, viewIsWriting=S5, viewIsReview=S6).
-  const isOnboarding = active.code === "S0" || active.code === "S1" || active.code === "S2";
-  const effectiveView = isOnboarding ? "onboarding" : active.view;
+  //
+  // N3d: S0/S1/S2 each render their OWN screen. Before this slice all three
+  // collapsed onto OnboardingView, which meant S1 and S2 showed a
+  // "coming in a later slice" placeholder — while their gates had no
+  // producer at all, so neither station could ever complete.
+  const stationScreen = active.code === "S0" || active.code === "S1" || active.code === "S2" ? active.code : null;
+  const effectiveView = stationScreen ? "station" : active.view;
 
   const isCompareCardActive = card?.status === "active" && card.spec.primitive === "compare";
   const compareState = isCompareCardActive
@@ -354,8 +370,20 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
           onReflection={review?.onReflection ?? (() => {})}
         />
       )}
-      {effectiveView === "onboarding" && (
+      {stationScreen === "S0" && (
         <OnboardingView station={active} data={state.views.onboarding} onSubmit={onSubmitOnboarding} />
+      )}
+      {stationScreen === "S1" && <FramingView data={state.views.framing} onSubmit={onSubmitFraming} />}
+      {stationScreen === "S2" && (
+        <PerspectivesView
+          data={state.views.perspectives}
+          material={state.views.material}
+          onSubmit={onSubmitPerspectives}
+          onAddSource={material?.onAdd}
+          addSourceError={material?.addError}
+          onOpenLogged={material?.onOpenLogged}
+          onAttestSourcesPerPerspective={onAttestSourcesPerPerspective}
+        />
       )}
     </div>
   );
