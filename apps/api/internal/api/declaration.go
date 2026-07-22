@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -52,15 +50,10 @@ func countDeclaration(d studio.ProjectData) DeclarationCounts {
 		}
 	}
 
-	// Same derivation projectEquipment (studio/projection.go) uses: 提示后
-	// when an intervention links the card_instance, else 自发. Do not invent
-	// a second rule — the two must never disagree about a given card.
-	nudged := map[string]bool{}
-	for _, iv := range d.Interventions {
-		if iv.CardInstanceID.Valid {
-			nudged[uuid.UUID(iv.CardInstanceID.Bytes).String()] = true
-		}
-	}
+	// Shared with projectEquipment (studio/projection.go) via
+	// studio.NudgedCardInstanceIDs — one rule, one definition, so the two can
+	// never disagree about a given card.
+	nudged := studio.NudgedCardInstanceIDs(d)
 	spont, prompted := 0, 0
 	for _, ci := range d.Cards {
 		if nudged[ci.ID.String()] {
@@ -127,42 +120,45 @@ func (a *API) signDeclaration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rec := recorded["reflect_archive"]
-	if rec.Items != nil && rec.Items["declaration_signed"] == "solid" {
-		// Already signed — idempotent no-op, never mint a second node.
-		if err := tx.Commit(r.Context()); err != nil {
+	alreadySigned := rec.Items != nil && rec.Items["declaration_signed"] == "solid"
+
+	if !alreadySigned {
+		// Not yet signed — mint the declaration node and flip the gate item,
+		// both inside this same transaction.
+		d, err := studio.Load(r.Context(), qtx, projectID)
+		if err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{})
-		return
-	}
+		nodeBody, err := json.Marshal(countDeclaration(d))
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 
-	d, err := studio.Load(r.Context(), qtx, projectID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	nodeBody, err := json.Marshal(countDeclaration(d))
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
+		if _, err := qtx.InsertGraphNode(r.Context(), sqlc.InsertGraphNodeParams{
+			ProjectID: projectID, Type: "declaration", Body: nodeBody, Author: "student", SpanRef: nil,
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 
-	if _, err := qtx.InsertGraphNode(r.Context(), sqlc.InsertGraphNodeParams{
-		ProjectID: projectID, Type: "declaration", Body: nodeBody, Author: "student", SpanRef: nil,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		if rec.Items == nil {
+			rec.Items = map[string]string{}
+		}
+		rec.Items["declaration_signed"] = "solid"
+		if err := store.UpsertGateState(r.Context(), projectID, "reflect_archive", rec); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 	}
-
-	if rec.Items == nil {
-		rec.Items = map[string]string{}
-	}
-	rec.Items["declaration_signed"] = "solid"
-	if err := store.UpsertGateState(r.Context(), projectID, "reflect_archive", rec); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
+	// Already signed — idempotent no-op, never mint a second node, but still
+	// commit + advanceGates below exactly like every other gate-affecting
+	// write. advanceGates is cheap and pure (it recomputes gate state from
+	// scratch); calling it unconditionally is what makes a crash between a
+	// first sign's commit and its advanceGates call self-healing on the next
+	// duplicate request instead of leaving reflect_archive's station badge
+	// stuck forever.
 
 	if err := tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)

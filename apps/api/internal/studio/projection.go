@@ -273,12 +273,7 @@ func materialByCardInstance(d ProjectData) map[string]string {
 // iteration order — a future filter/reorder here must not silently misalign
 // that digest.
 func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) []EquipCardDTO {
-	nudged := map[string]bool{}
-	for _, iv := range d.Interventions {
-		if iv.CardInstanceID.Valid {
-			nudged[uuidFromPg(iv.CardInstanceID)] = true
-		}
-	}
+	nudged := NudgedCardInstanceIDs(d)
 	materialOf := materialByCardInstance(d)
 	out := make([]EquipCardDTO, 0, len(d.Cards))
 	for _, ci := range d.Cards {
@@ -300,6 +295,21 @@ func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) [
 
 func uuidFromPg(u pgtype.UUID) string {
 	return uuid.UUID(u.Bytes).String()
+}
+
+// NudgedCardInstanceIDs is the single shared spontaneous/prompted rule: a
+// card_instance is 提示后 (prompted) when an intervention links it, else 自发
+// (spontaneous). projectEquipment and api.countDeclaration both derive their
+// split from this exact function — one rule, one definition — so the two can
+// never silently disagree about a given card.
+func NudgedCardInstanceIDs(d ProjectData) map[string]bool {
+	nudged := map[string]bool{}
+	for _, iv := range d.Interventions {
+		if iv.CardInstanceID.Valid {
+			nudged[uuidFromPg(iv.CardInstanceID)] = true
+		}
+	}
+	return nudged
 }
 
 // projectOnboarding reads the decode_task graph nodes for the S0 view.
