@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { PerspectivesFx } from "../state";
 import type { MaterialSource } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../../api/materials";
-import { AddSourceForm } from "../material/AddSourceForm";
+import { SourceDossier } from "../material/SourceDossier";
 
 // N3d Task 11: S2 视角与素材.
 //
@@ -16,6 +16,7 @@ export type PerspectivesViewProps = {
   onSubmit?: (body: { perspectives: { text: string; level: string }[] }) => Promise<void>;
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   addSourceError?: string;
+  onOpenLogged?: (materialId: string, timeSpentS: number) => void;
   onAttestSourcesPerPerspective?: (confirmed: boolean) => void;
 };
 
@@ -77,7 +78,7 @@ function XIcon() {
 
 type DraftRow = { text: string; level: string; editable: boolean };
 
-export function PerspectivesView({ data, material, onSubmit, onAddSource, addSourceError, onAttestSourcesPerPerspective }: PerspectivesViewProps) {
+export function PerspectivesView({ data, material, onSubmit, onAddSource, addSourceError, onOpenLogged, onAttestSourcesPerPerspective }: PerspectivesViewProps) {
   const [rows, setRows] = useState<DraftRow[]>(data.rows.map((r) => ({ ...r })));
   const [submitting, setSubmitting] = useState(false);
   const [attestConfirmed, setAttestConfirmed] = useState(data.sourcesPerPerspective);
@@ -260,19 +261,26 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
         {/* Spec §6.3: the binding design's S2 has no source affordance at all, yet the
             station is 视角与素材 and its own gate demands sources per perspective — as
             drawn the gate is unreachable. This reuses 6b's ingestion path (RL-2: S2
-            never ingests on its own). The full dossier stays at S3. */}
+            never ingests on its own). The full dossier stays at S3.
+
+            C1 fix (whole-branch review): a real "open" is what the station's
+            own recon_logged gate item is honestly about (attestReconLogged
+            fires from logSourceOpen, called only when a source is opened AND
+            closed) — adding a source is not opening one. SourceDossier is the
+            ONE component that both lists sources and calls onOpenLogged, so
+            it renders here too, just without the anchor/locate machinery S3's
+            call site needs (no live card is ever active on this station's own
+            screen, and there is no "go find this sentence" locate request to
+            honor here). */}
         <div style={{ borderTop: "1px solid #EAECF2", paddingTop: 18 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "#1C2333", marginBottom: 8 }}>素材</div>
-          {material.length > 0 && (
-            <ul style={{ margin: "0 0 12px", padding: 0, listStyle: "none" }}>
-              {material.map((m) => (
-                <li key={m.id} style={{ fontSize: 12.5, color: "#3A4256", padding: "6px 0", borderBottom: "1px solid #F3F4F7" }}>
-                  {m.title}
-                </li>
-              ))}
-            </ul>
-          )}
-          {onAddSource && <AddSourceForm onSubmit={onAddSource} error={addSourceError} />}
+          <SourceDossier
+            sources={material}
+            anchors={[]}
+            onOpenLogged={onOpenLogged}
+            onAddSource={onAddSource}
+            addSourceError={addSourceError}
+          />
 
           {/* The one explicit attestation in this slice. 铁律 2: reversible
               (unchecking clears it), and when it can't be used yet, disabled

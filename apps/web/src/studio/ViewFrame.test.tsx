@@ -89,13 +89,18 @@ describe("ViewFrame (station rail = view switcher)", () => {
   it("S1/S2 route to their OWN station screen, NOT their four-view association", () => {
     // S1.view is 结构 and S2.view is 素材 in the fixture, but both are
     // per-station screens (N3d) — they must never fall through to the
-    // 结构/素材 views.
+    // 结构/素材 VIEWS (StructureView's own toolbar, the effectiveView==="素材"
+    // branch's compare/lock machinery). S2's OWN screen legitimately embeds
+    // SourceDossier itself (C1 fix, whole-branch review) — that is a
+    // different thing from falling through to the 素材 view, so 信源档案 is
+    // checked against S1 only here, not S2.
     for (const code of ["S1", "S2"] as const) {
       const { unmount } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: code }} />);
-      expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
       unmount();
     }
+    const s1 = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S1" }} />);
+    expect(s1.queryByText(/信源档案/)).not.toBeInTheDocument();
   });
 
   it("S1 active renders FramingView (Task 10 fills in the real screen)", () => {

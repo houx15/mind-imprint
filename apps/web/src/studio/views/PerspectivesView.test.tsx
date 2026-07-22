@@ -194,4 +194,23 @@ describe("PerspectivesView (S2 视角与素材)", () => {
     expect(screen.getByText("素材 0")).toBeInTheDocument();
     expect(screen.getByText("素材 1")).toBeInTheDocument();
   });
+
+  // C1 (whole-branch review CRITICAL): the station's own gate item
+  // recon_logged is only ever attested by opening-then-closing a source
+  // (attestReconLogged, fired from logSourceOpen) — adding a source is not
+  // opening one. This asserts the real dossier (not an inert <li> list) is
+  // what renders here, and that opening and closing a source from S2 itself
+  // invokes onOpenLogged exactly like it does at S3.
+  it("opens a source from within S2 and reports it via onOpenLogged on close", () => {
+    vi.useFakeTimers();
+    const onOpenLogged = vi.fn();
+    render(<PerspectivesView data={makeData()} material={makeMaterial(1)} onOpenLogged={onOpenLogged} />);
+
+    fireEvent.click(screen.getByText("素材 0"));
+    vi.advanceTimersByTime(12_000);
+    fireEvent.click(screen.getByText("返回信源列表"));
+
+    expect(onOpenLogged).toHaveBeenCalledWith("src-0", 12);
+    vi.useRealTimers();
+  });
 });

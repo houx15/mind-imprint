@@ -381,6 +381,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
           onSubmit={onSubmitPerspectives}
           onAddSource={material?.onAdd}
           addSourceError={material?.addError}
+          onOpenLogged={material?.onOpenLogged}
           onAttestSourcesPerPerspective={onAttestSourcesPerPerspective}
         />
       )}
