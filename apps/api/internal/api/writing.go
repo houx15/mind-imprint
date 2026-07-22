@@ -121,6 +121,12 @@ func (a *API) commitSnapshot(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("commit snapshot: append version_saved event failed", "err", err)
 	}
 
+	// reconcileWordBudgetNode above mints/removes word_budget_ok — draft_polish's
+	// only machine gate item — so gate state must be re-derived here too
+	// (spec §3.2: advanceGates at the end of every write that can change gate
+	// state), matching the other five call sites.
+	a.advanceGates(r.Context(), projectID)
+
 	httpx.WriteJSON(w, http.StatusCreated, snapshotResp{
 		ID: snap.ID.String(), Seq: seq, WordCount: wc, InBand: inBand,
 	})
@@ -393,6 +399,13 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("order_review: append event", "err", err)
 		}
+
+		// whole_draft_review above is draft_polish's only human gate item —
+		// gate state must be re-derived here too (spec §3.2: advanceGates at
+		// the end of every write that can change gate state), matching the
+		// other five call sites. Scoped to this branch: outside it nothing
+		// wrote a gate item, so there is nothing to re-derive.
+		a.advanceGates(r.Context(), projectID)
 	}
 	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
 		slog.Warn("order_review: touch project", "err", err)
