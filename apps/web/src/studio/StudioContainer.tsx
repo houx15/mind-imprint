@@ -604,9 +604,21 @@ export function StudioContainer({
     },
     onOpenLogged: (materialId, timeSpentS) => {
       if (!projectId) return;
-      // Fire-and-forget: a lost reading-time sample must never surface as
-      // an error to the student.
-      api.logSourceOpen(projectId, materialId, timeSpentS).catch(() => {});
+      // I2 fix (whole-branch review): this call now also attests
+      // recon_logged and runs AdvanceAll server-side (S2's own gate item) —
+      // station switching is client-local and nothing polls, so without a
+      // refetch here the rail would keep showing the OLD station as
+      // `current` until a full page reload, even though the gate closed on
+      // the server. Still never throws to the caller: a failed log or a
+      // failed refresh must never break the source-close interaction itself
+      // (same split SourceDossier's own onOpenLogged callers already rely
+      // on), it only surfaces the generic sync-staleness banner.
+      api
+        .logSourceOpen(projectId, materialId, timeSpentS)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
     },
     onBufferChange: (text) => {
       // Optimistic local update FIRST — the textarea is controlled by

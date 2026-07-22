@@ -300,14 +300,18 @@ describe("StudioContainer", () => {
       anchors: [],
     };
     const logSourceOpen = vi.fn(async () => {});
+    let getProjectCalls = 0;
     const api = {
       listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
-      getProject: async () => ({
-        ...projection,
-        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-        activeStation: "S3",
-        materials: [material],
-      }),
+      getProject: async () => {
+        getProjectCalls += 1;
+        return {
+          ...projection,
+          stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+          activeStation: "S3",
+          materials: [material],
+        };
+      },
       addMaterial: vi.fn(),
       logSourceOpen,
     };
@@ -326,6 +330,7 @@ describe("StudioContainer", () => {
     // only how long it takes to observe). `flush` waits out both effects
     // deterministically, with no timeout of its own to lose a race against.
     await flush();
+    const getProjectCallsBeforeClose = getProjectCalls;
 
     // Fake timers only wrap the synchronous open→advance→close sequence —
     // reportOpenElapsed fires onOpenLogged synchronously from the click
@@ -338,6 +343,14 @@ describe("StudioContainer", () => {
     vi.useRealTimers();
 
     expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", 30);
+
+    // I2 fix (whole-branch review): this call now also attests recon_logged
+    // and runs AdvanceAll server-side — without a refetch here, the rail
+    // would keep showing the OLD station/gate state until a full page
+    // reload. `flush` (not `waitFor`, see this file's own doc comment above)
+    // waits out the fire-and-forget `.then(() => refetchProject())` chain.
+    await flush();
+    expect(getProjectCalls).toBeGreaterThan(getProjectCallsBeforeClose);
   });
 
   it("refetches the projection after a card submit resolves — the lock and the persisted anchors must render without a page reload", async () => {
