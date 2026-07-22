@@ -195,6 +195,16 @@ Runes over UTF-16 code units: rune indexing is what Go expresses naturally, and
 `Array.from` gives JS the same unit for free — including for non-BMP characters
 (emoji in a pasted source), where UTF-16 and runes diverge.
 
+**Precisely which half fixes what** (established while implementing, and worth
+stating so nobody over-credits the web change): the visible wrong-highlight bug
+was **entirely Go-side** — it emitted bytes. Fixing that alone corrects every
+realistic Chinese article, because BMP CJK is 1 rune = 1 UTF-16 code unit, so
+`String.prototype.slice` would have agreed with rune offsets anyway. The web's
+code-point slicing therefore fixes **only** the non-BMP case (an emoji in a
+pasted source shifts every later offset and can split a surrogate pair). It is
+worth doing — a second span producer lands in this same slice and the two sides
+must not merely happen to agree — but it is hardening, not the bug fix.
+
 Persisted anchors written before this change carry byte offsets and will be
 reinterpreted as rune offsets. Those values are already wrong; the project has
 one seeded mock student and no production data, so no backfill is written.
