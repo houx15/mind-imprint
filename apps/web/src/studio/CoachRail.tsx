@@ -5,7 +5,7 @@ import { MicCapture } from "../audio/capture";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
-import { StudioAnnotateCard } from "./StudioAnnotateCard";
+import { StudioAnnotateCard, type LocatedSpan } from "./StudioAnnotateCard";
 import { StudioCompareCard } from "./StudioCompareCard";
 import { StudioSortCard } from "./StudioSortCard";
 import { StudioScaleCard } from "./StudioScaleCard";
@@ -52,6 +52,13 @@ export type CoachRailProps = {
   // StudioContainer, which owns this state.
   lateralMaterialId?: string;
   onLateralMaterialChange?: (materialId: string) => void;
+  // N3c task 9 (spec §8): threaded straight through to StudioAnnotateCard —
+  // see that file's own prop doc for the dead-control convention these four
+  // go together under, and StudioContainer for where they're sourced.
+  locatedSpans?: Record<string, LocatedSpan>;
+  onRequestLocate?: (anchorId: string, dimension: string) => void;
+  onSpanNotFound?: (anchorId: string, dimension: string) => void;
+  pendingTrace?: TraceEvent[];
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -212,6 +219,10 @@ export function CoachRail({
   materials = [],
   lateralMaterialId = "",
   onLateralMaterialChange,
+  locatedSpans,
+  onRequestLocate,
+  onSpanNotFound,
+  pendingTrace,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -376,6 +387,10 @@ export function CoachRail({
               anchors={card.anchors}
               onSubmit={(env) => onSubmitCard?.(env)}
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
+              locatedSpans={locatedSpans}
+              onRequestLocate={onRequestLocate}
+              onSpanNotFound={onSpanNotFound}
+              pendingTrace={pendingTrace}
             />
           ) : card.spec.primitive === "compare" ? (
             <StudioCompareCard

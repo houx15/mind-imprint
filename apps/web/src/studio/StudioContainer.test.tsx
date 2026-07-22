@@ -1910,4 +1910,212 @@ describe("StudioContainer", () => {
     expect(screen.queryByText("完成任务 · 归档")).toBeNull();
     expect(screen.queryByText("已归档 · 成长报告已生成")).toBeNull();
   });
+
+  // --- N3c task 9 (spec §8): cross-pane locate — the card asks ("去文章里
+  // 选出这句"), the article answers (Annotate's select mode). StudioContainer
+  // is the cross-pane owner (same rationale as `lateralMaterialId`'s own
+  // lift): `locating` + `locatedSpans` + `spanTrace` are cross-pane state
+  // nothing else could see both halves of. ---------------------------------
+
+  const locateMaterialId = "m-blog-china-greening";
+  const locateMaterial = {
+    id: locateMaterialId,
+    title: "《卫星图看中国变绿》",
+    sourceUrl: "https://x.test/china-greening",
+    kind: "article",
+    origin: "fetched",
+    blocks: [{ id: "b1", text: "过去二十年里发生了一件几乎没人注意到的事。" }],
+    locked: false,
+    role: "",
+    tier: "",
+    takeaway: "",
+    anchors: [],
+    lateralRead: false,
+    isLateralInstrument: false,
+    siftSkipped: false,
+  };
+
+  function locateProjection() {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S4",
+      materials: [locateMaterial],
+    };
+  }
+
+  // L2 anchor (spec §2): author "student" + a non-blank question — the AI
+  // wrote the question, she has to locate the sentence herself.
+  function l2Anchor(id: string, dimension: string, question: string) {
+    return { id, material_id: locateMaterialId, block_id: "", start: 0, end: 0, quote: "", dimension, author: "student" as const, question, answer: "" };
+  }
+
+  it("clicking a card's locate control switches the station to 素材, opens the card's material, and puts the article in select mode naming the dimension", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    // getSnapshot must return a STABLE reference across calls (see this
+    // file's "sends a composer message" test comment) — a fresh literal per
+    // call trips useSyncExternalStore's tearing check.
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+
+    // SourceDossier's own forced-open effect (its `openSourceId` useEffect)
+    // is a PASSIVE effect one tick behind this click's commit, and only
+    // fully settles once THAT re-render itself commits — a single `flush`
+    // isn't a hard guarantee under full-suite CPU contention (this file's
+    // own top-of-file comment on `waitFor`'s wall-clock budget applies here
+    // too). Asserting the WHOLE group inside one `waitFor` retries all three
+    // together — it can never observe "material open but hint bar not yet
+    // rendered" as a terminal state, unlike three separate assertions.
+    await waitFor(() => {
+      // Station switched to 素材 AND the card's own material forced open —
+      // straight into the article, no list view.
+      expect(screen.getByText(locateMaterial.title)).toBeInTheDocument();
+      expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
+      // The hint bar names the exact dimension the card is asking about — no
+      // level name, no badge, no praise (铁律 2).
+      expect(screen.getByText(/在文章里选出你要用来回答「currency」的那句话/)).toBeInTheDocument();
+    });
+  });
+
+  it("selecting text in the article writes the span onto that anchor, clears select mode, and the card shows the located sentence + records it in the submitted envelope", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    let convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const submitCard = vi.fn(async (_env: any) => { convState = { ...convState, card: null }; });
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
+
+    // A real text selection inside the rendered article block, mirroring
+    // Annotate.test.tsx's own script for driving rangeToSpan end to end.
+    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
+    const textNode = blockEl.firstChild!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 9); // "过去二十年里发生了" — 9 runes, all BMP
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    fireEvent.mouseUp(blockEl.parentElement!);
+
+    // Select mode ends the moment the span is created; the card now shows
+    // the located sentence instead of the locate/escape controls. Asserted
+    // together in one `waitFor` for the same reason as the previous test —
+    // it retries the whole group, never just the first half.
+    await waitFor(() => {
+      expect(screen.queryByText(/在文章里选出你要用来回答/)).not.toBeInTheDocument();
+      expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument();
+    });
+
+    // NOTE: `getAllByRole("textbox").at(-1)` (the pattern StudioAnnotateCard's
+    // OWN isolated tests use for the risk-note field) is ambiguous HERE — the
+    // full StudioContainer render also has the coach rail's composer textbox
+    // in the DOM, so the risk note is targeted by its own placeholder instead.
+    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    const filledAnchor = env.anchors.find((a: any) => a.id === "a0");
+    expect(filledAnchor).toMatchObject({ block_id: "b1", start: 0, end: 9, quote: "过去二十年里发生了" });
+    expect(env.event_trace).toContainEqual(
+      expect.objectContaining({ kind: "span_located", dimension: "currency", block_id: "b1" }),
+    );
+  });
+
+  it("clears located spans and the pending trace when a NEW card instance becomes active — must not inherit the previous instance's located spans", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    // Reuses the SAME anchor id ("a0") across ci1 → ci2 deliberately: this is
+    // the exact shape the reset must guard against — `locatedSpans` is keyed
+    // by anchor id, so without the reset ci2's OWN "a0" (which she never
+    // located anything for) would render as already-located, inheriting
+    // ci1's evidence.
+    let convState: any = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const listeners = new Set<() => void>();
+    const emit = () => listeners.forEach((l) => l());
+    const conv = {
+      getSnapshot: () => convState,
+      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard: vi.fn(async () => {}),
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
+
+    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
+    const textNode = blockEl.firstChild!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 9);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    fireEvent.mouseUp(blockEl.parentElement!);
+
+    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
+
+    // A NEW card instance (ci2, the SAME anchor id, a DIFFERENT dimension)
+    // becomes active.
+    act(() => {
+      convState = {
+        ...convState,
+        card: { cardInstanceId: "ci2", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "authority", "这条信息是谁写的？")], materialId: locateMaterialId },
+      };
+      emit();
+    });
+
+    // ci2's own "a0" must render fresh — no inherited located sentence, the
+    // locate/escape controls available again.
+    await waitFor(() => expect(screen.queryByText(/已在文章里定位/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument();
+    expect(screen.getByText("找不到合适的句子")).toBeInTheDocument();
+  });
 });

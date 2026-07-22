@@ -4,6 +4,7 @@ import type { StudioState } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
+import type { CreatedSpan } from "../primitives/annotate";
 import { SourceDossier, anchorToSpan } from "./material/SourceDossier";
 import { AddSourceForm } from "./material/AddSourceForm";
 import { Compare } from "../primitives/compare";
@@ -29,6 +30,16 @@ export type ViewFrameProps = {
   // trip (which never happens while this pane is even visible — see
   // buildCompareState's doc comment).
   lateralMaterialId?: string;
+  // N3c task 9 (spec §8): the student's in-progress "go find this sentence
+  // in the article" request, lifted to StudioContainer for the same reason
+  // `lateralMaterialId` above is — it's visible to BOTH the coach rail
+  // (which sets it via the card's onRequestLocate) and this pane (which
+  // forces the right source open and puts Annotate in select mode). Non-null
+  // only while a locate request targeting THIS card's material is pending;
+  // `null`/absent renders 素材 exactly as before this feature existed.
+  locating?: { anchorId: string; dimension: string; materialId: string } | null;
+  onCreateSpan?: (span: CreatedSpan) => void;
+  onCancelLocate?: () => void;
   material?: {
     onAdd?: (body: AddMaterialBody) => Promise<void>;
     onOpenLogged?: (materialId: string, timeSpentS: number) => void;
@@ -186,7 +197,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -298,6 +309,9 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, mate
             onAddSource={material?.onAdd}
             addSourceError={material?.addError}
             onOpenLogged={material?.onOpenLogged}
+            openSourceId={locating?.materialId ?? null}
+            selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}
+            onCreateSpan={onCreateSpan}
           />
         )
       )}

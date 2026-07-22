@@ -1,9 +1,10 @@
 import { useState } from "react";
-import type { Anchor } from "@mind-imprint/contracts";
+import type { Anchor, TraceEvent } from "@mind-imprint/contracts";
 import { StationRail } from "./StationRail";
 import { ViewFrame } from "./ViewFrame";
 import { CoachRail } from "./CoachRail";
 import type { LiveCard } from "./CoachRail";
+import type { LocatedSpan } from "./StudioAnnotateCard";
 import { MethodologyModal } from "./MethodologyModal";
 import type { StudioCallbacks, StudioState } from "./state";
 
@@ -34,6 +35,17 @@ export type StudioShellProps = {
   // travels alongside `card` for the same reason addSourceError does.
   lateralMaterialId?: string;
   onLateralMaterialChange?: (materialId: string) => void;
+  // N3c task 9 (spec §8): the guidance-ladder locate flow's transient
+  // state — `locating` travels to ViewFrame (which needs it to force the
+  // right source open and put Annotate in select mode); `locatedSpans` +
+  // `pendingTrace` travel to CoachRail (which needs them to hand
+  // StudioAnnotateCard its located spans and the submittable event_trace).
+  // The four ACTIONS that drive them (onRequestLocate/onSpanNotFound/
+  // onCreateSpan/onCancelLocate) live on `callbacks` instead, matching
+  // every other action in this file (onSubmitCard, onAddSource, …).
+  locating?: { anchorId: string; dimension: string; materialId: string } | null;
+  locatedSpans?: Record<string, LocatedSpan>;
+  pendingTrace?: TraceEvent[];
   // A3 Task 9: the 就绪度 view's project terminal — see ViewFrameProps'
   // `review` for why finishing/finishError/onFinish travel here instead of
   // on StudioCallbacks (canFinish/finished are already on `state` itself).
@@ -90,6 +102,9 @@ export function StudioShell({
   addSourceError,
   lateralMaterialId,
   onLateralMaterialChange,
+  locating = null,
+  locatedSpans,
+  pendingTrace,
   review,
   onSubmitOnboarding,
 }: StudioShellProps) {
@@ -183,6 +198,9 @@ export function StudioShell({
           card={card}
           pendingAnchors={pendingAnchors}
           lateralMaterialId={lateralMaterialId}
+          locating={locating}
+          onCreateSpan={callbacks.onCreateSpan}
+          onCancelLocate={callbacks.onCancelLocate}
           material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
@@ -212,6 +230,10 @@ export function StudioShell({
           materials={state.views.material}
           lateralMaterialId={lateralMaterialId}
           onLateralMaterialChange={onLateralMaterialChange}
+          locatedSpans={locatedSpans}
+          onRequestLocate={callbacks.onRequestLocate}
+          onSpanNotFound={callbacks.onSpanNotFound}
+          pendingTrace={pendingTrace}
         />
       </div>
 

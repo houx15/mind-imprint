@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Anchor, AnnotateState, MaterialSource } from "@mind-imprint/contracts";
-import { Annotate } from "../../primitives/annotate";
+import { Annotate, type CreatedSpan } from "../../primitives/annotate";
 import { AddSourceForm } from "./AddSourceForm";
 import { SourceLog } from "./SourceLog";
 import type { AddMaterialBody } from "../../api/materials";
@@ -11,6 +11,19 @@ export type SourceDossierProps = {
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   addSourceError?: string;
+  // N3c task 9 (spec §7.2): 「去文章里选出这句」 needs to force this exact
+  // source open in the center pane, from OUTSIDE this component's own
+  // list→article navigation. Optional and CONTROLLED-when-set: non-null
+  // wins over the local `openId` the moment it changes; absent (the
+  // default), behavior is byte-identical to before this prop existed.
+  openSourceId?: string | null;
+  // Select-mode wiring for the open article (spec §8) — present only while
+  // the container's locate request targets THIS source; gated below against
+  // `openSourceId` so it can never be shown against the wrong article (e.g.
+  // she navigated to a different source herself while a request was still
+  // pending elsewhere).
+  selectMode?: { dimension: string; onCancel: () => void } | null;
+  onCreateSpan?: (span: CreatedSpan) => void;
 };
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -50,7 +63,7 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError }: SourceDossierProps) {
+export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError, openSourceId, selectMode, onCreateSpan }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
@@ -138,7 +151,12 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
     ? { material_id: openSource.id, spans: mergedSpans }
     : null;
 
-  const openSourceView = (source: MaterialSource) => {
+  // Shared by the row click below AND the forced-open effect (task 9) — a
+  // forced open is still an open, and must close out/log elapsed time on
+  // whatever was open before it exactly like a student-initiated one (spec
+  // §7.2), so both paths go through the same instrumentation.
+  const activateSource = (source: MaterialSource) => {
+    reportOpenElapsed();
     setOpenId(source.id);
     setActiveSpanId(null);
     openedAtRef.current = { id: source.id, openedAt: Date.now() };
@@ -149,6 +167,22 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
     setOpenId(null);
     setActiveSpanId(null);
   };
+
+  // N3c task 9 (spec §7.2): 「去文章里选出这句」 forces THIS exact source
+  // open, from outside this component's own navigation — deliberately keyed
+  // only on `openSourceId` (not `sources`/`openId`) so it fires exactly once
+  // per forced-open COMMAND, not on every unrelated re-render; once applied,
+  // her own subsequent navigation (e.g. "返回信源列表") is free to move
+  // `openId` away without this effect fighting it back (mirrors the
+  // activeCardInstanceId reset precedent: a one-shot reaction to a change,
+  // not a permanent controlling value).
+  useEffect(() => {
+    if (openSourceId == null || openSourceId === openId) return;
+    const target = sources.find((s) => s.id === openSourceId);
+    if (!target) return;
+    activateSource(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSourceId]);
 
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
@@ -173,7 +207,7 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
               <button
                 key={source.id}
                 type="button"
-                onClick={() => openSourceView(source)}
+                onClick={() => activateSource(source)}
                 style={{
                   display: "block",
                   textAlign: "left",
@@ -283,6 +317,13 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
                 state={annotateState!}
                 activeSpanId={activeSpanId}
                 onSelectSpan={setActiveSpanId}
+                // Gated on openSourceId === openSource.id (never on selectMode
+                // alone): a locate request must never put THIS pane in
+                // select-mode against the wrong article, e.g. if she
+                // navigated to a different source herself while a request
+                // targeting another one was still pending.
+                selectMode={selectMode && openSourceId === openSource.id ? selectMode : undefined}
+                onCreateSpan={onCreateSpan}
               />
               {!needsLateralRead(openSource) && (
                 <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>

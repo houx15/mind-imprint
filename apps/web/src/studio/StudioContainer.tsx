@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { Anchor, StudioProjection } from "@mind-imprint/contracts";
+import type { Anchor, StudioProjection, TraceEvent } from "@mind-imprint/contracts";
 import { api as defaultApi, ApiError } from "../api";
 import type { ProjectListItem } from "../api/projects";
 import { StudioShell } from "./StudioShell";
 import { Directory } from "./Directory";
 import { createStudioConversation, activeCardToState } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks } from "./state";
+import type { LocatedSpan } from "./StudioAnnotateCard";
 
 // Narrow structural type, widened (Task 9) to the two ingestion/logging
 // calls the 素材 dossier now needs, then (N1 Task 7) to createProject for the
@@ -112,6 +113,26 @@ export function StudioContainer({
   // the ACTIVE card instance changes — not on every conversation snapshot,
   // which would wipe the student's own pick mid-fill.
   const [lateralMaterialId, setLateralMaterialId] = useState<string>("");
+  // N3c task 9 (spec §8): the student's in-progress "go find this sentence
+  // in the article" request from a locate/elicit-mode anchor's 「去文章里选
+  // 出这句」 control — the smallest state location visible to BOTH the coach
+  // rail (which sets it, via the card's onRequestLocate) and the center pane
+  // (which reads it to force the right source open and put Annotate in
+  // select mode), same lifting rationale as `lateralMaterialId` above.
+  const [locating, setLocating] = useState<{ anchorId: string; dimension: string; materialId: string } | null>(null);
+  // The spans she has located herself, keyed by anchor id — handed to
+  // StudioAnnotateCard as `locatedSpans` so its OWN handleLock merges them
+  // onto the matching anchor; this container never reaches into the card's
+  // envelope directly (brief: "the card stays the single builder of its own
+  // submit envelope").
+  const [locatedSpans, setLocatedSpans] = useState<Record<string, LocatedSpan>>({});
+  // The span_located/span_not_found trace accumulated for the CURRENT card
+  // instance (spec §6), threaded into the card as `pendingTrace` so IT still
+  // assembles the final event_trace rather than this container mutating the
+  // envelope after the fact. Only this container can honestly timestamp a
+  // `span_located` event — it happens on the article pane, at selection
+  // time, not whenever the card later gets around to locking.
+  const [spanTrace, setSpanTrace] = useState<TraceEvent[]>([]);
   // Fix-wave bugs [C]/[D]: a refetch that fails after a submit/skip/add
   // already succeeded server-side must not be an unhandled rejection and
   // must not be misreported as that mutation having failed — this is the
@@ -354,11 +375,24 @@ export function StudioContainer({
     const c = convSnapshot.card;
     if (!c) {
       setLateralMaterialId("");
+      setLocating(null);
+      setLocatedSpans({});
+      setSpanTrace([]);
       return;
     }
     const dim = ((c.spec.params ?? {}) as { lateral_dimension?: string }).lateral_dimension ?? "";
     const seeded = dim ? c.anchors.find((a) => a.dimension === dim && a.material_id !== "")?.material_id ?? "" : "";
     setLateralMaterialId(seeded);
+    // N3c task 9: a NEW card instance must not inherit the PREVIOUS one's
+    // in-progress locate request/located spans/pending trace — mirrors the
+    // lateralMaterialId reset above and its own FIX-C precedent (a stale
+    // pick silently bleeding into the next instance). Without this, a fresh
+    // CRAAP card would show anchor A's located sentence attached to a
+    // different anchor, or submit with a stale span_located event from a
+    // card she already locked.
+    setLocating(null);
+    setLocatedSpans({});
+    setSpanTrace([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCardInstanceId]);
 
@@ -420,6 +454,40 @@ export function StudioContainer({
         },
       );
     },
+    // N3c task 9 (spec §8): 「去文章里选出这句」 — switches the station to
+    // 素材 and forces the card's OWN material open (never guessed: read off
+    // the anchor's own material_id, the same "never guess, read the edge"
+    // discipline StudioCompareCard's materialId prop already follows —
+    // whole-branch review finding [5]).
+    onRequestLocate: (anchorId, dimension) => {
+      const materialId = convSnapshot.card?.anchors.find((a) => a.id === anchorId)?.material_id ?? "";
+      setLocating({ anchorId, dimension, materialId });
+      setActiveStation("S3");
+    },
+    // 铁律 4 · 过程即数据: a dimension she looked for and could not find is
+    // DATA, not an error — recorded as its own trace event, never surfaced
+    // as a failure.
+    onSpanNotFound: (anchorId, dimension) => {
+      setSpanTrace((prev) => [...prev, { kind: "span_not_found", dimension, at: new Date().toISOString() }]);
+    },
+    // She released the mouse over a real selection in the article pane —
+    // write it onto the anchor she was locating, record when it happened
+    // (the ONLY honest place to timestamp this — see `spanTrace`'s doc
+    // comment), and clear the pending request so the hint bar disappears.
+    onCreateSpan: (span) => {
+      if (!locating) return;
+      setLocatedSpans((prev) => ({
+        ...prev,
+        [locating.anchorId]: { block_id: span.blockId, start: span.start, end: span.end, quote: span.text },
+      }));
+      setSpanTrace((prev) => [...prev, { kind: "span_located", dimension: locating.dimension, block_id: span.blockId, at: new Date().toISOString() }]);
+      setLocating(null);
+    },
+    // The article pane's own inline "取消" — she's stepping back from THIS
+    // attempt without having decided anything, unlike the card's own 「找不
+    // 到合适的句子」 escape (onSpanNotFound above), which records data. No
+    // trace event: nothing happened yet to record.
+    onCancelLocate: () => setLocating(null),
     onAddSource: async (body) => {
       if (!projectId) return;
       try {
@@ -598,6 +666,9 @@ export function StudioContainer({
         addSourceError={addSourceError}
         lateralMaterialId={lateralMaterialId}
         onLateralMaterialChange={setLateralMaterialId}
+        locating={locating}
+        locatedSpans={locatedSpans}
+        pendingTrace={spanTrace}
         review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection }}
         onSubmitOnboarding={submitOnboarding}
       />

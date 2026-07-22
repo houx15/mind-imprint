@@ -462,4 +462,66 @@ describe("SourceDossier", () => {
     // The rest of the list still renders fine without it.
     expect(screen.getByText(/检索日志/)).toBeInTheDocument();
   });
+
+  // --- N3c task 9 (spec §7.2): `openSourceId` forces the article open ------
+
+  it("opens the given openSourceId directly, with no click, and still logs elapsed time on close like any other open", () => {
+    vi.useFakeTimers();
+    const onOpenLogged = vi.fn();
+    render(<SourceDossier sources={SOURCES} onOpenLogged={onOpenLogged} openSourceId={blogArticle.id} />);
+
+    // Opened straight into the article — no list view at all.
+    expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
+    expect(screen.getByText(blogArticle.title)).toBeInTheDocument();
+
+    vi.advanceTimersByTime(12_000);
+    fireEvent.click(screen.getByText("返回信源列表"));
+
+    expect(onOpenLogged).toHaveBeenCalledWith(blogArticle.id, 12);
+    vi.useRealTimers();
+  });
+
+  it("leaves its own list→article navigation unchanged when openSourceId is absent", () => {
+    render(<SourceDossier sources={SOURCES} />);
+    expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument();
+
+    openSourceByTitle(blogArticle.title);
+    expect(screen.getByText(blogArticle.title)).toBeInTheDocument();
+  });
+
+  it("does not force anything open when openSourceId is explicitly null", () => {
+    render(<SourceDossier sources={SOURCES} openSourceId={null} />);
+    expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument();
+  });
+
+  it("renders select-mode's hint bar over the forced-open source and forwards its cancel", () => {
+    const onCancel = vi.fn();
+    render(
+      <SourceDossier
+        sources={SOURCES}
+        openSourceId={blogArticle.id}
+        selectMode={{ dimension: "权威性", onCancel }}
+        onCreateSpan={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/在文章里选出你要用来回答「权威性」的那句话/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("取消"));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show the select-mode hint bar once she navigates to a DIFFERENT source than the one selectMode targets", () => {
+    render(
+      <SourceDossier
+        sources={SOURCES}
+        openSourceId={blogArticle.id}
+        selectMode={{ dimension: "权威性", onCancel: vi.fn() }}
+        onCreateSpan={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText("返回信源列表"));
+    openSourceByTitle(nasaSummary.title);
+
+    expect(screen.queryByText(/在文章里选出你要用来回答/)).not.toBeInTheDocument();
+  });
 });

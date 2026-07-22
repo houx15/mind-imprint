@@ -79,6 +79,51 @@ describe("rangeToSpan", () => {
     expect(rangeToSpan(range)).toBeNull();
   });
 
+  // Minor (Task 7/8 review): real browsers collapse a triple-click "select
+  // whole paragraph" onto the block ELEMENT itself, not a text node — the
+  // Range's container is the <p data-block-id> and its offsets index
+  // childNodes, not characters. Before this fix, findBlockId(range.
+  // startContainer) still matched (the element itself carries data-block-id),
+  // but the text-node walk below never matched `node === range.startContainer`
+  // (an Element is never one of the walker's Text nodes), so start/end stayed
+  // null and the whole selection silently produced no span.
+  it("resolves a selection whose Range boundary is the block element itself (triple-click 'select whole paragraph')", () => {
+    const { el } = block("b1", ["hello world"]);
+    const range = document.createRange();
+    range.setStart(el, 0);
+    range.setEnd(el, el.childNodes.length);
+
+    expect(rangeToSpan(range)).toEqual({ blockId: "b1", start: 0, end: 11, text: "hello world" });
+  });
+
+  it("resolves an element-boundary selection spanning multiple child runs (mark + plain text)", () => {
+    const { el } = block("b1", [{ mark: "XXXX" }, "def"]);
+    const range = document.createRange();
+    range.setStart(el, 0);
+    range.setEnd(el, el.childNodes.length);
+
+    expect(rangeToSpan(range)).toEqual({ blockId: "b1", start: 0, end: 7, text: "XXXXdef" });
+  });
+
+  it("still returns null for a collapsed selection expressed at the element boundary", () => {
+    const { el } = block("b1", ["hello world"]);
+    const range = document.createRange();
+    range.setStart(el, 0);
+    range.setEnd(el, 0);
+
+    expect(rangeToSpan(range)).toBeNull();
+  });
+
+  it("still returns null for an element-boundary selection spanning two blocks", () => {
+    const { el: el1 } = block("b1", ["hello"]);
+    const { el: el2 } = block("b2", ["world"]);
+    const range = document.createRange();
+    range.setStart(el1, 0);
+    range.setEnd(el2, el2.childNodes.length);
+
+    expect(rangeToSpan(range)).toBeNull();
+  });
+
   it("accumulates offsets across sibling nodes when selection starts inside a <mark> run and continues into a plain run", () => {
     const { nodes } = block("b1", [{ mark: "XXXX" }, "def"]);
     const range = document.createRange();

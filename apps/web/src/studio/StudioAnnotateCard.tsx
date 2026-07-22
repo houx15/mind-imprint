@@ -6,7 +6,7 @@ import { newEnvelope } from "../cards/envelopeReducer";
 // sentence herself (N3c §8 — the container writes this after she selects
 // text in the article pane). Shape mirrors `CreatedSpan` (Task 7) plus
 // `quote`, matching what the anchor itself carries.
-type LocatedSpan = { block_id: string; start: number; end: number; quote: string };
+export type LocatedSpan = { block_id: string; start: number; end: number; quote: string };
 
 export type StudioAnnotateCardProps = {
   spec: CardSpec;
@@ -20,6 +20,18 @@ export type StudioAnnotateCardProps = {
   locatedSpans?: Record<string, LocatedSpan>;
   onRequestLocate?: (anchorId: string, dimension: string) => void;
   onSpanNotFound?: (anchorId: string, dimension: string) => void;
+  // Task 9: the cross-pane container's own accumulated span_located/
+  // span_not_found trace for THIS card instance (StudioContainer's
+  // `spanTrace` state) — the container is the only thing that can honestly
+  // timestamp a `span_located` event (it happens on the article pane, at
+  // selection time, not at lock time), so it is threaded in here rather
+  // than reconstructed. When supplied it IS the submitted event_trace; when
+  // absent (an older/isolated host, same dead-control convention as the
+  // three props above), this renderer falls back to reconstructing
+  // span_not_found from its own local `escapes` state exactly as it did
+  // before this prop existed — never both at once, which would double-
+  // record the same escape.
+  pendingTrace?: TraceEvent[];
 };
 
 const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有什么风险 / 局限？";
@@ -55,6 +67,7 @@ export function StudioAnnotateCard({
   locatedSpans,
   onRequestLocate,
   onSpanNotFound,
+  pendingTrace,
 }: StudioAnnotateCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [riskNote, setRiskNote] = useState("");
@@ -121,6 +134,18 @@ export function StudioAnnotateCard({
     onSpanNotFound?.(anchorId, dimension);
   }
 
+  // Minor (Task 7/8 review): before this, taking the escape was permanent —
+  // an accidental click on "找不到合适的句子" left that dimension's locate
+  // controls gone for good, with no way back to "去文章里选出这句". Undoing
+  // just clears the local flag; it does NOT retract the `span_not_found`
+  // already reported to onSpanNotFound (铁律 4 — that look-and-couldn't-find
+  // moment already happened and stays recorded as data) nor touch any
+  // `locatedSpans` entry (there is never one for an anchor that took this
+  // path — see the located/escaped branch order below).
+  function handleUndoNotFound(anchorId: string) {
+    setEscapes((prev) => ({ ...prev, [anchorId]: false }));
+  }
+
   function handleLock() {
     const filled: Anchor[] = anchors.map((a) => {
       const mode = anchorMode(a);
@@ -148,12 +173,14 @@ export function StudioAnnotateCard({
 
     // 铁律 4 · 过程即数据: a dimension she looked for and could not find is
     // DATA, not an error. Record `span_not_found` for every escape she took
-    // that never got superseded by an actual located span.
+    // that never got superseded by an actual located span. Fallback only —
+    // see `pendingTrace`'s doc comment above for why the container's fuller
+    // trace (which also carries `span_located`) wins when supplied.
     const notFoundEvents: TraceEvent[] = nonAnswerAnchors
       .filter((a) => escapes[a.id] && !locatedSpans?.[a.id])
       .map((a) => ({ kind: "span_not_found", dimension: a.dimension, at: new Date().toISOString() }));
 
-    const env: CardInstance = { ...newEnvelope(spec.id, ""), anchors: filled, event_trace: notFoundEvents };
+    const env: CardInstance = { ...newEnvelope(spec.id, ""), anchors: filled, event_trace: pendingTrace ?? notFoundEvents };
     onSubmit(env);
   }
 
@@ -279,8 +306,27 @@ export function StudioAnnotateCard({
                       已在文章里定位：「{located.quote}」
                     </div>
                   ) : escaped ? (
-                    <div style={{ fontSize: 11.5, color: "#9AA1B0" }}>
-                      已记录：这条没能在文章里找到合适的句子。
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontSize: 11.5, color: "#9AA1B0" }}>
+                        已记录：这条没能在文章里找到合适的句子。
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUndoNotFound(a.id)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#5C4A8A",
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: 0,
+                          textDecoration: "underline",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        重新找一下
+                      </button>
                     </div>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

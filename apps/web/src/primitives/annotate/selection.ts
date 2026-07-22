@@ -27,6 +27,52 @@ function findBlockId(node: Node | null): { blockId: string; blockEl: Element } |
 }
 
 /**
+ * A `Range` boundary's `container`/`offset` are only text-node offsets when
+ * `container` IS a text node. When the browser collapses a selection onto an
+ * ELEMENT instead (real browsers do this for a triple-click "select whole
+ * paragraph" — e.g. `container` = the `<p data-block-id>` itself, `offset` =
+ * a child-node index), the offset indexes `childNodes`, not characters.
+ * Resolves either shape down to a concrete `(Text, charOffset)` pair:
+ *   - `offset < childNodes.length` → descend into that child, land on its
+ *     FIRST text node at offset 0 (the boundary is "just before" it).
+ *   - `offset === childNodes.length` ("after the last child") → land on the
+ *     LAST text node inside the last child, at its end.
+ * Returns null (a no-op, never a guess) when no text node can be found —
+ * e.g. an empty element — so this never fabricates a boundary.
+ */
+// TreeWalker.nextNode() never yields its OWN root (only descendants) — so a
+// child that is ITSELF a leaf Text node (no wrapping <span>, e.g. a block
+// with exactly one un-highlighted run appended directly) must be special-
+// cased rather than handed to a TreeWalker, which would find nothing to
+// descend into and wrongly report "no text here".
+function firstTextNodeWithin(node: Node): Text | null {
+  if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  return document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode() as Text | null;
+}
+
+function lastTextNodeWithin(node: Node): Text | null {
+  if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  let last: Text | null = null;
+  let n: Text | null;
+  while ((n = walker.nextNode() as Text | null)) last = n;
+  return last;
+}
+
+function resolveTextBoundary(container: Node, offset: number): { node: Text; offset: number } | null {
+  if (container.nodeType === Node.TEXT_NODE) return { node: container as Text, offset };
+
+  const children = container.childNodes;
+  if (offset < children.length) {
+    const first = firstTextNodeWithin(children[offset]!);
+    return first ? { node: first, offset: 0 } : null;
+  }
+  if (children.length === 0) return null;
+  const last = lastTextNodeWithin(children[children.length - 1]!);
+  return last ? { node: last, offset: last.data.length } : null;
+}
+
+/**
  * Pure over a `Range` — no dependency on `window.getSelection()` — so it is
  * directly testable with jsdom-constructed ranges. `selectionToSpan` below is
  * the thin wrapper that reads the live selection.
@@ -34,8 +80,12 @@ function findBlockId(node: Node | null): { blockId: string; blockEl: Element } |
 export function rangeToSpan(range: Range): CreatedSpan | null {
   if (range.collapsed) return null;
 
-  const startBlock = findBlockId(range.startContainer);
-  const endBlock = findBlockId(range.endContainer);
+  const startBoundary = resolveTextBoundary(range.startContainer, range.startOffset);
+  const endBoundary = resolveTextBoundary(range.endContainer, range.endOffset);
+  if (!startBoundary || !endBoundary) return null;
+
+  const startBlock = findBlockId(startBoundary.node);
+  const endBlock = findBlockId(endBoundary.node);
   if (!startBlock || !endBlock || startBlock.blockId !== endBlock.blockId) return null;
 
   // Walk the block's descendant text nodes in document order, accumulating
@@ -50,11 +100,11 @@ export function rangeToSpan(range: Range): CreatedSpan | null {
   let node: Node | null;
   while ((node = walker.nextNode())) {
     const data = (node as Text).data;
-    if (node === range.startContainer) {
-      start = acc + runeLen(data.slice(0, range.startOffset));
+    if (node === startBoundary.node) {
+      start = acc + runeLen(data.slice(0, startBoundary.offset));
     }
-    if (node === range.endContainer) {
-      end = acc + runeLen(data.slice(0, range.endOffset));
+    if (node === endBoundary.node) {
+      end = acc + runeLen(data.slice(0, endBoundary.offset));
     }
     fullText += data;
     acc += runeLen(data);

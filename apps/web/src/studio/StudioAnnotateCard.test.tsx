@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import type { Anchor } from "@mind-imprint/contracts";
+import type { Anchor, TraceEvent } from "@mind-imprint/contracts";
 import { StudioAnnotateCard, anchorMode } from "./StudioAnnotateCard";
 
 const anchors = [
@@ -249,6 +249,70 @@ test("submitted envelope merges the located span, keeps the typed question, and 
   expect(env.event_trace).toContainEqual(expect.objectContaining({ kind: "span_not_found", dimension: "authority" }));
   expect(env.event_trace).toContainEqual(expect.objectContaining({ kind: "span_not_found", dimension: "tone" }));
   expect(env.event_trace.some((e: any) => e.kind === "span_not_found" && e.dimension === "currency")).toBe(false);
+});
+
+// Missing test named by the Task 8 review: `.trim()` already guards
+// `allQuestionsWritten`, but nothing pinned it — a whitespace-only "question"
+// must not count as written any more than an empty one does.
+test("a whitespace-only typed question at the elicit level keeps the lock disabled", () => {
+  const l3 = [makeAnchor({ id: "h0", author: "student", question: "" })];
+  render(
+    <StudioAnnotateCard spec={spec} anchors={l3} onSubmit={vi.fn()} onSkip={vi.fn()} onRequestLocate={vi.fn()} onSpanNotFound={vi.fn()} />,
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "答案" } });
+  fireEvent.change(screen.getAllByRole("textbox").at(-1)!, { target: { value: "风险说明" } });
+  fireEvent.change(screen.getByPlaceholderText(/写下你想问的问题/), { target: { value: "   " } });
+
+  expect(screen.getByRole("button", { name: /锁定|评估完成|完成/ })).toBeDisabled();
+});
+
+// Minor (Task 7/8 review): taking the "找不到合适的句子" escape used to be
+// permanent — an accidental click left no way back to the locate controls
+// for that dimension. The escape must ALWAYS be able to unblock the lock
+// (铁律 2), but an unrecoverable accidental click is itself a small wall.
+test("the not-found escape can be undone, restoring the locate/escape controls", () => {
+  const l2 = [makeAnchor({ id: "i0", author: "student", question: "这条信息是什么时候发布的？" })];
+  render(
+    <StudioAnnotateCard spec={spec} anchors={l2} onSubmit={vi.fn()} onSkip={vi.fn()} onRequestLocate={vi.fn()} onSpanNotFound={vi.fn()} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+  expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "重新找一下" }));
+  expect(screen.queryByText(/已记录：这条没能在文章里找到合适的句子/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument();
+});
+
+// N3c task 9: `pendingTrace` (the container's own accumulated span_located/
+// span_not_found trace for this instance) becomes the submitted event_trace
+// verbatim when supplied — the container is the only thing that can
+// honestly timestamp a span_located event (it happens on the article pane,
+// not at lock time), so this renderer must not try to reconstruct it.
+test("uses the container's pendingTrace as the submitted event_trace when supplied, instead of reconstructing locally", () => {
+  const onSubmit = vi.fn();
+  const anchor = makeAnchor({ id: "j0", dimension: "currency", author: "student", question: "这条信息是什么时候发布的？" });
+  const pendingTrace: TraceEvent[] = [
+    { kind: "span_located", dimension: "currency", block_id: "b3", at: "2026-07-22T00:00:00Z" },
+  ];
+  render(
+    <StudioAnnotateCard
+      spec={spec}
+      anchors={[anchor]}
+      onSubmit={onSubmit}
+      onSkip={vi.fn()}
+      onRequestLocate={vi.fn()}
+      onSpanNotFound={vi.fn()}
+      locatedSpans={{ j0: { block_id: "b3", start: 0, end: 5, quote: "过去二十年" } }}
+      pendingTrace={pendingTrace}
+    />,
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019" } });
+  fireEvent.change(screen.getAllByRole("textbox").at(-1)!, { target: { value: "风险" } });
+  fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+
+  const env = onSubmit.mock.calls[0][0];
+  expect(env.event_trace).toEqual(pendingTrace);
 });
 
 // DEAD-CONTROL RULE: an older host that cannot switch panes has no

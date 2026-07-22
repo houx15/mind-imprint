@@ -6,6 +6,7 @@ import type {
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
+import type { CreatedSpan } from "../primitives/annotate";
 
 export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx };
 
@@ -78,4 +79,13 @@ export type StudioCallbacks = {
   onOrderReview?: (snapshotId: string, voice: ReviewVoice) => void;
   onReviewDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
   onAttestCitations?: (confirmed: boolean) => void;
+  // N3c task 9 (spec §8): the guidance-ladder locate flow — 「去文章里选出这
+  // 句」 (coach rail) sets the pending locate request; the article pane
+  // (center) reports back either a created span or a "couldn't find it"
+  // escape. Optional for the same reason as the rest of this group —
+  // standalone/story usages of StudioShell never need them.
+  onRequestLocate?: (anchorId: string, dimension: string) => void;
+  onSpanNotFound?: (anchorId: string, dimension: string) => void;
+  onCreateSpan?: (span: CreatedSpan) => void;
+  onCancelLocate?: () => void;
 };
