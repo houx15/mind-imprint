@@ -84,7 +84,9 @@ export function FramingView({ data, onSubmit }: FramingViewProps) {
   const [searchPlan, setSearchPlan] = useState<string[]>([...data.searchPlan]);
   const [submitting, setSubmitting] = useState(false);
 
-  const doneN = terms.filter((t) => [...t.definition.trim()].length >= 15).length;
+  // Minor 2 (whole-branch review): the gate only ever asks for 3 — cap the
+  // numerator so five good definitions render "已定义 3/3", not "5/3".
+  const doneN = Math.min(3, terms.filter((t) => [...t.definition.trim()].length >= 15).length);
 
   // 铁律 2 (不操纵): the save button is never disabled for incompleteness —
   // only while a submit is actually in flight. A half-finished S1 saves fine.

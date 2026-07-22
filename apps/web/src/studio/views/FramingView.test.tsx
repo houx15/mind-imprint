@@ -70,6 +70,23 @@ describe("FramingView (S1 立题)", () => {
     expect(screen.getByText("本环节门禁 · 已定义 2/3")).toBeInTheDocument();
   });
 
+  // Minor 2 (whole-branch review): the gate only ever asks for 3 — five good
+  // definitions must still cap the numerator at 3, not overshoot to 5/3.
+  it("caps the gate count numerator at 3 even with more than 3 good definitions", () => {
+    const long = "这是一句足够长、可以被判定为可检验的定义内容超过十五个字";
+    const data = makeData({
+      terms: [
+        { term: "a", definition: long },
+        { term: "b", definition: long },
+        { term: "c", definition: long },
+        { term: "d", definition: long },
+        { term: "e", definition: long },
+      ],
+    });
+    render(<FramingView data={data} />);
+    expect(screen.getByText("本环节门禁 · 已定义 3/3")).toBeInTheDocument();
+  });
+
   // I4 (whole-branch review IMPORTANT): the server silently drops any term
   // row whose trimmed `term` is blank. Before this fix, that row stayed on
   // screen with her definition and its quality chip, looking saved, with no
