@@ -37,7 +37,13 @@ function CheckIcon({ color }: { color: string }) {
 // dossier view), so a getByText(/信源档案/) anywhere on that screen would
 // otherwise ambiguously match both.
 const NOT_POSSIBLE_YET_COPY: Record<string, string> = {
-  "信源体检": "先添加一篇信源、评估过之后，再来体检。",
+  // Says only what actually gates the button. sourceSpotCheckTargets
+  // (apps/api/internal/studio/spotcheck.go) makes ANY kind:"article" material a
+  // target — "an unevaluated article is still a target", because 体检 covers
+  // what she has done AND has not done. Naming evaluation as a precondition
+  // here would teach a wrong model of the system: the button unlocks the moment
+  // a source exists.
+  "信源体检": "先添加一篇信源，再来体检。",
   "论证体检": "先在上面写下至少一个论证位置，再来体检。",
 };
 

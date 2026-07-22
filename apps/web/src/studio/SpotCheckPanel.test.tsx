@@ -100,7 +100,10 @@ describe("SpotCheckPanel", () => {
   it("shows a neutral note explaining what has to exist first when orderable is false and no batch has ever existed (S3 copy)", () => {
     render(<SpotCheckPanel title="信源体检" data={empty} onOrder={() => {}} pending={false} />);
     expect(screen.getByRole("button", { name: /信源体检/ })).toBeDisabled();
-    expect(screen.getByText(/先添加一篇信源、评估过之后，再来体检/)).toBeInTheDocument();
+    // Names only what actually gates orderable — adding a source, NOT
+    // evaluating it (see the comment on NOT_POSSIBLE_YET_COPY).
+    expect(screen.getByText(/先添加一篇信源，再来体检/)).toBeInTheDocument();
+    expect(screen.queryByText(/评估过之后/)).not.toBeInTheDocument();
   });
 
   it("shows the S4-specific copy for the same not-possible-yet note", () => {
