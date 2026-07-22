@@ -99,8 +99,10 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
 
   // Card-minted rows are real perspectives too (they count toward the
   // station's gate) — so they count here as well, not just her own
-  // hand-written rows.
-  const perspectiveCount = rows.length;
+  // hand-written rows. Minor 4 (whole-branch review): a blank row (nothing
+  // typed yet) is not a perspective — counting it let two empty rows unlock
+  // the sources-per-perspective confirm with nothing behind it.
+  const perspectiveCount = rows.filter((r) => r.text.trim() !== "").length;
   // The one explicit attestation in the slice can only be used once there is
   // something real to attest to — 2 perspectives and at least 1 source.
   // Disabled WITH the reason visible (never hidden): an offer is never a wall.
@@ -115,7 +117,11 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, level } : r)));
   }
   function addRow() {
-    setRows((prev) => [...prev, { text: "", level: "national", editable: true }]);
+    // Minor 3 (whole-branch review): match the binding design's own addPersp
+    // (dc.html:1891), which defaults to global_for, not national. This isn't
+    // just style — a row she never levelled would otherwise persist as 国家
+    // 视角, a claim she never made, and it would feed the coverage chip.
+    setRows((prev) => [...prev, { text: "", level: "global_for", editable: true }]);
   }
   function removeRow(i: number) {
     setRows((prev) => prev.filter((_, idx) => idx !== i));
