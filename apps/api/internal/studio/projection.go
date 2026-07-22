@@ -162,9 +162,25 @@ func anchorLabel(raw []byte) string {
 	return b.Label
 }
 
-// projectCoach builds the coach rail: anchor (latest intervention's, else the
-// current station title) + the time-ordered thread merging the intervention
-// thread (flag/ai) with the student's own chat_messages (5c: "both sides").
+// isWorkOrderIntervention reports whether iv.Type is a work-order row
+// (review_item / spot_check_item) rather than a conversational one. A
+// work-order row's Body is marshalled ReviewItem/SpotCheckItem JSON, not
+// prose, and its Anchor carries {"kind","id","voice"} or
+// {"station","fingerprint"} — fields anchorLabel does not read (it reads
+// "label"). This predicate is used BOTH by the message-thread loop (so a raw
+// JSON blob never renders as a chat bubble) AND by the anchor pick below (so
+// the newest work-order row can never silently collapse the coach rail's
+// anchor line to "") — hoisted into one name so the two can never disagree
+// (whole-branch review finding on N3f Task 4/5: the anchor pick used to read
+// d.Interventions[n-1] unconditionally).
+func isWorkOrderIntervention(t string) bool {
+	return t == "review_item" || t == "spot_check_item"
+}
+
+// projectCoach builds the coach rail: anchor (the latest NON-work-order
+// intervention's, else the current station title) + the time-ordered thread
+// merging the intervention thread (flag/ai) with the student's own
+// chat_messages (5c: "both sides").
 func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	type stamped struct {
 		at  time.Time
@@ -174,11 +190,8 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	for _, iv := range d.Interventions {
 		// review_item / spot_check_item interventions are work-order rows with
 		// their own panels (the 整稿体检 work order / the station 体检 panel) —
-		// their Body is marshalled ReviewItem/SpotCheckItem JSON, not prose, so
-		// letting them fall through to the generic "ai" branch below would
-		// render a raw JSON blob in the 陪练 conversation. Do not re-add them
-		// here; give them their own DTO/panel instead.
-		if iv.Type == "review_item" || iv.Type == "spot_check_item" {
+		// give them their own DTO/panel instead; do not re-add them here.
+		if isWorkOrderIntervention(iv.Type) {
 			continue
 		}
 		label := anchorLabel(iv.Anchor)
@@ -205,8 +218,15 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	for i, st := range all {
 		c.Messages[i] = st.msg
 	}
-	if n := len(d.Interventions); n > 0 {
-		c.Anchor = anchorLabel(d.Interventions[n-1].Anchor)
+	// Walk back to the last NON-work-order intervention for the anchor pick —
+	// the same predicate the message loop above already applies, so the two
+	// can never disagree about which row is "the latest real one".
+	for i := len(d.Interventions) - 1; i >= 0; i-- {
+		if isWorkOrderIntervention(d.Interventions[i].Type) {
+			continue
+		}
+		c.Anchor = anchorLabel(d.Interventions[i].Anchor)
+		break
 	}
 	if c.Anchor == "" {
 		c.Anchor = currentTitle
@@ -441,6 +461,7 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		SelfScore:     projectSelfScore(sk, d),
 		Reflection:    projectReflection(d),
 		Prediction:    projectPrediction(sk, d),
+		SpotChecks:    projectSpotChecks(d, specByID),
 		Finished:      finished,
 		CanFinish:     canFinish,
 	}, nil
@@ -683,6 +704,111 @@ func reviewItemDTOFromIntervention(iv sqlc.Intervention) (WritingReviewItemDTO, 
 		Missing:        it.Missing,
 		Fix:            it.Fix,
 	}, true
+}
+
+// spotCheckAnchor is the {station,fingerprint} anchor Task 4's orderSpotCheck
+// writes (api/spotcheck.go) on every spot_check_item intervention it inserts.
+type spotCheckAnchor struct {
+	Station     string `json:"station"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// spotCheckItemDTOFromIntervention reconstructs a SpotCheckItemDTO from a
+// spot_check_item intervention row. iv.Body is the full agent.SpotCheckItem
+// JSON (api/spotcheck.go's InsertSpotCheckIntervention) — one json.Unmarshal,
+// never string-splitting, exactly reviewItemDTOFromIntervention's pattern.
+func spotCheckItemDTOFromIntervention(iv sqlc.Intervention) (SpotCheckItemDTO, bool) {
+	var it agent.SpotCheckItem
+	if err := json.Unmarshal([]byte(iv.Body), &it); err != nil {
+		return SpotCheckItemDTO{}, false
+	}
+	return SpotCheckItemDTO{
+		InterventionID: iv.ID.String(),
+		TargetID:       it.TargetID,
+		TargetName:     it.TargetName,
+		Evidence:       it.Evidence,
+		Missing:        it.Missing,
+		Fix:            it.Fix,
+	}, true
+}
+
+// projectSpotCheckFx projects one station's spot-check panel: the latest
+// ordered batch's items (joined with dispositions) plus whether ordering is
+// currently possible.
+//
+// "Latest batch" = every spot_check_item intervention anchored to this
+// station whose fingerprint equals the fingerprint of the newest such row
+// (by CreatedAt). orderSpotCheck inserts a whole batch in one call, so every
+// row in a batch shares one fingerprint; an OLDER batch's rows (left over
+// from before the student changed something and re-ordered) describe
+// evidence that no longer matches the current target list, so they are
+// superseded rather than shown.
+//
+// orderable is computed server-side by comparing that batch's fingerprint
+// against agent.SpotCheckFingerprint(SpotCheckTargets(...)) — the SAME
+// builder api/spotcheck.go's orderSpotCheck itself calls (spec §5.7) — so
+// this can never disagree with what pressing the button would actually do.
+// A station with NO targets at all is not orderable (there is nothing to
+// check), even though the "no targets" fingerprint trivially differs from
+// any stored one.
+func projectSpotCheckFx(d ProjectData, station string, specByID func(string) (cards.Spec, bool)) SpotCheckFxDTO {
+	dispByIv := map[string]sqlc.Disposition{}
+	for _, dp := range d.Dispositions {
+		dispByIv[dp.InterventionID.String()] = dp // last write wins (ORDER BY created_at)
+	}
+
+	type row struct {
+		at          time.Time
+		fingerprint string
+		item        SpotCheckItemDTO
+	}
+	var rows []row
+	var latestFP string
+	var latestAt time.Time
+	haveLatest := false
+	for _, iv := range d.Interventions {
+		if iv.Type != "spot_check_item" {
+			continue
+		}
+		var a spotCheckAnchor
+		if err := json.Unmarshal(iv.Anchor, &a); err != nil || a.Station != station {
+			continue
+		}
+		item, ok := spotCheckItemDTOFromIntervention(iv)
+		if !ok {
+			continue
+		}
+		if dp, ok := dispByIv[iv.ID.String()]; ok {
+			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
+		}
+		rows = append(rows, row{at: iv.CreatedAt, fingerprint: a.Fingerprint, item: item})
+		if !haveLatest || iv.CreatedAt.After(latestAt) {
+			latestAt, latestFP, haveLatest = iv.CreatedAt, a.Fingerprint, true
+		}
+	}
+
+	items := make([]SpotCheckItemDTO, 0, len(rows))
+	for _, rw := range rows {
+		if rw.fingerprint == latestFP {
+			items = append(items, rw.item)
+		}
+	}
+
+	targets := SpotCheckTargets(d, station, specByID)
+	orderable := false
+	if len(targets) > 0 {
+		orderable = !haveLatest || agent.SpotCheckFingerprint(targets) != latestFP
+	}
+	return SpotCheckFxDTO{Items: items, Orderable: orderable}
+}
+
+// projectSpotChecks projects the S3/S4 station spot-check panels (信源体检 /
+// 论证体检) for StudioProjection's flat, required spotChecks member.
+func projectSpotChecks(d ProjectData, specByID func(string) (cards.Spec, bool)) SpotChecksDTO {
+	return SpotChecksDTO{
+		EvaluateSources: projectSpotCheckFx(d, agent.SpotCheckSources, specByID),
+		BuildArgument:   projectSpotCheckFx(d, agent.SpotCheckArgument, specByID),
+	}
 }
 
 // projectStructure projects the five Toulmin argument slots into 论证构建 role

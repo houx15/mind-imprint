@@ -205,6 +205,16 @@ export const WritingSnapshot = z.object({
 });
 export type WritingSnapshot = z.infer<typeof WritingSnapshot>;
 
+// Disposition is the three-key student verdict (accept/reject/rewrite + a
+// reason) recorded on ANY work-order row — shared verbatim by
+// WritingReviewItem (整稿体检) and SpotCheckItem (S3/S4 station 体检) rather
+// than each defining a parallel copy.
+export const Disposition = z.object({
+  action: z.enum(["accept", "reject", "rewrite"]),
+  reason: z.string(),
+});
+export type Disposition = z.infer<typeof Disposition>;
+
 export const WritingReviewItem = z.object({
   interventionId: z.string(),
   criterion: z.string(),
@@ -213,9 +223,7 @@ export const WritingReviewItem = z.object({
   missing: z.string(),
   fix: z.string(),
   voice: z.enum(["board", "sceptic", "layperson", "executioner"]),
-  disposition: z
-    .object({ action: z.enum(["accept", "reject", "rewrite"]), reason: z.string() })
-    .nullable(),
+  disposition: Disposition.nullable(),
 });
 export type WritingReviewItem = z.infer<typeof WritingReviewItem>;
 
@@ -260,6 +268,31 @@ export type PredictionFx = z.infer<typeof PredictionFx>;
 export const ReflectionFx = z.object({ text: z.string(), prompts: z.array(z.string()) });
 export type ReflectionFx = z.infer<typeof ReflectionFx>;
 
+// N3f: one work-order row from a station spot-check (S3 信源体检 /
+// S4 论证体检). Mirrors WritingReviewItem's shape minus the band chip (a
+// spot-check has no band — see agent.SpotCheckItem's own comment) and reuses
+// the same Disposition rather than a parallel type.
+export const SpotCheckItem = z.object({
+  interventionId: z.string(),
+  targetId: z.string(),
+  targetName: z.string(),
+  evidence: z.string(),
+  missing: z.string(),
+  fix: z.string(),
+  disposition: Disposition.nullable(),
+});
+export type SpotCheckItem = z.infer<typeof SpotCheckItem>;
+
+// SpotCheckFx is one station's spot-check panel: its current work order plus
+// whether ordering is CURRENTLY possible. orderable is computed server-side
+// (studio.projectSpotChecks) — the button's enabled state must never be a
+// client guess about whether pressing it would cost money.
+export const SpotCheckFx = z.object({
+  items: z.array(SpotCheckItem),
+  orderable: z.boolean(),
+});
+export type SpotCheckFx = z.infer<typeof SpotCheckFx>;
+
 export const StudioProjection = z.object({
   project: z.object({ title: z.string(), qualLabel: z.string() }),
   stations: z.array(Station),
@@ -280,6 +313,13 @@ export const StudioProjection = z.object({
   selfScore: SelfScoreFx,
   prediction: PredictionFx,
   reflection: ReflectionFx,
+  // N3f: the S3/S4 station spot-check panels, keyed by station — a flat,
+  // required top-level member (mirrors how N3d added framing/perspectives),
+  // since materials/structure are arrays and cannot host a keyed member.
+  spotChecks: z.object({
+    evaluateSources: SpotCheckFx,
+    buildArgument: SpotCheckFx,
+  }),
   finished: z.boolean(),
   canFinish: z.boolean(),
 });

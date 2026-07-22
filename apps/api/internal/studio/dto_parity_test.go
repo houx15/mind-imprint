@@ -52,6 +52,16 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 			}}},
 		},
 		Readiness: []GaugeDTO{{Code: "表D", Name: "来源与证据", Lit: 3, Total: 4, Note: "n", Level: "partial"}},
+		SpotChecks: SpotChecksDTO{
+			EvaluateSources: SpotCheckFxDTO{
+				Items: []SpotCheckItemDTO{{
+					InterventionID: "sc1", TargetID: "m1", TargetName: "t", Evidence: "e", Missing: "m", Fix: "f",
+					Disposition: &DispositionDTO{Action: "accept", Reason: "r"},
+				}},
+				Orderable: false,
+			},
+			BuildArgument: SpotCheckFxDTO{Items: []SpotCheckItemDTO{}, Orderable: true},
+		},
 		Finished:  false,
 		CanFinish: false,
 	}
@@ -60,7 +70,7 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "framing", "materials", "onboarding", "perspectives", "prediction", "project", "readiness", "reflection", "selfScore", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "framing", "materials", "onboarding", "perspectives", "prediction", "project", "readiness", "reflection", "selfScore", "spotChecks", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -239,6 +249,36 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	}
 	// disposition: {action,reason}
 	assertKeys(t, reviewItem["disposition"], []string{"action", "reason"})
+
+	// spotChecks: {evaluateSources,buildArgument} — must match
+	// packages/contracts/src/studioState.ts StudioProjection's spotChecks
+	// member exactly.
+	assertKeys(t, m["spotChecks"], []string{"buildArgument", "evaluateSources"})
+
+	var spotChecks map[string]json.RawMessage
+	if err := json.Unmarshal(m["spotChecks"], &spotChecks); err != nil {
+		t.Fatal(err)
+	}
+	// evaluateSources / buildArgument: {items,orderable} — must match
+	// packages/contracts/src/studioState.ts SpotCheckFx exactly.
+	assertKeys(t, spotChecks["evaluateSources"], []string{"items", "orderable"})
+	assertKeys(t, spotChecks["buildArgument"], []string{"items", "orderable"})
+
+	var evaluateSources map[string]json.RawMessage
+	if err := json.Unmarshal(spotChecks["evaluateSources"], &evaluateSources); err != nil {
+		t.Fatal(err)
+	}
+	var spotCheckItems []json.RawMessage
+	if err := json.Unmarshal(evaluateSources["items"], &spotCheckItems); err != nil {
+		t.Fatal(err)
+	}
+	if len(spotCheckItems) != 1 {
+		t.Fatalf("spotChecks.evaluateSources.items len = %d, want 1", len(spotCheckItems))
+	}
+	// spot-check item: {interventionId,targetId,targetName,evidence,missing,
+	// fix,disposition} — must match packages/contracts/src/studioState.ts
+	// SpotCheckItem exactly.
+	assertKeys(t, spotCheckItems[0], []string{"disposition", "evidence", "fix", "interventionId", "missing", "targetId", "targetName"})
 }
 
 // TestStudioProjectionActiveCardNil asserts the "no open card" case marshals

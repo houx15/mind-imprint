@@ -57,6 +57,12 @@ type StudioProjection struct {
 	// weakest at S0 vs. the criteria the board review actually found weak. See
 	// projectPrediction (projection.go).
 	Prediction PredictionDTO `json:"prediction"`
+	// SpotChecks projects the S3/S4 station spot-check panels (信源体检 /
+	// 论证体检), keyed by station — a flat, required top-level member (the
+	// same move N3d used for Framing/Perspectives), since Materials/Structure
+	// are arrays and cannot host a keyed member. See projectSpotChecks
+	// (projection.go).
+	SpotChecks SpotChecksDTO `json:"spotChecks"`
 	// Finished is true once the project's terminal has run (project.status ==
 	// "finished"). CanFinish is true when the S5 整稿体检 gate item
 	// whole_draft_review is "solid" AND the project is not already finished —
@@ -368,6 +374,42 @@ type PredictionDTO struct {
 	Actual    []PredCritDTO `json:"actual"`
 	Overlap   int           `json:"overlap"`
 	Revealed  bool          `json:"revealed"`
+}
+
+// SpotCheckItemDTO is one station spot-check work-order row: which target,
+// the evidence/missing/fix the model produced, and the student's own
+// disposition of it once recorded (nil until then — never invented). Exactly
+// the relationship WritingReviewItemDTO has with agent.ReviewItem:
+// agent.SpotCheckItem (marshalled into the intervention body) plus
+// InterventionID (from the row) and Disposition (from d.Dispositions) —
+// agent.SpotCheckItem itself gains neither field. No band: see
+// agent.SpotCheckItem's own comment on why a spot-check carries no verdict.
+type SpotCheckItemDTO struct {
+	InterventionID string          `json:"interventionId"`
+	TargetID       string          `json:"targetId"`
+	TargetName     string          `json:"targetName"`
+	Evidence       string          `json:"evidence"`
+	Missing        string          `json:"missing"`
+	Fix            string          `json:"fix"`
+	Disposition    *DispositionDTO `json:"disposition"`
+}
+
+// SpotCheckFxDTO is one station's spot-check panel: its current work order
+// (the latest ordered batch's items) plus whether ordering is CURRENTLY
+// possible. Orderable is computed server-side (projectSpotChecks,
+// projection.go) — the button's enabled state must never be a client guess
+// about whether pressing it would cost money.
+type SpotCheckFxDTO struct {
+	Items     []SpotCheckItemDTO `json:"items"`
+	Orderable bool               `json:"orderable"`
+}
+
+// SpotChecksDTO carries both stations that have a spot-check
+// (agent.SpotCheckSources "evaluate_sources" / agent.SpotCheckArgument
+// "build_argument") as StudioProjection's flat, required spotChecks member.
+type SpotChecksDTO struct {
+	EvaluateSources SpotCheckFxDTO `json:"evaluateSources"`
+	BuildArgument   SpotCheckFxDTO `json:"buildArgument"`
 }
 
 // GaugeDTO is one 0457 mark-scheme table on the 就绪度 readiness display: the
