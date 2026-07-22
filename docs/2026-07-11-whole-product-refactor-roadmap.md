@@ -84,7 +84,9 @@ started · ◐ in progress · ☑ done.
 | **3** | **Card format proven: CRAAP (over annotate)** | CRAAP as pure C2 config over the `annotate` primitive — completion, `graph_effects` (mints evidence), observe rules, consolidation, three-key disposition. Acceptance: the card touches zero interface code. **Toulmin** (over `graph`) is proven in Slice 7 when the graph primitive lands. | 2 | ☑ |
 | **4** | **Skill format + gate engine + planner + intake** | C5 skill loading; the **writing-project skill** (0457/9239) as contract DAG; gate engine (machine/student/human items, DEC-3 machine-never-`solid`, I4 gates); **planner** (plan/replan/advance) + **intake** (arrive-mid-way → owe every gate). S0–S6 live here as the skill's contracts. | 3 | ☑ |
 | **5** | **Studio shell + four-view frame + contract map + coach rail** | Two-tab shell (Chat ∣ Project Space→Writing Studio), first-entry recognition moment, the S0–S6 contract map with gate progress, the 结构/素材/写作/评估 frame + free view-switching, the coach rail + 装备栏 UI. Wires runtime + primitives into the real design. **Split 5a (chrome, fixture-backed) / 5b (read-path live wiring) / 5c (conversational loop) / 5c-2 (tool-card transport) / 5d (routing cutover).** | 4 | ☑ (5a ☑, 5b ☑, 5c ☑, 5c-2 ☑ [transport; CRAAP live mint → Slice 6], 5d ☑ [routing cutover; old task surface retired]) |
-| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design) |
+| **6** | **Material + source log** (S2/S3) | 素材 view over `annotate`/`compare`, dossier + span highlights, search-plan→auto-log→citations-only-from-log (RL-2), CRAAP vertical + SIFT lateral. | 5 | ☑ (keystone ☑ CRAAP fill→mint live; 6b ☑ material center-pane + project-scoped ingestion + source log; 6c ☑ **`compare` primitive + SIFT lateral + `cross_check` mint + S3 machine-gated** — 6c's own "complete" was written before whole-branch review found SIFT code-complete but **unreachable** and a card-clobber data-loss risk; fixed by FIX-A..FIX-E (see the 6c entry below), genuinely reachable and reload-safe as of FIX-E. Carry-forward: the search-plan card still needs its own design —
+folded into **N3e** as of 2026-07-22 alongside the R-9 reveal; that slice (N3d) also closed the S2 perspective-map
+carry-forward — student-platform tracker `docs/2026-07-20-student-platform-remaining-work.md`) |
 | **7** | **Structure view** (S1/S4) + **`graph` primitive** | Build the `graph` primitive here (deferred from Slice 1): 结构 view = the Toulmin map visualization with the three pathologies always flagged, nodes created via the coach card flow (`graph_effects`), full-proposition gate, student-written warrant/steelman, concession node, map⇄outline. Also proves the **Toulmin** card (C2 over graph). | 5 | ☑ |
 | **8** | **Writing surface + whole-draft review** (S5) | 写作 silent edit buffer (zero model write-path) + preview, immutable snapshots, student-triggered 整稿体检, examiner voices, word budget. | 5 | ☑ (keystone + 8b — see below; **8b ☑** examiner-voice switching + budget-deletion coaching; EE/AP board-specific passes still deferred to their board packs) |
 | **9** | **Readiness + reflect + export** (S0/S6) | 评估 view with the five progress-display renderers (ship 0457 table-by-table first), prediction loop S0↔S6, reflection pack, AI-usage declaration, export forks (RL-4). | 6,7,8 | ◐ (**readiness gauge ☑** — 0457 就绪度 made real from the whole-draft review, `644e1d2`; reflect / prediction-loop S0↔S6 / self-score / AI-usage declaration / export forks + the other 4 skins still deferred) |
@@ -301,7 +303,11 @@ Each slice appends its spec/plan links and outcome here as it completes.
   `StudioContainer.toStudioState`, then thread `card.anchors` via `ViewFrame` to light up T7's left-pane
   highlight) + source-log S2 (search-plan→auto-log→citations, RL-2); **6c** = SIFT lateral; also student *free*
   span-creation (L2/L3) and the R-9 summing-up framework reveal. T4 Minor for triage: `RISK_NOTE_QUESTION` const
-  drops "／局限" vs the placeholder's binding copy.
+  drops "／局限" vs the placeholder's binding copy. **[Update 2026-07-22]** Student free span-creation shipped
+  as N3c (guidance fade L1→L2→L3 + text-selection span creation — see the student-platform tracker's N3c
+  section). The R-9 reveal did not; it is folded into **N3e** (student-platform tracker,
+  `docs/2026-07-20-student-platform-remaining-work.md`) alongside the search-plan card below — both need their
+  own coach/product design, not infra work, so N3d (which made S0–S3 walkable) closed without them.
 - **Slice 5d** — ☑ **complete** (branch `refactor2-slice5d-routing-cutover`, commits
   `f627662`..`f1e5230`, 9 tasks subagent-driven TDD). Spec
   `docs/superpowers/specs/2026-07-11-slice-5d-routing-cutover-design.md` · plan
@@ -450,10 +456,15 @@ Each slice appends its spec/plan links and outcome here as it completes.
      *first* span at a given id, so a stale anchor beat the student's in-progress answer. Fixed by
      making `SourceDossier` the single merge point (live-first, dedupe by id).
   **Accepted gaps (spec §11):** the search-plan card (AI questions the plan — needs its own coach
-  design); RL-2's citation half (no citation surface until Slice 8/写作 — the log 6b built is the
-  data that enforcement will read); the 偏弱 verdict chip (no honest producer); the S2 perspective map
-  (视角与素材, graph-node-backed — belongs with Slice 7); `source_log_entry.lateral_read` (written by
-  SIFT, 6c). **New, found during 6b:** stored `event` rows keep `type`/`surface` as DB columns while
+  design; **still open, see [Update 2026-07-22] below**); RL-2's citation half (no citation surface until
+  Slice 8/写作 — the log 6b built is the data that enforcement will read); the 偏弱 verdict chip (no
+  honest producer); ~~the S2 perspective map (视角与素材, graph-node-backed — belongs with Slice 7)~~
+  **CLOSED 2026-07-22 (N3d, student-platform tracker)** — `PerspectivesView` + `POST
+  .../projects/{id}/perspectives`, gated on the `evaluate_perspectives` contract N3a's `perspective-matrix`
+  card already fed; `source_log_entry.lateral_read` (written by
+  SIFT, 6c). **[Update 2026-07-22]** The search-plan card above is folded into **N3e**
+  (`docs/2026-07-20-student-platform-remaining-work.md`) together with the R-9 summing-up framework reveal —
+  both still need their own coach/product design. **New, found during 6b:** stored `event` rows keep `type`/`surface` as DB columns while
   the Zod `StudioEvent` variants are flat objects — a reader must merge columns + payload before Zod-
   validating (pre-existing, systemic across all 8 event types; Slice 10's assessor must handle it).
   **Orphan sweep (Task 10):** `SourceFixture`/`SOURCE_FIXTURES` and `views.material: []` greps both
@@ -495,8 +506,11 @@ Each slice appends its spec/plan links and outcome here as it completes.
   minted node with no guard and the retry minted a **duplicate**. CRAAP had this today. Now one
   transaction (`CommitCardMint`), all-or-nothing.
   Gate: Go build/vet + all 14 packages green (uncached); web 344/344 + `tsc` clean; contracts
-  170/170. **Carry-forwards:** the search-plan card (S2) still needs its own design; RL-2's
-  citation half needs a citation surface (Slice 8); the perspective map is graph-backed (Slice 7);
+  170/170. **Carry-forwards:** the search-plan card (S2) still needs its own design (**folded into N3e as of
+  2026-07-22, together with the R-9 summing-up framework reveal — student-platform tracker,
+  `docs/2026-07-20-student-platform-remaining-work.md`**); RL-2's
+  citation half needs a citation surface (Slice 8); ~~the perspective map is graph-backed (Slice 7)~~
+  **CLOSED 2026-07-22 (N3d)** — the view now exists (`PerspectivesView.tsx`);
   stored `event` rows keep `type`/`surface` as DB columns while the Zod variants are flat, so
   Slice 10's assessor must merge columns + payload before validating.
 

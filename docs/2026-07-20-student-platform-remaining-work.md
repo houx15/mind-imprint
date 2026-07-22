@@ -26,7 +26,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 |---|---|---|---|
 | **N1 · Close the loop** | Project-creation entry point + S0 任务解码 intake + directory | S–M | Makes the product **reachable end-to-end**. **✅ DONE — merged `f3c4b31` (2026-07-20).** `POST /projects` (atomic project + 3 onboarding graph nodes from a board-static 0457 fixture, no LLM, no migration) + `POST /projects/{id}/onboarding` (persist restate + weak-picks as node+event) + projection surfaces them + directory-first `StudioContainer` with 新建论文 paste-prompt flow + OnboardingView submit/hydrate. Spec `docs/superpowers/specs/2026-07-20-n1-close-the-loop-design.md`, plan `…/plans/2026-07-20-n1-close-the-loop.md`. **Correctness seams were NOT bundled (deferred to N6, see below).** N1 carry-forwards → N6: back-less error screen on failed project-open (add ← to directory); `handleBack` drops `conv` without `dispose()` (SSE leak); directory shows raw station code + `0457` (no status badge / station-name label); create-atomicity has no rollback test (no fault-injection seam). |
 | **N2 · 评估 view (S0/S6)** | Reflection pack, prediction loop S0↔S6, self-score, AI-usage declaration, export forks (RL-4) | L | The biggest unbuilt student surface. **◐ PARTIAL — N2a+N2b+N2c DONE, merged `3273c01` (2026-07-20)**: self-score card + S0↔S6 prediction reveal + retro editor, all on one unified `review_criteria` taxonomy (rewrote N1's fixture rows); 2 student-write endpoints (self_score/reflection nodes, no LLM/migration); retro advances the reflect_archive S6 gate; seed 0018 migrated onto the taxonomy so the demo shows it. Spec `docs/superpowers/specs/2026-07-20-n2-review-view-completion-design.md`. **Still deferred: N2d · AI-usage declaration** (needs the event ledger) and **N2e · export forks** (own item, format undecided). |
-| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3 is now ◐ only for N3d (R-9 reveal / search-plan card / S2 perspective view).** |
+| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3 is now ◐ only for N3e** (search-plan card + R-9 framework reveal — both deliberately deferred, see the N3e note below the N3d section). |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | Config/rubric breadth behind existing interfaces. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | Finishes the two keystone-only surfaces. |
 | **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
@@ -37,6 +37,128 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 
 Each item tagged with its target finishing slice `[N#]`. Line numbers are into the
 roadmap file.
+
+### N3d · DONE — merged (2026-07-22)
+Spec `docs/superpowers/specs/2026-07-22-n3d-walkable-stations-design.md`,
+plan `…/plans/2026-07-22-n3d-walkable-stations.md`; 13 tasks (12 build + this
+acceptance-test-and-tracker task).
+
+**The finding that started this slice.** Reading the code before touching it
+turned up something bigger than the three items the tracker had listed for
+N3d (R-9 reveal, search-plan card, S2 perspective view). `agent.Advance` — the
+only function that sets a gate's `Confirmed` flag, which
+`studio.projectStations` reads as `GateReport.Solid` to decide a rail entry's
+`done`/`current`/`locked` — had **zero production call sites**; it was
+exercised by tests only. So for any project a real student created, no
+station could ever turn `done` and the rail's head stayed pinned at S0
+forever. Nobody had noticed because
+`internal/store/migrations/0018_seed_demo_project.sql` hand-writes
+`confirmed_solid:true` `gate_state` rows for the seeded demo project's first
+four contracts — the demo project starts at S4 because a migration says so,
+not because anything computed it. Underneath that, S0/S1/S2 between them had
+six gate items with no producer at all (`weakness_prediction`,
+`milestone_plan`, `research_question`, `provisional_answer`,
+`preregistration`, `terms_defined`). Worth remembering next time something in
+this codebase "looks done" only in the seeded project: check whether a
+migration is doing the work a live code path should be doing.
+
+**What's live now:**
+- **`agent.AdvanceAll`** (`internal/agent/planner.go`) walks the skill's
+  contract DAG in topological order and confirms a contract only when its own
+  gate is clear AND every contract it `requires` is already `Solid` —
+  stricter than `Route`'s reachability rule, so a station can never flip
+  `done` while its predecessor is still open. It reuses `Advance` for the
+  actual confirm + `gate_attempt` event (DEC-3 still holds — nothing here
+  records a `student_written`/`human` item), then calls `Replan(...,
+  "advanced")` so the route/head recompute in the same request.
+- **A thin `advanceGates` helper** now runs best-effort at the end of every
+  write that can change gate state (`submitOnboarding`, `submitFraming`,
+  `submitPerspectives`, `logSourceOpen`, `attestGate`, `submitReflection`,
+  `submitProjectCard`) — deliberately NOT called from read paths or from
+  `ingestMaterial` (adding a source never satisfies a gate; it can only make
+  `every_source_evaluated` harder).
+- **S0's two missing producers**: `weakness_prediction` ×2 (one per weak
+  pick, delete-then-insert scoped to `origin:"station_view"` so re-submitting
+  never inflates the `n≥2` gate) and `milestone_plan` (attested on her own
+  submit — the same shape `submitReflection` already used for its own item).
+- **S1 立题** is a real view now (`FramingView.tsx` + `POST
+  .../projects/{id}/framing`, replacing the placeholder). `research_question`
+  is minted once, at project creation, from the title she typed in N1's
+  funnel. She names and defines the terms in her *own* question — the binding
+  design's hard-coded three terms only ever worked for the demo's own title;
+  a generic list would have needed either an LLM call or a board fixture that
+  can't know her question, so the panel gained an 「添加一个关键词」 control instead
+  (a deliberate, documented departure, spec §5.2). `terms_defined` attests
+  once ≥3 definitions clear 15 runes and un-attests honestly the moment one is
+  emptied.
+- **S2 视角与素材** is a real view now (`PerspectivesView.tsx` + `POST
+  .../projects/{id}/perspectives`, replacing the placeholder). Her own
+  perspective rows (`national` / `global_for` / `global_against`) sit
+  alongside — and the save can never delete — perspectives minted by N3a's
+  `perspective-matrix` tool card; those render read-only, tagged 「来自工具卡」,
+  and still count toward the `node_count_at_least{perspective,2}` gate.
+  `recon_logged` rides the existing source-log ledger (opening a source *is*
+  the recon — no new control); `sources_per_perspective` is the one explicit
+  attestation, because no structural signal for "a source per perspective"
+  exists and inventing one would be fabrication. The view also grew an
+  `AddSourceForm` + a compact material-title list under the perspective list
+  — the binding design drew S2 with no way to add a source at all, even
+  though the station is named 视角与素材 and its own gate demands sources per
+  perspective, which made the gate unreachable by construction (spec §6.3).
+- **`ShellView` is gone.** The placeholder 「此环节的深入交互将在后续切片接入」 that both
+  S1 and S2 rendered no longer exists anywhere in the repo; `ViewFrame` now
+  routes S0/S1/S2 to three distinct views instead of one shared shell.
+- **The acceptance test**
+  (`apps/api/internal/api/walkable_stations_test.go`,
+  `TestWalkableStations_S0ToS3`) drives a **freshly created** project —
+  never the seeded one — through `POST /projects` → `/onboarding` →
+  `/framing` → `/materials` + `/materials/{mid}/open` → `/perspectives` →
+  `/gate/evaluate_perspectives/attest`, asserting the projection's
+  `stations[].state` turns `current`/`done` at each step (the rail is what
+  the student actually sees — the test does not reach into gate internals).
+  This is the test that could not have passed before this slice at all: it
+  needs both the missing producers and a live `Advance` caller together.
+
+**NO migration** (`0018_seed_demo_project.sql` untouched), **NO LLM call**,
+**NO new gate predicate kind**, **NO `packages/contracts` shape break**
+(`FramingFx`/`PerspectivesFx` are additive). The one `internal/store/sqlc/`
+change (`graph.sql.go`, the origin-scoped `DeleteStationViewNodes` query) is
+genuinely generated — a fresh `make sqlc` reproduces it byte-identically.
+
+**Carried out of N3d → N3e** (its own entry below, not N6 — both need
+product/coach design work, not infra work):
+- The search-plan card — S1's 「打算去哪找证据」 panel ships as her own writing for
+  now; the card that questions her retrieval plan attaches to it later
+  without reshaping anything this slice built.
+- The R-9 summing-up framework reveal — `framework_fill` is written
+  server-side (`agent/card_lifecycle.go`) and read by nobody. It rode along
+  in the old N3d tracker entry for no structural reason; it is orthogonal to
+  the station chain this slice fixed.
+
+**Noted, not carried anywhere** (design-acknowledged trade-offs, spec §9/§11):
+the gate checks that she *did* the S1/S2 work, never *how well* — a thin
+three-definition S1 still clears `frame_question` by design (RL-5: quality
+judgment belongs to the assessor and her own self-score, never the gate);
+`AdvanceAll` costs one extra `LoadGraph`+`ListGateStates` per gate-affecting
+write (the same two reads the turn loop already does per turn — acceptable at
+today's scale; if it ever isn't, the fix is to scope the walk to the head
+contract); S0's `milestone_plan` attestation is thin (she accepts a plan she
+cannot yet edit — if a later slice lets her edit it, the attestation moves to
+that edit, the item name does not change).
+
+### N3e · deferred (split out of the old N3d tracker entry)
+Two items that were bundled into N3d's original three-item description
+(spec §2) but structurally don't belong with a "make the gates live" slice —
+each needs its own product/coach design, not infra work, so N3d closed
+without them rather than blocking on them:
+- **Search-plan card (S1).** The AI questioning her retrieval plan (打算去哪找
+  证据) needs its own card spec, prompt, and summon rule — parallel to how
+  `perspective-matrix` attaches to S2's perspective list. S1 ships as her own
+  unassisted writing until this lands.
+- **R-9 summing-up framework reveal.** `framework_fill` is written
+  server-side (`agent/card_lifecycle.go:77`) and read by nobody anywhere in
+  the codebase. Someone needs to design what "reveal" means here (a view? a
+  card?) before there is a producer worth building against it.
 
 ### N3c · DONE — merged (2026-07-22)
 Spec `docs/superpowers/specs/2026-07-22-n3c-guidance-fade-and-span-creation-design.md`,
@@ -171,13 +293,13 @@ plus a whole-branch fix wave. **Go-only: no migration, no sqlc regeneration, no
 - **[N1]** dc.html still says 「批判思维」工作台 in 2 spots (`dc.html:158`, `:2519`). *(404–405)*
 
 ### Slice 6 — CRAAP fill→mint
-- **[N3d]** R-9 summing-up framework reveal. *(303–304)*
+- **[N3e]** R-9 summing-up framework reveal. *(303–304)*
 - **[N4]** `RISK_NOTE_QUESTION` drops "／局限" vs binding copy. *(304)*
 
 ### Slice 6b / 6c — material / SIFT
-- **[N3d]** Search-plan card (S2) — needs its own coach design. *(452, 468, 498)*
+- **[N3e]** Search-plan card (S2) — needs its own coach design. *(452, 468, 498)*
 - **[N2]** RL-2 citation half — no citation surface yet (tied to 写作/Slice 8). *(452–453, 499)*
-- **[N3d]** S2 perspective map (the graph-node PRODUCER now exists via N3a's perspective-matrix; only the VIEW remains) (视角与素材) — graph-node-backed. *(454, 499)*
+- ~~**[N3d]** S2 perspective map (视角与素材) — graph-node-backed.~~ **DONE (N3d)** — `PerspectivesView.tsx` + `POST .../perspectives`; see the N3d section above. *(454, 499)*
 - **[N6]** 偏弱 verdict chip has no honest producer. *(453–454)*
 - **[N1/N6]** Event-model normalization — DB `type`/`surface` columns vs flat Zod `StudioEvent`; reader must merge before validating (systemic, all 8 event types; dead `EVENT_TYPES`). *(455–458, 500–501, 954)*
 
