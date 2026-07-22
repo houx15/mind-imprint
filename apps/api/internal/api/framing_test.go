@@ -215,3 +215,57 @@ func TestSubmitFraming_SavesPartialWork(t *testing.T) {
 		t.Errorf("nodes after empty submit = %d, want 0", total)
 	}
 }
+
+// Minor 1 (whole-branch review): every CJK definition in
+// TestSubmitFraming_AttestsAndUnattestsTermsDefined sits far above the
+// 15-rune threshold either way it's counted, so that suite would pass
+// identically under a byte-based len() regression. 8 CJK characters is under
+// the 15-RUNE threshold but its UTF-8 encoding is 24 BYTES — over 15 — so a
+// byte-based len() would wrongly attest terms_defined here while
+// utf8.RuneCountInString correctly does not. Mirrors FramingView.test.tsx's
+// own rune-boundary rigor (just14/just15) on the Go side.
+func TestSubmitFraming_TermsDefinedIsRuneCountedNotByteCounted(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+
+	// "可持续发展是什么" — 8 runes, 24 bytes. Under the 15-rune threshold;
+	// over a 15-BYTE threshold, so this definition alone can't clear
+	// terms_defined under the correct rune-counted rule, but would falsely
+	// clear it (on its own, or in numbers) under a byte-based regression.
+	body := `{
+		"terms":[
+			{"term":"可持续发展","definition":"可持续发展是什么"},
+			{"term":"中国的角色","definition":"中国政策与产出对全球环境指标的净影响这是国家层面的定义"},
+			{"term":"世界","definition":"全球尺度而非仅中国境内的地理范围这是空间层面的定义"}
+		],
+		"answers":["中国的可再生能源投入让全球减排更快"],
+		"searchPlan":["官方一手数据来源"]
+	}`
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/framing",
+		strings.NewReader(body)), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	var gateBody []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT body FROM graph_node WHERE project_id=$1 AND type='gate_state' AND body->>'contract'='frame_question'`, pid).
+		Scan(&gateBody); err != nil {
+		t.Fatalf("select frame_question gate_state: %v", err)
+	}
+	var got struct {
+		Items map[string]string `json:"items"`
+	}
+	if err := json.Unmarshal(gateBody, &got); err != nil {
+		t.Fatalf("unmarshal gate_state body: %v; raw=%s", err, gateBody)
+	}
+	if got.Items["terms_defined"] != "" {
+		t.Errorf("frame_question gate items[terms_defined] = %q with only 2/3 definitions clearing 15 RUNES (one clears only 15 bytes), want absent", got.Items["terms_defined"])
+	}
+}
