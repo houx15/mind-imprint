@@ -550,6 +550,27 @@ func (s *sqlcAgentStore) InsertReviewIntervention(ctx context.Context, row Revie
 	return err
 }
 
+// SpotCheckInterventionRow is one persisted station spot-check item. Anchor
+// carries {"station":…,"fingerprint":…} — the additive-anchor-field seam Slice
+// 8b used for `voice`, so no migration. No card_instance_id: a station
+// spot-check is not a card submission.
+type SpotCheckInterventionRow struct {
+	ProjectID uuid.UUID
+	Anchor    []byte
+	Body      string
+}
+
+// InsertSpotCheckIntervention writes one spot_check_item intervention row.
+func (s *sqlcAgentStore) InsertSpotCheckIntervention(ctx context.Context, row SpotCheckInterventionRow) error {
+	_, err := s.q.InsertIntervention(ctx, sqlc.InsertInterventionParams{
+		ProjectID: row.ProjectID,
+		Type:      "spot_check_item",
+		Anchor:    row.Anchor,
+		Body:      row.Body,
+	})
+	return err
+}
+
 // RecordLLMCall persists one live LLM call's usage to `llm_call` (migration
 // 0019). The owning user is resolved from the project row, mirroring
 // AppendEvent/getOrCreateThread's project->user resolution (Slice 2/5c's

@@ -76,6 +76,9 @@ type fakeAgentStore struct {
 	insertReviewInterventionCalls int
 	lastReviewIntervention        ReviewInterventionRow
 
+	insertSpotCheckInterventionCalls int
+	lastSpotCheckIntervention        SpotCheckInterventionRow
+
 	// sourceLogs backs GetSourceLogByMaterial and is mutated in-memory by
 	// CommitCardMint's LateralRead handling below — a fake that no-opped the
 	// write would let a test assert a re-tier "succeeded" while reading back
@@ -300,6 +303,12 @@ func (f *fakeAgentStore) InsertDisposition(_ context.Context, interventionID uui
 func (f *fakeAgentStore) InsertReviewIntervention(_ context.Context, row ReviewInterventionRow) error {
 	f.insertReviewInterventionCalls++
 	f.lastReviewIntervention = row
+	return nil
+}
+
+func (f *fakeAgentStore) InsertSpotCheckIntervention(_ context.Context, row SpotCheckInterventionRow) error {
+	f.insertSpotCheckInterventionCalls++
+	f.lastSpotCheckIntervention = row
 	return nil
 }
 
