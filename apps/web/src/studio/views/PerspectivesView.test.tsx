@@ -189,10 +189,10 @@ describe("PerspectivesView (S2 视角与素材)", () => {
     expect(screen.getByRole("button", { name: "记下我的视角" })).toBeEnabled();
   });
 
-  // I4 (whole-branch review IMPORTANT): the server silently drops any row
-  // whose trimmed `text` is blank. Before this fix, that row stayed on
-  // screen looking saved, with no record it was ever dropped.
-  it("drops a blank-text row from the screen after a successful save", async () => {
+  // I4 re-fix (whole-branch review IMPORTANT): the server silently drops any
+  // row whose trimmed `text` is blank. The row must stay on screen — only an
+  // inline "not saved" note marks what the server actually dropped.
+  it("keeps a blank-text row on screen after a successful save, marked unsaved", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(
       <PerspectivesView
@@ -212,8 +212,9 @@ describe("PerspectivesView (S2 视角与素材)", () => {
       fireEvent.click(screen.getByRole("button", { name: "记下我的视角" }));
     });
 
-    expect(screen.queryAllByLabelText("视角")).toHaveLength(1);
+    expect(screen.queryAllByLabelText("视角")).toHaveLength(2);
     expect(screen.getByDisplayValue("我写完整的视角")).toBeInTheDocument();
+    expect(screen.getByText("这条还是空的，尚未保存")).toBeInTheDocument();
   });
 
   it("renders the project's material titles below the perspective list", () => {

@@ -135,15 +135,14 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
       // false) has no level and is never sent back up.
       const perspectives = rows.filter((r) => r.editable).map((r) => ({ text: r.text, level: r.level }));
       await onSubmit({ perspectives });
-      // I4 fix (whole-branch review): the server silently drops any row
-      // whose trimmed `text` is blank (an offer is never a wall) — but this
-      // view never resynced, so a dropped row stayed on screen looking
-      // saved. On a SUCCESSFUL submit only (never a `useEffect` on `data`,
-      // which would clobber her in-progress typing on the container's
-      // frequent unrelated refetches), drop exactly the rows the server
-      // would have dropped. Card-minted (editable: false) rows are never
-      // touched here — they come from `data`, not this submit.
-      setRows((prev) => prev.filter((r) => !r.editable || r.text.trim() !== ""));
+      // I4 re-fix (whole-branch review): the server silently drops any row
+      // whose trimmed `text` is blank. The earlier fix filtered the dropped
+      // rows out of local state on a successful submit — harmless here today
+      // (a dropped row is blank by definition, nothing is lost) but the same
+      // shape as FramingView's regression, so it's fixed the same way for one
+      // consistent rule: nothing is deleted. Every row stays on screen; an
+      // unsaved editable row gets an inline note instead (rendered below,
+      // under its textarea).
     } finally {
       setSubmitting(false);
     }
@@ -219,26 +218,36 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
               )}
             </div>
             {row.editable ? (
-              <textarea
-                aria-label="视角"
-                value={row.text}
-                onChange={(e) => updateText(i, e.target.value)}
-                rows={2}
-                placeholder="写一条视角：谁、从什么立场、看到什么……"
-                style={{
-                  width: "100%",
-                  border: "1px solid #E1E4ED",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13.5,
-                  lineHeight: 1.6,
-                  color: "#1C2333",
-                  background: "#fff",
-                  outline: "none",
-                  resize: "vertical",
-                  fontFamily: "inherit",
-                }}
-              />
+              <>
+                <textarea
+                  aria-label="视角"
+                  value={row.text}
+                  onChange={(e) => updateText(i, e.target.value)}
+                  rows={2}
+                  placeholder="写一条视角：谁、从什么立场、看到什么……"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #E1E4ED",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    fontSize: 13.5,
+                    lineHeight: 1.6,
+                    color: "#1C2333",
+                    background: "#fff",
+                    outline: "none",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                  }}
+                />
+                {/* I4 re-fix (whole-branch review): the backend drops this
+                    row on save when its trimmed text is blank — the row
+                    stays on screen either way, so this note is the only
+                    thing that tells her it isn't saved. Quiet inline hint,
+                    same muted grey as this view's other sub-lines. */}
+                {row.text.trim() === "" && (
+                  <div style={{ fontSize: 11, color: "#9AA1B0", marginTop: 5 }}>这条还是空的，尚未保存</div>
+                )}
+              </>
             ) : (
               <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#1C2333", padding: "9px 12px", background: "#F8F9FB", borderRadius: 10 }}>
                 {row.text}

@@ -101,6 +101,14 @@ describe("ViewFrame (station rail = view switcher)", () => {
     }
     const s1 = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S1" }} />);
     expect(s1.queryByText(/信源档案/)).not.toBeInTheDocument();
+    s1.unmount();
+
+    // 信源档案 alone can't discriminate S2 (whose own station screen
+    // legitimately embeds it) from a fallthrough to the 素材 view, so assert
+    // PerspectivesView's own header renders too — that's what proves S2
+    // rendered its OWN station screen rather than falling through.
+    const s2 = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S2" }} />);
+    expect(s2.getByText("先摆出不同视角，再去找素材")).toBeInTheDocument();
   });
 
   it("S1 active renders FramingView (Task 10 fills in the real screen)", () => {

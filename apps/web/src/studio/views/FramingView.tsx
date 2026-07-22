@@ -127,17 +127,15 @@ export function FramingView({ data, onSubmit }: FramingViewProps) {
     setSubmitting(true);
     try {
       await onSubmit({ terms, answers, searchPlan });
-      // I4 fix (whole-branch review): the server silently drops any term row
-      // whose trimmed `term` is blank (an offer is never a wall — a
-      // half-finished form must still save) — but this view never resynced,
-      // so a dropped row stayed on screen with her definition and its
-      // quality chip, looking saved. On a SUCCESSFUL submit only (never via
-      // a `useEffect` on `data`, which would clobber her in-progress typing
-      // on the container's frequent unrelated refetches), replace the local
-      // rows with exactly what was actually persisted: the dropped row
-      // disappears at the moment of saving, which is honest and has no
-      // clobbering risk.
-      setTerms((prev) => prev.filter((t) => t.term.trim() !== ""));
+      // I4 re-fix (whole-branch review): the server silently drops any term
+      // row whose trimmed `term` is blank — but a row can carry a blank
+      // 关键词 and a fully-written 定义. The earlier fix filtered dropped rows
+      // out of local state on a successful submit, which deleted her written
+      // definition along with the blank term the moment she pressed save.
+      // Deleting nothing now: every row stays on screen; the ones the server
+      // didn't persist are marked with an inline note instead (rendered
+      // below, next to the term input), so a dropped row can no longer LOOK
+      // saved without destroying what she wrote.
     } finally {
       setSubmitting(false);
     }
@@ -168,6 +166,13 @@ export function FramingView({ data, onSubmit }: FramingViewProps) {
           </div>
           {terms.map((t, i) => {
             const chip = defChip(t.definition);
+            // I4 re-fix (whole-branch review): the backend drops this row on
+            // save when its trimmed 关键词 is blank — the row stays on screen
+            // either way, so this note is the only thing that tells her it
+            // isn't saved. A quiet inline hint, not an error banner: no red,
+            // no icon, the same muted grey already used for this panel's
+            // sub-line above.
+            const unsaved = t.term.trim() === "";
             return (
               <div key={i} style={{ padding: "12px 0", borderBottom: "1px solid #F3F4F7" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 7 }}>
@@ -193,6 +198,7 @@ export function FramingView({ data, onSubmit }: FramingViewProps) {
                   placeholder="写清楚这个词在你的题目里具体指什么，做到可检验……"
                   style={{ width: "100%", border: "1px solid #E1E4ED", borderRadius: 10, padding: "9px 12px", fontSize: 13.5, lineHeight: 1.6, color: "#1C2333", background: "#fff", outline: "none", resize: "vertical" }}
                 />
+                {unsaved && <div style={{ fontSize: 11, color: "#9AA1B0", marginTop: 5 }}>这条还没写关键词，尚未保存</div>}
               </div>
             );
           })}

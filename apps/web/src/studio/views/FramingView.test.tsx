@@ -87,11 +87,13 @@ describe("FramingView (S1 立题)", () => {
     expect(screen.getByText("本环节门禁 · 已定义 3/3")).toBeInTheDocument();
   });
 
-  // I4 (whole-branch review IMPORTANT): the server silently drops any term
-  // row whose trimmed `term` is blank. Before this fix, that row stayed on
-  // screen with her definition and its quality chip, looking saved, with no
-  // record it was ever dropped.
-  it("drops a term row with a blank term name from the screen after a successful save", async () => {
+  // I4 re-fix (whole-branch review IMPORTANT): the server silently drops any
+  // term row whose trimmed `term` is blank. The first fix wave filtered that
+  // row out of local state on a successful submit — which deleted her
+  // written definition along with the blank term. The row (and her
+  // definition) must stay on screen; only an inline "not saved" note marks
+  // what the server actually dropped.
+  it("keeps a term row with a blank term name on screen after a successful save, with its definition intact, and marks it unsaved", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const data = makeData({
       terms: [
@@ -106,8 +108,11 @@ describe("FramingView (S1 立题)", () => {
       fireEvent.click(screen.getByRole("button", { name: "记下我的立题" }));
     });
 
-    expect(screen.queryByDisplayValue("写了很长的定义但忘记写关键词本身叫什么名字")).not.toBeInTheDocument();
+    // The blank-term row's definition survives on screen — this is the
+    // specific loss case the re-review flagged.
+    expect(screen.getByDisplayValue("写了很长的定义但忘记写关键词本身叫什么名字")).toBeInTheDocument();
     expect(screen.getByDisplayValue("这个我写完整了")).toBeInTheDocument();
+    expect(screen.getByText("这条还没写关键词，尚未保存")).toBeInTheDocument();
   });
 
   it("saves partial work — a single filled term submits fine", async () => {
