@@ -331,6 +331,11 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.streamAction(r.Context(), em, action, projectID, store)
+	// N3f: the three S3/S4 student_written items are attested from graph
+	// state, so they must be recomputed BEFORE advanceGates decides which
+	// contracts are now finished — otherwise the submit that completes the
+	// last risk_note attests it but does not advance until the NEXT write.
+	a.attestS3S4(r.Context(), projectID)
 	a.advanceGates(r.Context(), projectID)
 	_ = em.DoneCard(cardStatus)
 }
