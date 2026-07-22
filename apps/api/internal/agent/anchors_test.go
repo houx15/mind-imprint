@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
@@ -35,6 +37,39 @@ func TestParseAnchorGenComputesOffsetsFromQuote(t *testing.T) {
 	}
 	if got[0].MaterialID != "m1" {
 		t.Fatalf("material id not resolved: %+v", got[0])
+	}
+}
+
+func TestComputeOffsets_RuneIndicesOnCJK(t *testing.T) {
+	text := "过去二十年里发生了一件事：地球比 2000 年绿了一圈。"
+	quote := "地球比 2000 年绿了一圈"
+
+	start, end := computeOffsets(text, quote)
+
+	// Derive the expectation from utf8.RuneCountInString (never a hardcoded
+	// number): find the quote's byte offset, then count runes before it.
+	byteIdx := strings.Index(text, quote)
+	if byteIdx < 0 {
+		t.Fatalf("quote not found in text (test setup bug)")
+	}
+	wantStart := utf8.RuneCountInString(text[:byteIdx])
+	wantEnd := wantStart + utf8.RuneCountInString(quote)
+
+	if start != wantStart || end != wantEnd {
+		t.Fatalf("computeOffsets(%q, %q) = (%d, %d), want (%d, %d) — byte offsets leaking instead of rune offsets", text, quote, start, end, wantStart, wantEnd)
+	}
+
+	// The real contract: slicing runes with these indices round-trips to the
+	// original quote. A test that only checked the magic number above would
+	// pass against a wrong convention (e.g. UTF-16 code units) too.
+	if got := string([]rune(text)[start:end]); got != quote {
+		t.Fatalf("round trip failed: string([]rune(text)[%d:%d]) = %q, want %q", start, end, got, quote)
+	}
+
+	// Not-found case still returns (0, 0).
+	s2, e2 := computeOffsets(text, "这句话不存在")
+	if s2 != 0 || e2 != 0 {
+		t.Fatalf("not-found case: got (%d, %d), want (0, 0)", s2, e2)
 	}
 }
 

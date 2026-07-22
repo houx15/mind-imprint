@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 )
 
 // Anchor is the agent's view of a card anchor (mirrors the TS Anchor contract).
+// Start/End are rune (Unicode code point) indices into the block's text, not
+// byte offsets — see computeOffsets.
 type Anchor struct {
 	ID         string `json:"id"`
 	MaterialID string `json:"material_id"`
@@ -88,14 +91,18 @@ func blockLookup(materials []Material) map[string][2]string {
 	return m
 }
 
-// computeOffsets returns the byte offsets of quote within the block's text (0,0
-// when not found — quote stays authoritative for the UI).
+// computeOffsets returns RUNE (Unicode code point) indices, not byte offsets:
+// the web consumes these to slice the same block text, and one CJK character
+// is 3 bytes but 1 rune. Returning byte offsets highlighted the wrong
+// sentence on every Chinese material (spec §7.1). (0,0) when not found —
+// quote stays authoritative for the UI.
 func computeOffsets(text, quote string) (int, int) {
 	i := strings.Index(text, quote)
 	if i < 0 {
 		return 0, 0
 	}
-	return i, i + len(quote)
+	start := utf8.RuneCountInString(text[:i])
+	return start, start + utf8.RuneCountInString(quote)
 }
 
 func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Anchor, error) {
