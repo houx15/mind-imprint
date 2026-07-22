@@ -1010,6 +1010,113 @@ func TestProjectSpotChecks_OrderableFlipsWithFingerprint(t *testing.T) {
 	}
 }
 
+// TestProjectSpotChecks_OrderableFlipsWithFingerprint_SourceRiskNote is the
+// S3 (evaluate_sources) analog of TestProjectSpotChecks_OrderableFlipsWithFingerprint
+// — the brief's own Step-1 test spec names THIS scenario (a risk_note change)
+// as the concrete case to pin, but the implemented test above only exercised
+// S4's Toulmin-slot-text mechanism. Same mechanism, different station: pin it
+// here too so both stations' fingerprint inputs are covered.
+func TestProjectSpotChecks_OrderableFlipsWithFingerprint_SourceRiskNote(t *testing.T) {
+	matA := uuid.MustParse("00000000-0000-0000-0000-0000000000d1")
+	evid := uuid.MustParse("00000000-0000-0000-0000-0000000000d2")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: matA, Title: "《卫星图看中国变绿》", Kind: "article", Source: "fetched"},
+		},
+		Nodes: []sqlc.GraphNode{
+			{ID: evid, Type: "evidence", Author: "student",
+				Body: []byte(`{"source_quality":{"authority":"官方机构","risk_note":"入口来源，不能直接引用。"}}`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluated-as", FromKind: "material", FromID: matA, ToKind: "graph_node", ToID: evid},
+		},
+	}
+	targets := SpotCheckTargets(d, agent.SpotCheckSources, cards.ByID)
+	fp := agent.SpotCheckFingerprint(targets)
+	d.Interventions = []sqlc.Intervention{
+		spotCheckItemIntervention(agent.SpotCheckSources, fp, matA.String(), "《卫星图看中国变绿》"),
+	}
+
+	fx := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false: the stored fingerprint matches the current risk_note state")
+	}
+	if len(fx.Items) != 1 {
+		t.Fatalf("items = %+v, want 1", fx.Items)
+	}
+
+	// Improving the risk_note changes what the check reads -> new fingerprint.
+	d.Nodes[0].Body = []byte(`{"source_quality":{"authority":"官方机构","risk_note":"已核实为一手数据，可直接引用。"}}`)
+	fx2 := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if !fx2.Orderable {
+		t.Fatal("want orderable=true after the risk_note changed")
+	}
+}
+
+// TestProjectSpotChecks_SelectsMatchingBatchOnRevert pins the review-finding
+// fix: batch selection must key on fingerprint MATCH against the current
+// state, not "most recent by CreatedAt".
+//
+// Sequence: order at state A (batch A, fingerprint fpA) -> mutate to state B
+// and order again (batch B, fingerprint fpB, later CreatedAt) -> revert the
+// underlying state back to exactly A. The current fingerprint is fpA again,
+// and batch A already exists for it. Recency-only selection would still pick
+// batch B (later CreatedAt) — showing batch B's now-irrelevant items AND
+// reporting orderable=true (fpA != fpB), even though pressing the button in
+// that state would just replay batch A for free. The fix must show batch A's
+// items and report orderable=false.
+func TestProjectSpotChecks_SelectsMatchingBatchOnRevert(t *testing.T) {
+	textNode := func(typ, text string) sqlc.GraphNode {
+		return sqlc.GraphNode{Type: typ, Body: []byte(`{"text":"` + text + `"}`)}
+	}
+	stateAWarrant := "理据句"
+	d := ProjectData{Nodes: []sqlc.GraphNode{
+		textNode("claim", "主张句"), textNode("warrant", stateAWarrant),
+		textNode("evidence", "证据句"), textNode("counter", "反方句"),
+		textNode("concession", "让步句"),
+	}}
+
+	// State A -> batch A, ordered first (earlier CreatedAt).
+	fpA := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	t1 := time.Now()
+	anchorA, _ := json.Marshal(map[string]string{"station": agent.SpotCheckArgument, "fingerprint": fpA})
+	bodyA, _ := json.Marshal(agent.SpotCheckItem{
+		TargetID: "claim", TargetName: "核心主张（批次A）", Evidence: "e", Missing: "m", Fix: "f",
+	})
+	ivA := sqlc.Intervention{ID: uuid.New(), Type: "spot_check_item", Anchor: anchorA, Body: string(bodyA), CreatedAt: t1}
+	d.Interventions = []sqlc.Intervention{ivA}
+
+	// State B: mutate the warrant slot -> new fingerprint, order again (batch
+	// B, strictly later CreatedAt than batch A).
+	d.Nodes[1] = textNode("warrant", "理据句·改过")
+	fpB := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	if fpB == fpA {
+		t.Fatal("sanity: mutating the warrant slot should change the fingerprint")
+	}
+	anchorB, _ := json.Marshal(map[string]string{"station": agent.SpotCheckArgument, "fingerprint": fpB})
+	bodyB, _ := json.Marshal(agent.SpotCheckItem{
+		TargetID: "warrant", TargetName: "理据要点（批次B）", Evidence: "e", Missing: "m", Fix: "f",
+	})
+	ivB := sqlc.Intervention{ID: uuid.New(), Type: "spot_check_item", Anchor: anchorB, Body: string(bodyB), CreatedAt: t1.Add(time.Second)}
+	d.Interventions = append(d.Interventions, ivB)
+
+	// Revert: the warrant slot goes back to exactly state A's text.
+	d.Nodes[1] = textNode("warrant", stateAWarrant)
+	currentFP := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	if currentFP != fpA {
+		t.Fatalf("sanity: reverted fingerprint %q should equal state A's %q", currentFP, fpA)
+	}
+
+	fx := projectSpotCheckFx(d, agent.SpotCheckArgument, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false: reverted state's fingerprint matches batch A's exactly — pressing the button would just replay batch A for free")
+	}
+	if len(fx.Items) != 1 || fx.Items[0].TargetID != "claim" || fx.Items[0].TargetName != "核心主张（批次A）" {
+		t.Fatalf("items = %+v, want batch A's single item (the MATCHING batch, not merely the most-recent one)", fx.Items)
+	}
+}
+
 // TestProjectSpotChecks_DispositionAttached asserts a recorded disposition on
 // a spot_check_item intervention is joined onto its DTO exactly the way
 // projectWriting attaches dispositions to review items.

@@ -732,23 +732,33 @@ func spotCheckItemDTOFromIntervention(iv sqlc.Intervention) (SpotCheckItemDTO, b
 	}, true
 }
 
-// projectSpotCheckFx projects one station's spot-check panel: the latest
-// ordered batch's items (joined with dispositions) plus whether ordering is
+// projectSpotCheckFx projects one station's spot-check panel: a chosen
+// batch's items (joined with dispositions) plus whether ordering is
 // currently possible.
 //
-// "Latest batch" = every spot_check_item intervention anchored to this
-// station whose fingerprint equals the fingerprint of the newest such row
-// (by CreatedAt). orderSpotCheck inserts a whole batch in one call, so every
-// row in a batch shares one fingerprint; an OLDER batch's rows (left over
-// from before the student changed something and re-ordered) describe
-// evidence that no longer matches the current target list, so they are
-// superseded rather than shown.
+// A "batch" = every spot_check_item intervention anchored to this station
+// sharing one fingerprint (orderSpotCheck inserts a whole batch atomically
+// in one call, so every row in a batch shares one fingerprint).
 //
-// orderable is computed server-side by comparing that batch's fingerprint
-// against agent.SpotCheckFingerprint(SpotCheckTargets(...)) — the SAME
-// builder api/spotcheck.go's orderSpotCheck itself calls (spec §5.7) — so
-// this can never disagree with what pressing the button would actually do.
-// A station with NO targets at all is not orderable (there is nothing to
+// Which batch to show is NOT simply "the most recent one" — recency alone
+// mishandles an edit-then-revert sequence: order at state A (batch A, fp
+// fpA) -> edit to state B and order again (batch B, fp fpB, later
+// CreatedAt) -> revert the text back to exactly state A. The current
+// fingerprint is fpA again, and batch A already exists for it, but "most
+// recent" would still pick batch B — showing now-irrelevant items AND
+// reporting orderable=true (fpA != fpB) even though pressing the button
+// would just replay batch A for free. So: prefer the batch whose
+// fingerprint equals the CURRENT fingerprint if one exists (orderable=false
+// — a real match, nothing to (re)order); only when no batch matches the
+// current fingerprint fall back to the most recent batch by CreatedAt
+// (orderable=true — deliberately stale-but-visible, so her work order does
+// not vanish the moment she starts typing).
+//
+// The current fingerprint is computed via
+// agent.SpotCheckFingerprint(SpotCheckTargets(...)) — the SAME builder
+// api/spotcheck.go's orderSpotCheck itself calls (spec §5.7) — so this can
+// never disagree with what pressing the button would actually do. A
+// station with NO targets at all is not orderable (there is nothing to
 // check), even though the "no targets" fingerprint trivially differs from
 // any stored one.
 func projectSpotCheckFx(d ProjectData, station string, specByID func(string) (cards.Spec, bool)) SpotCheckFxDTO {
@@ -766,6 +776,7 @@ func projectSpotCheckFx(d ProjectData, station string, specByID func(string) (ca
 	var latestFP string
 	var latestAt time.Time
 	haveLatest := false
+	haveFP := map[string]bool{}
 	for _, iv := range d.Interventions {
 		if iv.Type != "spot_check_item" {
 			continue
@@ -782,23 +793,32 @@ func projectSpotCheckFx(d ProjectData, station string, specByID func(string) (ca
 			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
 		}
 		rows = append(rows, row{at: iv.CreatedAt, fingerprint: a.Fingerprint, item: item})
+		haveFP[a.Fingerprint] = true
 		if !haveLatest || iv.CreatedAt.After(latestAt) {
 			latestAt, latestFP, haveLatest = iv.CreatedAt, a.Fingerprint, true
 		}
 	}
 
+	targets := SpotCheckTargets(d, station, specByID)
+	currentFP := agent.SpotCheckFingerprint(targets)
+
+	selectedFP := latestFP
+	orderable := false
+	if len(targets) > 0 {
+		if haveFP[currentFP] {
+			selectedFP = currentFP
+		} else {
+			orderable = true
+		}
+	}
+
 	items := make([]SpotCheckItemDTO, 0, len(rows))
 	for _, rw := range rows {
-		if rw.fingerprint == latestFP {
+		if rw.fingerprint == selectedFP {
 			items = append(items, rw.item)
 		}
 	}
 
-	targets := SpotCheckTargets(d, station, specByID)
-	orderable := false
-	if len(targets) > 0 {
-		orderable = !haveLatest || agent.SpotCheckFingerprint(targets) != latestFP
-	}
 	return SpotCheckFxDTO{Items: items, Orderable: orderable}
 }
 
