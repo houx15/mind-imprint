@@ -546,6 +546,192 @@ func TestSurfaceAnchors_FadesWithCompletedUses(t *testing.T) {
 	}
 }
 
+// TestE2E_GuidanceFadeAcrossThreeCompletions is Task 10's keystone: unlike
+// TestSurfaceAnchors_FadesWithCompletedUses above (which hand-seeds prior
+// status='completed' card_instance rows to prove the SHAPE the fade produces
+// at each level), this test proves the COUNTER genuinely moves as a
+// consequence of the student's own actions. It drives the same seeded
+// student's craap card through the real surface->fill->submit->mint path
+// (mirroring TestProjectCardSubmit_SurfaceFillMintE2E in
+// projectcards_test.go) twice in a row, on two fresh projects, and asserts
+// the THIRD surfacing lands on L3 — the fade advancing purely because
+// CountCompletedCardUsesByUser now counts two real completed submits, not
+// because a row was planted directly.
+//
+// It also carries spec §5's regression fence as load-bearing: an L2 submit —
+// author "student", span blank because she was never required to locate the
+// sentence — must still COMPLETE (mint an evidence node). If locating were
+// ever silently required by a completion predicate, this is what would catch
+// it; that would be a real defect, not a test to relax.
+func TestE2E_GuidanceFadeAcrossThreeCompletions(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: craapAnchorGenStubProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+
+	// surfaceCraapRound creates a fresh project + material and drives the
+	// real turn endpoint so surfaceAnchors generates + persists anchors for
+	// THIS student's current completed-use count (mirrors craapAnchorsFor,
+	// but also returns the card_instance/project ids so the caller can
+	// complete the card for real).
+	surfaceCraapRound := func() (string, uuid.UUID, []agent.Anchor) {
+		t.Helper()
+		pid := createProjectForTest(t, h, cookie)
+		ingestCraapMaterial(t, h, cookie, pid)
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+		h.ServeHTTP(rr, withCookie(req, cookie))
+		body := rr.Body.String()
+		if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+			t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
+		}
+
+		cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse(pid)))
+		if err != nil {
+			t.Fatalf("ListCardInstancesByProject: %v", err)
+		}
+		var cid uuid.UUID
+		found := false
+		for _, ci := range cis {
+			if ci.CardID == "craap" {
+				cid = ci.ID
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("no craap card_instance persisted")
+		}
+		row, err := q.GetCardInstance(context.Background(), cid)
+		if err != nil {
+			t.Fatalf("GetCardInstance: %v", err)
+		}
+		var anchors []agent.Anchor
+		if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
+			t.Fatalf("unmarshal persisted anchors: %v — raw: %s", err, row.Anchors)
+		}
+		if len(anchors) == 0 {
+			t.Fatalf("expected generated anchors, got none")
+		}
+		return pid, cid, anchors
+	}
+
+	// completeCraapRound fills every generated anchor's Answer — leaving
+	// whatever BlockID/Quote/Question the surface produced untouched, so at
+	// L2/L3 the span (and at L3 the question) stay exactly as blank as the
+	// student would leave them — plus a student risk_note, then submits over
+	// the real /submit endpoint. Asserts the submit completes the card and
+	// mints exactly one new evidence node: the "never a wall" regression
+	// fence when called on an L2 round.
+	completeCraapRound := func(pid string, cid uuid.UUID, anchors []agent.Anchor) {
+		t.Helper()
+		for i := range anchors {
+			anchors[i].Answer = "学生的判断与理由，足够长以通过校验"
+		}
+		anchors = append(anchors, agent.Anchor{
+			ID: "risk_note", MaterialID: anchors[0].MaterialID, Dimension: "risk_note", Author: "student",
+			Answer: "它支撑我的核心数据，但只有单一来源，需交叉验证。",
+		})
+		anchorsJSON, err := json.Marshal(anchors)
+		if err != nil {
+			t.Fatalf("marshal filled anchors: %v", err)
+		}
+
+		projectID := uuid.MustParse(pid)
+		before, err := q.ListGraphNodesByProject(context.Background(), projectID)
+		if err != nil {
+			t.Fatalf("ListGraphNodesByProject (before): %v", err)
+		}
+		beforeIDs := make(map[uuid.UUID]bool, len(before))
+		for _, n := range before {
+			beforeIDs[n.ID] = true
+		}
+
+		body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-12T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/cards/"+cid.String()+"/submit", strings.NewReader(body)), cookie))
+		if rr.Code != 200 || !strings.Contains(rr.Body.String(), "event: done") {
+			t.Fatalf("submit: %d — %s", rr.Code, rr.Body.String())
+		}
+
+		got, err := q.GetCardInstance(context.Background(), cid)
+		if err != nil {
+			t.Fatalf("GetCardInstance (after): %v", err)
+		}
+		if got.Status != "completed" {
+			t.Fatalf("status = %q, want completed — a span-less anchor must never block completion (spec §5)", got.Status)
+		}
+
+		after, err := q.ListGraphNodesByProject(context.Background(), projectID)
+		if err != nil {
+			t.Fatalf("ListGraphNodesByProject (after): %v", err)
+		}
+		newEvidenceCount := 0
+		for _, n := range after {
+			if beforeIDs[n.ID] {
+				continue
+			}
+			if n.Type == "evidence" {
+				newEvidenceCount++
+			}
+		}
+		if newEvidenceCount != 1 {
+			t.Fatalf("expected exactly one new evidence node minted, got %d", newEvidenceCount)
+		}
+	}
+
+	// Round 1: 0 prior completed uses -> L1. Complete it for real, over the
+	// real submit endpoint, so the student now has 1 real completed use.
+	pid1, cid1, l1 := surfaceCraapRound()
+	for _, a := range l1 {
+		if a.Author != "ai" || a.Question == "" || a.BlockID == "" || a.End <= a.Start {
+			t.Fatalf("round 1 (0 completions): anchor %+v is not L1-shaped", a)
+		}
+	}
+	completeCraapRound(pid1, cid1, l1)
+
+	// Round 2: the NEXT surface, after ONE real completion, must be
+	// L2-shaped (author student, question present, span blank) — proving the
+	// fade's counter moved because of the student's own submit, not a
+	// hand-seeded row.
+	pid2, cid2, l2 := surfaceCraapRound()
+	for _, a := range l2 {
+		if a.Author != "student" {
+			t.Fatalf("round 2 (1 real completion): anchor %+v author = %q, want \"student\" (L2)", a, a.Author)
+		}
+		if a.Question == "" {
+			t.Fatalf("round 2 (1 real completion): anchor %+v has blank question, want L2's still-AI-elicited question", a)
+		}
+		if !(a.BlockID == "" && a.End == a.Start) {
+			t.Fatalf("round 2 (1 real completion): anchor %+v span is filled, want L2's blank span", a)
+		}
+	}
+	// The load-bearing regression fence (spec §5 / task brief): an L2
+	// submit, with the span left blank exactly as it would be if the
+	// student never located the sentence, must still complete/mint.
+	// Locating is never a completion requirement.
+	completeCraapRound(pid2, cid2, l2)
+
+	// Round 3: the NEXT surface, after a SECOND real completion, must be
+	// L3-shaped (author student, question ALSO blank — she elicits it too).
+	_, _, l3 := surfaceCraapRound()
+	for _, a := range l3 {
+		if a.Author != "student" {
+			t.Fatalf("round 3 (2 real completions): anchor %+v author = %q, want \"student\" (L3)", a, a.Author)
+		}
+		if a.Question != "" {
+			t.Fatalf("round 3 (2 real completions): anchor %+v has a question %q, want L3's blank question", a, a.Question)
+		}
+		if !(a.BlockID == "" && a.End == a.Start) {
+			t.Fatalf("round 3 (2 real completions): anchor %+v span is filled, want L3's blank span", a)
+		}
+	}
+}
+
 // ingestMaterialForTest pastes text into projectID under title, returning the
 // new material's id (the /materials response DTO carries it) — unlike
 // ingestCraapMaterial, which discards it, this is for tests that need to
