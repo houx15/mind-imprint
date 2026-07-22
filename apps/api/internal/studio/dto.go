@@ -69,6 +69,13 @@ type StudioProjection struct {
 	// the studio shows 完成任务·归档 exactly then (A3). Derived, never stored.
 	Finished  bool `json:"finished"`
 	CanFinish bool `json:"canFinish"`
+	// Declaration projects the S6 AI 使用申报单: four counters read from data
+	// that already exists (asks, dispositions, the 自发/提示后 card split)
+	// plus whether the student has signed. Before signing the counters are
+	// computed live; after signing they are read back from the persisted
+	// `declaration` node so the screen never drifts from what was actually
+	// signed. See projectDeclaration (projection.go).
+	Declaration DeclarationDTO `json:"declaration"`
 }
 
 // ActiveCardDTO is the wire shape StudioContainer/conversation.ts hydrate a
@@ -357,6 +364,27 @@ type SelfScoreDTO struct {
 type ReflectionDTO struct {
 	Text    string   `json:"text"`
 	Prompts []string `json:"prompts"`
+}
+
+// DeclarationDTO is the S6 AI 使用申报单: four counters read from data that
+// already exists, plus whether the student has signed. Its five non-Signed
+// fields mirror internal/api/declaration.go's DeclarationCounts exactly
+// (same JSON tags) so json.Unmarshal of a persisted `declaration` node body
+// into this type just works.
+type DeclarationDTO struct {
+	Asks             int `json:"asks"`
+	Dispositions     int `json:"dispositions"`
+	CardsSpontaneous int `json:"cardsSpontaneous"`
+	CardsPrompted    int `json:"cardsPrompted"`
+	// AiWrittenProse is always 0 — see internal/api/declaration.go's
+	// DeclarationCounts field of the same name for why (RL-1: the
+	// whole-draft review's `fix` field is advice, never written into the
+	// draft).
+	AiWrittenProse int `json:"aiWrittenProse"`
+	// Signed is read from the recorded reflect_archive gate_state's
+	// declaration_signed item — the same "solid" check agent.CheckGate
+	// applies to every human/student_written item.
+	Signed bool `json:"signed"`
 }
 
 // PredCritDTO is one review criterion by code+name (used in the prediction reveal).

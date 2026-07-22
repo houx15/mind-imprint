@@ -64,13 +64,16 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 		},
 		Finished:  false,
 		CanFinish: false,
+		Declaration: DeclarationDTO{
+			Asks: 3, Dispositions: 2, CardsSpontaneous: 1, CardsPrompted: 1, AiWrittenProse: 0, Signed: true,
+		},
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	top := marshalKeys(t, raw)
-	want := []string{"activeCard", "activeStation", "canFinish", "coach", "finished", "framing", "materials", "onboarding", "perspectives", "prediction", "project", "readiness", "reflection", "selfScore", "spotChecks", "stations", "structure", "writing"}
+	want := []string{"activeCard", "activeStation", "canFinish", "coach", "declaration", "finished", "framing", "materials", "onboarding", "perspectives", "prediction", "project", "readiness", "reflection", "selfScore", "spotChecks", "stations", "structure", "writing"}
 	if !equalStrs(top, want) {
 		t.Fatalf("top-level keys = %v, want %v", top, want)
 	}
@@ -279,6 +282,11 @@ func TestStudioProjectionJSONKeys(t *testing.T) {
 	// fix,disposition} — must match packages/contracts/src/studioState.ts
 	// SpotCheckItem exactly.
 	assertKeys(t, spotCheckItems[0], []string{"disposition", "evidence", "fix", "interventionId", "missing", "targetId", "targetName"})
+
+	// declaration: {asks,dispositions,cardsSpontaneous,cardsPrompted,
+	// aiWrittenProse,signed} — must match packages/contracts/src/studioState.ts
+	// DeclarationFx exactly (Task 9).
+	assertKeys(t, m["declaration"], []string{"aiWrittenProse", "asks", "cardsPrompted", "cardsSpontaneous", "dispositions", "signed"})
 }
 
 // TestStudioProjectionActiveCardNil asserts the "no open card" case marshals

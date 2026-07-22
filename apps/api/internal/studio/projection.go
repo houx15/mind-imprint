@@ -464,6 +464,7 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		SpotChecks:    projectSpotChecks(d, specByID),
 		Finished:      finished,
 		CanFinish:     canFinish,
+		Declaration:   projectDeclaration(d, coach.Equipment, recordedGates),
 	}, nil
 }
 
@@ -680,6 +681,65 @@ func projectReflection(d ProjectData) ReflectionDTO {
 		}
 	}
 	return ReflectionDTO{Text: text, Prompts: retroPrompts}
+}
+
+// projectDeclaration projects the S6 AI 使用申报单. Signed comes from the
+// recorded reflect_archive gate_state's declaration_signed item — the exact
+// same "solid" check agent.CheckGate applies to every human/student_written
+// item, so this can never disagree with the gate the student is actually
+// walking through.
+//
+// Before signing, the counters are computed live from equipment (the same
+// projectEquipment output Coach.Equipment already carries — its 自发/提示后
+// split is not re-derived a second time here) and from d directly. After
+// signing, they are read back from the persisted `declaration` node
+// (internal/api/declaration.go's signDeclaration mints it in the same
+// transaction that flips the gate item) rather than recomputed — otherwise
+// the screen would show numbers drifting away from what she actually signed.
+func projectDeclaration(d ProjectData, equipment []EquipCardDTO, recordedGates map[string]agent.RecordedGate) DeclarationDTO {
+	signed := recordedGates["reflect_archive"].Items["declaration_signed"] == "solid"
+	if signed {
+		var dto DeclarationDTO
+		found := false
+		for _, n := range d.Nodes {
+			if n.Type != "declaration" {
+				continue
+			}
+			if json.Unmarshal(n.Body, &dto) == nil {
+				found = true // latest wins, though signDeclaration is idempotent and mints at most one
+			}
+		}
+		if found {
+			dto.Signed = true
+			return dto
+		}
+		// Recorded solid but no persisted node found — shouldn't happen
+		// (signDeclaration writes both in one transaction), but fall through
+		// to live counts rather than silently claim zeros.
+	}
+
+	asks := 0
+	for _, e := range d.Events {
+		if e.Type == "prompt_sent" {
+			asks++
+		}
+	}
+	spont, prompted := 0, 0
+	for _, ec := range equipment {
+		if ec.Spont == "提示后" {
+			prompted++
+		} else {
+			spont++
+		}
+	}
+	return DeclarationDTO{
+		Asks:             asks,
+		Dispositions:     len(d.Dispositions),
+		CardsSpontaneous: spont,
+		CardsPrompted:    prompted,
+		AiWrittenProse:   0,
+		Signed:           signed,
+	}
 }
 
 // reviewItemDTOFromIntervention reconstructs a WritingReviewItemDTO from a
