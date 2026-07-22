@@ -9,6 +9,7 @@ import (
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/studio"
 )
 
 // submitOnboarding persists the student's S0 work: their own restate (≥15 runes)
@@ -136,25 +137,23 @@ func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{})
 }
 
-// rubricRow mirrors studio.RubricRowDTO's wire shape — duplicated rather than
-// imported to keep this handler free of a studio package dependency for a
-// three-field read.
-type rubricRow struct {
-	Official string `json:"official"`
-	Plain    string `json:"plain"`
-	Weak     bool   `json:"weak"`
-}
-
 // rubricRowsFromNodes reads the project's rubric_translation node the same
 // way studio.projectOnboarding does. Returns nil if the node is absent or
 // unparseable — callers must not fabricate rows.
-func rubricRowsFromNodes(nodes []sqlc.GraphNode) []rubricRow {
+//
+// Minor 5 (whole-branch review): this used to define its own private
+// rubricRow struct duplicating studio.RubricRowDTO field-for-field
+// (identical fields and json tags) rather than importing the exported type —
+// but internal/api already imports internal/studio in seven other files, so
+// the stated reason (avoiding the dependency) didn't hold, and a duplicated
+// wire shape is a silent-drift risk for no benefit.
+func rubricRowsFromNodes(nodes []sqlc.GraphNode) []studio.RubricRowDTO {
 	for _, n := range nodes {
 		if n.Type != "rubric_translation" {
 			continue
 		}
 		var body struct {
-			Rows []rubricRow `json:"rows"`
+			Rows []studio.RubricRowDTO `json:"rows"`
 		}
 		if json.Unmarshal(n.Body, &body) == nil {
 			return body.Rows
@@ -166,7 +165,7 @@ func rubricRowsFromNodes(nodes []sqlc.GraphNode) []rubricRow {
 // plainForRow returns the plain-language label for rubric row i, or "" when
 // the rubric node or the index is missing — the weakness_prediction node
 // then carries `index` alone rather than a fabricated label.
-func plainForRow(rows []rubricRow, i int) string {
+func plainForRow(rows []studio.RubricRowDTO, i int) string {
 	if i < 0 || i >= len(rows) {
 		return ""
 	}
