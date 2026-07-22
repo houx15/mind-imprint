@@ -19,6 +19,13 @@ export type StudioAnnotateCardProps = {
   // the dead-control comment at the locate/escape block below.
   locatedSpans?: Record<string, LocatedSpan>;
   onRequestLocate?: (anchorId: string, dimension: string) => void;
+  // Whole-branch review IMPORTANT 1: undoes a located span — clears it
+  // (host-owned `locatedSpans`, hence a callback rather than local state,
+  // same reason `onRequestLocate` is a callback) and re-issues the locate
+  // request, mirroring 「重新找一下」's undo-then-retake shape for the
+  // escaped branch below. Optional/dead-control for the same reason as the
+  // three props above it.
+  onRelocate?: (anchorId: string, dimension: string) => void;
   onSpanNotFound?: (anchorId: string, dimension: string) => void;
   // Task 9: the cross-pane container's own accumulated span_located/
   // span_not_found trace for THIS card instance (StudioContainer's
@@ -66,6 +73,7 @@ export function StudioAnnotateCard({
   onSkip,
   locatedSpans,
   onRequestLocate,
+  onRelocate,
   onSpanNotFound,
   pendingTrace,
 }: StudioAnnotateCardProps) {
@@ -307,8 +315,40 @@ export function StudioAnnotateCard({
               {mode !== "answer" && onRequestLocate && (
                 <div style={{ marginTop: 8 }}>
                   {located ? (
-                    <div style={{ fontSize: 11.5, color: "#4C9A82" }}>
-                      已在文章里定位：「{located.quote}」
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontSize: 11.5, color: "#4C9A82" }}>
+                        已在文章里定位：「{located.quote}」
+                      </div>
+                      {/* Whole-branch review IMPORTANT 1: this branch used to be a
+                          bare div with no way back — an accidental drag-select in
+                          the article (any non-collapsed selection commits via
+                          Annotate's onMouseUp) locked her into a fragment she
+                          never meant to locate, with no undo, mirroring the
+                          escaped branch's own 「重新找一下」 below. `onRelocate` is
+                          the host's job (it owns `locatedSpans`, same reason
+                          `onRequestLocate` is a callback, not local state); when an
+                          older host offers `onRequestLocate` but not `onRelocate`
+                          (dead-control convention), this simply doesn't render
+                          rather than offering a control that cannot work. */}
+                      {onRelocate && (
+                        <button
+                          type="button"
+                          onClick={() => onRelocate(a.id, a.dimension)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#5C4A8A",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            padding: 0,
+                            textDecoration: "underline",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          重新选一句
+                        </button>
+                      )}
                     </div>
                   ) : escaped ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

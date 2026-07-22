@@ -88,4 +88,11 @@ export type StudioCallbacks = {
   onSpanNotFound?: (anchorId: string, dimension: string) => void;
   onCreateSpan?: (span: CreatedSpan) => void;
   onCancelLocate?: () => void;
+  // Whole-branch review IMPORTANT 1 (N3c): a located span is otherwise
+  // permanent — unlike the `span_not_found` escape, which already has
+  // 「重新找一下」 to undo it, a located span had no way back at all. Clears
+  // this anchor's `locatedSpans` entry AND re-issues the locate request in
+  // one action, mirroring the escape's undo-then-retake pattern. Optional
+  // for the same reason as the rest of this group.
+  onRelocate?: (anchorId: string, dimension: string) => void;
 };

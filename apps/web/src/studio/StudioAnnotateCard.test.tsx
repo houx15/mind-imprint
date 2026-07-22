@@ -284,6 +284,76 @@ test("the not-found escape can be undone, restoring the locate/escape controls",
   expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument();
 });
 
+// Whole-branch review IMPORTANT 1: a located span used to be permanent — the
+// `located` branch was a bare div with no control at all, so an accidental
+// two-character drag in the article (Annotate commits ANY non-collapsed
+// selection) permanently locked her into a fragment, with no way back. Now
+// `onRelocate` mirrors the escaped branch's undo: it lets her clear the
+// stale span and re-pick, and the lock stays reachable throughout (via the
+// re-pick path here, exactly as the escape already covers the other path).
+test("an accidental located span can be re-picked and replaced, and the lock stays reachable throughout", () => {
+  const onRelocate = vi.fn();
+  const l2 = [makeAnchor({ id: "j0", dimension: "currency", author: "student", question: "这条信息是什么时候发布的？" })];
+  const locatedSpans = { j0: { block_id: "b0", start: 0, end: 2, quote: "过去" } };
+
+  const { rerender } = render(
+    <StudioAnnotateCard
+      spec={spec}
+      anchors={l2}
+      onSubmit={vi.fn()}
+      onSkip={vi.fn()}
+      onRequestLocate={vi.fn()}
+      onRelocate={onRelocate}
+      onSpanNotFound={vi.fn()}
+      locatedSpans={locatedSpans}
+    />,
+  );
+
+  // The accidental fragment is shown, with a re-pick control and no bare
+  // dead end — no 「去文章里选出这句」/「找不到合适的句子」 while located.
+  expect(screen.getByText("已在文章里定位：「过去」")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "去文章里选出这句" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "找不到合适的句子" })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "重新选一句" }));
+  expect(onRelocate).toHaveBeenCalledWith("j0", "currency");
+
+  // onRelocate is the HOST's job (it owns locatedSpans) — simulate the
+  // container clearing the stale entry and re-issuing the locate request,
+  // then a fresh selection landing as a real located span.
+  rerender(
+    <StudioAnnotateCard
+      spec={spec}
+      anchors={l2}
+      onSubmit={vi.fn()}
+      onSkip={vi.fn()}
+      onRequestLocate={vi.fn()}
+      onRelocate={onRelocate}
+      onSpanNotFound={vi.fn()}
+      locatedSpans={{}}
+    />,
+  );
+  // With the stale span cleared, the lock is reachable again via the
+  // ordinary locate/escape controls — she is never stranded.
+  expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument();
+
+  rerender(
+    <StudioAnnotateCard
+      spec={spec}
+      anchors={l2}
+      onSubmit={vi.fn()}
+      onSkip={vi.fn()}
+      onRequestLocate={vi.fn()}
+      onRelocate={onRelocate}
+      onSpanNotFound={vi.fn()}
+      locatedSpans={{ j0: { block_id: "b0", start: 12, end: 30, quote: "一整段真正相关的句子" } }}
+    />,
+  );
+  expect(screen.getByText("已在文章里定位：「一整段真正相关的句子」")).toBeInTheDocument();
+  expect(screen.queryByText("已在文章里定位：「过去」")).not.toBeInTheDocument();
+});
+
 // N3c task 9: `pendingTrace` (the container's own accumulated span_located/
 // span_not_found trace for this instance) becomes the submitted event_trace
 // verbatim when supplied — the container is the only thing that can

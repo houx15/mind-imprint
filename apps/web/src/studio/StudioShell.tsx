@@ -40,7 +40,7 @@ export type StudioShellProps = {
   // right source open and put Annotate in select mode); `locatedSpans` +
   // `pendingTrace` travel to CoachRail (which needs them to hand
   // StudioAnnotateCard its located spans and the submittable event_trace).
-  // The four ACTIONS that drive them (onRequestLocate/onSpanNotFound/
+  // The ACTIONS that drive them (onRequestLocate/onRelocate/onSpanNotFound/
   // onCreateSpan/onCancelLocate) live on `callbacks` instead, matching
   // every other action in this file (onSubmitCard, onAddSource, …).
   // `token` (task-9 review IMPORTANT 1 fix): see ViewFrameProps' own doc
@@ -234,6 +234,7 @@ export function StudioShell({
           onLateralMaterialChange={onLateralMaterialChange}
           locatedSpans={locatedSpans}
           onRequestLocate={callbacks.onRequestLocate}
+          onRelocate={callbacks.onRelocate}
           onSpanNotFound={callbacks.onSpanNotFound}
           pendingTrace={pendingTrace}
         />

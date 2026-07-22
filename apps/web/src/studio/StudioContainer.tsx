@@ -432,6 +432,24 @@ export function StudioContainer({
   }
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;
 
+  // Shared by `onRequestLocate` and `onRelocate` below (whole-branch review
+  // IMPORTANT 1 fix) so the material_id lookup / dead-control no-op / token
+  // bump / station switch exist in exactly one place.
+  //
+  // MINOR 3 (task-9 review): an anchor with no material_id can never be
+  // satisfied by this control — forcing SourceDossier to "open ''" would
+  // switch the station, open nothing, show no hint bar, and give her no way
+  // out. A control that cannot work must not be offered (铁律 2's
+  // don't-wall-her-in reading), so this simply does nothing rather than
+  // putting the UI in an unsatisfiable locate state.
+  const requestLocate = (anchorId: string, dimension: string) => {
+    const materialId = convSnapshot.card?.anchors.find((a) => a.id === anchorId)?.material_id ?? "";
+    if (!materialId) return;
+    locateTokenRef.current += 1;
+    setLocating({ anchorId, dimension, materialId, token: locateTokenRef.current });
+    setActiveStation("S3");
+  };
+
   const callbacks: StudioCallbacks = {
     onSelectStation: setActiveStation,          // client-local view switch
     onToggleFocus: () => setFocusMode((f) => !f),
@@ -484,18 +502,25 @@ export function StudioContainer({
     // the anchor's own material_id, the same "never guess, read the edge"
     // discipline StudioCompareCard's materialId prop already follows —
     // whole-branch review finding [5]).
-    onRequestLocate: (anchorId, dimension) => {
-      const materialId = convSnapshot.card?.anchors.find((a) => a.id === anchorId)?.material_id ?? "";
-      // MINOR 3 (task-9 review): an anchor with no material_id can never be
-      // satisfied by this control — forcing SourceDossier to "open ''"
-      // would switch the station, open nothing, show no hint bar, and give
-      // her no way out. A control that cannot work must not be offered
-      // (铁律 2's don't-wall-her-in reading), so this simply does nothing
-      // rather than putting the UI in an unsatisfiable locate state.
-      if (!materialId) return;
-      locateTokenRef.current += 1;
-      setLocating({ anchorId, dimension, materialId, token: locateTokenRef.current });
-      setActiveStation("S3");
+    onRequestLocate: (anchorId, dimension) => requestLocate(anchorId, dimension),
+    // Whole-branch review IMPORTANT 1 (N3c): the located branch had no way
+    // back — an accidental two-character drag committed via `onCreateSpan`
+    // permanently replaced 「去文章里选出这句」 with a bare read-only line,
+    // with nothing recorded to undo (unlike the `span_not_found` escape,
+    // which already had 「重新找一下」). Clears this anchor's stale
+    // `locatedSpans` entry first, then re-issues the SAME locate request
+    // `onRequestLocate` would — sharing `requestLocate` rather than
+    // duplicating its material_id / token / station-switch logic. The
+    // superseded `span_located` trace event is left standing on purpose
+    // (铁律 4, same reasoning as the escape's own undo above).
+    onRelocate: (anchorId, dimension) => {
+      setLocatedSpans((prev) => {
+        if (!(anchorId in prev)) return prev;
+        const next = { ...prev };
+        delete next[anchorId];
+        return next;
+      });
+      requestLocate(anchorId, dimension);
     },
     // 铁律 4 · 过程即数据: a dimension she looked for and could not find is
     // DATA, not an error — recorded as its own trace event, never surfaced

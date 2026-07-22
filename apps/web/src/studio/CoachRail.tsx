@@ -57,6 +57,7 @@ export type CoachRailProps = {
   // go together under, and StudioContainer for where they're sourced.
   locatedSpans?: Record<string, LocatedSpan>;
   onRequestLocate?: (anchorId: string, dimension: string) => void;
+  onRelocate?: (anchorId: string, dimension: string) => void;
   onSpanNotFound?: (anchorId: string, dimension: string) => void;
   pendingTrace?: TraceEvent[];
 };
@@ -221,6 +222,7 @@ export function CoachRail({
   onLateralMaterialChange,
   locatedSpans,
   onRequestLocate,
+  onRelocate,
   onSpanNotFound,
   pendingTrace,
 }: CoachRailProps) {
@@ -389,6 +391,7 @@ export function CoachRail({
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
               locatedSpans={locatedSpans}
               onRequestLocate={onRequestLocate}
+              onRelocate={onRelocate}
               onSpanNotFound={onSpanNotFound}
               pendingTrace={pendingTrace}
             />
