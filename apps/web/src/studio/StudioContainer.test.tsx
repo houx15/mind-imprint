@@ -1998,6 +1998,88 @@ describe("StudioContainer", () => {
     });
   });
 
+  // Task-9 review IMPORTANT 1: re-clicking the locate ask after 「返回信源
+  //列表」 used to be a dead control — the container's `locating.materialId`
+  // never changed for a second click on the same anchor, so SourceDossier's
+  // forced-open effect (keyed only on the material id) never re-ran and
+  // nothing opened. The fix threads a monotonically increasing request
+  // token through `locating` so every click is a distinct command.
+  it("reopens the article on a SECOND locate click after she navigated back to the source list herself", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
+
+    // She navigates back to the source list HERSELF — nothing in the
+    // container's own `locating` state changes when she does this.
+    fireEvent.click(screen.getByText("返回信源列表"));
+    await waitFor(() => expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument());
+
+    // Clicking locate again for the SAME anchor/material must reopen the
+    // article. Before the fix this silently did nothing.
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => {
+      expect(screen.getByText(locateMaterial.title)).toBeInTheDocument();
+      expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
+    });
+  });
+
+  // Task-9 review MINOR 3: an anchor whose `material_id` is empty can never
+  // be satisfied by the locate control — forcing SourceDossier to "open ''"
+  // would switch the station, open nothing, and show no hint bar, with no
+  // way back out. A control that cannot work must not be offered, so the
+  // click must simply no-op rather than switching the station at all.
+  it("does nothing when the locate control's anchor has no material_id", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const anchorNoMaterial = {
+      id: "a0", material_id: "", block_id: "", start: 0, end: 0, quote: "",
+      dimension: "currency", author: "student" as const,
+      question: "这条信息是什么时候发布的？", answer: "",
+    };
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [anchorNoMaterial], materialId: locateMaterialId },
+    };
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await flush();
+
+    // Station never switched to 素材 at all — SourceDossier's own list
+    // header would render if it had (locating would still be null, so no
+    // force-open, just the list) — its absence proves the guard fired
+    // before `setActiveStation`, not merely before opening a source.
+    expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
+    expect(screen.queryByText(locateMaterial.title)).not.toBeInTheDocument();
+  });
+
   it("selecting text in the article writes the span onto that anchor, clears select mode, and the card shows the located sentence + records it in the submitted envelope", async () => {
     const craapSpec = CARD_REGISTRY["craap"]!;
     let convState: any = {
@@ -2081,11 +2163,12 @@ describe("StudioContainer", () => {
     };
     const listeners = new Set<() => void>();
     const emit = () => listeners.forEach((l) => l());
+    const submitCard = vi.fn(async (_env: any) => {});
     const conv = {
       getSnapshot: () => convState,
       subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
       send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard: vi.fn(async () => {}),
+      submitCard,
       skipCard: vi.fn(),
       dropFirst: vi.fn(),
     };
@@ -2132,5 +2215,167 @@ describe("StudioContainer", () => {
     await waitFor(() => expect(screen.queryByText(/已在文章里定位/)).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument();
     expect(screen.getByText("找不到合适的句子")).toBeInTheDocument();
+
+    // MINOR 4 (task-9 review) strengthening: the original test only asserted
+    // on-screen absence of "已在文章里定位" — it never proved ci1's evidence
+    // was actually gone from what gets SUBMITTED. Take ci2's escape, lock,
+    // and assert its own submitted event_trace carries nothing left over
+    // from ci1 (neither ci1's `span_located(currency)` nor a phantom
+    // duplicate) — only what ci2 itself produced.
+    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "authority-answer" }), { target: { value: "记者写的" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    expect(env.event_trace).toEqual([
+      expect.objectContaining({ kind: "span_not_found", dimension: "authority" }),
+    ]);
+  });
+
+  // Task-9 review IMPORTANT 2: a `span_not_found` escape that is later
+  // superseded by an actual located span for the SAME dimension must not
+  // survive into the submitted envelope — otherwise the process record
+  // would claim she couldn't find a sentence she in fact found, which this
+  // product treats as worse than recording nothing at all.
+  it("a located span retracts its earlier span_not_found escape from the submitted trace", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const submitCard = vi.fn(async (_env: any) => {});
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
+
+    // She escapes first ("找不到合适的句子")...
+    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
+
+    // ...then undoes it and actually locates the sentence.
+    fireEvent.click(screen.getByRole("button", { name: "重新找一下" }));
+    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
+    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
+
+    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
+    const textNode = blockEl.firstChild!.firstChild as Text;
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 9);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    fireEvent.mouseUp(blockEl.parentElement!);
+
+    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    expect(env.event_trace).toContainEqual(expect.objectContaining({ kind: "span_located", dimension: "currency" }));
+    expect(env.event_trace.some((e: any) => e.kind === "span_not_found" && e.dimension === "currency")).toBe(false);
+  });
+
+  // Task-9 review IMPORTANT 2 (second scenario): undo/retake must not
+  // accumulate duplicate span_not_found rows for the same dimension — one
+  // escape event, however many times she toggles it, not a growing pile.
+  it("escaping, undoing, and escaping again for the same anchor does not duplicate span_not_found in the submitted trace", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const submitCard = vi.fn(async (_env: any) => {});
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新找一下" }));
+    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    const notFoundForCurrency = env.event_trace.filter(
+      (e: any) => e.kind === "span_not_found" && e.dimension === "currency",
+    );
+    expect(notFoundForCurrency).toHaveLength(1);
+  });
+
+  // Task-9 review MINOR 4 (second half): there was no container-level test
+  // driving a plain 「找不到合适的句子」 escape — with no locate involved at
+  // all — all the way into the submitted envelope via the container's own
+  // spanTrace/pendingTrace plumbing.
+  it("a not-found escape with no locate involved reaches the submitted envelope's event_trace", async () => {
+    const craapSpec = CARD_REGISTRY["craap"]!;
+    const snapshot = {
+      messages: [], sending: false, error: null, disposableInterventionId: null,
+      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
+    };
+    const submitCard = vi.fn(async (_env: any) => {});
+    const conv = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
+      submitCard,
+      skipCard: vi.fn(),
+      dropFirst: vi.fn(),
+    };
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
+      getProject: async () => locateProjection(),
+    };
+
+    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
+    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
+    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
+    await flush();
+
+    expect(submitCard).toHaveBeenCalledTimes(1);
+    const env = submitCard.mock.calls[0]![0];
+    expect(env.event_trace).toContainEqual(
+      expect.objectContaining({ kind: "span_not_found", dimension: "currency" }),
+    );
   });
 });

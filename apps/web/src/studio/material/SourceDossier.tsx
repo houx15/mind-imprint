@@ -17,6 +17,17 @@ export type SourceDossierProps = {
   // wins over the local `openId` the moment it changes; absent (the
   // default), behavior is byte-identical to before this prop existed.
   openSourceId?: string | null;
+  // Task-9 review IMPORTANT 1 fix: the container's monotonically increasing
+  // request id, bumped every time she takes a fresh 「去文章里选出这句」
+  // action — even one that names the SAME material as a still-pending
+  // `openSourceId`. Without a token distinct from the material id, a second
+  // locate click after she had navigated back to 信源列表 herself (which
+  // only changes THIS component's local `openId`, never the container's
+  // `openSourceId`) left the effect below with an unchanged dep value, so
+  // React never re-ran it and the source silently failed to reopen — a dead
+  // control. See the effect's own doc comment for why keying on the token
+  // (rather than re-adding an `openSourceId === openId` guard) is the fix.
+  openToken?: number;
   // Select-mode wiring for the open article (spec §8) — present only while
   // the container's locate request targets THIS source; gated below against
   // `openSourceId` so it can never be shown against the wrong article (e.g.
@@ -63,7 +74,7 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError, openSourceId, selectMode, onCreateSpan }: SourceDossierProps) {
+export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
@@ -169,20 +180,34 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
   };
 
   // N3c task 9 (spec §7.2): 「去文章里选出这句」 forces THIS exact source
-  // open, from outside this component's own navigation — deliberately keyed
-  // only on `openSourceId` (not `sources`/`openId`) so it fires exactly once
-  // per forced-open COMMAND, not on every unrelated re-render; once applied,
-  // her own subsequent navigation (e.g. "返回信源列表") is free to move
-  // `openId` away without this effect fighting it back (mirrors the
-  // activeCardInstanceId reset precedent: a one-shot reaction to a change,
-  // not a permanent controlling value).
+  // open, from outside this component's own navigation — deliberately NOT
+  // keyed on `sources`/`openId`, so it never re-fires on an unrelated
+  // re-render; once applied, her own subsequent navigation (e.g.
+  // "返回信源列表") is free to move `openId` away without this effect
+  // fighting it back (mirrors the activeCardInstanceId reset precedent: a
+  // one-shot reaction to a change, not a permanent controlling value).
+  //
+  // Task-9 review IMPORTANT 1 fix: this used to key SOLELY on `openSourceId`
+  // with an early return when `openSourceId === openId`. That guard was
+  // redundant with how React dep arrays already work (the effect only
+  // re-runs when a dep's VALUE changes) — so it did nothing to protect
+  // against the actual bug: a second locate click naming the SAME material
+  // as before produces the identical `openSourceId` value, the dep array is
+  // unchanged, and React skips the effect entirely. Concretely: click locate
+  // (opens m1) → 返回信源列表 (her own local `openId` goes to null;
+  // `openSourceId` stays "m1") → click locate again for the same anchor
+  // (`openSourceId` is STILL "m1") → nothing reopens. `openToken` makes every
+  // locate click a distinct COMMAND even when the material repeats — the
+  // container bumps it on every request — so keying on `[openSourceId,
+  // openToken]` re-runs exactly once per command while still never firing on
+  // her own navigation (which touches neither prop).
   useEffect(() => {
-    if (openSourceId == null || openSourceId === openId) return;
+    if (openSourceId == null) return;
     const target = sources.find((s) => s.id === openSourceId);
     if (!target) return;
     activateSource(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSourceId]);
+  }, [openSourceId, openToken]);
 
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>

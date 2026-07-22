@@ -119,7 +119,15 @@ export function StudioContainer({
   // rail (which sets it, via the card's onRequestLocate) and the center pane
   // (which reads it to force the right source open and put Annotate in
   // select mode), same lifting rationale as `lateralMaterialId` above.
-  const [locating, setLocating] = useState<{ anchorId: string; dimension: string; materialId: string } | null>(null);
+  const [locating, setLocating] = useState<{ anchorId: string; dimension: string; materialId: string; token: number } | null>(null);
+  // Task-9 review IMPORTANT 1 fix: a monotonically increasing id, bumped on
+  // every 「去文章里选出这句」 click (even one naming the same material as a
+  // still-pending request) — SourceDossier's forced-open effect keys on this
+  // (as `openToken`), not just the material id, so a second locate click
+  // after she navigated back to 信源列表 herself is still a distinct COMMAND
+  // and reliably reopens the source. A ref, not state: it only needs to be
+  // read synchronously inside onRequestLocate below, never rendered.
+  const locateTokenRef = useRef(0);
   // The spans she has located herself, keyed by anchor id — handed to
   // StudioAnnotateCard as `locatedSpans` so its OWN handleLock merges them
   // onto the matching anchor; this container never reaches into the card's
@@ -461,26 +469,57 @@ export function StudioContainer({
     // whole-branch review finding [5]).
     onRequestLocate: (anchorId, dimension) => {
       const materialId = convSnapshot.card?.anchors.find((a) => a.id === anchorId)?.material_id ?? "";
-      setLocating({ anchorId, dimension, materialId });
+      // MINOR 3 (task-9 review): an anchor with no material_id can never be
+      // satisfied by this control — forcing SourceDossier to "open ''"
+      // would switch the station, open nothing, show no hint bar, and give
+      // her no way out. A control that cannot work must not be offered
+      // (铁律 2's don't-wall-her-in reading), so this simply does nothing
+      // rather than putting the UI in an unsatisfiable locate state.
+      if (!materialId) return;
+      locateTokenRef.current += 1;
+      setLocating({ anchorId, dimension, materialId, token: locateTokenRef.current });
       setActiveStation("S3");
     },
     // 铁律 4 · 过程即数据: a dimension she looked for and could not find is
     // DATA, not an error — recorded as its own trace event, never surfaced
     // as a failure.
+    //
+    // IMPORTANT 2 fix (task-9 review): dedupe by dimension before appending.
+    // Without this, undo→retake ("重新找一下" then 「找不到合适的句子」 again
+    // on the same anchor) appended a SECOND span_not_found for the same
+    // dimension instead of replacing the first — an honest single fact
+    // ("she couldn't find it, as of now") turning into duplicate rows.
     onSpanNotFound: (anchorId, dimension) => {
-      setSpanTrace((prev) => [...prev, { kind: "span_not_found", dimension, at: new Date().toISOString() }]);
+      setSpanTrace((prev) => [
+        ...prev.filter((e) => !(e.kind === "span_not_found" && e.dimension === dimension)),
+        { kind: "span_not_found", dimension, at: new Date().toISOString() },
+      ]);
     },
     // She released the mouse over a real selection in the article pane —
     // write it onto the anchor she was locating, record when it happened
     // (the ONLY honest place to timestamp this — see `spanTrace`'s doc
     // comment), and clear the pending request so the hint bar disappears.
+    //
+    // IMPORTANT 2 fix (task-9 review): a located span SUPERSEDES any earlier
+    // `span_not_found` recorded for the same dimension — drop it before
+    // appending `span_located`. Without this, escape → 「重新找一下」 →
+    // locate produced BOTH events for the same anchor, and because
+    // StudioAnnotateCard's own submit uses `pendingTrace` verbatim when the
+    // container supplies one (never rebuilding it), that false
+    // "couldn't find it" record would ride straight into the submitted
+    // envelope alongside the sentence she in fact found — the process
+    // record actively lying about what happened, which this product treats
+    // as worse than recording nothing.
     onCreateSpan: (span) => {
       if (!locating) return;
       setLocatedSpans((prev) => ({
         ...prev,
         [locating.anchorId]: { block_id: span.blockId, start: span.start, end: span.end, quote: span.text },
       }));
-      setSpanTrace((prev) => [...prev, { kind: "span_located", dimension: locating.dimension, block_id: span.blockId, at: new Date().toISOString() }]);
+      setSpanTrace((prev) => [
+        ...prev.filter((e) => !(e.kind === "span_not_found" && e.dimension === locating.dimension)),
+        { kind: "span_located", dimension: locating.dimension, block_id: span.blockId, at: new Date().toISOString() },
+      ]);
       setLocating(null);
     },
     // The article pane's own inline "取消" — she's stepping back from THIS

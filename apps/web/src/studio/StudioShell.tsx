@@ -43,7 +43,9 @@ export type StudioShellProps = {
   // The four ACTIONS that drive them (onRequestLocate/onSpanNotFound/
   // onCreateSpan/onCancelLocate) live on `callbacks` instead, matching
   // every other action in this file (onSubmitCard, onAddSource, …).
-  locating?: { anchorId: string; dimension: string; materialId: string } | null;
+  // `token` (task-9 review IMPORTANT 1 fix): see ViewFrameProps' own doc
+  // comment — forwarded straight through, unchanged, to ViewFrame.
+  locating?: { anchorId: string; dimension: string; materialId: string; token: number } | null;
   locatedSpans?: Record<string, LocatedSpan>;
   pendingTrace?: TraceEvent[];
   // A3 Task 9: the 就绪度 view's project terminal — see ViewFrameProps'

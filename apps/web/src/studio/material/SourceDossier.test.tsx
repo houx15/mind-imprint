@@ -510,6 +510,30 @@ describe("SourceDossier", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
+  // Task-9 review IMPORTANT 1: a second forced-open COMMAND for the SAME
+  // material — after she navigated back to the list herself — used to be a
+  // dead control: `openSourceId` alone doesn't change value, so the
+  // forced-open effect (keyed only on it) never re-ran. `openToken` is the
+  // container's own monotonically increasing request id; bumping it makes
+  // every command distinct even when the material repeats.
+  it("reopens the same material on a second openToken command after she navigated back to the list herself", () => {
+    const { rerender } = render(<SourceDossier sources={SOURCES} openSourceId={blogArticle.id} openToken={1} />);
+    expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
+    expect(screen.getByText(blogArticle.title)).toBeInTheDocument();
+
+    // She navigates back to the list HERSELF — this only changes this
+    // component's own local `openId`, never the `openSourceId`/`openToken`
+    // props (which are owned by the container).
+    fireEvent.click(screen.getByText("返回信源列表"));
+    expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument();
+
+    // A second command naming the SAME material bumps openToken even though
+    // openSourceId is unchanged — this must still force the article open.
+    rerender(<SourceDossier sources={SOURCES} openSourceId={blogArticle.id} openToken={2} />);
+    expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
+    expect(screen.getByText(blogArticle.title)).toBeInTheDocument();
+  });
+
   it("does not show the select-mode hint bar once she navigates to a DIFFERENT source than the one selectMode targets", () => {
     render(
       <SourceDossier

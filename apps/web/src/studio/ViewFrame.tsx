@@ -37,7 +37,11 @@ export type ViewFrameProps = {
   // forces the right source open and puts Annotate in select mode). Non-null
   // only while a locate request targeting THIS card's material is pending;
   // `null`/absent renders 素材 exactly as before this feature existed.
-  locating?: { anchorId: string; dimension: string; materialId: string } | null;
+  // `token` (task-9 review IMPORTANT 1 fix) is the container's own
+  // monotonically increasing request id — threaded to SourceDossier as
+  // `openToken` so a second locate click on the SAME material still forces
+  // a fresh reopen even if she navigated back to the list in between.
+  locating?: { anchorId: string; dimension: string; materialId: string; token: number } | null;
   onCreateSpan?: (span: CreatedSpan) => void;
   onCancelLocate?: () => void;
   material?: {
@@ -310,6 +314,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
             addSourceError={material?.addError}
             onOpenLogged={material?.onOpenLogged}
             openSourceId={locating?.materialId ?? null}
+            openToken={locating?.token}
             selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}
             onCreateSpan={onCreateSpan}
           />
