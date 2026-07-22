@@ -818,7 +818,7 @@ git commit -m "feat(n3f): SpotCheckFingerprint — content hash replaces the sna
 
 **Interfaces:**
 - Consumes: `agent.ProposeSpotCheck`, `agent.SpotCheckFingerprint`, `agent.SpotCheckTarget`, `agent.SpotCheckItem`, `agent.SpotCheckSources`, `agent.SpotCheckArgument` (Tasks 2–3); `a.attestS3S4` (Task 1) is NOT called here.
-- Produces: `func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request)`; `func spotCheckTargets(ctx, q, projectID, station) ([]agent.SpotCheckTarget, error)`; `func spotCheckItemsFor(ctx, q, projectID, station, fingerprint string) []agent.SpotCheckItem`.
+- Produces: `func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request)`; `func studio.SpotCheckTargets(d studio.ProjectData, station string) []agent.SpotCheckTarget` (in `apps/api/internal/studio/spotcheck.go` — see "Target builders" below); `func spotCheckItemsFor(ctx, q, projectID, station, fingerprint string) []agent.SpotCheckItem` (in `api`).
 
 **Route:**
 
@@ -918,14 +918,31 @@ zero value explicitly rather than omitting them. Add
 — a distinct purpose from `order_review` so per-station cost stays legible in
 `llm_usage`.
 
-**Target builders:**
+**Target builders — these live in `studio`, not `api`.**
+
+Task 5's projection must compute `orderable` by comparing the **current**
+fingerprint against the stored one, which means it needs the same target list
+this handler feeds the model. `studio` cannot import `api`, and two
+independent target builders would let the projection's `orderable` and the
+handler's fingerprint drift apart — the exact "computed twice, differently"
+failure this codebase has hit before (see `materialByCardInstance`'s comment,
+`studio/projection.go:219–223`).
+
+So build them once, in `apps/api/internal/studio/spotcheck.go`, over
+`ProjectData` — which is where source-log, material, edge and node reads
+already live. `studio` already imports `agent` (`projection.go:12`), so the
+return type is fine:
 
 ```go
-// spotCheckTargets builds what the station's check reads. Deterministic order
-// — the fingerprint depends on it, so an unchanged dossier must always
-// serialize identically.
-func spotCheckTargets(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID, station string) ([]agent.SpotCheckTarget, error)
+// SpotCheckTargets builds what a station's spot-check reads. Deterministic
+// order — the fingerprint depends on it, so unchanged work must always
+// serialize identically. Returns an empty slice when the station has nothing
+// to check.
+func SpotCheckTargets(d ProjectData, station string) []agent.SpotCheckTarget
 ```
+
+The handler loads `ProjectData` the same way the projection endpoint does and
+calls this; the projection calls it too. One definition, no drift.
 
 - **S3 (`evaluate_sources`)**: one target per `kind:"article"` material, ordered
   by the material's `created_at` then id. `Name` = the material title.
@@ -1039,6 +1056,16 @@ relationship `agent.ReviewItem` has with `WritingReviewItem`. Do not add
 fingerprint differs from the fingerprint stored on its items, or when it has
 no items. The button's enabled state must never be a client guess about
 whether pressing it would cost money.
+
+Compute the current fingerprint with `agent.SpotCheckFingerprint(
+studio.SpotCheckTargets(d, station))` — the **same** builder Task 4's handler
+uses, defined in `apps/api/internal/studio/spotcheck.go`. Do not write a second
+target builder here: if the projection's notion of "what the check reads"
+diverges from the handler's, `orderable` will disagree with what actually
+happens when the button is pressed.
+
+Edge case to get right: when the station has **no** targets at all,
+`orderable` is **false** (there is nothing to check), not true.
 
 - [ ] **Step 1: Write the failing tests** — a contracts test asserting a
       projection lacking `spotChecks` fails to parse and that a well-formed one
