@@ -117,6 +117,13 @@ type AgentStore interface {
 	// tier_before is simply absent from the node body.
 	GetSourceLogByMaterial(ctx context.Context, materialID uuid.UUID) (SourceLogRow, error)
 
+	// CountCompletedCardUsesByUser is the guidance fade's producer (Task 3,
+	// design §3): how many times this student has already COMPLETED cardID,
+	// across all her projects/courses/chats. surfaceAnchors (Task 4) maps
+	// this onto GuidanceLevel (guidance.go) to decide how much of an
+	// annotate card's span-locating work the AI still does for her.
+	CountCompletedCardUsesByUser(ctx context.Context, userID uuid.UUID, cardID string) (int, error)
+
 	// SetCardInstanceStatus/SetCardInstanceAnchors/SubmitProjectCardInstance
 	// are the Slice 5c-2 card-runtime mutation seam: opening a card
 	// (proposed->active), each live field/observe-event write (anchors),

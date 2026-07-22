@@ -12,6 +12,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCompletedCardUsesByUser = `-- name: CountCompletedCardUsesByUser :one
+SELECT count(*)::int FROM (
+  (SELECT ci.id FROM card_instances ci JOIN project p ON p.id = ci.project_id
+   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
+     AND p.user_id = $1 AND ci.card_id = $2)
+  UNION ALL
+  (SELECT ci.id FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
+   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed'
+     AND cs.user_id = $1 AND ci.card_id = $2)
+  UNION ALL
+  (SELECT ci.id FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
+   WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed'
+     AND t.user_id = $1 AND ci.card_id = $2)
+) rows
+`
+
+type CountCompletedCardUsesByUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	CardID string    `json:"card_id"`
+}
+
+// How many times this student has COMPLETED this specific card, across all
+// three scopes. Same definition as ListCollectedCardsByUser above
+// (status='completed', owner-filtered through each scope's own parent join)
+// narrowed to one card_id — so the guidance fade (agent/guidance.go) counts
+// exactly what the 工具卡 tab already shows her, rather than inventing a
+// private number. A skip is a decline and does not count.
+func (q *Queries) CountCompletedCardUsesByUser(ctx context.Context, arg CountCompletedCardUsesByUserParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countCompletedCardUsesByUser, arg.UserID, arg.CardID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createProjectCardInstance = `-- name: CreateProjectCardInstance :one
 
 INSERT INTO card_instances (task_id, project_id, card_id, contract_ref, status)

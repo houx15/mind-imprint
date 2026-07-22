@@ -145,3 +145,91 @@ func TestListCollectedCardsByUser(t *testing.T) {
 		t.Error("toulmin (skipped) must not appear")
 	}
 }
+
+// CountCompletedCardUsesByUser is the guidance fade's producer (design §3,
+// agent/guidance.go): a narrow, single-card-id count over the same
+// definition as ListCollectedCardsByUser above (status='completed',
+// owner-filtered through each scope's own parent join) — proving all four
+// cases the fade depends on: same-user completed counts, active/skipped
+// don't, a different card_id doesn't, and a different user's completed
+// card doesn't.
+func TestCountCompletedCardUsesByUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+
+	var subject pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color)
+		SELECT 'guidance-subject@example.com', password_hash, 'student', school_id, 'Subject', avatar_color
+		FROM users WHERE id = $1
+		RETURNING id`, refactor2SeededStudentID).Scan(&subject); err != nil {
+		t.Fatalf("seed subject user: %v", err)
+	}
+
+	var projectID pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO project (user_id, title) VALUES ($1, '中国可持续') RETURNING id`,
+		subject).Scan(&projectID); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+
+	// 1. A completed "concession" for this user counts.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (project_id, card_id, status)
+		VALUES ($1, 'concession', 'completed')`, projectID); err != nil {
+		t.Fatalf("seed completed concession: %v", err)
+	}
+	// 2. An active AND a skipped "concession" for this user must NOT count.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (project_id, card_id, status)
+		VALUES ($1, 'concession', 'active')`, projectID); err != nil {
+		t.Fatalf("seed active concession: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (project_id, card_id, status)
+		VALUES ($1, 'concession', 'skipped')`, projectID); err != nil {
+		t.Fatalf("seed skipped concession: %v", err)
+	}
+	// 3. A completed DIFFERENT card_id must NOT count toward "concession".
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (project_id, card_id, status)
+		VALUES ($1, 'toulmin', 'completed')`, projectID); err != nil {
+		t.Fatalf("seed completed toulmin: %v", err)
+	}
+
+	// 4. A completed "concession" belonging to a DIFFERENT user must NOT count.
+	var otherUser pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color)
+		SELECT 'guidance-other@example.com', password_hash, 'student', school_id, 'Other', avatar_color
+		FROM users WHERE id = $1
+		RETURNING id`, refactor2SeededStudentID).Scan(&otherUser); err != nil {
+		t.Fatalf("seed other user: %v", err)
+	}
+	var otherProject pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO project (user_id, title) VALUES ($1, 'not mine') RETURNING id`,
+		otherUser).Scan(&otherProject); err != nil {
+		t.Fatalf("seed other project: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (project_id, card_id, status)
+		VALUES ($1, 'concession', 'completed')`, otherProject); err != nil {
+		t.Fatalf("seed other user's completed concession: %v", err)
+	}
+
+	got, err := q.CountCompletedCardUsesByUser(ctx, sqlc.CountCompletedCardUsesByUserParams{
+		UserID: uuid.UUID(subject.Bytes), CardID: "concession",
+	})
+	if err != nil {
+		t.Fatalf("CountCompletedCardUsesByUser: %v", err)
+	}
+	if got != 1 {
+		t.Errorf("count = %d, want 1 (only the one completed concession for this user; "+
+			"active/skipped, different card_id, and other user's card must all be excluded)", got)
+	}
+}

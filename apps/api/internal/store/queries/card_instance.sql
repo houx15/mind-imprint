@@ -115,3 +115,24 @@ FROM (
 ) rows
 GROUP BY card_id
 ORDER BY uses DESC, last_used DESC;
+
+-- name: CountCompletedCardUsesByUser :one
+-- How many times this student has COMPLETED this specific card, across all
+-- three scopes. Same definition as ListCollectedCardsByUser above
+-- (status='completed', owner-filtered through each scope's own parent join)
+-- narrowed to one card_id — so the guidance fade (agent/guidance.go) counts
+-- exactly what the 工具卡 tab already shows her, rather than inventing a
+-- private number. A skip is a decline and does not count.
+SELECT count(*)::int FROM (
+  (SELECT ci.id FROM card_instances ci JOIN project p ON p.id = ci.project_id
+   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
+     AND p.user_id = @user_id AND ci.card_id = @card_id)
+  UNION ALL
+  (SELECT ci.id FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
+   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed'
+     AND cs.user_id = @user_id AND ci.card_id = @card_id)
+  UNION ALL
+  (SELECT ci.id FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
+   WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed'
+     AND t.user_id = @user_id AND ci.card_id = @card_id)
+) rows;

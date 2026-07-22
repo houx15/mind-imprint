@@ -244,6 +244,22 @@ func (s *sqlcAgentStore) GetCardInstance(ctx context.Context, id uuid.UUID) (Car
 	return toCardInstanceRow(row), nil
 }
 
+// CountCompletedCardUsesByUser counts this user's status='completed'
+// card_instances for cardID, across all three scopes (project/course/chat) —
+// the guidance fade's producer (guidance.go, spec §3). Same definition as
+// ListCollectedCardsByUser (store/queries/card_instance.sql), narrowed to
+// one card_id, so the fade matches the number the 工具卡 tab already shows
+// her rather than inventing a private one.
+func (s *sqlcAgentStore) CountCompletedCardUsesByUser(ctx context.Context, userID uuid.UUID, cardID string) (int, error) {
+	n, err := s.q.CountCompletedCardUsesByUser(ctx, sqlc.CountCompletedCardUsesByUserParams{
+		UserID: userID, CardID: cardID,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
 // GetSourceLogByMaterial reads one source_log_entry's ingestion-time tier —
 // what CompleteCard reads as tier_before, BEFORE a cross_check's mint
 // overwrites it with her post-check re-tier (Task 7). tier is nullable in

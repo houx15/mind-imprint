@@ -86,6 +86,13 @@ type fakeAgentStore struct {
 	lateralReadCalls     int
 	lastLateralRead      LateralRead
 	lateralReadMaterials map[uuid.UUID]bool
+
+	// completedCardUses backs CountCompletedCardUsesByUser — settable per
+	// test (keyed by card_id) so guidance-fade tests (Task 4/5) can exercise
+	// every rung of the ladder. A fake hardcoded to 0 would pin every test
+	// at L1 forever and make those tests vacuous.
+	completedCardUses           map[string]int
+	countCompletedCardUsesCalls int
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -149,6 +156,15 @@ func (f *fakeAgentStore) GetCardInstance(_ context.Context, id uuid.UUID) (CardI
 		return CardInstanceRow{}, fmt.Errorf("fakeAgentStore: no card_instance %s", id)
 	}
 	return row, nil
+}
+
+// CountCompletedCardUsesByUser reads the fake's in-memory per-card count
+// (f.completedCardUses, keyed by card_id) — settable per test, defaulting to
+// 0 (the zero value) rather than hardcoded, so guidance-fade tests can
+// exercise L1/L2/L3 by seeding the count they need.
+func (f *fakeAgentStore) CountCompletedCardUsesByUser(_ context.Context, _ uuid.UUID, cardID string) (int, error) {
+	f.countCompletedCardUsesCalls++
+	return f.completedCardUses[cardID], nil
 }
 
 // GetSourceLogByMaterial reads the fake's in-memory source-log stand-in.
