@@ -2,14 +2,43 @@ import { useState } from "react";
 import type { Anchor, CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
 import { newEnvelope } from "../cards/envelopeReducer";
 
+// Merged onto the anchor at lock time once the student has located the
+// sentence herself (N3c §8 — the container writes this after she selects
+// text in the article pane). Shape mirrors `CreatedSpan` (Task 7) plus
+// `quote`, matching what the anchor itself carries.
+type LocatedSpan = { block_id: string; start: number; end: number; quote: string };
+
 export type StudioAnnotateCardProps = {
   spec: CardSpec;
   anchors: Anchor[];
   onSubmit: (env: CardInstance) => void;
   onSkip: (eventTrace: TraceEvent[]) => void;
+  // L2/L3 only (spec §5, §8). All three are OPTIONAL and go together: an
+  // older host that cannot switch panes to the article passes none of them,
+  // and this renderer degrades to answer-only with no dead controls — see
+  // the dead-control comment at the locate/escape block below.
+  locatedSpans?: Record<string, LocatedSpan>;
+  onRequestLocate?: (anchorId: string, dimension: string) => void;
+  onSpanNotFound?: (anchorId: string, dimension: string) => void;
 };
 
 const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有什么风险 / 局限？";
+
+// The guidance level (L1/L2/L3) is NEVER a stored field, never a prop, never
+// sent over the wire (spec §2) — it is derived from how each anchor arrived:
+//   - author "ai"                        → "answer": AI wrote the question
+//     AND circled the sentence; she only answers. Today's behavior, unchanged.
+//   - author "student" + a question      → "locate": AI wrote the question;
+//     she finds the sentence herself.
+//   - author "student" + blank/whitespace question → "elicit": she writes
+//     the question herself too, on top of locating.
+// This function IS the level — do not add a parallel "level" field anywhere.
+export type AnchorMode = "answer" | "locate" | "elicit";
+
+export function anchorMode(a: Anchor): AnchorMode {
+  if (a.author === "ai") return "answer";
+  return a.question.trim() === "" ? "elicit" : "locate";
+}
 
 // Authorship-agnostic annotate answer host (design s3CoachCard, ~L1282-1320).
 // It renders whatever anchors it is handed — chip = dimension, question,
@@ -18,9 +47,25 @@ const RISK_NOTE_QUESTION = "这条来源在你的论证里起什么作用？有�
 // questions themselves) change only WHERE the anchors come from upstream;
 // this renderer stays exactly the same either way. Do not hardcode the five
 // CRAAP dimensions or specific question copy here.
-export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAnnotateCardProps) {
+export function StudioAnnotateCard({
+  spec,
+  anchors,
+  onSubmit,
+  onSkip,
+  locatedSpans,
+  onRequestLocate,
+  onSpanNotFound,
+}: StudioAnnotateCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [riskNote, setRiskNote] = useState("");
+  // L3 only: the question she writes herself. Keyed by anchor id, same
+  // pattern as `answers`.
+  const [questions, setQuestions] = useState<Record<string, string>>({});
+  // Per-anchor "找不到合适的句子" escapes she has taken (locate/elicit modes
+  // only). Local because the container (Task 9) only needs the one-shot
+  // onSpanNotFound callback; the card itself must still track it to unblock
+  // its own lock button.
+  const [escapes, setEscapes] = useState<Record<string, boolean>>({});
 
   // Completable only once every anchor has a non-empty answer AND the
   // risk-note is non-empty — matches the design's per-dimension ✓ + lock
@@ -42,14 +87,51 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
   // handed nothing to ask about must never present a live lock button.
   const hasAnchors = anchors.length > 0;
   const allAnchorsAnswered = hasAnchors && anchors.every((a) => !!(answers[a.id] ?? a.answer)?.trim());
-  const canLock = hasAnchors && allAnchorsAnswered && !!riskNote.trim();
+
+  // Locating is client-side encouragement ONLY (spec §5) — the server's
+  // completion predicate never requires a located span, so this gate must
+  // never be able to strand her: every non-"answer" anchor needs a located
+  // span OR a taken escape, and the escape is always available. DEAD-CONTROL
+  // RULE: when the host gave us no onRequestLocate, we render no locate/
+  // escape controls at all (below), so we must not gate on them either — a
+  // gate with no way to satisfy it is a wall.
+  const nonAnswerAnchors = anchors.filter((a) => anchorMode(a) !== "answer");
+  const allLocatedOrEscaped =
+    !onRequestLocate || nonAnswerAnchors.every((a) => !!locatedSpans?.[a.id] || !!escapes[a.id]);
+
+  // "elicit" anchors additionally need a written question. No escape covers
+  // this one on purpose (spec §5, brief): writing your own question cannot
+  // fail the way searching for a sentence can.
+  const elicitAnchors = anchors.filter((a) => anchorMode(a) === "elicit");
+  const allQuestionsWritten = elicitAnchors.every((a) => !!(questions[a.id] ?? "").trim());
+
+  const canLock =
+    hasAnchors && allAnchorsAnswered && !!riskNote.trim() && allLocatedOrEscaped && allQuestionsWritten;
 
   function handleAnswerChange(id: string, value: string) {
     setAnswers((prev) => ({ ...prev, [id]: value }));
   }
 
+  function handleQuestionChange(id: string, value: string) {
+    setQuestions((prev) => ({ ...prev, [id]: value }));
+  }
+
+  function handleNotFound(anchorId: string, dimension: string) {
+    setEscapes((prev) => ({ ...prev, [anchorId]: true }));
+    onSpanNotFound?.(anchorId, dimension);
+  }
+
   function handleLock() {
-    const filled: Anchor[] = anchors.map((a) => ({ ...a, answer: answers[a.id] ?? a.answer }));
+    const filled: Anchor[] = anchors.map((a) => {
+      const mode = anchorMode(a);
+      const located = locatedSpans?.[a.id];
+      return {
+        ...a,
+        answer: answers[a.id] ?? a.answer,
+        question: mode === "elicit" ? (questions[a.id] ?? a.question) : a.question,
+        ...(located ? { block_id: located.block_id, start: located.start, end: located.end, quote: located.quote } : {}),
+      };
+    });
     const materialId = anchors[0]?.material_id ?? "";
     filled.push({
       id: "risk_note",
@@ -63,7 +145,15 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
       question: RISK_NOTE_QUESTION,
       answer: riskNote.trim(),
     });
-    const env: CardInstance = { ...newEnvelope(spec.id, ""), anchors: filled };
+
+    // 铁律 4 · 过程即数据: a dimension she looked for and could not find is
+    // DATA, not an error. Record `span_not_found` for every escape she took
+    // that never got superseded by an actual located span.
+    const notFoundEvents: TraceEvent[] = nonAnswerAnchors
+      .filter((a) => escapes[a.id] && !locatedSpans?.[a.id])
+      .map((a) => ({ kind: "span_not_found", dimension: a.dimension, at: new Date().toISOString() }));
+
+    const env: CardInstance = { ...newEnvelope(spec.id, ""), anchors: filled, event_trace: notFoundEvents };
     onSubmit(env);
   }
 
@@ -92,6 +182,9 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
 
         {anchors.map((a) => {
           const answered = !!(answers[a.id] ?? a.answer)?.trim();
+          const mode = anchorMode(a);
+          const located = locatedSpans?.[a.id];
+          const escaped = !!escapes[a.id];
           return (
             <div
               key={a.id}
@@ -125,8 +218,36 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
                   </svg>
                 )}
               </div>
-              <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500 }}>{a.question}</div>
+
+              {/* "elicit" (L3): she writes the question herself — no AI text
+                  to show. Every other mode ("answer"/"locate") keeps today's
+                  read-only question line unchanged. */}
+              {mode === "elicit" ? (
+                <input
+                  type="text"
+                  aria-label={`${a.dimension}-question`}
+                  value={questions[a.id] ?? ""}
+                  onChange={(e) => handleQuestionChange(a.id, e.target.value)}
+                  placeholder="写下你想问的问题——针对这条来源，你自己想核什么？"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #E1E4ED",
+                    borderRadius: 9,
+                    padding: "7px 10px",
+                    fontSize: 12.5,
+                    lineHeight: 1.6,
+                    color: "#1C2333",
+                    background: "#fff",
+                    outline: "none",
+                    fontFamily: "inherit",
+                  }}
+                />
+              ) : (
+                <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", fontWeight: 500 }}>{a.question}</div>
+              )}
+
               <textarea
+                aria-label={`${a.dimension}-answer`}
                 value={answers[a.id] ?? a.answer}
                 onChange={(e) => handleAnswerChange(a.id, e.target.value)}
                 rows={2}
@@ -145,6 +266,62 @@ export function StudioAnnotateCard({ spec, anchors, onSubmit, onSkip }: StudioAn
                   fontFamily: "inherit",
                 }}
               />
+
+              {/* Locating is never a wall (铁律 2, spec §5): the escape must
+                  always be able to unblock the lock. DEAD-CONTROL RULE: an
+                  older host with no onRequestLocate cannot switch panes, so
+                  neither control renders — a control that cannot work must
+                  not be shown (mirrors the !hasAnchors precedent above). */}
+              {mode !== "answer" && onRequestLocate && (
+                <div style={{ marginTop: 8 }}>
+                  {located ? (
+                    <div style={{ fontSize: 11.5, color: "#4C9A82" }}>
+                      已在文章里定位：「{located.quote}」
+                    </div>
+                  ) : escaped ? (
+                    <div style={{ fontSize: 11.5, color: "#9AA1B0" }}>
+                      已记录：这条没能在文章里找到合适的句子。
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => onRequestLocate(a.id, a.dimension)}
+                        style={{
+                          background: "none",
+                          border: "1px solid #2A3B7A",
+                          color: "#2A3B7A",
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: "5px 10px",
+                          borderRadius: 8,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        去文章里选出这句
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleNotFound(a.id, a.dimension)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#9AA1B0",
+                          fontSize: 11.5,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          padding: "5px 0",
+                          textDecoration: "underline",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        找不到合适的句子
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
