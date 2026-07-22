@@ -128,8 +128,11 @@ func activateWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, project
 }
 
 // submitWalkCard drives POST /cards/{cid}/submit (api/projectCards.ts's
-// submitProjectCard) with a filled anchor envelope.
-func submitWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, cid string, anchors []agent.Anchor) string {
+// submitProjectCard) with a filled anchor envelope. The SSE body is only
+// checked for the "event: done" frame here — no caller needs the raw body
+// back (assertCardCompleted below is the real proof of completion, read
+// straight off the card_instance row), so this returns nothing.
+func submitWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, cid string, anchors []agent.Anchor) {
 	t.Helper()
 	anchorsJSON, err := json.Marshal(anchors)
 	if err != nil {
@@ -142,7 +145,6 @@ func submitWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, projectID
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "event: done") {
 		t.Fatalf("submit card %s: %d — %s", cid, rec.Code, rec.Body.String())
 	}
-	return rec.Body.String()
 }
 
 // assertCardCompleted confirms the card_instance actually completed — the
@@ -158,6 +160,34 @@ func assertCardCompleted(t *testing.T, pool *pgxpool.Pool, cid string) {
 	if row.Status != "completed" {
 		t.Fatalf("card %s status = %q, want completed", cid, row.Status)
 	}
+}
+
+// spotCheckOrderable reads spotChecks.<which>.orderable straight off the
+// projection (studio/dto.go's SpotChecksDTO, GET /api/v1/projects/{id}) — the
+// exact boolean SpotCheckPanel.tsx's button gates on
+// (`disabled={pending || !data.orderable}`). Asserting this before ordering
+// proves the 信源体检/论证体检 button itself would have been pressable at
+// this point in the walk, not merely that the endpoint accepts the call.
+func spotCheckOrderable(t *testing.T, h http.Handler, pid string, cookie *http.Cookie, which string) bool {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+pid, nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET project = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		SpotChecks map[string]struct {
+			Orderable bool `json:"orderable"`
+		} `json:"spotChecks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal projection: %v; raw=%s", err, rec.Body.Bytes())
+	}
+	v, ok := out.SpotChecks[which]
+	if !ok {
+		t.Fatalf("projection spotChecks has no key %q; raw=%s", which, rec.Body.Bytes())
+	}
+	return v.Orderable
 }
 
 // fillCraapAnchors fills every generated CRAAP tag anchor's answer, then
@@ -178,42 +208,67 @@ func fillCraapAnchors(anchors []agent.Anchor, checkedMaterialID string) []agent.
 	})
 }
 
-// fillSiftAnchors appends the two anchors sift.json's completion predicates
-// actually check: lateral_source_present (an anchor on dimension "find"
-// naming a DIFFERENT material than the one under review, with a real
-// answer — a claim of lateral reading is not lateral reading, RL-2) and
-// field_written_by(trace_origin, student). The AI-authored stop/investigate/
-// trace_origin anchors surfaceAnchors already generated are left in place
-// (harmless — completion doesn't require every_tag_present here).
-func fillSiftAnchors(generated []agent.Anchor, lateralMaterialID string) []agent.Anchor {
-	out := make([]agent.Anchor, len(generated))
-	copy(out, generated)
-	out = append(out,
-		agent.Anchor{ID: "find1", MaterialID: lateralMaterialID, Dimension: "find", Author: "student",
+// fillSiftAnchors rebuilds the EXACT envelope StudioCompareCard.buildAnchors
+// emits (apps/web/src/studio/StudioCompareCard.tsx) — not the AI-generated
+// anchors surfaceAnchors produced (the real client discards those entirely;
+// buildAnchors is built from spec.steps' fields only). One anchor per
+// answerable field (sift.json's stop/investigate/find/relation/trace_origin/
+// tier_after/revised_judgment — the textarea+single_choice fields across all
+// four steps), id == field key, author "student" on every one, material_id
+// set on EVERY field (never blank): the field whose key equals
+// params.lateral_dimension ("find") carries lateralMaterialID, every other
+// field carries checkedMaterialID — exactly buildAnchors' isLateral branch.
+// This is also what makes agent.checkedMaterialID resolve correctly (it
+// picks the first non-"find" anchor with a material_id) and what satisfies
+// lateral_source_present (find's material_id != checked) and
+// field_written_by(trace_origin, student).
+func fillSiftAnchors(checkedMaterialID, lateralMaterialID string) []agent.Anchor {
+	return []agent.Anchor{
+		{ID: "stop", MaterialID: checkedMaterialID, Dimension: "stop", Author: "student",
+			Answer: "我的第一反应是想立刻拿它当论据，但还没核过来源就下判断，先停一下。"},
+		{ID: "investigate", MaterialID: checkedMaterialID, Dimension: "investigate", Author: "student",
+			Answer: "这是一份公开的研究/报告，署名机构可查，不是匿名营销号。"},
+		{ID: "find", MaterialID: lateralMaterialID, Dimension: "find", Author: "student",
 			Answer: "独立报告印证了造林规模，但强调总排放量仍是世界第一，属于限定关系。"},
-		agent.Anchor{ID: "trace1", Dimension: "trace_origin", Author: "student",
+		{ID: "relation", MaterialID: checkedMaterialID, Dimension: "relation", Author: "student",
+			Answer: "限定"},
+		{ID: "trace_origin", MaterialID: checkedMaterialID, Dimension: "trace_origin", Author: "student",
 			Answer: "追到NASA地球观测团队发布的原始数据集，不是二手转述。"},
-	)
-	return out
+		{ID: "tier_after", MaterialID: checkedMaterialID, Dimension: "tier_after", Author: "student",
+			Answer: "一手报道"},
+		{ID: "revised_judgment", MaterialID: checkedMaterialID, Dimension: "revised_judgment", Author: "student",
+			Answer: "横向查过之后，我把结论收紧为：绿化在扩大，但不能反驳排放总量仍居第一这一事实。"},
+	}
 }
 
-// toulminAnchors builds a fully-satisfying Toulmin []Anchor: one anchor per
-// slot (claim/warrant/evidence/counter/concession), each ≥12 runes
-// (card_completion.go's slotComplete floor), with a real project material_id
-// on every needSrc slot (warrant/evidence/concession) so slotComplete's
-// hasSource holds too.
+// toulminAnchors mirrors graphStateToAnchors (apps/web/src/primitives/graph/
+// serialize.ts) — the ONLY function that ever turns a Toulmin GraphState into
+// the wire []Anchor StudioToulminCard.handleLock submits. It emits SPLIT
+// anchors: one text anchor per node (material_id "", answer = the sentence,
+// dimension = the node's type = the slot id), plus one SOURCE anchor per
+// `cites` edge (material_id = the cited material, answer "", dimension = the
+// citing node's type) — never both material_id and answer on the same
+// anchor, the shape the real serializer can never produce. slotComplete
+// (card_completion.go) ORs both anchors by matching Dimension, so this
+// satisfies it exactly the way graphStateToAnchors' real output would: text
+// anchors give the ≥12-rune sentence, source anchors on the needSrc slots
+// (warrant/evidence/concession, per toulmin.json) give the material_id.
 func toulminAnchors(sourceMaterialID string) []agent.Anchor {
+	text := func(id, answer string) agent.Anchor {
+		return agent.Anchor{ID: id, MaterialID: "", Dimension: id, Author: "student", Answer: answer}
+	}
+	src := func(id string) agent.Anchor {
+		return agent.Anchor{ID: id + "_src", MaterialID: sourceMaterialID, Dimension: id, Author: "student", Answer: ""}
+	}
 	return []agent.Anchor{
-		{ID: "claim", Dimension: "claim", Author: "student",
-			Answer: "中国的发展路径在全球可持续叙事里兼具真实贡献与显著代价"},
-		{ID: "warrant", Dimension: "warrant", Author: "student", MaterialID: sourceMaterialID,
-			Answer: "卫星测得的绿化增量能被视为投入的直接证据，但不能替代对排放总量的核算"},
-		{ID: "evidence", Dimension: "evidence", Author: "student", MaterialID: sourceMaterialID,
-			Answer: "NASA数据显示中国和印度贡献了全球净增绿化量的三分之一"},
-		{ID: "counter", Dimension: "counter", Author: "student",
-			Answer: "反方最强论点：中国碳排放总量仍是全球第一，绿化增量抵不过排放增速"},
-		{ID: "concession", Dimension: "concession", Author: "student", MaterialID: sourceMaterialID,
-			Answer: "承认排放总量确实全球第一，但人均排放与减排速度的边际改善同样值得计入判断"},
+		text("claim", "中国的发展路径在全球可持续叙事里兼具真实贡献与显著代价"),
+		text("warrant", "卫星测得的绿化增量能被视为投入的直接证据，但不能替代对排放总量的核算"),
+		src("warrant"),
+		text("evidence", "NASA数据显示中国和印度贡献了全球净增绿化量的三分之一"),
+		src("evidence"),
+		text("counter", "反方最强论点：中国碳排放总量仍是全球第一，绿化增量抵不过排放增速"),
+		text("concession", "承认排放总量确实全球第一，但人均排放与减排速度的边际改善同样值得计入判断"),
+		src("concession"),
 	}
 }
 
@@ -344,12 +399,12 @@ func TestWalk_S0ToS6_FreshProject(t *testing.T) {
 	// coaching question, not a card — studioturn_test.go's
 	// TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted documents exactly
 	// this one-hop shape).
-	cidSift, checkedSift, anchorsSift := surfaceWalkCard(t, hCore, pool, cookie, pid, "sift", "这条来源核查完了，接下来该怎么办？")
+	cidSift, checkedSift, _ := surfaceWalkCard(t, hCore, pool, cookie, pid, "sift", "这条来源核查完了，接下来该怎么办？")
 	if checkedSift != checked1 {
 		t.Fatalf("sift surfaced on material %q, want the just-checked material %q", checkedSift, checked1)
 	}
 	activateWalkCard(t, hCore, cookie, pid, cidSift)
-	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(anchorsSift, lateral1))
+	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(checkedSift, lateral1))
 	assertCardCompleted(t, pool, cidSift)
 
 	// Round 3: CRAAP on the other (still-unevaluated) material.
@@ -360,6 +415,20 @@ func TestWalk_S0ToS6_FreshProject(t *testing.T) {
 	activateWalkCard(t, hCore, cookie, pid, cidCraap2)
 	submitWalkCard(t, hCore, cookie, pid, cidCraap2, fillCraapAnchors(anchors2, checked2))
 	assertCardCompleted(t, pool, cidCraap2)
+
+	// This is the slice's whole thesis: nothing produced by the work above
+	// closes S3 on its own — S3 must still read "current" here, exactly the
+	// same pre-assertion S2 makes before its own attest above. If some
+	// upstream step ever started satisfying evaluate_sources's machine gate
+	// by itself, this would catch it; only the 信源体检 order below may close
+	// the station.
+	snap = fetchStations(t, hCore, pid, cookie)
+	if got := stationState(t, snap, "S3"); got != "current" {
+		t.Fatalf("S3 state after all source work but before 信源体检 order = %q, want current (the spot-check order is what must close this station, not the CRAAP/SIFT work alone)", got)
+	}
+	if !spotCheckOrderable(t, hCore, pid, cookie, "evaluateSources") {
+		t.Fatalf("spotChecks.evaluateSources.orderable = false — the 信源体检 button (disabled={pending || !data.orderable}) would not have been pressable here")
+	}
 
 	// Order 信源体检: POST /contracts/evaluate_sources/spot-check
 	// (api/writing.ts's orderSpotCheck) — needs its own Provider stub, since
@@ -393,6 +462,16 @@ func TestWalk_S0ToS6_FreshProject(t *testing.T) {
 	activateWalkCard(t, hCore, cookie, pid, cidToulmin)
 	submitWalkCard(t, hCore, cookie, pid, cidToulmin, toulminAnchors(matA))
 	assertCardCompleted(t, pool, cidToulmin)
+
+	// Same thesis as S3's pre-assertion above: the Toulmin card completing
+	// does not by itself close build_argument — only the 论证体检 order does.
+	snap = fetchStations(t, hCore, pid, cookie)
+	if got := stationState(t, snap, "S4"); got != "current" {
+		t.Fatalf("S4 state after toulmin completion but before 论证体检 order = %q, want current (the spot-check order is what must close this station, not the card completing alone)", got)
+	}
+	if !spotCheckOrderable(t, hCore, pid, cookie, "buildArgument") {
+		t.Fatalf("spotChecks.buildArgument.orderable = false — the 论证体检 button (disabled={pending || !data.orderable}) would not have been pressable here")
+	}
 
 	// Order 论证体检: POST /contracts/build_argument/spot-check.
 	spotArgReply := `[` +
@@ -446,6 +525,14 @@ func TestWalk_S0ToS6_FreshProject(t *testing.T) {
 		strings.NewReader(`{"item":"citations_matched","confirmed":true}`)), cookie))
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("attest citations_matched = %d, want 204; body=%s", rec.Code, rec.Body)
+	}
+
+	// Same thesis as S2/S3/S4's pre-assertions above: committing an in-band
+	// snapshot and attesting citations_matched do not by themselves close
+	// draft_polish — only the 整稿体检 order does.
+	snap = fetchStations(t, hCore, pid, cookie)
+	if got := stationState(t, snap, "S5"); got != "current" {
+		t.Fatalf("S5 state after snapshot commit + citations_matched attest but before 整稿体检 order = %q, want current (the review order is what must close this station)", got)
 	}
 
 	// Order 整稿体检: POST /snapshots/{id}/review (api/writing.ts's
