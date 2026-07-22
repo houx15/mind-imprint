@@ -12,6 +12,7 @@ import { StructureView } from "./views/StructureView";
 import { WritingView } from "./views/WritingView";
 import { ReviewView } from "./views/ReviewView";
 import { OnboardingView } from "./views/OnboardingView";
+import { FramingView } from "./views/FramingView";
 
 export type ViewFrameProps = {
   state: StudioState;
@@ -84,6 +85,11 @@ export type ViewFrameProps = {
   // shape OnboardingView's own `onSubmit` takes (no wrapper group, unlike
   // `writing`/`review`, since this is the view's only callback).
   onSubmitOnboarding?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
+  // N3d Task 10: the S1 立题 view's whole-panel submit — mirrors
+  // onSubmitOnboarding's flat shape above (FramingView's only callback).
+  // Task 12 wires the real handler in from the container; this task only
+  // threads the prop through.
+  onSubmitFraming?: (body: { terms: { term: string; definition: string }[]; answers: string[]; searchPlan: string[] }) => Promise<void>;
 };
 
 const FRAME: React.CSSProperties = {
@@ -201,7 +207,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding, onSubmitFraming }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -361,7 +367,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
       {stationScreen === "S0" && (
         <OnboardingView station={active} data={state.views.onboarding} onSubmit={onSubmitOnboarding} />
       )}
-      {stationScreen === "S1" && null /* Task 10 fills this in: FramingView */}
+      {stationScreen === "S1" && <FramingView data={state.views.framing} onSubmit={onSubmitFraming} />}
       {stationScreen === "S2" && null /* Task 11 fills this in: PerspectivesView */}
     </div>
   );

@@ -89,17 +89,25 @@ describe("ViewFrame (station rail = view switcher)", () => {
   it("S1/S2 route to their OWN station screen, NOT their four-view association", () => {
     // S1.view is 结构 and S2.view is 素材 in the fixture, but both are
     // per-station screens (N3d) — they must never fall through to the
-    // 结构/素材 views (Tasks 10/11 fill in their real screens; this task
-    // renders them as null).
+    // 结构/素材 views.
     for (const code of ["S1", "S2"] as const) {
-      const { container, unmount } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: code }} />);
+      const { unmount } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: code }} />);
       expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
-      // Nothing renders below the station header yet (Tasks 10/11 fill in
-      // FramingView/PerspectivesView) — the frame's only child is the header.
-      expect(container.firstElementChild?.childElementCount).toBe(1);
       unmount();
     }
+  });
+
+  it("S1 active renders FramingView (Task 10 fills in the real screen)", () => {
+    render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S1" }} />);
+    expect(screen.getByText(STUDIO_FIXTURE.views.framing.researchQuestion)).toBeInTheDocument();
+    expect(screen.getByText("关键概念 · 我的定义")).toBeInTheDocument();
+  });
+
+  it("S2 active still renders nothing below the header (Task 11 fills in PerspectivesView)", () => {
+    const { container } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S2" }} />);
+    // The frame's only child is the header — S2 has no screen yet.
+    expect(container.firstElementChild?.childElementCount).toBe(1);
   });
 
   it("highlights the live card's anchors only in the material they target", () => {
