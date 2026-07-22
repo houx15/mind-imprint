@@ -361,6 +361,22 @@ func craapAnchorGenStubProvider() gateway.Provider {
 	})
 }
 
+// craapStubQuestionByDimension mirrors craapAnchorGenStubProvider's scripted
+// reply, dimension -> question text. Used to pin TestSurfaceAnchors_
+// FadesWithCompletedUses's L2 round to the REAL model/parse path: craap.json's
+// own tag_prompts (e.g. currency's "这条信息是什么时候发布/更新的？有没有更新版？")
+// are worded differently from these, so a parse or resolver failure at L2
+// (which falls back to fallbackAnchors, reading spec.Params.TagPrompts
+// instead) would produce a DIFFERENT question text here and the assertion
+// would catch it — the identical author/blank-span shape alone cannot.
+var craapStubQuestionByDimension = map[string]string{
+	"currency":  "这段话是什么时候写的？",
+	"relevance": "这段话跟你的论点有什么关系？",
+	"authority": "这段话的作者是谁？",
+	"accuracy":  "这段话准确吗？",
+	"purpose":   "作者写这段话的目的是什么？",
+}
+
 // craapMaterialText is the single-paragraph pasted material ingested into
 // every round's fresh project — kept identical across rounds so
 // craapAnchorGenStubProvider's fixed block_id ("b0") + quote resolve against
@@ -470,8 +486,12 @@ func TestSurfaceAnchors_FadesWithCompletedUses(t *testing.T) {
 		if a.Question == "" {
 			t.Errorf("round 1 (0 uses): anchor %+v has blank question, want L1's AI-elicited question", a)
 		}
-		if a.BlockID == "" && a.End == a.Start {
-			t.Errorf("round 1 (0 uses): anchor %+v span is blank, want L1's AI-located span", a)
+		// Require BOTH a resolved block AND a non-zero-length span: a quote
+		// miss makes computeOffsets return (0,0) even with BlockID set, which
+		// the old "a.BlockID == '' && a.End == a.Start" check let slip through
+		// as a false-valid L1 span.
+		if a.BlockID == "" || a.End <= a.Start {
+			t.Errorf("round 1 (0 uses): anchor %+v span is not a resolved, non-empty L1 span", a)
 		}
 	}
 
@@ -494,6 +514,14 @@ func TestSurfaceAnchors_FadesWithCompletedUses(t *testing.T) {
 		if !(a.BlockID == "" && a.End == a.Start) {
 			t.Errorf("round 2 (1 use): anchor %+v span is filled, want L2's blank span (she locates it)", a)
 		}
+		// Pin the REAL model/parse path: fallbackAnchors' L2 question comes
+		// from craap.json's own tag_prompts, worded differently from the stub's
+		// scripted reply — a parse/resolver failure that silently fell back
+		// would still pass every check above (identical author/blank-span
+		// shape) but would fail THIS one.
+		if want := craapStubQuestionByDimension[a.Dimension]; want != "" && a.Question != want {
+			t.Errorf("round 2 (1 use): anchor %+v question = %q, want the stub's scripted L2 question %q (fell back to fallbackAnchors?)", a, a.Question, want)
+		}
 	}
 
 	// Seed a 2nd prior completed use.
@@ -514,6 +542,143 @@ func TestSurfaceAnchors_FadesWithCompletedUses(t *testing.T) {
 		}
 		if !(a.BlockID == "" && a.End == a.Start) {
 			t.Errorf("round 3 (2 uses): anchor %+v span is filled, want L3's blank span", a)
+		}
+	}
+}
+
+// ingestMaterialForTest pastes text into projectID under title, returning the
+// new material's id (the /materials response DTO carries it) — unlike
+// ingestCraapMaterial, which discards it, this is for tests that need to
+// distinguish two materials in the same project.
+func ingestMaterialForTest(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, title, text string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/materials",
+		strings.NewReader(`{"title":"`+title+`","text":"`+text+`","takeaway":"t","tier":"二手"}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("ingestMaterialForTest(%q): %d — %s", title, rec.Code, rec.Body.String())
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal material response: %v — %s", err, rec.Body.String())
+	}
+	return out.ID
+}
+
+// craapAnchorsForTwoMaterials is Finding 1's regression fixture: a fresh
+// project with an OLDER material already marked "evaluated" (via a hand-
+// planted card_instance -> material "evaluates" edge, status 'skipped' so it
+// neither blocks SurfaceCardCandidates' project-wide proposed/active silence
+// guard nor inflates the guidance-fade's CountCompletedCardUsesByUser), and a
+// NEWER, un-evaluated material — reproducing the exact shape the bug needed
+// to stay hidden: project-materials[0] (oldest, by created_at) is NOT the
+// card's own (checked) material. The classifier skips the evaluated older
+// material and proposes craap on the newer one, so this is the material the
+// surfaced card actually evaluates. Returns the persisted anchors plus the
+// newer material's id.
+func craapAnchorsForTwoMaterials(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie) ([]agent.Anchor, string) {
+	t.Helper()
+	q := sqlc.New(pool)
+	pid := createProjectForTest(t, h, cookie)
+	projectID := uuid.MustParse(pid)
+
+	oldMatID := ingestMaterialForTest(t, h, cookie, pid, "旧材料", craapMaterialText)
+	dummyCI, err := q.CreateProjectCardInstance(context.Background(), sqlc.CreateProjectCardInstanceParams{
+		ProjectID: pgUUID(projectID), CardID: "craap", Status: "skipped",
+	})
+	if err != nil {
+		t.Fatalf("seed evaluated-old-material card_instance: %v", err)
+	}
+	if _, err := q.InsertGraphEdge(context.Background(), sqlc.InsertGraphEdgeParams{
+		ProjectID: projectID, Type: "evaluates",
+		FromKind: "card_instance", FromID: dummyCI.ID,
+		ToKind: "material", ToID: uuid.MustParse(oldMatID),
+	}); err != nil {
+		t.Fatalf("seed evaluates edge on old material: %v", err)
+	}
+
+	newMatID := ingestMaterialForTest(t, h, cookie, pid, "新材料", craapMaterialText)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	body := rr.Body.String()
+	if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
+	}
+	if !strings.Contains(body, `"material_id":"`+newMatID+`"`) {
+		t.Fatalf("card frame material_id must be the newer, un-evaluated material %s (not the older, already-evaluated one %s):\n%s", newMatID, oldMatID, body)
+	}
+
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	var cid uuid.UUID
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "craap" && ci.ID != dummyCI.ID {
+			cid = ci.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no NEW craap card_instance persisted (beyond the seeded dummy)")
+	}
+	row, err := q.GetCardInstance(context.Background(), cid)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	var anchors []agent.Anchor
+	if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
+		t.Fatalf("unmarshal persisted anchors: %v — raw: %s", err, row.Anchors)
+	}
+	return anchors, newMatID
+}
+
+// TestSurfaceAnchors_L2L3PinToCardsOwnMaterial_NotOldest is Finding 1's
+// regression test. TestSurfaceAnchors_FadesWithCompletedUses above could not
+// catch this bug: every one of its rounds used a fresh project with exactly
+// ONE material, so project-materials[0] always coincidentally WAS the
+// checked material. Here each round's project carries TWO materials, with
+// the card's own (checked) material deliberately the SECOND (newer) one —
+// proving surfaceAnchors narrows `materials` to the checked material at
+// L2/L3 (agent/anchors.go's matID = materials[0].ID lines then read the
+// RIGHT material) rather than silently pinning every non-L1 anchor to
+// whichever article the student pasted first.
+func TestSurfaceAnchors_L2L3PinToCardsOwnMaterial_NotOldest(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: craapAnchorGenStubProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// 1 prior completed craap use for this user -> L2.
+	seedCompletedCraapUse(t, pool, uuid.MustParse(createProjectForTest(t, h, cookie)))
+	l2, newMatID2 := craapAnchorsForTwoMaterials(t, h, pool, cookie)
+	if len(l2) == 0 {
+		t.Fatalf("L2: expected generated anchors, got none")
+	}
+	for _, a := range l2 {
+		if a.MaterialID != newMatID2 {
+			t.Errorf("L2 anchor %+v material_id = %q, want the card's own (newer) material %q — not the project's oldest material", a, a.MaterialID, newMatID2)
+		}
+	}
+
+	// A 2nd prior completed craap use -> L3.
+	seedCompletedCraapUse(t, pool, uuid.MustParse(createProjectForTest(t, h, cookie)))
+	l3, newMatID3 := craapAnchorsForTwoMaterials(t, h, pool, cookie)
+	if len(l3) == 0 {
+		t.Fatalf("L3: expected generated anchors, got none")
+	}
+	for _, a := range l3 {
+		if a.MaterialID != newMatID3 {
+			t.Errorf("L3 anchor %+v material_id = %q, want the card's own (newer) material %q — not the project's oldest material", a, a.MaterialID, newMatID3)
 		}
 	}
 }

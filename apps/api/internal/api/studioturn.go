@@ -296,8 +296,13 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 // generated for it are dropped afterward: no lateral source has been chosen
 // yet at surface time, so authoring a "quote" for that dimension off the
 // checked material alone would misattribute it (whole-branch review finding
-// [3]). An annotate card keeps today's behavior (all project materials in
-// scope) unchanged.
+// [3]). An annotate card at L1 keeps today's behavior (all project materials
+// in scope) unchanged — that first, broadest read is deliberate and must not
+// silently narrow for every first-time student. At L2/L3 an annotate card is
+// narrowed the same way compare is: the card is evaluating ONE source, so its
+// question (L2) or dimension-only prompt (L3) must be scoped to that source,
+// not whichever material happens to be project-materials[0] (the OLDEST one
+// by created_at, per ListMaterialsByProject — see the narrowing below).
 func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string) ([]byte, bool) {
 	cid, err := uuid.Parse(cardInstanceID)
 	if err != nil {
@@ -306,9 +311,6 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 	materials, err := a.projectMaterials(ctx, projectID)
 	if err != nil {
 		return nil, false
-	}
-	if spec.Primitive == "compare" && checkedMaterialID != "" {
-		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
 	// The guidance fade (spec §3): the scaffold recedes as she repeats a card.
@@ -327,6 +329,16 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 				level = agent.GuidanceFor(uses)
 			}
 		}
+	}
+	if spec.Primitive == "compare" && checkedMaterialID != "" {
+		materials = onlyMaterial(materials, checkedMaterialID)
+	}
+	// L2/L3 annotate: narrow to the card's own material (mirrors compare's
+	// guard above). Deliberately does NOT run at L1 (see doc comment). A miss
+	// (checkedMaterialID == "", e.g. a project-scoped card with no material)
+	// leaves materials unfiltered — no worse than the pre-fix behavior.
+	if spec.Primitive == "annotate" && level != agent.GuidanceL1 && checkedMaterialID != "" {
+		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	result, err := gen.Generate(ctx, spec, materials, level)
 	if err != nil || len(result.Anchors) == 0 {
