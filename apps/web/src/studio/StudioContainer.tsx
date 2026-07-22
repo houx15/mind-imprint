@@ -688,6 +688,38 @@ export function StudioContainer({
           setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
         });
     },
+    // N3d Task 12: the S1 立题 / S2 视角与素材 station views' whole-panel
+    // saves — same shape as submitOnboarding/submitSelfScore/submitReflection
+    // above (a pure DB write, no llm_call, refetch to rehydrate from what
+    // actually persisted). No try/catch here either, matching those three:
+    // a rejection propagates to the view's own submit handler, which already
+    // resets its local `submitting` flag in a `finally`.
+    onSubmitFraming: async (body) => {
+      if (!projectId) return;
+      await api.submitFraming(projectId, body);
+      await refetchProject();
+    },
+    onSubmitPerspectives: async (body) => {
+      if (!projectId) return;
+      await api.submitPerspectives(projectId, body);
+      await refetchProject();
+    },
+    // N3d Task 12: the S2 view's one explicit attestation — mirrors
+    // onAttestCitations's shape above exactly, just against the
+    // evaluate_perspectives contract's sources_per_perspective item. Fires
+    // in both directions unchanged: an unchecked confirm clears the item
+    // through the same generic gate-attest client just as readily as a
+    // checked one sets it — PerspectivesView's own toggle handler is what
+    // decides which boolean to pass.
+    onAttestSourcesPerPerspective: (confirmed) => {
+      if (!projectId) return;
+      api
+        .attestGate(projectId, "evaluate_perspectives", "sources_per_perspective", confirmed)
+        .then(() => refetchProject())
+        .catch(() => {
+          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+        });
+    },
   };
 
   // Projection = history on load; controller = this session's live turns.
