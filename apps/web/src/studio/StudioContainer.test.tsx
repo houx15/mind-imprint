@@ -1970,7 +1970,12 @@ describe("StudioContainer", () => {
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+    // Wait for the LOCATE BUTTON itself, not merely a station label. The
+    // station name comes from the project projection; the button comes from
+    // the conversation snapshot. Those two settle independently, so waiting
+    // on the former and then querying the latter SYNCHRONOUSLY raced under
+    // CPU load and failed ~1 run in 2 on a loaded machine.
+    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
 
@@ -2014,7 +2019,12 @@ describe("StudioContainer", () => {
     };
 
     const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+    // Wait for the LOCATE BUTTON itself, not merely a station label. The
+    // station name comes from the project projection; the button comes from
+    // the conversation snapshot. Those two settle independently, so waiting
+    // on the former and then querying the latter SYNCHRONOUSLY raced under
+    // CPU load and failed ~1 run in 2 on a loaded machine.
+    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
     await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
@@ -2085,7 +2095,12 @@ describe("StudioContainer", () => {
     };
 
     const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await waitFor(() => expect(screen.getAllByText("论证构建").length).toBeGreaterThan(0));
+    // Wait for the LOCATE BUTTON itself, not merely a station label. The
+    // station name comes from the project projection; the button comes from
+    // the conversation snapshot. Those two settle independently, so waiting
+    // on the former and then querying the latter SYNCHRONOUSLY raced under
+    // CPU load and failed ~1 run in 2 on a loaded machine.
+    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
     await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
