@@ -44,7 +44,7 @@ func TestRenderTeachingFallsBackOnGarbage(t *testing.T) {
 func TestRenderChallengeUsesAnchorsFromAsset(t *testing.T) {
 	ct := "verify_claim"
 	script := []gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"b0","quote":"某科技博主综合整理","dimension":"权威性","question":"作者是谁？"}]`},
+		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"m0:b0","quote":"某科技博主综合整理","dimension":"权威性","question":"作者是谁？"}]`},
 		{Kind: gateway.EventDone},
 	}
 	in := CourseStepInput{Ordinal: 2, Kind: "challenge", Purpose: "核查一处断言", ChallengeType: &ct,

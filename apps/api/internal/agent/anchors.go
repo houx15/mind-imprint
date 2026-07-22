@@ -85,29 +85,23 @@ func stripFences(text string) string {
 // material" (materialize.Segment) — a flat map keyed by the bare block id
 // would collide across materials in a ≥2-material project, with the last
 // material silently winning. The qualified key mirrors the label
-// BuildMaterialContext renders, so a model reply that follows the (now
-// qualified) L1 instruction round-trips directly.
+// BuildMaterialContext renders, so a model reply that follows the L1
+// instruction (which shows the qualified example "m0:b0") round-trips
+// directly.
 //
-// A bare block id is ALSO indexed, but only when it is unambiguous — i.e. it
-// appears in exactly one material. This keeps single-material callers
-// (today's Course path, and older test fixtures written before this fix)
-// resolving without requiring the qualified prefix, while a real
-// cross-material collision — the bug this fix addresses — still requires the
-// qualified form to resolve to the right material.
+// Qualified-only, deliberately: BuildMaterialContext (the L1 user message)
+// always renders qualified labels and the L1 instruction always demonstrates
+// the qualified form, so the model is never shown a bare id to imitate. A
+// bare block_id in a reply has no legitimate producer — resolving it via a
+// "there's only one material so guess" fallback would silently paper over a
+// malformed reply instead of surfacing it, which is exactly the failure mode
+// this function exists to close. An unqualified id fails closed via the
+// caller's "unknown block_id" error.
 func blockLookup(materials []Material) map[string][2]string {
 	m := map[string][2]string{}
-	bareCount := map[string]int{}
 	for _, mat := range materials {
 		for _, b := range mat.Blocks {
 			m[mat.ID+":"+b.ID] = [2]string{mat.ID, b.Text}
-			bareCount[b.ID]++
-		}
-	}
-	for _, mat := range materials {
-		for _, b := range mat.Blocks {
-			if bareCount[b.ID] == 1 {
-				m[b.ID] = [2]string{mat.ID, b.Text}
-			}
 		}
 	}
 	return m
