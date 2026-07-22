@@ -835,17 +835,6 @@ export function StudioContainer({
           ...mergedState,
           activeStation,
           focusMode,
-          // N3f Task 7: see state.ts's `spotCheck` doc comment for why this
-          // travels on `state` rather than as a StudioCallbacks member —
-          // `onDisposition` reuses the SAME generic postDisposition-backed
-          // handler `writing.onReviewDisposition` already wires (disposition
-          // is generic across intervention types, not review-specific).
-          spotCheck: {
-            pendingEvaluateSources: pendingSpotCheck.evaluateSources,
-            pendingBuildArgument: pendingSpotCheck.buildArgument,
-            onOrder: orderSpotCheck,
-            onDisposition: callbacks.onReviewDisposition,
-          },
         }}
         callbacks={callbacks}
         sending={convSnapshot.sending}
@@ -859,6 +848,19 @@ export function StudioContainer({
         pendingTrace={Object.values(spanTrace)}
         review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection }}
         onSubmitOnboarding={submitOnboarding}
+        // N3f Task 7 (I1 fix): the S3/S4 spot-check panels' order-in-flight
+        // flags + actions — a container-local transient handler-state group
+        // (not a projection field), so it travels as its own StudioShellProps
+        // field mirroring `review` above, not folded into `state`.
+        // `onDisposition` reuses the SAME generic postDisposition-backed
+        // handler `writing.onReviewDisposition` already wires (disposition is
+        // generic across intervention types, not review-specific).
+        spotCheck={{
+          pendingEvaluateSources: pendingSpotCheck.evaluateSources,
+          pendingBuildArgument: pendingSpotCheck.buildArgument,
+          onOrder: orderSpotCheck,
+          onDisposition: callbacks.onReviewDisposition,
+        }}
       />
     </>
   );

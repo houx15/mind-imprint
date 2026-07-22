@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Anchor, AnnotateState, CardInstance, CompareState, MaterialSource, TraceEvent } from "@mind-imprint/contracts";
-import type { StudioState } from "./state";
+import type { StudioState, SpotCheckContractId } from "./state";
 import type { LiveCard } from "./CoachRail";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
@@ -82,6 +82,18 @@ export type ViewFrameProps = {
     // (projection fields), same as finishing/finishError/onFinish above.
     onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
     onReflection?: (body: { text: string }) => void;
+  };
+  // N3f Task 7 (I1 fix): the S3/S4 spot-check panels' order-in-flight flags +
+  // actions — `state.views.spotChecks` carries the projection (pure
+  // projected data), but the pending flags and the order/disposition
+  // callbacks are container-local transient handler state, so (mirroring
+  // `review` above, and its own doc comment on the rule) they travel as
+  // their own prop group here rather than living on `state`.
+  spotCheck?: {
+    pendingEvaluateSources: boolean;
+    pendingBuildArgument: boolean;
+    onOrder: (contractId: SpotCheckContractId) => void;
+    onDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
   };
   // N1 Task 8: the S0 view's restate + weak-picks submit — mirrors the flat
   // shape OnboardingView's own `onSubmit` takes (no wrapper group, unlike
@@ -214,7 +226,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, spotCheck, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -297,9 +309,9 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
               <SpotCheckPanel
                 title="信源体检"
                 data={state.views.spotChecks.evaluateSources}
-                onOrder={() => state.spotCheck?.onOrder("evaluate_sources")}
-                onDisposition={state.spotCheck?.onDisposition}
-                pending={state.spotCheck?.pendingEvaluateSources ?? false}
+                onOrder={() => spotCheck?.onOrder("evaluate_sources")}
+                onDisposition={spotCheck?.onDisposition}
+                pending={spotCheck?.pendingEvaluateSources ?? false}
               />
             </div>
           ) : (
@@ -349,9 +361,9 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
             <SpotCheckPanel
               title="信源体检"
               data={state.views.spotChecks.evaluateSources}
-              onOrder={() => state.spotCheck?.onOrder("evaluate_sources")}
-              onDisposition={state.spotCheck?.onDisposition}
-              pending={state.spotCheck?.pendingEvaluateSources ?? false}
+              onOrder={() => spotCheck?.onOrder("evaluate_sources")}
+              onDisposition={spotCheck?.onDisposition}
+              pending={spotCheck?.pendingEvaluateSources ?? false}
             />
           </>
         )
@@ -371,14 +383,23 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
             onSubmitCard={onSubmitCard}
             onSkipCard={onSkipCard}
           />
-          <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 30px 40px" }}>
-            <SpotCheckPanel
-              title="论证体检"
-              data={state.views.spotChecks.buildArgument}
-              onOrder={() => state.spotCheck?.onOrder("build_argument")}
-              onDisposition={state.spotCheck?.onDisposition}
-              pending={state.spotCheck?.pendingBuildArgument ?? false}
-            />
+          {/* M3 fix: mirrors StructureView's own WRAP/COL split (its `WRAP`
+              constant carries the padding, its `COL` constant carries the
+              maxWidth) instead of one div doing both — with no box-sizing:
+              border-box reset anywhere in this app, a single div combining
+              `maxWidth: 760` and horizontal padding renders 60px WIDER than
+              a 760px column that gets its padding from an ancestor, which is
+              exactly how StructureView's own role-card column is built. */}
+          <div style={{ padding: "0 30px 40px" }}>
+            <div style={{ maxWidth: 760, margin: "0 auto" }}>
+              <SpotCheckPanel
+                title="论证体检"
+                data={state.views.spotChecks.buildArgument}
+                onOrder={() => spotCheck?.onOrder("build_argument")}
+                onDisposition={spotCheck?.onDisposition}
+                pending={spotCheck?.pendingBuildArgument ?? false}
+              />
+            </div>
           </div>
         </div>
       )}

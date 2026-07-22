@@ -168,6 +168,19 @@ describe("orderSpotCheck", () => {
 
     await expect(orderSpotCheck("p1", "build_argument")).rejects.toThrow("这次体检没通过内部校验，请再试一次");
   });
+
+  // M4 fix: the underlying HTTP response for this path is a 200 (the stream
+  // itself succeeded; only its in-band payload reported failure) — asserting
+  // `err.status` locks in that this is never mistaken for a real HTTP status
+  // a future caller might branch on (e.g. `err.status === 400`).
+  it("carries the sentinel status 0 (not the underlying 200) on an SSE error-frame rejection", async () => {
+    const spy = vi.fn(async () => sseBody(
+      `event: error\ndata: {"error":{"code":"spot_check_rejected","message":"这次体检没通过内部校验，请再试一次"}}\n\n`,
+    ));
+    vi.stubGlobal("fetch", spy);
+
+    await expect(orderSpotCheck("p1", "build_argument")).rejects.toMatchObject({ status: 0, code: "spot_check_rejected" });
+  });
 });
 
 describe("attestGate", () => {

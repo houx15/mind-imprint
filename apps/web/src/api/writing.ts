@@ -89,7 +89,14 @@ export async function orderSpotCheck(projectId: string, contractId: string): Pro
   }
   for await (const frame of parseSSE(res.body)) {
     const event = mapStudioFrame(frame);
-    if (event?.type === "error") throw new ApiError(event.code, event.message, res.status);
+    // M4 fix: this is NOT `res.status` (which is 200 here — the HTTP
+    // request succeeded; it's the STREAM's own payload that reported
+    // failure after the fact). Reusing `res.status` would silently lie to
+    // any future caller that branches on `err.status` (e.g. `=== 400`),
+    // since there is no real HTTP status backing this failure. `0` is the
+    // sentinel for "no real HTTP status — the failure was reported in-band
+    // over an already-200 stream", distinct from every real status code.
+    if (event?.type === "error") throw new ApiError(event.code, event.message, 0);
   }
 }
 

@@ -28,7 +28,15 @@ const withItems: SpotCheckFx = {
   orderable: true,
 };
 
+// The default, never-checked state at either station: no batch has ever
+// existed AND there is currently nothing to check (`orderable: false` is the
+// default until she's added/evaluated a source at S3, or written a Toulmin
+// slot at S4 — apps/api/internal/studio/projection.go's `len(targets) == 0`).
 const empty: SpotCheckFx = { items: [], orderable: false };
+// I2: the OTHER empty state — no batch has ever existed, but there IS
+// something to check right now (button enabled). Distinguishes "nothing to
+// press yet" (above) from "you can press it, you just haven't yet".
+const orderableEmpty: SpotCheckFx = { items: [], orderable: true };
 
 describe("SpotCheckPanel", () => {
   it("renders every item through WorkOrderItem (label = targetName, no band chip)", () => {
@@ -37,10 +45,21 @@ describe("SpotCheckPanel", () => {
     expect(screen.getByText("NASA 全球变绿观测")).toBeInTheDocument();
     expect(screen.getByText("BP 世界能源统计")).toBeInTheDocument();
     expect(screen.getByText("写了作用与风险。")).toBeInTheDocument();
-    // Neither row carries a `band` key at all (a spot-check row has no band
-    // by design) — WorkOrderItem's own band-absent behaviour is unit-tested
-    // in WorkOrder.test.tsx; here it's enough that no band string leaks in.
-    expect(screen.queryByText(/段$/)).not.toBeInTheDocument();
+  });
+
+  // M1 fix: `expect(screen.queryByText(/段$/)).not.toBeInTheDocument()` never
+  // actually protected the stated constraint ("band is omitted ENTIRELY,
+  // never an empty string") — if a future edit passed `band: ""`,
+  // WorkOrderItem's `row.band !== undefined && <span>{row.band}</span>`
+  // still renders an (empty) chip <span>, which no `/段$/` regex can ever
+  // match, so the old assertion would keep passing right through the bug.
+  // Asserting the header renders exactly one child (the label span, no
+  // second element for a band chip) actually fails the moment a band key of
+  // any kind — including "" — shows up on the row.
+  it("renders no band-chip element at all for a spot-check row (band key entirely absent, not blank-stringed)", () => {
+    render(<SpotCheckPanel title="信源体检" data={withItems} onOrder={() => {}} pending={false} />);
+    const header = screen.getByText("NASA 全球变绿观测").parentElement;
+    expect(header?.children).toHaveLength(1);
   });
 
   it("calls onOrder when the trigger button is clicked", async () => {
@@ -67,6 +86,38 @@ describe("SpotCheckPanel", () => {
     render(<SpotCheckPanel title="信源体检" data={empty} onOrder={() => {}} pending={false} />);
     expect(screen.getByText(/还没做信源体检/)).toBeInTheDocument();
     expect(screen.getByText(/内容有变化/)).toBeInTheDocument();
+    // I2 fix: the empty state must never instruct pressing a button that may
+    // currently be disabled — this scenario's button IS disabled (orderable
+    // false), so the old "点上面的「信源体检」" phrasing must be gone.
+    expect(screen.queryByText(/点上面的/)).not.toBeInTheDocument();
+  });
+
+  // I2 fix: this is the DEFAULT state at either station before she's ever
+  // met the gate (S3: no evaluated source yet; S4: no non-blank Toulmin slot
+  // yet). Before this fix, nothing distinguished it from a station that HAS
+  // been checked before but has nothing new — she saw only a disabled button
+  // over copy telling her to press it, with no explanation of either fact.
+  it("shows a neutral note explaining what has to exist first when orderable is false and no batch has ever existed (S3 copy)", () => {
+    render(<SpotCheckPanel title="信源体检" data={empty} onOrder={() => {}} pending={false} />);
+    expect(screen.getByRole("button", { name: /信源体检/ })).toBeDisabled();
+    expect(screen.getByText(/先添加一篇信源、评估过之后，再来体检/)).toBeInTheDocument();
+  });
+
+  it("shows the S4-specific copy for the same not-possible-yet note", () => {
+    render(<SpotCheckPanel title="论证体检" data={empty} onOrder={() => {}} pending={false} />);
+    expect(screen.getByText(/先在上面写下至少一个论证位置，再来体检/)).toBeInTheDocument();
+  });
+
+  it("does NOT show the not-possible-yet note once the station IS orderable, even with no items yet", () => {
+    render(<SpotCheckPanel title="信源体检" data={orderableEmpty} onOrder={() => {}} pending={false} />);
+    expect(screen.getByRole("button", { name: /信源体检/ })).not.toBeDisabled();
+    expect(screen.queryByText(/先添加一篇信源/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/还没有新的变化/)).not.toBeInTheDocument();
+  });
+
+  it("does NOT show the not-possible-yet note while an order is pending, even with no items yet", () => {
+    render(<SpotCheckPanel title="信源体检" data={empty} onOrder={() => {}} pending={true} />);
+    expect(screen.queryByText(/先添加一篇信源/)).not.toBeInTheDocument();
   });
 
   it("disables the button while an order is pending", () => {

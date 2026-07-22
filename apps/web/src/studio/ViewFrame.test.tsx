@@ -363,3 +363,45 @@ describe("ViewFrame (Task 8): active graph card renders the live Toulmin builder
     expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
   });
 });
+
+describe("ViewFrame (N3f Task 7 fix M2): SpotCheckPanel renders at all three render sites", () => {
+  const siftSpec = CARD_REGISTRY["sift"]!;
+
+  function compareCard(overrides: Partial<LiveCard> = {}): LiveCard {
+    return {
+      cardInstanceId: "ci-compare",
+      cardId: "sift",
+      spec: siftSpec,
+      status: "active",
+      materialId: STUDIO_FIXTURE.views.material[0]?.id ?? "",
+      anchors: [],
+      ...overrides,
+    };
+  }
+
+  // Site 1: the plain (non-compare) 素材 branch — no live card active.
+  it("renders 信源体检 in the plain (non-compare) 素材 branch", () => {
+    render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S3" }} />);
+    expect(screen.getByRole("button", { name: /信源体检/ })).toBeInTheDocument();
+  });
+
+  // Site 2: the compare-mode dossier view — a student in cross-check mode
+  // clicks "查看信源档案" without leaving S3; the review singled this site
+  // out as the one easiest to miss (it's nested one click deep behind the
+  // toggle, not the branch's default render).
+  it("renders 信源体检 in the compare-mode dossier view (behind 查看信源档案)", async () => {
+    const user = userEvent.setup();
+    render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S3" }} card={compareCard()} />);
+    // Default compare-mode render has no 信源体检 button yet — it's behind
+    // the dossier toggle, not on Compare's own two-pane view.
+    expect(screen.queryByRole("button", { name: /信源体检/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /查看信源档案/ }));
+    expect(await screen.findByRole("button", { name: /信源体检/ })).toBeInTheDocument();
+  });
+
+  // Site 3: the 结构 branch.
+  it("renders 论证体检 below the 结构 role cards", () => {
+    render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S4" }} />);
+    expect(screen.getByRole("button", { name: /论证体检/ })).toBeInTheDocument();
+  });
+});
