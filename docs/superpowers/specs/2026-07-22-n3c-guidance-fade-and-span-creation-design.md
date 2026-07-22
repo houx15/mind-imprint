@@ -233,8 +233,17 @@ Flow: card 「去文章里选出这句」 → container sets `locating`, switche
 select-mode (a hint bar naming the dimension, and a cancel) → she selects text →
 `rangeToSpan` yields `{blockId, start, end, text}` → container writes
 `{block_id, start, end, quote}` onto that anchor in the live conversation card
-and clears `locating` → the rail shows the sentence under the dimension, and the
-article highlights it green (student authorship) immediately.
+and clears `locating` → the rail shows the sentence under the dimension.
+
+**Deferred, and corrected here rather than left as an unmet claim:** this
+section originally promised the article would highlight her sentence green
+(student authorship) *immediately*. It does not. The located span lives in
+`StudioContainer` state and never reaches `ViewFrame`'s `anchors`, so the
+article shows nothing until the card is submitted and the project refetched.
+Her confirmation in the meantime is in the rail (the dimension shows the
+sentence she picked), which is adequate but is not what this paragraph
+described. Threading the in-progress span into the article pane is a small,
+self-contained follow-up.
 
 `rangeToSpan` (new `primitives/annotate/selection.ts`) reads
 `window.getSelection()`, walks up to the enclosing `[data-block-id]`, and
