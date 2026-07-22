@@ -35,6 +35,21 @@ describe("CardInstance", () => {
     ] };
     expect(CardInstance.safeParse(env).success).toBe(true);
   });
+  it("accepts span_located and span_not_found trace events (N3c additive kinds)", () => {
+    const env = { ...base, event_trace: [
+      { kind: "span_located", dimension: "D1_来源意识", block_id: "b_3", at: base.created_at },
+      { kind: "span_not_found", dimension: "D1_来源意识", at: base.created_at },
+    ] };
+    expect(CardInstance.safeParse(env).success).toBe(true);
+  });
+  it("still accepts a field_change/skip/submit trace unchanged now that the union is widened (additive guarantee)", () => {
+    const env = { ...base, event_trace: [
+      { kind: "field_change", path: "sift.stop", at: base.created_at },
+      { kind: "skip", at: base.created_at },
+      { kind: "submit", at: base.created_at },
+    ] };
+    expect(CardInstance.safeParse(env).success).toBe(true);
+  });
   it("accepts arbitrary field_values (record of unknown) and rubric_tags entries", () => {
     const env = { ...base, field_values: { stop: "x", n: 42, nested: { ok: true } }, rubric_tags: ["D1_来源意识"] };
     expect(CardInstance.safeParse(env).success).toBe(true);

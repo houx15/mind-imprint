@@ -1,12 +1,18 @@
 import { z } from "zod";
 import { Anchor } from "./anchor";
 
+// N3c Task 6: span_located/span_not_found are additive — existing kinds are
+// unchanged in shape. This union is enforced a SECOND time in Go's
+// traceKinds set (apps/api/internal/api/cards.go); the two must move
+// together or every L2/L3 submit 400s at the widened kind.
 export const TraceEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("field_change"), path: z.string(), at: z.string() }),
   z.object({ kind: z.literal("step_expand"), step_key: z.string(), at: z.string() }),
   z.object({ kind: z.literal("note_open"), step_key: z.string(), at: z.string() }),
   z.object({ kind: z.literal("skip"), at: z.string() }),
   z.object({ kind: z.literal("submit"), at: z.string() }),
+  z.object({ kind: z.literal("span_located"), dimension: z.string(), block_id: z.string(), at: z.string() }),
+  z.object({ kind: z.literal("span_not_found"), dimension: z.string(), at: z.string() }),
 ]);
 
 export const CardStatus = z.enum(["proposed", "active", "completed", "skipped"]);

@@ -12,9 +12,14 @@ import (
 // projectcards.go. These envelope validators survive because
 // projectcards.go's activate/skip/submit handlers still call them.
 
-// traceKinds is the closed set of TraceEvent kinds (unchanged contract).
+// traceKinds is the closed set of TraceEvent kinds. It mirrors the Zod
+// TraceEvent discriminated union in packages/contracts/src/envelope.ts —
+// the two must move together, or every L2/L3 submit 400s here on a kind
+// the client-side contract already accepts. span_located/span_not_found
+// (N3c Task 6) are additive; no pre-existing kind changed shape.
 var traceKinds = map[string]bool{
 	"field_change": true, "step_expand": true, "note_open": true, "skip": true, "submit": true,
+	"span_located": true, "span_not_found": true,
 }
 
 // validateFieldValues requires a JSON object.
