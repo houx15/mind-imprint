@@ -66,5 +66,6 @@ func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("onboarding submit: append event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	a.advanceGates(r.Context(), projectID)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{})
 }

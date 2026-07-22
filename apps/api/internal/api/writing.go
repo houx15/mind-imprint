@@ -250,6 +250,7 @@ func (a *API) attestGate(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.advanceGates(r.Context(), projectID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

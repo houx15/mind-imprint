@@ -331,5 +331,6 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.streamAction(r.Context(), em, action, projectID, store)
+	a.advanceGates(r.Context(), projectID)
 	_ = em.DoneCard(cardStatus)
 }

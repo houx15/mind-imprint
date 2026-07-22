@@ -76,5 +76,6 @@ func (a *API) submitReflection(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		slog.Warn("reflection: append event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	a.advanceGates(r.Context(), projectID)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{})
 }
