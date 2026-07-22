@@ -6,6 +6,7 @@
 package agent
 
 import (
+	"strconv"
 	"strings"
 
 	"mindimprint/api/internal/cards"
@@ -60,6 +61,21 @@ type MaterialBlock struct {
 	Text string `json:"text"`
 }
 
+// materialAlias returns the prompt-local alias for the i-th material in a
+// materials slice: "m0", "m1", … — the index, NOT m.ID. Block ids are only
+// "stable within a material" (materialize.Segment), so a project with ≥2
+// materials needs SOME qualifier to disambiguate colliding bare [b0] labels.
+// The qualifier can't be m.ID itself: on the course path m.ID is the literal
+// "m0", but on the studio path (api/studioturn.go's projectMaterials) it is
+// the material's full 36-char UUID — and the L1 instruction's own example
+// ("m0:b0", buildAnchorPrompt) is only unmistypeable by a beginner student
+// AND by the model when the label is this short. blockLookup (anchors.go)
+// derives the identical alias from the SAME materials slice in the SAME
+// order, so the pair stays in lockstep without a shared table or a migration.
+func materialAlias(i int) string {
+	return "m" + strconv.Itoa(i)
+}
+
 // BuildMaterialContext renders the task's materials (with block ids) as a
 // context block the model can reference when anchoring questions. Empty when
 // there are no materials.
@@ -69,14 +85,11 @@ func BuildMaterialContext(materials []Material) string {
 	}
 	var b strings.Builder
 	b.WriteString("# 学生正在读/写的材料（可引用其中的 block_id 与原句）\n")
-	for _, m := range materials {
+	for i, m := range materials {
+		alias := materialAlias(i)
 		b.WriteString("## 材料：" + m.Title + "\n")
 		for _, blk := range m.Blocks {
-			// Material-qualified label (m.ID:blk.ID): block ids are only
-			// "stable within a material" (materialize.Segment), so a project
-			// with ≥2 materials would otherwise render colliding bare [b0]
-			// labels the model cannot disambiguate.
-			b.WriteString("[" + m.ID + ":" + blk.ID + "] " + blk.Text + "\n")
+			b.WriteString("[" + alias + ":" + blk.ID + "] " + blk.Text + "\n")
 		}
 	}
 	return b.String()

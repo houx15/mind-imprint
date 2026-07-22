@@ -180,6 +180,35 @@ func TestProjectCoach_ExcludesReviewAndSpotCheckItems(t *testing.T) {
 	}
 }
 
+// TestProjectCoach_AllowlistExcludesUnknownFutureType pins the M-coach fix:
+// isConversationalIntervention is an ALLOWLIST, not a denylist. A made-up
+// intervention type nobody has added to the allowlist yet — standing in for
+// any future machine-readable type — must be excluded from the coach rail
+// same as review_item/spot_check_item, without anyone having to remember to
+// add it to a denylist first. Before this fix, an unrecognized type fell
+// straight through to the generic "ai" branch and rendered as a raw JSON
+// blob — precisely the defect this slice found live for review_item/
+// spot_check_item.
+func TestProjectCoach_AllowlistExcludesUnknownFutureType(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "some_future_machine_type", Body: `{"not":"prose"}`, Anchor: []byte(`{"label":"should not surface"}`)},
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if len(coach.Messages) != 1 {
+		t.Fatalf("want 1 message (unknown machine type excluded by allowlist), got %d: %+v", len(coach.Messages), coach.Messages)
+	}
+	if coach.Messages[0].Body != "连到治理决心" {
+		t.Fatalf("surviving message = %+v", coach.Messages[0])
+	}
+	if coach.Anchor != "论证图 · 治理决心主张" {
+		t.Fatalf("anchor pick must skip the unknown-type row too, got %q", coach.Anchor)
+	}
+}
+
 func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	steel := uuid.New()
 	d := ProjectData{

@@ -162,19 +162,36 @@ func anchorLabel(raw []byte) string {
 	return b.Label
 }
 
-// isWorkOrderIntervention reports whether iv.Type is a work-order row
-// (review_item / spot_check_item) rather than a conversational one. A
-// work-order row's Body is marshalled ReviewItem/SpotCheckItem JSON, not
-// prose, and its Anchor carries {"kind","id","voice"} or
-// {"station","fingerprint"} — fields anchorLabel does not read (it reads
-// "label"). This predicate is used BOTH by the message-thread loop (so a raw
-// JSON blob never renders as a chat bubble) AND by the anchor pick below (so
-// the newest work-order row can never silently collapse the coach rail's
-// anchor line to "") — hoisted into one name so the two can never disagree
+// conversationalInterventionTypes is the ALLOWLIST of intervention.Type
+// values that render as prose in the coach rail's conversation thread.
+// Deliberately an allowlist, not a denylist: a denylist (the previous shape
+// here — "everything except review_item/spot_check_item") lets any FUTURE
+// machine-readable intervention type fall straight through and render as a
+// raw JSON blob, which is exactly the defect that was live in production
+// until this slice caught it for review_item/spot_check_item. A new
+// machine-readable type must earn its own DTO and panel (the way
+// review_item → 整稿体检's work order and spot_check_item → the station 体检
+// panels did) rather than silently qualifying for this set by omission.
+//
+// "question" (coach.go's live studio turn output) and "diagnostic" +
+// "flag" (both minted server-side today — "flag" currently only by the
+// seed fixture, "diagnostic" by the live coach loop) are the only types
+// whose Body is prose meant for a chat bubble; everything else's Body is a
+// marshalled struct.
+//
+// This predicate is used BOTH by the message-thread loop (so a raw JSON blob
+// never renders as a chat bubble) AND by the anchor pick below (so the newest
+// non-conversational row can never silently collapse the coach rail's anchor
+// line to "") — hoisted into one name so the two can never disagree
 // (whole-branch review finding on N3f Task 4/5: the anchor pick used to read
 // d.Interventions[n-1] unconditionally).
-func isWorkOrderIntervention(t string) bool {
-	return t == "review_item" || t == "spot_check_item"
+func isConversationalIntervention(t string) bool {
+	switch t {
+	case "question", "diagnostic", "flag":
+		return true
+	default:
+		return false
+	}
 }
 
 // projectCoach builds the coach rail: anchor (the latest NON-work-order
@@ -188,10 +205,11 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	}
 	all := make([]stamped, 0, len(d.Interventions)+len(d.ChatMessages))
 	for _, iv := range d.Interventions {
-		// review_item / spot_check_item interventions are work-order rows with
-		// their own panels (the 整稿体检 work order / the station 体检 panel) —
-		// give them their own DTO/panel instead; do not re-add them here.
-		if isWorkOrderIntervention(iv.Type) {
+		// Non-conversational interventions (review_item / spot_check_item /
+		// any future machine-readable type) are work-order rows with their
+		// own panels (the 整稿体检 work order / the station 体检 panels) — give
+		// them their own DTO/panel instead; do not re-add them here.
+		if !isConversationalIntervention(iv.Type) {
 			continue
 		}
 		label := anchorLabel(iv.Anchor)
@@ -218,11 +236,11 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	for i, st := range all {
 		c.Messages[i] = st.msg
 	}
-	// Walk back to the last NON-work-order intervention for the anchor pick —
+	// Walk back to the last conversational intervention for the anchor pick —
 	// the same predicate the message loop above already applies, so the two
 	// can never disagree about which row is "the latest real one".
 	for i := len(d.Interventions) - 1; i >= 0; i-- {
-		if isWorkOrderIntervention(d.Interventions[i].Type) {
+		if !isConversationalIntervention(d.Interventions[i].Type) {
 			continue
 		}
 		c.Anchor = anchorLabel(d.Interventions[i].Anchor)

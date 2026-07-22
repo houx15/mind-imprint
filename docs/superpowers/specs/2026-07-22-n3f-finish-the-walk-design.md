@@ -108,10 +108,18 @@ CRAAP card's own `field_written_by(risk_note, student)` completion predicate
 different threshold on the same text would let a card complete while its gate
 item stayed missing, with nothing on screen explaining the discrepancy.
 
-**Un-attestation.** Each check runs on every relevant submit and both sets and
-clears, like `attestGate`'s set/delete pattern. Deleting a material or blanking
-a slot must be able to re-open the gate; a gate that can only ever close is a
-gate that lies after a deletion.
+**Un-attestation — item-level only, not station-level.** Each check runs on
+every relevant submit and both sets and clears the ITEM, like `attestGate`'s
+set/delete pattern: deleting a material or blanking a slot clears the item
+from the gate_state's `Items` map immediately. But `attestS3S4` only ever
+calls `UpsertGateState`, never anything that un-confirms a station once it
+has been confirmed solid — and `agent.AdvanceAll` (`agent/planner.go`) skips
+any contract whose gate_state is already `Confirmed` (`solid[id] { continue
+}`), it never re-checks or un-confirms one. So a station that was already
+`done` stays `done` after an un-attestation: the item count under it silently
+drops below its total while the rail keeps showing the station as passed.
+This is a real, known gap — see §10 — and this spec does not change that
+advancement semantics; doing so is its own slice.
 
 **RL-5 holds.** These check that she *did* the work, never how well. Quality
 judgment belongs to the assessor and to her own self-score.
@@ -153,7 +161,8 @@ from `order_review` so per-station cost stays legible in `llm_usage`.
 - **S3 (信源体检).** Per `kind:"article"` material: title, tier, takeaway,
   `risk_note`, `lateral_read`, and the CRAAP anchor answers.
 - **S4 (论证体检).** The five Toulmin slot texts (claim / warrant / evidence /
-  counter / concession) plus which locked sources each cites.
+  counter / concession) only — `argumentSpotCheckTargets` sends slot id,
+  role, and text; it does not read which locked sources each slot cites.
 
 ### 5.3 Item shape
 
@@ -183,15 +192,26 @@ evidence it sees and what is missing; it does not rate her sources.
 
 整稿体检 is one-snapshot-one-review, anchored on the snapshot id the student
 explicitly committed. S3/S4 have no commit action, so the fingerprint is
-derived from what the check actually reads:
+derived from what the check actually reads: the ordered list of
+`agent.SpotCheckTarget{ID, Name, Detail}` rows `SpotCheckTargets` builds for
+the station (`studio/spotcheck.go`) — NOT a `(material_id, risk_note)` /
+`(slot_id, text)` pair list. Concretely:
 
-- **S3:** the ordered list of `(material_id, risk_note)` pairs for article
-  materials.
-- **S4:** the ordered list of `(slot_id, text)` pairs for the five slots.
+- **S3:** per article material, `ID` = material id, `Name` = the material's
+  title, and `Detail` = `"档位：…；一句话收获：…；作用与风险：…；{横向核查过|未横向核查}"`
+  — tier + one-line takeaway + risk_note (or the `「（未写）」` placeholder) +
+  whether a cross_check has lateral-read it. So the fingerprint moves on
+  more than just the risk_note: re-tiering a source, writing a takeaway, or
+  cross-checking it also changes the fingerprint, not only editing the risk
+  note.
+- **S4:** per written Toulmin slot, `ID` = slot id, `Name` = the slot's role
+  label, `Detail` = the slot's node text.
 
-SHA-256 over a canonical serialization, hex-encoded, stored in the
-intervention's jsonb `anchor` as `{"station": "...", "fingerprint": "..."}` —
-the same additive-anchor-field seam Slice 8b used for `voice`, so no migration.
+`SpotCheckFingerprint` (`agent/spotcheck.go`) hashes `ID + Name + Detail` for
+every target with SHA-256 over a length-prefixed (not delimiter-joined)
+canonical serialization, hex-encoded, stored in the intervention's jsonb
+`anchor` as `{"station": "...", "fingerprint": "..."}` — the same
+additive-anchor-field seam Slice 8b used for `voice`, so no migration.
 
 Behaviour:
 
@@ -397,10 +417,15 @@ producer where the next reader will look for it.
 - The S3 check reads risk_notes and CRAAP answers, not the source texts
   themselves — it can tell her a risk_note is thin, not that she misread the
   article.
-- The fingerprint covers what the check reads and nothing else. Adding a
-  material without writing its risk_note does not change the S3 fingerprint,
-  so the check is not re-orderable until she writes one. That is intended: the
-  check has nothing new to say until she has written something new.
+- The fingerprint covers what the check reads and nothing else — but that is
+  the FULL target list, not just risk_notes. Adding a material DOES change
+  the S3 fingerprint immediately, even before she writes anything on it: an
+  unevaluated article is still a target (its `Detail` reads the explicit
+  `「（未写）」` risk-note placeholder, per §5.1/§10's own
+  adding-vs-evaluating note below), and it contributes its own `ID`/`Name` to
+  what gets hashed. So the check becomes re-orderable the moment a material
+  is added, before any writing happens on it — not only once she has written
+  something new.
 - `AI 代写正文` is unmeasured (§7).
 - The walk this slice completes is the 0457 board only. Other boards remain
   N4's problem.
@@ -419,3 +444,25 @@ producer where the next reader will look for it.
   collision this slice fixed (§6), masked at L2 because the student locates
   the span herself, which corrects the material. Explicitly deferred, same as
   §6 records.
+- **论证体检 is effectively one-shot.** The classifier retires the toulmin
+  offer on any toulmin card_instance — including a skipped one
+  (`agent/classifier.go`) — and both `projectStructure` and
+  `argumentSpotCheckTargets` take the FIRST node per type
+  (`studio/projection.go`, `studio/spotcheck.go`), so no student path can
+  change an S4 slot's projected text after the first fill. `buildArgument`'s
+  targets are therefore fixed forever after the first order, and §5.4's
+  「rewriting a warrant makes the check orderable again」 has no code path at
+  S4 — that sentence describes S3 (where adding a source, or re-tiering /
+  re-cross-checking one, does change the fingerprint), not S4. S3 is
+  unaffected by this limit.
+- **S6 is skippable.** `canFinish` (`studio/projection.go`) still keys on
+  `whole_draft_review` alone, not on `declaration_signed` — so 完成任务·归档 is
+  offered as soon as S5 closes, bypassing the AI 使用申报单 this slice made
+  buildable. Wiring `canFinish` to also require `declaration_signed` is a
+  small, separate change this spec does not make.
+- **Concurrent spot-check/review orders can double-charge.** Two in-flight
+  orders both read `existing == 0` (or the fingerprint-miss equivalent) and
+  both persist a batch under the same fingerprint; the panel then shows each
+  target twice, and both calls were metered. The client's `pending` flag
+  guards only one browser tab, not two concurrent requests from the same or
+  different tabs.

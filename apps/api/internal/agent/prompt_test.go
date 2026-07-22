@@ -69,12 +69,45 @@ func TestBuildMaterialContextQualifiesBlockIDs(t *testing.T) {
 	}
 	got := BuildMaterialContext(materials)
 	if strings.Count(got, "[b0]") > 0 {
-		t.Error("bare [b0] labels collide across materials — ids must be material-qualified")
+		t.Error("bare [b0] labels collide across materials — ids must be alias-qualified")
 	}
-	for _, want := range []string{"[mat-a:b0]", "[mat-b:b0]"} {
+	for _, want := range []string{"[m0:b0]", "[m1:b0]"} {
 		if !strings.Contains(got, want) {
-			t.Errorf("missing qualified label %s in:\n%s", want, got)
+			t.Errorf("missing alias-qualified label %s in:\n%s", want, got)
 		}
+	}
+	// The real material id must never leak into the prompt label — that is
+	// exactly the 36-char-UUID defect (I2) the index alias exists to avoid:
+	// on the studio path a real material id IS a UUID, not a short string
+	// like "mat-a", so a bare-id label would cost ~37 characters per block
+	// line and give a beginner nothing short to echo back correctly.
+	if strings.Contains(got, "mat-a:") || strings.Contains(got, "mat-b:") {
+		t.Error("prompt label leaked the real material id instead of the short index alias")
+	}
+}
+
+// TestMaterialAliasMatchesL1InstructionExample pins the exact gap that let
+// I2 through: BuildMaterialContext's rendered label and buildAnchorPrompt's
+// L1 instruction example must describe the SAME format, even when the real
+// material id is a 36-char UUID (the studio path) rather than a short
+// literal (the course path's "m0"). Before the alias fix, the rendered label
+// was "[<uuid>:b0]" while the instruction's own example still showed
+// "m0:b0" — a mismatch a golden-fixture-free test never caught because
+// every existing test's material id happened to already be short.
+func TestMaterialAliasMatchesL1InstructionExample(t *testing.T) {
+	materials := []Material{
+		{ID: "3f2a91c4-1111-2222-3333-446655440000", Title: "长 UUID 材料", Blocks: []MaterialBlock{{ID: "b0", Text: "t"}}},
+	}
+	ctx := BuildMaterialContext(materials)
+	if !strings.Contains(ctx, "[m0:b0]") {
+		t.Fatalf("expected alias label [m0:b0] regardless of the real (UUID) material id, got:\n%s", ctx)
+	}
+	if strings.Contains(ctx, "3f2a91c4") {
+		t.Fatalf("real material UUID leaked into the rendered label:\n%s", ctx)
+	}
+	instr := buildAnchorPrompt(cards.Spec{Name: "长 UUID 材料"}, GuidanceL1)
+	if !strings.Contains(instr, `"block_id":"m0:b0"`) {
+		t.Fatalf("L1 instruction example drifted from the alias format the prompt actually renders:\n%s", instr)
 	}
 }
 

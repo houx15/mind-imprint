@@ -24,7 +24,7 @@ func sampleMaterials() []Material {
 }
 
 func TestParseAnchorGenComputesOffsetsFromQuote(t *testing.T) {
-	raw := "```json\n[{\"block_id\":\"m1:b0\",\"quote\":\"某科技博主综合整理\",\"dimension\":\"权威性 · Authority\",\"question\":\"这位作者是权威吗？\"}]\n```"
+	raw := "```json\n[{\"block_id\":\"m0:b0\",\"quote\":\"某科技博主综合整理\",\"dimension\":\"权威性 · Authority\",\"question\":\"这位作者是权威吗？\"}]\n```"
 	got, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials(), GuidanceL1)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func TestParseAnchorGenL1ResolvesTheRightMaterial(t *testing.T) {
 		{ID: "mat-a", Title: "NASA 观测", Blocks: []MaterialBlock{{ID: "b0", Text: "叶面积指数上升。"}}},
 		{ID: "mat-b", Title: "BP 统计", Blocks: []MaterialBlock{{ID: "b0", Text: "煤炭消费仍在上升。"}}},
 	}
-	text := `[{"block_id":"mat-a:b0","quote":"叶面积指数上升","dimension":"authority","question":"这条数据出自谁？"}]`
+	text := `[{"block_id":"m0:b0","quote":"叶面积指数上升","dimension":"authority","question":"这条数据出自谁？"}]`
 	out, err := parseAnchorGen(text, cards.Spec{}, materials, GuidanceL1)
 	if err != nil {
 		t.Fatalf("parseAnchorGen: %v", err)
@@ -134,7 +134,7 @@ func TestFallbackAnchorsOnePerDimension(t *testing.T) {
 
 func TestGenerateUsesStubThenPersistsAnchors(t *testing.T) {
 	script := []gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"m1:b0","quote":"某科技博主综合整理","dimension":"权威性 · Authority","question":"作者是谁？"}]`},
+		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"m0:b0","quote":"某科技博主综合整理","dimension":"权威性 · Authority","question":"作者是谁？"}]`},
 		{Kind: gateway.EventDone},
 	}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
@@ -190,9 +190,9 @@ func TestGenerateFallsBackWhenModelUsesOffVocabularyDimensions(t *testing.T) {
 	// "时效性" instead of the tag "currency") — this must NOT be minted as-is,
 	// because EvaluateCompletion's every_tag_present would never match.
 	raw := `[
-		{"block_id":"m1:b0","quote":"some source","dimension":"Currency","question":"数据是哪一年的？"},
-		{"block_id":"m1:b0","quote":"some source","dimension":"C · Currency 时效性","question":"数据是哪一年的？"},
-		{"block_id":"m1:b0","quote":"some source","dimension":"时效性","question":"数据是哪一年的？"}
+		{"block_id":"m0:b0","quote":"some source","dimension":"Currency","question":"数据是哪一年的？"},
+		{"block_id":"m0:b0","quote":"some source","dimension":"C · Currency 时效性","question":"数据是哪一年的？"},
+		{"block_id":"m0:b0","quote":"some source","dimension":"时效性","question":"数据是哪一年的？"}
 	]`
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
@@ -227,7 +227,7 @@ func TestParseAnchorGenRejectsOffVocabularyDimensionForTaggedCard(t *testing.T) 
 		t.Fatal("craap spec not found")
 	}
 	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
-	raw := `[{"block_id":"m1:b0","quote":"some source","dimension":"Currency","question":"q"}]`
+	raw := `[{"block_id":"m0:b0","quote":"some source","dimension":"Currency","question":"q"}]`
 	if _, err := parseAnchorGen(raw, spec, mats, GuidanceL1); err == nil {
 		t.Fatal("expected error: off-vocabulary dimension for a tag-keyed card must not parse cleanly")
 	}
@@ -250,7 +250,7 @@ func TestGenerateFallsBackWhenModelReturnsGarbage(t *testing.T) {
 
 func TestGenerate_L1_Unchanged(t *testing.T) {
 	script := []gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"m1:b0","quote":"某科技博主综合整理","dimension":"权威性 · Authority","question":"这位作者是权威吗？"}]`},
+		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"m0:b0","quote":"某科技博主综合整理","dimension":"权威性 · Authority","question":"这位作者是权威吗？"}]`},
 		{Kind: gateway.EventDone},
 	}
 	cp := &countingProvider{inner: gateway.NewStubProvider(script)}

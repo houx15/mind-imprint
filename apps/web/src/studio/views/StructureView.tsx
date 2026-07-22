@@ -28,6 +28,18 @@ const COL: React.CSSProperties = { maxWidth: 760, margin: "0 auto" };
 // banner on 0 cards.
 const DEFERRED_CARD: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "20px 22px" };
 
+// GateBanner's copy is intentionally NOT byte-identical to the binding
+// design (docs/design/思维印记_工作区.dc.html:975) — a deliberate deviation,
+// not drift. `allClean` here is computed from only the five Toulmin slots
+// (StructureView's own `cards`), but build_argument's gate also requires the
+// human item `warrant_quality_spot_check` (packages/contracts/skills/
+// writing-project.json), whose producer is the 论证体检 panel rendered BELOW
+// this banner. The design predates that spot-check (N3f added it), so its
+// original "门禁通过，可以进成稿打磨了" claim is no longer true the moment the
+// five slots are done — the station rail and the 论证体检 panel can both still
+// show the gate as unfinished. This copy states only what finishing the five
+// slots achieves; it never claims the gate passed or that S5 is reachable
+// (铁律 2: a factual state statement, never praise or a scolding).
 function GateBanner({ allClean }: { allClean: boolean }) {
   if (allClean) {
     return (
@@ -47,7 +59,7 @@ function GateBanner({ allClean }: { allClean: boolean }) {
           <path d="M20 6L9 17l-5-5" />
         </svg>
         <div style={{ fontSize: 13, lineHeight: 1.65, color: "#2B4A3E" }}>
-          五张卡片都写成了句子、该接素材的都接上了——本环节门禁通过。可以进成稿打磨了。
+          五张卡片都写成了句子、该接素材的都接上了。
         </div>
       </div>
     );
@@ -70,7 +82,7 @@ function GateBanner({ allClean }: { allClean: boolean }) {
         <path d="M12 9v4M12 17h.01" />
       </svg>
       <div style={{ fontSize: 13, lineHeight: 1.65, color: "#8A4A32" }}>
-        还有卡片没完成——每张都要写成句子，需要素材的卡片至少选一条。全部完成，本环节门禁就过了。
+        还有卡片没完成——每张都要写成句子，需要素材的卡片至少选一条。
       </div>
     </div>
   );

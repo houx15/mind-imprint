@@ -80,14 +80,17 @@ func stripFences(text string) string {
 	return c
 }
 
-// blockLookup indexes material blocks by MATERIAL-QUALIFIED block id
-// ("matID:blockID") → (materialID, text). Block ids are only "stable within a
-// material" (materialize.Segment) — a flat map keyed by the bare block id
-// would collide across materials in a ≥2-material project, with the last
-// material silently winning. The qualified key mirrors the label
-// BuildMaterialContext renders, so a model reply that follows the L1
-// instruction (which shows the qualified example "m0:b0") round-trips
-// directly.
+// blockLookup indexes material blocks by ALIAS-QUALIFIED block id
+// ("mN:blockID", N = the material's index in this SAME slice) →
+// (materialID, text). Block ids are only "stable within a material"
+// (materialize.Segment) — a flat map keyed by the bare block id would
+// collide across materials in a ≥2-material project, with the last material
+// silently winning. The alias (NOT mat.ID) mirrors the label
+// BuildMaterialContext renders from the identical materials slice in the
+// identical order, so a model reply that follows the L1 instruction (which
+// shows the alias example "m0:b0") round-trips directly — and stays short
+// even when mat.ID is a 36-char UUID (the studio path), which the L1
+// instruction's own example never shows the model how to imitate correctly.
 //
 // Qualified-only, deliberately: BuildMaterialContext (the L1 user message)
 // always renders qualified labels and the L1 instruction always demonstrates
@@ -99,9 +102,10 @@ func stripFences(text string) string {
 // caller's "unknown block_id" error.
 func blockLookup(materials []Material) map[string][2]string {
 	m := map[string][2]string{}
-	for _, mat := range materials {
+	for i, mat := range materials {
+		alias := materialAlias(i)
 		for _, b := range mat.Blocks {
-			m[mat.ID+":"+b.ID] = [2]string{mat.ID, b.Text}
+			m[alias+":"+b.ID] = [2]string{mat.ID, b.Text}
 		}
 	}
 	return m
@@ -137,11 +141,12 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material, level Gu
 			if !ok {
 				return nil, errString("unknown block_id: " + it.BlockID)
 			}
-			// The model returns the material-qualified id ("matID:blockID",
-			// matching the [m.ID:blk.ID] label BuildMaterialContext renders).
-			// Split on the LAST ':' to recover the material-local block id —
-			// that is the shape the web already consumes to slice block
-			// text, so only the lookup key changes, not what gets stored.
+			// The model returns the alias-qualified id ("mN:blockID", matching
+			// the [alias:blk.ID] label BuildMaterialContext renders from the
+			// same materials slice). Split on the LAST ':' to recover the
+			// material-local block id — that is the shape the web already
+			// consumes to slice block text, so only the lookup key changes,
+			// not what gets stored.
 			localBlockID := it.BlockID
 			if idx := strings.LastIndex(it.BlockID, ":"); idx >= 0 {
 				localBlockID = it.BlockID[idx+1:]

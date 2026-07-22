@@ -336,6 +336,59 @@ action before it was possible.
   summons, not a teacher, not a checkbox) is a deliberate interim choice,
   spec §3.
 
+**Whole-branch review wave 2 (2026-07-23) — I1/I2/M1/M-coach:**
+- **I1.** `StructureView`'s gate banner claimed the S4 gate had passed the
+  moment the five Toulmin slots were done — false, since the gate also
+  requires the `human` item `warrant_quality_spot_check`, whose producer
+  (论证体检) is a separate panel below the banner. Copy no longer claims the
+  gate passed or that S5 is reachable; states only what the five slots
+  achieved. Deliberate deviation from the binding design (`dc.html:975`),
+  which predates the S4 human gate item — noted inline.
+- **I2.** L1 block-id labels used the real material id as the qualifier
+  (36-char UUID on the studio path), while the L1 instruction's own example
+  still showed the short `m0:b0`. Fixed per spec §6's original intent, but
+  with a prompt-LOCAL index alias (`m0`, `m1`, … = the material's index in
+  the same slice) rather than the material's real id — `BuildMaterialContext`
+  and `blockLookup` derive the identical alias from the identical materials
+  slice, so no shared table or migration is needed. A new test
+  (`TestMaterialAliasMatchesL1InstructionExample`) pins that the rendered
+  label and the instruction's example describe the same format even when the
+  real material id is a UUID — the gap the old
+  `TestBuildMaterialContextQualifiesBlockIDs` never checked.
+- **M1.** `ingestMaterial` created a material without recomputing
+  `source_risk_notes` — adding a 3rd article after 2/2 were evaluated left
+  the gate item reading solid until an unrelated card submit incidentally
+  recomputed it. Now calls `attestS3S4` then `advanceGates`, same order as
+  `submitProjectCard`.
+- **M-coach.** `projectCoach`'s work-order exclusion was a DENYLIST
+  (`review_item`/`spot_check_item`) — any future machine-readable
+  intervention type would fall through and render as a raw JSON blob in the
+  陪练 conversation, the exact defect this slice had just fixed for those two
+  types. Inverted to an ALLOWLIST (`question`/`diagnostic`/`flag`), with a
+  test (`TestProjectCoach_AllowlistExcludesUnknownFutureType`) pinning that
+  an unrecognized type is excluded without anyone adding it to a denylist
+  first.
+- **Spec corrections** (`2026-07-22-n3f-finish-the-walk-design.md`, amended
+  in place): §5.4 now names the fingerprint's actual input
+  (`SpotCheckTarget{ID,Name,Detail}` rows, `Detail` = 档位/一句话收获/作用与风险/
+  横向核查 — not a bare `(material_id, risk_note)`/`(slot_id, text)` pair
+  list); §10 now says adding an unevaluated material changes the S3
+  fingerprint immediately (it is still a target, with a `「（未写）」`
+  placeholder), not only once she writes a risk_note; §5.2 no longer claims
+  the S4 check reads which sources each slot cites (it reads slot text
+  only); §4 now states precisely what un-attestation does — `attestS3S4`
+  clears the ITEM, but `AdvanceAll` never un-confirms a STATION already
+  solid, so a station can stay `done` while its item count silently drops
+  below total (a known limit, not fixed here — that's its own slice). §10
+  gained three more known limits: 论证体检 is effectively one-shot (the
+  classifier retires the toulmin offer on any card_instance, and both
+  `projectStructure`/`argumentSpotCheckTargets` take the first node per
+  type, so no path re-opens an S4 slot's projected text); S6 is skippable
+  (`canFinish` keys on `whole_draft_review` only, not
+  `declaration_signed`); concurrent orders can double-charge (two in-flight
+  requests both see a fingerprint/snapshot miss and both persist a batch —
+  the client's `pending` flag guards one tab only).
+
 ### N3e · deferred (split out of the old N3d tracker entry)
 Two items that were bundled into N3d's original three-item description
 (spec §2) but structurally don't belong with a "make the gates live" slice —
