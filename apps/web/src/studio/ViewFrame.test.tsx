@@ -86,14 +86,18 @@ describe("ViewFrame (station rail = view switcher)", () => {
     render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S0" }} />);
     expect(screen.getByText(/说清这份任务在考什么/)).toBeInTheDocument();
   });
-  it("S1/S2 render onboarding shells, NOT their four-view association", () => {
+  it("S1/S2 route to their OWN station screen, NOT their four-view association", () => {
     // S1.view is 结构 and S2.view is 素材 in the fixture, but both are
-    // onboarding stations — they must render the onboarding shell, not the
-    // 结构/素材 views.
+    // per-station screens (N3d) — they must never fall through to the
+    // 结构/素材 views (Tasks 10/11 fill in their real screens; this task
+    // renders them as null).
     for (const code of ["S1", "S2"] as const) {
-      const { unmount } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: code }} />);
-      expect(screen.getByText(/后续切片接入/)).toBeInTheDocument(); // OnboardingView S1/S2 shell copy
+      const { container, unmount } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: code }} />);
       expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /全部锁定，完成论证/ })).not.toBeInTheDocument();
+      // Nothing renders below the station header yet (Tasks 10/11 fill in
+      // FramingView/PerspectivesView) — the frame's only child is the header.
+      expect(container.firstElementChild?.childElementCount).toBe(1);
       unmount();
     }
   });

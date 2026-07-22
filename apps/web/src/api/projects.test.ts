@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getProject, listProjects, createProject, submitOnboarding, submitSelfScore, submitReflection } from "./projects";
+import { getProject, listProjects, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives } from "./projects";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -23,6 +23,11 @@ const sample = {
   activeStation: "S4",
   coach: { anchor: "论证图 · 治理决心主张", messages: [{ kind: "ai", body: "b", tag: "D5", anchor: "论证图 · 治理决心主张" }], equipment: [] },
   onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+  // N3d Task 9: StudioProjection now requires these two top-level fields
+  // (contracts commit 49a37ed) — this fixture predates that and was left
+  // failing to parse until now.
+  framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+  perspectives: { rows: [], sourcesPerPerspective: false },
   materials: [],
   activeCard: null,
   structure: [],
@@ -89,5 +94,27 @@ describe("submitSelfScore / submitReflection", () => {
     const spy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
     await submitReflection("p1", { text: "我的回顾至少二十个字这样才够长可以通过校验规则" });
     expect(String(spy.mock.calls[0]![0])).toContain("/projects/p1/reflection");
+  });
+});
+
+describe("submitFraming / submitPerspectives", () => {
+  it("posts terms/answers/searchPlan to the framing endpoint", async () => {
+    const spy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    const body = { terms: [{ term: "可持续", definition: "长期不损害后代满足自身需求的能力" }], answers: ["还没有答案"], searchPlan: ["查 NASA 卫星数据"] };
+    await submitFraming("p-1", body);
+    const [url, init] = spy.mock.calls[0]!;
+    expect(String(url)).toContain("/projects/p-1/framing");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string)).toEqual(body);
+  });
+
+  it("posts perspectives to the perspectives endpoint", async () => {
+    const spy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    const body = { perspectives: [{ text: "中国官方立场：治理决心真实且持续", level: "national" }] };
+    await submitPerspectives("p-1", body);
+    const [url, init] = spy.mock.calls[0]!;
+    expect(String(url)).toContain("/projects/p-1/perspectives");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string)).toEqual(body);
   });
 });

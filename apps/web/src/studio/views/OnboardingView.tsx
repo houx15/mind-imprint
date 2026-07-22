@@ -5,8 +5,7 @@ export type OnboardingViewProps = {
   station: Station;
   data: OnboardingFx;
   // N1 Task 8: persists the student's restate + weak-picks. Optional so
-  // standalone/story usages of OnboardingView (and the S1/S2 stub branches,
-  // which never render S0View) don't need to supply it.
+  // standalone/story usages of OnboardingView don't need to supply it.
   onSubmit?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
 };
 
@@ -180,22 +179,9 @@ function S0View({ data, onSubmit }: { data: OnboardingFx; onSubmit?: (body: { re
   );
 }
 
-function ShellView({ station }: { station: Station }) {
-  return (
-    <div style={WRAP}>
-      <div style={COL}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>{station.name}</div>
-        <div style={{ ...CARD, textAlign: "center", color: "#8A92A3", fontSize: 13.5, fontWeight: 600 }}>
-          此环节的深入交互将在后续切片接入
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function OnboardingView({ station, data, onSubmit }: OnboardingViewProps) {
-  if (station.code === "S0") {
-    return <S0View data={data} onSubmit={onSubmit} />;
-  }
-  return <ShellView station={station} />;
+// N3d Task 9: S1/S2 no longer route through this view (ViewFrame gives them
+// their own screens — Tasks 10/11) — this is S0 任务解码's own view now, so it
+// renders S0View unconditionally rather than branching on station.code.
+export function OnboardingView({ data, onSubmit }: OnboardingViewProps) {
+  return <S0View data={data} onSubmit={onSubmit} />;
 }

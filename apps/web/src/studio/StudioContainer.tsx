@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -46,6 +46,11 @@ function toStudioState(p: StudioProjection): StudioState {
       writing: p.writing,
       review: p.readiness ?? [],
       onboarding: p.onboarding,
+      // N3d Task 9: mapped straight through, exactly as `onboarding` above —
+      // both are top-level StudioProjection fields (siblings of `onboarding`,
+      // not nested under a "views" object on the wire).
+      framing: p.framing,
+      perspectives: p.perspectives,
       // N2 Task 8: same defensive fallback as `readiness` above — older test
       // fixtures/mocks predating this slice may omit these fields entirely.
       selfScore: p.selfScore ?? { dims: [], bands: [] },

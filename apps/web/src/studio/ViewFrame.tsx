@@ -228,13 +228,17 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
     return <div style={FRAME} />;
   }
 
-  // S0/S1/S2 render bespoke onboarding screens regardless of their `.view`
-  // tag (which is the station's four-view *association* from the design's STA,
-  // not what renders during onboarding). The design gates these by station
-  // code — `stnS0 || stnS1 || stnS2` — while S3–S6 render their view
+  // S0/S1/S2 each render their OWN screen (regardless of their `.view` tag,
+  // which is the station's four-view *association* from the design's STA,
+  // not what renders during onboarding) — while S3–S6 render their view
   // (viewIsMaterial=S3, viewIsStructure=S4, viewIsWriting=S5, viewIsReview=S6).
-  const isOnboarding = active.code === "S0" || active.code === "S1" || active.code === "S2";
-  const effectiveView = isOnboarding ? "onboarding" : active.view;
+  //
+  // N3d: S0/S1/S2 each render their OWN screen. Before this slice all three
+  // collapsed onto OnboardingView, which meant S1 and S2 showed a
+  // "coming in a later slice" placeholder — while their gates had no
+  // producer at all, so neither station could ever complete.
+  const stationScreen = active.code === "S0" || active.code === "S1" || active.code === "S2" ? active.code : null;
+  const effectiveView = stationScreen ? "station" : active.view;
 
   const isCompareCardActive = card?.status === "active" && card.spec.primitive === "compare";
   const compareState = isCompareCardActive
@@ -354,9 +358,11 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
           onReflection={review?.onReflection ?? (() => {})}
         />
       )}
-      {effectiveView === "onboarding" && (
+      {stationScreen === "S0" && (
         <OnboardingView station={active} data={state.views.onboarding} onSubmit={onSubmitOnboarding} />
       )}
+      {stationScreen === "S1" && null /* Task 10 fills this in: FramingView */}
+      {stationScreen === "S2" && null /* Task 11 fills this in: PerspectivesView */}
     </div>
   );
 }

@@ -2,13 +2,13 @@ import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
-  SelfScoreFx, PredictionFx, ReflectionFx,
+  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 import type { CreatedSpan } from "../primitives/annotate";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx };
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -36,6 +36,11 @@ export type StudioState = {
     writing: WritingProjection;
     review: GaugeFx[];
     onboarding: OnboardingFx;
+    // N3d Task 9: S1 立题 / S2 视角与素材 panels — wire-shaped verbatim
+    // (FramingFx/PerspectivesFx), same pattern as onboarding above. Views land
+    // in Tasks 10/11.
+    framing: FramingFx;
+    perspectives: PerspectivesFx;
     // N2 Task 8: the 评估 view's self-score/prediction/reflection panels —
     // wire-shaped verbatim (SelfScoreFx/PredictionFx/ReflectionFx), same
     // pattern as GaugeFx/StructureCardFx above.
@@ -95,4 +100,9 @@ export type StudioCallbacks = {
   // one action, mirroring the escape's undo-then-retake pattern. Optional
   // for the same reason as the rest of this group.
   onRelocate?: (anchorId: string, dimension: string) => void;
+  // N3d Task 9: S1/S2 station views — each saves its whole panel set explicitly
+  // (mirrors OnboardingView's submit shape, not autosave). Optional for the
+  // same reason as the rest of this group; Tasks 10/11 wire the real handlers.
+  onSubmitFraming?: (body: { terms: { term: string; definition: string }[]; answers: string[]; searchPlan: string[] }) => Promise<void>;
+  onSubmitPerspectives?: (body: { perspectives: { text: string; level: string }[] }) => Promise<void>;
 };
