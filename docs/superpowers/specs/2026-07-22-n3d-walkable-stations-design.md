@@ -289,11 +289,26 @@ S2's design has no way to add a source — yet the station is named 视角与素
 `view` tag is 素材, and its own gate demands sources per perspective. As drawn,
 the gate is unreachable by construction.
 
-So the S2 view renders, under the perspective list, the existing
-`AddSourceForm` plus a compact list of the project's material titles. Both are
-components that already exist; no new ingestion path (RL-2 — S2 does not ingest,
-it reuses `material.onAdd`). The full dossier with its anchors and locate
-machinery stays at S3 where it belongs.
+So the S2 view renders the existing `SourceDossier` under the perspective list,
+with `anchors={[]}` and no `selectMode` — the source list, the reading view, and
+its own built-in add form, without the anchor/locate machinery S3 needs.
+
+**Amended after the whole-branch review (Critical C1).** This section originally
+specified something weaker and wrong: 「the existing `AddSourceForm` plus a
+compact list of the project's material titles… the full dossier stays at S3」.
+That does not work, and the reason is the whole point of the station:
+`recon_logged`'s only producer is `logSourceOpen`, whose only client is
+`SourceDossier`'s close handler — **adding a source is not opening one.** With an
+inert title list, a student at S2 could write her perspectives, add a source,
+tick the confirm, and still be told one gate item was missing with no control
+left to press. The gate this slice exists to close would have been unreachable
+from the screen that owns it. Reusing the dossier makes 「opening a source」 the
+same act at S2 as at S3, which is what `recon_logged` was always supposed to
+record.
+
+The acceptance test did not catch this because it POSTs `/materials/{mid}/open`
+directly — a request no S2 UI state could generate. That is test-mock infidelity
+one level up: the fixture reached a state the product could not.
 
 ### 6.4 The endpoint
 
@@ -372,7 +387,17 @@ matching `S0View`'s existing submit shape rather than introducing autosave.
   never how well — that judgment belongs to the assessor and to her own
   self-score, and putting a quality bar in a gate would make the machine the
   grader (RL-5).
-- It does not touch S3–S6, whose gates already have producers.
+- It does not touch S3–S6.
+
+  **Amended after the whole-branch review.** This bullet originally claimed S3–S6
+  「already have producers」. That is **false**, and the claim was never checked:
+  `evaluate_sources`'s `source_quality_spot_check` and `build_argument`'s
+  `warrant_quality_spot_check` — both `human` gate items — have **no producer
+  anywhere in the repo**. So even with S0–S2 walkable, the walk stops at S3 for
+  the same class of reason this slice was written to fix, one station further
+  along. Two of the missing `advanceGates` call sites this review found
+  (`commitSnapshot`, `orderReview`) are fixed here; the absent human-item
+  producers are a real remaining gap, recorded in the tracker for a later slice.
 - It does not add a 「进入下一环节」 button. The binding design has none: S4's banner
   reports 「本环节门禁通过。可以进成稿打磨了。」 and she clicks the next station in the
   rail herself. Advancement is a consequence of her work, not a thing she must

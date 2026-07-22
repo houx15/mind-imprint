@@ -125,6 +125,50 @@ migration is doing the work a live code path should be doing.
 change (`graph.sql.go`, the origin-scoped `DeleteStationViewNodes` query) is
 genuinely generated — a fresh `make sqlc` reproduces it byte-identically.
 
+**The whole-branch review earned its keep again — and this time it caught a
+Critical that would have shipped the slice broken.** All 13 per-task reviews came
+back clean; the defect lived entirely in the seam between two of them.
+
+1. **CRITICAL — S2's own gate had an item the S2 screen could not produce.**
+   `recon_logged`'s only producer is `logSourceOpen`, whose only client is
+   `SourceDossier`'s close handler — and `SourceDossier` renders only under
+   `effectiveView === "素材"`, i.e. **S3 and later**. The S2 view shipped an inert
+   `<li>{title}</li>` list plus `AddSourceForm`, and **adding a source is not
+   opening one**. A real student at S2 could write her perspectives, add a source,
+   tick the confirm — and still be told one item was missing, with no control left
+   to press. The one thing this slice exists to deliver did not work.
+   Root cause was the **spec's own §6.3** (「the full dossier stays at S3」), now
+   amended in place. Fixed by rendering the real `SourceDossier` at S2 with
+   `anchors={[]}`, so 「opening a source」 is the same act at S2 as at S3.
+   **The acceptance test hid it** by POSTing `/materials/{mid}/open` directly — a
+   request no S2 UI state can generate. Test-mock infidelity one level up: the
+   fixture reached a state the product could not.
+2. **Important — the advance was invisible.** `onOpenLogged` was fire-and-forget
+   with no refetch. Fine when it only sampled reading time; wrong once the same
+   call attests a gate item and runs `AdvanceAll`. The gate closed server-side
+   while the rail still showed S2 `current` / S3 `locked` until a page reload.
+3. **Important — two gate-changing writes never advanced.** `commitSnapshot`
+   (mints/deletes `word_budget_ok`) and `orderReview` (writes
+   `whole_draft_review`) — `draft_polish`'s only machine and only human item —
+   were missing from the `advanceGates` set. One line each.
+4. **Important — a silently-dropped row looked saved.** Both new views seeded
+   local state once and never resynced, while the endpoints correctly drop blank
+   rows. A term row with a definition but no term name stayed on screen looking
+   saved and was gone on return. Fixed by syncing local rows to the payload that
+   was actually sent — deliberately NOT a `useEffect` on `data`, which would
+   clobber in-progress typing on any unrelated refetch.
+
+Plus 5 Minors fixed (Go rune-vs-byte test that could not catch a regression;
+`已定义 5/3`; `addRow` defaulting to a level she never picked; blank rows
+unlocking the attestation; a duplicated `studio.RubricRowDTO`).
+
+**Found and NOT fixed — a real gap for a later slice.** The spec claimed 「S3–S6
+already have producers」; that was never checked and is **false**.
+`evaluate_sources`'s `source_quality_spot_check` and `build_argument`'s
+`warrant_quality_spot_check` — both `human` gate items — have **no producer
+anywhere in the repo**. So the walk now stops at S3 for exactly the same class of
+reason N3d was written to fix, one station further along. Spec §9 amended.
+
 **Carried out of N3d → N3e** (its own entry below, not N6 — both need
 product/coach design work, not infra work):
 - The search-plan card — S1's 「打算去哪找证据」 panel ships as her own writing for
