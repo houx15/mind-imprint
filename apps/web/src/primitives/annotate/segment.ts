@@ -8,13 +8,21 @@ export type Run = { text: string; spanId: string | null; author: Author | null }
  * spans within a block (first-wins by sort order on overlap).
  */
 export function segmentBlock(blockId: string, text: string, spans: AnnotateState["spans"]): Run[] {
+  // Offsets are RUNE (code point) indices — Go writes them with
+  // utf8.RuneCountInString (spec §7.1). String.prototype.slice counts UTF-16
+  // code units, which diverges from runes for every non-BMP character, so
+  // slice the code-point array instead.
+  const chars = Array.from(text);
+  const len = chars.length;
+  const sub = (from: number, to: number) => chars.slice(from, to).join("");
+
   const touching = spans
     .filter((s) => s.block_ref === blockId)
     .map((s) => ({
       id: s.id,
       author: s.author,
       start: s.range ? s.range.start : 0,
-      end: s.range ? s.range.end : text.length,
+      end: s.range ? s.range.end : len,
     }))
     .sort((a, b) => a.start - b.start);
 
@@ -26,16 +34,16 @@ export function segmentBlock(blockId: string, text: string, spans: AnnotateState
   let cursor = 0;
   for (const span of touching) {
     if (span.start > cursor) {
-      runs.push({ text: text.slice(cursor, span.start), spanId: null, author: null });
+      runs.push({ text: sub(cursor, span.start), spanId: null, author: null });
     }
     if (span.end > cursor) {
       const from = Math.max(span.start, cursor);
-      runs.push({ text: text.slice(from, span.end), spanId: span.id, author: span.author });
+      runs.push({ text: sub(from, span.end), spanId: span.id, author: span.author });
       cursor = span.end;
     }
   }
-  if (cursor < text.length) {
-    runs.push({ text: text.slice(cursor), spanId: null, author: null });
+  if (cursor < len) {
+    runs.push({ text: sub(cursor, len), spanId: null, author: null });
   }
   return runs;
 }
