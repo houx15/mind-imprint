@@ -125,6 +125,17 @@ export function FramingView({ data, onSubmit }: FramingViewProps) {
     setSubmitting(true);
     try {
       await onSubmit({ terms, answers, searchPlan });
+      // I4 fix (whole-branch review): the server silently drops any term row
+      // whose trimmed `term` is blank (an offer is never a wall — a
+      // half-finished form must still save) — but this view never resynced,
+      // so a dropped row stayed on screen with her definition and its
+      // quality chip, looking saved. On a SUCCESSFUL submit only (never via
+      // a `useEffect` on `data`, which would clobber her in-progress typing
+      // on the container's frequent unrelated refetches), replace the local
+      // rows with exactly what was actually persisted: the dropped row
+      // disappears at the moment of saving, which is honest and has no
+      // clobbering risk.
+      setTerms((prev) => prev.filter((t) => t.term.trim() !== ""));
     } finally {
       setSubmitting(false);
     }

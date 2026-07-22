@@ -70,6 +70,29 @@ describe("FramingView (S1 立题)", () => {
     expect(screen.getByText("本环节门禁 · 已定义 2/3")).toBeInTheDocument();
   });
 
+  // I4 (whole-branch review IMPORTANT): the server silently drops any term
+  // row whose trimmed `term` is blank. Before this fix, that row stayed on
+  // screen with her definition and its quality chip, looking saved, with no
+  // record it was ever dropped.
+  it("drops a term row with a blank term name from the screen after a successful save", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const data = makeData({
+      terms: [
+        { term: "", definition: "写了很长的定义但忘记写关键词本身叫什么名字" },
+        { term: "可持续性", definition: "这个我写完整了" },
+      ],
+    });
+    render(<FramingView data={data} onSubmit={onSubmit} />);
+    expect(screen.getByDisplayValue("写了很长的定义但忘记写关键词本身叫什么名字")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "记下我的立题" }));
+    });
+
+    expect(screen.queryByDisplayValue("写了很长的定义但忘记写关键词本身叫什么名字")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("这个我写完整了")).toBeInTheDocument();
+  });
+
   it("saves partial work — a single filled term submits fine", async () => {
     const data = makeData({ terms: [{ term: "可持续性", definition: "只写了一半" }] });
     const onSubmit = vi.fn().mockResolvedValue(undefined);

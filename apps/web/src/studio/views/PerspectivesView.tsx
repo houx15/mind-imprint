@@ -129,6 +129,15 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
       // false) has no level and is never sent back up.
       const perspectives = rows.filter((r) => r.editable).map((r) => ({ text: r.text, level: r.level }));
       await onSubmit({ perspectives });
+      // I4 fix (whole-branch review): the server silently drops any row
+      // whose trimmed `text` is blank (an offer is never a wall) — but this
+      // view never resynced, so a dropped row stayed on screen looking
+      // saved. On a SUCCESSFUL submit only (never a `useEffect` on `data`,
+      // which would clobber her in-progress typing on the container's
+      // frequent unrelated refetches), drop exactly the rows the server
+      // would have dropped. Card-minted (editable: false) rows are never
+      // touched here — they come from `data`, not this submit.
+      setRows((prev) => prev.filter((r) => !r.editable || r.text.trim() !== ""));
     } finally {
       setSubmitting(false);
     }

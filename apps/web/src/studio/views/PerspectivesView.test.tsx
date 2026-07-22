@@ -189,6 +189,33 @@ describe("PerspectivesView (S2 视角与素材)", () => {
     expect(screen.getByRole("button", { name: "记下我的视角" })).toBeEnabled();
   });
 
+  // I4 (whole-branch review IMPORTANT): the server silently drops any row
+  // whose trimmed `text` is blank. Before this fix, that row stayed on
+  // screen looking saved, with no record it was ever dropped.
+  it("drops a blank-text row from the screen after a successful save", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PerspectivesView
+        data={makeData({
+          rows: [
+            { text: "", level: "global_for", editable: true },
+            { text: "我写完整的视角", level: "national", editable: true },
+          ],
+        })}
+        material={[]}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(screen.queryAllByLabelText("视角")).toHaveLength(2);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "记下我的视角" }));
+    });
+
+    expect(screen.queryAllByLabelText("视角")).toHaveLength(1);
+    expect(screen.getByDisplayValue("我写完整的视角")).toBeInTheDocument();
+  });
+
   it("renders the project's material titles below the perspective list", () => {
     render(<PerspectivesView data={makeData()} material={makeMaterial(2)} />);
     expect(screen.getByText("素材 0")).toBeInTheDocument();
