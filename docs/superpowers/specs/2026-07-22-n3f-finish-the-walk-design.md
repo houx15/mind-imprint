@@ -89,7 +89,12 @@ writing records the gate item. No new UI, no new control, no checkbox.
 |---|---|---|
 | `source_risk_notes` | every `kind:"article"` material has a non-blank `source_quality.risk_note` | the CRAAP mint at `agent/card_effects.go:186`; loop mirrors `every_source_evaluated` (`agent/gate.go:54`) |
 | `warrants` | the toulmin `warrant` slot node has non-blank text | the slot→text map in `studio/projection.go:697–703` |
-| `steelman` | the toulmin `counter` slot node (反方 · 钢人) has non-blank text | same |
+| `steelman` | the toulmin `counter` slot node (反方 · 钢人) has non-blank text, **or** a `steelman` card instance is completed | same, plus `card_instances` |
+
+The `steelman` item accepts two producers because the standalone 钢人卡 has **no
+`graph_effects`** and mints no node. Without the second producer, a student who
+did that card and not the Toulmin slot would write a steelman and get no credit
+for it. A *skipped* card never counts.
 
 Attestation runs in `submitProjectCard` (`api/projectcards.go`), immediately
 before its existing `advanceGates` call (`projectcards.go:334`), so a submit
@@ -224,10 +229,14 @@ reason rule, and the RL-1 framing all come along unchanged.
 
 ### 5.7 Contract and projection
 
-`packages/contracts/src/studioState.ts` gains `SpotCheckItem` and a
-`SpotCheckProjection { items, orderable }`, added as a member of both the
-material and structure view projections — additive, mirroring how N3d added
-`framing`/`perspectives` as required top-level members.
+`packages/contracts/src/studioState.ts` gains `SpotCheckItem` and
+`SpotCheckFx { items, orderable }`, added as one **flat, required top-level**
+`spotChecks` member keyed by station (`evaluateSources` / `buildArgument`),
+mirroring how N3d added `framing`/`perspectives`.
+
+It cannot hang off the material or structure projections: `StudioProjection`'s
+`materials` and `structure` are **arrays** (`studioState.ts:275, 277`), so
+nothing can be a member of them.
 
 `orderable` is computed server-side: true when the current fingerprint differs
 from the fingerprint of the stored items (or there are none). The button's
@@ -363,6 +372,12 @@ producer where the next reader will look for it.
 
 ## 10. Known limits
 
+- `source_risk_notes` is **false when the project has no article materials**,
+  unlike the `every_source_evaluated` machine predicate beside it, which passes
+  vacuously over an empty list by design (`agent/gate.go:54`; the codebase
+  already treats vacuous passing as a hazard — see `ItemResult.Attempted`).
+  An empty dossier has not done S3's work, and marking the item solid there
+  would let a student clear 信源评估 having evaluated nothing.
 - The S3 check reads risk_notes and CRAAP answers, not the source texts
   themselves — it can tell her a risk_note is thin, not that she misread the
   article.
