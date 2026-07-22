@@ -15,7 +15,7 @@ import { getAbilityModel } from "./ability";
 import { getGrowthCards } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
-import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, type CommitSnapshotResult, type ReviewVoice } from "./writing";
+import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, signDeclaration, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
@@ -73,6 +73,8 @@ export interface ApiClient {
   orderSpotCheck(projectId: string, contractId: string): Promise<void>;
   postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
+  // N3f Task 9: signs the S6 AI 使用申报单 — no request body, no stream.
+  signDeclaration(projectId: string): Promise<void>;
   getAssessment(projectId: string): Promise<DualAxisReport | null>;
   listThreads(): Promise<ChatThread[]>;
   createThread(title?: string): Promise<ChatThread>;
@@ -103,7 +105,7 @@ export const api: ApiClient = {
   listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen,
-  putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate,
+  putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
   getChatAssessment, generateChatAssessment,

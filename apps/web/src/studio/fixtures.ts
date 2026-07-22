@@ -288,6 +288,17 @@ export const STUDIO_FIXTURE: StudioState = {
       },
       buildArgument: { items: [], orderable: true },
     },
+    // N3f Task 9: the S6 AI 使用申报单. S6 is still `locked` above (project
+    // mid-way through S4), so this hasn't been signed yet — counters are
+    // just what the earlier stations have produced so far.
+    declaration: {
+      asks: 14,
+      dispositions: 3,
+      cardsSpontaneous: 4,
+      cardsPrompted: 2,
+      aiWrittenProse: 0,
+      signed: false,
+    },
   },
   finished: false,
   canFinish: false,

@@ -2,13 +2,13 @@ import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
-  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx,
+  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx, DeclarationFx,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 import type { CreatedSpan } from "../primitives/annotate";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx, DeclarationFx };
 
 // N3f Task 7: the contract id of one of the two stations that have a
 // spot-check defined — mirrors agent.SpotCheckSources/SpotCheckArgument
@@ -60,6 +60,9 @@ export type StudioState = {
     // prop group on StudioShellProps/ViewFrameProps instead of living here —
     // mirrors ViewFrameProps' own `review` group and its doc comment on why.
     spotChecks: { evaluateSources: SpotCheckFx; buildArgument: SpotCheckFx };
+    // N3f Task 9: the S6 AI 使用申报单 — wire-shaped verbatim (DeclarationFx),
+    // same pattern as selfScore/prediction/reflection above.
+    declaration: DeclarationFx;
   };
   // A3 Task 9: the project terminal — whether the project has already been
   // finished (archived, growth report generated) and whether it currently

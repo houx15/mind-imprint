@@ -59,6 +59,9 @@ export type StudioShellProps = {
     // through to ViewFrame unchanged (see below).
     onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
     onReflection?: (body: { text: string }) => void;
+    // N3f Task 9: signs the S6 AI 使用申报单 — mirrors onSelfScore/
+    // onReflection above, forwarded straight through to ViewFrame unchanged.
+    onSignDeclaration?: () => void;
   };
   // N1 Task 8: the S0 view's restate + weak-picks submit — threaded straight
   // through to ViewFrame (which threads it straight through to

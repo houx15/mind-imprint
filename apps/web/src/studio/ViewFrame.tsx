@@ -82,6 +82,9 @@ export type ViewFrameProps = {
     // (projection fields), same as finishing/finishError/onFinish above.
     onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
     onReflection?: (body: { text: string }) => void;
+    // N3f Task 9: signs the S6 AI 使用申报单 — mirrors onSelfScore/
+    // onReflection above.
+    onSignDeclaration?: () => void;
   };
   // N3f Task 7 (I1 fix): the S3/S4 spot-check panels' order-in-flight flags +
   // actions — `state.views.spotChecks` carries the projection (pure
@@ -426,6 +429,8 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
           reflection={state.views.reflection}
           onSelfScore={review?.onSelfScore ?? (() => {})}
           onReflection={review?.onReflection ?? (() => {})}
+          declaration={state.views.declaration}
+          onSignDeclaration={review?.onSignDeclaration ?? (() => {})}
         />
       )}
       {stationScreen === "S0" && (

@@ -236,6 +236,23 @@ export const WritingProjection = z.object({
 });
 export type WritingProjection = z.infer<typeof WritingProjection>;
 
+// N3f Task 9: the S6 AI 使用申报单. Mirrors internal/studio/dto.go's
+// DeclarationDTO field-for-field (same JSON names) — counters read from data
+// that already exists (no model call), plus whether the student has signed.
+// signed comes from the recorded reflect_archive gate_state's
+// declaration_signed item; the four counters are frozen into the persisted
+// `declaration` node once signed. No optional fields — a missing counter
+// would have to be fabricated on the client rather than shown honestly.
+export const DeclarationFx = z.object({
+  asks: z.number().int(),
+  dispositions: z.number().int(),
+  cardsSpontaneous: z.number().int(),
+  cardsPrompted: z.number().int(),
+  aiWrittenProse: z.number().int(),
+  signed: z.boolean(),
+});
+export type DeclarationFx = z.infer<typeof DeclarationFx>;
+
 export const Gauge = z.object({
   code: z.string(),
   name: z.string(),
@@ -320,6 +337,9 @@ export const StudioProjection = z.object({
     evaluateSources: SpotCheckFx,
     buildArgument: SpotCheckFx,
   }),
+  // N3f Task 9: the S6 AI 使用申报单 — a flat, required top-level member
+  // (mirrors how spotChecks/framing/perspectives were added above).
+  declaration: DeclarationFx,
   finished: z.boolean(),
   canFinish: z.boolean(),
 });

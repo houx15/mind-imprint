@@ -2,6 +2,7 @@ import { describe, it, expect, test } from "vitest";
 import { StudioProjection, Station, CoachMessage, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge } from "../src/studioState";
 import { FramingFx, PerspectivesFx, FramingSubmitBody, PerspectivesSubmitBody } from "../src/studioState";
 import { SpotCheckItem, SpotCheckFx } from "../src/studioState";
+import { DeclarationFx } from "../src/studioState";
 
 const emptyWriting = {
   buffer: "",
@@ -14,6 +15,15 @@ const emptyWriting = {
 const emptySpotChecks = {
   evaluateSources: { items: [], orderable: false },
   buildArgument: { items: [], orderable: false },
+};
+
+const emptyDeclaration = {
+  asks: 0,
+  dispositions: 0,
+  cardsSpontaneous: 0,
+  cardsPrompted: 0,
+  aiWrittenProse: 0,
+  signed: false,
 };
 
 describe("StudioProjection (Slice 5b wire DTO)", () => {
@@ -46,6 +56,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     });
@@ -70,6 +81,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     });
@@ -94,6 +106,7 @@ describe("StudioProjection (Slice 5b wire DTO)", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     };
@@ -184,6 +197,7 @@ describe("MaterialSource", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     });
@@ -219,6 +233,7 @@ describe("StudioProjection", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     };
@@ -410,6 +425,7 @@ describe("N3f SpotCheckItem/SpotCheckFx", () => {
       prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
       reflection: { text: "", prompts: [] },
       spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
       finished: false,
       canFinish: false,
     };
@@ -418,5 +434,56 @@ describe("N3f SpotCheckItem/SpotCheckFx", () => {
     // Lacking spotChecks entirely fails.
     const { spotChecks, ...withoutSpotChecks } = full;
     expect(StudioProjection.safeParse(withoutSpotChecks).success).toBe(false);
+  });
+});
+
+describe("N3f Task 9: DeclarationFx (S6 AI 使用申报单)", () => {
+  it("parses a full declaration", () => {
+    const fx = DeclarationFx.parse({
+      asks: 23,
+      dispositions: 7,
+      cardsSpontaneous: 4,
+      cardsPrompted: 2,
+      aiWrittenProse: 0,
+      signed: false,
+    });
+    expect(fx.asks).toBe(23);
+    expect(fx.signed).toBe(false);
+  });
+
+  it("requires every field — no optional to hide a missing counter", () => {
+    const { signed, ...withoutSigned } = {
+      asks: 0, dispositions: 0, cardsSpontaneous: 0, cardsPrompted: 0, aiWrittenProse: 0, signed: false,
+    };
+    expect(DeclarationFx.safeParse(withoutSigned).success).toBe(false);
+  });
+
+  it("StudioProjection requires declaration — a projection lacking it fails to parse", () => {
+    const full: any = {
+      project: { title: "T", qualLabel: "0457 个人报告" },
+      stations: [],
+      activeStation: "S3",
+      coach: { anchor: "", messages: [], equipment: [] },
+      onboarding: { restatePrompt: "", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
+      framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
+      perspectives: { rows: [], sourcesPerPerspective: false },
+      materials: [],
+      activeCard: null,
+      structure: [],
+      writing: emptyWriting,
+      readiness: [],
+      selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
+      prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
+      reflection: { text: "", prompts: [] },
+      spotChecks: emptySpotChecks,
+      declaration: emptyDeclaration,
+      finished: false,
+      canFinish: false,
+    };
+    // Well-formed (declaration present) parses fine.
+    expect(StudioProjection.safeParse(full).success).toBe(true);
+    // Lacking declaration entirely fails.
+    const { declaration, ...withoutDeclaration } = full;
+    expect(StudioProjection.safeParse(withoutDeclaration).success).toBe(false);
   });
 });

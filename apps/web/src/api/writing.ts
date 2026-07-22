@@ -100,6 +100,17 @@ export async function orderSpotCheck(projectId: string, contractId: string): Pro
   }
 }
 
+// Signs the S6 AI 使用申报单 (Task 9's POST .../declaration/sign) — a plain
+// request, unlike orderReview/orderSpotCheck above: no request body, no
+// stream, just the server recomputing + persisting the four counters and
+// flipping declaration_signed in one transaction. Mirrors putBuffer's shape
+// above (plain apiFetch POST, void response), not the SSE pair.
+export async function signDeclaration(projectId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/declaration/sign`, {
+    method: "POST",
+  });
+}
+
 // Records (or clears) a student_written gate item — here always
 // citations_matched on draft_polish (Task 4's POST .../gate/{contractId}/attest,
 // 204 on success). Restricted server-side to the contract's own

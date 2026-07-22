@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GaugeFx, SelfScoreFx, PredictionFx, ReflectionFx } from "../state";
+import type { GaugeFx, SelfScoreFx, PredictionFx, ReflectionFx, DeclarationFx } from "../state";
 
 export type ReviewViewProps = {
   gauges: GaugeFx[];
@@ -14,6 +14,10 @@ export type ReviewViewProps = {
   reflection: ReflectionFx;
   onSelfScore: (body: { scores: { code: string; band: number }[] }) => void;
   onReflection: (body: { text: string }) => void;
+  // N3f Task 9: the S6 AI 使用申报单 — four counters projected from data that
+  // already exists, plus the student's own signature over them.
+  declaration: DeclarationFx;
+  onSignDeclaration: () => void;
 };
 
 const LEVEL_COLOR: Record<GaugeFx["level"], string> = {
@@ -242,6 +246,98 @@ function ReflectionCard({
   );
 }
 
+// AI 使用申报单 (Task 9): a factual record of what happened, not a scoreboard
+// — 铁律 2 means none of the four counters (including "AI 代写正文: 0 次")
+// may read as praise or an achievement, so the styling below stays flat and
+// descriptive at every state, unsigned or signed. Design binding:
+// docs/design/思维印记_工作区.dc.html:1211-1223 (card/pill/grid) and
+// :2179-2181 (the four labels/values, verbatim).
+const DECL_ROW: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  background: "#fff",
+  border: "1px solid #F0E6D2",
+  borderRadius: 10,
+  padding: "10px 13px",
+};
+const DECL_LABEL: React.CSSProperties = { fontSize: 12.5, color: "#5C4A22" };
+const DECL_VALUE: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: "#8A6520" };
+
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A6520" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function DeclarationCard({
+  declaration,
+  onSignDeclaration,
+}: {
+  declaration: DeclarationFx;
+  onSignDeclaration: () => void;
+}) {
+  const rows: { k: string; v: string }[] = [
+    { k: "提问 / 追问", v: `${declaration.asks} 次` },
+    { k: "三键处置（接受/改/拒）", v: `${declaration.dispositions} 次` },
+    { k: "工具卡调用（自发/提示后）", v: `${declaration.cardsSpontaneous} / ${declaration.cardsPrompted}` },
+    { k: "AI 代写正文", v: `${declaration.aiWrittenProse} 次` },
+  ];
+  return (
+    <div style={{ background: "#FBF7EF", border: "1px solid #F0E6D2", borderRadius: 16, padding: "20px 22px" }} data-testid="declaration-card">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#8A6520" }}>AI 使用申报单</div>
+        <span
+          data-testid="declaration-pill"
+          style={{ fontSize: 11, fontWeight: 700, color: "#B8892F", background: "#F6ECD6", padding: "3px 10px", borderRadius: 999 }}
+        >
+          {declaration.signed ? "已签名" : "自动生成 · 待你签名"}
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
+        {rows.map((r) => (
+          <div key={r.k} style={DECL_ROW}>
+            <span style={DECL_LABEL}>{r.k}</span>
+            <span style={DECL_VALUE}>{r.v}</span>
+          </div>
+        ))}
+      </div>
+      {declaration.signed ? (
+        <div style={{ marginTop: 14, fontSize: 12, color: "#8A6520" }} data-testid="declaration-signed-note">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <CheckIcon />
+            这份申报单已由你签署，记录已留存
+          </span>
+        </div>
+      ) : (
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            data-testid="declaration-sign"
+            onClick={onSignDeclaration}
+            style={{
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: "#8A6520",
+              background: "#fff",
+              border: "1px solid #E4CFA0",
+              borderRadius: 10,
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            确认签署
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReviewView({
   gauges,
   canFinish,
@@ -254,6 +350,8 @@ export function ReviewView({
   reflection,
   onSelfScore,
   onReflection,
+  declaration,
+  onSignDeclaration,
 }: ReviewViewProps) {
   const litSum = gauges.reduce((n, g) => n + g.lit, 0);
   const totalSum = gauges.reduce((n, g) => n + g.total, 0);
@@ -287,6 +385,7 @@ export function ReviewView({
           <PredictionCard prediction={prediction} />
           <SelfScoreCard selfScore={selfScore} onSelfScore={onSelfScore} />
           <ReflectionCard reflection={reflection} onReflection={onReflection} />
+          <DeclarationCard declaration={declaration} onSignDeclaration={onSignDeclaration} />
         </div>
         {finished ? (
           <div style={{ marginTop: 22, textAlign: "center", fontSize: 13.5, fontWeight: 700, color: "#4C9A82" }}>已归档 · 成长报告已生成</div>

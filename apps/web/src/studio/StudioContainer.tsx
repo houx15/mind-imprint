@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -62,6 +62,12 @@ function toStudioState(p: StudioProjection): StudioState {
       spotChecks: p.spotChecks ?? {
         evaluateSources: { items: [], orderable: false },
         buildArgument: { items: [], orderable: false },
+      },
+      // N3f Task 9: same defensive fallback as selfScore/prediction/reflection
+      // above — older test fixtures/mocks predating this task may omit
+      // declaration entirely.
+      declaration: p.declaration ?? {
+        asks: 0, dispositions: 0, cardsSpontaneous: 0, cardsPrompted: 0, aiWrittenProse: 0, signed: false,
       },
     },
     finished: p.finished,
@@ -347,6 +353,15 @@ export function StudioContainer({
   const submitReflection = async (body: { text: string }) => {
     if (!projectId) return;
     await api.submitReflection(projectId, body);
+    await refetchProject();
+  };
+
+  // N3f Task 9: signs the S6 AI 使用申报单 — same shape as submitSelfScore/
+  // submitReflection above (no llm_call, refetch to rehydrate `signed` +
+  // the frozen counters from what actually persisted).
+  const signDeclaration = async () => {
+    if (!projectId) return;
+    await api.signDeclaration(projectId);
     await refetchProject();
   };
 
@@ -846,7 +861,7 @@ export function StudioContainer({
         locating={locating}
         locatedSpans={locatedSpans}
         pendingTrace={Object.values(spanTrace)}
-        review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection }}
+        review={{ finishing, finishError, onFinish: handleFinish, onSelfScore: submitSelfScore, onReflection: submitReflection, onSignDeclaration: signDeclaration }}
         onSubmitOnboarding={submitOnboarding}
         // N3f Task 7 (I1 fix): the S3/S4 spot-check panels' order-in-flight
         // flags + actions — a container-local transient handler-state group
