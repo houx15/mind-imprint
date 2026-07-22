@@ -66,6 +66,52 @@ func TestCreateProject_SeedsOnboardingNodes(t *testing.T) {
 	}
 }
 
+// The project title IS her research question — minted at creation so S1's
+// read-only banner has a real node behind it and frame_question's
+// node_present:research_question item has a producer at all.
+func TestCreateProject_MintsResearchQuestion(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body := strings.NewReader(`{"title":"社交媒体是否影响青少年注意力？","prompt":"讨论社交媒体对青少年注意力的影响"}`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /projects = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" {
+		t.Fatalf("decode id: %v — body=%s", err, rec.Body)
+	}
+	pid := uuid.MustParse(out.ID)
+
+	var author string
+	var rqBody []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT author, body FROM graph_node WHERE project_id=$1 AND type='research_question'`, pid).
+		Scan(&author, &rqBody); err != nil {
+		t.Fatalf("research_question node missing: %v", err)
+	}
+	if author != "student" {
+		t.Errorf("research_question author = %q, want student", author)
+	}
+	var got struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(rqBody, &got); err != nil {
+		t.Fatalf("unmarshal research_question body: %v; raw=%s", err, rqBody)
+	}
+	if got.Text != "社交媒体是否影响青少年注意力？" {
+		t.Errorf("research_question text = %q, want the project title", got.Text)
+	}
+}
+
 func TestCreateProject_EmptyPromptRejected(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()

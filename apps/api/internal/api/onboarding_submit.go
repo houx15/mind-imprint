@@ -57,9 +57,75 @@ func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	// Each weak pick becomes a weakness_prediction node so decode_task's
+	// node_count_at_least{weakness_prediction,2} has a producer at all.
+	// plainForRow reads the project's rubric_translation node the same way
+	// projectOnboarding does; if it or the index is missing, the node still
+	// carries `index` alone rather than fabricating a label.
+	rubricNodes, err := a.d.Queries.ListGraphNodesByProject(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rows := rubricRowsFromNodes(rubricNodes)
+
+	// Delete-then-insert so a re-submit cannot inflate the count past
+	// decode_task's node_count_at_least{weakness_prediction,2}: pressing save
+	// twice with one pick must leave ONE node. Scoped by origin so it can only
+	// ever touch nodes this view wrote.
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	if err := qtx.DeleteStationViewNodes(r.Context(), sqlc.DeleteStationViewNodesParams{
+		ProjectID: projectID, Types: []string{"weakness_prediction"},
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	for _, i := range req.WeakPicks {
+		wpBody, _ := json.Marshal(map[string]any{
+			"index": i, "plain": plainForRow(rows, i), "origin": "station_view",
+		})
+		if _, err := qtx.InsertGraphNode(r.Context(), sqlc.InsertGraphNodeParams{
+			ProjectID: projectID, Type: "weakness_prediction", Body: wpBody, Author: "student", SpanRef: nil,
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// S0's deliverable is her restate + her weakness picks; the milestone plan
+	// is the board-static scaffold she accepts by proceeding. Recorded on HER
+	// action, exactly as reflection.go records `reflection` — Advance never
+	// marks a student_written item itself (DEC-3).
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	recorded, err := store.ListGateStates(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rec := recorded["decode_task"]
+	if rec.Items == nil {
+		rec.Items = map[string]string{}
+	}
+	rec.Items["milestone_plan"] = "solid"
+	if err := store.UpsertGateState(r.Context(), projectID, "decode_task", rec); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	// Best-effort telemetry, exactly like studioturn's prompt_sent event.
 	payload, _ := json.Marshal(map[string]string{"text": req.Restate})
-	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "onboarding_restated", Payload: payload,
 	}); err != nil {
@@ -68,4 +134,41 @@ func (a *API) submitOnboarding(w http.ResponseWriter, r *http.Request) {
 	}
 	a.advanceGates(r.Context(), projectID)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{})
+}
+
+// rubricRow mirrors studio.RubricRowDTO's wire shape — duplicated rather than
+// imported to keep this handler free of a studio package dependency for a
+// three-field read.
+type rubricRow struct {
+	Official string `json:"official"`
+	Plain    string `json:"plain"`
+	Weak     bool   `json:"weak"`
+}
+
+// rubricRowsFromNodes reads the project's rubric_translation node the same
+// way studio.projectOnboarding does. Returns nil if the node is absent or
+// unparseable — callers must not fabricate rows.
+func rubricRowsFromNodes(nodes []sqlc.GraphNode) []rubricRow {
+	for _, n := range nodes {
+		if n.Type != "rubric_translation" {
+			continue
+		}
+		var body struct {
+			Rows []rubricRow `json:"rows"`
+		}
+		if json.Unmarshal(n.Body, &body) == nil {
+			return body.Rows
+		}
+	}
+	return nil
+}
+
+// plainForRow returns the plain-language label for rubric row i, or "" when
+// the rubric node or the index is missing — the weakness_prediction node
+// then carries `index` alone rather than a fabricated label.
+func plainForRow(rows []rubricRow, i int) string {
+	if i < 0 || i >= len(rows) {
+		return ""
+	}
+	return rows[i].Plain
 }

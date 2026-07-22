@@ -53,6 +53,10 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	rubricBody, _ := json.Marshal(map[string]any{"restate_prompt": fx.RestatePrompt, "rows": fx.Rows})
 	planBody, _ := json.Marshal(map[string]any{"steps": fx.Steps})
 	briefBody, _ := json.Marshal(map[string]any{"text": prompt})
+	// The title is the research question she typed in the creation funnel —
+	// author "student" because she wrote it. S1's banner renders it read-only
+	// (dc.html:878–884) and frame_question's node_present item reads it.
+	rqBody, _ := json.Marshal(map[string]any{"text": title})
 
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
@@ -77,6 +81,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		{"assignment_brief", "imported", briefBody},
 		{"rubric_translation", "ai", rubricBody},
 		{"milestone_plan", "ai", planBody},
+		{"research_question", "student", rqBody},
 	} {
 		if _, err := qtx.InsertGraphNode(r.Context(), sqlc.InsertGraphNodeParams{
 			ProjectID: proj.ID, Type: n.typ, Body: n.body, Author: n.author, SpanRef: nil,
