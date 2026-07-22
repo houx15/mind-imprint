@@ -238,10 +238,26 @@ It cannot hang off the material or structure projections: `StudioProjection`'s
 `materials` and `structure` are **arrays** (`studioState.ts:275, 277`), so
 nothing can be a member of them.
 
-`orderable` is computed server-side: true when the current fingerprint differs
-from the fingerprint of the stored items (or there are none). The button's
-enabled state is therefore never a client guess about whether a call would
-cost money.
+`orderable` is computed server-side, but it is not simply "the current
+fingerprint differs from the most recent stored one" — recency alone
+mishandles an edit-then-revert sequence: order at state A (fingerprint
+`fpA`) → edit and order again (fingerprint `fpB`, later) → revert the text
+back to exactly state A. The current fingerprint is `fpA` again, and a batch
+already exists for it, but "most recent" would still select `fpB` — showing
+now-stale items and reporting `orderable = true` even though pressing the
+button would just replay `fpA`'s batch for free.
+
+The projection therefore **selects the batch whose fingerprint equals the
+current fingerprint when one exists** (`orderable = false` — a real match,
+nothing to (re)order), and only **falls back to the most recent batch**
+when no stored batch matches the current fingerprint (`orderable = true` —
+deliberately stale-but-visible, so her work order does not vanish the
+moment she starts typing). A station with no targets at all is never
+orderable, even though the "no targets" fingerprint trivially differs from
+any stored one — there is nothing to check.
+
+The button's enabled state is therefore never a client guess about whether
+a call would cost money.
 
 The trigger control mirrors 整稿体检's button placement (`dc.html:1103`).
 Examiner-voice switching is **not** offered at S3/S4 — voices are a
@@ -388,3 +404,18 @@ producer where the next reader will look for it.
 - `AI 代写正文` is unmeasured (§7).
 - The walk this slice completes is the 0457 board only. Other boards remain
   N4's problem.
+- `orderable` is false whenever a station has no targets at all, which is the
+  panel's very first state at both S3 and S4 (S3 until she adds an article;
+  S4 until at least one Toulmin slot has non-blank text). The panel's copy in
+  that state must say what has to exist before a check is possible — it must
+  never instruct her to press the button, which is disabled precisely then.
+- The S3 target list names only *adding* a source as the precondition, not
+  *evaluating* it — `sourceSpotCheckTargets`'s own comment records that an
+  unevaluated article is still a target, because 体检 covers what she has done
+  **and** has not done. The copy must not teach the wrong model (that the
+  button unlocks only once a source is evaluated).
+- L2 still attributes every anchor to `materials[0].ID`
+  (`agent/anchors.go:164,213`) — the same assumption behind the L1 block-id
+  collision this slice fixed (§6), masked at L2 because the student locates
+  the span herself, which corrects the material. Explicitly deferred, same as
+  §6 records.

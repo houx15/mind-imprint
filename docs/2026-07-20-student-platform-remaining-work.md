@@ -26,7 +26,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 |---|---|---|---|
 | **N1 · Close the loop** | Project-creation entry point + S0 任务解码 intake + directory | S–M | Makes the product **reachable end-to-end**. **✅ DONE — merged `f3c4b31` (2026-07-20).** `POST /projects` (atomic project + 3 onboarding graph nodes from a board-static 0457 fixture, no LLM, no migration) + `POST /projects/{id}/onboarding` (persist restate + weak-picks as node+event) + projection surfaces them + directory-first `StudioContainer` with 新建论文 paste-prompt flow + OnboardingView submit/hydrate. Spec `docs/superpowers/specs/2026-07-20-n1-close-the-loop-design.md`, plan `…/plans/2026-07-20-n1-close-the-loop.md`. **Correctness seams were NOT bundled (deferred to N6, see below).** N1 carry-forwards → N6: back-less error screen on failed project-open (add ← to directory); `handleBack` drops `conv` without `dispose()` (SSE leak); directory shows raw station code + `0457` (no status badge / station-name label); create-atomicity has no rollback test (no fault-injection seam). |
 | **N2 · 评估 view (S0/S6)** | Reflection pack, prediction loop S0↔S6, self-score, AI-usage declaration, export forks (RL-4) | L | The biggest unbuilt student surface. **◐ PARTIAL — N2a+N2b+N2c DONE, merged `3273c01` (2026-07-20)**: self-score card + S0↔S6 prediction reveal + retro editor, all on one unified `review_criteria` taxonomy (rewrote N1's fixture rows); 2 student-write endpoints (self_score/reflection nodes, no LLM/migration); retro advances the reflect_archive S6 gate; seed 0018 migrated onto the taxonomy so the demo shows it. Spec `docs/superpowers/specs/2026-07-20-n2-review-view-completion-design.md`. **Still deferred: N2d · AI-usage declaration** (needs the event ledger) and **N2e · export forks** (own item, format undecided). |
-| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3 is now ◐ only for N3e** (search-plan card + R-9 framework reveal — both deliberately deferred, see the N3e note below the N3d section). |
+| **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3f DONE too** (2026-07-22) — the remaining six S3/S4/S6 gate items N3d's own review found had no producer (`source_risk_notes`/`warrants`/`steelman` attestation, `source_quality_spot_check`/`warrant_quality_spot_check` via new 信源体检/论证体检 checks, `declaration_signed` via the AI 使用申报单) all got one, plus the L1 block-id collision fix; the S0→S6 walk now passes end to end on a freshly created project — see the N3f section below. **N3 is now ◐ only for N3e** (search-plan card + R-9 framework reveal — both deliberately deferred, see the N3e note below the N3d section). |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | Config/rubric breadth behind existing interfaces. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | Finishes the two keystone-only surfaces. |
 | **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
@@ -189,6 +189,152 @@ today's scale; if it ever isn't, the fix is to scope the walk to the head
 contract); S0's `milestone_plan` attestation is thin (she accepts a plan she
 cannot yet edit — if a later slice lets her edit it, the attestation moves to
 that edit, the item name does not change).
+
+### N3f · DONE — merged (2026-07-22)
+Spec `docs/superpowers/specs/2026-07-22-n3f-finish-the-walk-design.md`,
+plan `…/plans/2026-07-22-n3f-finish-the-walk.md`; 13 tasks (12 build + this
+spec-amendment-and-tracker task).
+
+**The finding that started this slice.** N3d's own whole-branch review had
+already caught its spec's unchecked claim 「S3–S6 already have producers」 was
+false, and named the two `human` items with no producer at all. This slice
+did the check properly, tracing every gate item in
+`packages/contracts/skills/writing-project.json` to a producer, and found the
+gap was bigger than those two: six items across S3/S4/S6 were unsatisfiable
+for a real student —
+
+| Station | Item | Tier | Status before this slice |
+|---|---|---|---|
+| S3 `evaluate_sources` | `source_risk_notes` | student_written | she writes it; nothing attests it |
+| S3 | `source_quality_spot_check` | human | no producer anywhere |
+| S4 `build_argument` | `warrants` | student_written | she writes it; nothing attests it |
+| S4 | `steelman` | student_written | she writes it; nothing attests it |
+| S4 | `warrant_quality_spot_check` | human | no producer anywhere |
+| S6 `reflect_archive` | `declaration_signed` | human | no producer anywhere |
+
+Same lesson as N3d, one level up: invisible because
+`0018_seed_demo_project.sql` hand-writes gate rows for the seeded demo
+project, so the rail looked alive without any of these ever having been
+exercised by a live code path.
+
+**What's live now:**
+- **The three attestations** (`source_risk_notes`/`warrants`/`steelman`,
+  spec §4) run from graph state in `attestS3S4`, called from
+  `submitProjectCard` right before its existing `advanceGates`. `steelman`
+  accepts **two** producers — the Toulmin `counter` slot text, or a
+  completed `steelman` card instance — because the standalone 钢人卡 mints no
+  graph node; without the second producer a student who did that card and
+  not the Toulmin slot got no credit. Un-attestation is symmetric: each
+  check re-runs on every relevant submit and can re-open a gate a deletion
+  should re-open.
+- **信源体检 / 论证体检** (spec §5) — two new student-triggered spot-checks,
+  parallel to 整稿体检, through `ProposeReview`'s enforcement stack verbatim
+  (banned-phrasing + output check, one violation rejects the whole order,
+  usage metered even on rejection). `POST
+  /projects/{id}/contracts/{contractId}/spot-check`, valid only for
+  `evaluate_sources`/`build_argument`. Idempotent on a SHA-256 fingerprint
+  of exactly what the check reads (S3: `(material_id, risk_note)` pairs; S4:
+  `(slot_id, text)` pairs) stored in the intervention's `anchor` jsonb — the
+  same additive-anchor seam Slice 8b used for `voice`, no migration.
+  `orderable` and the batch of items shown are both computed server-side
+  from that fingerprint (`studio.projectSpotCheckFx`): the batch whose
+  fingerprint matches the CURRENT fingerprint is preferred when one exists
+  (`orderable=false`), falling back to the most recent batch only when none
+  matches (`orderable=true`) — recency alone would mis-render an
+  edit-then-revert sequence as both stale and (wrongly) re-orderable. A
+  shared `WorkOrderItem` was extracted from 整稿体检's own work-order panel
+  and reused at all three sites, with the band chip made optional rather
+  than blank-stringed so a spot-check row renders no chip at all.
+- **AI 使用申报单** (spec §7) — a pure projection over data that already
+  exists (no model call): 提问/追问 rounds, 三键处置 counts, 工具卡 spont/prompted
+  split. Its own `POST /projects/{id}/declaration/sign` endpoint (not
+  `attestGate`, which stays restricted to `student_written` names so a
+  caller can't forge a machine/human item) recomputes the counters
+  server-side, persists them into a `declaration` graph node, then flips
+  `declaration_signed` — the signature records what was signed, not a live
+  view that keeps moving. `AI 代写正文 = 0` is recorded as a claim by
+  construction, not a measurement (holds only because RL-1 keeps review
+  `fix` advisory and no code path writes model text into the edit buffer) —
+  a future AI-to-draft path must measure or delete this counter.
+- **The L1 block-id collision** (spec §6): `materialize.Segment` numbers
+  blocks `b0, b1, …` per material, but `blockLookup` was a flat map across
+  **all** of a project's materials — last material wins — so with ≥2
+  materials an L1 anchor could resolve to the wrong article. Fixed by
+  material-qualifying the block label in the prompt (`m0:b0`) and keying the
+  lookup by the qualified id, fail-closed (no bare-id fallback). L2/L3
+  untouched (L2 never resolves block ids from the prompt; L3 makes no model
+  call).
+- **The producerless-gate guard**
+  (`apps/api/internal/skills/producers_test.go`) enumerates every gate item
+  name in `writing-project.json` and fails if any `student_written`/`human`
+  item has no entry in an explicit Go producer registry, or any machine item
+  falls through `evalMachineItem`'s `default` branch. This defect class has
+  now shipped three times (S1/S2 in N3d; S3/S4/S6 here) — this guard is the
+  single highest-value artifact in the slice.
+- **The fresh-project S0→S6 walk** (`apps/api/internal/api/walk_s0_s6_test.go`)
+  drives `POST /projects` through every station in order, on client-reachable
+  endpoints only, never the seeded demo project — N3d's two learned rules,
+  extended one station further.
+
+**NO migration** (every seam already existed: `intervention.type` is free
+text, `intervention.anchor` is jsonb, `graph_node.type` is free text). **No
+card JSON changed.**
+
+**The whole-branch review caught defects again, none of them structural
+surprises this time but all worth keeping:**
+1. **Important — `projectCoach` had no intervention-type allowlist.**
+   `review_item`/`spot_check_item` interventions carry marshalled work-order
+   JSON as their `Body`, not prose, so every 整稿体检 work-order item had been
+   rendering in the 陪练 conversation as a raw JSON blob since Slice 8 —
+   invisible for the same reason the dead gates were: the seeded project's
+   interventions are hand-written prose, never one of these two types. Now
+   both types are excluded from the coach rail, pinned with a projection
+   test.
+2. **Important — the acceptance test's Toulmin/SIFT envelopes were shapes
+   the real web client cannot produce.** The same mock-infidelity class this
+   repo has been bitten by before (Slice 12): `toulminAnchors` sent one
+   combined text+material_id anchor per slot, but the real serializer
+   (`graphStateToAnchors`) emits them **split** — a text anchor and a
+   separate source anchor per `cites` edge. `fillSiftAnchors` similarly sent
+   AI-generated anchors the real client discards entirely, instead of
+   `StudioCompareCard.buildAnchors`'s spec-fields-only envelope. Rebuilt both
+   to match the real serializers.
+3. **Minor but real — a fail-closed test whose fixture could not
+   discriminate.** `TestParseAnchorGenRejectsUnqualifiedBlockIDWithMultipleMaterials`
+   gave both materials block id `b0`; the bare form was ambiguous under the
+   removed fallback too, so the test errored identically whether the fix
+   was present or not and pinned nothing. Fixed by giving the two materials
+   different block ids, the only shape that actually tells the fixed and
+   broken code apart.
+
+Also fixed in review: S4 (`build_argument`) spot-check coverage had never
+run in the endpoint test suite; a rejected spot-check proposal wasn't
+metered the same way a rejected 整稿体检 is; `TouchProject` wasn't called on
+ordering a spot-check; the S3 panel's empty-state copy named a precondition
+(evaluating a source) the gate does not actually require, instructing an
+action before it was possible.
+
+**Found and deliberately NOT fixed — carried forward:**
+- L2 still attributes every anchor to `materials[0].ID` (`agent/anchors.go`)
+  — the same assumption as the L1 bug this slice fixed, masked because at L2
+  the student locates the span herself, which corrects the material.
+  Explicitly deferred (spec §6, §10); needs its own decision about what an
+  unlocated anchor's material should be.
+- `orderable` is false whenever a station has no targets at all — the very
+  first state at both S3 and S4 — so both panels' first-ever screen shows a
+  disabled button; the copy there must say what has to exist first and must
+  never instruct pressing it (spec §10).
+- The S3 spot-check's target list names only *adding* a source as its
+  precondition, not *evaluating* it — `sourceSpotCheckTargets`'s own comment
+  records that an unevaluated article is still a target, because 体检
+  covers what she has done **and** has not done (spec §10).
+- `AI 代写正文` stays an unmeasured claim-by-construction (§7 above); a
+  future AI-to-draft path must measure or delete it.
+- Teacher-facing adjudication of the three `human` items (S3/S4's checks,
+  S6's declaration) remains roadmap Slice 13, deferred on teacher-side
+  design — this slice's `human` reading (an adjudicating voice the student
+  summons, not a teacher, not a checkbox) is a deliberate interim choice,
+  spec §3.
 
 ### N3e · deferred (split out of the old N3d tracker entry)
 Two items that were bundled into N3d's original three-item description
