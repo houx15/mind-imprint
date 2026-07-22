@@ -25,7 +25,7 @@ func sampleMaterials() []Material {
 
 func TestParseAnchorGenComputesOffsetsFromQuote(t *testing.T) {
 	raw := "```json\n[{\"block_id\":\"b0\",\"quote\":\"某科技博主综合整理\",\"dimension\":\"权威性 · Authority\",\"question\":\"这位作者是权威吗？\"}]\n```"
-	got, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials())
+	got, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials(), GuidanceL1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,13 +75,13 @@ func TestComputeOffsets_RuneIndicesOnCJK(t *testing.T) {
 
 func TestParseAnchorGenRejectsUnknownBlock(t *testing.T) {
 	raw := `[{"block_id":"zzz","quote":"x","dimension":"d","question":"q"}]`
-	if _, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials()); err == nil {
+	if _, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials(), GuidanceL1); err == nil {
 		t.Fatal("expected error for unknown block_id")
 	}
 }
 
 func TestFallbackAnchorsOnePerDimension(t *testing.T) {
-	got := fallbackAnchors(annotationSpec(), nil)
+	got := fallbackAnchors(annotationSpec(), nil, GuidanceL1)
 	if len(got) != 2 || got[0].Dimension != "权威性 · Authority" || got[0].BlockID != "" || got[0].Author != "ai" {
 		t.Fatalf("bad fallback: %+v", got)
 	}
@@ -93,7 +93,7 @@ func TestGenerateUsesStubThenPersistsAnchors(t *testing.T) {
 		{Kind: gateway.EventDone},
 	}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials(), GuidanceL1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestFallbackAnchorsKeysOffParamsTags(t *testing.T) {
 		t.Fatal("craap spec not found")
 	}
 	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
-	got := fallbackAnchors(spec, mats)
+	got := fallbackAnchors(spec, mats, GuidanceL1)
 
 	// One anchor per completion tag, dimension == the tag (NOT the step title).
 	wantDims := map[string]bool{"currency": false, "relevance": false, "authority": false, "accuracy": false, "purpose": false}
@@ -151,7 +151,7 @@ func TestGenerateFallsBackWhenModelUsesOffVocabularyDimensions(t *testing.T) {
 	]`
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	res, err := gen.Generate(context.Background(), spec, mats)
+	res, err := gen.Generate(context.Background(), spec, mats, GuidanceL1)
 	if err != nil {
 		t.Fatalf("fallback must not error: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestParseAnchorGenRejectsOffVocabularyDimensionForTaggedCard(t *testing.T) 
 	}
 	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
 	raw := `[{"block_id":"b0","quote":"some source","dimension":"Currency","question":"q"}]`
-	if _, err := parseAnchorGen(raw, spec, mats); err == nil {
+	if _, err := parseAnchorGen(raw, spec, mats, GuidanceL1); err == nil {
 		t.Fatal("expected error: off-vocabulary dimension for a tag-keyed card must not parse cleanly")
 	}
 }
@@ -191,11 +191,168 @@ func TestParseAnchorGenRejectsOffVocabularyDimensionForTaggedCard(t *testing.T) 
 func TestGenerateFallsBackWhenModelReturnsGarbage(t *testing.T) {
 	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json at all"}, {Kind: gateway.EventDone}}
 	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
-	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials())
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials(), GuidanceL1)
 	if err != nil {
 		t.Fatalf("fallback must not error: %v", err)
 	}
 	if len(res.Anchors) != 2 { // one per dimension
 		t.Fatalf("want 2 fallback anchors, got %d", len(res.Anchors))
+	}
+}
+
+// countingProvider (loop_test.go, N3b) already wraps a real gateway.Provider
+// and counts Stream calls — reused here rather than redeclared.
+
+func TestGenerate_L1_Unchanged(t *testing.T) {
+	script := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `[{"block_id":"b0","quote":"某科技博主综合整理","dimension":"权威性 · Authority","question":"这位作者是权威吗？"}]`},
+		{Kind: gateway.EventDone},
+	}
+	cp := &countingProvider{inner: gateway.NewStubProvider(script)}
+	gen := NewAnchorGenerator(cp, func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
+
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials(), GuidanceL1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp.calls != 1 {
+		t.Fatalf("want provider called once at L1, got %d calls", cp.calls)
+	}
+	if len(res.Anchors) != 1 {
+		t.Fatalf("want 1 anchor, got %d: %+v", len(res.Anchors), res.Anchors)
+	}
+	a := res.Anchors[0]
+	if a.Author != "ai" {
+		t.Fatalf("L1 anchor must be author=ai, got %q", a.Author)
+	}
+	if a.Quote == "" {
+		t.Fatalf("L1 anchor must have a non-empty quote, got %+v", a)
+	}
+	if a.BlockID != "b0" {
+		t.Fatalf("L1 anchor must have a resolved block_id, got %+v", a)
+	}
+	if a.Start == 0 && a.End == 0 {
+		t.Fatalf("L1 anchor must have real rune offsets, got %+v", a)
+	}
+}
+
+func TestGenerate_L2_QuestionOnlyNoSpan(t *testing.T) {
+	script := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `[{"dimension":"权威性 · Authority","question":"这段材料的作者有没有说明自己的身份或资历？"},{"dimension":"准确性 · Accuracy","question":"这段材料里的数字有没有可以核对的来源？"}]`},
+		{Kind: gateway.EventDone},
+	}
+	cp := &countingProvider{inner: gateway.NewStubProvider(script)}
+	gen := NewAnchorGenerator(cp, func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
+
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials(), GuidanceL2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp.calls != 1 {
+		t.Fatalf("want provider called once at L2 (still metered), got %d calls", cp.calls)
+	}
+	if res.Resolved.Provider == "" {
+		t.Fatalf("want Resolved populated at L2 (still metered), got %+v", res.Resolved)
+	}
+	if len(res.Anchors) == 0 {
+		t.Fatal("want at least one anchor")
+	}
+	for _, a := range res.Anchors {
+		if a.Author != "student" {
+			t.Fatalf("L2 anchor must be author=student, got %q: %+v", a.Author, a)
+		}
+		if a.Question == "" {
+			t.Fatalf("L2 anchor must have a non-empty question: %+v", a)
+		}
+		if a.BlockID != "" || a.Start != 0 || a.End != 0 || a.Quote != "" {
+			t.Fatalf("L2 anchor span must be blank, got %+v", a)
+		}
+	}
+}
+
+func TestGenerate_L3_NoModelCall(t *testing.T) {
+	spec, ok := cards.ByID("craap")
+	if !ok {
+		t.Fatal("craap spec not found")
+	}
+	mats := []Material{{ID: "m1", Blocks: []MaterialBlock{{ID: "b0", Text: "some source text"}}}}
+	// A provider that panics if invoked: L3 must never reach the network.
+	panicky := &panicProvider{}
+	gen := NewAnchorGenerator(panicky, func(_ context.Context) (gateway.Resolved, error) {
+		t.Fatal("resolver must not be called at L3 — no call happens, so there is nothing to resolve a key for")
+		return gateway.Resolved{}, nil
+	})
+
+	res, err := gen.Generate(context.Background(), spec, mats, GuidanceL3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if panicky.calls != 0 {
+		t.Fatalf("want provider NEVER called at L3, got %d calls", panicky.calls)
+	}
+	if res.Resolved.Provider != "" {
+		t.Fatalf("want Resolved.Provider empty at L3 (nothing to meter), got %+v", res.Resolved)
+	}
+	wantTags := map[string]bool{"currency": false, "relevance": false, "authority": false, "accuracy": false, "purpose": false}
+	if len(res.Anchors) != len(wantTags) {
+		t.Fatalf("want one anchor per spec.Params.Tags entry (%d), got %d: %+v", len(wantTags), len(res.Anchors), res.Anchors)
+	}
+	for _, a := range res.Anchors {
+		if _, isTag := wantTags[a.Dimension]; !isTag {
+			t.Fatalf("anchor dimension %q not in tag vocabulary", a.Dimension)
+		}
+		wantTags[a.Dimension] = true
+		if a.Author != "student" {
+			t.Fatalf("L3 anchor must be author=student, got %+v", a)
+		}
+		if a.Question != "" {
+			t.Fatalf("L3 anchor must have blank question, got %+v", a)
+		}
+		if a.BlockID != "" || a.Start != 0 || a.End != 0 || a.Quote != "" {
+			t.Fatalf("L3 anchor span must be blank, got %+v", a)
+		}
+	}
+	for tag, seen := range wantTags {
+		if !seen {
+			t.Fatalf("no L3 anchor for tag %q", tag)
+		}
+	}
+}
+
+// panicProvider fails the test the moment Stream is invoked. It exists
+// alongside countingProvider (which merely counts) because the L3 test must
+// prove zero-call, not just count calls after the fact — a real call to a
+// provider that isn't there would otherwise hang or nil-panic in a less
+// diagnosable way.
+type panicProvider struct {
+	calls int
+}
+
+func (p *panicProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	p.calls++
+	panic("provider must not be called at GuidanceL3")
+}
+
+func TestGenerate_L2_ParseFailureFallsBackAtL2(t *testing.T) {
+	script := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "not json at all"}, {Kind: gateway.EventDone}}
+	gen := NewAnchorGenerator(gateway.NewStubProvider(script), func(_ context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil })
+
+	res, err := gen.Generate(context.Background(), annotationSpec(), sampleMaterials(), GuidanceL2)
+	if err != nil {
+		t.Fatalf("fallback must not error: %v", err)
+	}
+	if len(res.Anchors) != 2 { // one per dimension
+		t.Fatalf("want 2 fallback anchors, got %d", len(res.Anchors))
+	}
+	for _, a := range res.Anchors {
+		if a.Author != "student" {
+			t.Fatalf("degraded L2 fallback must stay L2-shaped (author=student), got author=%q: %+v", a.Author, a)
+		}
+		if a.Question == "" {
+			t.Fatalf("degraded L2 fallback must still have a question (only the span is missing), got %+v", a)
+		}
+		if a.BlockID != "" || a.Start != 0 || a.End != 0 || a.Quote != "" {
+			t.Fatalf("degraded L2 fallback span must be blank, got %+v", a)
+		}
 	}
 }

@@ -29,7 +29,7 @@ type Anchor struct {
 
 // AnchorGenerator produces material-anchored guiding questions for an annotation card.
 type AnchorGenerator interface {
-	Generate(ctx context.Context, spec cards.Spec, materials []Material) (GenerateResult, error)
+	Generate(ctx context.Context, spec cards.Spec, materials []Material, level GuidanceLevel) (GenerateResult, error)
 }
 
 // GenerateResult is Generate's return value: the anchors plus the
@@ -105,7 +105,7 @@ func computeOffsets(text, quote string) (int, int) {
 	return start, start + utf8.RuneCountInString(quote)
 }
 
-func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Anchor, error) {
+func parseAnchorGen(text string, spec cards.Spec, materials []Material, level GuidanceLevel) ([]Anchor, error) {
 	var items []genItem
 	if err := json.Unmarshal([]byte(stripFences(text)), &items); err != nil {
 		return nil, err
@@ -113,19 +113,38 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Ancho
 	if len(items) == 0 {
 		return nil, errString("empty anchors")
 	}
-	lut := blockLookup(materials)
 	out := make([]Anchor, 0, len(items))
-	for i, it := range items {
-		ref, ok := lut[it.BlockID]
-		if !ok {
-			return nil, errString("unknown block_id: " + it.BlockID)
+	if level == GuidanceL1 {
+		lut := blockLookup(materials)
+		for i, it := range items {
+			ref, ok := lut[it.BlockID]
+			if !ok {
+				return nil, errString("unknown block_id: " + it.BlockID)
+			}
+			start, end := computeOffsets(ref[1], it.Quote)
+			out = append(out, Anchor{
+				ID: "a" + strconv.Itoa(i), MaterialID: ref[0], BlockID: it.BlockID,
+				Start: start, End: end, Quote: it.Quote, Dimension: it.Dimension,
+				Author: "ai", Question: it.Question, Answer: "",
+			})
 		}
-		start, end := computeOffsets(ref[1], it.Quote)
-		out = append(out, Anchor{
-			ID: "a" + strconv.Itoa(i), MaterialID: ref[0], BlockID: it.BlockID,
-			Start: start, End: end, Quote: it.Quote, Dimension: it.Dimension,
-			Author: "ai", Question: it.Question, Answer: "",
-		})
+	} else {
+		// L2: the model supplies {dimension, question} only (buildAnchorPrompt
+		// never asks it for block_id/quote at this level) — the span is hers to
+		// locate, not the AI's to author (spec §4), so blockLookup/computeOffsets
+		// are skipped entirely and the span stays blank. L3 never reaches here:
+		// Generate returns before any model call at GuidanceL3.
+		matID := ""
+		if len(materials) > 0 {
+			matID = materials[0].ID
+		}
+		for i, it := range items {
+			out = append(out, Anchor{
+				ID: "a" + strconv.Itoa(i), MaterialID: matID, BlockID: "",
+				Start: 0, End: 0, Quote: "", Dimension: it.Dimension,
+				Author: "student", Question: it.Question, Answer: "",
+			})
+		}
 	}
 	// C2 annotate cards (params.tags present) require the model's dimension
 	// vocabulary to exactly cover the completion tags, else
@@ -154,29 +173,40 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material) ([]Ancho
 	return out, nil
 }
 
-// fallbackAnchors builds one unanchored ai anchor per card dimension. C2
+// fallbackAnchors builds one unanchored anchor per card dimension. C2
 // annotate cards (params.tags present) key anchors off the completion tags so
 // EvaluateCompletion's every_tag_present is satisfiable; legacy cards (no C2
-// params block) key off step titles as before.
-func fallbackAnchors(spec cards.Spec, materials []Material) []Anchor {
+// params block) key off step titles as before. It is level-aware so a
+// degraded surface degrades to the RIGHT level rather than silently back to
+// L1 (spec §4): L1 → author "ai", question present; L2 → author "student",
+// same tag-prompt question text (span is blank at every level in this
+// fallback path already); L3 → author "student", question blank — dimension
+// only, nothing for her to be handed.
+func fallbackAnchors(spec cards.Spec, materials []Material, level GuidanceLevel) []Anchor {
 	matID := ""
 	if len(materials) > 0 {
 		matID = materials[0].ID
 	}
-	// C2 annotate cards (params.tags present) key anchors off the completion
-	// tags so EvaluateCompletion's every_tag_present is satisfiable. Guidance
-	// level L1: the AI authors the question here; higher levels populate
-	// anchors from student action upstream without touching this path.
+	author := "ai"
+	if level != GuidanceL1 {
+		author = "student"
+	}
+	tagQuestion := func(tag string) string {
+		if level == GuidanceL3 {
+			return ""
+		}
+		q := spec.Params.TagPrompts[tag]
+		if q == "" {
+			q = "从「" + tag + "」这个角度看这份材料，你注意到什么？"
+		}
+		return q
+	}
 	if len(spec.Params.Tags) > 0 {
 		out := make([]Anchor, 0, len(spec.Params.Tags))
 		for i, tag := range spec.Params.Tags {
-			q := spec.Params.TagPrompts[tag]
-			if q == "" {
-				q = "从「" + tag + "」这个角度看这份材料，你注意到什么？"
-			}
 			out = append(out, Anchor{
 				ID: "a" + strconv.Itoa(i), MaterialID: matID, BlockID: "",
-				Dimension: tag, Author: "ai", Question: q, Answer: "",
+				Dimension: tag, Author: author, Question: tagQuestion(tag), Answer: "",
 			})
 		}
 		return out
@@ -184,51 +214,69 @@ func fallbackAnchors(spec cards.Spec, materials []Material) []Anchor {
 	// Legacy step-title path (cards without a C2 params block).
 	out := make([]Anchor, 0, len(spec.Steps))
 	for i, st := range spec.Steps {
+		q := ""
+		if level != GuidanceL3 {
+			q = "从「" + st.Title + "」这个角度看这份材料，你注意到什么？"
+		}
 		out = append(out, Anchor{
 			ID: "a" + strconv.Itoa(i), MaterialID: matID, BlockID: "",
-			Dimension: st.Title, Author: "ai",
-			Question: "从「" + st.Title + "」这个角度看这份材料，你注意到什么？",
+			Dimension: st.Title, Author: author,
+			Question: q,
 			Answer:   "",
 		})
 	}
 	return out
 }
 
-func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, materials []Material) (GenerateResult, error) {
+func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, materials []Material, level GuidanceLevel) (GenerateResult, error) {
+	// L3: she elicits AND locates — there is no scaffold left for the AI to
+	// generate, so no model call is made at all. This returns before
+	// resolving a key or calling the provider. This is deliberate and is NOT
+	// an instance of the "bailed out before metering" defect class this repo
+	// has hit before: that class is about a call that HAPPENED and went
+	// unrecorded (e.g. surfaceAnchors/renderChallenge returning early after a
+	// real Collect). Here no call happens at all, so there is nothing to
+	// meter — Resolved stays the zero value (Provider == "") on purpose
+	// (spec §4).
+	if level == GuidanceL3 {
+		return GenerateResult{Anchors: fallbackAnchors(spec, materials, level)}, nil
+	}
 	resolved, err := g.resolver(ctx)
 	if err != nil {
-		return GenerateResult{Anchors: fallbackAnchors(spec, materials)}, nil
+		return GenerateResult{Anchors: fallbackAnchors(spec, materials, level)}, nil
 	}
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildAnchorPrompt(spec)},
+			{Role: gateway.RoleSystem, Content: buildAnchorPrompt(spec, level)},
 			{Role: gateway.RoleUser, Content: BuildMaterialContext(materials)},
 		},
 		MaxTokens: 1500,
 	}
 	res, err := gateway.Collect(ctx, g.provider, resolved, req)
 	if err != nil {
-		return GenerateResult{Anchors: fallbackAnchors(spec, materials)}, nil
+		return GenerateResult{Anchors: fallbackAnchors(spec, materials, level)}, nil
 	}
 	// A real call succeeded — it cost money regardless of what parsing does
 	// next, so Resolved/Usage are always attached from here on.
 	out := GenerateResult{Resolved: resolved, Usage: res.Usage}
-	anchors, perr := parseAnchorGen(res.Text, spec, materials)
+	anchors, perr := parseAnchorGen(res.Text, spec, materials, level)
 	if perr != nil || len(anchors) == 0 {
-		out.Anchors = fallbackAnchors(spec, materials)
+		out.Anchors = fallbackAnchors(spec, materials, level)
 		return out, nil
 	}
 	out.Anchors = anchors
 	return out, nil
 }
 
-func buildAnchorPrompt(spec cards.Spec) string {
+func buildAnchorPrompt(spec cards.Spec, level GuidanceLevel) string {
 	// C2 annotate cards (params.tags present) must key the model's dimension
 	// output off the completion tags, else EvaluateCompletion's
 	// every_tag_present can never be satisfied. Legacy cards (no C2 params
-	// block) keep the step-title dimension vocabulary.
-	if len(spec.Params.Tags) > 0 {
-		var dims strings.Builder
+	// block) keep the step-title dimension vocabulary. GuidanceL3 never
+	// builds a prompt — Generate returns before calling the model.
+	var dims strings.Builder
+	tagged := len(spec.Params.Tags) > 0
+	if tagged {
 		for _, tag := range spec.Params.Tags {
 			dims.WriteString("- " + tag)
 			if p := spec.Params.TagPrompts[tag]; p != "" {
@@ -236,22 +284,40 @@ func buildAnchorPrompt(spec cards.Spec) string {
 			}
 			dims.WriteString("\n")
 		}
-		return "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
-			"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。\n" +
+	} else {
+		for _, st := range spec.Steps {
+			dims.WriteString("- " + st.Title + "\n")
+		}
+	}
+
+	if level == GuidanceL2 {
+		// L2: she will locate the sentence herself, so the question must
+		// stand on its own — it must NOT quote or point at a specific
+		// sentence, or it would hand her the answer to the locating task
+		// (spec §4). Only {dimension, question} is asked for; no block_id/
+		// quote, so parseAnchorGen skips block/offset resolution entirely.
+		instr := "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
+			"」的每个维度，提出一个具体的引导问题，帮助她自己去材料里找到相关的句子并思考。\n" +
 			"维度：\n" + dims.String() +
-			"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。" +
-			"dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。" +
-			"block_id 必须来自材料，quote 必须是该 block 里的原文片段。不要输出任何多余文字。"
+			"\n重要：这次不要引用材料原句，也不要指出具体是哪一句——学生要自己在材料里找到答案对应的句子。问题必须能独立成立，不依赖你替她定位。\n" +
+			"只输出 JSON 数组，每个元素形如 {\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
+		if tagged {
+			instr += "dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。"
+		}
+		instr += "不要输出任何多余文字。"
+		return instr
 	}
-	var dims strings.Builder
-	for _, st := range spec.Steps {
-		dims.WriteString("- " + st.Title + "\n")
-	}
-	return "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
+
+	// L1 (unchanged, byte-identical to before this level parameter existed).
+	instr := "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
 		"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。\n" +
 		"维度：\n" + dims.String() +
-		"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。" +
-		"block_id 必须来自材料，quote 必须是该 block 里的原文片段。不要输出任何多余文字。"
+		"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
+	if tagged {
+		instr += "dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。"
+	}
+	instr += "block_id 必须来自材料，quote 必须是该 block 里的原文片段。不要输出任何多余文字。"
+	return instr
 }
 
 // errString is a tiny error helper (avoids importing errors just for this file).

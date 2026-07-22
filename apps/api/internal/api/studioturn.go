@@ -308,7 +308,9 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
-	result, err := gen.Generate(ctx, spec, materials)
+	// GuidanceL1 pinned here so the tree builds; the real level wiring (the
+	// fade itself) is Task 5's job, not this one's.
+	result, err := gen.Generate(ctx, spec, materials, agent.GuidanceL1)
 	if err != nil || len(result.Anchors) == 0 {
 		return nil, false
 	}

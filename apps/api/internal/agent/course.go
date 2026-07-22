@@ -122,7 +122,7 @@ func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.P
 	materials := []Material{{ID: "m0", Title: frame.Title, Blocks: mBlocks}}
 	spec := cards.Spec{Name: frame.Title, Steps: challengeDimensions(in.ChallengeType)}
 
-	gen, err := NewAnchorGenerator(provider, resolver).Generate(ctx, spec, materials)
+	gen, err := NewAnchorGenerator(provider, resolver).Generate(ctx, spec, materials, GuidanceL1)
 	if err != nil || len(gen.Anchors) == 0 {
 		return authored
 	}
