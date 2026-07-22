@@ -119,7 +119,9 @@ type AgentStore interface {
 
 	// CountCompletedCardUsesByUser is the guidance fade's producer (Task 3,
 	// design §3): how many times this student has already COMPLETED cardID,
-	// across all her projects/courses/chats. surfaceAnchors (Task 4) maps
+	// across all her PROJECTS — project scope only (whole-branch review
+	// IMPORTANT 2; see the sqlc store's own doc comment for why chat/course
+	// completions are deliberately excluded). surfaceAnchors (Task 4) maps
 	// this onto GuidanceLevel (guidance.go) to decide how much of an
 	// annotate card's span-locating work the AI still does for her.
 	CountCompletedCardUsesByUser(ctx context.Context, userID uuid.UUID, cardID string) (int, error)

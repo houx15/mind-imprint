@@ -70,25 +70,46 @@ A level with no producer is dead code — the failure mode this repo has shipped
 three times (`SourceDossier.tsx` names two of them). So the level is **computed
 live at surface time**, not authored in card JSON.
 
-`surfaceAnchors` counts her **`status='completed'` instances of this card across
-all her projects**:
+`surfaceAnchors` counts her **`status='completed'` instances of this card,
+PROJECT SCOPE ONLY, across all her projects**:
 
 ```
 uses := store.CountCompletedCardUsesByUser(ctx, userID, spec.ID)
 level := L1 + min(uses, 2)      // 0 → L1, 1 → L2, ≥2 → L3
 ```
 
-- **Definition parity.** `status='completed'`, user-scoped, is the exact
-  definition the 工具卡 growth tab already shows her
-  (`ListCollectedCardsByUser`, `card_instance.sql:91`). The fade therefore
-  matches a number she can already see, rather than inventing a private one.
-- **The counter genuinely moves.** `projectcards.go:301` sets `completed` on a
-  satisfying submit. (Checked, because `card_lifecycle.go:80` documents that
-  `CompleteCard` itself never sets status — the write lives one layer up.)
+- **Project scope only — this is NOT the same count the 工具卡 growth tab
+  shows her.** `ListCollectedCardsByUser` (`card_instance.sql:91`, which backs
+  that tab) unions three scopes: project, course session, and chat thread. The
+  fade's own query, `CountCompletedCardUsesByUser`, unions **project only**.
+  This is a deliberate divergence, not an oversight — see the next two bullets
+  for why.
+- **The counter must genuinely reflect real work, and only the project scope
+  can promise that.** `projectcards.go:301` sets `completed` only on a
+  *satisfying* submit — it runs the card's own completion predicate
+  (`CompleteCard`) first, so a project-scope "completed" row means she
+  actually did whatever the card asks for (for `craap`/annotate: answered
+  every dimension, and — at L2/L3 — went through the locate/elicit flow this
+  same design adds). Chat and course cards make **no such promise**: `chat.go`
+  and `course_session.go` both write `status='completed'` **unconditionally**
+  on submit — no completion predicate, no `CompleteCard`, and (being thin by
+  design) no anchors at all. A student can open the in-chat CRAAP offer twice
+  and submit two anchor-less sheets — nothing located, nothing answered in
+  the sense the card is for — and, if this counter unioned that scope in, her
+  very first real CRAAP card in the Studio would surface at L3 (no AI
+  question, no AI-circled span) having never once done the card properly.
+  That would make the ladder's whole premise false. Restricting to project
+  scope is what keeps "she has completed this card N times" meaning "she has
+  done the card's actual work N times."
+- **User-scoped across ALL her projects, deliberately.** A second project
+  must not reset her to novice — the fade tracks the student, not the
+  project, so `uses` still sums across every project she owns. Only the
+  course/chat UNION branches are dropped, not the cross-project scope.
 - **One new narrow sqlc query.** `ListCollectedCardsByUser` returns per-card
-  usage across three surfaces and is wrong to reuse (it aggregates everything);
-  a dedicated `CountCompletedCardUsesByUser(user_id, card_id)` is one row, one
-  index-friendly count. Cross-surface, matching the tab.
+  usage across three surfaces and is wrong to reuse even setting scope aside
+  (it aggregates everything, not one card_id); a dedicated
+  `CountCompletedCardUsesByUser(user_id, card_id)` is one row, one
+  index-friendly count, project-scope only.
 - **Scope: `spec.Primitive == "annotate"` only.** Compare/SIFT stays L1 — its
   lateral read is already the student's own work, and its anchor generation is
   additionally constrained (lateral-dimension drop, `studioturn.go:315`).

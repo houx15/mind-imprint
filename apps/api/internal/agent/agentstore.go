@@ -245,11 +245,20 @@ func (s *sqlcAgentStore) GetCardInstance(ctx context.Context, id uuid.UUID) (Car
 }
 
 // CountCompletedCardUsesByUser counts this user's status='completed'
-// card_instances for cardID, across all three scopes (project/course/chat) —
-// the guidance fade's producer (guidance.go, spec §3). Same definition as
-// ListCollectedCardsByUser (store/queries/card_instance.sql), narrowed to
-// one card_id, so the fade matches the number the 工具卡 tab already shows
-// her rather than inventing a private one.
+// card_instances for cardID, PROJECT SCOPE ONLY (user-scoped across ALL her
+// projects) — the guidance fade's producer (guidance.go, spec §3).
+//
+// Whole-branch review IMPORTANT 2: this deliberately DIVERGES from
+// ListCollectedCardsByUser (store/queries/card_instance.sql), which stays
+// three-scope (project/course/chat) for the 工具卡 tab. Only the project
+// scope's "completed" is gated on the card's own completion predicate
+// (projectcards.go's CompleteCard runs it before flipping status); chat.go
+// and course_session.go both write status='completed' unconditionally on
+// submit, with no predicate and no anchors (those cards are thin by
+// design). Counting those ungated surfaces here would let a student remove
+// her own AI scaffolding by submitting throwaway thin sheets she never
+// actually did the card's work on — see the query's own SQL comment and the
+// design doc's §3 for the full reasoning.
 func (s *sqlcAgentStore) CountCompletedCardUsesByUser(ctx context.Context, userID uuid.UUID, cardID string) (int, error) {
 	n, err := s.q.CountCompletedCardUsesByUser(ctx, sqlc.CountCompletedCardUsesByUserParams{
 		UserID: userID, CardID: cardID,

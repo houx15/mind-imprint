@@ -117,22 +117,27 @@ GROUP BY card_id
 ORDER BY uses DESC, last_used DESC;
 
 -- name: CountCompletedCardUsesByUser :one
--- How many times this student has COMPLETED this specific card, across all
--- three scopes. Same definition as ListCollectedCardsByUser above
--- (status='completed', owner-filtered through each scope's own parent join)
--- narrowed to one card_id — so the guidance fade (agent/guidance.go) counts
--- exactly what the 工具卡 tab already shows her, rather than inventing a
--- private number. A skip is a decline and does not count.
+-- How many times this student has COMPLETED this specific card, PROJECT
+-- SCOPE ONLY — user-scoped across ALL her projects (a second project must
+-- not reset her to novice), but deliberately NOT unioned with the
+-- course_session/chat_thread scopes ListCollectedCardsByUser above unions.
+--
+-- Whole-branch review IMPORTANT 2 (N3c): this feeds the guidance fade
+-- (agent/guidance.go), which removes AI scaffolding (the question, then the
+-- located span) the more completions it counts. Only the project scope's
+-- "completed" is gated on the card's own completion predicate
+-- (projectcards.go's CompleteCard runs it before flipping status) — it
+-- genuinely reflects work the card was for. chat.go and course_session.go
+-- both write status='completed' UNCONDITIONALLY on submit, with no
+-- predicate and no anchors at all (chat/course cards are thin by design):
+-- a student can submit an anchor-less chat CRAAP sheet twice and have her
+-- FIRST-EVER Studio CRAAP card surface at max scaffold removed, having never
+-- once done the card properly. Counting those two ungated surfaces here
+-- would make the ladder's premise false, so this query counts project-scope
+-- completions only — see the spec's own §3 for the full reasoning. A skip
+-- is a decline and does not count either way.
 SELECT count(*)::int FROM (
-  (SELECT ci.id FROM card_instances ci JOIN project p ON p.id = ci.project_id
-   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
-     AND p.user_id = @user_id AND ci.card_id = @card_id)
-  UNION ALL
-  (SELECT ci.id FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
-   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed'
-     AND cs.user_id = @user_id AND ci.card_id = @card_id)
-  UNION ALL
-  (SELECT ci.id FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
-   WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed'
-     AND t.user_id = @user_id AND ci.card_id = @card_id)
+  SELECT ci.id FROM card_instances ci JOIN project p ON p.id = ci.project_id
+  WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
+    AND p.user_id = @user_id AND ci.card_id = @card_id
 ) rows;

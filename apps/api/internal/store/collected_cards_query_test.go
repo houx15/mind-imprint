@@ -147,12 +147,17 @@ func TestListCollectedCardsByUser(t *testing.T) {
 }
 
 // CountCompletedCardUsesByUser is the guidance fade's producer (design §3,
-// agent/guidance.go): a narrow, single-card-id count over the same
-// definition as ListCollectedCardsByUser above (status='completed',
-// owner-filtered through each scope's own parent join) — proving all four
-// cases the fade depends on: same-user completed counts, active/skipped
-// don't, a different card_id doesn't, and a different user's completed
-// card doesn't.
+// agent/guidance.go): a narrow, single-card-id count, PROJECT SCOPE ONLY —
+// deliberately narrower than ListCollectedCardsByUser above, which stays
+// three-scope for the 工具卡 tab. Proving same-user completed project-scope
+// counts, active/skipped don't, a different card_id doesn't, a different
+// user's completed card doesn't, AND — whole-branch review IMPORTANT 2 —
+// that a completed CHAT-scope and a completed COURSE-scope card_instance for
+// THIS SAME user and THIS SAME card_id do NOT count either: chat.go and
+// course_session.go both write status='completed' unconditionally on
+// submit, with no completion predicate and no anchors, so counting them
+// here would hand maximum scaffold removal to a student who has never once
+// done the card properly.
 func TestCountCompletedCardUsesByUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -222,6 +227,37 @@ func TestCountCompletedCardUsesByUser(t *testing.T) {
 		t.Fatalf("seed other user's completed concession: %v", err)
 	}
 
+	// 5. A completed "concession" in a CHAT thread — SAME subject user, SAME
+	// card_id — must NOT count: chat.go marks status='completed' on submit
+	// unconditionally, with no completion predicate and no anchors.
+	var threadID pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO chat_thread (user_id, title) VALUES ($1, 'CRAAP 溯源') RETURNING id`,
+		subject).Scan(&threadID); err != nil {
+		t.Fatalf("seed chat_thread: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (thread_id, card_id, status)
+		VALUES ($1, 'concession', 'completed')`, threadID); err != nil {
+		t.Fatalf("seed chat-scope completed concession: %v", err)
+	}
+
+	// 6. A completed "concession" in a COURSE session — SAME subject user,
+	// SAME card_id — must NOT count either, for the same ungated-submit
+	// reason (course_session.go).
+	var sessionID pgtype.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO course_session (user_id, course_id, skill_id, phase)
+		VALUES ($1, '00000000-0000-0000-0000-0000000000c1', 'info-literacy-course', 'reflect')
+		RETURNING id`, subject).Scan(&sessionID); err != nil {
+		t.Fatalf("seed course_session: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO card_instances (session_id, card_id, status)
+		VALUES ($1, 'concession', 'completed')`, sessionID); err != nil {
+		t.Fatalf("seed course-scope completed concession: %v", err)
+	}
+
 	got, err := q.CountCompletedCardUsesByUser(ctx, sqlc.CountCompletedCardUsesByUserParams{
 		UserID: uuid.UUID(subject.Bytes), CardID: "concession",
 	})
@@ -229,7 +265,8 @@ func TestCountCompletedCardUsesByUser(t *testing.T) {
 		t.Fatalf("CountCompletedCardUsesByUser: %v", err)
 	}
 	if got != 1 {
-		t.Errorf("count = %d, want 1 (only the one completed concession for this user; "+
-			"active/skipped, different card_id, and other user's card must all be excluded)", got)
+		t.Errorf("count = %d, want 1 (only the one completed PROJECT-scope concession for this "+
+			"user counts; active/skipped, a different card_id, another user's card, AND this same "+
+			"user's completed chat-scope + course-scope concession cards must all be excluded)", got)
 	}
 }
