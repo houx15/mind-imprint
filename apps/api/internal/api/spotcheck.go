@@ -47,7 +47,7 @@ func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	targets := studio.SpotCheckTargets(d, station)
+	targets := studio.SpotCheckTargets(d, station, a.d.SpecByID)
 	if len(targets) == 0 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("nothing_to_check", "还没有可以体检的内容。", nil))
 		return
@@ -165,6 +165,13 @@ func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("spot check: append event", "err", err)
 		}
 		a.advanceGates(r.Context(), projectID)
+	}
+	// Ordering a spot-check is student activity that costs a model call — the
+	// roster's 最近活跃 column depends on last_active_at (see the "exact roster
+	// lie" comment at projectcards.go:317); best-effort, never fails the
+	// stream.
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("spot check: touch project", "err", err)
 	}
 	_ = em.Review(mustJSON(persisted))
 	_ = em.Done()

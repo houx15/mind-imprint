@@ -152,6 +152,34 @@ func TestProjectCoach_AnchorFallback(t *testing.T) {
 	}
 }
 
+// TestProjectCoach_ExcludesReviewAndSpotCheckItems pins the fix for the
+// coach-rail JSON-leak: review_item (整稿体检 work order) and spot_check_item
+// (S3/S4 station 体检 work order) interventions carry marshalled
+// ReviewItem/SpotCheckItem JSON as their Body, not prose, and must never fall
+// through to the generic "ai" message branch — that would render a raw JSON
+// blob in the 陪练 conversation. They are work-order rows with their own
+// panels, not conversation turns. Only the ordinary "diagnostic" (nudge)
+// intervention should surface in Messages.
+func TestProjectCoach_ExcludesReviewAndSpotCheckItems(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "review_item", Body: `{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"kind":"draft_snapshot","id":"x","voice":"board"}`)},
+			{Type: "spot_check_item", Body: `{"target_id":"t1","target_name":"n","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"station":"evaluate_sources","fingerprint":"abc"}`)},
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if len(coach.Messages) != 1 {
+		t.Fatalf("want 1 message (review_item + spot_check_item excluded), got %d: %+v", len(coach.Messages), coach.Messages)
+	}
+	if coach.Messages[0].Kind != "ai" || coach.Messages[0].Body != "连到治理决心" {
+		t.Fatalf("surviving message = %+v", coach.Messages[0])
+	}
+}
+
 func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	steel := uuid.New()
 	d := ProjectData{

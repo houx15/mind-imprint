@@ -15,12 +15,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -98,7 +100,7 @@ func TestOrderSpotCheck_UnknownContractIs404(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: spotCheckStubProvider(`[]`), ChatResolver: fakeResolver(),
+		Provider: spotCheckStubProvider(`[]`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
@@ -125,7 +127,7 @@ func TestOrderSpotCheck_EmptyStationIsBadRequest(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: spotCheckStubProvider(`[]`), ChatResolver: fakeResolver(),
+		Provider: spotCheckStubProvider(`[]`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 
@@ -175,6 +177,7 @@ func TestOrderSpotCheck_PersistsAndMarksGateSolid(t *testing.T) {
 		Pool:         pool,
 		Provider:     spotCheckStubProvider(reply),
 		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
@@ -257,6 +260,7 @@ func TestOrderSpotCheck_EveryInsertFailsLeavesGateNotSolid(t *testing.T) {
 		Pool:         pool,
 		Provider:     spotCheckStubProvider(reply),
 		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
@@ -269,10 +273,21 @@ func TestOrderSpotCheck_EveryInsertFailsLeavesGateNotSolid(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("order spot-check (forced insert failure) = %d, want 200 (SSE, not HTTP error); body=%s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), `"review":[]`) && !strings.Contains(rec.Body.String(), "data: []") {
-		// Best-effort shape check only — the hard assertions below (DB state)
-		// are what actually matters for this test.
-		t.Logf("spot-check stream after forced insert failure: %s", rec.Body.String())
+	// The model call still happened (only the persist loop is forced to
+	// fail) — the stream must carry the review event (empty work order, since
+	// nothing persisted), NOT an error envelope. This is what M3 pins: a
+	// request that failed BEFORE the persist loop (e.g. entitlement/parse
+	// rejection) would also leave 0 rows in the DB, so the DB-state
+	// assertions alone can't tell "every insert failed" apart from "the
+	// request never got that far" — the event kind can.
+	if strings.Contains(rec.Body.String(), "event: error") {
+		t.Fatalf("forced insert failure streamed an error envelope, want the review event: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "event: review") {
+		t.Fatalf("forced insert failure missing the review event: %s", rec.Body.String())
+	}
+	if n := countLLMCalls(t, pool, projectID); n != 1 {
+		t.Fatalf("llm_call rows after forced insert failure = %d, want 1 (the model call happened)", n)
 	}
 
 	if n := countSpotCheckItems(t, pool, projectID); n != 0 {
@@ -289,5 +304,248 @@ func TestOrderSpotCheck_EveryInsertFailsLeavesGateNotSolid(t *testing.T) {
 	}
 	if states["evaluate_sources"].Items["source_quality_spot_check"] == "solid" {
 		t.Fatal("source_quality_spot_check marked solid despite every insert failing")
+	}
+}
+
+// TestOrderSpotCheck_ArgumentPersistsAndMarksGateSolid — finding I1: every
+// other test in this file orders evaluate_sources, so
+// studio.argumentSpotCheckTargets and the
+// agent.SpotCheckArgument -> "warrant_quality_spot_check" arm of the gate-item
+// map (spotcheck.go) never ran in any test. The seeded demo project's S4
+// graph (migration 0018) has a done "claim" node (...142, first by the
+// (created_at, id) tiebreak over the two claim nodes) and an orphan "evidence"
+// node (...144) — no warrant/counter/concession — so build_argument's target
+// list is exactly [claim, evidence] in slot order. A target's ID is the
+// Toulmin SLOT id ("claim"/"evidence"), not the graph node's UUID — that's
+// the exact id/node-type coupling I1 warns could silently drift.
+func TestOrderSpotCheck_ArgumentPersistsAndMarksGateSolid(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[` +
+		`{"target_id":"claim","evidence":"主张写得完整","missing":"还没接到可核查的证据上","fix":"把这条主张连到一条来源"},` +
+		`{"target_id":"evidence","evidence":"证据本身具体","missing":"没写清它如何支撑哪条主张","fix":"把这条证据接回一条主张"}` +
+		`]`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     spotCheckStubProvider(reply),
+		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := materialsTestProjectID
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/contracts/build_argument/spot-check",
+		strings.NewReader("")), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("order spot-check (build_argument) = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: review") {
+		t.Fatalf("spot-check stream missing the review event: %s", body)
+	}
+	if !strings.Contains(body, `"target_id":"claim"`) ||
+		!strings.Contains(body, `"target_id":"evidence"`) {
+		t.Fatalf("spot-check stream missing the claim/evidence work order: %s", body)
+	}
+
+	if n := countSpotCheckItems(t, pool, projectID); n != 2 {
+		t.Fatalf("spot_check_item interventions = %d, want 2", n)
+	}
+	if n := countSpotCheckOrderedEvents(t, pool, projectID); n != 1 {
+		t.Fatalf("spot_check_ordered events = %d, want 1", n)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	states, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates: %v", err)
+	}
+	if states["build_argument"].Items["warrant_quality_spot_check"] != "solid" {
+		t.Fatalf("warrant_quality_spot_check = %q, want solid", states["build_argument"].Items["warrant_quality_spot_check"])
+	}
+}
+
+// TestOrderSpotCheck_RejectedProposalPersistsNothingButStillMeters — finding
+// I2, mirroring writing_test.go's TestOrderReview_RejectedProposalPersistsNothing:
+// a banned-phrasing violation in the model's output must persist NOTHING (no
+// spot_check_item rows, the gate item NOT marked solid) but the llm_call row
+// must still exist — a rejected call still cost money.
+func TestOrderSpotCheck_RejectedProposalPersistsNothingButStillMeters(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[{"target_id":"00000000-0000-0000-0000-000000000110","evidence":"e","missing":"m","fix":"你应该这样写：这条来源只能证明局部现象。"}]`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     spotCheckStubProvider(reply),
+		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	projectID := materialsTestProjectID
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/contracts/evaluate_sources/spot-check",
+		strings.NewReader("")), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("order spot-check (rejected) = %d, want 200 (SSE error, not HTTP error); body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "event: error") {
+		t.Fatalf("expected an SSE error event: %s", rec.Body.String())
+	}
+	if n := countSpotCheckItems(t, pool, projectID); n != 0 {
+		t.Fatalf("rejected proposal persisted %d spot_check_item interventions, want 0", n)
+	}
+	if n := countSpotCheckOrderedEvents(t, pool, projectID); n != 0 {
+		t.Fatalf("rejected proposal appended %d spot_check_ordered events, want 0", n)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	states, err := store.ListGateStates(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGateStates: %v", err)
+	}
+	if states["evaluate_sources"].Items["source_quality_spot_check"] == "solid" {
+		t.Fatal("source_quality_spot_check marked solid despite a rejected proposal")
+	}
+
+	// A rejected proposal still cost money: exactly one llm_call row, with
+	// Purpose "spot_check" — the distinct-from-order_review purpose that
+	// keeps per-station cost legible in llm_usage.
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(mustUUID(projectID)))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("llm_call rows after rejected spot-check = %d, want 1 (cost-on-rejection)", len(calls))
+	}
+	if calls[0].Purpose != "spot_check" {
+		t.Fatalf("llm_call purpose = %q, want spot_check", calls[0].Purpose)
+	}
+}
+
+// TestOrderSpotCheck_TouchesLastActiveAt — finding M1: ordering a spot-check
+// is student activity that costs a model call, so it must advance
+// project.last_active_at the same way orderReview/RunAgentStep/card submit
+// already do (the roster's 最近活跃 column depends on it — see the "exact
+// roster lie" comment at projectcards.go:317). Modeled on
+// TestProjectCardSubmit_TouchesLastActiveAt.
+func TestOrderSpotCheck_TouchesLastActiveAt(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[` +
+		`{"target_id":"00000000-0000-0000-0000-000000000110","evidence":"e","missing":"m","fix":"f"},` +
+		`{"target_id":"00000000-0000-0000-0000-000000000111","evidence":"e","missing":"m","fix":"f"}` +
+		`]`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     spotCheckStubProvider(reply),
+		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	projectID := mustUUID(materialsTestProjectID)
+
+	before, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject before: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+materialsTestProjectID+"/contracts/evaluate_sources/spot-check",
+		strings.NewReader("")), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("order spot-check = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	after, err := q.GetProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("GetProject after: %v", err)
+	}
+	if !after.LastActiveAt.After(before.LastActiveAt) {
+		t.Fatalf("last_active_at did not advance: before=%v after=%v", before.LastActiveAt, after.LastActiveAt)
+	}
+}
+
+// TestOrderSpotCheck_ChangedFingerprintReRuns — finding M2, the converse of
+// the (d) unchanged-fingerprint-replay case: SpotCheckFingerprint replaces
+// the snapshot id with a content hash specifically so that editing what the
+// check reads makes it re-run. Orders evaluate_sources once, then changes
+// material 110's risk_note by adding the evaluated-as edge attest.go's CRAAP
+// mint would produce, then orders again — a second model call must happen
+// and the new fingerprint's items must persist alongside (not instead of) the
+// first fingerprint's.
+func TestOrderSpotCheck_ChangedFingerprintReRuns(t *testing.T) {
+	pool := newAPITestPool(t)
+	reply := `[` +
+		`{"target_id":"00000000-0000-0000-0000-000000000110","evidence":"e1","missing":"m1","fix":"f1"},` +
+		`{"target_id":"00000000-0000-0000-0000-000000000111","evidence":"e2","missing":"m2","fix":"f2"}` +
+		`]`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     spotCheckStubProvider(reply),
+		ChatResolver: fakeResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	projectID := materialsTestProjectID
+
+	// First order — baseline.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/contracts/evaluate_sources/spot-check",
+		strings.NewReader("")), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first order = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	callsAfterFirst := countLLMCalls(t, pool, projectID)
+	itemsAfterFirst := countSpotCheckItems(t, pool, projectID)
+	if callsAfterFirst == 0 || itemsAfterFirst != 2 {
+		t.Fatalf("after first order: calls=%d items=%d, want >0 and 2", callsAfterFirst, itemsAfterFirst)
+	}
+
+	// Edit what the check reads: material 110 gains a risk_note via the same
+	// evaluated-as edge shape attest.go's CRAAP mint produces. This changes
+	// sourceSpotCheckTargets' Detail for that material, which changes
+	// SpotCheckFingerprint's hash.
+	evidenceNode, err := q.InsertGraphNode(context.Background(), sqlc.InsertGraphNodeParams{
+		ProjectID: mustUUID(projectID), Type: "evidence", Author: "student",
+		Body: []byte(`{"source_quality":{"risk_note":"这条来源只能证明局部现象，不能推广到全国"}}`),
+	})
+	if err != nil {
+		t.Fatalf("insert evidence node: %v", err)
+	}
+	if _, err := q.InsertGraphEdge(context.Background(), sqlc.InsertGraphEdgeParams{
+		ProjectID: mustUUID(projectID), Type: "evaluated-as",
+		FromKind: "material", FromID: uuid.MustParse("00000000-0000-0000-0000-000000000110"),
+		ToKind: "graph_node", ToID: evidenceNode.ID,
+	}); err != nil {
+		t.Fatalf("insert evaluated-as edge: %v", err)
+	}
+
+	// Second order — the fingerprint changed, so this must call the model
+	// again and persist a SECOND set of items (anchored to the new
+	// fingerprint), leaving the first fingerprint's items untouched.
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/contracts/evaluate_sources/spot-check",
+		strings.NewReader("")), cookie))
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("second order = %d, want 200; body=%s", rec2.Code, rec2.Body)
+	}
+	if n := countLLMCalls(t, pool, projectID); n <= callsAfterFirst {
+		t.Fatalf("llm_call rows after changed-fingerprint reorder = %d, want > %d (a second model call)", n, callsAfterFirst)
+	}
+	if n := countSpotCheckItems(t, pool, projectID); n <= itemsAfterFirst {
+		t.Fatalf("spot_check_item rows after changed-fingerprint reorder = %d, want > %d (new items, old ones kept)", n, itemsAfterFirst)
 	}
 }

@@ -28,12 +28,18 @@ import (
 // order — the fingerprint depends on it, so unchanged work must always
 // serialize identically. Returns an empty slice when the station has nothing
 // to check (or the station is not one of the two that have a spot-check).
-func SpotCheckTargets(d ProjectData, station string) []agent.SpotCheckTarget {
+//
+// specByID is the SAME injected card-catalog accessor projectStructure takes
+// (projection.go:687) — argumentSpotCheckTargets must agree with
+// projectStructure about "what counts as a slot," so both read the catalog
+// through the one door, never two (the "computed twice, differently" failure
+// this comment block already warns about above).
+func SpotCheckTargets(d ProjectData, station string, specByID func(string) (cards.Spec, bool)) []agent.SpotCheckTarget {
 	switch station {
 	case agent.SpotCheckSources:
 		return sourceSpotCheckTargets(d)
 	case agent.SpotCheckArgument:
-		return argumentSpotCheckTargets(d)
+		return argumentSpotCheckTargets(d, specByID)
 	default:
 		return []agent.SpotCheckTarget{}
 	}
@@ -131,8 +137,8 @@ func sourceSpotCheckTargets(d ProjectData) []agent.SpotCheckTarget {
 // own text-extraction rule (projection.go:687-714) exactly — a slot is
 // "written" iff a node typed for it carries a non-blank body.text — so this
 // list and the 结构 pane can never disagree about what counts as written.
-func argumentSpotCheckTargets(d ProjectData) []agent.SpotCheckTarget {
-	spec, ok := cards.ByID("toulmin")
+func argumentSpotCheckTargets(d ProjectData, specByID func(string) (cards.Spec, bool)) []agent.SpotCheckTarget {
+	spec, ok := specByID("toulmin")
 	if !ok || len(spec.Params.Slots) == 0 {
 		return []agent.SpotCheckTarget{}
 	}

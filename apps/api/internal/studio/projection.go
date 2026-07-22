@@ -172,6 +172,15 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	}
 	all := make([]stamped, 0, len(d.Interventions)+len(d.ChatMessages))
 	for _, iv := range d.Interventions {
+		// review_item / spot_check_item interventions are work-order rows with
+		// their own panels (the 整稿体检 work order / the station 体检 panel) —
+		// their Body is marshalled ReviewItem/SpotCheckItem JSON, not prose, so
+		// letting them fall through to the generic "ai" branch below would
+		// render a raw JSON blob in the 陪练 conversation. Do not re-add them
+		// here; give them their own DTO/panel instead.
+		if iv.Type == "review_item" || iv.Type == "spot_check_item" {
+			continue
+		}
 		label := anchorLabel(iv.Anchor)
 		if iv.Type == "flag" {
 			// A flag's headline is its anchor label; the criterion stays a tag.
