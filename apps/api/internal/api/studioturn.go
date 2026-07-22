@@ -247,9 +247,11 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 	case action.Kind == "surface_card":
 		spec, _ := cards.ByID(action.CardID)
 		anchors := []byte("[]")
-		// Guidance level L1: the AI authors these anchors at surface time via
-		// AnchorGenerator. Higher guidance levels populate card_instance.anchors
-		// upstream (from student action) without touching this seam.
+		// surfaceAnchors is the guidance fade's entry point (spec §3): it
+		// computes the level live (L1/L2/L3, annotate cards only) from how
+		// many times this student has already completed this card, then has
+		// AnchorGenerator author whatever that level still leaves for the AI
+		// to do. Not a fixed L1 any more — see surfaceAnchors' own doc comment.
 		// A compare card (SIFT) gets anchors too (whole-branch review finding
 		// [3]) — authored on the CHECKED material only (the source under
 		// review), never the lateral one, which does not exist yet at surface
@@ -276,7 +278,8 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 	}
 }
 
-// surfaceAnchors generates the L1 AI anchors for a just-surfaced annotate or
+// surfaceAnchors generates the guidance-faded anchors (spec §3, L1/L2/L3 for
+// annotate cards; always L1 for compare) for a just-surfaced annotate or
 // compare card (e.g. craap, sift), persists them on the card_instance, and
 // returns the JSON to carry on the same SSE `card` frame. Degrades to
 // (nil,false) on any error — parse failure, persistence failure, empty
@@ -308,9 +311,24 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
-	// GuidanceL1 pinned here so the tree builds; the real level wiring (the
-	// fade itself) is Task 5's job, not this one's.
-	result, err := gen.Generate(ctx, spec, materials, agent.GuidanceL1)
+	// The guidance fade (spec §3): the scaffold recedes as she repeats a card.
+	// annotate only — compare/SIFT stays L1 (its lateral read is already her
+	// own work, and its generation is additionally constrained below).
+	level := agent.GuidanceL1
+	if spec.Primitive == "annotate" {
+		if u, ok := UserFromContext(ctx); ok {
+			uses, err := store.CountCompletedCardUsesByUser(ctx, u.ID, spec.ID)
+			if err != nil {
+				// Degrade to L1 rather than failing the surface: a card that
+				// asks too much is a wall, a card that asks too little is
+				// merely a slower fade.
+				slog.Warn("surface anchors: guidance count failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+			} else {
+				level = agent.GuidanceFor(uses)
+			}
+		}
+	}
+	result, err := gen.Generate(ctx, spec, materials, level)
 	if err != nil || len(result.Anchors) == 0 {
 		return nil, false
 	}

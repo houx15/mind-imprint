@@ -10,12 +10,14 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
@@ -329,6 +331,189 @@ func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
 		}
 		if a.MaterialID != checkedMaterialID {
 			t.Fatalf("sift surface anchor material_id = %q, want the checked material %q: %+v", a.MaterialID, checkedMaterialID, a)
+		}
+	}
+}
+
+// craapAnchorGenStubProvider is the fixed valid-anchor-gen JSON reply used by
+// TestSurfaceAnchors_FadesWithCompletedUses. It is deliberately L1-shaped
+// (real block_id + quote for all five craap tags) and reused unchanged across
+// all three rounds: parseAnchorGen's L1 branch resolves block_id/quote against
+// the real material, while its L2 branch (agent/anchors.go) ignores
+// block_id/quote entirely and reads only dimension+question — so this one
+// reply is valid at both levels, and L3 never calls the model at all
+// (agent/anchors.go's Generate returns before resolving a key). The shape at
+// each level is therefore proven by the level argument threaded through
+// Generate/parseAnchorGen, not by anything this stub says.
+func craapAnchorGenStubProvider() gateway.Provider {
+	const quote = "全球变暖导致极端天气增加，这需要认真研究其影响。"
+	reply := `[
+		{"block_id":"b0","quote":"` + quote + `","dimension":"currency","question":"这段话是什么时候写的？"},
+		{"block_id":"b0","quote":"` + quote + `","dimension":"relevance","question":"这段话跟你的论点有什么关系？"},
+		{"block_id":"b0","quote":"` + quote + `","dimension":"authority","question":"这段话的作者是谁？"},
+		{"block_id":"b0","quote":"` + quote + `","dimension":"accuracy","question":"这段话准确吗？"},
+		{"block_id":"b0","quote":"` + quote + `","dimension":"purpose","question":"作者写这段话的目的是什么？"}
+	]`
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: reply},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 123, OutputTokens: 45}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+}
+
+// craapMaterialText is the single-paragraph pasted material ingested into
+// every round's fresh project — kept identical across rounds so
+// craapAnchorGenStubProvider's fixed block_id ("b0") + quote resolve against
+// whichever project's material Generate is called with.
+const craapMaterialText = "全球变暖导致极端天气增加，这需要认真研究其影响。"
+
+// ingestCraapMaterial pastes craapMaterialText into projectID, giving it one
+// un-evaluated article material (Segment produces exactly block "b0").
+func ingestCraapMaterial(t *testing.T, h http.Handler, cookie *http.Cookie, projectID string) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/materials",
+		strings.NewReader(`{"title":"一段材料","text":"`+craapMaterialText+`","takeaway":"t","tier":"二手"}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("ingestCraapMaterial: %d — %s", rec.Code, rec.Body.String())
+	}
+}
+
+// seedCompletedCraapUse directly inserts one status='completed' craap
+// card_instance scoped to projectID — the guidance fade's producer
+// (CountCompletedCardUsesByUser, agentstore.go) counts these across every
+// project the user owns, so this is the "prior completed instances" the task
+// brief asks the test to seed, without the expense of driving a real
+// surface->fill->submit round trip three times over.
+func seedCompletedCraapUse(t *testing.T, pool *pgxpool.Pool, projectID uuid.UUID) {
+	t.Helper()
+	if _, err := sqlc.New(pool).CreateProjectCardInstance(context.Background(), sqlc.CreateProjectCardInstanceParams{
+		ProjectID: pgUUID(projectID), CardID: "craap", Status: "completed",
+	}); err != nil {
+		t.Fatalf("seedCompletedCraapUse: %v", err)
+	}
+}
+
+// craapAnchorsFor surfaces craap on a freshly-created, freshly-materialed
+// project and returns the persisted anchors it generated.
+func craapAnchorsFor(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie) []agent.Anchor {
+	t.Helper()
+	pid := createProjectForTest(t, h, cookie)
+	ingestCraapMaterial(t, h, cookie, pid)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	body := rr.Body.String()
+	if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
+		t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
+	}
+
+	q := sqlc.New(pool)
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse(pid)))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	var cid uuid.UUID
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "craap" {
+			cid = ci.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no craap card_instance persisted")
+	}
+	row, err := q.GetCardInstance(context.Background(), cid)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	var anchors []agent.Anchor
+	if err := json.Unmarshal(row.Anchors, &anchors); err != nil {
+		t.Fatalf("unmarshal persisted anchors: %v — raw: %s", err, row.Anchors)
+	}
+	return anchors
+}
+
+// TestSurfaceAnchors_FadesWithCompletedUses is N3c Task 5's keystone test:
+// the guidance fade (spec §3) must have a LIVE producer, not merely exist as
+// dead code behind Task 3/4's plumbing. It drives the SAME user surfacing the
+// SAME card (craap, an annotate-primitive card) through the real
+// turn->surface_card->surfaceAnchors handler path three times, with 0, then
+// 1, then 2 prior status='completed' craap card_instances seeded for that
+// user beforehand, and asserts the PERSISTED card_instance.anchors shift from
+// L1-shaped to L2-shaped to L3-shaped (design §2's table) — proving
+// surfaceAnchors itself now counts uses and threads the resulting level into
+// AnchorGenerator.Generate, rather than the level being reachable only by
+// calling agent.GuidanceFor directly.
+func TestSurfaceAnchors_FadesWithCompletedUses(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: craapAnchorGenStubProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// Round 1: 0 prior completed uses -> L1 (author "ai", question present,
+	// span filled: block_id non-empty).
+	l1 := craapAnchorsFor(t, h, pool, cookie)
+	if len(l1) == 0 {
+		t.Fatalf("round 1: expected generated anchors, got none")
+	}
+	for _, a := range l1 {
+		if a.Author != "ai" {
+			t.Errorf("round 1 (0 uses): anchor %+v author = %q, want \"ai\" (L1)", a, a.Author)
+		}
+		if a.Question == "" {
+			t.Errorf("round 1 (0 uses): anchor %+v has blank question, want L1's AI-elicited question", a)
+		}
+		if a.BlockID == "" && a.End == a.Start {
+			t.Errorf("round 1 (0 uses): anchor %+v span is blank, want L1's AI-located span", a)
+		}
+	}
+
+	// Seed 1 prior completed use for this same user.
+	seedCompletedCraapUse(t, pool, uuid.MustParse(createProjectForTest(t, h, cookie)))
+
+	// Round 2: 1 prior completed use -> L2 (author "student", question
+	// present but span blank — she must locate it herself).
+	l2 := craapAnchorsFor(t, h, pool, cookie)
+	if len(l2) == 0 {
+		t.Fatalf("round 2: expected generated anchors, got none")
+	}
+	for _, a := range l2 {
+		if a.Author != "student" {
+			t.Errorf("round 2 (1 use): anchor %+v author = %q, want \"student\" (L2)", a, a.Author)
+		}
+		if a.Question == "" {
+			t.Errorf("round 2 (1 use): anchor %+v has blank question, want L2's still-AI-elicited question", a)
+		}
+		if !(a.BlockID == "" && a.End == a.Start) {
+			t.Errorf("round 2 (1 use): anchor %+v span is filled, want L2's blank span (she locates it)", a)
+		}
+	}
+
+	// Seed a 2nd prior completed use.
+	seedCompletedCraapUse(t, pool, uuid.MustParse(createProjectForTest(t, h, cookie)))
+
+	// Round 3: 2 prior completed uses -> L3 (author "student", question
+	// blank — she elicits it herself too — span blank).
+	l3 := craapAnchorsFor(t, h, pool, cookie)
+	if len(l3) == 0 {
+		t.Fatalf("round 3: expected generated anchors, got none")
+	}
+	for _, a := range l3 {
+		if a.Author != "student" {
+			t.Errorf("round 3 (2 uses): anchor %+v author = %q, want \"student\" (L3)", a, a.Author)
+		}
+		if a.Question != "" {
+			t.Errorf("round 3 (2 uses): anchor %+v has a question %q, want L3's blank question (she elicits it)", a, a.Question)
+		}
+		if !(a.BlockID == "" && a.End == a.Start) {
+			t.Errorf("round 3 (2 uses): anchor %+v span is filled, want L3's blank span", a)
 		}
 	}
 }
