@@ -92,3 +92,36 @@ func TestSpotCheckPromptsDifferByStation(t *testing.T) {
 		t.Error("spot-check postures must not ask for points — that is 0457 readiness data")
 	}
 }
+
+func TestSpotCheckFingerprintStability(t *testing.T) {
+	a := []SpotCheckTarget{{ID: "m1", Name: "NASA", Detail: "作用与风险：仅是遥感叶面积。"}}
+	if SpotCheckFingerprint(a) != SpotCheckFingerprint(a) {
+		t.Fatal("fingerprint must be stable for identical input")
+	}
+	changedDetail := []SpotCheckTarget{{ID: "m1", Name: "NASA", Detail: "作用与风险：补充了口径说明。"}}
+	if SpotCheckFingerprint(a) == SpotCheckFingerprint(changedDetail) {
+		t.Error("rewriting what the check reads must change the fingerprint")
+	}
+	added := []SpotCheckTarget{
+		{ID: "m1", Name: "NASA", Detail: "作用与风险：仅是遥感叶面积。"},
+		{ID: "m2", Name: "BP", Detail: "作用与风险：总量仍高。"},
+	}
+	if SpotCheckFingerprint(a) == SpotCheckFingerprint(added) {
+		t.Error("adding a target must change the fingerprint")
+	}
+	// The NAME is display-only; it must still participate, because renaming a
+	// source changes what the student sees in the work order.
+	renamed := []SpotCheckTarget{{ID: "m1", Name: "NASA (v2)", Detail: "作用与风险：仅是遥感叶面积。"}}
+	if SpotCheckFingerprint(a) == SpotCheckFingerprint(renamed) {
+		t.Error("renaming a target must change the fingerprint")
+	}
+}
+
+func TestSpotCheckFingerprintIsNotConcatenationAmbiguous(t *testing.T) {
+	// A naive strings.Join without a separator would hash these identically.
+	x := []SpotCheckTarget{{ID: "ab", Name: "c", Detail: "d"}}
+	y := []SpotCheckTarget{{ID: "a", Name: "bc", Detail: "d"}}
+	if SpotCheckFingerprint(x) == SpotCheckFingerprint(y) {
+		t.Error("field boundaries must be unambiguous in the hashed serialization")
+	}
+}

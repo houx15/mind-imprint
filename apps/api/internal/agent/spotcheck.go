@@ -12,6 +12,8 @@ package agent
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -138,4 +140,26 @@ func ProposeSpotCheck(ctx context.Context, prov gateway.Provider, r gateway.Reso
 		return nil, usage, fmt.Errorf("agent: spot-check produced no usable items")
 	}
 	return items, usage, nil
+}
+
+// SpotCheckFingerprint hashes exactly what a spot-check reads, so an unchanged
+// order can be answered from storage with zero model calls. This is
+// orderReview's one-snapshot-one-review guard with the snapshot id generalized
+// to a content hash, because S3/S4 have no commit action to anchor on.
+//
+// The serialization is length-prefixed, not delimiter-joined: a student's
+// risk_note may contain any character, so no separator byte is safe, and a
+// naive join would let two different dossiers collide.
+func SpotCheckFingerprint(targets []SpotCheckTarget) string {
+	h := sha256.New()
+	write := func(s string) {
+		fmt.Fprintf(h, "%d:", len(s))
+		h.Write([]byte(s))
+	}
+	for _, t := range targets {
+		write(t.ID)
+		write(t.Name)
+		write(t.Detail)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
