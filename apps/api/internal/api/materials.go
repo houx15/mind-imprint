@@ -137,6 +137,20 @@ func (a *API) ingestMaterial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// M1: a fresh (unevaluated) article material can flip
+	// allArticlesHaveRiskNote (attest.go) from true to false — e.g. she had
+	// 2/2 articles evaluated, then added a 3rd with no risk_note yet.
+	// attestS3S4 is the ONLY place that recomputes source_risk_notes, and
+	// this endpoint is the only mutation of the materials list that did not
+	// already call it (submitProjectCard does, on every card submit) — so
+	// without this call the gate item kept reading "solid" from the LAST
+	// write that happened to make it true, until some unrelated card submit
+	// incidentally recomputed it. Same attestation-before-advanceGates order
+	// as projectcards.go: gate state must be current before advanceGates
+	// decides which contracts just finished.
+	a.attestS3S4(r.Context(), projectID)
+	a.advanceGates(r.Context(), projectID)
+
 	dtoBlocks := make([]studio.MaterialBlockDTO, len(blocks))
 	for i, b := range blocks {
 		dtoBlocks[i] = studio.MaterialBlockDTO{ID: b.ID, Text: b.Text}

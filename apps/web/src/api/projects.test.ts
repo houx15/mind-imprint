@@ -31,10 +31,15 @@ const sample = {
   materials: [],
   activeCard: null,
   structure: [],
+  spotChecks: {
+    evaluateSources: { items: [], orderable: false },
+    buildArgument: { items: [], orderable: false },
+  },
   readiness: [],
   selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
   prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
   reflection: { text: "", prompts: [] },
+  declaration: { asks: 0, dispositions: 0, cardsSpontaneous: 0, cardsPrompted: 0, aiWrittenProse: 0, signed: false },
   finished: false,
   canFinish: false,
   writing: {

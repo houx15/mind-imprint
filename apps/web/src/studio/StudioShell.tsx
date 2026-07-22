@@ -6,7 +6,7 @@ import { CoachRail } from "./CoachRail";
 import type { LiveCard } from "./CoachRail";
 import type { LocatedSpan } from "./StudioAnnotateCard";
 import { MethodologyModal } from "./MethodologyModal";
-import type { StudioCallbacks, StudioState } from "./state";
+import type { StudioCallbacks, StudioState, SpotCheckContractId } from "./state";
 
 export type StudioShellProps = {
   state: StudioState;
@@ -59,11 +59,24 @@ export type StudioShellProps = {
     // through to ViewFrame unchanged (see below).
     onSelfScore?: (body: { scores: { code: string; band: number }[] }) => void;
     onReflection?: (body: { text: string }) => void;
+    // N3f Task 9: signs the S6 AI 使用申报单 — mirrors onSelfScore/
+    // onReflection above, forwarded straight through to ViewFrame unchanged.
+    onSignDeclaration?: () => void;
   };
   // N1 Task 8: the S0 view's restate + weak-picks submit — threaded straight
   // through to ViewFrame (which threads it straight through to
   // OnboardingView's own `onSubmit`), same flat shape at every hop.
   onSubmitOnboarding?: (body: { restate: string; weakPicks: number[] }) => Promise<void>;
+  // N3f Task 7 (I1 fix): the S3/S4 spot-check panels' order-in-flight flags +
+  // actions — container-local transient handler state (not a projection
+  // field), so it travels as its own group here, mirroring `review` above,
+  // and is forwarded straight through to ViewFrame unchanged below.
+  spotCheck?: {
+    pendingEvaluateSources: boolean;
+    pendingBuildArgument: boolean;
+    onOrder: (contractId: SpotCheckContractId) => void;
+    onDisposition?: (interventionId: string, action: "accept" | "rewrite" | "reject", reason: string) => void;
+  };
 };
 
 // Top bar + 3-column body + focus mode. Design binding:
@@ -109,6 +122,7 @@ export function StudioShell({
   pendingTrace,
   review,
   onSubmitOnboarding,
+  spotCheck,
 }: StudioShellProps) {
   const activeView = state.stations.find((s) => s.code === state.activeStation)?.view ?? "结构";
   // MethodologyModal is owned HERE (not by CoachRail) so its full-bleed scrim
@@ -214,6 +228,7 @@ export function StudioShell({
             onAttestCitations: callbacks.onAttestCitations,
           }}
           review={review}
+          spotCheck={spotCheck}
           onSubmitOnboarding={onSubmitOnboarding}
           // N3d Task 12: S1/S2's whole-panel saves + S2's one attestation —
           // these three live on `callbacks` (StudioCallbacks), unlike

@@ -80,12 +80,32 @@ func stripFences(text string) string {
 	return c
 }
 
-// blockLookup indexes material blocks by block id → (materialID, text).
+// blockLookup indexes material blocks by ALIAS-QUALIFIED block id
+// ("mN:blockID", N = the material's index in this SAME slice) →
+// (materialID, text). Block ids are only "stable within a material"
+// (materialize.Segment) — a flat map keyed by the bare block id would
+// collide across materials in a ≥2-material project, with the last material
+// silently winning. The alias (NOT mat.ID) mirrors the label
+// BuildMaterialContext renders from the identical materials slice in the
+// identical order, so a model reply that follows the L1 instruction (which
+// shows the alias example "m0:b0") round-trips directly — and stays short
+// even when mat.ID is a 36-char UUID (the studio path), which the L1
+// instruction's own example never shows the model how to imitate correctly.
+//
+// Qualified-only, deliberately: BuildMaterialContext (the L1 user message)
+// always renders qualified labels and the L1 instruction always demonstrates
+// the qualified form, so the model is never shown a bare id to imitate. A
+// bare block_id in a reply has no legitimate producer — resolving it via a
+// "there's only one material so guess" fallback would silently paper over a
+// malformed reply instead of surfacing it, which is exactly the failure mode
+// this function exists to close. An unqualified id fails closed via the
+// caller's "unknown block_id" error.
 func blockLookup(materials []Material) map[string][2]string {
 	m := map[string][2]string{}
-	for _, mat := range materials {
+	for i, mat := range materials {
+		alias := materialAlias(i)
 		for _, b := range mat.Blocks {
-			m[b.ID] = [2]string{mat.ID, b.Text}
+			m[alias+":"+b.ID] = [2]string{mat.ID, b.Text}
 		}
 	}
 	return m
@@ -121,9 +141,19 @@ func parseAnchorGen(text string, spec cards.Spec, materials []Material, level Gu
 			if !ok {
 				return nil, errString("unknown block_id: " + it.BlockID)
 			}
+			// The model returns the alias-qualified id ("mN:blockID", matching
+			// the [alias:blk.ID] label BuildMaterialContext renders from the
+			// same materials slice). Split on the LAST ':' to recover the
+			// material-local block id — that is the shape the web already
+			// consumes to slice block text, so only the lookup key changes,
+			// not what gets stored.
+			localBlockID := it.BlockID
+			if idx := strings.LastIndex(it.BlockID, ":"); idx >= 0 {
+				localBlockID = it.BlockID[idx+1:]
+			}
 			start, end := computeOffsets(ref[1], it.Quote)
 			out = append(out, Anchor{
-				ID: "a" + strconv.Itoa(i), MaterialID: ref[0], BlockID: it.BlockID,
+				ID: "a" + strconv.Itoa(i), MaterialID: ref[0], BlockID: localBlockID,
 				Start: start, End: end, Quote: it.Quote, Dimension: it.Dimension,
 				Author: "ai", Question: it.Question, Answer: "",
 			})
@@ -312,7 +342,7 @@ func buildAnchorPrompt(spec cards.Spec, level GuidanceLevel) string {
 	instr := "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
 		"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。\n" +
 		"维度：\n" + dims.String() +
-		"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
+		"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"m0:b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
 	if tagged {
 		instr += "dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。"
 	}

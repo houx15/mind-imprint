@@ -162,9 +162,42 @@ func anchorLabel(raw []byte) string {
 	return b.Label
 }
 
-// projectCoach builds the coach rail: anchor (latest intervention's, else the
-// current station title) + the time-ordered thread merging the intervention
-// thread (flag/ai) with the student's own chat_messages (5c: "both sides").
+// conversationalInterventionTypes is the ALLOWLIST of intervention.Type
+// values that render as prose in the coach rail's conversation thread.
+// Deliberately an allowlist, not a denylist: a denylist (the previous shape
+// here — "everything except review_item/spot_check_item") lets any FUTURE
+// machine-readable intervention type fall straight through and render as a
+// raw JSON blob, which is exactly the defect that was live in production
+// until this slice caught it for review_item/spot_check_item. A new
+// machine-readable type must earn its own DTO and panel (the way
+// review_item → 整稿体检's work order and spot_check_item → the station 体检
+// panels did) rather than silently qualifying for this set by omission.
+//
+// "question" (coach.go's live studio turn output) and "diagnostic" +
+// "flag" (both minted server-side today — "flag" currently only by the
+// seed fixture, "diagnostic" by the live coach loop) are the only types
+// whose Body is prose meant for a chat bubble; everything else's Body is a
+// marshalled struct.
+//
+// This predicate is used BOTH by the message-thread loop (so a raw JSON blob
+// never renders as a chat bubble) AND by the anchor pick below (so the newest
+// non-conversational row can never silently collapse the coach rail's anchor
+// line to "") — hoisted into one name so the two can never disagree
+// (whole-branch review finding on N3f Task 4/5: the anchor pick used to read
+// d.Interventions[n-1] unconditionally).
+func isConversationalIntervention(t string) bool {
+	switch t {
+	case "question", "diagnostic", "flag":
+		return true
+	default:
+		return false
+	}
+}
+
+// projectCoach builds the coach rail: anchor (the latest NON-work-order
+// intervention's, else the current station title) + the time-ordered thread
+// merging the intervention thread (flag/ai) with the student's own
+// chat_messages (5c: "both sides").
 func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	type stamped struct {
 		at  time.Time
@@ -172,6 +205,13 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	}
 	all := make([]stamped, 0, len(d.Interventions)+len(d.ChatMessages))
 	for _, iv := range d.Interventions {
+		// Non-conversational interventions (review_item / spot_check_item /
+		// any future machine-readable type) are work-order rows with their
+		// own panels (the 整稿体检 work order / the station 体检 panels) — give
+		// them their own DTO/panel instead; do not re-add them here.
+		if !isConversationalIntervention(iv.Type) {
+			continue
+		}
 		label := anchorLabel(iv.Anchor)
 		if iv.Type == "flag" {
 			// A flag's headline is its anchor label; the criterion stays a tag.
@@ -196,8 +236,15 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	for i, st := range all {
 		c.Messages[i] = st.msg
 	}
-	if n := len(d.Interventions); n > 0 {
-		c.Anchor = anchorLabel(d.Interventions[n-1].Anchor)
+	// Walk back to the last conversational intervention for the anchor pick —
+	// the same predicate the message loop above already applies, so the two
+	// can never disagree about which row is "the latest real one".
+	for i := len(d.Interventions) - 1; i >= 0; i-- {
+		if !isConversationalIntervention(d.Interventions[i].Type) {
+			continue
+		}
+		c.Anchor = anchorLabel(d.Interventions[i].Anchor)
+		break
 	}
 	if c.Anchor == "" {
 		c.Anchor = currentTitle
@@ -244,12 +291,7 @@ func materialByCardInstance(d ProjectData) map[string]string {
 // iteration order — a future filter/reorder here must not silently misalign
 // that digest.
 func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) []EquipCardDTO {
-	nudged := map[string]bool{}
-	for _, iv := range d.Interventions {
-		if iv.CardInstanceID.Valid {
-			nudged[uuidFromPg(iv.CardInstanceID)] = true
-		}
-	}
+	nudged := NudgedCardInstanceIDs(d)
 	materialOf := materialByCardInstance(d)
 	out := make([]EquipCardDTO, 0, len(d.Cards))
 	for _, ci := range d.Cards {
@@ -271,6 +313,21 @@ func projectEquipment(d ProjectData, specByID func(string) (cards.Spec, bool)) [
 
 func uuidFromPg(u pgtype.UUID) string {
 	return uuid.UUID(u.Bytes).String()
+}
+
+// NudgedCardInstanceIDs is the single shared spontaneous/prompted rule: a
+// card_instance is 提示后 (prompted) when an intervention links it, else 自发
+// (spontaneous). projectEquipment and api.countDeclaration both derive their
+// split from this exact function — one rule, one definition — so the two can
+// never silently disagree about a given card.
+func NudgedCardInstanceIDs(d ProjectData) map[string]bool {
+	nudged := map[string]bool{}
+	for _, iv := range d.Interventions {
+		if iv.CardInstanceID.Valid {
+			nudged[uuidFromPg(iv.CardInstanceID)] = true
+		}
+	}
+	return nudged
 }
 
 // projectOnboarding reads the decode_task graph nodes for the S0 view.
@@ -432,8 +489,10 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 		SelfScore:     projectSelfScore(sk, d),
 		Reflection:    projectReflection(d),
 		Prediction:    projectPrediction(sk, d),
+		SpotChecks:    projectSpotChecks(d, specByID),
 		Finished:      finished,
 		CanFinish:     canFinish,
+		Declaration:   projectDeclaration(d, coach.Equipment, recordedGates),
 	}, nil
 }
 
@@ -652,6 +711,65 @@ func projectReflection(d ProjectData) ReflectionDTO {
 	return ReflectionDTO{Text: text, Prompts: retroPrompts}
 }
 
+// projectDeclaration projects the S6 AI 使用申报单. Signed comes from the
+// recorded reflect_archive gate_state's declaration_signed item — the exact
+// same "solid" check agent.CheckGate applies to every human/student_written
+// item, so this can never disagree with the gate the student is actually
+// walking through.
+//
+// Before signing, the counters are computed live from equipment (the same
+// projectEquipment output Coach.Equipment already carries — its 自发/提示后
+// split is not re-derived a second time here) and from d directly. After
+// signing, they are read back from the persisted `declaration` node
+// (internal/api/declaration.go's signDeclaration mints it in the same
+// transaction that flips the gate item) rather than recomputed — otherwise
+// the screen would show numbers drifting away from what she actually signed.
+func projectDeclaration(d ProjectData, equipment []EquipCardDTO, recordedGates map[string]agent.RecordedGate) DeclarationDTO {
+	signed := recordedGates["reflect_archive"].Items["declaration_signed"] == "solid"
+	if signed {
+		var dto DeclarationDTO
+		found := false
+		for _, n := range d.Nodes {
+			if n.Type != "declaration" {
+				continue
+			}
+			if json.Unmarshal(n.Body, &dto) == nil {
+				found = true // latest wins, though signDeclaration is idempotent and mints at most one
+			}
+		}
+		if found {
+			dto.Signed = true
+			return dto
+		}
+		// Recorded solid but no persisted node found — shouldn't happen
+		// (signDeclaration writes both in one transaction), but fall through
+		// to live counts rather than silently claim zeros.
+	}
+
+	asks := 0
+	for _, e := range d.Events {
+		if e.Type == "prompt_sent" {
+			asks++
+		}
+	}
+	spont, prompted := 0, 0
+	for _, ec := range equipment {
+		if ec.Spont == "提示后" {
+			prompted++
+		} else {
+			spont++
+		}
+	}
+	return DeclarationDTO{
+		Asks:             asks,
+		Dispositions:     len(d.Dispositions),
+		CardsSpontaneous: spont,
+		CardsPrompted:    prompted,
+		AiWrittenProse:   0,
+		Signed:           signed,
+	}
+}
+
 // reviewItemDTOFromIntervention reconstructs a WritingReviewItemDTO from a
 // review_item intervention row. iv.Body is the full agent.ReviewItem JSON
 // (Task 6's InsertReviewIntervention) — one json.Unmarshal, never
@@ -674,6 +792,131 @@ func reviewItemDTOFromIntervention(iv sqlc.Intervention) (WritingReviewItemDTO, 
 		Missing:        it.Missing,
 		Fix:            it.Fix,
 	}, true
+}
+
+// spotCheckAnchor is the {station,fingerprint} anchor Task 4's orderSpotCheck
+// writes (api/spotcheck.go) on every spot_check_item intervention it inserts.
+type spotCheckAnchor struct {
+	Station     string `json:"station"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// spotCheckItemDTOFromIntervention reconstructs a SpotCheckItemDTO from a
+// spot_check_item intervention row. iv.Body is the full agent.SpotCheckItem
+// JSON (api/spotcheck.go's InsertSpotCheckIntervention) — one json.Unmarshal,
+// never string-splitting, exactly reviewItemDTOFromIntervention's pattern.
+func spotCheckItemDTOFromIntervention(iv sqlc.Intervention) (SpotCheckItemDTO, bool) {
+	var it agent.SpotCheckItem
+	if err := json.Unmarshal([]byte(iv.Body), &it); err != nil {
+		return SpotCheckItemDTO{}, false
+	}
+	return SpotCheckItemDTO{
+		InterventionID: iv.ID.String(),
+		TargetID:       it.TargetID,
+		TargetName:     it.TargetName,
+		Evidence:       it.Evidence,
+		Missing:        it.Missing,
+		Fix:            it.Fix,
+	}, true
+}
+
+// projectSpotCheckFx projects one station's spot-check panel: a chosen
+// batch's items (joined with dispositions) plus whether ordering is
+// currently possible.
+//
+// A "batch" = every spot_check_item intervention anchored to this station
+// sharing one fingerprint (orderSpotCheck inserts a whole batch atomically
+// in one call, so every row in a batch shares one fingerprint).
+//
+// Which batch to show is NOT simply "the most recent one" — recency alone
+// mishandles an edit-then-revert sequence: order at state A (batch A, fp
+// fpA) -> edit to state B and order again (batch B, fp fpB, later
+// CreatedAt) -> revert the text back to exactly state A. The current
+// fingerprint is fpA again, and batch A already exists for it, but "most
+// recent" would still pick batch B — showing now-irrelevant items AND
+// reporting orderable=true (fpA != fpB) even though pressing the button
+// would just replay batch A for free. So: prefer the batch whose
+// fingerprint equals the CURRENT fingerprint if one exists (orderable=false
+// — a real match, nothing to (re)order); only when no batch matches the
+// current fingerprint fall back to the most recent batch by CreatedAt
+// (orderable=true — deliberately stale-but-visible, so her work order does
+// not vanish the moment she starts typing).
+//
+// The current fingerprint is computed via
+// agent.SpotCheckFingerprint(SpotCheckTargets(...)) — the SAME builder
+// api/spotcheck.go's orderSpotCheck itself calls (spec §5.7) — so this can
+// never disagree with what pressing the button would actually do. A
+// station with NO targets at all is not orderable (there is nothing to
+// check), even though the "no targets" fingerprint trivially differs from
+// any stored one.
+func projectSpotCheckFx(d ProjectData, station string, specByID func(string) (cards.Spec, bool)) SpotCheckFxDTO {
+	dispByIv := map[string]sqlc.Disposition{}
+	for _, dp := range d.Dispositions {
+		dispByIv[dp.InterventionID.String()] = dp // last write wins (ORDER BY created_at)
+	}
+
+	type row struct {
+		at          time.Time
+		fingerprint string
+		item        SpotCheckItemDTO
+	}
+	var rows []row
+	var latestFP string
+	var latestAt time.Time
+	haveLatest := false
+	haveFP := map[string]bool{}
+	for _, iv := range d.Interventions {
+		if iv.Type != "spot_check_item" {
+			continue
+		}
+		var a spotCheckAnchor
+		if err := json.Unmarshal(iv.Anchor, &a); err != nil || a.Station != station {
+			continue
+		}
+		item, ok := spotCheckItemDTOFromIntervention(iv)
+		if !ok {
+			continue
+		}
+		if dp, ok := dispByIv[iv.ID.String()]; ok {
+			item.Disposition = &DispositionDTO{Action: dp.Action, Reason: dp.Reason}
+		}
+		rows = append(rows, row{at: iv.CreatedAt, fingerprint: a.Fingerprint, item: item})
+		haveFP[a.Fingerprint] = true
+		if !haveLatest || iv.CreatedAt.After(latestAt) {
+			latestAt, latestFP, haveLatest = iv.CreatedAt, a.Fingerprint, true
+		}
+	}
+
+	targets := SpotCheckTargets(d, station, specByID)
+	currentFP := agent.SpotCheckFingerprint(targets)
+
+	selectedFP := latestFP
+	orderable := false
+	if len(targets) > 0 {
+		if haveFP[currentFP] {
+			selectedFP = currentFP
+		} else {
+			orderable = true
+		}
+	}
+
+	items := make([]SpotCheckItemDTO, 0, len(rows))
+	for _, rw := range rows {
+		if rw.fingerprint == selectedFP {
+			items = append(items, rw.item)
+		}
+	}
+
+	return SpotCheckFxDTO{Items: items, Orderable: orderable}
+}
+
+// projectSpotChecks projects the S3/S4 station spot-check panels (信源体检 /
+// 论证体检) for StudioProjection's flat, required spotChecks member.
+func projectSpotChecks(d ProjectData, specByID func(string) (cards.Spec, bool)) SpotChecksDTO {
+	return SpotChecksDTO{
+		EvaluateSources: projectSpotCheckFx(d, agent.SpotCheckSources, specByID),
+		BuildArgument:   projectSpotCheckFx(d, agent.SpotCheckArgument, specByID),
+	}
 }
 
 // projectStructure projects the five Toulmin argument slots into 论证构建 role

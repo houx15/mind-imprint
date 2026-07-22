@@ -2,13 +2,18 @@ import type {
   Station, StationCode, StationView, StationState,
   CoachMessage, EquipCard, RubricRow, OnboardingFx,
   CardInstance, TraceEvent, MaterialSource, StructureCard, WritingProjection, WritingReviewItem, Gauge,
-  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx,
+  SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx, DeclarationFx,
 } from "@mind-imprint/contracts";
 import type { AddMaterialBody } from "../api/materials";
 import type { ReviewVoice } from "../api/writing";
 import type { CreatedSpan } from "../primitives/annotate";
 
-export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx };
+export type { Station, StationCode, StationView, StationState, CoachMessage, EquipCard, RubricRow, OnboardingFx, WritingProjection, WritingReviewItem, Gauge, SelfScoreFx, PredictionFx, ReflectionFx, FramingFx, PerspectivesFx, SpotCheckFx, DeclarationFx };
+
+// N3f Task 7: the contract id of one of the two stations that have a
+// spot-check defined — mirrors agent.SpotCheckSources/SpotCheckArgument
+// verbatim (never a third value; an unknown contractId 404s server-side).
+export type SpotCheckContractId = "evaluate_sources" | "build_argument";
 
 // The five S4 argument role cards are the wire StructureCard verbatim — one
 // shape across the boundary. status is only "done" | "empty"; the live
@@ -47,6 +52,17 @@ export type StudioState = {
     selfScore: SelfScoreFx;
     prediction: PredictionFx;
     reflection: ReflectionFx;
+    // N3f Task 7: the S3/S4 station spot-check panels — wire-shaped verbatim
+    // (SpotCheckFx per station), same pattern as GaugeFx/framing/perspectives
+    // above. Pure projected data; the order/disposition actions + the
+    // per-station pending flags are container-local transient handler state,
+    // NOT projection fields, so (I1 fix) they travel as their own `spotCheck`
+    // prop group on StudioShellProps/ViewFrameProps instead of living here —
+    // mirrors ViewFrameProps' own `review` group and its doc comment on why.
+    spotChecks: { evaluateSources: SpotCheckFx; buildArgument: SpotCheckFx };
+    // N3f Task 9: the S6 AI 使用申报单 — wire-shaped verbatim (DeclarationFx),
+    // same pattern as selfScore/prediction/reflection above.
+    declaration: DeclarationFx;
   };
   // A3 Task 9: the project terminal — whether the project has already been
   // finished (archived, growth report generated) and whether it currently

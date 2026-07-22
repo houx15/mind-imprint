@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { test, expect, vi } from "vitest";
 import { ReviewView } from "./ReviewView";
-import type { GaugeFx, SelfScoreFx, PredictionFx, ReflectionFx } from "../state";
+import type { GaugeFx, SelfScoreFx, PredictionFx, ReflectionFx, DeclarationFx } from "../state";
 
 const gauges: GaugeFx[] = [
   { code: "表D", name: "来源与证据", lit: 3, total: 4, note: "孤儿证据没接上", level: "partial" },
@@ -50,6 +50,19 @@ const reflection: ReflectionFx = {
   prompts: ["整个研究过程里，你觉得最费劲的一步是什么？", "如果现在从头再来一次，你会先做哪件不一样的事？"],
 };
 
+// --- Task 9: AI 使用申报单 fixtures. Values verbatim dc.html:2179-2181 —
+// 23/7/4/2/0.
+const declarationUnsigned: DeclarationFx = {
+  asks: 23,
+  dispositions: 7,
+  cardsSpontaneous: 4,
+  cardsPrompted: 2,
+  aiWrittenProse: 0,
+  signed: false,
+};
+
+const declarationSigned: DeclarationFx = { ...declarationUnsigned, signed: true };
+
 const noop = () => {};
 
 const baseTerminalProps = {
@@ -63,6 +76,8 @@ const baseTerminalProps = {
   reflection,
   onSelfScore: noop,
   onReflection: noop,
+  declaration: declarationUnsigned,
+  onSignDeclaration: noop,
 };
 
 test("renders code and name for each table", () => {
@@ -194,4 +209,34 @@ test("retro: renders reflection.prompts as chips", () => {
   for (const p of reflection.prompts) {
     expect(screen.getByText(p)).toBeInTheDocument();
   }
+});
+
+// --- Task 9: AI 使用申报单 ---
+
+test("declaration: renders the four labels with their projected values", () => {
+  render(<ReviewView gauges={gauges} {...baseTerminalProps} />);
+  expect(screen.getByText("提问 / 追问")).toBeInTheDocument();
+  expect(screen.getByText("23 次")).toBeInTheDocument();
+  expect(screen.getByText("三键处置（接受/改/拒）")).toBeInTheDocument();
+  expect(screen.getByText("7 次")).toBeInTheDocument();
+  expect(screen.getByText("工具卡调用（自发/提示后）")).toBeInTheDocument();
+  expect(screen.getByText("4 / 2")).toBeInTheDocument();
+  expect(screen.getByText("AI 代写正文")).toBeInTheDocument();
+  expect(screen.getByText("0 次")).toBeInTheDocument();
+});
+
+test("declaration: unsigned shows the 待你签名 pill and a sign control that calls onSignDeclaration", () => {
+  const onSignDeclaration = vi.fn();
+  render(<ReviewView gauges={gauges} {...baseTerminalProps} onSignDeclaration={onSignDeclaration} />);
+  expect(screen.getByText("自动生成 · 待你签名")).toBeInTheDocument();
+  const sign = screen.getByTestId("declaration-sign");
+  fireEvent.click(sign);
+  expect(onSignDeclaration).toHaveBeenCalledTimes(1);
+});
+
+test("declaration: signed renders 已签名 and replaces the sign control with the signed state", () => {
+  render(<ReviewView gauges={gauges} {...baseTerminalProps} declaration={declarationSigned} />);
+  expect(screen.getByText("已签名")).toBeInTheDocument();
+  expect(screen.queryByText("自动生成 · 待你签名")).toBeNull();
+  expect(screen.queryByTestId("declaration-sign")).toBeNull();
 });

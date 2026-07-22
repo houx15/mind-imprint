@@ -1848,6 +1848,82 @@ describe("StudioContainer", () => {
     await waitFor(() => expect(getProjectCalls).toBe(2));
   });
 
+  // --- N3f Task 7: the S3/S4 spot-check panels' StudioContainer wiring —
+  // onOrder (api.orderSpotCheck, then refetch so the item actually renders;
+  // N3d's Important finding I2 was exactly the fire-and-forget version of
+  // this) and the error path (a rejection surfaces the generic sync banner
+  // instead of crashing the tree). Drives the real rendered 信源体检 button
+  // at S3, mirroring the 整稿体检 tests above rather than calling
+  // StudioContainer internals directly. ---
+
+  function spotCheckProjection(spotChecks: {
+    evaluateSources: { items: unknown[]; orderable: boolean };
+    buildArgument: { items: unknown[]; orderable: boolean };
+  }) {
+    return {
+      ...projection,
+      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
+      activeStation: "S3",
+      materials: [] as unknown[],
+      spotChecks,
+    };
+  }
+
+  const spotCheckItem = {
+    interventionId: "iv-1",
+    targetId: "m1",
+    targetName: "NASA 全球变绿观测",
+    evidence: "写了作用与风险。",
+    missing: "没说清遥感口径的局限。",
+    fix: "补一句这条数据不能回答什么。",
+    disposition: null,
+  };
+
+  it("orders 信源体检 via api.orderSpotCheck(projectId, 'evaluate_sources') then refetches so the item renders", async () => {
+    let getProjectCalls = 0;
+    const orderSpotCheck = vi.fn(async () => {});
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () => {
+        getProjectCalls += 1;
+        return spotCheckProjection(
+          getProjectCalls === 1
+            ? { evaluateSources: { items: [], orderable: true }, buildArgument: { items: [], orderable: false } }
+            : { evaluateSources: { items: [spotCheckItem], orderable: false }, buildArgument: { items: [], orderable: false } },
+        );
+      },
+      orderSpotCheck,
+    };
+    await renderAndOpen({ api: api as never });
+    await screen.findByText(/信源档案/);
+
+    fireEvent.click(screen.getByRole("button", { name: /信源体检/ }));
+
+    expect(orderSpotCheck).toHaveBeenCalledWith("p1", "evaluate_sources");
+    await waitFor(() => expect(getProjectCalls).toBe(2));
+    await waitFor(() => expect(screen.getByText("NASA 全球变绿观测")).toBeInTheDocument());
+  });
+
+  it("surfaces a sync-error banner when api.orderSpotCheck rejects, without crashing", async () => {
+    const orderSpotCheck = vi.fn(async () => {
+      throw new Error("network boom");
+    });
+    const api = {
+      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
+      getProject: async () =>
+        spotCheckProjection({ evaluateSources: { items: [], orderable: true }, buildArgument: { items: [], orderable: false } }),
+      orderSpotCheck,
+    };
+    await renderAndOpen({ api: api as never });
+    await screen.findByText(/信源档案/);
+
+    fireEvent.click(screen.getByRole("button", { name: /信源体检/ }));
+
+    await waitFor(() => expect(screen.getByText(/体检失败，请重试/)).toBeInTheDocument());
+    // Still rendered — no uncaught rejection tore down the tree.
+    expect(screen.getByRole("button", { name: /信源体检/ })).toBeInTheDocument();
+  });
+
   // --- N3d Task 12: StudioContainer wiring for the S1 立题 / S2 视角与素材
   // station views — onSubmitFraming/onSubmitPerspectives (each a plain DB
   // write + refetch, mirroring submitOnboarding/submitSelfScore/

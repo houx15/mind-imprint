@@ -4,27 +4,35 @@ import { StructureView } from "./StructureView";
 import { STUDIO_FIXTURE } from "../fixtures";
 
 describe("StructureView (结构/S4 shell)", () => {
-  it("renders the gate banner and the 5 Toulmin role cards", () => {
+  it("renders the section badge and the 5 Toulmin role cards", () => {
     render(<StructureView cards={STUDIO_FIXTURE.views.structure} />);
-    expect(screen.getByText(/门禁/)).toBeInTheDocument();
+    expect(screen.getByText(/论证构建/)).toBeInTheDocument();
     for (const c of STUDIO_FIXTURE.views.structure) {
       expect(screen.getByText(c.role)).toBeInTheDocument();
     }
   });
 
-  it("shows the orange not-clean banner when a card is empty", () => {
+  it("shows the orange not-clean banner when a card is empty, without claiming the gate would pass", () => {
     render(<StructureView cards={STUDIO_FIXTURE.views.structure} />);
     expect(screen.getByText(/还有卡片没完成/)).toBeInTheDocument();
+    expect(screen.queryByText(/本环节门禁就过了/)).toBeNull();
   });
 
-  it("shows the green all-clean banner when no card is empty", () => {
+  // I1 fix: the five-slot banner must never claim the station's gate passed
+  // or that 成稿打磨 (S5) is reachable — build_argument's gate also requires
+  // the human item `warrant_quality_spot_check`, whose producer (论证体检) is
+  // a separate panel this banner knows nothing about. Pin both what the
+  // banner DOES say and what it must NOT say.
+  it("shows the green five-slots-done banner, without claiming the gate passed", () => {
     const allDone = STUDIO_FIXTURE.views.structure.map((c) => ({
       ...c,
       status: "done" as const,
       preview: c.preview ?? "占位句子",
     }));
     render(<StructureView cards={allDone} />);
-    expect(screen.getByText(/本环节门禁通过/)).toBeInTheDocument();
+    expect(screen.getByText(/五张卡片都写成了句子、该接素材的都接上了/)).toBeInTheDocument();
+    expect(screen.queryByText(/门禁通过/)).toBeNull();
+    expect(screen.queryByText(/可以进成稿打磨/)).toBeNull();
   });
 
   it("shows the collapsed preview sentence for done cards", () => {

@@ -152,6 +152,63 @@ func TestProjectCoach_AnchorFallback(t *testing.T) {
 	}
 }
 
+// TestProjectCoach_ExcludesReviewAndSpotCheckItems pins the fix for the
+// coach-rail JSON-leak: review_item (整稿体检 work order) and spot_check_item
+// (S3/S4 station 体检 work order) interventions carry marshalled
+// ReviewItem/SpotCheckItem JSON as their Body, not prose, and must never fall
+// through to the generic "ai" message branch — that would render a raw JSON
+// blob in the 陪练 conversation. They are work-order rows with their own
+// panels, not conversation turns. Only the ordinary "diagnostic" (nudge)
+// intervention should surface in Messages.
+func TestProjectCoach_ExcludesReviewAndSpotCheckItems(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "review_item", Body: `{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"kind":"draft_snapshot","id":"x","voice":"board"}`)},
+			{Type: "spot_check_item", Body: `{"target_id":"t1","target_name":"n","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"station":"evaluate_sources","fingerprint":"abc"}`)},
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if len(coach.Messages) != 1 {
+		t.Fatalf("want 1 message (review_item + spot_check_item excluded), got %d: %+v", len(coach.Messages), coach.Messages)
+	}
+	if coach.Messages[0].Kind != "ai" || coach.Messages[0].Body != "连到治理决心" {
+		t.Fatalf("surviving message = %+v", coach.Messages[0])
+	}
+}
+
+// TestProjectCoach_AllowlistExcludesUnknownFutureType pins the M-coach fix:
+// isConversationalIntervention is an ALLOWLIST, not a denylist. A made-up
+// intervention type nobody has added to the allowlist yet — standing in for
+// any future machine-readable type — must be excluded from the coach rail
+// same as review_item/spot_check_item, without anyone having to remember to
+// add it to a denylist first. Before this fix, an unrecognized type fell
+// straight through to the generic "ai" branch and rendered as a raw JSON
+// blob — precisely the defect this slice found live for review_item/
+// spot_check_item.
+func TestProjectCoach_AllowlistExcludesUnknownFutureType(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "some_future_machine_type", Body: `{"not":"prose"}`, Anchor: []byte(`{"label":"should not surface"}`)},
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if len(coach.Messages) != 1 {
+		t.Fatalf("want 1 message (unknown machine type excluded by allowlist), got %d: %+v", len(coach.Messages), coach.Messages)
+	}
+	if coach.Messages[0].Body != "连到治理决心" {
+		t.Fatalf("surviving message = %+v", coach.Messages[0])
+	}
+	if coach.Anchor != "论证图 · 治理决心主张" {
+		t.Fatalf("anchor pick must skip the unknown-type row too, got %q", coach.Anchor)
+	}
+}
+
 func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	steel := uuid.New()
 	d := ProjectData{
@@ -916,5 +973,264 @@ func TestProjectCanFinishAndFinished(t *testing.T) {
 	}
 	if proj.CanFinish || !proj.Finished {
 		t.Fatalf("finished: canFinish=%v finished=%v, want false/true", proj.CanFinish, proj.Finished)
+	}
+}
+
+// spotCheckItemIntervention builds one spot_check_item intervention row
+// anchored to (station, fingerprint) — mirrors api/spotcheck.go's own
+// persistence exactly (Task 4): the anchor is {"station","fingerprint"}, the
+// body is the full marshalled agent.SpotCheckItem.
+func spotCheckItemIntervention(station, fingerprint, targetID, targetName string) sqlc.Intervention {
+	anchor, _ := json.Marshal(map[string]string{"station": station, "fingerprint": fingerprint})
+	body, _ := json.Marshal(agent.SpotCheckItem{
+		TargetID: targetID, TargetName: targetName, Evidence: "e", Missing: "m", Fix: "f",
+	})
+	return sqlc.Intervention{ID: uuid.New(), Type: "spot_check_item", Anchor: anchor, Body: string(body), CreatedAt: time.Now()}
+}
+
+// TestProjectSpotChecks_NoTargetsNotOrderable pins the edge case: a station
+// with NO targets at all is not orderable (there is nothing to check), even
+// though the "no targets" fingerprint trivially differs from any stored one.
+func TestProjectSpotChecks_NoTargetsNotOrderable(t *testing.T) {
+	fx := projectSpotCheckFx(ProjectData{}, agent.SpotCheckArgument, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false when the station has no targets at all")
+	}
+	if len(fx.Items) != 0 {
+		t.Fatalf("want 0 items, got %d", len(fx.Items))
+	}
+}
+
+// TestProjectSpotChecks_OrderableFlipsWithFingerprint is the Step 1 failing
+// test the brief calls for: orderable is false when the stored fingerprint
+// matches the current state, and true after a slot's text changes (the
+// build_argument/S4 equivalent of "improving a risk_note", spec §5.4).
+// SpotCheckTargets — the SAME builder api/spotcheck.go's orderSpotCheck calls
+// — is used to compute the fingerprint, so this test can never disagree with
+// what pressing the button would actually do.
+func TestProjectSpotChecks_OrderableFlipsWithFingerprint(t *testing.T) {
+	textNode := func(typ, text string) sqlc.GraphNode {
+		return sqlc.GraphNode{Type: typ, Body: []byte(`{"text":"` + text + `"}`)}
+	}
+	d := ProjectData{Nodes: []sqlc.GraphNode{
+		textNode("claim", "主张句"), textNode("warrant", "理据句"),
+		textNode("evidence", "证据句"), textNode("counter", "反方句"),
+		textNode("concession", "让步句"),
+	}}
+	targets := SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID)
+	fp := agent.SpotCheckFingerprint(targets)
+	d.Interventions = []sqlc.Intervention{
+		spotCheckItemIntervention(agent.SpotCheckArgument, fp, "claim", "核心主张"),
+	}
+
+	fx := projectSpotCheckFx(d, agent.SpotCheckArgument, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false: the stored fingerprint matches the current state")
+	}
+	if len(fx.Items) != 1 || fx.Items[0].TargetID != "claim" {
+		t.Fatalf("items = %+v, want 1 item targeting claim", fx.Items)
+	}
+
+	// Improving the warrant changes what the check reads -> new fingerprint.
+	d.Nodes[1] = textNode("warrant", "理据句·补上了推理链")
+	fx2 := projectSpotCheckFx(d, agent.SpotCheckArgument, cards.ByID)
+	if !fx2.Orderable {
+		t.Fatal("want orderable=true after a slot's text changed")
+	}
+}
+
+// TestProjectSpotChecks_OrderableFlipsWithFingerprint_SourceRiskNote is the
+// S3 (evaluate_sources) analog of TestProjectSpotChecks_OrderableFlipsWithFingerprint
+// — the brief's own Step-1 test spec names THIS scenario (a risk_note change)
+// as the concrete case to pin, but the implemented test above only exercised
+// S4's Toulmin-slot-text mechanism. Same mechanism, different station: pin it
+// here too so both stations' fingerprint inputs are covered.
+func TestProjectSpotChecks_OrderableFlipsWithFingerprint_SourceRiskNote(t *testing.T) {
+	matA := uuid.MustParse("00000000-0000-0000-0000-0000000000d1")
+	evid := uuid.MustParse("00000000-0000-0000-0000-0000000000d2")
+
+	d := ProjectData{
+		Materials: []sqlc.Material{
+			{ID: matA, Title: "《卫星图看中国变绿》", Kind: "article", Source: "fetched"},
+		},
+		Nodes: []sqlc.GraphNode{
+			{ID: evid, Type: "evidence", Author: "student",
+				Body: []byte(`{"source_quality":{"authority":"官方机构","risk_note":"入口来源，不能直接引用。"}}`)},
+		},
+		Edges: []sqlc.GraphEdge{
+			{Type: "evaluated-as", FromKind: "material", FromID: matA, ToKind: "graph_node", ToID: evid},
+		},
+	}
+	targets := SpotCheckTargets(d, agent.SpotCheckSources, cards.ByID)
+	fp := agent.SpotCheckFingerprint(targets)
+	d.Interventions = []sqlc.Intervention{
+		spotCheckItemIntervention(agent.SpotCheckSources, fp, matA.String(), "《卫星图看中国变绿》"),
+	}
+
+	fx := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false: the stored fingerprint matches the current risk_note state")
+	}
+	if len(fx.Items) != 1 {
+		t.Fatalf("items = %+v, want 1", fx.Items)
+	}
+
+	// Improving the risk_note changes what the check reads -> new fingerprint.
+	d.Nodes[0].Body = []byte(`{"source_quality":{"authority":"官方机构","risk_note":"已核实为一手数据，可直接引用。"}}`)
+	fx2 := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if !fx2.Orderable {
+		t.Fatal("want orderable=true after the risk_note changed")
+	}
+}
+
+// TestProjectSpotChecks_SelectsMatchingBatchOnRevert pins the review-finding
+// fix: batch selection must key on fingerprint MATCH against the current
+// state, not "most recent by CreatedAt".
+//
+// Sequence: order at state A (batch A, fingerprint fpA) -> mutate to state B
+// and order again (batch B, fingerprint fpB, later CreatedAt) -> revert the
+// underlying state back to exactly A. The current fingerprint is fpA again,
+// and batch A already exists for it. Recency-only selection would still pick
+// batch B (later CreatedAt) — showing batch B's now-irrelevant items AND
+// reporting orderable=true (fpA != fpB), even though pressing the button in
+// that state would just replay batch A for free. The fix must show batch A's
+// items and report orderable=false.
+func TestProjectSpotChecks_SelectsMatchingBatchOnRevert(t *testing.T) {
+	textNode := func(typ, text string) sqlc.GraphNode {
+		return sqlc.GraphNode{Type: typ, Body: []byte(`{"text":"` + text + `"}`)}
+	}
+	stateAWarrant := "理据句"
+	d := ProjectData{Nodes: []sqlc.GraphNode{
+		textNode("claim", "主张句"), textNode("warrant", stateAWarrant),
+		textNode("evidence", "证据句"), textNode("counter", "反方句"),
+		textNode("concession", "让步句"),
+	}}
+
+	// State A -> batch A, ordered first (earlier CreatedAt).
+	fpA := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	t1 := time.Now()
+	anchorA, _ := json.Marshal(map[string]string{"station": agent.SpotCheckArgument, "fingerprint": fpA})
+	bodyA, _ := json.Marshal(agent.SpotCheckItem{
+		TargetID: "claim", TargetName: "核心主张（批次A）", Evidence: "e", Missing: "m", Fix: "f",
+	})
+	ivA := sqlc.Intervention{ID: uuid.New(), Type: "spot_check_item", Anchor: anchorA, Body: string(bodyA), CreatedAt: t1}
+	d.Interventions = []sqlc.Intervention{ivA}
+
+	// State B: mutate the warrant slot -> new fingerprint, order again (batch
+	// B, strictly later CreatedAt than batch A).
+	d.Nodes[1] = textNode("warrant", "理据句·改过")
+	fpB := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	if fpB == fpA {
+		t.Fatal("sanity: mutating the warrant slot should change the fingerprint")
+	}
+	anchorB, _ := json.Marshal(map[string]string{"station": agent.SpotCheckArgument, "fingerprint": fpB})
+	bodyB, _ := json.Marshal(agent.SpotCheckItem{
+		TargetID: "warrant", TargetName: "理据要点（批次B）", Evidence: "e", Missing: "m", Fix: "f",
+	})
+	ivB := sqlc.Intervention{ID: uuid.New(), Type: "spot_check_item", Anchor: anchorB, Body: string(bodyB), CreatedAt: t1.Add(time.Second)}
+	d.Interventions = append(d.Interventions, ivB)
+
+	// Revert: the warrant slot goes back to exactly state A's text.
+	d.Nodes[1] = textNode("warrant", stateAWarrant)
+	currentFP := agent.SpotCheckFingerprint(SpotCheckTargets(d, agent.SpotCheckArgument, cards.ByID))
+	if currentFP != fpA {
+		t.Fatalf("sanity: reverted fingerprint %q should equal state A's %q", currentFP, fpA)
+	}
+
+	fx := projectSpotCheckFx(d, agent.SpotCheckArgument, cards.ByID)
+	if fx.Orderable {
+		t.Fatal("want orderable=false: reverted state's fingerprint matches batch A's exactly — pressing the button would just replay batch A for free")
+	}
+	if len(fx.Items) != 1 || fx.Items[0].TargetID != "claim" || fx.Items[0].TargetName != "核心主张（批次A）" {
+		t.Fatalf("items = %+v, want batch A's single item (the MATCHING batch, not merely the most-recent one)", fx.Items)
+	}
+}
+
+// TestProjectSpotChecks_DispositionAttached asserts a recorded disposition on
+// a spot_check_item intervention is joined onto its DTO exactly the way
+// projectWriting attaches dispositions to review items.
+func TestProjectSpotChecks_DispositionAttached(t *testing.T) {
+	iv := spotCheckItemIntervention(agent.SpotCheckSources, "fp1", "m1", "《卫星图看中国变绿》")
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{iv},
+		Dispositions:  []sqlc.Disposition{{InterventionID: iv.ID, Action: "accept", Reason: "已核实"}},
+	}
+	fx := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if len(fx.Items) != 1 {
+		t.Fatalf("want 1 item, got %d", len(fx.Items))
+	}
+	got := fx.Items[0]
+	if got.InterventionID != iv.ID.String() || got.TargetID != "m1" || got.TargetName != "《卫星图看中国变绿》" {
+		t.Fatalf("item = %+v", got)
+	}
+	if got.Disposition == nil || got.Disposition.Action != "accept" || got.Disposition.Reason != "已核实" {
+		t.Fatalf("disposition not attached: %+v", got.Disposition)
+	}
+}
+
+// TestProjectSpotChecks_StationIsolation asserts an evaluate_sources item
+// never leaks into build_argument's panel (and vice versa) — the anchor's
+// station key is the ONLY thing that scopes an item to its panel.
+func TestProjectSpotChecks_StationIsolation(t *testing.T) {
+	d := ProjectData{Interventions: []sqlc.Intervention{
+		spotCheckItemIntervention(agent.SpotCheckSources, "fp-src", "m1", "来源 A"),
+	}}
+	sources := projectSpotCheckFx(d, agent.SpotCheckSources, cards.ByID)
+	if len(sources.Items) != 1 {
+		t.Fatalf("evaluate_sources items = %d, want 1", len(sources.Items))
+	}
+	argument := projectSpotCheckFx(d, agent.SpotCheckArgument, cards.ByID)
+	if len(argument.Items) != 0 {
+		t.Fatalf("build_argument items = %d, want 0 (station isolation)", len(argument.Items))
+	}
+}
+
+// TestProjectSpotChecks_Wired asserts Project() wires projectSpotChecks into
+// both keys of StudioProjection.SpotChecks.
+func TestProjectSpotChecks_Wired(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	proj, err := Project(sk, cards.ByID, ProjectData{})
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if proj.SpotChecks.EvaluateSources.Orderable || proj.SpotChecks.BuildArgument.Orderable {
+		t.Fatalf("spotChecks = %+v, want both not-orderable with no targets", proj.SpotChecks)
+	}
+}
+
+// TestProjectCoach_AnchorSkipsWorkOrderRows pins the review-finding fix: the
+// newest intervention being a work-order row (review_item/spot_check_item —
+// anchor {"station","fingerprint"} or {"kind","id","voice"}, neither of which
+// anchorLabel reads) must NOT silently collapse the coach rail's anchor to
+// "". The anchor pick must walk back to the last real (non-work-order)
+// intervention, exactly like the message loop already skips them.
+func TestProjectCoach_AnchorSkipsWorkOrderRows(t *testing.T) {
+	crit := "D5"
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "diagnostic", Body: "连到治理决心", Criterion: &crit, Anchor: []byte(`{"label":"论证图 · 治理决心主张"}`)},
+			{Type: "spot_check_item", Body: `{"target_id":"t1","target_name":"n","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"station":"evaluate_sources","fingerprint":"abc"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if coach.Anchor != "论证图 · 治理决心主张" {
+		t.Fatalf("anchor = %q, want the last non-work-order intervention's label survives a trailing spot_check_item", coach.Anchor)
+	}
+}
+
+// TestProjectCoach_AnchorFallsBackWhenOnlyWorkOrderRows: when every
+// intervention is a work-order row, the anchor pick must fall through to the
+// station-title fallback, not silently render "".
+func TestProjectCoach_AnchorFallsBackWhenOnlyWorkOrderRows(t *testing.T) {
+	d := ProjectData{
+		Interventions: []sqlc.Intervention{
+			{Type: "review_item", Body: `{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}`,
+				Anchor: []byte(`{"kind":"draft_snapshot","id":"x","voice":"board"}`)},
+		},
+	}
+	coach := projectCoach(d, "论证构建")
+	if coach.Anchor != "论证构建" {
+		t.Fatalf("anchor = %q, want fallback to station title when every intervention is a work-order row", coach.Anchor)
 	}
 }

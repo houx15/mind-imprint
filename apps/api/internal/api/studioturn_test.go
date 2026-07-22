@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -335,6 +336,16 @@ func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
 	}
 }
 
+// craapQualifiedBlockIDPattern matches the material-qualified block label
+// agent.BuildMaterialContext renders ("[<matID>:b0] text…") in the user
+// message the real L1 request sends. craapAnchorGenStubProvider reads the
+// live material id out of it rather than hardcoding a bare "b0": since
+// Task 10, blockLookup is qualified-only (no bare-id fallback), and this
+// fixture's project+material are created fresh per round with a real UUID
+// unknowable ahead of time, so the reply must discover the id from the
+// request instead of guessing it.
+var craapQualifiedBlockIDPattern = regexp.MustCompile(`\[([^\]:]+:b0)\]`)
+
 // craapAnchorGenStubProvider is the fixed valid-anchor-gen JSON reply used by
 // TestSurfaceAnchors_FadesWithCompletedUses. It is deliberately L1-shaped
 // (real block_id + quote for all five craap tags) and reused unchanged across
@@ -346,19 +357,36 @@ func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
 // each level is therefore proven by the level argument threaded through
 // Generate/parseAnchorGen, not by anything this stub says.
 func craapAnchorGenStubProvider() gateway.Provider {
+	return &craapAnchorGenProvider{}
+}
+
+// craapAnchorGenProvider implements gateway.Provider directly (rather than
+// gateway.NewStubProvider's fixed script) so it can inspect the outgoing
+// request and echo back the qualified block id the L1 prompt actually asked
+// the model for.
+type craapAnchorGenProvider struct{}
+
+func (p *craapAnchorGenProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	blockID := "b0" // L2/L3 requests ignore block_id entirely; harmless default.
+	for _, m := range req.Messages {
+		if match := craapQualifiedBlockIDPattern.FindStringSubmatch(m.Content); match != nil {
+			blockID = match[1]
+			break
+		}
+	}
 	const quote = "全球变暖导致极端天气增加，这需要认真研究其影响。"
 	reply := `[
-		{"block_id":"b0","quote":"` + quote + `","dimension":"currency","question":"这段话是什么时候写的？"},
-		{"block_id":"b0","quote":"` + quote + `","dimension":"relevance","question":"这段话跟你的论点有什么关系？"},
-		{"block_id":"b0","quote":"` + quote + `","dimension":"authority","question":"这段话的作者是谁？"},
-		{"block_id":"b0","quote":"` + quote + `","dimension":"accuracy","question":"这段话准确吗？"},
-		{"block_id":"b0","quote":"` + quote + `","dimension":"purpose","question":"作者写这段话的目的是什么？"}
+		{"block_id":"` + blockID + `","quote":"` + quote + `","dimension":"currency","question":"这段话是什么时候写的？"},
+		{"block_id":"` + blockID + `","quote":"` + quote + `","dimension":"relevance","question":"这段话跟你的论点有什么关系？"},
+		{"block_id":"` + blockID + `","quote":"` + quote + `","dimension":"authority","question":"这段话的作者是谁？"},
+		{"block_id":"` + blockID + `","quote":"` + quote + `","dimension":"accuracy","question":"这段话准确吗？"},
+		{"block_id":"` + blockID + `","quote":"` + quote + `","dimension":"purpose","question":"作者写这段话的目的是什么？"}
 	]`
 	return gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: reply},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 123, OutputTokens: 45}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
-	})
+	}).Stream(ctx, r, req)
 }
 
 // craapStubQuestionByDimension mirrors craapAnchorGenStubProvider's scripted
@@ -379,8 +407,9 @@ var craapStubQuestionByDimension = map[string]string{
 
 // craapMaterialText is the single-paragraph pasted material ingested into
 // every round's fresh project — kept identical across rounds so
-// craapAnchorGenStubProvider's fixed block_id ("b0") + quote resolve against
-// whichever project's material Generate is called with.
+// craapAnchorGenStubProvider's quote resolves against whichever project's
+// material Generate is called with (the block id itself is now discovered
+// from the live request, not hardcoded — see craapAnchorGenProvider).
 const craapMaterialText = "全球变暖导致极端天气增加，这需要认真研究其影响。"
 
 // ingestCraapMaterial pastes craapMaterialText into projectID, giving it one

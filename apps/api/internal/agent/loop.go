@@ -157,6 +157,10 @@ type AgentStore interface {
 	// item (Task 6, orderReview) as a review_item intervention row.
 	InsertReviewIntervention(ctx context.Context, row ReviewInterventionRow) error
 
+	// InsertSpotCheckIntervention persists one S3/S4 station spot-check item
+	// (N3f Task 4, orderSpotCheck) as a spot_check_item intervention row.
+	InsertSpotCheckIntervention(ctx context.Context, row SpotCheckInterventionRow) error
+
 	// RecordLLMCall persists one live LLM call's usage (5d review CRITICAL
 	// fix — every DeepSeek call must be metered, AGENTS.md's "记录档位 +
 	// token + 成本" hard constraint). A failure here must never fail the
