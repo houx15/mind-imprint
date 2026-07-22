@@ -105,4 +105,9 @@ export type StudioCallbacks = {
   // same reason as the rest of this group; Tasks 10/11 wire the real handlers.
   onSubmitFraming?: (body: { terms: { term: string; definition: string }[]; answers: string[]; searchPlan: string[] }) => Promise<void>;
   onSubmitPerspectives?: (body: { perspectives: { text: string; level: string }[] }) => Promise<void>;
+  // N3d Task 11: the S2 视角与素材 view's one explicit attestation
+  // (sources_per_perspective) — mirrors onAttestCitations's shape above.
+  // Optional for the same reason as the rest of this group; Task 12 wires
+  // the real handler in from the container.
+  onAttestSourcesPerPerspective?: (confirmed: boolean) => void;
 };

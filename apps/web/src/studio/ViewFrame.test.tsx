@@ -104,10 +104,10 @@ describe("ViewFrame (station rail = view switcher)", () => {
     expect(screen.getByText("关键概念 · 我的定义")).toBeInTheDocument();
   });
 
-  it("S2 active still renders nothing below the header (Task 11 fills in PerspectivesView)", () => {
-    const { container } = render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S2" }} />);
-    // The frame's only child is the header — S2 has no screen yet.
-    expect(container.firstElementChild?.childElementCount).toBe(1);
+  it("S2 active renders PerspectivesView (Task 11)", () => {
+    render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S2" }} />);
+    expect(screen.getByText("先摆出不同视角，再去找素材")).toBeInTheDocument();
+    expect(screen.getByDisplayValue(STUDIO_FIXTURE.views.perspectives.rows[0]!.text)).toBeInTheDocument();
   });
 
   it("highlights the live card's anchors only in the material they target", () => {
