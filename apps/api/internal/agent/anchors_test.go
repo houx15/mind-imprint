@@ -73,6 +73,27 @@ func TestComputeOffsets_RuneIndicesOnCJK(t *testing.T) {
 	}
 }
 
+func TestParseAnchorGenL1ResolvesTheRightMaterial(t *testing.T) {
+	materials := []Material{
+		{ID: "mat-a", Title: "NASA 观测", Blocks: []MaterialBlock{{ID: "b0", Text: "叶面积指数上升。"}}},
+		{ID: "mat-b", Title: "BP 统计", Blocks: []MaterialBlock{{ID: "b0", Text: "煤炭消费仍在上升。"}}},
+	}
+	text := `[{"block_id":"mat-a:b0","quote":"叶面积指数上升","dimension":"authority","question":"这条数据出自谁？"}]`
+	out, err := parseAnchorGen(text, cards.Spec{}, materials, GuidanceL1)
+	if err != nil {
+		t.Fatalf("parseAnchorGen: %v", err)
+	}
+	if out[0].MaterialID != "mat-a" {
+		t.Errorf("MaterialID = %q, want mat-a — a flat lookup resolves this to the LAST material", out[0].MaterialID)
+	}
+	if out[0].BlockID != "b0" {
+		t.Errorf("BlockID = %q — the stored block id stays material-local", out[0].BlockID)
+	}
+	if out[0].Start == 0 && out[0].End == 0 {
+		t.Error("offsets must resolve against the correct material's block text")
+	}
+}
+
 func TestParseAnchorGenRejectsUnknownBlock(t *testing.T) {
 	raw := `[{"block_id":"zzz","quote":"x","dimension":"d","question":"q"}]`
 	if _, err := parseAnchorGen(raw, annotationSpec(), sampleMaterials(), GuidanceL1); err == nil {

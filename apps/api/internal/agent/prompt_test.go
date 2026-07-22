@@ -62,6 +62,22 @@ func TestSummonCardToolEnumIsCatalogIDs(t *testing.T) {
 	}
 }
 
+func TestBuildMaterialContextQualifiesBlockIDs(t *testing.T) {
+	materials := []Material{
+		{ID: "mat-a", Title: "NASA 观测", Blocks: []MaterialBlock{{ID: "b0", Text: "叶面积指数上升。"}}},
+		{ID: "mat-b", Title: "BP 统计", Blocks: []MaterialBlock{{ID: "b0", Text: "煤炭消费仍在上升。"}}},
+	}
+	got := BuildMaterialContext(materials)
+	if strings.Count(got, "[b0]") > 0 {
+		t.Error("bare [b0] labels collide across materials — ids must be material-qualified")
+	}
+	for _, want := range []string{"[mat-a:b0]", "[mat-b:b0]"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing qualified label %s in:\n%s", want, got)
+		}
+	}
+}
+
 func TestBuildSystemPromptMatchesGolden(t *testing.T) {
 	catalog, err := cards.Catalog()
 	if err != nil {

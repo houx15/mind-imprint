@@ -72,7 +72,11 @@ func BuildMaterialContext(materials []Material) string {
 	for _, m := range materials {
 		b.WriteString("## 材料：" + m.Title + "\n")
 		for _, blk := range m.Blocks {
-			b.WriteString("[" + blk.ID + "] " + blk.Text + "\n")
+			// Material-qualified label (m.ID:blk.ID): block ids are only
+			// "stable within a material" (materialize.Segment), so a project
+			// with ≥2 materials would otherwise render colliding bare [b0]
+			// labels the model cannot disambiguate.
+			b.WriteString("[" + m.ID + ":" + blk.ID + "] " + blk.Text + "\n")
 		}
 	}
 	return b.String()
