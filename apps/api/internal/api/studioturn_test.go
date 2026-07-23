@@ -1046,6 +1046,60 @@ func TestProjectTurn_PersistsCoachUsage(t *testing.T) {
 	}
 }
 
+// TestSurfaceAnchorsMetersEmptyResult is the N6 review finding's regression
+// pin: Task 5 (commit b498727) moved surfaceAnchors' llm_call metering
+// ABOVE its empty-result early return (studioturn.go), so a real (paid) call
+// that yields ZERO usable anchors must still be metered. No card in the real
+// embedded registry can reach that shape through the public HTTP turn
+// endpoint — craap/sift are the only two annotate/compare-primitive cards
+// and both have a non-empty completion-tag vocabulary, so their
+// fallbackAnchors path (agent/anchors.go) always yields at least one
+// tag-anchor even when the model's reply fails to parse. This test instead
+// drives surfaceAnchors directly (via the SurfaceAnchorsForTest seam in
+// export_test.go) with a synthetic cards.Spec that has NEITHER params.tags
+// NOR steps — the one shape for which fallbackAnchors legitimately returns a
+// zero-length slice — paired with the same fakeProvider/fakeResolver this
+// file's other metering tests use (a real, non-empty Resolved). It must FAIL
+// (no purpose=anchors row) if the record call were moved back below the
+// len(Anchors)==0 bail.
+func TestSurfaceAnchorsMetersEmptyResult(t *testing.T) {
+	pool := newAPITestPool(t)
+	a := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID})
+	h := a.Handler()
+	cookie := signInSeed(t, pool)
+	projectID := uuid.MustParse(createProjectForTest(t, h, cookie))
+
+	spec := cards.Spec{ID: "test-empty-annotate", Name: "空白测试卡", Primitive: "annotate"}
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	cardInstanceID := uuid.New().String() // never persisted to — the empty bail fires before SetCardInstanceAnchors
+
+	raw, ok := a.SurfaceAnchorsForTest(context.Background(), store, projectID, spec, cardInstanceID, "")
+	if ok {
+		t.Fatalf("expected surfaceAnchors to bail (ok=false) on a zero-anchor generation, got raw=%s", raw)
+	}
+
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	var anchorsCall *sqlc.LlmCall
+	for i, c := range calls {
+		if c.Purpose == "anchors" {
+			anchorsCall = &calls[i]
+			break
+		}
+	}
+	if anchorsCall == nil {
+		t.Fatalf("no purpose=anchors llm_call row persisted for a real call that yielded zero anchors — the metering-before-empty-bail fix regressed; got %d calls: %+v", len(calls), calls)
+	}
+	if anchorsCall.Provider != "deepseek" || anchorsCall.Model != "deepseek-chat" || anchorsCall.Tier != "chaperone" {
+		t.Fatalf("routing not carried through from gateway.Resolved: %+v", anchorsCall)
+	}
+	if anchorsCall.PromptTokens == 0 && anchorsCall.CompletionTokens == 0 {
+		t.Fatalf("expected non-zero token counts, got %+v", anchorsCall)
+	}
+}
+
 // TestProjectTurn_SchoolUsageAggregateNonEmpty is the test that proves the
 // admin console stops lying: before this fix, GetSchoolUsageByTier (the
 // query behind GET /api/v1/admin/overview's usage panel) always returned an
