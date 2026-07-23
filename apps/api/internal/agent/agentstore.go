@@ -657,24 +657,66 @@ func (s *sqlcAgentStore) ListGateStates(ctx context.Context, projectID uuid.UUID
 // contract — updating the existing row if one exists (one gate_state per
 // project+contract), inserting otherwise.
 func (s *sqlcAgentStore) UpsertGateState(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate) error {
+	return upsertGateStateQ(ctx, s.q, projectID, contract, rec)
+}
+
+// upsertGateStateQ is UpsertGateState's body, parameterized over
+// *sqlc.Queries — see setCardInstanceFrameworkQ's comment for why. ConfirmGate
+// (N6 C3) calls this with a qtx := s.q.WithTx(tx) so the gate-state write and
+// its passed event land in the same transaction.
+func upsertGateStateQ(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID, contract string, rec RecordedGate) error {
 	body, err := json.Marshal(gateStateBody{
 		Contract: contract, ConfirmedSolid: rec.Confirmed, Items: rec.Items,
 	})
 	if err != nil {
 		return err
 	}
-	existing, err := s.q.GetGateStateNode(ctx, sqlc.GetGateStateNodeParams{ProjectID: projectID, Column2: contract})
+	existing, err := q.GetGateStateNode(ctx, sqlc.GetGateStateNodeParams{ProjectID: projectID, Column2: contract})
 	if err == nil {
-		_, err = s.q.UpdateGraphNodeBody(ctx, sqlc.UpdateGraphNodeBodyParams{ID: existing.ID, Body: body})
+		_, err = q.UpdateGraphNodeBody(ctx, sqlc.UpdateGraphNodeBodyParams{ID: existing.ID, Body: body})
 		return err
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	_, err = s.q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
+	_, err = q.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
 		ProjectID: projectID, Type: "gate_state", Body: body, Author: "ai",
 	})
 	return err
+}
+
+// ConfirmGate confirms rec's gate state AND appends passedEvent (the
+// gate_attempt result:passed event) in ONE transaction (N6 C3) — closing the
+// gap where a separate UpsertGateState + AppendEvent pair could leave the
+// gate reading solid while the process tree has no record it passed. Modelled
+// on CommitCardMint's transaction shape and AppendEvent's project->user
+// resolution (Slice 2's single-user-per-project model).
+func (s *sqlcAgentStore) ConfirmGate(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate, passedEvent EventRow) error {
+	project, err := s.q.GetProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := s.q.WithTx(tx)
+
+	if err := upsertGateStateQ(ctx, qtx, projectID, contract, rec); err != nil {
+		return err
+	}
+	if _, err := qtx.AppendEvent(ctx, sqlc.AppendEventParams{
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		UserID:    project.UserID,
+		SessionID: pgtype.UUID{Valid: false},
+		Surface:   passedEvent.Surface,
+		Type:      passedEvent.Type,
+		Payload:   passedEvent.Payload,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // UpsertPlan writes body to the project's single plan graph_node —

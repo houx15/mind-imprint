@@ -173,6 +173,11 @@ type AgentStore interface {
 	ListGateStates(ctx context.Context, projectID uuid.UUID) (map[string]RecordedGate, error)
 	UpsertGateState(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate) error
 	UpsertPlan(ctx context.Context, projectID uuid.UUID, body []byte) error
+
+	// ConfirmGate confirms a gate's state AND records its gate_attempt
+	// result:passed event in ONE transaction, so a gate can never read solid
+	// while the process tree lacks the record that it passed (N6 C3).
+	ConfirmGate(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate, passedEvent EventRow) error
 }
 
 // AgentDeps bundles the runtime loop's dependencies (design §2): the

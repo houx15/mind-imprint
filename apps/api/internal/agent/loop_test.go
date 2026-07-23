@@ -56,6 +56,11 @@ type fakeAgentStore struct {
 	lastPlanBody      []byte
 	gateAttemptEvents []EventRow
 
+	// confirmGateCalls counts ConfirmGate invocations (N6 C3) — Advance's
+	// passing path must go through this single atomic method, never the split
+	// UpsertGateState+AppendEvent pair.
+	confirmGateCalls int
+
 	minted             []GraphNodeView
 	lastImportedAuthor string
 
@@ -325,6 +330,17 @@ func (f *fakeAgentStore) UpsertGateState(_ context.Context, _ uuid.UUID, contrac
 	}
 	f.gateStates[contract] = rec
 	return nil
+}
+
+// ConfirmGate is non-transactional in the fake (no DB here) — it just
+// records both writes, same as calling the two methods separately would,
+// but through the single seam Advance now uses (N6 C3).
+func (f *fakeAgentStore) ConfirmGate(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate, passedEvent EventRow) error {
+	f.confirmGateCalls++
+	if err := f.UpsertGateState(ctx, projectID, contract, rec); err != nil {
+		return err
+	}
+	return f.AppendEvent(ctx, passedEvent)
 }
 
 func (f *fakeAgentStore) UpsertPlan(_ context.Context, _ uuid.UUID, body []byte) error {

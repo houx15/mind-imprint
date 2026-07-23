@@ -143,11 +143,8 @@ func Advance(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skills
 	}
 
 	rec.Confirmed = true
-	if err := deps.Store.UpsertGateState(ctx, projectID, contractID, rec); err != nil {
-		return false, err
-	}
 	payload, _ := json.Marshal(map[string]any{"contract": contractID, "result": "passed"})
-	if err := deps.Store.AppendEvent(ctx, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_attempt", Payload: payload}); err != nil {
+	if err := deps.Store.ConfirmGate(ctx, projectID, contractID, rec, EventRow{ProjectID: projectID, Surface: "studio", Type: "gate_attempt", Payload: payload}); err != nil {
 		return false, err
 	}
 	return true, nil

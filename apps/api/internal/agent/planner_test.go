@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -231,6 +232,43 @@ func TestAdvance_PassesWhenAllItemsSatisfied(t *testing.T) {
 	ok, err := Advance(context.Background(), deps, uuid.New(), sk, "evaluate_perspectives")
 	if err != nil || !ok {
 		t.Fatalf("Advance = %v,%v; want true", ok, err)
+	}
+}
+
+// TestAdvanceUsesConfirmGate is N6 C3: a passing Advance must confirm the
+// gate state and record the passed gate_attempt event ATOMICALLY, through
+// the single ConfirmGate seam — not via a separate UpsertGateState call
+// followed by a separate AppendEvent call. Same fixture as
+// TestAdvance_PassesWhenAllItemsSatisfied.
+func TestAdvanceUsesConfirmGate(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph:      GraphView{Nodes: []GraphNodeView{{ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}}},
+		gateStates: map[string]RecordedGate{"evaluate_perspectives": {Items: map[string]string{"recon_logged": "solid", "sources_per_perspective": "solid"}}},
+	}
+	deps := AgentDeps{Store: f}
+	ok, err := Advance(context.Background(), deps, uuid.New(), sk, "evaluate_perspectives")
+	if err != nil || !ok {
+		t.Fatalf("Advance = %v,%v; want true", ok, err)
+	}
+	if f.confirmGateCalls != 1 {
+		t.Fatalf("want exactly 1 ConfirmGate call, got %d", f.confirmGateCalls)
+	}
+	if !f.gateStates["evaluate_perspectives"].Confirmed {
+		t.Fatal("gate state must be recorded Confirmed via ConfirmGate")
+	}
+	if f.appendEventCalls != 1 {
+		t.Fatalf("want exactly 1 event appended via ConfirmGate, got %d", f.appendEventCalls)
+	}
+	if f.lastEvent.Type != "gate_attempt" {
+		t.Fatalf("want a gate_attempt event, got %q", f.lastEvent.Type)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(f.lastEvent.Payload, &payload); err != nil {
+		t.Fatalf("event payload not JSON: %v", err)
+	}
+	if payload["result"] != "passed" {
+		t.Fatalf("want result=passed, got %v", payload["result"])
 	}
 }
 
