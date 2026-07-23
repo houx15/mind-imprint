@@ -66,7 +66,7 @@ func TestRoute_RespectsRequiresAndStartsFromFrontier(t *testing.T) {
 	for id := range sk.Contracts {
 		reports[id] = GateReport{Contract: id, Status: "empty"}
 	}
-	route := Route(sk, reports)
+	route := Route(sk, reports, nil)
 	if len(route) == 0 || route[0] != "decode_task" {
 		t.Fatalf("route should start at decode_task, got %v", route)
 	}
@@ -84,7 +84,7 @@ func TestRoute_UnlocksNextWhenPredecessorMachineClear(t *testing.T) {
 		reports[id] = GateReport{Contract: id, Status: "empty"}
 	}
 	reports["decode_task"] = GateReport{Contract: "decode_task", Status: "machine_clear", Solid: true}
-	route := Route(sk, reports)
+	route := Route(sk, reports, nil)
 	// decode_task is Solid → excluded; frame_question now routable.
 	for _, id := range route {
 		if id == "decode_task" {
@@ -412,5 +412,87 @@ func TestAdvanceAll_NoopWhenNothingChanged(t *testing.T) {
 	}
 	if f.upsertPlanCalls != 0 {
 		t.Fatal("want Replan not called when the result is empty")
+	}
+}
+
+// TestRouteSkipsWaivedAndTreatsItSatisfied is N6-E's foundation: a waived
+// contract is excluded from the route the same way a Solid one is, AND counts
+// as satisfied for its successors' reachability check — so waiving a whole
+// prefix of the DAG opens up the first KEPT station behind it.
+func TestRouteSkipsWaivedAndTreatsItSatisfied(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	// No gate solid anywhere: without waiving, only the root (decode_task) is reachable.
+	reports := map[string]GateReport{}
+	base := Route(sk, reports, nil)
+	if len(base) == 0 || base[0] != "decode_task" {
+		t.Fatalf("baseline route should start at decode_task, got %v", base)
+	}
+	// Waive decode_task + frame_question + evaluate_perspectives: the first
+	// reachable KEPT station is evaluate_sources, and no waived id appears.
+	waived := map[string]bool{"decode_task": true, "frame_question": true, "evaluate_perspectives": true}
+	r := Route(sk, reports, waived)
+	for _, id := range r {
+		if waived[id] {
+			t.Fatalf("route must not contain a waived contract, got %v", r)
+		}
+	}
+	if len(r) == 0 || r[0] != "evaluate_sources" {
+		t.Fatalf("route head should be evaluate_sources (first kept reachable), got %v", r)
+	}
+}
+
+// TestAdvanceAllTreatsWaivedAsSatisfiedNeverConfirmsIt: waiving decode_task,
+// frame_question, evaluate_perspectives lets evaluate_sources (fully
+// satisfied on its own gate) advance despite its predecessor chain never
+// being confirmed — but NONE of the three waived ids may ever appear in
+// `advanced`, and the fake store must never receive a ConfirmGate call for a
+// waived contract (waived ≠ done, DEC-3 / 铁律 4).
+func TestAdvanceAllTreatsWaivedAsSatisfiedNeverConfirmsIt(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	f := &fakeAgentStore{
+		graph: GraphView{
+			Materials: []MaterialView{{ID: "m1", Kind: "article"}, {ID: "m2", Kind: "article"}},
+			Nodes:     []GraphNodeView{{ID: "cc1", Type: "cross_check"}},
+			Edges: []GraphEdgeView{
+				{FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "ev1", Type: "evaluated-as"},
+				{FromKind: "material", FromID: "m2", ToKind: "graph_node", ToID: "ev2", Type: "evaluated-as"},
+			},
+		},
+		gateStates: map[string]RecordedGate{
+			"evaluate_sources": {Items: map[string]string{"source_risk_notes": "solid", "source_quality_spot_check": "solid"}},
+		},
+		waived: map[string]bool{"decode_task": true, "frame_question": true, "evaluate_perspectives": true},
+	}
+	deps := AgentDeps{Store: f}
+	pid := uuid.New()
+
+	// Sanity check the fixture is not vacuous: evaluate_sources' own gate must
+	// report nothing missing before AdvanceAll ever runs.
+	g, _ := f.LoadGraph(context.Background(), pid)
+	if rep := CheckGate(sk, "evaluate_sources", g, f.gateStates["evaluate_sources"]); len(rep.Missing) != 0 {
+		t.Fatalf("fixture invalid: evaluate_sources must be fully satisfied on its own gate, got Missing=%v", rep.Missing)
+	}
+
+	advanced, err := AdvanceAll(context.Background(), deps, pid, sk)
+	if err != nil {
+		t.Fatalf("AdvanceAll: %v", err)
+	}
+	foundEvalSources := false
+	for _, id := range advanced {
+		if f.waived[id] {
+			t.Fatalf("a waived contract must never appear in advanced, got %v", advanced)
+		}
+		if id == "evaluate_sources" {
+			foundEvalSources = true
+		}
+	}
+	if !foundEvalSources {
+		t.Fatalf("evaluate_sources should advance (waived predecessors count as satisfied), got %v", advanced)
+	}
+	states, _ := f.ListGateStates(context.Background(), pid)
+	for id := range f.waived {
+		if states[id].Confirmed {
+			t.Fatalf("waived contract %q must never be recorded Confirmed", id)
+		}
 	}
 }

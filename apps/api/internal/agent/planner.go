@@ -7,30 +7,51 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"sort"
 
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/skills"
 )
 
+// planBody is the canonical shape of the project's single `plan` graph-node.
+// Route/Reason are the advisory plan; Waived is N6-E's per-project journey —
+// the contract ids the composer (or the student, by re-opening) has set aside.
+type planBody struct {
+	Route  []string `json:"route"`
+	Reason string   `json:"reason"`
+	Waived []string `json:"waived,omitempty"`
+}
+
+func waivedSet(ids []string) map[string]bool {
+	m := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		m[id] = true
+	}
+	return m
+}
+
 // Route is the advisory route: the unmet-and-reachable contracts in
 // topological DAG order. A contract is reachable iff every `requires` gate is
 // machine_clear-or-solid (work may begin once predecessors are structurally
-// sound); "unmet" means not yet Solid. Pure function.
-func Route(sk skills.Skill, reports map[string]GateReport) []string {
+// sound); "unmet" means not yet Solid. A waived contract (N6-E's journey) is
+// excluded from the route the same way a Solid one is, and also counts as
+// satisfied for its successors' reachability check. waived is nil-safe. Pure
+// function.
+func Route(sk skills.Skill, reports map[string]GateReport, waived map[string]bool) []string {
 	order, err := sk.TopoOrder()
 	if err != nil {
 		return nil
 	}
 	var route []string
 	for _, id := range order {
-		if reports[id].Solid {
-			continue // finished
+		if reports[id].Solid || waived[id] {
+			continue // finished, or waived out of this journey
 		}
 		reachable := true
 		for _, req := range sk.Contracts[id].Requires {
 			r := reports[req]
-			if !(r.Solid || r.Status == "machine_clear") {
+			if !(r.Solid || r.Status == "machine_clear" || waived[req]) {
 				reachable = false
 				break
 			}
@@ -81,9 +102,18 @@ func writePlan(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk skil
 	if err != nil {
 		return nil, err
 	}
+	waived, err := deps.Store.LoadWaived(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	reports := ReconcileGates(sk, g, recorded)
-	route := Route(sk, reports)
-	body, err := json.Marshal(map[string]any{"route": route, "reason": reason})
+	route := Route(sk, reports, waived)
+	waivedList := make([]string, 0, len(waived))
+	for id := range waived {
+		waivedList = append(waivedList, id)
+	}
+	sort.Strings(waivedList) // deterministic body
+	body, err := json.Marshal(planBody{Route: route, Reason: reason, Waived: waivedList})
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +209,16 @@ func AdvanceAll(ctx context.Context, deps AgentDeps, projectID uuid.UUID, sk ski
 	if err != nil {
 		return nil, err
 	}
+	waived, err := deps.Store.LoadWaived(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	solid := make(map[string]bool, len(order))
 	for _, id := range order {
-		solid[id] = recorded[id].Confirmed
+		// A waived contract counts as satisfied for successors, but is NEVER
+		// itself advanced/confirmed (the `if solid[id] { continue }` below skips
+		// it before Advance can run) — waived ≠ done (DEC-3, 铁律 4).
+		solid[id] = recorded[id].Confirmed || waived[id]
 	}
 
 	var advanced []string

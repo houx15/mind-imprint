@@ -745,3 +745,50 @@ func (s *sqlcAgentStore) UpsertPlan(ctx context.Context, projectID uuid.UUID, bo
 	})
 	return err
 }
+
+// LoadWaived reads the project's waived-set from the plan graph-node body.
+// A project with no plan node yet (fresh, pre-Replan) has an empty journey =
+// full template. Never errors on absence.
+func (s *sqlcAgentStore) LoadWaived(ctx context.Context, projectID uuid.UUID) (map[string]bool, error) {
+	node, err := s.q.GetPlanNode(ctx, projectID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return map[string]bool{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var b struct {
+		Waived []string `json:"waived"`
+	}
+	if json.Unmarshal(node.Body, &b) != nil {
+		return map[string]bool{}, nil // malformed body → treat as full journey
+	}
+	m := make(map[string]bool, len(b.Waived))
+	for _, id := range b.Waived {
+		m[id] = true
+	}
+	return m, nil
+}
+
+// SetWaived writes the waived-set into the plan node, PRESERVING any existing
+// route/reason so a compose/re-open does not clobber a computed route (and a
+// later Replan does not clobber the waived-set — writePlan reloads it).
+func (s *sqlcAgentStore) SetWaived(ctx context.Context, projectID uuid.UUID, waived []string) error {
+	body := planBody{Reason: "journey", Waived: waived}
+	if node, err := s.q.GetPlanNode(ctx, projectID); err == nil {
+		var cur planBody
+		if json.Unmarshal(node.Body, &cur) == nil {
+			body.Route = cur.Route
+			if cur.Reason != "" {
+				body.Reason = cur.Reason
+			}
+		}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	return s.UpsertPlan(ctx, projectID, raw)
+}

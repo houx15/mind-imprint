@@ -174,6 +174,14 @@ type AgentStore interface {
 	UpsertGateState(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate) error
 	UpsertPlan(ctx context.Context, projectID uuid.UUID, body []byte) error
 
+	// LoadWaived/SetWaived (N6-E) read/write the project's waived-set — the
+	// contract ids set aside from this project's journey — over the same plan
+	// graph-node UpsertPlan/GetPlanNode already touch. A waived contract is
+	// treated as satisfied for reachability/AdvanceAll purposes but is never
+	// itself confirmed (DEC-3, 铁律 4).
+	LoadWaived(ctx context.Context, projectID uuid.UUID) (map[string]bool, error)
+	SetWaived(ctx context.Context, projectID uuid.UUID, waived []string) error
+
 	// ConfirmGate confirms a gate's state AND records its gate_attempt
 	// result:passed event in ONE transaction, so a gate can never read solid
 	// while the process tree lacks the record that it passed (N6 C3).
@@ -274,7 +282,11 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 			return nil, err
 		}
 		gateReports = ReconcileGates(*deps.Skill, g, recorded)
-		route := Route(*deps.Skill, gateReports)
+		waived, werr := deps.Store.LoadWaived(ctx, projectID)
+		if werr != nil {
+			return nil, werr
+		}
+		route := Route(*deps.Skill, gateReports, waived)
 		checkGateCands = CheckGateCandidates(route, gateReports)
 	}
 

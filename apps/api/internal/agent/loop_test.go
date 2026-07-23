@@ -108,6 +108,10 @@ type fakeAgentStore struct {
 	// other settable counters above.
 	classifyCount        int64
 	countClassifierCalls int
+
+	// waived backs LoadWaived/SetWaived (N6-E) — settable per test (nil ==
+	// empty journey, like the other settable maps above).
+	waived map[string]bool
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -361,6 +365,21 @@ func (f *fakeAgentStore) ConfirmGate(ctx context.Context, projectID uuid.UUID, c
 func (f *fakeAgentStore) UpsertPlan(_ context.Context, _ uuid.UUID, body []byte) error {
 	f.upsertPlanCalls++
 	f.lastPlanBody = body
+	return nil
+}
+
+func (f *fakeAgentStore) LoadWaived(_ context.Context, _ uuid.UUID) (map[string]bool, error) {
+	if f.waived == nil {
+		return map[string]bool{}, nil
+	}
+	return f.waived, nil
+}
+
+func (f *fakeAgentStore) SetWaived(_ context.Context, _ uuid.UUID, w []string) error {
+	f.waived = map[string]bool{}
+	for _, id := range w {
+		f.waived[id] = true
+	}
 	return nil
 }
 
