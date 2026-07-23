@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 vi.mock("../../api", async (orig) => {
@@ -32,6 +32,24 @@ async function* gen(events: unknown[]) {
 }
 
 const COMPOSER_PLACEHOLDER = "把你正在想的、卡住的、好奇的，说给它听……";
+
+// `handleSend`'s `for await` loop over `api.chatTurn`'s async generator
+// drives its state updates purely off microtasks (the mock generator has no
+// real timer/IO) — but as a fire-and-forget async function, nothing hands
+// its promise chain back to the caller, so `waitFor`/`findBy*`'s real
+// wall-clock budget is the only thing standing between the test and the
+// chain settling. Under full-suite CPU contention that budget can lose even
+// at a generous 5000ms (this test used to pin exactly that number and still
+// flaked ~1 run in 3). A macrotask (setTimeout) only runs once the JS engine
+// has fully drained the microtask queue — including anything newly queued
+// while draining — so awaiting one deterministically waits out the whole
+// chain regardless of how long the engine takes to get there, bounded only
+// by vitest's own per-test timeout, not a number tuned by hand here.
+async function flush() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 describe("Chat surface", () => {
   beforeEach(() => {
@@ -69,17 +87,26 @@ describe("Chat surface", () => {
       ]),
     );
     render(<ChatContainer />);
-    await screen.findByText("对话历史");
+    // "对话历史" is a static label, always in the very first render — awaiting
+    // it (as this test used to) proves nothing about whether the mount-time
+    // load chain (listThreads → setActiveThreadId → the getMessages effect
+    // it triggers) has actually settled. If that chain's own `setEntries([])`
+    // resolves AFTER this test's send already added the user/assistant
+    // bubbles, it silently wipes them back to empty — a real race, not a
+    // test-only artifact. `flush` (see this file's doc comment) drains that
+    // whole chain deterministically before we interact.
+    await flush();
 
     fireEvent.change(screen.getByPlaceholderText(COMPOSER_PLACEHOLDER), { target: { value: "帮我想想这个反例" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
     await waitFor(() => expect(api.chatTurn).toHaveBeenCalledWith("t1", "帮我想想这个反例"));
-    // The reply arrives over an async generator, so the last delta lands a
-    // tick or more after chatTurn resolves. findByText's 1s default is enough
-    // in isolation but not always under full-suite parallel load — this
-    // flaked ~1 run in 3 with the default while passing 8/8 alone.
-    expect(await screen.findByText("先说说这个反例具体是什么。", undefined, { timeout: 5000 })).toBeInTheDocument();
+    // Deterministically drain the generator's whole microtask chain (see
+    // this file's `flush` doc comment) instead of racing a wall-clock
+    // findByText timeout — the assertions below can now be plain sync
+    // queries because the condition they depend on has actually settled.
+    await flush();
+    expect(screen.getByText("先说说这个反例具体是什么。")).toBeInTheDocument();
     expect(screen.getByText("帮我想想这个反例")).toBeInTheDocument();
   });
 
@@ -94,7 +121,10 @@ describe("Chat surface", () => {
       ]),
     );
     render(<ChatContainer />);
-    await screen.findByText("对话历史");
+    // Same mount-time race as the previous test — drain the initial
+    // listThreads/getMessages chain before sending (see this file's `flush`
+    // doc comment and the previous test's comment for why).
+    await flush();
 
     fireEvent.change(screen.getByPlaceholderText(COMPOSER_PLACEHOLDER), { target: { value: "这篇文章可信吗" } });
     fireEvent.click(screen.getByLabelText("发送"));

@@ -2506,6 +2506,15 @@ describe("StudioContainer", () => {
     };
 
     const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    // `flush` first, for this file's documented reason (see its doc comment):
+    // renderAndOpen leaves a several-hops-deep promise chain settling, and a
+    // bare `waitFor` right after it can observe the escape/lock sequence
+    // below racing that still-settling chain — this test submits and asserts
+    // the exact event_trace contents, so a late-settling effect clobbering
+    // `spanTrace` after the escape click is a real, reproduced flake here
+    // (not merely a "button not found yet" risk the other locate tests
+    // guard against the same way).
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
 
     // She escapes first ("找不到合适的句子")...
@@ -2564,6 +2573,10 @@ describe("StudioContainer", () => {
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    // `flush` first — see the previous test's comment on why a bare
+    // `waitFor` right after `renderAndOpen` is not enough for a test that
+    // asserts the submitted event_trace's exact contents.
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
@@ -2609,6 +2622,12 @@ describe("StudioContainer", () => {
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    // `flush` first — see the earlier "a located span retracts..." test's
+    // comment on why a bare `waitFor` right after `renderAndOpen` is not
+    // enough for a test that asserts the submitted event_trace's exact
+    // contents (reproduced: this exact test failed intermittently without
+    // this `flush`, both alone and under full-suite load).
+    await flush();
     await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
@@ -2661,6 +2680,10 @@ describe("StudioContainer", () => {
     };
 
     const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
+    // `flush` first — see the earlier span_not_found tests' comments on why
+    // a bare `waitFor` right after `renderAndOpen` is not enough for a test
+    // that asserts the submitted event_trace's exact contents.
+    await flush();
     await waitFor(() => expect(screen.getAllByRole("button", { name: "找不到合适的句子" })).toHaveLength(2));
 
     // Escape on anchor B (the second row) FIRST.
