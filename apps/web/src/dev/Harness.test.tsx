@@ -28,8 +28,8 @@ describe("Harness end-to-end (fake data)", () => {
     render(<Harness />);
     const picker = screen.getByLabelText("选择工具卡");
     const options = within(picker).getAllByRole("option");
-    // the picker is data-driven over CARD_REGISTRY (35 cards), not a hardcoded list
-    expect(options.length).toBe(35);
+    // the picker is data-driven over CARD_REGISTRY (36 cards), not a hardcoded list
+    expect(options.length).toBe(36);
     // the demo cards are present by their exact names
     expect(within(picker).getByRole("option", { name: "SIFT×CRAAP 信息核查" })).toBeInTheDocument();
     expect(within(picker).getByRole("option", { name: "让步段 · 以退为进" })).toBeInTheDocument();
