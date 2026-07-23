@@ -432,7 +432,12 @@ project" product question; non-MVP).
   auto-sends** — the student confirms (克制). Narration-out already worked;
   this adds voice-in.
 
-**Whole-branch review:** [pending at write time — filled on merge].
+**Whole-branch review (opus): SHIP** — all six cross-layer seams clean
+(terminal-phase reachable+finishable with no finish-code change; restart clears
+the complete user/course footprint = session cascade + course_progress; the
+PhaseChallenge type round-trips Zod↔Go↔JSON↔web with a runtime-safe cast; voice
+reuses the proven AsrStream client with no leak/auto-send; no enumeration tax
+beyond the one skill_test.go phase-list fix). No cross-task defects.
 
 **Known limits / carry-forwards:**
 - The terminal-challenge answer is **not captured server-side** (local
