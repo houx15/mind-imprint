@@ -46,7 +46,7 @@ describe("CompareState", () => {
       right: { material_id: "mat-nasa", spans: [{ id: "s2", block_ref: "b9", tag: "find", note: "", author: "student" }] },
       pairs: [{ id: "p1", l_span: "s1", r_span: "s2", note: "NASA 只说绿化面积，没说可持续性", relation: "qualifies", author: "student" }],
     });
-    expect(parsed.pairs[0].relation).toBe("qualifies");
+    expect(parsed.pairs[0]!.relation).toBe("qualifies");
   });
 
   it("rejects an AI-authored pair — the relation and the note are the student's judgment", () => {
