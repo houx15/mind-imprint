@@ -29,7 +29,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 | **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3f DONE too** (2026-07-22) — the remaining six S3/S4/S6 gate items N3d's own review found had no producer (`source_risk_notes`/`warrants`/`steelman` attestation, `source_quality_spot_check`/`warrant_quality_spot_check` via new 信源体检/论证体检 checks, `declaration_signed` via the AI 使用申报单) all got one, plus the L1 block-id collision fix; the S0→S6 walk now passes end to end on a freshly created project — see the N3f section below. **N3 is now ✅ DONE** — N3e (search-plan card + R-9 framework reveal) merged 2026-07-23; see the N3e · DONE section below. |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | **PARKED (2026-07-23).** The board seam IS real+pluggable (project.qualification + board_cfg_ver already exist; onboarding fixtures already per-qualification; `ProposeReview` takes criteria as a param, so NO board-pack CODE is needed — only authored criteria). BUT every substantive N4 item depends on a deferred input: the board rubrics (OPCVL/EE/AP/9239) need the **educational scientist** (I won't fabricate an exam mark scheme), and the assessment/report items (T1–T7 leaps, benchmark/fine-tune) **park with the teacher-end report/export design** (same place N2e went). Only unblocked item = the trivial `RISK_NOTE_QUESTION` "／局限" copy fix, folded into the next S3-touching slice. Do NOT restart N4 until those two inputs land. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | **◐ PARTIAL — N5c DONE (2026-07-23).** Finding: **voice was NOT unmerged** — `feat/voice-tts-asr` is fully contained in main (`git merge-base --is-ancestor`); the `internal/voice` package + `source=voice` turn threading are ON MAIN, so "voice merge" was already done. N5c shipped **course completion**: terminal-assessment challenge (a transfer self-check — new inline `challenge` 练一手 phase, empty floor = always-finishable, reuses the already-local `ChallengeTemplate`; DEC-3 via explicit confirmation, no adjudication, **no migration**), session restart (delete `course_session` + `course_progress`, cascade wipes session-scoped rows), and course push-to-talk voice (wire AskPanel's inert 按住说话 to the on-main `GET /voice/asr`). **Still open/deferred:** multi-course authoring (course format undecided), chat→project + course→project seeding (the "when does a student carry into a project" product question — not MVP), chat multimodal (non-MVP), terminal-challenge answer capture (lands with the repositioned AI-usage/critical-thinking report, which parks with the teacher end), competence wiring. See the N5c section. |
-| **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
+| **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | **◐ PARTIAL — the correctness + hygiene sweep DONE, merged `5c9c4c8` (2026-07-23).** N6 was a **bucket, not a slice**; this shipped the small low-risk subset (see the N6 sweep section below). **Still open/deferred:** N6-E (**template-driven personalized journeys** — was "flagship planner judgment"; the big one, its own brainstorm), N6-C (async assessment/river — after the evaluation model is finalized), N6-B (`HasEntitlement` real seam — DROPPED until a billing/quota model exists), and Task 9 (113-file web `test/` relocation — deferred to its own follow-up slice). |
 
 ---
 
@@ -37,6 +37,66 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 
 Each item tagged with its target finishing slice `[N#]`. Line numbers are into the
 roadmap file.
+
+### N6 sweep · DONE — merged `5c9c4c8` (2026-07-23)
+Spec `docs/superpowers/specs/2026-07-23-n6-sweep-correctness-and-hygiene-design.md`,
+plan `…/plans/2026-07-23-n6-sweep-correctness-and-hygiene.md`; 8 tasks
+subagent-driven (Task 9 deferred). **NO schema change** (H5 fixes a Down block +
+adds a test only). Whole-branch review (opus): **SHIP**, clean.
+
+**The framing that started this slice.** N6 was a **bucket, not a slice** —
+~25 heterogeneous `[N6]` items across every refactor slice. Decomposed into:
+correctness + hygiene (this sweep), N6-B entitlement (dropped — no billing
+model to plug in yet), N6-C async assessment (deferred to post-eval-model),
+N6-E template-driven personalized journeys (the big one — its own brainstorm).
+Two stale-tracker claims were corrected while scoping: the "CostNumeric latent
+bug" is **not a value-bug** (llm_call is NOT-NULL so `CostNumeric(cost,true)` is
+correct there; the nullable `evaluation` path correctly uses `priced`), and
+migration-Down tests already existed for 0024–0027.
+
+**What shipped (5 correctness + 3 hygiene):**
+- **C1** — `no_unsupported_claim` removed from `build_argument`'s blocking
+  machine gate (warn-not-block, 铁律 2). The warn already existed and is
+  untouched: `CandidateMoves`' D5 nudge fires independently of the gate list.
+  The vacuous-pass defect (an argument-free station clearing) is gone by
+  removal. Rippled to `internal/studio` projection tests (S4 total 5→4) — caught
+  by the **final full-suite run**, not Task 1's package scope. Same
+  gate-change→studio-projection lesson as before.
+- **C2** — card **skip** persists envelope+status in one transaction
+  (`SubmitAndSkipCardInstance`, CommitCardMint shape). Activate unchanged.
+- **C3** — `Advance` confirms gate-state + passed-event atomically (new
+  `ConfirmGate` on the AgentStore interface + fake; extracted `upsertGateStateQ`).
+  Blocked path unchanged.
+- **C4** — moment-classifier spend capped per project
+  (`MaxClassifyCallsPerProject = 20`, counted via a new sqlc
+  `CountLLMCallsByProjectPurpose` over existing `purpose='classify'` rows);
+  short-circuits before the 5th subagent runs, proceeds-on-count-error.
+- **C5** — meter empty-result anchor/challenge calls (record moved above the
+  empty bail); CostNumeric NOT-NULL-vs-nullable semantics pinned by a test.
+  **Finding:** the empty-result branch is **unreachable via the real HTTP
+  endpoint today** (craap/sift always yield ≥1 fallback anchor) — the move is
+  defensive, not a live leak. `renderChallenge`'s empty-metering stays unpinned
+  (also unreachable; `challengeDimensions` always ≥1 step).
+- **H2/H3** — deleted dead `gen-go-fixtures.ts`; fixed the contracts `tsc` error.
+- **H4** — de-flaked `ChatSurface` + `StudioContainer` (condition-based waits);
+  found+fixed a 2nd real ChatSurface race.
+- **H5** — migration `0017` Down was **genuinely broken** (re-added the old
+  5-value `graph_node.type` CHECK → fails 23514 against live `'perspective'`
+  rows); fixed with `NOT VALID` (0024/0025 precedent) + a discriminating
+  round-trip test.
+
+**New carry-forwards (recorded, not in this sweep):**
+- **N6-E** template-driven personalized journeys — own brainstorm (the
+  writing-project stations become a template; an LLM composes a per-student
+  journey instead of forcing all 7 stations; more templates later).
+- **Task 9** — relocate `apps/web`'s 113 co-located tests into a `test/` tree
+  (matches `packages/contracts`); own follow-up slice.
+- **`ChatContainer.tsx` mount-effect race** (surfaced by H4): unconditional
+  `setEntries(getMessages)` with no stale-fetch guard can wipe just-sent bubbles
+  on a slow history load; the de-flaked test now flushes past mount, so this
+  suite can no longer catch a regression there. Needs a source guard.
+- **N6-C** async assessment (river) after the eval model is finalized; **N6-B**
+  `HasEntitlement` after a billing/quota model exists.
 
 ### N3d · DONE — merged (2026-07-22)
 Spec `docs/superpowers/specs/2026-07-22-n3d-walkable-stations-design.md`,
