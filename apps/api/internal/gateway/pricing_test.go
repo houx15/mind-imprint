@@ -12,3 +12,15 @@ func TestEstimateCost(t *testing.T) {
 	if !n.Valid { t.Fatal("priced cost must yield a valid Numeric") }
 	if CostNumeric(0, false).Valid { t.Fatal("unpriced cost must be NULL Numeric") }
 }
+
+func TestCostNumericSemanticsSplit(t *testing.T) {
+	// llm_call path (NOT NULL column): an unpriced model records explicit $0.00.
+	z := CostNumeric(0, true)
+	if !z.Valid {
+		t.Fatal("llm_call path: explicit $0.00 must be a valid zero Numeric, not NULL")
+	}
+	// evaluation path (nullable column): an unpriced model records NULL.
+	if CostNumeric(0, false).Valid {
+		t.Fatal("evaluation path: unpriced cost must be NULL (invalid) Numeric")
+	}
+}

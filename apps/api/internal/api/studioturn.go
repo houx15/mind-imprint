@@ -349,17 +349,9 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	result, err := gen.Generate(ctx, spec, materials, level)
-	if err != nil || len(result.Anchors) == 0 {
-		return nil, false
-	}
-	if spec.Params.LateralDimension != "" {
-		result.Anchors = dropDimension(result.Anchors, spec.Params.LateralDimension)
-	}
-	// A real call succeeded whenever Resolved is populated (GenerateResult's
-	// contract) — it cost money regardless of whether persisting the
-	// generated anchors below succeeds, so record it unconditionally here,
-	// before any further step can bail out. A metering failure must never
-	// fail the turn (same policy as TouchProject).
+	// A real call succeeded whenever Resolved is populated — it cost money
+	// regardless of whether it yielded usable anchors, so record it BEFORE any
+	// empty-result bail (N6 C5). A metering failure never fails the turn.
 	if result.Resolved.Provider != "" {
 		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "anchors",
@@ -367,6 +359,12 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 		}); rerr != nil {
 			slog.Warn("surface anchors: record llm usage failed", "err", rerr, "request_id", httpx.RequestIDFromContext(ctx))
 		}
+	}
+	if err != nil || len(result.Anchors) == 0 {
+		return nil, false
+	}
+	if spec.Params.LateralDimension != "" {
+		result.Anchors = dropDimension(result.Anchors, spec.Params.LateralDimension)
 	}
 	raw, err := json.Marshal(result.Anchors)
 	if err != nil {

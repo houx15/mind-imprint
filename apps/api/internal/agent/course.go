@@ -123,14 +123,15 @@ func renderChallenge(ctx context.Context, in CourseStepInput, provider gateway.P
 	spec := cards.Spec{Name: frame.Title, Steps: challengeDimensions(in.ChallengeType)}
 
 	gen, err := NewAnchorGenerator(provider, resolver).Generate(ctx, spec, materials, GuidanceL1)
+	// Carry usage onto the fallback BEFORE any empty-result bail — a populated
+	// Resolved means a paid call happened regardless of anchored-ness (N6 C5).
+	if gen.Resolved.Provider != "" {
+		authored.Resolved = gen.Resolved
+		authored.Usage = gen.Usage
+	}
 	if err != nil || len(gen.Anchors) == 0 {
 		return authored
 	}
-	// A real call succeeded (Generate only returns a non-zero Resolved when
-	// one did) — it cost money regardless of what the anchored-ness check
-	// below decides, so the fallback we might still return carries usage too.
-	authored.Resolved = gen.Resolved
-	authored.Usage = gen.Usage
 	// AnchorGenerator substitutes generic unanchored fallback anchors (empty
 	// BlockID) when the model fails; that means real generation didn't happen —
 	// prefer the curated authored challenge instead of generic placeholders.

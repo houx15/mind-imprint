@@ -120,6 +120,9 @@ func (s *sqlcChatStore) RecordChatLLMCall(ctx context.Context, userID uuid.UUID,
 	if !priced {
 		slog.Warn("chat llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
 	}
+	// llm_call.cost_estimate is NOT NULL, so an unpriced model records an
+	// explicit $0.00 via CostNumeric(cost, true) (with the warn above) — NOT
+	// the nullable-evaluation NULL. See gateway/pricing.go and agentstore.go.
 	_, err := s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
 		UserID: userID, ProjectID: pgtype.UUID{Valid: false},
 		Surface: "chat", Purpose: purpose,
