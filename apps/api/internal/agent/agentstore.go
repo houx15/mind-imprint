@@ -339,6 +339,32 @@ func (s *sqlcAgentStore) SubmitProjectCardInstance(ctx context.Context, projectI
 	return err
 }
 
+// SubmitAndSkipCardInstance persists the student's (empty, on skip)
+// field_values + event_trace AND flips the status to "skipped" in ONE
+// transaction, so a crash can never leave a saved envelope with a stale
+// "active" status (or the reverse). 过程即数据: the two records of one act
+// cannot drift. Mirrors CommitCardMint's tx shape.
+func (s *sqlcAgentStore) SubmitAndSkipCardInstance(ctx context.Context, projectID, id uuid.UUID, fieldValues, eventTrace []byte) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := s.q.WithTx(tx)
+	if _, err := qtx.SubmitProjectCardInstance(ctx, sqlc.SubmitProjectCardInstanceParams{
+		ID: id, ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		FieldValues: fieldValues, EventTrace: eventTrace,
+	}); err != nil {
+		return err
+	}
+	if _, err := qtx.SetCardInstanceStatus(ctx, sqlc.SetCardInstanceStatusParams{
+		ID: id, ProjectID: pgtype.UUID{Bytes: projectID, Valid: true}, Status: "skipped",
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // toCardInstanceRow maps the sqlc row to the AgentStore seam's shape.
 func toCardInstanceRow(row sqlc.CardInstance) CardInstanceRow {
 	var projectID uuid.UUID

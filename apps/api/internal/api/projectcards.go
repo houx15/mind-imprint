@@ -98,11 +98,7 @@ func (a *API) skipProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if err := store.SubmitProjectCardInstance(r.Context(), projectID, cid, []byte("{}"), body.EventTrace); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := store.SetCardInstanceStatus(r.Context(), projectID, cid, "skipped"); err != nil {
+	if err := store.SubmitAndSkipCardInstance(r.Context(), projectID, cid, []byte("{}"), body.EventTrace); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

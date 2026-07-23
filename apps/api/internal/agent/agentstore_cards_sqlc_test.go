@@ -107,3 +107,53 @@ func TestSqlcAgentStore_CardMutationSeamRoundTrip(t *testing.T) {
 		t.Fatalf("store row Anchors = %s, want %s", row.Anchors, anchorsJSON)
 	}
 }
+
+// TestSubmitAndSkipCardInstanceIsAtomic exercises the transactional skip
+// write (C2, N6 correctness sweep): the envelope (field_values/event_trace)
+// and the "skipped" status must land together, in one commit, mirroring
+// CommitCardMint's tx pattern so a crash between the two writes can never
+// leave a saved envelope with a stale "active" status (or the reverse).
+func TestSubmitAndSkipCardInstanceIsAtomic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+
+	task, err := q.CreateTask(ctx, sqlc.CreateTaskParams{UserID: seededStudentID, Title: "agentstore-skip-atomic"})
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	project, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: seededStudentID, Qualification: "EE", Title: "中国是否让地球变得更可持续？", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	ci, err := q.CreateProjectCardInstance(ctx, sqlc.CreateProjectCardInstanceParams{
+		TaskID:    pgtype.UUID{Bytes: task.ID, Valid: true},
+		ProjectID: pgtype.UUID{Bytes: project.ID, Valid: true},
+		CardID:    "craap",
+		Status:    "proposed",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectCardInstance: %v", err)
+	}
+
+	if err := store.SubmitAndSkipCardInstance(ctx, project.ID, ci.ID, []byte(`{}`), []byte(`[]`)); err != nil {
+		t.Fatalf("SubmitAndSkipCardInstance: %v", err)
+	}
+
+	got, err := q.GetCardInstance(ctx, ci.ID)
+	if err != nil {
+		t.Fatalf("GetCardInstance: %v", err)
+	}
+	if got.Status != "skipped" {
+		t.Fatalf("Status = %q, want skipped", got.Status)
+	}
+	if string(got.FieldValues) != "{}" {
+		t.Fatalf("FieldValues = %q, want {}", got.FieldValues)
+	}
+}
