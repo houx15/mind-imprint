@@ -29,7 +29,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 | **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3f DONE too** (2026-07-22) — the remaining six S3/S4/S6 gate items N3d's own review found had no producer (`source_risk_notes`/`warrants`/`steelman` attestation, `source_quality_spot_check`/`warrant_quality_spot_check` via new 信源体检/论证体检 checks, `declaration_signed` via the AI 使用申报单) all got one, plus the L1 block-id collision fix; the S0→S6 walk now passes end to end on a freshly created project — see the N3f section below. **N3 is now ✅ DONE** — N3e (search-plan card + R-9 framework reveal) merged 2026-07-23; see the N3e · DONE section below. |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | **PARKED (2026-07-23).** The board seam IS real+pluggable (project.qualification + board_cfg_ver already exist; onboarding fixtures already per-qualification; `ProposeReview` takes criteria as a param, so NO board-pack CODE is needed — only authored criteria). BUT every substantive N4 item depends on a deferred input: the board rubrics (OPCVL/EE/AP/9239) need the **educational scientist** (I won't fabricate an exam mark scheme), and the assessment/report items (T1–T7 leaps, benchmark/fine-tune) **park with the teacher-end report/export design** (same place N2e went). Only unblocked item = the trivial `RISK_NOTE_QUESTION` "／局限" copy fix, folded into the next S3-touching slice. Do NOT restart N4 until those two inputs land. |
 | **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | **◐ PARTIAL — N5c DONE (2026-07-23).** Finding: **voice was NOT unmerged** — `feat/voice-tts-asr` is fully contained in main (`git merge-base --is-ancestor`); the `internal/voice` package + `source=voice` turn threading are ON MAIN, so "voice merge" was already done. N5c shipped **course completion**: terminal-assessment challenge (a transfer self-check — new inline `challenge` 练一手 phase, empty floor = always-finishable, reuses the already-local `ChallengeTemplate`; DEC-3 via explicit confirmation, no adjudication, **no migration**), session restart (delete `course_session` + `course_progress`, cascade wipes session-scoped rows), and course push-to-talk voice (wire AskPanel's inert 按住说话 to the on-main `GET /voice/asr`). **Still open/deferred:** multi-course authoring (course format undecided), chat→project + course→project seeding (the "when does a student carry into a project" product question — not MVP), chat multimodal (non-MVP), terminal-challenge answer capture (lands with the repositioned AI-usage/critical-thinking report, which parks with the teacher end), competence wiring. See the N5c section. |
-| **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | **◐ PARTIAL — the correctness + hygiene sweep DONE, merged `5c9c4c8` (2026-07-23).** N6 was a **bucket, not a slice**; this shipped the small low-risk subset (see the N6 sweep section below). **Still open/deferred:** N6-E (**template-driven personalized journeys** — was "flagship planner judgment"; the big one, its own brainstorm), N6-C (async assessment/river — after the evaluation model is finalized), N6-B (`HasEntitlement` real seam — DROPPED until a billing/quota model exists), and Task 9 (113-file web `test/` relocation — deferred to its own follow-up slice). |
+| **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | **◐ PARTIAL — the correctness + hygiene sweep DONE (`5c9c4c8`, 2026-07-23) + N6-E (template-driven personalized journeys) DONE (2026-07-23, see the N6-E section below).** N6 was a **bucket, not a slice**; the sweep shipped the small low-risk subset, N6-E shipped the big one. **Still open/deferred:** N6-C (async assessment/river — after the evaluation model is finalized), N6-B (`HasEntitlement` real seam — DROPPED until a billing/quota model exists), and Task 9 (113-file web `test/` relocation — **DONE `f43226b`**, see below). |
 
 ---
 
@@ -86,9 +86,10 @@ migration-Down tests already existed for 0024–0027.
   round-trip test.
 
 **New carry-forwards (recorded, not in this sweep):**
-- **N6-E** template-driven personalized journeys — own brainstorm (the
+- ~~**N6-E** template-driven personalized journeys — own brainstorm (the
   writing-project stations become a template; an LLM composes a per-student
-  journey instead of forcing all 7 stations; more templates later).
+  journey instead of forcing all 7 stations; more templates later).~~ **DONE
+  (2026-07-23), see the N6-E section below.**
 - ~~**Task 9** — relocate `apps/web`'s 113 co-located tests into a `test/`
   tree.~~ **DONE `f43226b` (2026-07-23):** all 113 moved `src/**`→`test/**`;
   added a `@/`→`src/` alias (vitest+vite+tsconfig) so moved tests import
@@ -102,6 +103,126 @@ migration-Down tests already existed for 0024–0027.
   suite can no longer catch a regression there. Needs a source guard.
 - **N6-C** async assessment (river) after the eval model is finalized; **N6-B**
   `HasEntitlement` after a billing/quota model exists.
+
+### N6-E · DONE — 2026-07-23 (`ff3af39`..HEAD)
+Spec `docs/superpowers/specs/2026-07-23-n6e-personalized-journeys-design.md`,
+plan `…/plans/2026-07-23-n6e-personalized-journeys.md`; 7 tasks
+(6 build + this acceptance-walk-and-tracker task). Commit range: from
+`ff3af39` (plan doc) through this task's own commit, all on
+`slice-n6e-personalized-journeys`.
+
+**What it is.** A per-student **journey** over the fixed `writing-project`
+skill template: at project creation, a mid-tier model reads what the student
+pasted and decides which of the 7 stations she can skip because she has
+already substantively done that work — a **waived-set**, never a reordering
+or a new gate. Selection only (Decision 1 of the spec): the composer chooses
+keep/waive over the skill's existing 7 contracts, it never invents a station,
+skips the DAG, or lowers a bar.
+
+**How it's stored — migration-free.** The waived-set rides the project's
+existing single `plan` graph-node (the same jsonb row `Route`/`Reason` already
+lived in) as a third field, `Waived []string`. `LoadWaived`/`SetWaived`
+(agent store seam) read/write it via the same `GetPlanNode`/`UpsertPlan` calls
+Route already used — no new table, no new column, no new migration.
+`writePlan` (shared by `Intake`/`Replan`) always re-serializes the current
+waived-set alongside the recomputed route, so a reopen (below) or any other
+replan never silently drops it.
+
+**Compose at creation, stable afterward (Decision 2).** `composeJourney` runs
+once, inside `createProject`, right after the atomic project+onboarding-nodes
+transaction commits — best-effort: the project already exists by the time it
+runs, so any compose failure just leaves the full journey (today's behavior),
+never blocks or rolls back creation. There is no re-compose path; the
+waived-set only ever changes via the student's own reopen. The model call is
+mid-tier (chaperone tier, not flagship) and metered on **every** branch that
+made a real call — including when it waives nothing, or when the reply is
+rejected as malformed — via a dedicated `llm_call` purpose `compose_journey`,
+so cost tracking is real even on a no-op outcome.
+
+**Input = the pasted prompt (Decision 3).** `ComposeJourney` is handed the
+exact `prompt` field the creation funnel's paste-box already collects — no
+new input surface. The paste-box copy on the funnel form was updated to hint
+that pasting more of what she's already done can skip stations for her.
+
+**Fail-safe by construction.** `ComposeJourney` degrades to the full journey
+(empty waived-set) on ANY of: a resolver/provider error, an unparseable
+reply, a decision list that does not **exactly** cover the skill's 7
+contract ids (missing, extra, duplicate, or unknown id all count), or —
+the one substantive guard — a reply claiming **every** station is already
+done. An all-waived verdict is not credible (it would leave no active
+station and let `canFinish` fire on a project with nothing actually done in
+it), so it is treated the same as a malformed reply: full journey, still
+metered.
+
+**Waived is honest and re-openable, never confirmed (Decision 4 / DEC-3).**
+The projection's `stations[].state` gets a fourth value, `"waived"`, sitting
+beside `done`/`current`/`locked` — rendered distinctly in the rail (已跳过 ·
+可恢复), never conflated with `done`. Two invariants enforce "never
+confirmed": (1) `Route` treats a waived contract as satisfied for its own
+exclusion from the route AND for its successors' reachability check (the
+same rule a `Solid` gate gets) — but (2) `agent.Advance`/`AdvanceAll` skip a
+waived contract's own `Confirmed` write entirely (`if solid[id] { continue }`
+runs before any Advance call), so a waived station can never itself become
+recorded solid — only reopening and doing the work can. `POST
+/projects/{id}/journey/reopen/{code}` (rail code S0..S6) is the escape
+hatch: idempotent (re-opening a non-waived station 200s as a no-op), un-waives
+by removing exactly that one contract id from the set, replans, and appends a
+`journey_reopened` event. An offer is never a wall (铁律 2) — nothing about a
+waived station is a permanent lock.
+
+**`canFinish` two-arm rule.** The default arm (`draft_polish` not waived,
+the common case) is unchanged: `canFinish` still keys on
+`draft_polish.whole_draft_review == "solid"`. The fallback arm only engages
+if a student ever waives `draft_polish` itself: `canFinish` then falls back
+to "every non-waived station is done or waived" (`allDoneOrWaived`), so
+waiving the writing station doesn't strand her behind an unreachable gate.
+
+**No mandatory spine (Decision 5).** The composer runs over all 7 contracts
+uniformly — there is no hardcoded "always keep S3+" floor. (In practice the
+all-waived guard above is the only thing that prevents a degenerate
+zero-station journey; a partial waive of any subset the model deems done is
+honored as-is.)
+
+**The acceptance walk (this task).** `apps/api/internal/api/journey_walk_test.go`,
+modeled on `walk_s0_s6_test.go`'s own S3→S6 portion (same helpers reused
+verbatim: `surfaceWalkCard`/`activateWalkCard`/`submitWalkCard`/
+`fillCraapAnchors`/`fillSiftAnchors`/`toulminAnchors`/`spotCheckOrderable`,
+`fetchStations`/`stationState`) — no second harness invented, every call a
+client-reachable endpoint. `TestJourneyWalk_WaivedFrontCompletesAndFinishes`
+composes decode_task/frame_question/evaluate_perspectives (S0-S2) waived at
+creation, confirms the projection renders exactly that plus S3 `current`,
+walks S3→S6 to completion, and asserts `canFinish` reads true and `POST
+.../finish` succeeds — **with three stations never done, only ever
+"waived"** end to end. `TestJourneyWalk_ReopenReintroducesStation` confirms
+`POST .../journey/reopen/S1` flips S1 out of `"waived"` while S0/S2 (never
+reopened) stay waived. Both passed on the first run — no root-cause fix was
+needed; the machinery from Tasks 1-6 was already correct.
+
+**A real wiring fact the walk surfaced (a known limit, not a bug):** waiving
+`evaluate_perspectives` means its `>=2 perspective` graph nodes are never
+written, and the `perspective-matrix` card (N3a's own missing-producer fix
+for that gate) triggers on `anyEvaluated && perspectiveNodes<2` — a condition
+that stays true for the rest of the project once S2 is skipped. So the
+classifier keeps offering `perspective-matrix` ahead of Toulmin the moment
+any source is evaluated. The walk handles this exactly the way a real
+student would: `POST .../cards/{cid}/skip` dismisses the one offer (an offer
+is never a wall), which permanently retires it (classifier.go: ANY
+card_instance status, including `skipped`, suppresses the re-offer), and
+Toulmin surfaces normally after that. This is the general shape of N6-E's own
+documented limit below, not something this task patched around.
+
+**Known limits (by design, not defects):**
+- A bare/thin prompt at creation (nothing substantive pasted) composes to the
+  full journey — there is no partial-credit heuristic, and the fail-safe
+  intentionally biases toward keeping stations rather than guessing a skip.
+- A waived upstream station's own graph output is never produced. Any
+  downstream signal that reads for that output (like `perspective-matrix`
+  above) will keep asking for it until either the student reopens the
+  upstream station and does the work, or she dismisses the individual offer.
+  Re-opening is the general remedy; dismissing one offer is the local one.
+- The `reason` string on each decision is an **unverified LLM claim**,
+  recorded in the `journey_composed` event for transparency — it is never
+  re-verified against the graph and carries no gate weight of its own.
 
 ### N3d · DONE — merged (2026-07-22)
 Spec `docs/superpowers/specs/2026-07-22-n3d-walkable-stations-design.md`,
