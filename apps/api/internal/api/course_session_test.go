@@ -637,3 +637,158 @@ func TestCourseSession_ReloadSurfacesOpenCardOffer(t *testing.T) {
 		t.Fatalf("openCards after skip = %+v, want empty — a dispositioned card must not resurface", got2.OpenCards)
 	}
 }
+
+// TestCourseSession_WalkFinishesAtChallenge is the N5c Task-2 course-walk
+// regression: drives the REAL seeded skill (info-literacy-course) through
+// every phase — demonstrate → guided → independent → reflect → challenge —
+// satisfying each phase's floor along the way, exactly as
+// TestCourseSession_Ask / TestCourseSession_AdvanceMovesThePhase do per-phase.
+// Task 1 appended challenge (练一手, floor: []) after reflect; this proves the
+// terminal moved there for real (not just in NextPhase's unit test): the FINAL
+// advance — from challenge, whose empty floor is always met — must set
+// status=finished and emit course_finished, with zero regressions to the
+// earlier phases' floors along the way.
+func TestCourseSession_WalkFinishesAtChallenge(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	cookie := signInSeed(t, pool)
+
+	newHandler := func(p gateway.Provider) http.Handler {
+		return New(Deps{
+			Queries: q, Pool: pool, Provider: p, ChatResolver: fakeResolver(), EvalResolver: fakeResolver(), SpecByID: cards.ByID,
+		}).Handler()
+	}
+	advanceTo := func(h http.Handler, wantPhase string) {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/advance", nil), cookie))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("advance to %s: %d — %s", wantPhase, rr.Code, rr.Body.String())
+		}
+		body := rr.Body.String()
+		if !strings.Contains(body, "event: phase") || !strings.Contains(body, `"to":"`+wantPhase+`"`) {
+			t.Fatalf("advance to %s: expected a phase frame:\n%s", wantPhase, body)
+		}
+		var phase string
+		if err := pool.QueryRow(context.Background(),
+			`SELECT phase FROM course_session WHERE user_id = $1 AND course_id = $2`, SeedUserID, courseSeededCourseID,
+		).Scan(&phase); err != nil {
+			t.Fatalf("query session phase: %v", err)
+		}
+		if phase != wantPhase {
+			t.Fatalf("phase = %q, want %q", phase, wantPhase)
+		}
+	}
+	ask := func(h http.Handler, msg string) {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/ask",
+			strings.NewReader(`{"user_input":"`+msg+`"}`)), cookie))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("ask: %d — %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	startSession(t, newHandler(nil), cookie, courseSeededCourseID)
+
+	// demonstrate: steps_viewed [0,1] — render both ordinals, then advance.
+	// RenderCourseStep needs a non-nil Provider even though its output is
+	// discarded here (a plain "reply" JSON fails renderTeaching's stricter
+	// title/subtitle/body parse and falls back to the authored content, which
+	// is all this walk needs — it only cares that the render endpoint marks
+	// the ordinal viewed).
+	hRender := newHandler(courseProvider(`{"type":"reply","body":"ok"}`))
+	for _, ord := range []int{0, 1} {
+		rr := httptest.NewRecorder()
+		hRender.ServeHTTP(rr, withCookie(httptest.NewRequest("POST",
+			"/api/v1/courses/"+courseSeededCourseID+"/steps/"+strconv.Itoa(ord)+"/render", nil), cookie))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("render step %d: %d — %s", ord, rr.Code, rr.Body.String())
+		}
+	}
+	advanceTo(newHandler(courseProvider(`{"type":"advance","to":"guided"}`)), "guided")
+
+	// guided: card_dispositioned craap — first advance is refused (no card
+	// dispositioned yet) but mints the phase's card offer via mintPhaseCard's
+	// refusal path; fetch it off GET session, skip it, then advance clears.
+	hGuided := newHandler(courseProvider(`{"type":"advance","to":"independent"}`))
+	rrRefuse := httptest.NewRecorder()
+	hGuided.ServeHTTP(rrRefuse, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/advance", nil), cookie))
+	if rrRefuse.Code != http.StatusOK {
+		t.Fatalf("guided refusal advance: %d — %s", rrRefuse.Code, rrRefuse.Body.String())
+	}
+	if strings.Contains(rrRefuse.Body.String(), "event: phase") {
+		t.Fatalf("guided's card_dispositioned floor is unmet — must not advance yet:\n%s", rrRefuse.Body.String())
+	}
+	rrGet := httptest.NewRecorder()
+	hGuided.ServeHTTP(rrGet, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+courseSeededCourseID+"/session", nil), cookie))
+	if rrGet.Code != http.StatusOK {
+		t.Fatalf("get session: %d — %s", rrGet.Code, rrGet.Body.String())
+	}
+	var sessDTO CourseSessionDTO
+	if err := json.Unmarshal(rrGet.Body.Bytes(), &sessDTO); err != nil {
+		t.Fatalf("decode session: %v", err)
+	}
+	if len(sessDTO.OpenCards) != 1 {
+		t.Fatalf("openCards = %+v, want exactly 1 (minted by the refusal path)", sessDTO.OpenCards)
+	}
+	skipRR := httptest.NewRecorder()
+	hGuided.ServeHTTP(skipRR, withCookie(httptest.NewRequest("POST",
+		"/api/v1/courses/"+courseSeededCourseID+"/session/cards/"+sessDTO.OpenCards[0].CardInstanceID+"/skip", nil), cookie))
+	if skipRR.Code != http.StatusOK {
+		t.Fatalf("skip card: %d — %s", skipRR.Code, skipRR.Body.String())
+	}
+	advanceTo(hGuided, "independent")
+
+	// independent: student_turns_at_least 1 — one ask, then advance.
+	hIndependent := newHandler(courseProvider(`{"type":"reply","body":"你的理由是什么？"}`))
+	ask(hIndependent, "我觉得不确定，因为证据不够")
+	advanceTo(newHandler(courseProvider(`{"type":"advance","to":"reflect"}`)), "reflect")
+
+	// reflect: student_turns_at_least 1 — one ask, then advance to challenge —
+	// the phase Task 1 appended, now the terminal.
+	hReflect := newHandler(courseProvider(`{"type":"reply","body":"说说你学到的方法。"}`))
+	ask(hReflect, "这次我学会了先横向溯源再下判断")
+	advanceTo(newHandler(courseProvider(`{"type":"advance","to":"challenge"}`)), "challenge")
+
+	// challenge: floor: [] — an empty floor must always be met, with no
+	// dispositioned card and no student turn in this phase at all. The final
+	// advance is the terminal: NextPhase(challenge) has no successor, so
+	// runCourseAdvance's terminal branch fires — a pure store operation, zero
+	// model calls — setting status=finished and emitting course_finished.
+	hFinal := newHandler(courseProvider(`{"type":"advance","to":"nowhere"}`)) // unreachable: the terminal returns before any model call
+	rrFinal := httptest.NewRecorder()
+	hFinal.ServeHTTP(rrFinal, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/advance", nil), cookie))
+	if rrFinal.Code != http.StatusOK {
+		t.Fatalf("terminal advance: %d — %s", rrFinal.Code, rrFinal.Body.String())
+	}
+	finalBody := rrFinal.Body.String()
+	if !strings.Contains(finalBody, "event: text") {
+		t.Fatalf("terminal advance: expected a text frame:\n%s", finalBody)
+	}
+	if strings.Contains(finalBody, "event: phase") {
+		t.Fatalf("challenge has no successor — must NOT emit a phase frame:\n%s", finalBody)
+	}
+
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status FROM course_session WHERE user_id = $1 AND course_id = $2`, SeedUserID, courseSeededCourseID,
+	).Scan(&status); err != nil {
+		t.Fatalf("query session status: %v", err)
+	}
+	if status != "finished" {
+		t.Fatalf("status = %q, want finished", status)
+	}
+
+	var finishedEvents int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM event WHERE surface = 'course' AND type = 'course_finished' AND session_id = (
+			SELECT id FROM course_session WHERE user_id = $1 AND course_id = $2
+		)`, SeedUserID, courseSeededCourseID,
+	).Scan(&finishedEvents); err != nil {
+		t.Fatalf("count course_finished events: %v", err)
+	}
+	if finishedEvents != 1 {
+		t.Fatalf("course_finished events = %d, want exactly 1", finishedEvents)
+	}
+}

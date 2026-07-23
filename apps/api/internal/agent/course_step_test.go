@@ -28,6 +28,21 @@ func courseTestSkill() skills.Skill {
 	}
 }
 
+// courseTestSkillWithChallenge is courseTestSkill() plus a 4th phase,
+// challenge, appended after reflect with an EMPTY floor — the same shape
+// Task 1 gave the real info-literacy-course skill (练一手 after 回看). Used to
+// prove the empty-floor guarantee end-to-end through RunCourseStep, isolated
+// from the real skill spec so this test cannot be defeated by that spec ever
+// changing.
+func courseTestSkillWithChallenge() skills.Skill {
+	sk := courseTestSkill()
+	sk.Contracts["challenge"] = skills.Contract{
+		Title: "练一手", Goal: "g3", SoftCondition: "s3", Requires: []string{"reflect"},
+		Floor: nil,
+	}
+	return sk
+}
+
 func TestNextPhaseWalksTheBindingOrder(t *testing.T) {
 	sk := courseTestSkill()
 	for _, c := range []struct{ cur, want string }{{"demonstrate", "guided"}, {"guided", "reflect"}} {
@@ -41,6 +56,24 @@ func TestNextPhaseWalksTheBindingOrder(t *testing.T) {
 	}
 	if _, ok := NextPhase(sk, "nope"); ok {
 		t.Fatal("an unknown phase has no successor")
+	}
+}
+
+// TestCourseChallengeIsTerminal is the N5c Task-2 regression: the REAL seeded
+// skill (info-literacy-course), not the local fixture above — Task 1 appended
+// a 5th phase, 练一手 (challenge), after reflect. The terminal moved one phase
+// later; this proves NextPhase agrees, against the actual skill spec rather
+// than a hand-built stand-in that would not have caught a drift here.
+func TestCourseChallengeIsTerminal(t *testing.T) {
+	sk, ok := skills.ByID("info-literacy-course")
+	if !ok {
+		t.Fatal("skill info-literacy-course missing from the registry")
+	}
+	if next, ok := NextPhase(sk, "reflect"); !ok || next != "challenge" {
+		t.Fatalf("NextPhase(reflect) = %q,%v; want challenge,true", next, ok)
+	}
+	if _, ok := NextPhase(sk, "challenge"); ok {
+		t.Fatal("challenge must be the terminal phase — NextPhase(challenge) must return ok=false")
 	}
 }
 
@@ -74,6 +107,18 @@ func TestCheckFloor(t *testing.T) {
 	// Fail closed: Load rejects an unknown kind, so this is defense in depth.
 	if unmet := CheckFloor([]skills.FloorItem{{Kind: "vibes_ok"}}, FloorState{}); len(unmet) != 1 {
 		t.Fatalf("an unknown floor kind must count as UNMET, got %+v", unmet)
+	}
+
+	// N5c Task-2: an empty floor (challenge's floor: []) must always be met —
+	// CheckFloor iterates `items`, so a nil/empty slice iterates zero times
+	// and unmet stays nil regardless of FloorState. No special-casing exists
+	// (or is needed) to block it; this is the guarantee the walk test below
+	// (TestRunCourseStepEmptyFloorAlwaysAdvances) exercises end-to-end.
+	if unmet := CheckFloor(nil, FloorState{}); len(unmet) != 0 {
+		t.Fatalf("a nil floor must always be met, got unmet %+v", unmet)
+	}
+	if unmet := CheckFloor([]skills.FloorItem{}, FloorState{}); len(unmet) != 0 {
+		t.Fatalf("an empty floor must always be met, got unmet %+v", unmet)
 	}
 }
 
@@ -589,6 +634,43 @@ func TestRunCourseStepReflectFloorUnmetDoesNotFinish(t *testing.T) {
 	}
 	if st.llmCalls != 0 {
 		t.Fatalf("an unmet floor must short-circuit BEFORE the model: llmCalls = %d, want 0", st.llmCalls)
+	}
+}
+
+// TestRunCourseStepEmptyFloorAlwaysAdvances is N5c Task-2's empty-floor proof
+// through the real runtime, not just CheckFloor in isolation: challenge's
+// floor is [] (courseTestSkillWithChallenge, mirroring the real skill's
+// Task-1 addition), and this fake store starts with ZERO evidence of any
+// kind — no student turns, no dispositioned cards — the same store a brand
+// new session in this phase would have. If CheckFloor ever special-cased an
+// empty slice as "nothing to satisfy, so unmet", this would fail to reach the
+// terminal; today it iterates zero items and finds nothing unmet, so the
+// advance goes straight through to the terminal branch (challenge has no
+// successor here either) — zero model calls, status flips to finished.
+func TestRunCourseStepEmptyFloorAlwaysAdvances(t *testing.T) {
+	st := newFakeCourseStore("challenge")
+	// Deliberately leave every evidence field at its zero value: st.turns = 0,
+	// no session cards, and viewedSteps is irrelevant to this phase's (empty)
+	// floor kind list — there is nothing for CheckFloor to find unmet.
+	deps := CourseDeps{
+		Store: st, Provider: scriptedProvider(`{"type":"advance","to":"nowhere"}`), // unreachable: the terminal returns before any model call
+		Resolved: gateway.Resolved{}, Skill: courseTestSkillWithChallenge(), UserID: uuid.New(), SessionID: st.session.ID,
+	}
+	res, err := RunCourseStep(context.Background(), deps, "request_advance", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Advanced != "" {
+		t.Fatalf("challenge has no successor — Advanced must stay empty, got %q", res.Advanced)
+	}
+	if st.statusSets != 1 || st.lastStatus != "finished" {
+		t.Fatalf("an empty floor with zero evidence must still reach the terminal, got sets=%d status=%q", st.statusSets, st.lastStatus)
+	}
+	if !st.hasEvent("course_finished") {
+		t.Fatal("reaching the terminal must emit course_finished")
+	}
+	if st.llmCalls != 0 {
+		t.Fatalf("the terminal is a pure store operation — llmCalls = %d, want 0", st.llmCalls)
 	}
 }
 
