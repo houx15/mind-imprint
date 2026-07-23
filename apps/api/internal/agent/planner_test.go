@@ -452,14 +452,23 @@ func TestAdvanceAllTreatsWaivedAsSatisfiedNeverConfirmsIt(t *testing.T) {
 	f := &fakeAgentStore{
 		graph: GraphView{
 			Materials: []MaterialView{{ID: "m1", Kind: "article"}, {ID: "m2", Kind: "article"}},
-			Nodes:     []GraphNodeView{{ID: "cc1", Type: "cross_check"}},
+			// p1/p2 make evaluate_perspectives' own machine item
+			// (node_count_at_least{perspective, 2}) genuinely pass, and its
+			// gateStates entry below makes its student_written items solid too
+			// — its own gate has NOTHING Missing. Without a fully satisfiable
+			// gate on a waived contract, this test can't discriminate the
+			// waived-skip guard: a broken guard that let a waived contract
+			// reach Advance would still be refused by CheckGate.Missing for an
+			// unrelated reason, and the test would pass either way.
+			Nodes: []GraphNodeView{{ID: "cc1", Type: "cross_check"}, {ID: "p1", Type: "perspective"}, {ID: "p2", Type: "perspective"}},
 			Edges: []GraphEdgeView{
 				{FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "ev1", Type: "evaluated-as"},
 				{FromKind: "material", FromID: "m2", ToKind: "graph_node", ToID: "ev2", Type: "evaluated-as"},
 			},
 		},
 		gateStates: map[string]RecordedGate{
-			"evaluate_sources": {Items: map[string]string{"source_risk_notes": "solid", "source_quality_spot_check": "solid"}},
+			"evaluate_sources":      {Items: map[string]string{"source_risk_notes": "solid", "source_quality_spot_check": "solid"}},
+			"evaluate_perspectives": {Items: map[string]string{"recon_logged": "solid", "sources_per_perspective": "solid"}},
 		},
 		waived: map[string]bool{"decode_task": true, "frame_question": true, "evaluate_perspectives": true},
 	}
@@ -471,6 +480,14 @@ func TestAdvanceAllTreatsWaivedAsSatisfiedNeverConfirmsIt(t *testing.T) {
 	g, _ := f.LoadGraph(context.Background(), pid)
 	if rep := CheckGate(sk, "evaluate_sources", g, f.gateStates["evaluate_sources"]); len(rep.Missing) != 0 {
 		t.Fatalf("fixture invalid: evaluate_sources must be fully satisfied on its own gate, got Missing=%v", rep.Missing)
+	}
+	// Sanity check the test actually discriminates the waived-skip guard:
+	// evaluate_perspectives (waived) must ALSO be fully satisfiable on its own
+	// gate. If it weren't, the "if solid[id] { continue }" skip would be
+	// redundant here — CheckGate would refuse it anyway, and a broken guard
+	// would slip through undetected.
+	if rep := CheckGate(sk, "evaluate_perspectives", g, f.gateStates["evaluate_perspectives"]); len(rep.Missing) != 0 {
+		t.Fatalf("fixture invalid: evaluate_perspectives (waived) must be fully satisfiable on its own gate to discriminate the waived-skip guard, got Missing=%v", rep.Missing)
 	}
 
 	advanced, err := AdvanceAll(context.Background(), deps, pid, sk)
@@ -488,6 +505,17 @@ func TestAdvanceAllTreatsWaivedAsSatisfiedNeverConfirmsIt(t *testing.T) {
 	}
 	if !foundEvalSources {
 		t.Fatalf("evaluate_sources should advance (waived predecessors count as satisfied), got %v", advanced)
+	}
+	if len(advanced) != 1 {
+		t.Fatalf("want exactly [evaluate_sources] to advance (evaluate_perspectives is waived, so it must be skipped even though its own gate now passes), got %v", advanced)
+	}
+	// N6 C3: Advance's ConfirmGate call is the write side of "advanced" —
+	// exactly one contract (evaluate_sources) should ever be confirmed here.
+	// If the waived-skip guard were removed/broken, evaluate_perspectives
+	// would reach Advance, pass its now-satisfiable gate, and get confirmed
+	// too — bumping this to 2.
+	if f.confirmGateCalls != 1 {
+		t.Fatalf("want exactly 1 ConfirmGate call (evaluate_sources only), got %d", f.confirmGateCalls)
 	}
 	states, _ := f.ListGateStates(context.Background(), pid)
 	for id := range f.waived {
