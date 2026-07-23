@@ -89,8 +89,13 @@ migration-Down tests already existed for 0024–0027.
 - **N6-E** template-driven personalized journeys — own brainstorm (the
   writing-project stations become a template; an LLM composes a per-student
   journey instead of forcing all 7 stations; more templates later).
-- **Task 9** — relocate `apps/web`'s 113 co-located tests into a `test/` tree
-  (matches `packages/contracts`); own follow-up slice.
+- ~~**Task 9** — relocate `apps/web`'s 113 co-located tests into a `test/`
+  tree.~~ **DONE `f43226b` (2026-07-23):** all 113 moved `src/**`→`test/**`;
+  added a `@/`→`src/` alias (vitest+vite+tsconfig) so moved tests import
+  `@/studio/Foo`, not `../../src/...`; codemod rewrote relative→`@/` specifiers
+  incl. `vi.mock`/dynamic-`import()`; `setup.ts` stayed at `src/test/`.
+  Invariant held (113 files/700 tests identical, tsc clean, vite build ok, git
+  tracked all as renames).
 - **`ChatContainer.tsx` mount-effect race** (surfaced by H4): unconditional
   `setEntries(getMessages)` with no stale-fetch guard can wipe just-sent bubbles
   on a slow history load; the de-flaked test now flushes past mount, so this
