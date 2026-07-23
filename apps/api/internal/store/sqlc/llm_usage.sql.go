@@ -12,6 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countLLMCallsByProjectPurpose = `-- name: CountLLMCallsByProjectPurpose :one
+SELECT count(*) FROM llm_call
+WHERE project_id = $1 AND purpose = $2
+`
+
+type CountLLMCallsByProjectPurposeParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	Purpose   string      `json:"purpose"`
+}
+
+func (q *Queries) CountLLMCallsByProjectPurpose(ctx context.Context, arg CountLLMCallsByProjectPurposeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countLLMCallsByProjectPurpose, arg.ProjectID, arg.Purpose)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listLLMCallsByProject = `-- name: ListLLMCallsByProject :many
 SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at FROM llm_call
 WHERE project_id = $1

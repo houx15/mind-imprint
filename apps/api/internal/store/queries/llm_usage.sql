@@ -12,3 +12,7 @@ RETURNING *;
 SELECT * FROM llm_call
 WHERE project_id = $1
 ORDER BY created_at;
+
+-- name: CountLLMCallsByProjectPurpose :one
+SELECT count(*) FROM llm_call
+WHERE project_id = $1 AND purpose = $2;

@@ -101,6 +101,13 @@ type fakeAgentStore struct {
 	// at L1 forever and make those tests vacuous.
 	completedCardUses           map[string]int
 	countCompletedCardUsesCalls int
+
+	// classifyCount backs CountClassifierCalls (N6 C4) — settable per test so
+	// TestClassifierCappedPerProject can simulate a project that already hit
+	// MaxClassifyCallsPerProject, defaulting to 0 (never capped) like the
+	// other settable counters above.
+	classifyCount        int64
+	countClassifierCalls int
 }
 
 func (f *fakeAgentStore) LoadGraph(context.Context, uuid.UUID) (GraphView, error) {
@@ -173,6 +180,14 @@ func (f *fakeAgentStore) GetCardInstance(_ context.Context, id uuid.UUID) (CardI
 func (f *fakeAgentStore) CountCompletedCardUsesByUser(_ context.Context, _ uuid.UUID, cardID string) (int, error) {
 	f.countCompletedCardUsesCalls++
 	return f.completedCardUses[cardID], nil
+}
+
+// CountClassifierCalls backs the N6 C4 spend cap — settable per test via
+// f.classifyCount, defaulting to 0 (never capped) so every pre-existing
+// classifier test is unaffected.
+func (f *fakeAgentStore) CountClassifierCalls(_ context.Context, _ uuid.UUID) (int64, error) {
+	f.countClassifierCalls++
+	return f.classifyCount, nil
 }
 
 // GetSourceLogByMaterial reads the fake's in-memory source-log stand-in.
@@ -958,6 +973,37 @@ func TestRunAgentStepSemanticMomentSurfacesItsCard(t *testing.T) {
 	}
 	if store.recordLLMCallCalls != 1 || store.lastLLMCall.Purpose != "classify" || store.lastLLMCall.Surface != "studio" {
 		t.Fatalf("want one metered classify call, got calls=%d last=%+v", store.recordLLMCallCalls, store.lastLLMCall)
+	}
+}
+
+// TestClassifierCappedPerProject covers the N6 C4 spend backstop: a project
+// with an eligible moment and a long-enough student turn would normally
+// classify (see TestRunAgentStepSemanticMomentSurfacesItsCard), but once the
+// fake's classifyCount already reports MaxClassifyCallsPerProject calls, the
+// classifier must never run — the provider is never touched.
+func TestClassifierCappedPerProject(t *testing.T) {
+	store := &fakeAgentStore{
+		graph:         GraphView{},
+		cardInstances: map[uuid.UUID]CardInstanceRow{},
+		classifyCount: MaxClassifyCallsPerProject,
+	}
+	prov := &countingProvider{inner: scriptedProvider("one_sided")}
+	deps := AgentDeps{
+		Store:    store,
+		Provider: prov,
+		Resolved: testResolved,
+		Sim:      constSim(0.0),
+	}
+
+	action, err := RunAgentStep(context.Background(), deps, uuid.New(), Trigger{Kind: "student_turn", StudentText: longEnoughText})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != nil {
+		t.Fatalf("want silence once the classifier cap is reached, got %+v", action)
+	}
+	if prov.calls != 0 {
+		t.Fatalf("want zero provider calls once capped, got %d", prov.calls)
 	}
 }
 

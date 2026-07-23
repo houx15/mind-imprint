@@ -178,7 +178,20 @@ type AgentStore interface {
 	// result:passed event in ONE transaction, so a gate can never read solid
 	// while the process tree lacks the record that it passed (N6 C3).
 	ConfirmGate(ctx context.Context, projectID uuid.UUID, contract string, rec RecordedGate, passedEvent EventRow) error
+
+	// CountClassifierCalls bounds moment-classifier spend: the 5th subagent
+	// runs every turn while a moment stays eligible, so a project where a
+	// moment never trips would classify forever. Capped at
+	// MaxClassifyCallsPerProject (N6 C4).
+	CountClassifierCalls(ctx context.Context, projectID uuid.UUID) (int64, error)
 }
+
+// MaxClassifyCallsPerProject is the N6 C4 spend backstop for
+// semanticCardCandidate's moment classifier: a generous cap normal projects
+// never approach (they trip their moments well within it), but that bounds
+// the cost of a project whose moment never trips and would otherwise
+// classify every turn indefinitely.
+const MaxClassifyCallsPerProject = 20
 
 // AgentDeps bundles the runtime loop's dependencies (design §2): the
 // persistence seam, the model provider + its resolved routing (the coach
@@ -499,6 +512,11 @@ func semanticCardCandidate(ctx context.Context, deps AgentDeps, projectID uuid.U
 	}
 	eligible := EligibleMoments(g.CardInstances)
 	if len(eligible) == 0 {
+		return Candidate{}, false
+	}
+	if n, err := deps.Store.CountClassifierCalls(ctx, projectID); err != nil {
+		slog.Warn("agent: classifier cap count failed; proceeding", "project_id", projectID.String(), "err", err.Error())
+	} else if n >= MaxClassifyCallsPerProject {
 		return Candidate{}, false
 	}
 	moment, usage, err := ClassifyMoment(ctx, deps.Provider, deps.Resolved, text, eligible)

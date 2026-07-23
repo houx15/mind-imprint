@@ -269,6 +269,16 @@ func (s *sqlcAgentStore) CountCompletedCardUsesByUser(ctx context.Context, userI
 	return int(n), nil
 }
 
+// CountClassifierCalls backs the N6 C4 spend cap (loop.go's
+// MaxClassifyCallsPerProject): how many moment-classifier calls
+// (Purpose="classify") this project has already been metered for.
+func (s *sqlcAgentStore) CountClassifierCalls(ctx context.Context, projectID uuid.UUID) (int64, error) {
+	return s.q.CountLLMCallsByProjectPurpose(ctx, sqlc.CountLLMCallsByProjectPurposeParams{
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Purpose:   "classify",
+	})
+}
+
 // GetSourceLogByMaterial reads one source_log_entry's ingestion-time tier —
 // what CompleteCard reads as tier_before, BEFORE a cross_check's mint
 // overwrites it with her post-check re-tier (Task 7). tier is nullable in
