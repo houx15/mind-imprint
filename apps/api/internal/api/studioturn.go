@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -261,6 +262,13 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID, action.MaterialID); ok {
 				anchors = raw
 			}
+		} else if spec.ID == "search-plan" {
+			// N3e: seed the matrix rows from her preregistration directions so
+			// she critiques her own plan (spec §2.3b). Same persist-and-carry
+			// contract as surfaceAnchors; degrades to [] if there is no plan.
+			if raw, ok := a.seedSearchPlanAnchors(ctx, store, projectID, action.CardInstanceID); ok {
+				anchors = raw
+			}
 		}
 		_ = em.Card(action.CardInstanceID, action.CardID, spec.Name, anchors, action.MaterialID)
 	case action.Kind == "intervention":
@@ -366,6 +374,67 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 	}
 	if err := store.SetCardInstanceAnchors(ctx, projectID, cid, raw); err != nil {
 		slog.Warn("surface anchors: persist failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+		return nil, false
+	}
+	return raw, true
+}
+
+// seedSearchPlanAnchors seeds the search-plan matrix card's rows from the
+// student's own retrieval plan: one row per `preregistration` direction, so she
+// critiques the plan she wrote rather than re-typing it. Mirrors surfaceAnchors'
+// contract exactly — build, persist on the card_instance, return the JSON to
+// carry on the same SSE `card` frame — and degrades to (nil,false) on any error
+// so the card still surfaces (with no seeded rows) rather than failing the turn.
+//
+// The anchor shape is what apps/web/src/primitives/matrix/serialize.ts's
+// anchorsToMatrixState rehydrates into a labelled, empty-celled row: a non-blank
+// `quote` (the direction) and a `dimension` that is a real column id
+// ("evidence_type", cols[0]); `answer` stays "" so the server completion
+// predicate (firstIncompleteMatrixRow) never counts the seed as done until she
+// fills the cells.
+func (a *API) seedSearchPlanAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, cardInstanceID string) ([]byte, bool) {
+	nodes, err := a.d.Queries.ListGraphNodesByProject(ctx, projectID)
+	if err != nil {
+		return nil, false
+	}
+	// Newest preregistration node wins (nodes are ordered by created_at asc;
+	// take the last preregistration seen). Its body is {directions:[]string}.
+	var directions []string
+	for _, n := range nodes {
+		if n.Type != "preregistration" {
+			continue
+		}
+		var body struct {
+			Directions []string `json:"directions"`
+		}
+		if json.Unmarshal(n.Body, &body) == nil {
+			directions = body.Directions // last wins
+		}
+	}
+	if len(directions) == 0 {
+		return nil, false
+	}
+	// Build agent.Anchor directly so the persisted shape is byte-for-byte what
+	// the reader unmarshals. Only quote/dimension/answer matter to the matrix
+	// serializer; the zero-valued positional fields (start/end/…) are ignored.
+	seeds := make([]agent.Anchor, 0, len(directions))
+	for _, d := range directions {
+		if d = strings.TrimSpace(d); d != "" {
+			seeds = append(seeds, agent.Anchor{Quote: d, Dimension: "evidence_type", Answer: "", Author: "student"})
+		}
+	}
+	if len(seeds) == 0 {
+		return nil, false
+	}
+	raw, err := json.Marshal(seeds)
+	if err != nil {
+		return nil, false
+	}
+	cid, err := uuid.Parse(cardInstanceID)
+	if err != nil {
+		return nil, false
+	}
+	if err := store.SetCardInstanceAnchors(ctx, projectID, cid, raw); err != nil {
 		return nil, false
 	}
 	return raw, true
