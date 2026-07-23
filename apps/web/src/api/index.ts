@@ -19,7 +19,7 @@ import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, sig
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
-import { startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
+import { startCourseSession, getCourseSession, restartCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
 import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
 import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 
@@ -86,6 +86,7 @@ export interface ApiClient {
   generateChatAssessment(threadId: string): Promise<DualAxisReport>;
   startCourseSession(courseId: string): Promise<CourseSession>;
   getCourseSession(courseId: string): Promise<CourseSession>;
+  restartCourseSession(courseId: string): Promise<CourseSession>;
   submitCourseCard(courseId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipCourseCard(courseId: string, cardInstanceId: string): Promise<void>;
   courseAsk(courseId: string, userInput: string): AsyncGenerator<CourseTurnEvent>;
@@ -109,7 +110,7 @@ export const api: ApiClient = {
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
   getChatAssessment, generateChatAssessment,
-  startCourseSession, getCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
+  startCourseSession, getCourseSession, restartCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance,
   getCourseAssessment, generateCourseAssessment,
   getGrowthHistory,
   getAbilityModel,

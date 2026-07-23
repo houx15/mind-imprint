@@ -13,6 +13,7 @@ vi.mock("../../api", async (orig) => {
       getCourseAssessment: vi.fn(),
       generateCourseAssessment: vi.fn(),
       getCourseSession: vi.fn(),
+      restartCourseSession: vi.fn(),
     },
   };
 });
@@ -86,6 +87,24 @@ describe("CourseReport", () => {
     expect(onBack).toHaveBeenCalled();
     fireEvent.click(screen.getByText(/去写作工作室/));
     expect(onPortal).toHaveBeenCalled();
+  });
+
+  // Task 5: a plain 重新开始 control (铁律 2 — student-triggered, no
+  // celebration) restarts the session server-side, then leaves the finished
+  // report so re-opening the course picks up the fresh session restart made.
+  it("offers 重新开始 on the finished screen and restarts on click", async () => {
+    (api.restartCourseSession as any).mockResolvedValue({
+      id: "sess2", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active",
+      messages: [], openCards: [], collectedCards: [],
+    });
+    const onBack = vi.fn();
+    render(<CourseReport courseId="co1" onBackToCourses={onBack} onGoPortal={vi.fn()} />);
+    await screen.findByText("一条网络信息，该不该信");
+
+    fireEvent.click(screen.getByRole("button", { name: "重新开始" }));
+
+    await waitFor(() => expect(api.restartCourseSession).toHaveBeenCalledWith("co1"));
+    await waitFor(() => expect(onBack).toHaveBeenCalled());
   });
 
   // A1: 挑战通过 counted challenges that EXIST, not ones the student reached —

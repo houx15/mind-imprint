@@ -15,6 +15,12 @@ export function startCourseSession(courseId: string): Promise<CourseSession> {
 export function getCourseSession(courseId: string): Promise<CourseSession> {
   return apiFetch<CourseSession>(`/api/v1/courses/${courseId}/session`);
 }
+// restartCourseSession deletes-then-recreates the caller's session server-side
+// (Task 4) and returns the fresh session in one call — 铁律 2: this is only
+// ever invoked from a direct student click, never pushed automatically.
+export function restartCourseSession(courseId: string): Promise<CourseSession> {
+  return apiFetch<CourseSession>(`/api/v1/courses/${courseId}/session/restart`, { method: "POST" });
+}
 export function submitCourseCard(courseId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void> {
   return apiFetch<void>(`/api/v1/courses/${courseId}/session/cards/${cardInstanceId}/submit`, { method: "POST", body: JSON.stringify(payload) });
 }

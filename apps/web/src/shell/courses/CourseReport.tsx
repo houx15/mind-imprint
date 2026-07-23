@@ -19,6 +19,7 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
   const [assessment, setAssessment] = useState<DualAxisReportT | null>(null);
   const [assessErr, setAssessErr] = useState(false);
   const [collectedCardIds, setCollectedCardIds] = useState<string[]>([]);
+  const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +48,23 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
     })();
     return () => { cancelled = true; };
   }, [courseId]);
+
+  // 铁律 2: student-triggered, never pushed. Restart deletes-and-recreates the
+  // session server-side (Task 4) in one call, so by the time this resolves a
+  // fresh session already exists at the first phase — leaving this finished
+  // report back to the grid is enough to "reset to a fresh session": the next
+  // time the student opens this course, CoursePlayer's startCourseSession
+  // (get-or-create) simply hands back the fresh session restart just made.
+  async function handleRestart() {
+    if (restarting) return;
+    setRestarting(true);
+    try {
+      await api.restartCourseSession(courseId);
+      onBackToCourses();
+    } finally {
+      setRestarting(false);
+    }
+  }
 
   if (!course) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在整理你的学习报告…</div>;
 
@@ -152,9 +170,11 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
           </div>
         )}
 
-        {/* actions */}
+        {/* actions — a plain 重新开始 sits with the other two neutral/primary
+            controls; no celebration styling (铁律 2). */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 22 }}>
           <button type="button" onClick={onBackToCourses} style={{ flex: "none", background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", fontSize: 14, fontWeight: 700, padding: "13px 20px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>返回课程</button>
+          <button type="button" disabled={restarting} onClick={() => void handleRestart()} style={{ flex: "none", background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", fontSize: 14, fontWeight: 700, padding: "13px 20px", borderRadius: 12, cursor: restarting ? "default" : "pointer", fontFamily: "inherit", opacity: restarting ? 0.6 : 1 }}>重新开始</button>
           <button type="button" onClick={onGoPortal} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#4C9A82", color: "#fff", border: "none", fontSize: 14.5, fontWeight: 700, padding: 13, borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>
             去写作工作室，用起来
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
