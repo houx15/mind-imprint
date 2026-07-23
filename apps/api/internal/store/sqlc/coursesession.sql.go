@@ -100,6 +100,20 @@ func (q *Queries) CreateCourseSession(ctx context.Context, arg CreateCourseSessi
 	return i, err
 }
 
+const deleteCourseSessionByUserCourse = `-- name: DeleteCourseSessionByUserCourse :exec
+DELETE FROM course_session WHERE user_id = $1 AND course_id = $2
+`
+
+type DeleteCourseSessionByUserCourseParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+func (q *Queries) DeleteCourseSessionByUserCourse(ctx context.Context, arg DeleteCourseSessionByUserCourseParams) error {
+	_, err := q.db.Exec(ctx, deleteCourseSessionByUserCourse, arg.UserID, arg.CourseID)
+	return err
+}
+
 const getCourseSession = `-- name: GetCourseSession :one
 SELECT id, user_id, course_id, skill_id, phase, status, created_at, updated_at FROM course_session WHERE id = $1
 `

@@ -159,6 +159,151 @@ func TestCourseSession_OwnershipIs404(t *testing.T) {
 	}
 }
 
+// TestCourseSession_Restart — restarting mints a NEW session id at the FIRST
+// phase and wipes the prior run's session-scoped data (a card instance and a
+// course_message row created against the old session id are gone after
+// restart — the ON DELETE CASCADE, not a soft reset).
+func TestCourseSession_Restart(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider:     courseProvider(`{"type":"advance","to":"guided"}`),
+		ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	sess := startSession(t, h, cookie, courseSeededCourseID)
+	sessID := uuid.MustParse(sess.ID)
+
+	// Create session-scoped state to prove restart wipes it: a card instance
+	// and a course_message row against the pre-restart session id.
+	ci, err := q.CreateSessionCardInstance(context.Background(), sqlc.CreateSessionCardInstanceParams{
+		SessionID: pgUUID(sessID), CardID: "craap", Status: "proposed",
+	})
+	if err != nil {
+		t.Fatalf("create card instance: %v", err)
+	}
+	if _, err := q.CreateCourseMessage(context.Background(), sqlc.CreateCourseMessageParams{
+		SessionID: sessID, Phase: "demonstrate", Role: "student", Content: "在重启前留下的一句话",
+	}); err != nil {
+		t.Fatalf("create course message: %v", err)
+	}
+
+	// Advance the session's phase away from the first phase (demonstrate is
+	// unreachable to satisfy here without rendering steps, so instead just
+	// bump the DB row directly to prove restart resets phase, not merely
+	// preserves whatever it already was).
+	if _, err := q.SetCourseSessionPhase(context.Background(), sqlc.SetCourseSessionPhaseParams{
+		ID: sessID, Phase: "guided",
+	}); err != nil {
+		t.Fatalf("bump phase: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/restart", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("restart = %d; %s", rec.Code, rec.Body)
+	}
+	var fresh CourseSessionDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &fresh); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if fresh.ID == sess.ID {
+		t.Fatalf("restart must mint a NEW session id, got the same %s", fresh.ID)
+	}
+	if fresh.Phase != "demonstrate" {
+		t.Fatalf("restart phase = %q, want the first phase demonstrate", fresh.Phase)
+	}
+	if len(fresh.CollectedCards) != 0 {
+		t.Fatalf("fresh session must carry no collected cards, got %+v", fresh.CollectedCards)
+	}
+
+	// The old session row itself is gone (cascade deletes it, not just its
+	// children) — the get-or-create resolves to fresh.ID from here on.
+	var count int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM course_session WHERE id = $1`, sessID,
+	).Scan(&count); err != nil {
+		t.Fatalf("count old session row: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("old session row must be deleted by restart, found %d", count)
+	}
+
+	// The old session's card instance and course_message rows are wiped by
+	// the cascade — session-scoped state does not survive a restart.
+	var ciCount int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM card_instances WHERE id = $1`, ci.ID,
+	).Scan(&ciCount); err != nil {
+		t.Fatalf("count old card instance: %v", err)
+	}
+	if ciCount != 0 {
+		t.Fatalf("old card instance must be wiped by the cascade, found %d", ciCount)
+	}
+	var msgCount int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM course_message WHERE session_id = $1`, sessID,
+	).Scan(&msgCount); err != nil {
+		t.Fatalf("count old course_message rows: %v", err)
+	}
+	if msgCount != 0 {
+		t.Fatalf("old course_message rows must be wiped by the cascade, found %d", msgCount)
+	}
+
+	// GET session now resolves to the fresh session, not the old one.
+	got := startSession(t, h, cookie, courseSeededCourseID)
+	if got.ID != fresh.ID {
+		t.Fatalf("subsequent get-or-create = %s, want the restarted session %s", got.ID, fresh.ID)
+	}
+}
+
+// TestCourseSession_Restart_OwnershipDeletesNothing mirrors
+// TestCourseSession_OwnershipIs404: restarting deletes ONLY the caller's own
+// session (keyed by user_id), never another student's — a caller with no
+// session of their own for this course still gets 200 with a freshly minted
+// session, and the other student's session/card survive untouched.
+func TestCourseSession_Restart_OwnershipDeletesNothing(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, SpecByID: cards.ByID}).Handler()
+	courseID := uuid.MustParse(courseSeededCourseID)
+
+	other := createStudent(t, pool, SeedSchoolID, "course-restart-other@demo.local")
+	otherSess, err := q.CreateCourseSession(context.Background(), sqlc.CreateCourseSessionParams{
+		UserID: other, CourseID: courseID, SkillID: "info-literacy-course", Phase: "demonstrate",
+	})
+	if err != nil {
+		t.Fatalf("create other student's session: %v", err)
+	}
+
+	cookie := signInSeed(t, pool) // Phoebe — has no session of her own yet.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/courses/"+courseSeededCourseID+"/session/restart", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("restart with no prior session = %d; %s", rec.Code, rec.Body)
+	}
+	var fresh CourseSessionDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &fresh); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if fresh.ID == otherSess.ID.String() {
+		t.Fatal("the caller's fresh session must not be the other student's session")
+	}
+
+	// The other student's session must be untouched.
+	var otherStillThere int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM course_session WHERE id = $1`, otherSess.ID,
+	).Scan(&otherStillThere); err != nil {
+		t.Fatalf("count other student's session: %v", err)
+	}
+	if otherStillThere != 1 {
+		t.Fatal("another student's session must survive the caller's restart untouched")
+	}
+}
+
 // TestCourseSession_Ask — a POST .../session/ask with a stub provider
 // returning a reply streams a text frame then done, and records exactly one
 // llm_call row (surface=course, purpose=coach, project_id NULL).

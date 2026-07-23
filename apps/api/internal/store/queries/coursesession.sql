@@ -15,6 +15,9 @@ SELECT * FROM course_session WHERE id = $1;
 -- name: GetCourseSessionByUserCourse :one
 SELECT * FROM course_session WHERE user_id = $1 AND course_id = $2;
 
+-- name: DeleteCourseSessionByUserCourse :exec
+DELETE FROM course_session WHERE user_id = $1 AND course_id = $2;
+
 -- name: SetCourseSessionPhase :one
 UPDATE course_session SET phase = $2, updated_at = now()
 WHERE id = $1

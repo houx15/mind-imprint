@@ -142,6 +142,30 @@ func (a *API) collectedCourseSessionCards(ctx context.Context, sessionID uuid.UU
 	return collected, nil
 }
 
+// getOrCreateCourseSessionDTO mints (or resumes, via CreateCourseSession's
+// upsert) the caller's session for courseID at the seeded skill's first
+// phase, then builds its DTO. Shared by startCourseSession (get-or-create)
+// and restartCourseSession (delete-then-recreate) — the ONLY path either
+// handler uses to mint a fresh session, so they can never drift.
+func (a *API) getOrCreateCourseSessionDTO(ctx context.Context, userID uuid.UUID, courseID uuid.UUID) (CourseSessionDTO, error) {
+	sk, ok := skills.ByID(courseSkillID)
+	if !ok {
+		return CourseSessionDTO{}, httpx.ErrInternal()
+	}
+	order, err := sk.LinearOrder()
+	if err != nil || len(order) == 0 {
+		return CourseSessionDTO{}, httpx.ErrInternal()
+	}
+
+	sess, err := a.d.Queries.CreateCourseSession(ctx, sqlc.CreateCourseSessionParams{
+		UserID: userID, CourseID: courseID, SkillID: sk.ID, Phase: order[0],
+	})
+	if err != nil {
+		return CourseSessionDTO{}, err
+	}
+	return a.buildCourseSessionDTO(ctx, sess, sk)
+}
+
 // startCourseSession gets-or-creates the caller's session for course {id}.
 // Idempotent on the UNIQUE(user_id, course_id) constraint (CreateCourseSession
 // is an upsert) — re-entering a course resumes it rather than restarting it.
@@ -153,30 +177,41 @@ func (a *API) startCourseSession(w http.ResponseWriter, r *http.Request) {
 	}
 	u, _ := UserFromContext(r.Context())
 
-	sk, ok := skills.ByID(courseSkillID)
-	if !ok {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
-	}
-	order, err := sk.LinearOrder()
-	if err != nil || len(order) == 0 {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
-	}
-
-	sess, err := a.d.Queries.CreateCourseSession(r.Context(), sqlc.CreateCourseSessionParams{
-		UserID: u.ID, CourseID: courseID, SkillID: sk.ID, Phase: order[0],
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	dto, err := a.buildCourseSessionDTO(r.Context(), sess, sk)
+	dto, err := a.getOrCreateCourseSessionDTO(r.Context(), u.ID, courseID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, dto)
+}
+
+// restartCourseSession deletes the caller's session for this course — the
+// ON DELETE CASCADE on session-scoped material/card_instances/event/
+// evaluations wipes the prior run — then re-creates a fresh session at the
+// first phase and returns it. Owner-scoped: the delete is keyed by user_id,
+// so a non-owner's request deletes nothing (idempotent, never a 403 leak).
+// 铁律 2: student-triggered, never pushed — this endpoint only ever fires on
+// a direct student action.
+func (a *API) restartCourseSession(w http.ResponseWriter, r *http.Request) {
+	courseID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+
+	if err := a.d.Queries.DeleteCourseSessionByUserCourse(r.Context(), sqlc.DeleteCourseSessionByUserCourseParams{
+		UserID: u.ID, CourseID: courseID,
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	dto, err := a.getOrCreateCourseSessionDTO(r.Context(), u.ID, courseID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
 // getCourseSession returns the caller's existing session (404 if none).
