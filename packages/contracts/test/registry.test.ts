@@ -4,7 +4,7 @@ import { loadRegistry, deriveCatalog } from "../src/registry";
 describe("loadRegistry", () => {
   it("loads the full registry including the 2 demo cards", () => {
     const reg = loadRegistry();
-    expect(Object.keys(reg)).toHaveLength(35);
+    expect(Object.keys(reg)).toHaveLength(36);
     expect(reg.sift_craap).toBeDefined();
     expect(reg.concession).toBeDefined();
   });
@@ -19,10 +19,23 @@ describe("loadRegistry", () => {
   });
 });
 
+describe("search-plan card", () => {
+  it("is in the registry and is a project-scoped matrix card with the R-9 consolidation", () => {
+    const spec = loadRegistry()["search-plan"];
+    expect(spec).toBeDefined();
+    expect(spec!.primitive).toBe("matrix");
+    expect(spec!.target_type).toBe("project");
+    expect(spec!.consolidation).toBe("reveal_framework_after_completion");
+    const params = spec!.params as { cols: { id: string }[]; row_noun: string };
+    expect(params.cols.map((c) => c.id)).toEqual(["evidence_type", "blind_spot", "disconfirm"]);
+    expect(params.row_noun).toBe("检索方向");
+  });
+});
+
 describe("deriveCatalog", () => {
   it("projects one trigger_condition line per card and nothing stale", () => {
     const cat = deriveCatalog(loadRegistry());
-    expect(cat).toHaveLength(35);
+    expect(cat).toHaveLength(36);
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
     expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
   });

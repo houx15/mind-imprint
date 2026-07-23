@@ -1,0 +1,53 @@
+{
+  "id": "search-plan",
+  "category": "溯源与多视角",
+  "name": "检索方向审视",
+  "name_en": "Search-Plan Audit",
+  "purpose": "在真正去查之前，逐条想清楚每个检索方向会给你哪一类证据、又系统性地漏掉什么",
+  "trigger_condition": "学生已经写下检索计划（打算去哪找证据），但没有想过每个方向的偏差与盲区",
+  "trigger_keywords": ["去哪找", "检索", "找证据", "搜", "查资料"],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": ["MYP", "DP"],
+  "interaction_type": "画布导图卡",
+  "rubric_dims": ["D3"],
+  "related": ["sift", "craap", "perspective-matrix"],
+  "body_status": "full",
+  "rubric_tags": ["D3"],
+  "primitive": "matrix",
+  "target_type": "project",
+  "params": {
+    "cols": [
+      { "id": "evidence_type", "label": "会给什么", "q": "这个方向最可能给你哪一类证据？" },
+      { "id": "blind_spot", "label": "看不见什么", "q": "它系统性地看不见什么？绕开了谁、绕开了哪种反面情况？" },
+      { "id": "disconfirm", "label": "能否证伪", "q": "如果你的结论其实是错的，这个方向找得到反证吗，还是只会印证你？" }
+    ],
+    "min_items": 1,
+    "row_prompt": "你检索计划里的一条方向",
+    "row_noun": "检索方向"
+  },
+  "completion": [{ "kind": "matrix_complete" }],
+  "graph_effects": [],
+  "consolidation": "reveal_framework_after_completion",
+  "intrusiveness_cap": "I3",
+  "steps": [
+    {
+      "key": "rows",
+      "title": "逐条审视检索方向",
+      "disclose": "always",
+      "methodology": {
+        "why": "多数「找错证据」不是懒，而是只往会同意你的地方找——检索计划里每个方向都带着它自己的偏差和盲区，先看清，再去查，比查完一堆再发现全是一边的声音要省力得多。",
+        "how": "对每条方向问三件事：它会给你哪一类证据、它看不见什么、以及它能不能证伪你——如果一个方向永远只会印证你，它就不是在帮你查证，是在帮你说服自己。",
+        "when": "在你按这份计划真正开始检索之前。"
+      },
+      "fields": [
+        { "type": "repeatable_group", "key": "directions", "label": "每行一条检索方向", "item_fields": [
+          { "type": "text", "key": "direction", "label": "检索方向" },
+          { "type": "textarea", "key": "evidence_type", "label": "会给你哪一类证据？" },
+          { "type": "textarea", "key": "blind_spot", "label": "看不见什么？" },
+          { "type": "textarea", "key": "disconfirm", "label": "能不能证伪你？" }
+        ] }
+      ]
+    }
+  ]
+}

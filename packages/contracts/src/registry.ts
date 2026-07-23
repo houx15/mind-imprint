@@ -30,6 +30,7 @@ import perspectiveMatrix from "../cards/perspective-matrix.json";
 import questionCard from "../cards/question-card.json";
 import rabbitHole from "../cards/rabbit-hole.json";
 import scienceKnowing from "../cards/science-knowing.json";
+import searchPlan from "../cards/search-plan.json";
 import sift from "../cards/sift.json";
 import sourceMap from "../cards/source-map.json";
 import spinDetector from "../cards/spin-detector.json";
@@ -69,6 +70,7 @@ const DEFAULT_RAW: Record<string, unknown> = {
   "question-card": questionCard,
   "rabbit-hole": rabbitHole,
   "science-knowing": scienceKnowing,
+  "search-plan": searchPlan,
   sift,
   "source-map": sourceMap,
   "spin-detector": spinDetector,
