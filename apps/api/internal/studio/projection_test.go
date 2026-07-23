@@ -73,15 +73,18 @@ func TestProjectStations_S4Current(t *testing.T) {
 
 func TestProjectStations_GateProgress(t *testing.T) {
 	sk := writingSkill(t)
-	// build_argument gate: 2 machine + 2 student_written + 1 human = 5 items.
+	// build_argument gate: 1 machine (node_present concession) + 2
+	// student_written + 1 human = 4 items. no_unsupported_claim was removed in
+	// the N6 sweep (warn-not-block: it warns via the coach's D5 nudge instead
+	// of being a blocking machine item).
 	d := ProjectData{Plan: planNode(`["decode_task"]`)}
 	stations, _, err := projectStations(sk, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 5 {
-		t.Fatalf("S4 gate = %+v, want total 5", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 4 {
+		t.Fatalf("S4 gate = %+v, want total 4", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (empty graph)", s4.Gate.Passed)
@@ -92,11 +95,13 @@ func TestProjectStations_GateProgress(t *testing.T) {
 // realistic case the empty-graph test above misses: by the time a student
 // reaches build_argument (S4), S0-S3 are solid and the graph already has
 // unrelated nodes from earlier contracts (rubric_translation,
-// research_question) — but no claim/evidence node yet. build_argument's
-// negation-style machine predicate (no_unsupported_claim) passes vacuously
-// over that non-empty graph because there's still nothing of the scanned type
-// (claim) to check. That vacuous pass must not count as progress — Passed must
-// stay 0.
+// research_question) — but no claim/evidence/concession node yet.
+// build_argument's remaining machine item (node_present concession) is
+// correctly unmet, and no gate item passes vacuously, so Passed must stay 0.
+// (The old no_unsupported_claim negation predicate — which DID pass vacuously
+// over this non-empty graph — was removed in the N6 sweep: it now warns via
+// the coach's D5 nudge rather than blocking, so S4's machine gate no longer
+// has a vacuously-passable item at all.)
 func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T) {
 	sk := writingSkill(t)
 	d := ProjectData{
@@ -115,11 +120,11 @@ func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T)
 		t.Fatalf("current = %q, want S4", current)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 5 {
-		t.Fatalf("S4 gate = %+v, want total 5", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 4 {
+		t.Fatalf("S4 gate = %+v, want total 4", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
-		t.Fatalf("S4 passed = %d, want 0 (no claim/evidence nodes yet — vacuous negation passes must not count on a non-empty graph)", s4.Gate.Passed)
+		t.Fatalf("S4 passed = %d, want 0 (no concession/claim/evidence nodes yet — nothing passes vacuously on a non-empty graph)", s4.Gate.Passed)
 	}
 }
 
