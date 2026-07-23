@@ -199,14 +199,17 @@ func TestS3Gate_LateralReadIsNoLongerSelfAttested(t *testing.T) {
 	}
 }
 
-// TestBuildArgumentGateSolidAfterToulminMint covers the S4 (build_argument)
-// machine gate: no_unsupported_claim and node_present{concession}.
-// no_orphan_evidence was dropped from S4 — a real CRAAP `promote` mint leaves an
-// orphan evidence node (evaluated source, not yet wired into an argument), so
-// the predicate is unsatisfiable in the real flow; S4 is card completion, and
-// finishing the toulmin card satisfies the two predicates that remain. The
-// toulmin mint (Task 3) produces exactly evidence -[supports]-> claim plus a
-// concession node, which must satisfy both.
+// TestBuildArgumentGateSolidAfterToulminMint exercises the two machine
+// predicates a toulmin mint must satisfy — no_unsupported_claim and
+// node_present{concession} — via EvalMachineItemForTest on synthetic items, in
+// isolation from any gate's item LIST. (As of the N6 sweep, build_argument's
+// gate no longer lists no_unsupported_claim — it warns via the coach's D5 nudge
+// rather than blocking — but the predicate remains a valid evaluator kind, so
+// this predicate-level check still stands.) no_orphan_evidence was dropped from
+// S4 — a real CRAAP `promote` mint leaves an orphan evidence node (evaluated
+// source, not yet wired into an argument), so the predicate is unsatisfiable in
+// the real flow. The toulmin mint (Task 3) produces exactly evidence
+// -[supports]-> claim plus a concession node, which must satisfy both.
 func TestBuildArgumentGateSolidAfterToulminMint(t *testing.T) {
 	g := GraphView{
 		Nodes: []GraphNodeView{
