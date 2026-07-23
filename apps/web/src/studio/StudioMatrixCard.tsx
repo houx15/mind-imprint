@@ -29,10 +29,12 @@ export function StudioMatrixCard({ spec, cardInstanceId, anchors = [], onSubmit,
     cols?: Col[];
     min_items?: number;
     row_prompt?: string;
+    row_noun?: string;
   };
   const cols = p.cols ?? [];
   const minItems = p.min_items ?? 1;
   const rowPrompt = p.row_prompt ?? "";
+  const rowNoun = p.row_noun ?? "视角";
 
   // Working MatrixState. Seeded lazily from the persisted anchors
   // (rehydration), and re-seeded whenever the bound card_instance changes —
@@ -68,6 +70,7 @@ export function StudioMatrixCard({ spec, cardInstanceId, anchors = [], onSubmit,
         state={state}
         minItems={minItems}
         rowPrompt={rowPrompt}
+        rowNoun={rowNoun}
         onChange={setState}
         onLock={handleLock}
         onSkip={handleSkip}

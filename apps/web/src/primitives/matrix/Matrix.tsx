@@ -6,6 +6,7 @@ export type MatrixProps = {
   state: MatrixState;
   minItems: number;
   rowPrompt: string;
+  rowNoun: string;
   onChange: (s: MatrixState) => void;
   onLock: () => void;
   onSkip: () => void;
@@ -49,7 +50,7 @@ function PlusIcon() {
 // and scale (fixed rows classified into a fixed vocabulary), here the ROWS
 // themselves are student-authored — identifying whose perspective is
 // missing IS the thinking, which is why the card cannot pre-fill rows.
-export function Matrix({ cols, state, minItems, rowPrompt, onChange, onLock, onSkip }: MatrixProps) {
+export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, onLock, onSkip }: MatrixProps) {
   // 铁律 2: plain-text progress only, never a score/streak/bar/celebration.
   // completeCount mirrors the server exactly — completeMatrixRows /
   // firstIncompleteMatrixRow (apps/api/internal/agent/card_effects.go,
@@ -134,7 +135,7 @@ export function Matrix({ cols, state, minItems, rowPrompt, onChange, onLock, onS
             />
             <button
               type="button"
-              aria-label={`删除第 ${index + 1} 个视角`}
+              aria-label={`删除第 ${index + 1} 个${rowNoun}`}
               onClick={() => handleRemove(row.id)}
               style={{
                 background: "none",
@@ -196,11 +197,11 @@ export function Matrix({ cols, state, minItems, rowPrompt, onChange, onLock, onS
         }}
       >
         <PlusIcon />
-        添加一个视角
+        {`添加一个${rowNoun}`}
       </button>
 
       <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>
-        已完成 {completeCount} 个视角 · 还差 {remaining} 个
+        {`已完成 ${completeCount} 个${rowNoun} · 还差 ${remaining} 个`}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
