@@ -19,14 +19,15 @@ const CATEGORY_ORDER: { key: string; dot: string }[] = [
 ];
 const OTHER = { key: "其他", dot: "#9AA1B0" };
 
-type Enriched = CollectedCard & { name: string; purpose: string; category: string };
+type Enriched = CollectedCard & { name: string; purpose: string; category: string; move: string | null };
 
 function enrich(cards: CollectedCard[]): Enriched[] {
   const out: Enriched[] = [];
   for (const c of cards) {
     const spec = CARD_REGISTRY[c.cardId];
     if (!spec) continue; // drop ids absent from the registry (defensive)
-    out.push({ ...c, name: spec.name, purpose: spec.purpose, category: spec.category });
+    const move = spec.consolidation ? (spec.steps[0]?.methodology.why ?? null) : null;
+    out.push({ ...c, name: spec.name, purpose: spec.purpose, category: spec.category, move });
   }
   return out;
 }
@@ -95,6 +96,12 @@ export function ToolkitCards() {
                 </div>
                 <div style={{ fontSize: 12.5, color: "#8A92A3", lineHeight: 1.55, marginTop: 6 }}>{c.purpose}</div>
                 <div style={{ fontSize: 12, color: "#9AA1B0", marginTop: 10, fontWeight: 600 }}>{usageLine(c)}</div>
+                {c.move && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F2F6" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#4C9A82", marginBottom: 4 }}>你练的思路</div>
+                    <div style={{ fontSize: 12, color: "#6B7384", lineHeight: 1.6 }}>{c.move}</div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

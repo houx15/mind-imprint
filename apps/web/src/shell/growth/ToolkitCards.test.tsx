@@ -32,4 +32,13 @@ describe("ToolkitCards", () => {
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/还没有收集到工具卡/)).toBeTruthy());
   });
+
+  it("shows the thinking-move reveal (methodology why) for a card with consolidation", async () => {
+    vi.spyOn(api, "getGrowthCards").mockResolvedValue([
+      { cardId: "craap", uses: 1, surfaces: ["project"], lastUsed: "2026-07-23T00:00:00Z" },
+    ] as never);
+    render(<ToolkitCards />);
+    // The reveal is labelled and carries the spec's methodology.why.
+    expect(await screen.findByText(/你练的思路/)).toBeInTheDocument();
+  });
 });
