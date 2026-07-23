@@ -264,4 +264,19 @@ describe("CoursePlayer", () => {
     await userEvent.click(screen.getByText("接受"));
     expect(await screen.findByText("跳过这张卡")).toBeInTheDocument();
   });
+
+  // Task 3 (N5c): the step-less "challenge" phase (练一手) carries an inline
+  // `challenge` block on the skill contract — it must render via
+  // ChallengeTemplate, not TeachingTemplate, exactly like guided/reflect's
+  // `page` block does above.
+  it("renders the ChallengeTemplate for the step-less 练一手 phase", async () => {
+    const challengeSession: CourseSession = {
+      id: "sess1", courseId: "co1", phase: "challenge", phaseTitle: "练一手", status: "active", messages: [], openCards: [], collectedCards: [],
+    };
+    (api.startCourseSession as any).mockResolvedValue(challengeSession);
+    (api.getCourseSession as any).mockResolvedValue(challengeSession);
+
+    render(<CoursePlayer courseId="co1" onExit={vi.fn()} onFinish={vi.fn()} />);
+    expect(await screen.findByText(/多喝咖啡能显著延长寿命/)).toBeInTheDocument();
+  });
 });

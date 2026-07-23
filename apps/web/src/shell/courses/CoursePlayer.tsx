@@ -250,6 +250,8 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // revisit — DEC-12.5).
   const stepless = !!session && phaseSteps(session.phase).length === 0;
   const showAuthoredPage = stepless && !!pageBlock;
+  const challengeBlock = currentContract?.challenge;
+  const showAuthoredChallenge = stepless && !!challengeBlock;
   const showBackArrow = ordinal > 0 && !stepless;
 
   const total = course.steps.length;
@@ -293,7 +295,16 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
             <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#9AA1B0", letterSpacing: ".04em" }}>{phaseTitle}</div>
             </div>
-            {showAuthoredPage && pageBlock ? (
+            {showAuthoredChallenge && challengeBlock ? (
+              // The authored contract's anchors (PhaseChallengeAnchor: id/dimension/
+              // question/answer) are a strict subset of the full `Anchor` shape
+              // ChallengeTemplate's props declare (which also carries student
+              // text-selection provenance — material_id/block_id/start/end/quote/
+              // author, per N3c) — the component itself only ever reads the four
+              // shared fields, so the extra provenance fields are simply absent
+              // here, never read.
+              <ChallengeTemplate content={challengeBlock as unknown as ChallengeContent} />
+            ) : showAuthoredPage && pageBlock ? (
               <TeachingTemplate content={{ title: pageBlock.title, subtitle: pageBlock.subtitle, body: pageBlock.body, foreground_asset_id: null }} />
             ) : !rendered ? (
               <div style={{ maxWidth: 700, margin: "0 auto", color: "#9AA1B0" }}>印记正在为你准备这一页…</div>
