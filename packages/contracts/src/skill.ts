@@ -38,6 +38,20 @@ export type PhasePage = z.infer<typeof PhasePage>;
 export const AnchorMaterial = z.object({ title: z.string(), text: z.string() });
 export type AnchorMaterial = z.infer<typeof AnchorMaterial>;
 
+export const PhaseChallengeAnchor = z.object({
+  id: z.string(),
+  dimension: z.string(),
+  question: z.string(),
+  answer: z.string(),
+});
+export const PhaseChallenge = z.object({
+  title: z.string(),
+  prompt: z.string(),
+  reason_hint: z.string(),
+  anchors: z.array(PhaseChallengeAnchor),
+});
+export type PhaseChallenge = z.infer<typeof PhaseChallenge>;
+
 export const Contract = z.object({
   requires: z.array(z.string()).default([]),
   produces: z.array(z.string()).default([]),
@@ -51,6 +65,7 @@ export const Contract = z.object({
   page: PhasePage.optional(),
   cards: z.array(z.string()).optional(),
   anchor_material: AnchorMaterial.optional(),
+  challenge: PhaseChallenge.optional(),
   ask_chips: z.array(z.string()).optional(),
   floor: z.array(FloorItem).optional(),
   soft_condition: z.string().optional(),

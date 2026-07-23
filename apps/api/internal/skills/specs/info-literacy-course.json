@@ -49,6 +49,24 @@
       "floor": [{ "kind": "student_turns_at_least", "n": 1 }],
       "soft_condition": "学生说得出这次用的方法，而不只是这次的结论",
       "gate": { "machine": [], "student_written": [], "human": [] }
+    },
+    "challenge": {
+      "requires": ["reflect"], "title": "练一手", "steps": [],
+      "goal": "把方法迁移到一条全新的说法上——自己走一遍",
+      "challenge": {
+        "title": "练一手：这条你信不信？",
+        "prompt": "有人在群里转发：「研究证明，多喝咖啡能显著延长寿命。」用你这节课学到的方法，自己判断一次。",
+        "reason_hint": "你会不会转发？为什么？用你学到的方法说一句。",
+        "anchors": [
+          { "id": "c1", "dimension": "来源", "question": "这条说法的来源可信吗？谁做的研究、发在哪、是不是能查到原文？", "answer": "" },
+          { "id": "c2", "dimension": "证据", "question": "证据够吗？是相关还是因果、样本多大、有没有说清楚适用范围？", "answer": "" },
+          { "id": "c3", "dimension": "包装", "question": "有没有被包装？「研究证明」这类措辞在暗示什么、想让你直接相信什么？", "answer": "" }
+        ]
+      },
+      "ask_chips": ["我可以说「还不确定」吗？", "光看一句话，能判断到什么程度？"],
+      "floor": [],
+      "soft_condition": "学生把方法用在了这条新说法上，而不是凭印象下结论",
+      "gate": { "machine": [], "student_written": [], "human": [] }
     }
   }
 }

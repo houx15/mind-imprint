@@ -193,7 +193,7 @@ func TestLoadCourseSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("course chain must be linear: %v", err)
 	}
-	want := []string{"demonstrate", "guided", "independent", "reflect"}
+	want := []string{"demonstrate", "guided", "independent", "reflect", "challenge"}
 	if len(order) != len(want) {
 		t.Fatalf("order = %v, want %v", order, want)
 	}

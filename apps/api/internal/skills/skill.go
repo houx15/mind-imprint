@@ -58,6 +58,7 @@ type Contract struct {
 	Page           *PhasePage      `json:"page,omitempty"`
 	Cards          []string        `json:"cards,omitempty"`
 	AnchorMaterial *AnchorMaterial `json:"anchor_material,omitempty"`
+	Challenge      *PhaseChallenge `json:"challenge,omitempty"`
 	AskChips       []string        `json:"ask_chips,omitempty"`
 	Floor          []FloorItem     `json:"floor,omitempty"`
 	SoftCondition  string          `json:"soft_condition,omitempty"`
@@ -97,6 +98,25 @@ type PhasePage struct {
 type AnchorMaterial struct {
 	Title string `json:"title"`
 	Text  string `json:"text"`
+}
+
+// PhaseChallengeAnchor is one method dimension of a terminal self-check — a
+// local type so the skills package takes NO dependency on agent.Anchor.
+type PhaseChallengeAnchor struct {
+	ID        string `json:"id"`
+	Dimension string `json:"dimension"`
+	Question  string `json:"question"`
+	Answer    string `json:"answer"`
+}
+
+// PhaseChallenge is a step-less phase's inline transfer self-check (练一手,
+// N5c) — the ChallengeTemplate content the client renders. Machine never
+// adjudicates it (DEC-3 via explicit confirmation); it is a local self-check.
+type PhaseChallenge struct {
+	Title      string                 `json:"title"`
+	Prompt     string                 `json:"prompt"`
+	ReasonHint string                 `json:"reason_hint"`
+	Anchors    []PhaseChallengeAnchor `json:"anchors"`
 }
 
 // WordBudget is the per-qualification legal word band for S5 (draft_polish).
