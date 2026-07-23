@@ -23,14 +23,6 @@ type planBody struct {
 	Waived []string `json:"waived,omitempty"`
 }
 
-func waivedSet(ids []string) map[string]bool {
-	m := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		m[id] = true
-	}
-	return m
-}
-
 // Route is the advisory route: the unmet-and-reachable contracts in
 // topological DAG order. A contract is reachable iff every `requires` gate is
 // machine_clear-or-solid (work may begin once predecessors are structurally

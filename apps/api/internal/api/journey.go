@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -71,7 +72,9 @@ func (a *API) reopenStation(w http.ResponseWriter, r *http.Request) {
 	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: id, Surface: "studio", Type: "journey_reopened", Payload: payload,
 	}); err != nil {
-		// Telemetry only — the re-open already succeeded.
+		// Telemetry only — the re-open already succeeded. Log for parity with
+		// composeJourney's journey_composed append (project_create.go).
+		slog.Warn("reopen station: append event failed", "err", err, "project_id", id)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reopened": true})
 }
