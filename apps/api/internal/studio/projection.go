@@ -45,6 +45,7 @@ type Event struct {
 type planBody struct {
 	Route  []string `json:"route"`
 	Reason string   `json:"reason"`
+	Waived []string `json:"waived"`
 }
 
 func planRoute(plan *sqlc.GraphNode) []string {
@@ -56,6 +57,24 @@ func planRoute(plan *sqlc.GraphNode) []string {
 		return nil
 	}
 	return b.Route
+}
+
+// planWaived reads the plan node's waived set (Task 1's {route, reason,
+// waived} body). Absent plan or unparseable body → empty set (nothing
+// waived), never an error — this is a rendering concern, not a hard fail.
+func planWaived(plan *sqlc.GraphNode) map[string]bool {
+	if plan == nil {
+		return map[string]bool{}
+	}
+	var b planBody
+	if err := json.Unmarshal(plan.Body, &b); err != nil {
+		return map[string]bool{}
+	}
+	m := make(map[string]bool, len(b.Waived))
+	for _, id := range b.Waived {
+		m[id] = true
+	}
+	return m
 }
 
 // projectStations maps the skill's contract DAG onto S0..S6 and returns the
@@ -70,12 +89,13 @@ func projectStations(sk skills.Skill, d ProjectData) ([]StationDTO, string, erro
 	reports := agent.ReconcileGates(sk, g, recorded)
 
 	route := planRoute(d.Plan)
+	waived := planWaived(d.Plan)
 	head := "" // the plan's current contract
 	if len(route) > 0 {
 		head = route[0]
 	} else {
-		for _, id := range order { // no plan: first non-solid in topo order
-			if !reports[id].Solid {
+		for _, id := range order { // no plan: first non-solid, non-waived in topo order
+			if !reports[id].Solid && !waived[id] {
 				head = id
 				break
 			}
@@ -89,6 +109,8 @@ func projectStations(sk skills.Skill, d ProjectData) ([]StationDTO, string, erro
 		rep := reports[id]
 		st := StationDTO{Code: stationCode(i), Name: c.Title, View: c.View}
 		switch {
+		case waived[id]:
+			st.State = "waived" // 已跳过 · 可恢复 — honest (not "done"), re-openable
 		case rep.Solid:
 			st.State = "done"
 			// a done contract still on the route can be revisited
@@ -106,10 +128,28 @@ func projectStations(sk skills.Skill, d ProjectData) ([]StationDTO, string, erro
 		}
 		stations = append(stations, st)
 	}
-	if current == "" && len(stations) > 0 { // fully done: last station is current
+	if current == "" && len(stations) > 0 { // fully done/waived: last non-waived is current
 		current = stations[len(stations)-1].Code
+		for i := len(stations) - 1; i >= 0; i-- {
+			if stations[i].State != "waived" {
+				current = stations[i].Code
+				break
+			}
+		}
 	}
 	return stations, current, nil
+}
+
+// allDoneOrWaived reports whether every station is either finished or waived —
+// i.e. nothing is still current or locked. Used by canFinish when the writing
+// station itself is waived.
+func allDoneOrWaived(stations []StationDTO) bool {
+	for _, st := range stations {
+		if st.State != "done" && st.State != "waived" {
+			return false
+		}
+	}
+	return true
 }
 
 func stationCode(i int) string { return "S" + string(rune('0'+i)) }
@@ -471,8 +511,21 @@ func Project(sk skills.Skill, specByID func(string) (cards.Spec, bool), d Projec
 	coach.Equipment = projectEquipment(d, specByID)
 	finished := d.Project.Status == "finished"
 	recordedGates := agent.RecordedGatesFromNodes(d.GateStates)
-	// nil-map read is safe; absent gate/item → "" → not solid.
-	canFinish := !finished && recordedGates["draft_polish"].Items["whole_draft_review"] == "solid"
+	// canFinish: default arm keys on the S5 whole-draft review (unchanged
+	// behavior — S6 reflection stays optional). If draft_polish itself is
+	// waived, whole_draft_review can never be produced, so fall back to the
+	// general rule: every non-waived station is done. A waived station never
+	// walls finish (铁律 2).
+	waived := planWaived(d.Plan)
+	canFinish := !finished
+	if canFinish {
+		if waived["draft_polish"] {
+			canFinish = allDoneOrWaived(stations)
+		} else {
+			// nil-map read is safe; absent gate/item → "" → not solid.
+			canFinish = recordedGates["draft_polish"].Items["whole_draft_review"] == "solid"
+		}
+	}
 	return StudioProjection{
 		Project:       ProjectHeader{Title: d.Project.Title, QualLabel: d.Project.Qualification},
 		Stations:      stations,

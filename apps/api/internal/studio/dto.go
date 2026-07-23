@@ -119,7 +119,7 @@ type StationDTO struct {
 	Code     string   `json:"code"`
 	Name     string   `json:"name"`
 	View     string   `json:"view"`
-	State    string   `json:"state"`
+	State    string   `json:"state"` // "done"|"current"|"locked"|"waived"
 	Gate     *GateDTO `json:"gate,omitempty"`
 	Backflow bool     `json:"backflow,omitempty"`
 }

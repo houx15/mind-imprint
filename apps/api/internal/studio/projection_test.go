@@ -128,6 +128,32 @@ func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T)
 	}
 }
 
+// TestProjectStations_WaivedRendersDistinctNotDone pins the N6-E waived-set
+// render: a plan node whose body carries {"waived":[...]} (no route — the
+// planner never routes through a waived station, per Task 1) must render
+// those stations as "waived" (honest — not "done", nothing was produced),
+// and the head-fallback must skip past the waived front to the first
+// station that is neither solid nor waived.
+func TestProjectStations_WaivedRendersDistinctNotDone(t *testing.T) {
+	sk := writingSkill(t)
+	d := ProjectData{
+		Plan: &sqlc.GraphNode{ID: uuid.New(), Type: "plan",
+			Body: []byte(`{"waived":["decode_task","frame_question","evaluate_perspectives"]}`)},
+	}
+	stations, current, err := projectStations(sk, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []string{"waived", "waived", "waived", "current"} {
+		if stations[i].State != want {
+			t.Errorf("S%d state = %q, want %q", i, stations[i].State, want)
+		}
+	}
+	if current != "S3" {
+		t.Fatalf("current = %q, want S3 (evaluate_sources — the head skips the waived front)", current)
+	}
+}
+
 func TestProjectCoach_AnchorAndThread(t *testing.T) {
 	crit := "D5"
 	d := ProjectData{
@@ -978,6 +1004,70 @@ func TestProjectCanFinishAndFinished(t *testing.T) {
 	}
 	if proj.CanFinish || !proj.Finished {
 		t.Fatalf("finished: canFinish=%v finished=%v, want false/true", proj.CanFinish, proj.Finished)
+	}
+}
+
+// TestCanFinish_WaivedS6DoesNotWall pins the default arm's unchanged
+// behavior when S6 (reflect_archive) is waived rather than draft_polish: the
+// default arm keys ONLY on whole_draft_review, so S6 stays optional exactly
+// as it was before N6-E — a waived S6 must not additionally block finish.
+func TestCanFinish_WaivedS6DoesNotWall(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	draftPolishSolid := sqlc.GraphNode{ID: uuid.New(), Type: "gate_state",
+		Body: []byte(`{"contract":"draft_polish","confirmed_solid":true,"items":{"whole_draft_review":"solid"}}`)}
+	d := ProjectData{
+		Project:    sqlc.Project{Status: "active"},
+		GateStates: []sqlc.GraphNode{draftPolishSolid},
+		Plan: &sqlc.GraphNode{ID: uuid.New(), Type: "plan",
+			Body: []byte(`{"waived":["reflect_archive"]}`)},
+	}
+	proj, err := Project(sk, cards.ByID, d)
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if !proj.CanFinish {
+		t.Fatalf("canFinish = false, want true (draft_polish not waived → default arm applies, S6 optional)")
+	}
+}
+
+// TestCanFinish_WaivedDraftPolishUsesAllDoneRule pins the fallback arm: when
+// draft_polish itself is waived, whole_draft_review can never be produced,
+// so canFinish must fall back to "every non-waived station is done" instead
+// of forever reading a gate item that will never solidify.
+func TestCanFinish_WaivedDraftPolishUsesAllDoneRule(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	solidExceptReflectArchive := []sqlc.GraphNode{
+		gateStateNode("decode_task"), gateStateNode("frame_question"),
+		gateStateNode("evaluate_perspectives"), gateStateNode("evaluate_sources"),
+		gateStateNode("build_argument"),
+	}
+	plan := &sqlc.GraphNode{ID: uuid.New(), Type: "plan", Body: []byte(`{"waived":["draft_polish"]}`)}
+
+	// Case A: reflect_archive (S6) is still current (not done, not waived) →
+	// not every non-waived station is done → canFinish false.
+	dA := ProjectData{Project: sqlc.Project{Status: "active"}, GateStates: solidExceptReflectArchive, Plan: plan}
+	projA, err := Project(sk, cards.ByID, dA)
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if projA.CanFinish {
+		t.Fatalf("case A: canFinish = true, want false (reflect_archive still open)")
+	}
+
+	// Case B: reflect_archive also solid → every non-waived station is
+	// done-or-waived → canFinish true, even though whole_draft_review was
+	// never recorded (draft_polish itself is waived).
+	dB := ProjectData{
+		Project:    sqlc.Project{Status: "active"},
+		GateStates: append(append([]sqlc.GraphNode{}, solidExceptReflectArchive...), gateStateNode("reflect_archive")),
+		Plan:       plan,
+	}
+	projB, err := Project(sk, cards.ByID, dB)
+	if err != nil {
+		t.Fatalf("Project: %v", err)
+	}
+	if !projB.CanFinish {
+		t.Fatalf("case B: canFinish = false, want true (every non-waived station done)")
 	}
 }
 

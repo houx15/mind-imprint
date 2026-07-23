@@ -11,7 +11,7 @@ export type StationCode = z.infer<typeof StationCode>;
 export const StationView = z.enum(["结构", "素材", "写作", "评估", "onboarding"]);
 export type StationView = z.infer<typeof StationView>;
 
-export const StationState = z.enum(["done", "current", "locked"]);
+export const StationState = z.enum(["done", "current", "locked", "waived"]);
 export type StationState = z.infer<typeof StationState>;
 
 export const Station = z.object({
