@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CardInstance } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import { AsrStream } from "../../api/voice";
+import { MicCapture } from "../../audio/capture";
 import { Bean } from "../../studio/Bean";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 
@@ -138,6 +140,10 @@ export function AskPanel({
   onCardSkip,
 }: AskPanelProps) {
   const [text, setText] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const micRef = useRef<MicCapture | null>(null);
+  const asrRef = useRef<AsrStream | null>(null);
 
   function handleSend() {
     const value = text.trim();
@@ -149,6 +155,54 @@ export function AskPanel({
   function handleChip(value: string) {
     if (pending) return;
     onSend(value);
+  }
+
+  // Stable across renders (reads only refs + the setState setter, both
+  // stable) so the unmount-cleanup effect below always tears down whatever
+  // mic/ASR connection is live. Safe to call more than once: once torn down,
+  // the refs are null and further calls are no-ops. Mirrors CoachRail's
+  // stopRecording exactly.
+  const stopRecording = useCallback(() => {
+    micRef.current?.stop();
+    asrRef.current?.stop();
+    micRef.current = null;
+    asrRef.current = null;
+    setRecording(false);
+  }, []);
+
+  // If the panel unmounts mid-hold (e.g. the student navigates away),
+  // release the mic + ASR socket instead of leaving them running.
+  useEffect(() => {
+    return () => {
+      stopRecording();
+    };
+  }, [stopRecording]);
+
+  // Push-to-talk: hold to transcribe into the ask input, release to stop.
+  // The transcript only ever fills `text` — never auto-sent (克制/铁律 2):
+  // the student reviews it and sends via the existing handleSend button,
+  // exactly like a mis-heard word typed by hand.
+  async function startRecording() {
+    if (pending || recording) return;
+    setVoiceError(null);
+    setRecording(true);
+    try {
+      const asr = new AsrStream();
+      asr.onPartial((t) => setText(t));
+      asr.onFinal((t) => setText(t));
+      asr.onError((message) => {
+        setVoiceError(message);
+        stopRecording();
+      });
+      asrRef.current = asr;
+
+      const mic = new MicCapture();
+      micRef.current = mic;
+      await mic.start((pcm) => asrRef.current?.sendPCM(pcm));
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : "无法访问麦克风");
+      stopRecording();
+    }
   }
 
   if (!expanded) {
@@ -276,12 +330,46 @@ export function AskPanel({
             <SendIcon />
           </button>
         </div>
-        {/* Voice is deferred this slice (same honest-deferral posture as
-            Chat's multimodal icons) — the control renders but has NO
-            onClick; it is inert by design, not a stub bug. */}
+        {voiceError && !recording && (
+          <div
+            role="alert"
+            onClick={() => setVoiceError(null)}
+            title="点击关闭"
+            style={{ fontSize: 12, fontWeight: 600, color: "#C0392B", background: "#FDEEEC", border: "1px solid #F3C9C0", borderRadius: 10, padding: "8px 12px", marginTop: 10, cursor: "pointer" }}
+          >
+            {voiceError}
+          </div>
+        )}
+        {/* Push-to-talk (reuses the AsrStream/MicCapture pattern from
+            CoachRail): hold to transcribe, release to stop. The transcript
+            only ever fills the input above — the student sends it herself. */}
         <button
           type="button"
-          style={{ width: "100%", marginTop: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: "#fff", border: "1.5px solid #D98263", color: "#D98263", fontSize: 14, fontWeight: 700, padding: 11, borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onMouseLeave={stopRecording}
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          disabled={pending}
+          aria-pressed={recording}
+          style={{
+            width: "100%",
+            marginTop: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 9,
+            background: recording ? "#FBEEE7" : "#fff",
+            border: "1.5px solid #D98263",
+            color: "#D98263",
+            fontSize: 14,
+            fontWeight: 700,
+            padding: 11,
+            borderRadius: 12,
+            cursor: pending ? "not-allowed" : "pointer",
+            opacity: pending ? 0.5 : 1,
+            fontFamily: "inherit",
+          }}
         >
           <MicIcon />
           按住说话，问老师
