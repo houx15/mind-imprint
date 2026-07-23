@@ -28,7 +28,7 @@ Each ships working, testable software on its own (the roadmap's slice rule).
 | **N2 · 评估 view (S0/S6)** | Reflection pack, prediction loop S0↔S6, self-score, AI-usage declaration, export forks (RL-4) | L | The biggest unbuilt student surface. **◐ PARTIAL — N2a+N2b+N2c DONE, merged `3273c01` (2026-07-20)**: self-score card + S0↔S6 prediction reveal + retro editor, all on one unified `review_criteria` taxonomy (rewrote N1's fixture rows); 2 student-write endpoints (self_score/reflection nodes, no LLM/migration); retro advances the reflect_archive S6 gate; seed 0018 migrated onto the taxonomy so the demo shows it. Spec `docs/superpowers/specs/2026-07-20-n2-review-view-completion-design.md`. **N2d · AI-usage declaration** shipped by N3f (the AI 使用申报单). **N2e · export forks PARKED with teacher-side design** (2026-07-23 decision): the process-document export is the school-facing wedge and forks by board — it belongs with the teacher/report surface (Slice 13), not the student platform. Do NOT re-surface N2e as student-platform "next." |
 | **N3 · Interaction breadth** | `sort`/`matrix`/`scale` primitives + student span-creation L2/L3 + semantic non-link card-moments (needs the classifier hook) | L | All "richer thinking moments"; share primitive + classifier infra. **◐ PARTIAL — N3a DONE, merged `27492fd` (2026-07-21).** The C1 primitive library is now **6/6**: `sort`/`scale`/`matrix` built end-to-end (Zod state + Go params/predicates/effect + `primitives/*` modules + `Studio*Card` hosts + an exhaustive `CoachRail` fork), each bound to a card — `fact-opinion-value`→sort, `certainty-spectrum`→scale, NEW `perspective-matrix`→matrix. **NO migration, NO LLM call, NO `Anchor` change** — all three ride the existing anchor shape (`quote`=item/row, `dimension`=bucket/stop/column, `answer`=reason/cell). Spec `docs/superpowers/specs/2026-07-21-n3a-primitive-library-design.md`, plan `…/plans/2026-07-21-n3a-primitive-library.md`; 10 tasks subagent-driven. **Bonus fix the review surfaced: `perspective-matrix` is the only producer of `perspective` graph nodes anywhere, and `writing-project.json`'s `evaluate_perspectives` gate (`node_count_at_least{perspective,2}`, a `requires` of `evaluate_sources`) had NO producer — that station chain was silently unsatisfiable and is now walkable.** **N3b DONE too, merged `eb0c419` (2026-07-21)** — the semantic classifier + the live 摘要回灌 refeed; see the N3b section below. **N3c DONE too, merged (2026-07-22)** — the guidance fade L1→L2→L3 + student text-selection span creation; see the N3c section below. **N3d DONE too** (2026-07-22) — S0→S3 made genuinely walkable for a real student: `agent.AdvanceAll` (DAG-ordered gate advancement) got its first production call sites, S0's two missing producers + S1/S2's six missing producers were all built, and the S1/S2 placeholder (`ShellView`) was replaced with the binding-design views; see the N3d section below. **N3f DONE too** (2026-07-22) — the remaining six S3/S4/S6 gate items N3d's own review found had no producer (`source_risk_notes`/`warrants`/`steelman` attestation, `source_quality_spot_check`/`warrant_quality_spot_check` via new 信源体检/论证体检 checks, `declaration_signed` via the AI 使用申报单) all got one, plus the L1 block-id collision fix; the S0→S6 walk now passes end to end on a freshly created project — see the N3f section below. **N3 is now ✅ DONE** — N3e (search-plan card + R-9 framework reveal) merged 2026-07-23; see the N3e · DONE section below. |
 | **N4 · Multi-board breadth** | OPCVL rubric + ladders, EE/AP board packs, other gauge skins, T1–T7 leaps | L | **PARKED (2026-07-23).** The board seam IS real+pluggable (project.qualification + board_cfg_ver already exist; onboarding fixtures already per-qualification; `ProposeReview` takes criteria as a param, so NO board-pack CODE is needed — only authored criteria). BUT every substantive N4 item depends on a deferred input: the board rubrics (OPCVL/EE/AP/9239) need the **educational scientist** (I won't fabricate an exam mark scheme), and the assessment/report items (T1–T7 leaps, benchmark/fine-tune) **park with the teacher-end report/export design** (same place N2e went). Only unblocked item = the trivial `RISK_NOTE_QUESTION` "／局限" copy fix, folded into the next S3-touching slice. Do NOT restart N4 until those two inputs land. |
-| **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | Finishes the two keystone-only surfaces. |
+| **N5 · Chat/Course completion** | Voice merge, multimodal, chat→project + course→project seeding, terminal-assessment challenge, multi-course authoring, competence wiring | L | **◐ PARTIAL — N5c DONE (2026-07-23).** Finding: **voice was NOT unmerged** — `feat/voice-tts-asr` is fully contained in main (`git merge-base --is-ancestor`); the `internal/voice` package + `source=voice` turn threading are ON MAIN, so "voice merge" was already done. N5c shipped **course completion**: terminal-assessment challenge (a transfer self-check — new inline `challenge` 练一手 phase, empty floor = always-finishable, reuses the already-local `ChallengeTemplate`; DEC-3 via explicit confirmation, no adjudication, **no migration**), session restart (delete `course_session` + `course_progress`, cascade wipes session-scoped rows), and course push-to-talk voice (wire AskPanel's inert 按住说话 to the on-main `GET /voice/asr`). **Still open/deferred:** multi-course authoring (course format undecided), chat→project + course→project seeding (the "when does a student carry into a project" product question — not MVP), chat multimodal (non-MVP), terminal-challenge answer capture (lands with the repositioned AI-usage/critical-thinking report, which parks with the teacher end), competence wiring. See the N5c section. |
 | **N6 · Infra hardening** | Flagship planner judgment, async assessment (river worker), `HasEntitlement`/billing seam, `CostNumeric` bug, migration-Down tests, misc tech-debt | M | Pure platform/infra; low product-visibility; can run anytime. |
 
 ---
@@ -388,6 +388,63 @@ action before it was possible.
   `declaration_signed`); concurrent orders can double-charge (two in-flight
   requests both see a fingerprint/snapshot miss and both persist a batch —
   the client's `pending` flag guards one tab only).
+
+### N5c · DONE — merged (2026-07-23)
+Spec `docs/superpowers/specs/2026-07-23-n5c-course-completion-design.md`,
+plan `…/plans/2026-07-23-n5c-course-completion.md`; 7 tasks subagent-driven.
+**NO migration, NO new LLM call, NO machine-set `solid`.** The last
+keystone-only surface (Course, Slice 12) gets its completion.
+
+**The finding that reshaped the slice:** N5 was scoped as "voice merge + …",
+but **voice was already merged** — `git merge-base --is-ancestor
+feat/voice-tts-asr main` is true; the `internal/voice` package + `source=voice`
+turn threading are on main. The whole-product refactor rebuilt chat/studio/
+course *after*, leaving only narrow inert affordances (course 按住说话,
+multimodal). So N5's "voice" work shrank to one wiring task, and N5 consolidated
+to **course completion** (N5c). Multi-course, chat/course→project seeding, and
+multimodal were all deferred (course format undecided; the "carry into a
+project" product question; non-MVP).
+
+**What's live now (three components):**
+- **Terminal-assessment challenge = a transfer self-check.** A fifth phase
+  `challenge` (练一手) after 回看: a *new* claim (「多喝咖啡能延长寿命」), applied
+  with the method. It reuses `ChallengeTemplate`, which was **already a local
+  self-check** (submit → static reveal, no server). Authored **inline in the
+  skill JSON** (a `challenge` block on the phase, like `guided`'s `page`) — a
+  new optional `PhaseChallenge` on the Zod + Go `Contract`, **no migration, no
+  course_step seed**. **Empty `floor: []`** = always-finishable (铁律 2); the
+  student finishes by **explicit confirmation** (DEC-3's confirmation arm, not
+  the passed-challenge arm), so the machine **never adjudicates or marks
+  `solid`**. The **finish code is untouched** — appending the phase makes it
+  terminal automatically (`runCourseAdvance`'s `NextPhase=none`). This keeps it
+  entirely out of the parked report/assessment redesign.
+- **Session restart** — a student-triggered 「重新开始」 (`CourseReport`) →
+  `POST /courses/{id}/session/restart` deletes the `course_session` (the
+  `ON DELETE CASCADE` on session-scoped `material`/`card_instances`/`event`/
+  `evaluations` wipes the run) **and** `course_progress` (user+course-scoped,
+  NOT session-scoped — migration 0023 leaves it untouched, so a
+  session-only delete would resume the content pane mid-course; **this gap was
+  caught by the Task-5 review** and fixed). Then re-creates a fresh session via
+  the extracted-and-shared `getOrCreateCourseSessionDTO` (no duplication).
+- **Course push-to-talk voice** — AskPanel's inert 按住说话 wired to the
+  on-main `GET /voice/asr` via `CoachRail`'s `AsrStream` pattern (shared
+  client, no new server work). Transcript fills the ask input; **never
+  auto-sends** — the student confirms (克制). Narration-out already worked;
+  this adds voice-in.
+
+**Whole-branch review:** [pending at write time — filled on merge].
+
+**Known limits / carry-forwards:**
+- The terminal-challenge answer is **not captured server-side** (local
+  self-check, matching the decision) — capture lands with the repositioned
+  (AI-usage + critical-thinking) report design, which parks with the teacher
+  end.
+- AskPanel's touch push-to-talk handlers lack `preventDefault`, so a real
+  touch device may fire a brief phantom mic cycle on release (non-leak; Minor,
+  Task-6 review). CoachRail uses a single `onClick` toggle and doesn't have
+  this; a follow-up `preventDefault` would close it.
+- Multi-course authoring / chat·course→project seeding / multimodal /
+  competence wiring remain open (deferred, see the N5 row).
 
 ### N3e · DONE — merged (2026-07-23)
 Spec `docs/superpowers/specs/2026-07-23-n3e-finish-the-thinking-moments-design.md`,
