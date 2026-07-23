@@ -95,3 +95,25 @@ func TestComposeJourneyAllKeepIsFullJourneyNotFailure(t *testing.T) {
 		t.Fatalf("expected 7 decisions recorded, got %d", len(res.Decisions))
 	}
 }
+
+func TestComposeJourneyAllWaivedDegradesToFullJourney(t *testing.T) {
+	sk, _ := skills.ByID("writing-project")
+	// Well-formed, covers all, but claims every contract is already done — not
+	// a credible verdict, so it must degrade to the full journey.
+	reply := `[
+	  {"id":"decode_task","keep":false,"reason":""},
+	  {"id":"frame_question","keep":false,"reason":""},
+	  {"id":"evaluate_perspectives","keep":false,"reason":""},
+	  {"id":"evaluate_sources","keep":false,"reason":""},
+	  {"id":"build_argument","keep":false,"reason":""},
+	  {"id":"draft_polish","keep":false,"reason":""},
+	  {"id":"reflect_archive","keep":false,"reason":""}]`
+	provider, resolver := fakeProviderReturning(reply)
+	res := ComposeJourney(context.Background(), provider, resolver, sk, "题目")
+	if len(res.Waived) != 0 {
+		t.Fatalf("all-waived must degrade to full journey, got %v", res.Waived)
+	}
+	if res.Resolved.Provider == "" {
+		t.Fatalf("a real call happened; Resolved must still be populated for metering")
+	}
+}

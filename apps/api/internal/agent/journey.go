@@ -89,6 +89,13 @@ func ComposeJourney(ctx context.Context, provider gateway.Provider, resolver gat
 	}
 	sort.Strings(waived)
 	out.Decisions = decisions
+	// An all-waived reply is not credible — the model claiming every station is
+	// already done leaves no active station and lets canFinish fire on nothing
+	// done, so it degrades to the full journey instead (铁律: an offer is never
+	// a wall, and finishing must mean something was done).
+	if len(waived) == len(sk.Contracts) {
+		return out
+	}
 	out.Waived = waived
 	return out
 }
