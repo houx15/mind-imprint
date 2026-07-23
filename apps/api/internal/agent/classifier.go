@@ -69,6 +69,11 @@ const (
 	// deliberately NOT wired here: their moment is a semantic judgment about
 	// what the student just wrote, which needs the classifier scoped to N3b.
 	perspectiveMatrixCardID = "perspective-matrix"
+
+	// searchPlanCardID is N3e's summon target: once the student has written a
+	// search plan (a `preregistration` node exists), search-plan surfaces to
+	// interrogate it. See the branch below for placement/suppression rationale.
+	searchPlanCardID = "search-plan"
 )
 
 // SurfaceCardCandidates implements the surface_card trigger predicate
@@ -226,6 +231,36 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 	// above cannot see it. So suppress on the existence of ANY
 	// perspective-matrix card_instance in ANY status. An offer is never a wall:
 	// once she has said no, we do not ask again.
+	// Project-scoped search-plan surface (N3e): offer once the student has
+	// written a search plan (a `preregistration` node exists) and no
+	// search-plan instance has ever been seen. Placed before perspective-matrix
+	// because S1 (framing / search plan) is strictly upstream of
+	// evaluate_perspectives; the loop acts on cands[0], so list order is
+	// priority. Suppression keys on instance existence in ANY status — a
+	// project-scoped card mints no per-material edge, and an offer is never a
+	// wall (铁律 2): once she has said no, we never ask again.
+	hasPrereg := false
+	for _, n := range g.Nodes {
+		if n.Type == "preregistration" {
+			hasPrereg = true
+		}
+	}
+	searchPlanSeen := false
+	for _, ci := range g.CardInstances {
+		if ci.CardID == searchPlanCardID {
+			searchPlanSeen = true
+		}
+	}
+	if hasPrereg && !searchPlanSeen {
+		out = append(out, Candidate{
+			Verb:       "surface_card",
+			AnchorKind: "project",
+			AnchorID:   "",
+			CardID:     searchPlanCardID,
+			Reason:     "search plan not yet interrogated",
+		})
+	}
+
 	perspectiveMatrixSeen := false
 	for _, ci := range g.CardInstances {
 		if ci.CardID == perspectiveMatrixCardID {

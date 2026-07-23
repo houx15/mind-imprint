@@ -411,3 +411,34 @@ func TestPerspectiveMatrixOutranksToulmin(t *testing.T) {
 		t.Fatalf("perspective-matrix must be project-scoped with no anchor id, got %+v", got[0])
 	}
 }
+
+// TestSurfaceSearchPlanWhenPreregistrationExists is N3e's summon branch: once
+// the student has written a search plan (a `preregistration` node exists),
+// search-plan should surface, and it must never re-offer once a search-plan
+// card_instance exists in any status — an offer is never a wall (铁律 2).
+func TestSurfaceSearchPlanWhenPreregistrationExists(t *testing.T) {
+	base := GraphView{Nodes: []GraphNodeView{{ID: "n1", Type: "preregistration", Author: "student"}}}
+
+	if !hasCard(SurfaceCardCandidates(base), searchPlanCardID) {
+		t.Fatalf("expected search-plan candidate when a preregistration node exists, got %+v", SurfaceCardCandidates(base))
+	}
+
+	// Suppressed once ANY search-plan instance exists, in ANY status:
+	// proposed/active by the function-wide in-flight guard, completed/skipped
+	// by this branch's own searchPlanSeen guard.
+	for _, status := range []string{"proposed", "active", "completed", "skipped"} {
+		g := base
+		g.CardInstances = []CardInstanceView{{ID: "c1", CardID: searchPlanCardID, Status: status}}
+		if hasCard(SurfaceCardCandidates(g), searchPlanCardID) {
+			t.Fatalf("search-plan should be suppressed when an instance is %q", status)
+		}
+	}
+}
+
+// TestNoSearchPlanWithoutPreregistration: no preregistration node means no
+// search plan has been written yet, so there is nothing to interrogate.
+func TestNoSearchPlanWithoutPreregistration(t *testing.T) {
+	if hasCard(SurfaceCardCandidates(GraphView{}), searchPlanCardID) {
+		t.Fatal("search-plan must not fire without a preregistration node")
+	}
+}
