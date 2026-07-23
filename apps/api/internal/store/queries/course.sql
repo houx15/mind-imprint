@@ -17,6 +17,9 @@ SELECT * FROM course_step WHERE course_id = $1 ORDER BY ordinal;
 -- name: GetCourseProgress :one
 SELECT * FROM course_progress WHERE user_id = $1 AND course_id = $2;
 
+-- name: DeleteCourseProgressByUserCourse :exec
+DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2;
+
 -- name: UpsertCourseProgress :one
 INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
 VALUES ($1, $2, $3, $4)

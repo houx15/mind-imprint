@@ -23,6 +23,20 @@ func (q *Queries) CountCourseSteps(ctx context.Context, courseID uuid.UUID) (int
 	return count, err
 }
 
+const deleteCourseProgressByUserCourse = `-- name: DeleteCourseProgressByUserCourse :exec
+DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2
+`
+
+type DeleteCourseProgressByUserCourseParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+func (q *Queries) DeleteCourseProgressByUserCourse(ctx context.Context, arg DeleteCourseProgressByUserCourseParams) error {
+	_, err := q.db.Exec(ctx, deleteCourseProgressByUserCourse, arg.UserID, arg.CourseID)
+	return err
+}
+
 const getCourse = `-- name: GetCourse :one
 SELECT id, branch, title, blurb, tasks_count, tools_count, time_label, created_at FROM course WHERE id = $1
 `

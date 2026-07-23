@@ -206,6 +206,16 @@ func (a *API) restartCourseSession(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// course_progress is user+course-scoped, NOT session-scoped (migration
+	// 0023 leaves it untouched), so the session delete's cascade never
+	// touches it — without this, CoursePlayer would resume the content pane
+	// at the last-viewed ordinal even though the session phase reset.
+	if err := a.d.Queries.DeleteCourseProgressByUserCourse(r.Context(), sqlc.DeleteCourseProgressByUserCourseParams{
+		UserID: u.ID, CourseID: courseID,
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	dto, err := a.getOrCreateCourseSessionDTO(r.Context(), u.ID, courseID)
 	if err != nil {
 		httpx.WriteError(w, r, err)

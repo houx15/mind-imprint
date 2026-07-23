@@ -9,6 +9,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
@@ -162,7 +164,11 @@ func TestCourseSession_OwnershipIs404(t *testing.T) {
 // TestCourseSession_Restart — restarting mints a NEW session id at the FIRST
 // phase and wipes the prior run's session-scoped data (a card instance and a
 // course_message row created against the old session id are gone after
-// restart — the ON DELETE CASCADE, not a soft reset).
+// restart — the ON DELETE CASCADE, not a soft reset). It also proves the
+// user+course-scoped course_progress row (NOT session-scoped, so the cascade
+// never touches it — Task 5's fix) is reset by the handler itself: without
+// the explicit DeleteCourseProgressByUserCourse call, CoursePlayer would
+// resume the content pane at the last-viewed ordinal after a restart.
 func TestCourseSession_Restart(t *testing.T) {
 	pool := newAPITestPool(t)
 	q := sqlc.New(pool)
@@ -198,6 +204,15 @@ func TestCourseSession_Restart(t *testing.T) {
 		ID: sessID, Phase: "guided",
 	}); err != nil {
 		t.Fatalf("bump phase: %v", err)
+	}
+
+	// Write a non-zero course_progress row (page position) to prove restart
+	// resets it too, not just the session's phase.
+	courseUUID := uuid.MustParse(courseSeededCourseID)
+	if _, err := q.UpsertCourseProgress(context.Background(), sqlc.UpsertCourseProgressParams{
+		UserID: SeedUserID, CourseID: courseUUID, CurrentOrdinal: 3, CompletedOrdinals: []int32{0, 1, 2},
+	}); err != nil {
+		t.Fatalf("seed course progress: %v", err)
 	}
 
 	rec := httptest.NewRecorder()
@@ -250,6 +265,22 @@ func TestCourseSession_Restart(t *testing.T) {
 	}
 	if msgCount != 0 {
 		t.Fatalf("old course_message rows must be wiped by the cascade, found %d", msgCount)
+	}
+
+	// course_progress is NOT session-scoped (migration 0023 leaves it
+	// untouched), so it does NOT ride the cascade above — the handler must
+	// reset it explicitly. Either no row remains, or it's back at the
+	// table defaults (current_ordinal 0, empty completed_ordinals).
+	prog, err := q.GetCourseProgress(context.Background(), sqlc.GetCourseProgressParams{
+		UserID: SeedUserID, CourseID: courseUUID,
+	})
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("get course progress after restart: %v", err)
+		}
+	} else if prog.CurrentOrdinal != 0 || len(prog.CompletedOrdinals) != 0 {
+		t.Fatalf("restart must reset course_progress (page position), got current_ordinal=%d completed_ordinals=%v",
+			prog.CurrentOrdinal, prog.CompletedOrdinals)
 	}
 
 	// GET session now resolves to the fresh session, not the old one.
