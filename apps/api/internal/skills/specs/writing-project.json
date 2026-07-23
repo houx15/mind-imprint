@@ -80,7 +80,6 @@
       "repertoire": ["toulmin", "concession", "steelman"],
       "gate": {
         "machine": [
-          { "kind": "no_unsupported_claim" },
           { "kind": "node_present", "type": "concession" }
         ],
         "student_written": ["warrants", "steelman"],

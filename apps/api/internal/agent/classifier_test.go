@@ -1,6 +1,10 @@
 package agent
 
-import "testing"
+import (
+	"testing"
+
+	"mindimprint/api/internal/skills"
+)
 
 func TestCandidateMoves_ClaimWithoutEvidence(t *testing.T) {
 	g := GraphView{
@@ -459,5 +463,42 @@ func TestSearchPlanRetiresOnceAnySourceEvaluated(t *testing.T) {
 	}
 	if hasCard(SurfaceCardCandidates(g), searchPlanCardID) {
 		t.Fatal("search-plan must retire once any source has been evaluated, even with a preregistration node and no instance")
+	}
+}
+
+// TestBuildArgumentGateDropsNoUnsupportedClaim pins the maintainer decision
+// (铁律 2): an argument hole is surfaced (D5 post_intervention warn), not
+// blocked. no_unsupported_claim must no longer be a machine gate item on
+// build_argument — the warn channel in CandidateMoves is the only thing
+// left standing.
+func TestBuildArgumentGateDropsNoUnsupportedClaim(t *testing.T) {
+	sk, ok := skills.ByID("writing-project")
+	if !ok {
+		t.Fatal("writing-project skill not embedded")
+	}
+	c, ok := sk.Contracts["build_argument"]
+	if !ok {
+		t.Fatal("build_argument contract missing")
+	}
+	for _, m := range c.Gate.Machine {
+		if m.Kind == "no_unsupported_claim" {
+			t.Fatal("no_unsupported_claim must no longer be a blocking machine gate item on build_argument (warn-not-block)")
+		}
+	}
+}
+
+// TestCandidateMovesStillWarnsUnsupportedClaim pins the warn we now rely on:
+// one claim node, no supporting evidence -> D5 post_intervention candidate.
+func TestCandidateMovesStillWarnsUnsupportedClaim(t *testing.T) {
+	g := GraphView{Nodes: []GraphNodeView{{ID: "c1", Type: "claim"}}}
+	got := CandidateMoves(g)
+	found := false
+	for _, cand := range got {
+		if cand.Criterion == "D5" && cand.AnchorID == "c1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected a D5 warn candidate for the unsupported claim")
 	}
 }
