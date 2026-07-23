@@ -5,6 +5,9 @@ export type StationRailProps = {
   active: StationCode;
   focus: boolean;
   onSelect: (code: StationCode) => void;
+  // N6-E: re-opens a `waived` station (the journey composer skipped it) —
+  // see the `waived` branch below for the 恢复 control that fires this.
+  onReopen: (code: StationCode) => void;
 };
 
 // Icon paths lifted from the design's STA table (docs/design/思维印记_工作区.dc.html ~L2092).
@@ -46,7 +49,7 @@ function BackflowIcon() {
   );
 }
 
-export function StationRail({ stations, active, focus, onSelect }: StationRailProps) {
+export function StationRail({ stations, active, focus, onSelect, onReopen }: StationRailProps) {
   const expanded = !focus;
 
   return (
@@ -94,6 +97,7 @@ export function StationRail({ stations, active, focus, onSelect }: StationRailPr
           const cur = st.state === "current";
           const done = st.state === "done";
           const locked = st.state === "locked";
+          const waived = st.state === "waived";
           const isActive = active === st.code;
 
           const numBg = done ? "#4C9A82" : cur ? "#2A3B7A" : isActive ? "#EDEFF9" : "#F1F2F5";
@@ -148,7 +152,7 @@ export function StationRail({ stations, active, focus, onSelect }: StationRailPr
               {expanded && (
                 <div style={{ flex: 1, minWidth: 0, paddingBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: cur || isActive ? 800 : 700, color: locked ? "#AEB4C2" : "#1C2333" }}>
+                    <span style={{ fontSize: 13.5, fontWeight: cur || isActive ? 800 : 700, color: locked || waived ? "#AEB4C2" : "#1C2333" }}>
                       {st.name}
                     </span>
                     {done && <CheckIcon />}
@@ -172,6 +176,23 @@ export function StationRail({ stations, active, focus, onSelect }: StationRailPr
                     >
                       <BackflowIcon />
                       有据修正
+                    </div>
+                  )}
+
+                  {waived && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9AA1B0" }}>已跳过</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onReopen(st.code); }}
+                        style={{
+                          fontSize: 10.5, fontWeight: 700, color: "#2A3B7A",
+                          background: "#EDEFF9", border: "none", borderRadius: 999,
+                          padding: "3px 9px", cursor: "pointer",
+                        }}
+                      >
+                        恢复
+                      </button>
                     </div>
                   )}
 

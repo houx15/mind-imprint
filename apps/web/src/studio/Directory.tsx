@@ -142,7 +142,7 @@ export function Directory({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
-              placeholder="贴上任务要求，AI 陪你一站站把论证走扎实。"
+              placeholder="贴上任务要求；如果你已经有思路、资料或初稿，也一起贴进来——我会据此帮你规划环节。"
               style={{
                 width: "100%",
                 boxSizing: "border-box",

@@ -62,3 +62,10 @@ export async function submitPerspectives(
 ): Promise<void> {
   await apiFetch<void>(`/api/v1/projects/${projectId}/perspectives`, { method: "POST", body: JSON.stringify(body) });
 }
+
+// N6-E Task 6: re-opens a `waived` station (the journey composer skipped it
+// for this student) so she can walk it after all — mirrors submitOnboarding/
+// submitPerspectives above (a plain POST, no body, no response to parse).
+export async function reopenStation(projectId: string, code: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/journey/reopen/${code}`, { method: "POST" });
+}

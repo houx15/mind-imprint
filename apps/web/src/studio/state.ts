@@ -74,6 +74,9 @@ export type StudioState = {
 
 export type StudioCallbacks = {
   onSelectStation: (code: StationCode) => void;
+  // N6-E: re-opens a `waived` station (the journey composer skipped it) —
+  // fired by StationRail's 恢复 control.
+  onReopenStation: (code: StationCode) => void;
   onToggleFocus: () => void;
   onDisposition: (choice: "accept" | "rewrite" | "reject", reason: string) => void;
   onOpenMethodology: (cardId: string) => void;

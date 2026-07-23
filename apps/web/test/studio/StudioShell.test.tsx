@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { StudioShell } from "@/studio/StudioShell";
 import { STUDIO_FIXTURE } from "@/studio/fixtures";
 
-const noop = { onSelectStation: () => {}, onToggleFocus: () => {}, onDisposition: () => {}, onOpenMethodology: () => {}, onComposerSend: () => {} };
+const noop = { onSelectStation: () => {}, onReopenStation: () => {}, onToggleFocus: () => {}, onDisposition: () => {}, onOpenMethodology: () => {}, onComposerSend: () => {} };
 
 describe("StudioShell", () => {
   it("renders the three regions: station rail, center view, coach rail", () => {

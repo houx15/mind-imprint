@@ -9,6 +9,7 @@ export function StudioPanel() {
 
   const callbacks: StudioCallbacks = {
     onSelectStation: (code: StationCode) => setState((prev) => ({ ...prev, activeStation: code })),
+    onReopenStation: (code: StationCode) => setEvents((prev) => [...prev, { type: "reopen_station", code }]),
     onToggleFocus: () => setState((prev) => ({ ...prev, focusMode: !prev.focusMode })),
     onDisposition: (choice, reason) => setEvents((prev) => [...prev, { type: "disposition", choice, reason }]),
     onOpenMethodology: (cardId) => setEvents((prev) => [...prev, { type: "open_methodology", cardId }]),

@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -365,6 +365,20 @@ export function StudioContainer({
     await refetchProject();
   };
 
+  // N6-E Task 6: re-opens a `waived` station (the journey composer skipped
+  // it) — best-effort like the pattern above; a failed reopen just leaves
+  // the station waived (no worse a state than before the click), so it's
+  // swallowed rather than surfaced as a sync error.
+  const onReopenStation = async (code: StationCode) => {
+    if (!openId) return;
+    try {
+      await api.reopenStation(openId, code);
+    } catch {
+      // best-effort; a failed reopen leaves the station waived (no worse state)
+    }
+    void refetchProject();
+  };
+
   // N3f Task 7: order a station's spot-check (信源体检 / 论证体检). Unlike
   // `onOrderReview` (Slice 8 Task 10), which drains an SSE generator itself,
   // `api.orderSpotCheck` already does that draining internally and resolves/
@@ -510,6 +524,7 @@ export function StudioContainer({
 
   const callbacks: StudioCallbacks = {
     onSelectStation: setActiveStation,          // client-local view switch
+    onReopenStation,                            // N6-E: re-open a waived station
     onToggleFocus: () => setFocusMode((f) => !f),
     onDisposition: (choice, reason) => {
       const id = convSnapshot.disposableInterventionId;

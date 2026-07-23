@@ -208,7 +208,7 @@ export function StudioShell({
       )}
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", overflowX: "auto" }}>
-        <StationRail stations={state.stations} active={state.activeStation} focus={state.focusMode} onSelect={callbacks.onSelectStation} />
+        <StationRail stations={state.stations} active={state.activeStation} focus={state.focusMode} onSelect={callbacks.onSelectStation} onReopen={callbacks.onReopenStation} />
         <ViewFrame
           state={state}
           card={card}
