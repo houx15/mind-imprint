@@ -17,6 +17,13 @@ ALTER TABLE graph_node DROP CONSTRAINT graph_node_type_check;
 ALTER TABLE graph_node ADD CONSTRAINT graph_node_type_check CHECK (type <> '');
 
 -- +goose Down
+-- NOT VALID, deliberately: by the time this reverses, real rows may carry
+-- skill-declared open types (e.g. 'perspective') that predate this rollback
+-- and cannot be rewritten or dropped out from under a live project. A
+-- VALIDATE-ing ADD CONSTRAINT would abort the whole Down with a check
+-- violation (SQLSTATE 23514) the moment such a row exists. NOT VALID
+-- restores the pre-0017 structure and enforces the narrow enum for new rows
+-- going forward, without demanding the past conform to it.
 ALTER TABLE graph_node DROP CONSTRAINT graph_node_type_check;
 ALTER TABLE graph_node ADD CONSTRAINT graph_node_type_check
-    CHECK (type IN ('claim','evidence','plan','gate_state','note'));
+    CHECK (type IN ('claim','evidence','plan','gate_state','note')) NOT VALID;
