@@ -205,15 +205,25 @@ A new project-scoped branch in `agent.SurfaceCardCandidates`
 the `perspective-matrix` branch:
 
 - **Fires when** a `preregistration` graph node exists (she has written a
-  search plan) **and** no `search-plan` card_instance has ever been seen
-  (any status).
+  search plan), **no source has been evaluated yet** (`!anyEvaluated` — the
+  same graph-wide fact perspective-matrix/toulmin read), **and** no
+  `search-plan` card_instance has ever been seen.
+- **Why the `!anyEvaluated` upper bound** (refinement surfaced in
+  implementation, Task 4): the card's own `when` is 「在你按这份计划真正开始检索
+  之前」 — it is a *pre-sourcing* offer. Without the bound it stays eligible
+  from S1 forever and, once the per-material CRAAP offers are exhausted,
+  becomes `cands[0]` at S4 and **hijacks the toulmin surface** (this is exactly
+  what broke `TestWalk_S0ToS6_FreshProject`). Bounding on `!anyEvaluated`
+  retires it the moment she completes her first source evaluation. A useful
+  invariant falls out: **search-plan (`!anyEvaluated`) and
+  perspective-matrix/toulmin (`anyEvaluated`) are now mutually exclusive** — no
+  priority conflict between them is possible, so placement between them is moot.
 - **Suppressed** on any-status instance — offer-never-a-wall (铁律 2): once
   she has said no, we never ask again. (Same rule as perspective-matrix /
   toulmin: a project-scoped card mints no per-material edge, so suppression
   keys on instance existence, not the per-material `evaluated` bookkeeping.)
-- **Placement** — before the `perspective-matrix` branch: the station chain
-  puts S1 (framing / search plan) strictly upstream of evaluate_perspectives.
-  The loop acts on `cands[0]`, so list order is priority.
+- **Placement** — before the `perspective-matrix` branch (harmless given the
+  mutual exclusion above; kept for readability, S1 upstream of S3).
 
 ### 2.5 What it does NOT do
 

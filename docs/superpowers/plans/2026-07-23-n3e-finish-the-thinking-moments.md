@@ -330,7 +330,13 @@ Then, immediately BEFORE the `perspective-matrix` branch (~line 229, the `perspe
 			searchPlanSeen = true
 		}
 	}
-	if hasPrereg && !searchPlanSeen {
+	// !anyEvaluated: search-plan is a PRE-sourcing card (its `when` is 「在你
+	// 按这份计划真正开始检索之前」). Retire it the moment she evaluates her first
+	// source, so it never becomes cands[0] at S4 and hijacks toulmin. This also
+	// makes it mutually exclusive with perspective-matrix/toulmin (both require
+	// anyEvaluated), so no priority conflict is possible. `anyEvaluated` is the
+	// graph-wide fact computed just above for those branches.
+	if hasPrereg && !anyEvaluated && !searchPlanSeen {
 		out = append(out, Candidate{
 			Verb:       "surface_card",
 			AnchorKind: "project",
