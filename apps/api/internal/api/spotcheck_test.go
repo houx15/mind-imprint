@@ -71,6 +71,28 @@ func countSpotCheckOrderedEvents(t *testing.T, pool *pgxpool.Pool, projectID str
 	return n
 }
 
+// countLLMCallsByPurpose counts the project's metered llm_call rows with the
+// given Purpose — narrower than countLLMCalls (writing_test.go), which counts
+// ALL purposes. Needed because project creation (POST /api/v1/projects) now
+// itself makes one "compose_journey" model call (N6-E Task 3): a bare
+// countLLMCalls==0 assertion after creating a project would be broken by that
+// unrelated call, even when the thing actually under test — here, the
+// spot-check order itself — made no model call at all.
+func countLLMCallsByPurpose(t *testing.T, pool *pgxpool.Pool, projectID, purpose string) int {
+	t.Helper()
+	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(mustUUID(projectID)))
+	if err != nil {
+		t.Fatalf("ListLLMCallsByProject: %v", err)
+	}
+	n := 0
+	for _, c := range calls {
+		if c.Purpose == purpose {
+			n++
+		}
+	}
+	return n
+}
+
 // errRow is a pgx.Row whose Scan always fails — used by
 // failingInterventionDBTX to force every intervention insert to error.
 type errRow struct{ err error }
@@ -155,8 +177,12 @@ func TestOrderSpotCheck_EmptyStationIsBadRequest(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"code":"nothing_to_check"`) {
 		t.Fatalf("expected nothing_to_check code: %s", rec.Body.String())
 	}
-	if n := countLLMCalls(t, pool, created.ID); n != 0 {
-		t.Fatalf("llm_call rows after empty-station order = %d, want 0", n)
+	// The empty-station spot-check itself must make no model call. Filter to
+	// the "spot_check" purpose rather than asserting zero rows overall:
+	// creating the project above already recorded its own "compose_journey"
+	// llm_call row (N6-E Task 3), which is unrelated to what this test checks.
+	if n := countLLMCallsByPurpose(t, pool, created.ID, "spot_check"); n != 0 {
+		t.Fatalf("spot_check llm_call rows after empty-station order = %d, want 0", n)
 	}
 }
 

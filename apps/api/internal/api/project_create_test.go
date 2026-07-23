@@ -217,6 +217,12 @@ func TestCreateProjectComposesJourney(t *testing.T) {
 	if n := countJourneyComposedEvents(t, pool, out.ID); n != 1 {
 		t.Fatalf("journey_composed events = %d, want 1", n)
 	}
+	// The compose call is metered: creation must have recorded exactly one
+	// "compose_journey" llm_call row for this project (not just a waived-set
+	// side effect with no cost trail).
+	if n := countLLMCallsByPurpose(t, pool, out.ID, "compose_journey"); n != 1 {
+		t.Fatalf("compose_journey llm_call rows = %d, want 1", n)
+	}
 }
 
 // TestCreateProjectFullJourneyWhenComposeFails — the composer's fail-safe:
@@ -257,5 +263,12 @@ func TestCreateProjectFullJourneyWhenComposeFails(t *testing.T) {
 	}
 	if n := countJourneyComposedEvents(t, pool, out.ID); n != 0 {
 		t.Fatalf("journey_composed events = %d, want 0 (nothing to persist on fail-safe)", n)
+	}
+	// Metered even on reject: the malformed reply still cost a real model
+	// call, so the compose_journey llm_call row must exist even though
+	// nothing was persisted as a waived set (composeJourney's doc comment:
+	// "every branch that made a real model call is metered").
+	if n := countLLMCallsByPurpose(t, pool, out.ID, "compose_journey"); n != 1 {
+		t.Fatalf("compose_journey llm_call rows = %d, want 1 (metered-on-reject)", n)
 	}
 }
