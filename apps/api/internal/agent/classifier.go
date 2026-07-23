@@ -251,7 +251,13 @@ func SurfaceCardCandidates(g GraphView) []Candidate {
 			searchPlanSeen = true
 		}
 	}
-	if hasPrereg && !searchPlanSeen {
+	// search-plan is a PRE-sourcing card: its `when` reads 「在你按这份计划真正
+	// 开始检索之前」（before you actually start searching against this plan).
+	// !anyEvaluated retires it the moment she evaluates her first source,
+	// which also makes it mutually exclusive with perspective-matrix/toulmin
+	// (both require anyEvaluated) — so no priority conflict between the three
+	// branches is possible.
+	if hasPrereg && !anyEvaluated && !searchPlanSeen {
 		out = append(out, Candidate{
 			Verb:       "surface_card",
 			AnchorKind: "project",

@@ -442,3 +442,22 @@ func TestNoSearchPlanWithoutPreregistration(t *testing.T) {
 		t.Fatal("search-plan must not fire without a preregistration node")
 	}
 }
+
+// TestSearchPlanRetiresOnceAnySourceEvaluated: search-plan is a PRE-sourcing
+// card — its `when` is 「在你按这份计划真正开始检索之前」(before she actually
+// starts searching against the plan). Once she has evaluated her first
+// source (an "evaluated-as" edge off a material node exists), the card must
+// retire even though a preregistration node is present and no search-plan
+// instance has ever been seen. This is what keeps it from later hijacking
+// the S4 toulmin surface.
+func TestSearchPlanRetiresOnceAnySourceEvaluated(t *testing.T) {
+	g := GraphView{
+		Nodes: []GraphNodeView{{ID: "n1", Type: "preregistration", Author: "student"}},
+		Edges: []GraphEdgeView{
+			{Type: "evaluated-as", FromKind: "material", FromID: "m1", ToKind: "graph_node", ToID: "q1"},
+		},
+	}
+	if hasCard(SurfaceCardCandidates(g), searchPlanCardID) {
+		t.Fatal("search-plan must retire once any source has been evaluated, even with a preregistration node and no instance")
+	}
+}
