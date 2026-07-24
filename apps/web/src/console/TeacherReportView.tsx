@@ -3,6 +3,7 @@ import type { ApiClient, TeacherReport } from "../api";
 import { ApiError } from "../api";
 import type { DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
 import { badgeColor } from "./badgeColor";
+import { EvidenceMap } from "./EvidenceMap";
 
 type Client = Pick<ApiClient, "getStudentReport">;
 
@@ -268,7 +269,9 @@ export function TeacherReportView({
         <div ref={mapRef} />
         <h2 style={H2_STYLE}>证据地图</h2>
         <div style={CAPTION_STYLE}>点击节点，看 RQ、官方投影、双轴、AI 互动如何串起这个项目的证据。</div>
-        <div data-testid="evidence-map-slot" />
+        <div data-testid="evidence-map-slot">
+          <EvidenceMap report={report} context={context} studentName={studentName} />
+        </div>
 
         {/* 5. 学生 · AI 交互证据 */}
         <div ref={timelineRef} />
