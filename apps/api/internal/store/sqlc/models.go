@@ -68,6 +68,17 @@ type Class struct {
 	CreatedBy pgtype.UUID `json:"created_by"`
 }
 
+type ClassWeeklyProse struct {
+	ClassID      uuid.UUID   `json:"class_id"`
+	WeekStart    pgtype.Date `json:"week_start"`
+	Comment      string      `json:"comment"`
+	DepthNote    string      `json:"depth_note"`
+	AutonomyNote string      `json:"autonomy_note"`
+	Cards        []byte      `json:"cards"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
 type Course struct {
 	ID         uuid.UUID `json:"id"`
 	Branch     string    `json:"branch"`
