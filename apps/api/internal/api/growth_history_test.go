@@ -13,17 +13,14 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// dualAxisReportFixture marshals a minimal axis-structured agent.Report — the
-// only shape evaluations.scores now holds (flat []DimensionScore rows were
-// cleared by migration 0027; the product is not in use, so there is nothing
-// to stay backward-compatible with).
+// dualAxisReportFixture marshals a minimal canonical agent.Report — the only
+// shape evaluations.scores now holds (the pre-canonical shape was cleared by
+// migration 0028; the product is not in use, so there is nothing to stay
+// backward-compatible with).
 func dualAxisReportFixture(t *testing.T, narrative string) []byte {
 	t.Helper()
 	b, err := json.Marshal(agent.Report{
-		DepthAxis: agent.DepthAxis{
-			Dims:     []agent.DepthDimScore{{Code: "D1", Name: "任务理解与问题表述", Score: 3}},
-			Subtotal: 3,
-		},
+		DepthAxis: []agent.DepthDim{{Code: "D1", Name: "任务理解与问题表述", Level: "L3"}},
 		Narrative: narrative,
 		Axiom:     "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
 	})
@@ -141,12 +138,16 @@ func TestGetGrowthHistory_CrossSurfaceOwnerFiltered(t *testing.T) {
 		if !ok {
 			t.Fatalf("entry.report missing or wrong shape: %+v", e)
 		}
-		depthAxis, ok := report["depthAxis"].(map[string]any)
-		if !ok {
+		depthAxis, ok := report["depthAxis"].([]any)
+		if !ok || len(depthAxis) != 1 {
 			t.Fatalf("report.depthAxis missing or wrong shape: %+v", report)
 		}
-		if subtotal, _ := depthAxis["subtotal"].(float64); subtotal != 3 {
-			t.Errorf("report.depthAxis.subtotal = %v, want 3: %+v", depthAxis["subtotal"], depthAxis)
+		d0, ok := depthAxis[0].(map[string]any)
+		if !ok {
+			t.Fatalf("report.depthAxis[0] wrong shape: %+v", depthAxis)
+		}
+		if level, _ := d0["level"].(string); level != "L3" {
+			t.Errorf("report.depthAxis[0].level = %v, want L3: %+v", d0["level"], d0)
 		}
 		if narrative, _ := report["narrative"].(string); narrative == "" {
 			t.Errorf("report.narrative empty: %+v", report)

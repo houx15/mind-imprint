@@ -27,6 +27,8 @@ func buildAssessmentInputFromEvidence(events []studio.Event, cards []sqlc.CardIn
 		nil, // ReviewBands  — no whole-draft review
 		"",  // GraphSummary — no argument graph
 		roundsFromEvidence(events),
+		false,      // ProjectProjection — chat/course are both non-project surfaces
+		[]string{}, // WorkSamples — no draft snapshots on either surface
 	)
 }
 

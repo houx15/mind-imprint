@@ -56,6 +56,16 @@ func TestBuildAssessmentInputFromEvidence_CourseShape(t *testing.T) {
 	if in.SnapshotCount != 0 {
 		t.Fatalf("SnapshotCount = %d, want 0 (a course session has no drafts)", in.SnapshotCount)
 	}
+	// Course/chat are both non-project surfaces — neither gets the
+	// officialProjection/workAndProcess superset regardless of what the model
+	// emits (assessment.go's project builder is the only ProjectProjection=true
+	// caller).
+	if in.ProjectProjection {
+		t.Fatalf("ProjectProjection = true, want false (course is a non-project surface)")
+	}
+	if len(in.WorkSamples) != 0 {
+		t.Fatalf("WorkSamples = %v, want empty (course has no draft snapshots)", in.WorkSamples)
+	}
 }
 
 // TestPromptText_RealTextVsHonestEmpty proves the C1 fix: a prompt_sent event

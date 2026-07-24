@@ -45,14 +45,13 @@ func (a *API) getGrowthHistory(w http.ResponseWriter, r *http.Request) {
 		}
 		// sqlc actual types (verified in Task 2): row.Sublabel is *string (nil
 		// when absent), row.CreatedAt is time.Time, row.ScopeID is pgtype.UUID.
-		created := row.CreatedAt.Format(time.RFC3339)
 		entries = append(entries, growthHistoryEntry{
 			Surface:   row.Surface,
 			ScopeID:   uuidText(row.ScopeID),
 			Label:     row.Label,
 			Sublabel:  row.Sublabel,
-			CreatedAt: created,
-			Report:    studio.ToReportDTO(report, created),
+			CreatedAt: row.CreatedAt.Format(time.RFC3339),
+			Report:    studio.ToReportDTO(report, row.CreatedAt),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"entries": entries})

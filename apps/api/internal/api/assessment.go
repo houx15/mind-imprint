@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -117,7 +116,7 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 	if err != nil {
 		return studio.ReportDTO{}, err
 	}
-	return studio.ToReportDTO(report, row.CreatedAt.Format(time.RFC3339)), nil
+	return studio.ToReportDTO(report, row.CreatedAt), nil
 }
 
 // reportDTOFromEvaluationRow reconstructs the DualAxis wire DTO from a
@@ -130,7 +129,7 @@ func reportDTOFromEvaluationRow(row sqlc.Evaluation) (studio.ReportDTO, error) {
 	if err := json.Unmarshal(row.Scores, &report); err != nil {
 		return studio.ReportDTO{}, err
 	}
-	return studio.ToReportDTO(report, row.CreatedAt.Format(time.RFC3339)), nil
+	return studio.ToReportDTO(report, row.CreatedAt), nil
 }
 
 // buildAssessmentInputFromProject maps the loaded ProjectData + its already-
@@ -150,7 +149,21 @@ func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioPro
 		reviewBandsFromProject(proj.Readiness),
 		graph,
 		roundsFromProject(d),
+		true, // ProjectProjection — the writing-project template is the one project surface
+		workSamplesFromProject(d),
 	)
+}
+
+// workSamplesFromProject reports only what ProjectData actually carries: the
+// latest committed draft snapshot's text, when one exists. There is no query
+// listing every historical snapshot (see wordCountsFromProject's identical
+// honesty note), so this never claims more than the one work sample that is
+// readily available — never fabricated, never padded.
+func workSamplesFromProject(d studio.ProjectData) []string {
+	if d.LatestSnapshot == nil {
+		return []string{}
+	}
+	return []string{d.LatestSnapshot.Content}
 }
 
 // roundsFromProject pairs each student-message event ("prompt_sent" — the

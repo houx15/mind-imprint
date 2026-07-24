@@ -93,20 +93,28 @@ func TestGenerateChatAssessment_PersistsAtThreadScope(t *testing.T) {
 		t.Fatalf("POST = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var dto struct {
-		DepthAxis struct {
-			Subtotal int `json:"subtotal"`
+		DepthAxis []struct {
+			Code  string `json:"code"`
+			Level string `json:"level"`
 		} `json:"depthAxis"`
-		Narrative   string `json:"narrative"`
-		GeneratedAt string `json:"generatedAt"`
+		OfficialProjection *struct{} `json:"officialProjection"`
+		Narrative          string    `json:"narrative"`
+		GeneratedAt        string    `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
 		t.Fatalf("decode DTO: %v — body=%s", err, rec.Body)
 	}
-	if dto.DepthAxis.Subtotal != 11 {
-		t.Fatalf("depthAxis.subtotal = %d, want 11", dto.DepthAxis.Subtotal)
+	if len(dto.DepthAxis) != 6 {
+		t.Fatalf("depthAxis len = %d, want 6 (D1-D6 always present)", len(dto.DepthAxis))
 	}
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
+	}
+	// chat is a non-project surface — officialProjection must be nil regardless
+	// of what the model emits (AssessReport nils it when ProjectProjection is
+	// false).
+	if dto.OfficialProjection != nil {
+		t.Fatalf("officialProjection = %+v, want nil on the chat surface", dto.OfficialProjection)
 	}
 
 	// surface=chat, purpose=assessment, tier=flagship (评估走旗舰模型绝不降级).
@@ -143,7 +151,7 @@ func TestGenerateChatAssessment_RecordsCostOnRejection(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"你应该这样写：先摆结论"}]},"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},"narrative":"n"}`),
+		Provider:     assessStubProvider(`{"depthAxis":[{"code":"D1","level":"L2","evidence":"你应该这样写：先摆结论"}],"narrative":"n"}`),
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)

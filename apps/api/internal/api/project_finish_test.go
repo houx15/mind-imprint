@@ -112,9 +112,15 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 		t.Fatalf("finish (success) = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var dto struct {
-		DepthAxis struct {
-			Subtotal int `json:"subtotal"`
+		DepthAxis []struct {
+			Code  string `json:"code"`
+			Level string `json:"level"`
 		} `json:"depthAxis"`
+		OfficialProjection *struct {
+			Readiness struct {
+				Score int `json:"score"`
+			} `json:"readiness"`
+		} `json:"officialProjection"`
 		Narrative   string `json:"narrative"`
 		GeneratedAt string `json:"generatedAt"`
 	}
@@ -124,8 +130,17 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
 	}
-	if dto.DepthAxis.Subtotal != 11 {
-		t.Fatalf("depthAxis.subtotal = %d, want 11", dto.DepthAxis.Subtotal)
+	if len(dto.DepthAxis) != 6 {
+		t.Fatalf("depthAxis len = %d, want 6 (D1-D6 always present)", len(dto.DepthAxis))
+	}
+	// The project surface is the one ProjectProjection=true surface — the
+	// finish DTO must carry the officialProjection superset (chat/course never
+	// do, see chat_assessment_test.go/course_assessment_test.go).
+	if dto.OfficialProjection == nil {
+		t.Fatalf("officialProjection missing on the project finish DTO, want it present (ProjectProjection=true)")
+	}
+	if dto.OfficialProjection.Readiness.Score != 72 {
+		t.Fatalf("officialProjection.readiness.score = %d, want 72 (fixture value, clamped-through)", dto.OfficialProjection.Readiness.Score)
 	}
 
 	assertProjectStatus(t, pool, projectID, "finished")
@@ -212,7 +227,7 @@ func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"depthAxis":{"dims":[{"code":"D1","score":2,"evidence":"你应该这样写：先摆结论"}]},"autonomyAxis":{"observation":"o"},"crossAxis":{"depthLevel":"L2"},"narrative":"n"}`),
+		Provider:     assessStubProvider(`{"depthAxis":[{"code":"D1","level":"L2","evidence":"你应该这样写：先摆结论"}],"narrative":"n"}`),
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)

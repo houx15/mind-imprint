@@ -15,7 +15,7 @@ import (
 )
 
 // TestGetAbilityModel_EmptyStateNoModelCall — a fresh student with no evaluations
-// gets a 200 empty model (length-4 depth all insufficient), and NO llm_call row is
+// gets a 200 empty model (length-6 depth all insufficient), and NO llm_call row is
 // written (deterministic projection, no model call).
 func TestGetAbilityModel_EmptyStateNoModelCall(t *testing.T) {
 	pool := newAPITestPool(t)
@@ -43,8 +43,8 @@ func TestGetAbilityModel_EmptyStateNoModelCall(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
 		t.Fatalf("decode ability model: %v — body=%s", err, rec.Body)
 	}
-	if m.TotalSessions != 0 || len(m.Depth) != 4 {
-		t.Fatalf("empty model = sessions %d depth %d, want 0 / 4", m.TotalSessions, len(m.Depth))
+	if m.TotalSessions != 0 || len(m.Depth) != 6 {
+		t.Fatalf("empty model = sessions %d depth %d, want 0 / 6", m.TotalSessions, len(m.Depth))
 	}
 	for _, d := range m.Depth {
 		if d.Level != -1 {

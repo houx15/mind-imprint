@@ -1,6 +1,8 @@
 // Package ability projects a student's per-session DualAxis reports into a
 // current-standing 能力素养 model. Pure — no store, no LLM (RL-5: the person-level
 // view is a merge of many sessions' evidence, never a single-session 档位).
+//
+// Spec B minimal re-pointing; real ability-model redesign deferred to Spec C.
 package ability
 
 import (
@@ -58,6 +60,25 @@ type Model struct {
 
 var soloLevels = []string{"L1", "L2", "L3", "L4"}
 
+// levelToInt maps a depth dim's L1..L4 level to its ordinal 1..4. "NA" (no
+// evidence) and any unrecognized value return ok=false — the caller must skip
+// it, exactly as the old shape skipped a Score<1 (no evidence, never a low
+// score).
+func levelToInt(level string) (int, bool) {
+	switch level {
+	case "L1":
+		return 1, true
+	case "L2":
+		return 2, true
+	case "L3":
+		return 3, true
+	case "L4":
+		return 4, true
+	default:
+		return 0, false
+	}
+}
+
 // Aggregate merges the samples into a current-standing model. Defensive: sorts by
 // CreatedAt ascending so recency weighting holds regardless of input order.
 func Aggregate(samples []Sample) Model {
@@ -68,13 +89,16 @@ func Aggregate(samples []Sample) Model {
 	m := Model{TotalSessions: len(sorted)}
 	m.Metacognition.Distribution = map[string]int{"L1": 0, "L2": 0, "L3": 0, "L4": 0}
 
-	// Depth: one merged level per depth dim, in rubric order (always length 4).
+	// Depth: one merged level per depth dim, in rubric order (always length 6).
 	for _, dim := range rubric.DepthDims() {
-		var scores []int // contributing (>=1) in oldest->newest order
+		var scores []int // contributing (L1-L4, i.e. NOT NA) in oldest->newest order
 		for _, s := range sorted {
-			for _, d := range s.Report.DepthAxis.Dims {
-				if d.Code == dim.ID && d.Score >= 1 {
-					scores = append(scores, d.Score)
+			for _, d := range s.Report.DepthAxis {
+				if d.Code != dim.ID {
+					continue
+				}
+				if lvl, ok := levelToInt(d.Level); ok {
+					scores = append(scores, lvl)
 				}
 			}
 		}
@@ -88,30 +112,49 @@ func Aggregate(samples []Sample) Model {
 				den += w
 			}
 			da.Level = int(math.Round(num / den))
-			da.LevelLabel = dim.Anchors[strconv.Itoa(da.Level)]
+			da.LevelLabel = dim.Anchors["L"+strconv.Itoa(da.Level)]
 		}
 		m.Depth = append(m.Depth, da)
 	}
 
-	// Autonomy + metacognition: sum/collect across all sessions.
+	// Autonomy: preserve the old DTO's int fields via a defensible mapping onto
+	// the new 6-signal shape — A3 ("边界设定"-shaped signal) sums into
+	// BoundarySettings, A4 ("对抗性邀请"-shaped signal) into AdversaryInvites;
+	// AnchoredSignals/PromptedSignals count signals by Opportunity rather than
+	// reading dedicated retired fields.
 	for _, s := range sorted {
 		m.Autonomy.Sessions++
-		m.Autonomy.BoundarySettings += s.Report.PromptLens.BoundarySettings
-		m.Autonomy.AdversaryInvites += s.Report.AutonomyAxis.AdversaryInvites
-		m.Autonomy.AnchoredSignals += len(s.Report.AutonomyAxis.AnchoredSignals)
-		m.Autonomy.PromptedSignals += len(s.Report.AutonomyAxis.PromptedSignals)
-		for _, row := range s.Report.Solo {
-			if _, ok := m.Metacognition.Distribution[row.Level]; ok {
-				m.Metacognition.Distribution[row.Level]++
+		for _, a := range s.Report.AutonomyAxis {
+			switch a.Code {
+			case "A3":
+				m.Autonomy.BoundarySettings += a.Level
+			case "A4":
+				m.Autonomy.AdversaryInvites += a.Level
 			}
-			if row.Initiative == "自发" {
-				m.Metacognition.Spontaneous++
-			} else {
-				m.Metacognition.Prompted++
+			switch a.Opportunity {
+			case "given_taken":
+				m.Autonomy.AnchoredSignals++
+			case "given_not_taken":
+				m.Autonomy.PromptedSignals++
 			}
 		}
 	}
-	// highest SOLO present
+
+	// Metacognition: SOLO is gone from the canonical shape. Distribution/
+	// HighestSolo are derived from D6's per-session Level (L1..L4) instead of
+	// the retired Report.Solo[] rows. Spontaneous/Prompted have no surviving
+	// source (the retired per-row Initiative tag) — they stay at their honest
+	// zero rather than being fabricated; a real replacement is Spec C's job.
+	for _, s := range sorted {
+		for _, d := range s.Report.DepthAxis {
+			if d.Code != "D6" {
+				continue
+			}
+			if _, ok := m.Metacognition.Distribution[d.Level]; ok {
+				m.Metacognition.Distribution[d.Level]++
+			}
+		}
+	}
 	for i := len(soloLevels) - 1; i >= 0; i-- {
 		if m.Metacognition.Distribution[soloLevels[i]] > 0 {
 			m.Metacognition.HighestSolo = soloLevels[i]
