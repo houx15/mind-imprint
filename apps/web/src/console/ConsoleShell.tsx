@@ -6,6 +6,7 @@ import { ConsoleRail, type ConsoleTab } from "./ConsoleRail";
 import { ClassesView } from "./ClassesView";
 import { ClassDetailView } from "./ClassDetailView";
 import { StudentDetailView } from "./StudentDetailView";
+import { TeacherReportView } from "./TeacherReportView";
 import { OverviewView } from "./OverviewView";
 import { TeachersView } from "./TeachersView";
 import { ImportView } from "./ImportView";
@@ -58,6 +59,16 @@ export function ConsoleShell({
             userId={openStudentId}
             onBack={() => { setOpenStudentId(null); setOpenReport(null); }}
             onOpenReport={(surface, scopeId) => setOpenReport({ surface, scopeId })}
+          />
+        )}
+        {tab === "classes" && openClassId != null && openStudentId != null && openReport != null && (
+          <TeacherReportView
+            client={client}
+            classId={openClassId}
+            userId={openStudentId}
+            surface={openReport.surface}
+            scopeId={openReport.scopeId}
+            onBack={() => setOpenReport(null)}
           />
         )}
         {tab === "teachers" && <TeachersView client={client} />}
