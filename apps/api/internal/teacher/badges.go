@@ -11,14 +11,15 @@ import (
 
 var depthRank = map[string]int{"L1": 1, "L2": 2, "L3": 3, "L4": 4}
 
-// DBadge summarises the six depth levels as a min–max range (en-dash), a single
-// level when they coincide, or "—" when no dimension carries a real level.
-func DBadge(r agent.Report) string {
-	min, max := 0, 0
+// DLevels reports the min and max rated depth levels (1..4). ok is false when
+// no dimension carries a real level (NA/unknown are skipped — no evidence, no
+// reading). The single source for every depth-level derivation: DBadge renders
+// it, and D2's class distribution buckets on max.
+func DLevels(r agent.Report) (min, max int, ok bool) {
 	for _, d := range r.DepthAxis {
-		rank, ok := depthRank[d.Level]
-		if !ok {
-			continue // NA / unknown → no evidence, skip
+		rank, found := depthRank[d.Level]
+		if !found {
+			continue
 		}
 		if min == 0 || rank < min {
 			min = rank
@@ -27,19 +28,14 @@ func DBadge(r agent.Report) string {
 			max = rank
 		}
 	}
-	if min == 0 {
-		return "—"
-	}
-	if min == max {
-		return fmt.Sprintf("L%d", min)
-	}
-	return fmt.Sprintf("L%d–L%d", min, max) // U+2013 en-dash
+	return min, max, min != 0
 }
 
-// ABadge is the mean of the autonomy levels for signals whose opportunity was
-// actually supplied (机会供给先于判定: not_supplied is platform debt, excluded),
-// to one decimal, or "—" when no signal was supplied.
-func ABadge(r agent.Report) string {
+// AMean is the mean autonomy level over signals whose opportunity was actually
+// supplied (机会供给先于判定: not_supplied is platform debt, excluded). ok is
+// false when no signal was supplied. The single source for every autonomy mean:
+// ABadge formats it, and D2's class mean averages it.
+func AMean(r agent.Report) (float64, bool) {
 	sum, n := 0, 0
 	for _, a := range r.AutonomyAxis {
 		if a.Opportunity == "not_supplied" {
@@ -49,7 +45,29 @@ func ABadge(r agent.Report) string {
 		n++
 	}
 	if n == 0 {
+		return 0, false
+	}
+	return float64(sum) / float64(n), true
+}
+
+// DBadge summarises the six depth levels as a min–max range (en-dash), a single
+// level when they coincide, or "—" when no dimension carries a real level.
+func DBadge(r agent.Report) string {
+	min, max, ok := DLevels(r)
+	if !ok {
 		return "—"
 	}
-	return fmt.Sprintf("%.1f", float64(sum)/float64(n))
+	if min == max {
+		return fmt.Sprintf("L%d", min)
+	}
+	return fmt.Sprintf("L%d–L%d", min, max) // U+2013 en-dash
+}
+
+// ABadge renders AMean to one decimal, or "—" when no signal was supplied.
+func ABadge(r agent.Report) string {
+	m, ok := AMean(r)
+	if !ok {
+		return "—"
+	}
+	return fmt.Sprintf("%.1f", m)
 }

@@ -1,9 +1,10 @@
-package teacher
+package teacher_test
 
 import (
 	"testing"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/teacher"
 )
 
 func d(level string) agent.DepthDim { return agent.DepthDim{Level: level} }
@@ -24,7 +25,7 @@ func TestDBadge(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := DBadge(agent.Report{DepthAxis: c.in}); got != c.want {
+			if got := teacher.DBadge(agent.Report{DepthAxis: c.in}); got != c.want {
 				t.Fatalf("DBadge = %q, want %q", got, c.want)
 			}
 		})
@@ -45,9 +46,50 @@ func TestABadge(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ABadge(agent.Report{AutonomyAxis: c.in}); got != c.want {
+			if got := teacher.ABadge(agent.Report{AutonomyAxis: c.in}); got != c.want {
 				t.Fatalf("ABadge = %q, want %q", got, c.want)
 			}
 		})
+	}
+}
+
+func TestAMeanExcludesNotSupplied(t *testing.T) {
+	r := agent.Report{AutonomyAxis: []agent.AutonomySignal{
+		{Code: "A1", Level: 5, Opportunity: "given_taken"},
+		{Code: "A2", Level: 4, Opportunity: "given_taken"},
+		{Code: "A3", Level: 4, Opportunity: "given_not_taken"},
+		{Code: "A4", Level: 4, Opportunity: "given_taken"},
+		{Code: "A5", Level: 0, Opportunity: "not_supplied"},
+		{Code: "A6", Level: 0, Opportunity: "not_supplied"},
+	}}
+	got, ok := teacher.AMean(r)
+	if !ok || got != 4.25 {
+		t.Fatalf("AMean = %v, %v; want 4.25, true", got, ok)
+	}
+}
+
+func TestAMeanNoSuppliedSignal(t *testing.T) {
+	r := agent.Report{AutonomyAxis: []agent.AutonomySignal{
+		{Code: "A1", Level: 0, Opportunity: "not_supplied"},
+	}}
+	if _, ok := teacher.AMean(r); ok {
+		t.Fatal("AMean ok = true; want false when nothing was supplied")
+	}
+}
+
+func TestDLevelsMinMax(t *testing.T) {
+	r := agent.Report{DepthAxis: []agent.DepthDim{
+		{Code: "D1", Level: "L3"}, {Code: "D2", Level: "L4"},
+		{Code: "D3", Level: "NA"}, {Code: "D4", Level: "L3"},
+	}}
+	min, max, ok := teacher.DLevels(r)
+	if !ok || min != 3 || max != 4 {
+		t.Fatalf("DLevels = %d,%d,%v; want 3,4,true", min, max, ok)
+	}
+}
+
+func TestDLevelsUnrated(t *testing.T) {
+	if _, _, ok := teacher.DLevels(agent.Report{DepthAxis: []agent.DepthDim{{Code: "D1", Level: "NA"}}}); ok {
+		t.Fatal("DLevels ok = true; want false when no dim carries a level")
 	}
 }

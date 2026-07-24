@@ -3,14 +3,18 @@ package api
 import (
 	"testing"
 	"time"
+
+	"mindimprint/api/internal/teacher"
 )
 
-// TestWeekWindowPinnedToUTC guards the whole-branch review's FIX 2: weekWindow
-// must anchor Monday-midnight in UTC regardless of the server process's local
-// timezone, so it always agrees with the DB-side
+// TestWeekWindowPinnedToUTC guards the whole-branch review's FIX 2:
+// teacher.WeekWindow must anchor Monday-midnight in UTC regardless of the
+// server process's local timezone, so it always agrees with the DB-side
 // `(created_at AT TIME ZONE 'UTC')::date` bucketing in teacher.sql — otherwise
 // a 7-day window can span 8 distinct UTC dates (e.g. an Asia/Shanghai server
-// vs UTC-stored/bucketed events).
+// vs UTC-stored/bucketed events). weekWindow moved into the shared
+// internal/teacher package (D2 task 1) so D1's roster and D2's weekly report
+// call the exact same function; this guard moved with it.
 func TestWeekWindowPinnedToUTC(t *testing.T) {
 	shanghai, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
@@ -21,10 +25,10 @@ func TestWeekWindowPinnedToUTC(t *testing.T) {
 	// disagree, which is exactly the scenario the fix must handle correctly.
 	now := time.Date(2026, 1, 5, 2, 0, 0, 0, shanghai)
 
-	start, end := weekWindow(now)
+	start, end := teacher.WeekWindow(now)
 
 	if start.Location() != time.UTC || end.Location() != time.UTC {
-		t.Fatalf("weekWindow must return UTC-located times, got start=%v end=%v", start.Location(), end.Location())
+		t.Fatalf("teacher.WeekWindow must return UTC-located times, got start=%v end=%v", start.Location(), end.Location())
 	}
 	if !end.Equal(start.AddDate(0, 0, 7)) {
 		t.Fatalf("window is not exactly 7 days: start=%v end=%v", start, end)

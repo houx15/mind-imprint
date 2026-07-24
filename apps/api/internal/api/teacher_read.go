@@ -33,23 +33,6 @@ type RosterReportEntry struct {
 	Unrated     bool   `json:"unrated"`
 }
 
-// weekWindow returns the half-open [Mon 00:00, next Mon 00:00) window enclosing
-// now, pinned to UTC. D1 uses the current week only (no deltas — that is D2).
-//
-// Pinned to UTC (not now's/the server's local location) because the DB side
-// (teacher.sql's activity lateral joins) buckets `event.created_at` via
-// `AT TIME ZONE 'UTC')::date` — if this window were built in server-local time
-// (e.g. Asia/Shanghai) while Postgres computes dates in UTC, a 7×24h window
-// can straddle 8 distinct UTC calendar dates and activeDays could read 8.
-func weekWindow(now time.Time) (time.Time, time.Time) {
-	now = now.UTC()
-	y, m, d := now.Date()
-	midnight := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-	offset := (int(now.Weekday()) + 6) % 7 // Monday=0
-	start := midnight.AddDate(0, 0, -offset)
-	return start, start.AddDate(0, 0, 7)
-}
-
 // getClassRosterReport handles GET /api/v1/classes/{id}/roster-report: the
 // teacher's per-student usage + D/A badge view. assertTeacherOwnsClass is the
 // only guard needed here — ListClassRosterReport itself JOINs enrollments with
@@ -65,7 +48,7 @@ func (a *API) getClassRosterReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	start, end := weekWindow(time.Now())
+	start, end := teacher.WeekWindow(time.Now())
 	rows, err := a.d.Queries.ListClassRosterReport(r.Context(), sqlc.ListClassRosterReportParams{
 		ClassID: id, WeekStart: start, WeekEnd: end,
 	})
@@ -178,7 +161,7 @@ func (a *API) getStudentDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	start, end := weekWindow(time.Now())
+	start, end := teacher.WeekWindow(time.Now())
 	usageRow, err := a.d.Queries.GetStudentUsageForTeacher(ctx, sqlc.GetStudentUsageForTeacherParams{
 		UserID: userID, WeekStart: start, WeekEnd: end,
 	})
