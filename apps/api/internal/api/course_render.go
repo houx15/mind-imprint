@@ -3,11 +3,13 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
@@ -52,6 +54,21 @@ func (a *API) renderCourseStep(w http.ResponseWriter, r *http.Request) {
 		UserID: u.ID, CourseID: c.ID, Ordinal: step.Ordinal,
 	}); verr != nil {
 		slog.Warn("course render: record step viewed failed", "err", verr, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	// D2: the timestamped twin of the completed_ordinals write above, so
+	// "课程节 completed this week" is queryable. Best-effort like the metering
+	// write below — a failed event must never fail a student's page render.
+	if _, eerr := a.d.Queries.AppendEvent(r.Context(), sqlc.AppendEventParams{
+		ProjectID: pgtype.UUID{Valid: false},
+		UserID:    u.ID,
+		SessionID: pgtype.UUID{Valid: false},
+		ThreadID:  pgtype.UUID{Valid: false},
+		CourseID:  pgtype.UUID{Bytes: c.ID, Valid: true},
+		Surface:   "course", Type: "step_viewed",
+		Payload: []byte(fmt.Sprintf(`{"ordinal":%d}`, step.Ordinal)),
+	}); eerr != nil {
+		slog.Warn("course render: append step_viewed event failed", "err", eerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
 	// Cache hit → return it.

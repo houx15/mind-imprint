@@ -202,6 +202,7 @@ type Event struct {
 	CreatedAt time.Time   `json:"created_at"`
 	SessionID pgtype.UUID `json:"session_id"`
 	ThreadID  pgtype.UUID `json:"thread_id"`
+	CourseID  pgtype.UUID `json:"course_id"`
 }
 
 type GraphEdge struct {
