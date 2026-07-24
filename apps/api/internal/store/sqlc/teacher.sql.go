@@ -13,6 +13,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getLatestProjectScoresForStudent = `-- name: GetLatestProjectScoresForStudent :one
+SELECT ev.scores
+FROM evaluations ev
+JOIN project p ON p.id = ev.project_id
+WHERE p.user_id = $1 AND ev.project_id IS NOT NULL
+ORDER BY ev.created_at DESC
+LIMIT 1
+`
+
+// Latest project-scope report scores for one student, for D/A head-badge
+// derivation on the student-detail page. Mirrors the lateral subquery inside
+// ListClassRosterReport, standalone (no ErrNoRows caller needs a full roster
+// row when the student is otherwise being fetched one-by-one).
+func (q *Queries) GetLatestProjectScoresForStudent(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getLatestProjectScoresForStudent, userID)
+	var scores []byte
+	err := row.Scan(&scores)
+	return scores, err
+}
+
 const getStudentProjectEvaluationForTeacher = `-- name: GetStudentProjectEvaluationForTeacher :one
 SELECT e.scores, e.created_at, p.title AS project_title,
        (SELECT gn.body FROM graph_node gn

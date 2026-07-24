@@ -149,6 +149,164 @@ func TestRosterReportCrossClassTeacher404s(t *testing.T) {
 	}
 }
 
+// studentDetailForTest mirrors getStudentDetail's JSON envelope for decoding.
+type studentDetailForTest struct {
+	Student struct {
+		ID          string `json:"id"`
+		DisplayName string `json:"displayName"`
+		AvatarColor string `json:"avatarColor"`
+		DBadge      string `json:"dBadge"`
+		ABadge      string `json:"aBadge"`
+		Unrated     bool   `json:"unrated"`
+	} `json:"student"`
+	Usage struct {
+		ActiveDays  int64 `json:"activeDays"`
+		Turns       int64 `json:"turns"`
+		ReportCount int   `json:"reportCount"`
+		CourseCount int   `json:"courseCount"`
+	} `json:"usage"`
+	Records []struct {
+		Surface   string `json:"surface"`
+		ScopeID   string `json:"scopeId"`
+		Title     string `json:"title"`
+		Date      string `json:"date"`
+		Status    string `json:"status"`
+		HasReport bool   `json:"hasReport"`
+	} `json:"records"`
+}
+
+// TestStudentDetailHappyPath — a teacher opens a member student's detail page:
+// one project has a report (hasReport:true, feeds the head D/A badges), a
+// second project has none (hasReport:false, "进行中").
+func TestStudentDetailHappyPath(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sd-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Student Detail Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "sd-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	reportedProj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID: studentID, Qualification: "0457", Title: "reported project",
+		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create reported project: %v", err)
+	}
+	report := agent.Report{
+		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L3"}},
+		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 3, Opportunity: "given_taken"}},
+	}
+	scores, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal report: %v", err)
+	}
+	if _, err := q.InsertProjectEvaluation(context.Background(), sqlc.InsertProjectEvaluationParams{
+		ProjectID: pgtype.UUID{Bytes: reportedProj.ID, Valid: true},
+		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert evaluation: %v", err)
+	}
+
+	unreportedProj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID: studentID, Qualification: "0457", Title: "unreported project",
+		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create unreported project: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID+"/students/"+studentID.String(), nil), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("student detail got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp studentDetailForTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+
+	if resp.Student.ID != studentID.String() {
+		t.Fatalf("student.id = %q, want %q", resp.Student.ID, studentID.String())
+	}
+	if resp.Student.Unrated {
+		t.Fatalf("student should be rated (has a project report): %+v", resp.Student)
+	}
+	if resp.Student.DBadge != "L3" {
+		t.Fatalf("dBadge = %q, want L3: %+v", resp.Student.DBadge, resp.Student)
+	}
+	if resp.Student.DisplayName == "" || resp.Student.AvatarColor == "" {
+		t.Fatalf("student missing display fields: %+v", resp.Student)
+	}
+	if resp.Usage.ReportCount != 1 {
+		t.Fatalf("reportCount = %d, want 1: %+v", resp.Usage.ReportCount, resp.Usage)
+	}
+	if resp.Usage.CourseCount != 0 {
+		t.Fatalf("courseCount = %d, want 0: %+v", resp.Usage.CourseCount, resp.Usage)
+	}
+	if len(resp.Records) != 2 {
+		t.Fatalf("want 2 records, got %d: %+v", len(resp.Records), resp.Records)
+	}
+	var reportedRec, unreportedRec *struct {
+		Surface   string `json:"surface"`
+		ScopeID   string `json:"scopeId"`
+		Title     string `json:"title"`
+		Date      string `json:"date"`
+		Status    string `json:"status"`
+		HasReport bool   `json:"hasReport"`
+	}
+	for i := range resp.Records {
+		switch resp.Records[i].ScopeID {
+		case reportedProj.ID.String():
+			reportedRec = &resp.Records[i]
+		case unreportedProj.ID.String():
+			unreportedRec = &resp.Records[i]
+		}
+	}
+	if reportedRec == nil || unreportedRec == nil {
+		t.Fatalf("missing expected records: %+v", resp.Records)
+	}
+	if !reportedRec.HasReport {
+		t.Fatalf("reported project record hasReport = false, want true: %+v", reportedRec)
+	}
+	if unreportedRec.HasReport {
+		t.Fatalf("unreported project record hasReport = true, want false: %+v", unreportedRec)
+	}
+	if unreportedRec.Status != "进行中" {
+		t.Fatalf("unreported project status = %q, want 进行中: %+v", unreportedRec.Status, unreportedRec)
+	}
+}
+
+// TestStudentDetailCrossClassOrNonMember404s — a student who belongs to a
+// different class, and a random non-member userId, both 404 for the teacher.
+func TestStudentDetailCrossClassOrNonMember404s(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sd-owner@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Owned Student Detail Class")
+	otherClassID := createClassViaAPI(t, h, teacher, "Other Student Detail Class")
+
+	outsider := createStudent(t, pool, SeedSchoolID, "sd-outsider@demo.local")
+	enrollStudent(t, pool, outsider, otherClassID) // member of a DIFFERENT class, not this one
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID+"/students/"+outsider.String(), nil), teacher))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("cross-class student got %d, want 404", rec.Code)
+	}
+
+	nonMember := createStudent(t, pool, SeedSchoolID, "sd-nonmember@demo.local") // not enrolled anywhere
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID+"/students/"+nonMember.String(), nil), teacher))
+	if rec2.Code != http.StatusNotFound {
+		t.Fatalf("non-member student got %d, want 404", rec2.Code)
+	}
+}
+
 // TestRosterReportDeniedToStudent — the route requires teacher/admin role.
 func TestRosterReportDeniedToStudent(t *testing.T) {
 	pool := newAPITestPool(t)

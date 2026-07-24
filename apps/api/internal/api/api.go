@@ -127,6 +127,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/classes/{id}", teacherOrAdmin(a.patchClass))
 	mux.Handle("DELETE /api/v1/classes/{id}/enrollments/{userId}", teacherOrAdmin(a.removeEnrollment))
 	mux.Handle("GET /api/v1/classes/{id}/roster-report", teacherOrAdmin(a.getClassRosterReport))
+	mux.Handle("GET /api/v1/classes/{id}/students/{userId}", teacherOrAdmin(a.getStudentDetail))
 
 	return SessionAuth(a.d.Queries)(mux)
 }

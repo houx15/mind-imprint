@@ -80,6 +80,18 @@ FROM project p
 WHERE p.user_id = @user_id
 ORDER BY p.last_active_at DESC NULLS LAST;
 
+-- name: GetLatestProjectScoresForStudent :one
+-- Latest project-scope report scores for one student, for D/A head-badge
+-- derivation on the student-detail page. Mirrors the lateral subquery inside
+-- ListClassRosterReport, standalone (no ErrNoRows caller needs a full roster
+-- row when the student is otherwise being fetched one-by-one).
+SELECT ev.scores
+FROM evaluations ev
+JOIN project p ON p.id = ev.project_id
+WHERE p.user_id = @user_id AND ev.project_id IS NOT NULL
+ORDER BY ev.created_at DESC
+LIMIT 1;
+
 -- name: GetStudentProjectEvaluationForTeacher :one
 -- Read one project report + its RQ context, guarded by student ownership.
 -- researchQuestion: prefer the plan node's research_question, else project.title.
