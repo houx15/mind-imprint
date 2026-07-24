@@ -23,11 +23,11 @@ import { startCourseSession, getCourseSession, restartCourseSession, submitCours
 import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
 import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 import {
-  getClassRosterReport, getStudentDetail, getStudentReport,
-  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport,
+  getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
+  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
 } from "./teacher";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -105,6 +105,8 @@ export interface ApiClient {
   getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
   getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
+  getClassWeeklyReport(classId: string): Promise<WeeklyReport>;
+  generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
 }
 
 export const api: ApiClient = {
@@ -124,5 +126,5 @@ export const api: ApiClient = {
   getGrowthHistory,
   getAbilityModel,
   getGrowthCards,
-  getClassRosterReport, getStudentDetail, getStudentReport,
+  getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
 };

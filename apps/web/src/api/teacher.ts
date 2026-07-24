@@ -56,3 +56,42 @@ export async function getStudentReport(
 ): Promise<TeacherReport> {
   return apiFetch<TeacherReport>(`/api/v1/classes/${classId}/students/${userId}/reports/${surface}/${scopeId}`);
 }
+
+export interface WeeklyCard {
+  userId: string;
+  displayName: string;
+  avatarColor: string;
+  tagCode: string;
+  tagLabel: string;
+  kind: "praise" | "watch";
+  evidence: string;
+  lead: string;
+  action: string;
+  hasReport: boolean;
+  reportSurface?: string;
+  reportScopeId?: string;
+}
+
+export interface WeeklyReport {
+  weekLabel: string;
+  weekStart: string;
+  weekEnd: string;
+  asOf: string;
+  className: string;
+  classSize: number;
+  stats: { key: string; label: string; value: number; unit: string; foot: string; delta: string; deltaDir: "up" | "down" | "flat" }[];
+  praise: WeeklyCard[];
+  watch: WeeklyCard[];
+  depth: { buckets: { code: string; label: string; count: number }[]; ratedCount: number; note: string };
+  autonomy: { mean: string; delta: string; ratedCount: number; note: string };
+  comment: string | null;
+  proseReady: boolean;
+}
+
+export async function getClassWeeklyReport(classId: string): Promise<WeeklyReport> {
+  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report`);
+}
+
+export async function generateClassWeeklyProse(classId: string): Promise<WeeklyReport> {
+  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose`, { method: "POST" });
+}
