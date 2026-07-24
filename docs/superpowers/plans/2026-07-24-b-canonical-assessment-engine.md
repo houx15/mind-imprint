@@ -217,6 +217,7 @@ func Standard(id string) (OfficialStandard, bool)
 - Modify: `apps/api/internal/api/chat_assessment.go`、`course_assessment.go`（若 `BuildAssessmentInput` 签名变，call-site 同步）
 - Modify: 端点测试 fixtures：`apps/api/internal/api/assessment_test.go`、`course_assessment_input_test.go`、`project_finish_test.go`、`chat_assessment_test.go`/`course_assessment_test.go`（若存在，换新 wire fixture）
 - Modify: `apps/api/internal/api/growth_history.go`（若直接 unmarshal `agent.Report`，字段自动兼容；确认无显式旧字段引用）
+- Modify: `apps/api/internal/ability/ability.go` + `ability_test.go`（**跨会话能力聚合，深度消费旧形状** —— `Report.DepthAxis.Dims[].Score`、`Anchors["0".."3"]`、`AutonomyAxis.AdversaryInvites/AnchoredSignals/PromptedSignals`、`PromptLens.BoundarySettings`、`Report.Solo[].Level`。**faithful 最小 re-pointing，保持 ability 输出 DTO 形状不变**（web 能力素养 tab 不破）：深度 `d.Level` 映射 L1–L4→1–4、NA 跳过，`Anchors["L"+n]` 取标签；自主旧 DTO int 用新 A 信号映射（`BoundarySettings=Σ A3.level`、`AdversaryInvites=Σ A4.level`、`AnchoredSignals=count(opportunity=="given_taken")`、`PromptedSignals=count(opportunity=="given_not_taken")`）；元认知 Distribution/HighestSolo 由 D6 的 `Level`（L1–L4）派生（Solo 已删）。**真正的能力模型重设计延后到 Spec C**——本任务仅保编译 + 现有测试绿 + 忠实近似，并在报告里标注 Spec C 待办。)
 
 **Interfaces (Consumes):** Task 3/4 `AssessReport`/`AssessmentInput`；Task 5 `ReportDTO`。
 
