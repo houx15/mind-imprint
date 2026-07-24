@@ -33,6 +33,57 @@ func (q *Queries) AppendClassWeeklyProseCards(ctx context.Context, arg AppendCla
 	return err
 }
 
+const getClassWeekStats = `-- name: GetClassWeekStats :one
+WITH members AS (
+  SELECT u.id
+  FROM enrollments e JOIN users u ON u.id = e.user_id
+  WHERE e.class_id = $3 AND e.role_in_class = 'student'
+)
+SELECT
+  (SELECT count(*) FROM members)::int AS class_size,
+  (SELECT count(DISTINCT ev.user_id) FROM event ev JOIN members m ON m.id = ev.user_id
+     WHERE ev.created_at >= $1 AND ev.created_at < $2)::int AS active_students,
+  (SELECT count(*) FROM event ev JOIN members m ON m.id = ev.user_id
+     WHERE ev.created_at >= $1 AND ev.created_at < $2
+       AND ev.type IN ('prompt_sent','course_message'))::int AS turns,
+  (SELECT count(DISTINCT (ev.user_id, ev.course_id, ev.payload->>'ordinal'))
+     FROM event ev JOIN members m ON m.id = ev.user_id
+     WHERE ev.created_at >= $1 AND ev.created_at < $2
+       AND ev.type = 'step_viewed')::int AS course_steps,
+  (SELECT count(*) FROM student_evaluation se JOIN members m ON m.id = se.user_id
+     WHERE se.created_at >= $1 AND se.created_at < $2)::int AS reports
+`
+
+type GetClassWeekStatsParams struct {
+	WeekStart time.Time `json:"week_start"`
+	WeekEnd   time.Time `json:"week_end"`
+	ClassID   uuid.UUID `json:"class_id"`
+}
+
+type GetClassWeekStatsRow struct {
+	ClassSize      int32 `json:"class_size"`
+	ActiveStudents int32 `json:"active_students"`
+	Turns          int32 `json:"turns"`
+	CourseSteps    int32 `json:"course_steps"`
+	Reports        int32 `json:"reports"`
+}
+
+// The four stat cards for one half-open window. 对话轮次 口径 is D1's, verbatim:
+// prompt_sent (studio AND chat) + course_message. Course steps count DISTINCT
+// (student, course, ordinal) so a re-render cannot inflate the number.
+func (q *Queries) GetClassWeekStats(ctx context.Context, arg GetClassWeekStatsParams) (GetClassWeekStatsRow, error) {
+	row := q.db.QueryRow(ctx, getClassWeekStats, arg.WeekStart, arg.WeekEnd, arg.ClassID)
+	var i GetClassWeekStatsRow
+	err := row.Scan(
+		&i.ClassSize,
+		&i.ActiveStudents,
+		&i.Turns,
+		&i.CourseSteps,
+		&i.Reports,
+	)
+	return i, err
+}
+
 const getClassWeeklyProse = `-- name: GetClassWeeklyProse :one
 
 SELECT comment, depth_note, autonomy_note, cards, created_at
@@ -97,4 +148,145 @@ func (q *Queries) InsertClassWeeklyProse(ctx context.Context, arg InsertClassWee
 		arg.Cards,
 	)
 	return err
+}
+
+const listClassRecentReports = `-- name: ListClassRecentReports :many
+SELECT se.user_id, se.scores, se.created_at, se.surface, se.scope_id, se.rn::int AS rn
+FROM enrollments e
+JOIN LATERAL (
+  SELECT s.user_id, s.scores, s.created_at, s.surface, s.scope_id,
+         row_number() OVER (ORDER BY s.created_at DESC) AS rn
+  FROM student_evaluation s
+  WHERE s.user_id = e.user_id
+  ORDER BY s.created_at DESC
+  LIMIT 2
+) se ON true
+WHERE e.class_id = $1 AND e.role_in_class = 'student'
+ORDER BY se.user_id, se.rn
+`
+
+type ListClassRecentReportsRow struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Scores    []byte    `json:"scores"`
+	CreatedAt time.Time `json:"created_at"`
+	Surface   string    `json:"surface"`
+	ScopeID   uuid.UUID `json:"scope_id"`
+	Rn        int32     `json:"rn"`
+}
+
+// Each student's two newest reports across all scopes: rn=1 is 最新, rn=2 is
+// 上一次 (the baseline for 深度升档 / 更愿意自己想 / the A-axis delta). Students
+// with no report contribute no rows — 敢于空白, not a zero.
+func (q *Queries) ListClassRecentReports(ctx context.Context, classID uuid.UUID) ([]ListClassRecentReportsRow, error) {
+	rows, err := q.db.Query(ctx, listClassRecentReports, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassRecentReportsRow
+	for rows.Next() {
+		var i ListClassRecentReportsRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Scores,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.ScopeID,
+			&i.Rn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassStudentWindowUsage = `-- name: ListClassStudentWindowUsage :many
+SELECT
+  u.id AS user_id, u.display_name, u.avatar_color,
+  COALESCE(cur.active_days, 0)::int AS active_days,
+  COALESCE(cur.turns, 0)::int       AS turns,
+  COALESCE(prv.active_days, 0)::int AS prev_active_days,
+  COALESCE(prv.turns, 0)::int       AS prev_turns,
+  COALESCE(rep.n, 0)::int           AS reports_this_week
+FROM enrollments e
+JOIN users u ON u.id = e.user_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
+         COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message')) AS turns
+  FROM event ev
+  WHERE ev.user_id = u.id AND ev.created_at >= $1 AND ev.created_at < $2
+) cur ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
+         COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message')) AS turns
+  FROM event ev
+  WHERE ev.user_id = u.id AND ev.created_at >= $3 AND ev.created_at < $4
+) prv ON true
+LEFT JOIN LATERAL (
+  SELECT count(*) AS n FROM student_evaluation se
+  WHERE se.user_id = u.id AND se.created_at >= $1 AND se.created_at < $2
+) rep ON true
+WHERE e.class_id = $5 AND e.role_in_class = 'student'
+ORDER BY u.display_name
+`
+
+type ListClassStudentWindowUsageParams struct {
+	WeekStart time.Time `json:"week_start"`
+	WeekEnd   time.Time `json:"week_end"`
+	PrevStart time.Time `json:"prev_start"`
+	PrevEnd   time.Time `json:"prev_end"`
+	ClassID   uuid.UUID `json:"class_id"`
+}
+
+type ListClassStudentWindowUsageRow struct {
+	UserID          uuid.UUID `json:"user_id"`
+	DisplayName     string    `json:"display_name"`
+	AvatarColor     string    `json:"avatar_color"`
+	ActiveDays      int32     `json:"active_days"`
+	Turns           int32     `json:"turns"`
+	PrevActiveDays  int32     `json:"prev_active_days"`
+	PrevTurns       int32     `json:"prev_turns"`
+	ReportsThisWeek int32     `json:"reports_this_week"`
+}
+
+// Per-student usage for THIS window and the same elapsed offset LAST week, plus
+// how many reports landed this week. Bucketed via `AT TIME ZONE 'UTC'` for the
+// same reason teacher.sql is: a 7×24h window must never span 8 UTC dates.
+func (q *Queries) ListClassStudentWindowUsage(ctx context.Context, arg ListClassStudentWindowUsageParams) ([]ListClassStudentWindowUsageRow, error) {
+	rows, err := q.db.Query(ctx, listClassStudentWindowUsage,
+		arg.WeekStart,
+		arg.WeekEnd,
+		arg.PrevStart,
+		arg.PrevEnd,
+		arg.ClassID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassStudentWindowUsageRow
+	for rows.Next() {
+		var i ListClassStudentWindowUsageRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.DisplayName,
+			&i.AvatarColor,
+			&i.ActiveDays,
+			&i.Turns,
+			&i.PrevActiveDays,
+			&i.PrevTurns,
+			&i.ReportsThisWeek,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
