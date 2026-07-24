@@ -197,6 +197,22 @@ func TestTeacherReadPathQueries(t *testing.T) {
 		t.Fatalf("projects = %+v, want one row with has_report=true", projects)
 	}
 
+	// --- GetLatestProjectScoresForStudent: student A has a score row, student B (no project) does not ---
+	latestScores, err := q.GetLatestProjectScoresForStudent(ctx, studentA)
+	if err != nil {
+		t.Fatalf("GetLatestProjectScoresForStudent(A): %v", err)
+	}
+	var latestReport agent.Report
+	if err := json.Unmarshal(latestScores, &latestReport); err != nil {
+		t.Fatalf("unmarshal GetLatestProjectScoresForStudent scores: %v", err)
+	}
+	if len(latestReport.DepthAxis) != 6 {
+		t.Errorf("GetLatestProjectScoresForStudent depth axis = %d, want 6", len(latestReport.DepthAxis))
+	}
+	if _, err := q.GetLatestProjectScoresForStudent(ctx, studentB); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("GetLatestProjectScoresForStudent(B) err = %v, want pgx.ErrNoRows", err)
+	}
+
 	// --- GetStudentProjectEvaluationForTeacher: ownership guard -----------------
 	got, err := q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
 		ScopeID: pgUUID(projectID), UserID: studentA,
