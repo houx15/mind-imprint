@@ -69,6 +69,15 @@ func TestDroppedOffNeedsATwoDayFallAndNoNewReport(t *testing.T) {
 	}
 }
 
+func TestDroppedOffFiresExactlyAtTheTwoDayThreshold(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "陈屿", ActiveDays: 3, PrevActiveDays: 5, ReportsThisWeek: 0,
+	}})
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "dropped_off" {
+		t.Fatalf("watch = %+v; a fall of exactly 2 (5→3) must fire dropped_off", w.Watch)
+	}
+}
+
 func TestOutsourcedJudgmentQuotesTheLowestSuppliedSignal(t *testing.T) {
 	r := rep(depths("L1", "L2"), autos(0, 1, 1, 1, 1, 1)) // mean 0.833
 	w := teacher.Detect([]teacher.StudentWeek{{
@@ -79,6 +88,27 @@ func TestOutsourcedJudgmentQuotesTheLowestSuppliedSignal(t *testing.T) {
 	}
 	if !strings.Contains(w.Watch[0].Evidence, "自主证据 A1") {
 		t.Fatalf("evidence = %q; want the lowest supplied signal's own evidence, verbatim", w.Watch[0].Evidence)
+	}
+}
+
+func TestOutsourcedJudgmentSkipsNotSuppliedWhenQuoting(t *testing.T) {
+	auto := autos(0, 1, 1, 1, 1, 1) // A1 would be the numeric lowest — but it's not_supplied
+	auto[0] = agent.AutonomySignal{
+		Code: "A1", Level: 0, Opportunity: "not_supplied",
+		Evidence: "未获机会证据 A1（不应出现）",
+	}
+	r := rep(depths("L3"), auto) // supplied signals (A2-A6) mean 1.0
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "周子墨", ActiveDays: 3, PrevActiveDays: 3, Latest: r,
+	}})
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "outsourced_judgment" {
+		t.Fatalf("watch = %+v; want outsourced_judgment", w.Watch)
+	}
+	if !strings.Contains(w.Watch[0].Evidence, "自主证据 A2") {
+		t.Fatalf("evidence = %q; want the lowest SUPPLIED signal's evidence (A2), verbatim", w.Watch[0].Evidence)
+	}
+	if strings.Contains(w.Watch[0].Evidence, "未获机会证据 A1") {
+		t.Fatalf("evidence = %q; must never quote a not_supplied signal's evidence", w.Watch[0].Evidence)
 	}
 }
 
@@ -113,6 +143,58 @@ func TestWatchBeatsPraise(t *testing.T) {
 	}
 	if len(w.Watch) != 1 || w.Watch[0].TagCode != "outsourced_judgment" {
 		t.Fatalf("watch = %+v; want outsourced_judgment", w.Watch)
+	}
+}
+
+// stuckAtStart neutral baseline: avoids every earlier-priority watch rule so
+// the report actually reaches the stuck_at_start check. ActiveDays ==
+// PrevActiveDays (never_used / dropped_off), autonomy mean 2.0 > 1.0
+// (outsourced_judgment), and a non-zero A3 (no_boundaries).
+func stuckAtStartWeek(depth []agent.DepthDim) teacher.StudentWeek {
+	return teacher.StudentWeek{
+		UserID: "u1", DisplayName: "白露", ActiveDays: 5, PrevActiveDays: 5,
+		Latest: rep(depth, autos(2, 2, 2, 2, 2, 2)),
+	}
+}
+
+func TestStuckAtStartFiresWhenHalfRatedDimsAreL1(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L2"))})
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "stuck_at_start" {
+		t.Fatalf("watch = %+v; want stuck_at_start (1 of 2 rated dims at L1, none above L2)", w.Watch)
+	}
+	if w.Watch[0].TagLabel != "停在起步档" {
+		t.Fatalf("label = %q; want 停在起步档", w.Watch[0].TagLabel)
+	}
+	if w.Watch[0].Evidence != "深度证据 D1" {
+		t.Fatalf("evidence = %q; want the lowest-ranked depth dim's own evidence, verbatim", w.Watch[0].Evidence)
+	}
+}
+
+func TestStuckAtStartDoesNotFireBelowHalfL1(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L2", "L2"))})
+	if len(w.Watch) != 0 {
+		t.Fatalf("watch = %+v; only 1 of 3 rated dims at L1 must not fire stuck_at_start", w.Watch)
+	}
+}
+
+func TestStuckAtStartDoesNotFireWithADimAboveL2(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L3"))})
+	if len(w.Watch) != 0 {
+		t.Fatalf("watch = %+v; a dim above L2 must not fire stuck_at_start even though half are L1", w.Watch)
+	}
+}
+
+func TestStuckAtStartFiresOnOddRatedCount(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L1", "L2"))})
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "stuck_at_start" {
+		t.Fatalf("watch = %+v; want stuck_at_start (2 of 3 rated dims at L1, none above L2)", w.Watch)
+	}
+}
+
+func TestStuckAtStartDoesNotFireWithZeroRatedDims(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("NA", "NA"))})
+	if len(w.Watch) != 0 || len(w.Praise) != 0 {
+		t.Fatalf("cards = %+v/%+v; a report with no rated depth dims must produce no card", w.Watch, w.Praise)
 	}
 }
 
