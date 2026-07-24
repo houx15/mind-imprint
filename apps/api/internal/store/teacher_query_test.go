@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -197,20 +199,20 @@ func TestTeacherReadPathQueries(t *testing.T) {
 		t.Fatalf("projects = %+v, want one row with has_report=true", projects)
 	}
 
-	// --- GetLatestProjectScoresForStudent: student A has a score row, student B (no project) does not ---
-	latestScores, err := q.GetLatestProjectScoresForStudent(ctx, studentA)
+	// --- GetLatestReportScoresForStudent: student A has a score row, student B (no project) does not ---
+	latestScores, err := q.GetLatestReportScoresForStudent(ctx, studentA)
 	if err != nil {
-		t.Fatalf("GetLatestProjectScoresForStudent(A): %v", err)
+		t.Fatalf("GetLatestReportScoresForStudent(A): %v", err)
 	}
 	var latestReport agent.Report
 	if err := json.Unmarshal(latestScores, &latestReport); err != nil {
-		t.Fatalf("unmarshal GetLatestProjectScoresForStudent scores: %v", err)
+		t.Fatalf("unmarshal GetLatestReportScoresForStudent scores: %v", err)
 	}
 	if len(latestReport.DepthAxis) != 6 {
-		t.Errorf("GetLatestProjectScoresForStudent depth axis = %d, want 6", len(latestReport.DepthAxis))
+		t.Errorf("GetLatestReportScoresForStudent depth axis = %d, want 6", len(latestReport.DepthAxis))
 	}
-	if _, err := q.GetLatestProjectScoresForStudent(ctx, studentB); !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatalf("GetLatestProjectScoresForStudent(B) err = %v, want pgx.ErrNoRows", err)
+	if _, err := q.GetLatestReportScoresForStudent(ctx, studentB); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("GetLatestReportScoresForStudent(B) err = %v, want pgx.ErrNoRows", err)
 	}
 
 	// --- GetStudentProjectEvaluationForTeacher: ownership guard -----------------
@@ -418,4 +420,84 @@ func insertEvent(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID, 
 	mustExec(t, ctx, pool, `
 		INSERT INTO event (user_id, project_id, surface, type, created_at) VALUES ($1, $2, $3, $4, $5)`,
 		userID, projectID, surface, typ, createdAt)
+}
+
+// TestGetLatestReportScoresPrefersNewestAcrossSurfaces guards D2's
+// student_evaluation view: GetLatestReportScoresForStudent (renamed from
+// GetLatestProjectScoresForStudent) must return the newest report across ALL
+// three scopes, not project scope only — a chat-only report must not be
+// invisible to the D/A head badge.
+func TestGetLatestReportScoresPrefersNewestAcrossSurfaces(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	student := createStudentRow(t, pool) // helper below, no class/enrollment needed — the query is a bare user_id lookup
+	insertProjectEvaluation(t, pool, student, `{"narrative":"older project"}`, time.Now().Add(-48*time.Hour))
+	insertThreadEvaluation(t, pool, student, `{"narrative":"newest chat"}`, time.Now().Add(-1*time.Hour))
+
+	got, err := q.GetLatestReportScoresForStudent(ctx, student)
+	if err != nil {
+		t.Fatalf("GetLatestReportScoresForStudent: %v", err)
+	}
+	if !strings.Contains(string(got), "newest chat") {
+		t.Fatalf("scores = %s; want the chat evaluation — a chat-only report must not be invisible", got)
+	}
+}
+
+// createStudentRow seeds a minimal school + student user. GetLatestReportScoresForStudent
+// is a bare user_id lookup (not class-scoped), so no class/enrollment row is needed.
+func createStudentRow(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	var schoolID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO schools (name) VALUES ('D2 Cross-Surface Test School') RETURNING id`).
+		Scan(&schoolID); err != nil {
+		t.Fatalf("seed school: %v", err)
+	}
+	var studentID uuid.UUID
+	email := fmt.Sprintf("d2-student-%s@example.com", uuid.NewString())
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color)
+		VALUES ($1, 'x', 'student', $2, 'D2 Student', '#666666')
+		RETURNING id`, email, schoolID).Scan(&studentID); err != nil {
+		t.Fatalf("seed student: %v", err)
+	}
+	return studentID
+}
+
+// insertProjectEvaluation seeds a project owned by student and one project-scoped
+// evaluations row, with an explicit created_at so cross-surface ordering is
+// deterministic in tests.
+func insertProjectEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	var projectID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO project (user_id, title) VALUES ($1, 'cross-surface project') RETURNING id`,
+		student).Scan(&projectID); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	mustExec(t, ctx, pool, `
+		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status, created_at)
+		VALUES ($1, $2, 'project narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
+		projectID, scoresJSON, createdAt)
+}
+
+// insertThreadEvaluation seeds a chat thread owned by student and one
+// thread-scoped evaluations row, mirroring insertProjectEvaluation's shape.
+func insertThreadEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	var threadID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO chat_thread (user_id, title) VALUES ($1, 'cross-surface thread') RETURNING id`,
+		student).Scan(&threadID); err != nil {
+		t.Fatalf("seed thread: %v", err)
+	}
+	mustExec(t, ctx, pool, `
+		INSERT INTO evaluations (thread_id, scores, narrative, model, tier, status, created_at)
+		VALUES ($1, $2, 'thread narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
+		threadID, scoresJSON, createdAt)
 }

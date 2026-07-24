@@ -186,7 +186,7 @@ func (a *API) getStudentDetail(w http.ResponseWriter, r *http.Request) {
 		ID: userID.String(), DisplayName: user.DisplayName, AvatarColor: user.AvatarColor,
 		DBadge: "—", ABadge: "—", Unrated: true,
 	}
-	scores, err := a.d.Queries.GetLatestProjectScoresForStudent(ctx, userID)
+	scores, err := a.d.Queries.GetLatestReportScoresForStudent(ctx, userID)
 	switch {
 	case err == nil:
 		var rep agent.Report

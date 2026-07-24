@@ -340,6 +340,15 @@ type SourceLogEntry struct {
 	MaterialID  pgtype.UUID `json:"material_id"`
 }
 
+type StudentEvaluation struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Scores    []byte    `json:"scores"`
+	CreatedAt time.Time `json:"created_at"`
+	Surface   string    `json:"surface"`
+	ScopeID   uuid.UUID `json:"scope_id"`
+}
+
 type Task struct {
 	ID           uuid.UUID `json:"id"`
 	UserID       uuid.UUID `json:"user_id"`

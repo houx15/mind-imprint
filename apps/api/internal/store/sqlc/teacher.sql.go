@@ -13,21 +13,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getLatestProjectScoresForStudent = `-- name: GetLatestProjectScoresForStudent :one
-SELECT ev.scores
-FROM evaluations ev
-JOIN project p ON p.id = ev.project_id
-WHERE p.user_id = $1 AND ev.project_id IS NOT NULL
-ORDER BY ev.created_at DESC
+const getLatestReportScoresForStudent = `-- name: GetLatestReportScoresForStudent :one
+SELECT se.scores
+FROM student_evaluation se
+WHERE se.user_id = $1
+ORDER BY se.created_at DESC
 LIMIT 1
 `
 
-// Latest project-scope report scores for one student, for D/A head-badge
-// derivation on the student-detail page. Mirrors the lateral subquery inside
-// ListClassRosterReport, standalone (no ErrNoRows caller needs a full roster
-// row when the student is otherwise being fetched one-by-one).
-func (q *Queries) GetLatestProjectScoresForStudent(ctx context.Context, userID uuid.UUID) ([]byte, error) {
-	row := q.db.QueryRow(ctx, getLatestProjectScoresForStudent, userID)
+// Latest report scores for one student across ALL scopes (project/course/chat),
+// for D/A head-badge derivation on the student-detail page. Mirrors the lateral
+// inside ListClassRosterReport so the roster badge and the head badge can never
+// disagree.
+func (q *Queries) GetLatestReportScoresForStudent(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getLatestReportScoresForStudent, userID)
 	var scores []byte
 	err := row.Scan(&scores)
 	return scores, err
@@ -168,11 +167,10 @@ SELECT
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (
-  SELECT ev2.scores
-  FROM evaluations ev2
-  JOIN project p2 ON p2.id = ev2.project_id
-  WHERE p2.user_id = u.id AND ev2.project_id IS NOT NULL
-  ORDER BY ev2.created_at DESC
+  SELECT se.scores
+  FROM student_evaluation se
+  WHERE se.user_id = u.id
+  ORDER BY se.created_at DESC
   LIMIT 1
 ) ev ON true
 LEFT JOIN LATERAL (
@@ -206,7 +204,7 @@ type ListClassRosterReportRow struct {
 // Teacher read-path (Spec D1). Every query is class-scoped: it JOINs enrollments
 // with role_in_class='student' so a teacher can only read members of the class
 // the handler already authorised via assertTeacherOwnsClass. No writes.
-// One row per student: latest project-scope report scores (for D/A badge
+// One row per student: latest report scores across all scopes (for D/A badge
 // derivation, NULL when unrated) + this-week activity. Mirrors GetClassRoster's
 // enrollment scoping (org.sql).
 func (q *Queries) ListClassRosterReport(ctx context.Context, arg ListClassRosterReportParams) ([]ListClassRosterReportRow, error) {
