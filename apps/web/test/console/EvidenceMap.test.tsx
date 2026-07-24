@@ -116,4 +116,22 @@ describe("EvidenceMap", () => {
     expect(within(detail).getByText(projectReport.narrative)).toBeInTheDocument();
     expect(within(detail).queryByText(projectContext.researchQuestion)).toBeNull();
   });
+
+  it("aAxis node excludes the not_supplied (A4) signal from both the count and the mean", async () => {
+    render(<EvidenceMap report={coreReport} context={{}} />);
+
+    await userEvent.click(screen.getByTestId("evidence-map-node-aAxis"));
+
+    // Fixture: A1=3, A2=2, A3=1, A4=0 (opportunity: not_supplied — excluded),
+    // A5=2, A6=1. Mean computed independently of the component's own
+    // arithmetic: only the 5 supplied signals count, A4's 0 must NOT drag it
+    // down (5, not 6, in the denominator).
+    const suppliedLevels = [3, 2, 1, 2, 1];
+    const expectedMean = suppliedLevels.reduce((sum, l) => sum + l, 0) / suppliedLevels.length;
+    expect(expectedMean).toBeCloseTo(1.8);
+
+    const detail = screen.getByTestId("evidence-map-detail");
+    expect(within(detail).getByText(`5 个已提供机会的 A 轴维度中，智识自主均值为 ${expectedMean.toFixed(1)}（满分 5）。`)).toBeInTheDocument();
+    expect(within(screen.getByTestId("evidence-map-node-aAxis")).getByText(`自主均值 ${expectedMean.toFixed(1)}`)).toBeInTheDocument();
+  });
 });

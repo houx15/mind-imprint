@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeacherReportView } from "@/console/TeacherReportView";
 import type { TeacherReport } from "@/api";
@@ -107,7 +107,14 @@ describe("TeacherReportView", () => {
     );
 
     expect(await screen.findByText("全部学生")).toBeInTheDocument();
-    expect(screen.getByText("中国的碳治理政策是否让地球更可持续？")).toBeInTheDocument();
+    // The evidence map's RQ node now renders the same RQ text verbatim (short
+    // RQs are not truncated per the design's conditional `short()` helper —
+    // see EvidenceMap.tsx), so this now appears twice page-wide. Scope the
+    // assertion to the 总览 section, which is where this specific assertion
+    // cares about it living.
+    expect(
+      within(screen.getByTestId("teacher-report-overview")).getByText("中国的碳治理政策是否让地球更可持续？"),
+    ).toBeInTheDocument();
 
     for (const name of DEPTH_NAMES) expect(screen.getByText(name)).toBeInTheDocument();
     for (const name of AUTONOMY_NAMES) expect(screen.getByText(name)).toBeInTheDocument();

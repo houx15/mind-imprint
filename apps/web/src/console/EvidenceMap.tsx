@@ -81,6 +81,13 @@ function readinessSummary(officialProjection: NonNullable<DualAxisReport["offici
   };
 }
 
+// Conditional truncation mirroring the binding design's `short(t,n)` helper
+// (docs/design/teacher end/project/思维印记 教师端.dc.html:1518): only append
+// the ellipsis when the text actually exceeds the cap.
+function short(text: string, n: number): string {
+  return text.length > n ? `${text.slice(0, n)}…` : text;
+}
+
 function aiSummary(interactionEvidence: DualAxisReport["interactionEvidence"]): { note: string; detail: string } {
   const n = interactionEvidence.length;
   if (n === 0) {
@@ -107,7 +114,7 @@ function buildNodes(
       id: "center",
       x: 50,
       y: 44,
-      w: 170,
+      w: 150,
       bg: "#EDEFF9",
       border: "#2A3B7A",
       label: `${studentName ?? "学生"} · 能力报告`,
@@ -118,15 +125,11 @@ function buildNodes(
       id: "rq",
       x: 50,
       y: 13,
-      w: 190,
+      w: 170,
       bg: "#FBEFD8",
       border: "#C68A3A",
       label: "Research Question",
-      // Always truncate (even under the length cap) so the node's short note
-      // never collides, character-for-character, with the full RQ rendered
-      // verbatim in the 总览 section above — see EvidenceMap.test.tsx and
-      // TeacherReportView.test.tsx's uniqueness assertions on that string.
-      note: context.researchQuestion ? `${context.researchQuestion.slice(0, 15)}…` : "暂无研究问题",
+      note: context.researchQuestion ? short(context.researchQuestion, 24) : "暂无研究问题",
       detail: context.researchQuestion || "本报告未提供 Research Question。",
     },
   ];
@@ -137,7 +140,7 @@ function buildNodes(
       id: "official",
       x: 83,
       y: 26,
-      w: 150,
+      w: 140,
       bg: "#E1EDF5",
       border: "#3E7CA8",
       label: "官方作品投影",
@@ -151,7 +154,7 @@ function buildNodes(
       id: "dAxis",
       x: 85,
       y: 60,
-      w: 150,
+      w: 130,
       bg: "#E7E1F0",
       border: "#6C5A94",
       label: "D 轴 · 认知深度",
@@ -163,7 +166,7 @@ function buildNodes(
       id: "aAxis",
       x: 50,
       y: 82,
-      w: 150,
+      w: 130,
       bg: "#E4F0EA",
       border: "#3E8A6E",
       label: "A 轴 · 智识自主",
@@ -175,7 +178,7 @@ function buildNodes(
       id: "prompt",
       x: 16,
       y: 60,
-      w: 150,
+      w: 140,
       bg: "#EEF0F4",
       border: "#7A8296",
       label: "提示词透镜",
@@ -187,7 +190,7 @@ function buildNodes(
       id: "ai",
       x: 16,
       y: 26,
-      w: 150,
+      w: 140,
       bg: "#F7E6E4",
       border: "#C4574D",
       label: "AI 互动证据",

@@ -161,7 +161,7 @@ export function TeacherReportView({
         {/* 1. 总览 */}
         <div ref={overviewRef} />
         <h2 style={H2_STYLE}>总览</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(220px,.6fr)", gap: 18, alignItems: "stretch" }}>
+        <div data-testid="teacher-report-overview" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(220px,.6fr)", gap: 18, alignItems: "stretch" }}>
           <div style={CARD_STYLE}>
             {context.researchQuestion ? (
               <>
