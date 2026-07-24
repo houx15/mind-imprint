@@ -10,30 +10,68 @@ func TestModelParsesDualAxis(t *testing.T) {
 	if m.Axiom != "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定" {
 		t.Fatalf("axiom mismatch: %q", m.Axiom)
 	}
-	if len(m.Dimensions) != 6 {
-		t.Fatalf("dims = %d, want 6", len(m.Dimensions))
-	}
+}
+
+func TestDepthDims(t *testing.T) {
 	depth := DepthDims()
-	if len(depth) != 4 {
-		t.Fatalf("depth dims = %d, want 4", len(depth))
+	if len(depth) != 6 {
+		t.Fatalf("depth dims = %d, want 6", len(depth))
 	}
 	for _, d := range depth {
-		if d.Axis != "depth" {
-			t.Fatalf("dim %s axis = %q, want depth", d.ID, d.Axis)
+		if d.ID == "" || d.Name == "" || d.Means == "" {
+			t.Fatalf("depth dim %+v missing ID/Name/Means", d)
 		}
-		for _, k := range []string{"0", "1", "2", "3"} {
+		for _, k := range []string{"L1", "L2", "L3", "L4"} {
 			if d.Anchors[k] == "" {
 				t.Fatalf("depth dim %s missing anchor %s", d.ID, k)
 			}
 		}
 	}
-	if AutonomyDim().ObservationGuide == "" {
-		t.Fatalf("autonomy dim missing observationGuide")
+}
+
+func TestAutonomySignals(t *testing.T) {
+	signals := AutonomySignals()
+	if len(signals) != 6 {
+		t.Fatalf("autonomy signals = %d, want 6", len(signals))
 	}
-	if CrossDim().Guide == "" {
-		t.Fatalf("cross dim missing guide")
+	for _, s := range signals {
+		if s.ID == "" || s.Name == "" || s.Means == "" || s.Event == "" {
+			t.Fatalf("autonomy signal %+v missing field", s)
+		}
 	}
-	if len(m.PromptTiers) != 4 || len(m.SoloLevels) != 4 {
-		t.Fatalf("tiers=%d solo=%d, want 4/4", len(m.PromptTiers), len(m.SoloLevels))
+}
+
+func TestLenses(t *testing.T) {
+	lenses := Lenses()
+	if len(lenses) != 6 {
+		t.Fatalf("lenses = %d, want 6", len(lenses))
+	}
+	for _, l := range lenses {
+		if l.ID == "" || l.Name == "" || l.Guide == "" {
+			t.Fatalf("lens %+v missing field", l)
+		}
+	}
+}
+
+func TestAutonomyBand(t *testing.T) {
+	if AutonomyBand() == "" {
+		t.Fatalf("AutonomyBand() is empty")
+	}
+}
+
+func TestStandard(t *testing.T) {
+	std, ok := Standard("ap-research")
+	if !ok {
+		t.Fatalf("Standard(ap-research) not found")
+	}
+	if len(std.Components) != 4 {
+		t.Fatalf("components = %d, want 4", len(std.Components))
+	}
+	if len(std.AlignmentItems) != 5 {
+		t.Fatalf("alignmentItems = %d, want 5", len(std.AlignmentItems))
+	}
+
+	if _, ok := Standard("nope"); ok {
+		t.Fatalf("Standard(nope) unexpectedly found")
 	}
 }
