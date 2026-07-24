@@ -61,11 +61,80 @@ func TestComposeWeeklyRejectsMissingCard(t *testing.T) {
 	}
 }
 
+// TestComposeWeeklyRejectsBlankCardWording covers a card whose userId is
+// present but whose lead/action are both empty strings — a distinct hole
+// from TestComposeWeeklyRejectsMissingCard (which only covers the wholesale
+// "cards":[] case): the length cap is trivially satisfied by "", so without
+// an explicit non-empty check this reply would pass validation and render a
+// blank card on the teacher's screen.
+func TestComposeWeeklyRejectsBlankCardWording(t *testing.T) {
+	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"","action":""}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err == nil {
+		t.Fatal("want rejection — a card with a userId but no wording is a card left without wording")
+	}
+}
+
+// TestComposeWeeklyRejectsHalfBlankCardLead and
+// TestComposeWeeklyRejectsHalfBlankCardAction cover a half-written card —
+// only one of lead/action empty. A blank lead or a blank action is still a
+// blank line on the teacher's screen, so both fields must be checked
+// independently rather than just "cards[i] == zero value".
+func TestComposeWeeklyRejectsHalfBlankCardLead(t *testing.T) {
+	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"","action":"线下问一句这些数据凭什么说明影响。"}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err == nil {
+		t.Fatal("want rejection — an empty lead is a half-blank card")
+	}
+}
+
+func TestComposeWeeklyRejectsHalfBlankCardAction(t *testing.T) {
+	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":""}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err == nil {
+		t.Fatal("want rejection — an empty action is a half-blank card")
+	}
+}
+
 func TestComposeWeeklyRejectsBareInternalCode(t *testing.T) {
 	reply := `{"comment":"这个班的 D3 普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — 说人话: prose names the behaviour, not the code")
+	}
+}
+
+// TestComposeWeeklyRejectsLowercaseBareCode covers the first evasion the
+// reviewer reproduced: bareCode's original character class was uppercase
+// only, so a lowercase "d3" sailed through untouched.
+func TestComposeWeeklyRejectsLowercaseBareCode(t *testing.T) {
+	reply := `{"comment":"这个班的d3普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err == nil {
+		t.Fatal("want rejection — lowercase must not evade the bare-code check")
+	}
+}
+
+// TestComposeWeeklyRejectsSpacedBareCode covers the second evasion: a space
+// between the letter and the digit ("D 3") didn't match the original
+// no-whitespace pattern.
+func TestComposeWeeklyRejectsSpacedBareCode(t *testing.T) {
+	reply := `{"comment":"这个班的D 3普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err == nil {
+		t.Fatal("want rejection — a space between the letter and the digit must not evade the bare-code check")
+	}
+}
+
+// TestComposeWeeklyAllowsProseWithoutBareCode is the negative case for both
+// evasion tests above: ordinary prose that never mentions an axis code at
+// all must still pass. Guards against a fix that's blunt enough to reject
+// everything.
+func TestComposeWeeklyAllowsProseWithoutBareCode(t *testing.T) {
+	reply := `{"comment":"这周整体表现平稳，没有需要特别关注的地方。","depthNote":"分布没有明显变化。","autonomyNote":"自主均分持平。","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}]}`
+	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
+	if err != nil {
+		t.Fatalf("ComposeWeekly: %v — legitimate prose with no bare code must pass", err)
 	}
 }
 

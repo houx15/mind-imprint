@@ -77,10 +77,19 @@ const (
 	weeklyActionMax  = 200
 )
 
-// bareCode matches an internal axis code standing alone (D3, A5). Teachers DO
+// bareCode matches an internal axis code standing alone (D3, A5), including
+// obvious evasions: case (d3) and a space between the letter and the digit
+// (D 3). It deliberately stays case-insensitive and whitespace-tolerant even
+// though that widens an existing false-positive surface (e.g. "打印纸用A6",
+// a paper size, already matched before this change and still does): the fact
+// sheet this prose is generated from is Chinese-only class/student/axis
+// content, so a real collision with an unrelated alphanumeric token is rare,
+// and a false rejection only fails this one-shot compose call — it does not
+// corrupt or leak data. That cost is worth paying to close an evasion of the
+// 说人话 rule the reviewer could reproduce with a single space. Teachers DO
 // see the codes — labelled — on the deep report screen; this screen's prose
-// names the behaviour instead (说人话, not secrecy).
-var bareCode = regexp.MustCompile(`\b[DA][1-6]\b`)
+// names the behaviour instead.
+var bareCode = regexp.MustCompile(`(?i)\b[DA]\s*[1-6]\b`)
 
 func weeklySystemPrompt() string {
 	return strings.Join([]string{
@@ -151,8 +160,9 @@ func ComposeWeekly(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 
 // validateWeeklyProse enforces that the model contributed wording only: every
 // fact-sheet card gets exactly one piece of prose, keyed to a real student,
-// nothing runs over its length cap, and no bare internal axis code leaks
-// through (说人话).
+// that prose is actually non-empty (a card left blank is still a card left
+// without wording), nothing runs over its length cap, and no bare internal
+// axis code leaks through (说人话).
 func validateWeeklyProse(p WeeklyProse, f WeeklyFacts) error {
 	want := map[string]bool{}
 	for _, c := range f.Cards {
@@ -167,6 +177,9 @@ func validateWeeklyProse(p WeeklyProse, f WeeklyFacts) error {
 			return fmt.Errorf("agent: weekly prose repeats student %q", c.UserID)
 		}
 		want[c.UserID] = true
+		if strings.TrimSpace(c.Lead) == "" || strings.TrimSpace(c.Action) == "" {
+			return fmt.Errorf("agent: weekly prose leaves card %q without wording", c.UserID)
+		}
 		if utf8.RuneCountInString(c.Lead) > weeklyLeadMax || utf8.RuneCountInString(c.Action) > weeklyActionMax {
 			return fmt.Errorf("agent: weekly card prose too long for %q", c.UserID)
 		}
