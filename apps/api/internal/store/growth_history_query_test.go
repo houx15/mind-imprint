@@ -19,13 +19,13 @@ func TestListGrowthHistory(t *testing.T) {
 	pool := newTestPool(t)
 	q := sqlc.New(pool)
 
-	// scores is now the marshalled axis-structured agent.Report (flat
-	// []DimensionScore rows were cleared by migration 0027; the product is
-	// not in use, so nothing needs to stay compatible with the old shape).
+	// scores is now the marshalled canonical agent.Report (the DualAxis rows
+	// cleared by migration 0027 were themselves cleared again by migration
+	// 0028; the product is not in use, so nothing needs to stay compatible
+	// with either retired shape).
 	reportJSON, err := json.Marshal(agent.Report{
-		DepthAxis: agent.DepthAxis{
-			Dims:     []agent.DepthDimScore{{Code: "D1", Score: 3}},
-			Subtotal: 3,
+		DepthAxis: []agent.DepthDim{
+			{Code: "D1", Name: "任务理解与问题表述", Level: "L3", Evidence: "e"},
 		},
 		Narrative: "n",
 		Axiom:     "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
@@ -125,13 +125,13 @@ func TestListGrowthHistory(t *testing.T) {
 		t.Errorf("chat label = %q, want CRAAP 溯源", surfaces["chat"])
 	}
 
-	// scores is axis-structured: the raw column decodes straight into
-	// agent.Report, and DepthAxis.Subtotal survives the round-trip.
+	// scores is canonical-shaped: the raw column decodes straight into
+	// agent.Report, and the depth axis survives the round-trip.
 	var report agent.Report
 	if err := json.Unmarshal(scoresBySurface["project"], &report); err != nil {
 		t.Fatalf("unmarshal project scores into agent.Report: %v", err)
 	}
-	if report.DepthAxis.Subtotal != 3 {
-		t.Errorf("report.DepthAxis.Subtotal = %d, want 3", report.DepthAxis.Subtotal)
+	if len(report.DepthAxis) != 1 || report.DepthAxis[0].Level != "L3" {
+		t.Errorf("report.DepthAxis = %+v, want one L3 dim", report.DepthAxis)
 	}
 }
