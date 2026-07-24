@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -364,10 +365,27 @@ func TestWeeklyProseMakesNoCallForAnEmptyClass(t *testing.T) {
 // TestWeeklyReportForSeededClass exercises the GET path over migration 0034's
 // seeded week (吴老师's IBDP 一年级 · 研究组, class ...0902 from 0029) rather
 // than a hand-built fixture — the class a fresh dev DB actually renders. It
-// asserts what 0034 promises: 罗一 (...0919, zero events) fires never_used,
-// 陈屿 (...0914, 5 active days last week / 1 this week / no report) fires
-// dropped_off, every card carries non-empty evidence, and 吴桐's two seeded
-// reports (L2 → L3 max depth) give the depth distribution a rated student.
+// asserts what 0034 promises: 罗一 (...0919, zero events) fires never_used
+// unconditionally, every card carries non-empty evidence, and 吴桐's two
+// seeded reports (L2 → L3 max depth) give the depth distribution a rated
+// student.
+//
+// 陈屿's dropped_off card (...0914) is NOT asserted unconditionally. The rule
+// is `ActiveDays <= PrevActiveDays - 2`, and teacher.PrevWindow deliberately
+// compares against only [prevStart, prevStart+elapsed) — the SAME elapsed
+// offset into last week that `now` sits at in this one — not a full previous
+// week. 0034 seeds 陈屿's five previous-week events at Mon–Fri 00:05 UTC (the
+// earliest honest placement: distinct calendar dates, right at each day's
+// start), so PrevActiveDays only reaches 3 (enough to satisfy the rule against
+// this week's ActiveDays=1) once elapsed exceeds 2 days + 5 minutes — i.e.
+// from Wednesday 00:05 UTC of the current week onward. Before that moment, no
+// seed can make dropped_off fire; that is PrevWindow's correct behaviour, not
+// a seeding gap. So this test computes reachability from the response's own
+// weekStart/asOf (the exact inputs PrevWindow was built from) and asserts the
+// card's presence in the reachable regime, and its ABSENCE in the unreachable
+// one — pinning both regimes instead of merely skipping one. The rule's own
+// firing logic already has deterministic unit coverage in
+// internal/teacher/weekly_test.go; this test's job is the seed, not the rule.
 func TestWeeklyReportForSeededClass(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()
@@ -394,11 +412,34 @@ func TestWeeklyReportForSeededClass(t *testing.T) {
 			t.Fatalf("card %s has no evidence — 每个判断带证据", c.TagCode)
 		}
 	}
-	for _, want := range []string{"never_used", "dropped_off"} {
-		if !byTag[want] {
-			t.Fatalf("seeded class produced no %s card; tags = %v", want, byTag)
+	if !byTag["never_used"] {
+		t.Fatalf("seeded class produced no never_used card; tags = %v", byTag)
+	}
+
+	weekStart, err := time.Parse(time.RFC3339, dto.WeekStart)
+	if err != nil {
+		t.Fatalf("parse weekStart %q: %v", dto.WeekStart, err)
+	}
+	asOf, err := time.Parse(time.RFC3339, dto.AsOf)
+	if err != nil {
+		t.Fatalf("parse asOf %q: %v", dto.AsOf, err)
+	}
+	elapsed := asOf.Sub(weekStart)
+	// The threshold matches 0034's own arithmetic: PrevActiveDays only picks
+	// up the 3rd of 陈屿's five Mon–Fri 00:05 UTC events (Wednesday's) once
+	// PrevWindow's upper bound — prevStart + elapsed — passes that event's
+	// timestamp, i.e. once elapsed strictly exceeds 2 days + 5 minutes.
+	reachable := elapsed > 2*24*time.Hour+5*time.Minute
+	if reachable {
+		if !byTag["dropped_off"] {
+			t.Fatalf("elapsed %s past week start (reachable regime) but no dropped_off card; tags = %v", elapsed, byTag)
+		}
+	} else {
+		if byTag["dropped_off"] {
+			t.Fatalf("elapsed %s past week start (unreachable regime — before Wed 00:05 UTC) but dropped_off card present; tags = %v", elapsed, byTag)
 		}
 	}
+
 	if dto.Depth.RatedCount == 0 {
 		t.Fatal("ratedCount = 0; the seeded class has evaluations")
 	}
