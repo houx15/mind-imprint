@@ -30,17 +30,24 @@ export function ConsoleShell({
   const role = user?.role ?? "admin";
   const [tab, setTab] = useState<ConsoleTab>(role === "admin" ? "overview" : "classes");
   const [openClassId, setOpenClassId] = useState<string | null>(null);
+  const [openStudentId, setOpenStudentId] = useState<string | null>(null);
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
-      <ConsoleRail role={role} tab={tab} onTab={(t) => { setTab(t); if (t === "classes") setOpenClassId(null); }} />
+      <ConsoleRail role={role} tab={tab} onTab={(t) => { setTab(t); if (t === "classes") { setOpenClassId(null); setOpenStudentId(null); } }} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex" }}>
         {tab === "overview" && <OverviewView client={client} />}
         {tab === "classes" && openClassId == null && (
           <ClassesView client={client} role={role} onOpenClass={setOpenClassId} />
         )}
         {tab === "classes" && openClassId != null && (
-          <ClassDetailView client={client} classId={openClassId} role={role} onBack={() => setOpenClassId(null)} />
+          <ClassDetailView
+            client={client}
+            classId={openClassId}
+            role={role}
+            onBack={() => { setOpenClassId(null); setOpenStudentId(null); }}
+            onOpenStudent={setOpenStudentId}
+          />
         )}
         {tab === "teachers" && <TeachersView client={client} />}
         {tab === "import" && <ImportView client={client} />}

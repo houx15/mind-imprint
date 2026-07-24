@@ -1,12 +1,38 @@
 import { useEffect, useState } from "react";
-import type { ApiClient, ClassDetail, Teacher } from "../api";
+import type { ApiClient, ClassDetail, RosterReportEntry, Teacher } from "../api";
 import { ApiError } from "../api";
-import { relativeTime } from "./time";
 
-type Client = Pick<ApiClient, "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment" | "listTeachers" | "assignTeacher" | "removeTeacher">;
+type Client = Pick<ApiClient, "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment" | "listTeachers" | "assignTeacher" | "removeTeacher" | "getClassRosterReport">;
 
 const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "#8A92A3", padding: "10px 12px", borderBottom: "1px solid #EAECF2" };
 const TD: React.CSSProperties = { fontSize: 13.5, color: "#1C2333", padding: "12px", borderBottom: "1px solid #F2F3F7" };
+
+// Mirrors dc.html's levelColor/tint helpers (docs/design/teacher end/project/思维印记 教师端.dc.html:1513-1514):
+// L1 or level 0-1 -> red, L2 or 2 -> orange, L3 or 3 -> blue, L4/L5 or 4-5 -> green, "—"/unrated -> grey.
+function badgeColor(text: string): { fg: string; bg: string } {
+  const lMatch = text.match(/L(\d)/);
+  let n: number | null = null;
+  if (lMatch) {
+    n = Number(lMatch[1]);
+  } else {
+    const dMatch = text.match(/^(\d+(?:\.\d+)?)/);
+    if (dMatch) n = Math.round(Number(dMatch[1]));
+  }
+  if (n == null) return { fg: "#8A92A3", bg: "#EEF0F4" };
+  if (n <= 1) return { fg: "#C4574D", bg: "#F7E6E4" };
+  if (n === 2) return { fg: "#C68A3A", bg: "#F6EED9" };
+  if (n === 3) return { fg: "#3E7CA8", bg: "#E1EDF5" };
+  return { fg: "#3E8A6E", bg: "#E4F0EA" }; // 4-5
+}
+
+function Badge({ text }: { text: string }) {
+  const { fg, bg } = badgeColor(text);
+  return (
+    <span style={{ display: "inline-flex", minWidth: 34, justifyContent: "center", background: bg, color: fg, fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 8 }}>
+      {text}
+    </span>
+  );
+}
 
 export function ClassDetailView({
   client,
@@ -14,15 +40,17 @@ export function ClassDetailView({
   onBack,
   now,
   role,
+  onOpenStudent,
 }: {
   client: Client;
   classId: string;
   onBack: () => void;
   now?: number;
   role?: string;
+  onOpenStudent: (userId: string) => void;
 }) {
-  const _now = now ?? Date.now();
   const [detail, setDetail] = useState<ClassDetail | null>(null);
+  const [rosterReport, setRosterReport] = useState<RosterReportEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -36,6 +64,7 @@ export function ClassDetailView({
     client.getClass(classId).then(setDetail).catch((e) =>
       setError(e instanceof ApiError ? e.message : "加载失败"),
     );
+    client.getClassRosterReport(classId).then(setRosterReport).catch(() => setRosterReport([]));
   }
   useEffect(load, [client, classId]);
 
@@ -75,6 +104,7 @@ export function ClassDetailView({
     try {
       await client.removeEnrollment(classId, studentId);
       setDetail((d) => (d ? { ...d, roster: d.roster.filter((s) => s.id !== studentId) } : d));
+      setRosterReport((r) => (r ? r.filter((s) => s.id !== studentId) : r));
       setConfirmRemove(null);
     } catch (e) {
       setMutationError(e instanceof ApiError ? e.message : "移除失败");
@@ -222,51 +252,71 @@ export function ClassDetailView({
             还没有学生加入。分享邀请码 {c.join_code} 让学生加入。
           </div>
         ) : (
-          <>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 26, background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, overflow: "hidden" }}>
-              <thead>
-                <tr>
-                  <th style={TH}>姓名</th>
-                  <th style={TH}>邮箱</th>
-                  <th style={TH}>最近活跃</th>
-                  <th style={TH}>项目</th>
-                  <th style={TH}>评估</th>
-                  <th style={TH}>卡片</th>
-                  <th style={TH} aria-label="操作" />
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 26, background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, overflow: "hidden" }}>
+            <thead>
+              <tr>
+                <th style={TH}>学生</th>
+                <th style={TH}>本周活跃</th>
+                <th style={TH}>对话轮次</th>
+                <th style={TH}>D 轴</th>
+                <th style={TH}>A 轴</th>
+                <th style={TH}>能力报告</th>
+                <th style={TH} aria-label="操作" />
+              </tr>
+            </thead>
+            <tbody>
+              {(rosterReport ?? []).map((s) => (
+                <tr key={s.id} onClick={() => onOpenStudent(s.id)} style={{ cursor: "pointer" }}>
+                  <td style={TD}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: `${s.avatarColor}22`,
+                          color: s.avatarColor,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 800,
+                          fontSize: 14,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {s.displayName.slice(0, 1)}
+                      </div>
+                      <span style={{ fontWeight: 700 }}>{s.displayName}</span>
+                    </div>
+                  </td>
+                  <td style={TD}>{s.activeDays} 天</td>
+                  <td style={TD}>{s.turns}</td>
+                  <td style={TD}><Badge text={s.dBadge} /></td>
+                  <td style={TD}><Badge text={s.aBadge} /></td>
+                  <td style={{ ...TD, fontWeight: 700, color: s.hasReport ? "#3E8A6E" : "#8A92A3" }}>
+                    {s.hasReport ? "✓ 已生成" : "—"}
+                  </td>
+                  <td style={{ ...TD, textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                    {confirmRemove === s.id ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#C76B6B", fontWeight: 600 }}>
+                        将 {s.displayName} 移出班级？仅解除关联，不删除其账号或作品。
+                        <button onClick={() => void doRemove(s.id)} disabled={busy} style={dangerBtn}>确认移除</button>
+                        <button onClick={() => setConfirmRemove(null)} style={backBtn}>取消</button>
+                      </span>
+                    ) : (
+                      <button
+                        aria-label={`移除 ${s.displayName}`}
+                        onClick={() => setConfirmRemove(s.id)}
+                        style={{ background: "transparent", border: "none", color: "#B7BECC", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {detail.roster.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ ...TD, fontWeight: 600 }}>{s.display_name}</td>
-                    <td style={{ ...TD, color: "#6B7384" }}>{s.email}</td>
-                    <td style={TD}>{relativeTime(s.last_active_at, _now)}</td>
-                    <td style={TD}>{s.project_count}</td>
-                    <td style={TD}>{s.evaluation_count}</td>
-                    <td style={TD}>{s.card_count}</td>
-                    <td style={{ ...TD, textAlign: "right" }}>
-                      {confirmRemove === s.id ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#C76B6B", fontWeight: 600 }}>
-                          将 {s.display_name} 移出班级？仅解除关联，不删除其账号或作品。
-                          <button onClick={() => void doRemove(s.id)} disabled={busy} style={dangerBtn}>确认移除</button>
-                          <button onClick={() => setConfirmRemove(null)} style={backBtn}>取消</button>
-                        </span>
-                      ) : (
-                        <button
-                          aria-label={`移除 ${s.display_name}`}
-                          onClick={() => setConfirmRemove(s.id)}
-                          style={{ background: "transparent", border: "none", color: "#B7BECC", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 12, fontSize: 12, color: "#9AA1B0" }}>行不可点入 — 暂无学生作品详情页。</div>
-          </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
