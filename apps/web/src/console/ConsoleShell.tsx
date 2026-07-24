@@ -17,6 +17,7 @@ export type ConsoleClient = Pick<
   | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
   | "listTeachers" | "assignTeacher" | "removeTeacher"
   | "getClassRosterReport" | "getStudentDetail" | "getStudentReport"
+  | "getClassWeeklyReport" | "generateClassWeeklyProse"
 >;
 
 export function ConsoleShell({
@@ -50,6 +51,7 @@ export function ConsoleShell({
             role={role}
             onBack={() => { setOpenClassId(null); setOpenStudentId(null); setOpenReport(null); }}
             onOpenStudent={setOpenStudentId}
+            onOpenReport={(surface, scopeId, studentName) => setOpenReport({ surface, scopeId, studentName })}
           />
         )}
         {tab === "classes" && openClassId != null && openStudentId != null && openReport == null && (

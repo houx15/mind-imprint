@@ -4,12 +4,43 @@ import userEvent from "@testing-library/user-event";
 import { ConsoleShell } from "@/console/ConsoleShell";
 import { createSession } from "@/shell/session";
 import type { ClassDetail, ClassSummary, MeUser } from "@/api";
+import type { WeeklyReport } from "@/api/teacher";
 
 const mem = () => { let s = "{}"; return { getItem: () => s, setItem: (_: string, v: string) => { s = v; } }; };
 const TEACHER: MeUser = { id: "u1", email: "t@d", display_name: "Teacher", role: "teacher", avatar_color: "#2A3B7A", school: { id: "s1", name: "Demo" }, classes: [] };
 
 const summary: ClassSummary = { id: "c1", name: "11A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z" };
 const detail: ClassDetail = { class: summary, roster: [], teachers: [] };
+
+// Minimal but shape-accurate WeeklyReport fixture: proseReady:true so
+// ClassWeeklyView never calls generateClassWeeklyProse in these tests, and
+// all four depth buckets are present (the server never sends fewer).
+function weeklyReport(): WeeklyReport {
+  return {
+    weekLabel: "第 30 周（7.20–7.26）",
+    weekStart: "2026-07-20T00:00:00Z",
+    weekEnd: "2026-07-27T00:00:00Z",
+    asOf: "2026-07-24T07:30:00Z",
+    className: "11A",
+    classSize: 0,
+    stats: [],
+    praise: [],
+    watch: [],
+    depth: {
+      buckets: [
+        { code: "L1", label: "起步 L1", count: 0 },
+        { code: "L2", label: "发展 L2", count: 0 },
+        { code: "L3", label: "熟练 L3", count: 0 },
+        { code: "L4", label: "优秀 L4", count: 0 },
+      ],
+      ratedCount: 0,
+      note: "",
+    },
+    autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
+    comment: "本周点评",
+    proseReady: true,
+  };
+}
 
 function client() {
   return {
@@ -29,6 +60,8 @@ function client() {
     getClassRosterReport: vi.fn(async () => []),
     getStudentDetail: vi.fn(),
     getStudentReport: vi.fn(),
+    getClassWeeklyReport: vi.fn(async () => weeklyReport()),
+    generateClassWeeklyProse: vi.fn(),
   };
 }
 
@@ -49,7 +82,9 @@ describe("ConsoleShell", () => {
   it("opens a class detail when a card is clicked, and 返回 goes back", async () => {
     mount();
     await userEvent.click(await screen.findByText("11A"));
+    // 周报 is the default sub-tab now; switch to 全部学生 to reach the roster.
     // The fixture roster is empty, so the detail shows the empty-roster note.
+    await userEvent.click(await screen.findByText("全部学生"));
     expect(await screen.findByText(/还没有学生加入/)).toBeInTheDocument();
     await userEvent.click(screen.getByText("← 返回"));
     expect(await screen.findByText("我的班级")).toBeInTheDocument();
