@@ -17,7 +17,7 @@ import (
 // date, with the full DualAxis report embedded (the list is already
 // owner-filtered, so no second fetch and no per-report auth). RL-5: no
 // score/level/rank at this level — the diagnostic lives inside
-// report.depthAxis/autonomyAxis/crossAxis only.
+// report.depthAxis/autonomyAxis/promptLens only.
 type growthHistoryEntry struct {
 	Surface   string           `json:"surface"` // "project" | "course" | "chat"
 	ScopeID   string           `json:"scopeId"`

@@ -343,7 +343,7 @@ func normalizeStats(stats []LensStat) []LensStat {
 // "ap-research" entry when the model left it blank.
 func normalizeOfficialProjection(w *officialProjectionWire) *OfficialProjection {
 	if w == nil {
-		return &OfficialProjection{}
+		w = &officialProjectionWire{} // degenerate: model omitted it in project mode — still back-fill standard below
 	}
 	standard := w.Standard
 	if standard.ID == "" && standard.Name == "" {
