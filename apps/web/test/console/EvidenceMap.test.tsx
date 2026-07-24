@@ -69,7 +69,12 @@ beforeAll(() => {
   DualAxisReportSchema.parse(projectReport);
 });
 
-const projectContext = { projectTitle: "中国是否让地球变得更可持续？", researchQuestion: "中国的碳治理政策是否让地球更可持续？" };
+const projectContext = {
+  projectTitle: "中国是否让地球变得更可持续？",
+  researchQuestion: "中国的碳治理政策是否让地球更可持续？",
+  dBadge: "L2–L3",
+  aBadge: "1.8",
+};
 
 describe("EvidenceMap", () => {
   it("project report: renders all 7 node labels; clicking the ai node shows a detail with the interaction count/signals", async () => {
@@ -117,21 +122,50 @@ describe("EvidenceMap", () => {
     expect(within(detail).queryByText(projectContext.researchQuestion)).toBeNull();
   });
 
-  it("aAxis node excludes the not_supplied (A4) signal from both the count and the mean", async () => {
-    render(<EvidenceMap report={coreReport} context={{}} />);
+  it("aAxis node's count of supplied signals excludes the not_supplied (A4) signal, while its mean is the server-provided aBadge verbatim", async () => {
+    // Fixture: A1=3, A2=2, A3=1, A4=0 (opportunity: not_supplied — excluded),
+    // A5=2, A6=1 — 5 supplied signals. The MEAN shown must be exactly the
+    // server's aBadge (context.aBadge), not a value this component computes
+    // itself (FIX 1: single-source badge — see the verbatim test below for
+    // proof it doesn't re-derive).
+    render(<EvidenceMap report={coreReport} context={{ aBadge: "1.8" }} />);
 
     await userEvent.click(screen.getByTestId("evidence-map-node-aAxis"));
 
-    // Fixture: A1=3, A2=2, A3=1, A4=0 (opportunity: not_supplied — excluded),
-    // A5=2, A6=1. Mean computed independently of the component's own
-    // arithmetic: only the 5 supplied signals count, A4's 0 must NOT drag it
-    // down (5, not 6, in the denominator).
-    const suppliedLevels = [3, 2, 1, 2, 1];
-    const expectedMean = suppliedLevels.reduce((sum, l) => sum + l, 0) / suppliedLevels.length;
-    expect(expectedMean).toBeCloseTo(1.8);
-
     const detail = screen.getByTestId("evidence-map-detail");
-    expect(within(detail).getByText(`5 个已提供机会的 A 轴维度中，智识自主均值为 ${expectedMean.toFixed(1)}（满分 5）。`)).toBeInTheDocument();
-    expect(within(screen.getByTestId("evidence-map-node-aAxis")).getByText(`自主均值 ${expectedMean.toFixed(1)}`)).toBeInTheDocument();
+    expect(within(detail).getByText("5 个已提供机会的 A 轴维度中，智识自主均值为 1.8（满分 5）。")).toBeInTheDocument();
+    expect(within(screen.getByTestId("evidence-map-node-aAxis")).getByText("自主均值 1.8")).toBeInTheDocument();
+  });
+
+  it("aAxis/dAxis nodes render the server-provided dBadge/aBadge verbatim, not a locally recomputed value (FIX 1)", async () => {
+    // aBadge is set to a value that DISAGREES with what a naive JS mean of the
+    // fixture's supplied levels ([3,2,1,2,1] -> 1.8) would produce, proving
+    // the node echoes context.aBadge rather than recomputing its own mean.
+    render(<EvidenceMap report={coreReport} context={{ dBadge: "L2–L4", aBadge: "4.3" }} />);
+
+    expect(within(screen.getByTestId("evidence-map-node-dAxis")).getByText("深度区间 L2–L4")).toBeInTheDocument();
+    expect(within(screen.getByTestId("evidence-map-node-aAxis")).getByText("自主均值 4.3")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("evidence-map-node-aAxis"));
+    const detail = screen.getByTestId("evidence-map-detail");
+    expect(within(detail).getByText(/智识自主均值为 4\.3（满分 5）/)).toBeInTheDocument();
+  });
+
+  it("aAxis and prompt-lens nodes render a plain '<value> / 5' chip, never an L-prefixed depth chip (FIX 7)", async () => {
+    render(<EvidenceMap report={projectReport} context={projectContext} />);
+    const detail = screen.getByTestId("evidence-map-detail");
+
+    await userEvent.click(screen.getByTestId("evidence-map-node-aAxis"));
+    expect(within(detail).getByText("1.8 / 5")).toBeInTheDocument();
+    expect(within(detail).queryByText(/^L\d/)).toBeNull();
+
+    await userEvent.click(screen.getByTestId("evidence-map-node-prompt"));
+    // promptLens mean stays locally derived (no Go producer to single-source
+    // from), but must render as "<n> / 5", not "L<n>".
+    expect(within(detail).queryByText(/^L\d/)).toBeNull();
+
+    // The D axis node, by contrast, keeps its depth-scale L-notation chip.
+    await userEvent.click(screen.getByTestId("evidence-map-node-dAxis"));
+    expect(within(detail).getByText("L2–L3")).toBeInTheDocument();
   });
 });

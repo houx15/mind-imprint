@@ -334,6 +334,9 @@ type teacherReportForTest struct {
 	Context struct {
 		ProjectTitle     string `json:"projectTitle"`
 		ResearchQuestion string `json:"researchQuestion"`
+		Title            string `json:"title"`
+		DBadge           string `json:"dBadge"`
+		ABadge           string `json:"aBadge"`
 	} `json:"context"`
 }
 
@@ -409,6 +412,21 @@ func TestStudentReportProjectHappyPath(t *testing.T) {
 	if resp.Context.ProjectTitle != "中国是否让地球更可持续？" {
 		t.Fatalf("context.projectTitle = %q, want the project's title", resp.Context.ProjectTitle)
 	}
+	// FIX 5: context.title is populated for the header, mirroring projectTitle
+	// on the project surface.
+	if resp.Context.Title != "中国是否让地球更可持续？" {
+		t.Fatalf("context.title = %q, want the project's title", resp.Context.Title)
+	}
+	// FIX 1: context.dBadge/aBadge are the SAME single-sourced badges the
+	// roster/student-head views derive via teacher.DBadge/ABadge over this
+	// exact report (D1=L2, D2=L3 -> range L2–L3; A1=3 given_taken -> mean 3.0)
+	// — this endpoint must not leave the web client to re-derive them.
+	if resp.Context.DBadge != "L2–L3" {
+		t.Fatalf("context.dBadge = %q, want L2–L3", resp.Context.DBadge)
+	}
+	if resp.Context.ABadge != "3.0" {
+		t.Fatalf("context.aBadge = %q, want 3.0", resp.Context.ABadge)
+	}
 }
 
 // TestStudentReportCourseHappyPathAndCrossOwner — a course report round-trips
@@ -463,6 +481,15 @@ func TestStudentReportCourseHappyPathAndCrossOwner(t *testing.T) {
 	}
 	if resp.Context.ProjectTitle != "" || resp.Context.ResearchQuestion != "" {
 		t.Fatalf("context should be empty for a course report: %+v", resp.Context)
+	}
+	// FIX 5: context.title is populated from the course's title even though
+	// this surface has no project framing.
+	if resp.Context.Title != "一条网络信息，该不该信" {
+		t.Fatalf("context.title = %q, want the seeded course's title", resp.Context.Title)
+	}
+	// FIX 1: badges are populated on every surface, not just project.
+	if resp.Context.DBadge != "L2" || resp.Context.ABadge != "2.0" {
+		t.Fatalf("context badges = dBadge=%q aBadge=%q, want L2/2.0", resp.Context.DBadge, resp.Context.ABadge)
 	}
 
 	// Cross-owner: a DIFFERENT student's course session, addressed via the
@@ -540,6 +567,14 @@ func TestStudentReportChatHappyPathAndCrossOwner(t *testing.T) {
 	}
 	if resp.Context.ProjectTitle != "" || resp.Context.ResearchQuestion != "" {
 		t.Fatalf("context should be empty for a chat report: %+v", resp.Context)
+	}
+	// FIX 5: context.title is populated from the thread's title.
+	if resp.Context.Title != "chat thread" {
+		t.Fatalf("context.title = %q, want the thread's title", resp.Context.Title)
+	}
+	// FIX 1: badges are populated on every surface, not just project.
+	if resp.Context.DBadge != "L2" || resp.Context.ABadge != "2.0" {
+		t.Fatalf("context badges = dBadge=%q aBadge=%q, want L2/2.0", resp.Context.DBadge, resp.Context.ABadge)
 	}
 
 	// Cross-owner: a DIFFERENT student's chat thread, addressed via the

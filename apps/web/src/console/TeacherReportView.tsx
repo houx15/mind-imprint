@@ -98,7 +98,7 @@ export function TeacherReportView({
     ref.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
-  const title = context.projectTitle ?? `${SURFACE_LABEL[surface] ?? surface}报告`;
+  const title = context.title ?? context.projectTitle ?? `${SURFACE_LABEL[surface] ?? surface}报告`;
   const chips = [
     SURFACE_LABEL[surface] ?? surface,
     officialProjection ? officialProjection.standard.name : null,

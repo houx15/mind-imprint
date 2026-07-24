@@ -21,19 +21,18 @@ export function ClassDetailView({
   client,
   classId,
   onBack,
-  now,
   role,
   onOpenStudent,
 }: {
   client: Client;
   classId: string;
   onBack: () => void;
-  now?: number;
   role?: string;
   onOpenStudent: (userId: string) => void;
 }) {
   const [detail, setDetail] = useState<ClassDetail | null>(null);
   const [rosterReport, setRosterReport] = useState<RosterReportEntry[] | null>(null);
+  const [rosterReportError, setRosterReportError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -42,12 +41,24 @@ export function ClassDetailView({
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
+  // Tracked separately from the class-detail load/error above: roster-report
+  // is a SECOND, independent request. If it fails while getClass succeeds, a
+  // teacher must see an explicit error — not a headed table silently rendered
+  // with zero rows, which reads as "this class has no students."
+  function loadRosterReport() {
+    setRosterReportError(null);
+    client.getClassRosterReport(classId).then(setRosterReport).catch((e) => {
+      setRosterReport(null);
+      setRosterReportError(e instanceof ApiError ? e.message : "加载失败");
+    });
+  }
+
   function load() {
     setError(null);
     client.getClass(classId).then(setDetail).catch((e) =>
       setError(e instanceof ApiError ? e.message : "加载失败"),
     );
-    client.getClassRosterReport(classId).then(setRosterReport).catch(() => setRosterReport([]));
+    loadRosterReport();
   }
   useEffect(load, [client, classId]);
 
@@ -234,6 +245,12 @@ export function ClassDetailView({
           <div style={{ marginTop: 30, color: "#8A92A3", fontSize: 14.5, lineHeight: 1.7 }}>
             还没有学生加入。分享邀请码 {c.join_code} 让学生加入。
           </div>
+        ) : rosterReportError ? (
+          <div style={{ marginTop: 30, color: "#C76B6B", fontSize: 14, fontWeight: 600 }}>
+            学生数据加载失败：{rosterReportError} · <span onClick={loadRosterReport} style={{ cursor: "pointer", textDecoration: "underline" }}>重试</span>
+          </div>
+        ) : rosterReport === null ? (
+          <div style={{ marginTop: 30, color: "#8A92A3", fontSize: 14.5 }}>加载中…</div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 26, background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, overflow: "hidden" }}>
             <thead>
@@ -248,7 +265,7 @@ export function ClassDetailView({
               </tr>
             </thead>
             <tbody>
-              {(rosterReport ?? []).map((s) => (
+              {rosterReport.map((s) => (
                 <tr key={s.id} onClick={() => onOpenStudent(s.id)} style={{ cursor: "pointer" }}>
                   <td style={TD}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

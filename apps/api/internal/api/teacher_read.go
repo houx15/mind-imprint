@@ -34,10 +34,17 @@ type RosterReportEntry struct {
 }
 
 // weekWindow returns the half-open [Mon 00:00, next Mon 00:00) window enclosing
-// now, in now's location. D1 uses the current week only (no deltas — that is D2).
+// now, pinned to UTC. D1 uses the current week only (no deltas — that is D2).
+//
+// Pinned to UTC (not now's/the server's local location) because the DB side
+// (teacher.sql's activity lateral joins) buckets `event.created_at` via
+// `AT TIME ZONE 'UTC')::date` — if this window were built in server-local time
+// (e.g. Asia/Shanghai) while Postgres computes dates in UTC, a 7×24h window
+// can straddle 8 distinct UTC calendar dates and activeDays could read 8.
 func weekWindow(now time.Time) (time.Time, time.Time) {
+	now = now.UTC()
 	y, m, d := now.Date()
-	midnight := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	midnight := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 	offset := (int(now.Weekday()) + 6) % 7 // Monday=0
 	start := midnight.AddDate(0, 0, -offset)
 	return start, start.AddDate(0, 0, 7)
@@ -274,12 +281,18 @@ func (a *API) getStudentDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ReportContext is the deep-report's project-scope-only framing: the project
-// title and the research question the student is answering. Empty on
-// course/chat surfaces (they have no project framing).
+// ReportContext is the deep-report's framing: the display title, and (project
+// surface only) the research question the student is answering. DBadge/ABadge
+// are the SAME display-summary badges the roster/student-head views show
+// (teacher.DBadge/ABadge over this exact report) — the single producer for
+// every screen that shows a D/A badge, so a teacher never sees two different
+// numbers for the same report on two adjacent screens.
 type ReportContext struct {
 	ProjectTitle     string `json:"projectTitle,omitempty"`
 	ResearchQuestion string `json:"researchQuestion,omitempty"`
+	Title            string `json:"title,omitempty"`
+	DBadge           string `json:"dBadge,omitempty"`
+	ABadge           string `json:"aBadge,omitempty"`
 }
 
 // TeacherReportDTO is the deep-report data source for the teacher's
@@ -288,14 +301,6 @@ type ReportContext struct {
 type TeacherReportDTO struct {
 	Report  studio.ReportDTO `json:"report"`
 	Context ReportContext    `json:"context"`
-}
-
-// notFoundOr writes err via httpx.WriteError, which already maps
-// pgx.ErrNoRows to 404 — named here so the report handler's intent (missing
-// scope/ownership → hidden as not-found, same as authTeacherStudent) reads
-// clearly at the call site.
-func notFoundOr(w http.ResponseWriter, r *http.Request, err error) {
-	httpx.WriteError(w, r, err)
 }
 
 // rqFromNode extracts the research question from a research_question graph
@@ -325,7 +330,9 @@ func rqFromNode(body []byte, fallback string) string {
 // authTeacherStudent (class ownership + this-class student membership); the
 // eval queries additionally re-check that the scope is owned by that exact
 // student, so a correct surface+scopeId belonging to a DIFFERENT student
-// still 404s.
+// still 404s. Per-surface query errors are written directly via
+// httpx.WriteError, which already maps pgx.ErrNoRows to 404 — missing
+// scope/ownership is hidden as not-found, same as authTeacherStudent.
 func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
 	_, userID, ok := a.authTeacherStudent(w, r)
 	if !ok {
@@ -349,30 +356,33 @@ func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
 			ScopeID: pgScopeID, UserID: userID,
 		})
 		if e != nil {
-			notFoundOr(w, r, e)
+			httpx.WriteError(w, r, e)
 			return
 		}
 		scores, createdAt = row.Scores, row.CreatedAt
 		ctx.ProjectTitle = row.ProjectTitle
+		ctx.Title = row.ProjectTitle
 		ctx.ResearchQuestion = rqFromNode(row.RqBody, row.ProjectTitle)
 	case "course":
 		row, e := a.d.Queries.GetStudentSessionEvaluationForTeacher(r.Context(), sqlc.GetStudentSessionEvaluationForTeacherParams{
 			ScopeID: pgScopeID, UserID: userID,
 		})
 		if e != nil {
-			notFoundOr(w, r, e)
+			httpx.WriteError(w, r, e)
 			return
 		}
 		scores, createdAt = row.Scores, row.CreatedAt
+		ctx.Title = row.CourseTitle
 	case "chat":
 		row, e := a.d.Queries.GetStudentThreadEvaluationForTeacher(r.Context(), sqlc.GetStudentThreadEvaluationForTeacherParams{
 			ScopeID: pgScopeID, UserID: userID,
 		})
 		if e != nil {
-			notFoundOr(w, r, e)
+			httpx.WriteError(w, r, e)
 			return
 		}
 		scores, createdAt = row.Scores, row.CreatedAt
+		ctx.Title = row.ThreadTitle
 	default:
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
@@ -383,6 +393,8 @@ func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	ctx.DBadge = teacher.DBadge(rep)
+	ctx.ABadge = teacher.ABadge(rep)
 	httpx.WriteJSON(w, http.StatusOK, TeacherReportDTO{
 		Report:  studio.ToReportDTO(rep, createdAt),
 		Context: ctx,

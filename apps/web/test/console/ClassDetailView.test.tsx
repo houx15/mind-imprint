@@ -5,8 +5,6 @@ import { ClassDetailView } from "@/console/ClassDetailView";
 import type { ClassDetail, RosterReportEntry } from "@/api";
 import { ApiError } from "@/api";
 
-const NOW = Date.parse("2026-06-26T12:00:00Z");
-
 const detail = (over: Partial<ClassDetail> = {}): ClassDetail => ({
   class: { id: "c1", name: "11 年级 A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z" },
   roster: [
@@ -38,7 +36,7 @@ function makeClient(d: ClassDetail, roster: RosterReportEntry[] = rosterReport()
 describe("ClassDetailView roster", () => {
   it("renders the class name, join code, and roster rows with D/A signals", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     expect(await screen.findByText("11 年级 A")).toBeInTheDocument();
     expect(screen.getByText(/AB-CD/)).toBeInTheDocument();
     expect(screen.getByText("Phoebe")).toBeInTheDocument();
@@ -56,14 +54,14 @@ describe("ClassDetailView roster", () => {
 
   it("colors a D badge range like L3–L4 green (design's fixed-order L4-before-L3 match)", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     const badge = await screen.findByText("L3–L4");
     expect(badge).toHaveStyle({ color: "#3E8A6E", background: "#E4F0EA" });
   });
 
   it("colors an unrated D badge grey", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     // Mia's row: dBadge "—" and aBadge "—" both render as "—"; grab all and check the grey style applies.
     await screen.findByText("Mia");
     const dashes = screen.getAllByText("—");
@@ -76,7 +74,7 @@ describe("ClassDetailView roster", () => {
 
   it("shows the enriched column headers", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     expect(await screen.findByText("学生")).toBeInTheDocument();
     expect(screen.getByText("本周活跃")).toBeInTheDocument();
     expect(screen.getByText("对话轮次")).toBeInTheDocument();
@@ -88,7 +86,7 @@ describe("ClassDetailView roster", () => {
   it("roster rows are clickable and open the student detail view", async () => {
     const client = makeClient(detail());
     const onOpenStudent = vi.fn();
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={onOpenStudent} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={onOpenStudent} />);
     const cell = await screen.findByText("Phoebe");
     await userEvent.click(cell);
     expect(onOpenStudent).toHaveBeenCalledWith("u1");
@@ -97,15 +95,32 @@ describe("ClassDetailView roster", () => {
   it("clicking the remove control does not also open the student (event does not bubble)", async () => {
     const client = makeClient(detail());
     const onOpenStudent = vi.fn();
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={onOpenStudent} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={onOpenStudent} />);
     await userEvent.click(await screen.findByLabelText("移除 Phoebe"));
     expect(onOpenStudent).not.toHaveBeenCalled();
   });
 
   it("renders an empty-roster note with the join code", async () => {
     const client = makeClient(detail({ roster: [] }), []);
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     expect(await screen.findByText(/还没有学生加入/)).toBeInTheDocument();
+  });
+
+  it("a roster-report failure renders an error message with 重试, never the 'class is empty' copy (the class DOES have students)", async () => {
+    const client = makeClient(detail()); // detail().roster has 2 students
+    client.getClassRosterReport = vi.fn().mockRejectedValue(new ApiError("INTERNAL", "服务器错误", 500));
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
+
+    await screen.findByText("11 年级 A"); // class detail itself loaded fine
+    expect(await screen.findByText(/服务器错误/)).toBeInTheDocument();
+    expect(screen.queryByText(/还没有学生加入/)).not.toBeInTheDocument();
+    // No headed table silently rendered with zero rows.
+    expect(screen.queryByText("学生")).not.toBeInTheDocument();
+    expect(screen.queryByText("Phoebe")).not.toBeInTheDocument();
+
+    client.getClassRosterReport = vi.fn().mockResolvedValue(rosterReport());
+    await userEvent.click(screen.getByText("重试"));
+    expect(await screen.findByText("Phoebe")).toBeInTheDocument();
   });
 });
 
@@ -113,7 +128,7 @@ describe("ClassDetailView mutations", () => {
   it("renames the class", async () => {
     const client = makeClient(detail());
     client.renameClass.mockResolvedValue({ ...detail().class, name: "新名字" });
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     await userEvent.click(await screen.findByText("改名"));
     const input = screen.getByDisplayValue("11 年级 A");
     await userEvent.clear(input);
@@ -126,7 +141,7 @@ describe("ClassDetailView mutations", () => {
   it("regenerates the join code only after confirming", async () => {
     const client = makeClient(detail());
     client.regenerateJoinCode.mockResolvedValue({ ...detail().class, join_code: "ZZ-ZZ" });
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     await userEvent.click(await screen.findByText("轮换"));
     expect(client.regenerateJoinCode).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText("确认轮换"));
@@ -137,7 +152,7 @@ describe("ClassDetailView mutations", () => {
   it("removes a student only after confirming, then drops the row", async () => {
     const client = makeClient(detail());
     client.removeEnrollment.mockResolvedValue(undefined);
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     await userEvent.click(await screen.findByLabelText("移除 Phoebe"));
     expect(client.removeEnrollment).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText("确认移除"));
@@ -148,7 +163,7 @@ describe("ClassDetailView mutations", () => {
   it("keeps the detail view visible and shows an inline error when rename fails", async () => {
     const client = makeClient(detail());
     client.renameClass.mockRejectedValue(new ApiError("INTERNAL", "服务器错误", 500));
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} />);
     await userEvent.click(await screen.findByText("改名"));
     const input = screen.getByDisplayValue("11 年级 A");
     await userEvent.clear(input);
@@ -167,14 +182,14 @@ describe("ClassDetailView mutations", () => {
 describe("ClassDetailView admin teacher section", () => {
   it("teacher role sees no teacher-management section", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} role="teacher" onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} role="teacher" onOpenStudent={() => {}} />);
     await screen.findByText("11 年级 A");
     expect(screen.queryByText("任课教师")).not.toBeInTheDocument();
   });
 
   it("admin sees current teachers and can assign another", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} role="admin" onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} role="admin" onOpenStudent={() => {}} />);
     expect(await screen.findByText("任课教师")).toBeInTheDocument();
     expect(screen.getByText("Ms Chen")).toBeInTheDocument();
     await userEvent.selectOptions(await screen.findByTestId("assign-teacher-picker"), "t2");
@@ -185,7 +200,7 @@ describe("ClassDetailView admin teacher section", () => {
 
   it("admin can remove a teacher", async () => {
     const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} role="admin" onOpenStudent={() => {}} />);
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} role="admin" onOpenStudent={() => {}} />);
     await userEvent.click(await screen.findByLabelText("移除教师 Ms Chen"));
     await waitFor(() => expect(client.removeTeacher).toHaveBeenCalledWith("c1", "t1"));
   });

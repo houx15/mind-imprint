@@ -30,7 +30,13 @@ export interface StudentDetail {
 
 export interface TeacherReport {
   report: DualAxisReport;
-  context: { projectTitle?: string; researchQuestion?: string };
+  context: {
+    projectTitle?: string;
+    researchQuestion?: string;
+    title?: string;
+    dBadge?: string;
+    aBadge?: string;
+  };
 }
 
 export async function getClassRosterReport(classId: string): Promise<RosterReportEntry[]> {

@@ -26,40 +26,48 @@ interface MapNodeDef {
   label: string;
   note: string;
   detail: string;
-  levelBadge?: string; // raw text fed to badgeColor() for a small accent chip in the detail panel
+  levelBadge?: string; // raw text fed to badgeColor() for a depth-scaled accent chip in the detail panel
+  plainBadge?: string; // raw text for a NEUTRAL chip — never run through badgeColor's depth scale (A axis / prompt lens are not the same thing as D axis, and must not read as a depth level)
 }
 
-function depthSummary(depthAxis: DualAxisReport["depthAxis"]): { note: string; detail: string; badge?: string } {
-  const levels = depthAxis
-    .filter((d) => d.level !== "NA")
-    .map((d) => Number(d.level.slice(1)));
-  if (levels.length === 0) {
+// D/A badge NUMBERS are single-sourced from the server (teacher.DBadge/ABadge
+// over this same canonical report, via ReportContext.dBadge/aBadge) — the
+// architecture is "one producer, many projections," and this component must
+// not re-derive them (that produced two disagreeing numbers on adjacent
+// screens: Go's half-to-even vs a naive JS half-up mean). Only purely
+// descriptive text (e.g. how many dimensions/signals are counted) is derived
+// here, client-side.
+function depthSummary(depthAxis: DualAxisReport["depthAxis"], dBadge?: string): { note: string; detail: string; badge?: string } {
+  const badge = dBadge ?? "—";
+  if (badge === "—") {
     return { note: "暂无可计入的证据", detail: `${depthAxis.length} 个 D 轴维度目前都没有可计入的证据。` };
   }
-  const min = Math.min(...levels);
-  const max = Math.max(...levels);
-  const range = min === max ? `L${min}` : `L${min}–L${max}`;
   return {
-    note: `深度区间 ${range}`,
-    detail: `${depthAxis.length} 个 D 轴维度中，认知深度证据落在 ${range} 区间。`,
-    badge: `L${max}`,
+    note: `深度区间 ${badge}`,
+    detail: `${depthAxis.length} 个 D 轴维度中，认知深度证据落在 ${badge} 区间。`,
+    badge,
   };
 }
 
-function autonomySummary(autonomyAxis: DualAxisReport["autonomyAxis"]): { note: string; detail: string; badge?: string } {
+function autonomySummary(autonomyAxis: DualAxisReport["autonomyAxis"], aBadge?: string): { note: string; detail: string; badge?: string } {
   const supplied = autonomyAxis.filter((a) => a.opportunity !== "not_supplied");
-  if (supplied.length === 0) {
+  const badge = aBadge ?? "—";
+  if (supplied.length === 0 || badge === "—") {
     return { note: "机会未提供，暂无可计入证据", detail: "所有 A 轴维度本轮都未被给到自主机会，暂无可计入的证据。" };
   }
-  const mean = supplied.reduce((sum, a) => sum + a.level, 0) / supplied.length;
-  const rounded = Math.round(mean * 10) / 10;
   return {
-    note: `自主均值 ${rounded.toFixed(1)}`,
-    detail: `${supplied.length} 个已提供机会的 A 轴维度中，智识自主均值为 ${rounded.toFixed(1)}（满分 5）。`,
-    badge: `L${Math.round(rounded)}`,
+    note: `自主均值 ${badge}`,
+    detail: `${supplied.length} 个已提供机会的 A 轴维度中，智识自主均值为 ${badge}（满分 5）。`,
+    // "4.2 / 5", never "L4" — the caption on this very screen says the A axis
+    // (and the prompt lens) are NOT a third scoring axis, so its number must
+    // not be dressed up in the D axis's L-level notation (FIX 7).
+    badge: `${badge} / 5`,
   };
 }
 
+// Prompt lens has no Go-side badge producer (it isn't compared against any
+// other screen), so its mean stays a local, purely-descriptive derivation —
+// only its RENDERING changes (no L-prefix, no depth-scale color: FIX 7).
 function lensSummary(promptLens: DualAxisReport["promptLens"]): { note: string; detail: string; badge?: string } {
   const lenses = promptLens.lenses;
   if (lenses.length === 0) {
@@ -70,7 +78,7 @@ function lensSummary(promptLens: DualAxisReport["promptLens"]): { note: string; 
   return {
     note: `透镜均值 ${rounded.toFixed(1)}`,
     detail: `${lenses.length} 个提示词透镜维度均值为 ${rounded.toFixed(1)}（满分 5）。`,
-    badge: `L${Math.round(rounded)}`,
+    badge: `${rounded.toFixed(1)} / 5`,
   };
 }
 
@@ -99,13 +107,15 @@ function aiSummary(interactionEvidence: DualAxisReport["interactionEvidence"]): 
   };
 }
 
+type EvidenceMapContext = { projectTitle?: string; researchQuestion?: string; dBadge?: string; aBadge?: string };
+
 function buildNodes(
   report: DualAxisReport,
-  context: { projectTitle?: string; researchQuestion?: string },
+  context: EvidenceMapContext,
   studentName?: string,
 ): MapNodeDef[] {
-  const d = depthSummary(report.depthAxis);
-  const a = autonomySummary(report.autonomyAxis);
+  const d = depthSummary(report.depthAxis, context.dBadge);
+  const a = autonomySummary(report.autonomyAxis, context.aBadge);
   const p = lensSummary(report.promptLens);
   const ai = aiSummary(report.interactionEvidence);
 
@@ -172,7 +182,7 @@ function buildNodes(
       label: "A 轴 · 智识自主",
       note: a.note,
       detail: a.detail,
-      levelBadge: a.badge,
+      plainBadge: a.badge,
     },
     {
       id: "prompt",
@@ -184,7 +194,7 @@ function buildNodes(
       label: "提示词透镜",
       note: p.note,
       detail: p.detail,
-      levelBadge: p.badge,
+      plainBadge: p.badge,
     },
     {
       id: "ai",
@@ -219,7 +229,7 @@ export function EvidenceMap({
   studentName,
 }: {
   report: DualAxisReport;
-  context: { projectTitle?: string; researchQuestion?: string };
+  context: EvidenceMapContext;
   studentName?: string;
 }) {
   const [selected, setSelected] = useState<NodeId>("center");
@@ -302,7 +312,17 @@ export function EvidenceMap({
                   </span>
                 );
               })()
-            : null}
+            : active.plainBadge
+              ? (
+                  // Neutral chip — deliberately NOT badgeColor()'d. This is the
+                  // A axis / prompt lens, and the caption right below says they
+                  // are not a third scoring axis; coloring their number on the
+                  // D axis's depth scale would contradict that on this very screen.
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#4A5060", background: "#F1F2F6", padding: "1px 8px", borderRadius: 8 }}>
+                    {active.plainBadge}
+                  </span>
+                )
+              : null}
         </div>
         <div style={{ marginTop: 8, fontSize: 13, color: "#4A5060", lineHeight: 1.75 }}>{active.detail}</div>
       </div>

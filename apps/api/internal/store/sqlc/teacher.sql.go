@@ -128,7 +128,7 @@ func (q *Queries) GetStudentThreadEvaluationForTeacher(ctx context.Context, arg 
 
 const getStudentUsageForTeacher = `-- name: GetStudentUsageForTeacher :one
 SELECT
-  COUNT(DISTINCT (ev.created_at)::date) AS active_days,
+  COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
   COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message')) AS turns
 FROM event ev
 WHERE ev.user_id = $1
@@ -147,6 +147,9 @@ type GetStudentUsageForTeacherRow struct {
 }
 
 // This-week active days + turns for one student (used by the student detail head).
+// Bucketed via `AT TIME ZONE 'UTC'` (not the DB session's TimeZone GUC, which
+// may differ from the app's) so a 7x24h window (weekWindow, UTC-pinned) can
+// never span more than 7 distinct dates.
 func (q *Queries) GetStudentUsageForTeacher(ctx context.Context, arg GetStudentUsageForTeacherParams) (GetStudentUsageForTeacherRow, error) {
 	row := q.db.QueryRow(ctx, getStudentUsageForTeacher, arg.UserID, arg.WeekStart, arg.WeekEnd)
 	var i GetStudentUsageForTeacherRow
@@ -174,7 +177,7 @@ LEFT JOIN LATERAL (
 ) ev ON true
 LEFT JOIN LATERAL (
   SELECT
-    COUNT(DISTINCT (ev4.created_at)::date) AS active_days,
+    COUNT(DISTINCT (ev4.created_at AT TIME ZONE 'UTC')::date) AS active_days,
     COUNT(*) FILTER (WHERE ev4.type IN ('prompt_sent','course_message')) AS turns
   FROM event ev4
   WHERE ev4.user_id = u.id

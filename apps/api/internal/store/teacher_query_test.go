@@ -319,6 +319,93 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 	}
 }
 
+// TestActiveDaysPinnedToUTCAcrossSessionTimeZone guards FIX 2 of the
+// whole-branch review: teacher.sql's active-days bucketing must be pinned to
+// UTC via `AT TIME ZONE 'UTC'`, not the DB session's TimeZone GUC. It seeds
+// one event per hour across the entire UTC week window and runs both
+// active-days queries (GetStudentUsageForTeacher, ListClassRosterReport) over
+// a connection whose session TimeZone is forced to Asia/Shanghai (UTC+8) —
+// under the pre-fix `(created_at)::date` cast, that offset shifts the
+// early-morning UTC hours into the FOLLOWING local calendar day, so a 7×24h
+// UTC window reads as 8 distinct active days. The fix must hold at exactly 7
+// regardless of the session's timezone.
+func TestActiveDaysPinnedToUTCAcrossSessionTimeZone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+
+	var schoolID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO schools (name) VALUES ('D1 TZ Test School') RETURNING id`).
+		Scan(&schoolID); err != nil {
+		t.Fatalf("seed school: %v", err)
+	}
+	var classID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO classes (school_id, name, join_code) VALUES ($1, 'TZ Class', 'D1-TZ') RETURNING id`,
+		schoolID).Scan(&classID); err != nil {
+		t.Fatalf("seed class: %v", err)
+	}
+	var studentID uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color)
+		VALUES ('tz-student@example.com', 'x', 'student', $1, 'TZ Student', '#444444')
+		RETURNING id`, schoolID).Scan(&studentID); err != nil {
+		t.Fatalf("seed student: %v", err)
+	}
+	mustExec(t, ctx, pool, `INSERT INTO enrollments (user_id, class_id, role_in_class) VALUES ($1, $2, 'student')`, studentID, classID)
+
+	var projectID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO project (user_id, title) VALUES ($1, 'tz project') RETURNING id`,
+		studentID).Scan(&projectID); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+
+	weekStart := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC) // a Monday, UTC midnight
+	weekEnd := weekStart.AddDate(0, 0, 7)
+	for h := 0; h < 24*7; h++ {
+		insertEvent(t, ctx, pool, studentID, projectID, "studio", "prompt_sent", weekStart.Add(time.Duration(h)*time.Hour))
+	}
+
+	// Pin ONE physical connection's session TimeZone to Asia/Shanghai (UTC+8)
+	// and run the queries over that exact connection — pgxpool would
+	// otherwise silently hand back a connection whose session GUC never
+	// changed.
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("acquire conn: %v", err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SET TIME ZONE 'Asia/Shanghai'`); err != nil {
+		t.Fatalf("set session time zone: %v", err)
+	}
+	q := sqlc.New(conn)
+
+	usage, err := q.GetStudentUsageForTeacher(ctx, sqlc.GetStudentUsageForTeacherParams{
+		UserID: studentID, WeekStart: weekStart, WeekEnd: weekEnd,
+	})
+	if err != nil {
+		t.Fatalf("GetStudentUsageForTeacher: %v", err)
+	}
+	if usage.ActiveDays != 7 {
+		t.Fatalf("GetStudentUsageForTeacher active_days = %d under an Asia/Shanghai session, want 7 (UTC-pinned)", usage.ActiveDays)
+	}
+
+	roster, err := q.ListClassRosterReport(ctx, sqlc.ListClassRosterReportParams{
+		ClassID: classID, WeekStart: weekStart, WeekEnd: weekEnd,
+	})
+	if err != nil {
+		t.Fatalf("ListClassRosterReport: %v", err)
+	}
+	if len(roster) != 1 {
+		t.Fatalf("roster has %d rows, want 1", len(roster))
+	}
+	if roster[0].ActiveDays != 7 {
+		t.Fatalf("ListClassRosterReport active_days = %d under an Asia/Shanghai session, want 7 (UTC-pinned)", roster[0].ActiveDays)
+	}
+}
+
 func mustExec(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sql string, args ...any) {
 	t.Helper()
 	if _, err := pool.Exec(ctx, sql, args...); err != nil {

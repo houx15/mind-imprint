@@ -178,7 +178,9 @@ export function StudentDetailView({
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333", lineHeight: 1.4 }}>{r.title}</div>
-                  <div style={{ fontSize: 12, color: "#9198A8", marginTop: 3 }}>{r.date} · {r.status}</div>
+                  {/* r.date is an RFC3339 timestamp from the server; render only
+                      the date part (no locale formatting needed — keep it simple). */}
+                  <div style={{ fontSize: 12, color: "#9198A8", marginTop: 3 }}>{r.date.slice(0, 10)} · {r.status}</div>
                 </div>
                 {r.hasReport && (
                   <div
