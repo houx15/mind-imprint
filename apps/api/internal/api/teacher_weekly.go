@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/teacher"
@@ -264,4 +266,166 @@ func (a *API) getClassWeeklyReport(w http.ResponseWriter, r *http.Request) {
 	default:
 		httpx.WriteError(w, r, perr)
 	}
+}
+
+// postClassWeeklyProse handles POST /api/v1/classes/{id}/weekly-report/prose —
+// the ONLY endpoint in D2 that spends. It generates once per (class, week);
+// a second call returns the stored row without calling a model (DEC-2), and a
+// card that first appeared after generation is topped up (DEC-6) without
+// rewriting anything already written.
+func (a *API) postClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	cls, err := a.assertTeacherOwnsClass(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	ctx := r.Context()
+	now := time.Now()
+	data, err := a.loadWeekly(ctx, cls, now)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// GetClassWeeklyProseParams.WeekStart is pgtype.Date (the column is
+	// `date`, not `timestamptz`) — a bare pgtype.Date{Valid: true} with no
+	// Time silently encodes 0001-01-01 and reads the wrong week, so every
+	// call site below builds it from data.WeekStart explicitly.
+	weekParam := pgtype.Date{Time: data.WeekStart, Valid: true}
+
+	existing, gerr := a.d.Queries.GetClassWeeklyProse(ctx, sqlc.GetClassWeeklyProseParams{
+		ClassID: id, WeekStart: weekParam,
+	})
+	hasRow := gerr == nil
+	if gerr != nil && !errors.Is(gerr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, gerr)
+		return
+	}
+
+	facts := teacher.BuildWeeklyFacts(cls.Name, data.ClassSize, teacher.WeekLabel(data.WeekStart), data.Weekly)
+
+	// Nothing to say about: no cards and nobody rated. Spending a flagship call
+	// to be told so is waste.
+	if !hasRow && len(facts.Cards) == 0 && data.Weekly.Depth.RatedCount == 0 {
+		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, nil))
+		return
+	}
+
+	if hasRow {
+		missing := missingCardFacts(existing.Cards, facts)
+		if len(missing) == 0 {
+			httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, &existing))
+			return
+		}
+		topUp := facts
+		topUp.Cards = missing
+		prose, ok := a.composeWeeklyProse(ctx, r, topUp)
+		if ok && len(prose.Cards) > 0 {
+			if cards, merr := json.Marshal(prose.Cards); merr == nil {
+				if aerr := a.d.Queries.AppendClassWeeklyProseCards(ctx, sqlc.AppendClassWeeklyProseCardsParams{
+					ClassID: id, WeekStart: weekParam, Cards: cards,
+				}); aerr != nil {
+					slog.Warn("weekly prose: append cards", "err", aerr)
+				}
+			}
+		}
+		refreshed, rerr := a.d.Queries.GetClassWeeklyProse(ctx, sqlc.GetClassWeeklyProseParams{
+			ClassID: id, WeekStart: weekParam,
+		})
+		if rerr != nil {
+			httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, &existing))
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, &refreshed))
+		return
+	}
+
+	prose, ok := a.composeWeeklyProse(ctx, r, facts)
+	if !ok {
+		// 敢于空白: the numbers, the tags and the evidence still render.
+		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, nil))
+		return
+	}
+	cards, merr := json.Marshal(prose.Cards)
+	if merr != nil {
+		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, nil))
+		return
+	}
+	if ierr := a.d.Queries.InsertClassWeeklyProse(ctx, sqlc.InsertClassWeeklyProseParams{
+		ClassID: id, WeekStart: weekParam,
+		Comment: prose.Comment, DepthNote: prose.DepthNote, AutonomyNote: prose.AutonomyNote,
+		Cards: cards,
+	}); ierr != nil {
+		httpx.WriteError(w, r, ierr)
+		return
+	}
+	// Re-read: a concurrent teacher may have won the insert, and the winner's
+	// row is what both of them must see.
+	stored, serr := a.d.Queries.GetClassWeeklyProse(ctx, sqlc.GetClassWeeklyProseParams{
+		ClassID: id, WeekStart: weekParam,
+	})
+	if serr != nil {
+		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, nil))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, &stored))
+}
+
+// composeWeeklyProse makes the flagship call and records its cost — including
+// when the output is rejected, since a rejected composition still spent real
+// tokens. ok=false means "no prose this time", never an error to the client
+// (a failed composition must never wall the screen).
+func (a *API) composeWeeklyProse(ctx context.Context, r *http.Request, facts agent.WeeklyFacts) (agent.WeeklyProse, bool) {
+	resolved, rerr := a.d.EvalResolver(ctx)
+	if rerr != nil {
+		slog.Warn("weekly prose: no provider", "err", rerr)
+		return agent.WeeklyProse{}, false
+	}
+	prose, usage, cerr := agent.ComposeWeekly(ctx, a.d.Provider, resolved, facts)
+	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
+		if !priced {
+			slog.Warn("weekly llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
+		}
+		if _, err := a.d.Queries.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
+			UserID: u.ID, ProjectID: pgtype.UUID{Valid: false},
+			Surface: "teacher", Purpose: "class_weekly",
+			Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
+			PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			CostEstimate: gateway.CostNumeric(cost, true),
+		}); err != nil {
+			slog.Warn("weekly prose: record llm call", "err", err)
+		}
+	}
+	if cerr != nil {
+		slog.Warn("weekly prose: rejected", "err", cerr)
+		return agent.WeeklyProse{}, false
+	}
+	return prose, true
+}
+
+// missingCardFacts returns the fact-sheet cards that the stored prose has no
+// wording for yet — the top-up's input. stored is the jsonb []WeeklyCardProse
+// already on the row; a card whose userId is already present there must be
+// excluded, because AppendClassWeeklyProseCards does not de-duplicate —
+// sending it again would double the entry in the stored array.
+func missingCardFacts(stored []byte, facts agent.WeeklyFacts) []agent.WeeklyFactCard {
+	have := map[string]bool{}
+	var cards []agent.WeeklyCardProse
+	if json.Unmarshal(stored, &cards) == nil {
+		for _, c := range cards {
+			have[c.UserID] = true
+		}
+	}
+	var missing []agent.WeeklyFactCard
+	for _, c := range facts.Cards {
+		if !have[c.UserID] {
+			missing = append(missing, c)
+		}
+	}
+	return missing
 }
