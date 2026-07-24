@@ -46,12 +46,25 @@ type AssessmentInput struct {
 	GraphSummary  string
 	Timeline      []string
 	Rounds        []Round
+
+	// ProjectProjection marks whether this assessment should emit the
+	// project-only superset (officialProjection + workAndProcess). true for
+	// the project surface (the single writing-project template); false for
+	// chat/course, which always get nil for both fields regardless of what
+	// the model happens to emit.
+	ProjectProjection bool
+	// WorkSamples are project work-product excerpts (e.g. draft snapshot
+	// text) fed to the assessor for the official projection + work-and-
+	// process section. Empty on chat/course.
+	WorkSamples []string
 }
 
 // BuildAssessmentInput digests the process record. Pure — no I/O; the handler
 // extracts the primitive slices from studio.ProjectData at the call site.
-// `rounds` is the ordered per-round student-turn stream (SOLO + prompt-lens);
-// pass nil when a surface cannot supply it (dims fall to NA / empty honestly).
+// `rounds` is the ordered per-round student-turn stream (depth/autonomy/
+// prompt-lens evidence); pass nil when a surface cannot supply it (dims fall
+// to NA / empty honestly). `projectProjection` and `workSamples` are appended
+// last to minimize call-site breakage.
 func BuildAssessmentInput(
 	events []EventDigest,
 	cards []CardUse,
@@ -61,20 +74,24 @@ func BuildAssessmentInput(
 	reviewBands []string,
 	graphSummary string,
 	rounds []Round,
+	projectProjection bool,
+	workSamples []string,
 ) AssessmentInput {
 	timeline := make([]string, 0, len(events))
 	for _, e := range events {
 		timeline = append(timeline, fmt.Sprintf("%d. %s：%s", e.Order, e.Type, e.Text))
 	}
 	return AssessmentInput{
-		CardUses:      cards,
-		Dispositions:  dispositions,
-		GateProgress:  gates,
-		SnapshotCount: len(wordCounts),
-		WordCounts:    wordCounts,
-		ReviewBands:   reviewBands,
-		GraphSummary:  graphSummary,
-		Timeline:      timeline,
-		Rounds:        rounds,
+		CardUses:          cards,
+		Dispositions:      dispositions,
+		GateProgress:      gates,
+		SnapshotCount:     len(wordCounts),
+		WordCounts:        wordCounts,
+		ReviewBands:       reviewBands,
+		GraphSummary:      graphSummary,
+		Timeline:          timeline,
+		Rounds:            rounds,
+		ProjectProjection: projectProjection,
+		WorkSamples:       workSamples,
 	}
 }

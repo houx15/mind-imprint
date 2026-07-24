@@ -11,193 +11,365 @@ import (
 	"mindimprint/api/internal/rubric"
 )
 
-// ---- Report: the whole DualAxis growth report (RL-5: the ONLY number is
-// DepthAxis.Subtotal, within-axis; no field sums across axes). ----
+// ---- Report: the canonical DualAxis growth report (RL-5: the two axes never
+// combine into a total score; depth carries no subtotal; the only percentage
+// anywhere is OfficialProjection.Readiness.Score, project-surface only). ----
 
-type DepthDimScore struct {
+// DepthDim is one of the six depth-axis dimensions (D1-D6), judged L1-L4 (or
+// NA when no evidence is available — NA is "no evidence", never a low score).
+type DepthDim struct {
 	Code           string `json:"code"`
 	Name           string `json:"name"`
-	Score          int    `json:"score"` // 0..3
+	Level          string `json:"level"` // L1|L2|L3|L4|NA
+	LevelRange     string `json:"levelRange,omitempty"`
 	Evidence       string `json:"evidence"`
 	PromptEvidence string `json:"promptEvidence"`
 }
 
-type DepthAxis struct {
-	Dims     []DepthDimScore `json:"dims"`
-	Subtotal int             `json:"subtotal"` // Σ Dims.Score, 0..12
-}
-
-type AutonomyAxis struct {
-	Code             string   `json:"code"`
-	Name             string   `json:"name"`
-	Observation      string   `json:"observation"`
-	AnchoredSignals  []string `json:"anchoredSignals"`
-	PromptedSignals  []string `json:"promptedSignals"`
-	AdversaryInvites int      `json:"adversaryInvites"`
-	PromptEvidence   string   `json:"promptEvidence"`
-}
-
-type CrossAxis struct {
+// AutonomySignal is one of the six autonomy-axis signals (A1-A6): a
+// behavior-count signal (0-5), never a quality score.
+type AutonomySignal struct {
 	Code           string `json:"code"`
 	Name           string `json:"name"`
-	DepthLevel     string `json:"depthLevel"` // L1..L4|NA
-	Initiative     string `json:"initiative"`
-	Prose          string `json:"prose"`
+	Level          int    `json:"level"`       // 0..5
+	Opportunity    string `json:"opportunity"` // given_taken|given_not_taken|not_supplied
+	Evidence       string `json:"evidence"`
 	PromptEvidence string `json:"promptEvidence"`
 }
 
-type SoloRow struct {
-	Round      int    `json:"round"`
-	Excerpt    string `json:"excerpt"`
-	Level      string `json:"level"` // L1..L4
-	Rationale  string `json:"rationale"`
-	Initiative string `json:"initiative"` // 自发 | 引导后
-}
-
-type LensQuestion struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
-}
-
-type PromptSample struct {
-	Round      int    `json:"round"`
-	Quote      string `json:"quote"`
-	Annotation string `json:"annotation"`
-}
-
-type PerRoundTier struct {
-	Round int    `json:"round"`
-	Tier  string `json:"tier"` // P0..P3
+// LensStat is one of the three summary stat cards in the prompt lens.
+type LensStat struct {
 	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
+// Lens is one of the six prompt-lens process indicators (reads AI
+// interaction traces only; never a third scoring axis).
+type Lens struct {
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Level    int    `json:"level"` // 0..5
+	Evidence string `json:"evidence"`
+}
+
+// PromptLens is the process-evidence lens over the student's prompts: three
+// summary stats plus six per-lens judgements, never combined into any score.
 type PromptLens struct {
-	DirectiveRounds  int            `json:"directiveRounds"`
-	TotalRounds      int            `json:"totalRounds"`
-	BoundarySettings int            `json:"boundarySettings"`
-	AdversaryInvites int            `json:"adversaryInvites"`
-	Questions        []LensQuestion `json:"questions"`
-	BestPrompt       PromptSample   `json:"bestPrompt"`
-	Takeaway         PromptSample   `json:"takeaway"`
-	PerRound         []PerRoundTier `json:"perRound"`
+	Stats  []LensStat `json:"stats"`
+	Lenses []Lens     `json:"lenses"`
+	Note   string     `json:"note"`
 }
 
-type TimelineRow struct {
-	Round   int      `json:"round"`
-	Task    string   `json:"task"`
-	Prompt  string   `json:"prompt"`
-	PTag    string   `json:"pTag"`
-	DimTags []string `json:"dimTags"`
+// InteractionRow is one round of grounded interaction evidence: the student's
+// own prompt, the AI's summarized response, and the signal it evidences.
+type InteractionRow struct {
+	Round     int    `json:"round"`
+	Student   string `json:"student"`
+	AiSummary string `json:"aiSummary"`
+	Signal    string `json:"signal"`
 }
 
-type KeyEvidence struct {
-	Label string `json:"label"`
-	Quote string `json:"quote"`
-}
-
+// NextStep is one guidance item: a title plus a concrete task.
 type NextStep struct {
 	Title string `json:"title"`
-	Body  string `json:"body"`
+	Task  string `json:"task"`
 }
 
+// Guidance is the report's forward-looking section: next steps only (no
+// anchored/prompted/risk fields — those belonged to the retired shape).
 type Guidance struct {
-	Anchored  string     `json:"anchored"`
-	Prompted  string     `json:"prompted"`
-	Risk      string     `json:"risk"`
 	NextSteps []NextStep `json:"nextSteps"`
 }
 
+// OfficialComponent is one judged component of an official external standard
+// (e.g. AP Research's Academic Paper / POD / 训练用折算 / 诚信).
+type OfficialComponent struct {
+	Name      string `json:"name"`
+	Judgement string `json:"judgement"`
+	Reason    string `json:"reason"`
+}
+
+// OfficialAlignment is one alignment item between the project and the
+// official standard's requirements.
+type OfficialAlignment struct {
+	Item        string `json:"item"`
+	Standard    string `json:"standard"`
+	Performance string `json:"performance"`
+	Impact      string `json:"impact"`
+}
+
+// OfficialStandardRef identifies the official standard the projection aligns
+// to (e.g. "ap-research" / "AP Research").
+type OfficialStandardRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// OfficialReadiness is the ONLY numeric aggregate anywhere in Report: a
+// project-surface-only work-readiness percentage. Its Note must say this
+// never combines with the depth/autonomy axes.
+type OfficialReadiness struct {
+	Score int    `json:"score"` // 0..100
+	Note  string `json:"note"`
+}
+
+// OfficialProjection is the project-surface-only projection of the dual-axis
+// evidence onto an official external standard. nil on chat/course surfaces.
+type OfficialProjection struct {
+	Standard   OfficialStandardRef `json:"standard"`
+	Components []OfficialComponent `json:"components"`
+	Alignment  []OfficialAlignment `json:"alignment"`
+	Readiness  OfficialReadiness   `json:"readiness"`
+}
+
+// WorkSample is one excerpt of the student's actual work product.
+type WorkSample struct {
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
+// ProcessMaterial is one process artifact (e.g. a SIFT record) with its
+// completion status and a diagnosis of what it shows.
+type ProcessMaterial struct {
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Diagnosis string `json:"diagnosis"`
+}
+
+// WorkAndProcess is the project-surface-only work-product + process-artifact
+// section. nil on chat/course surfaces. The evidence map is deliberately NOT
+// here — it is a deterministic projection of the process graph (Spec D), not
+// an assessor output.
+type WorkAndProcess struct {
+	WorkSamples      []WorkSample      `json:"workSamples"`
+	ProcessMaterials []ProcessMaterial `json:"processMaterials"`
+}
+
+// Report is the canonical assessment object, persisted verbatim into
+// evaluations.scores. It has NO generatedAt (that is added by
+// studio.ToReportDTO at read time) and no cross-axis aggregate field anywhere
+// except OfficialReadiness.Score.
 type Report struct {
-	DepthAxis    DepthAxis     `json:"depthAxis"`
-	AutonomyAxis AutonomyAxis  `json:"autonomyAxis"`
-	CrossAxis    CrossAxis     `json:"crossAxis"`
-	Solo         []SoloRow     `json:"solo"`
-	PromptLens   PromptLens    `json:"promptLens"`
-	Timeline     []TimelineRow `json:"timeline"`
-	KeyEvidence  []KeyEvidence `json:"keyEvidence"`
-	Guidance     Guidance      `json:"guidance"`
-	Narrative    string        `json:"narrative"`
-	Axiom        string        `json:"axiom"`
+	DepthAxis           []DepthDim       `json:"depthAxis"`
+	AutonomyAxis        []AutonomySignal `json:"autonomyAxis"`
+	PromptLens          PromptLens       `json:"promptLens"`
+	InteractionEvidence []InteractionRow `json:"interactionEvidence"`
+	Narrative           string           `json:"narrative"`
+	Guidance            Guidance         `json:"guidance"`
+	Axiom               string           `json:"axiom"`
+
+	OfficialProjection *OfficialProjection `json:"officialProjection,omitempty"`
+	WorkAndProcess     *WorkAndProcess     `json:"workAndProcess,omitempty"`
 }
 
-// reportWire is what the model returns: depth dims keyed by code (no Name),
-// no Axiom (engine fills it). Everything else mirrors Report.
+// ---- reportWire: what the model returns over the wire. Depth/autonomy/lens
+// items are keyed by code (no Name — the engine fills it from the rubric);
+// no Axiom, no generatedAt (both engine-supplied). ----
+
+type depthWire struct {
+	Code           string `json:"code"`
+	Level          string `json:"level"`
+	LevelRange     string `json:"levelRange"`
+	Evidence       string `json:"evidence"`
+	PromptEvidence string `json:"promptEvidence"`
+}
+
+type autonomyWire struct {
+	Code           string `json:"code"`
+	Level          int    `json:"level"`
+	Opportunity    string `json:"opportunity"`
+	Evidence       string `json:"evidence"`
+	PromptEvidence string `json:"promptEvidence"`
+}
+
+type lensWire struct {
+	Code     string `json:"code"`
+	Level    int    `json:"level"`
+	Evidence string `json:"evidence"`
+}
+
+type promptLensWire struct {
+	Stats  []LensStat `json:"stats"`
+	Lenses []lensWire `json:"lenses"`
+}
+
+type officialProjectionWire struct {
+	Standard   OfficialStandardRef `json:"standard"`
+	Components []OfficialComponent `json:"components"`
+	Alignment  []OfficialAlignment `json:"alignment"`
+	Readiness  OfficialReadiness   `json:"readiness"`
+}
+
 type reportWire struct {
-	DepthAxis struct {
-		Dims []struct {
-			Code           string `json:"code"`
-			Score          int    `json:"score"`
-			Evidence       string `json:"evidence"`
-			PromptEvidence string `json:"promptEvidence"`
-		} `json:"dims"`
-	} `json:"depthAxis"`
-	AutonomyAxis struct {
-		Observation      string   `json:"observation"`
-		AnchoredSignals  []string `json:"anchoredSignals"`
-		PromptedSignals  []string `json:"promptedSignals"`
-		AdversaryInvites int      `json:"adversaryInvites"`
-		PromptEvidence   string   `json:"promptEvidence"`
-	} `json:"autonomyAxis"`
-	CrossAxis struct {
-		DepthLevel     string `json:"depthLevel"`
-		Initiative     string `json:"initiative"`
-		Prose          string `json:"prose"`
-		PromptEvidence string `json:"promptEvidence"`
-	} `json:"crossAxis"`
-	Solo        []SoloRow     `json:"solo"`
-	PromptLens  PromptLens    `json:"promptLens"`
-	Timeline    []TimelineRow `json:"timeline"`
-	KeyEvidence []KeyEvidence `json:"keyEvidence"`
-	Guidance    Guidance      `json:"guidance"`
-	Narrative   string        `json:"narrative"`
+	DepthAxis           []depthWire             `json:"depthAxis"`
+	AutonomyAxis        []autonomyWire          `json:"autonomyAxis"`
+	PromptLens          promptLensWire          `json:"promptLens"`
+	InteractionEvidence []InteractionRow        `json:"interactionEvidence"`
+	Narrative           string                  `json:"narrative"`
+	Guidance            Guidance                `json:"guidance"`
+	OfficialProjection  *officialProjectionWire `json:"officialProjection"`
+	WorkAndProcess      *WorkAndProcess         `json:"workAndProcess"`
 }
 
-func clampScore(s int) int {
-	if s < 0 {
-		return 0
-	}
-	if s > 3 {
-		return 3
-	}
-	return s
-}
+var validDepthLevel = map[string]bool{"L1": true, "L2": true, "L3": true, "L4": true, "NA": true}
 
-var validSolo = map[string]bool{"L1": true, "L2": true, "L3": true, "L4": true, "NA": true}
-
-func normSolo(l string) string {
-	if validSolo[l] {
+// clampDepthLevel normalizes a model-emitted depth level to the
+// {L1,L2,L3,L4,NA} contract. Anything outside the set (including an empty
+// string, i.e. a missing dimension) normalizes to "NA" — no evidence, never a
+// low score.
+func clampDepthLevel(l string) string {
+	if validDepthLevel[l] {
 		return l
 	}
 	return "NA"
 }
 
-// validTier is the closed set of prompt-tier values the config/output-format/
-// Zod contract all agree on: P0..P3. (The posture prose historically drifted
-// to "P0–P4"; that drift is fixed separately, but a model can still emit an
-// out-of-set value, so this guard stays regardless.)
-var validTier = map[string]bool{"P0": true, "P1": true, "P2": true, "P3": true}
-
-// normTier normalizes a model-emitted perRound prompt tier to the config's
-// P0..P3 set — mirrors normSolo's guard for SOLO levels. Any out-of-set value
-// (e.g. a stray "P4") normalizes to "P0", the neutral 应答轮, rather than
-// persisting a value every web DualAxisReport.parse (strict P0–P3 enum) would
-// reject — for the one-time project finish (no regenerate), an unnormalized
-// tier would permanently brick that report.
-func normTier(t string) string {
-	if validTier[t] {
-		return t
+// clampAxisLevel clamps an autonomy-signal or lens level to 0..5.
+func clampAxisLevel(l int) int {
+	if l < 0 {
+		return 0
 	}
-	return "P0"
+	if l > 5 {
+		return 5
+	}
+	return l
 }
 
-// AssessReport makes ONE isolated flagship call emitting the entire DualAxis
-// report, runs banned-phrasing over every free-text field, fills dim names +
-// axiom from the model, computes the depth subtotal (Σ scores), and emits every
-// depth dim in model order (missing → score 0). Never in the coach loop.
+var validOpportunity = map[string]bool{"given_taken": true, "given_not_taken": true, "not_supplied": true}
+
+// normOpportunity normalizes a model-emitted opportunity tag to the closed
+// three-value set. An out-of-set value defaults to "given_taken" (the brief's
+// rule for a present-but-invalid tag — distinct from a wholly missing signal,
+// which defaults to "not_supplied").
+func normOpportunity(o string) string {
+	if validOpportunity[o] {
+		return o
+	}
+	return "given_taken"
+}
+
+// clampReadiness clamps the official-projection readiness score to 0..100.
+func clampReadiness(s int) int {
+	if s < 0 {
+		return 0
+	}
+	if s > 100 {
+		return 100
+	}
+	return s
+}
+
+// normalizeDepth guarantees full 6-dimension coverage in rubric order: a
+// dimension the model omitted gets Level "NA" and empty evidence; Name always
+// comes from the rubric, never the model.
+func normalizeDepth(wire []depthWire) []DepthDim {
+	got := map[string]depthWire{}
+	for _, d := range wire {
+		got[d.Code] = d
+	}
+	out := make([]DepthDim, 0, len(rubric.DepthDims()))
+	for _, dim := range rubric.DepthDims() {
+		g, ok := got[dim.ID]
+		level := "NA"
+		if ok {
+			level = clampDepthLevel(g.Level)
+		}
+		out = append(out, DepthDim{
+			Code: dim.ID, Name: dim.Name, Level: level, LevelRange: g.LevelRange,
+			Evidence: g.Evidence, PromptEvidence: g.PromptEvidence,
+		})
+	}
+	return out
+}
+
+// normalizeAutonomy guarantees full 6-signal coverage in rubric order: a
+// signal the model omitted gets Level 0 and Opportunity "not_supplied" (a
+// platform gap, never a student shortfall); Name always comes from the
+// rubric.
+func normalizeAutonomy(wire []autonomyWire) []AutonomySignal {
+	got := map[string]autonomyWire{}
+	for _, a := range wire {
+		got[a.Code] = a
+	}
+	out := make([]AutonomySignal, 0, len(rubric.AutonomySignals()))
+	for _, sig := range rubric.AutonomySignals() {
+		g, ok := got[sig.ID]
+		level := 0
+		opportunity := "not_supplied"
+		if ok {
+			level = clampAxisLevel(g.Level)
+			opportunity = normOpportunity(g.Opportunity)
+		}
+		out = append(out, AutonomySignal{
+			Code: sig.ID, Name: sig.Name, Level: level, Opportunity: opportunity,
+			Evidence: g.Evidence, PromptEvidence: g.PromptEvidence,
+		})
+	}
+	return out
+}
+
+// normalizeLenses guarantees full 6-lens coverage in rubric order: a lens the
+// model omitted gets Level 0; Name always comes from the rubric.
+func normalizeLenses(wire []lensWire) []Lens {
+	got := map[string]lensWire{}
+	for _, l := range wire {
+		got[l.Code] = l
+	}
+	out := make([]Lens, 0, len(rubric.Lenses()))
+	for _, lensCfg := range rubric.Lenses() {
+		g, ok := got[lensCfg.ID]
+		level := 0
+		if ok {
+			level = clampAxisLevel(g.Level)
+		}
+		out = append(out, Lens{Code: lensCfg.ID, Name: lensCfg.Name, Level: level, Evidence: g.Evidence})
+	}
+	return out
+}
+
+// normalizeStats truncates to the first 3 stats when the model over-produces,
+// and pads with blank-label/value entries when it under-produces — the report
+// always carries exactly 3 stat cards.
+func normalizeStats(stats []LensStat) []LensStat {
+	out := make([]LensStat, 3)
+	for i := 0; i < len(stats) && i < 3; i++ {
+		out[i] = stats[i]
+	}
+	return out
+}
+
+// normalizeOfficialProjection passes the project-surface projection through,
+// clamping Readiness.Score to 0..100 and filling Standard from the rubric's
+// "ap-research" entry when the model left it blank.
+func normalizeOfficialProjection(w *officialProjectionWire) *OfficialProjection {
+	if w == nil {
+		return &OfficialProjection{}
+	}
+	standard := w.Standard
+	if standard.ID == "" && standard.Name == "" {
+		if std, ok := rubric.Standard("ap-research"); ok {
+			standard = OfficialStandardRef{ID: std.ID, Name: std.Name}
+		}
+	}
+	return &OfficialProjection{
+		Standard:   standard,
+		Components: w.Components,
+		Alignment:  w.Alignment,
+		Readiness:  OfficialReadiness{Score: clampReadiness(w.Readiness.Score), Note: w.Readiness.Note},
+	}
+}
+
+// AssessReport makes ONE isolated flagship call emitting the entire canonical
+// report, runs banned-phrasing over every free-text field (rejecting the
+// whole report on any hit — cost is recorded by the caller regardless), fills
+// dim/signal/lens names + axiom from the rubric, guarantees full 6-coverage
+// on all three closed-set axes, and emits the project-only superset
+// (officialProjection / workAndProcess) ONLY when in.ProjectProjection is
+// true. Never in the coach loop.
 func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, m rubric.DualAxis, in AssessmentInput) (Report, gateway.ChatUsage, error) {
 	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m)},
+			{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m, in.ProjectProjection)},
 			{Role: gateway.RoleUser, Content: assessReportUserInput(in)},
 		},
 	})
@@ -211,134 +383,122 @@ func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved
 		return Report{}, usage, fmt.Errorf("agent: report output not JSON: %w", err)
 	}
 
-	// Enforcement over every free-text field. Any hit rejects the whole report.
-	texts := []string{wire.Narrative, wire.AutonomyAxis.Observation, wire.AutonomyAxis.PromptEvidence,
-		wire.CrossAxis.Prose, wire.CrossAxis.PromptEvidence,
-		wire.Guidance.Anchored, wire.Guidance.Prompted, wire.Guidance.Risk}
-	for _, d := range wire.DepthAxis.Dims {
-		texts = append(texts, d.Evidence, d.PromptEvidence)
-	}
-	texts = append(texts, wire.AutonomyAxis.AnchoredSignals...)
-	texts = append(texts, wire.AutonomyAxis.PromptedSignals...)
-	for _, s := range wire.Solo {
-		texts = append(texts, s.Excerpt, s.Rationale)
-	}
-	for _, q := range wire.PromptLens.Questions {
-		texts = append(texts, q.Title, q.Body)
-	}
-	texts = append(texts, wire.PromptLens.BestPrompt.Quote, wire.PromptLens.BestPrompt.Annotation,
-		wire.PromptLens.Takeaway.Quote, wire.PromptLens.Takeaway.Annotation)
-	for _, tl := range wire.Timeline {
-		texts = append(texts, tl.Task, tl.Prompt)
-	}
-	for _, pr := range wire.PromptLens.PerRound {
-		texts = append(texts, pr.Label)
-	}
-	for _, ke := range wire.KeyEvidence {
-		texts = append(texts, ke.Label, ke.Quote)
-	}
-	for _, ns := range wire.Guidance.NextSteps {
-		texts = append(texts, ns.Title, ns.Body)
-	}
-	for _, f := range texts {
-		if f == "" {
-			continue
-		}
-		if rule := enforcement.BannedPhrasing(f); rule != nil {
-			return Report{}, usage, fmt.Errorf("agent: report rejected by banned-phrasing rule %q", rule.Name)
-		}
-	}
-
-	// Depth dims: index the model's scores by code; emit every depth dim in
-	// model order (missing → 0), Name from the rubric, score clamped 0..3.
-	got := map[string]struct {
-		score        int
-		evidence, pe string
-	}{}
-	for _, d := range wire.DepthAxis.Dims {
-		got[d.Code] = struct {
-			score        int
-			evidence, pe string
-		}{clampScore(d.Score), d.Evidence, d.PromptEvidence}
-	}
-	depth := DepthAxis{}
-	for _, dim := range rubric.DepthDims() {
-		g := got[dim.ID]
-		depth.Dims = append(depth.Dims, DepthDimScore{
-			Code: dim.ID, Name: dim.Name, Score: g.score, Evidence: g.evidence, PromptEvidence: g.pe,
-		})
-		depth.Subtotal += g.score
-	}
-
-	auto := rubric.AutonomyDim()
-	cross := rubric.CrossDim()
-
-	// Normalize perRound tiers into the P0..P3 contract before they're
-	// persisted — timeline[].pTag stays a lenient z.string() on the Zod side
-	// and is deliberately left alone.
-	for i := range wire.PromptLens.PerRound {
-		wire.PromptLens.PerRound[i].Tier = normTier(wire.PromptLens.PerRound[i].Tier)
-	}
-
 	rep := Report{
-		DepthAxis: depth,
-		AutonomyAxis: AutonomyAxis{
-			Code: auto.ID, Name: auto.Name,
-			Observation: wire.AutonomyAxis.Observation, AnchoredSignals: wire.AutonomyAxis.AnchoredSignals,
-			PromptedSignals: wire.AutonomyAxis.PromptedSignals, AdversaryInvites: wire.AutonomyAxis.AdversaryInvites,
-			PromptEvidence: wire.AutonomyAxis.PromptEvidence,
+		DepthAxis:    normalizeDepth(wire.DepthAxis),
+		AutonomyAxis: normalizeAutonomy(wire.AutonomyAxis),
+		PromptLens: PromptLens{
+			Stats:  normalizeStats(wire.PromptLens.Stats),
+			Lenses: normalizeLenses(wire.PromptLens.Lenses),
+			Note:   m.LensNote,
 		},
-		CrossAxis: CrossAxis{
-			Code: cross.ID, Name: cross.Name,
-			DepthLevel: normSolo(wire.CrossAxis.DepthLevel), Initiative: wire.CrossAxis.Initiative,
-			Prose: wire.CrossAxis.Prose, PromptEvidence: wire.CrossAxis.PromptEvidence,
-		},
-		Solo:        normSoloRows(wire.Solo),
-		PromptLens:  wire.PromptLens,
-		Timeline:    wire.Timeline,
-		KeyEvidence: wire.KeyEvidence,
-		Guidance:    wire.Guidance,
-		Narrative:   wire.Narrative,
-		Axiom:       m.Axiom,
+		InteractionEvidence: wire.InteractionEvidence,
+		Narrative:           wire.Narrative,
+		Guidance:            wire.Guidance,
+		Axiom:               m.Axiom,
+	}
+	if in.ProjectProjection {
+		rep.OfficialProjection = normalizeOfficialProjection(wire.OfficialProjection)
+		wap := wire.WorkAndProcess
+		if wap == nil {
+			wap = &WorkAndProcess{}
+		}
+		rep.WorkAndProcess = wap
 	}
 	rep.AnchoredNilGuards()
+
+	if err := enforceReport(rep); err != nil {
+		return Report{}, usage, err
+	}
+
 	return rep, usage, nil
 }
 
-func normSoloRows(rows []SoloRow) []SoloRow {
-	for i := range rows {
-		rows[i].Level = normSolo(rows[i].Level)
+// enforceReport runs enforcement.BannedPhrasing over every free-text field in
+// the assembled report. Any hit rejects the whole report (the caller has
+// already recorded the llm_call cost — reject-on-banned-phrasing is
+// cost-on-reject by construction).
+func enforceReport(rep Report) error {
+	texts := []string{rep.Narrative, rep.PromptLens.Note}
+	for _, d := range rep.DepthAxis {
+		texts = append(texts, d.Evidence, d.PromptEvidence)
 	}
-	return rows
+	for _, a := range rep.AutonomyAxis {
+		texts = append(texts, a.Evidence, a.PromptEvidence)
+	}
+	for _, l := range rep.PromptLens.Lenses {
+		texts = append(texts, l.Evidence)
+	}
+	for _, s := range rep.PromptLens.Stats {
+		texts = append(texts, s.Label, s.Value)
+	}
+	for _, ie := range rep.InteractionEvidence {
+		texts = append(texts, ie.Student, ie.AiSummary, ie.Signal)
+	}
+	for _, ns := range rep.Guidance.NextSteps {
+		texts = append(texts, ns.Title, ns.Task)
+	}
+	if rep.OfficialProjection != nil {
+		for _, c := range rep.OfficialProjection.Components {
+			texts = append(texts, c.Reason)
+		}
+		for _, al := range rep.OfficialProjection.Alignment {
+			texts = append(texts, al.Performance, al.Impact)
+		}
+		texts = append(texts, rep.OfficialProjection.Readiness.Note)
+	}
+	if rep.WorkAndProcess != nil {
+		for _, ws := range rep.WorkAndProcess.WorkSamples {
+			texts = append(texts, ws.Text)
+		}
+		for _, pm := range rep.WorkAndProcess.ProcessMaterials {
+			texts = append(texts, pm.Diagnosis)
+		}
+	}
+	for _, t := range texts {
+		if t == "" {
+			continue
+		}
+		if rule := enforcement.BannedPhrasing(t); rule != nil {
+			return fmt.Errorf("agent: report rejected by banned-phrasing rule %q", rule.Name)
+		}
+	}
+	return nil
 }
 
-// AnchoredNilGuards keeps JSON output arrays non-null (nil slice → []).
+// AnchoredNilGuards keeps every JSON output array non-null (nil slice → []).
 func (r *Report) AnchoredNilGuards() {
-	if r.AutonomyAxis.AnchoredSignals == nil {
-		r.AutonomyAxis.AnchoredSignals = []string{}
+	if r.DepthAxis == nil {
+		r.DepthAxis = []DepthDim{}
 	}
-	if r.AutonomyAxis.PromptedSignals == nil {
-		r.AutonomyAxis.PromptedSignals = []string{}
+	if r.AutonomyAxis == nil {
+		r.AutonomyAxis = []AutonomySignal{}
 	}
-	if r.Solo == nil {
-		r.Solo = []SoloRow{}
+	if r.PromptLens.Stats == nil {
+		r.PromptLens.Stats = []LensStat{}
 	}
-	if r.Timeline == nil {
-		r.Timeline = []TimelineRow{}
+	if r.PromptLens.Lenses == nil {
+		r.PromptLens.Lenses = []Lens{}
 	}
-	if r.KeyEvidence == nil {
-		r.KeyEvidence = []KeyEvidence{}
-	}
-	if r.PromptLens.Questions == nil {
-		r.PromptLens.Questions = []LensQuestion{}
-	}
-	if r.PromptLens.PerRound == nil {
-		r.PromptLens.PerRound = []PerRoundTier{}
+	if r.InteractionEvidence == nil {
+		r.InteractionEvidence = []InteractionRow{}
 	}
 	if r.Guidance.NextSteps == nil {
 		r.Guidance.NextSteps = []NextStep{}
 	}
-	if r.DepthAxis.Dims == nil {
-		r.DepthAxis.Dims = []DepthDimScore{}
+	if r.OfficialProjection != nil {
+		if r.OfficialProjection.Components == nil {
+			r.OfficialProjection.Components = []OfficialComponent{}
+		}
+		if r.OfficialProjection.Alignment == nil {
+			r.OfficialProjection.Alignment = []OfficialAlignment{}
+		}
+	}
+	if r.WorkAndProcess != nil {
+		if r.WorkAndProcess.WorkSamples == nil {
+			r.WorkAndProcess.WorkSamples = []WorkSample{}
+		}
+		if r.WorkAndProcess.ProcessMaterials == nil {
+			r.WorkAndProcess.ProcessMaterials = []ProcessMaterial{}
+		}
 	}
 }

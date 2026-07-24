@@ -15,6 +15,8 @@ func TestBuildAssessmentInputDigestsProcessRecord(t *testing.T) {
 		[]string{"表D 熟练", "表E 发展中"},
 		"claims:1 evidence:2 concession:1（钢人由学生撰写）",
 		nil,
+		true,
+		[]string{"从「中国让地球更可持续」改为限定判断版本"},
 	)
 	if len(in.CardUses) != 1 || in.CardUses[0].Spont != "自发" {
 		t.Fatalf("card uses not carried: %+v", in.CardUses)
@@ -28,11 +30,39 @@ func TestBuildAssessmentInputDigestsProcessRecord(t *testing.T) {
 	if len(in.Dispositions) != 1 || in.Dispositions[0].Kind != "reject" {
 		t.Fatalf("dispositions not carried")
 	}
+	if !in.ProjectProjection {
+		t.Fatalf("ProjectProjection not carried: %+v", in)
+	}
+	if len(in.WorkSamples) != 1 || in.WorkSamples[0] == "" {
+		t.Fatalf("WorkSamples not carried: %+v", in.WorkSamples)
+	}
 }
 
 func TestBuildAssessmentInputEmptyProjectIsMinimal(t *testing.T) {
-	in := BuildAssessmentInput(nil, nil, nil, nil, nil, nil, "", nil)
+	in := BuildAssessmentInput(nil, nil, nil, nil, nil, nil, "", nil, false, nil)
 	if len(in.Timeline) != 0 || in.SnapshotCount != 0 || in.GraphSummary != "" {
 		t.Fatalf("empty project should digest to a minimal input: %+v", in)
+	}
+	if in.ProjectProjection {
+		t.Fatalf("ProjectProjection should default false on a non-project surface")
+	}
+	if len(in.WorkSamples) != 0 {
+		t.Fatalf("WorkSamples should be empty when not supplied: %+v", in.WorkSamples)
+	}
+}
+
+// The chat/course surfaces are non-project: ProjectProjection stays false and
+// WorkSamples stays empty even when other fields are populated.
+func TestBuildAssessmentInputNonProjectSurfaceOmitsProjectFields(t *testing.T) {
+	in := BuildAssessmentInput(
+		[]EventDigest{{Type: "chat_turn", Order: 1, Text: "问 CRAAP"}},
+		nil, nil, nil, nil, nil, "", nil,
+		false, nil,
+	)
+	if in.ProjectProjection {
+		t.Fatalf("chat/course surface must not set ProjectProjection")
+	}
+	if len(in.WorkSamples) != 0 {
+		t.Fatalf("chat/course surface must not carry WorkSamples: %+v", in.WorkSamples)
 	}
 }

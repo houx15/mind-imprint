@@ -8,54 +8,88 @@ import (
 )
 
 const reportPosture = `你是「思维印记」的过程评估者。依据可观察的行为证据，判断学生在与 AI 协作中「怎么思考」——不给分数以外的结论、不排名、不下判决式结论。
-本模型是双轴模型：第一轴「认知深度」按 0–3 打分（四维小计满分 12）；第二轴「智识自主」只用观察语言描述、绝不打分；跨轴「元认知」同时描述深度面与自主面、不单独打分。
+本模型是双轴模型：第一轴「认知深度」（D1–D6）按 L1–L4 判层，判据是可观察的思考行为，不是分数；第二轴「智识自主」（A1–A6）按行为计数带判 0–5，是行为计数带，不是质量打分；提示词透镜对提示词本身（而非学生）判 0–5，是过程证据，不是第三根评分轴，绝不并入任何总分。
 测量公理（必须原样体现，不得改写）：两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定。
-另需产出：SOLO 判层（对每一轮学生回应判 L1–L4，标注判据与发起方 自发/引导后；准确性是门槛不是刻度；序数不作均值；指令轮与核查行为不判层）；提示词透镜（对提示词而非学生分档 P0–P3，统计主动指令轮/边界设定/对手邀请）。
 严禁替学生改写或撰写作文内容；只描述与诊断其思考路径。只输出 JSON。
-铁律·禁止杜撰学生提示词：SOLO 判层、提示词透镜（含本次最佳提示词/收获提示词/逐轮档位）、交互证据 timeline，一律只能依据「过程记录」里逐条给出的「逐轮学生提示词与语境」原文作证；某一轮的学生提示词为空，或整份记录压根没有提供逐轮学生提示词时，对应轮次必须留空、对应数组项必须省略——绝不允许编造或转述一个听起来合理的学生发言当作真实证据。`
+铁律·禁止杜撰学生提示词：交互证据 interactionEvidence 一律只能依据「过程记录」里逐条给出的「逐轮学生提示词与语境」原文作证；某一轮的学生提示词为空，或整份记录压根没有提供逐轮学生提示词时，对应轮次必须省略——绝不允许编造或转述一个听起来合理的学生发言当作真实证据。`
 
-func assessReportSystemPrompt(m rubric.DualAxis) string {
+// assessReportSystemPrompt builds the flagship system prompt from the live
+// rubric config: per-dimension L1-L4 anchors (depth), the autonomy count-band
+// guide plus per-signal countable events, the six prompt lenses, and — only
+// when projectProjection is true — the official-standard alignment section
+// (currently the sole standard, "ap-research"). The output-format JSON
+// template mirrors reportWire and includes the officialProjection/
+// workAndProcess keys only in the project-projection case.
+func assessReportSystemPrompt(m rubric.DualAxis, projectProjection bool) string {
 	var b strings.Builder
 	b.WriteString(reportPosture)
 
-	b.WriteString("\n\n第一轴 · 认知深度（0–3 打分，覆盖以下每维）：\n")
+	b.WriteString("\n\n第一轴 · 认知深度（每维判 L1–L4，暂无可计入证据时判 NA，不是低分）：\n")
 	for _, d := range rubric.DepthDims() {
-		b.WriteString(fmt.Sprintf("%s %s：0 %s ｜ 1 %s ｜ 2 %s ｜ 3 %s\n",
-			d.ID, d.Name, d.Anchors["0"], d.Anchors["1"], d.Anchors["2"], d.Anchors["3"]))
+		b.WriteString(fmt.Sprintf("%s %s：L1 %s ｜ L2 %s ｜ L3 %s ｜ L4 %s\n",
+			d.ID, d.Name, d.Anchors["L1"], d.Anchors["L2"], d.Anchors["L3"], d.Anchors["L4"]))
 	}
 
-	auto := rubric.AutonomyDim()
-	b.WriteString(fmt.Sprintf("\n第二轴 · 智识自主（不打分，仅观察）：\n%s %s：%s\n", auto.ID, auto.Name, auto.ObservationGuide))
-
-	cross := rubric.CrossDim()
-	b.WriteString(fmt.Sprintf("\n跨轴 · 元认知（不单独打分）：\n%s %s：%s\n", cross.ID, cross.Name, cross.Guide))
-
-	b.WriteString("\nSOLO 层级：")
-	for _, s := range m.SoloLevels {
-		b.WriteString(fmt.Sprintf("%s %s；", s.Level, s.Name))
+	b.WriteString("\n第二轴 · 智识自主（行为计数带，0–5，不是质量打分）：\n")
+	b.WriteString(rubric.AutonomyBand() + "\n")
+	for _, a := range rubric.AutonomySignals() {
+		b.WriteString(fmt.Sprintf("%s %s：可计入事件=%s\n", a.ID, a.Name, a.Event))
 	}
-	b.WriteString("\n提示词档位：")
-	for _, t := range m.PromptTiers {
-		b.WriteString(fmt.Sprintf("%s %s；", t.Tier, t.Label))
+	b.WriteString("机会供给规则：" + m.OpportunityRule + "\n")
+
+	b.WriteString("\n提示词透镜（对提示词本身判 0–5，是过程证据，不并入任何总分）：\n")
+	for _, l := range rubric.Lenses() {
+		b.WriteString(fmt.Sprintf("%s %s：%s\n", l.ID, l.Name, l.Guide))
 	}
 
-	b.WriteString(`
+	if projectProjection {
+		if std, ok := rubric.Standard("ap-research"); ok {
+			b.WriteString(fmt.Sprintf("\n官方投影（%s，%s；训练折算仅作作品就绪度参考，不与 D/A 双轴合成）：\n", std.ID, std.Name))
+			for _, c := range std.Components {
+				b.WriteString(fmt.Sprintf("%s（%s）：%s\n", c.Name, c.Scale, c.Kou))
+			}
+			b.WriteString("对齐要点：\n")
+			for _, item := range std.AlignmentItems {
+				b.WriteString("- " + item + "\n")
+			}
+			b.WriteString("同时给出作品与过程要点：workSamples 引作品本身片段，processMaterials 诊断过程材料（如 SIFT 记录）的完成情况。\n")
+		}
+	}
 
-输出格式（严格 JSON；depthAxis.dims 覆盖 D1/D3/D4/D5，autonomyAxis 绝不含 score 字段）：
-{"depthAxis":{"dims":[{"code":"D1","score":0,"evidence":"…","promptEvidence":"…"}]},
-"autonomyAxis":{"observation":"…","anchoredSignals":["…"],"promptedSignals":["…"],"adversaryInvites":0,"promptEvidence":"…"},
-"crossAxis":{"depthLevel":"L1|L2|L3|L4|NA","initiative":"自发|引导后|混合","prose":"…","promptEvidence":"…"},
-"solo":[{"round":1,"excerpt":"…","level":"L3","rationale":"…","initiative":"自发|引导后"}],
-"promptLens":{"directiveRounds":0,"totalRounds":0,"boundarySettings":0,"adversaryInvites":0,
-"questions":[{"title":"…","body":"…"}],"bestPrompt":{"round":0,"quote":"…","annotation":"…"},
-"takeaway":{"round":0,"quote":"…","annotation":"…"},"perRound":[{"round":1,"tier":"P0|P1|P2|P3","label":"…"}]},
-"timeline":[{"round":1,"task":"…","prompt":"…","pTag":"P0|P1|P2|P3","dimTags":["D1=2"]}],
-"keyEvidence":[{"label":"…","quote":"…"}],
-"guidance":{"anchored":"…","prompted":"…","risk":"…","nextSteps":[{"title":"…","body":"…"}]},
-"narrative":"…"}`)
+	b.WriteString(outputFormatTemplate(projectProjection))
 	return b.String()
 }
 
+// outputFormatTemplate is the strict-JSON output-format spec appended to the
+// system prompt. It mirrors reportWire: depthAxis/autonomyAxis/lenses are
+// arrays keyed by code (the engine re-indexes and fills names); the
+// officialProjection/workAndProcess keys appear ONLY in the project-
+// projection case.
+func outputFormatTemplate(projectProjection bool) string {
+	base := `
+输出格式（严格 JSON；depthAxis 覆盖 D1–D6，autonomyAxis 覆盖 A1–A6，promptLens.lenses 覆盖六个透镜 id，均按 code 索引；某维度确无证据可省略该项，引擎按 rubric 补全为 NA/0）：
+{"depthAxis":[{"code":"D1","level":"L1|L2|L3|L4|NA","levelRange":"","evidence":"…","promptEvidence":"…"}],
+"autonomyAxis":[{"code":"A1","level":0,"opportunity":"given_taken|given_not_taken|not_supplied","evidence":"…","promptEvidence":"…"}],
+"promptLens":{"stats":[{"label":"…","value":"…"}],"lenses":[{"code":"L_decisions","level":0,"evidence":"…"}]},
+"interactionEvidence":[{"round":1,"student":"…","aiSummary":"…","signal":"D1→L3"}],
+"narrative":"…",
+"guidance":{"nextSteps":[{"title":"…","task":"…"}]}`
+	if !projectProjection {
+		return base + "}"
+	}
+	return base + `,
+"officialProjection":{"standard":{"id":"ap-research","name":"AP Research"},
+"components":[{"name":"Academic Paper","judgement":"…","reason":"…"}],
+"alignment":[{"item":"…","standard":"…","performance":"…","impact":"…"}],
+"readiness":{"score":0,"note":"…（须注明不与 D/A 双轴合成）"}},
+"workAndProcess":{"workSamples":[{"title":"…","text":"…"}],"processMaterials":[{"name":"…","status":"…","diagnosis":"…"}]}}`
+}
+
+// assessReportUserInput renders the compact process digest as the user turn:
+// per-round student prompts + AI context, the append-only event timeline,
+// card uses, dispositions, gate progress, snapshot/word-count facts, review
+// bands, the argument-graph summary, and — only when supplied — a work-sample
+// excerpt section (project surface only; chat/course pass none).
 func assessReportUserInput(in AssessmentInput) string {
 	var b strings.Builder
 	b.WriteString("过程记录：\n")
@@ -85,6 +119,12 @@ func assessReportUserInput(in AssessmentInput) string {
 	}
 	if in.GraphSummary != "" {
 		b.WriteString("论证结构：" + in.GraphSummary + "\n")
+	}
+	if len(in.WorkSamples) > 0 {
+		b.WriteString("作品片段：\n")
+		for i, s := range in.WorkSamples {
+			b.WriteString(fmt.Sprintf("%d. %s\n", i+1, s))
+		}
 	}
 	return b.String()
 }
