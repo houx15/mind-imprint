@@ -22,28 +22,48 @@ import { api } from "@/api";
 import { CourseReport } from "@/shell/courses/CourseReport";
 
 // Real DTO shape (checked against packages/contracts/src/dualAxisReport.ts):
-// a full DualAxisReport, reusing the exact fixture shape from Task 8's
-// apps/web/src/shell/report/DualAxisReport.test.tsx so it parses .strict()
-// and renders via the shared <DualAxisReport> component.
+// a full DualAxisReport, reusing the exact fixture shape from Task 7's
+// apps/web/test/shell/report/DualAxisReport.test.tsx so it parses .strict()
+// and renders via the shared <DualAxisReport> component. No officialProjection/
+// workAndProcess — a course session is not a project surface.
 const assessmentFixture = {
-  depthAxis: { dims: [
-    { code: "D1", name: "任务理解与问题表述", score: 3, evidence: "限定判断", promptEvidence: "R4" },
-    { code: "D3", name: "证据与信源意识", score: 2, evidence: "学生在第 3 轮追问了来源的作者与机构。", promptEvidence: "" },
-    { code: "D4", name: "论证结构意识", score: 3, evidence: "warrant", promptEvidence: "" },
-    { code: "D5", name: "反馈理解与修改理由", score: 3, evidence: "理由", promptEvidence: "" },
-  ], subtotal: 11 },
-  autonomyAxis: { code: "D2", name: "学生主体性 / AI 依赖度", observation: "入场即设边界", anchoredSignals: ["R1"], promptedSignals: ["R3"], adversaryInvites: 0, promptEvidence: "" },
-  crossAxis: { code: "D6", name: "元认知与反思", depthLevel: "L3", initiative: "引导后", prose: "能反思，尚未自发反思", promptEvidence: "" },
-  solo: [{ round: 4, excerpt: "限定判断", level: "L3", rationale: "组织者", initiative: "自发" }],
-  promptLens: { directiveRounds: 3, totalRounds: 10, boundarySettings: 3, adversaryInvites: 0,
-    questions: [{ title: "一问 · 任务说清了吗", body: "…" }],
-    bestPrompt: { round: 8, quote: "检查是否回扣 thesis", annotation: "齐备" },
-    takeaway: { round: 0, quote: "扮演苛刻审稿人", annotation: "P4 模板" },
-    perRound: [{ round: 1, tier: "P3", label: "要过程·设边界" }] },
-  timeline: [{ round: 1, task: "上传草稿", prompt: "不要直接重写", pTag: "P3", dimTags: ["D1=2"] }],
-  keyEvidence: [{ label: "任务理解", quote: "我想把 thesis 改成…" }],
-  guidance: { anchored: "主动限定 thesis", prompted: "SIFT 核查", risk: "D3 仍停留在来源等级", nextSteps: [{ title: "下一步强化 D3", body: "跑一张 SIFT 记录" }] },
+  depthAxis: [
+    { code: "D1", name: "任务理解与问题表述", level: "L3", evidence: "限定判断", promptEvidence: "R4" },
+    { code: "D2", name: "证据与信源意识", level: "L2", evidence: "学生在第 3 轮追问了来源的作者与机构。", promptEvidence: "" },
+    { code: "D3", name: "论证结构意识", level: "L3", evidence: "warrant", promptEvidence: "" },
+    { code: "D4", name: "视角与偏见", level: "L2", evidence: "样本局限", promptEvidence: "" },
+    { code: "D5", name: "反馈理解与修改理由", level: "L3", evidence: "理由", promptEvidence: "" },
+    { code: "D6", name: "元认知与反思", level: "L3", evidence: "能反思，尚未自发反思", promptEvidence: "" },
+  ],
+  autonomyAxis: [
+    { code: "A1", name: "方向自主", level: 3, opportunity: "given_taken", evidence: "入场即设边界", promptEvidence: "" },
+    { code: "A2", name: "发起自主", level: 2, opportunity: "given_taken", evidence: "主动补查", promptEvidence: "" },
+    { code: "A3", name: "边界主权", level: 1, opportunity: "given_not_taken", evidence: "偶有边界句", promptEvidence: "" },
+    { code: "A4", name: "对抗与检验", level: 0, opportunity: "not_supplied", evidence: "未出现对手邀请", promptEvidence: "" },
+    { code: "A5", name: "判断署名", level: 2, opportunity: "given_taken", evidence: "自评了档位", promptEvidence: "" },
+    { code: "A6", name: "求真优先", level: 1, opportunity: "given_not_taken", evidence: "未主动收窄结论", promptEvidence: "" },
+  ],
+  promptLens: {
+    stats: [
+      { label: "主动指令轮", value: "3 / 10" },
+      { label: "边界设定", value: "3 次" },
+      { label: "对手邀请", value: "0 次" },
+    ],
+    lenses: [
+      { code: "L_decisions", name: "五个决定完整度", level: 2, evidence: "…" },
+      { code: "L_maturity", name: "提示成熟度", level: 3, evidence: "…" },
+      { code: "L_boundary", name: "边界意识", level: 2, evidence: "…" },
+      { code: "L_adversary", name: "对手邀请", level: 0, evidence: "…" },
+      { code: "L_directive", name: "主动指令率", level: 3, evidence: "…" },
+      { code: "L_acceptance", name: "验收标准自给", level: 2, evidence: "…" },
+    ],
+    note: "提示词透镜只读 AI 互动痕迹，为双轴补过程证据；不是第三根评分轴，不并入任何总分。",
+  },
+  interactionEvidence: [
+    { round: 4, student: "检查是否回扣 thesis", aiSummary: "齐备", signal: "D1 主动限定" },
+  ],
   narrative: "这门课里，你从接受说法转向了追问说法的来源。",
+  guidance: { nextSteps: [{ title: "下一步强化 D3", task: "跑一张 SIFT 记录" }] },
   axiom: "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
   generatedAt: "2026-07-17T09:00:00Z",
 };
@@ -175,17 +195,26 @@ describe("CourseReport", () => {
     expect(screen.getByText(/两轴永不合成总分/)).toBeInTheDocument();
   });
 
-  // An NA cross-axis level is rendered as 未涉及, never as a bare "NA" or a
-  // fabricated "L0" — RL-5's diagnostic-not-graded posture (mirrors the OLD
-  // per-dimension NA-rendering contract, now expressed via SoloLevel "NA").
-  it("renders a NA level as 未涉及, never as a bare level string", async () => {
+  // An NA depth-dim level is rendered as 暂无可计入的证据, never as a bare "NA"
+  // or a fabricated "L0" — RL-5's diagnostic-not-graded posture (D6 reflection
+  // has no self-written reflection this session ⇒ NA, never a low score).
+  it("renders a NA depth level as 暂无可计入的证据, never as a bare level string", async () => {
     (api.getCourseAssessment as any).mockResolvedValue({
       ...assessmentFixture,
-      crossAxis: { ...assessmentFixture.crossAxis, depthLevel: "NA" },
+      depthAxis: assessmentFixture.depthAxis.map((d) => (d.code === "D6" ? { ...d, level: "NA" } : d)),
     });
     render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
-    expect(await screen.findByText(/未涉及/)).toBeInTheDocument();
+    expect(await screen.findByText(/暂无可计入的证据/)).toBeInTheDocument();
     expect(screen.queryByText("L0")).toBeNull();
+  });
+
+  // Chat/course fixtures carry no officialProjection — that projection is a
+  // project-surface-only superset (Task 7).
+  it("never renders an official-projection section — a course session has no officialProjection", async () => {
+    (api.getCourseAssessment as any).mockResolvedValue(assessmentFixture);
+    render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
+    await screen.findByText("能力评估");
+    expect(screen.queryByText("官方投影")).toBeNull();
   });
 
   // Generation failure is honest — never a fabricated report.
