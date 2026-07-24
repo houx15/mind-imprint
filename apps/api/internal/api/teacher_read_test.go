@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	. "mindimprint/api/internal/api"
@@ -321,5 +322,294 @@ func TestRosterReportDeniedToStudent(t *testing.T) {
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID+"/roster-report", nil), student))
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("student got %d, want 403", rec.Code)
+	}
+}
+
+// teacherReportForTest mirrors TeacherReportDTO's JSON shape for decoding.
+type teacherReportForTest struct {
+	Report struct {
+		DepthAxis          []struct{ Code, Level string } `json:"depthAxis"`
+		OfficialProjection map[string]any                 `json:"officialProjection"`
+	} `json:"report"`
+	Context struct {
+		ProjectTitle     string `json:"projectTitle"`
+		ResearchQuestion string `json:"researchQuestion"`
+	} `json:"context"`
+}
+
+// TestStudentReportProjectHappyPath — a project report round-trips with the
+// full canonical shape (depthAxis + a non-null officialProjection) and its
+// context carries the research question minted from the project's
+// research_question graph node (not the fallback project title).
+func TestStudentReportProjectHappyPath(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sr-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Student Report Project Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "sr-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	proj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID: studentID, Qualification: "0457", Title: "中国是否让地球更可持续？",
+		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	rqBody, _ := json.Marshal(map[string]any{"text": "中国的可再生能源投入能否抵消其碳排放总量？"})
+	if _, err := q.InsertGraphNode(context.Background(), sqlc.InsertGraphNodeParams{
+		ProjectID: proj.ID, Type: "research_question", Body: rqBody, Author: "student", SpanRef: nil,
+	}); err != nil {
+		t.Fatalf("insert research_question node: %v", err)
+	}
+
+	report := agent.Report{
+		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L2"}, {Code: "D2", Level: "L3"}},
+		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 3, Opportunity: "given_taken"}},
+		OfficialProjection: &agent.OfficialProjection{
+			Standard:  agent.OfficialStandardRef{ID: "ap-research", Name: "AP Research"},
+			Readiness: agent.OfficialReadiness{Score: 62, Note: "project-surface only"},
+		},
+		WorkAndProcess: &agent.WorkAndProcess{},
+	}
+	scores, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal report: %v", err)
+	}
+	if _, err := q.InsertProjectEvaluation(context.Background(), sqlc.InsertProjectEvaluationParams{
+		ProjectID: pgtype.UUID{Bytes: proj.ID, Valid: true},
+		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert project evaluation: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/project/"+proj.ID.String(), nil,
+	), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("project report got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp teacherReportForTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(resp.Report.DepthAxis) != 2 {
+		t.Fatalf("depthAxis = %+v, want 2 entries", resp.Report.DepthAxis)
+	}
+	if resp.Report.OfficialProjection == nil {
+		t.Fatalf("officialProjection should be non-null for a project report")
+	}
+	if resp.Context.ResearchQuestion != "中国的可再生能源投入能否抵消其碳排放总量？" {
+		t.Fatalf("context.researchQuestion = %q, want the graph node's text", resp.Context.ResearchQuestion)
+	}
+	if resp.Context.ProjectTitle != "中国是否让地球更可持续？" {
+		t.Fatalf("context.projectTitle = %q, want the project's title", resp.Context.ProjectTitle)
+	}
+}
+
+// TestStudentReportCourseHappyPathAndCrossOwner — a course report round-trips
+// as core-only (officialProjection null, empty context); a correct
+// surface+scopeId that belongs to a DIFFERENT student 404s (closes the
+// untested course ownership guard).
+func TestStudentReportCourseHappyPathAndCrossOwner(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sr-course-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Student Report Course Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "sr-course-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	session, err := q.CreateCourseSession(context.Background(), sqlc.CreateCourseSessionParams{
+		UserID: studentID, CourseID: uuid.MustParse(seededCourseID), SkillID: "info-literacy-course", Phase: "demonstrate",
+	})
+	if err != nil {
+		t.Fatalf("create course session: %v", err)
+	}
+	report := agent.Report{
+		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L2"}},
+		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 2, Opportunity: "given_taken"}},
+	}
+	scores, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal report: %v", err)
+	}
+	if _, err := q.InsertSessionEvaluation(context.Background(), sqlc.InsertSessionEvaluationParams{
+		SessionID: pgtype.UUID{Bytes: session.ID, Valid: true},
+		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert session evaluation: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/course/"+session.ID.String(), nil,
+	), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("course report got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp teacherReportForTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if resp.Report.OfficialProjection != nil {
+		t.Fatalf("officialProjection should be null for a course report: %+v", resp.Report.OfficialProjection)
+	}
+	if resp.Context.ProjectTitle != "" || resp.Context.ResearchQuestion != "" {
+		t.Fatalf("context should be empty for a course report: %+v", resp.Context)
+	}
+
+	// Cross-owner: a DIFFERENT student's course session, addressed via the
+	// authorized student's path — the scope-ownership JOIN must reject it.
+	otherStudentID := createStudent(t, pool, SeedSchoolID, "sr-course-other@demo.local")
+	otherSession, err := q.CreateCourseSession(context.Background(), sqlc.CreateCourseSessionParams{
+		UserID: otherStudentID, CourseID: uuid.MustParse(seededCourseID), SkillID: "info-literacy-course", Phase: "demonstrate",
+	})
+	if err != nil {
+		t.Fatalf("create other course session: %v", err)
+	}
+	if _, err := q.InsertSessionEvaluation(context.Background(), sqlc.InsertSessionEvaluationParams{
+		SessionID: pgtype.UUID{Bytes: otherSession.ID, Valid: true},
+		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert other session evaluation: %v", err)
+	}
+
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/course/"+otherSession.ID.String(), nil,
+	), teacher))
+	if rec2.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner course scope got %d, want 404", rec2.Code)
+	}
+}
+
+// TestStudentReportChatHappyPathAndCrossOwner — same shape as the course
+// case, for the chat surface (closes the untested chat ownership guard).
+func TestStudentReportChatHappyPathAndCrossOwner(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sr-chat-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Student Report Chat Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "sr-chat-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	thread, err := q.CreateStandaloneThread(context.Background(), sqlc.CreateStandaloneThreadParams{
+		UserID: studentID, Title: "chat thread",
+	})
+	if err != nil {
+		t.Fatalf("create chat thread: %v", err)
+	}
+	report := agent.Report{
+		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L2"}},
+		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 2, Opportunity: "given_taken"}},
+	}
+	scores, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal report: %v", err)
+	}
+	if _, err := q.InsertThreadEvaluation(context.Background(), sqlc.InsertThreadEvaluationParams{
+		ThreadID: pgtype.UUID{Bytes: thread.ID, Valid: true},
+		Scores:   scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert thread evaluation: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/chat/"+thread.ID.String(), nil,
+	), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("chat report got %d body=%s", rec.Code, rec.Body)
+	}
+	var resp teacherReportForTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if resp.Report.OfficialProjection != nil {
+		t.Fatalf("officialProjection should be null for a chat report: %+v", resp.Report.OfficialProjection)
+	}
+	if resp.Context.ProjectTitle != "" || resp.Context.ResearchQuestion != "" {
+		t.Fatalf("context should be empty for a chat report: %+v", resp.Context)
+	}
+
+	// Cross-owner: a DIFFERENT student's chat thread, addressed via the
+	// authorized student's path — must 404.
+	otherStudentID := createStudent(t, pool, SeedSchoolID, "sr-chat-other@demo.local")
+	otherThread, err := q.CreateStandaloneThread(context.Background(), sqlc.CreateStandaloneThreadParams{
+		UserID: otherStudentID, Title: "other chat thread",
+	})
+	if err != nil {
+		t.Fatalf("create other chat thread: %v", err)
+	}
+	if _, err := q.InsertThreadEvaluation(context.Background(), sqlc.InsertThreadEvaluationParams{
+		ThreadID: pgtype.UUID{Bytes: otherThread.ID, Valid: true},
+		Scores:   scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert other thread evaluation: %v", err)
+	}
+
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/chat/"+otherThread.ID.String(), nil,
+	), teacher))
+	if rec2.Code != http.StatusNotFound {
+		t.Fatalf("cross-owner chat scope got %d, want 404", rec2.Code)
+	}
+}
+
+// TestStudentReportUnknownSurfaceOrScope404s — an unknown surface value and a
+// well-formed but nonexistent scopeId both 404.
+func TestStudentReportUnknownSurfaceOrScope404s(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sr-badsurface-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "Student Report Bad Surface Class")
+
+	studentID := createStudent(t, pool, SeedSchoolID, "sr-badsurface-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	proj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
+		UserID: studentID, Qualification: "0457", Title: "some project",
+		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	scores, _ := json.Marshal(agent.Report{DepthAxis: []agent.DepthDim{{Code: "D1", Level: "L1"}}})
+	if _, err := q.InsertProjectEvaluation(context.Background(), sqlc.InsertProjectEvaluationParams{
+		ProjectID: pgtype.UUID{Bytes: proj.ID, Valid: true},
+		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	}); err != nil {
+		t.Fatalf("insert project evaluation: %v", err)
+	}
+
+	// Unknown surface, otherwise-valid scopeId.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/essay/"+proj.ID.String(), nil,
+	), teacher))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown surface got %d, want 404", rec.Code)
+	}
+
+	// Well-formed but nonexistent scopeId, valid surface.
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, withCookie(httptest.NewRequest(
+		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/project/"+uuid.New().String(), nil,
+	), teacher))
+	if rec2.Code != http.StatusNotFound {
+		t.Fatalf("nonexistent scopeId got %d, want 404", rec2.Code)
 	}
 }

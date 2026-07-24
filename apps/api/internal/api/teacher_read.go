@@ -9,10 +9,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/studio"
 	"mindimprint/api/internal/teacher"
 )
 
@@ -269,5 +271,120 @@ func (a *API) getStudentDetail(w http.ResponseWriter, r *http.Request) {
 			ReportCount: reportCount, CourseCount: courseCount,
 		},
 		"records": records,
+	})
+}
+
+// ReportContext is the deep-report's project-scope-only framing: the project
+// title and the research question the student is answering. Empty on
+// course/chat surfaces (they have no project framing).
+type ReportContext struct {
+	ProjectTitle     string `json:"projectTitle,omitempty"`
+	ResearchQuestion string `json:"researchQuestion,omitempty"`
+}
+
+// TeacherReportDTO is the deep-report data source for the teacher's
+// per-scope report view: the same canonical ReportDTO the student sees, plus
+// the project framing context (empty on course/chat).
+type TeacherReportDTO struct {
+	Report  studio.ReportDTO `json:"report"`
+	Context ReportContext    `json:"context"`
+}
+
+// notFoundOr writes err via httpx.WriteError, which already maps
+// pgx.ErrNoRows to 404 — named here so the report handler's intent (missing
+// scope/ownership → hidden as not-found, same as authTeacherStudent) reads
+// clearly at the call site.
+func notFoundOr(w http.ResponseWriter, r *http.Request, err error) {
+	httpx.WriteError(w, r, err)
+}
+
+// rqFromNode extracts the research question from a research_question graph
+// node's body ({"text": "..."}, minted at project creation — project_create.go).
+// Tries "text" then "question" for forward compatibility; an empty/absent
+// body falls back to the project title; if that is also empty, returns ""
+// (敢于空白 — never fabricate a question).
+func rqFromNode(body []byte, fallback string) string {
+	if len(body) == 0 {
+		return fallback
+	}
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		return fallback
+	}
+	for _, key := range []string{"text", "question"} {
+		if v, ok := m[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return fallback
+}
+
+// getStudentReport handles GET
+// /api/v1/classes/{id}/students/{userId}/reports/{surface}/{scopeId}: the
+// deep-report data source for one scope (project/course/chat). Guarded by
+// authTeacherStudent (class ownership + this-class student membership); the
+// eval queries additionally re-check that the scope is owned by that exact
+// student, so a correct surface+scopeId belonging to a DIFFERENT student
+// still 404s.
+func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
+	_, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	surface := r.PathValue("surface")
+	scopeID, err := uuid.Parse(r.PathValue("scopeId"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	pgScopeID := pgtype.UUID{Bytes: scopeID, Valid: true}
+
+	var scores []byte
+	var createdAt time.Time
+	var ctx ReportContext
+
+	switch surface {
+	case "project":
+		row, e := a.d.Queries.GetStudentProjectEvaluationForTeacher(r.Context(), sqlc.GetStudentProjectEvaluationForTeacherParams{
+			ScopeID: pgScopeID, UserID: userID,
+		})
+		if e != nil {
+			notFoundOr(w, r, e)
+			return
+		}
+		scores, createdAt = row.Scores, row.CreatedAt
+		ctx.ProjectTitle = row.ProjectTitle
+		ctx.ResearchQuestion = rqFromNode(row.RqBody, row.ProjectTitle)
+	case "course":
+		row, e := a.d.Queries.GetStudentSessionEvaluationForTeacher(r.Context(), sqlc.GetStudentSessionEvaluationForTeacherParams{
+			ScopeID: pgScopeID, UserID: userID,
+		})
+		if e != nil {
+			notFoundOr(w, r, e)
+			return
+		}
+		scores, createdAt = row.Scores, row.CreatedAt
+	case "chat":
+		row, e := a.d.Queries.GetStudentThreadEvaluationForTeacher(r.Context(), sqlc.GetStudentThreadEvaluationForTeacherParams{
+			ScopeID: pgScopeID, UserID: userID,
+		})
+		if e != nil {
+			notFoundOr(w, r, e)
+			return
+		}
+		scores, createdAt = row.Scores, row.CreatedAt
+	default:
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	var rep agent.Report
+	if err := json.Unmarshal(scores, &rep); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, TeacherReportDTO{
+		Report:  studio.ToReportDTO(rep, createdAt),
+		Context: ctx,
 	})
 }
