@@ -7,22 +7,21 @@ type Client = Pick<ApiClient, "getClass" | "renameClass" | "regenerateJoinCode" 
 const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "#8A92A3", padding: "10px 12px", borderBottom: "1px solid #EAECF2" };
 const TD: React.CSSProperties = { fontSize: 13.5, color: "#1C2333", padding: "12px", borderBottom: "1px solid #F2F3F7" };
 
-// Mirrors dc.html's levelColor/tint helpers (docs/design/teacher end/project/思维印记 教师端.dc.html:1513-1514):
-// L1 or level 0-1 -> red, L2 or 2 -> orange, L3 or 3 -> blue, L4/L5 or 4-5 -> green, "—"/unrated -> grey.
-function badgeColor(text: string): { fg: string; bg: string } {
-  const lMatch = text.match(/L(\d)/);
-  let n: number | null = null;
-  if (lMatch) {
-    n = Number(lMatch[1]);
-  } else {
+// Mirrors dc.html's levelColor/tint helpers verbatim (docs/design/teacher end/project/思维印记 教师端.dc.html:1513),
+// including its FIXED test order: L1/0级/1级 -> red, then L2/2级 -> orange, then L4/4级/5级 -> green,
+// then L3/3级 -> blue, else grey. A decimal A-axis value ("4.2") is first rounded and prefixed to "L4"
+// (mirrors dc.html's `levelColor('L'+Math.round(parseFloat(a)))`) before running through the same chain.
+function badgeColor(rawText: string): { fg: string; bg: string } {
+  let text = rawText;
+  if (!/L\d/.test(text)) {
     const dMatch = text.match(/^(\d+(?:\.\d+)?)/);
-    if (dMatch) n = Math.round(Number(dMatch[1]));
+    if (dMatch) text = `L${Math.round(Number(dMatch[1]))}`;
   }
-  if (n == null) return { fg: "#8A92A3", bg: "#EEF0F4" };
-  if (n <= 1) return { fg: "#C4574D", bg: "#F7E6E4" };
-  if (n === 2) return { fg: "#C68A3A", bg: "#F6EED9" };
-  if (n === 3) return { fg: "#3E7CA8", bg: "#E1EDF5" };
-  return { fg: "#3E8A6E", bg: "#E4F0EA" }; // 4-5
+  if (/L1|(?:^|[^\d])0级|(?:^|[^\d])1级/.test(text)) return { fg: "#C4574D", bg: "#F7E6E4" };
+  if (/L2|2级/.test(text)) return { fg: "#C68A3A", bg: "#F6EED9" };
+  if (/L4|4级|5级/.test(text)) return { fg: "#3E8A6E", bg: "#E4F0EA" };
+  if (/L3|3级/.test(text)) return { fg: "#3E7CA8", bg: "#E1EDF5" };
+  return { fg: "#8A92A3", bg: "#EEF0F4" };
 }
 
 function Badge({ text }: { text: string }) {
@@ -274,7 +273,7 @@ export function ClassDetailView({
                           width: 32,
                           height: 32,
                           borderRadius: "50%",
-                          background: `${s.avatarColor}22`,
+                          background: badgeColor(s.dBadge).bg,
                           color: s.avatarColor,
                           display: "flex",
                           alignItems: "center",

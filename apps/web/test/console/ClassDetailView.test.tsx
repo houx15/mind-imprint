@@ -54,6 +54,26 @@ describe("ClassDetailView roster", () => {
     expect(screen.getByText("✓ 已生成")).toBeInTheDocument();
   });
 
+  it("colors a D badge range like L3–L4 green (design's fixed-order L4-before-L3 match)", async () => {
+    const client = makeClient(detail());
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    const badge = await screen.findByText("L3–L4");
+    expect(badge).toHaveStyle({ color: "#3E8A6E", background: "#E4F0EA" });
+  });
+
+  it("colors an unrated D badge grey", async () => {
+    const client = makeClient(detail());
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
+    // Mia's row: dBadge "—" and aBadge "—" both render as "—"; grab all and check the grey style applies.
+    await screen.findByText("Mia");
+    const dashes = screen.getAllByText("—");
+    for (const el of dashes) {
+      if (el.tagName === "SPAN") {
+        expect(el).toHaveStyle({ color: "#8A92A3", background: "#EEF0F4" });
+      }
+    }
+  });
+
   it("shows the enriched column headers", async () => {
     const client = makeClient(detail());
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} now={NOW} onOpenStudent={() => {}} />);
