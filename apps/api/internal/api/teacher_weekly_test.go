@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/gateway"
 )
@@ -356,6 +358,49 @@ func TestWeeklyProseMakesNoCallForAnEmptyClass(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("llm_call rows = %d; an empty class has nothing to say about", calls)
+	}
+}
+
+// TestWeeklyReportForSeededClass exercises the GET path over migration 0034's
+// seeded week (吴老师's IBDP 一年级 · 研究组, class ...0902 from 0029) rather
+// than a hand-built fixture — the class a fresh dev DB actually renders. It
+// asserts what 0034 promises: 罗一 (...0919, zero events) fires never_used,
+// 陈屿 (...0914, 5 active days last week / 1 this week / no report) fires
+// dropped_off, every card carries non-empty evidence, and 吴桐's two seeded
+// reports (L2 → L3 max depth) give the depth distribution a rated student.
+func TestWeeklyReportForSeededClass(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	wu := signInAs(t, pool, uuid.MustParse("00000000-0000-0000-0000-000000000910"))
+
+	req := withCookie(httptest.NewRequest(http.MethodGet,
+		"/api/v1/classes/00000000-0000-0000-0000-000000000902/weekly-report", nil), wu)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var dto WeeklyReportDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if dto.ClassSize != 9 {
+		t.Fatalf("classSize = %d; want 9", dto.ClassSize)
+	}
+	byTag := map[string]bool{}
+	for _, c := range append(append([]WeeklyCardDTO{}, dto.Watch...), dto.Praise...) {
+		byTag[c.TagCode] = true
+		if c.Evidence == "" {
+			t.Fatalf("card %s has no evidence — 每个判断带证据", c.TagCode)
+		}
+	}
+	for _, want := range []string{"never_used", "dropped_off"} {
+		if !byTag[want] {
+			t.Fatalf("seeded class produced no %s card; tags = %v", want, byTag)
+		}
+	}
+	if dto.Depth.RatedCount == 0 {
+		t.Fatal("ratedCount = 0; the seeded class has evaluations")
 	}
 }
 

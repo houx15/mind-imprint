@@ -69,9 +69,16 @@ func TestMigration0024SessionScope(t *testing.T) {
 		CHECK (surface = 'chat' OR num_nonnulls(project_id, session_id) >= 1) NOT VALID`); err != nil {
 		t.Fatalf("re-add NOT VALID constraint over a legacy row — this is the whole point of NOT VALID: %v", err)
 	}
+	// D2's migration 0031 later added event.course_id as a fourth scope column,
+	// and 0034 seeds real course_id-scoped rows (陈屿's 本周掉线 course_message
+	// events, and step_viewed events for three other students) — those are
+	// properly attributed via course_id, not the unattributable case this test
+	// is simulating, so the query must exclude them too or it misclassifies
+	// legitimately-scoped seed rows as "legacy".
 	var legacy int
 	if err := pool.QueryRow(ctx, `
-		SELECT count(*) FROM event WHERE surface = 'course' AND project_id IS NULL AND session_id IS NULL`).Scan(&legacy); err != nil {
+		SELECT count(*) FROM event
+		WHERE surface = 'course' AND project_id IS NULL AND session_id IS NULL AND course_id IS NULL`).Scan(&legacy); err != nil {
 		t.Fatalf("read legacy unattributable course rows: %v", err)
 	}
 	if legacy != 1 {

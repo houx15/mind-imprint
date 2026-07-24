@@ -254,8 +254,10 @@ func TestTeacherReadPathQueries(t *testing.T) {
 // TestTeacherReadPathSeedData asserts migration 0029's demo data (吴老师's
 // IBDP 一年级 · 研究组, 9 students, 3 with CASE-derived evaluations) is shaped
 // the way the teacher read-path endpoints need: exactly 9 roster rows with
-// exactly 3 has_report=true, and 林知远's project evaluation unmarshals to a
-// full agent.Report (6 depth dims, non-nil officialProjection).
+// exactly 4 has_report=true (林/沈/周 from 0029, plus 吴桐 whom 0034 gives a
+// second, later report so 深度升档 has a baseline), and 林知远's project
+// evaluation unmarshals to a full agent.Report (6 depth dims, non-nil
+// officialProjection).
 func TestTeacherReadPathSeedData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -290,8 +292,8 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 			haveReport++
 		}
 	}
-	if haveReport != 3 {
-		t.Fatalf("seeded roster has %d has_report=true rows, want 3 (林/沈/周)", haveReport)
+	if haveReport != 4 {
+		t.Fatalf("seeded roster has %d has_report=true rows, want 4 (林/沈/周 from 0029, 吴桐 from 0034)", haveReport)
 	}
 
 	got, err := q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
