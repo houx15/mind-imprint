@@ -170,4 +170,43 @@ describe("TeacherReportView", () => {
     await userEvent.click(await screen.findByText("全部学生"));
     expect(onBack).toHaveBeenCalled();
   });
+
+  it("when studentName is supplied, renders it in the breadcrumb's second segment and as `{name} · {title}` in the H1", async () => {
+    render(
+      <TeacherReportView
+        client={makeClient(projectData)}
+        classId="c1"
+        userId="u1"
+        surface="project"
+        scopeId="p1"
+        studentName="Phoebe"
+        onBack={() => {}}
+      />,
+    );
+    expect(await screen.findByText("Phoebe")).toBeInTheDocument();
+    expect(screen.getByText("Phoebe · 中国是否让地球变得更可持续？")).toBeInTheDocument();
+  });
+
+  it("without studentName, falls back to the project title for both the breadcrumb and the H1", async () => {
+    render(<TeacherReportView client={makeClient(projectData)} classId="c1" userId="u1" surface="project" scopeId="p1" onBack={() => {}} />);
+    expect(await screen.findAllByText("中国是否让地球变得更可持续？")).not.toHaveLength(0);
+  });
+
+  it("gates 研究概况 on a non-empty narrative", async () => {
+    const client = makeClient({ ...coreData, report: { ...coreReport, narrative: "" } });
+    render(<TeacherReportView client={client} classId="c1" userId="u1" surface="chat" scopeId="ch1" onBack={() => {}} />);
+    await screen.findAllByText("总览");
+    expect(screen.queryByText("研究概况")).toBeNull();
+  });
+
+  it("restores the section captions from the binding design", async () => {
+    render(<TeacherReportView client={makeClient(projectData)} classId="c1" userId="u1" surface="project" scopeId="p1" onBack={() => {}} />);
+    await screen.findAllByText("总览");
+    expect(screen.getByText(/先按 AP Research 官方标准/)).toBeInTheDocument();
+    expect(screen.getByText("D 轴看研究理解、证据和论证能走多深；A 轴看学生是否真正拥有这些研究判断。两者不合成总分。")).toBeInTheDocument();
+    expect(screen.getByText("点击节点，看 RQ、官方投影、双轴、AI 互动如何串起这个项目的证据。")).toBeInTheDocument();
+    expect(screen.getByText("学生输入、AI 回应摘要与可读出的评估信号，用来支撑 A 轴与提示词透镜判断。")).toBeInTheDocument();
+    expect(screen.getByText("提示词透镜只读 AI 互动痕迹，为双轴补过程证据；它不是第三根评分轴。")).toBeInTheDocument();
+    expect(screen.getByText("只保留能推进官方表现和双轴弱点的动作，不做泛泛润色。")).toBeInTheDocument();
+  });
 });

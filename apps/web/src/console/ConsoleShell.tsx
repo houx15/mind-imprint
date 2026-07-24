@@ -33,7 +33,7 @@ export function ConsoleShell({
   const [tab, setTab] = useState<ConsoleTab>(role === "admin" ? "overview" : "classes");
   const [openClassId, setOpenClassId] = useState<string | null>(null);
   const [openStudentId, setOpenStudentId] = useState<string | null>(null);
-  const [openReport, setOpenReport] = useState<{ surface: string; scopeId: string } | null>(null);
+  const [openReport, setOpenReport] = useState<{ surface: string; scopeId: string; studentName: string } | null>(null);
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
@@ -58,7 +58,7 @@ export function ConsoleShell({
             classId={openClassId}
             userId={openStudentId}
             onBack={() => { setOpenStudentId(null); setOpenReport(null); }}
-            onOpenReport={(surface, scopeId) => setOpenReport({ surface, scopeId })}
+            onOpenReport={(surface, scopeId, studentName) => setOpenReport({ surface, scopeId, studentName })}
           />
         )}
         {tab === "classes" && openClassId != null && openStudentId != null && openReport != null && (
@@ -68,6 +68,7 @@ export function ConsoleShell({
             userId={openStudentId}
             surface={openReport.surface}
             scopeId={openReport.scopeId}
+            studentName={openReport.studentName}
             onBack={() => setOpenReport(null)}
           />
         )}

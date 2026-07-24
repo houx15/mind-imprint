@@ -31,7 +31,7 @@ export function StudentDetailView({
   classId: string;
   userId: string;
   onBack: () => void;
-  onOpenReport: (surface: string, scopeId: string) => void;
+  onOpenReport: (surface: string, scopeId: string, displayName: string) => void;
 }) {
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +115,7 @@ export function StudentDetailView({
           <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
             {primaryReport && (
               <button
-                onClick={() => onOpenReport(primaryReport.surface, primaryReport.scopeId)}
+                onClick={() => onOpenReport(primaryReport.surface, primaryReport.scopeId, student.displayName)}
                 style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#2A3B7A", color: "#fff", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "inherit" }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
@@ -182,7 +182,7 @@ export function StudentDetailView({
                 </div>
                 {r.hasReport && (
                   <div
-                    onClick={() => onOpenReport(r.surface, r.scopeId)}
+                    onClick={() => onOpenReport(r.surface, r.scopeId, student.displayName)}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#2A3B7A", cursor: "pointer", flex: "none" }}
                   >
                     查看报告

@@ -54,7 +54,7 @@ describe("StudentDetailView", () => {
     // First 查看报告 belongs to the project row (most recent / first in list)
     if (!firstLink) throw new Error("expected at least one 查看报告 link");
     await userEvent.click(firstLink);
-    expect(onOpenReport).toHaveBeenCalledWith("project", "p1");
+    expect(onOpenReport).toHaveBeenCalledWith("project", "p1", "Phoebe");
   });
 
   it("a hasReport:false row (the chat record) exposes no 查看报告 affordance", async () => {
@@ -83,7 +83,7 @@ describe("StudentDetailView", () => {
     render(<StudentDetailView client={makeClient()} classId="c1" userId="u1" onBack={() => {}} onOpenReport={onOpenReport} />);
     const btn = await screen.findByText("查看完整能力报告");
     await userEvent.click(btn);
-    expect(onOpenReport).toHaveBeenCalledWith("project", "p1");
+    expect(onOpenReport).toHaveBeenCalledWith("project", "p1", "Phoebe");
   });
 
   it("hides the primary button when no project record has a report", async () => {

@@ -10,6 +10,7 @@ const SURFACE_LABEL: Record<string, string> = { project: "项目", course: "课�
 
 const CARD_STYLE: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 14, padding: 16 };
 const H2_STYLE: React.CSSProperties = { fontSize: 20, fontWeight: 800, color: "#1C2333", margin: "38px 0 16px" };
+const CAPTION_STYLE: React.CSSProperties = { fontSize: 12.5, color: "#8A92A3", lineHeight: 1.7, marginBottom: 16 };
 
 function DepthBadge({ level, levelRange }: { level: DualAxisReportT["depthAxis"][number]["level"]; levelRange?: string }) {
   if (level === "NA") {
@@ -46,6 +47,7 @@ export function TeacherReportView({
   userId,
   surface,
   scopeId,
+  studentName,
   onBack,
 }: {
   client: Client;
@@ -53,6 +55,7 @@ export function TeacherReportView({
   userId: string;
   surface: string;
   scopeId: string;
+  studentName?: string;
   onBack: () => void;
 }) {
   const [data, setData] = useState<TeacherReport | null>(null);
@@ -132,12 +135,12 @@ export function TeacherReportView({
             全部学生
           </span>
           <span style={{ color: "#C6CBD8" }}>/</span>
-          <span onClick={onBack} style={{ color: "#6C7488", cursor: "pointer" }}>{title}</span>
+          <span onClick={onBack} style={{ color: "#6C7488", cursor: "pointer" }}>{studentName ?? title}</span>
         </div>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#2A3B7A", letterSpacing: ".03em" }}>能力报告 · 教师视图</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#1C2333", marginTop: 6, lineHeight: 1.25 }}>{title}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#1C2333", marginTop: 6, lineHeight: 1.25 }}>{studentName ? `${studentName} · ${title}` : title}</div>
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 7 }}>
               {chips.map((chip) => (
                 <span key={chip} style={{ display: "inline-flex", alignItems: "center", minHeight: 26, padding: "4px 11px", border: "1px solid #E4E7EF", borderRadius: 20, background: "#FAFBFD", fontSize: 12, color: "#4A5060" }}>{chip}</span>
@@ -165,8 +168,12 @@ export function TeacherReportView({
                 <div style={{ marginTop: 8, fontSize: 16, fontWeight: 700, color: "#1C2333", lineHeight: 1.5 }}>{context.researchQuestion}</div>
               </>
             ) : null}
-            <div style={{ marginTop: 18, fontSize: 12, fontWeight: 700, color: "#6C7488" }}>研究概况</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: "#4A5060", lineHeight: 1.8 }}>{narrative}</div>
+            {narrative ? (
+              <>
+                <div style={{ marginTop: 18, fontSize: 12, fontWeight: 700, color: "#6C7488" }}>研究概况</div>
+                <div style={{ marginTop: 8, fontSize: 14, color: "#4A5060", lineHeight: 1.8 }}>{narrative}</div>
+              </>
+            ) : null}
             <div style={{ marginTop: 18, padding: "14px 15px", background: "#F7F8FB", borderRadius: 12, fontSize: 12.5, color: "#7A8296", lineHeight: 1.7 }}>{axiom}</div>
           </div>
           {officialProjection ? (
@@ -188,6 +195,7 @@ export function TeacherReportView({
           <>
             <div ref={officialRef} />
             <h2 style={H2_STYLE}>官方作品投影</h2>
+            <div style={CAPTION_STYLE}>先按 {officialProjection.standard.name} 官方标准（Academic Paper 档位、POD、PREP/真实性）定位作品，再解释双轴证据。</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
               {officialProjection.components.map((c, i) => (
                 <div key={i} style={CARD_STYLE}>
@@ -227,6 +235,7 @@ export function TeacherReportView({
         {/* 3. D / A 双轴读数 */}
         <div ref={dualRef} />
         <h2 style={H2_STYLE}>D / A 双轴读数</h2>
+        <div style={CAPTION_STYLE}>D 轴看研究理解、证据和论证能走多深；A 轴看学生是否真正拥有这些研究判断。两者不合成总分。</div>
         <div style={{ fontSize: 13, fontWeight: 800, color: "#2A3B7A", background: "#EDEFF9", borderRadius: 10, padding: "9px 14px", marginBottom: 12 }}>D 轴 · 认知深度</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
           {depthAxis.map((d) => (
@@ -258,11 +267,13 @@ export function TeacherReportView({
         {/* 4. 证据地图 — Task 11 fills this slot */}
         <div ref={mapRef} />
         <h2 style={H2_STYLE}>证据地图</h2>
+        <div style={CAPTION_STYLE}>点击节点，看 RQ、官方投影、双轴、AI 互动如何串起这个项目的证据。</div>
         <div data-testid="evidence-map-slot" />
 
         {/* 5. 学生 · AI 交互证据 */}
         <div ref={timelineRef} />
         <h2 style={H2_STYLE}>学生 · AI 交互证据</h2>
+        <div style={CAPTION_STYLE}>学生输入、AI 回应摘要与可读出的评估信号，用来支撑 A 轴与提示词透镜判断。</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {interactionEvidence.map((row) => (
             <div key={row.round} style={CARD_STYLE}>
@@ -280,6 +291,7 @@ export function TeacherReportView({
         {/* 6. 提示词透镜 */}
         <div ref={promptRef} />
         <h2 style={H2_STYLE}>提示词透镜</h2>
+        <div style={CAPTION_STYLE}>提示词透镜只读 AI 互动痕迹，为双轴补过程证据；它不是第三根评分轴。</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
           {promptLens.stats.map((s, i) => (
             <div key={i} style={{ ...CARD_STYLE, textAlign: "center" }}>
@@ -335,6 +347,7 @@ export function TeacherReportView({
         {/* 8. 下一步脚手架 */}
         <div ref={nextRef} />
         <h2 style={H2_STYLE}>下一步脚手架</h2>
+        <div style={CAPTION_STYLE}>只保留能推进官方表现和双轴弱点的动作，不做泛泛润色。</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }}>
           {guidance.nextSteps.map((n, i) => (
             <div key={i} style={{ ...CARD_STYLE, display: "flex", gap: 14 }}>
