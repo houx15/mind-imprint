@@ -55,7 +55,11 @@ func TestMigrate0027ClearsEvaluations(t *testing.T) {
 		t.Fatal("seed failed: no evaluation row before 0027")
 	}
 
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil { // re-apply 0027
+	// UpToContext(..., 27), not UpContext: since migration 0029 the head has a
+	// seed migration that inserts its own evaluations rows again, so a plain
+	// Up-to-head would immediately repopulate the table this assertion checks
+	// is empty. Stop exactly at 0027, the migration under test.
+	if err := goose.UpToContext(ctx, db, "migrations", 27); err != nil { // re-apply 0027
 		t.Fatalf("apply 0027: %v", err)
 	}
 

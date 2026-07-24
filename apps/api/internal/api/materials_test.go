@@ -321,6 +321,11 @@ func TestLogSourceOpenRejectsNegativeTimeSpent(t *testing.T) {
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
 	cookie := signInSeed(t, pool)
 
+	// Baseline, not a hardcoded 0: the seed school carries its own event rows
+	// (migration 0029's D1 teacher-class demo data), so this asserts the
+	// rejected request appends nothing NEW rather than the table being empty.
+	eventsBefore := countRows(t, pool, "event")
+
 	rec := openMaterial(t, h, cookie, materialsTestProjectID, materialBlogID, `{"time_spent_s":-5}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
@@ -334,8 +339,8 @@ func TestLogSourceOpenRejectsNegativeTimeSpent(t *testing.T) {
 	if spent != 240 {
 		t.Errorf("time_spent_s = %d, want unchanged 240 — a negative sample must never write", spent)
 	}
-	if events := countRows(t, pool, "event"); events != 0 {
-		t.Errorf("event rows = %d, want 0 — a rejected client error appends nothing", events)
+	if events := countRows(t, pool, "event"); events != eventsBefore {
+		t.Errorf("event rows = %d, want unchanged %d — a rejected client error appends nothing", events, eventsBefore)
 	}
 }
 

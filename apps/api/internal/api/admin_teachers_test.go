@@ -20,6 +20,9 @@ func TestAdminListTeachers(t *testing.T) {
 	otherSchool := seedSecondSchool(t, pool)
 	createTeacher(t, pool, otherSchool, "other@demo.local")
 
+	// Seed school also carries the D1 demo teacher (吴老师, migration 0029), so
+	// the school now has 3 teachers total: t1, t2, and 吴老师.
+
 	req := httptest.NewRequest("GET", "/api/v1/admin/teachers", nil)
 	req.AddCookie(admin)
 	rec := httptest.NewRecorder()
@@ -37,8 +40,8 @@ func TestAdminListTeachers(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Teachers) != 2 {
-		t.Fatalf("want 2 teachers in school, got %d", len(body.Teachers))
+	if len(body.Teachers) != 3 {
+		t.Fatalf("want 3 teachers in school, got %d", len(body.Teachers))
 	}
 	for _, te := range body.Teachers {
 		if te.Email == "other@demo.local" {

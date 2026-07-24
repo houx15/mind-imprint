@@ -249,6 +249,76 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	}
 }
 
+// TestTeacherReadPathSeedData asserts migration 0029's demo data (吴老师's
+// IBDP 一年级 · 研究组, 9 students, 3 with CASE-derived evaluations) is shaped
+// the way the teacher read-path endpoints need: exactly 9 roster rows with
+// exactly 3 has_report=true, and 林知远's project evaluation unmarshals to a
+// full agent.Report (6 depth dims, non-nil officialProjection).
+func TestTeacherReadPathSeedData(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+
+	seededClass := uuid.MustParse("00000000-0000-0000-0000-000000000902")
+	lin := uuid.MustParse("00000000-0000-0000-0000-000000000911")
+	linProject := uuid.MustParse("00000000-0000-0000-0000-000000000951")
+
+	// A window wide enough to be unaffected by where "now" falls relative to
+	// the ISO week boundary (has_report/latest_project_scores don't depend on
+	// the window at all; active_days/turns do, but this test doesn't assert
+	// on those — only on report presence/shape).
+	wideStart := time.Now().AddDate(0, -1, 0)
+	wideEnd := time.Now().AddDate(0, 1, 0)
+
+	roster, err := q.ListClassRosterReport(ctx, sqlc.ListClassRosterReportParams{
+		ClassID: seededClass, WeekStart: wideStart, WeekEnd: wideEnd,
+	})
+	if err != nil {
+		t.Fatalf("ListClassRosterReport(seeded class): %v", err)
+	}
+	if len(roster) != 9 {
+		t.Fatalf("seeded roster has %d rows, want 9", len(roster))
+	}
+	haveReport := 0
+	for _, row := range roster {
+		if hr, _ := row.HasReport.(bool); hr {
+			haveReport++
+		}
+	}
+	if haveReport != 3 {
+		t.Fatalf("seeded roster has %d has_report=true rows, want 3 (林/沈/周)", haveReport)
+	}
+
+	got, err := q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
+		ScopeID: pgUUID(linProject), UserID: lin,
+	})
+	if err != nil {
+		t.Fatalf("GetStudentProjectEvaluationForTeacher(林知远): %v", err)
+	}
+	var rep agent.Report
+	if err := json.Unmarshal(got.Scores, &rep); err != nil {
+		t.Fatalf("unmarshal 林知远's report: %v", err)
+	}
+	if len(rep.DepthAxis) != 6 {
+		t.Errorf("林知远's depthAxis = %d, want 6", len(rep.DepthAxis))
+	}
+	if len(rep.AutonomyAxis) != 6 {
+		t.Errorf("林知远's autonomyAxis = %d, want 6", len(rep.AutonomyAxis))
+	}
+	if len(rep.PromptLens.Lenses) != 6 {
+		t.Errorf("林知远's promptLens.lenses = %d, want 6", len(rep.PromptLens.Lenses))
+	}
+	if rep.OfficialProjection == nil {
+		t.Fatal("林知远's officialProjection is nil, want the seeded ap-research projection")
+	}
+	if rep.OfficialProjection.Readiness.Score != 82 {
+		t.Errorf("林知远's readiness score = %d, want 82 (round(81.9))", rep.OfficialProjection.Readiness.Score)
+	}
+}
+
 func mustExec(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sql string, args ...any) {
 	t.Helper()
 	if _, err := pool.Exec(ctx, sql, args...); err != nil {
