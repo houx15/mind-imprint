@@ -1,30 +1,44 @@
 package studio
 
-import "mindimprint/api/internal/agent"
+import (
+	"time"
 
-// ReportDTO is the DualAxis growth report over the wire. Mirrors
-// packages/contracts/src/dualAxisReport.ts (camelCase) byte-for-byte, adding
-// generatedAt. The only number is DepthAxis.Subtotal (RL-5 + axiom).
+	"mindimprint/api/internal/agent"
+)
+
+// ReportDTO is the canonical dual-axis growth report over the wire. Mirrors
+// packages/contracts/src/dualAxisReport.ts (camelCase) byte-for-byte: every
+// agent.Report field, plus generatedAt (added at read time, never persisted).
+// RL-5: no cross-axis aggregate field anywhere except
+// OfficialProjection.Readiness.Score.
 type ReportDTO struct {
-	DepthAxis    agent.DepthAxis     `json:"depthAxis"`
-	AutonomyAxis agent.AutonomyAxis  `json:"autonomyAxis"`
-	CrossAxis    agent.CrossAxis     `json:"crossAxis"`
-	Solo         []agent.SoloRow     `json:"solo"`
-	PromptLens   agent.PromptLens    `json:"promptLens"`
-	Timeline     []agent.TimelineRow `json:"timeline"`
-	KeyEvidence  []agent.KeyEvidence `json:"keyEvidence"`
-	Guidance     agent.Guidance      `json:"guidance"`
-	Narrative    string              `json:"narrative"`
-	Axiom        string              `json:"axiom"`
-	GeneratedAt  string              `json:"generatedAt"`
+	DepthAxis           []agent.DepthDim       `json:"depthAxis"`
+	AutonomyAxis        []agent.AutonomySignal `json:"autonomyAxis"`
+	PromptLens          agent.PromptLens       `json:"promptLens"`
+	InteractionEvidence []agent.InteractionRow `json:"interactionEvidence"`
+	Narrative           string                 `json:"narrative"`
+	Guidance            agent.Guidance         `json:"guidance"`
+	Axiom               string                 `json:"axiom"`
+
+	OfficialProjection *agent.OfficialProjection `json:"officialProjection,omitempty"`
+	WorkAndProcess     *agent.WorkAndProcess     `json:"workAndProcess,omitempty"`
+
+	GeneratedAt string `json:"generatedAt"`
 }
 
 // ToReportDTO adds the generation timestamp to a Report. Pure.
-func ToReportDTO(r agent.Report, generatedAt string) ReportDTO {
+func ToReportDTO(r agent.Report, createdAt time.Time) ReportDTO {
 	r.AnchoredNilGuards() // ensure no null arrays over the wire
 	return ReportDTO{
-		DepthAxis: r.DepthAxis, AutonomyAxis: r.AutonomyAxis, CrossAxis: r.CrossAxis,
-		Solo: r.Solo, PromptLens: r.PromptLens, Timeline: r.Timeline, KeyEvidence: r.KeyEvidence,
-		Guidance: r.Guidance, Narrative: r.Narrative, Axiom: r.Axiom, GeneratedAt: generatedAt,
+		DepthAxis:           r.DepthAxis,
+		AutonomyAxis:        r.AutonomyAxis,
+		PromptLens:          r.PromptLens,
+		InteractionEvidence: r.InteractionEvidence,
+		Narrative:           r.Narrative,
+		Guidance:            r.Guidance,
+		Axiom:               r.Axiom,
+		OfficialProjection:  r.OfficialProjection,
+		WorkAndProcess:      r.WorkAndProcess,
+		GeneratedAt:         createdAt.Format(time.RFC3339),
 	}
 }
