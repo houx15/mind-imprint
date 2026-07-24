@@ -31,7 +31,7 @@ export function ClassDetailView({
   onBack: () => void;
   role?: string;
   onOpenStudent: (userId: string) => void;
-  onOpenReport: (surface: string, scopeId: string, displayName: string) => void;
+  onOpenReport: (surface: string, scopeId: string, displayName: string, userId: string) => void;
 }) {
   const [detail, setDetail] = useState<ClassDetail | null>(null);
   const [rosterReport, setRosterReport] = useState<RosterReportEntry[] | null>(null);

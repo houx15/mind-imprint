@@ -51,7 +51,10 @@ export function ConsoleShell({
             role={role}
             onBack={() => { setOpenClassId(null); setOpenStudentId(null); setOpenReport(null); }}
             onOpenStudent={setOpenStudentId}
-            onOpenReport={(surface, scopeId, studentName) => setOpenReport({ surface, scopeId, studentName })}
+            onOpenReport={(surface, scopeId, studentName, userId) => {
+              setOpenStudentId(userId);
+              setOpenReport({ surface, scopeId, studentName });
+            }}
           />
         )}
         {tab === "classes" && openClassId != null && openStudentId != null && openReport == null && (

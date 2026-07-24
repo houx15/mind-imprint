@@ -53,7 +53,7 @@ function DeltaPill({ delta, dir }: { delta: string; dir: "up" | "down" | "flat" 
 function Card({ card, onOpenStudent, onOpenReport }: {
   card: WeeklyCard;
   onOpenStudent: (userId: string) => void;
-  onOpenReport: (surface: string, scopeId: string, displayName: string) => void;
+  onOpenReport: (surface: string, scopeId: string, displayName: string, userId: string) => void;
 }) {
   const action = KIND_ACTION_STYLE[card.kind];
   const actionPrefix = card.kind === "praise" ? "怎么鼓励：" : "怎么开口：";
@@ -108,7 +108,7 @@ function Card({ card, onOpenStudent, onOpenReport }: {
       )}
       {card.hasReport && (
         <div
-          onClick={() => onOpenReport(card.reportSurface!, card.reportScopeId!, card.displayName)}
+          onClick={() => onOpenReport(card.reportSurface!, card.reportScopeId!, card.displayName, card.userId)}
           style={{ marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#2A3B7A", cursor: "pointer" }}
         >
           看能力报告
@@ -123,7 +123,7 @@ export function ClassWeeklyView({ client, classId, onOpenStudent, onOpenReport }
   client: Pick<ApiClient, "getClassWeeklyReport" | "generateClassWeeklyProse">;
   classId: string;
   onOpenStudent: (userId: string) => void;
-  onOpenReport: (surface: string, scopeId: string, displayName: string) => void;
+  onOpenReport: (surface: string, scopeId: string, displayName: string, userId: string) => void;
 }) {
   const [data, setData] = useState<WeeklyReport | null>(null);
   const [error, setError] = useState<string | null>(null);

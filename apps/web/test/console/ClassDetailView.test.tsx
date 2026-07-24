@@ -32,7 +32,12 @@ const weeklyReport = (): WeeklyReport => ({
   asOf: "2026-07-24T07:30:00Z",
   className: "11 年级 A",
   classSize: 2,
-  stats: [],
+  stats: [
+    { key: "active_students", label: "本周活跃学生", value: 2, unit: "/ 2 人", foot: "登录并有活动的学生", delta: "±0", deltaDir: "flat" },
+    { key: "reports", label: "生成能力报告", value: 0, unit: "份", foot: "来自项目、对话与课程", delta: "±0", deltaDir: "flat" },
+    { key: "turns", label: "AI 对话轮次", value: 42, unit: "轮", foot: "反映本周使用强度", delta: "±0", deltaDir: "flat" },
+    { key: "course_steps", label: "完成课程节", value: 0, unit: "节", foot: "平台内自学课程", delta: "±0", deltaDir: "flat" },
+  ],
   praise: [],
   watch: [],
   depth: {

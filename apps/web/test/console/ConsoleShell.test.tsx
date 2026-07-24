@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConsoleShell } from "@/console/ConsoleShell";
 import { createSession } from "@/shell/session";
-import type { ClassDetail, ClassSummary, MeUser } from "@/api";
+import type { ClassDetail, ClassSummary, MeUser, TeacherReport } from "@/api";
 import type { WeeklyReport } from "@/api/teacher";
 
 const mem = () => { let s = "{}"; return { getItem: () => s, setItem: (_: string, v: string) => { s = v; } }; };
@@ -15,7 +15,7 @@ const detail: ClassDetail = { class: summary, roster: [], teachers: [] };
 // Minimal but shape-accurate WeeklyReport fixture: proseReady:true so
 // ClassWeeklyView never calls generateClassWeeklyProse in these tests, and
 // all four depth buckets are present (the server never sends fewer).
-function weeklyReport(): WeeklyReport {
+function weeklyReport(over: Partial<WeeklyReport> = {}): WeeklyReport {
   return {
     weekLabel: "第 30 周（7.20–7.26）",
     weekStart: "2026-07-20T00:00:00Z",
@@ -23,7 +23,12 @@ function weeklyReport(): WeeklyReport {
     asOf: "2026-07-24T07:30:00Z",
     className: "11A",
     classSize: 0,
-    stats: [],
+    stats: [
+      { key: "active_students", label: "本周活跃学生", value: 0, unit: "/ 0 人", foot: "登录并有活动的学生", delta: "±0", deltaDir: "flat" },
+      { key: "reports", label: "生成能力报告", value: 0, unit: "份", foot: "来自项目、对话与课程", delta: "±0", deltaDir: "flat" },
+      { key: "turns", label: "AI 对话轮次", value: 0, unit: "轮", foot: "反映本周使用强度", delta: "±0", deltaDir: "flat" },
+      { key: "course_steps", label: "完成课程节", value: 0, unit: "节", foot: "平台内自学课程", delta: "±0", deltaDir: "flat" },
+    ],
     praise: [],
     watch: [],
     depth: {
@@ -39,10 +44,27 @@ function weeklyReport(): WeeklyReport {
     autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
     comment: "本周点评",
     proseReady: true,
+    ...over,
   };
 }
 
-function client() {
+// Minimal but shape-accurate TeacherReport fixture (empty arrays are valid
+// per the DualAxisReport zod schema — no min-length constraint on any axis).
+const minimalTeacherReport: TeacherReport = {
+  report: {
+    depthAxis: [],
+    autonomyAxis: [],
+    promptLens: { stats: [], lenses: [], note: "" },
+    interactionEvidence: [],
+    narrative: "",
+    guidance: { nextSteps: [] },
+    axiom: "",
+    generatedAt: "2026-07-24T00:00:00Z",
+  },
+  context: {},
+};
+
+function client(overrideWeekly?: WeeklyReport) {
   return {
     listClasses: vi.fn(async () => [summary]),
     createClass: vi.fn(),
@@ -59,8 +81,8 @@ function client() {
     removeTeacher: vi.fn(),
     getClassRosterReport: vi.fn(async () => []),
     getStudentDetail: vi.fn(),
-    getStudentReport: vi.fn(),
-    getClassWeeklyReport: vi.fn(async () => weeklyReport()),
+    getStudentReport: vi.fn(async () => minimalTeacherReport),
+    getClassWeeklyReport: vi.fn(async () => overrideWeekly ?? weeklyReport()),
     generateClassWeeklyProse: vi.fn(),
   };
 }
@@ -109,6 +131,30 @@ describe("ConsoleShell", () => {
     await userEvent.click(screen.getByRole("tab", { name: "班级" }));
     // Admin also sees the create button (admin create-class with teacher picker)
     expect(await screen.findByText("+ 新建班级")).toBeInTheDocument();
+  });
+
+  it("clicking 看能力报告 on a weekly card navigates to the teacher report view (regression: userId must travel with the report-open)", async () => {
+    const session = createSession({ storage: mem() });
+    session.setUser(TEACHER);
+    const withWatchCard = weeklyReport({
+      watch: [{
+        userId: "u2", displayName: "周子墨", avatarColor: "#C4574D",
+        tagCode: "outsourced_judgment", tagLabel: "判断在外包", kind: "watch",
+        evidence: "A 轴 0.5/5。", lead: "", action: "",
+        hasReport: true, reportSurface: "project", reportScopeId: "p1",
+      }],
+    });
+    render(<ConsoleShell session={session} client={client(withWatchCard)} onLogout={vi.fn()} />);
+
+    await userEvent.click(await screen.findByText("11A"));
+    await userEvent.click(await screen.findByText("看能力报告"));
+
+    // TeacherReportView's content: context.title/projectTitle are absent in
+    // the minimal fixture, so the title falls back to `${studentName} ·
+    // ${surfaceLabel}报告`, and the breadcrumb also renders — both prove
+    // navigation actually landed on the report, not a dead click.
+    expect(await screen.findByText("周子墨 · 项目报告")).toBeInTheDocument();
+    expect(screen.getByText("能力报告 · 教师视图")).toBeInTheDocument();
   });
 
   it("an admin lands on the 概览 overview", async () => {
