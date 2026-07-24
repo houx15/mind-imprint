@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/gateway"
 )
 
 func TestWeeklyReportRejectsForeignTeacher(t *testing.T) {
@@ -89,6 +90,164 @@ func weeklyProseReplyFor(userIDs ...string) string {
 	}
 	return fmt.Sprintf(`{"comment":"这周整体在往会自己想挪。","depthNote":"熟练档多了一人。","autonomyNote":"自主均分小幅上行。","cards":[%s]}`,
 		strings.Join(cards, ","))
+}
+
+// sequenceStubProvider is a gateway.Provider that replays a different scripted
+// reply on each successive Stream call, in order. assessStubProvider (and its
+// composeStub twin in internal/agent) can only script ONE fixed reply for the
+// whole test — but ComposeWeekly rejects any reply whose card set doesn't
+// match the fact sheet it was given, so a top-up test (whose two calls carry
+// two different fact sheets — the original student, then only the newly
+// appeared one) cannot be served by a single fixed reply. Each call delegates
+// to a fresh gateway.NewStubProvider so the event shape stays identical to
+// assessStubProvider; calls past the end of the script repeat the last reply
+// rather than panicking, so a stray extra call surfaces as a validation
+// rejection (a wrong-shaped reply for that fact sheet) rather than a crash.
+type sequenceStubProvider struct {
+	replies []string
+	calls   int
+}
+
+func newSequenceStubProvider(replies ...string) *sequenceStubProvider {
+	return &sequenceStubProvider{replies: replies}
+}
+
+func (s *sequenceStubProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	i := s.calls
+	if i >= len(s.replies) {
+		i = len(s.replies) - 1
+	}
+	s.calls++
+	reply := s.replies[i]
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: reply},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 80, OutputTokens: 40}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	}).Stream(ctx, r, req)
+}
+
+// TestWeeklyProseTopsUpACardThatAppearedAfterGeneration covers DEC-6: a card
+// that fires only after the row already exists must be composed for and
+// APPENDED, without ever rewriting anything already written. The first POST
+// generates prose for one flagged student; a second student is then enrolled
+// (also zero-activity, so she fires never_used); the second POST must compose
+// wording for ONLY her — not resend the whole class — and append it, leaving
+// the original comment and the first student's wording untouched. A third
+// POST, with nothing new, must not spend again.
+func TestWeeklyProseTopsUpACardThatAppearedAfterGeneration(t *testing.T) {
+	pool := newAPITestPool(t)
+	owner := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "wk-topup@demo.local"))
+	studentA := createStudent(t, pool, SeedSchoolID, "wk-topup-a@demo.local")
+	studentB := createStudent(t, pool, SeedSchoolID, "wk-topup-b@demo.local")
+
+	deps := DepsForTest(pool)
+	deps.Provider = newSequenceStubProvider(
+		weeklyProseReplyFor(studentA.String()),
+		weeklyProseReplyFor(studentB.String()),
+	)
+	deps.EvalResolver = fakeEvalResolver()
+	h := New(deps).Handler()
+	classID := createClassViaAPI(t, h, owner, "周报班")
+	enrollStudent(t, pool, studentA, classID)
+
+	post := func() WeeklyReportDTO {
+		req := withCookie(httptest.NewRequest(http.MethodPost, "/api/v1/classes/"+classID+"/weekly-report/prose", nil), owner)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+		}
+		var dto WeeklyReportDTO
+		if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return dto
+	}
+	findCard := func(dto WeeklyReportDTO, userID string) *WeeklyCardDTO {
+		for _, list := range [][]WeeklyCardDTO{dto.Praise, dto.Watch} {
+			for i := range list {
+				if list[i].UserID == userID {
+					return &list[i]
+				}
+			}
+		}
+		return nil
+	}
+
+	// 1. First POST creates the row with wording for student A only.
+	first := post()
+	if !first.ProseReady || first.Comment == nil {
+		t.Fatalf("first POST did not produce prose: %+v", first)
+	}
+	firstComment := *first.Comment
+	cardA := findCard(first, studentA.String())
+	if cardA == nil || cardA.Lead == "" || cardA.Action == "" {
+		t.Fatalf("student A must have wording after the first POST: %+v", first)
+	}
+
+	// A new student appears and fires never_used (zero activity).
+	enrollStudent(t, pool, studentB, classID)
+
+	// 2. Second POST composes wording for ONLY the new student and appends it.
+	second := post()
+	if second.Comment == nil {
+		t.Fatal("second POST must still return a comment")
+	}
+	// 3. The original comment is unchanged by the top-up.
+	if *second.Comment != firstComment {
+		t.Fatalf("comment changed by top-up: got %q, want unchanged %q", *second.Comment, firstComment)
+	}
+	// 4. Both the original card's wording and the new card's wording are present.
+	cardA2 := findCard(second, studentA.String())
+	if cardA2 == nil || cardA2.Lead != cardA.Lead || cardA2.Action != cardA.Action {
+		t.Fatalf("student A's original wording must survive the top-up: before %+v, after %+v", cardA, cardA2)
+	}
+	cardB := findCard(second, studentB.String())
+	if cardB == nil || cardB.Lead == "" || cardB.Action == "" {
+		t.Fatalf("student B must have wording after the top-up: %+v", second)
+	}
+
+	// Cross-check directly against the stored jsonb: exactly 2 cards, not a
+	// resend of the whole class re-wrapped as one array.
+	var cardsJSON []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT cards FROM class_weekly_prose WHERE class_id = $1`, classID).Scan(&cardsJSON); err != nil {
+		t.Fatalf("query stored cards: %v", err)
+	}
+	var stored []struct {
+		UserID string `json:"userId"`
+	}
+	if err := json.Unmarshal(cardsJSON, &stored); err != nil {
+		t.Fatalf("decode stored cards: %v", err)
+	}
+	if len(stored) != 2 {
+		t.Fatalf("stored cards = %d; want exactly 2 (one appended, not resent)", len(stored))
+	}
+
+	// 5. Exactly TWO llm_call rows — one genuine composition per POST that
+	// actually had something new to say.
+	var calls int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM llm_call WHERE purpose = 'class_weekly'`).Scan(&calls); err != nil {
+		t.Fatalf("count llm_call: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("llm_call rows = %d; want exactly 2 — one per genuine composition", calls)
+	}
+
+	// 6. A third POST, class unchanged, makes no further call and returns the
+	// same comment — the row is complete, nothing recomposes.
+	third := post()
+	if third.Comment == nil || *third.Comment != firstComment {
+		t.Fatalf("third POST comment = %v; want unchanged %q", third.Comment, firstComment)
+	}
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM llm_call WHERE purpose = 'class_weekly'`).Scan(&calls); err != nil {
+		t.Fatalf("count llm_call after third POST: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("llm_call rows after third POST = %d; want still 2 — a complete row must not recompose", calls)
+	}
 }
 
 func TestWeeklyProseGeneratesOnceAndIsReadOnlyAfterwards(t *testing.T) {
