@@ -2,27 +2,44 @@ import { describe, expect, it } from "vitest";
 import { GrowthHistory } from "../src/growthHistory";
 
 // Full DualAxisReport shape (report is .strict() — checked against
-// src/dualAxisReport.ts). Reuses the fixture shape from apps/web's Task 8
-// DualAxisReport.test.tsx so all consumers agree on one representative report.
+// src/dualAxisReport.ts). Reuses the canonical fixture shape from
+// test/dualAxisReport.test.ts so all consumers agree on one representative report.
 const report = {
-  depthAxis: { dims: [
-    { code: "D1", name: "任务理解与问题表述", score: 3, evidence: "限定判断", promptEvidence: "R4" },
-    { code: "D3", name: "证据与信源意识", score: 2, evidence: "NASA", promptEvidence: "" },
-    { code: "D4", name: "论证结构意识", score: 3, evidence: "warrant", promptEvidence: "" },
-    { code: "D5", name: "反馈理解与修改理由", score: 3, evidence: "理由", promptEvidence: "" },
-  ], subtotal: 11 },
-  autonomyAxis: { code: "D2", name: "学生主体性 / AI 依赖度", observation: "入场即设边界", anchoredSignals: ["R1"], promptedSignals: ["R3"], adversaryInvites: 0, promptEvidence: "" },
-  crossAxis: { code: "D6", name: "元认知与反思", depthLevel: "L3", initiative: "引导后", prose: "能反思，尚未自发反思", promptEvidence: "" },
-  solo: [{ round: 4, excerpt: "限定判断", level: "L3", rationale: "组织者", initiative: "自发" }],
-  promptLens: { directiveRounds: 3, totalRounds: 10, boundarySettings: 3, adversaryInvites: 0,
-    questions: [{ title: "一问 · 任务说清了吗", body: "…" }],
-    bestPrompt: { round: 8, quote: "检查是否回扣 thesis", annotation: "齐备" },
-    takeaway: { round: 0, quote: "扮演苛刻审稿人", annotation: "P4 模板" },
-    perRound: [{ round: 1, tier: "P3", label: "要过程·设边界" }] },
-  timeline: [{ round: 1, task: "上传草稿", prompt: "不要直接重写", pTag: "P3", dimTags: ["D1=2"] }],
-  keyEvidence: [{ label: "任务理解", quote: "我想把 thesis 改成…" }],
-  guidance: { anchored: "主动限定 thesis", prompted: "SIFT 核查", risk: "D3 仍停留在来源等级", nextSteps: [{ title: "下一步强化 D3", body: "跑一张 SIFT 记录" }] },
-  narrative: "深度侧 L3 结构稳定复现，自主侧未主动召唤对手。",
+  depthAxis: [
+    { code: "D1", name: "任务理解与问题表述", level: "L3", evidence: "限定判断", promptEvidence: "R4" },
+    { code: "D2", name: "证据与信源", level: "L3", evidence: "NASA", promptEvidence: "" },
+    { code: "D3", name: "论证结构", level: "L3", evidence: "warrant", promptEvidence: "" },
+    { code: "D4", name: "视角与偏见", level: "L3", evidence: "反方", promptEvidence: "" },
+    { code: "D5", name: "反馈处理与修订", level: "L3", evidence: "理由", promptEvidence: "" },
+    { code: "D6", name: "反思与元认知", level: "NA", evidence: "", promptEvidence: "" },
+  ],
+  autonomyAxis: [
+    { code: "A1", name: "方向自主", level: 3, opportunity: "given_taken", evidence: "改题", promptEvidence: "" },
+    { code: "A2", name: "发起自主", level: 3, opportunity: "given_taken", evidence: "自发补查", promptEvidence: "" },
+    { code: "A3", name: "边界主权", level: 2, opportunity: "given_taken", evidence: "不要代写", promptEvidence: "" },
+    { code: "A4", name: "对抗与检验", level: 0, opportunity: "not_supplied", evidence: "", promptEvidence: "" },
+    { code: "A5", name: "判断署名", level: 3, opportunity: "given_taken", evidence: "自评档位", promptEvidence: "" },
+    { code: "A6", name: "求真优先", level: 2, opportunity: "given_taken", evidence: "收窄结论", promptEvidence: "" },
+  ],
+  promptLens: {
+    stats: [
+      { label: "对话轮次", value: "10" },
+      { label: "边界句", value: "3" },
+      { label: "对手邀请", value: "0" },
+    ],
+    lenses: [
+      { code: "L_decisions", name: "五个决定完整度", level: 3, evidence: "多数提示词含任务+材料+边界" },
+      { code: "L_maturity", name: "提示成熟度", level: 3, evidence: "多要过程" },
+      { code: "L_boundary", name: "边界意识", level: 3, evidence: "3 条边界句" },
+      { code: "L_adversary", name: "对手邀请", level: 0, evidence: "0 次" },
+      { code: "L_directive", name: "主动指令率", level: 3, evidence: "多轮主动改路线" },
+      { code: "L_acceptance", name: "验收标准自给", level: 3, evidence: "给出可回扣 RQ 的验收标准" },
+    ],
+    note: "提示词透镜只读 AI 互动痕迹，为双轴补过程证据；不是第三根评分轴，不并入任何总分。",
+  },
+  interactionEvidence: [{ round: 4, student: "我想把 thesis 改成…", aiSummary: "帮你把绝对命题改成有限定判断", signal: "D1→L3" }],
+  narrative: "深度侧 L3 结构稳定复现，自主侧多数事件为学生自发。",
+  guidance: { nextSteps: [{ title: "下一步强化 D2", task: "跑一张 SIFT 记录，追一手出处" }] },
   axiom: "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
   generatedAt: "2026-07-18T00:00:00Z",
 };
