@@ -28,7 +28,7 @@ function report(over: Partial<WeeklyReport> = {}): WeeklyReport {
       { code: "L1", label: "起步 L1", count: 2 }, { code: "L2", label: "发展 L2", count: 3 },
       { code: "L3", label: "熟练 L3", count: 2 }, { code: "L4", label: "优秀 L4", count: 1 },
     ], ratedCount: 8, note: "" },
-    autonomy: { mean: "2.6", delta: "+0.4", ratedCount: 8, note: "" },
+    autonomy: { mean: "2.6", delta: "+0.4", deltaDir: "up", ratedCount: 8, note: "" },
     comment: null,
     proseReady: false,
     ...over,
@@ -90,13 +90,46 @@ describe("ClassWeeklyView", () => {
           { code: "L1", label: "起步 L1", count: 0 }, { code: "L2", label: "发展 L2", count: 0 },
           { code: "L3", label: "熟练 L3", count: 0 }, { code: "L4", label: "优秀 L4", count: 0 },
         ], ratedCount: 0, note: "" },
-        autonomy: { mean: "—", delta: "—", ratedCount: 0, note: "" },
+        autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
         proseReady: true, comment: "c",
       })),
       generateClassWeeklyProse: vi.fn(),
     };
     render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
     expect(await screen.findByText("暂无可计入的证据")).toBeInTheDocument();
+  });
+
+  it("colors the A-axis delta pill by server deltaDir, never green when the class declines", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
+        autonomy: { mean: "2.1", delta: "-0.4", deltaDir: "down", ratedCount: 8, note: "" },
+        proseReady: true, comment: "c",
+      })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    const pill = await screen.findByText("-0.4");
+    // Down-style (red), not the fixed green the design's own prototype hardcodes.
+    expect(pill).toHaveStyle({ color: "#C4574D", background: "#F7E6E4" });
+  });
+
+  it("colors a praise card's avatar and tag chip with the design's fixed green, ignoring avatarColor", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
+        praise: [{
+          userId: "u2", displayName: "林知远", avatarColor: "#3E7CA8", // a non-green server color
+          tagCode: "depth_up", tagLabel: "深度升档", kind: "praise",
+          evidence: "L2 → L3。", lead: "", action: "", hasReport: true, reportSurface: "project", reportScopeId: "p2",
+        }],
+        watch: [],
+        proseReady: true, comment: "c",
+      })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    const tag = await screen.findByText("深度升档");
+    // Fixed design green (dc.html:134-135), NOT the server's avatarColor (#3E7CA8).
+    expect(tag).toHaveStyle({ color: "#3E8A6E", background: "#E4F0EA" });
   });
 
   it("renders a distinct error with a retry when the fetch fails", async () => {

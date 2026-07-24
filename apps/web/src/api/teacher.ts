@@ -83,7 +83,7 @@ export interface WeeklyReport {
   praise: WeeklyCard[];
   watch: WeeklyCard[];
   depth: { buckets: { code: string; label: string; count: number }[]; ratedCount: number; note: string };
-  autonomy: { mean: string; delta: string; ratedCount: number; note: string };
+  autonomy: { mean: string; delta: string; deltaDir: "up" | "down" | "flat"; ratedCount: number; note: string };
   comment: string | null;
   proseReady: boolean;
 }

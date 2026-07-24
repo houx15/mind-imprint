@@ -62,6 +62,7 @@ type WeeklyDepthDTO struct {
 type WeeklyAutonomyDTO struct {
 	Mean       string `json:"mean"`
 	Delta      string `json:"delta"`
+	DeltaDir   string `json:"deltaDir"`
 	RatedCount int    `json:"ratedCount"`
 	Note       string `json:"note"`
 }
@@ -201,7 +202,8 @@ func weeklyDTO(d weeklyData, prose *sqlc.GetClassWeeklyProseRow) WeeklyReportDTO
 	}
 	dto.Depth.RatedCount = d.Weekly.Depth.RatedCount
 	dto.Autonomy = WeeklyAutonomyDTO{
-		Mean: d.Weekly.Autonomy.Mean, Delta: d.Weekly.Autonomy.Delta, RatedCount: d.Weekly.Autonomy.RatedCount,
+		Mean: d.Weekly.Autonomy.Mean, Delta: d.Weekly.Autonomy.Delta, DeltaDir: d.Weekly.Autonomy.DeltaDir,
+		RatedCount: d.Weekly.Autonomy.RatedCount,
 	}
 
 	wording := map[string]agent.WeeklyCardProse{}

@@ -256,6 +256,9 @@ func TestAutonomyMeanAndDelta(t *testing.T) {
 	if w.Autonomy.Delta != "+1.0" {
 		t.Fatalf("delta = %q; want +1.0 (only 甲 has a baseline)", w.Autonomy.Delta)
 	}
+	if w.Autonomy.DeltaDir != "up" {
+		t.Fatalf("dir = %q; want up when the class's mean autonomy rose", w.Autonomy.DeltaDir)
+	}
 }
 
 func TestAutonomyDeltaIsEmDashWithoutABaseline(t *testing.T) {
@@ -264,6 +267,56 @@ func TestAutonomyDeltaIsEmDashWithoutABaseline(t *testing.T) {
 	})
 	if w.Autonomy.Delta != "—" {
 		t.Fatalf("delta = %q; want the em-dash U+2014 when no student has a second report", w.Autonomy.Delta)
+	}
+	if w.Autonomy.DeltaDir != "flat" {
+		t.Fatalf("dir = %q; want flat when nobody has a baseline — there is no direction to claim", w.Autonomy.DeltaDir)
+	}
+}
+
+func TestAutonomyDeltaDirDownWhenTheClassMeanFalls(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{
+		{UserID: "a", DisplayName: "甲", ActiveDays: 5, PrevActiveDays: 5,
+			Previous: rep(depths("L3"), autos(3, 3, 3, 3, 3, 3)),
+			Latest:   rep(depths("L3"), autos(2, 2, 2, 2, 2, 2))},
+	})
+	if w.Autonomy.Delta != "-1.0" {
+		t.Fatalf("delta = %q; want -1.0", w.Autonomy.Delta)
+	}
+	if w.Autonomy.DeltaDir != "down" {
+		t.Fatalf("dir = %q; want down when the class's mean autonomy fell — the pill must never lie green", w.Autonomy.DeltaDir)
+	}
+}
+
+// TestAutonomyDeltaDirAgreesWithTheRoundedRenderedNumber pins the exact bug
+// this fix closes: a raw per-student mean change of ~0.028 is a genuine,
+// positive rise, but %+.1f renders it as "+0.0" — DeltaDir must read that
+// same rendered string and say flat, never up, so the pill and the number
+// can never disagree.
+func TestAutonomyDeltaDirAgreesWithTheRoundedRenderedNumber(t *testing.T) {
+	same := autos(2, 2, 2, 2, 2, 2)
+	noChange := func(id, name string) teacher.StudentWeek {
+		return teacher.StudentWeek{
+			UserID: id, DisplayName: name, ActiveDays: 5, PrevActiveDays: 5,
+			Previous: rep(depths("L3"), same), Latest: rep(depths("L3"), same),
+		}
+	}
+	students := []teacher.StudentWeek{
+		noChange("s1", "学生一"), noChange("s2", "学生二"), noChange("s3", "学生三"),
+		noChange("s4", "学生四"), noChange("s5", "学生五"),
+		{
+			UserID: "bump", DisplayName: "微升", ActiveDays: 5, PrevActiveDays: 5,
+			Previous: rep(depths("L3"), autos(2, 2, 2, 2, 2, 2)),
+			Latest:   rep(depths("L3"), autos(3, 2, 2, 2, 2, 2)), // +1/6 for this student alone
+		},
+	}
+	w := teacher.Detect(students)
+	// deltaSum = 1/6 over deltaN = 6 students → raw avg ≈ 0.0278, a genuine
+	// rise — but %+.1f renders "+0.0".
+	if w.Autonomy.Delta != "+0.0" {
+		t.Fatalf("delta = %q; want +0.0 (raw ~0.028 rounds down to the tenth)", w.Autonomy.Delta)
+	}
+	if w.Autonomy.DeltaDir != "flat" {
+		t.Fatalf("dir = %q; want flat — a +0.0-rendering change must never carry an up-arrow", w.Autonomy.DeltaDir)
 	}
 }
 

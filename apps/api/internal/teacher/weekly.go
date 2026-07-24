@@ -3,6 +3,7 @@ package teacher
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"mindimprint/api/internal/agent"
 )
@@ -45,8 +46,8 @@ type DepthDist struct {
 }
 
 type AutonomyAgg struct {
-	Mean, Delta string
-	RatedCount  int
+	Mean, Delta, DeltaDir string
+	RatedCount            int
 }
 
 type Weekly struct {
@@ -306,14 +307,29 @@ func autonomyAgg(students []StudentWeek) AutonomyAgg {
 			deltaN++
 		}
 	}
-	agg := AutonomyAgg{Mean: "—", Delta: "—", RatedCount: n} // U+2014
+	agg := AutonomyAgg{Mean: "—", Delta: "—", DeltaDir: "flat", RatedCount: n} // U+2014
 	if n > 0 {
 		agg.Mean = fmt.Sprintf("%.1f", sum/float64(n))
 	}
 	if deltaN > 0 {
 		agg.Delta = fmt.Sprintf("%+.1f", deltaSum/float64(deltaN))
+		agg.DeltaDir = autonomyDeltaDir(agg.Delta)
 	}
 	return agg
+}
+
+// autonomyDeltaDir derives the pill direction from the very string the
+// teacher reads (the %+.1f-formatted Delta), never from the raw unrounded
+// change — a raw +0.04 renders as "+0.0" and must read "flat", not "up",
+// so the pill and the number can never disagree.
+func autonomyDeltaDir(rendered string) string {
+	if strings.TrimLeft(rendered, "+-") == "0.0" {
+		return "flat"
+	}
+	if strings.HasPrefix(rendered, "-") {
+		return "down"
+	}
+	return "up"
 }
 
 // ClassWeekCounts is one window's class-wide counters.

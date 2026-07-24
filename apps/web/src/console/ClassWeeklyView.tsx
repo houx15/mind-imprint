@@ -30,6 +30,12 @@ const KIND_ACTION_STYLE: Record<WeeklyCard["kind"], { bg: string; stroke: string
   watch: { bg: "#F7F8FB", stroke: "#2A3B7A" },
 };
 
+// Fixed green for praise cards' avatar / tag chip / top border (dc.html:129,
+// 131, 134-135 — the 值得表扬 block). The design hardcodes this regardless of
+// student; only watch cards use the server's per-student avatarColor, since
+// the design has no equivalent fixed per-tag color for those.
+const PRAISE_GREEN = { fg: "#3E8A6E", bg: "#E4F0EA" };
+
 function DeltaPill({ delta, dir }: { delta: string; dir: "up" | "down" | "flat" }) {
   const s = DELTA_STYLE[dir];
   return (
@@ -53,23 +59,28 @@ function Card({ card, onOpenStudent, onOpenReport }: {
   const actionPrefix = card.kind === "praise" ? "怎么鼓励：" : "怎么开口：";
   // avatarColor is the server-picked accent for this card; the light tint
   // behind it is a pure CSS rendering choice (alpha suffix on the given hex),
-  // never a re-derivation of the badge/depth-level color chain.
-  const tint = `${card.avatarColor}1A`;
+  // never a re-derivation of the badge/depth-level color chain. Praise cards
+  // are the exception: the design hardcodes them to a fixed green regardless
+  // of student (see PRAISE_GREEN), so the head color is per-kind there, not
+  // per-student.
+  const isPraise = card.kind === "praise";
+  const headFg = isPraise ? PRAISE_GREEN.fg : card.avatarColor;
+  const headBg = isPraise ? PRAISE_GREEN.bg : `${card.avatarColor}1A`;
   return (
-    <div style={{ background: "#fff", border: "1px solid #EAECF2", borderTop: `3px solid ${card.avatarColor}`, borderRadius: 16, padding: "20px 20px 18px", boxShadow: "0 4px 18px rgba(20,30,60,.05)" }}>
+    <div style={{ background: "#fff", border: "1px solid #EAECF2", borderTop: `3px solid ${headFg}`, borderRadius: 16, padding: "20px 20px 18px", boxShadow: "0 4px 18px rgba(20,30,60,.05)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-        <div style={{ width: 46, height: 46, borderRadius: "50%", background: tint, color: card.avatarColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 19, flex: "none" }}>
+        <div style={{ width: 46, height: 46, borderRadius: "50%", background: headBg, color: headFg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 19, flex: "none" }}>
           {card.displayName.slice(0, 1)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div onClick={() => onOpenStudent(card.userId)} style={{ fontSize: 21, fontWeight: 800, color: "#1C2333", lineHeight: 1.05, cursor: "pointer" }}>
             {card.displayName}
           </div>
-          <span style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 5, background: tint, color: card.avatarColor, fontSize: 12, fontWeight: 700, padding: "3px 11px", borderRadius: 20 }}>
+          <span style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 5, background: headBg, color: headFg, fontSize: 12, fontWeight: 700, padding: "3px 11px", borderRadius: 20 }}>
             {card.kind === "praise" ? (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={card.avatarColor} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M4 17 10 11l4 4 6-6" /><path d="M15 5h5v5" /></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={headFg} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M4 17 10 11l4 4 6-6" /><path d="M15 5h5v5" /></svg>
             ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={card.avatarColor} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={headFg} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
             )}
             {card.tagLabel}
           </span>
@@ -276,10 +287,9 @@ export function ClassWeeklyView({ client, classId, onOpenStudent, onOpenReport }
               <span style={{ fontSize: 40, fontWeight: 800, color: "#2A3B7A", lineHeight: 1 }}>{data.autonomy.mean}</span>
               <span style={{ fontSize: 15, color: "#9198A8", fontWeight: 700 }}>/ 5</span>
             </div>
-            <span style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 3, background: "#E9F2EC", color: "#3E8A6E", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#3E8A6E" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
-              {data.autonomy.delta}
-            </span>
+            <div style={{ marginTop: 8 }}>
+              <DeltaPill delta={data.autonomy.delta} dir={data.autonomy.deltaDir} />
+            </div>
           </div>
           <div>
             {/* No progress bar here: the design's aBarW is a precomputed
