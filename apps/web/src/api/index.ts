@@ -22,8 +22,12 @@ import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, c
 import { startCourseSession, getCourseSession, restartCourseSession, submitCourseCard, skipCourseCard, courseAsk, courseAdvance, type CourseTurnEvent } from "./courseSession";
 import { getCourseAssessment, generateCourseAssessment } from "./courseAssessment";
 import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
+import {
+  getClassRosterReport, getStudentDetail, getStudentReport,
+  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport,
+} from "./teacher";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -98,6 +102,9 @@ export interface ApiClient {
   getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
   getAbilityModel(): Promise<AbilityModel>;
   getGrowthCards(): Promise<CollectedCard[]>;
+  getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
+  getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
+  getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
 }
 
 export const api: ApiClient = {
@@ -117,4 +124,5 @@ export const api: ApiClient = {
   getGrowthHistory,
   getAbilityModel,
   getGrowthCards,
+  getClassRosterReport, getStudentDetail, getStudentReport,
 };

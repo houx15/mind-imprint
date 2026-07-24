@@ -26,6 +26,9 @@ function client() {
     listTeachers: vi.fn(async () => []),
     assignTeacher: vi.fn(),
     removeTeacher: vi.fn(),
+    getClassRosterReport: vi.fn(async () => []),
+    getStudentDetail: vi.fn(),
+    getStudentReport: vi.fn(),
   };
 }
 

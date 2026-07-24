@@ -13,6 +13,7 @@ type ShellClient = Pick<
   | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
   | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
   | "listTeachers" | "assignTeacher" | "removeTeacher"
+  | "getClassRosterReport" | "getStudentDetail" | "getStudentReport"
 >;
 
 // The marketing site's "体验 Demo" entrance deep-links here with `?trial=1`.
