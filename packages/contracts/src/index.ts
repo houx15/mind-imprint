@@ -20,3 +20,4 @@ export * from "./studioState";
 export * from "./growthHistory";
 export * from "./ability";
 export * from "./collectedCards";
+export * from "./parentReport";
