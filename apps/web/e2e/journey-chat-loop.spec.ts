@@ -56,13 +56,18 @@ test("J3: chat — thread → live reply → generate 思维印记", async ({ pa
     else await submit.first().click();
   }
 
-  // 4. Open the per-conversation 思维印记 report entry point. The report panel
-  //    opens and offers generation.
-  //    SCOPE NOTE: actually GENERATING the assessment is blocked by Finding D
-  //    (docs/2026-07-25-e2e-findings.md) — the flagship model returns empty
-  //    output and the POST /assessment 422s. So we verify the report entry point
-  //    works; generation is a manual check until Finding D is resolved.
+  // 4. Generate the per-conversation 思维印记 (flagship). Header opens the report;
+  //    the report's own button triggers the assessment POST. (Finding D fixed:
+  //    the assess call now has adequate MaxTokens, so the flagship report is no
+  //    longer truncated to empty.)
   await reportBtn.first().click();
   await expect(page.getByText("本次对话 · 思维印记")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "生成本次对话的思维印记" }).last()).toBeVisible();
+  const asmt = page.waitForResponse(
+    (r) => /\/chat\/threads\/[^/]+\/assessment$/.test(r.url()) && r.request().method() === "POST",
+    { timeout: 120_000 },
+  );
+  await page.getByRole("button", { name: "生成本次对话的思维印记" }).last().click();
+  expect((await asmt).status()).toBe(200);
+  // The report renders (generation finished ⇒ 返回对话 available).
+  await expect(page.getByRole("button", { name: "返回对话" })).toBeVisible({ timeout: 120_000 });
 });
