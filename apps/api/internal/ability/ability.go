@@ -1,8 +1,6 @@
 // Package ability projects a student's per-session DualAxis reports into a
 // current-standing 能力素养 model. Pure — no store, no LLM (RL-5: the person-level
 // view is a merge of many sessions' evidence, never a single-session 档位).
-//
-// Spec B minimal re-pointing; real ability-model redesign deferred to Spec C.
 package ability
 
 import (
@@ -35,30 +33,22 @@ type DepthAbility struct {
 }
 
 // AutonomyAbility is 智识自主 aggregated as observation counts — never a level.
+// OpportunitiesTaken/Missed count A-signals by Opportunity (机会供给先于判定):
+// given_taken = an opportunity offered and taken; given_not_taken = offered and
+// not taken (a miss, not a low score). not_supplied counts toward neither.
 type AutonomyAbility struct {
-	Sessions         int `json:"sessions"`
-	BoundarySettings int `json:"boundarySettings"`
-	AdversaryInvites int `json:"adversaryInvites"`
-	AnchoredSignals  int `json:"anchoredSignals"`
-	PromptedSignals  int `json:"promptedSignals"`
-}
-
-// Metacognition is 跨轴 SOLO aggregated as a distribution — never a single level.
-type Metacognition struct {
-	HighestSolo  string         `json:"highestSolo"`
-	Distribution map[string]int `json:"distribution"`
-	Spontaneous  int            `json:"spontaneous"`
-	Prompted     int            `json:"prompted"`
+	Sessions            int `json:"sessions"`
+	BoundarySettings    int `json:"boundarySettings"`
+	AdversaryInvites    int `json:"adversaryInvites"`
+	OpportunitiesTaken  int `json:"opportunitiesTaken"`
+	OpportunitiesMissed int `json:"opportunitiesMissed"`
 }
 
 type Model struct {
 	TotalSessions int             `json:"totalSessions"`
 	Depth         []DepthAbility  `json:"depth"`
 	Autonomy      AutonomyAbility `json:"autonomy"`
-	Metacognition Metacognition   `json:"metacognition"`
 }
-
-var soloLevels = []string{"L1", "L2", "L3", "L4"}
 
 // levelToInt maps a depth dim's L1..L4 level to its ordinal 1..4. "NA" (no
 // evidence) and any unrecognized value return ok=false — the caller must skip
@@ -87,7 +77,6 @@ func Aggregate(samples []Sample) Model {
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].CreatedAt.Before(sorted[j].CreatedAt) })
 
 	m := Model{TotalSessions: len(sorted)}
-	m.Metacognition.Distribution = map[string]int{"L1": 0, "L2": 0, "L3": 0, "L4": 0}
 
 	// Depth: one merged level per depth dim, in rubric order (always length 6).
 	for _, dim := range rubric.DepthDims() {
@@ -117,11 +106,9 @@ func Aggregate(samples []Sample) Model {
 		m.Depth = append(m.Depth, da)
 	}
 
-	// Autonomy: preserve the old DTO's int fields via a defensible mapping onto
-	// the new 6-signal shape — A3 ("边界设定"-shaped signal) sums into
-	// BoundarySettings, A4 ("对抗性邀请"-shaped signal) into AdversaryInvites;
-	// AnchoredSignals/PromptedSignals count signals by Opportunity rather than
-	// reading dedicated retired fields.
+	// Autonomy: A3 ("边界主权"-shaped signal) sums into BoundarySettings, A4
+	// ("对抗与检验"-shaped signal) into AdversaryInvites; OpportunitiesTaken/
+	// Missed count signals by Opportunity.
 	for _, s := range sorted {
 		m.Autonomy.Sessions++
 		for _, a := range s.Report.AutonomyAxis {
@@ -133,33 +120,12 @@ func Aggregate(samples []Sample) Model {
 			}
 			switch a.Opportunity {
 			case "given_taken":
-				m.Autonomy.AnchoredSignals++
+				m.Autonomy.OpportunitiesTaken++
 			case "given_not_taken":
-				m.Autonomy.PromptedSignals++
+				m.Autonomy.OpportunitiesMissed++
 			}
 		}
 	}
 
-	// Metacognition: SOLO is gone from the canonical shape. Distribution/
-	// HighestSolo are derived from D6's per-session Level (L1..L4) instead of
-	// the retired Report.Solo[] rows. Spontaneous/Prompted have no surviving
-	// source (the retired per-row Initiative tag) — they stay at their honest
-	// zero rather than being fabricated; a real replacement is Spec C's job.
-	for _, s := range sorted {
-		for _, d := range s.Report.DepthAxis {
-			if d.Code != "D6" {
-				continue
-			}
-			if _, ok := m.Metacognition.Distribution[d.Level]; ok {
-				m.Metacognition.Distribution[d.Level]++
-			}
-		}
-	}
-	for i := len(soloLevels) - 1; i >= 0; i-- {
-		if m.Metacognition.Distribution[soloLevels[i]] > 0 {
-			m.Metacognition.HighestSolo = soloLevels[i]
-			break
-		}
-	}
 	return m
 }

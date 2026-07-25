@@ -36,9 +36,6 @@ func TestGetAbilityModel_EmptyStateNoModelCall(t *testing.T) {
 			Code  string `json:"code"`
 			Level int    `json:"level"`
 		} `json:"depth"`
-		Metacognition struct {
-			Distribution map[string]int `json:"distribution"`
-		} `json:"metacognition"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
 		t.Fatalf("decode ability model: %v — body=%s", err, rec.Body)
@@ -50,9 +47,6 @@ func TestGetAbilityModel_EmptyStateNoModelCall(t *testing.T) {
 		if d.Level != -1 {
 			t.Fatalf("empty depth %s level %d, want -1", d.Code, d.Level)
 		}
-	}
-	if m.Metacognition.Distribution == nil {
-		t.Fatalf("distribution nil, want initialized map")
 	}
 	// deterministic: no model call happened.
 	if n := countAllLLMCalls(t, pool); n != 0 {

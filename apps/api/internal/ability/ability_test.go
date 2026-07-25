@@ -61,7 +61,10 @@ func TestAggregateDepthRecencyWeightedAndLowNGuard(t *testing.T) {
 	}
 }
 
-func TestAggregateAutonomyAndMetacognition(t *testing.T) {
+func TestAggregateAutonomy(t *testing.T) {
+	// A3 level sums into BoundarySettings; A4 into AdversaryInvites.
+	// OpportunitiesTaken counts given_taken; OpportunitiesMissed counts given_not_taken.
+	// not_supplied counts toward neither. Metacognition/SOLO is gone from the model.
 	samples := []Sample{
 		{
 			Report: agent.Report{
@@ -85,23 +88,14 @@ func TestAggregateAutonomyAndMetacognition(t *testing.T) {
 		},
 	}
 	m := Aggregate(samples)
+	if m.Autonomy.Sessions != 3 {
+		t.Fatalf("autonomy sessions = %d, want 3", m.Autonomy.Sessions)
+	}
 	if m.Autonomy.BoundarySettings != 3 || m.Autonomy.AdversaryInvites != 0 {
 		t.Fatalf("autonomy sums = %+v, want boundary 3 adversary 0", m.Autonomy)
 	}
-	if m.Autonomy.AnchoredSignals != 3 || m.Autonomy.PromptedSignals != 1 {
-		t.Fatalf("autonomy signals = anchored %d prompted %d, want 3/1", m.Autonomy.AnchoredSignals, m.Autonomy.PromptedSignals)
-	}
-	if m.Metacognition.HighestSolo != "L4" {
-		t.Fatalf("highestSolo = %q, want L4", m.Metacognition.HighestSolo)
-	}
-	if m.Metacognition.Distribution["L3"] != 2 || m.Metacognition.Distribution["L4"] != 1 {
-		t.Fatalf("distribution = %v, want L3:2 L4:1", m.Metacognition.Distribution)
-	}
-	// Solo's per-row Initiative tag is retired with no surviving source — Spec
-	// B keeps these at their honest zero rather than fabricating a value;
-	// Spec C is where a real replacement signal belongs.
-	if m.Metacognition.Spontaneous != 0 || m.Metacognition.Prompted != 0 {
-		t.Fatalf("solo initiative = spont %d prompted %d, want 0/0 (no surviving source)", m.Metacognition.Spontaneous, m.Metacognition.Prompted)
+	if m.Autonomy.OpportunitiesTaken != 3 || m.Autonomy.OpportunitiesMissed != 1 {
+		t.Fatalf("autonomy opportunities = taken %d missed %d, want 3/1", m.Autonomy.OpportunitiesTaken, m.Autonomy.OpportunitiesMissed)
 	}
 }
 
@@ -114,8 +108,5 @@ func TestAggregateEmpty(t *testing.T) {
 		if d.Level != -1 {
 			t.Fatalf("empty depth %s level %d, want -1", d.Code, d.Level)
 		}
-	}
-	if m.Metacognition.Distribution == nil {
-		t.Fatalf("distribution nil, want initialized empty map")
 	}
 }
