@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -24,7 +24,7 @@ import { getCourseAssessment, generateCourseAssessment } from "./courseAssessmen
 import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 import {
   getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
-  getParentReport, generateParentReportProse,
+  getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
 } from "./teacher";
 
@@ -110,6 +110,8 @@ export interface ApiClient {
   generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
   getParentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
   generateParentReportProse(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
+  getParentStageReport(classId: string, userId: string, weekStart?: string): Promise<ParentStageReport>;
+  generateParentStageProse(classId: string, userId: string, weekStart?: string): Promise<ParentStageReport>;
 }
 
 export const api: ApiClient = {
@@ -130,5 +132,5 @@ export const api: ApiClient = {
   getAbilityModel,
   getGrowthCards,
   getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
-  getParentReport, generateParentReportProse,
+  getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
 };

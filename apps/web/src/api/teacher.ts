@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { DualAxisReport, ParentReport } from "@mind-imprint/contracts";
+import type { DualAxisReport, ParentReport, ParentStageReport } from "@mind-imprint/contracts";
 
 export interface RosterReportEntry {
   id: string;
@@ -113,6 +113,30 @@ export async function generateParentReportProse(
 ): Promise<ParentReport> {
   return apiFetch<ParentReport>(
     `/api/v1/classes/${classId}/students/${userId}/parent-report/${surface}/${scopeId}/prose`,
+    { method: "POST" },
+  );
+}
+
+// GET is cost-free (renders live usage stats, merges any stored prose).
+export async function getParentStageReport(
+  classId: string,
+  userId: string,
+  weekStart = "current",
+): Promise<ParentStageReport> {
+  return apiFetch<ParentStageReport>(
+    `/api/v1/classes/${classId}/students/${userId}/parent-stage-report/${weekStart}`,
+  );
+}
+
+// POST is the only stage-report endpoint that spends (flagship compose,
+// first-open-wins; a rejected composition never walls — see ParentStageReport.tsx).
+export async function generateParentStageProse(
+  classId: string,
+  userId: string,
+  weekStart = "current",
+): Promise<ParentStageReport> {
+  return apiFetch<ParentStageReport>(
+    `/api/v1/classes/${classId}/students/${userId}/parent-stage-report/${weekStart}/prose`,
     { method: "POST" },
   );
 }

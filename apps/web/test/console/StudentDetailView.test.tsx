@@ -67,15 +67,16 @@ describe("StudentDetailView", () => {
     expect(screen.getAllByText("查看报告")).toHaveLength(2);
   });
 
-  it("renders 导出家长版·阶段报告 as an inert placeholder (present, no navigation, no callback)", async () => {
-    const onOpenReport = vi.fn();
-    render(<StudentDetailView client={makeClient()} classId="c1" userId="u1" onBack={() => {}} onOpenReport={onOpenReport} />);
-    await screen.findByText("Phoebe");
-    const stageExport = screen.getByText("导出家长版·阶段报告");
-    expect(stageExport.closest("a")).toBeNull();
-    expect(stageExport.closest("[title]")).toHaveAttribute("title", "家长版报告即将上线");
-    await userEvent.click(stageExport);
-    expect(onOpenReport).not.toHaveBeenCalled();
+  it("clicking 导出家长版·阶段报告 opens the ParentStageReport overlay for the student", async () => {
+    const getParentStageReport = vi.spyOn(api, "getParentStageReport").mockResolvedValue({
+      cover: { name: "Phoebe", subject: "", klass: "", typeLabel: "阶段报告", dateStr: "", warmLine: "" },
+      stats: [], stageGrowth: "", stageHighlight: "", stageForward: "", advice: [], prose: null,
+    });
+    render(<StudentDetailView client={makeClient()} classId="c1" userId="u1" onBack={() => {}} onOpenReport={() => {}} />);
+    await userEvent.click(await screen.findByText("导出家长版·阶段报告"));
+    expect(getParentStageReport).toHaveBeenCalledWith("c1", "u1");
+    expect(await screen.findByText("下载 PDF")).toBeInTheDocument();
+    getParentStageReport.mockRestore();
   });
 
   it("clicking 导出家长版·项目报告 opens the ParentReport overlay for the primary project report", async () => {

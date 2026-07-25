@@ -3,6 +3,7 @@ import type { ApiClient, StudentDetail, StudentRecord } from "../api";
 import { ApiError } from "../api";
 import { badgeColor } from "./badgeColor";
 import { ParentReport } from "./ParentReport";
+import { ParentStageReport } from "./ParentStageReport";
 
 type Client = Pick<ApiClient, "getStudentDetail">;
 
@@ -38,6 +39,7 @@ export function StudentDetailView({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<RecordTab>("all");
   const [parentReportOpen, setParentReportOpen] = useState(false);
+  const [stageReportOpen, setStageReportOpen] = useState(false);
 
   function load() {
     setError(null);
@@ -133,14 +135,13 @@ export function StudentDetailView({
                 导出家长版·项目报告
               </button>
             )}
-            <span
-              title="家长版报告即将上线"
-              aria-disabled="true"
-              style={inertBtn}
+            <button
+              onClick={() => setStageReportOpen(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
               导出家长版·阶段报告
-            </span>
+            </button>
           </div>
         </div>
 
@@ -209,21 +210,16 @@ export function StudentDetailView({
           onClose={() => setParentReportOpen(false)}
         />
       )}
+      {stageReportOpen && (
+        <ParentStageReport
+          classId={classId}
+          studentId={student.id}
+          studentName={student.displayName}
+          onClose={() => setStageReportOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
 const backBtn: React.CSSProperties = { background: "transparent", border: "none", color: "#8A92A3", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 };
-const inertBtn: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 7,
-  background: "#F5F6FA",
-  border: "1px solid #E1E4ED",
-  color: "#B4BAC8",
-  fontSize: 13.5,
-  fontWeight: 700,
-  padding: "11px 18px",
-  borderRadius: 11,
-  cursor: "not-allowed",
-};
