@@ -66,7 +66,7 @@ func BuildCourseContext(script CourseScript, phase skills.Contract, history []Ch
 	}
 	switch intentHint {
 	case "advance":
-		b.WriteString("\n学生想进入下一阶段。判断完成条件是否真的达成：达成就 advance，没达成就用 reply 告诉他还差什么。\n")
+		b.WriteString("\n学生点了「继续」，这一阶段的完成条件已经满足，正在进入下一阶段。用 reply 写一句简短、温暖的过渡话：先肯定他这一阶段的思考，再自然地带到下一步。\n")
 	default:
 		b.WriteString("\n学生问了你一个问题。用 reply 回应他。\n")
 	}

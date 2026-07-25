@@ -517,9 +517,14 @@ func TestRunCourseStepRefusalCarriesCardOfferMintedOnce(t *testing.T) {
 	}
 }
 
-func TestRunCourseStepRejectsAdvanceToANonSuccessor(t *testing.T) {
-	// The coach may not skip a phase — forward-only, one at a time, enforced
-	// by the runtime rather than requested by the prompt.
+func TestRunCourseStepAdvanceGoesToComputedSuccessorNotModelTarget(t *testing.T) {
+	// Forward-only, one at a time — enforced by the runtime, NOT the model.
+	// Advance is floor-authoritative: once the floor is met, the runtime moves
+	// to the single computed successor (demonstrate → guided) and ignores
+	// whatever phase the coach names. Even a model that tries to skip to
+	// `reflect` cannot — the coach can no longer veto or misdirect a
+	// structurally-complete phase (Finding A: the live coach kept teaching
+	// instead of ever emitting advance, stranding students in phase 1).
 	st := newFakeCourseStore("demonstrate")
 	st.viewedSteps = []int{0, 1}
 	deps := CourseDeps{
@@ -530,8 +535,11 @@ func TestRunCourseStepRejectsAdvanceToANonSuccessor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Advanced != "" || st.phaseSets != 0 {
-		t.Fatalf("a jump past guided must be refused, got Advanced=%q sets=%d", res.Advanced, st.phaseSets)
+	if res.Advanced != "guided" {
+		t.Fatalf("advance must go to the computed successor guided regardless of the model's target, got %q", res.Advanced)
+	}
+	if st.phaseSets != 1 {
+		t.Fatalf("phase must be set exactly once, got %d", st.phaseSets)
 	}
 }
 

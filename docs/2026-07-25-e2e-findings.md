@@ -7,7 +7,12 @@ Go/vitest suites because those mock the model.
 
 ---
 
-## A — Course coach never advances phases with the live model  ·  **blocking (course completion)**
+> **STATUS 2026-07-25:** A, B, D all **FIXED** (see per-finding notes). C worked
+> around in E2E; a real fix is still open. Root cause of B/D was one bug: the
+> gateway default `max_tokens` of 1024 truncated large outputs; A was the coach
+> being used as a redundant second gate over the structural floor.
+
+## A — Course coach never advances phases with the live model  ·  **FIXED**
 
 **Surface:** 课程 (course runtime), phase `演示` (demonstrate).
 **Symptom:** the course cannot progress past the first phase. Across multiple
@@ -34,16 +39,19 @@ emits `advance`. Mock-infidelity — the live model behaves differently.
 downstream that needs a finished course: growth-report course entry, teacher
 course signals) is unreachable in production.
 
-**Suggested investigation:** the advance prompt (agent/course_coach.go:29–31,
-67–69) asks the model to judge "完成条件是否真的达成". The live model is far more
-conservative than the floor/soft_condition imply. Options: lower the advance
-threshold, make the floor authoritative (advance when floor met unless the model
-actively objects), or give the model an explicit "the student signalled ready +
-floor met ⇒ advance" rule.
+**FIX (shipped):** made advance **floor-authoritative** in `runCourseAdvance`
+(course_step.go). Once the structural floor passes and the student clicks 继续,
+the runtime advances to the single computed successor (`NextPhase`) — it no
+longer asks the model to re-judge "完成条件" or trusts the model's target phase.
+The coach call now only writes a warm transition line (best-effort; if it fails,
+the advance still happens). The advance prompt (course_coach.go) was reframed
+from a gate to a transition-message request. Verified live: the seed course now
+walks 演示→引导→独立→回看→练一手 to `finished`. Forward-only is now enforced
+deterministically (stronger than the old model-trusting check).
 
 ---
 
-## B — Intermittent empty/truncated coach output silently drops turns  ·  **important**
+## B — Intermittent empty/truncated coach output silently drops turns  ·  **FIXED (mitigated)**
 
 **Surface:** 课程 coach (`RunCourseStep` ask + advance).
 **Symptom:** 7× in one session the coach output came back unparseable —
@@ -61,13 +69,15 @@ fails on empty content.
 **Impact:** silent dead turns in the course; compounds Finding A (fewer usable
 coach turns → even less chance to advance).
 
-**Suggested investigation:** raise maxTokens for the course coach call and/or
-treat empty content as a retry rather than a silent drop; surface a soft "让我
-再想想" to the student instead of nothing.
+**FIX (shipped):** the gateway default `max_tokens` was raised 1024 → 8000
+(deepseek.go + anthropic.go), removing the truncation source shared with D. And
+on the advance path, an unavailable transition line no longer blocks (advance is
+floor-authoritative now — Finding A fix). A dedicated retry-on-empty for the
+coach ask path is still worth adding but is no longer journey-breaking.
 
 ---
 
-## D — Flagship assessment returns empty output → 422 (核心功能)  ·  **blocking (assessment)**
+## D — Flagship assessment returns empty output → 422 (核心功能)  ·  **FIXED**
 
 **Surface:** 聊天 assessment (`生成本次对话的思维印记`); almost certainly ALL flagship
 assessments (project 你的思维印记, course terminal assessment) share this path.
@@ -94,10 +104,13 @@ for the entire 过程评估 feature — the product's headline promise does not 
 with the live model.** The class-weekly / parent-report prose composers are
 separate code but the same empty-completion class, so they are also at risk.
 
-**Likely cause + fix:** the known "reasoning model → all budget to reasoning,
-content empty unless maxTokens is large enough" issue (see the
-llm-reasoning-model-budgets note). Raise maxTokens for the assessment/compose
-calls, retry-on-empty, and fall back gracefully instead of 422.
+**FIX (shipped + verified live):** `AssessReport` set no MaxTokens → the gateway
+default of **1024** truncated the large report JSON → parse failed → 422 every
+time. Set `MaxTokens: 8000` on the assess call AND raised the gateway default
+1024 → 8000 for both providers (deepseek.go + anthropic.go), which also covers
+the weekly/parent composers and whole-draft review (same latent truncation).
+Verified: J3 now generates the chat 思维印记 live (POST /assessment → 200). Since
+`agent.Assess` is shared, project + course assessment are fixed too.
 
 ---
 

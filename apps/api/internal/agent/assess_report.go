@@ -368,6 +368,13 @@ func normalizeOfficialProjection(w *officialProjectionWire) *OfficialProjection 
 // true. Never in the coach loop.
 func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, m rubric.DualAxis, in AssessmentInput) (Report, gateway.ChatUsage, error) {
 	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+		// The canonical report is a large structured JSON object (6 depth dims +
+		// 6 autonomy signals + 6 lenses + interaction evidence + narrative +
+		// guidance, plus the project-only official-projection/work superset).
+		// The gateway default (1024) truncates it mid-JSON → "unexpected end of
+		// JSON input" → the whole assessment 422s. Give it room for the full
+		// report (flagship, never downgraded).
+		MaxTokens: 8000,
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m, in.ProjectProjection)},
 			{Role: gateway.RoleUser, Content: assessReportUserInput(in)},
