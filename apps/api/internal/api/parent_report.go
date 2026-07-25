@@ -121,6 +121,12 @@ func parentReportDTO(d parentReportData, prose *agent.ParentProse) ParentReportD
 			Name: d.Name, Subject: "研究项目 · " + d.Subject, Klass: d.Klass,
 			TypeLabel: "项目报告", DateStr: parentDateStr(time.Now()), WarmLine: warm,
 		},
+		// Non-nil arrays so the wire carries `[]` (the contract requires arrays),
+		// not `null` — a null advice pre-prose broke the client Zod parse and the
+		// report rendered blank (same class as the stage report bug).
+		DRows:  []ParentDRowDTO{},
+		ARows:  []ParentARowDTO{},
+		Advice: []ParentAdviceDTO{},
 	}
 	for _, dim := range d.Report.DepthAxis {
 		badge := parent.DBadge(dim.Level)

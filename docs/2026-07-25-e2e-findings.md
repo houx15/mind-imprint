@@ -156,6 +156,30 @@ works for project + course + chat.
 
 ---
 
+## F — 家长报告 returned `advice: null` pre-prose → blank report in the UI  ·  **FIXED**
+
+**Surface:** 教师端 家长报告 (导出家长版·项目报告 / 阶段报告), both E1 (project) and
+E2 (stage).
+**Symptom:** opening either parent report before its prose is generated rendered
+a **blank overlay** — no cover, no stats, no generate button. The teacher could
+never generate a parent report (the button that triggers the compose lives
+inside the chrome that never rendered).
+
+**Root cause:** the GET DTO left `advice` (and, for E1, `dRows`/`aRows`) as a nil
+Go slice when no prose existed yet → marshalled to JSON `null`. The client
+contract (`ParentReport`/`ParentStageReport`) requires `advice: z.array(...)`, so
+the response failed Zod validation → `data` never set → `ParentReportChrome`
+(rendered only when `data` is present) never mounted.
+
+**FIX (shipped + verified live):** default the DTO arrays to non-nil empty slices
+(`[]ParentAdviceDTO{}`, etc.) in `parentStageDTO` + `parentReportDTO` so the wire
+carries `[]`, not `null`. Verified live: J-teacher now opens the stage report and
+composes the parent prose (POST → 200). Found only because the teacher UI journey
+was authored — the API shape "looked right" at the top level (mock-infidelity
+class of bug).
+
+---
+
 ## C — Chat first-message send-vs-load race drops the reply  ·  **important**
 
 **Surface:** 聊天 (ChatContainer), the very first message of a new thread.
