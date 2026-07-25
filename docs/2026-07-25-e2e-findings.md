@@ -122,6 +122,32 @@ Verified: J3 now generates the chat 思维印记 live (POST /assessment → 200)
 
 ---
 
+## E — 整稿体检 review dropped every item → could never finish → no project eval  ·  **FIXED**
+
+**Surface:** 工作室 whole-draft review (`整稿体检`, `ProposeReview`) → the finish gate
+→ the project 你的思维印记 evaluation.
+**Symptom:** `POST /projects/{id}/snapshots/{sid}/review` returned
+`review_rejected` ("agent: review produced no usable items") on real, varied,
+cited drafts. Because the review sets the `whole_draft_review` gate item, a
+rejected review left it unset → `finish` 422 `gate_not_met` → the project
+**你的思维印记 was unreachable through the normal flow.**
+
+**Root cause:** `ProposeReview` matched the model's `criterion_code` against the
+skill's codes (`表D/表E/表F/表H`) by EXACT string. The live model emits close-but-
+not-identical codes ("表D4", "表 D", or the criterion name), so every item was
+skipped → 0 usable → whole review rejected.
+
+**FIX (shipped + verified live):** tolerant code resolution in `ProposeReview`
+(review.go) — exact → normalized (spaces/case) → prefix (表D4⇄表D) → by-name;
+truly-unmatched codes are dropped with a WARN instead of silently sinking the
+review. **Verified live end-to-end:** on the seeded S4 project, order review →
+200 (items parse), then `POST /finish` → **200 with the full 你的思维印记 report**
+(depthAxis + narrative present, 6.3 KB). This is the flagship 过程评估 proven on
+the real project path — confirming the Finding D maxTokens fix on `agent.Assess`
+works for project + course + chat.
+
+---
+
 ## C — Chat first-message send-vs-load race drops the reply  ·  **important**
 
 **Surface:** 聊天 (ChatContainer), the very first message of a new thread.

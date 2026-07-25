@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"mindimprint/api/internal/agent/enforcement"
@@ -126,9 +127,38 @@ func reviewSystemPrompt(voice Voice, overBudget bool) string {
 func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolved, criteria []skills.ReviewCriterion, paragraphs []string, graphSummary string, voice Voice, overBudget bool) ([]ReviewItem, gateway.ChatUsage, error) {
 	name := map[string]string{}
 	codes := make([]string, 0, len(criteria))
+	// Tolerant lookups: the live model does not always echo the criterion code
+	// verbatim (it emits "表D4", "表 D", or the criterion's name instead of the
+	// bare "表D"). A strict exact-match dropped every item → "no usable items"
+	// → the whole 整稿体检 review rejected → whole_draft_review never set → the
+	// student could never finish (and never reach the project 你的思维印记). So
+	// resolve codes leniently and only drop what truly matches nothing.
+	byNorm := map[string]string{} // normalized code -> canonical code
+	byName := map[string]string{} // normalized name -> canonical code
+	norm := func(s string) string { return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(s), " ", "")) }
 	for _, c := range criteria {
 		name[c.Code] = c.Name
+		byNorm[norm(c.Code)] = c.Code
+		byName[norm(c.Name)] = c.Code
 		codes = append(codes, fmt.Sprintf("%s（%s，共 %d 分点）", c.Code, c.Name, c.Points))
+	}
+	resolveCode := func(raw string) (string, bool) {
+		if _, ok := name[raw]; ok {
+			return raw, true
+		}
+		n := norm(raw)
+		if c, ok := byNorm[n]; ok {
+			return c, true
+		}
+		for nc, c := range byNorm { // 表D4⇄表D, D⇄表D
+			if nc != "" && (strings.HasPrefix(n, nc) || strings.HasPrefix(nc, n)) {
+				return c, true
+			}
+		}
+		if c, ok := byName[n]; ok {
+			return c, true
+		}
+		return "", false
 	}
 	user := fmt.Sprintf("评分表：%s\n\n论证摘要：%s\n\n草稿（分段）：\n%s",
 		strings.Join(codes, "、"), graphSummary, strings.Join(paragraphs, "\n\n"))
@@ -150,8 +180,9 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 	}
 	items := make([]ReviewItem, 0, len(wires))
 	for _, wv := range wires {
-		nm, known := name[wv.CriterionCode]
+		code, known := resolveCode(wv.CriterionCode)
 		if !known {
+			slog.Warn("review: dropping item with unrecognized criterion code", "code", wv.CriterionCode)
 			continue // ignore criteria the skill didn't ask for
 		}
 		// Enforcement on every free-text field the model produced.
@@ -164,7 +195,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 			}
 		}
 		items = append(items, ReviewItem{
-			CriterionCode: wv.CriterionCode, CriterionName: nm,
+			CriterionCode: code, CriterionName: name[code],
 			Band: wv.Band, Evidence: wv.Evidence, Missing: wv.Missing, Fix: wv.Fix,
 			Points: wv.Points,
 		})
