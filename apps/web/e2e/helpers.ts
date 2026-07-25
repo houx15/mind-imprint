@@ -45,3 +45,47 @@ export async function registerWithCode(
   await page.getByRole("button", { name: "完成，进入思维印记" }).click();
   await expect(page.getByRole("button", { name: "完成，进入思维印记" })).toHaveCount(0, { timeout: 30_000 });
 }
+
+// ── Journey helpers (authored against the CURRENT refactored UI) ──────────────
+
+export const E2E_PASS = "e2e-pass-12345";
+
+// Register a fresh student with a class join code. Thin wrapper over
+// registerWithCode with the shared password; lands on 工作室 (StudentApp default).
+export async function registerStudent(
+  page: Page,
+  opts: { name: string; email: string; code: string },
+): Promise<void> {
+  await registerWithCode(page, { ...opts, password: E2E_PASS });
+}
+
+// Open a student rail surface by its label (聊天/课程/工作室/成长报告/设置).
+export async function openRail(page: Page, label: string): Promise<void> {
+  await page.getByRole("tab", { name: label }).click();
+}
+
+// Create a paper via the 写作工作室 funnel: 新建论文 → fill prompt → 开始.
+// After create the workspace (StudioShell + CoachRail) opens directly.
+// Resolves when the coach composer is present.
+export async function createPaper(
+  page: Page,
+  opts: { title?: string; prompt: string },
+): Promise<void> {
+  await page.getByRole("button", { name: "新建论文" }).click();
+  if (opts.title) {
+    await page.getByPlaceholder("给这篇论文起个名字（可选）").fill(opts.title);
+  }
+  await page
+    .getByPlaceholder("贴上任务要求；如果你已经有思路、资料或初稿，也一起贴进来——我会据此帮你规划环节。")
+    .fill(opts.prompt);
+  await page.getByRole("button", { name: "开始" }).click();
+  // Workspace open ⇒ the coach composer is present.
+  await expect(page.getByPlaceholder("把你的想法发给印记……")).toBeVisible({ timeout: 30_000 });
+}
+
+// Send one message to the AI 陪练 (coach rail composer) and wait for it to clear.
+export async function coachSend(page: Page, text: string): Promise<void> {
+  const composer = page.getByPlaceholder("把你的想法发给印记……");
+  await composer.fill(text);
+  await page.getByRole("button", { name: "发送" }).click();
+}
