@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ParentReport, ParentReportProse } from "../src/parentReport";
+import { ParentReport, ParentReportProse, ParentStageReport, ParentStageProse } from "../src/parentReport";
 
 const wire = {
   cover: { name: "林知远", subject: "嵌入式广告与正常化", klass: "IBDP 一年级 · 研究组", typeLabel: "项目报告", dateStr: "2026年7月25日", warmLine: "把 AI 当审稿人。" },
@@ -31,5 +31,41 @@ describe("ParentReport", () => {
       advice: [{ title: "t", text: "x" }],
     };
     expect(ParentReportProse.parse(prose)).toBeTruthy();
+  });
+});
+
+describe("ParentStageReport", () => {
+  const base = {
+    cover: { name: "林知远", subject: "第 30 周（7.20–7.26）", klass: "IBDP 一年级 · 研究组", typeLabel: "阶段报告", dateStr: "2026年7月25日", warmLine: "" },
+    stats: [
+      { value: "6 天", label: "本周活跃" },
+      { value: "78", label: "对话轮次" },
+      { value: "3 份", label: "生成报告" },
+      { value: "5 节", label: "完成课程" },
+    ],
+    stageGrowth: "", stageHighlight: "", stageForward: "",
+    advice: [],
+    prose: null as null | "present",
+  };
+
+  it("accepts a deterministic (pre-prose) stage report", () => {
+    expect(ParentStageReport.parse(base)).toBeTruthy();
+  });
+
+  it("accepts a composed stage report", () => {
+    const composed = { ...base, stageGrowth: "有变化", stageHighlight: "亮点", stageForward: "往前看",
+      advice: [{ title: "t", text: "x" }], prose: "present" as const };
+    expect(ParentStageReport.parse(composed)).toBeTruthy();
+  });
+
+  it("rejects a non-sentinel prose value", () => {
+    expect(() => ParentStageReport.parse({ ...base, prose: "yes" })).toThrow();
+  });
+
+  it("ParentStageProse round-trips the composer bundle", () => {
+    expect(ParentStageProse.parse({
+      warmLine: "w", stageGrowth: "g", stageHighlight: "", stageForward: "f",
+      advice: [{ title: "t", text: "x" }, { title: "t2", text: "y" }, { title: "t3", text: "z" }],
+    })).toBeTruthy();
   });
 });
