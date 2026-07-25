@@ -11,6 +11,14 @@ Go/vitest suites because those mock the model.
 > around in E2E; a real fix is still open. Root cause of B/D was one bug: the
 > gateway default `max_tokens` of 1024 truncated large outputs; A was the coach
 > being used as a redundant second gate over the structural floor.
+>
+> **Full live E2E suite is GREEN** (8/8: smoke, auth×3, registration, J1, J2, J3).
+> The composer path (class weekly report / parent report prose — same maxTokens
+> root cause as D) was verified live too: `POST /classes/{id}/weekly-report/prose`
+> now returns **200** with real generated prose (was at risk of the same 422).
+> Remaining (future coverage, not blockers): build the teacher/parent/cohort
+> (J4) + tenancy journeys; a dedicated retry-on-empty for the coach ask path (B);
+> a real fix for the chat send-vs-load race (C).
 
 ## A — Course coach never advances phases with the live model  ·  **FIXED**
 
