@@ -27,15 +27,19 @@ test("J-teacher: 班级 → 周报 → 学生 → 家长报告", async ({ page }
   await page.locator("tr", { hasText: "林" }).first().click();
   await expect(page.getByText(/生成能力报告/)).toBeVisible({ timeout: 15_000 });
 
-  // 4. 家长报告 · 阶段 (live composer) → the printable parent projection renders.
+  // 4. 家长报告 · 阶段 → the printable parent projection renders (Finding F: the
+  //    chrome only mounts if the GET DTO's arrays are [] not null). Idempotent:
+  //    if prose isn't generated yet, compose it (POST 200); if a prior run
+  //    already generated it, the report renders directly.
   await page.getByRole("button", { name: /导出家长版·阶段报告/ }).click();
-  const proseResp = page.waitForResponse(
-    (r) => /parent-stage-report\/[^/]+\/prose$/.test(r.url()) && r.request().method() === "POST",
-    { timeout: 120_000 },
-  );
-  // The overlay opens with a generate button; click it to compose.
+  await expect(page.getByText("这一阶段的使用与成长")).toBeVisible({ timeout: 20_000 });
   const genBtn = page.getByRole("button", { name: /生成家长版/ });
-  await expect(genBtn.first()).toBeVisible({ timeout: 15_000 });
-  await genBtn.first().click();
-  expect((await proseResp).status()).toBe(200);
+  if (await genBtn.count()) {
+    const proseResp = page.waitForResponse(
+      (r) => /parent-stage-report\/[^/]+\/prose$/.test(r.url()) && r.request().method() === "POST",
+      { timeout: 120_000 },
+    );
+    await genBtn.first().click();
+    expect((await proseResp).status()).toBe(200);
+  }
 });
