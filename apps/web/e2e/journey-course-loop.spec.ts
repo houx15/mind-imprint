@@ -2,58 +2,85 @@ import { test, expect } from "@playwright/test";
 import { registerStudent, openRail, uniqueEmail } from "./helpers";
 import { studentReply } from "./student-sim";
 
-// J2 — Course runtime loop (start → page → ask → advance-gate).
-//
-// SCOPE NOTE: full course COMPLETION is blocked by Finding A
-// (docs/2026-07-25-e2e-findings.md) — the live coach never emits the `advance`
-// verb, so no session reaches `finished` regardless of engagement. This spec
-// therefore verifies the course RUNTIME mechanics that DO work reliably:
-// session start, step render + local paging, the 问印记 ask round-trip, and that
-// a boundary `下一步` invokes the advance gate. Completion is a manual pre-deploy
-// check until Finding A is resolved.
+// J2 — Finish a course → where it surfaces.
+// Drives the seed course "一条网络信息，该不该信" (phases 演示→引导→独立→回看→练一手)
+// to real COMPLETION on the current runtime. With advance now floor-authoritative
+// (Finding A fix), meeting each phase's floor + clicking 继续 advances:
+// 演示=view steps · 引导=dispose CRAAP card · 独立/回看=≥1 genuine turn (student-sim).
+// The backend is the only writer of finished.
 const JOIN_CODE = "DEMO-0001";
 const COURSE_TITLE = "一条网络信息，该不该信";
 
-test("J2: course runtime — open → page → ask → advance-gate fires", async ({ page }) => {
-  test.setTimeout(180_000);
+test("J2: course loop — start → walk phases → complete → report", async ({ page }) => {
+  test.setTimeout(300_000);
   const email = uniqueEmail("j2-student");
   await registerStudent(page, { name: "E2E 学员", email, code: JOIN_CODE });
 
-  // 1. Open the course → player: nav + phase + step counter present.
+  // 1. Open the course → player.
   await openRail(page, "课程");
   await page.getByText(COURSE_TITLE).first().click();
   const nextBtn = page.getByLabel("下一步");
   await expect(nextBtn).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("演示").first()).toBeVisible();
-  await expect(page.getByText(/1\s*\/\s*3/)).toBeVisible();
 
-  // 2. Page within 演示: 下一步 renders the next step locally (no gate here).
-  await nextBtn.click();
-  await expect(page.getByText(/2\s*\/\s*3/)).toBeVisible({ timeout: 15_000 });
-
-  // 3. 问印记 ask round-trip (live): expand the panel, answer via the student-sim,
-  //    assert the POST /session/ask succeeds and the student's turn renders.
-  const expandAsk = page.getByLabel("展开问印记");
-  if (await expandAsk.count()) await expandAsk.click();
+  // On finish the runtime mints `finished` and the player AUTO-navigates to the
+  // CourseReport (回看) — the 完成课程 button is never the completion signal; the
+  // report heading is.
+  const reportHeading = page.getByText(/课程完成/);
+  const acceptOffer = page.getByRole("button", { name: "接受" });
+  const skipCard = page.getByRole("button", { name: "跳过这张卡" });
   const askInput = page.getByPlaceholder("输入你的问题……");
-  await expect(askInput).toBeVisible({ timeout: 10_000 });
-  const reply = await studentReply("老师问：随手相信一条没核实的网络信息，可能有什么风险？");
-  const askResp = page.waitForResponse(
-    (r) => r.url().includes("/session/ask") && r.request().method() === "POST",
-    { timeout: 90_000 },
-  );
-  await askInput.fill(reply);
-  await page.getByLabel("发送").click();
-  expect((await askResp).status()).toBe(200);
-  await expect(page.getByTestId("ask-bubble").first()).toBeVisible({ timeout: 15_000 });
+  const askSend = page.getByLabel("发送");
+  const bubbles = page.getByTestId("ask-bubble");
 
-  // 4. Boundary advance: at the end of 演示, 下一步 invokes the advance gate.
-  //    We assert the gate is INVOKED (POST /session/advance fires) — whether it
-  //    grants the move is the live-coach decision tracked by Finding A.
-  const advResp = page.waitForResponse(
-    (r) => r.url().includes("/session/advance") && r.request().method() === "POST",
-    { timeout: 90_000 },
-  );
-  await nextBtn.click(); // at ordinal 1 (last 演示 step) ⇒ this click is the boundary
-  expect((await advResp).status()).toBe(200);
+  // 2. Drive to completion. Each iteration: stop if finished, dispose an offered
+  //    card, else answer the coach (student-sim) if it's waiting, then move
+  //    forward. Every step is finish-tolerant — the moment the backend mints
+  //    finished, 下一步 is replaced by 完成课程, so we re-check before each action.
+  const finished = () => reportHeading.isVisible().catch(() => false);
+  for (let i = 0; i < 40; i++) {
+    if (await finished()) break;
+
+    // 引导 floor: dispose the offered CRAAP card (skip counts as dispositioned).
+    if (await acceptOffer.count()) {
+      await acceptOffer.first().click();
+      await expect(skipCard.first()).toBeVisible({ timeout: 10_000 });
+      await skipCard.first().click();
+      await page.waitForTimeout(600);
+      continue;
+    }
+
+    // Coach waiting (a student_turns floor unmet auto-expands the panel) → answer
+    // it concretely via the student-sim. Only when the input is present + enabled
+    // (it disables while a turn is in flight).
+    if ((await askInput.isVisible().catch(() => false)) && (await askInput.isEnabled().catch(() => false))) {
+      const n = await bubbles.count();
+      const coachText = n ? await bubbles.nth(n - 1).innerText() : "请继续。";
+      const reply = await studentReply(coachText);
+      await askInput.fill(reply).catch(() => {});
+      const askResp = page
+        .waitForResponse((r) => r.url().includes("/session/ask") && r.request().method() === "POST", { timeout: 90_000 })
+        .catch(() => {});
+      await askSend.click().catch(() => {});
+      await askResp;
+      await page.waitForTimeout(400);
+    }
+
+    // Move forward — but a boundary advance may mint finished, which swaps 下一步
+    // for 完成课程. Re-check, then click only if 下一步 is still there.
+    if (await finished()) break;
+    if (await nextBtn.count()) {
+      await nextBtn.first().click().catch(() => {});
+      await page.waitForTimeout(2000);
+    }
+  }
+
+  // 3. Completed: the backend minted finished and the app auto-navigated to the
+  //    学习报告 · 课程完成 report (回看), where completion "appears".
+  await expect(reportHeading).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(COURSE_TITLE).first()).toBeVisible();
+
+  // 4. Restart resets the session and returns to the course grid.
+  await page.getByRole("button", { name: "重新开始" }).click();
+  await expect(page.getByText("系统地学会一种思考方式")).toBeVisible({ timeout: 15_000 });
 });
