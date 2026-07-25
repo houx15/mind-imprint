@@ -18,15 +18,20 @@ Go/vitest suites because those mock the model.
 > populated)**. The composer path (class weekly / parent prose) was verified live
 > too (`POST weekly-report/prose` → 200 with real prose).
 >
-> **Student-side coverage now:** onboarding, 工作室 project lifecycle + flagship
-> eval, 课程 completion, 聊天 + assessment, 成长报告 (empty + populated 学习记录).
-> **Remaining student-side gaps (future, not blockers):** a pure-UI S0→S6 studio
-> walk (the UI enforces station-locking; J-studio drives the back half via the
-> real API + UI-verifies growth); 语音 (TTS/ASR); 设置; 成长报告 工具卡/能力素养
-> populated tabs. **Teacher/admin/parent + tenancy journeys** also remain (the
-> report composer is live-verified, but no UI journey yet).
-> Non-blocking hardening: retry-on-empty for the coach ask path (B); a real fix
-> for the chat send-vs-load race (C).
+> **Coverage now — 13 e2e specs green:** smoke, auth×3, registration, **tenancy**
+> (cross-class 404), J1 (new-student), J2 (course completion), J3 (chat +
+> assessment), J-studio (project lifecycle → flagship 你的思维印记 → growth),
+> **J-teacher** (班级 → 班级周报 live compose → drill-down → 家长报告 live compose),
+> **J-admin** (概览 stats → mint invite → CSV import), **J-cohort** (many students
+> → per-student attribution + aggregation). Student + teacher + admin + parent +
+> tenancy designs all covered.
+> **Environment-gated (not automatable here):** 语音 (TTS/ASR) requires Volcano
+> Engine credentials (`VOICE_APP_ID` / `VOICE_ACCESS_KEY` / `VOICE_*_RESOURCE_ID`)
+> which are not in this env — a keyed/manual check (like the live-model gating).
+> **Minor remaining (non-blocking):** a pure-UI S0→S6 studio walk (station-locking;
+> J-studio covers the lifecycle via API + UI growth); 设置; 成长报告 工具卡/能力素养
+> populated tabs; retry-on-empty for the coach ask path (B); a real fix for the
+> chat send-vs-load race (C).
 
 ## A — Course coach never advances phases with the live model  ·  **FIXED**
 
