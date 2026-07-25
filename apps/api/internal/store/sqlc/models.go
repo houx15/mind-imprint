@@ -310,6 +310,14 @@ type Message struct {
 	Source           *string        `json:"source"`
 }
 
+type ParentReportProse struct {
+	StudentUserID uuid.UUID `json:"student_user_id"`
+	Surface       string    `json:"surface"`
+	ScopeID       string    `json:"scope_id"`
+	Prose         []byte    `json:"prose"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type Project struct {
 	ID            uuid.UUID          `json:"id"`
 	UserID        uuid.UUID          `json:"user_id"`
