@@ -156,6 +156,50 @@ func (q *Queries) GetStudentUsageForTeacher(ctx context.Context, arg GetStudentU
 	return i, err
 }
 
+const getStudentWeekStats = `-- name: GetStudentWeekStats :one
+SELECT
+  COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date)::int AS active_days,
+  COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message'))::int AS turns,
+  (SELECT count(*) FROM student_evaluation se
+     WHERE se.user_id = $1
+       AND se.created_at >= $2 AND se.created_at < $3)::int AS reports,
+  COUNT(DISTINCT (ev.course_id, ev.payload->>'ordinal'))
+    FILTER (WHERE ev.type = 'step_viewed')::int AS course_steps
+FROM event ev
+WHERE ev.user_id = $1
+  AND ev.created_at >= $2 AND ev.created_at < $3
+`
+
+type GetStudentWeekStatsParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	WeekStart time.Time `json:"week_start"`
+	WeekEnd   time.Time `json:"week_end"`
+}
+
+type GetStudentWeekStatsRow struct {
+	ActiveDays  int32 `json:"active_days"`
+	Turns       int32 `json:"turns"`
+	Reports     int32 `json:"reports"`
+	CourseSteps int32 `json:"course_steps"`
+}
+
+// One student's four stage-card counts for a half-open window. Same口径 as
+// GetClassWeekStats: active days bucketed via AT TIME ZONE 'UTC'; turns =
+// prompt_sent + course_message; reports = student_evaluation rows; course_steps
+// = DISTINCT (course, ordinal) step_viewed. Tenancy is the handler's
+// (authTeacherStudent has proven this student is in the teacher's class).
+func (q *Queries) GetStudentWeekStats(ctx context.Context, arg GetStudentWeekStatsParams) (GetStudentWeekStatsRow, error) {
+	row := q.db.QueryRow(ctx, getStudentWeekStats, arg.UserID, arg.WeekStart, arg.WeekEnd)
+	var i GetStudentWeekStatsRow
+	err := row.Scan(
+		&i.ActiveDays,
+		&i.Turns,
+		&i.Reports,
+		&i.CourseSteps,
+	)
+	return i, err
+}
+
 const listClassRosterReport = `-- name: ListClassRosterReport :many
 
 SELECT
@@ -225,6 +269,42 @@ func (q *Queries) ListClassRosterReport(ctx context.Context, arg ListClassRoster
 			&i.Turns,
 			&i.HasReport,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentEvaluationsForTeacher = `-- name: ListStudentEvaluationsForTeacher :many
+SELECT se.scores, se.created_at
+FROM student_evaluation se
+WHERE se.user_id = $1
+ORDER BY se.created_at
+`
+
+type ListStudentEvaluationsForTeacherRow struct {
+	Scores    []byte    `json:"scores"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Every report scores payload one class member owns, across all scopes, oldest
+// first (ability.Aggregate re-sorts defensively anyway). Teacher variant of
+// ListEvaluationsByUser: owner filter replaced by the handler's class-membership
+// proof. Feeds the cross-session 能力素养 merge behind the stage growth prose.
+func (q *Queries) ListStudentEvaluationsForTeacher(ctx context.Context, userID uuid.UUID) ([]ListStudentEvaluationsForTeacherRow, error) {
+	rows, err := q.db.Query(ctx, listStudentEvaluationsForTeacher, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentEvaluationsForTeacherRow
+	for rows.Next() {
+		var i ListStudentEvaluationsForTeacherRow
+		if err := rows.Scan(&i.Scores, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -122,3 +122,31 @@ JOIN chat_thread t ON t.id = e.thread_id
 WHERE e.thread_id = @scope_id AND t.user_id = @user_id
 ORDER BY e.created_at DESC
 LIMIT 1;
+
+-- name: GetStudentWeekStats :one
+-- One student's four stage-card counts for a half-open window. Same口径 as
+-- GetClassWeekStats: active days bucketed via AT TIME ZONE 'UTC'; turns =
+-- prompt_sent + course_message; reports = student_evaluation rows; course_steps
+-- = DISTINCT (course, ordinal) step_viewed. Tenancy is the handler's
+-- (authTeacherStudent has proven this student is in the teacher's class).
+SELECT
+  COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date)::int AS active_days,
+  COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message'))::int AS turns,
+  (SELECT count(*) FROM student_evaluation se
+     WHERE se.user_id = @user_id
+       AND se.created_at >= @week_start AND se.created_at < @week_end)::int AS reports,
+  COUNT(DISTINCT (ev.course_id, ev.payload->>'ordinal'))
+    FILTER (WHERE ev.type = 'step_viewed')::int AS course_steps
+FROM event ev
+WHERE ev.user_id = @user_id
+  AND ev.created_at >= @week_start AND ev.created_at < @week_end;
+
+-- name: ListStudentEvaluationsForTeacher :many
+-- Every report scores payload one class member owns, across all scopes, oldest
+-- first (ability.Aggregate re-sorts defensively anyway). Teacher variant of
+-- ListEvaluationsByUser: owner filter replaced by the handler's class-membership
+-- proof. Feeds the cross-session 能力素养 merge behind the stage growth prose.
+SELECT se.scores, se.created_at
+FROM student_evaluation se
+WHERE se.user_id = @user_id
+ORDER BY se.created_at;
