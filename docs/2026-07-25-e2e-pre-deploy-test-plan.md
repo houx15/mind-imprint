@@ -354,6 +354,18 @@ Things E2E can't fully prove headless — verify by hand before deploy:
 
 ## 9. What to build (delta from today's `apps/web/e2e/`)
 
+> **STATUS 2026-07-26 — BUILT & GREEN (13 specs).** Shipped: `smoke`, `auth`,
+> `registration`, `tenancy`, `journey-new-student` (J1), `journey-course-loop`
+> (J2), `journey-chat-loop` (J3), `journey-studio-project` (J-studio: lifecycle →
+> flagship 你的思维印记 via real API + UI growth), `journey-teacher` (J-teacher:
+> 班级→班级周报→drill-down→家长报告, live composers), `journey-admin` (J-admin:
+> overview→invite→CSV import), `journey-cohort` (J-cohort: multi-student
+> attribution). Stale `golden-path` removed. Findings A/B/D/E/F fixed along the
+> way (see `docs/2026-07-25-e2e-findings.md`). Voice = Volcano-key-gated (manual).
+> The function-backstop split below was consolidated into the journey specs
+> (teacher-class/weekly/parent → J-teacher; admin-import → J-admin; the student
+> function paths → J1/J2/J3/J-studio).
+
 Existing: `smoke`, `auth`, `registration`, `golden-path`, `helpers.ts`, `run-stack.sh`, `RUNBOOK.md`.
 
 **Journey specs (§5 — build these first, they carry release confidence):**
