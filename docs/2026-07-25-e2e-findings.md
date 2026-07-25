@@ -67,6 +67,61 @@ treat empty content as a retry rather than a silent drop; surface a soft "让我
 
 ---
 
+## D — Flagship assessment returns empty output → 422 (核心功能)  ·  **blocking (assessment)**
+
+**Surface:** 聊天 assessment (`生成本次对话的思维印记`); almost certainly ALL flagship
+assessments (project 你的思维印记, course terminal assessment) share this path.
+**Symptom:** `POST /chat/threads/{id}/assessment` spends ~18s of flagship model
+time then returns **422 `assessment_rejected`**. The report never generates.
+
+**Root cause (from log):**
+`generate_chat_assessment: rejected — agent: report output not JSON: unexpected
+end of JSON input`. The flagship model returned **empty/truncated content**, so
+the report JSON parse failed. This is the SAME failure mode as Finding B (empty
+completions), now on the flagship assessment path — consistent across retries.
+
+**Why it matters most:** the flagship 过程评估 is the product's core promise
+(「过程即数据」). If it 422s with the live model, the headline deliverable — the
+思维印记 rubric + narrative — does not render in production. The Go tests use a
+mock returning well-formed JSON, so this was invisible.
+
+**Likely cause + fix:** the known "reasoning model → all budget to reasoning,
+content empty unless maxTokens is large enough" issue (see the
+llm-reasoning-model-budgets note). Raise maxTokens for the assessment call,
+and/or retry-on-empty, and/or fall back gracefully instead of 422. **Verify
+whether the project evaluation (你的思维印记) hits the same 422** — if so this is a
+launch blocker.
+
+---
+
+## C — Chat first-message send-vs-load race drops the reply  ·  **important**
+
+**Surface:** 聊天 (ChatContainer), the very first message of a new thread.
+**Symptom:** after sending the first message in a fresh chat, the assistant reply
+does not render and `生成本次对话的思维印记` stays disabled — even though the coach
+reply IS saved server-side (verified in `chat_message`).
+
+**Root cause (confirmed in code):** `handleSend` creates the thread and sets
+`activeThreadId` (ChatContainer.tsx:74–77). That state change fires the
+load-messages effect (39–53), which `getMessages()` → `setEntries(...)` and
+**overwrites the optimistic + streaming entries** the same `handleSend` is
+appending (85, 90). The empty/partial server read wins the race, so the streamed
+reply is discarded client-side. Subsequent sends in an already-active thread
+don't hit it (no `activeThreadId` change). This is the pre-existing
+"ChatContainer mount-effect send-vs-load race" carry-forward.
+
+**Impact:** the first turn of every new conversation looks broken (no reply);
+the report can't be generated until a second message or a reload.
+
+**Workaround in the E2E (J3):** create the thread first via `新对话`, then send —
+so the send doesn't change `activeThreadId` and the effect doesn't race.
+
+**Suggested fix:** guard the load effect so it doesn't clobber in-flight optimistic
+entries (e.g. skip the fetch for a thread just created locally, or merge instead
+of replace), or create the thread eagerly before the first send.
+
+---
+
 ## Plan corrections (real-product truths the initial plan assumed wrong)
 
 - **成长报告 is populated by evaluations only.** `getGrowthHistory`
