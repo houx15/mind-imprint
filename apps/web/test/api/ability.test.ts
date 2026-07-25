@@ -13,8 +13,7 @@ describe("getAbilityModel", () => {
         { code: "D4", name: "论证结构意识", level: -1, levelLabel: "", evidenceCount: 0 },
         { code: "D5", name: "反馈理解与修改理由", level: -1, levelLabel: "", evidenceCount: 0 },
       ],
-      autonomy: { sessions: 2, boundarySettings: 3, adversaryInvites: 0, anchoredSignals: 3, promptedSignals: 1 },
-      metacognition: { highestSolo: "L3", distribution: { L1: 0, L2: 0, L3: 2, L4: 0 }, spontaneous: 1, prompted: 1 },
+      autonomy: { sessions: 2, boundarySettings: 3, adversaryInvites: 0, opportunitiesTaken: 3, opportunitiesMissed: 1 },
     };
     vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
     const m = await getAbilityModel();

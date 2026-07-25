@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import type { AbilityModel as AbilityModelT } from "@mind-imprint/contracts";
 import { api } from "../../api";
 
-const RADAR_MAX = 3; // depth scores are 0..3
+const RADAR_MAX = 4; // depth ordinals are 1..4 (L1..L4); insufficient (-1) → center
 
-// four spokes at 12/3/6/9 o'clock; value 0..3 → radius fraction. Insufficient (-1) → center.
+// N spokes evenly spaced from 12 o'clock clockwise; value 1..4 → radius fraction.
 function radarPoints(levels: number[], cx: number, cy: number, r: number): string {
-  const angles = [-90, 0, 90, 180]; // degrees, clockwise from top
+  const n = levels.length;
   return levels
     .map((lv, i) => {
       const frac = lv < 0 ? 0 : lv / RADAR_MAX;
-      const a = (angles[i]! * Math.PI) / 180;
+      const a = ((-90 + (i * 360) / n) * Math.PI) / 180;
       return `${cx + Math.cos(a) * r * frac},${cy + Math.sin(a) * r * frac}`;
     })
     .join(" ");
@@ -55,15 +55,15 @@ export function AbilityModel() {
         <div style={{ fontSize: 12.5, color: "#8A92A3", marginTop: 5, lineHeight: 1.6 }}>
           等级来自每次任务评估的归并，不是测验分数。已汇集 {model.totalSessions} 次会话。
         </div>
-        {/* depth radar over the 4 scored dims */}
+        {/* depth radar over the 6 depth dims */}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 10 }}>
           <svg viewBox="0 0 280 270" width="100%" style={{ maxWidth: 330 }}>
             {[0.33, 0.66, 1].map((ring) => (
-              <polygon key={ring} points={radarPoints([RADAR_MAX * ring, RADAR_MAX * ring, RADAR_MAX * ring, RADAR_MAX * ring], cx, cy, r)} fill="none" stroke="#ECEEF4" strokeWidth="1" />
+              <polygon key={ring} points={radarPoints(model.depth.map(() => RADAR_MAX * ring), cx, cy, r)} fill="none" stroke="#ECEEF4" strokeWidth="1" />
             ))}
             <polygon points={radarPoints(levels, cx, cy, r)} fill="rgba(42,59,122,.14)" stroke="#2A3B7A" strokeWidth="2" strokeLinejoin="round" />
             {model.depth.map((d, i) => {
-              const a = ([-90, 0, 90, 180][i]! * Math.PI) / 180;
+              const a = ((-90 + (i * 360) / model.depth.length) * Math.PI) / 180;
               return <text key={d.code} x={cx + Math.cos(a) * (r + 16)} y={cy + Math.sin(a) * (r + 16)} textAnchor="middle" fontSize="10.5" fontWeight="600" fill="#6B7384">{d.code}</text>;
             })}
           </svg>
@@ -94,15 +94,7 @@ export function AbilityModel() {
           <span style={{ fontSize: 11, color: "#B16A18", background: "#F5E5CE", borderRadius: 999, padding: "1px 8px" }}>观察 · 不计分</span>
         </div>
         <div style={{ fontSize: 12.5, color: "#4C5653", marginTop: 8, lineHeight: 1.7 }}>
-          跨 {model.autonomy.sessions} 次会话：边界设定 ×{model.autonomy.boundarySettings} · 对手邀请 ×{model.autonomy.adversaryInvites} · 自发信号 {model.autonomy.anchoredSignals} / 引导后 {model.autonomy.promptedSignals}
-        </div>
-      </div>
-
-      {/* 跨轴 元认知 distribution panel */}
-      <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, padding: "16px", marginTop: 12 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>元认知 · SOLO 分布</div>
-        <div style={{ fontSize: 12.5, color: "#4C5653", marginTop: 8, lineHeight: 1.7 }}>
-          最高 {model.metacognition.highestSolo || "—"}　·　L1 {model.metacognition.distribution.L1 ?? 0} · L2 {model.metacognition.distribution.L2 ?? 0} · L3 {model.metacognition.distribution.L3 ?? 0} · L4 {model.metacognition.distribution.L4 ?? 0}　·　自发 {model.metacognition.spontaneous} / 引导后 {model.metacognition.prompted}
+          跨 {model.autonomy.sessions} 次会话：边界设定 ×{model.autonomy.boundarySettings} · 对手邀请 ×{model.autonomy.adversaryInvites} · 把握机会 {model.autonomy.opportunitiesTaken} / 错过机会 {model.autonomy.opportunitiesMissed}
         </div>
       </div>
     </div>
