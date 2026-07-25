@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ApiClient, StudentDetail, StudentRecord } from "../api";
 import { ApiError } from "../api";
 import { badgeColor } from "./badgeColor";
+import { ParentReport } from "./ParentReport";
 
 type Client = Pick<ApiClient, "getStudentDetail">;
 
@@ -36,6 +37,7 @@ export function StudentDetailView({
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<RecordTab>("all");
+  const [parentReportOpen, setParentReportOpen] = useState(false);
 
   function load() {
     setError(null);
@@ -122,14 +124,15 @@ export function StudentDetailView({
                 查看完整能力报告
               </button>
             )}
-            <span
-              title="家长版报告即将上线"
-              aria-disabled="true"
-              style={inertBtn}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-              导出家长版·项目报告
-            </span>
+            {primaryReport && (
+              <button
+                onClick={() => setParentReportOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+                导出家长版·项目报告
+              </button>
+            )}
             <span
               title="家长版报告即将上线"
               aria-disabled="true"
@@ -196,6 +199,16 @@ export function StudentDetailView({
           })}
         </div>
       </div>
+      {parentReportOpen && primaryReport && (
+        <ParentReport
+          classId={classId}
+          studentId={student.id}
+          surface="project"
+          scopeId={primaryReport.scopeId}
+          studentName={student.displayName}
+          onClose={() => setParentReportOpen(false)}
+        />
+      )}
     </div>
   );
 }

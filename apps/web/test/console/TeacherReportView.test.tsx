@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeacherReportView } from "@/console/TeacherReportView";
 import type { TeacherReport } from "@/api";
+import { api } from "@/api";
 import { DualAxisReport as DualAxisReportSchema } from "@mind-imprint/contracts";
 import type { DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
 
@@ -161,14 +162,27 @@ describe("TeacherReportView", () => {
     expect(await screen.findByText("暂无·机会未提供")).toBeInTheDocument();
   });
 
-  it("renders the 导出家长版 PDF export button as inert (no <a>, click does nothing)", async () => {
+  it("for a project surface, clicking 导出家长版 PDF opens the ParentReport overlay (surface:project, this view's scopeId)", async () => {
+    const getParentReport = vi.spyOn(api, "getParentReport").mockResolvedValue({
+      cover: { name: "Phoebe", subject: "", klass: "", typeLabel: "项目报告", dateStr: "", warmLine: "" },
+      glance: "", dOverview: "", aOverview: "", dRows: [], aRows: [], opportunity: "", advice: [], prose: null,
+    });
     render(<TeacherReportView client={makeClient(projectData)} classId="c1" userId="u1" surface="project" scopeId="p1" onBack={() => {}} />);
+    const exportBtn = await screen.findByText("导出家长版 PDF");
+    expect(exportBtn.closest("a")).toBeNull();
+    await userEvent.click(exportBtn);
+    expect(getParentReport).toHaveBeenCalledWith("c1", "u1", "project", "p1");
+    expect(await screen.findByText("下载 PDF")).toBeInTheDocument();
+    getParentReport.mockRestore();
+  });
+
+  it("for a non-project surface (chat), 导出家长版 PDF stays an inert placeholder (E1 serves surface:project only)", async () => {
+    render(<TeacherReportView client={makeClient(coreData)} classId="c1" userId="u1" surface="chat" scopeId="ch1" onBack={() => {}} />);
     const exportBtn = await screen.findByText("导出家长版 PDF");
     expect(exportBtn.closest("a")).toBeNull();
     expect(exportBtn.closest("[title]")).toHaveAttribute("title", "家长版报告即将上线");
     await userEvent.click(exportBtn);
-    // no navigation/callback exists to assert against; the key contract is
-    // that it is not an <a> and carries the inert title, matching Task 9.
+    expect(screen.queryByText("下载 PDF")).toBeNull();
   });
 
   it("calls onBack when the breadcrumb is clicked", async () => {

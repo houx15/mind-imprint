@@ -4,6 +4,7 @@ import { ApiError } from "../api";
 import type { DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
 import { badgeColor } from "./badgeColor";
 import { EvidenceMap } from "./EvidenceMap";
+import { ParentReport } from "./ParentReport";
 
 type Client = Pick<ApiClient, "getStudentReport">;
 
@@ -61,6 +62,7 @@ export function TeacherReportView({
 }) {
   const [data, setData] = useState<TeacherReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [parentReportOpen, setParentReportOpen] = useState(false);
 
   const overviewRef = useRef<HTMLDivElement | null>(null);
   const officialRef = useRef<HTMLDivElement | null>(null);
@@ -148,14 +150,24 @@ export function TeacherReportView({
               ))}
             </div>
           </div>
-          <span
-            title="家长版报告即将上线"
-            aria-disabled="true"
-            style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 7, background: "#F5F6FA", border: "1px solid #E1E4ED", color: "#B4BAC8", fontSize: 13, fontWeight: 700, padding: "10px 16px", borderRadius: 11, cursor: "not-allowed" }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-            导出家长版 PDF
-          </span>
+          {surface === "project" ? (
+            <button
+              onClick={() => setParentReportOpen(true)}
+              style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "10px 16px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+              导出家长版 PDF
+            </button>
+          ) : (
+            <span
+              title="家长版报告即将上线"
+              aria-disabled="true"
+              style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 7, background: "#F5F6FA", border: "1px solid #E1E4ED", color: "#B4BAC8", fontSize: 13, fontWeight: 700, padding: "10px 16px", borderRadius: 11, cursor: "not-allowed" }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+              导出家长版 PDF
+            </span>
+          )}
         </div>
 
         {/* 1. 总览 */}
@@ -365,6 +377,16 @@ export function TeacherReportView({
           ))}
         </div>
       </div>
+      {parentReportOpen && surface === "project" && (
+        <ParentReport
+          classId={classId}
+          studentId={userId}
+          surface="project"
+          scopeId={scopeId}
+          studentName={studentName}
+          onClose={() => setParentReportOpen(false)}
+        />
+      )}
     </div>
   );
 }

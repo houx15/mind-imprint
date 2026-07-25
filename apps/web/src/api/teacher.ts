@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { DualAxisReport } from "@mind-imprint/contracts";
+import type { DualAxisReport, ParentReport } from "@mind-imprint/contracts";
 
 export interface RosterReportEntry {
   id: string;
@@ -94,4 +94,25 @@ export async function getClassWeeklyReport(classId: string): Promise<WeeklyRepor
 
 export async function generateClassWeeklyProse(classId: string): Promise<WeeklyReport> {
   return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose`, { method: "POST" });
+}
+
+export async function getParentReport(
+  classId: string,
+  userId: string,
+  surface: string,
+  scopeId: string,
+): Promise<ParentReport> {
+  return apiFetch<ParentReport>(`/api/v1/classes/${classId}/students/${userId}/parent-report/${surface}/${scopeId}`);
+}
+
+export async function generateParentReportProse(
+  classId: string,
+  userId: string,
+  surface: string,
+  scopeId: string,
+): Promise<ParentReport> {
+  return apiFetch<ParentReport>(
+    `/api/v1/classes/${classId}/students/${userId}/parent-report/${surface}/${scopeId}/prose`,
+    { method: "POST" },
+  );
 }
