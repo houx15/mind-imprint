@@ -12,13 +12,21 @@ Go/vitest suites because those mock the model.
 > gateway default `max_tokens` of 1024 truncated large outputs; A was the coach
 > being used as a redundant second gate over the structural floor.
 >
-> **Full live E2E suite is GREEN** (8/8: smoke, auth×3, registration, J1, J2, J3).
-> The composer path (class weekly report / parent report prose — same maxTokens
-> root cause as D) was verified live too: `POST /classes/{id}/weekly-report/prose`
-> now returns **200** with real generated prose (was at risk of the same 422).
-> Remaining (future coverage, not blockers): build the teacher/parent/cohort
-> (J4) + tenancy journeys; a dedicated retry-on-empty for the coach ask path (B);
-> a real fix for the chat send-vs-load race (C).
+> **Full live E2E suite is GREEN (9/9):** smoke, auth×3, registration, J1
+> (new-student), J2 (course completion), J3 (chat + assessment), **J-studio
+> (project lifecycle → commit → 整稿体检 → finish → flagship 你的思维印记 → growth
+> populated)**. The composer path (class weekly / parent prose) was verified live
+> too (`POST weekly-report/prose` → 200 with real prose).
+>
+> **Student-side coverage now:** onboarding, 工作室 project lifecycle + flagship
+> eval, 课程 completion, 聊天 + assessment, 成长报告 (empty + populated 学习记录).
+> **Remaining student-side gaps (future, not blockers):** a pure-UI S0→S6 studio
+> walk (the UI enforces station-locking; J-studio drives the back half via the
+> real API + UI-verifies growth); 语音 (TTS/ASR); 设置; 成长报告 工具卡/能力素养
+> populated tabs. **Teacher/admin/parent + tenancy journeys** also remain (the
+> report composer is live-verified, but no UI journey yet).
+> Non-blocking hardening: retry-on-empty for the coach ask path (B); a real fix
+> for the chat send-vs-load race (C).
 
 ## A — Course coach never advances phases with the live model  ·  **FIXED**
 
