@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/parent"
 	"mindimprint/api/internal/store/sqlc"
@@ -200,8 +202,93 @@ func (a *API) getParentProse(ctx context.Context, userID uuid.UUID, surface stri
 	return &p, nil
 }
 
-// postParentReportProse is a TEMPORARY stub; Task 5 replaces it with the real
-// compose-once-and-store handler.
+// postParentReportProse handles POST .../parent-report/{surface}/{scopeId}/prose
+// — the ONLY endpoint in E1 that spends. Generates once per (student, surface,
+// scope); a second call returns the stored row without calling a model
+// (first-open-wins). A failed composition never walls: the deterministic report
+// still renders.
 func (a *API) postParentReportProse(w http.ResponseWriter, r *http.Request) {
-	httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+	classID, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	surface := r.PathValue("surface")
+	scopeID, err := uuid.Parse(r.PathValue("scopeId"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	ctx := r.Context()
+	data, err := a.loadParentReport(ctx, classID, userID, surface, scopeID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// Already composed → return it, no spend.
+	if existing, gerr := a.getParentProse(ctx, userID, surface, scopeID); gerr == nil {
+		httpx.WriteJSON(w, http.StatusOK, parentReportDTO(data, existing))
+		return
+	} else if !errors.Is(gerr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, gerr)
+		return
+	}
+
+	prose, spent := a.composeParentProse(ctx, r, data)
+	if !spent {
+		// 敢于空白: the badges, states and 暂无可计入的证据 still render.
+		httpx.WriteJSON(w, http.StatusOK, parentReportDTO(data, nil))
+		return
+	}
+	raw, merr := json.Marshal(prose)
+	if merr != nil {
+		httpx.WriteJSON(w, http.StatusOK, parentReportDTO(data, nil))
+		return
+	}
+	if ierr := a.d.Queries.InsertParentReportProse(ctx, sqlc.InsertParentReportProseParams{
+		StudentUserID: userID, Surface: surface, ScopeID: scopeID.String(), Prose: raw,
+	}); ierr != nil {
+		httpx.WriteError(w, r, ierr)
+		return
+	}
+	// Re-read: a concurrent teacher may have won the insert; the winner's row
+	// is what both must see.
+	stored, serr := a.getParentProse(ctx, userID, surface, scopeID)
+	if serr != nil {
+		httpx.WriteJSON(w, http.StatusOK, parentReportDTO(data, &prose))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, parentReportDTO(data, stored))
+}
+
+// composeParentProse makes the flagship call and records its cost — including
+// when the output is rejected, since a rejected composition still spent tokens.
+// spent=false means "no prose this time", never an error to the client.
+func (a *API) composeParentProse(ctx context.Context, r *http.Request, data parentReportData) (agent.ParentProse, bool) {
+	resolved, rerr := a.d.EvalResolver(ctx)
+	if rerr != nil {
+		slog.Warn("parent prose: no provider", "err", rerr)
+		return agent.ParentProse{}, false
+	}
+	prose, usage, cerr := agent.ComposeParent(ctx, a.d.Provider, resolved, data.Report, data.Name, data.Subject)
+	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
+		if !priced {
+			slog.Warn("parent llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
+		}
+		if _, err := a.d.Queries.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
+			UserID: u.ID, ProjectID: pgtype.UUID{Bytes: data.ScopeID, Valid: true},
+			Surface: "teacher", Purpose: "parent_report",
+			Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
+			PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			CostEstimate: gateway.CostNumeric(cost, true),
+		}); err != nil {
+			slog.Warn("parent prose: record llm call", "err", err)
+		}
+	}
+	if cerr != nil {
+		slog.Warn("parent prose: rejected", "err", cerr)
+		return agent.ParentProse{}, false
+	}
+	return prose, true
 }
