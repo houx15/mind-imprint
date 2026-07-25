@@ -134,6 +134,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/parent-report/{surface}/{scopeId}", teacherOrAdmin(a.getParentReport))
 	mux.Handle("POST /api/v1/classes/{id}/students/{userId}/parent-report/{surface}/{scopeId}/prose", teacherOrAdmin(a.postParentReportProse))
 	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/parent-stage-report/{weekStart}", teacherOrAdmin(a.getParentStageReport))
+	mux.Handle("POST /api/v1/classes/{id}/students/{userId}/parent-stage-report/{weekStart}/prose", teacherOrAdmin(a.postParentStageProse))
 
 	return SessionAuth(a.d.Queries)(mux)
 }

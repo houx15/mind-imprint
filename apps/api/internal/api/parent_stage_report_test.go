@@ -136,6 +136,92 @@ func TestGetParentStageReport_DeterministicStats(t *testing.T) {
 	}
 }
 
+// stageProseStubReply is a valid agent.ParentStageProse JSON — no bare codes,
+// no A numbers, no level codes; exactly 3 advice items; highlight non-empty.
+const stageProseStubReply = `{
+  "warmLine":"这一阶段，孩子在自己拿主意上表现突出。",
+  "stageGrowth":"这段时间他更愿意先自己想清楚，再请 AI 帮忙检查，而不是一上来就要答案。",
+  "stageHighlight":"本周他主动请 AI 扮演反方，来挑自己论证里的问题。",
+  "stageForward":"可以给他更高一点的目标，鼓励他把研究的意义讲得更具体。",
+  "advice":[
+    {"title":"请他讲给你听","text":"让他用一句话说清这份研究不能说明什么。"},
+    {"title":"保护他的自主","text":"鼓励他先自己判断，再去问 AI。"},
+    {"title":"给一点挑战","text":"问他如果要再进一步，还差哪一步。"}
+  ]
+}`
+
+func TestPostParentStageProse_ComposesOnceThenCostFree(t *testing.T) {
+	pool := newAPITestPool(t)
+	deps := DepsForTest(pool)
+	deps.Provider = assessStubProvider(stageProseStubReply)
+	deps.EvalResolver = fakeEvalResolver()
+	h := New(deps).Handler()
+
+	classID, studentID, teacher := seedStageStudent(t, pool, h, "pss-teacher@demo.local", "pss-student@demo.local")
+	url := stageURL(classID, studentID, "current") + "/prose"
+
+	post := func() parentStageForTest {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest(http.MethodPost, url, nil), teacher))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		var dto parentStageForTest
+		if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+			t.Fatalf("decode: %v — body=%s", err, rec.Body)
+		}
+		return dto
+	}
+
+	first := post()
+	if first.Prose == nil {
+		t.Fatalf("first POST should compose: %+v", first)
+	}
+	if len(first.Advice) != 3 || first.StageGrowth == "" {
+		t.Errorf("composed prose incomplete: %+v", first)
+	}
+	if n := countParentReportLLMCalls(t, pool); n != 1 {
+		t.Fatalf("want 1 parent_report llm_call, got %d", n)
+	}
+	second := post()
+	if second.Prose == nil {
+		t.Fatal("second POST should return stored prose")
+	}
+	if n := countParentReportLLMCalls(t, pool); n != 1 {
+		t.Fatalf("second POST must not spend; llm_calls=%d", n)
+	}
+}
+
+func TestPostParentStageProse_RejectionNeverWalls(t *testing.T) {
+	pool := newAPITestPool(t)
+	deps := DepsForTest(pool)
+	deps.Provider = assessStubProvider(`not json`)
+	deps.EvalResolver = fakeEvalResolver()
+	h := New(deps).Handler()
+
+	classID, studentID, teacher := seedStageStudent(t, pool, h, "pssf-teacher@demo.local", "pssf-student@demo.local")
+	url := stageURL(classID, studentID, "current") + "/prose"
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(http.MethodPost, url, nil), teacher))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rejected compose must never wall: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var dto parentStageForTest
+	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if dto.Prose != nil {
+		t.Errorf("prose must be nil after rejection, got %v", *dto.Prose)
+	}
+	if len(dto.Stats) != 4 {
+		t.Fatalf("deterministic stats must still render: %d", len(dto.Stats))
+	}
+	if n := countParentReportLLMCalls(t, pool); n != 1 {
+		t.Fatalf("cost recorded even on rejection; llm_calls=%d, want 1", n)
+	}
+}
+
 // TestGetParentStageReport_ForeignTeacher404 — a teacher who does not own the
 // student's class gets 404 (existence-hidden).
 func TestGetParentStageReport_ForeignTeacher404(t *testing.T) {

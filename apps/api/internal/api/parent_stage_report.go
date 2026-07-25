@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,7 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/ability"
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/teacher"
@@ -170,5 +173,130 @@ func (a *API) getParentStageReport(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// (POST handler added in Task 4 — same file.)
-var _ = pgtype.UUID{} // POST (T4) uses pgtype; keep the import stable across tasks.
+// toAbilitySummary flattens the cross-session ability model into the composer's
+// import-cycle-safe reference struct.
+func toAbilitySummary(m ability.Model) agent.AbilitySummary {
+	s := agent.AbilitySummary{
+		TotalSessions:       m.TotalSessions,
+		BoundarySettings:    m.Autonomy.BoundarySettings,
+		AdversaryInvites:    m.Autonomy.AdversaryInvites,
+		OpportunitiesTaken:  m.Autonomy.OpportunitiesTaken,
+		OpportunitiesMissed: m.Autonomy.OpportunitiesMissed,
+	}
+	for _, d := range m.Depth {
+		s.Depth = append(s.Depth, agent.AbilityDepthFact{Name: d.Name, LevelLabel: d.LevelLabel, EvidenceCount: d.EvidenceCount})
+	}
+	return s
+}
+
+// studentAbility fetches the student's whole cross-session report history
+// (teacher-scoped) and merges it. A malformed row must not sink the aggregate.
+func (a *API) studentAbility(ctx context.Context, userID uuid.UUID) (agent.AbilitySummary, error) {
+	rows, err := a.d.Queries.ListStudentEvaluationsForTeacher(ctx, userID)
+	if err != nil {
+		return agent.AbilitySummary{}, err
+	}
+	samples := make([]ability.Sample, 0, len(rows))
+	for _, row := range rows {
+		var rep agent.Report
+		if json.Unmarshal(row.Scores, &rep) != nil {
+			continue
+		}
+		samples = append(samples, ability.Sample{Report: rep, CreatedAt: row.CreatedAt})
+	}
+	return toAbilitySummary(ability.Aggregate(samples)), nil
+}
+
+// postParentStageProse handles POST .../parent-stage-report/{weekStart}/prose —
+// the ONLY stage endpoint that spends. Compose-once (first-open-wins); a failed
+// composition never walls (the deterministic stats still render).
+func (a *API) postParentStageProse(w http.ResponseWriter, r *http.Request) {
+	classID, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	start, err := resolveWeekStart(r.PathValue("weekStart"), time.Now())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	ctx := r.Context()
+	data, err := a.loadParentStage(ctx, classID, userID, start)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// Already composed → return it, no spend.
+	if existing, gerr := a.getParentStageProse(ctx, userID, data.ScopeID); gerr == nil {
+		httpx.WriteJSON(w, http.StatusOK, parentStageDTO(data, existing))
+		return
+	} else if !errors.Is(gerr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, gerr)
+		return
+	}
+
+	prose, spent := a.composeParentStageProse(ctx, r, data)
+	if !spent {
+		httpx.WriteJSON(w, http.StatusOK, parentStageDTO(data, nil))
+		return
+	}
+	raw, merr := json.Marshal(prose)
+	if merr != nil {
+		httpx.WriteJSON(w, http.StatusOK, parentStageDTO(data, nil))
+		return
+	}
+	if ierr := a.d.Queries.InsertParentReportProse(ctx, sqlc.InsertParentReportProseParams{
+		StudentUserID: userID, Surface: "stage", ScopeID: data.ScopeID, Prose: raw,
+	}); ierr != nil {
+		httpx.WriteError(w, r, ierr)
+		return
+	}
+	stored, serr := a.getParentStageProse(ctx, userID, data.ScopeID)
+	if serr != nil {
+		httpx.WriteJSON(w, http.StatusOK, parentStageDTO(data, &prose))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, parentStageDTO(data, stored))
+}
+
+// composeParentStageProse makes the flagship call and records its cost —
+// including on rejection. ProjectID is NULL (a stage report is not
+// project-scoped). spent=false means "no prose this time", never a client error.
+func (a *API) composeParentStageProse(ctx context.Context, r *http.Request, data parentStageData) (agent.ParentStageProse, bool) {
+	resolved, rerr := a.d.EvalResolver(ctx)
+	if rerr != nil {
+		slog.Warn("parent stage prose: no provider", "err", rerr)
+		return agent.ParentStageProse{}, false
+	}
+	summary, aerr := a.studentAbility(ctx, data.StudentID)
+	if aerr != nil {
+		slog.Warn("parent stage prose: ability", "err", aerr)
+		return agent.ParentStageProse{}, false
+	}
+	facts := agent.ParentStageFacts{
+		Name: data.Name, Subject: data.WeekLabel, Klass: data.Klass,
+		ActiveDays: data.ActiveDays, Turns: data.Turns, Reports: data.Reports, CourseSteps: data.CourseSteps,
+		Ability: summary,
+	}
+	prose, usage, cerr := agent.ComposeParentStage(ctx, a.d.Provider, resolved, facts)
+	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
+		if !priced {
+			slog.Warn("parent stage llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
+		}
+		if _, err := a.d.Queries.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
+			UserID: u.ID, ProjectID: pgtype.UUID{Valid: false}, // stage is not project-scoped
+			Surface: "teacher", Purpose: "parent_report",
+			Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
+			PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			CostEstimate: gateway.CostNumeric(cost, true),
+		}); err != nil {
+			slog.Warn("parent stage prose: record llm call", "err", err)
+		}
+	}
+	if cerr != nil {
+		slog.Warn("parent stage prose: rejected", "err", cerr)
+		return agent.ParentStageProse{}, false
+	}
+	return prose, true
+}
