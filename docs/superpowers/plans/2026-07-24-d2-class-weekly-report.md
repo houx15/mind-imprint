@@ -3054,8 +3054,10 @@ The rest of the layout follows the binding design (`思维印记 教师端.dc.ht
 
 - [ ] **Step 5: Run to verify they pass**
 
-Run: `cd apps/web && npm test -- ClassWeeklyView && npx tsc --noEmit`
-Expected: PASS, tsc clean.
+Run: `cd apps/web && npm test && npx tsc --noEmit`
+Expected: PASS, tsc clean. Run the FULL web suite before committing, not the
+`-- ClassWeeklyView` subset from Step 3 — adding a client method and an
+`ApiClient` field ripples into every mock that satisfies that type.
 
 - [ ] **Step 6: Commit**
 
