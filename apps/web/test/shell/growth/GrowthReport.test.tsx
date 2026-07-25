@@ -70,8 +70,7 @@ describe("GrowthReport", () => {
 const emptyAbility = {
   totalSessions: 0,
   depth: ["D1", "D3", "D4", "D5"].map((code) => ({ code, name: code, level: -1, levelLabel: "", evidenceCount: 0 })),
-  autonomy: { sessions: 0, boundarySettings: 0, adversaryInvites: 0, anchoredSignals: 0, promptedSignals: 0 },
-  metacognition: { highestSolo: "", distribution: { L1: 0, L2: 0, L3: 0, L4: 0 }, spontaneous: 0, prompted: 0 },
+  autonomy: { sessions: 0, boundarySettings: 0, adversaryInvites: 0, opportunitiesTaken: 0, opportunitiesMissed: 0 },
 };
 
 describe("GrowthReport tabs", () => {
