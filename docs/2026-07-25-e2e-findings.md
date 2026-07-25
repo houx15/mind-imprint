@@ -85,12 +85,19 @@ completions), now on the flagship assessment path — consistent across retries.
 思维印记 rubric + narrative — does not render in production. The Go tests use a
 mock returning well-formed JSON, so this was invisible.
 
+**CONFIRMED blast radius:** `agent.Assess` (assess_report.go — the exact function
+that threw "report output not JSON") is shared by all three assessment callers:
+`assessment.go` (project 你的思维印记), `course_assessment.go` (course terminal),
+and `chat_assessment.go` (chat, observed 422 live). So the project evaluation and
+course assessment WILL hit the same empty-output 422. **This is a launch blocker
+for the entire 过程评估 feature — the product's headline promise does not render
+with the live model.** The class-weekly / parent-report prose composers are
+separate code but the same empty-completion class, so they are also at risk.
+
 **Likely cause + fix:** the known "reasoning model → all budget to reasoning,
 content empty unless maxTokens is large enough" issue (see the
-llm-reasoning-model-budgets note). Raise maxTokens for the assessment call,
-and/or retry-on-empty, and/or fall back gracefully instead of 422. **Verify
-whether the project evaluation (你的思维印记) hits the same 422** — if so this is a
-launch blocker.
+llm-reasoning-model-budgets note). Raise maxTokens for the assessment/compose
+calls, retry-on-empty, and fall back gracefully instead of 422.
 
 ---
 
