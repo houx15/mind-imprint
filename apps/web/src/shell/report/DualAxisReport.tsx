@@ -53,6 +53,7 @@ function DepthDimCard({ d }: { d: DualAxisReportT["depthAxis"][number] }) {
 
 function AutonomySignalCard({ a }: { a: DualAxisReportT["autonomyAxis"][number] }) {
   const notSupplied = a.opportunity === "not_supplied";
+  const missed = a.opportunity === "given_not_taken";
   return (
     <article style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 10, flexWrap: "wrap" }}>
@@ -62,10 +63,18 @@ function AutonomySignalCard({ a }: { a: DualAxisReportT["autonomyAxis"][number] 
             暂无·机会未提供
           </span>
         ) : (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 10px", borderRadius: 999 }}>Lv {a.level}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 10px", borderRadius: 999 }}>Lv {a.level}</span>
+            {missed ? (
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#B0682A", background: "#F7ECDD", padding: "2px 10px", borderRadius: 999 }}>机会已给·未接住</span>
+            ) : null}
+          </span>
         )}
       </header>
       <p style={{ fontSize: 12.5, color: "#8A92A3", margin: 0 }}>{a.evidence}</p>
+      {a.promptEvidence ? (
+        <p style={{ fontSize: 12, color: "#6B7384", margin: "4px 0 0" }}>提示词证据：{a.promptEvidence}</p>
+      ) : null}
     </article>
   );
 }

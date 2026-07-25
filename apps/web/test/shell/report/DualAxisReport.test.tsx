@@ -172,4 +172,22 @@ describe("DualAxisReport", () => {
     render(<DualAxisReport report={projectReport} />);
     expect(screen.queryByText(/证据地图/)).toBeNull();
   });
+
+  it("marks given_not_taken as 机会已给·未接住, and given_taken carries no such marker", () => {
+    render(<DualAxisReport report={report} />);
+    const a3 = screen.getByText("边界主权").closest("article")!; // given_not_taken
+    expect(a3.textContent).toMatch(/机会已给·未接住/);
+    const a1 = screen.getByText("方向自主").closest("article")!; // given_taken
+    expect(a1.textContent).not.toMatch(/机会已给·未接住/);
+  });
+
+  it("renders autonomy promptEvidence when non-empty", () => {
+    const withPrompt: DualAxisReportT = {
+      ...report,
+      autonomyAxis: report.autonomyAxis.map((a) =>
+        a.code === "A1" ? { ...a, promptEvidence: "R2：请只帮我列选项，别替我选。" } : a),
+    };
+    render(<DualAxisReport report={withPrompt} />);
+    expect(screen.getByText(/R2：请只帮我列选项/)).toBeTruthy();
+  });
 });
