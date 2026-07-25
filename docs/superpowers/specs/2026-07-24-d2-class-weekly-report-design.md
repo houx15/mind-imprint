@@ -265,12 +265,23 @@ so a card can first appear on Thursday — and that card would have no `lead` an
 「怎么开口」 at all, because Monday's row has no entry for it. A blank card on the one
 screen whose purpose is telling a teacher what to say is worse than a stale comment.
 
-**Top-up (DEC-6).** When the rule layer produces a card whose `(userId, tagCode)` key
-is absent from the stored `cards` array, one small composition call — carrying only
-those cards' facts — composes just them, and the results are **appended**. Existing
-entries, `comment`, `depthNote`, and `autonomyNote` are never rewritten. DEC-2's
-semantics hold: nothing already written is regenerated. A card whose student is no
-longer flagged simply stops rendering; its stored entry is left in place, harmless.
+**Top-up (DEC-6).** When the rule layer produces a card whose key is absent from the
+stored `cards` array, one small composition call — carrying only those cards' facts —
+composes just them, and the results are **appended**. Existing entries, `comment`,
+`depthNote`, and `autonomyNote` are never rewritten. DEC-2's semantics hold: nothing
+already written is regenerated. A card whose student is no longer flagged simply stops
+rendering; its stored entry is left in place, harmless.
+
+> **Shipped deviation (whole-branch review).** This section specified the stored-card
+> key as `(userId, tagCode)`. The implementation (`missingCardFacts` in
+> `teacher_weekly.go`, and `weeklyDTO`'s `wording` map) keys by **`userId` alone**.
+> Consequence: if a mid-week re-evaluation flips a student from a praise tag to a watch
+> tag, the top-up sees the userId already stored and skips it, so the new card renders
+> the **stale praise `action` wording** under a 「怎么开口」 prefix. The card's *evidence*
+> stays correct — it is deterministic, recomputed every read — only the advisory
+> sentence is wrong, and only until the next week's row. Low-probability (usage tags
+> cannot newly-fire mid-week, since active-days is monotonic within a window). Accepted
+> as shipped; the fix, if taken up, is to key both sites by `(userId, tagCode)`.
 
 ### 6.5 Failure is never a wall
 
