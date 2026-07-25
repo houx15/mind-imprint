@@ -199,6 +199,9 @@ func validateParentProse(p ParentProse, rep Report) error {
 		if strings.TrimSpace(ad.Title) == "" || strings.TrimSpace(ad.Text) == "" {
 			return fmt.Errorf("agent: parent advice item empty")
 		}
+		if utf8.RuneCountInString(ad.Title) > parentAdviceMax {
+			return fmt.Errorf("agent: parent advice title too long")
+		}
 		if utf8.RuneCountInString(ad.Text) > parentAdviceMax {
 			return fmt.Errorf("agent: parent advice too long")
 		}

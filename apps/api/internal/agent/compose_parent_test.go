@@ -95,4 +95,18 @@ func TestValidateParentProse(t *testing.T) {
 			t.Errorf("expected rejection for leaked code %q", bad)
 		}
 	}
+
+	// Advice title over its rune cap is rejected (M1: title now capped too).
+	p = validParentProse()
+	p.Advice = []ParentAdvice{{Title: strings.Repeat("字", parentAdviceMax+1), Text: p.Advice[0].Text}}
+	if err := validateParentProse(p, rep); err == nil {
+		t.Error("expected rejection for over-cap advice title")
+	}
+
+	// Glance over its rune cap is rejected.
+	p = validParentProse()
+	p.Glance = strings.Repeat("字", parentGlanceMax+1)
+	if err := validateParentProse(p, rep); err == nil {
+		t.Error("expected rejection for over-cap glance")
+	}
 }
