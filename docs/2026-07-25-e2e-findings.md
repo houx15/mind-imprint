@@ -25,13 +25,38 @@ Go/vitest suites because those mock the model.
 > **J-admin** (概览 stats → mint invite → CSV import), **J-cohort** (many students
 > → per-student attribution + aggregation). Student + teacher + admin + parent +
 > tenancy designs all covered.
-> **Environment-gated (not automatable here):** 语音 (TTS/ASR) requires Volcano
-> Engine credentials (`VOICE_APP_ID` / `VOICE_ACCESS_KEY` / `VOICE_*_RESOURCE_ID`)
-> which are not in this env — a keyed/manual check (like the live-model gating).
-> **Minor remaining (non-blocking):** a pure-UI S0→S6 studio walk (station-locking;
-> J-studio covers the lifecycle via API + UI growth); 设置; 成长报告 工具卡/能力素养
-> populated tabs; retry-on-empty for the coach ask path (B); a real fix for the
-> chat send-vs-load race (C).
+> **Environment-gated:** 语音 (TTS/ASR) needs Volcano creds — now supplied and
+> verified (see round 2 below).
+>
+> ---
+>
+> **STATUS 2026-07-26 (round 2 — hardening):** the five remaining follow-ups were
+> taken on:
+> - **C (chat send-vs-load race): REAL FIX shipped** (pendingLocalThreadRef) +
+>   unit regression + live J3 (send into empty surface) + new **J-resume**
+>   (mid-interruption: 3 rounds → reload → rehydrate → resume → reload persists).
+>   Resume works across a full page reload; the fix does not suppress the reload.
+> - **语音 (voice): wired + verified live.** Volcano creds mapped into
+>   apps/api/.env.local (APP_ID→VOICE_APP_ID, ACCESS_TOKEN→VOICE_ACCESS_KEY). The
+>   app is provisioned for the `seed-tts-2.0` resource; the working speaker is
+>   `VOICE_TTS_VOICE=zh_female_vv_uranus_bigtts` (a 音色 activated on the app —
+>   the other resources 403 at handshake, and other speakers return upstream
+>   `55000000`). New **J-voice** signs in → POST /voice/tts → real MP3
+>   (ID3/MPEG, 24kHz); config-gated (skips on 503 so CI without creds passes).
+>   ASR (WS + live mic PCM) still needs a fake-audio harness — deferred (see G).
+> - **成长报告 populated tabs: covered.** J-studio step 4 now asserts 学习记录 row +
+>   工具卡 seeded cards (知识工具) + 能力素养 leaving its empty state but showing
+>   「证据不足 · 需更多任务」 (a single finish gives totalSessions=1; each depth dim
+>   needs ≥2 sessions for a level — encoded as a precondition, NOT a bug).
+> - **设置: covered.** New **J-settings** — surface renders (个人/AI 形象/toggles/
+>   退出登录) + avatar picker responds.
+> - **J-teacher flake: fixed.** Replaced the coupled network-wait + short assert
+>   with a single end-state wait (150s) for the flagship weekly prose.
+> - **Full pure-UI S0→S6 studio walk: in progress** (authored against the live
+>   stack; the back-half lifecycle is already covered by J-studio via API).
+>
+> All round-2 specs verified live: J3, J-resume, J-settings, J-studio, J-teacher,
+> J-voice all PASS against the running stack.
 
 ## A — Course coach never advances phases with the live model  ·  **FIXED**
 
@@ -185,7 +210,7 @@ class of bug).
 
 ---
 
-## C — Chat first-message send-vs-load race drops the reply  ·  **important**
+## C — Chat first-message send-vs-load race drops the reply  ·  **FIXED (real fix)**
 
 **Surface:** 聊天 (ChatContainer), the very first message of a new thread.
 **Symptom:** after sending the first message in a fresh chat, the assistant reply
@@ -204,12 +229,35 @@ don't hit it (no `activeThreadId` change). This is the pre-existing
 **Impact:** the first turn of every new conversation looks broken (no reply);
 the report can't be generated until a second message or a reload.
 
-**Workaround in the E2E (J3):** create the thread first via `新对话`, then send —
-so the send doesn't change `activeThreadId` and the effect doesn't race.
+**FIX (shipped + verified live, 2026-07-26):** a `pendingLocalThreadRef` in
+ChatContainer marks any thread created locally (via 新对话 OR the first send into
+an empty surface). The `[activeThreadId]` load-effect skips server hydration for
+that thread on its first activation — entries already reflect the truth (empty,
+or the optimistic first turn) — and **consumes** the flag, so returning to the
+thread later still reloads the persisted transcript (resume preserved). Verified:
+J3 now sends directly into the empty surface (workaround dropped) and passes live;
+a new J-resume spec does 3 rounds → full reload → transcript rehydrated → 4th
+round → reload persists. Unit regression: send into empty surface keeps both
+bubbles and never calls getMessages. The `[activeThreadId]` mount-time race the
+existing ChatSurface tests documented is unchanged (still handled by `flush`).
 
-**Suggested fix:** guard the load effect so it doesn't clobber in-flight optimistic
-entries (e.g. skip the fetch for a thread just created locally, or merge instead
-of replace), or create the thread eagerly before the first send.
+---
+
+## G — Voice ASR (speech-to-text) not E2E-covered  ·  **deferred (documented)**
+
+**Surface:** 工作室 dictation mic (CoachRail) + 课程 按住说话 (AskPanel). Both drive
+`AsrStream` (WebSocket to `GET /voice/asr`) fed by `MicCapture` (getUserMedia →
+AudioWorklet → 16 kHz Int16 PCM frames).
+
+**Why deferred:** driving REAL microphone audio through getUserMedia + AudioWorklet
+in headless Chromium requires a fake-audio harness (Chromium
+`--use-file-for-fake-audio-capture=<wav>` plus fake-device flags) and a WAV
+fixture. The TTS path (J-voice) exercises the same Volcano auth/credential/wiring
+stack and the same server config gate, so the voice INFRASTRUCTURE is proven; ASR
+adds only the audio-capture + WS-streaming client path on top. Recommended when
+picked up: launch Chromium with fake-audio flags, feed a short Mandarin WAV, and
+assert a non-empty `final` transcript arrives over the WS. The backend ASR handler
++ protocol already have Go unit coverage (voice package + api handler tests).
 
 ---
 
