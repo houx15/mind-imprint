@@ -17,11 +17,11 @@ test("J3: chat — thread → live reply → generate 思维印记", async ({ pa
   await openRail(page, "聊天");
   await expect(page.getByText("还没有对话——把你正在想的、卡住的、好奇的说给它听。")).toBeVisible({ timeout: 15_000 });
 
-  // Create the thread FIRST (see Finding C: sending with no active thread races
-  // the load-messages effect and drops the first reply). With the thread already
-  // active, the send doesn't change activeThreadId, so no race.
-  await page.getByRole("button", { name: "新对话" }).first().click();
-
+  // Send directly into the EMPTY surface — no 新对话 first. This is the exact
+  // path Finding C broke (send with no active thread creates the thread, and the
+  // load-effect used to race getMessages over the optimistic/streamed turn and
+  // drop the first reply). The fix (pendingLocalThreadRef) makes this safe, so
+  // this journey now regression-guards it live.
   const composer = page.getByPlaceholder("把你正在想的、卡住的、好奇的，说给它听……");
   const send = page.getByLabel("发送");
   const reportBtn = page.getByRole("button", { name: "生成本次对话的思维印记" });

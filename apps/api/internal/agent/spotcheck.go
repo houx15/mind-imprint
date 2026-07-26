@@ -58,10 +58,10 @@ type SpotCheckItem struct {
 // design: the name is resolved server-side from the id, the same discipline
 // ProposeReview uses for CriterionName — the model never invents labels.
 type spotCheckItemWire struct {
-	TargetID string `json:"target_id"`
-	Evidence string `json:"evidence"`
-	Missing  string `json:"missing"`
-	Fix      string `json:"fix"`
+	TargetID string     `json:"target_id"`
+	Evidence flexString `json:"evidence"`
+	Missing  flexString `json:"missing"`
+	Fix      flexString `json:"fix"`
 }
 
 const spotCheckPostureSources = `你是 IB/国际课程研究过程的「信源体检」考官。学生已经把她评估过的来源摆在这里。
@@ -77,13 +77,29 @@ const spotCheckPostureArgument = `你是 IB/国际课程论证结构的「论证
 铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要补哪一步/要想清楚什么"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个位置一个对象。`
 
-// spotCheckSystemPrompt selects the station's posture. Pure — no I/O — so
-// posture selection is unit-testable without a model.
+// spotCheckFieldSpec pins the per-object JSON shape onto every posture. Without
+// it the model picks its own keys (deepseek-v4-pro emits {"id","comment"}), so
+// TargetID comes back empty, every item is dropped as an unknown target, and the
+// whole order is rejected "no usable items" — the same failure class review.go
+// was hardened against. target_id MUST echo the bracketed id from the user
+// message verbatim so the server can resolve the name back (spotCheckItemWire).
+const spotCheckFieldSpec = `
+
+每个对象必须且只包含这四个字段（键名一字不差）：
+- "target_id"：原样回填题面里每条前面方括号 [] 中的 id，一个字都不能改；
+- "evidence"：这一条目前已经写到什么程度；
+- "missing"：还缺什么、还没说清什么；
+- "fix"：要补什么、要想清楚什么方向的建议（绝不是可直接粘贴的成品句子）。
+只输出这个 JSON 数组本身，不要任何额外说明文字或代码块围栏。`
+
+// spotCheckSystemPrompt selects the station's posture and appends the shared
+// field spec. Pure — no I/O — so posture selection is unit-testable without a
+// model.
 func spotCheckSystemPrompt(station string) string {
 	if station == SpotCheckArgument {
-		return spotCheckPostureArgument
+		return spotCheckPostureArgument + spotCheckFieldSpec
 	}
-	return spotCheckPostureSources
+	return spotCheckPostureSources + spotCheckFieldSpec
 }
 
 // ProposeSpotCheck asks the flagship model for one station's work order, then
@@ -123,7 +139,7 @@ func ProposeSpotCheck(ctx context.Context, prov gateway.Provider, r gateway.Reso
 		if !known {
 			continue // ignore targets the caller didn't ask about
 		}
-		for _, field := range []string{wv.Evidence, wv.Missing, wv.Fix} {
+		for _, field := range []string{wv.Evidence.String(), wv.Missing.String(), wv.Fix.String()} {
 			if field == "" {
 				continue
 			}
@@ -133,7 +149,7 @@ func ProposeSpotCheck(ctx context.Context, prov gateway.Provider, r gateway.Reso
 		}
 		items = append(items, SpotCheckItem{
 			TargetID: wv.TargetID, TargetName: nm,
-			Evidence: wv.Evidence, Missing: wv.Missing, Fix: wv.Fix,
+			Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
 		})
 	}
 	if len(items) == 0 {

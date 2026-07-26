@@ -28,12 +28,12 @@ type ReviewItem struct {
 // reviewItemWire is the model's per-item JSON contract (name is resolved
 // server-side from the criterion code — the model never invents labels).
 type reviewItemWire struct {
-	CriterionCode string `json:"criterion_code"`
-	Band          string `json:"band"`
-	Evidence      string `json:"evidence"`
-	Missing       string `json:"missing"`
-	Fix           string `json:"fix"`
-	Points        int    `json:"points"`
+	CriterionCode string     `json:"criterion_code"`
+	Band          string     `json:"band"`
+	Evidence      flexString `json:"evidence"`
+	Missing       flexString `json:"missing"`
+	Fix           flexString `json:"fix"`
+	Points        int        `json:"points"`
 }
 
 const reviewPosturePrompt = `你是 IB/国际课程写作的「整稿体检」考官。学生已提交一版草稿快照。
@@ -186,7 +186,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 			continue // ignore criteria the skill didn't ask for
 		}
 		// Enforcement on every free-text field the model produced.
-		for _, field := range []string{wv.Evidence, wv.Missing, wv.Fix} {
+		for _, field := range []string{wv.Evidence.String(), wv.Missing.String(), wv.Fix.String()} {
 			if field == "" {
 				continue
 			}
@@ -196,7 +196,7 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 		}
 		items = append(items, ReviewItem{
 			CriterionCode: code, CriterionName: name[code],
-			Band: wv.Band, Evidence: wv.Evidence, Missing: wv.Missing, Fix: wv.Fix,
+			Band: wv.Band, Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
 			Points: wv.Points,
 		})
 	}

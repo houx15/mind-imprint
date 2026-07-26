@@ -366,28 +366,49 @@ func normalizeOfficialProjection(w *officialProjectionWire) *OfficialProjection 
 // on all three closed-set axes, and emits the project-only superset
 // (officialProjection / workAndProcess) ONLY when in.ProjectProjection is
 // true. Never in the coach loop.
-func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, m rubric.DualAxis, in AssessmentInput) (Report, gateway.ChatUsage, error) {
-	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
-		// The canonical report is a large structured JSON object (6 depth dims +
-		// 6 autonomy signals + 6 lenses + interaction evidence + narrative +
-		// guidance, plus the project-only official-projection/work superset).
-		// The gateway default (1024) truncates it mid-JSON → "unexpected end of
-		// JSON input" → the whole assessment 422s. Give it room for the full
-		// report (flagship, never downgraded).
-		MaxTokens: 8000,
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m, in.ProjectProjection)},
-			{Role: gateway.RoleUser, Content: assessReportUserInput(in)},
-		},
-	})
-	if err != nil {
-		return Report{}, gateway.ChatUsage{}, err
-	}
-	usage := res.Usage
+// maxAssessAttempts bounds how many times AssessReport re-calls the flagship
+// model when it returns UNPARSEABLE JSON. deepseek-v4-pro occasionally emits a
+// syntactically-malformed report (e.g. "invalid character ':' after array
+// element") — a transient generation error, not a shape we can coerce. Since
+// this is the product's headline promise and is never downgraded, one retry
+// keeps an occasional bad emission from 422-ing a real student's finish. Only
+// parse failures retry; a banned-phrasing rejection does NOT (that is a content
+// decision, not a transient) and neither does a transport error.
+const maxAssessAttempts = 2
 
+func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, m rubric.DualAxis, in AssessmentInput) (Report, gateway.ChatUsage, error) {
+	var usage gateway.ChatUsage
 	var wire reportWire
-	if err := json.Unmarshal([]byte(strings.TrimSpace(res.Text)), &wire); err != nil {
-		return Report{}, usage, fmt.Errorf("agent: report output not JSON: %w", err)
+	var parseErr error
+	for attempt := 1; attempt <= maxAssessAttempts; attempt++ {
+		res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+			// The canonical report is a large structured JSON object (6 depth dims +
+			// 6 autonomy signals + 6 lenses + interaction evidence + narrative +
+			// guidance, plus the project-only official-projection/work superset).
+			// The gateway default (1024) truncates it mid-JSON → "unexpected end of
+			// JSON input" → the whole assessment 422s. Give it room for the full
+			// report (flagship, never downgraded).
+			MaxTokens: 8000,
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m, in.ProjectProjection)},
+				{Role: gateway.RoleUser, Content: assessReportUserInput(in)},
+			},
+		})
+		if err != nil {
+			return Report{}, usage, err
+		}
+		// Accumulate across attempts so the caller records the true 档位+token+成本
+		// even when the first emission was thrown away.
+		usage.InputTokens += res.Usage.InputTokens
+		usage.OutputTokens += res.Usage.OutputTokens
+
+		parseErr = json.Unmarshal([]byte(strings.TrimSpace(res.Text)), &wire)
+		if parseErr == nil {
+			break
+		}
+	}
+	if parseErr != nil {
+		return Report{}, usage, fmt.Errorf("agent: report output not JSON: %w", parseErr)
 	}
 
 	rep := Report{

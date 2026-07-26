@@ -93,6 +93,21 @@ func TestSpotCheckPromptsDifferByStation(t *testing.T) {
 	}
 }
 
+// Regression: the prompt MUST name the wire fields. Without them the live model
+// invents its own keys (deepseek-v4-pro emits {"id","comment"}), TargetID comes
+// back empty, every item is dropped, and the order is rejected "no usable items"
+// — which made 信源体检 / 论证体检 (S3/S4) un-advanceable through the UI.
+func TestSpotCheckPromptNamesRequiredWireFields(t *testing.T) {
+	for _, station := range []string{SpotCheckSources, SpotCheckArgument} {
+		p := spotCheckSystemPrompt(station)
+		for _, field := range []string{"target_id", "evidence", "missing", "fix"} {
+			if !strings.Contains(p, field) {
+				t.Errorf("station %q: prompt must name the wire field %q so the model emits it", station, field)
+			}
+		}
+	}
+}
+
 func TestSpotCheckFingerprintStability(t *testing.T) {
 	a := []SpotCheckTarget{{ID: "m1", Name: "NASA", Detail: "作用与风险：仅是遥感叶面积。"}}
 	if SpotCheckFingerprint(a) != SpotCheckFingerprint(a) {
