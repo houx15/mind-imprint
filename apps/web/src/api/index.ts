@@ -14,7 +14,7 @@ import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
-import { addMaterial, logSourceOpen, type AddMaterialBody } from "./materials";
+import { addMaterial, logSourceOpen, prepareSourceAnnotation, type AddMaterialBody } from "./materials";
 import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, signDeclaration, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { getAssessment } from "./assessment";
@@ -71,6 +71,7 @@ export interface ApiClient {
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
   addMaterial(projectId: string, body: AddMaterialBody): Promise<MaterialSource>;
   logSourceOpen(projectId: string, materialId: string, timeSpentS: number): Promise<void>;
+  prepareSourceAnnotation(projectId: string, materialId: string): Promise<boolean>;
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
@@ -121,7 +122,7 @@ export const api: ApiClient = {
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
   listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
-  addMaterial, logSourceOpen,
+  addMaterial, logSourceOpen, prepareSourceAnnotation,
   putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,

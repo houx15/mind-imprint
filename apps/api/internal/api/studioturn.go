@@ -259,7 +259,7 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 		// time. surfaceAnchors itself restricts scope + drops the lateral
 		// dimension; see its doc comment.
 		if spec.Primitive == "annotate" || spec.Primitive == "compare" {
-			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID, action.MaterialID); ok {
+			if raw, ok := a.surfaceAnchors(ctx, store, projectID, spec, action.CardInstanceID, action.MaterialID, false); ok {
 				anchors = raw
 			}
 		} else if spec.ID == "search-plan" {
@@ -311,7 +311,14 @@ func (a *API) streamAction(ctx context.Context, em *studioEmitter, action *agent
 // question (L2) or dimension-only prompt (L3) must be scoped to that source,
 // not whichever material happens to be project-materials[0] (the OLDEST one
 // by created_at, per ListMaterialsByProject — see the narrowing below).
-func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string) ([]byte, bool) {
+// scopeToMaterial forces anchor generation to the checked material even at L1
+// (annotate). The turn path passes false — its L1 "first, broadest read" over
+// all project materials is deliberate (see below). The source-OPEN path passes
+// true: the student opened ONE specific article to read it, so its anchors must
+// quote THAT source, never whichever material happens to be first — otherwise
+// the anchors carry a different material_id and the opened article never lights
+// up (the frontend filters anchors by the open source's id).
+func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string, scopeToMaterial bool) ([]byte, bool) {
 	cid, err := uuid.Parse(cardInstanceID)
 	if err != nil {
 		return nil, false
@@ -345,7 +352,7 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 	// guard above). Deliberately does NOT run at L1 (see doc comment). A miss
 	// (checkedMaterialID == "", e.g. a project-scoped card with no material)
 	// leaves materials unfiltered — no worse than the pre-fix behavior.
-	if spec.Primitive == "annotate" && level != agent.GuidanceL1 && checkedMaterialID != "" {
+	if spec.Primitive == "annotate" && (scopeToMaterial || level != agent.GuidanceL1) && checkedMaterialID != "" {
 		materials = onlyMaterial(materials, checkedMaterialID)
 	}
 	result, err := gen.Generate(ctx, spec, materials, level)

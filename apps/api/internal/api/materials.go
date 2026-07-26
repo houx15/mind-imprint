@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
@@ -253,4 +254,92 @@ func (a *API) logSourceOpen(w http.ResponseWriter, r *http.Request) {
 	a.advanceGates(r.Context(), projectID)
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// prepareSourceAnnotation makes "印记 reads the article WITH the student" real:
+// when a source is OPENED (not closed — logSourceOpen fires on close), it
+// surfaces the source's evaluation card (CRAAP annotate, or SIFT compare once
+// evaluated) and generates the per-CRAAP-dimension article anchors, so the
+// article lights up its flagged sentences and the interactive tool-card appears
+// in the rail on the very next project fetch. Delivery is via projection
+// reload, not a live frame — the frontend re-fetches after calling this, and
+// projectActiveCard/projectMaterials already surface the proposed card and its
+// persisted anchors (studio/projection.go).
+//
+// The summon DECISION reuses SurfaceCardCandidates verbatim (the same rule the
+// turn loop uses) so open-path and turn-path summoning never drift: it is
+// silent while any card is in flight, never re-summons an already-evaluated
+// source, and only ever fires for this exact material. Fully best-effort — a
+// failure here must never break opening a source, so every error only warns and
+// still returns 204. Idempotent: a second open finds the card already surfaced
+// (in-flight guard) and no-ops.
+func (a *API) prepareSourceAnnotation(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	mid, err := uuid.Parse(r.PathValue("mid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	g, err := store.LoadGraph(r.Context(), projectID)
+	if err != nil {
+		slog.Warn("prepare annotation: load graph failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Ownership: the graph carries only THIS project's materials — a mid that
+	// isn't among them is foreign or unknown, hidden as 404 (same convention as
+	// loadOwnedProject). Works for seeded materials too, unlike the source-log
+	// lookup logSourceOpen uses (seed rows have no source_log entry).
+	inProject := false
+	for _, m := range g.Materials {
+		// Parse-based compare: MaterialView.ID is a pgtype.UUID rendering that
+		// may differ in dashing/case from google/uuid's canonical String().
+		if pid, perr := uuid.Parse(m.ID); perr == nil && pid == mid {
+			inProject = true
+			break
+		}
+	}
+	if !inProject {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	surfaced := false
+	for _, c := range agent.SurfaceCardCandidates(g) {
+		// AnchorID is a MaterialView.ID (pgtype rendering) — parse-compare it to
+		// this material, same reason as the ownership loop above.
+		cid, cerr := uuid.Parse(c.AnchorID)
+		if c.Verb != "surface_card" || c.AnchorKind != "material" || cerr != nil || cid != mid {
+			continue
+		}
+		spec, specOK := cards.ByID(c.CardID)
+		if !specOK {
+			break
+		}
+		action, serr := agent.SurfaceCard(r.Context(), agent.AgentDeps{Store: store}, projectID, spec, mid)
+		if serr != nil || action == nil {
+			slog.Warn("prepare annotation: surface card failed",
+				"err", serr, "card_id", c.CardID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			break
+		}
+		if spec.Primitive == "annotate" || spec.Primitive == "compare" {
+			// Reuses the turn path's own anchor generator + guidance fade;
+			// degrades to no anchors (card still surfaces) on any failure.
+			// scopeToMaterial=true: the student opened THIS source to read it,
+			// so anchors must quote it (never another material).
+			a.surfaceAnchors(r.Context(), store, projectID, spec, action.CardInstanceID, action.MaterialID, true)
+		}
+		surfaced = true
+		break
+	}
+
+	// `surfaced` tells the client whether a NEW card/anchors were minted — it
+	// refetches the projection only then, so an open that found nothing to do
+	// (in-flight card, already-evaluated source) costs no needless reload.
+	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"surfaced": surfaced})
 }

@@ -9,6 +9,12 @@ export type SourceDossierProps = {
   sources: MaterialSource[];
   anchors?: Anchor[];
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  // Fires when a source is opened for reading — asks 印记 to surface the
+  // source's evaluation card + generate the article's flagged-sentence anchors
+  // ("read it with you"). The container refetches on resolve, so returning its
+  // promise lets this component show a brief "印记 正在读这篇…" indicator until
+  // the highlights land. Best-effort; may be void.
+  onPrepareAnnotation?: (materialId: string) => void | Promise<void>;
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   addSourceError?: string;
   // N3c task 9 (spec §7.2): 「去文章里选出这句」 needs to force this exact
@@ -74,12 +80,17 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan }: SourceDossierProps) {
+export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotation, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
+  // Which source 印记 is currently "reading" (annotate-prepare in flight) — a
+  // brief indicator until the highlights + tool-card land after refetch.
+  const [annotatingId, setAnnotatingId] = useState<string | null>(null);
   const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
   const onOpenLoggedRef = useRef(onOpenLogged);
   onOpenLoggedRef.current = onOpenLogged;
+  const onPrepareAnnotationRef = useRef(onPrepareAnnotation);
+  onPrepareAnnotationRef.current = onPrepareAnnotation;
 
   const lockedCount = sources.filter((s) => s.locked).length;
   const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
@@ -171,6 +182,18 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
     setOpenId(source.id);
     setActiveSpanId(null);
     openedAtRef.current = { id: source.id, openedAt: Date.now() };
+    // Ask 印记 to read this source WITH the student: surface its evaluation
+    // card + flag suspicious sentences. Best-effort and idempotent server-side
+    // (no re-summon if already in flight/evaluated), so a plain re-open is
+    // cheap. Not fired in select-mode (a forced 「去文章里选出这句」 open — the
+    // card is already active there).
+    const prepare = onPrepareAnnotationRef.current;
+    if (prepare && !selectMode) {
+      setAnnotatingId(source.id);
+      Promise.resolve(prepare(source.id)).finally(() => {
+        setAnnotatingId((cur) => (cur === source.id ? null : cur));
+      });
+    }
   };
 
   const backToList = () => {
@@ -323,6 +346,13 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
               had no honest producer on MaterialSource — every source now
               renders whatever it truthfully has (blocks and/or a takeaway),
               instead of faking a single-mode switch. */}
+          {annotatingId === openSource.id && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 11, fontSize: 12, fontWeight: 600, color: "#2A3B7A", background: "#EDEFF9", border: "1px solid #DDE1F2", borderRadius: 10, padding: "8px 12px" }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4C9A82", animation: "srcReadPulse 1.4s infinite" }} />
+              <style>{"@keyframes srcReadPulse{0%,100%{opacity:1}50%{opacity:.3}}"}</style>
+              印记 正在和你一起读这篇，替你标出可疑的地方……
+            </div>
+          )}
           {openSource.blocks.length > 0 && (
             <>
               {needsLateralRead(openSource) ? (
@@ -350,7 +380,7 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onAddSource, add
                 selectMode={selectMode && openSourceId === openSource.id ? selectMode : undefined}
                 onCreateSpan={onCreateSpan}
               />
-              {!needsLateralRead(openSource) && (
+              {!needsLateralRead(openSource) && mergedSpans.length > 0 && (
                 <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>
                   点亮的段落是 AI 标出的可疑处——追问会出现在旁边的陪练轨道。
                 </div>

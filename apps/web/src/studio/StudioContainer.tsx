@@ -15,7 +15,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // test actually exercises.
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "prepareSourceAnnotation" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -669,6 +669,25 @@ export function StudioContainer({
       } catch {
         setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
       }
+    },
+    // N-fix (2026-07): 印记 reads the article WITH the student. On open, ask
+    // the server to surface the source's evaluation card + generate the
+    // flagged-sentence anchors, then refetch so the highlights + interactive
+    // card appear. Best-effort: a failure never breaks reading (mirrors
+    // onOpenLogged's own posture) — it just means no highlights this open.
+    onPrepareAnnotation: (materialId) => {
+      if (!projectId) return;
+      api
+        .prepareSourceAnnotation(projectId, materialId)
+        .then((surfaced) => {
+          // Only reload when 印记 actually surfaced a new card/anchors — an
+          // open that found nothing to do (in-flight card, already-evaluated
+          // source) costs no needless refetch.
+          if (surfaced) refetchProject();
+        })
+        .catch(() => {
+          /* best-effort: reading still works with no highlights */
+        });
     },
     onOpenLogged: (materialId, timeSpentS) => {
       if (!projectId) return;

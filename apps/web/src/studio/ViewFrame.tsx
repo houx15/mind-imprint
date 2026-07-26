@@ -50,6 +50,7 @@ export type ViewFrameProps = {
   material?: {
     onAdd?: (body: AddMaterialBody) => Promise<void>;
     onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+    onPrepareAnnotation?: (materialId: string) => void;
     addError?: string;
   };
   // Card lock/skip for the center-pane interactive card (the S4 Toulmin
@@ -309,6 +310,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
                 onAddSource={material?.onAdd}
                 addSourceError={material?.addError}
                 onOpenLogged={material?.onOpenLogged}
+                onPrepareAnnotation={material?.onPrepareAnnotation}
               />
               {/* N3f Task 7: a student in cross-check mode has not left S3 —
                   信源体检 must render here too, not only the non-compare
@@ -360,6 +362,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
               onAddSource={material?.onAdd}
               addSourceError={material?.addError}
               onOpenLogged={material?.onOpenLogged}
+              onPrepareAnnotation={material?.onPrepareAnnotation}
               openSourceId={locating?.materialId ?? null}
               openToken={locating?.token}
               selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}

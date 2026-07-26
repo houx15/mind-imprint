@@ -22,3 +22,15 @@ export async function logSourceOpen(projectId: string, materialId: string, timeS
     body: JSON.stringify({ time_spent_s: timeSpentS }),
   });
 }
+
+// Fires when a source is OPENED for reading: asks the backend to surface the
+// source's evaluation card (CRAAP / SIFT) and generate the article's flagged-
+// sentence anchors, so "印记 reads it with you" — highlights + interactive card
+// — appears on the next project fetch. Best-effort server-side (idempotent, no
+// re-summon), so the caller refetches project state after it resolves.
+export async function prepareSourceAnnotation(projectId: string, materialId: string): Promise<boolean> {
+  const res = await apiFetch<{ surfaced?: boolean }>(`/api/v1/projects/${projectId}/materials/${materialId}/annotate`, {
+    method: "POST",
+  });
+  return res?.surfaced ?? false;
+}

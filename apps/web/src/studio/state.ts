@@ -91,6 +91,10 @@ export type StudioCallbacks = {
   // usages of StudioShell never need them.
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  // Fires when a source is OPENED for reading — asks 印记 to surface the
+  // source's evaluation card + article anchors ("read it with you"), then the
+  // container refetches so the highlights + card appear. Best-effort.
+  onPrepareAnnotation?: (materialId: string) => void;
   // Slice 8 Task 9: the 写作 view's silent buffer autosave + snapshot commit.
   // Optional for the same reason as the pair above — standalone/story usages
   // of StudioShell never need them.

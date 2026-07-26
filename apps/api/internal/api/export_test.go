@@ -57,5 +57,5 @@ func GetEnrollmentParamsForTest(userID uuid.UUID, classID string) sqlc.GetEnroll
 // least one tag-anchor. Calling surfaceAnchors directly, with a synthetic
 // spec, is the only way to exercise that path at all.
 func (a *API) SurfaceAnchorsForTest(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string) ([]byte, bool) {
-	return a.surfaceAnchors(ctx, store, projectID, spec, cardInstanceID, checkedMaterialID)
+	return a.surfaceAnchors(ctx, store, projectID, spec, cardInstanceID, checkedMaterialID, false)
 }

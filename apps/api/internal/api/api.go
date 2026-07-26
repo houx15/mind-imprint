@@ -65,6 +65,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/projects/{id}", protected(a.getProject))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/open", protected(a.logSourceOpen))
+	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/annotate", protected(a.prepareSourceAnnotation))
 	mux.Handle("PUT /api/v1/projects/{id}/buffer", protected(a.putEditBuffer))
 	mux.Handle("POST /api/v1/projects/{id}/snapshots", protected(a.commitSnapshot))
 	mux.Handle("POST /api/v1/projects/{id}/gate/{contractId}/attest", protected(a.attestGate))

@@ -254,6 +254,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never });
@@ -314,6 +315,7 @@ describe("StudioContainer", () => {
       },
       addMaterial: vi.fn(),
       logSourceOpen,
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never });
@@ -486,6 +488,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
@@ -574,6 +577,7 @@ describe("StudioContainer", () => {
       // SourceDossier's unmount cleanup reports the reading-time sample, so
       // this needs a fake, same as every other test that opens a source.
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     let convState: any = {
@@ -771,6 +775,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never });
@@ -864,6 +869,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
@@ -938,6 +944,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     // FIX 2 (whole-branch review CRITICAL): a zero-anchor card can no longer
@@ -1087,6 +1094,7 @@ describe("StudioContainer", () => {
       },
       addMaterial,
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
@@ -1281,6 +1289,7 @@ describe("StudioContainer", () => {
         throw new Error("network blip");
       },
       logSourceOpen: vi.fn(async () => {}),
+      prepareSourceAnnotation: vi.fn(async () => false),
     };
 
     let convState: any = {
