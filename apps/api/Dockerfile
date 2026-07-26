@@ -2,6 +2,9 @@
 
 FROM golang:1.26 AS build
 WORKDIR /src
+# goproxy.cn keeps `go mod download` working from mainland China; `,direct`
+# falls back to the origin elsewhere, so this stays correct outside China too.
+ENV GOPROXY=https://goproxy.cn,direct
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
