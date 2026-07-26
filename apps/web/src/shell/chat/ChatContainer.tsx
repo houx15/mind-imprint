@@ -24,6 +24,14 @@ export function ChatContainer() {
   const [reportOpen, setReportOpen] = useState(false);
   const entriesRef = useRef<ChatEntry[]>([]);
   entriesRef.current = entries;
+  // Threads we just created locally (via 新对话 or the first send into an empty
+  // surface). Activating such a thread must NOT hydrate from the server: the
+  // thread has no persisted messages yet, and the load-effect's getMessages
+  // would resolve after our optimistic/streaming setEntries and clobber it —
+  // the first message would vanish (Finding C). The flag is consumed on the
+  // first activation, so returning to the thread later DOES reload the
+  // persisted transcript (resume works).
+  const pendingLocalThreadRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +47,13 @@ export function ChatContainer() {
   useEffect(() => {
     setReportOpen(false);
     if (!activeThreadId) { setEntries([]); return; }
+    // Freshly-created local thread: entries already reflect the truth (empty,
+    // or the optimistic first turn). Consume the flag and skip the reload so we
+    // don't race our own optimistic update.
+    if (pendingLocalThreadRef.current === activeThreadId) {
+      pendingLocalThreadRef.current = null;
+      return;
+    }
     let cancelled = false;
     void (async () => {
       const msgs = await api.getMessages(activeThreadId);
@@ -54,6 +69,7 @@ export function ChatContainer() {
 
   async function handleNewConversation() {
     const thread = await api.createThread();
+    pendingLocalThreadRef.current = thread.id;
     setThreads((prev) => [thread, ...prev]);
     setActiveThreadId(thread.id);
     setEntries([]);
@@ -72,6 +88,7 @@ export function ChatContainer() {
     let threadId = activeThreadId;
     if (!threadId) {
       const thread = await api.createThread();
+      pendingLocalThreadRef.current = thread.id;
       setThreads((prev) => [thread, ...prev]);
       threadId = thread.id;
       setActiveThreadId(threadId);

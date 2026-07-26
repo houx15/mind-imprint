@@ -110,6 +110,38 @@ describe("Chat surface", () => {
     expect(screen.getByText("帮我想想这个反例")).toBeInTheDocument();
   });
 
+  it("sends into an empty surface: creates the thread, keeps the optimistic turn, never hydrates over it (Finding C)", async () => {
+    // No threads yet → activeThreadId is null. The first send must create a
+    // thread AND stream into it without the [activeThreadId] load-effect racing
+    // its own getMessages over the optimistic/streamed entries. Before the fix,
+    // setActiveThreadId(newId) fired getMessages(newId) which resolved after the
+    // optimistic setEntries and wiped both bubbles (the first message vanished).
+    (api.listThreads as any).mockResolvedValue([]);
+    (api.getMessages as any).mockResolvedValue([]); // would clobber if the effect ran it
+    (api.createThread as any).mockResolvedValue({ id: "t-new", title: "", createdAt: "2026-07-26T09:00:00Z" });
+    (api.chatTurn as any).mockImplementation(() =>
+      gen([
+        { type: "reply", body: "先说说，你这个想法最不确定的地方在哪？" },
+        { type: "done" },
+      ]),
+    );
+    render(<ChatContainer />);
+    await screen.findByRole("button", { name: /新对话/ });
+
+    fireEvent.change(screen.getByPlaceholderText(COMPOSER_PLACEHOLDER), { target: { value: "我想聊聊气候论证" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+
+    await waitFor(() => expect(api.chatTurn).toHaveBeenCalledWith("t-new", "我想聊聊气候论证"));
+    await flush();
+
+    // Both the user's message and the streamed reply survive — nothing wiped.
+    expect(screen.getByText("我想聊聊气候论证")).toBeInTheDocument();
+    expect(screen.getByText("先说说，你这个想法最不确定的地方在哪？")).toBeInTheDocument();
+    // The freshly-created thread is never hydrated from the server (which is
+    // what would have raced and clobbered the optimistic turn).
+    expect(api.getMessages).not.toHaveBeenCalled();
+  });
+
   it("renders the in-thread card offer when chatTurn yields a card event", async () => {
     (api.listThreads as any).mockResolvedValue([thread]);
     (api.getMessages as any).mockResolvedValue([]);
