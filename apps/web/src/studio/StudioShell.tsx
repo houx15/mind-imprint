@@ -129,6 +129,8 @@ export function StudioShell({
   // covers the whole workspace instead of being clipped to the 388px coach
   // rail. Design: docs/design/思维印记_工作区.dc.html ~L1409.
   const [methId, setMethId] = useState<string | null>(null);
+  // Foldable AI 陪练 rail — client-local view preference, not projection state.
+  const [coachCollapsed, setCoachCollapsed] = useState(false);
 
   function handleOpenMethodology(id: string) {
     setMethId(id);
@@ -220,6 +222,13 @@ export function StudioShell({
           material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, addError: addSourceError }}
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
+          onStartStructureCard={(role) => {
+            // Voice the student's intent to 印记, which then summons the
+            // argument builder (cards are AI-summoned — 铁律 1/2). Make sure
+            // the rail is visible so she sees the coach respond.
+            setCoachCollapsed(false);
+            callbacks.onComposerSend(`我想开始写「${role}」这一步，带我一起做。`);
+          }}
           writing={{
             onBufferChange: callbacks.onBufferChange,
             onCommit: callbacks.onCommit,
@@ -241,6 +250,35 @@ export function StudioShell({
           onSubmitPerspectives={callbacks.onSubmitPerspectives}
           onAttestSourcesPerPerspective={callbacks.onAttestSourcesPerPerspective}
         />
+        {coachCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setCoachCollapsed(false)}
+            title="展开 AI 陪练"
+            style={{
+              width: 48,
+              flex: "none",
+              background: "linear-gradient(180deg,#F7F8FC 0%,#FDFDFF 100%)",
+              borderLeft: "1px solid #E2E5EE",
+              boxShadow: "-6px 0 20px rgba(20,30,60,.05)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+              padding: "16px 0",
+              cursor: "pointer",
+              fontFamily: FONT,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A92A3" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+            <span style={{ writingMode: "vertical-rl", fontSize: 12.5, fontWeight: 700, color: "#2A3B7A", letterSpacing: ".08em" }}>
+              AI 陪练
+            </span>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4C9A82" }} />
+          </button>
+        ) : (
         <CoachRail
           anchor={state.coach.anchor}
           messages={state.coach.messages}
@@ -262,7 +300,9 @@ export function StudioShell({
           onRelocate={callbacks.onRelocate}
           onSpanNotFound={callbacks.onSpanNotFound}
           pendingTrace={pendingTrace}
+          onCollapse={() => setCoachCollapsed(true)}
         />
+        )}
       </div>
 
       <MethodologyModal cardId={methId} onClose={() => setMethId(null)} />

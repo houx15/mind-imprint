@@ -57,6 +57,10 @@ export type ViewFrameProps = {
   // 结构 pane can submit its graph. Mirrors the rail's onSubmitCard/onSkipCard.
   onSubmitCard?: (env: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
+  // Bug-fix (2026-07): clicking a 待开始 S4 role card voices the student's
+  // intent to 印记 (which then summons the argument builder). Threaded from
+  // StudioShell straight into StructureView.
+  onStartStructureCard?: (role: string) => void;
   // Slice 8 Task 9: the 写作 view's silent-buffer autosave + snapshot commit
   // — a separate prop object (not folded into StudioCallbacks-only usage)
   // mirroring `material`'s own onAdd/onOpenLogged grouping above. Task 10
@@ -229,7 +233,7 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, writing, review, spotCheck, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
+export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, onStartStructureCard, writing, review, spotCheck, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
@@ -385,6 +389,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
             lockedSources={lockedSources}
             onSubmitCard={onSubmitCard}
             onSkipCard={onSkipCard}
+            onStartCard={onStartStructureCard}
           />
           {/* M3 fix: mirrors StructureView's own WRAP/COL split (its `WRAP`
               constant carries the padding, its `COL` constant carries the

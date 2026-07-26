@@ -80,6 +80,9 @@ export function SpotCheckPanel({
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", color: "#2A3B7A", background: "#EDEFF9", padding: "3px 9px", borderRadius: 999 }}>
           {title}
         </span>
+        <span style={{ fontSize: 11.5, color: "#9AA1B0" }}>
+          {title === "信源体检" ? "让印记把你的信源通读一遍，逐条挑出还不扎实的地方" : "让印记把你的论证过一遍，逐条挑出还不扎实的地方"}
+        </span>
         <div style={{ marginLeft: "auto" }}>
           <button
             type="button"

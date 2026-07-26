@@ -12,7 +12,7 @@ describe("StudioShell", () => {
     // "论证构建" legitimately renders twice: once as the S4 row in the
     // station rail, once as the active station's header in the center view.
     expect(screen.getAllByText("论证构建").length).toBe(2);
-    expect(screen.getByText("AI 陪练")).toBeInTheDocument();        // coach rail
+    expect(screen.getByText("AI 陪练 · 印记")).toBeInTheDocument(); // coach rail
   });
   it("专注模式 toggle fires onToggleFocus", () => {
     const onToggleFocus = vi.fn();

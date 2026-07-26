@@ -15,6 +15,10 @@ export type StructureViewProps = {
   lockedSources?: LockedSource[];
   onSubmitCard?: (env: CardInstance) => void;
   onSkipCard?: (eventTrace: TraceEvent[]) => void;
+  // Clicking a 待开始 role card asks 印记 to open the argument builder for that
+  // step. Cards are AI-summoned (铁律 1/2), so a click can't open one directly
+  // — it voices the student's intent to the coach, which then summons the card.
+  onStartCard?: (role: string) => void;
 };
 
 const WRAP: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" };
@@ -88,22 +92,28 @@ function GateBanner({ allClean }: { allClean: boolean }) {
   );
 }
 
-function RoleCard({ card }: { card: StructureCardFx }) {
+function RoleCard({ card, onStart }: { card: StructureCardFx; onStart?: () => void }) {
   const done = card.status === "done";
   const empty = card.status === "empty";
 
   const statusLabel = done ? "已完成" : "待开始";
   const statusColor = done ? "#4C9A82" : "#AEB4C2";
   const statusBg = done ? "#E7F3EE" : "#F1F2F5";
+  const clickable = empty && !!onStart;
 
   return (
     <div
+      onClick={clickable ? onStart : undefined}
+      role={clickable ? "button" : undefined}
       style={{
         background: "#fff",
-        border: "1px solid #ECEEF3",
+        border: `1px solid ${clickable ? "#DCE0EE" : "#ECEEF3"}`,
         borderRadius: 14,
         padding: "14px 16px",
         marginBottom: 12,
+        cursor: clickable ? "pointer" : "default",
+        transition: "border-color .15s, box-shadow .15s",
+        boxShadow: clickable ? "0 1px 2px rgba(20,30,60,.03)" : "none",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -138,13 +148,20 @@ function RoleCard({ card }: { card: StructureCardFx }) {
       )}
 
       {empty && (
-        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "#AEB4C2" }}>还没开始——点开这张卡片开始。</div>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 13, lineHeight: 1.55, color: clickable ? "#2A3B7A" : "#AEB4C2", fontWeight: clickable ? 600 : 400 }}>
+          {clickable && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          )}
+          {clickable ? "点这张卡片，让印记带你一起写这一步" : "还没开始。"}
+        </div>
       )}
     </div>
   );
 }
 
-export function StructureView({ cards, toulminCard, lockedSources = [], onSubmitCard, onSkipCard }: StructureViewProps) {
+export function StructureView({ cards, toulminCard, lockedSources = [], onSubmitCard, onSkipCard, onStartCard }: StructureViewProps) {
   // An open Toulmin card takes over the pane with its live builder — keyed by
   // instance id so a fresh card remounts (re-seeding its working GraphState)
   // rather than inheriting the previous one's slots.
@@ -205,7 +222,7 @@ export function StructureView({ cards, toulminCard, lockedSources = [], onSubmit
         </div>
 
         {cards.map((c) => (
-          <RoleCard key={c.id} card={c} />
+          <RoleCard key={c.id} card={c} onStart={onStartCard ? () => onStartCard(c.role) : undefined} />
         ))}
       </div>
     </div>

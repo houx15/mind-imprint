@@ -60,6 +60,9 @@ export type CoachRailProps = {
   onRelocate?: (anchorId: string, dimension: string) => void;
   onSpanNotFound?: (anchorId: string, dimension: string) => void;
   pendingTrace?: TraceEvent[];
+  // Collapse the whole rail to a thin strip (owned by StudioShell) — lets the
+  // student give the center pane more room while reading/writing.
+  onCollapse?: () => void;
 };
 
 // Right-side AI 陪练 rail: header + thread + contextual tool-card slot +
@@ -84,10 +87,10 @@ function ToolboxIcon() {
   );
 }
 
-function AttachIcon() {
+function CollapseIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.2 9.19a1 1 0 01-1.41-1.41l8.49-8.49" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 6l6 6-6 6" />
     </svg>
   );
 }
@@ -225,6 +228,7 @@ export function CoachRail({
   onRelocate,
   onSpanNotFound,
   pendingTrace,
+  onCollapse,
 }: CoachRailProps) {
   const [equipOpen, setEquipOpen] = useState(false);
   const [composerText, setComposerText] = useState("");
@@ -294,17 +298,28 @@ export function CoachRail({
   }
 
   return (
-    <div style={{ width: 388, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column", fontFamily: FONT, position: "relative" }}>
+    <div style={{ width: 388, flex: "none", background: "#fff", borderLeft: "1px solid #E2E5EE", boxShadow: "-6px 0 20px rgba(20,30,60,.05)", display: "flex", flexDirection: "column", fontFamily: FONT, position: "relative" }}>
       <style>{`@keyframes coachRailPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 @keyframes coachRailRecPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }`}</style>
 
-      {/* header */}
-      <div style={{ flex: "none", padding: "15px 18px 13px", borderBottom: "1px solid #EFF0F5" }}>
+      {/* header — tinted so the rail reads as a distinct panel from the center */}
+      <div style={{ flex: "none", padding: "14px 16px 13px", borderBottom: "1px solid #EAECF2", background: "linear-gradient(180deg,#F7F8FC 0%,#FDFDFF 100%)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Bean size={30} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333" }}>AI 陪练</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333" }}>AI 陪练 · 印记</div>
+            <div style={{ fontSize: 11, color: "#9AA1B0", marginTop: 1 }}>陪你思考 · 只提问、不代笔</div>
           </div>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="收起 AI 陪练"
+              style={{ flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: "1px solid #E4E7F0", background: "#fff", color: "#8A92A3", cursor: "pointer", padding: 0 }}
+            >
+              <CollapseIcon />
+            </button>
+          )}
         </div>
         <div
           style={{
@@ -498,13 +513,6 @@ export function CoachRail({
             }}
           >
             <ToolboxIcon />
-          </div>
-          <div
-            title="上传文件"
-            role="button"
-            style={{ flex: "none", width: 32, height: 32, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7384" }}
-          >
-            <AttachIcon />
           </div>
           <textarea
             value={composerText}
