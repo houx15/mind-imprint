@@ -1,0 +1,66 @@
+# Production stack for 思维印记 (Mind Imprint).
+#
+# Run from the repo root:
+#   docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build
+#
+# Topology (see docs/deploy/README.md):
+#   host nginx (TLS, certbot)
+#     ├── mind-api.uni-robot.cn  → 127.0.0.1:8090 → api container (Go, :8080)
+#     └── mind-web.uni-robot.cn  → 127.0.0.1:8091 → web container (nginx static)
+#   db (postgres) is internal to the compose network — no published host port.
+#
+# Secrets come from deploy/.env.prod (git-ignored). Nothing secret lives here.
+name: mindimprint
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mindimprint
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mindimprint
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindimprint -d mindimprint"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Intentionally no `ports:` — only the api service reaches it, over the
+    # compose network at host `db`. Keeps Postgres off the public interface and
+    # avoids clashing with the host's own Postgres on 127.0.0.1:5432.
+
+  api:
+    build:
+      context: ../apps/api
+    image: mindimprint-api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://mindimprint:${POSTGRES_PASSWORD}@db:5432/mindimprint?sslmode=disable
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      COOKIE_SECURE: "true"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VOICE_APP_ID: ${VOICE_APP_ID:-}
+      VOICE_ACCESS_KEY: ${VOICE_ACCESS_KEY:-}
+      VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-}
+    ports:
+      - "127.0.0.1:8090:8080"
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    image: mindimprint-web:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8091:80"
+
+volumes:
+  pgdata:

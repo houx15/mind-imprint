@@ -1,0 +1,4 @@
+# API image build context = apps/api. Never bake local secrets into the image.
+.env
+.env.*
+!.env.example

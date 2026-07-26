@@ -1,0 +1,21 @@
+# Build-context ignore for the web image (context = repo root).
+# The API image uses apps/api/.dockerignore (its own context).
+.git
+**/.git
+node_modules
+**/node_modules
+dist
+**/dist
+.deploy-local
+.playwright-mcp
+.superpowers
+.claude
+.codex
+.gemini
+apps/web/test-results
+apps/web/playwright-report
+apps/web/e2e
+docs
+**/*.log
+**/.DS_Store
+*.png
