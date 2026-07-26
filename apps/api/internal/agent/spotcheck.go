@@ -58,10 +58,10 @@ type SpotCheckItem struct {
 // design: the name is resolved server-side from the id, the same discipline
 // ProposeReview uses for CriterionName — the model never invents labels.
 type spotCheckItemWire struct {
-	TargetID string `json:"target_id"`
-	Evidence string `json:"evidence"`
-	Missing  string `json:"missing"`
-	Fix      string `json:"fix"`
+	TargetID string     `json:"target_id"`
+	Evidence flexString `json:"evidence"`
+	Missing  flexString `json:"missing"`
+	Fix      flexString `json:"fix"`
 }
 
 const spotCheckPostureSources = `你是 IB/国际课程研究过程的「信源体检」考官。学生已经把她评估过的来源摆在这里。
@@ -139,7 +139,7 @@ func ProposeSpotCheck(ctx context.Context, prov gateway.Provider, r gateway.Reso
 		if !known {
 			continue // ignore targets the caller didn't ask about
 		}
-		for _, field := range []string{wv.Evidence, wv.Missing, wv.Fix} {
+		for _, field := range []string{wv.Evidence.String(), wv.Missing.String(), wv.Fix.String()} {
 			if field == "" {
 				continue
 			}
@@ -149,7 +149,7 @@ func ProposeSpotCheck(ctx context.Context, prov gateway.Provider, r gateway.Reso
 		}
 		items = append(items, SpotCheckItem{
 			TargetID: wv.TargetID, TargetName: nm,
-			Evidence: wv.Evidence, Missing: wv.Missing, Fix: wv.Fix,
+			Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
 		})
 	}
 	if len(items) == 0 {
