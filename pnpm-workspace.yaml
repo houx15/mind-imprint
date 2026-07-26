@@ -1,3 +1,11 @@
 packages:
   - "packages/*"
   - "apps/*"
+
+# pnpm 10 blocks dependency build scripts by default and errors on any that are
+# ignored. esbuild (a vite dependency) needs its postinstall to fetch its
+# platform binary, so `vite build` works — allowlist it explicitly. Other
+# packages with install scripts (e.g. playwright's browser download) stay
+# blocked, which is what we want for the web image build.
+onlyBuiltDependencies:
+  - esbuild
