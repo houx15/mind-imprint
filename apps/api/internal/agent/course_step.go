@@ -405,39 +405,41 @@ func runCourseAdvance(ctx context.Context, deps CourseDeps, sess CourseSession, 
 		return CourseStepResult{Reply: done}, nil
 	}
 
+	// Floor met + a real next phase exists ⇒ ADVANCE. The floor is the gate
+	// (DEC-12.2); the soft_condition is a nudge, not a second lock. Letting the
+	// live coach veto a structurally-complete phase stranded students in phase 1
+	// forever (they kept teaching instead of emitting `advance` — Finding A), so
+	// advance is now floor-authoritative here, enforced in Go, not requested of
+	// the model. The coach call only writes a warm transition line; if it fails
+	// (empty output, rejection) the advance still happens.
 	history, err := deps.Store.LoadPhaseHistory(ctx, sess.ID, sess.Phase, 12)
 	if err != nil {
 		return CourseStepResult{}, err
 	}
 	script := buildScript(deps.Skill, deps.CourseTitle, sess.Phase)
-	out, usage, err := ProposeCourseReply(ctx, deps.Provider, deps.Resolved,
+	transition := ""
+	out, usage, cerr := ProposeCourseReply(ctx, deps.Provider, deps.Resolved,
 		BuildCourseContext(script, phase, history, cardSummary(deps.Skill, phase, cards), "advance"))
 	courseMeter(ctx, deps, usage)
-	if err != nil {
-		slog.Warn("course advance: output rejected — staying silent", "err", err, "phase", sess.Phase)
-		return CourseStepResult{}, nil
+	if cerr != nil {
+		slog.Warn("course advance: transition line unavailable — advancing anyway", "err", cerr, "phase", sess.Phase)
+	} else if out.Type == "reply" {
+		transition = out.Body
 	}
 
-	// Forward-only, one phase at a time — enforced here, not requested in the
-	// prompt. An advance naming anything but the single successor is refused.
-	if out.Type == "advance" && out.To == next {
-		if err := deps.Store.SetSessionPhase(ctx, sess.ID, next); err != nil {
-			return CourseStepResult{}, err
-		}
-		payload, _ := json.Marshal(map[string]string{"to": next})
-		if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "phase_advanced", payload); err != nil {
-			slog.Warn("course advance: append phase_advanced event failed", "err", err)
-		}
-		return CourseStepResult{Advanced: next}, nil
-	}
-	if out.Type == "advance" {
-		slog.Warn("course advance: refused a non-successor target", "to", out.To, "want", next)
-		return CourseStepResult{}, nil
-	}
-	if _, err := deps.Store.CreateSessionMessage(ctx, sess.ID, sess.Phase, "assistant", out.Body); err != nil {
+	if err := deps.Store.SetSessionPhase(ctx, sess.ID, next); err != nil {
 		return CourseStepResult{}, err
 	}
-	return CourseStepResult{Reply: out.Body}, nil
+	payload, _ := json.Marshal(map[string]string{"to": next})
+	if err := deps.Store.InsertSessionEvent(ctx, deps.SessionID, "phase_advanced", payload); err != nil {
+		slog.Warn("course advance: append phase_advanced event failed", "err", err)
+	}
+	if transition != "" {
+		if _, err := deps.Store.CreateSessionMessage(ctx, sess.ID, sess.Phase, "assistant", transition); err != nil {
+			slog.Warn("course advance: append transition message failed", "err", err)
+		}
+	}
+	return CourseStepResult{Advanced: next, Reply: transition}, nil
 }
 
 func intsOf(xs []int32) []int {

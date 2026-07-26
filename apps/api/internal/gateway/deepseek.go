@@ -56,9 +56,16 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 	for i, m := range req.Messages {
 		msgs[i] = openaiSerializeMessage(m)
 	}
+	// max_tokens is an upper BOUND, not a target — a short reply still stops
+	// early, so a generous default costs nothing for small calls but prevents
+	// large structured outputs (assessment report, weekly/parent prose,
+	// whole-draft review) from being truncated mid-JSON. The old 1024 default
+	// silently truncated every unset large-output call (empty/partial content →
+	// "unexpected end of JSON input" → 422). Call sites that WANT a tight cap
+	// still set MaxTokens explicitly (e.g. course render 1200).
 	maxTokens := req.MaxTokens
 	if maxTokens == 0 {
-		maxTokens = 1024
+		maxTokens = 8000
 	}
 	body := map[string]any{
 		"model":      r.Model,

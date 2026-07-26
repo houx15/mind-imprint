@@ -57,9 +57,12 @@ func (p *AnthropicProvider) buildBody(r Resolved, req ChatRequest) map[string]an
 		}
 		msgs = append(msgs, anthropicSerializeMessage(m))
 	}
+	// See deepseek.go: a generous default cap prevents large structured outputs
+	// from truncating mid-JSON; short replies still stop early, so it costs
+	// nothing for small calls. Explicit low caps at the call site still win.
 	maxTokens := req.MaxTokens
 	if maxTokens == 0 {
-		maxTokens = 1024
+		maxTokens = 8000
 	}
 	body := map[string]any{
 		"model":      r.Model,

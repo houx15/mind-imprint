@@ -118,6 +118,10 @@ func parentStageDTO(d parentStageData, prose *agent.ParentStageProse) ParentStag
 			TypeLabel: "阶段报告", DateStr: parentDateStr(time.Now()), WarmLine: warm,
 		},
 		Stats: buildStageStats(d),
+		// Non-nil so the wire carries `advice: []` (the contract requires an
+		// array) rather than `advice: null` pre-prose — a null broke the client
+		// Zod parse and the whole parent stage report rendered blank.
+		Advice: []ParentAdviceDTO{},
 	}
 	if prose != nil {
 		dto.StageGrowth, dto.StageHighlight, dto.StageForward = prose.StageGrowth, prose.StageHighlight, prose.StageForward
