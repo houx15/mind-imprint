@@ -64,6 +64,17 @@ bundle）。两者同属 `uni-robot.cn`（same-site），会话 Cookie 为 `Same
 2. **Web**（`docs/deploy/web.md`）：以 `VITE_API_BASE_URL=https://mind-api.uni-robot.cn` 构建并启动 web 容器
 3. **HTTPS**（`docs/deploy/tls.md`）：宿主机 nginx 反代两个站点 → certbot 签发证书 → 端到端校验登录
 
+## 中国网络注意（镜像与依赖源）
+
+服务器在国内，若首次构建报 `not found` / `gcr.io` 拉不动：
+
+- **基础镜像**：先跑一次 `bash deploy/pull-base-images.sh`——它经 DaoCloud 代理拉取
+  postgres/nginx/node/golang/distroless 并重打成规范名，构建/compose 直接用本地副本（不改宿主机 docker 配置）。
+- **Go 模块**：API 的 Dockerfile 已设 `GOPROXY=https://goproxy.cn,direct`。
+- **npm 包**：web 构建走 npmjs（较慢但可用）；如需提速可在构建阶段设 `npm_config_registry=https://registry.npmmirror.com`。
+- **pnpm**：web 的 Dockerfile 已 `corepack prepare pnpm@10.29.3 --activate` 固定版本，确保 `pnpm-workspace.yaml`
+  的 `onlyBuiltDependencies`（放行 esbuild 构建脚本）生效。
+
 ## 资源与容量
 
 平台在本地资源上很轻——算力（LLM）外包给 DeepSeek/Volcano，Go API 多数时间在等网络。
