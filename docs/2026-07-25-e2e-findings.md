@@ -52,11 +52,13 @@ Go/vitest suites because those mock the model.
 >   退出登录) + avatar picker responds.
 > - **J-teacher flake: fixed.** Replaced the coupled network-wait + short assert
 >   with a single end-state wait (150s) for the flagship weekly prose.
-> - **Full pure-UI S0→S6 studio walk: in progress** (authored against the live
->   stack; the back-half lifecycle is already covered by J-studio via API).
+> - **Full pure-UI S0→S6 studio walk: DONE** (J-walk, passes clean live ~4.4m).
+>   Authoring it against the live model surfaced THREE real backend bugs (H, I, J
+>   below) — all journey-breaking or core-promise reliability issues invisible to
+>   the mocked suite. The walk is the highest-yield spec of the whole effort.
 >
 > All round-2 specs verified live: J3, J-resume, J-settings, J-studio, J-teacher,
-> J-voice all PASS against the running stack.
+> J-voice, J-walk all PASS against the running stack.
 
 ## A — Course coach never advances phases with the live model  ·  **FIXED**
 
@@ -258,6 +260,70 @@ adds only the audio-capture + WS-streaming client path on top. Recommended when
 picked up: launch Chromium with fake-audio flags, feed a short Mandarin WAV, and
 assert a non-empty `final` transcript arrives over the WS. The backend ASR handler
 + protocol already have Go unit coverage (voice package + api handler tests).
+
+---
+
+## H — 信源体检 / 论证体检 rejected 100% with the live model → S3/S4 un-advanceable  ·  **FIXED**
+
+**Surface:** 工作室 S3 信源体检 + S4 论证体检 (`agent.ProposeSpotCheck`).
+**Symptom:** every spot-check returned `spot_check_rejected` ("no usable items")
+with deepseek-v4-pro, so a real student could never advance past S3 or S4 through
+the UI. 100% repro on both a fresh walk and the seeded project.
+
+**Root cause:** `spotCheckPostureSources`/`spotCheckPostureArgument` said "输出
+JSON 数组" but never named the per-item fields; the model emitted `{"id",
+"comment"}` while `spotCheckItemWire` needs `{target_id, evidence, missing,
+fix}`. Empty `TargetID` → every item dropped as an unknown target → 0 usable →
+whole order rejected. Same class as Finding E (review.go), which had been
+hardened; spotcheck.go had not. A direct call with a field-naming prompt returned
+correct output, proving the prompt was the defect.
+
+**FIX (shipped + verified live):** append a shared `spotCheckFieldSpec` naming the
+four wire fields (target_id echoed verbatim from the bracketed id) to both
+postures. Regression test asserts every posture names the fields. J-walk now
+clears S3 + S4. **Present on main until this branch merges** — the existing suite
+never caught it because J-studio drives the back-half via API and skips both
+spot-checks.
+
+---
+
+## I — review / spot-check item field as a JSON array → whole order rejected ~40%  ·  **FIXED**
+
+**Surface:** 整稿体检 (`ProposeReview`) + the two spot-checks (`ProposeSpotCheck`).
+**Symptom:** ~40% of live 整稿体检 calls failed with `review output not JSON:
+cannot unmarshal array into Go struct field ...missing of type string` — the
+whole review rejected, `whole_draft_review` (the finish gate) unset. With
+retries:1 the walk still occasionally lost both attempts.
+
+**Root cause:** `reviewItemWire.Evidence/Missing/Fix` (and the spot-check wire's
+same fields) were typed `string`, but deepseek-v4-pro sometimes returns them as a
+JSON array of strings. A `[]wire` unmarshal fails entirely on the first such
+field. Valid JSON, wrong shape.
+
+**FIX (shipped + verified live):** a `flexString` type (agent/wireflex.go) that
+decodes either a string or an array (joined with 「；」) or any scalar; applied to
+both wires. Regression tests cover string/array/scalar and both wires tolerating
+an array field.
+
+---
+
+## J — flagship report intermittently malformed JSON → finish 422s  ·  **FIXED (hardened)**
+
+**Surface:** the flagship `AssessReport` — shared by project finish (你的思维印记),
+course terminal assessment, and chat assessment.
+**Symptom:** finish occasionally 422'd with `report output not JSON: invalid
+character ':' after array element` — the flagship model emitted syntactically
+malformed JSON. Low-rate but real: a student finishes and gets an error instead
+of their 思维印记. Affects all three assessment surfaces.
+
+**Root cause:** genuinely malformed model output (not a coercible shape) — an
+inherent, occasional flagship generation error with the live model.
+
+**FIX (shipped + verified live):** a bounded retry (`maxAssessAttempts = 2`) in
+AssessReport re-calls the model on a PARSE failure only, accumulating usage so
+cost tracking stays honest; banned-phrasing rejections and transport errors do
+NOT retry. Consistent with the Finding D maxTokens hardening on this same
+never-downgraded path. J-walk finish now passes clean.
 
 ---
 
