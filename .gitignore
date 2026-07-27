@@ -123,3 +123,8 @@ apps/web/playwright-report/
 
 # Local deploy secrets (SSH creds, keys) — never commit
 .deploy-local/
+
+# =============================================================================
+# REFERENCE REPOS (colleague demos, external code we study but do not ship)
+# =============================================================================
+docs/reference/
