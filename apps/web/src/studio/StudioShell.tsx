@@ -219,7 +219,7 @@ export function StudioShell({
           locating={locating}
           onCreateSpan={callbacks.onCreateSpan}
           onCancelLocate={callbacks.onCancelLocate}
-          material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, onPrepareAnnotation: callbacks.onPrepareAnnotation, addError: addSourceError }}
+          material={{ onAdd: callbacks.onAddSource, onOpenLogged: callbacks.onOpenLogged, onPrepareAnnotation: callbacks.onPrepareAnnotation, addError: addSourceError, onOpenReading: callbacks.onOpenReading }}
           onSubmitCard={callbacks.onSubmitCard}
           onSkipCard={callbacks.onSkipCard}
           onStartStructureCard={(role) => {

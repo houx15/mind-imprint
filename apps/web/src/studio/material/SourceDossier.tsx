@@ -41,6 +41,14 @@ export type SourceDossierProps = {
   // pending elsewhere).
   selectMode?: { dimension: string; onCancel: () => void } | null;
   onCreateSpan?: (span: CreatedSpan) => void;
+  // Task 8 (read-together redesign): when set, clicking a source-LIST row
+  // opens the focused ReadingRoom surface (coach left / article right)
+  // INSTEAD of this component's own in-place article view — the container
+  // owns that navigation (mirrors the directory→studio swap). Optional and
+  // additive: absent (the default), the in-place `activateSource` behavior
+  // below is byte-identical to before this prop existed, so every other
+  // call site/test is unaffected.
+  onOpenReading?: (materialId: string) => void;
 };
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -80,7 +88,7 @@ function BackIcon() {
   );
 }
 
-export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotation, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan }: SourceDossierProps) {
+export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotation, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan, onOpenReading }: SourceDossierProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   // Which source 印记 is currently "reading" (annotate-prepare in flight) — a
@@ -255,7 +263,7 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotat
               <button
                 key={source.id}
                 type="button"
-                onClick={() => activateSource(source)}
+                onClick={() => (onOpenReading ? onOpenReading(source.id) : activateSource(source))}
                 style={{
                   display: "block",
                   textAlign: "left",

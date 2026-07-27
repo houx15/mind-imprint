@@ -17,6 +17,7 @@ export type PerspectivesViewProps = {
   onAddSource?: (body: AddMaterialBody) => Promise<void>;
   addSourceError?: string;
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  onOpenReading?: (materialId: string) => void;
   onAttestSourcesPerPerspective?: (confirmed: boolean) => void;
 };
 
@@ -78,7 +79,7 @@ function XIcon() {
 
 type DraftRow = { text: string; level: string; editable: boolean };
 
-export function PerspectivesView({ data, material, onSubmit, onAddSource, addSourceError, onOpenLogged, onAttestSourcesPerPerspective }: PerspectivesViewProps) {
+export function PerspectivesView({ data, material, onSubmit, onAddSource, addSourceError, onOpenLogged, onOpenReading, onAttestSourcesPerPerspective }: PerspectivesViewProps) {
   const [rows, setRows] = useState<DraftRow[]>(data.rows.map((r) => ({ ...r })));
   const [submitting, setSubmitting] = useState(false);
   const [attestConfirmed, setAttestConfirmed] = useState(data.sourcesPerPerspective);
@@ -304,6 +305,7 @@ export function PerspectivesView({ data, material, onSubmit, onAddSource, addSou
             onOpenLogged={onOpenLogged}
             onAddSource={onAddSource}
             addSourceError={addSourceError}
+            onOpenReading={onOpenReading}
           />
 
           {/* The one explicit attestation in this slice. 铁律 2: reversible

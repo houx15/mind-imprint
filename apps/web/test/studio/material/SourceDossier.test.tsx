@@ -108,12 +108,28 @@ const nasaSummary: MaterialSource = {
 const SOURCES: MaterialSource[] = [blogArticle, nasaSummary];
 
 describe("SourceDossier", () => {
-  it("lists sources with locked count and opens one into the detail view", () => {
-    render(<SourceDossier sources={SOURCES} />);
+  it("lists sources with locked count and opens the ReadingRoom (not the in-place detail view) when onOpenReading is supplied", () => {
+    const onOpenReading = vi.fn();
+    render(<SourceDossier sources={SOURCES} onOpenReading={onOpenReading} />);
 
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
     expect(screen.getByText(/已收集 2 篇/)).toBeInTheDocument();
     expect(screen.getByText(/已锁定 1\/2/)).toBeInTheDocument();
+
+    // Task 8 (read-together redesign): with `onOpenReading` supplied, a
+    // source-list row click opens the focused ReadingRoom surface instead of
+    // this component's own in-place article view — the container owns that
+    // navigation now.
+    openSourceByTitle(blogArticle.title);
+    expect(onOpenReading).toHaveBeenCalledWith(blogArticle.id);
+    // The in-place detail view must NOT have opened — the list is still on
+    // screen.
+    expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument();
+    expect(screen.queryByText("返回信源列表")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the in-place detail view when onOpenReading is not supplied", () => {
+    render(<SourceDossier sources={SOURCES} />);
 
     // source_opened is the server's canonical event, written by POST /open
     // (see the coach-container onOpenLogged wiring) — SourceDossier itself

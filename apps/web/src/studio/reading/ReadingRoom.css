@@ -1,0 +1,64 @@
+/* ReadingRoom: coach column (left) + article column (right), ~39:61.
+   Design intent: the coach rail stays a thin companion, the article gets the
+   dominant reading column — mirrors the split used for the in-studio 素材
+   pane, just full-bleed for the focused reading surface. */
+.mk-reading-room {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.78fr) minmax(600px, 1.22fr);
+  min-height: 100vh;
+  background: #f3f4f8;
+}
+
+.mk-reading-room__coach {
+  border-right: 1px solid #eaecf2;
+  background: #fff;
+  padding: 22px 20px;
+}
+
+.mk-reading-room__article {
+  overflow-y: auto;
+  padding: 40px 48px 80px;
+}
+
+.mk-reading-room__article-inner {
+  max-width: 736px;
+  margin: 0 auto;
+  font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+  font-size: 17px;
+  line-height: 1.95;
+  color: #2b3346;
+}
+
+.mk-reading-room__title {
+  font-family: "Plus Jakarta Sans", "Noto Sans SC", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1c2333;
+  margin: 0 0 22px;
+}
+
+.mk-reading-room__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 18px;
+  color: #5c4a8a;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: "Plus Jakarta Sans", "Noto Sans SC", system-ui, sans-serif;
+}
+
+@media (max-width: 980px) {
+  .mk-reading-room {
+    grid-template-columns: 1fr;
+  }
+
+  .mk-reading-room__coach {
+    border-right: none;
+    border-bottom: 1px solid #eaecf2;
+  }
+}

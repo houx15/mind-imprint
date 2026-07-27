@@ -95,6 +95,11 @@ export type StudioCallbacks = {
   // source's evaluation card + article anchors ("read it with you"), then the
   // container refetches so the highlights + card appear. Best-effort.
   onPrepareAnnotation?: (materialId: string) => void;
+  // Task 8 (read-together redesign): opens the focused ReadingRoom surface
+  // (coach left / article right) for the given source, replacing the studio
+  // shell entirely — mirrors the directory→studio swap, just one level in.
+  // Optional for the same reason as the rest of this group.
+  onOpenReading?: (materialId: string) => void;
   // Slice 8 Task 9: the 写作 view's silent buffer autosave + snapshot commit.
   // Optional for the same reason as the pair above — standalone/story usages
   // of StudioShell never need them.

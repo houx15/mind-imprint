@@ -4,6 +4,7 @@ import { api as defaultApi, ApiError } from "../api";
 import type { ProjectListItem } from "../api/projects";
 import { StudioShell } from "./StudioShell";
 import { Directory } from "./Directory";
+import { ReadingRoom } from "./reading/ReadingRoom";
 import { createStudioConversation, activeCardToState } from "./conversation";
 import type { StationCode, StudioState, StudioCallbacks, SpotCheckContractId } from "./state";
 import type { LocatedSpan } from "./StudioAnnotateCard";
@@ -100,6 +101,12 @@ export function StudioContainer({
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Task 8 (read-together redesign): the source currently open in the
+  // focused ReadingRoom surface — set by a source-list row click
+  // (SourceDossier's `onOpenReading`, threaded via StudioCallbacks), null
+  // means the ordinary studio shell renders. Mirrors `openId`'s own
+  // directory↔studio swap, just one level in (studio↔reading).
+  const [readingMaterialId, setReadingMaterialId] = useState<string | null>(null);
   // Slice 6b Task 9: the server's own honest Chinese message from the last
   // failed 添加信源 attempt — cleared on the next successful add.
   const [addSourceError, setAddSourceError] = useState<string | undefined>(undefined);
@@ -493,6 +500,19 @@ export function StudioContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCardInstanceId]);
 
+  // Task 8 (read-together redesign): if the ReadingRoom's target material
+  // ever vanishes from the loaded projection (e.g. a refetch lands without
+  // it), fall back to the studio shell rather than rendering ReadingRoom
+  // against nothing — a stale id must not wedge the student on a blank
+  // screen. The render below already falls through to the shell whenever the
+  // lookup misses; this just clears the stale id so that fallback becomes
+  // permanent instead of being re-attempted (harmlessly) on every render.
+  useEffect(() => {
+    if (readingMaterialId == null || !state) return;
+    const stillExists = state.views.material.some((m) => m.id === readingMaterialId);
+    if (!stillExists) setReadingMaterialId(null);
+  }, [readingMaterialId, state]);
+
   // N1 Task 7: directory-first. A load error (listProjects, or a failed
   // open) is surfaced first; otherwise, nothing open ⇒ the <Directory>
   // (its own create form carries the honest empty affordance, replacing the
@@ -503,6 +523,27 @@ export function StudioContainer({
     return <Directory projects={projects} onOpen={setOpenId} onCreate={handleCreate} creating={creating} />;
   }
   if (!state || !activeStation) return <div className="mk-studio-loading">正在加载工作室…</div>;
+
+  // Task 8 (read-together redesign): a source open for reading replaces the
+  // studio shell entirely with the focused ReadingRoom surface — mirrors the
+  // `openId == null` directory↔studio swap above, one level in. The lookup
+  // can miss (a stale id the effect above hasn't cleared yet, e.g. the very
+  // render right after a refetch drops the material) — falling through to
+  // the ordinary shell render below rather than crashing.
+  if (readingMaterialId != null) {
+    const readingSource = state.views.material.find((m) => m.id === readingMaterialId) ?? null;
+    if (readingSource) {
+      return (
+        <ReadingRoom
+          source={readingSource}
+          onBack={() => {
+            setReadingMaterialId(null);
+            void refetchProject();
+          }}
+        />
+      );
+    }
+  }
 
   // Shared by `onRequestLocate` and `onRelocate` below (whole-branch review
   // IMPORTANT 1 fix) so the material_id lookup / dead-control no-op / token
@@ -689,6 +730,10 @@ export function StudioContainer({
           /* best-effort: reading still works with no highlights */
         });
     },
+    // Task 8 (read-together redesign): a source-list row click opens the
+    // focused ReadingRoom surface instead of the in-place article view — see
+    // the `readingMaterialId` render swap above.
+    onOpenReading: (materialId) => setReadingMaterialId(materialId),
     onOpenLogged: (materialId, timeSpentS) => {
       if (!projectId) return;
       // I2 fix (whole-branch review): this call now also attests

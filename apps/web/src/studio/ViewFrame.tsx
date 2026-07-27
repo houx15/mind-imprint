@@ -52,6 +52,10 @@ export type ViewFrameProps = {
     onOpenLogged?: (materialId: string, timeSpentS: number) => void;
     onPrepareAnnotation?: (materialId: string) => void;
     addError?: string;
+    // Task 8 (read-together redesign): threaded straight through to both
+    // SourceDossier mount sites below — see SourceDossierProps' own doc
+    // comment for the swap it triggers.
+    onOpenReading?: (materialId: string) => void;
   };
   // Card lock/skip for the center-pane interactive card (the S4 Toulmin
   // builder) — the SAME handlers the coach rail uses, threaded here so the
@@ -311,6 +315,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
                 addSourceError={material?.addError}
                 onOpenLogged={material?.onOpenLogged}
                 onPrepareAnnotation={material?.onPrepareAnnotation}
+                onOpenReading={material?.onOpenReading}
               />
               {/* N3f Task 7: a student in cross-check mode has not left S3 —
                   信源体检 must render here too, not only the non-compare
@@ -367,6 +372,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
               openToken={locating?.token}
               selectMode={locating ? { dimension: locating.dimension, onCancel: onCancelLocate ?? (() => {}) } : null}
               onCreateSpan={onCreateSpan}
+              onOpenReading={material?.onOpenReading}
             />
             <SpotCheckPanel
               title="信源体检"
@@ -453,6 +459,7 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
           onAddSource={material?.onAdd}
           addSourceError={material?.addError}
           onOpenLogged={material?.onOpenLogged}
+          onOpenReading={material?.onOpenReading}
           onAttestSourcesPerPerspective={onAttestSourcesPerPerspective}
         />
       )}
