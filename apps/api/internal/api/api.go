@@ -6,6 +6,7 @@ import (
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/oss"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -30,6 +31,8 @@ type Deps struct {
 	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
 	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
 	Fetcher      Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
+	OSS          *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
+	OSSAdminKey  string       // static bearer secret authorizing the admin upload routes
 }
 
 // API holds the handler dependencies.
@@ -97,6 +100,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/courses/{id}/session/assessment", protected(a.generateCourseAssessment))
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
+	// OSS storage. Admin upload + resolve are gated by the OSS_ADMIN_KEY bearer
+	// (scripts, no session); the user upload is session-gated. SessionAuth has
+	// already run for all of them, so resolve can accept a session too.
+	mux.Handle("POST /api/v1/oss/admin/upload-url", http.HandlerFunc(a.ossAdminUploadURL))
+	mux.Handle("POST /api/v1/oss/upload-url", protected(a.ossUserUploadURL))
+	mux.Handle("POST /api/v1/oss/resolve-url", http.HandlerFunc(a.ossResolveURL))
 	mux.Handle("GET /api/v1/chat/threads", protected(a.getChatThreads))
 	mux.Handle("POST /api/v1/chat/threads", protected(a.createChatThread))
 	mux.Handle("GET /api/v1/chat/threads/{id}/messages", protected(a.getChatMessages))

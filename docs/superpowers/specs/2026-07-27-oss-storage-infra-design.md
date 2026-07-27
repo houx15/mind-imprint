@@ -79,56 +79,80 @@ category later means adding one entry, not a new endpoint or handler (mirrors
 
 | scope | key prefix | write gate | content-type allowlist | max size |
 |---|---|---|---|---|
-| `web_resource` | `web/` | admin | `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` | 10 MB |
-| `course_material` | `courses/` | admin | `image/png`, `image/jpeg`, `image/webp`, `application/pdf` | 50 MB |
-| `user_image` | `users/{uid}/images/` | any logged-in user (own uid only) | `image/png`, `image/jpeg`, `image/webp` | 10 MB |
+| `web_resource` | `web/` | admin key | `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` | 10 MB |
+| `course_material` | `courses/` | admin key | `image/png`, `image/jpeg`, `image/webp`, `application/pdf` | 50 MB |
+| `user_image` | `users/{uid}/images/` | logged-in session (own uid only) | `image/png`, `image/jpeg`, `image/webp` | 10 MB |
 
-**Read access is uniform:** all three are login-gated — any authenticated user
-can `resolve-url` any object key. (Per the approved decision, web resources are
-*not* public; the marketing site would need auth to display them, which is
-acceptable for now.)
+**Write gates are two distinct mechanisms:**
+- **admin key** — a static bearer secret (`OSS_ADMIN_KEY`) sent as
+  `Authorization: Bearer <key>`. Used by **backend scripts** (course/asset
+  management) — no user session required. This is why admin uploads are *not*
+  gated by user role.
+- **logged-in session** — the existing cookie session; `user_image` keys are
+  scoped to the caller's uid so a user can never write under another user's
+  prefix.
+
+**Read access is uniform:** all reads are gated — a valid **session or the admin
+key** can `resolve-url` any object key. (Per the approved decision, web
+resources are *not* public; the marketing site would need auth to display them,
+which is acceptable for now.)
 
 The registry is a Go map keyed by scope string. Each entry:
 
 ```go
 type Scope struct {
     Prefix       string          // "courses/" or "users/" (user_image expands with uid)
-    WriteGate    WriteGate       // GateAdmin | GateSelf
+    WriteGate    WriteGate       // GateAdminKey | GateSelf
     AllowedTypes map[string]bool // content-type allowlist
     MaxBytes     int64
 }
 ```
 
 `GateSelf` scopes interpolate the caller's uid into the prefix
-(`users/{uid}/images/`). `GateAdmin` scopes require the caller's role to be
-`admin` — the same predicate behind the existing `RequireRole("admin")`
-middleware, checked inline (`u.Role == "admin"` via `UserFromContext`) because
-the gate is conditional on scope within a single endpoint.
+(`users/{uid}/images/`) and require a valid session. `GateAdminKey` scopes
+require a valid `OSS_ADMIN_KEY` bearer token and are meant for scripts.
 
 ---
 
 ## 2. API surface
 
-Both routes are registered under `protected` (require a valid session).
+Three routes. The two admin routes are gated by the admin-key seam; the user and
+resolve routes accept a session (resolve also accepts the admin key).
 
-### `POST /api/v1/oss/upload-url`
+### `POST /api/v1/oss/admin/upload-url` (admin key)
+
+For backend scripts. Requires `Authorization: Bearer <OSS_ADMIN_KEY>`; no session.
 
 Request:
 
 ```json
-{ "scope": "user_image", "contentType": "image/png", "size": 34567, "filename": "cat.png" }
+{ "scope": "course_material", "contentType": "application/pdf", "size": 240311, "filename": "unit3.pdf" }
 ```
 
-- `scope` — must be a known scope; else `400 unknown_scope`.
+- `scope` — must be an **admin-key scope** (`web_resource` or `course_material`);
+  a `user_image` scope here → `400 unknown_scope`.
+- validation of `contentType` / `size` / `filename` as below.
+- Missing/invalid bearer key → `401 unauthorized`.
+
+### `POST /api/v1/oss/upload-url` (session)
+
+For logged-in users uploading their own images. Registered under `protected`.
+
+Request:
+
+```json
+{ "contentType": "image/png", "size": 34567, "filename": "cat.png" }
+```
+
+- Scope is implicitly `user_image`; the key is scoped to the caller's uid.
+- validation of `contentType` / `size` / `filename` as below.
+
+### Common upload validation & response
+
 - `contentType` — must be in the scope's allowlist; else `400 unsupported_type`.
 - `size` — must be `> 0` and `<= scope.MaxBytes`; else `400 file_too_large`.
 - `filename` — optional; only its extension is used (sanitized) to build the key.
   The filename itself never appears in the object key.
-
-Authorization:
-- `web_resource` / `course_material` → caller's role must be `admin`
-  (inline `u.Role == "admin"`); else `403` (`httpx.ErrForbidden("权限不足")`).
-- `user_image` → any logged-in user; key is scoped to the caller's uid.
 
 Response `200`:
 
@@ -154,9 +178,12 @@ Request:
 { "objectKey": "courses/<uuid>.pdf" }
 ```
 
+Authorized by a valid **session or** `Authorization: Bearer <OSS_ADMIN_KEY>`;
+neither → `401 unauthorized`.
+
 - `objectKey` — must be non-empty, contain no `..` path traversal, and start
   with one of the known scope prefixes (`web/`, `courses/`, `users/`); else
-  `400 invalid_key`. No per-object ownership check (uniform login-gated read).
+  `400 invalid_key`. No per-object ownership check (uniform gated read).
 
 Response `200`:
 
@@ -239,9 +266,12 @@ OSSBucket       string `env:"OSS_BUCKET"`        // mind-imprint
 OSSCDNDomain    string `env:"OSS_CDN_DOMAIN"`    // mind-oss.uni-robot.cn
 OSSAccessKeyID  string `env:"OSS_ACCESS_KEY_ID"`
 OSSAccessSecret string `env:"OSS_ACCESS_KEY_SECRET"`
+OSSAdminKey     string `env:"OSS_ADMIN_KEY"`     // static bearer secret for scripts
 ```
 
-`oss.New` treats an empty `OSSAccessKeyID` as "disabled" and returns nil.
+`oss.New` treats an empty `OSSAccessKeyID` as "disabled" and returns nil. An
+empty `OSSAdminKey` disables the admin routes (they return `503 oss_disabled`),
+so no request can ever authenticate against a blank admin key.
 
 Placeholders (names only, no values) added to:
 - `apps/api/.env.example`
@@ -292,16 +322,19 @@ curl -sI "https://mind-oss.uni-robot.cn/courses/<known>.pdf?Signature=bogus" | h
 `apps/web/src/api/oss.ts`:
 
 ```ts
-// Uploads a File and returns its object key (to store wherever it's used).
-export async function uploadFile(scope: OssScope, file: File): Promise<string>;
+// Uploads a user image and returns its object key (to store wherever it's used).
+export async function uploadUserImage(file: File): Promise<string>;
 
 // Resolves an object key to a short-lived signed GET URL for display/download.
 export async function resolveUrl(objectKey: string): Promise<string>;
 ```
 
-`uploadFile` calls `POST /oss/upload-url`, then `PUT`s the bytes to `putUrl` with
-the required `Content-Type` header, and returns `objectKey`. Exported from
-`apps/web/src/api/index.ts`. **No course-upload or profile-image UI** — those
+`uploadUserImage` calls `POST /oss/upload-url` (session), then `PUT`s the bytes
+to `putUrl` with the required `Content-Type` header, and returns `objectKey`.
+Both are added to the `ApiClient` interface + `api` object in
+`apps/web/src/api/index.ts`. There is deliberately **no browser client for the
+admin upload route** — that route is driven by backend scripts holding the
+`OSS_ADMIN_KEY`, not the app. **No course-upload or profile-image UI** — those
 are separate future features; this ships the consumable API only.
 
 ---
@@ -316,13 +349,15 @@ AccessKey and assert on `SignUpload` / `SignDownload` output:
 - `nil` service returned when AccessKey empty.
 
 **Go handler tests (`api` package, testcontainers)**:
-- `course_material` / `web_resource` upload → `403` for a non-admin session,
-  `200` for an admin;
-- `user_image` upload → key is under `users/{callerUid}/images/`;
+- admin upload → `401` with no/wrong bearer key, `200` with the correct key;
+- admin upload with `scope:"user_image"` → `400 unknown_scope`;
+- user upload (session) → key is under `users/{callerUid}/images/`;
 - content-type outside the allowlist → `400 unsupported_type`;
 - `size > MaxBytes` → `400 file_too_large`;
-- `resolve-url` with a traversal key (`../`) → `400 invalid_key`;
-- both routes → `503 oss_disabled` when `Deps.OSS` is nil.
+- `resolve-url` → `200` with a session, `200` with the admin key, `401` with
+  neither; traversal key (`../`) → `400 invalid_key`;
+- all routes → `503 oss_disabled` when `Deps.OSS` is nil (and admin routes also
+  `503` when `OSS_ADMIN_KEY` is empty).
 
 Run the full `internal/oss` and `internal/api` packages (not `-run` subsets).
 
