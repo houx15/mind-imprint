@@ -55,9 +55,11 @@ The fix is structural: **one focused reading surface where everything happens in
 
 ## 7. The page & navigation
 
-- **Route:** `/studio/:projectId/read/:materialId` (new). A persistent `← 返回工作区` control returns to the exact prior studio state.
-- **Entry:** clicking a source row in the studio source list **navigates** to this route (replacing the old in-place `activateSource` → center-pane article flow).
-- **Exit:** back control → studio, source list reflects any new locked/评估 state.
+> **Reality correction (2026-07-27):** the web app has **no router** — `apps/web` routes entirely via `useState`-driven surface swaps (e.g. `StudioContainer` swaps `<Directory>` ↔ studio on an `openId` state, `Root` branches on `?demo`). So "page" here means a **focused full-surface view-swap**, not a URL route. Introducing `react-router` is **out of scope** for this spec.
+
+- **Surface:** a new top-level `ReadingRoom` surface, rendered by `StudioContainer` when a `readingMaterialId` state is set — mirroring the existing `openId` Directory↔studio swap. It replaces the whole studio shell while reading (no station rail, no `ViewFrame` tabs, no full `CoachRail`). A persistent `← 返回工作区` control clears `readingMaterialId` and returns to the exact prior studio state.
+- **Entry:** clicking a source row in the studio source list sets `readingMaterialId` (replacing the old in-place `activateSource` → center-pane article flow inside `ViewFrame`).
+- **Exit:** back control → studio; the source list reflects any new locked/评估 state (refetch on exit).
 - **What comes along:** nothing but the reading room. No `StationRail`, no full `CoachRail`, no `ViewFrame` tabs.
 - **Resumability:** if a `card_instance` for this material is open (`proposed`/`active`/`evaluating`/`feedback`) it is **restored** on entry; completed reading outcomes for the material are always shown. (We already persist card instances; this is a modest gain over today's "restart".) In-flight, pre-submit selection is client-held.
 
@@ -221,7 +223,7 @@ Each closed lens saves **one merged outcome** anchored to the student's span:
 ## 16. Seams (natural cut points for the plan)
 
 - **Backend:** `prepareSourceAnnotation` (`materials.go:276-345`) — replaced by the reading-page summon; `surfaceAnchors` (`studioturn.go:289-385`) — anchor scope/level policy; `streamAction` (`studioturn.go:243-287`) — summon/intervention frames; `classifier.SurfaceCardCandidates` (`classifier.go:115-184`) — kept as ordering guard; `anchors.go` — guidance levels + strict validation.
-- **Frontend:** new `/read` route + page; `Annotate.tsx` (reuse, add inline hanging-card slot + connector); the `CoachRail` card-mount switch (`398-456`) retired on the reading path; `anchorToSpan` merge (`SourceDossier.tsx:52-174`) migrates to the reading page; `StudioContainer` wiring (`620-709`) — navigation replaces `onPrepareAnnotation` refetch.
+- **Frontend:** new `ReadingRoom` surface (view-swap, no router); `Annotate.tsx` (reuse, add inline hanging-card slot + connector); the `CoachRail` card-mount switch (`398-466`) retired on the reading path; `anchorToSpan` merge + `SourceDossier` article-mode (`SourceDossier.tsx:52-174,316-424`) migrate to the reading room; `StudioContainer` wiring (`620-709`) — the `readingMaterialId` view-swap replaces the `onPrepareAnnotation` refetch.
 
 ## 17. Out of scope (explicit)
 
