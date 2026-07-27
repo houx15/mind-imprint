@@ -21,3 +21,4 @@ export * from "./growthHistory";
 export * from "./ability";
 export * from "./collectedCards";
 export * from "./parentReport";
+export * from "./reading";
