@@ -3,6 +3,7 @@ import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
+import { ReadingOutcomes } from "./ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
 import "./ReadingRoom.css";
 
@@ -39,31 +40,40 @@ export type ReadingRoomProps = {
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
 };
 
+// Starter prompts adapted to OUR reading deck (source-checking + deep
+// reading) — the demo's `.starter-row`, one tap fills + sends.
+const STARTERS = ["这条来源可信吗？", "帮我看看这段的论证", "这句是事实还是观点？"];
+
 function BackIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 18l-6-6 6-6" stroke="#5C4A8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-// The focused reading surface (spec: "read together"): coach column on the
-// left, article on the right. Task 10 wires the full loop in: the coach
-// composer drives `sendTurn`, the article enters select-mode once a card is
-// `active`, and the hanging card renders from the loop's live status/eval.
+// The focused reading surface (spec: "read together"), rebuilt to the
+// reference demo's shape: a warm coach column (heading → dialogue log →
+// composer pinned at the bottom → starter row) on the left, and a reading
+// pane on the right with 文章 | 阅读成果 view-tabs. The article enters
+// select-mode once a card is `active`; the hanging card renders from the
+// loop's live status/eval; every confirmed finding accumulates in 阅读成果.
 export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: ReadingRoomProps) {
   const loop = useReadingLoop(projectId, source, api);
   const [draft, setDraft] = useState("");
+  const [rightView, setRightView] = useState<"article" | "trace">("article");
+
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
+  const articleRef = useRef<HTMLDivElement | null>(null);
+
+  const busyOrCarded = loop.busy || loop.status !== "idle";
 
   // Reinstates the reading-time logging that used to fire from
-  // SourceDossier's open/close lifecycle (a Task 8 binding — the move to
-  // this focused surface left it with no reachable trigger). ReadingRoom is
+  // SourceDossier's open/close lifecycle (a Task 8 binding). ReadingRoom is
   // only ever mounted for exactly one source at a time (the container fully
   // swaps it out on 返回工作区/close), so a single mount-timestamp + unmount
-  // report — no dependency on source.id changing mid-mount — is sufficient,
-  // and the null-out guard keeps this idempotent even if the cleanup effect
-  // were ever invoked more than once (React StrictMode double-invokes
-  // effects in dev).
+  // report is sufficient; the null-out guard keeps it idempotent under
+  // StrictMode's double-invoke.
   const openedAtRef = useRef<number | null>(null);
   useEffect(() => {
     openedAtRef.current = Date.now();
@@ -76,6 +86,18 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the dialogue log pinned to the newest turn (chat affordance).
+  useEffect(() => {
+    const el = chatLogRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [loop.messages, loop.busy]);
+
+  // Whenever a card is proposed, bring the article view forward so the newly
+  // drawn example is visible — the coach "去文章看示范" also lands here.
+  useEffect(() => {
+    if (loop.status !== "idle") setRightView("article");
+  }, [loop.status]);
 
   const card: ReadingRoomCard | null =
     loop.status === "idle"
@@ -92,88 +114,221 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
           onRepick: loop.repick,
         };
 
-  // The article's own spans = the source's persisted anchors, plus (once the
-  // loop has them) the AI's live example anchor and the student's own live
-  // pick — both need to render highlighted even though neither is persisted
-  // yet (the example never is; the student's pick only becomes one on
-  // confirm()).
+  const cardBlockId = card ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) : null;
+
+  function locateBlock(blockId: string) {
+    setRightView("article");
+    requestAnimationFrame(() => {
+      articleRef.current?.querySelector(`[data-block-id="${blockId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  // The article's own spans = the source's persisted anchors, the confirmed
+  // outcomes' spans (so findings stay highlighted after the card retires —
+  // the process tree "grows"), plus (once the loop has them) the AI's live
+  // example anchor and the student's own live pick.
   const spans = useMemo(() => {
     const extra: Anchor[] = [];
+    for (const o of loop.outcomes) {
+      extra.push({
+        id: o.id, material_id: source.id, block_id: o.blockId, start: o.start, end: o.end,
+        quote: o.quote, dimension: o.cardId, author: "student", question: "", answer: o.finding,
+      });
+    }
     if (loop.exampleAnchor) extra.push(loop.exampleAnchor);
     if (loop.studentAnchor) extra.push(loop.studentAnchor);
     return [...source.anchors, ...extra].map(anchorToSpan).filter((s): s is AnnotateSpan => s !== null);
-  }, [source.anchors, loop.exampleAnchor, loop.studentAnchor]);
+  }, [source.anchors, source.id, loop.outcomes, loop.exampleAnchor, loop.studentAnchor]);
+
+  function send(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    setDraft("");
+    void loop.sendTurn(t);
+  }
 
   return (
     <div className="mk-reading-room">
-      <div className="mk-reading-room__coach">
+      <header className="mk-reading-room__topbar">
         <button type="button" className="mk-reading-room__back" onClick={onBack}>
           <BackIcon />
           返回工作区
         </button>
-        <div className="mk-reading-room__coach-lines">
-          {loop.coachLines.map((line, i) => (
-            <div key={i} className="mk-reading-room__coach-line">
-              {line}
+        <div className="mk-reading-room__brand">
+          <span className="mk-reading-room__brand-name">思维印记 · 阅读工作台</span>
+          <span className="mk-reading-room__brand-title">{source.title}</span>
+        </div>
+      </header>
+
+      <main className="mk-reading-room__workspace">
+        <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          <div className="mk-reading-room__pane-heading">
+            <span className="mk-reading-room__kicker">AI 思维陪练</span>
+            <h1>换一个视角，再读一遍</h1>
+            <p>围绕原文对话；需要时，我会把一副短时透镜放进文章。</p>
+          </div>
+
+          <div className="mk-reading-room__chat-log" ref={chatLogRef} aria-live="polite">
+            {loop.messages.map((m) =>
+              m.role === "student" ? (
+                <div key={m.id} className="mk-msg mk-msg--student">
+                  <div className="mk-msg__content">
+                    <div className="mk-msg__label">你</div>
+                    <div className="mk-msg__bubble">{m.body}</div>
+                  </div>
+                </div>
+              ) : (
+                <div key={m.id} className="mk-msg mk-msg--assistant">
+                  <div className="mk-msg__avatar">印</div>
+                  <div className="mk-msg__content">
+                    <div className="mk-msg__label">思维陪练</div>
+                    {m.kind === "lens" ? (
+                      <div className="mk-msg__lens">
+                        <div>
+                          <strong>{m.cardName} 已就绪</strong>
+                          <p>{m.body}</p>
+                        </div>
+                        <button type="button" onClick={() => cardBlockId && locateBlock(cardBlockId)}>
+                          去文章看示范
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mk-msg__bubble">{m.body}</div>
+                    )}
+                  </div>
+                </div>
+              ),
+            )}
+            {loop.busy && (
+              <div className="mk-msg mk-msg--assistant">
+                <div className="mk-msg__avatar">印</div>
+                <div className="mk-msg__content">
+                  <div className="mk-msg__label">正在阅读与判断</div>
+                  <div className="mk-msg__bubble mk-msg__thinking">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mk-reading-room__composer-wrap">
+            <form
+              className="mk-reading-room__composer"
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(draft);
+              }}
+            >
+              <textarea
+                className="mk-reading-room__composer-input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    send(draft);
+                  }
+                }}
+                placeholder={busyOrCarded ? "先完成文章里的这副透镜…" : "说说你对哪一句有疑问…"}
+                aria-label="输入你的问题"
+                disabled={busyOrCarded}
+              />
+              <button
+                type="submit"
+                className="mk-reading-room__composer-send"
+                aria-label="发送"
+                disabled={busyOrCarded || !draft.trim()}
+              >
+                ↑
+              </button>
+            </form>
+            <div className="mk-reading-room__starter-row">
+              {STARTERS.map((prompt) => (
+                <button key={prompt} type="button" onClick={() => send(prompt)} disabled={busyOrCarded}>
+                  {prompt}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
-        <form
-          className="mk-reading-room__composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const text = draft.trim();
-            if (!text) return;
-            setDraft("");
-            void loop.sendTurn(text);
-          }}
-        >
-          <textarea
-            className="mk-reading-room__composer-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="说说你读到这里的想法…"
-            disabled={loop.status !== "idle"}
-          />
-          <button type="submit" className="mk-reading-room__composer-send" disabled={loop.status !== "idle"}>
-            发送
-          </button>
-        </form>
-      </div>
-      <div className="mk-reading-room__article">
-        <div className="mk-reading-room__article-inner">
-          <div className="mk-reading-room__title">{source.title}</div>
-          <Annotate
-            blocks={source.blocks}
-            state={{
-              material_id: source.id,
-              spans,
-            }}
-            activeSpanId={null}
-            onSelectSpan={() => {}}
-            selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
-            onCreateSpan={loop.pickSentence}
-            renderAfterBlock={(blockId) => {
-              if (!card) return null;
-              // Only ever render ONE card (focus mandate) — this equality
-              // guard is what guarantees that: anchorBlockId resolves to
-              // exactly one block id, so only that block's slot renders it.
-              if (anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) !== blockId) return null;
-              return (
-                <HangingCard
-                  cardName={card.cardName}
-                  status={card.status}
-                  exampleWhy={card.exampleWhy}
-                  eval={card.eval}
-                  onStartPick={card.onStartPick}
-                  onConfirm={card.onConfirm}
-                  onRepick={card.onRepick}
+          </div>
+        </section>
+
+        <section className="mk-reading-room__reading" aria-label="阅读材料区">
+          <div className="mk-reading-room__toolbar">
+            <div className="mk-reading-room__view-tabs" role="tablist" aria-label="右侧视图">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightView === "article"}
+                className={rightView === "article" ? "is-active" : ""}
+                onClick={() => setRightView("article")}
+              >
+                文章
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={rightView === "trace"}
+                className={rightView === "trace" ? "is-active" : ""}
+                onClick={() => setRightView("trace")}
+              >
+                阅读成果 <span className="mk-reading-room__count">{loop.outcomes.length}</span>
+              </button>
+            </div>
+            <span className="mk-reading-room__hint">
+              <i />
+              {loop.status === "active"
+                ? "点击 1 句话作答"
+                : loop.status === "proposed"
+                  ? "先看示范，再开始选句"
+                  : "点击句子可引用原文"}
+            </span>
+          </div>
+
+          {rightView === "article" ? (
+            <article className="mk-reading-room__article" ref={articleRef}>
+              <div className="mk-reading-room__article-inner">
+                <header className="mk-reading-room__article-header">
+                  <div className="mk-reading-room__article-type">课堂阅读材料</div>
+                  <h2>{source.title}</h2>
+                  <div className="mk-reading-room__article-meta">
+                    {source.origin && <span>来源 · {source.origin}</span>}
+                    <span>{source.blocks.length} 段 · 课堂讨论材料</span>
+                  </div>
+                </header>
+                <Annotate
+                  blocks={source.blocks}
+                  state={{ material_id: source.id, spans }}
+                  activeSpanId={null}
+                  onSelectSpan={() => {}}
+                  selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
+                  onCreateSpan={loop.pickSentence}
+                  renderAfterBlock={(blockId) => {
+                    if (!card || cardBlockId !== blockId) return null;
+                    return (
+                      <HangingCard
+                        cardName={card.cardName}
+                        status={card.status}
+                        exampleWhy={card.exampleWhy}
+                        eval={card.eval}
+                        onStartPick={card.onStartPick}
+                        onConfirm={card.onConfirm}
+                        onRepick={card.onRepick}
+                      />
+                    );
+                  }}
                 />
-              );
-            }}
-          />
-        </div>
-      </div>
+              </div>
+            </article>
+          ) : (
+            <div className="mk-reading-room__article">
+              <ReadingOutcomes outcomes={loop.outcomes} onLocate={locateBlock} />
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

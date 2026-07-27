@@ -29,8 +29,11 @@ describe("ReadingRoom", () => {
   it("renders the article and returns via back", () => {
     const onBack = vi.fn();
     render(<ReadingRoom projectId="p1" source={SOURCE} onBack={onBack} api={NOOP_API} />);
-    expect(screen.getByText("NASA 气候报告")).toBeInTheDocument();
+    // The title shows in both the topbar brand and the article header.
+    expect(screen.getAllByText("NASA 气候报告").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/全球平均气温持续上升/)).toBeInTheDocument();
+    // The chat starts with the coach greeting and the reading-deck starters.
+    expect(screen.getByText(/这条来源可信吗/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/返回工作区/));
     expect(onBack).toHaveBeenCalled();
   });

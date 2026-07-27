@@ -257,7 +257,8 @@ describe("StudioContainer", () => {
     // article's title/body are on screen; the studio shell (station rail,
     // dossier list) is gone.
     expect(screen.getByText(/返回工作区/)).toBeInTheDocument();
-    expect(screen.getByText(material.title)).toBeInTheDocument();
+    // The title appears in both the topbar brand and the article header.
+    expect(screen.getAllByText(material.title).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/过去二十年/)).toBeInTheDocument();
     expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
 

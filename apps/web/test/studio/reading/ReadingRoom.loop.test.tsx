@@ -76,28 +76,30 @@ function selectTextInBlock(container: HTMLElement, blockId: string, start: numbe
 }
 
 describe("ReadingRoom — read-together loop", () => {
-  it("walks proposed → active → evaluating → feedback → idle end-to-end", async () => {
+  it("send → example → pick → feedback → confirm → outcome lands in 阅读成果", async () => {
     const fakeApi = makeFakeApi();
     const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
-    // Send a coach turn — the fake readTurn yields a "card" event.
-    fireEvent.change(screen.getByPlaceholderText(/说说你读到这里的想法/), { target: { value: "这段怪怪的" } });
-    fireEvent.click(screen.getByText("发送"));
+    // The 阅读成果 tab starts at 0.
+    expect(screen.getByRole("tab", { name: /阅读成果/ })).toHaveTextContent("0");
 
-    // The example appears (proposed): the hanging card's own copy.
+    // Send a coach turn — the fake readTurn yields a "card" event.
+    fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+
+    // The example appears (proposed): the hanging card's own copy, plus the
+    // student's own turn is now in the dialogue log.
     await screen.findByText("看懂示范，开始选句");
+    expect(screen.getByText("这段怪怪的")).toBeInTheDocument();
     expect(fakeApi.readTurn).toHaveBeenCalledWith("p1", "m1", { student_text: "这段怪怪的", focused_spans: [] });
 
     // Start pick → active: the article enters select-mode.
     fireEvent.click(screen.getByText("看懂示范，开始选句"));
-    // Assert the banner shows the RESOLVED card name (the Chinese label from
-    // CARD_REGISTRY for "argument-map"), not the raw slug.
     await screen.findByText(/在文章里选出你要用来回答「论证地图卡/);
     expect(screen.queryByText(/argument-map/)).not.toBeInTheDocument();
     expect(fakeApi.activateProjectCard).toHaveBeenCalledWith("p1", "ci1");
 
-    // Select a DIFFERENT sentence than the example (block b0, not b1) —
-    // triggers pickSentence → evaluating → feedback.
+    // Select a DIFFERENT sentence than the example (block b0, not b1).
     await act(async () => {
       selectTextInBlock(container, "b0", 0, 5); // "过去二十年"
     });
@@ -110,7 +112,6 @@ describe("ReadingRoom — read-together loop", () => {
 
     // Confirm — submits the student's anchor and retires the card.
     fireEvent.click(screen.getByText("记下这条发现"));
-
     await act(async () => {
       await Promise.resolve();
     });
@@ -125,16 +126,25 @@ describe("ReadingRoom — read-together loop", () => {
         },
       ],
     });
-    expect(screen.queryByText("暂不匹配")).not.toBeInTheDocument();
+    // The card is gone from the article…
     expect(screen.queryByText("记下这条发现")).not.toBeInTheDocument();
+    // …and the 阅读成果 tab count incremented to 1.
+    expect(screen.getByRole("tab", { name: /阅读成果/ })).toHaveTextContent("1");
+
+    // Switching to the 阅读成果 view shows the saved finding + selected quote.
+    fireEvent.click(screen.getByRole("tab", { name: /阅读成果/ }));
+    expect(screen.getByText("我的阅读成果")).toBeInTheDocument();
+    expect(screen.getByText("f")).toBeInTheDocument(); // outcome.finding
+    expect(screen.getByText("过去二十年")).toBeInTheDocument(); // the selected quote
+    expect(screen.getByText("回到原文继续思考")).toBeInTheDocument();
   });
 
   it("ignores a pick that exactly matches the example sentence", async () => {
     const fakeApi = makeFakeApi();
     const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/说说你读到这里的想法/), { target: { value: "这段怪怪的" } });
-    fireEvent.click(screen.getByText("发送"));
+    fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
+    fireEvent.click(screen.getByLabelText("发送"));
     await screen.findByText("看懂示范，开始选句");
     fireEvent.click(screen.getByText("看懂示范，开始选句"));
     await screen.findByText(/在文章里选出你要用来回答「论证地图卡/);

@@ -11,6 +11,34 @@ import type { StudioTurnEvent } from "../../api/studioTurn";
 // ever renders when there IS a card, i.e. status !== "idle").
 export type ReadingLoopStatus = "idle" | "proposed" | "active" | "evaluating" | "feedback";
 
+// One turn in the coach dialogue log (the demo's `.chat-log`). A student
+// message is her own words; an assistant message is either a coach hint
+// (kind "text") or the notice that a lens was drawn into the article (kind
+// "lens", carrying the card name so the bubble can render "去文章看示范").
+export type ChatMessage =
+  | { id: string; role: "student"; kind: "text"; body: string }
+  | { id: string; role: "assistant"; kind: "text"; body: string }
+  | { id: string; role: "assistant"; kind: "lens"; body: string; cardName: string };
+
+// A confirmed reading outcome — the note card that accumulates in the
+// 阅读成果 view. It integrates the student's own selected sentence, the
+// finding/judgment she reached, and the full AI review (verdict + checks +
+// nextStep), plus the span coordinates so 回到原文 can re-focus the source.
+export type ReadingOutcome = {
+  id: string;
+  cardId: string;
+  cardName: string;
+  blockId: string;
+  start: number;
+  end: number;
+  quote: string;
+  finding: string;
+  judgment: string;
+  support: string;
+  caveat: string;
+  eval: SelectionEval;
+};
+
 // The minimal structural slice of the real ApiClient the loop needs — a Pick
 // so tests can inject a plain object literal (`as any`) exercising only
 // these five calls, mirroring StudioContainer's own StudioApi pattern.
@@ -47,13 +75,30 @@ export type UseReadingLoop = {
   studentSpan: CreatedSpan | null;
   studentAnchor: Anchor | null;
   eval: SelectionEval | null;
-  coachLines: string[];
+  // The coach dialogue log (student + assistant turns), oldest first.
+  messages: ChatMessage[];
+  // Confirmed reading outcomes, oldest first — the 阅读成果 accumulation.
+  outcomes: ReadingOutcome[];
+  busy: boolean;
   sendTurn: (text: string) => Promise<void>;
   startPick: () => Promise<void>;
   pickSentence: (span: CreatedSpan) => Promise<void>;
   confirm: () => Promise<void>;
   repick: () => void;
   skip: () => Promise<void>;
+};
+
+let msgSeq = 0;
+function msgId() {
+  msgSeq += 1;
+  return `m${msgSeq}`;
+}
+
+const GREETING: ChatMessage = {
+  id: "greeting",
+  role: "assistant",
+  kind: "text",
+  body: "文章已经准备好了。直接说出你的疑问——只有在某个视角确实有帮助时，我才会把一副透镜放进原文。",
 };
 
 function studentSpanToAnchor(source: MaterialSource, span: CreatedSpan, dimension: string): Anchor {
@@ -79,7 +124,9 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   const [exampleWhy, setExampleWhy] = useState("");
   const [studentSpan, setStudentSpan] = useState<CreatedSpan | null>(null);
   const [evalResult, setEvalResult] = useState<SelectionEval | null>(null);
-  const [coachLines, setCoachLines] = useState<string[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const [outcomes, setOutcomes] = useState<ReadingOutcome[]>([]);
+  const [busy, setBusy] = useState(false);
 
   const cardName = cardId ? (CARD_REGISTRY[cardId]?.name ?? cardId) : "";
 
@@ -97,26 +144,37 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
 
   const sendTurn = useCallback(
     async (text: string) => {
-      for await (const ev of api.readTurn(projectId, source.id, { student_text: text, focused_spans: [] })) {
-        if (ev.type === "card") {
-          const anchor = ev.anchors[0] ?? null;
-          setCardInstanceId(ev.cardInstanceId);
-          setCardId(ev.cardId);
-          setExampleAnchor(anchor);
-          setExampleWhy(anchor?.question || ev.nudgeText);
-          setStudentSpan(null);
-          setEvalResult(null);
-          setStatus("proposed");
-        } else if (ev.type === "intervention") {
-          // A coach hint — appended, never replacing the thread; the loop
-          // stays idle (no card offered this turn).
-          setCoachLines((lines) => [...lines, ev.body]);
+      const trimmed = text.trim();
+      if (!trimmed || busy || status !== "idle") return;
+      setMessages((prev) => [...prev, { id: msgId(), role: "student", kind: "text", body: trimmed }]);
+      setBusy(true);
+      try {
+        for await (const ev of api.readTurn(projectId, source.id, { student_text: trimmed, focused_spans: [] })) {
+          if (ev.type === "card") {
+            const anchor = ev.anchors[0] ?? null;
+            setCardInstanceId(ev.cardInstanceId);
+            setCardId(ev.cardId);
+            setExampleAnchor(anchor);
+            setExampleWhy(anchor?.question || ev.nudgeText);
+            setStudentSpan(null);
+            setEvalResult(null);
+            setStatus("proposed");
+            const name = CARD_REGISTRY[ev.cardId]?.name ?? ev.cardId;
+            setMessages((prev) => [
+              ...prev,
+              { id: msgId(), role: "assistant", kind: "lens", body: ev.nudgeText, cardName: name },
+            ]);
+          } else if (ev.type === "intervention") {
+            // A coach hint — appended, never replacing the thread.
+            setMessages((prev) => [...prev, { id: msgId(), role: "assistant", kind: "text", body: ev.body }]);
+          }
+          // "done" / "review" / "gate" / "error" — nothing to render here.
         }
-        // "done" / "respond" / "gate" / "review" / "error" — nothing to do,
-        // stay idle.
+      } finally {
+        setBusy(false);
       }
     },
-    [api, projectId, source.id],
+    [api, projectId, source.id, busy, status],
   );
 
   const startPick = useCallback(async () => {
@@ -158,18 +216,44 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   );
 
   const confirm = useCallback(async () => {
-    if (!cardInstanceId || !cardId || !studentSpan) return;
+    if (!cardInstanceId || !cardId || !studentSpan || !evalResult) return;
     const anchor = studentSpanToAnchor(source, studentSpan, cardId);
+    // Snapshot the outcome up front (the demo's completeLens: the confirmed
+    // finding is SAVED, not discarded) so clearCard's reset can't race it.
+    const outcome: ReadingOutcome = {
+      id: `outcome-${cardInstanceId}`,
+      cardId,
+      cardName,
+      blockId: studentSpan.blockId,
+      start: studentSpan.start,
+      end: studentSpan.end,
+      quote: studentSpan.text,
+      finding: evalResult.finding,
+      judgment: evalResult.judgment,
+      support: evalResult.support,
+      caveat: evalResult.caveat,
+      eval: evalResult,
+    };
     for await (const ev of api.submitProjectCard(projectId, cardInstanceId, {
       field_values: {},
       event_trace: [],
       anchors: [anchor],
     })) {
       if (ev.type === "done" && ev.cardStatus === "completed") {
+        setOutcomes((prev) => [...prev, outcome]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: msgId(),
+            role: "assistant",
+            kind: "text",
+            body: "这条阅读成果已保存到「阅读成果」——你的选句、发现和完整复核都合并在一起了。现在可以回到原问题继续。",
+          },
+        ]);
         clearCard();
       }
     }
-  }, [api, projectId, cardInstanceId, cardId, studentSpan, source, clearCard]);
+  }, [api, projectId, cardInstanceId, cardId, studentSpan, evalResult, cardName, source, clearCard]);
 
   const repick = useCallback(() => {
     setStudentSpan(null);
@@ -198,7 +282,9 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
     studentSpan,
     studentAnchor,
     eval: evalResult,
-    coachLines,
+    messages,
+    outcomes,
+    busy,
     sendTurn,
     startPick,
     pickSentence,

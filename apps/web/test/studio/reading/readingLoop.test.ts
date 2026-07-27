@@ -66,6 +66,9 @@ describe("useReadingLoop", () => {
     expect(result.current.cardName).toBeTruthy();
     expect(result.current.exampleBlockId).toBe("b1");
     expect(result.current.exampleWhy).toBe("先看这处示范");
+    // The dialogue log grew: greeting + the student's turn + the lens notice.
+    expect(result.current.messages.some((m) => m.role === "student" && m.body === "这段怪怪的")).toBe(true);
+    expect(result.current.messages.some((m) => m.role === "assistant" && m.kind === "lens")).toBe(true);
 
     await act(async () => {
       await result.current.startPick();
@@ -99,6 +102,12 @@ describe("useReadingLoop", () => {
     });
     expect(result.current.eval).toBeNull();
     expect(result.current.exampleAnchor).toBeNull();
+    // The confirmed finding is SAVED as an outcome, not discarded.
+    expect(result.current.outcomes).toHaveLength(1);
+    const outcome = result.current.outcomes[0]!;
+    expect(outcome.finding).toBe("f");
+    expect(outcome.quote).toBe("因此这项");
+    expect(outcome.blockId).toBe("b1");
   });
 
   it("rejects a pick that exactly matches the example — no evaluate call, status stays active", async () => {
@@ -177,6 +186,6 @@ describe("useReadingLoop", () => {
     });
 
     expect(result.current.status).toBe("idle");
-    expect(result.current.coachLines).toEqual(["再想想这句的证据在哪"]);
+    expect(result.current.messages.some((m) => m.role === "assistant" && m.kind === "text" && m.body === "再想想这句的证据在哪")).toBe(true);
   });
 });
