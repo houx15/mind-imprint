@@ -52,6 +52,30 @@
   font-family: "Plus Jakarta Sans", "Noto Sans SC", system-ui, sans-serif;
 }
 
+/* The hanging card's connector — a thin line + dot tying it up to the
+   paragraph it hangs under (the anchor-move's visual anchor). Purely
+   decorative; the card's actual anchoring is data-driven (anchorBlockId in
+   HangingCard.tsx), not this line. */
+.lens-connector {
+  position: absolute;
+  top: -14px;
+  left: 22px;
+  width: 2px;
+  height: 14px;
+  background: #d8cdef;
+}
+
+.lens-connector::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #5c4a8a;
+}
+
 @media (max-width: 980px) {
   .mk-reading-room {
     grid-template-columns: 1fr;

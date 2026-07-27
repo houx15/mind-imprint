@@ -1,15 +1,33 @@
-import type { AnnotateState, MaterialSource } from "@mind-imprint/contracts";
+import type { AnnotateState, MaterialSource, SelectionEval } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
+import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
 import "./ReadingRoom.css";
 
 type AnnotateSpan = AnnotateState["spans"][number];
 
+// The read-together loop (Task 10) drives this via live status/eval; this
+// task only wires the shape through so the card renders correctly given
+// props. `exampleBlockId`/`studentBlockId` feed `anchorBlockId` (the
+// signature anchor-move) to decide which paragraph the card hangs under.
+export type ReadingRoomCard = {
+  status: HangingCardStatus;
+  cardName: string;
+  exampleBlockId: string;
+  studentBlockId: string | null;
+  exampleWhy: string;
+  eval?: SelectionEval | null;
+  onStartPick: () => void;
+  onConfirm: () => void;
+  onRepick: () => void;
+};
+
 export type ReadingRoomProps = {
   source: MaterialSource;
   onBack: () => void;
-  // loop props added in Task 10; this task renders article + coach shell +
-  // back only.
+  // Optional — the read-together loop (Task 10) supplies this to drive the
+  // inline hanging card. Absent/null renders exactly as today (no card).
+  card?: ReadingRoomCard | null;
 };
 
 function BackIcon() {
@@ -24,7 +42,7 @@ function BackIcon() {
 // left, article on the right. No reading loop/card yet — that lands in a
 // later task; this task is the shell + article render + back navigation
 // only.
-export function ReadingRoom({ source, onBack }: ReadingRoomProps) {
+export function ReadingRoom({ source, onBack, card }: ReadingRoomProps) {
   return (
     <div className="mk-reading-room">
       <div className="mk-reading-room__coach">
@@ -47,6 +65,24 @@ export function ReadingRoom({ source, onBack }: ReadingRoomProps) {
             }}
             activeSpanId={null}
             onSelectSpan={() => {}}
+            renderAfterBlock={(blockId) => {
+              if (!card) return null;
+              // Only ever render ONE card (focus mandate) — this equality
+              // guard is what guarantees that: anchorBlockId resolves to
+              // exactly one block id, so only that block's slot renders it.
+              if (anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) !== blockId) return null;
+              return (
+                <HangingCard
+                  cardName={card.cardName}
+                  status={card.status}
+                  exampleWhy={card.exampleWhy}
+                  eval={card.eval}
+                  onStartPick={card.onStartPick}
+                  onConfirm={card.onConfirm}
+                  onRepick={card.onRepick}
+                />
+              );
+            }}
           />
         </div>
       </div>

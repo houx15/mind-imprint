@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from "react";
 import type { AnnotateState } from "@mind-imprint/contracts";
 import { segmentBlock } from "./segment";
 import { selectionToSpan, type CreatedSpan } from "./selection";
@@ -17,6 +18,13 @@ export type AnnotateProps = {
   selectMode?: { dimension: string; onCancel: () => void } | null;
   /** Called with the student's selection once she releases the mouse in select-mode. */
   onCreateSpan?: (span: CreatedSpan) => void;
+  /**
+   * Optional inline slot, rendered immediately after each block's `<p>` (the
+   * read-together redesign's hanging card, Task 9). Absent by default —
+   * behavior and output are byte-identical to before this prop existed when
+   * it is not supplied.
+   */
+  renderAfterBlock?: (blockId: string) => ReactNode;
 };
 
 const AUTHOR_MARK_STYLE: Record<"ai" | "student" | "imported", { background: string; border: string }> = {
@@ -25,7 +33,7 @@ const AUTHOR_MARK_STYLE: Record<"ai" | "student" | "imported", { background: str
   imported: { background: "#F3F0E8", border: "#B79A4C" },
 };
 
-export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode, onCreateSpan }: AnnotateProps) {
+export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode, onCreateSpan, renderAfterBlock }: AnnotateProps) {
   const activeSpan = activeSpanId ? state.spans.find((s) => s.id === activeSpanId) ?? null : null;
 
   // Attached only when selectMode is set — with it absent, no handler exists
@@ -76,33 +84,36 @@ export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode
         {blocks.map((block) => {
           const runs = segmentBlock(block.id, block.text, state.spans);
           return (
-            <p key={block.id} data-block-id={block.id} style={{ fontSize: 15, lineHeight: 2.1, color: "#2B3346", margin: "0 0 14px" }}>
-              {runs.map((run, i) => {
-                if (run.spanId == null) {
-                  return <span key={i}>{run.text}</span>;
-                }
-                const tone = AUTHOR_MARK_STYLE[run.author ?? "ai"];
-                const active = run.spanId === activeSpanId;
-                return (
-                  <mark
-                    key={i}
-                    onClick={() => onSelectSpan(run.spanId)}
-                    style={{
-                      background: tone.background,
-                      color: "#1C2333",
-                      borderBottom: `2px solid ${tone.border}`,
-                      borderRadius: 3,
-                      padding: "1px 2px",
-                      cursor: "pointer",
-                      outline: active ? `2px solid ${tone.border}` : "none",
-                      outlineOffset: 1,
-                    }}
-                  >
-                    {run.text}
-                  </mark>
-                );
-              })}
-            </p>
+            <Fragment key={block.id}>
+              <p data-block-id={block.id} style={{ fontSize: 15, lineHeight: 2.1, color: "#2B3346", margin: "0 0 14px" }}>
+                {runs.map((run, i) => {
+                  if (run.spanId == null) {
+                    return <span key={i}>{run.text}</span>;
+                  }
+                  const tone = AUTHOR_MARK_STYLE[run.author ?? "ai"];
+                  const active = run.spanId === activeSpanId;
+                  return (
+                    <mark
+                      key={i}
+                      onClick={() => onSelectSpan(run.spanId)}
+                      style={{
+                        background: tone.background,
+                        color: "#1C2333",
+                        borderBottom: `2px solid ${tone.border}`,
+                        borderRadius: 3,
+                        padding: "1px 2px",
+                        cursor: "pointer",
+                        outline: active ? `2px solid ${tone.border}` : "none",
+                        outlineOffset: 1,
+                      }}
+                    >
+                      {run.text}
+                    </mark>
+                  );
+                })}
+              </p>
+              {renderAfterBlock?.(block.id)}
+            </Fragment>
           );
         })}
       </div>
