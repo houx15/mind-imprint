@@ -104,6 +104,13 @@ func ErrVoiceUnavailable() *APIError {
 	return &APIError{Status: http.StatusServiceUnavailable, Code: "voice_unavailable", Message: "语音服务未启用"}
 }
 
+// ErrOSSUnavailable is the 503 returned when object storage is not configured
+// (Deps.OSS is nil, or the admin routes have no OSS_ADMIN_KEY) — the platform
+// must still boot without it.
+func ErrOSSUnavailable() *APIError {
+	return &APIError{Status: http.StatusServiceUnavailable, Code: "oss_disabled", Message: "文件存储暂未开启。"}
+}
+
 // ErrInternal is the generic, client-safe 500. Real detail is logged, never sent.
 func ErrInternal() *APIError {
 	return &APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "服务器内部错误"}

@@ -34,6 +34,19 @@ type Config struct {
 	VoiceTTSVoice    string `env:"VOICE_TTS_VOICE"`
 	VoiceTTSResource string `env:"VOICE_TTS_RESOURCE_ID" envDefault:"seed-tts-2.0"`
 	VoiceASRResource string `env:"VOICE_ASR_RESOURCE_ID" envDefault:"volc.bigasr.sauc.duration"`
+
+	// OSS (Aliyun object storage) — server-side only. Left empty in dev/test to
+	// keep file storage optional; the platform must still boot when unset
+	// (Deps.OSS stays nil and the /oss/* routes return 503).
+	OSSEndpoint     string `env:"OSS_ENDPOINT"`          // mind-imprint.oss-cn-beijing.aliyuncs.com
+	OSSBucket       string `env:"OSS_BUCKET"`            // mind-imprint
+	OSSCDNDomain    string `env:"OSS_CDN_DOMAIN"`        // mind-oss.uni-robot.cn
+	OSSAccessKeyID  string `env:"OSS_ACCESS_KEY_ID"`     // server-side only
+	OSSAccessSecret string `env:"OSS_ACCESS_KEY_SECRET"` // server-side only
+	// OSSAdminKey is a static bearer secret authorizing the admin upload routes
+	// (course/asset management from backend scripts). Empty disables those
+	// routes (503) so no request can authenticate against a blank key.
+	OSSAdminKey string `env:"OSS_ADMIN_KEY"`
 }
 
 // Load reads .env.local if present (ignored if absent), then parses the

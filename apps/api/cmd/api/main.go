@@ -15,6 +15,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/materialize"
+	"mindimprint/api/internal/oss"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/voice"
@@ -81,6 +82,13 @@ func main() {
 	}
 	specByID := func(id string) (cards.Spec, bool) { s, ok := specIndex[id]; return s, ok }
 
+	ossSvc, err := oss.New(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "oss: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+
 	// No global timeout on the HTTP client: streaming is governed by request ctx.
 	httpClient := &http.Client{}
 	provider := gateway.NewMuxProvider(map[string]gateway.Provider{
@@ -100,6 +108,8 @@ func main() {
 		Voice:        buildVoice(cfg),
 		CORSOrigins:  cfg.CORSOrigins,
 		Fetcher:      materialize.NewFetcher(),
+		OSS:          ossSvc,
+		OSSAdminKey:  cfg.OSSAdminKey,
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
