@@ -123,39 +123,13 @@ describe("ViewFrame (station rail = view switcher)", () => {
     expect(screen.getByDisplayValue(STUDIO_FIXTURE.views.perspectives.rows[0]!.text)).toBeInTheDocument();
   });
 
-  it("highlights the live card's anchors only in the material they target", () => {
-    const state = {
-      ...STUDIO_FIXTURE,
-      activeStation: "S3" as const,
-      views: { ...STUDIO_FIXTURE.views, material: [blogSource, nasaSource] },
-    };
-    render(<ViewFrame state={state} card={liveCard} />);
-    fireEvent.click(screen.getByText(blogSource.title));
-    // The anchor's exact quote is its own <mark> run only when the span
-    // actually matched — Annotate leaves an unmatched block as one plain
-    // run, so getByText's exact-match semantics only succeed here if the
-    // live anchor was actually threaded down and split the block.
-    expect(screen.getByText("过去二十年").tagName).toBe("MARK");
-  });
-
-  it("does not leak one material's anchors into another", () => {
-    const state = {
-      ...STUDIO_FIXTURE,
-      activeStation: "S3" as const,
-      views: { ...STUDIO_FIXTURE.views, material: [blogSource, nasaSource] },
-    };
-    render(<ViewFrame state={state} card={liveCard} />);
-    // Scoped to the source list (not a bare screen.getByText): N3f Task 7's
-    // spot-check panel can legitimately echo a material's own title as an
-    // item's targetName (STUDIO_FIXTURE's evaluateSources item names this
-    // very NASA paper), so an unscoped query is no longer guaranteed unique.
-    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(nasaSource.title));
-    // nasaSource's block b1 shares the same leading substring + block id
-    // "b1" as blogSource's — if the material_id filter were ever dropped,
-    // this anchor (targeting only blogSource) would split nasaSource's
-    // block too, and "过去二十年" would appear as its own element.
-    expect(screen.queryByText("过去二十年")).not.toBeInTheDocument();
-  });
+  // Task 11 (spec-read-together-redesign): SourceDossier no longer merges a
+  // live card's `anchors` prop into an in-place article view at all (that
+  // view is retired — a row click only ever calls onOpenReading now), so
+  // "does a live anchor highlight, scoped to the right material" is no
+  // longer a SourceDossier/ViewFrame-level question — ReadingRoom.tsx owns
+  // that highlighting entirely now, scoped structurally (it only ever shows
+  // ONE source at a time), and its own test file covers it.
 });
 
 describe("ViewFrame (Task 11 + fix-wave [3]/[5]): render off the card's primitive, never its id", () => {
@@ -274,23 +248,14 @@ describe("ViewFrame (Task 11 + fix-wave [3]/[5]): render off the card's primitiv
     expect(screen.queryByText("去找一个独立的来源")).not.toBeInTheDocument();
   });
 
-  // Finding [3]: Compare used to fully REPLACE the dossier — the source
-  // list, 检索日志 ledger, and chip all vanished while a compare card was
-  // active, so she could neither read the source under review's siblings
-  // nor see her other sources. A one-click toggle keeps both reachable.
-  it("keeps the full dossier (source list) reachable behind a link while a compare card is active, and returns to Compare", async () => {
-    const user = userEvent.setup();
-    render(<ViewFrame state={stateWithMaterials()} card={compareCard()} />);
-
-    await user.click(screen.getByRole("button", { name: /查看信源档案/ }));
-    const dossier = await screen.findByTestId("dossier-source-list");
-    expect(within(dossier).getByText(blogSource.title)).toBeInTheDocument();
-    expect(within(dossier).getByText(nasaSource.title)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /返回横向核查/ }));
-    expect(await screen.findAllByTestId("compare-pane")).not.toHaveLength(0);
-    expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
-  });
+  // Task 11 (spec-read-together-redesign): the "查看信源档案" one-click toggle
+  // that used to keep the full dossier reachable behind a link while a
+  // compare card was active is retired along with the rest of the in-studio
+  // compare fill flow — SIFT runs entirely in the reading room now, so this
+  // pane's `compareState` branch is only ever the rare edge case of a
+  // reading-room-summoned card still open when she returns to the studio
+  // (see CoachRail.test.tsx's own doc comment on the same edge case), never
+  // a live in-studio flow worth a dossier escape hatch.
 });
 
 describe("ViewFrame (Task 8): active graph card renders the live Toulmin builder in the 结构 pane", () => {
@@ -385,18 +350,13 @@ describe("ViewFrame (N3f Task 7 fix M2): SpotCheckPanel renders at all three ren
     expect(screen.getByRole("button", { name: /信源体检/ })).toBeInTheDocument();
   });
 
-  // Site 2: the compare-mode dossier view — a student in cross-check mode
-  // clicks "查看信源档案" without leaving S3; the review singled this site
-  // out as the one easiest to miss (it's nested one click deep behind the
-  // toggle, not the branch's default render).
-  it("renders 信源体检 in the compare-mode dossier view (behind 查看信源档案)", async () => {
-    const user = userEvent.setup();
+  // Site 2: the compare-mode view — a student in cross-check mode (S3) must
+  // still be able to order 信源体检 without leaving the Compare pane. Task 11
+  // (spec-read-together-redesign) retired the "查看信源档案" toggle this used
+  // to be nested behind — 信源体检 now renders directly under Compare.
+  it("renders 信源体检 directly under the compare-mode view", () => {
     render(<ViewFrame state={{ ...STUDIO_FIXTURE, activeStation: "S3" }} card={compareCard()} />);
-    // Default compare-mode render has no 信源体检 button yet — it's behind
-    // the dossier toggle, not on Compare's own two-pane view.
-    expect(screen.queryByRole("button", { name: /信源体检/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /查看信源档案/ }));
-    expect(await screen.findByRole("button", { name: /信源体检/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /信源体检/ })).toBeInTheDocument();
   });
 
   // Site 3: the 结构 branch.

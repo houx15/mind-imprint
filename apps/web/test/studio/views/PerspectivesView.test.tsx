@@ -227,18 +227,18 @@ describe("PerspectivesView (S2 视角与素材)", () => {
   // recon_logged is only ever attested by opening-then-closing a source
   // (attestReconLogged, fired from logSourceOpen) — adding a source is not
   // opening one. This asserts the real dossier (not an inert <li> list) is
-  // what renders here, and that opening and closing a source from S2 itself
-  // invokes onOpenLogged exactly like it does at S3.
-  it("opens a source from within S2 and reports it via onOpenLogged on close", () => {
-    vi.useFakeTimers();
-    const onOpenLogged = vi.fn();
-    render(<PerspectivesView data={makeData()} material={makeMaterial(1)} onOpenLogged={onOpenLogged} />);
+  // what renders here. Task 11 (spec-read-together-redesign): opening now
+  // goes through ReadingRoom (SourceDossier's onOpenReading), not an
+  // in-place view SourceDossier owns itself — ReadingRoom is what calls
+  // onOpenLogged on close (ReadingRoom.test.tsx covers that half); this only
+  // proves S2's dossier wires the row click to the same onOpenReading
+  // handoff S3's does.
+  it("opens a source from within S2 via the ReadingRoom handoff (onOpenReading)", () => {
+    const onOpenReading = vi.fn();
+    render(<PerspectivesView data={makeData()} material={makeMaterial(1)} onOpenReading={onOpenReading} />);
 
     fireEvent.click(screen.getByText("素材 0"));
-    vi.advanceTimersByTime(12_000);
-    fireEvent.click(screen.getByText("返回信源列表"));
 
-    expect(onOpenLogged).toHaveBeenCalledWith("src-0", 12);
-    vi.useRealTimers();
+    expect(onOpenReading).toHaveBeenCalledWith("src-0");
   });
 });

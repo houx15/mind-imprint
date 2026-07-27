@@ -415,22 +415,21 @@ func TestProjectCardSubmit_CompleteCardErrorSurfacesAsSSEError(t *testing.T) {
 	}
 }
 
-// surfaceCraapAndReadAnchors drives the real HTTP turn endpoint (same trigger
-// as TestProjectTurn_SurfacesCraapCard_GeneratesAnchors) so the Studio surface
-// seam (Task 2) generates + persists AI anchors on a freshly-proposed craap
-// card_instance, then reads those persisted anchors back. Returns the card
-// instance id and its generated anchors — the ONLY legitimate source of
-// anchors for the mint test below; hand-building anchors here would
-// reintroduce the vacuous 5c-2 mint-test bug this task exists to regression-test.
+// surfaceCraapAndReadAnchors drives the real HTTP prepareSourceAnnotation
+// endpoint (POST .../materials/{mid}/annotate, on the seeded demo project's
+// un-evaluated article material 00000000-0000-0000-0000-000000000110,
+// migration 0018) so the surface seam (Task 2's surfaceAnchors) generates +
+// persists AI anchors on a freshly-proposed craap card_instance, then reads
+// those persisted anchors back. Task 11 (spec-read-together-redesign) moved
+// craap/sift surfacing off the studio /turn path this used to drive (see
+// studioturn_test.go's prepareAnnotation, same helper shape) — CRAAP/SIFT are
+// reading-room-only now. Returns the card instance id and its generated
+// anchors — the ONLY legitimate source of anchors for the mint test below;
+// hand-building anchors here would reintroduce the vacuous 5c-2 mint-test bug
+// this task exists to regression-test.
 func surfaceCraapAndReadAnchors(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie, projectID uuid.UUID) (string, []agent.Anchor) {
 	t.Helper()
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/projects/"+projectID.String()+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-	h.ServeHTTP(rr, withCookie(req, cookie))
-	body := rr.Body.String()
-	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event:\n%s", body)
-	}
+	prepareAnnotation(t, h, cookie, projectID.String(), "00000000-0000-0000-0000-000000000110")
 
 	q := sqlc.New(pool)
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgtype.UUID{Bytes: projectID, Valid: true})

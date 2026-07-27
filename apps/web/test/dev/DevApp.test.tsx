@@ -9,7 +9,12 @@ describe("DevApp", () => {
     expect(screen.getByRole("button", { name: "卡片" })).toBeInTheDocument();
   });
 
-  it("switches to the material panel and opens a source into the detail view", async () => {
+  // Task 11 (spec-read-together-redesign): SourceDossier no longer owns an
+  // in-place detail view — reading a source now goes through the focused
+  // ReadingRoom surface (onOpenReading), which this dev harness's
+  // MaterialPanel does not wire up. A row click is therefore a no-op here;
+  // the list itself is still the real thing (not an inert fixture render).
+  it("switches to the material panel and renders the real source list", async () => {
     render(<DevApp />);
     await userEvent.click(screen.getByRole("button", { name: "素材" }));
     expect(screen.getByText(/信源档案/)).toBeInTheDocument();
@@ -18,7 +23,9 @@ describe("DevApp", () => {
     // re-renders this title in the ledger below the list — click inside the
     // source-list card specifically, not by a page-wide text match.
     await userEvent.click(within(screen.getByTestId("dossier-source-list")).getByText("《卫星图看中国变绿》"));
-    expect(screen.getByText("返回信源列表")).toBeInTheDocument();
+    // No onOpenReading wired here — the click is a safe no-op, and the list
+    // stays exactly as it was.
+    expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument();
 
     // source_opened is the server's canonical event (written by POST
     // /open) — the dev harness never had a real event producer wired to

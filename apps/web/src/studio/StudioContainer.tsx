@@ -130,27 +130,16 @@ export function StudioContainer({
     evaluateSources: false,
     buildArgument: false,
   });
-  // Fix-wave bug [B]: submitCard nulls `card` on its SSE "done" frame, well
-  // before refetchProject's GET lands with the persisted anchors — without
-  // this, ViewFrame's `card?.anchors ?? []` goes empty for that whole round
-  // trip and the article's highlights visibly blink out. Held as a
-  // transient overlay from the moment of submit until the refetch resolves
-  // (success OR failure — see onSubmitCard below), so there is never a
-  // frame with neither the live card's anchors nor the refreshed persisted
-  // ones.
-  const [pendingAnchors, setPendingAnchors] = useState<Anchor[] | null>(null);
   // Whole-branch review finding [3]: the student's in-progress lateral-
   // source pick for the active compare (SIFT) card. Previously private to
   // StudioCompareCard, so nothing else in the Studio — least of all
   // ViewFrame's center-pane Compare primitive, the whole reason SIFT exists
   // — could ever see it. This is the smallest state location that is
-  // visible to BOTH the coach rail (which sets it, via StudioCompareCard's
-  // lateral-material picker) and the center pane (which reads it to fill
-  // the right pane live): StudioContainer already owns the projection, the
-  // live `card`, and every other cross-pane concern (pendingAnchors above
-  // is the same pattern for a different fix-wave finding). Reset whenever
-  // the ACTIVE card instance changes — not on every conversation snapshot,
-  // which would wipe the student's own pick mid-fill.
+  // visible to BOTH the coach rail (which sets it) and the center pane
+  // (which reads it to fill the right pane live): StudioContainer already
+  // owns the projection, the live `card`, and every other cross-pane
+  // concern. Reset whenever the ACTIVE card instance changes — not on every
+  // conversation snapshot, which would wipe the student's own pick mid-fill.
   const [lateralMaterialId, setLateralMaterialId] = useState<string>("");
   // N3c task 9 (spec §8): the student's in-progress "go find this sentence
   // in the article" request from a locate/elicit-mode anchor's 「去文章里选
@@ -349,15 +338,8 @@ export function StudioContainer({
       setState(toStudioState(proj));
       conv?.dropFirst(priorMessageCount);
       setSyncError(null);
-      // Bug [4]: the overlay has served its purpose the moment the
-      // projection is refreshed — clear it on the winning response.
-      setPendingAnchors(null);
     } catch (err) {
       if (refetchGenRef.current !== myGen) return;
-      // Bug [4]: also clear on the winning response's FAILURE path — a
-      // failed refetch never delivers the persisted anchors this overlay
-      // was standing in for, so there is nothing left for it to guard.
-      setPendingAnchors(null);
       throw err;
     }
   };
@@ -604,10 +586,6 @@ export function StudioContainer({
     onComposerSend: (text) => conv?.send(text),
     onOpenCard: () => conv?.openCard(),
     onSubmitCard: (finalEnvelope) => {
-      // Capture the live card's anchors BEFORE submitCard's SSE "done" frame
-      // clears `card` — held as an overlay so ViewFrame never sees a frame
-      // with no anchors at all (bug [B]).
-      setPendingAnchors(convSnapshot.card?.anchors ?? null);
       conv
         ?.submitCard(finalEnvelope)
         .then(() => refetchProject())
@@ -615,9 +593,7 @@ export function StudioContainer({
           // The submit itself already landed server-side — only the refresh
           // that would confirm the lock/anchors failed. Surface that
           // instead of an unhandled rejection or silently rendering as if
-          // the lock succeeded (bug [C]). refetchProject's own catch clause
-          // has already cleared the anchor overlay (bug [4]) before this
-          // rethrows.
+          // the lock succeeded (bug [C]).
           setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
         });
     },
@@ -946,7 +922,6 @@ export function StudioContainer({
         callbacks={callbacks}
         sending={convSnapshot.sending}
         card={convSnapshot.card}
-        pendingAnchors={pendingAnchors}
         addSourceError={addSourceError}
         lateralMaterialId={lateralMaterialId}
         onLateralMaterialChange={setLateralMaterialId}

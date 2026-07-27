@@ -125,6 +125,15 @@ func startHeartbeat(ctx context.Context, em *studioEmitter) (stop chan struct{},
 	return stop, hbDone
 }
 
+// studioSuppressedSurfaceCardIDs keeps CRAAP/SIFT out of the studio coach
+// rail (Task 11, spec-read-together-redesign binding decision: "CRAAP/SIFT
+// are summonable in the READING ROOM ONLY"). Shared by postProjectTurn and
+// submitProjectCard's refeed (projectcards.go) — the two studio-surface
+// callers of agent.RunAgentStep — via AgentDeps.SuppressSurfaceCardIDs. The
+// reading room's own summon path (readturn.go) never goes through
+// RunAgentStep at all, so this has no effect there.
+var studioSuppressedSurfaceCardIDs = map[string]bool{"craap": true, "sift": true}
+
 // studioSimilarity is the Studio turn endpoint's enforcement.Similarity seam:
 // a keyless, offline lexical-overlap heuristic (no embedding call, no key, no
 // network). A real embedding-backed Similarity is a separate, later task once
@@ -209,12 +218,13 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 
 	sk, _ := skills.ByID("writing-project")
 	deps := agent.AgentDeps{
-		Store:            store,
-		Provider:         a.d.Provider,
-		Resolved:         resolved,
-		Sim:              studioSimilarity(),
-		Skill:            &sk,
-		SkipSurfaceCards: false,
+		Store:                  store,
+		Provider:               a.d.Provider,
+		Resolved:               resolved,
+		Sim:                    studioSimilarity(),
+		Skill:                  &sk,
+		SkipSurfaceCards:       false,
+		SuppressSurfaceCardIDs: studioSuppressedSurfaceCardIDs,
 	}
 	action, err := agent.RunAgentStep(r.Context(), deps, projectID, agent.Trigger{Kind: "student_turn", StudentText: body.UserInput})
 	if err != nil {

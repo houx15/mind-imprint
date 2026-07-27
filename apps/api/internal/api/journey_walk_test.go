@@ -131,28 +131,24 @@ func TestJourneyWalk_WaivedFrontCompletesAndFinishes(t *testing.T) {
 		t.Fatalf("open material B = %d, want 204; body=%s", rec.Code, rec.Body)
 	}
 
-	cidCraap1, checked1, anchors1 := surfaceWalkCard(t, hCore, pool, cookie, pid, "craap", "这条来源可信吗")
+	// Task 11 (spec-read-together-redesign): craap/sift surface from opening
+	// a specific source (prepareSourceAnnotation), not /turn — mirrors
+	// walk_s0_s6_test.go's own S3 (surfaceReadingCard's doc comment).
+	checked1 := matA
+	cidCraap1, anchors1 := surfaceReadingCard(t, hCore, pool, cookie, pid, "craap", checked1)
 	activateWalkCard(t, hCore, cookie, pid, cidCraap1)
 	submitWalkCard(t, hCore, cookie, pid, cidCraap1, fillCraapAnchors(anchors1, checked1))
 	assertCardCompleted(t, pool, cidCraap1)
 
-	lateral1 := matA
-	if checked1 == matA {
-		lateral1 = matB
-	}
+	lateral1 := matB
 
-	cidSift, checkedSift, _ := surfaceWalkCard(t, hCore, pool, cookie, pid, "sift", "这条来源核查完了，接下来该怎么办？")
-	if checkedSift != checked1 {
-		t.Fatalf("sift surfaced on material %q, want the just-checked material %q", checkedSift, checked1)
-	}
+	cidSift, _ := surfaceReadingCard(t, hCore, pool, cookie, pid, "sift", checked1)
 	activateWalkCard(t, hCore, cookie, pid, cidSift)
-	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(checkedSift, lateral1))
+	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(checked1, lateral1))
 	assertCardCompleted(t, pool, cidSift)
 
-	cidCraap2, checked2, anchors2 := surfaceWalkCard(t, hCore, pool, cookie, pid, "craap", "再核查一下另一条来源")
-	if checked2 != lateral1 {
-		t.Fatalf("second craap surfaced on material %q, want the remaining unevaluated material %q", checked2, lateral1)
-	}
+	checked2 := lateral1
+	cidCraap2, anchors2 := surfaceReadingCard(t, hCore, pool, cookie, pid, "craap", checked2)
 	activateWalkCard(t, hCore, cookie, pid, cidCraap2)
 	submitWalkCard(t, hCore, cookie, pid, cidCraap2, fillCraapAnchors(anchors2, checked2))
 	assertCardCompleted(t, pool, cidCraap2)

@@ -264,6 +264,7 @@ func (a *API) submitProjectCard(w http.ResponseWriter, r *http.Request) {
 	deps := agent.AgentDeps{
 		Store: store, Provider: a.d.Provider, Resolved: resolved,
 		Sim: studioSimilarity(), Skill: &sk, SkipSurfaceCards: false,
+		SuppressSurfaceCardIDs: studioSuppressedSurfaceCardIDs,
 	}
 
 	// Mint the evidence node (if the submitted anchors satisfy the spec's

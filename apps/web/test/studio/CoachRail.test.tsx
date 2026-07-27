@@ -131,38 +131,37 @@ describe("CoachRail ai message anchor (5a carry-forward)", () => {
 });
 
 describe("CoachRail live card slot (task 9)", () => {
-  it("renders the craap proposal → annotate card and wires open", () => {
-    const onOpenCard = vi.fn(), onSubmitCard = vi.fn(), onSkipCard = vi.fn();
-    const spec = CARD_REGISTRY["craap"]!;
-    const { rerender } = render(
+  // Task 11 (spec-read-together-redesign): craap/sift no longer surface into
+  // the studio turn's candidates at all, so a "proposed" craap card is not a
+  // live scenario any more — but CoachRail is a dumb presentational
+  // component and CardProposalBubble is generic (branches on nothing
+  // primitive-specific), so this still proves the open wiring works for
+  // ANY proposed card, using a non-retired card id (concession) rather than
+  // craap.
+  it("renders a card proposal bubble and wires open", () => {
+    const onOpenCard = vi.fn();
+    const spec = CARD_REGISTRY["concession"]!;
+    render(
       <CoachRail
         {...baseProps()}
-        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "proposed", anchors: [] }}
+        card={{ cardInstanceId: "ci1", cardId: "concession", spec, status: "proposed", anchors: [] }}
         onOpenCard={onOpenCard}
-        onSubmitCard={onSubmitCard}
-        onSkipCard={onSkipCard}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /打开|开始/ })); // the proposal open affordance
     expect(onOpenCard).toHaveBeenCalled();
-    rerender(
-      <CoachRail
-        {...baseProps()}
-        card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active", anchors: [] }}
-        onOpenCard={onOpenCard}
-        onSubmitCard={onSubmitCard}
-        onSkipCard={onSkipCard}
-      />,
-    );
-    // craap.json's primitive is "annotate" — the active branch must fork to
-    // StudioAnnotateCard, not the schema-driven StudioCardSheet.
-    expect(screen.getByText("作用与风险（自己写）")).toBeInTheDocument();
-    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
   });
 });
 
-describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () => {
-  it("primitive === 'annotate' renders StudioAnnotateCard, fed the live anchors, not StudioCardSheet", () => {
+describe("CoachRail active-card fork (task 10/11): reading-path primitives fall through to schema-driven", () => {
+  // Task 11 (spec-read-together-redesign): the dedicated annotate/compare
+  // mounts (StudioAnnotateCard/StudioCompareCard) are retired — CRAAP/SIFT
+  // summon ONLY in the reading room now, never into the coach rail. The one
+  // remaining live scenario for an "active" annotate/compare card_instance
+  // HERE is the rare edge case of a reading-room-summoned card still open
+  // when she navigates back to the studio (CoachRail.tsx's own doc comment);
+  // it must degrade to the generic StudioCardSheet, not disappear or throw.
+  it("primitive === 'annotate' (craap) falls through to the generic StudioCardSheet, not StudioAnnotateCard", () => {
     const spec = CARD_REGISTRY["craap"]!;
     const anchors = [
       { id: "a1", material_id: "m1", block_id: "b1", start: 0, end: 10, quote: "示例引文", dimension: "权威性", author: "ai" as const, question: "这条来源的作者是谁？", answer: "" },
@@ -173,9 +172,24 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
         card={{ cardInstanceId: "ci1", cardId: "craap", spec, status: "active", anchors }}
       />,
     );
-    expect(screen.getByText("作用与风险（自己写）")).toBeInTheDocument();
-    expect(screen.getByText("这条来源的作者是谁？")).toBeInTheDocument(); // the fed-in anchor's question
-    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
+    // StudioAnnotateCard's own per-tag fill UI is gone…
+    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
+    // …replaced by the generic schema-driven sheet's submit control.
+    expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
+  });
+
+  it("primitive === 'compare' (sift) falls through to the generic StudioCardSheet, not StudioCompareCard", () => {
+    const spec = CARD_REGISTRY["sift"]!;
+    render(
+      <CoachRail
+        {...baseProps()}
+        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
+      />,
+    );
+    // StudioCompareCard's own "锁定这张卡" lock control is gone…
+    expect(screen.queryByRole("button", { name: "锁定这张卡" })).not.toBeInTheDocument();
+    // …replaced by the generic schema-driven sheet's submit control.
+    expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
   });
 
   it("primitive === 'graph' (Toulmin) renders only a handoff nudge to the 结构 pane, NOT a second interactive sheet", () => {
@@ -204,48 +218,6 @@ describe("CoachRail active-card fork (task 10): annotate vs schema-driven", () =
     );
     expect(screen.getByText("提交并钉到过程树")).toBeInTheDocument();
     expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
-  });
-
-  it("primitive === 'compare' (SIFT) forks to StudioCompareCard, not StudioCardSheet — branched on primitive, never on the card id", () => {
-    const spec = CARD_REGISTRY["sift"]!;
-    render(
-      <CoachRail
-        {...baseProps()}
-        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
-        materials={[{
-          id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false, siftSkipped: false,
-          lateralRelation: "", lateralJudgment: "",
-        }]}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "锁定这张卡" })).toBeInTheDocument();
-    expect(screen.queryByText("提交并钉到过程树")).not.toBeInTheDocument();
-    expect(screen.queryByText("作用与风险（自己写）")).not.toBeInTheDocument();
-  });
-
-  // Whole-branch review: the SIFT card's own "添加信源" affordance used to be
-  // wired here to onSelectStation("S3") — a no-op (a compare card only ever
-  // surfaces while already on S3) that also never rendered on the seeded
-  // project (it only showed when lateralCandidates.length === 0). Deleted
-  // rather than rewired — StudioCompareCard now shows only honest
-  // informational text with no dead button; CoachRail carries no
-  // onSelectStation prop for it at all.
-  it("shows no 添加信源 button on the SIFT card when no independent source exists yet — the center pane's own flow covers it", () => {
-    const spec = CARD_REGISTRY["sift"]!;
-    render(
-      <CoachRail
-        {...baseProps()}
-        card={{ cardInstanceId: "ci3", cardId: "sift", spec, status: "active", anchors: [], materialId: "mat-blog" }}
-        materials={[{
-          id: "mat-blog", title: "《卫星图看中国变绿》", sourceUrl: "", kind: "article", origin: "fetched",
-          blocks: [], locked: false, role: "", tier: "", takeaway: "", anchors: [], timeSpentS: 0, lateralRead: false, isLateralInstrument: false, siftSkipped: false,
-          lateralRelation: "", lateralJudgment: "",
-        }]}
-      />,
-    );
-    expect(screen.getByText(/还没有独立来源/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "添加信源" })).not.toBeInTheDocument();
   });
 
   // Made-up bucket vocabulary (not the real fact-opinion-value.json labels) —

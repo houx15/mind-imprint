@@ -5,8 +5,7 @@ import { MicCapture } from "../audio/capture";
 import { Bean } from "./Bean";
 import { DispositionCard } from "./DispositionCard";
 import { EquipmentBar } from "./EquipmentBar";
-import { StudioAnnotateCard, type LocatedSpan } from "./StudioAnnotateCard";
-import { StudioCompareCard } from "./StudioCompareCard";
+import type { LocatedSpan } from "./StudioAnnotateCard";
 import { StudioSortCard } from "./StudioSortCard";
 import { StudioScaleCard } from "./StudioScaleCard";
 import { StudioMatrixCard } from "./StudioMatrixCard";
@@ -118,24 +117,6 @@ function FlagIcon() {
       <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       <path d="M12 9v4M12 17h.01" />
     </svg>
-  );
-}
-
-function CraapPlaceholder() {
-  return (
-    <div style={{ border: "1px solid #F0DACF", borderRadius: 14, overflow: "hidden", boxShadow: "0 3px 14px rgba(217,130,99,.10)" }}>
-      <div style={{ height: 4, background: "#D98263" }} />
-      <div style={{ padding: "12px 15px 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#D98263" }}>工具卡 · CRAAP</span>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>信息素养</span>
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#1C2333" }}>评估这条来源</div>
-      </div>
-      <div style={{ padding: "0 15px 14px", fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6 }}>
-        按 CRAAP 五维核对这条来源（互动卡片见「素材」环节）。
-      </div>
-    </div>
   );
 }
 
@@ -398,30 +379,16 @@ export function CoachRail({
         {card && card.status === "proposed" ? (
           <CardProposalBubble spec={card.spec} onOpen={() => onOpenCard?.(card.cardInstanceId)} />
         ) : card && card.status === "active" ? (
-          card.spec.primitive === "annotate" ? (
-            <StudioAnnotateCard
-              spec={card.spec}
-              anchors={card.anchors}
-              onSubmit={(env) => onSubmitCard?.(env)}
-              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
-              locatedSpans={locatedSpans}
-              onRequestLocate={onRequestLocate}
-              onRelocate={onRelocate}
-              onSpanNotFound={onSpanNotFound}
-              pendingTrace={pendingTrace}
-            />
-          ) : card.spec.primitive === "compare" ? (
-            <StudioCompareCard
-              spec={card.spec}
-              anchors={card.anchors}
-              materialId={card.materialId ?? ""}
-              materials={materials}
-              lateralMaterialId={lateralMaterialId}
-              onLateralMaterialChange={(id) => onLateralMaterialChange?.(id)}
-              onSubmit={(env) => onSubmitCard?.(env)}
-              onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
-            />
-          ) : card.spec.primitive === "sort" ? (
+          // Task 11 (spec-read-together-redesign): the reading-path mounts
+          // (annotate/compare — CRAAP/SIFT) are gone. Those two primitives
+          // never surface into the coach rail any more (studio turn/submit
+          // stop proposing them; they summon ONLY in the reading room now),
+          // so an "active" card here is always one of the studio's own —
+          // sort/scale/matrix/graph get their bespoke host below, everything
+          // else (including the rare edge case of a reading-room-summoned
+          // annotate/compare card still open when she returns to the studio)
+          // falls through to the generic schema-driven StudioCardSheet.
+          card.spec.primitive === "sort" ? (
             <StudioSortCard
               spec={card.spec}
               cardInstanceId={card.cardInstanceId}
@@ -454,8 +421,6 @@ export function CoachRail({
               onSkip={(eventTrace) => onSkipCard?.(eventTrace)}
             />
           )
-        ) : activeView === "素材" ? (
-          <CraapPlaceholder />
         ) : (
           <DispositionCard
             tag={lastAi?.tag ?? "AI 建议"}

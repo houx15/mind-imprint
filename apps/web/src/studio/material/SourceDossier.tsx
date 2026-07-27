@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import type { Anchor, AnnotateState, MaterialSource } from "@mind-imprint/contracts";
-import { Annotate, type CreatedSpan } from "../../primitives/annotate";
+import type { CreatedSpan } from "../../primitives/annotate";
 import { AddSourceForm } from "./AddSourceForm";
 import { SourceLog } from "./SourceLog";
 import type { AddMaterialBody } from "../../api/materials";
@@ -80,28 +79,17 @@ function LockIcon() {
   );
 }
 
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 18l-6-6 6-6" stroke="#5C4A8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotation, onAddSource, addSourceError, openSourceId, openToken, selectMode, onCreateSpan, onOpenReading }: SourceDossierProps) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
-  // Which source 印记 is currently "reading" (annotate-prepare in flight) — a
-  // brief indicator until the highlights + tool-card land after refetch.
-  const [annotatingId, setAnnotatingId] = useState<string | null>(null);
-  const openedAtRef = useRef<{ id: string; openedAt: number } | null>(null);
-  const onOpenLoggedRef = useRef(onOpenLogged);
-  onOpenLoggedRef.current = onOpenLogged;
-  const onPrepareAnnotationRef = useRef(onPrepareAnnotation);
-  onPrepareAnnotationRef.current = onPrepareAnnotation;
-
+// Task 8 (read-together redesign): SourceDossier is list-mode ONLY now — the
+// in-place article view (open/close, annotate-prepare, the locate-into-
+// article machinery) was retired in Task 11 once SIFT/CRAAP moved entirely
+// into the reading room (ReadingRoom.tsx). A row click always calls
+// onOpenReading; `anchors`/`onOpenLogged`/`onPrepareAnnotation`/
+// `openSourceId`/`openToken`/`selectMode`/`onCreateSpan` are accepted for
+// caller back-compat (every ViewFrame/PerspectivesView mount still passes a
+// subset of them) but are no longer read here — ReadingRoom now owns reading-
+// time logging, annotate-prepare, and the article select-mode entirely.
+export function SourceDossier({ sources, onAddSource, addSourceError, onOpenReading }: SourceDossierProps) {
   const lockedCount = sources.filter((s) => s.locked).length;
-  const openSource = openId ? sources.find((s) => s.id === openId) ?? null : null;
 
   // The chip is DERIVED, never decorated (spec §6): the source has been
   // EVALUATED — a real `evaluated-as` graph edge exists, surfaced as
@@ -141,109 +129,9 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotat
     return source.locked && !source.lateralRead && !source.isLateralInstrument && !source.siftSkipped;
   }
 
-  const reportOpenElapsed = () => {
-    const opened = openedAtRef.current;
-    if (!opened) return;
-    const timeSpentS = Math.round((Date.now() - opened.openedAt) / 1000);
-    openedAtRef.current = null;
-    if (timeSpentS === 0) return;
-    onOpenLoggedRef.current?.(opened.id, timeSpentS);
-  };
-
-  // Report the reading time if the component unmounts while a source is
-  // still open (e.g. the student navigates away from 素材 entirely).
-  useEffect(() => {
-    return () => {
-      reportOpenElapsed();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // MaterialSource carries its own persisted anchors (CRAAP-mint / source-log)
-  // directly on `anchors` — there is no separate `annotate` field anymore.
-  // `anchors` (the prop) is this session's live card anchors. This is the
-  // single merge point for the two: live anchors carry the student's
-  // in-progress answer and must win on an id collision, so they're placed
-  // first — `segmentBlock`'s cursor and `Annotate`'s span lookup both take
-  // the first match at a given id/position. Persisted anchors with no live
-  // counterpart still render (so a completed card's highlights survive a
-  // reload). The `material_id` filter applies only to the live side —
-  // `openSource.anchors` is already scoped to this material.
-  const liveForSource = openSource
-    ? (anchors ?? []).filter((a) => a.material_id === openSource.id)
-    : [];
-  const liveIds = new Set(liveForSource.map((a) => a.id));
-  const persistedForSource = openSource ? openSource.anchors.filter((a) => !liveIds.has(a.id)) : [];
-  const mergedSpans = [...liveForSource, ...persistedForSource]
-    .map(anchorToSpan)
-    .filter((s): s is AnnotateSpan => s !== null);
-  const annotateState: AnnotateState | null = openSource
-    ? { material_id: openSource.id, spans: mergedSpans }
-    : null;
-
-  // Shared by the row click below AND the forced-open effect (task 9) — a
-  // forced open is still an open, and must close out/log elapsed time on
-  // whatever was open before it exactly like a student-initiated one (spec
-  // §7.2), so both paths go through the same instrumentation.
-  const activateSource = (source: MaterialSource) => {
-    reportOpenElapsed();
-    setOpenId(source.id);
-    setActiveSpanId(null);
-    openedAtRef.current = { id: source.id, openedAt: Date.now() };
-    // Ask 印记 to read this source WITH the student: surface its evaluation
-    // card + flag suspicious sentences. Best-effort and idempotent server-side
-    // (no re-summon if already in flight/evaluated), so a plain re-open is
-    // cheap. Not fired in select-mode (a forced 「去文章里选出这句」 open — the
-    // card is already active there).
-    const prepare = onPrepareAnnotationRef.current;
-    if (prepare && !selectMode) {
-      setAnnotatingId(source.id);
-      Promise.resolve(prepare(source.id)).finally(() => {
-        setAnnotatingId((cur) => (cur === source.id ? null : cur));
-      });
-    }
-  };
-
-  const backToList = () => {
-    reportOpenElapsed();
-    setOpenId(null);
-    setActiveSpanId(null);
-  };
-
-  // N3c task 9 (spec §7.2): 「去文章里选出这句」 forces THIS exact source
-  // open, from outside this component's own navigation — deliberately NOT
-  // keyed on `sources`/`openId`, so it never re-fires on an unrelated
-  // re-render; once applied, her own subsequent navigation (e.g.
-  // "返回信源列表") is free to move `openId` away without this effect
-  // fighting it back (mirrors the activeCardInstanceId reset precedent: a
-  // one-shot reaction to a change, not a permanent controlling value).
-  //
-  // Task-9 review IMPORTANT 1 fix: this used to key SOLELY on `openSourceId`
-  // with an early return when `openSourceId === openId`. That guard was
-  // redundant with how React dep arrays already work (the effect only
-  // re-runs when a dep's VALUE changes) — so it did nothing to protect
-  // against the actual bug: a second locate click naming the SAME material
-  // as before produces the identical `openSourceId` value, the dep array is
-  // unchanged, and React skips the effect entirely. Concretely: click locate
-  // (opens m1) → 返回信源列表 (her own local `openId` goes to null;
-  // `openSourceId` stays "m1") → click locate again for the same anchor
-  // (`openSourceId` is STILL "m1") → nothing reopens. `openToken` makes every
-  // locate click a distinct COMMAND even when the material repeats — the
-  // container bumps it on every request — so keying on `[openSourceId,
-  // openToken]` re-runs exactly once per command while still never firing on
-  // her own navigation (which touches neither prop).
-  useEffect(() => {
-    if (openSourceId == null) return;
-    const target = sources.find((s) => s.id === openSourceId);
-    if (!target) return;
-    activateSource(target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSourceId, openToken]);
-
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
-      {!openSource && (
-        <div>
+      <div>
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>信源档案 · 已收集 {sources.length} 篇</div>
             <div style={{ fontSize: 12.5, color: "#7A8296", marginTop: 2 }}>
@@ -263,7 +151,7 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotat
               <button
                 key={source.id}
                 type="button"
-                onClick={() => (onOpenReading ? onOpenReading(source.id) : activateSource(source))}
+                onClick={() => onOpenReading?.(source.id)}
                 style={{
                   display: "block",
                   textAlign: "left",
@@ -318,119 +206,7 @@ export function SourceDossier({ sources, anchors, onOpenLogged, onPrepareAnnotat
           </div>
 
           <SourceLog sources={sources} />
-        </div>
-      )}
-
-      {openSource && (
-        <div>
-          <button
-            type="button"
-            onClick={backToList}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              marginBottom: 12,
-              color: "#5C4A8A",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <BackIcon />
-            返回信源列表
-          </button>
-
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>{openSource.title}</div>
-          <div style={{ fontSize: 12, color: "#8A93A6", margin: "2px 0 12px" }}>
-            {openSource.origin === "fetched" ? "网页" : "粘贴"}
-            {openSource.tier !== "" && ` · ${openSource.tier}`}
-          </div>
-
-          {/* Task 7: the old fixture's `view: "article" | "summary"` toggle
-              had no honest producer on MaterialSource — every source now
-              renders whatever it truthfully has (blocks and/or a takeaway),
-              instead of faking a single-mode switch. */}
-          {annotatingId === openSource.id && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 11, fontSize: 12, fontWeight: 600, color: "#2A3B7A", background: "#EDEFF9", border: "1px solid #DDE1F2", borderRadius: 10, padding: "8px 12px" }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4C9A82", animation: "srcReadPulse 1.4s infinite" }} />
-              <style>{"@keyframes srcReadPulse{0%,100%{opacity:1}50%{opacity:.3}}"}</style>
-              印记 正在和你一起读这篇，替你标出可疑的地方……
-            </div>
-          )}
-          {openSource.blocks.length > 0 && (
-            <>
-              {needsLateralRead(openSource) ? (
-                // Design docs/design/思维印记_工作区.dc.html:1050-1053 — verbatim.
-                // Replaces the generic caption below: this is the same fact
-                // (locked/evaluated + no cross-check yet), just spelled out
-                // for the open article's binding UI.
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 11 }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#C96F4F", background: "#FBEEE7", padding: "3px 10px", borderRadius: 999 }}>
-                    正在核对 · 需横向阅读
-                  </span>
-                  <span style={{ fontSize: 11.5, color: "#9AA1B0" }}>点亮的句子 = 印记标出的可疑处</span>
-                </div>
-              ) : null}
-              <Annotate
-                blocks={openSource.blocks}
-                state={annotateState!}
-                activeSpanId={activeSpanId}
-                onSelectSpan={setActiveSpanId}
-                // Gated on openSourceId === openSource.id (never on selectMode
-                // alone): a locate request must never put THIS pane in
-                // select-mode against the wrong article, e.g. if she
-                // navigated to a different source herself while a request
-                // targeting another one was still pending.
-                selectMode={selectMode && openSourceId === openSource.id ? selectMode : undefined}
-                onCreateSpan={onCreateSpan}
-              />
-              {!needsLateralRead(openSource) && mergedSpans.length > 0 && (
-                <div style={{ marginTop: 16, fontSize: 12, color: "#A4ABBD" }}>
-                  点亮的段落是 AI 标出的可疑处——追问会出现在旁边的陪练轨道。
-                </div>
-              )}
-            </>
-          )}
-
-          <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 12 }}>
-            作用与风险：{openSource.role || "尚未写「作用与风险」"}
-          </div>
-
-          {/* Whole-branch review: her own横向核查 relation + revised judgment
-              (agent/card_effects.go crossCheckBody) had a producer since
-              Slice 6c but no reader anywhere — the third "written but never
-              read" field this project has shipped. Rendered ONLY when she
-              actually has a cross_check (never a placeholder verdict — RL-2's
-              rule holds here too, just for a different field), her own
-              relation choice and her own sentence, unchanged. */}
-          {(openSource.lateralRelation || openSource.lateralJudgment) && (
-            <div style={{ fontSize: 13, color: "#5A6178", lineHeight: 1.6, marginTop: 8 }}>
-              横向核查后的判断
-              {openSource.lateralRelation && `（关系：${openSource.lateralRelation}）`}
-              ：{openSource.lateralJudgment}
-            </div>
-          )}
-
-          {openSource.takeaway.trim().length > 0 && (
-            <div
-              style={{
-                marginTop: 14,
-                background: "#F7F5FB",
-                border: "1px solid #E3DCF2",
-                borderRadius: 12,
-                padding: "13px 15px",
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>一句话摘要</div>
-              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#3A4256" }}>{openSource.takeaway}</div>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

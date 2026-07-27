@@ -292,6 +292,27 @@ func projectCoach(d ProjectData, currentTitle string) CoachDTO {
 	return c
 }
 
+// cardMeth is the equipment-bar (装备栏) 「工具说明书」 lookup — EquipCardDTO.Meth
+// feeds EquipmentBar.tsx's onOpen(card.meth), which the web MethodologyModal
+// keys its copy bank by. craap/sift both map to "sift_craap" DELIBERATELY,
+// not as a stopgap: the front-end METHODOLOGY bank
+// (apps/web/src/studio/MethodologyModal.tsx) has exactly ONE combined entry
+// covering both — "SIFT × CRAAP 信息核查", explicitly framed as "两套互补的核查
+//方法" — there is no narrower craap-only or sift-only copy to repoint this at,
+// and MethodologyModal's own unknown-id fallback (DEFAULT_METHODOLOGY) IS that
+// same sift_craap entry, so returning "" here would render byte-identical
+// copy anyway.
+//
+// Verified reachable (Task 11, spec-read-together-redesign): craap/sift no
+// longer surface as LIVE studio rail cards (the studio turn/submit paths stop
+// proposing them — studioturn.go/projectcards.go's SuppressSurfaceCardIDs),
+// and the reading room's own HangingCard never opens MethodologyModal. But
+// projectEquipment (below) lists EVERY card_instance for the project
+// regardless of which surface summoned it or its current status — so a
+// craap/sift card completed in the reading room still appears as an
+// equipment-bar chip in the STUDIO, and clicking it DOES reach this mapping.
+// TestProjectEquipment_CraapSiftMeth pins the current, intentional value so a
+// future change here is a deliberate decision, not a silent drift.
 func cardMeth(cardID string) string {
 	switch cardID {
 	case "craap", "sift":

@@ -163,12 +163,13 @@ describe("StudioContainer", () => {
     // The REAL conversation controller (no makeConversation override) — this
     // is the actual production wiring, not a stub standing in for it.
     await renderAndOpen({ api: api as never });
-    // "工具卡 · CRAAP" alone would be a vacuous assertion — CraapPlaceholder
-    // (the NO-card fallback for this same view) carries the identical label.
-    // "锁定，进下一条" is StudioAnnotateCard's own submit control, rendered
-    // only for an actually-open active card — proof this is the real card,
-    // not the placeholder.
-    await screen.findByText("锁定，进下一条");
+    // Task 11 (spec-read-together-redesign): craap/sift no longer get a
+    // dedicated rail mount (StudioAnnotateCard/CraapPlaceholder are both
+    // gone) — an active craap card_instance now falls through to the
+    // generic schema-driven StudioCardSheet. Its own submit control is the
+    // proof this is the REAL rehydrated card, not the disposition-card
+    // fallback (which shows the coach's last reply, never this label).
+    await screen.findByText("提交并钉到过程树");
   });
 
   it("shows the directory's honest empty affordance when the student has no projects", async () => {
@@ -473,16 +474,14 @@ describe("StudioContainer", () => {
     await flush();
     expect(screen.getByText("待评估")).toBeInTheDocument();
 
-    // This field only exists once StudioContainer's second effect (creating
-    // the live conversation, gated on projectId) has committed — a separate,
-    // later render than the one `findByText` above resolved on. Under
-    // full-suite CPU contention that second commit can lag behind a plain
-    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
-    // instead of assuming it already landed.
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
+    // Task 11 (spec-read-together-redesign): craap no longer mounts
+    // StudioAnnotateCard's own per-tag fill UI — it falls through to the
+    // generic StudioCardSheet, whose submit control needs no field filled
+    // first (submitCard below is a mock; this test is about the refetch
+    // wiring, not the envelope shape). Awaited because it only exists once
+    // StudioContainer's second effect (creating the live conversation) has
+    // committed.
+    fireEvent.click(await screen.findByText("提交并钉到过程树"));
 
     expect(submitCard).toHaveBeenCalled();
     // The stale-until-reload bug: without a refetch, getProject is never
@@ -583,149 +582,21 @@ describe("StudioContainer", () => {
     expect(screen.getAllByText(midFlightTurn.body)).toHaveLength(1);
   });
 
-  // Task 8 (read-together redesign): this test's scenario requires the
-  // article to be open (to observe `mark` elements) AT THE SAME TIME as the
-  // live card's own submit control (CoachRail's "锁定，进下一条", rendered in
-  // the coach rail, not inside the dossier) — but a source-list row click now
-  // opens ReadingRoom, which fully replaces the studio shell (CoachRail
-  // included) and does not yet receive `card`/`pendingAnchors` (out of scope
-  // for this task; see ReadingRoomProps' "loop props added in Task 10"
-  // comment). There is currently no reachable UI path that has both an open
-  // article AND a live CoachRail card at once, so this regression can't be
-  // exercised through StudioContainer right now. The bug-B FIX itself
-  // (StudioContainer's `pendingAnchors` overlay, threaded to ViewFrame) is
-  // untouched by this task — skipped rather than deleted so this gap is
-  // visible and gets equivalent coverage once ReadingRoom's own card/anchor
-  // wiring lands.
-  it.skip("keeps the article's highlighted anchors visible across a card submit → refetch transition (bug B)", async () => {
-    const materialId = "m1";
-    const anchor = {
-      id: "a1", material_id: materialId, block_id: "b1", start: 0, end: 4,
-      quote: "过去二十年", dimension: "authority", author: "ai",
-      question: "原始出处是谁？", answer: "只是一个博主",
-    };
-    const riskNoteAnchor = {
-      id: "risk_note", material_id: materialId, block_id: "", start: 0, end: 0, quote: "",
-      dimension: "risk_note", author: "student", question: "这条来源在你的论证里起什么作用？有什么风险 / 局限？",
-      answer: "触发关注的入口——需要横向核实。",
-    };
-    const unlockedMaterial = {
-      id: materialId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
-      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [],
-    };
-    const lockedMaterial = {
-      ...unlockedMaterial, locked: true, role: "触发关注的入口——需要横向核实。",
-      anchors: [anchor, riskNoteAnchor],
-    };
-
-    let getProjectCalls = 0;
-    let resolveSecondGet!: (v: unknown) => void;
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
-      getProject: async () => {
-        getProjectCalls += 1;
-        if (getProjectCalls === 1) {
-          return {
-            ...projection,
-            stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-            activeStation: "S3",
-            materials: [unlockedMaterial],
-          };
-        }
-        return new Promise((resolve) => { resolveSecondGet = resolve; });
-      },
-      // The test opens the source (to render its highlighted spans) and
-      // never navigates back before the component unmounts at test-end —
-      // SourceDossier's unmount cleanup reports the reading-time sample, so
-      // this needs a fake, same as every other test that opens a source.
-      logSourceOpen: vi.fn(async () => {}),
-      prepareSourceAnnotation: vi.fn(async () => false),
-    };
-
-    let convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [anchor] },
-    };
-    const listeners = new Set<() => void>();
-    const emit = () => listeners.forEach((l) => l());
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
-      send: vi.fn(),
-      dispose: vi.fn(),
-      openCard: vi.fn(),
-      // Mirrors the real controller: card is nulled as soon as submit's SSE
-      // "done" frame lands — well before the refetch below resolves.
-      submitCard: vi.fn(async () => {
-        convState = { ...convState, card: null };
-        emit();
-      }),
-      skipCard: vi.fn(async () => {}),
-      dropFirst: vi.fn((n: number) => {
-        convState = { ...convState, messages: convState.messages.slice(n) };
-        emit();
-      }),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await screen.findByText(/信源档案/);
-    // `信源档案` comes from StudioContainer's FIRST effect (loading the
-    // project). The live conversation (conv/card, and anything sourced from
-    // it — the coach thread, the card's fields, its anchor highlights) only
-    // exists once the SECOND effect (gated on projectId, creating the
-    // conversation) has ALSO committed — a separate, later render. Under
-    // full-suite CPU contention that second commit can lag behind the first
-    // enough that a synchronous assertion right after `findByText` above
-    // sees stale (pre-conv) DOM — this is this file's actual shared flake
-    // cause, not a product race (the outcome never depends on interleaving,
-    // only how long it takes to observe). `flush` waits out both effects
-    // deterministically, with no timeout of its own to lose a race against.
-    await flush();
-
-    // Open the source so its blocks (and the card's live anchor highlight)
-    // actually render.
-    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(unlockedMaterial.title));
-    // The highlight comes from convSnapshot.card, which only exists once
-    // StudioContainer's SECOND effect (creating the live conversation, gated
-    // on projectId) has committed — a separate, later render than the one
-    // `findByText(/信源档案/)` above already resolved on. Under full-suite
-    // CPU contention that second commit can lag behind this synchronous
-    // check; wait for it explicitly instead of assuming it already landed
-    // (this is the shared root cause behind this file's flakiness — see the
-    // `findByPlaceholderText` note below for the same race).
-    await waitFor(() => expect(document.querySelectorAll("mark").length).toBeGreaterThan(0));
-
-    // Same race as the `mark` wait above — this field only exists once the
-    // live card (from that second, later effect/commit) is mounted, so use
-    // the awaited `find*` query rather than assuming `getBy*` already sees it.
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
-
-    await waitFor(() => expect(conv.submitCard).toHaveBeenCalled());
-    await waitFor(() => expect(getProjectCalls).toBe(2));
-
-    // The card is gone (submitCard's own "done" cleared it) but the refetch
-    // that would restore the persisted anchors hasn't landed yet — the
-    // highlight must not disappear in this gap.
-    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
-
-    resolveSecondGet({
-      ...projection,
-      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-      activeStation: "S3",
-      materials: [lockedMaterial],
-    });
-
-    // The open article view (not the list) is still on screen — assert on
-    // the persisted role text it shows once the refetch lands.
-    await waitFor(() =>
-      expect(screen.getByText(/作用与风险：触发关注的入口——需要横向核实。/)).toBeInTheDocument(),
-    );
-    expect(document.querySelectorAll("mark").length).toBeGreaterThan(0);
-  });
+  // Task 11 (spec-read-together-redesign): this test ("bug B") covered the
+  // pendingAnchors overlay (StudioContainer.tsx) — a submit → refetch
+  // transient that kept a card's live anchor highlights visible in the
+  // in-place article view across the gap between submit's "done" (which
+  // nulled `card`) and the refetch landing with persisted anchors. Task 8
+  // had already made the scenario unreachable (a source-list click opens
+  // ReadingRoom, which never had a live CoachRail card at the same time) and
+  // left this test `it.skip`'d rather than deleted, pending equivalent
+  // ReadingRoom coverage. Task 11 confirms the underlying mechanism is now
+  // permanently dead, not merely unreachable: SourceDossier no longer owns
+  // an in-place article view AT ALL (Task 11), so there is nowhere left for
+  // an anchor highlight to blink out of. pendingAnchors (state, setters, and
+  // every prop threading it through StudioShell/ViewFrame) has been deleted
+  // along with this test — see StudioContainer.tsx's onSubmitCard/
+  // refetchProject, which no longer mention it.
 
   it("catches a refetch failure after a successful card submit — no unhandled rejection, no false success shown (bug C)", async () => {
     const materialId = "m1";
@@ -788,23 +659,21 @@ describe("StudioContainer", () => {
     // deterministically, with no timeout of its own to lose a race against.
     await flush();
 
-    // This field only exists once StudioContainer's second effect (creating
-    // the live conversation, gated on projectId) has committed — a separate,
-    // later render than the one `findByText` above resolved on. Under
-    // full-suite CPU contention that second commit can lag behind a plain
-    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
-    // instead of assuming it already landed.
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
+    // Task 11 (spec-read-together-redesign): craap no longer mounts
+    // StudioAnnotateCard's own per-tag fill UI — it falls through to the
+    // generic StudioCardSheet, whose submit control needs no field filled
+    // first (submitCard below is a mock; this test is about the refetch
+    // failure path, not the envelope shape). Awaited because it only exists
+    // once StudioContainer's second effect (creating the live conversation)
+    // has committed.
+    fireEvent.click(await screen.findByText("提交并钉到过程树"));
 
     expect(submitCard).toHaveBeenCalled();
-    // submitCard resolves → refetchProject's GET rejects → its catch clears
-    // pendingAnchors and rethrows → the outer .catch sets syncError. None of
-    // that chain is awaited anywhere in the production code (fire-and-
-    // forget from the click handler), so flush it deterministically rather
-    // than polling with waitFor's real-time budget — see `flush`'s comment.
+    // submitCard resolves → refetchProject's GET rejects → its catch
+    // rethrows → the outer .catch sets syncError. None of that chain is
+    // awaited anywhere in the production code (fire-and-forget from the
+    // click handler), so flush it deterministically rather than polling
+    // with waitFor's real-time budget — see `flush`'s comment.
     await flush();
     expect(getProjectCalls).toBe(2);
 
@@ -949,9 +818,15 @@ describe("StudioContainer", () => {
     // only how long it takes to observe). `flush` waits out both effects
     // deterministically, with no timeout of its own to lose a race against.
     await flush();
-    // Pre-refetch: the live turn renders exactly once, straight from the
-    // conversation controller.
-    expect(screen.getAllByText(aiTurn.body)).toHaveLength(1);
+    // Pre-refetch: the live turn renders straight from the conversation
+    // controller — once in the thread, and once more mirrored into
+    // DispositionCard's body (CoachRail's own no-live-card fallback, the
+    // same "appears twice by design" shape every OTHER view's tests in this
+    // file already account for — see this file's top-of-file convention
+    // comment). Task 11 (spec-read-together-redesign) retired 素材's own
+    // CraapPlaceholder special case, which used to mask this mirror here;
+    // 素材 is now consistent with every other view.
+    expect(screen.getAllByText(aiTurn.body)).toHaveLength(2);
 
     fireEvent.click(screen.getByText("添加信源"));
     fireEvent.change(screen.getByPlaceholderText(/粘贴链接/), { target: { value: "https://ipcc.ch/report" } });
@@ -961,9 +836,11 @@ describe("StudioContainer", () => {
 
     await waitFor(() => expect(getProjectCalls).toBe(2));
     // The bug: CoachRail is keyed by array index with no dedupe, so without
-    // reconciliation the turn now renders twice — once from the refetched
-    // projection's history, once still sitting in the conversation buffer.
-    await waitFor(() => expect(screen.getAllByText(aiTurn.body)).toHaveLength(1));
+    // reconciliation the turn now renders a THIRD time — once from the
+    // refetched projection's history, once still sitting in the
+    // conversation buffer, plus the one DispositionCard mirror above (which
+    // is not itself the bug — it's the same single mirror as pre-refetch).
+    await waitFor(() => expect(screen.getAllByText(aiTurn.body)).toHaveLength(2));
     expect(screen.getAllByText(studentTurn.body)).toHaveLength(1);
   });
 
@@ -1065,19 +942,14 @@ describe("StudioContainer", () => {
     // full-suite CPU contention that second commit can lag behind a plain
     // synchronous `getByPlaceholderText`, so use the awaited `find*` query
     // instead of assuming it already landed.
-    // Fill the one real anchor (FIX 2 needs at least one) — it is the only
-    // textbox on the page with NO placeholder (every AddSourceForm field and
-    // the card's own risk-note field all carry one), so filter for that
-    // instead of assuming a document-order index the add-source form above
-    // also contributes textboxes to.
-    await screen.findAllByRole("textbox");
-    const anchorBox = screen.getAllByRole("textbox").find((el) => !el.getAttribute("placeholder"));
-    if (!anchorBox) throw new Error("expected the card's own (placeholder-less) anchor textbox to be present");
-    fireEvent.change(anchorBox, { target: { value: "NASA地球观测团队发布" } });
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
+    // Task 11 (spec-read-together-redesign): craap no longer mounts
+    // StudioAnnotateCard's own per-tag fill UI — it falls through to the
+    // generic StudioCardSheet, whose submit control needs no field filled
+    // first (submitCard below is a mock; this test is about the refetch
+    // race, not the envelope shape). Awaited because it only exists once
+    // StudioContainer's second effect (creating the live conversation) has
+    // committed.
+    fireEvent.click(await screen.findByText("提交并钉到过程树"));
     await waitFor(() => expect(getProjectCalls).toBe(3));
 
     // Resolve the NEWER one (GET_B) FIRST, with the locked projection. (Only
@@ -1191,19 +1063,14 @@ describe("StudioContainer", () => {
     // full-suite CPU contention that second commit can lag behind a plain
     // synchronous `getByPlaceholderText`, so use the awaited `find*` query
     // instead of assuming it already landed.
-    // Fill the one real anchor (FIX 2 needs at least one) — it is the only
-    // textbox on the page with NO placeholder (every AddSourceForm field and
-    // the card's own risk-note field all carry one), so filter for that
-    // instead of assuming a document-order index the add-source form above
-    // also contributes textboxes to.
-    await screen.findAllByRole("textbox");
-    const anchorBox = screen.getAllByRole("textbox").find((el) => !el.getAttribute("placeholder"));
-    if (!anchorBox) throw new Error("expected the card's own (placeholder-less) anchor textbox to be present");
-    fireEvent.change(anchorBox, { target: { value: "NASA地球观测团队发布" } });
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
+    // Task 11 (spec-read-together-redesign): craap no longer mounts
+    // StudioAnnotateCard's own per-tag fill UI — it falls through to the
+    // generic StudioCardSheet, whose submit control needs no field filled
+    // first (submitCard below is a mock; this test is about the refetch
+    // race, not the envelope shape). Awaited because it only exists once
+    // StudioContainer's second effect (creating the live conversation) has
+    // committed.
+    fireEvent.click(await screen.findByText("提交并钉到过程树"));
     await waitFor(() => expect(getProjectCalls).toBe(3));
 
     // Resolve the OLDER one (GET_A) first — it must be discarded outright:
@@ -1318,118 +1185,10 @@ describe("StudioContainer", () => {
     expect(screen.queryByText(/同步|请刷新/)).toBeNull();
   });
 
-  // --- Fix-wave-3 finding [4]: pendingAnchors is only ever cleared on
-  // refetchProject's success path — a refetch failure after a submit leaves
-  // it set for the rest of the session, permanently shadowing whatever the
-  // (eventually correct) persisted anchors would show. ---
-
-  // Task 8 (read-together redesign): same reason as bug B's test just above
-  // — this scenario needs the article open (for `mark` elements) at the same
-  // time as CoachRail's live card submit control, which a source-list row
-  // click can no longer produce (it opens ReadingRoom, replacing the shell
-  // entirely). Skipped, not deleted, for the same reason as bug B's test.
-  it.skip("clears pendingAnchors after a failed post-submit refetch — it must not shadow persisted anchors forever (bug 4)", async () => {
-    const materialId = "m1";
-    const anchor = {
-      id: "a1", material_id: materialId, block_id: "b1", start: 0, end: 4,
-      quote: "过去二十年", dimension: "authority", author: "ai",
-      question: "原始出处是谁？", answer: "只是一个博主",
-    };
-    const unlockedMaterial = {
-      id: materialId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
-      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [],
-    };
-
-    let getProjectCalls = 0;
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
-      getProject: async () => {
-        getProjectCalls += 1;
-        if (getProjectCalls === 1) {
-          return {
-            ...projection,
-            stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-            activeStation: "S3",
-            materials: [unlockedMaterial],
-          };
-        }
-        throw new Error("network blip");
-      },
-      logSourceOpen: vi.fn(async () => {}),
-      prepareSourceAnnotation: vi.fn(async () => false),
-    };
-
-    let convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: CARD_REGISTRY["craap"], status: "active", anchors: [anchor] },
-    };
-    const listeners = new Set<() => void>();
-    const emit = () => listeners.forEach((l) => l());
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
-      send: vi.fn(),
-      dispose: vi.fn(),
-      openCard: vi.fn(),
-      // Mirrors the real controller: card is nulled as soon as submit's own
-      // "done" frame lands, well before the refetch below settles.
-      submitCard: vi.fn(async () => {
-        convState = { ...convState, card: null };
-        emit();
-      }),
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await screen.findByText(/信源档案/);
-    // `信源档案` comes from StudioContainer's FIRST effect (loading the
-    // project). The live conversation (conv/card, and anything sourced from
-    // it — the coach thread, the card's fields, its anchor highlights) only
-    // exists once the SECOND effect (gated on projectId, creating the
-    // conversation) has ALSO committed — a separate, later render. Under
-    // full-suite CPU contention that second commit can lag behind the first
-    // enough that a synchronous assertion right after `findByText` above
-    // sees stale (pre-conv) DOM — this is this file's actual shared flake
-    // cause, not a product race (the outcome never depends on interleaving,
-    // only how long it takes to observe). `flush` waits out both effects
-    // deterministically, with no timeout of its own to lose a race against.
-    await flush();
-
-    fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(unlockedMaterial.title));
-    // The card's live anchor highlights the span before any submit happens.
-    // This depends on convSnapshot.card, which only exists once
-    // StudioContainer's second effect (creating the live conversation) has
-    // committed — a separate, later render than the one `findByText` above
-    // resolved on. Wait for it explicitly rather than assuming it already
-    // landed (see the `findByPlaceholderText` note below for the same race).
-    await waitFor(() => expect(document.querySelectorAll("mark").length).toBe(1));
-
-    // This field only exists once StudioContainer's second effect (creating
-    // the live conversation, gated on projectId) has committed — a separate,
-    // later render than the one `findByText` above resolved on. Under
-    // full-suite CPU contention that second commit can lag behind a plain
-    // synchronous `getByPlaceholderText`, so use the awaited `find*` query
-    // instead of assuming it already landed.
-    fireEvent.change(await screen.findByPlaceholderText(/这条来源在你的论证里起什么作用/), {
-      target: { value: "触发关注的入口——需要横向核实。" },
-    });
-    fireEvent.click(screen.getByText("锁定，进下一条"));
-
-    // Same unawaited submitCard→refetchProject→catch chain as bug C —
-    // flush deterministically instead of racing waitFor's real-time budget.
-    await flush();
-    expect(getProjectCalls).toBe(2);
-    // The refetch failed — confirms the failure path actually ran.
-    expect(screen.getByText(/同步|请刷新/)).toBeInTheDocument();
-
-    // The card is gone (submitCard nulled it) and the failed refetch never
-    // delivered persisted anchors (the material fetched at load time has
-    // none) — pendingAnchors must be cleared here too, or this stale,
-    // pre-submission overlay would go on masking the (empty) truth forever.
-    expect(document.querySelectorAll("mark").length).toBe(0);
-  });
+  // Task 11 (spec-read-together-redesign): this test ("bug 4") also covered
+  // the pendingAnchors overlay — see the doc comment left where "bug B"'s
+  // test used to sit (just before "reports a genuinely failed skip..."
+  // above). Deleted along with pendingAnchors itself for the same reason.
 
   // --- Task 11 (SIFT): the compare card is the first primitive whose
   // anchors span TWO materials. It has NO refetch path of its own — it must
@@ -1534,22 +1293,14 @@ describe("StudioContainer", () => {
     // this holds independent of the SIFT card merely being proposed here.
     expect(within(screen.getByTestId("dossier-source-list")).getByText(/需横向阅读/)).toBeInTheDocument();
 
-    // Open the card (coach rail now renders the interactive SIFT form) and
-    // complete it exactly the way a student would — same script as
-    // StudioCompareCard.test.tsx's own submit test, which already proves
-    // this form builds its anchors off the DECLARED lateral_dimension, not
-    // array position (Task 11's trap #2).
+    // Open the card. Task 11 (spec-read-together-redesign) retired
+    // StudioCompareCard's own interactive SIFT form from the coach rail
+    // (sift is reading-room-only now) — an active sift card_instance falls
+    // through to the generic StudioCardSheet, whose submit control needs no
+    // field filled first (submitCard below is a mock; this test is about
+    // the stale-until-reload refetch bug, not the envelope shape).
     fireEvent.click(await screen.findByRole("button", { name: /打开|开始/ }));
-
-    fireEvent.change(await screen.findByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
-    fireEvent.change(screen.getByPlaceholderText(/机构、个人/), { target: { value: "自媒体博主，无机构背景" } });
-    fireEvent.click(within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title }));
-    fireEvent.change(screen.getByPlaceholderText(/怎么说同一件事/), { target: { value: "NASA 数据显示排放仍在上升" } });
-    fireEvent.click(screen.getByRole("button", { name: "印证" }));
-    fireEvent.change(screen.getByPlaceholderText(/原始的出处是哪里/), { target: { value: "Nature Sustainability 论文" } });
-    fireEvent.click(screen.getByRole("button", { name: "原始证据" }));
-    fireEvent.change(screen.getByPlaceholderText(/和一开始比/), { target: { value: "从二手转述降级为需要追源的说法" } });
-    fireEvent.click(screen.getByRole("button", { name: "锁定这张卡" }));
+    fireEvent.click(await screen.findByText("提交并钉到过程树"));
 
     expect(conv.submitCard).toHaveBeenCalled();
     // The stale-until-reload bug this test exists to catch: without a
@@ -1579,109 +1330,27 @@ describe("StudioContainer", () => {
   // she never chose for THIS card, and risking a cross_check that cites the
   // wrong independent source. ---
 
-  it("clears the student's lateral-source pick when a NEW SIFT card instance becomes active (fix-C finding [2])", async () => {
-    const blogId = "m1";
-    const nasaId = "m2";
-    const article2Id = "m3";
-    const blog = {
-      id: blogId, title: "《卫星图看中国变绿》", sourceUrl: "https://x.test/a", kind: "article",
-      origin: "fetched", blocks: [{ id: "b1", text: "过去二十年……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
-    };
-    const nasa = {
-      id: nasaId, title: "Chen et al. (2019), Nature Sustainability", sourceUrl: "https://doi.org/x",
-      kind: "paper", origin: "fetched", blocks: [{ id: "b1", text: "……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
-    };
-    const article2 = {
-      id: article2Id, title: "《全球气候观察》专栏", sourceUrl: "https://x.test/c", kind: "article",
-      origin: "fetched", blocks: [{ id: "b1", text: "另一段完全独立的材料……" }],
-      locked: false, role: "", tier: "", takeaway: "", anchors: [], lateralRead: false, isLateralInstrument: false, siftSkipped: false,
-    };
-
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
-      getProject: async () => ({
-        ...projection,
-        stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-        activeStation: "S3",
-        materials: [blog, nasa, article2],
-      }),
-    };
-
-    const siftSpec = CARD_REGISTRY["sift"]!;
-    let convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      // Card A starts ACTIVE directly (the proposed→open click is already
-      // covered by the Task 11 test above) — what matters here is her
-      // lateral pick on THIS instance.
-      card: { cardInstanceId: "ci1", cardId: "sift", spec: siftSpec, status: "active", anchors: [], materialId: blogId },
-    };
-    const listeners = new Set<() => void>();
-    const emit = () => listeners.forEach((l) => l());
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
-      send: vi.fn(),
-      dispose: vi.fn(),
-      openCard: vi.fn(() => {
-        convState = { ...convState, card: { ...convState.card, status: "active" } };
-        emit();
-      }),
-      // Mirrors the real controller: submit clears the live card client-side
-      // the moment its own "done" frame lands.
-      submitCard: vi.fn(async () => {
-        convState = { ...convState, card: null };
-        emit();
-      }),
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await screen.findByText(/信源档案/);
-    await flush();
-
-    // Pick NASA as card A's lateral source — the exact interaction
-    // StudioCompareCard's picker exposes (same script as the Task 11 test).
-    fireEvent.click(within(screen.getByTestId("lateral-material-picker")).getByRole("button", { name: nasa.title }));
-    // The center pane reads the SAME lifted pick live (finding [3]) — the
-    // empty-state invitation must be gone once a real pick exists.
-    await waitFor(() => expect(screen.queryByText("去找一个独立的来源")).not.toBeInTheDocument());
-
-    // Complete and submit card A for real — a genuine card transition
-    // driven through the UI, not a hand-rolled state poke.
-    fireEvent.change(await screen.findByPlaceholderText(/先写下来/), { target: { value: "第一反应：有点意外" } });
-    fireEvent.change(screen.getByPlaceholderText(/机构、个人/), { target: { value: "自媒体博主，无机构背景" } });
-    fireEvent.change(screen.getByPlaceholderText(/怎么说同一件事/), { target: { value: "NASA 数据显示排放仍在上升" } });
-    fireEvent.click(screen.getByRole("button", { name: "印证" }));
-    fireEvent.change(screen.getByPlaceholderText(/原始的出处是哪里/), { target: { value: "Nature Sustainability 论文" } });
-    fireEvent.click(screen.getByRole("button", { name: "原始证据" }));
-    fireEvent.change(screen.getByPlaceholderText(/和一开始比/), { target: { value: "从二手转述降级为需要追源的说法" } });
-    fireEvent.click(screen.getByRole("button", { name: "锁定这张卡" }));
-
-    expect(conv.submitCard).toHaveBeenCalled();
-    await flush();
-    // Card A is gone — the dossier list (not Compare) is back on screen.
-    await waitFor(() => expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument());
-
-    // A NEW SIFT card instance (ci2, a DIFFERENT material) is proposed, then
-    // opened by the student — the exact "打开" interaction every proposed
-    // card requires (no-forced-open).
-    act(() => {
-      convState = {
-        ...convState,
-        card: { cardInstanceId: "ci2", cardId: "sift", spec: siftSpec, status: "proposed", anchors: [], materialId: article2Id },
-      };
-      emit();
-    });
-    fireEvent.click(await screen.findByRole("button", { name: /打开|开始/ }));
-
-    // The right pane for card B must be back to its empty invitation — not
-    // pre-filled with card A's stale nasa pick. This is the RENDERED DOM
-    // assertion the reset must actually drive, not a check on props.
-    await waitFor(() => expect(screen.getByText("去找一个独立的来源")).toBeInTheDocument());
-  });
+  // Task 11 (spec-read-together-redesign): this test ("fix-C finding [2]")
+  // covered StudioContainer's reset of `lateralMaterialId` when a new SIFT
+  // card instance becomes active. It drove the pick through
+  // StudioCompareCard's own "lateral-material-picker" — the coach rail's
+  // interactive SIFT fill form. That component (and its rail mount) is
+  // deleted: SIFT is reading-room-only now. Nothing left in the app can
+  // ever call `onLateralMaterialChange` (grep confirms StudioCompareCard was
+  // its only real invoker), so `lateralMaterialId` can never actually
+  // become non-empty through any reachable UI path any more — rewriting
+  // this test against the removed picker isn't possible, and driving
+  // `onLateralMaterialChange` directly (bypassing all UI) would just prove
+  // React state updates work, not anything about the product.
+  // `lateralMaterialId` itself is left in place (StudioContainer.tsx/
+  // ViewFrame.tsx/CoachRail.tsx) rather than deleted here — ViewFrame still
+  // legitimately READS it to render the rare reading-room-summoned-compare-
+  // card edge case (see CoachRail.tsx's own doc comment on that case), and
+  // ViewFrame.test.tsx's own "the right pane fills with the LIFTED lateral
+  // pick…" test still covers that read path directly. Only the SETTER's
+  // now-dead reachability is the gap this test used to cover; noted as a
+  // follow-up (task-11-report.md) rather than expanded into a larger
+  // `onLateralMaterialChange` retirement in this same change.
 
   // --- Task 9 (写作 view live wiring): onBufferChange (debounced putBuffer +
   // an optimistic local buffer patch) and onCommit (commitSnapshot → refetch
@@ -2204,605 +1873,25 @@ describe("StudioContainer", () => {
     expect(screen.queryByText("已归档 · 成长报告已生成")).toBeNull();
   });
 
-  // --- N3c task 9 (spec §8): cross-pane locate — the card asks ("去文章里
-  // 选出这句"), the article answers (Annotate's select mode). StudioContainer
-  // is the cross-pane owner (same rationale as `lateralMaterialId`'s own
-  // lift): `locating` + `locatedSpans` + `spanTrace` are cross-pane state
-  // nothing else could see both halves of. ---------------------------------
-
-  const locateMaterialId = "m-blog-china-greening";
-  const locateMaterial = {
-    id: locateMaterialId,
-    title: "《卫星图看中国变绿》",
-    sourceUrl: "https://x.test/china-greening",
-    kind: "article",
-    origin: "fetched",
-    blocks: [{ id: "b1", text: "过去二十年里发生了一件几乎没人注意到的事。" }],
-    locked: false,
-    role: "",
-    tier: "",
-    takeaway: "",
-    anchors: [],
-    lateralRead: false,
-    isLateralInstrument: false,
-    siftSkipped: false,
-  };
-
-  function locateProjection() {
-    return {
-      ...projection,
-      stations: [...projection.stations, { code: "S3", name: "信源评估", view: "素材", state: "current" }],
-      activeStation: "S4",
-      materials: [locateMaterial],
-    };
-  }
-
-  // L2 anchor (spec §2): author "student" + a non-blank question — the AI
-  // wrote the question, she has to locate the sentence herself.
-  function l2Anchor(id: string, dimension: string, question: string) {
-    return { id, material_id: locateMaterialId, block_id: "", start: 0, end: 0, quote: "", dimension, author: "student" as const, question, answer: "" };
-  }
-
-  it("clicking a card's locate control switches the station to 素材, opens the card's material, and puts the article in select mode naming the dimension", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    // getSnapshot must return a STABLE reference across calls (see this
-    // file's "sends a composer message" test comment) — a fresh literal per
-    // call trips useSyncExternalStore's tearing check.
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // Wait for the LOCATE BUTTON itself, not merely a station label. The
-    // station name comes from the project projection; the button comes from
-    // the conversation snapshot. Those two settle independently, so waiting
-    // on the former and then querying the latter SYNCHRONOUSLY raced under
-    // CPU load and failed ~1 run in 2 on a loaded machine.
-    // `flush` first, for this file's documented reason (see its doc comment):
-    // renderAndOpen leaves a several-hops-deep promise chain settling, and
-    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
-    // under full-suite CPU contention. Draining deterministically first means
-    // the waitFor below observes an already-settled DOM.
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-
-    // SourceDossier's own forced-open effect (its `openSourceId` useEffect)
-    // is a PASSIVE effect one tick behind this click's commit, and only
-    // fully settles once THAT re-render itself commits — a single `flush`
-    // isn't a hard guarantee under full-suite CPU contention (this file's
-    // own top-of-file comment on `waitFor`'s wall-clock budget applies here
-    // too). Asserting the WHOLE group inside one `waitFor` retries all three
-    // together — it can never observe "material open but hint bar not yet
-    // rendered" as a terminal state, unlike three separate assertions.
-    await waitFor(() => {
-      // Station switched to 素材 AND the card's own material forced open —
-      // straight into the article, no list view.
-      expect(screen.getByText(locateMaterial.title)).toBeInTheDocument();
-      expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
-      // The hint bar names the exact dimension the card is asking about — no
-      // level name, no badge, no praise (铁律 2).
-      expect(screen.getByText(/在文章里选出你要用来回答「currency」的那句话/)).toBeInTheDocument();
-    });
-  });
-
-  // Task-9 review IMPORTANT 1: re-clicking the locate ask after 「返回信源
-  //列表」 used to be a dead control — the container's `locating.materialId`
-  // never changed for a second click on the same anchor, so SourceDossier's
-  // forced-open effect (keyed only on the material id) never re-ran and
-  // nothing opened. The fix threads a monotonically increasing request
-  // token through `locating` so every click is a distinct command.
-  it("reopens the article on a SECOND locate click after she navigated back to the source list herself", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // `flush` first, for this file's documented reason (see its doc comment):
-    // renderAndOpen leaves a several-hops-deep promise chain settling, and
-    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
-    // under full-suite CPU contention. Draining deterministically first means
-    // the waitFor below observes an already-settled DOM.
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
-
-    // She navigates back to the source list HERSELF — nothing in the
-    // container's own `locating` state changes when she does this.
-    fireEvent.click(screen.getByText("返回信源列表"));
-    await waitFor(() => expect(screen.getByTestId("dossier-source-list")).toBeInTheDocument());
-
-    // Clicking locate again for the SAME anchor/material must reopen the
-    // article. Before the fix this silently did nothing.
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => {
-      expect(screen.getByText(locateMaterial.title)).toBeInTheDocument();
-      expect(screen.queryByTestId("dossier-source-list")).not.toBeInTheDocument();
-    });
-  });
-
-  // Task-9 review MINOR 3 + task-9 correctness fix (item 2): an anchor whose
-  // `material_id` is empty can never be satisfied by the locate control —
-  // forcing SourceDossier to "open ''" would switch the station, open
-  // nothing, and show no hint bar, with no way back out. A control that
-  // cannot work must not be offered at all: StudioAnnotateCard's own
-  // per-anchor DEAD-CONTROL RULE now hides 「去文章里选出这句」 outright for
-  // such an anchor (superseding the old "renders but no-ops on click"
-  // behavior this test used to pin — there is no longer a button to click),
-  // while the escape control stays fully live so the card is never left with
-  // no way out.
-  it("offers no locate button for an anchor with no material_id, and never switches station away from it", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const anchorNoMaterial = {
-      id: "a0", material_id: "", block_id: "", start: 0, end: 0, quote: "",
-      dimension: "currency", author: "student" as const,
-      question: "这条信息是什么时候发布的？", answer: "",
-    };
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [anchorNoMaterial], materialId: locateMaterialId },
-    };
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(), submitCard: vi.fn(), skipCard: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
-
-    expect(screen.queryByRole("button", { name: "去文章里选出这句" })).not.toBeInTheDocument();
-    await flush();
-
-    // Station never switched to 素材 at all — SourceDossier's own list
-    // header would render if it had (locating would still be null, so no
-    // force-open, just the list) — its absence proves nothing ever fired
-    // `setActiveStation`, not merely that a click would have no-opped.
-    expect(screen.queryByText(/信源档案/)).not.toBeInTheDocument();
-    expect(screen.queryByText(locateMaterial.title)).not.toBeInTheDocument();
-  });
-
-  it("selecting text in the article writes the span onto that anchor, clears select mode, and the card shows the located sentence + records it in the submitted envelope", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    let convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const submitCard = vi.fn(async (_env: any) => { convState = { ...convState, card: null }; });
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // Wait for the LOCATE BUTTON itself, not merely a station label. The
-    // station name comes from the project projection; the button comes from
-    // the conversation snapshot. Those two settle independently, so waiting
-    // on the former and then querying the latter SYNCHRONOUSLY raced under
-    // CPU load and failed ~1 run in 2 on a loaded machine.
-    // `flush` first, for this file's documented reason (see its doc comment):
-    // renderAndOpen leaves a several-hops-deep promise chain settling, and
-    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
-    // under full-suite CPU contention. Draining deterministically first means
-    // the waitFor below observes an already-settled DOM.
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
-
-    // A real text selection inside the rendered article block, mirroring
-    // Annotate.test.tsx's own script for driving rangeToSpan end to end.
-    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
-    const textNode = blockEl.firstChild!.firstChild as Text;
-    const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, 9); // "过去二十年里发生了" — 9 runes, all BMP
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    fireEvent.mouseUp(blockEl.parentElement!);
-
-    // Select mode ends the moment the span is created; the card now shows
-    // the located sentence instead of the locate/escape controls. Asserted
-    // together in one `waitFor` for the same reason as the previous test —
-    // it retries the whole group, never just the first half.
-    await waitFor(() => {
-      expect(screen.queryByText(/在文章里选出你要用来回答/)).not.toBeInTheDocument();
-      expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument();
-    });
-
-    // NOTE: `getAllByRole("textbox").at(-1)` (the pattern StudioAnnotateCard's
-    // OWN isolated tests use for the risk-note field) is ambiguous HERE — the
-    // full StudioContainer render also has the coach rail's composer textbox
-    // in the DOM, so the risk note is targeted by its own placeholder instead.
-    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    const filledAnchor = env.anchors.find((a: any) => a.id === "a0");
-    expect(filledAnchor).toMatchObject({ block_id: "b1", start: 0, end: 9, quote: "过去二十年里发生了" });
-    expect(env.event_trace).toContainEqual(
-      expect.objectContaining({ kind: "span_located", dimension: "currency", block_id: "b1" }),
-    );
-  });
-
-  it("clears located spans and the pending trace when a NEW card instance becomes active — must not inherit the previous instance's located spans", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    // Reuses the SAME anchor id ("a0") across ci1 → ci2 deliberately: this is
-    // the exact shape the reset must guard against — `locatedSpans` is keyed
-    // by anchor id, so without the reset ci2's OWN "a0" (which she never
-    // located anything for) would render as already-located, inheriting
-    // ci1's evidence.
-    let convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const listeners = new Set<() => void>();
-    const emit = () => listeners.forEach((l) => l());
-    const submitCard = vi.fn(async (_env: any) => {});
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // Wait for the LOCATE BUTTON itself, not merely a station label. The
-    // station name comes from the project projection; the button comes from
-    // the conversation snapshot. Those two settle independently, so waiting
-    // on the former and then querying the latter SYNCHRONOUSLY raced under
-    // CPU load and failed ~1 run in 2 on a loaded machine.
-    // `flush` first, for this file's documented reason (see its doc comment):
-    // renderAndOpen leaves a several-hops-deep promise chain settling, and
-    // `waitFor`'s 1000ms budget is real wall-clock time that loses races
-    // under full-suite CPU contention. Draining deterministically first means
-    // the waitFor below observes an already-settled DOM.
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
-
-    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
-    const textNode = blockEl.firstChild!.firstChild as Text;
-    const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, 9);
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    fireEvent.mouseUp(blockEl.parentElement!);
-
-    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
-
-    // A NEW card instance (ci2, the SAME anchor id, a DIFFERENT dimension)
-    // becomes active.
-    act(() => {
-      convState = {
-        ...convState,
-        card: { cardInstanceId: "ci2", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "authority", "这条信息是谁写的？")], materialId: locateMaterialId },
-      };
-      emit();
-    });
-
-    // ci2's own "a0" must render fresh — no inherited located sentence, the
-    // locate/escape controls available again.
-    await waitFor(() => expect(screen.queryByText(/已在文章里定位/)).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "去文章里选出这句" })).toBeInTheDocument();
-    expect(screen.getByText("找不到合适的句子")).toBeInTheDocument();
-
-    // MINOR 4 (task-9 review) strengthening: the original test only asserted
-    // on-screen absence of "已在文章里定位" — it never proved ci1's evidence
-    // was actually gone from what gets SUBMITTED. Take ci2's escape, lock,
-    // and assert its own submitted event_trace carries nothing left over
-    // from ci1 (neither ci1's `span_located(currency)` nor a phantom
-    // duplicate) — only what ci2 itself produced.
-    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "authority-answer" }), { target: { value: "记者写的" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    expect(env.event_trace).toEqual([
-      expect.objectContaining({ kind: "span_not_found", dimension: "authority" }),
-    ]);
-  });
-
-  // Task-9 review IMPORTANT 2: a `span_not_found` escape that is later
-  // superseded by an actual located span for the SAME dimension must not
-  // survive into the submitted envelope — otherwise the process record
-  // would claim she couldn't find a sentence she in fact found, which this
-  // product treats as worse than recording nothing at all.
-  it("a located span retracts its earlier span_not_found escape from the submitted trace", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const submitCard = vi.fn(async (_env: any) => {});
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // `flush` first, for this file's documented reason (see its doc comment):
-    // renderAndOpen leaves a several-hops-deep promise chain settling, and a
-    // bare `waitFor` right after it can observe the escape/lock sequence
-    // below racing that still-settling chain — this test submits and asserts
-    // the exact event_trace contents, so a late-settling effect clobbering
-    // `spanTrace` after the escape click is a real, reproduced flake here
-    // (not merely a "button not found yet" risk the other locate tests
-    // guard against the same way).
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
-
-    // She escapes first ("找不到合适的句子")...
-    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
-    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
-
-    // ...then undoes it and actually locates the sentence.
-    fireEvent.click(screen.getByRole("button", { name: "重新找一下" }));
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
-
-    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
-    const textNode = blockEl.firstChild!.firstChild as Text;
-    const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, 9);
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    fireEvent.mouseUp(blockEl.parentElement!);
-
-    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
-
-    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    expect(env.event_trace).toContainEqual(expect.objectContaining({ kind: "span_located", dimension: "currency" }));
-    expect(env.event_trace.some((e: any) => e.kind === "span_not_found" && e.dimension === "currency")).toBe(false);
-  });
-
-  // Task-9 review IMPORTANT 2 (second scenario): undo/retake must not
-  // accumulate duplicate span_not_found rows for the same dimension — one
-  // escape event, however many times she toggles it, not a growing pile.
-  it("escaping, undoing, and escaping again for the same anchor does not duplicate span_not_found in the submitted trace", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const submitCard = vi.fn(async (_env: any) => {});
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // `flush` first — see the previous test's comment on why a bare
-    // `waitFor` right after `renderAndOpen` is not enough for a test that
-    // asserts the submitted event_trace's exact contents.
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
-    fireEvent.click(screen.getByRole("button", { name: "重新找一下" }));
-    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
-    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    const notFoundForCurrency = env.event_trace.filter(
-      (e: any) => e.kind === "span_not_found" && e.dimension === "currency",
-    );
-    expect(notFoundForCurrency).toHaveLength(1);
-  });
-
-  // Task-9 review MINOR 4 (second half): there was no container-level test
-  // driving a plain 「找不到合适的句子」 escape — with no locate involved at
-  // all — all the way into the submitted envelope via the container's own
-  // spanTrace/pendingTrace plumbing.
-  it("a not-found escape with no locate involved reaches the submitted envelope's event_trace", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const snapshot = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: { cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active", anchors: [l2Anchor("a0", "currency", "这条信息是什么时候发布的？")], materialId: locateMaterialId },
-    };
-    const submitCard = vi.fn(async (_env: any) => {});
-    const conv = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // `flush` first — see the earlier "a located span retracts..." test's
-    // comment on why a bare `waitFor` right after `renderAndOpen` is not
-    // enough for a test that asserts the submitted event_trace's exact
-    // contents (reproduced: this exact test failed intermittently without
-    // this `flush`, both alone and under full-suite load).
-    await flush();
-    await waitFor(() => expect(screen.getByRole("button", { name: "找不到合适的句子" })).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "找不到合适的句子" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "currency-answer" }), { target: { value: "2019年" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    expect(env.event_trace).toContainEqual(
-      expect.objectContaining({ kind: "span_not_found", dimension: "currency" }),
-    );
-  });
-
-  // Task-9 correctness fix (item 1): the pending trace reconciled by
-  // DIMENSION, but escapes/located spans are tracked per ANCHOR. Two anchors
-  // sharing the same dimension string is reachable (the server's anchor
-  // validation — apps/api/internal/agent/anchors.go — checks tag coverage
-  // and vocabulary, never uniqueness; legacy untagged cards are unvalidated
-  // entirely), so locating on one anchor must never erase a DIFFERENT
-  // anchor's still-standing span_not_found merely because they share a
-  // dimension. RED against the old dimension-filtered spanTrace: locating on
-  // "a0" would have dropped "b0"'s span_not_found from the submitted trace.
-  it("locating one anchor does not erase a different anchor's span_not_found when both share the same dimension", async () => {
-    const craapSpec = CARD_REGISTRY["craap"]!;
-    const convState: any = {
-      messages: [], sending: false, error: null, disposableInterventionId: null,
-      card: {
-        cardInstanceId: "ci1", cardId: "craap", spec: craapSpec, status: "active",
-        anchors: [
-          l2Anchor("a0", "currency", "这条信息是什么时候发布的？"),
-          l2Anchor("b0", "currency", "这条信息是什么时候更新的？"),
-        ],
-        materialId: locateMaterialId,
-      },
-    };
-    const submitCard = vi.fn(async (_env: any) => {});
-    const conv = {
-      getSnapshot: () => convState,
-      subscribe: () => () => {},
-      send: vi.fn(), dispose: vi.fn(), openCard: vi.fn(),
-      submitCard,
-      skipCard: vi.fn(),
-      dropFirst: vi.fn(),
-    };
-    const api = {
-      listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S4" }],
-      getProject: async () => locateProjection(),
-    };
-
-    const utils = await renderAndOpen({ api: api as never, makeConversation: () => conv as any });
-    // `flush` first — see the earlier span_not_found tests' comments on why
-    // a bare `waitFor` right after `renderAndOpen` is not enough for a test
-    // that asserts the submitted event_trace's exact contents.
-    await flush();
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "找不到合适的句子" })).toHaveLength(2));
-
-    // Escape on anchor B (the second row) FIRST.
-    fireEvent.click(screen.getAllByRole("button", { name: "找不到合适的句子" })[1]!);
-    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
-
-    // Then locate on anchor A — the only remaining locate button, since B's
-    // now-escaped row hides its own.
-    fireEvent.click(screen.getByRole("button", { name: "去文章里选出这句" }));
-    await waitFor(() => expect(screen.getByText(locateMaterial.title)).toBeInTheDocument());
-
-    const blockEl = utils.container.querySelector('[data-block-id="b1"]')!;
-    const textNode = blockEl.firstChild!.firstChild as Text;
-    const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, 9);
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    fireEvent.mouseUp(blockEl.parentElement!);
-
-    await waitFor(() => expect(screen.getByText("已在文章里定位：「过去二十年里发生了」")).toBeInTheDocument());
-    // B's escape record must still be showing, untouched by A's locate.
-    expect(screen.getByText(/已记录：这条没能在文章里找到合适的句子/)).toBeInTheDocument();
-
-    const answerBoxes = screen.getAllByRole("textbox", { name: "currency-answer" });
-    expect(answerBoxes).toHaveLength(2);
-    fireEvent.change(answerBoxes[0]!, { target: { value: "2019年" } });
-    fireEvent.change(answerBoxes[1]!, { target: { value: "2020年" } });
-    fireEvent.change(screen.getByPlaceholderText(/这条来源在你的论证里起什么作用/), { target: { value: "风险说明" } });
-    fireEvent.click(screen.getByRole("button", { name: /锁定|评估完成|完成/ }));
-    await flush();
-
-    expect(submitCard).toHaveBeenCalledTimes(1);
-    const env = submitCard.mock.calls[0]![0];
-    expect(env.event_trace).toContainEqual(
-      expect.objectContaining({ kind: "span_located", dimension: "currency", block_id: "b1" }),
-    );
-    expect(env.event_trace).toContainEqual(
-      expect.objectContaining({ kind: "span_not_found", dimension: "currency" }),
-    );
-    expect(env.event_trace.filter((e: any) => e.kind === "span_located")).toHaveLength(1);
-    expect(env.event_trace.filter((e: any) => e.kind === "span_not_found")).toHaveLength(1);
-  });
+  // Task 11 (spec-read-together-redesign): this ~600-line block ("N3c task 9
+  // (spec §8): cross-pane locate") covered the guidance-ladder locate flow —
+  // a card's 「去文章里选出这句」 control asked the student to find a quote in
+  // the OPEN, in-place article; StudioContainer's `locating`/`locatedSpans`/
+  // `pendingTrace` were the cross-pane state connecting the coach rail
+  // (StudioAnnotateCard, which rendered the per-anchor locate/escape
+  // controls) to the article pane (SourceDossier's own in-place view, forced
+  // into Annotate's select mode). Every one of those pieces was retired by
+  // this task: StudioAnnotateCard no longer mounts in the coach rail (Task
+  // 11), and SourceDossier no longer owns an in-place article view at all —
+  // a source-list row click only ever calls onOpenReading now, into the
+  // reading room. There is no button left anywhere to click 「去文章里选出这
+  // 句」 on, so none of these 9 tests can be rewritten against real UI.
+  //
+  // `locating`/`locatedSpans`/`pendingTrace`/`onRequestLocate`/`onRelocate`/
+  // `onSpanNotFound`/`onCreateSpan`/`onCancelLocate` are left in place in
+  // StudioContainer.tsx/state.ts/StudioShell.tsx/ViewFrame.tsx/CoachRail.tsx
+  // rather than deleted in this same change (unlike `pendingAnchors`, which
+  // had zero remaining readers anywhere and was fully removed) — noted as a
+  // follow-up (task-11-report.md) rather than expanded into a larger
+  // retirement here.
 });

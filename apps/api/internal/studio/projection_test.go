@@ -266,6 +266,36 @@ func TestProjectEquipment_SpontAndMeth(t *testing.T) {
 	}
 }
 
+// TestProjectEquipment_CraapSiftMeth is Task 11's (spec-read-together-
+// redesign) sift_craap-identity reconciliation test: cardMeth("craap") and
+// cardMeth("sift") must both keep resolving to "sift_craap" — the ONE
+// methodology entry MethodologyModal.tsx's copy bank actually has for either
+// split card (see cardMeth's own doc comment for why this is intentional,
+// not dead/stale code: the equipment bar lists every card_instance
+// regardless of which surface — studio turn/submit, now gated off, or the
+// reading room — summoned it, so a craap/sift chip is still clickable here).
+func TestProjectEquipment_CraapSiftMeth(t *testing.T) {
+	craap := uuid.New()
+	sift := uuid.New()
+	d := ProjectData{
+		Cards: []sqlc.CardInstance{
+			{ID: craap, CardID: "craap"},
+			{ID: sift, CardID: "sift"},
+		},
+	}
+	spec := func(id string) (cards.Spec, bool) { return cards.Spec{ID: id, Name: id}, true }
+	eq := projectEquipment(d, spec)
+	if len(eq) != 2 {
+		t.Fatalf("want 2 equip, got %d", len(eq))
+	}
+	if eq[0].Meth != "sift_craap" {
+		t.Fatalf("craap Meth = %q, want sift_craap", eq[0].Meth)
+	}
+	if eq[1].Meth != "sift_craap" {
+		t.Fatalf("sift Meth = %q, want sift_craap", eq[1].Meth)
+	}
+}
+
 // TestProjectEquipment_CarriesMaterialID covers whole-branch review finding
 // [5]: an equipment-bar card's materialId must come from the SAME
 // card_instance--evaluates-->material graph edge SurfaceCard mints — never

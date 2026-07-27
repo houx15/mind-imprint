@@ -21,11 +21,6 @@ export type ViewFrameProps = {
   // Live tool-card slot (mirrors StudioShell's `card`): its anchors highlight
   // the spans the coach rail is asking about right now.
   card?: LiveCard | null;
-  // Fix-wave bug [B]: overlay anchors held across a submit → refetch
-  // transition, used ONLY as a fallback when `card` is null (see
-  // StudioShell's prop doc) so the highlights never go empty for that round
-  // trip.
-  pendingAnchors?: Anchor[] | null;
   // The student's in-progress lateral-source pick for the active compare
   // card — LIFTED to StudioContainer (whole-branch review finding [3]) so
   // this pane can show the SAME material StudioCompareCard's picker just
@@ -154,41 +149,10 @@ const ICON_BOX: React.CSSProperties = {
 
 const NAME: React.CSSProperties = { fontSize: 15, fontWeight: 800, color: "#1C2333" };
 
-const LINK_BUTTON: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  background: "none",
-  border: "none",
-  padding: 0,
-  marginBottom: 14,
-  color: "#5C4A8A",
-  fontSize: 13,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif",
-};
-
 function StationIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-4-4" />
-    </svg>
-  );
-}
-
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 18l-6-6 6-6" stroke="#5C4A8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="#5C4A8A" strokeWidth="2" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -238,25 +202,27 @@ function blocksOf(materials: MaterialSource[], materialId: string) {
   return materials.find((m) => m.id === materialId)?.blocks ?? [];
 }
 
-export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, onStartStructureCard, writing, review, spotCheck, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
+export function ViewFrame({ state, card, lateralMaterialId, locating, onCreateSpan, onCancelLocate, material, onSubmitCard, onSkipCard, onStartStructureCard, writing, review, spotCheck, onSubmitOnboarding, onSubmitFraming, onSubmitPerspectives, onAttestSourcesPerPerspective }: ViewFrameProps) {
   // The 添加信源 form embedded under Compare's empty right pane — reuses 6b's
   // existing ingestion path (material?.onAdd) exactly like the dossier's own
   // list-view form; Compare itself never ingests (RL-2).
   const [showLateralForm, setShowLateralForm] = useState(false);
-  // Whole-branch review finding [3]: Compare used to REPLACE the dossier
-  // outright — the source list, 检索日志 ledger, and chip all vanished, so
-  // she couldn't read her other sources while checking one. This toggle
-  // keeps both reachable: default to Compare (that's why a compare card
-  // surfaced), one click away from the full dossier, one click back.
-  const [showDossierDuringCompare, setShowDossierDuringCompare] = useState(false);
   // A fresh compare card instance always opens on Compare itself, never
-  // wherever a PREVIOUS card happened to leave the toggle — SIFT can
-  // surface repeatedly across a project's materials. showLateralForm resets
-  // for the same reason (minor, whole-branch review): without this, the
-  // inline 添加信源 form stayed mounted under a brand-new card's still-empty
-  // right pane, left over from whatever the PREVIOUS card's student did.
+  // wherever a PREVIOUS card happened to leave showLateralForm — SIFT can
+  // surface repeatedly across a project's materials, and without this reset
+  // the inline 添加信源 form stayed mounted under a brand-new card's
+  // still-empty right pane, left over from whatever the PREVIOUS card's
+  // student did.
+  //
+  // Task 11 (spec-read-together-redesign): the "查看信源档案" toggle that used
+  // to let her flip this pane between Compare and the full SourceDossier
+  // while a compare card was active is retired along with the compare
+  // card's own reading-path life cycle — SIFT now runs entirely in the
+  // reading room, so `compareState` below is only ever non-null for the rare
+  // edge case of a reading-room-summoned SIFT card still open when she
+  // returns to the studio (see CoachRail.tsx's own doc comment on the same
+  // edge case), never a live in-studio fill flow.
   useEffect(() => {
-    setShowDossierDuringCompare(false);
     setShowLateralForm(false);
   }, [card?.cardInstanceId]);
   const active = state.stations.find((s) => s.code === state.activeStation);
@@ -302,68 +268,46 @@ export function ViewFrame({ state, card, pendingAnchors, lateralMaterialId, loca
       </div>
       {effectiveView === "素材" && (
         compareState ? (
-          showDossierDuringCompare ? (
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" }}>
-              <button type="button" onClick={() => setShowDossierDuringCompare(false)} style={LINK_BUTTON}>
-                <BackIcon />
-                返回横向核查
-              </button>
-              <SourceDossier
-                sources={state.views.material}
-                anchors={card?.anchors ?? pendingAnchors ?? []}
-                onAddSource={material?.onAdd}
-                addSourceError={material?.addError}
-                onOpenLogged={material?.onOpenLogged}
-                onPrepareAnnotation={material?.onPrepareAnnotation}
-                onOpenReading={material?.onOpenReading}
-              />
-              {/* N3f Task 7: a student in cross-check mode has not left S3 —
-                  信源体检 must render here too, not only the non-compare
-                  branch below. */}
-              <SpotCheckPanel
-                title="信源体检"
-                data={state.views.spotChecks.evaluateSources}
-                onOrder={() => spotCheck?.onOrder("evaluate_sources")}
-                onDisposition={spotCheck?.onDisposition}
-                pending={spotCheck?.pendingEvaluateSources ?? false}
-              />
-            </div>
-          ) : (
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" }}>
-              <button type="button" onClick={() => setShowDossierDuringCompare(true)} style={LINK_BUTTON}>
-                <FolderIcon />
-                查看信源档案（共 {state.views.material.length} 篇）
-              </button>
-              <Compare
-                state={compareState}
-                onAddLateralSource={() => setShowLateralForm(true)}
-                leftBlocks={blocksOf(state.views.material, compareState.left.material_id)}
-                rightBlocks={blocksOf(state.views.material, compareState.right?.material_id ?? "")}
-              />
-              {showLateralForm && material?.onAdd && (
-                <div style={{ marginTop: 16 }}>
-                  <AddSourceForm
-                    onSubmit={async (body) => {
-                      await material.onAdd!(body);
-                      // Minor (whole-branch review): a successful add must
-                      // collapse this wrapper too, not just AddSourceForm's
-                      // own internal expanded/collapsed state — otherwise its
-                      // spent, re-collapsed toggle keeps sitting here,
-                      // redundant with Compare's own "添加信源" CTA, under
-                      // whatever the right pane now shows.
-                      setShowLateralForm(false);
-                    }}
-                    error={material.addError}
-                  />
-                </div>
-              )}
-            </div>
-          )
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 30px 40px" }}>
+            <Compare
+              state={compareState}
+              onAddLateralSource={() => setShowLateralForm(true)}
+              leftBlocks={blocksOf(state.views.material, compareState.left.material_id)}
+              rightBlocks={blocksOf(state.views.material, compareState.right?.material_id ?? "")}
+            />
+            {showLateralForm && material?.onAdd && (
+              <div style={{ marginTop: 16 }}>
+                <AddSourceForm
+                  onSubmit={async (body) => {
+                    await material.onAdd!(body);
+                    // Minor (whole-branch review): a successful add must
+                    // collapse this wrapper too, not just AddSourceForm's
+                    // own internal expanded/collapsed state — otherwise its
+                    // spent, re-collapsed toggle keeps sitting here,
+                    // redundant with Compare's own "添加信源" CTA, under
+                    // whatever the right pane now shows.
+                    setShowLateralForm(false);
+                  }}
+                  error={material.addError}
+                />
+              </div>
+            )}
+            {/* N3f Task 7: a student in cross-check mode has not left S3 —
+                信源体检 must still be orderable here, not only from the plain
+                list branch below. */}
+            <SpotCheckPanel
+              title="信源体检"
+              data={state.views.spotChecks.evaluateSources}
+              onOrder={() => spotCheck?.onOrder("evaluate_sources")}
+              onDisposition={spotCheck?.onDisposition}
+              pending={spotCheck?.pendingEvaluateSources ?? false}
+            />
+          </div>
         ) : (
           <>
             <SourceDossier
               sources={state.views.material}
-              anchors={card?.anchors ?? pendingAnchors ?? []}
+              anchors={card?.anchors ?? []}
               onAddSource={material?.onAdd}
               addSourceError={material?.addError}
               onOpenLogged={material?.onOpenLogged}

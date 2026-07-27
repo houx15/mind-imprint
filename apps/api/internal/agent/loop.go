@@ -224,6 +224,16 @@ type AgentDeps struct {
 	// (false) is back-compat for every existing caller/test: candidates are
 	// seeded from SurfaceCardCandidates(g) exactly as before.
 	SkipSurfaceCards bool
+
+	// SuppressSurfaceCardIDs, when non-empty, drops any SurfaceCardCandidates
+	// result whose CardID is in this set before decide-one ever sees it (Task
+	// 11, spec-read-together-redesign): the studio turn/submit paths
+	// (postProjectTurn, submitProjectCard) use this to stop CRAAP/SIFT from
+	// ever surfacing into the coach rail again — they summon ONLY in the
+	// reading room now (readturn.go's own status-derived OrderingGuard gates
+	// them there, entirely independent of SurfaceCardCandidates/this field).
+	// nil/empty (the zero value) is back-compat for every other caller.
+	SuppressSurfaceCardIDs map[string]bool
 }
 
 // RunAgentStep runs one perceive -> classify -> decide-one -> act -> enforce
@@ -268,7 +278,12 @@ func RunAgentStep(ctx context.Context, deps AgentDeps, projectID uuid.UUID, trig
 		cands = append(cands, *refeedCand)
 	}
 	if !deps.SkipSurfaceCards {
-		cands = append(cands, SurfaceCardCandidates(g)...)
+		for _, c := range SurfaceCardCandidates(g) {
+			if deps.SuppressSurfaceCardIDs[c.CardID] {
+				continue
+			}
+			cands = append(cands, c)
+		}
 	}
 
 	// When a Project skill is loaded, reconcile its gates once and hold the

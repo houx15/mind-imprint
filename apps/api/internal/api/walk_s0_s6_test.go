@@ -113,6 +113,45 @@ func surfaceWalkCard(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *h
 	return row.ID.String(), materialID, anchors
 }
 
+// surfaceReadingCard drives prepareSourceAnnotation (POST
+// .../materials/{mid}/annotate) — the reading room's own summon path
+// (materials.go). Task 11 (spec-read-together-redesign) retired CRAAP/SIFT
+// from /turn's candidates ("reading room ONLY"), so unlike surfaceWalkCard
+// above (which lets the classifier pick a material via /turn), the walk now
+// picks the material explicitly — mirroring the real flow: the student opens
+// ONE specific source to read it, and craap/sift surfaces on THAT source, not
+// wherever the classifier happens to look first.
+func surfaceReadingCard(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie, projectID, wantCardID, materialID string) (cid string, anchors []agent.Anchor) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/materials/"+materialID+"/annotate", nil)
+	h.ServeHTTP(rec, withCookie(req, cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prepareSourceAnnotation(%s): %d — %s", materialID, rec.Code, rec.Body.String())
+	}
+
+	q := sqlc.New(pool)
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(mustUUID(projectID)))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	found := false
+	var row sqlc.CardInstance
+	for _, ci := range cis {
+		if ci.CardID == wantCardID && ci.Status == "proposed" {
+			row, found = ci, true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no proposed %q card_instance found after opening material %s for annotation", wantCardID, materialID)
+	}
+	if len(row.Anchors) > 0 {
+		_ = json.Unmarshal(row.Anchors, &anchors)
+	}
+	return row.ID.String(), anchors
+}
+
 // activateWalkCard drives POST /cards/{cid}/activate (api/projectCards.ts's
 // activateProjectCard) — the real screen control confirming "打开" (AGENTS.md
 // rule 2: summoning is automatic, opening is the student's own confirmed
@@ -382,36 +421,31 @@ func TestWalk_S0ToS6_FreshProject(t *testing.T) {
 	}
 
 	// --- S3 evaluate_sources ------------------------------------------------
-	// Round 1: CRAAP on whichever material the classifier picks first.
-	cidCraap1, checked1, anchors1 := surfaceWalkCard(t, hCore, pool, cookie, pid, "craap", "这条来源可信吗")
+	// Round 1: CRAAP on matA — Task 11 (spec-read-together-redesign) moved
+	// craap/sift to the reading room's own open-source trigger
+	// (prepareSourceAnnotation), so the walk picks which source it opens
+	// first explicitly, rather than letting /turn's classifier discover one.
+	checked1 := matA
+	cidCraap1, anchors1 := surfaceReadingCard(t, hCore, pool, cookie, pid, "craap", checked1)
 	activateWalkCard(t, hCore, cookie, pid, cidCraap1)
 	submitWalkCard(t, hCore, cookie, pid, cidCraap1, fillCraapAnchors(anchors1, checked1))
 	assertCardCompleted(t, pool, cidCraap1)
 
 	// The lateral material for SIFT is whichever of A/B was NOT just checked.
-	lateral1 := matA
-	if checked1 == matA {
-		lateral1 = matB
-	}
+	lateral1 := matB
 
-	// Round 2: SIFT surfaces on the SAME (just-checked) material — the
-	// summon hop one turn after the craap submit's own refeed (which is a
-	// coaching question, not a card — studioturn_test.go's
-	// TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted documents exactly
-	// this one-hop shape).
-	cidSift, checkedSift, _ := surfaceWalkCard(t, hCore, pool, cookie, pid, "sift", "这条来源核查完了，接下来该怎么办？")
-	if checkedSift != checked1 {
-		t.Fatalf("sift surfaced on material %q, want the just-checked material %q", checkedSift, checked1)
-	}
+	// Round 2: SIFT surfaces on the SAME (just-checked) material, reached the
+	// same way — opening it again (prepareSourceAnnotation is idempotent
+	// server-side, materials.go's own doc comment: a second open finds the
+	// card already surfaced and no-ops, or here, surfaces the NEXT due card).
+	cidSift, _ := surfaceReadingCard(t, hCore, pool, cookie, pid, "sift", checked1)
 	activateWalkCard(t, hCore, cookie, pid, cidSift)
-	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(checkedSift, lateral1))
+	submitWalkCard(t, hCore, cookie, pid, cidSift, fillSiftAnchors(checked1, lateral1))
 	assertCardCompleted(t, pool, cidSift)
 
 	// Round 3: CRAAP on the other (still-unevaluated) material.
-	cidCraap2, checked2, anchors2 := surfaceWalkCard(t, hCore, pool, cookie, pid, "craap", "再核查一下另一条来源")
-	if checked2 != lateral1 {
-		t.Fatalf("second craap surfaced on material %q, want the remaining unevaluated material %q", checked2, lateral1)
-	}
+	checked2 := lateral1
+	cidCraap2, anchors2 := surfaceReadingCard(t, hCore, pool, cookie, pid, "craap", checked2)
 	activateWalkCard(t, hCore, cookie, pid, cidCraap2)
 	submitWalkCard(t, hCore, cookie, pid, cidCraap2, fillCraapAnchors(anchors2, checked2))
 	assertCardCompleted(t, pool, cidCraap2)

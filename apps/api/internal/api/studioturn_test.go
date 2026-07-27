@@ -66,6 +66,53 @@ func pgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
+// skipAnyProposedCard skips whatever card_instance is currently proposed or
+// active in projectID, if any (a no-op when none is) — resets
+// SurfaceCardCandidates' project-wide "one card in flight" guard between two
+// surface assertions in the same test (Task 11: gating craap/sift out of a
+// studio turn's candidates can legitimately let a DIFFERENT studio-owned
+// card win decide-one instead, and that card staying proposed would
+// otherwise block a subsequent reading-room summon assertion).
+func skipAnyProposedCard(t *testing.T, h http.Handler, cookie *http.Cookie, q *sqlc.Queries, projectID uuid.UUID) {
+	t.Helper()
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
+	if err != nil {
+		t.Fatalf("skipAnyProposedCard: ListCardInstancesByProject: %v", err)
+	}
+	for _, ci := range cis {
+		if ci.Status != "proposed" && ci.Status != "active" {
+			continue
+		}
+		base := "/api/v1/projects/" + projectID.String() + "/cards/" + ci.ID.String()
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/skip", strings.NewReader(`{"event_trace":[{"kind":"skip","at":"2026-07-12T00:00:00Z"}]}`)), cookie))
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("skipAnyProposedCard: skip %s (%s): %d — %s", ci.ID, ci.CardID, rr.Code, rr.Body.String())
+		}
+	}
+}
+
+// prepareAnnotation drives the real HTTP prepareSourceAnnotation endpoint
+// (POST .../materials/{mid}/annotate) — the reading room's own summon path
+// for CRAAP/SIFT (materials.go), and, since Task 11 (spec-read-together-
+// redesign) gated CRAAP/SIFT out of the studio /turn and /cards/{cid}/submit
+// paths, the ONLY remaining reachable entry point for surfaceAnchors' guided
+// anchor generation (currency/relevance/authority/accuracy/purpose,
+// L1/L2/L3 fade). Every test in this file that used to surface craap/sift by
+// POSTing student text to /turn now opens the source instead — the same
+// "印记 reads the article WITH the student" trigger the product actually
+// fires on. Unlike /turn, this endpoint is plain REST (200 {"surfaced":bool},
+// no SSE) — callers read the surfaced card back off the DB.
+func prepareAnnotation(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, materialID string) {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/materials/"+materialID+"/annotate", nil)
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("prepareSourceAnnotation: %d — %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestProjectTurn(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
@@ -111,11 +158,21 @@ func TestProjectTurn(t *testing.T) {
 	}
 }
 
-// TestProjectTurn_SurfacesCraapCard — the seeded project's article materials
-// are un-evaluated (no "evaluated-as" edge in migration 0018), so with
-// SkipSurfaceCards off, a turn surfaces the CRAAP card instead of staying
-// silent or emitting an intervention.
-func TestProjectTurn_SurfacesCraapCard(t *testing.T) {
+// TestProjectTurn_DoesNotSurfaceCraapCard is Task 11's (spec-read-together-
+// redesign) binding-decision proof: "CRAAP/SIFT are summonable in the
+// READING ROOM ONLY" — the studio /turn path must never surface either into
+// the coach rail, even though the seeded project's article materials are
+// un-evaluated (no "evaluated-as" edge in migration 0018) and would have
+// made the pre-Task-11 classifier propose CRAAP here (see this test's former
+// self, TestProjectTurn_SurfacesCraapCard, in git history). No card frame at
+// all is emitted for this trigger — the turn is silent (the coach has
+// nothing else to say about an un-evaluated, otherwise-untouched project) —
+// and, load-bearingly, no card_instance is persisted either: a candidate
+// filtered out BEFORE SurfaceCard mints anything, not merely one whose event
+// went unstreamed while a "proposed" row was left dangling in the DB (which
+// would wrongly block every future candidate via the project-wide in-flight
+// guard, agent.SurfaceCardCandidates).
+func TestProjectTurn_DoesNotSurfaceCraapCard(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
 	cookie := signInSeed(t, pool)
@@ -123,22 +180,33 @@ func TestProjectTurn_SurfacesCraapCard(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
 	h.ServeHTTP(rr, withCookie(req, cookie))
 	body := rr.Body.String()
-	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event:\n%s", body)
+	if rr.Code != 200 {
+		t.Fatalf("turn: %d — %s", rr.Code, body)
 	}
-	// a card_instance (proposed) was persisted for the project
-	cis, _ := sqlc.New(pool).ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse("00000000-0000-0000-0000-000000000101")))
-	if len(cis) == 0 {
-		t.Fatalf("no card_instance persisted")
+	if strings.Contains(body, "event: card") || strings.Contains(body, `"card_id":"craap"`) || strings.Contains(body, `"card_id":"sift"`) {
+		t.Fatalf("studio turn must never surface craap/sift (reading-room-only, Task 11):\n%s", body)
+	}
+	cis, err := sqlc.New(pool).ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse("00000000-0000-0000-0000-000000000101")))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	for _, ci := range cis {
+		if ci.CardID == "craap" || ci.CardID == "sift" {
+			t.Fatalf("no craap/sift card_instance may be minted by a studio turn, got %+v", ci)
+		}
 	}
 }
 
-// TestProjectTurn_SurfacesCraapCard_GeneratesAnchors — Task 2: the Studio
-// surface seam (streamAction -> surfaceAnchors) must generate + persist AI
-// anchors on the craap card_instance it just proposed, not emit an empty
-// `[]` anchors payload. Drives the real HTTP turn endpoint (same trigger as
-// TestProjectTurn_SurfacesCraapCard) with the fake provider/resolver: the
-// stub's scripted reply is not valid anchor-gen JSON, so
+// TestProjectTurn_SurfacesCraapCard_GeneratesAnchors — Task 2's surface seam
+// (surfaceAnchors) must generate + persist AI anchors on the craap
+// card_instance it proposes, not emit an empty `[]` anchors payload. Task 11
+// (spec-read-together-redesign) retired craap/sift surfacing from the studio
+// /turn path — this now drives the reading room's own summon entry point,
+// prepareSourceAnnotation (POST .../materials/{mid}/annotate), against the
+// seeded demo project's un-evaluated article material
+// (00000000-0000-0000-0000-000000000110, migration 0018) — the same trigger
+// TestProjectTurn_DoesNotSurfaceCraapCard proves /turn no longer fires. The
+// fake provider/resolver's scripted reply is not valid anchor-gen JSON, so
 // AnchorGenerator.Generate falls back to its deterministic per-tag path —
 // exercising the surface seam end to end with no live model/key required.
 func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
@@ -147,17 +215,7 @@ func TestProjectTurn_SurfacesCraapCard_GeneratesAnchors(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
 
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-	h.ServeHTTP(rr, withCookie(req, cookie))
-	body := rr.Body.String()
-	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event:\n%s", body)
-	}
-	// The SSE `card` frame itself must no longer carry the hardcoded `[]`.
-	if strings.Contains(body, `"anchors":[]`) {
-		t.Fatalf("card frame still emits empty anchors:\n%s", body)
-	}
+	prepareAnnotation(t, h, cookie, projectID.String(), "00000000-0000-0000-0000-000000000110")
 
 	q := sqlc.New(pool)
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
@@ -261,21 +319,34 @@ func TestProjectTurn_SurfacesSiftCard_AfterCraapCompleted(t *testing.T) {
 		t.Fatalf("the refeed candidate must outrank surface_card on this same submit — got a card frame too:\n%s", submitBody)
 	}
 
-	// The summon hop: the student's NEXT turn (the refeed question having
-	// already been answered/is a separate moment) must surface SIFT on the
-	// material that was just evaluated — the exact reachability the
-	// whole-branch review found missing (finding [1]), now proved one hop
-	// after the refeed instead of on the same submit.
+	// Task 11 (spec-read-together-redesign): the student's NEXT studio turn
+	// must NOT surface SIFT — CRAAP/SIFT are reading-room-only now. Proves the
+	// binding decision holds even in the exact scenario finding [1] used to
+	// require /turn to carry: right after a material's CRAAP just completed.
 	turnRR := httptest.NewRecorder()
 	turnReq := httptest.NewRequest("POST", "/api/v1/projects/"+projectID.String()+"/turn", strings.NewReader(`{"user_input":"这条来源核查完了，接下来该怎么办？"}`))
 	h.ServeHTTP(turnRR, withCookie(turnReq, cookie))
 	turnBody := turnRR.Body.String()
-	if turnRR.Code != 200 || !strings.Contains(turnBody, "event: card") || !strings.Contains(turnBody, `"card_id":"sift"`) {
-		t.Fatalf("expected the next turn to surface a sift card: %d — %s", turnRR.Code, turnBody)
+	if turnRR.Code != 200 {
+		t.Fatalf("turn: %d — %s", turnRR.Code, turnBody)
 	}
-	if !strings.Contains(turnBody, `"material_id":"`+checkedMaterialID+`"`) {
-		t.Fatalf("card frame material_id must name the checked material %s:\n%s", checkedMaterialID, turnBody)
+	if strings.Contains(turnBody, `"card_id":"sift"`) {
+		t.Fatalf("studio turn must never surface sift (reading-room-only, Task 11):\n%s", turnBody)
 	}
+	// Task 11 side effect (expected, not a bug): with craap/sift filtered out
+	// of this turn's candidates, a DIFFERENT studio-owned card (e.g.
+	// perspective-matrix) may legitimately win decide-one instead, if the
+	// seeded project's graph already satisfies its own trigger condition.
+	// Skip it — mirrors a student declining an unrelated proposal — so the
+	// project-wide "one card in flight" guard (SurfaceCardCandidates) does
+	// not block the reading-room summon this test is actually about.
+	skipAnyProposedCard(t, h, cookie, q, projectID)
+
+	// The summon hop now lives in the reading room: opening the checked
+	// material (prepareSourceAnnotation) must surface SIFT on it — the exact
+	// reachability the whole-branch review found missing (finding [1]),
+	// relocated off /turn.
+	prepareAnnotation(t, h, cookie, projectID.String(), checkedMaterialID)
 
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
 	if err != nil {
@@ -413,8 +484,12 @@ var craapStubQuestionByDimension = map[string]string{
 const craapMaterialText = "全球变暖导致极端天气增加，这需要认真研究其影响。"
 
 // ingestCraapMaterial pastes craapMaterialText into projectID, giving it one
-// un-evaluated article material (Segment produces exactly block "b0").
-func ingestCraapMaterial(t *testing.T, h http.Handler, cookie *http.Cookie, projectID string) {
+// un-evaluated article material (Segment produces exactly block "b0"), and
+// returns its id — Task 11 (spec-read-together-redesign) callers need it to
+// target prepareSourceAnnotation (POST .../materials/{mid}/annotate), the
+// craap/sift summon path's new home now that /turn no longer discovers a
+// project's un-evaluated material on its own.
+func ingestCraapMaterial(t *testing.T, h http.Handler, cookie *http.Cookie, projectID string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/materials",
@@ -423,6 +498,13 @@ func ingestCraapMaterial(t *testing.T, h http.Handler, cookie *http.Cookie, proj
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("ingestCraapMaterial: %d — %s", rec.Code, rec.Body.String())
 	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal ingestCraapMaterial response: %v — %s", err, rec.Body.String())
+	}
+	return out.ID
 }
 
 // seedCompletedCraapUse directly inserts one status='completed' craap
@@ -441,19 +523,15 @@ func seedCompletedCraapUse(t *testing.T, pool *pgxpool.Pool, projectID uuid.UUID
 }
 
 // craapAnchorsFor surfaces craap on a freshly-created, freshly-materialed
-// project and returns the persisted anchors it generated.
+// project and returns the persisted anchors it generated. Drives
+// prepareSourceAnnotation (opening the source), not /turn — Task 11
+// (spec-read-together-redesign) moved craap/sift surfacing to the reading
+// room.
 func craapAnchorsFor(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie) []agent.Anchor {
 	t.Helper()
 	pid := createProjectForTest(t, h, cookie)
-	ingestCraapMaterial(t, h, cookie, pid)
-
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-	h.ServeHTTP(rr, withCookie(req, cookie))
-	body := rr.Body.String()
-	if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
-	}
+	matID := ingestCraapMaterial(t, h, cookie, pid)
+	prepareAnnotation(t, h, cookie, pid, matID)
 
 	q := sqlc.New(pool)
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse(pid)))
@@ -609,15 +687,10 @@ func TestE2E_GuidanceFadeAcrossThreeCompletions(t *testing.T) {
 	surfaceCraapRound := func() (string, uuid.UUID, []agent.Anchor) {
 		t.Helper()
 		pid := createProjectForTest(t, h, cookie)
-		ingestCraapMaterial(t, h, cookie, pid)
-
-		rr := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-		h.ServeHTTP(rr, withCookie(req, cookie))
-		body := rr.Body.String()
-		if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-			t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
-		}
+		matID := ingestCraapMaterial(t, h, cookie, pid)
+		// Task 11 (spec-read-together-redesign): craap/sift surface from the
+		// reading room's own open-source trigger now, not /turn.
+		prepareAnnotation(t, h, cookie, pid, matID)
 
 		cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse(pid)))
 		if err != nil {
@@ -817,16 +890,13 @@ func craapAnchorsForTwoMaterials(t *testing.T, h http.Handler, pool *pgxpool.Poo
 
 	newMatID := ingestMaterialForTest(t, h, cookie, pid, "新材料", craapMaterialText)
 
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-	h.ServeHTTP(rr, withCookie(req, cookie))
-	body := rr.Body.String()
-	if rr.Code != 200 || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event: %d — %s", rr.Code, body)
-	}
-	if !strings.Contains(body, `"material_id":"`+newMatID+`"`) {
-		t.Fatalf("card frame material_id must be the newer, un-evaluated material %s (not the older, already-evaluated one %s):\n%s", newMatID, oldMatID, body)
-	}
+	// Task 11 (spec-read-together-redesign): craap surfaces from opening the
+	// newer, un-evaluated source (prepareSourceAnnotation), not /turn.
+	// prepareSourceAnnotation only ever targets the material named in its own
+	// path — {mid} — so requesting newMatID here IS the material_id assertion
+	// the old /turn-body substring check made explicit; the anchors' own
+	// MaterialID (checked below via the surfaced card_instance) confirms it.
+	prepareAnnotation(t, h, cookie, pid, newMatID)
 
 	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(projectID))
 	if err != nil {
@@ -945,12 +1015,10 @@ func TestProjectTurn_PersistsAnchorsUsage(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := uuid.MustParse("00000000-0000-0000-0000-000000000101")
 
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/projects/00000000-0000-0000-0000-000000000101/turn", strings.NewReader(`{"user_input":"这条来源可信吗"}`))
-	h.ServeHTTP(rr, withCookie(req, cookie))
-	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"card_id":"craap"`) {
-		t.Fatalf("expected a craap card event: %d — %s", rr.Code, rr.Body.String())
-	}
+	// Task 11 (spec-read-together-redesign): the surface seam that generates
+	// + meters these anchors now fires from opening a source
+	// (prepareSourceAnnotation), not /turn.
+	prepareAnnotation(t, h, cookie, projectID.String(), "00000000-0000-0000-0000-000000000110")
 
 	calls, err := sqlc.New(pool).ListLLMCallsByProject(context.Background(), pgUUID(projectID))
 	if err != nil {

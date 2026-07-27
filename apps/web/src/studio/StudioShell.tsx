@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Anchor, TraceEvent } from "@mind-imprint/contracts";
+import type { TraceEvent } from "@mind-imprint/contracts";
 import { StationRail } from "./StationRail";
 import { ViewFrame } from "./ViewFrame";
 import { CoachRail } from "./CoachRail";
@@ -17,12 +17,6 @@ export type StudioShellProps = {
   // highlight the article spans the coach rail is asking about) — defaults
   // to null when there's no conversation yet.
   card?: LiveCard | null;
-  // Fix-wave bug [B]: the anchors of the card that was JUST submitted, held
-  // by the container from the moment `card` goes null (submit's "done"
-  // frame) until the refetch it kicks off lands — passed only to ViewFrame
-  // (never to CoachRail's `card`) so the article's highlights don't blink
-  // out for that round trip without resurrecting the tool-card sheet.
-  pendingAnchors?: Anchor[] | null;
   // Slice 6b Task 9: the 素材 dossier's own transient error state — this
   // doesn't belong on StudioCallbacks (it isn't a callback, it's the
   // student-facing result of the last add attempt) so it travels alongside
@@ -113,7 +107,6 @@ export function StudioShell({
   callbacks,
   sending = false,
   card = null,
-  pendingAnchors = null,
   addSourceError,
   lateralMaterialId,
   onLateralMaterialChange,
@@ -214,7 +207,6 @@ export function StudioShell({
         <ViewFrame
           state={state}
           card={card}
-          pendingAnchors={pendingAnchors}
           lateralMaterialId={lateralMaterialId}
           locating={locating}
           onCreateSpan={callbacks.onCreateSpan}
