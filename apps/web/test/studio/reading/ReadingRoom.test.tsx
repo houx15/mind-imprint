@@ -10,10 +10,25 @@ const SOURCE: MaterialSource = {
   lateralRead: false, isLateralInstrument: false, siftSkipped: false, lateralRelation: "", lateralJudgment: "",
 };
 
+// Task 10: ReadingRoom now owns the read-together loop internally
+// (`useReadingLoop`), so it needs `projectId` + an `api` slice — this test
+// never triggers the loop (no coach send, no card), so a bare object with
+// no calls actually made is enough; readTurn is present only to satisfy the
+// type, never invoked.
+const NOOP_API = {
+  readTurn: async function* () {},
+  activateProjectCard: async () => {},
+  evaluateCardSelection: async () => {
+    throw new Error("not used in this test");
+  },
+  submitProjectCard: async function* () {},
+  skipProjectCard: async () => {},
+};
+
 describe("ReadingRoom", () => {
   it("renders the article and returns via back", () => {
     const onBack = vi.fn();
-    render(<ReadingRoom source={SOURCE} onBack={onBack} />);
+    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={onBack} api={NOOP_API} />);
     expect(screen.getByText("NASA 气候报告")).toBeInTheDocument();
     expect(screen.getByText(/全球平均气温持续上升/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/返回工作区/));

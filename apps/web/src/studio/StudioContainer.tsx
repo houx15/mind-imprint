@@ -14,9 +14,14 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // directory-first create flow — still a Pick off the real ApiClient so test
 // fixtures keep injecting plain object literals for just the calls a given
 // test actually exercises.
+// Task 10: widened again to the five read-together loop calls
+// (readTurn/activateProjectCard/evaluateCardSelection/submitProjectCard/
+// skipProjectCard) — ReadingRoom's own `useReadingLoop` needs them, and
+// ReadingRoom is handed this same `api` object below (structurally, it just
+// needs to satisfy `ReadingLoopApi`).
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "prepareSourceAnnotation" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "prepareSourceAnnotation" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation" | "readTurn" | "activateProjectCard" | "evaluateCardSelection" | "submitProjectCard" | "skipProjectCard"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
@@ -308,6 +313,25 @@ export function StudioContainer({
   // trip (the student keeps chatting while the request is in flight) is
   // never in that prefix and always survives, instead of being silently
   // deleted by an unconditional clear.
+  // I2 fix (whole-branch review): logs a source-read's elapsed time and
+  // refetches (this call also attests recon_logged and runs AdvanceAll
+  // server-side — S2's own gate item — so without a refetch here the rail
+  // would keep showing the OLD station as `current` until a full page
+  // reload). Never throws to the caller: a failed log or a failed refresh
+  // must never break the source-close interaction itself. Shared by
+  // `callbacks.onOpenLogged` (the ordinary in-shell dossier path, still used
+  // by other view swaps) AND the ReadingRoom render below — hoisted above
+  // both so it's defined (not just referenced) before either can call it.
+  const onOpenLogged = (materialId: string, timeSpentS: number) => {
+    if (!projectId) return;
+    api
+      .logSourceOpen(projectId, materialId, timeSpentS)
+      .then(() => refetchProject())
+      .catch(() => {
+        setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
+      });
+  };
+
   const refetchProject = async () => {
     if (!projectId) return;
     // This refetch's generation — claimed synchronously, before the await,
@@ -535,7 +559,10 @@ export function StudioContainer({
     if (readingSource) {
       return (
         <ReadingRoom
+          projectId={projectId ?? ""}
           source={readingSource}
+          api={api}
+          onOpenLogged={onOpenLogged}
           onBack={() => {
             setReadingMaterialId(null);
             void refetchProject();
@@ -734,24 +761,10 @@ export function StudioContainer({
     // focused ReadingRoom surface instead of the in-place article view — see
     // the `readingMaterialId` render swap above.
     onOpenReading: (materialId) => setReadingMaterialId(materialId),
-    onOpenLogged: (materialId, timeSpentS) => {
-      if (!projectId) return;
-      // I2 fix (whole-branch review): this call now also attests
-      // recon_logged and runs AdvanceAll server-side (S2's own gate item) —
-      // station switching is client-local and nothing polls, so without a
-      // refetch here the rail would keep showing the OLD station as
-      // `current` until a full page reload, even though the gate closed on
-      // the server. Still never throws to the caller: a failed log or a
-      // failed refresh must never break the source-close interaction itself
-      // (same split SourceDossier's own onOpenLogged callers already rely
-      // on), it only surfaces the generic sync-staleness banner.
-      api
-        .logSourceOpen(projectId, materialId, timeSpentS)
-        .then(() => refetchProject())
-        .catch(() => {
-          setSyncError("画面可能未同步到最新状态，请刷新页面重试。");
-        });
-    },
+    // Task 10: the log-and-refetch body now lives in the hoisted
+    // `onOpenLogged` above (shared with the ReadingRoom render below) — this
+    // is just the same reference under its StudioCallbacks name.
+    onOpenLogged,
     onBufferChange: (text) => {
       // Optimistic local update FIRST — the textarea is controlled by
       // state.views.writing.buffer, so without this the keystroke would

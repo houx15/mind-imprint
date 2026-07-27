@@ -243,6 +243,9 @@ describe("StudioContainer", () => {
         activeStation: "S3",
         materials: [material],
       }),
+      // ReadingRoom (Task 10) reports reading time via `onOpenLogged` on
+      // unmount — 返回工作区 below unmounts it, so this must exist.
+      logSourceOpen: vi.fn(async () => {}),
     };
     await renderAndOpen({ api: api as never });
     await screen.findByText(/信源档案 · 已收集 1 篇/);
@@ -325,19 +328,12 @@ describe("StudioContainer", () => {
     );
   });
 
-  // Task 8 (read-together redesign): a source-list row click now opens the
-  // ReadingRoom surface (see "opens the ReadingRoom surface…" above) instead
-  // of SourceDossier's own in-place article view — so the open/close cycle
-  // this test exercised (and the reading-time log it produced) has no
-  // reachable trigger through this container anymore. The underlying
-  // mechanism is untouched and still covered at the component level
-  // (SourceDossier.test.tsx's own "reports the time spent…" test, which
-  // renders SourceDossier directly with no `onOpenReading`). Skipped rather
-  // than deleted so the gap stays visible: reading-time logging needs to be
-  // re-wired into ReadingRoom's own loop (ReadingRoomProps' "loop props
-  // added in Task 10" comment) for this container-level coverage to have a
-  // path again.
-  it.skip("posts the reading time when the student leaves a source", async () => {
+  // Task 10: reinstates the reading-time logging on the new ReadingRoom
+  // surface — ReadingRoom now tracks its own open timestamp and reports
+  // elapsed seconds (via the `onOpenLogged` prop StudioContainer threads
+  // through) on unmount, which is exactly what happens when 返回工作区
+  // swaps the surface back out to the studio shell.
+  it("posts the reading time when the student leaves a source", async () => {
     const material = {
       id: "m1",
       title: "《卫星图看中国变绿》",
@@ -351,7 +347,7 @@ describe("StudioContainer", () => {
       takeaway: "结论被放大了。",
       anchors: [],
     };
-    const logSourceOpen = vi.fn(async () => {});
+    const logSourceOpen = vi.fn(async (_projectId: string, _materialId: string, _timeSpentS: number) => {});
     let getProjectCalls = 0;
     const api = {
       listProjects: async () => [{ id: "p1", title: "t", qualLabel: "q", activeStation: "S3" }],
@@ -367,6 +363,7 @@ describe("StudioContainer", () => {
       addMaterial: vi.fn(),
       logSourceOpen,
       prepareSourceAnnotation: vi.fn(async () => false),
+      readTurn: vi.fn(async function* () {}),
     };
 
     await renderAndOpen({ api: api as never });
@@ -386,16 +383,17 @@ describe("StudioContainer", () => {
     const getProjectCallsBeforeClose = getProjectCalls;
 
     // Fake timers only wrap the synchronous open→advance→close sequence —
-    // reportOpenElapsed fires onOpenLogged synchronously from the click
-    // handler, so there's no async gap here that would fight
-    // testing-library's own (real-timer) polling.
+    // ReadingRoom's own unmount-cleanup reports onOpenLogged synchronously
+    // from the click handler's state update, so there's no async gap here
+    // that would fight testing-library's own (real-timer) polling.
     vi.useFakeTimers();
     fireEvent.click(within(screen.getByTestId("dossier-source-list")).getByText(material.title));
     vi.advanceTimersByTime(30_000);
-    fireEvent.click(screen.getByText("返回信源列表"));
+    fireEvent.click(screen.getByText(/返回工作区/));
     vi.useRealTimers();
 
-    expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", 30);
+    expect(logSourceOpen).toHaveBeenCalledWith("p1", "m1", expect.any(Number));
+    expect(logSourceOpen.mock.calls[0]![2]).toBeGreaterThanOrEqual(0);
 
     // I2 fix (whole-branch review): this call now also attests recon_logged
     // and runs AdvanceAll server-side — without a refetch here, the rail
