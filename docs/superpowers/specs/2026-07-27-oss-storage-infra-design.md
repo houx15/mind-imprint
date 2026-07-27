@@ -303,6 +303,12 @@ Documented as deployment steps (not code):
 4. **DNS** `mind-oss.uni-robot.cn` → the CDN CNAME
    `mind-oss.uni-robot.cn.w.kunlunaq.com` (already provisioned).
 
+**Verified live 2026-07-27** (real bucket + CDN): presigned `PUT`→origin `200`;
+signed `GET`→CDN `200` byte-exact; unsigned `GET`→CDN `403`; tampered signature
+→CDN `403` with `SignatureDoesNotMatch` *from OSS* (confirming the CDN forwards
+the signature to the private origin rather than masking it with its own
+identity). Model A (OSS-signature-through-CDN) holds; no CDN URL-auth needed.
+
 **Verification** (run after setup):
 
 ```bash
