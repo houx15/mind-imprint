@@ -1,0 +1,80 @@
+// Minimal geometric line-icons for the prototype shell + blocks. Stroke-based,
+// inherit `currentColor`, sized by `size`. Kept tiny on purpose — refined, not
+// emoji-slop.
+import type { BlockKey } from "./protoData";
+
+export function Icon({ name, size = 18 }: { name: string; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (name) {
+    case "plan":
+      return (
+        <svg {...common}>
+          <rect x="4" y="4" width="16" height="16" rx="2.5" />
+          <path d="M9 4v16M4 9h5M4 15h5" />
+        </svg>
+      );
+    case "reading":
+      return (
+        <svg {...common}>
+          <path d="M12 6c-2-1.4-4.5-1.6-7-1v12c2.5-.6 5-.4 7 1 2-1.4 4.5-1.6 7-1V5c-2.5-.6-5-.4-7 1z" />
+          <path d="M12 6v13" />
+        </svg>
+      );
+    case "writing":
+      return (
+        <svg {...common}>
+          <path d="M4 20h16" />
+          <path d="M15.5 4.5l4 4L8 20l-4 1 1-4L15.5 4.5z" />
+        </svg>
+      );
+    case "reflection":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8a4 4 0 000 8" />
+        </svg>
+      );
+    case "back":
+      return (
+        <svg {...common}>
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
+      );
+    case "send":
+      return (
+        <svg {...common}>
+          <path d="M4 12l16-8-6 16-3-7-7-1z" />
+        </svg>
+      );
+    case "arrow":
+      return (
+        <svg {...common}>
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      );
+    case "spark":
+      return (
+        <svg {...common}>
+          <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export const BLOCK_META: { key: BlockKey; label: string; sub: string }[] = [
+  { key: "plan", label: "项目管理", sub: "Project Management" },
+  { key: "reading", label: "阅读", sub: "Read" },
+  { key: "writing", label: "写作", sub: "Write" },
+  { key: "reflection", label: "回顾", sub: "Review" },
+];

@@ -1,9 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/skills"
@@ -70,22 +72,55 @@ func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUI
 	return id, true
 }
 
-// getProject returns the full StudioProjection for one project.
+// workspaceProposal is the four kick-off dimensions, zero-valued when absent.
+type workspaceProposal struct {
+	Objective  string `json:"objective"`
+	Reason     string `json:"reason"`
+	Activities string `json:"activities"`
+	Resources  string `json:"resources"`
+}
+
+// workspaceProjection is the lean shape returned by GET /projects/{id}. The four
+// rooms fetch their own heavier data; this projection carries only title,
+// qualification and the proposal (the workspace shell needs nothing more).
+type workspaceProjection struct {
+	ID            string            `json:"id"`
+	Title         string            `json:"title"`
+	Qualification string            `json:"qualification"`
+	Proposal      workspaceProposal `json:"proposal"`
+}
+
+// getProject returns the lean WorkspaceProjection for one project.
 func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 	id, ok := a.loadOwnedProject(w, r)
 	if !ok {
 		return
 	}
-	d, err := studio.Load(r.Context(), a.d.Queries, id)
+	p, err := a.d.Queries.GetProject(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	sk, _ := skills.ByID("writing-project")
-	proj, err := studio.Project(sk, a.d.SpecByID, d)
-	if err != nil {
+	prop := workspaceProposal{}
+	row, err := a.d.Queries.GetProjectProposal(r.Context(), id)
+	switch {
+	case err == nil:
+		prop = workspaceProposal{
+			Objective:  row.Objective,
+			Reason:     row.Reason,
+			Activities: row.Activities,
+			Resources:  row.Resources,
+		}
+	case errors.Is(err, pgx.ErrNoRows):
+		// no proposal yet — leave zero-value {"","","",""}
+	default:
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, proj)
+	httpx.WriteJSON(w, http.StatusOK, workspaceProjection{
+		ID:            p.ID.String(),
+		Title:         p.Title,
+		Qualification: p.Qualification,
+		Proposal:      prop,
+	})
 }

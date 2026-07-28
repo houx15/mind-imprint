@@ -19,8 +19,8 @@ vi.mock("@/api", async (orig) => {
   };
 });
 
-vi.mock("@/studio/StudioContainer", () => ({
-  StudioContainer: () => <div data-testid="studio-container" />,
+vi.mock("@/workspace/WorkspaceContainer", () => ({
+  WorkspaceContainer: () => <div data-testid="studio-container" />,
 }));
 
 vi.mock("@/shell/growth/GrowthReport", () => ({

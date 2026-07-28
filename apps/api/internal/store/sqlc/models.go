@@ -11,6 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivityLogEntry struct {
+	ID        uuid.UUID   `json:"id"`
+	ProjectID uuid.UUID   `json:"project_id"`
+	EntryDate pgtype.Date `json:"entry_date"`
+	Text      string      `json:"text"`
+	Source    string      `json:"source"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type CardCompetence struct {
 	ID              uuid.UUID `json:"id"`
 	UserID          uuid.UUID `json:"user_id"`
@@ -77,6 +86,15 @@ type ClassWeeklyProse struct {
 	Cards        []byte      `json:"cards"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
+type Collection struct {
+	ID        uuid.UUID   `json:"id"`
+	ProjectID uuid.UUID   `json:"project_id"`
+	Name      string      `json:"name"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	Position  int32       `json:"position"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 type Course struct {
@@ -310,12 +328,37 @@ type Message struct {
 	Source           *string        `json:"source"`
 }
 
+type OutlineNode struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Text      string    `json:"text"`
+	Depth     int32     `json:"depth"`
+	Position  int32     `json:"position"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type ParentReportProse struct {
 	StudentUserID uuid.UUID `json:"student_user_id"`
 	Surface       string    `json:"surface"`
 	ScopeID       string    `json:"scope_id"`
 	Prose         []byte    `json:"prose"`
 	CreatedAt     time.Time `json:"created_at"`
+}
+
+type PlanItem struct {
+	ID            uuid.UUID   `json:"id"`
+	ProjectID     uuid.UUID   `json:"project_id"`
+	Title         string      `json:"title"`
+	Tag           string      `json:"tag"`
+	Col           string      `json:"col"`
+	Stage         string      `json:"stage"`
+	RefMaterialID pgtype.UUID `json:"ref_material_id"`
+	StartDay      int32       `json:"start_day"`
+	Days          int32       `json:"days"`
+	Position      int32       `json:"position"`
+	CreatedAt     time.Time   `json:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at"`
 }
 
 type Project struct {
@@ -328,6 +371,53 @@ type Project struct {
 	Status        string             `json:"status"`
 	CreatedAt     time.Time          `json:"created_at"`
 	LastActiveAt  time.Time          `json:"last_active_at"`
+}
+
+type ProjectMirrorProse struct {
+	ProjectID     uuid.UUID `json:"project_id"`
+	Sections      []byte    `json:"sections"`
+	CarryForwards []byte    `json:"carry_forwards"`
+	Model         string    `json:"model"`
+	Tier          string    `json:"tier"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type ProjectProposal struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	Objective  string    `json:"objective"`
+	Reason     string    `json:"reason"`
+	Activities string    `json:"activities"`
+	Resources  string    `json:"resources"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type ProjectReflection struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Answers   []byte    `json:"answers"`
+	Done      bool      `json:"done"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Reference struct {
+	ID             uuid.UUID   `json:"id"`
+	ProjectID      uuid.UUID   `json:"project_id"`
+	Title          string      `json:"title"`
+	Classification string      `json:"classification"`
+	Author         string      `json:"author"`
+	Credentials    string      `json:"credentials"`
+	Year           string      `json:"year"`
+	Url            string      `json:"url"`
+	Tags           []byte      `json:"tags"`
+	CollectionID   pgtype.UUID `json:"collection_id"`
+	Credibility    *string     `json:"credibility"`
+	Evaluation     string      `json:"evaluation"`
+	Decision       *string     `json:"decision"`
+	Pending        bool        `json:"pending"`
+	SearchHints    []byte      `json:"search_hints"`
+	MaterialID     pgtype.UUID `json:"material_id"`
+	Position       int32       `json:"position"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
 type School struct {

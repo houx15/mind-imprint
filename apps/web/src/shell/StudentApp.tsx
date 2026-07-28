@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { SessionStore } from "./session";
 import { LeftRail } from "./LeftRail";
 import { CoursesContainer } from "./courses/CoursesContainer";
-import { StudioContainer } from "../studio/StudioContainer";
+import { WorkspaceContainer } from "../workspace/WorkspaceContainer";
 import { GrowthReport } from "./growth/GrowthReport";
 import { SettingsView } from "./settings/SettingsView";
 import { ChatContainer } from "./chat/ChatContainer";
@@ -24,7 +24,7 @@ export function StudentApp({
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {tab === "chat" && <ChatContainer />}
         {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("studio")} />}
-        {tab === "studio" && <StudioContainer onFinished={() => setTab("growth")} />}
+        {tab === "studio" && <WorkspaceContainer onFinished={() => setTab("growth")} />}
         {tab === "growth" && <GrowthReport />}
         {tab === "settings" && (
           <SettingsView session={session} user={session.getUser()} onLogout={onLogout} />

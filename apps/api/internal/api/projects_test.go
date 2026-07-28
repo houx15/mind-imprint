@@ -30,13 +30,18 @@ func TestProjectsEndpoints(t *testing.T) {
 		t.Fatalf("list: %d — %s", rr.Code, rr.Body.String())
 	}
 
-	// detail projects the studio state.
+	// detail returns the lean workspace projection {id,title,qualification,proposal}.
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/00000000-0000-0000-0000-000000000101", nil), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("detail: %d — %s", rr.Code, rr.Body.String())
 	}
-	for _, want := range []string{`"activeStation":"S4"`, `"论证构建"`, `"论证图 · 治理决心主张"`} {
+	for _, want := range []string{
+		`"id":"00000000-0000-0000-0000-000000000101"`,
+		`"title":"To what extent is China making the world more environmentally sustainable?"`,
+		`"qualification":"0457 个人报告"`,
+		`"proposal":{"objective":"","reason":"","activities":"","resources":""}`,
+	} {
 		if !strings.Contains(rr.Body.String(), want) {
 			t.Fatalf("detail missing %s — %s", want, rr.Body.String())
 		}

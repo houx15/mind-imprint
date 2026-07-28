@@ -16,8 +16,8 @@ vi.mock("@/api", async (orig) => {
   };
 });
 
-vi.mock("@/studio/StudioContainer", () => ({
-  StudioContainer: () => <div data-testid="studio-container" />,
+vi.mock("@/workspace/WorkspaceContainer", () => ({
+  WorkspaceContainer: () => <div data-testid="studio-container" />,
 }));
 
 const ME = { id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student", avatar_color: "#7C9CF0", school: { id: "s1", name: "Demo" }, classes: [] };
