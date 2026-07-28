@@ -9,6 +9,7 @@ import {
   Collection,
   Reference,
   MaterialSource,
+  OutlineNode,
 } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
 
@@ -173,6 +174,39 @@ export async function patchReference(id: string, rid: string, patch: ReferencePa
 // DELETE /references/{rid} — 204, no body.
 export async function deleteReference(id: string, rid: string): Promise<void> {
   await apiFetch<void>(`/api/v1/projects/${id}/references/${rid}`, { method: "DELETE" });
+}
+
+// ---- Write room (slice 4) ------------------------------------------------
+// Outline + draft, both persisted. The draft's autosave reuses putBuffer from
+// api/writing (not re-implemented here). Outline is a whole-set replace: PUT
+// sends the flat {text,depth} array in order and the server re-assigns
+// position/ids, so the client re-reads the fresh nodes it returns.
+
+// GET /outline — the outline bullets, ordered by position.
+export async function getOutline(id: string): Promise<OutlineNode[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/outline`);
+  return z.array(OutlineNode).parse((raw as { nodes: unknown }).nodes);
+}
+
+// The shape PUT /outline accepts — id optional (server mints/keeps), position
+// is implied by array index.
+export type OutlineNodeInput = { id?: string; text: string; depth: number };
+
+// PUT /outline — replace the whole set; returns the fresh nodes (with ids +
+// position assigned by the server).
+export async function putOutline(id: string, nodes: OutlineNodeInput[]): Promise<OutlineNode[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/outline`, {
+    method: "PUT",
+    body: JSON.stringify({ nodes }),
+  });
+  return z.array(OutlineNode).parse((raw as { nodes: unknown }).nodes);
+}
+
+// GET /draft — the current edit_buffer content ("" when there's no row yet).
+// Autosave goes through putBuffer (api/writing), not a fn here.
+export async function getDraft(id: string): Promise<string> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/draft`);
+  return z.object({ content: z.string() }).parse(raw).content;
 }
 
 // Thrown when enter-reading gets a 422 — the source has no readable content

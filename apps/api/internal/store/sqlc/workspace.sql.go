@@ -76,6 +76,39 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 	return i, err
 }
 
+const createOutlineNode = `-- name: CreateOutlineNode :one
+INSERT INTO outline_node (project_id, text, depth, position)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, text, depth, position, created_at, updated_at
+`
+
+type CreateOutlineNodeParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Text      string    `json:"text"`
+	Depth     int32     `json:"depth"`
+	Position  int32     `json:"position"`
+}
+
+func (q *Queries) CreateOutlineNode(ctx context.Context, arg CreateOutlineNodeParams) (OutlineNode, error) {
+	row := q.db.QueryRow(ctx, createOutlineNode,
+		arg.ProjectID,
+		arg.Text,
+		arg.Depth,
+		arg.Position,
+	)
+	var i OutlineNode
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Depth,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createPlanItem = `-- name: CreatePlanItem :one
 INSERT INTO plan_item (project_id, title, tag, col, stage, ref_material_id, start_day, days, position)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -189,6 +222,17 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deleteAllOutlineNodes = `-- name: DeleteAllOutlineNodes :exec
+DELETE FROM outline_node WHERE project_id = $1
+`
+
+// Clears the whole outline for a project; PUT /outline replaces the set by
+// deleting then re-inserting the posted array in one transaction.
+func (q *Queries) DeleteAllOutlineNodes(ctx context.Context, projectID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllOutlineNodes, projectID)
+	return err
 }
 
 const deleteCollection = `-- name: DeleteCollection :exec
@@ -399,6 +443,42 @@ func (q *Queries) ListCollections(ctx context.Context, projectID uuid.UUID) ([]C
 			&i.ParentID,
 			&i.Position,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOutlineNodes = `-- name: ListOutlineNodes :many
+
+SELECT id, project_id, text, depth, position, created_at, updated_at FROM outline_node
+WHERE project_id = $1
+ORDER BY position, created_at
+`
+
+// Write · outline nodes (depth-indexed flat list, projected to a tree). ------
+func (q *Queries) ListOutlineNodes(ctx context.Context, projectID uuid.UUID) ([]OutlineNode, error) {
+	rows, err := q.db.Query(ctx, listOutlineNodes, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OutlineNode
+	for rows.Next() {
+		var i OutlineNode
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Depth,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

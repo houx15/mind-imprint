@@ -134,3 +134,20 @@ UPDATE reference SET
     updated_at  = now()
 WHERE id = $1 AND project_id = $2
 RETURNING *;
+
+-- Write · outline nodes (depth-indexed flat list, projected to a tree). ------
+
+-- name: ListOutlineNodes :many
+SELECT * FROM outline_node
+WHERE project_id = $1
+ORDER BY position, created_at;
+
+-- name: DeleteAllOutlineNodes :exec
+-- Clears the whole outline for a project; PUT /outline replaces the set by
+-- deleting then re-inserting the posted array in one transaction.
+DELETE FROM outline_node WHERE project_id = $1;
+
+-- name: CreateOutlineNode :one
+INSERT INTO outline_node (project_id, text, depth, position)
+VALUES ($1, $2, $3, $4)
+RETURNING *;

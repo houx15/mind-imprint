@@ -1,27 +1,46 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Proposal } from "@mind-imprint/contracts";
+import { putBuffer } from "../../api/writing";
 import { Icon } from "../Icon";
-import {
-  project,
-  outline as seedOutline,
-  draftMarkdown,
-  writingCoachChat,
-  type ChatMsg,
-  type OutlineNode,
-} from "./mockData";
+import type { BlockKey } from "./mockData";
+import { getOutline, putOutline, getDraft, coach } from "../api/workspace";
+
+// One outline bullet in local edit shape — flat-with-depth, the same model the
+// prototype used (the persisted OutlineNode adds a server-owned `position`,
+// which the array order carries here).
+type Row = { id: string; text: string; depth: number };
+type ChatMsg = { role: "ai" | "student"; text: string };
+
+// A monotonic client-side id for freshly-added rows before the server mints a
+// real one. Any string is fine — the server re-assigns ids on every PUT.
+let tempSeq = 0;
+const tempId = () => `tmp-${tempSeq++}`;
 
 // The Write block: two gears — 提纲 (outline) and 写作 (a single draft panel) —
 // with a slim goal strip up top so you write against your thesis, and an AI
 // rail that talks about your outline/draft (never writes it). The proposal
-// stays in Project Management; here we only link back to it.
-export function WritingBlock() {
+// stays in Project Management; here we only link back to it. Outline + draft are
+// API-backed (slice 4): outline edits debounce to PUT /outline, the draft
+// debounces to PUT /buffer, and the rail calls POST /coach (writing scope).
+export function WritingBlock({
+  projectId,
+  title,
+  proposal,
+  onOpenRoom,
+}: {
+  projectId: string;
+  title: string;
+  proposal: Proposal;
+  onOpenRoom: (room: BlockKey) => void;
+}) {
   const [tab, setTab] = useState<"outline" | "draft">("outline");
   return (
     <div className="flex h-full flex-col">
       {/* goal strip */}
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
         <span className="flex-none rounded-full bg-mk-accent-tint px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
-        <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{project.proposal.objective}</p>
-        <button type="button" className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-primary">看开题 →</button>
+        <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
+        <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-primary">看开题 →</button>
       </div>
 
       {/* tabs */}
@@ -31,8 +50,8 @@ export function WritingBlock() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr,320px]">
-        {tab === "outline" ? <OutlinePane /> : <DraftPane />}
-        <CoachRail />
+        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} />}
+        <CoachRail projectId={projectId} />
       </div>
     </div>
   );
@@ -52,20 +71,98 @@ function Tab({ active, onClick, icon, children }: { active: boolean; onClick: ()
 
 /* ---------- 提纲 · outline ---------- */
 
-function OutlinePane() {
-  const [nodes, setNodes] = useState<OutlineNode[]>(seedOutline);
+function OutlinePane({ projectId, title }: { projectId: string; title: string }) {
+  const [nodes, setNodes] = useState<Row[]>([]);
   const [view, setView] = useState<"list" | "map">("list");
-  const edit = (id: string, text: string) => setNodes((xs) => xs.map((n) => (n.id === id ? { ...n, text } : n)));
-  const bump = (id: string, dir: 1 | -1) => setNodes((xs) => xs.map((n) => (n.id === id ? { ...n, depth: Math.max(0, Math.min(2, n.depth + dir)) } : n)));
-  const remove = (id: string) => setNodes((xs) => xs.filter((n) => n.id !== id));
-  const addAfter = (id: string) =>
-    setNodes((xs) => {
-      const i = xs.findIndex((n) => n.id === id);
-      const depth = xs[i]?.depth ?? 0;
-      const next = [...xs];
-      next.splice(i + 1, 0, { id: `o-${Date.now() % 100000}`, text: "", depth });
-      return next;
-    });
+  // nodesRef mirrors the latest committed rows so the debounced save (and the
+  // id-reconcile after it resolves) reads current state without stale closures.
+  const nodesRef = useRef<Row[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Persist the whole set, then adopt the server ids onto the rows we sent —
+  // but only when the local set hasn't structurally changed meanwhile (same
+  // length), so an id-swap never clobbers a mid-flight edit. On failure keep
+  // local; the next debounce retries.
+  async function save(rows: Row[]) {
+    try {
+      const server = await putOutline(projectId, rows.map((r) => ({ id: r.id, text: r.text, depth: r.depth })));
+      const cur = nodesRef.current;
+      if (cur.length === server.length) {
+        const next = cur.map((n, i) => ({ ...n, id: server[i]!.id }));
+        nodesRef.current = next;
+        setNodes(next);
+      }
+    } catch {
+      /* keep local; the next debounced save retries */
+    }
+  }
+
+  function scheduleSave(rows: Row[]) {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => save(rows), 700);
+  }
+
+  // Single mutation entry point: update state + ref, then debounce a save. Every
+  // edit (list or mind-map) flows through here, so the two views stay in sync.
+  function commit(next: Row[]) {
+    nodesRef.current = next;
+    setNodes(next);
+    scheduleSave(next);
+  }
+
+  // Load on mount. Empty outline → a single blank editable row (not yet saved;
+  // it persists once the student types).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await getOutline(projectId);
+        if (cancelled) return;
+        const rows: Row[] = loaded.length
+          ? loaded.map((n) => ({ id: n.id, text: n.text, depth: n.depth }))
+          : [{ id: tempId(), text: "", depth: 0 }];
+        nodesRef.current = rows;
+        setNodes(rows);
+      } catch {
+        if (cancelled) return;
+        const rows: Row[] = [{ id: tempId(), text: "", depth: 0 }];
+        nodesRef.current = rows;
+        setNodes(rows);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // Flush a pending save on unmount so a last edit inside the debounce window
+  // isn't lost when the student leaves the room.
+  useEffect(
+    () => () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        void save(nodesRef.current);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const edit = (id: string, text: string) => commit(nodesRef.current.map((n) => (n.id === id ? { ...n, text } : n)));
+  const bump = (id: string, dir: 1 | -1) => commit(nodesRef.current.map((n) => (n.id === id ? { ...n, depth: Math.max(0, Math.min(2, n.depth + dir)) } : n)));
+  const remove = (id: string) => {
+    const next = nodesRef.current.filter((n) => n.id !== id);
+    // Never leave the outline with zero rows — keep one blank editable row.
+    commit(next.length ? next : [{ id: tempId(), text: "", depth: 0 }]);
+  };
+  const addAfter = (id: string) => {
+    const xs = nodesRef.current;
+    const i = xs.findIndex((n) => n.id === id);
+    const depth = xs[i]?.depth ?? 0;
+    const next = [...xs];
+    next.splice(i < 0 ? next.length : i + 1, 0, { id: tempId(), text: "", depth });
+    commit(next);
+  };
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -94,7 +191,7 @@ function OutlinePane() {
           </div>
         </div>
       ) : (
-        <MindMap nodes={nodes} onEdit={edit} />
+        <MindMap nodes={nodes} title={title} onEdit={edit} />
       )}
     </div>
   );
@@ -108,9 +205,9 @@ const COL = 250;
 const ROW = 56;
 const NODE_W = 200;
 
-function MindMap({ nodes, onEdit }: { nodes: OutlineNode[]; onEdit: (id: string, t: string) => void }) {
+function MindMap({ nodes, title, onEdit }: { nodes: Row[]; title: string; onEdit: (id: string, t: string) => void }) {
   // Build a tree from the flat depth list, with the project title as the root.
-  const root: MapNode = { id: "root", text: project.title, depth: -1, children: [], row: 0, cx: 0, cy: 0 };
+  const root: MapNode = { id: "root", text: title || "未命名项目", depth: -1, children: [], row: 0, cx: 0, cy: 0 };
   const lastAtDepth: Record<number, MapNode> = { [-1]: root };
   for (const n of nodes) {
     const node: MapNode = { id: n.id, text: n.text, depth: n.depth, children: [], row: 0, cx: 0, cy: 0 };
@@ -178,7 +275,7 @@ function MindMap({ nodes, onEdit }: { nodes: OutlineNode[]; onEdit: (id: string,
   );
 }
 
-function OutlineRow({ node, onEdit, onIndent, onOutdent, onAdd, onRemove }: { node: OutlineNode; onEdit: (t: string) => void; onIndent: () => void; onOutdent: () => void; onAdd: () => void; onRemove: () => void }) {
+function OutlineRow({ node, onEdit, onIndent, onOutdent, onAdd, onRemove }: { node: Row; onEdit: (t: string) => void; onIndent: () => void; onOutdent: () => void; onAdd: () => void; onRemove: () => void }) {
   const dot = node.depth === 0 ? "bg-mk-primary" : node.depth === 1 ? "bg-mk-accent" : "bg-mk-green";
   return (
     <div className="group flex items-center gap-2 rounded-mk py-1 hover:bg-mk-bg/60" style={{ paddingLeft: node.depth * 26 }}>
@@ -209,10 +306,65 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
 
 /* ---------- 写作 · single draft panel ---------- */
 
-function DraftPane() {
+// The extensions we can read client-side as plain text. Binary formats
+// (.docx/.pdf) are accepted but parked with a note — real parsing is later.
+const TEXT_EXT = [".md", ".txt", ".markdown"];
+
+function DraftPane({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
-  const [text, setText] = useState(draftMarkdown);
+  const [text, setText] = useState("");
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const words = text.replace(/\s+/g, "").length;
+
+  // Load the persisted draft on mount ("" when there's no buffer yet).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const content = await getDraft(projectId);
+        if (!cancelled) setText(content);
+      } catch {
+        /* leave empty; the placeholder shows */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // Flush a pending autosave on unmount so a last keystroke isn't lost.
+  useEffect(
+    () => () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    },
+    [],
+  );
+
+  function onChange(next: string) {
+    setText(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void putBuffer(projectId, next).catch(() => {/* retries on next keystroke */});
+    }, 800);
+  }
+
+  async function handleFile(file: File) {
+    const name = file.name.toLowerCase();
+    if (TEXT_EXT.some((ext) => name.endsWith(ext))) {
+      const content = await file.text();
+      setText(content);
+      setUploadNote(null);
+      setMode("write");
+      void putBuffer(projectId, content).catch(() => {/* retries via next edit */});
+    } else {
+      // .docx / .pdf and friends — accepted but not parsed yet. Don't crash;
+      // just tell the student we've noted it.
+      setUploadNote(`已上传「${file.name}」，正文解析稍后支持。`);
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-col px-8 py-6">
       <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
@@ -227,16 +379,36 @@ function DraftPane() {
         {mode === "write" ? (
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => onChange(e.target.value)}
             placeholder="在这里写你的草稿……（支持 Markdown）"
             className="min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border bg-mk-surface p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
           />
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center">
+          <div
+            className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files[0];
+              if (f) void handleFile(f);
+            }}
+          >
             <span className="text-mk-primary"><Icon name="writing" size={28} /></span>
             <p className="mt-3 text-[15px] font-bold text-mk-ink">把你写好的文档拖进来</p>
             <p className="mt-1 text-[13px] text-mk-muted-2">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
-            <button type="button" className="mt-4 rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">选择文件</button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".md,.markdown,.txt,.docx,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+                e.target.value = "";
+              }}
+            />
+            <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">选择文件</button>
+            {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{uploadNote}</p>}
           </div>
         )}
         <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
@@ -255,9 +427,38 @@ function ModeTab({ active, onClick, children }: { active: boolean; onClick: () =
 
 /* ---------- right · AI rail ---------- */
 
-function CoachRail() {
-  const [chat, setChat] = useState<ChatMsg[]>(writingCoachChat);
+const RAIL_GREETING: ChatMsg = {
+  role: "ai",
+  text: "把你正在纠结的那一段贴过来，或者告诉我它想让读者信什么——我们从这个目的倒推它够不够。",
+};
+
+function CoachRail({ projectId }: { projectId: string }) {
+  const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setChat((c) => [...c, { role: "student", text }]);
+    setDraft("");
+    setSending(true);
+    try {
+      const reply = await coach(projectId, "writing", text);
+      setChat((c) => [...c, { role: "ai", text: reply }]);
+      // ── Card-summon hook ──────────────────────────────────────────────
+      // A future writing-scope coach turn may summon a thinking-card (e.g.
+      // 让步段 / 反例). When the coach response carries a summon signal, mount
+      // the Card Runtime here and refeed its standard envelope back into this
+      // thread. No behavior yet — the transport only returns the reply string.
+      // ──────────────────────────────────────────────────────────────────
+    } catch {
+      setChat((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
       <header className="border-b border-mk-border px-4 py-3">
@@ -273,19 +474,26 @@ function CoachRail() {
             <div className={`max-w-[88%] rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
           </div>
         ))}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3.5 py-2.5 text-[13px] leading-relaxed text-mk-muted-2">印记在想……</div>
+          </div>
+        )}
       </div>
       <div className="flex items-end gap-2 border-t border-mk-border p-3">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
           rows={1}
           placeholder="问问这段逻辑、这个结构……"
           className="max-h-24 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
         />
         <button
           type="button"
-          onClick={() => { if (!draft.trim()) return; setChat((c) => [...c, { role: "student", text: draft.trim() }, { role: "ai", text: "先说说你这一段想让读者信什么？我们从这个目的倒推它够不够。" }]); setDraft(""); }}
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover"
+          onClick={() => void send()}
+          disabled={sending}
+          className="flex h-9 w-9 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-50"
         >
           <Icon name="send" size={16} />
         </button>
