@@ -175,6 +175,70 @@ describe("useReadingLoop", () => {
     expect(result.current.status).toBe("idle");
   });
 
+  it("sendTurn attaches the focused spans' quotes to the student message", async () => {
+    const fakeApi = makeFakeApi();
+    const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
+
+    await act(async () => {
+      await result.current.sendTurn("这句是什么意思？", [{ block_id: "b1", quote: "因此这项政策必然失败" }]);
+    });
+
+    const studentMsg = result.current.messages.find((m) => m.role === "student");
+    expect(studentMsg).toMatchObject({ body: "这句是什么意思？", quotes: ["因此这项政策必然失败"] });
+  });
+
+  it("sendTurn with no focused spans leaves quotes undefined", async () => {
+    const fakeApi = makeFakeApi();
+    const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
+
+    await act(async () => {
+      await result.current.sendTurn("这句是什么意思？");
+    });
+
+    const studentMsg = result.current.messages.find((m) => m.role === "student") as any;
+    expect(studentMsg?.quotes).toBeUndefined();
+  });
+
+  it("loads and resumes an already-open card from getOpenCard on mount", async () => {
+    const fakeApi = {
+      ...makeFakeApi(),
+      getOpenCard: vi.fn(async () => ({
+        cardInstanceId: "ci-resume",
+        cardId: "argument-map",
+        status: "active" as const,
+        anchors: [EXAMPLE_ANCHOR],
+      })),
+    };
+    const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(fakeApi.getOpenCard).toHaveBeenCalledWith("p1", "m1");
+    expect(result.current.status).toBe("active");
+    expect(result.current.cardId).toBe("argument-map");
+    expect(result.current.exampleBlockId).toBe("b1");
+    expect(result.current.messages.some((m) => m.role === "assistant" && m.kind === "lens")).toBe(true);
+    // The resumed card is fully skippable — the deadlock-prevention escape hatch.
+    await act(async () => {
+      await result.current.skip();
+    });
+    expect(fakeApi.skipProjectCard).toHaveBeenCalledWith("p1", "ci-resume", { event_trace: [] });
+    expect(result.current.status).toBe("idle");
+  });
+
+  it("without getOpenCard on the injected api (older fake), stays idle on mount", async () => {
+    const fakeApi = makeFakeApi();
+    const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe("idle");
+  });
+
   it("an intervention event appends a coach line and stays idle", async () => {
     const fakeApi = {
       readTurn: vi.fn(async function* () {

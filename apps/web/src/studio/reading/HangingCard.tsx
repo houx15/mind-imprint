@@ -11,6 +11,11 @@ export type HangingCardProps = {
   onStartPick: () => void; // proposed → active
   onConfirm: () => void; // feedback → completed
   onRepick: () => void; // feedback → active
+  // onSkip — deadlock prevention: available at BOTH "proposed" and "active"
+  // (not just the feedback repick), so an in-flight lens is ALWAYS
+  // dismissable. Optional so a caller that truly can't offer a skip path
+  // (none today) still compiles.
+  onSkip?: () => void;
 };
 
 // The signature move (demo app.js:422-424): the card hangs under the AI's
@@ -66,7 +71,31 @@ function PrimaryButton({ onClick, children }: { onClick: () => void; children: R
 // hangs under exactly one paragraph at a time (ReadingRoom, via
 // anchorBlockId above, guarantees only one render). Exactly ONE primary
 // action per status (focus mandate, 铁律 3: one thing at a time).
-export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick }: HangingCardProps) {
+function SkipLink({ onSkip }: { onSkip: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSkip}
+      style={{
+        display: "block",
+        marginTop: 10,
+        background: "none",
+        border: "none",
+        color: "#8A92A3",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+        padding: 0,
+        textDecoration: "underline",
+        fontFamily: "inherit",
+      }}
+    >
+      跳过这副透镜
+    </button>
+  );
+}
+
+export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip }: HangingCardProps) {
   return (
     <div
       style={{
@@ -91,11 +120,15 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
               <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginTop: 6 }}>{exampleWhy}</div>
             </details>
             <PrimaryButton onClick={onStartPick}>看懂示范，开始选句</PrimaryButton>
+            {onSkip && <SkipLink onSkip={onSkip} />}
           </>
         )}
 
         {status === "active" && (
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: "#2B3346" }}>在文章里点出你自己的证据句</div>
+          <>
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: "#2B3346" }}>在文章里点出你自己的证据句</div>
+            {onSkip && <SkipLink onSkip={onSkip} />}
+          </>
         )}
 
         {status === "evaluating" && (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { readTurn, evaluateCardSelection } from "@/api/reading";
+import { readTurn, evaluateCardSelection, getOpenCard } from "@/api/reading";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -81,5 +81,40 @@ describe("evaluateCardSelection", () => {
       quote: "text",
       dimension: "evidence",
     })).rejects.toThrow();
+  });
+});
+
+describe("getOpenCard", () => {
+  it("GETs .../materials/{mid}/open-card and maps snake_case to camelCase", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify({
+      card_instance_id: "ci1",
+      card_id: "sift",
+      status: "active",
+      anchors: [{ id: "a0", material_id: "m1", block_id: "b0", start: 0, end: 3, quote: "x", dimension: "sift", author: "ai", question: "为什么？", answer: "" }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", spy);
+
+    const result = await getOpenCard("p1", "m1");
+
+    expect(result).toEqual({
+      cardInstanceId: "ci1",
+      cardId: "sift",
+      status: "active",
+      anchors: [{ id: "a0", material_id: "m1", block_id: "b0", start: 0, end: 3, quote: "x", dimension: "sift", author: "ai", question: "为什么？", answer: "" }],
+    });
+
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/materials/m1/open-card");
+  });
+
+  it("returns null when the server reports no open card", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify({
+      card_instance_id: "", card_id: "", status: "", anchors: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", spy);
+
+    const result = await getOpenCard("p1", "m1");
+
+    expect(result).toBeNull();
   });
 });

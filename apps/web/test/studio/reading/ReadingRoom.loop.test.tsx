@@ -207,6 +207,13 @@ describe("ReadingRoom — read-together loop", () => {
 
     // The chip is gone after sending — the reference set was cleared.
     expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+
+    // Fix A: the quoted sentence(s) persist on the STUDENT's own message —
+    // a blockquote above her bubble — even after the highlight/chip cleared.
+    // Scoped to the blockquotes (not screen.getByText) since the same text
+    // also appears verbatim in the article pane.
+    const quoteTexts = Array.from(container.querySelectorAll(".mk-msg__quote")).map((el) => el.textContent);
+    expect(quoteTexts).toEqual(["过去二十年，卫星图显示地球在变绿。", "因此这项政策必然失败。"]);
   });
 
   it("清除 clears referenced blocks without sending", async () => {
@@ -244,6 +251,31 @@ describe("ReadingRoom — read-together loop", () => {
     await screen.findByText("看懂示范，开始选句");
   });
 
+  it("跳过这副透镜 is available at proposed AND active, and calls loop.skip via onSkip", async () => {
+    const fakeApi = makeFakeApi();
+    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+    await screen.findByText("看懂示范，开始选句");
+
+    // Deadlock prevention: skip is offered at "proposed", before she has even
+    // started picking.
+    expect(screen.getByText("跳过这副透镜")).toBeInTheDocument();
+
+    // …and still offered once "active" (mid-pick, before any evaluate call).
+    fireEvent.click(screen.getByText("看懂示范，开始选句"));
+    await screen.findByText(/在文章里选出你要用来回答「论证地图卡/);
+    fireEvent.click(screen.getByText("跳过这副透镜"));
+
+    expect(fakeApi.skipProjectCard).toHaveBeenCalledWith("p1", "ci1", { event_trace: [] });
+    // Back to idle — the card is gone, nothing left blocking the room.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("跳过这副透镜")).not.toBeInTheDocument();
+  });
+
   it("透镜库 button is disabled while a card is in flight", async () => {
     const fakeApi = makeFakeApi();
     render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
@@ -253,5 +285,26 @@ describe("ReadingRoom — read-together loop", () => {
     await screen.findByText("看懂示范，开始选句");
 
     expect(screen.getByRole("button", { name: /透镜库/ })).toBeDisabled();
+  });
+
+  it("resumes a leftover open card via getOpenCard on mount — never shows nothing", async () => {
+    const fakeApi = {
+      ...makeFakeApi(),
+      getOpenCard: vi.fn(async () => ({
+        cardInstanceId: "ci-leftover",
+        cardId: "argument-map",
+        status: "proposed" as const,
+        anchors: [EXAMPLE_ANCHOR],
+      })),
+    };
+    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    // The room never opens with an invisible in-flight lens: the leftover
+    // card renders (completable), and it is ALWAYS skippable.
+    await screen.findByText("看懂示范，开始选句");
+    expect(fakeApi.getOpenCard).toHaveBeenCalledWith("p1", "m1");
+    expect(screen.getByText("跳过这副透镜")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("跳过这副透镜"));
+    expect(fakeApi.skipProjectCard).toHaveBeenCalledWith("p1", "ci-leftover", { event_trace: [] });
   });
 });

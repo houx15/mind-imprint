@@ -66,4 +66,52 @@ describe("HangingCard", () => {
     expect(screen.getByText(/把这句话接到你的论证段落里/)).toBeInTheDocument();
     expect(screen.getByText("记下这条发现")).toBeInTheDocument();
   });
+
+  it("proposed: offers 跳过这副透镜 and calls onSkip — the deadlock escape hatch", () => {
+    const onSkip = vi.fn();
+    render(
+      <HangingCard
+        cardName="证据溯源"
+        status="proposed"
+        exampleWhy="AI 选的这句话展示了如何找到支撑论点的证据。"
+        onStartPick={() => {}}
+        onConfirm={() => {}}
+        onRepick={() => {}}
+        onSkip={onSkip}
+      />
+    );
+    fireEvent.click(screen.getByText("跳过这副透镜"));
+    expect(onSkip).toHaveBeenCalled();
+  });
+
+  it("active: also offers 跳过这副透镜 and calls onSkip", () => {
+    const onSkip = vi.fn();
+    render(
+      <HangingCard
+        cardName="证据溯源"
+        status="active"
+        exampleWhy="AI 选的这句话展示了如何找到支撑论点的证据。"
+        onStartPick={() => {}}
+        onConfirm={() => {}}
+        onRepick={() => {}}
+        onSkip={onSkip}
+      />
+    );
+    fireEvent.click(screen.getByText("跳过这副透镜"));
+    expect(onSkip).toHaveBeenCalled();
+  });
+
+  it("without onSkip, no skip control renders (optional prop stays optional)", () => {
+    render(
+      <HangingCard
+        cardName="证据溯源"
+        status="proposed"
+        exampleWhy="AI 选的这句话展示了如何找到支撑论点的证据。"
+        onStartPick={() => {}}
+        onConfirm={() => {}}
+        onRepick={() => {}}
+      />
+    );
+    expect(screen.queryByText("跳过这副透镜")).not.toBeInTheDocument();
+  });
 });

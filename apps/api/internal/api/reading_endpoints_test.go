@@ -335,6 +335,125 @@ func TestEvaluateProjectCard_ReturnsProgramVerdict(t *testing.T) {
 	}
 }
 
+// TestGetOpenReadingCard_ReturnsProposedInstance — the deadlock-prevention
+// fix: a leftover proposed card_instance already anchored to this material
+// (via a seeded SQL row, same shape TestPostReadingTurn_SkippedInstanceSuppressesResummon
+// uses) must come back from GET .../open-card so the room can load and
+// render it instead of showing nothing while the mutex blocks new summons.
+func TestGetOpenReadingCard_ReturnsProposedInstance(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     readingStubProvider(""),
+		EvalResolver: fakeEvalResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	mid := ingestReadingMaterial(t, h, cookie, materialsTestProjectID, "全球变暖正在加速冰川融化。")
+
+	anchors, err := json.Marshal([]map[string]string{
+		{"id": "a0", "material_id": mid, "block_id": "b0", "quote": "x", "dimension": "argument-map", "author": "ai"},
+	})
+	if err != nil {
+		t.Fatalf("marshal seed anchors: %v", err)
+	}
+	ciID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO card_instances (id, task_id, project_id, card_id, status, anchors) VALUES ($1, NULL, $2, 'argument-map', 'proposed', $3)`,
+		ciID, uuid.MustParse(materialsTestProjectID), anchors); err != nil {
+		t.Fatalf("seed proposed card instance: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("GET",
+		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/open-card", nil), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("open-card: %d — %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		CardInstanceID string `json:"card_instance_id"`
+		CardID         string `json:"card_id"`
+		Status         string `json:"status"`
+		Anchors        []struct {
+			MaterialID string `json:"material_id"`
+		} `json:"anchors"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body: %s", err, rec.Body.String())
+	}
+	if out.CardInstanceID != ciID.String() {
+		t.Fatalf("card_instance_id = %q, want %q", out.CardInstanceID, ciID.String())
+	}
+	if out.CardID != "argument-map" {
+		t.Fatalf("card_id = %q, want argument-map", out.CardID)
+	}
+	if out.Status != "proposed" {
+		t.Fatalf("status = %q, want proposed", out.Status)
+	}
+	if len(out.Anchors) != 1 || out.Anchors[0].MaterialID != mid {
+		t.Fatalf("anchors = %+v, want one anchor carrying material %q", out.Anchors, mid)
+	}
+}
+
+// TestGetOpenReadingCard_EmptyWhenNone — no proposed/active card anchored to
+// this material means the response comes back with an empty card_instance_id
+// (the client's null signal), not an error.
+func TestGetOpenReadingCard_EmptyWhenNone(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     readingStubProvider(""),
+		EvalResolver: fakeEvalResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	mid := ingestReadingMaterial(t, h, cookie, materialsTestProjectID, "全球变暖正在加速冰川融化。")
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("GET",
+		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/open-card", nil), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("open-card: %d — %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		CardInstanceID string `json:"card_instance_id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body: %s", err, rec.Body.String())
+	}
+	if out.CardInstanceID != "" {
+		t.Fatalf("card_instance_id = %q, want empty", out.CardInstanceID)
+	}
+}
+
+// TestGetOpenReadingCard_ForeignMaterial404s — same ownership convention as
+// postReadingTurn: a material id foreign to the owned project is hidden as 404.
+func TestGetOpenReadingCard_ForeignMaterial404s(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     readingStubProvider(""),
+		EvalResolver: fakeEvalResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("GET",
+		"/api/v1/projects/"+materialsTestProjectID+"/materials/00000000-0000-0000-0000-0000000009ff/open-card", nil), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign material: want 404, got %d — %s", rec.Code, rec.Body.String())
+	}
+}
+
 // TestPostReadingTurn_ForeignMaterial404s — a material id that does not
 // belong to the owned project is hidden as 404, same convention as
 // prepareSourceAnnotation/loadOwnedProject.

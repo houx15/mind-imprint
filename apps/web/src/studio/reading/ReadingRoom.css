@@ -208,6 +208,27 @@
   box-shadow: none;
 }
 
+/* mk-msg__quotes — the "引用" block (fix A): the sentence(s) a student
+   referenced when she sent this message, rendered above her bubble so the
+   quote stays visible after the article's own highlight clears on send. */
+.mk-msg__quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.mk-msg__quote {
+  margin: 0;
+  padding: 5px 10px;
+  border-left: 2px solid var(--accent-soft);
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--accent-soft) 30%, white);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
 .mk-msg__lens {
   display: flex;
   align-items: center;

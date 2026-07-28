@@ -25,6 +25,7 @@ export type ReadingRoomCard = {
   onStartPick: () => void;
   onConfirm: () => void;
   onRepick: () => void;
+  onSkip: () => void;
 };
 
 export type ReadingRoomProps = {
@@ -126,6 +127,7 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
           onStartPick: loop.startPick,
           onConfirm: loop.confirm,
           onRepick: loop.repick,
+          onSkip: loop.skip,
         };
 
   const cardBlockId = card ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) : null;
@@ -190,6 +192,15 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                 <div key={m.id} className="mk-msg mk-msg--student">
                   <div className="mk-msg__content">
                     <div className="mk-msg__label">你</div>
+                    {m.quotes && m.quotes.length > 0 && (
+                      <div className="mk-msg__quotes">
+                        {m.quotes.map((q, i) => (
+                          <blockquote key={i} className="mk-msg__quote">
+                            {q}
+                          </blockquote>
+                        ))}
+                      </div>
+                    )}
                     <div className="mk-msg__bubble">{m.body}</div>
                   </div>
                 </div>
@@ -354,6 +365,7 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                         onStartPick={card.onStartPick}
                         onConfirm={card.onConfirm}
                         onRepick={card.onRepick}
+                        onSkip={card.onSkip}
                       />
                     );
                   }}

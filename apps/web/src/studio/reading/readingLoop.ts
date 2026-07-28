@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Anchor, MaterialSource, SelectionEval } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { CreatedSpan } from "../../primitives/annotate/selection";
@@ -16,7 +16,12 @@ export type ReadingLoopStatus = "idle" | "proposed" | "active" | "evaluating" | 
 // (kind "text") or the notice that a lens was drawn into the article (kind
 // "lens", carrying the card name so the bubble can render "去文章看示范").
 export type ChatMessage =
-  | { id: string; role: "student"; kind: "text"; body: string }
+  // quotes carries the sentence(s) she had referenced (via 引用原文) when she
+  // sent THIS message — undefined/empty when she referenced nothing. Persisting
+  // it on the message is what keeps the reference visible after send: the
+  // article's own highlight clears on send (ReadingRoom's `refs` resets), but
+  // the quote now lives here instead of vanishing with it.
+  | { id: string; role: "student"; kind: "text"; body: string; quotes?: string[] }
   | { id: string; role: "assistant"; kind: "text"; body: string }
   | { id: string; role: "assistant"; kind: "lens"; body: string; cardName: string };
 
@@ -63,6 +68,16 @@ export type ReadingLoopApi = {
     input: { field_values: Record<string, unknown>; event_trace: unknown[]; anchors: Anchor[] },
   ): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: unknown[] }): Promise<void>;
+  // getOpenCard — the deadlock-prevention fix: on mount, ask whether a
+  // proposed/active card is already open for this material (a leftover from
+  // before the room reloaded) so it can be resumed instead of vanishing
+  // behind the one-active mutex. Optional: a bare test fake that only
+  // exercises the other five calls still works (guarded with a typeof check
+  // below), and older ApiClient shapes without it degrade to "assume idle".
+  getOpenCard?(
+    projectId: string,
+    materialId: string,
+  ): Promise<{ cardInstanceId: string; cardId: string; status: "proposed" | "active"; anchors: Anchor[] } | null>;
 };
 
 export type UseReadingLoop = {
@@ -135,6 +150,45 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
 
   const cardName = cardId ? (CARD_REGISTRY[cardId]?.name ?? cardId) : "";
 
+  // Deadlock prevention: on mount, ask whether a card is already open
+  // (proposed/active) for THIS material — a leftover from before the room
+  // reloaded, invisible until now behind the project-wide one-active mutex —
+  // and if so, resume the loop into it rather than leaving the student stuck
+  // with no card and no way to summon a new one. Keyed on projectId+source.id
+  // and guarded by the ref so it fires exactly once per material, including
+  // under StrictMode's dev double-invoke.
+  const openCardLoadedRef = useRef(false);
+  useEffect(() => {
+    if (openCardLoadedRef.current) return;
+    openCardLoadedRef.current = true;
+    if (typeof api.getOpenCard !== "function") return;
+    let cancelled = false;
+    void (async () => {
+      const open = await api.getOpenCard!(projectId, source.id);
+      if (cancelled || !open) return;
+      const anchor = open.anchors[0] ?? null;
+      setCardInstanceId(open.cardInstanceId);
+      setCardId(open.cardId);
+      setExampleAnchor(anchor);
+      setExampleWhy(anchor?.question || "");
+      setStatus(open.status);
+      const name = CARD_REGISTRY[open.cardId]?.name ?? open.cardId;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: msgId(),
+          role: "assistant",
+          kind: "lens",
+          body: "这副透镜还没有完成——你可以继续，或者跳过它。",
+          cardName: name,
+        },
+      ]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, projectId, source.id]);
+
   // Shared by confirm() (on a completed submit) and skip() — both retire the
   // in-flight card and return the loop to its resting state.
   const clearCard = useCallback(() => {
@@ -179,7 +233,11 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
     async (text: string, focusedSpans?: { block_id: string; quote: string }[]) => {
       const trimmed = text.trim();
       if (!trimmed || busy || status !== "idle") return;
-      setMessages((prev) => [...prev, { id: msgId(), role: "student", kind: "text", body: trimmed }]);
+      const quotes = focusedSpans?.map((s) => s.quote).filter(Boolean);
+      setMessages((prev) => [
+        ...prev,
+        { id: msgId(), role: "student", kind: "text", body: trimmed, quotes: quotes?.length ? quotes : undefined },
+      ]);
       setBusy(true);
       try {
         await applyTurnEvents(
