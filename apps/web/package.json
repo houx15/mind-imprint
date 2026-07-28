@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@mind-imprint/contracts": "workspace:*",
+    "docx": "^9.7.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {

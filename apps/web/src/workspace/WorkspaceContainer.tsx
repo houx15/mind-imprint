@@ -116,7 +116,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
               />
             )}
             {room === "reading" && (
-              <ReadingBlock key={projectId} projectId={projectId} setReadingSource={setReadingSource} />
+              <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={setReadingSource} />
             )}
             {room === "writing" && (
               <WritingBlock

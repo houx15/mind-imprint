@@ -24,6 +24,7 @@ import {
   coach,
   type PlanItemPatch,
 } from "../api/workspace";
+import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 
 const TAG_STYLE: Record<PlanTag, string> = {
   read: "bg-mk-primary-tint text-mk-primary",
@@ -119,6 +120,7 @@ export function PlanBlock({
     return (
       <FormingPhase
         title={title}
+        qualification={qualification}
         proposal={prop}
         setDim={setDim}
         chat={chat}
@@ -155,6 +157,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 
 function FormingPhase(props: {
   title: string;
+  qualification: string;
   proposal: Proposal;
   setDim: (key: keyof Proposal, v: string) => void;
   chat: ChatMsg[];
@@ -166,7 +169,7 @@ function FormingPhase(props: {
   onSend: () => void;
   onGenerate: () => void;
 }) {
-  const { title, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend, onGenerate } = props;
+  const { title, qualification, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend, onGenerate } = props;
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
   const ready = covered >= 1;
@@ -251,7 +254,7 @@ function FormingPhase(props: {
         </button>
       </aside>
 
-      {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} onClose={() => setWriting(false)} />}
+      {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} qualification={qualification} onClose={() => setWriting(false)} />}
     </div>
   );
 }
@@ -260,19 +263,24 @@ function FormingPhase(props: {
 // larger writing surface over the same four (persisted) dimensions, headed as
 // EPQ §1–§4, with a structured export (real .docx lands in slice 6). Optional —
 // the dimensions are already valued from the chat.
-function ProposalWriter({ proposal, setDim, title, onClose }: { proposal: Proposal; setDim: (k: keyof Proposal, v: string) => void; title: string; onClose: () => void }) {
+function ProposalWriter({ proposal, setDim, title, qualification, onClose }: { proposal: Proposal; setDim: (k: keyof Proposal, v: string) => void; title: string; qualification: string; onClose: () => void }) {
   const SECTIONS: { key: keyof Proposal; n: string; title: string; hint: string }[] = [
     { key: "objective", n: "§1", title: "题目、目标与职责", hint: "你想回答什么问题？想学会做什么？想发现什么？" },
     { key: "reason", n: "§2", title: "选题理由", hint: "与你所学学科的关联、个人兴趣、未来规划、想提升的知识/技能、为什么这个题目重要" },
     { key: "activities", n: "§3", title: "活动与时间安排", hint: "研究、想法的发展与分析、写作、数据收集、排练、成果产出、评估、准备展示等" },
     { key: "resources", n: "§4", title: "资源", hint: "图书馆、书籍、期刊、设备、场地、技术、经费等" },
   ];
-  function exportReport() {
-    const lines = [`# 开题报告 · ${title || "未命名项目"}`, ""];
-    for (const s of SECTIONS) {
-      lines.push(`## ${s.n} ${s.title}`, "", proposal[s.key].trim() || "（未填写）", "");
+  const [exporting, setExporting] = useState(false);
+  async function exportReport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportProposalDocx(proposal, { title, qualification });
+    } catch {
+      /* a failed export must never crash the room */
+    } finally {
+      setExporting(false);
     }
-    downloadFile("开题报告.md", lines.join("\n"), "text/markdown");
   }
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
@@ -305,7 +313,7 @@ function ProposalWriter({ proposal, setDim, title, onClose }: { proposal: Propos
         <div className="flex items-center justify-between border-t border-mk-border px-6 py-3.5">
           <span className="text-[12px] text-mk-muted-2">随时保存 · 你写的每一段都算数</span>
           <div className="flex gap-2">
-            <button type="button" onClick={exportReport} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">导出</button>
+            <button type="button" onClick={exportReport} disabled={exporting} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-60">{exporting ? "导出中…" : "导出"}</button>
             <button type="button" onClick={onClose} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">完成</button>
           </div>
         </div>
@@ -343,17 +351,6 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
       </div>
     </div>
   );
-}
-
-/* ---------- download helper (structured .md for now; .docx in slice 6) ---------- */
-
-function downloadFile(name: string, body: string, mime = "text/markdown") {
-  const blob = new Blob([body], { type: `${mime};charset=utf-8` });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 /* ---------- Phase B · working (kanban / gantt / log) ---------- */
@@ -423,14 +420,26 @@ function WorkingPhase(props: {
       .catch(() => {});
   }
 
+  // Real .xlsx / .docx exports (slice 6). The heavy libs load lazily inside the
+  // export fns; a busy flag guards the round-trip and a caught error keeps the
+  // room alive if generation ever fails.
+  const [exporting, setExporting] = useState(false);
+  async function runExport(fn: () => Promise<unknown>) {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await fn();
+    } catch {
+      /* a failed export must never crash the room */
+    } finally {
+      setExporting(false);
+    }
+  }
   function exportPlan() {
-    const lines = [`# ${title}`, `_${qualification}_`, "", "| 任务 | 阶段 | 类型 | 状态 | 第几天 | 时长(天) |", "| --- | --- | --- | --- | --- | --- |"];
-    for (const i of board) lines.push(`| ${i.title} | ${i.stage} | ${TAG_LABEL[i.tag]} | ${COLUMN_LABEL[i.column]} | 第${i.start + 1}天 | ${i.days} |`);
-    downloadFile("项目计划.md", lines.join("\n"));
+    void runExport(() => exportTimescale(board, { title }, TIMELINE_DAYS));
   }
   function exportLog() {
-    const rows = log ?? [];
-    downloadFile("活动日志.md", `# 活动日志 · ${title}\n\n` + rows.map((e) => `- **${e.date}** ${e.text}`).join("\n"));
+    void runExport(() => exportActivityLog(log ?? [], { title }));
   }
 
   return (
@@ -466,8 +475,8 @@ function WorkingPhase(props: {
             <ViewTab active={view === "gantt"} onClick={() => setView("gantt")}>甘特图</ViewTab>
             <ViewTab active={view === "log"} onClick={() => setView("log")}>活动日志</ViewTab>
           </div>
-          <button type="button" onClick={view === "log" ? exportLog : exportPlan} className="rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
-            导出
+          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-60">
+            {exporting ? "导出中…" : "导出"}
           </button>
           <button type="button" onClick={onReopen} className="flex items-center gap-1.5 rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
             <Icon name="spark" size={15} /> 聊聊计划

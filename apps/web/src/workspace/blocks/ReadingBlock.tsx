@@ -11,6 +11,7 @@ import {
   NoReadableContentError,
   type ReferencePatch,
 } from "../api/workspace";
+import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
@@ -44,9 +45,11 @@ type ChatMsg = { role: "ai" | "student"; text: string };
 // MaterialSource and hands it to the container's reading-room swap slot.
 export function ReadingBlock({
   projectId,
+  title,
   setReadingSource,
 }: {
   projectId: string;
+  title: string;
   setReadingSource: (m: MaterialSource) => void;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
@@ -181,24 +184,23 @@ export function ReadingBlock({
     }
   }
 
-  // The annotated bibliography — the submittable table, straight from the
-  // library. Columns mirror the school's 资源评估表 form.
-  function exportAnnotatedBib(ids?: Set<string>) {
+  // The annotated bibliography — the submittable .xlsx, straight from the
+  // library. Columns mirror the school's 资源评估表 form (slice 6). The batch
+  // path passes the checked subset; the toolbar path exports everything. The
+  // xlsx lib loads lazily; a busy flag guards the round-trip and a caught error
+  // keeps the room alive.
+  const [exportingBib, setExportingBib] = useState(false);
+  async function exportAnnotatedBib(ids?: Set<string>) {
+    if (exportingBib) return;
     const rows = refs.filter((r) => !r.pending && (!ids || ids.has(r.id)));
-    const head = "| 资源 | 分类 | 作者 | 作者资历 | 期刊/网站 | 相关性（引用片段） | 可信度评估 | 是否采用 |";
-    const sep = "| --- | --- | --- | --- | --- | --- | --- | --- |";
-    const lines = rows.map((r) => {
-      const rel = r.notes.map((n) => `「${n.quote}」→ ${n.finding}`).join("；") || "—";
-      const dec = r.decision ? DECISION_LABEL[r.decision] : "未定";
-      return `| ${r.title} | ${r.classification || "—"} | ${r.author || "—"} | ${r.credentials || "—"} | ${r.url || "—"} | ${rel} | ${r.evaluation || "—"} | ${dec} |`;
-    });
-    const body = ["# 注释书目 Annotated Bibliography", "", head, sep, ...lines].join("\n");
-    const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "注释书目.md";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    setExportingBib(true);
+    try {
+      await buildAnnotatedBib(rows, { title });
+    } catch {
+      /* a failed export must never crash the room */
+    } finally {
+      setExportingBib(false);
+    }
   }
 
   const rows = useMemo(() => {
