@@ -44,6 +44,38 @@ func (q *Queries) CreateActivityLogEntry(ctx context.Context, arg CreateActivity
 	return i, err
 }
 
+const createCollection = `-- name: CreateCollection :one
+INSERT INTO collection (project_id, name, parent_id, position)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, name, parent_id, position, created_at
+`
+
+type CreateCollectionParams struct {
+	ProjectID uuid.UUID   `json:"project_id"`
+	Name      string      `json:"name"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	Position  int32       `json:"position"`
+}
+
+func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) (Collection, error) {
+	row := q.db.QueryRow(ctx, createCollection,
+		arg.ProjectID,
+		arg.Name,
+		arg.ParentID,
+		arg.Position,
+	)
+	var i Collection
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.ParentID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createPlanItem = `-- name: CreatePlanItem :one
 INSERT INTO plan_item (project_id, title, tag, col, stage, ref_material_id, start_day, days, position)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -92,6 +124,90 @@ func (q *Queries) CreatePlanItem(ctx context.Context, arg CreatePlanItemParams) 
 	return i, err
 }
 
+const createReference = `-- name: CreateReference :one
+INSERT INTO reference (
+    project_id, title, classification, author, credentials, year, url,
+    tags, collection_id, credibility, evaluation, decision, pending, search_hints
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+`
+
+type CreateReferenceParams struct {
+	ProjectID      uuid.UUID   `json:"project_id"`
+	Title          string      `json:"title"`
+	Classification string      `json:"classification"`
+	Author         string      `json:"author"`
+	Credentials    string      `json:"credentials"`
+	Year           string      `json:"year"`
+	Url            string      `json:"url"`
+	Tags           []byte      `json:"tags"`
+	CollectionID   pgtype.UUID `json:"collection_id"`
+	Credibility    *string     `json:"credibility"`
+	Evaluation     string      `json:"evaluation"`
+	Decision       *string     `json:"decision"`
+	Pending        bool        `json:"pending"`
+	SearchHints    []byte      `json:"search_hints"`
+}
+
+func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, createReference,
+		arg.ProjectID,
+		arg.Title,
+		arg.Classification,
+		arg.Author,
+		arg.Credentials,
+		arg.Year,
+		arg.Url,
+		arg.Tags,
+		arg.CollectionID,
+		arg.Credibility,
+		arg.Evaluation,
+		arg.Decision,
+		arg.Pending,
+		arg.SearchHints,
+	)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteCollection = `-- name: DeleteCollection :exec
+DELETE FROM collection WHERE id = $1 AND project_id = $2
+`
+
+type DeleteCollectionParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+// Children cascade (parent_id FK ON DELETE CASCADE); a deleted collection's
+// references have their collection_id nulled (reference.collection_id FK ON
+// DELETE SET NULL).
+func (q *Queries) DeleteCollection(ctx context.Context, arg DeleteCollectionParams) error {
+	_, err := q.db.Exec(ctx, deleteCollection, arg.ID, arg.ProjectID)
+	return err
+}
+
 const deletePlanItem = `-- name: DeletePlanItem :exec
 DELETE FROM plan_item WHERE id = $1 AND project_id = $2
 `
@@ -104,6 +220,43 @@ type DeletePlanItemParams struct {
 func (q *Queries) DeletePlanItem(ctx context.Context, arg DeletePlanItemParams) error {
 	_, err := q.db.Exec(ctx, deletePlanItem, arg.ID, arg.ProjectID)
 	return err
+}
+
+const deleteReference = `-- name: DeleteReference :exec
+DELETE FROM reference WHERE id = $1 AND project_id = $2
+`
+
+type DeleteReferenceParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) DeleteReference(ctx context.Context, arg DeleteReferenceParams) error {
+	_, err := q.db.Exec(ctx, deleteReference, arg.ID, arg.ProjectID)
+	return err
+}
+
+const getCollection = `-- name: GetCollection :one
+SELECT id, project_id, name, parent_id, position, created_at FROM collection WHERE id = $1 AND project_id = $2
+`
+
+type GetCollectionParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) GetCollection(ctx context.Context, arg GetCollectionParams) (Collection, error) {
+	row := q.db.QueryRow(ctx, getCollection, arg.ID, arg.ProjectID)
+	var i Collection
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.ParentID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getPlanItem = `-- name: GetPlanItem :one
@@ -153,6 +306,42 @@ func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (
 	return i, err
 }
 
+const getReference = `-- name: GetReference :one
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at FROM reference WHERE id = $1 AND project_id = $2
+`
+
+type GetReferenceParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) GetReference(ctx context.Context, arg GetReferenceParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, getReference, arg.ID, arg.ProjectID)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listActivityLog = `-- name: ListActivityLog :many
 SELECT id, project_id, entry_date, text, source, created_at FROM activity_log_entry
 WHERE project_id = $1
@@ -174,6 +363,41 @@ func (q *Queries) ListActivityLog(ctx context.Context, projectID uuid.UUID) ([]A
 			&i.EntryDate,
 			&i.Text,
 			&i.Source,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCollections = `-- name: ListCollections :many
+
+SELECT id, project_id, name, parent_id, position, created_at FROM collection
+WHERE project_id = $1
+ORDER BY position, created_at
+`
+
+// Read library · collections (self-referential tree). ---------------------
+func (q *Queries) ListCollections(ctx context.Context, projectID uuid.UUID) ([]Collection, error) {
+	rows, err := q.db.Query(ctx, listCollections, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Collection
+	for rows.Next() {
+		var i Collection
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.ParentID,
+			&i.Position,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -223,6 +447,135 @@ func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]Pla
 		return nil, err
 	}
 	return items, nil
+}
+
+const listReferences = `-- name: ListReferences :many
+
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at FROM reference
+WHERE project_id = $1
+ORDER BY position, created_at
+`
+
+// Read library · references. -----------------------------------------------
+func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Reference, error) {
+	rows, err := q.db.Query(ctx, listReferences, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Reference
+	for rows.Next() {
+		var i Reference
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Classification,
+			&i.Author,
+			&i.Credentials,
+			&i.Year,
+			&i.Url,
+			&i.Tags,
+			&i.CollectionID,
+			&i.Credibility,
+			&i.Evaluation,
+			&i.Decision,
+			&i.Pending,
+			&i.SearchHints,
+			&i.MaterialID,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setReferenceMaterial = `-- name: SetReferenceMaterial :one
+UPDATE reference SET
+    material_id = $3,
+    updated_at  = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+`
+
+type SetReferenceMaterialParams struct {
+	ID         uuid.UUID   `json:"id"`
+	ProjectID  uuid.UUID   `json:"project_id"`
+	MaterialID pgtype.UUID `json:"material_id"`
+}
+
+// Binds a reference to the material fetched/created for it on enter-reading.
+func (q *Queries) SetReferenceMaterial(ctx context.Context, arg SetReferenceMaterialParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, setReferenceMaterial, arg.ID, arg.ProjectID, arg.MaterialID)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateCollection = `-- name: UpdateCollection :one
+UPDATE collection SET
+    name      = $3,
+    parent_id = $4,
+    position  = $5
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, name, parent_id, position, created_at
+`
+
+type UpdateCollectionParams struct {
+	ID        uuid.UUID   `json:"id"`
+	ProjectID uuid.UUID   `json:"project_id"`
+	Name      string      `json:"name"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	Position  int32       `json:"position"`
+}
+
+// Sets ALL columns by id + project_id; the handler merges partial patches over
+// the current row before calling this (UpdatePlanItem's pattern).
+func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) (Collection, error) {
+	row := q.db.QueryRow(ctx, updateCollection,
+		arg.ID,
+		arg.ProjectID,
+		arg.Name,
+		arg.ParentID,
+		arg.Position,
+	)
+	var i Collection
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.ParentID,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const updatePlanItem = `-- name: UpdatePlanItem :one
@@ -279,6 +632,90 @@ func (q *Queries) UpdatePlanItem(ctx context.Context, arg UpdatePlanItemParams) 
 		&i.RefMaterialID,
 		&i.StartDay,
 		&i.Days,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateReference = `-- name: UpdateReference :one
+UPDATE reference SET
+    title          = $3,
+    classification = $4,
+    author         = $5,
+    credentials    = $6,
+    year           = $7,
+    url            = $8,
+    tags           = $9,
+    collection_id  = $10,
+    credibility    = $11,
+    evaluation     = $12,
+    decision       = $13,
+    pending        = $14,
+    search_hints   = $15,
+    updated_at     = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+`
+
+type UpdateReferenceParams struct {
+	ID             uuid.UUID   `json:"id"`
+	ProjectID      uuid.UUID   `json:"project_id"`
+	Title          string      `json:"title"`
+	Classification string      `json:"classification"`
+	Author         string      `json:"author"`
+	Credentials    string      `json:"credentials"`
+	Year           string      `json:"year"`
+	Url            string      `json:"url"`
+	Tags           []byte      `json:"tags"`
+	CollectionID   pgtype.UUID `json:"collection_id"`
+	Credibility    *string     `json:"credibility"`
+	Evaluation     string      `json:"evaluation"`
+	Decision       *string     `json:"decision"`
+	Pending        bool        `json:"pending"`
+	SearchHints    []byte      `json:"search_hints"`
+}
+
+// Sets ALL editable columns by id + project_id; the handler merges partial
+// patches over the current row first (UpdatePlanItem's pattern). material_id is
+// NOT set here — SetReferenceMaterial owns that link (enter-reading only).
+func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, updateReference,
+		arg.ID,
+		arg.ProjectID,
+		arg.Title,
+		arg.Classification,
+		arg.Author,
+		arg.Credentials,
+		arg.Year,
+		arg.Url,
+		arg.Tags,
+		arg.CollectionID,
+		arg.Credibility,
+		arg.Evaluation,
+		arg.Decision,
+		arg.Pending,
+		arg.SearchHints,
+	)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,

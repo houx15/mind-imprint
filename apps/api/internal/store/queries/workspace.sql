@@ -53,3 +53,84 @@ ORDER BY entry_date, created_at;
 INSERT INTO activity_log_entry (project_id, entry_date, text, source)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
+
+-- Read library · collections (self-referential tree). ---------------------
+
+-- name: ListCollections :many
+SELECT * FROM collection
+WHERE project_id = $1
+ORDER BY position, created_at;
+
+-- name: CreateCollection :one
+INSERT INTO collection (project_id, name, parent_id, position)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: GetCollection :one
+SELECT * FROM collection WHERE id = $1 AND project_id = $2;
+
+-- name: UpdateCollection :one
+-- Sets ALL columns by id + project_id; the handler merges partial patches over
+-- the current row before calling this (UpdatePlanItem's pattern).
+UPDATE collection SET
+    name      = $3,
+    parent_id = $4,
+    position  = $5
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: DeleteCollection :exec
+-- Children cascade (parent_id FK ON DELETE CASCADE); a deleted collection's
+-- references have their collection_id nulled (reference.collection_id FK ON
+-- DELETE SET NULL).
+DELETE FROM collection WHERE id = $1 AND project_id = $2;
+
+-- Read library · references. -----------------------------------------------
+
+-- name: ListReferences :many
+SELECT * FROM reference
+WHERE project_id = $1
+ORDER BY position, created_at;
+
+-- name: CreateReference :one
+INSERT INTO reference (
+    project_id, title, classification, author, credentials, year, url,
+    tags, collection_id, credibility, evaluation, decision, pending, search_hints
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING *;
+
+-- name: GetReference :one
+SELECT * FROM reference WHERE id = $1 AND project_id = $2;
+
+-- name: UpdateReference :one
+-- Sets ALL editable columns by id + project_id; the handler merges partial
+-- patches over the current row first (UpdatePlanItem's pattern). material_id is
+-- NOT set here — SetReferenceMaterial owns that link (enter-reading only).
+UPDATE reference SET
+    title          = $3,
+    classification = $4,
+    author         = $5,
+    credentials    = $6,
+    year           = $7,
+    url            = $8,
+    tags           = $9,
+    collection_id  = $10,
+    credibility    = $11,
+    evaluation     = $12,
+    decision       = $13,
+    pending        = $14,
+    search_hints   = $15,
+    updated_at     = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: DeleteReference :exec
+DELETE FROM reference WHERE id = $1 AND project_id = $2;
+
+-- name: SetReferenceMaterial :one
+-- Binds a reference to the material fetched/created for it on enter-reading.
+UPDATE reference SET
+    material_id = $3,
+    updated_at  = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;

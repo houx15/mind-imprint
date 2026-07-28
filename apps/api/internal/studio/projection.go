@@ -1066,6 +1066,15 @@ func projectActiveCard(d ProjectData, materialOf map[string]string) *ActiveCardD
 	return nil
 }
 
+// ProjectMaterials exposes the material-dossier projection (projectMaterials)
+// to callers outside the full Project() build. The Read-library's enter-reading
+// endpoint reuses it to return one material's MaterialSource DTO: real
+// blocks/anchors/timeSpentS/etc. when the material already has them, and the
+// zero/false derive-never-decorate defaults (locked=false, role/tier/takeaway
+// "", anchors [], timeSpentS 0, lateralRead/isLateralInstrument/siftSkipped
+// false, lateralRelation/lateralJudgment "") for a freshly fetched one.
+func ProjectMaterials(d ProjectData) []MaterialDTO { return projectMaterials(d) }
+
 // projectMaterials derives each source's dossier state. Nothing here invents a
 // judgment: locked/role exist only because the student completed a CRAAP card
 // and the mint wrote them (agent.GraphEffects). tier/takeaway exist only

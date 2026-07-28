@@ -1,16 +1,29 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Collection, MaterialSource, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
-  references as seedRefs,
-  collections as seedCollections,
-  readingCoachChat,
-  CRED_LABEL,
-  DECISION_LABEL,
-  type ChatMsg,
-  type Collection,
-  type Reference,
-  type UseDecision,
-} from "./mockData";
+  getLibrary,
+  createCollection,
+  createReference,
+  patchReference,
+  enterReading,
+  coach,
+  NoReadableContentError,
+  type ReferencePatch,
+} from "../api/workspace";
+
+// Display labels — pure enum→label maps (kept local so the room owns no mock
+// seed data). Values mirror the contract's Credibility / UseDecision enums.
+const CRED_LABEL: Record<NonNullable<Reference["credibility"]>, string> = {
+  strong: "可信度高",
+  mixed: "需交叉核实",
+  weak: "存疑",
+};
+const DECISION_LABEL: Record<"use" | "maybe" | "drop", string> = {
+  use: "该用",
+  maybe: "待定",
+  drop: "不用",
+};
 
 const CRED_STYLE: Record<NonNullable<Reference["credibility"]>, string> = {
   strong: "bg-mk-green-tint text-mk-green",
@@ -18,46 +31,158 @@ const CRED_STYLE: Record<NonNullable<Reference["credibility"]>, string> = {
   weak: "bg-mk-bg text-mk-muted",
 };
 
+type ChatMsg = { role: "ai" | "student"; text: string };
+
 // The Reading block = a Zotero-shaped Library: collections + tags (left) for
 // categorization, a reference table (center) that scales to many sources with
 // multi-select batch export, a thin preview (right), and a floating 印记 for
 // coach-the-hunt help. The deep read-together AI lives in the shipped Reading
 // Room, so the Library keeps AI on-tap rather than in a permanent column.
-export function ReadingBlock({ fresh }: { fresh: boolean }) {
-  const [refs, setRefs] = useState<Reference[]>(fresh ? [] : seedRefs);
+//
+// All state is now persisted through the workspace API (slice 3): the library
+// loads on mount; edits patch optimistically; 进入阅读室 mints/loads a real
+// MaterialSource and hands it to the container's reading-room swap slot.
+export function ReadingBlock({
+  projectId,
+  setReadingSource,
+}: {
+  projectId: string;
+  setReadingSource: (m: MaterialSource) => void;
+}) {
+  const [refs, setRefs] = useState<Reference[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [collId, setCollId] = useState<string>("all");
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [selId, setSelId] = useState<string>(fresh ? "" : seedRefs[0]?.id ?? "");
+  const [selId, setSelId] = useState<string>("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
 
-  const descendants = useMemo(() => descendantMap(seedCollections), []);
+  // Debounce timers for free-text metadata edits, keyed by ref+field so each
+  // field coalesces independently.
+  const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const reload = useMemo(
+    () => async () => {
+      try {
+        const lib = await getLibrary(projectId);
+        setRefs(lib.references);
+        setCollections(lib.collections);
+      } catch {
+        /* keep the last-good library; the room stays usable */
+      }
+    },
+    [projectId],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const lib = await getLibrary(projectId);
+        if (cancelled) return;
+        setRefs(lib.references);
+        setCollections(lib.collections);
+        setSelId(lib.references[0]?.id ?? "");
+      } catch {
+        /* an empty library reads as the empty state */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // Snapshot & clear all pending debounce timers on unmount.
+  useEffect(() => {
+    const timers = debounceTimers.current;
+    return () => {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
+
+  const descendants = useMemo(() => descendantMap(collections), [collections]);
   const allTags = useMemo(() => [...new Set(refs.flatMap((r) => r.tags))], [refs]);
+
+  // Optimistic local write; the server patch is fire-and-forget (reload on
+  // failure). The client already holds the authoritative new value, so we never
+  // clobber an in-flight edit to a sibling field with a stale server row.
+  function applyLocal(refId: string, p: ReferencePatch) {
+    setRefs((xs) => xs.map((r) => (r.id === refId ? { ...r, ...p } : r)));
+  }
+  function persist(refId: string, p: ReferencePatch) {
+    patchReference(projectId, refId, p).catch(() => reload());
+  }
+  // Immediate persistence — for selectors / tag add-remove.
+  function patchNow(refId: string, p: ReferencePatch) {
+    applyLocal(refId, p);
+    persist(refId, p);
+  }
+  // Debounced persistence (~500ms) — for free-text fields.
+  function patchDebounced(refId: string, p: ReferencePatch) {
+    applyLocal(refId, p);
+    const key = `${refId}:${Object.keys(p).join(",")}`;
+    const timers = debounceTimers.current;
+    const existing = timers.get(key);
+    if (existing) clearTimeout(existing);
+    timers.set(
+      key,
+      setTimeout(() => {
+        timers.delete(key);
+        persist(refId, p);
+      }, 500),
+    );
+  }
 
   function addTag(refId: string, tag: string) {
     const t = tag.trim();
     if (!t) return;
-    setRefs((xs) => xs.map((r) => (r.id === refId && !r.tags.includes(t) ? { ...r, tags: [...r.tags, t] } : r)));
+    const r = refs.find((x) => x.id === refId);
+    if (!r || r.tags.includes(t)) return;
+    patchNow(refId, { tags: [...r.tags, t] });
   }
   function removeTag(refId: string, tag: string) {
-    setRefs((xs) => xs.map((r) => (r.id === refId ? { ...r, tags: r.tags.filter((x) => x !== tag) } : r)));
+    const r = refs.find((x) => x.id === refId);
+    if (!r) return;
+    patchNow(refId, { tags: r.tags.filter((x) => x !== tag) });
   }
-  function patch(refId: string, p: Partial<Reference>) {
-    setRefs((xs) => xs.map((r) => (r.id === refId ? { ...r, ...p } : r)));
+
+  async function addSource(src: { title: string; url: string; classification: string; collectionId: string | null }) {
+    try {
+      const created = await createReference(projectId, {
+        title: src.title || undefined,
+        url: src.url || undefined,
+        classification: src.classification || undefined,
+        collectionId: src.collectionId,
+      });
+      setRefs((xs) => [created, ...xs]);
+      setSelId(created.id);
+    } catch {
+      /* leave the modal's job to the reload path */
+      reload();
+    } finally {
+      setAdding(false);
+    }
   }
-  function addSource(src: { title: string; url: string; kind: string; collectionId: string }) {
-    const id = `r-${refs.length + 1}-${src.title.slice(0, 4)}`;
-    setRefs((xs) => [
-      { id, title: src.title || "未命名来源", url: src.url, kind: src.kind || "网页", author: "—", credentials: "", year: "—", read: false, tags: [], collectionId: src.collectionId, credibility: undefined, takeaway: "", notes: [], decision: null },
-      ...xs,
-    ]);
-    setSelId(id);
-    setAdding(false);
+
+  async function addCollection(name: string, parentId: string | null) {
+    const n = name.trim();
+    if (!n) return;
+    try {
+      const created = await createCollection(projectId, { name: n, parentId });
+      setCollections((xs) => [...xs, created]);
+    } catch {
+      reload();
+    }
   }
 
   // The annotated bibliography — the submittable table, straight from the
-  // library. Columns mirror the school's form.
+  // library. Columns mirror the school's 资源评估表 form.
   function exportAnnotatedBib(ids?: Set<string>) {
     const rows = refs.filter((r) => !r.pending && (!ids || ids.has(r.id)));
     const head = "| 资源 | 分类 | 作者 | 作者资历 | 期刊/网站 | 相关性（引用片段） | 可信度评估 | 是否采用 |";
@@ -65,7 +190,7 @@ export function ReadingBlock({ fresh }: { fresh: boolean }) {
     const lines = rows.map((r) => {
       const rel = r.notes.map((n) => `「${n.quote}」→ ${n.finding}`).join("；") || "—";
       const dec = r.decision ? DECISION_LABEL[r.decision] : "未定";
-      return `| ${r.title} | ${r.kind} | ${r.author} | ${r.credentials || "—"} | ${r.url || "—"} | ${rel} | ${r.takeaway || "—"} | ${dec} |`;
+      return `| ${r.title} | ${r.classification || "—"} | ${r.author || "—"} | ${r.credentials || "—"} | ${r.url || "—"} | ${rel} | ${r.evaluation || "—"} | ${dec} |`;
     });
     const body = ["# 注释书目 Annotated Bibliography", "", head, sep, ...lines].join("\n");
     const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
@@ -80,7 +205,7 @@ export function ReadingBlock({ fresh }: { fresh: boolean }) {
     let list = refs;
     if (collId !== "all") {
       const ok = new Set([collId, ...(descendants.get(collId) ?? [])]);
-      list = list.filter((r) => ok.has(r.collectionId));
+      list = list.filter((r) => r.collectionId != null && ok.has(r.collectionId));
     }
     if (activeTag) list = list.filter((r) => r.tags.includes(activeTag));
     return list;
@@ -96,14 +221,26 @@ export function ReadingBlock({ fresh }: { fresh: boolean }) {
     });
   }
 
-  const modal = adding && <AddSourceModal collections={seedCollections} defaultCollection={collId === "all" ? seedCollections[0]?.id ?? "" : collId} onClose={() => setAdding(false)} onSubmit={addSource} />;
+  const modal = adding && (
+    <AddSourceModal
+      collections={collections}
+      defaultCollection={collId === "all" ? collections[0]?.id ?? "" : collId}
+      onClose={() => setAdding(false)}
+      onSubmit={addSource}
+    />
+  );
+
+  // Still loading the library.
+  if (loading) {
+    return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载中…</div>;
+  }
 
   // Empty library — a brand-new project with no sources yet.
   if (refs.length === 0) {
     return (
       <div className="relative h-full">
         <EmptyLibrary onAdd={() => setAdding(true)} />
-        <FloatingCoach />
+        <FloatingCoach projectId={projectId} />
         {modal}
       </div>
     );
@@ -114,15 +251,16 @@ export function ReadingBlock({ fresh }: { fresh: boolean }) {
       <CollectionsRail
         open={railOpen}
         onToggle={() => setRailOpen((o) => !o)}
-        collections={seedCollections}
+        collections={collections}
         collId={collId}
         onPick={(id) => { setCollId(id); setActiveTag(null); }}
         tags={allTags}
         activeTag={activeTag}
         onTag={setActiveTag}
         total={refs.length}
-        countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
-        onDropRef={(collId2, refId) => patch(refId, { collectionId: collId2 })}
+        countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => r.collectionId != null && new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
+        onDropRef={(collId2, refId) => patchNow(refId, { collectionId: collId2 })}
+        onCreateCollection={(name) => addCollection(name, null)}
       />
 
       <RefTable
@@ -133,24 +271,28 @@ export function ReadingBlock({ fresh }: { fresh: boolean }) {
         onCheck={toggleCheck}
         onClearChecks={() => setChecked(new Set())}
         onExportBib={exportAnnotatedBib}
-        collName={collId === "all" ? "全部文献" : seedCollections.find((c) => c.id === collId)?.name ?? ""}
+        collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
         activeTag={activeTag}
         onAdd={() => setAdding(true)}
       />
 
       {selected ? (
         <Preview
+          key={selected.id}
+          projectId={projectId}
           item={selected}
           allTags={allTags}
           onAddTag={(t) => addTag(selected.id, t)}
           onRemoveTag={(t) => removeTag(selected.id, t)}
-          onPatch={(p) => patch(selected.id, p)}
+          onPatchNow={(p) => patchNow(selected.id, p)}
+          onPatchDebounced={(p) => patchDebounced(selected.id, p)}
+          onEnterReading={setReadingSource}
         />
       ) : (
         <div className="border-l border-mk-border bg-mk-surface" />
       )}
 
-      <FloatingCoach />
+      <FloatingCoach projectId={projectId} />
 
       {modal}
     </div>
@@ -177,11 +319,14 @@ function CollectionsRail(props: {
   total: number;
   countFor: (id: string) => number;
   onDropRef: (collectionId: string, refId: string) => void;
+  onCreateCollection: (name: string) => void;
 }) {
-  const { open, onToggle, collections, collId, onPick, tags, activeTag, onTag, total, countFor, onDropRef } = props;
+  const { open, onToggle, collections, collId, onPick, tags, activeTag, onTag, total, countFor, onDropRef, onCreateCollection } = props;
   const roots = collections.filter((c) => !c.parentId);
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [dropId, setDropId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
 
   // Collapsed: a thin strip with an expand affordance.
   if (!open) {
@@ -204,6 +349,12 @@ function CollectionsRail(props: {
     };
   }
 
+  function commitNew() {
+    if (newName.trim()) onCreateCollection(newName);
+    setNewName("");
+    setCreating(false);
+  }
+
   return (
     <aside className="flex min-h-0 flex-col border-r border-mk-border bg-mk-surface">
       <div className="flex items-center justify-between px-3 pt-3">
@@ -216,8 +367,21 @@ function CollectionsRail(props: {
         <CollRow label="全部文献" count={total} active={collId === "all"} onClick={() => onPick("all")} icon="reading" {...dropProps("all")} />
         <div className="mt-3 mb-1.5 flex items-center justify-between px-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">我的合集</span>
-          <button type="button" className="text-[15px] leading-none text-mk-muted-2 hover:text-mk-primary">+</button>
+          <button type="button" onClick={() => setCreating(true)} className="text-[15px] leading-none text-mk-muted-2 hover:text-mk-primary">+</button>
         </div>
+        {creating && (
+          <div className="mb-1 px-1">
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") { setNewName(""); setCreating(false); } }}
+              onBlur={commitNew}
+              placeholder="合集名称"
+              className="w-full rounded-mk border border-mk-primary/40 bg-mk-surface px-2 py-1 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+            />
+          </div>
+        )}
         {roots.map((root) => {
           const kids = collections.filter((c) => c.parentId === root.id);
           const isFolded = folded.has(root.id);
@@ -364,6 +528,7 @@ function RefTable(props: {
 }
 
 function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void }) {
+  const hasRead = r.notes.length > 0;
   return (
     <div
       draggable
@@ -375,7 +540,7 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
       </button>
       <button type="button" onClick={onSelect} className="min-w-0 text-left">
         <div className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : r.read ? "bg-mk-green" : "border border-mk-muted-2"}`} />
+          <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-green" : "border border-mk-muted-2"}`} />
           <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
           {r.pending && <span className="flex-none rounded bg-mk-accent-tint px-1.5 py-0.5 text-[10px] font-bold text-mk-accent">待找</span>}
         </div>
@@ -383,7 +548,7 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
           {r.tags.map((t) => (<span key={t} className="text-[10.5px] text-mk-muted-2">#{t}</span>))}
         </div>
       </button>
-      <button type="button" onClick={onSelect} className="truncate text-left text-[12px] text-mk-muted">{r.kind}{r.year !== "—" ? ` · ${r.year}` : ""}</button>
+      <button type="button" onClick={onSelect} className="truncate text-left text-[12px] text-mk-muted">{r.classification || "—"}{r.year ? ` · ${r.year}` : ""}</button>
       <button type="button" onClick={onSelect} className="text-center text-[12px] font-semibold text-mk-muted-2">{r.notes.length > 0 ? `✎ ${r.notes.length}` : "—"}</button>
       <button type="button" onClick={onSelect} className="text-left">
         {r.credibility ? <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-bold ${CRED_STYLE[r.credibility]}`}>{CRED_LABEL[r.credibility]}</span> : <span className="text-[11px] text-mk-muted-2">—</span>}
@@ -394,7 +559,38 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
 
 /* ---------- right · thin preview ---------- */
 
-function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: Reference; allTags: string[]; onAddTag: (t: string) => void; onRemoveTag: (t: string) => void; onPatch: (p: Partial<Reference>) => void }) {
+function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNow, onPatchDebounced, onEnterReading }: {
+  projectId: string;
+  item: Reference;
+  allTags: string[];
+  onAddTag: (t: string) => void;
+  onRemoveTag: (t: string) => void;
+  onPatchNow: (p: ReferencePatch) => void;
+  onPatchDebounced: (p: ReferencePatch) => void;
+  onEnterReading: (m: MaterialSource) => void;
+}) {
+  const [entering, setEntering] = useState(false);
+  const [enterNote, setEnterNote] = useState<string | null>(null);
+  const [pendingUrl, setPendingUrl] = useState("");
+
+  async function enter() {
+    if (entering) return;
+    setEnterNote(null);
+    setEntering(true);
+    try {
+      const source = await enterReading(projectId, r.id);
+      onEnterReading(source);
+    } catch (e) {
+      if (e instanceof NoReadableContentError) {
+        setEnterNote(e.message);
+      } else {
+        setEnterNote("打开阅读室失败，请重试");
+      }
+    } finally {
+      setEntering(false);
+    }
+  }
+
   if (r.pending) {
     return (
       <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
@@ -410,8 +606,14 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
           ))}
         </ul>
         <div className="mt-4 flex items-center gap-2 rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-2">
-          <input placeholder="找到了？粘链接……" className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
-          <button type="button" className="rounded bg-mk-primary px-2.5 py-1 text-[11.5px] font-bold text-white">添加</button>
+          <input
+            value={pendingUrl}
+            onChange={(e) => setPendingUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && pendingUrl.trim()) { onPatchNow({ url: pendingUrl.trim(), pending: false }); setPendingUrl(""); } }}
+            placeholder="找到了？粘链接……"
+            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+          />
+          <button type="button" onClick={() => { if (pendingUrl.trim()) { onPatchNow({ url: pendingUrl.trim(), pending: false }); setPendingUrl(""); } }} className="rounded bg-mk-primary px-2.5 py-1 text-[11.5px] font-bold text-white">添加</button>
         </div>
       </aside>
     );
@@ -421,17 +623,17 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
       {/* Editable title */}
       <input
         value={r.title}
-        onChange={(e) => onPatch({ title: e.target.value })}
+        onChange={(e) => onPatchDebounced({ title: e.target.value })}
         placeholder="来源标题"
         className="-mx-1 rounded px-1 py-0.5 font-sans text-[16px] font-bold leading-snug text-mk-ink outline-none transition focus:bg-mk-input-bg"
       />
 
       {/* Editable metadata */}
       <div className="mt-2 space-y-0.5">
-        <MetaEdit k="作者" v={r.author} onChange={(v) => onPatch({ author: v })} placeholder="作者" />
-        <MetaEdit k="分类" v={r.kind} onChange={(v) => onPatch({ kind: v })} placeholder="期刊/报告/网页…" />
-        <MetaEdit k="日期" v={r.year} onChange={(v) => onPatch({ year: v })} placeholder="年份" />
-        <MetaEdit k="链接" v={r.url} onChange={(v) => onPatch({ url: v })} placeholder="https://…" />
+        <MetaEdit k="作者" v={r.author} onChange={(v) => onPatchDebounced({ author: v })} placeholder="作者" />
+        <MetaEdit k="分类" v={r.classification} onChange={(v) => onPatchDebounced({ classification: v })} placeholder="期刊/报告/网页…" />
+        <MetaEdit k="日期" v={r.year} onChange={(v) => onPatchDebounced({ year: v })} placeholder="年份" />
+        <MetaEdit k="链接" v={r.url} onChange={(v) => onPatchDebounced({ url: v })} placeholder="https://…" />
       </div>
 
       {/* Author credentials — annotated-bib field */}
@@ -439,7 +641,7 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
         <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">作者资历</p>
         <textarea
           value={r.credentials}
-          onChange={(e) => onPatch({ credentials: e.target.value })}
+          onChange={(e) => onPatchDebounced({ credentials: e.target.value })}
           rows={2}
           placeholder="作者是谁、有什么资历？（注释书目要用）"
           className="w-full resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
@@ -456,7 +658,7 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
             const on = r.decision === d;
             const tone = d === "use" ? "bg-mk-green text-white border-mk-green" : d === "maybe" ? "bg-mk-accent text-white border-mk-accent" : "bg-mk-muted text-white border-mk-muted";
             return (
-              <button key={d} type="button" onClick={() => onPatch({ decision: on ? null : d })} className={`flex-1 rounded-mk border py-1.5 text-[12.5px] font-bold transition ${on ? tone : "border-mk-border bg-mk-surface text-mk-muted-2 hover:text-mk-ink"}`}>
+              <button key={d} type="button" onClick={() => onPatchNow({ decision: on ? null : d })} className={`flex-1 rounded-mk border py-1.5 text-[12.5px] font-bold transition ${on ? tone : "border-mk-border bg-mk-surface text-mk-muted-2 hover:text-mk-ink"}`}>
                 {DECISION_LABEL[d]}
               </button>
             );
@@ -471,15 +673,15 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
           {(["strong", "mixed", "weak"] as const).map((c) => {
             const on = r.credibility === c;
             return (
-              <button key={c} type="button" onClick={() => onPatch({ credibility: on ? undefined : c })} className={`flex-1 rounded px-1.5 py-1 text-[11px] font-bold transition ${on ? CRED_STYLE[c] : "bg-mk-surface text-mk-muted-2 hover:text-mk-ink"}`}>
+              <button key={c} type="button" onClick={() => onPatchNow({ credibility: on ? null : c })} className={`flex-1 rounded px-1.5 py-1 text-[11px] font-bold transition ${on ? CRED_STYLE[c] : "bg-mk-surface text-mk-muted-2 hover:text-mk-ink"}`}>
                 {CRED_LABEL[c]}
               </button>
             );
           })}
         </div>
         <textarea
-          value={r.takeaway}
-          onChange={(e) => onPatch({ takeaway: e.target.value })}
+          value={r.evaluation}
+          onChange={(e) => onPatchDebounced({ evaluation: e.target.value })}
           rows={3}
           placeholder="这篇能回答什么 / 不能回答什么？"
           className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1.5 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
@@ -498,10 +700,14 @@ function Preview({ item: r, allTags, onAddTag, onRemoveTag, onPatch }: { item: R
       )}
 
       <div className="mt-5 flex flex-col gap-2">
-        <button type="button" className="flex items-center justify-center gap-2 rounded-mk bg-mk-primary py-2.5 text-[13.5px] font-bold text-white hover:bg-mk-primary-hover">
-          进入阅读室 <Icon name="arrow" size={15} />
+        <button type="button" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-primary py-2.5 text-[13.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60">
+          {entering ? "打开中…" : <>进入阅读室 <Icon name="arrow" size={15} /></>}
         </button>
-        <p className="text-center text-[11px] text-mk-muted-2">和印记逐句共读（已上线的阅读室）</p>
+        {enterNote ? (
+          <p className="text-center text-[11px] font-semibold text-mk-accent">{enterNote}</p>
+        ) : (
+          <p className="text-center text-[11px] text-mk-muted-2">和印记逐句共读（已上线的阅读室）</p>
+        )}
       </div>
     </aside>
   );
@@ -553,11 +759,25 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
 // Add a source: paste a link / DOI (印记 fills in the metadata) or upload a
 // file — and drop it into a collection. No auto-fetching of the source's
 // *content*; this only registers the reference.
-function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; kind: string; collectionId: string }) => void }) {
+function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; classification: string; collectionId: string | null }) => void }) {
   const [tab, setTab] = useState<"link" | "upload" | "manual">("link");
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
+  const [fileName, setFileName] = useState("");
   const [coll, setColl] = useState(defaultCollection);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  function submit() {
+    const collectionId = coll || null;
+    if (tab === "upload") {
+      onSubmit({ title: fileName || "上传文档", url: "", classification: "上传文档", collectionId });
+    } else if (tab === "manual") {
+      onSubmit({ title: title || "新来源", url: "", classification: "", collectionId });
+    } else {
+      onSubmit({ title: url ? url.replace(/^https?:\/\//, "").slice(0, 32) : "新来源", url, classification: "网页", collectionId });
+    }
+  }
+
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-6" onClick={onClose}>
       <div className="w-[440px] rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-[0_20px_60px_rgba(28,35,51,0.25)]" onClick={(e) => e.stopPropagation()}>
@@ -581,10 +801,13 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: {
           </div>
         )}
         {tab === "upload" && (
-          <div className="flex flex-col items-center gap-1.5 rounded-mk border border-dashed border-mk-input bg-mk-input-bg/60 px-4 py-8 text-center">
-            <span className="text-mk-primary"><Icon name="reading" size={22} /></span>
-            <span className="text-[13px] font-bold text-mk-ink">把 PDF / 文档拖到这里</span>
-            <span className="text-[12px] text-mk-muted-2">或点击选择文件</span>
+          <div>
+            <input ref={fileInput} type="file" className="hidden" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
+            <button type="button" onClick={() => fileInput.current?.click()} className="flex w-full flex-col items-center gap-1.5 rounded-mk border border-dashed border-mk-input bg-mk-input-bg/60 px-4 py-8 text-center hover:border-mk-primary">
+              <span className="text-mk-primary"><Icon name="reading" size={22} /></span>
+              <span className="text-[13px] font-bold text-mk-ink">{fileName || "把 PDF / 文档拖到这里"}</span>
+              <span className="text-[12px] text-mk-muted-2">{fileName ? "点击重新选择" : "或点击选择文件"}</span>
+            </button>
           </div>
         )}
         {tab === "manual" && (
@@ -594,13 +817,14 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: {
         <div className="mt-4">
           <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">放进合集</label>
           <select value={coll} onChange={(e) => setColl(e.target.value)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary">
+            <option value="">未归类</option>
             {collections.map((c) => (<option key={c.id} value={c.id}>{c.parentId ? "— " : ""}{c.name}</option>))}
           </select>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">取消</button>
-          <button type="button" onClick={() => onSubmit({ title: title || (url ? url.replace(/^https?:\/\//, "").slice(0, 32) : "新来源"), url, kind: tab === "upload" ? "上传文档" : "网页", collectionId: coll })} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">添加</button>
+          <button type="button" onClick={submit} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">添加</button>
         </div>
       </div>
     </div>
@@ -645,10 +869,30 @@ function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
 
 /* ---------- floating coach ---------- */
 
-function FloatingCoach() {
+function FloatingCoach({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
-  const [chat, setChat] = useState<ChatMsg[]>(readingCoachChat);
+  const [chat, setChat] = useState<ChatMsg[]>([
+    { role: "ai", text: "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
+  ]);
   const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    const text = draft.trim();
+    if (!text || busy) return;
+    setChat((c) => [...c, { role: "student", text }]);
+    setDraft("");
+    setBusy(true);
+    try {
+      const reply = await coach(projectId, "find_sources", text);
+      setChat((c) => [...c, { role: "ai", text: reply }]);
+    } catch {
+      setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end">
       {open && (
@@ -666,10 +910,22 @@ function FloatingCoach() {
                 <div className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[12.5px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
               </div>
             ))}
+            {busy && (
+              <div className="flex justify-start">
+                <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted-2">印记在想……</div>
+              </div>
+            )}
           </div>
           <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={1} placeholder="问从哪找、可不可信……" className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary" />
-            <button type="button" onClick={() => { if (!draft.trim()) return; setChat((c) => [...c, { role: "student", text: draft.trim() }, { role: "ai", text: "先想清楚你要它证明什么，再决定搜什么。要我把这个方向拆成关键词吗？" }]); setDraft(""); }} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              rows={1}
+              placeholder="问从哪找、可不可信……"
+              className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+            />
+            <button type="button" onClick={send} disabled={busy} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-60">
               <Icon name="send" size={15} />
             </button>
           </div>
