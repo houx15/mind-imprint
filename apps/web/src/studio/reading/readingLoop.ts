@@ -219,15 +219,10 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   const pickSentence = useCallback(
     async (span: CreatedSpan) => {
       if (!cardInstanceId || !cardId) return;
-      // Guardrail: the example sentence itself is not a valid pick — she
-      // must choose a DIFFERENT one. Same block + same range as the example
-      // ⇒ silently ignore (no evaluate call, no state change).
-      if (
-        exampleAnchor &&
-        span.blockId === exampleAnchor.block_id &&
-        span.start === exampleAnchor.start &&
-        span.end === exampleAnchor.end
-      ) {
+      // Guardrail: the example sentence itself is not a valid pick — she must
+      // choose a DIFFERENT sentence. Clicking now selects a whole block, so the
+      // guard is block-level: a pick in the example's own block is ignored.
+      if (exampleAnchor && span.blockId === exampleAnchor.block_id) {
         return;
       }
       setStudentSpan(span);

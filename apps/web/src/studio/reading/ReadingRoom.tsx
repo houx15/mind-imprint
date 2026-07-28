@@ -3,6 +3,7 @@ import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
+import { READING_DECK_IDS } from "./readingDeck";
 import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
@@ -276,6 +277,14 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                   {prompt}
                 </button>
               ))}
+              <button
+                type="button"
+                className="mk-reading-room__library-btn"
+                onClick={() => setLibraryOpen(true)}
+                disabled={busyOrCarded}
+              >
+                透镜库 · {READING_DECK_IDS.length}
+              </button>
             </div>
           </div>
         </section>
@@ -302,14 +311,6 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                 阅读成果 <span className="mk-reading-room__count">{loop.outcomes.length}</span>
               </button>
             </div>
-            <button
-              type="button"
-              className="mk-reading-room__library-btn"
-              disabled={loop.status !== "idle"}
-              onClick={() => setLibraryOpen(true)}
-            >
-              透镜库
-            </button>
             <span className="mk-reading-room__hint">
               <i />
               {loop.status === "active"

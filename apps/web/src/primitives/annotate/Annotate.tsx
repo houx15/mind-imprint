@@ -60,8 +60,17 @@ export function Annotate({
   // building the conversation's referenced-sentence set.
   const referenceEnabled = Boolean(onReferenceBlock) && !selectMode;
 
+  // In select-mode, picking is CLICK-to-pick-a-whole-sentence (matches the
+  // reference demo): clicking any sentence selects that entire block as the
+  // evidence. A drag still works too (partial selection) via onMouseUp.
+  const pickBlock = (block: { id: string; text: string }) => {
+    onCreateSpan?.({ blockId: block.id, start: 0, end: Array.from(block.text).length, text: block.text });
+  };
+
   // Attached only when selectMode is set — with it absent, no handler exists
-  // on the element and behavior is unchanged.
+  // on the element and behavior is unchanged. A drag ends in a real text
+  // selection; a plain click leaves it collapsed and is handled by the block
+  // onClick (pickBlock) instead, so the two never double-fire.
   const handleMouseUp = selectMode
     ? () => {
         const span = selectionToSpan();
@@ -112,7 +121,13 @@ export function Annotate({
             <Fragment key={block.id}>
               <p
                 data-block-id={block.id}
-                onClick={referenceEnabled ? () => onReferenceBlock?.(block.id) : undefined}
+                onClick={
+                  selectMode
+                    ? () => pickBlock(block)
+                    : referenceEnabled
+                      ? () => onReferenceBlock?.(block.id)
+                      : undefined
+                }
                 style={{
                   fontSize: 15,
                   lineHeight: 2.1,
@@ -122,7 +137,7 @@ export function Annotate({
                   borderLeft: referenced ? "3px solid #5C4A8A" : "3px solid transparent",
                   background: referenced ? "#F7F5FB" : "transparent",
                   borderRadius: referenced ? 4 : 0,
-                  cursor: referenceEnabled ? "pointer" : "default",
+                  cursor: selectMode || referenceEnabled ? "pointer" : "default",
                   transition: "background 0.14s ease, border-color 0.14s ease",
                 }}
               >
@@ -136,8 +151,15 @@ export function Annotate({
                     <mark
                       key={i}
                       onClick={(e) => {
-                        // A mark click is its own action (open the span) — it
-                        // must not also bubble up to toggle a block reference.
+                        // In select-mode a click anywhere in a sentence —
+                        // including on the AI's underlined example — picks that
+                        // whole sentence, so the mark must NOT swallow it.
+                        if (selectMode) {
+                          pickBlock(block);
+                          return;
+                        }
+                        // Otherwise a mark click is its own action (open the
+                        // span) and must not also toggle a block reference.
                         e.stopPropagation();
                         onSelectSpan(run.spanId);
                       }}

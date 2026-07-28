@@ -50,7 +50,13 @@ function makeFakeApi() {
   };
 }
 
-const SOURCE = { id: "m1", blocks: [{ id: "b1", text: "因此这项政策必然失败" }] } as any;
+const SOURCE = {
+  id: "m1",
+  blocks: [
+    { id: "b1", text: "因此这项政策必然失败" },
+    { id: "b2", text: "然而事实并非如此" },
+  ],
+} as any;
 
 describe("useReadingLoop", () => {
   it("runs idle→proposed→active→evaluating→feedback→idle", async () => {
@@ -76,14 +82,14 @@ describe("useReadingLoop", () => {
     expect(result.current.status).toBe("active");
     expect(fakeApi.activateProjectCard).toHaveBeenCalledWith("p1", "ci1");
 
-    // Picking a DIFFERENT sentence than the example (different range).
+    // Picking a DIFFERENT sentence (a different block than the example's).
     await act(async () => {
-      await result.current.pickSentence({ blockId: "b1", start: 0, end: 5, text: "因此这项" });
+      await result.current.pickSentence({ blockId: "b2", start: 0, end: 8, text: "然而事实并非如此" });
     });
     expect(result.current.status).toBe("feedback");
     expect(result.current.eval?.verdict).toBe("rethink");
     expect(fakeApi.evaluateCardSelection).toHaveBeenCalledWith("p1", "ci1", {
-      block_id: "b1", start: 0, end: 5, quote: "因此这项", dimension: "argument-map",
+      block_id: "b2", start: 0, end: 8, quote: "然而事实并非如此", dimension: "argument-map",
     });
 
     await act(async () => {
@@ -95,8 +101,8 @@ describe("useReadingLoop", () => {
       event_trace: [],
       anchors: [
         {
-          id: "sel0", material_id: "m1", block_id: "b1", start: 0, end: 5,
-          quote: "因此这项", dimension: "argument-map", author: "student", question: "", answer: "",
+          id: "sel0", material_id: "m1", block_id: "b2", start: 0, end: 8,
+          quote: "然而事实并非如此", dimension: "argument-map", author: "student", question: "", answer: "",
         },
       ],
     });
@@ -106,11 +112,11 @@ describe("useReadingLoop", () => {
     expect(result.current.outcomes).toHaveLength(1);
     const outcome = result.current.outcomes[0]!;
     expect(outcome.finding).toBe("f");
-    expect(outcome.quote).toBe("因此这项");
-    expect(outcome.blockId).toBe("b1");
+    expect(outcome.quote).toBe("然而事实并非如此");
+    expect(outcome.blockId).toBe("b2");
   });
 
-  it("rejects a pick that exactly matches the example — no evaluate call, status stays active", async () => {
+  it("rejects a pick in the example's own sentence — no evaluate call, status stays active", async () => {
     const fakeApi = makeFakeApi();
     const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
 
@@ -121,7 +127,8 @@ describe("useReadingLoop", () => {
       await result.current.startPick();
     });
 
-    // Exact same block+range as the example anchor.
+    // A pick in the example's own block (b1) — rejected whatever the range,
+    // since a click now selects the whole sentence.
     await act(async () => {
       await result.current.pickSentence({ blockId: "b1", start: 0, end: 10, text: "因此这项政策必然失败" });
     });
@@ -141,7 +148,7 @@ describe("useReadingLoop", () => {
       await result.current.startPick();
     });
     await act(async () => {
-      await result.current.pickSentence({ blockId: "b1", start: 0, end: 5, text: "因此这项" });
+      await result.current.pickSentence({ blockId: "b2", start: 0, end: 8, text: "然而事实并非如此" });
     });
     expect(result.current.status).toBe("feedback");
 

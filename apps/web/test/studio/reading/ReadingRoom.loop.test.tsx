@@ -229,7 +229,7 @@ describe("ReadingRoom — read-together loop", () => {
 
     // Opening the library lists the reading deck, grouped — a source-check
     // card (CRAAP) and a deep-reading card (论证地图) are both visible.
-    fireEvent.click(screen.getByRole("button", { name: "透镜库" }));
+    fireEvent.click(screen.getByRole("button", { name: /透镜库/ }));
     expect(screen.getByRole("dialog", { name: "透镜库" })).toBeInTheDocument();
     expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeInTheDocument();
     expect(screen.getByText("论证地图卡（结构 + 谬误）")).toBeInTheDocument();
@@ -252,6 +252,6 @@ describe("ReadingRoom — read-together loop", () => {
     fireEvent.click(screen.getByLabelText("发送"));
     await screen.findByText("看懂示范，开始选句");
 
-    expect(screen.getByRole("button", { name: "透镜库" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /透镜库/ })).toBeDisabled();
   });
 });
