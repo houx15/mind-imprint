@@ -115,6 +115,52 @@ func TestPostReadingTurn_SummonEmitsCardFrame(t *testing.T) {
 	}
 }
 
+// TestPostReadingTurn_RespondEmitsInterventionReply — the read-together room
+// must NEVER go silent: on a plain "respond" decision the router's grounded
+// `reply` text must stream as an `intervention` SSE frame (readingLoop.ts
+// renders intervention events as assistant text bubbles), not nothing. This
+// is the "coach always replies conversationally" fix — read-turn used to emit
+// no text at all on the common "respond" case.
+func TestPostReadingTurn_RespondEmitsInterventionReply(t *testing.T) {
+	pool := newAPITestPool(t)
+	articleText := "全球变暖正在加速冰川融化，科学家在南极观测到前所未有的冰架断裂。"
+	replyText := "这句话确实点出了一个具体的观测证据，你觉得它能支持多大范围的结论？"
+	routerReply := `{"decision":"respond","card_id":"","reason":"","reply":"` + replyText +
+		`","example_block_id":"","example_quote":"","example_why":"","followup_plan":[]}`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     readingStubProvider(routerReply),
+		EvalResolver: fakeEvalResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	mid := ingestReadingMaterial(t, h, cookie, materialsTestProjectID, articleText)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/read-turn",
+		strings.NewReader(`{"student_text":"这条证据能支持什么结论？","focused_spans":[]}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("read-turn: %d — %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: intervention") {
+		t.Fatalf("expected an intervention event carrying the coach reply — room was silent:\n%s", body)
+	}
+	if !strings.Contains(body, replyText) {
+		t.Fatalf("intervention frame missing the router's reply text:\n%s", body)
+	}
+	if strings.Contains(body, "event: card") {
+		t.Fatalf("respond decision must not emit a card event:\n%s", body)
+	}
+	if !strings.Contains(body, "event: done") {
+		t.Fatalf("stream missing done:\n%s", body)
+	}
+}
+
 // TestPostReadingTurn_OpenCardSuppresses — while a card is already
 // proposed/active anywhere in the project (the one-active mutex), the router
 // is still consulted but ApplyReadingGate must downgrade any summon it

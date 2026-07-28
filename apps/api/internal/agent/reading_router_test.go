@@ -16,7 +16,8 @@ func readingStubResolver() gateway.KeyResolver {
 func TestRouteReading_ParsesSummon(t *testing.T) {
 	script := []gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: `{"decision":"summon","card_id":"argument-map",` +
-			`"reason":"这句像是一个没给证据的结论","example_block_id":"b1",` +
+			`"reason":"这句像是一个没给证据的结论","reply":"这句话读起来确实像是跳过了证据直接下结论。",` +
+			`"example_block_id":"b1",` +
 			`"example_quote":"因此这项政策必然失败","example_why":"它用'必然'下了强结论",` +
 			`"followup_plan":["fact-opinion-value"]}`},
 		{Kind: gateway.EventDone},
@@ -32,6 +33,9 @@ func TestRouteReading_ParsesSummon(t *testing.T) {
 	}
 	if d.Decision != "summon" || d.CardID != "argument-map" || d.ExampleQuote != "因此这项政策必然失败" {
 		t.Fatalf("unexpected decision: %+v", d)
+	}
+	if d.Reply != "这句话读起来确实像是跳过了证据直接下结论。" {
+		t.Fatalf("reply not parsed: %+v", d)
 	}
 	if len(d.FollowupPlan) != 1 || d.FollowupPlan[0] != "fact-opinion-value" {
 		t.Fatalf("followup plan not parsed: %+v", d.FollowupPlan)

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -224,8 +225,18 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 		focusedSpans = append(focusedSpans, agent.FocusSpan{BlockID: s.BlockID, Quote: s.Quote})
 	}
 
+	// The router can't answer grounded in the article without seeing it — a
+	// simple one-line-per-block join of THIS material's own blocks (already
+	// loaded above for ResolveExampleAnchor).
+	var articleLines []string
+	for _, b := range blocks {
+		articleLines = append(articleLines, b.Text)
+	}
+	article := strings.Join(articleLines, "\n")
+
 	in := agent.ReadingRouteInput{
 		StudentText:    body.StudentText,
+		Article:        article,
 		FocusedSpans:   focusedSpans,
 		Catalog:        catalog,
 		ScaffoldLevels: scaffold,
@@ -280,6 +291,17 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The room is NEVER silent: speak before any card/hint/respond handling.
+	// On "respond" this is the whole turn; on "summon"/"hint" it's a brief
+	// lead-in before the lens. If the router fell back (Reply empty — parse
+	// failure, resolver error, garbage JSON), emit a soft non-silent default
+	// instead of nothing.
+	if decision.Reply != "" {
+		_ = em.Intervention("", decision.Reply, "", "", "reply")
+	} else {
+		_ = em.Intervention("", "我在听——具体是哪一句让你有疑问？可以点一句原文，或者直接说说你的想法。", "", "", "reply")
+	}
+
 	switch decision.Decision {
 	case "summon":
 		spec, specOK := cards.ByID(decision.CardID)
@@ -305,11 +327,11 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = em.Card(row.ID.String(), decision.CardID, spec.Name, anchorsJSON, mid.String())
 	case "hint":
-		_ = em.Intervention("", decision.Reason, "", decision.CardID, "hint")
-	default: // "respond"
 		if decision.Reason != "" {
-			_ = em.Text(decision.Reason)
+			_ = em.Intervention("", decision.Reason, "", decision.CardID, "hint")
 		}
+	default: // "respond"
+		// The reply above already carried the whole turn.
 	}
 	_ = em.Done()
 }
