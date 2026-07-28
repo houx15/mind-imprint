@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MaterialSource, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
@@ -9,15 +9,16 @@ import { PlanBlock } from "./blocks/PlanBlock";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { ReviewBlock } from "./blocks/ReviewBlock";
-import type { BlockKey, PlanItem } from "./blocks/mockData";
+import type { BlockKey } from "./blocks/mockData";
 
 // The top-level workspace: a project is a set of four rooms
 // (项目管理 · 阅读 · 写作 · 回顾) the student moves between freely. No open
 // project ⇒ the <Directory>; an open project ⇒ the left rail + the active
 // room, landing in Project Management.
 //
-// The blocks run on local mock state this slice (real per-room API wiring is
-// slices 2–5); only the shell (identity, qualification, the room swap) is live.
+// Project Management (项目管理) is now fully API-backed (slice 2); the other
+// three rooms still run on local mock state (slices 3–5). The shell (identity,
+// qualification, the room swap) is live.
 export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
@@ -29,8 +30,20 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
   // (and its onBack teardown) already exists.
   const [readingSource, setReadingSource] = useState<MaterialSource | null>(null);
 
-  // Load the opened project's lean projection (title/qualification/proposal)
-  // whenever the opened id changes. Landing room is always 项目管理.
+  // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
+  // so a persisted proposal edit can keep the rail in sync.
+  const refreshWorkspace = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const w = await getWorkspace(projectId);
+      setWorkspace(w);
+    } catch {
+      /* keep the last-good projection; the room surfaces its own errors */
+    }
+  }, [projectId]);
+
+  // Load the opened project's lean projection whenever the opened id changes.
+  // Landing room is always 项目管理.
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
@@ -62,13 +75,6 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
     setError(null);
   }
 
-  // Clicking a plan card jumps to the matching room (the doorway model).
-  function openItem(item: PlanItem) {
-    if (item.tag === "read") setRoom("reading");
-    else if (item.tag === "write") setRoom("writing");
-    else setRoom("reflection");
-  }
-
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance).
   if (projectId == null) {
@@ -94,9 +100,21 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
       <main className="min-w-0 flex-1 overflow-hidden">
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
+        ) : !workspace ? (
+          <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载中…</div>
         ) : (
           <>
-            {room === "plan" && <PlanBlock fresh={false} onOpenItem={openItem} />}
+            {room === "plan" && (
+              <PlanBlock
+                key={projectId}
+                projectId={projectId}
+                title={workspace.title}
+                qualification={workspace.qualification}
+                proposal={workspace.proposal}
+                onOpenRoom={setRoom}
+                refreshWorkspace={refreshWorkspace}
+              />
+            )}
             {room === "reading" && <ReadingBlock fresh={false} />}
             {room === "writing" && <WritingBlock />}
             {room === "reflection" && <ReviewBlock />}

@@ -1,0 +1,408 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// workspace_plan.go — Slice 2 (Project Management room) cheap-CRUD handlers:
+// the four kick-off proposal dimensions, the plan board / gantt items, and the
+// activity log. None of these make a model call (that is /coach's job, in
+// coach.go), so none gate on HasEntitlement — they are plain owned-project REST.
+
+// -- Proposal ---------------------------------------------------------------
+
+// putProposal upserts the four kick-off dimensions. First save also drops a
+// light auto-log line so the working-phase timeline shows the project taking
+// shape.
+func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Objective  string `json:"objective"`
+		Reason     string `json:"reason"`
+		Activities string `json:"activities"`
+		Resources  string `json:"resources"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// "First save" = no proposal row yet. Read before the upsert so the auto-log
+	// fires exactly once, on the transition from absent to present.
+	_, getErr := a.d.Queries.GetProjectProposal(r.Context(), projectID)
+	firstSave := errors.Is(getErr, pgx.ErrNoRows)
+
+	row, err := a.d.Queries.UpsertProjectProposal(r.Context(), sqlc.UpsertProjectProposalParams{
+		ProjectID:  projectID,
+		Objective:  body.Objective,
+		Reason:     body.Reason,
+		Activities: body.Activities,
+		Resources:  body.Resources,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if firstSave {
+		if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "开题四问初次落定"); err != nil {
+			slog.Warn("proposal: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"proposal": workspaceProposal{
+		Objective:  row.Objective,
+		Reason:     row.Reason,
+		Activities: row.Activities,
+		Resources:  row.Resources,
+	}})
+}
+
+// -- Plan items -------------------------------------------------------------
+
+// planItemDTO is the wire shape (contracts.PlanItem): DB `col` -> `column`,
+// `ref_material_id` -> `refMaterialId`, `start_day` -> `start`.
+type planItemDTO struct {
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	Tag           string  `json:"tag"`
+	Column        string  `json:"column"`
+	Stage         string  `json:"stage"`
+	RefMaterialID *string `json:"refMaterialId"`
+	Start         int32   `json:"start"`
+	Days          int32   `json:"days"`
+	Position      int32   `json:"position"`
+}
+
+func toPlanItemDTO(row sqlc.PlanItem) planItemDTO {
+	return planItemDTO{
+		ID:            row.ID.String(),
+		Title:         row.Title,
+		Tag:           row.Tag,
+		Column:        row.Col,
+		Stage:         row.Stage,
+		RefMaterialID: pgUUIDToStringPtr(row.RefMaterialID),
+		Start:         row.StartDay,
+		Days:          row.Days,
+		Position:      row.Position,
+	}
+}
+
+var validPlanTags = map[string]bool{"read": true, "write": true, "review": true}
+var validPlanColumns = map[string]bool{"todo": true, "doing": true, "done": true}
+
+// listPlan returns the project's plan items ordered (stage, position, start).
+func (a *API) listPlan(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rows, err := a.d.Queries.ListPlanItems(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	items := make([]planItemDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, toPlanItemDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// createPlanItem inserts one plan item. Also drops a light auto-log line.
+func (a *API) createPlanItem(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Title         string  `json:"title"`
+		Tag           string  `json:"tag"`
+		Column        string  `json:"column"`
+		Stage         string  `json:"stage"`
+		RefMaterialID *string `json:"refMaterialId"`
+		Start         int32   `json:"start"`
+		Days          int32   `json:"days"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !validPlanTags[body.Tag] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "tag 只能是 read/write/review", nil))
+		return
+	}
+	if !validPlanColumns[body.Column] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "column 只能是 todo/doing/done", nil))
+		return
+	}
+	refID, err := stringPtrToPgUUID(body.RefMaterialID)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "refMaterialId 不是有效的 id", nil))
+		return
+	}
+	if body.Days < 1 {
+		body.Days = 1
+	}
+
+	row, err := a.d.Queries.CreatePlanItem(r.Context(), sqlc.CreatePlanItemParams{
+		ProjectID:     projectID,
+		Title:         body.Title,
+		Tag:           body.Tag,
+		Col:           body.Column,
+		Stage:         body.Stage,
+		RefMaterialID: refID,
+		StartDay:      body.Start,
+		Days:          body.Days,
+		Position:      0,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "新增计划任务："+strings.TrimSpace(body.Title)); err != nil {
+		slog.Warn("plan item: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"item": toPlanItemDTO(row)})
+}
+
+// patchPlanItem loads the current item (scoped to the owned project -> 404 if it
+// belongs to another project or does not exist), merges whatever partial fields
+// the body supplied over it, then writes ALL columns back.
+func (a *API) patchPlanItem(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	iid, err := uuid.Parse(r.PathValue("iid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	cur, err := a.d.Queries.GetPlanItem(r.Context(), sqlc.GetPlanItemParams{ID: iid, ProjectID: projectID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在")) // pgx.ErrNoRows or wrong project -> 404-no-leak
+		return
+	}
+
+	// Every field a pointer: absent (nil) means "keep current", present means
+	// "replace". refMaterialId is doubly optional — a present-but-null value
+	// clears the link — so it carries its own "provided" flag via json.RawMessage.
+	var body struct {
+		Title         *string `json:"title"`
+		Tag           *string `json:"tag"`
+		Column        *string `json:"column"`
+		Stage         *string `json:"stage"`
+		Start         *int32  `json:"start"`
+		Days          *int32  `json:"days"`
+		Position      *int32  `json:"position"`
+		RefMaterialID *string `json:"refMaterialId"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	next := sqlc.UpdatePlanItemParams{
+		ID:            iid,
+		ProjectID:     projectID,
+		Title:         cur.Title,
+		Tag:           cur.Tag,
+		Col:           cur.Col,
+		Stage:         cur.Stage,
+		RefMaterialID: cur.RefMaterialID,
+		StartDay:      cur.StartDay,
+		Days:          cur.Days,
+		Position:      cur.Position,
+	}
+	if body.Title != nil {
+		next.Title = *body.Title
+	}
+	if body.Tag != nil {
+		if !validPlanTags[*body.Tag] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "tag 只能是 read/write/review", nil))
+			return
+		}
+		next.Tag = *body.Tag
+	}
+	if body.Column != nil {
+		if !validPlanColumns[*body.Column] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "column 只能是 todo/doing/done", nil))
+			return
+		}
+		next.Col = *body.Column
+	}
+	if body.Stage != nil {
+		next.Stage = *body.Stage
+	}
+	if body.Start != nil {
+		next.StartDay = *body.Start
+	}
+	if body.Days != nil {
+		d := *body.Days
+		if d < 1 {
+			d = 1
+		}
+		next.Days = d
+	}
+	if body.Position != nil {
+		next.Position = *body.Position
+	}
+	if body.RefMaterialID != nil {
+		refID, err := stringPtrToPgUUID(body.RefMaterialID)
+		if err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "refMaterialId 不是有效的 id", nil))
+			return
+		}
+		next.RefMaterialID = refID
+	}
+
+	row, err := a.d.Queries.UpdatePlanItem(r.Context(), next)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"item": toPlanItemDTO(row)})
+}
+
+// deletePlanItem removes one item (idempotent — a miss still 204s, since the
+// item is gone either way; ownership is enforced by the project_id scope).
+func (a *API) deletePlanItem(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	iid, err := uuid.Parse(r.PathValue("iid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if err := a.d.Queries.DeletePlanItem(r.Context(), sqlc.DeletePlanItemParams{ID: iid, ProjectID: projectID}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// -- Activity log -----------------------------------------------------------
+
+// logEntryDTO is the wire shape (contracts.LogEntry): entry_date -> "MM-DD".
+type logEntryDTO struct {
+	ID     string `json:"id"`
+	Date   string `json:"date"`
+	Text   string `json:"text"`
+	Source string `json:"source"`
+}
+
+func toLogEntryDTO(row sqlc.ActivityLogEntry) logEntryDTO {
+	date := ""
+	if row.EntryDate.Valid {
+		date = row.EntryDate.Time.Format("01-02")
+	}
+	return logEntryDTO{ID: row.ID.String(), Date: date, Text: row.Text, Source: row.Source}
+}
+
+// listLog returns the project's activity log, chronological (newest last).
+func (a *API) listLog(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rows, err := a.d.Queries.ListActivityLog(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	entries := make([]logEntryDTO, 0, len(rows))
+	for _, row := range rows {
+		entries = append(entries, toLogEntryDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"entries": entries})
+}
+
+// postLog appends one manual log line (source="me", entry_date=today).
+func (a *API) postLog(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(body.Text) == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "记一笔不能是空的", nil))
+		return
+	}
+	row, err := a.d.Queries.CreateActivityLogEntry(r.Context(), sqlc.CreateActivityLogEntryParams{
+		ProjectID: projectID,
+		EntryDate: todayDate(),
+		Text:      body.Text,
+		Source:    "me",
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"entry": toLogEntryDTO(row)})
+}
+
+// -- Shared helpers ---------------------------------------------------------
+
+// appendAutoLog inserts one source='auto', entry_date=today activity-log line.
+// Exported (package-internal) for later slices to drop a timeline breadcrumb on
+// their own platform actions (source opened, snapshot committed, ...). Takes a
+// *sqlc.Queries so it works with both a.d.Queries and a transaction's querier.
+func (a *API) appendAutoLog(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID, text string) error {
+	_, err := q.CreateActivityLogEntry(ctx, sqlc.CreateActivityLogEntryParams{
+		ProjectID: projectID,
+		EntryDate: todayDate(),
+		Text:      text,
+		Source:    "auto",
+	})
+	return err
+}
+
+// todayDate is the pgtype.Date for the current day.
+func todayDate() pgtype.Date {
+	return pgtype.Date{Time: time.Now(), Valid: true}
+}
+
+// pgUUIDToStringPtr renders a nullable ref material id as *string (null -> nil).
+func pgUUIDToStringPtr(u pgtype.UUID) *string {
+	if !u.Valid {
+		return nil
+	}
+	s := uuid.UUID(u.Bytes).String()
+	return &s
+}
+
+// stringPtrToPgUUID parses a nullable id string into pgtype.UUID. A nil pointer
+// or empty string is a valid NULL; a malformed non-empty string is an error.
+func stringPtrToPgUUID(s *string) (pgtype.UUID, error) {
+	if s == nil || strings.TrimSpace(*s) == "" {
+		return pgtype.UUID{}, nil
+	}
+	id, err := uuid.Parse(*s)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}, nil
+}

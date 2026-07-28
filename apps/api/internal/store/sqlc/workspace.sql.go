@@ -9,7 +9,131 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createActivityLogEntry = `-- name: CreateActivityLogEntry :one
+INSERT INTO activity_log_entry (project_id, entry_date, text, source)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, entry_date, text, source, created_at
+`
+
+type CreateActivityLogEntryParams struct {
+	ProjectID uuid.UUID   `json:"project_id"`
+	EntryDate pgtype.Date `json:"entry_date"`
+	Text      string      `json:"text"`
+	Source    string      `json:"source"`
+}
+
+func (q *Queries) CreateActivityLogEntry(ctx context.Context, arg CreateActivityLogEntryParams) (ActivityLogEntry, error) {
+	row := q.db.QueryRow(ctx, createActivityLogEntry,
+		arg.ProjectID,
+		arg.EntryDate,
+		arg.Text,
+		arg.Source,
+	)
+	var i ActivityLogEntry
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.EntryDate,
+		&i.Text,
+		&i.Source,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createPlanItem = `-- name: CreatePlanItem :one
+INSERT INTO plan_item (project_id, title, tag, col, stage, ref_material_id, start_day, days, position)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, project_id, title, tag, col, stage, ref_material_id, start_day, days, position, created_at, updated_at
+`
+
+type CreatePlanItemParams struct {
+	ProjectID     uuid.UUID   `json:"project_id"`
+	Title         string      `json:"title"`
+	Tag           string      `json:"tag"`
+	Col           string      `json:"col"`
+	Stage         string      `json:"stage"`
+	RefMaterialID pgtype.UUID `json:"ref_material_id"`
+	StartDay      int32       `json:"start_day"`
+	Days          int32       `json:"days"`
+	Position      int32       `json:"position"`
+}
+
+func (q *Queries) CreatePlanItem(ctx context.Context, arg CreatePlanItemParams) (PlanItem, error) {
+	row := q.db.QueryRow(ctx, createPlanItem,
+		arg.ProjectID,
+		arg.Title,
+		arg.Tag,
+		arg.Col,
+		arg.Stage,
+		arg.RefMaterialID,
+		arg.StartDay,
+		arg.Days,
+		arg.Position,
+	)
+	var i PlanItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Tag,
+		&i.Col,
+		&i.Stage,
+		&i.RefMaterialID,
+		&i.StartDay,
+		&i.Days,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deletePlanItem = `-- name: DeletePlanItem :exec
+DELETE FROM plan_item WHERE id = $1 AND project_id = $2
+`
+
+type DeletePlanItemParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) DeletePlanItem(ctx context.Context, arg DeletePlanItemParams) error {
+	_, err := q.db.Exec(ctx, deletePlanItem, arg.ID, arg.ProjectID)
+	return err
+}
+
+const getPlanItem = `-- name: GetPlanItem :one
+SELECT id, project_id, title, tag, col, stage, ref_material_id, start_day, days, position, created_at, updated_at FROM plan_item WHERE id = $1 AND project_id = $2
+`
+
+type GetPlanItemParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) GetPlanItem(ctx context.Context, arg GetPlanItemParams) (PlanItem, error) {
+	row := q.db.QueryRow(ctx, getPlanItem, arg.ID, arg.ProjectID)
+	var i PlanItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Tag,
+		&i.Col,
+		&i.Stage,
+		&i.RefMaterialID,
+		&i.StartDay,
+		&i.Days,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const getProjectProposal = `-- name: GetProjectProposal :one
 SELECT project_id, objective, reason, activities, resources, updated_at FROM project_proposal WHERE project_id = $1
@@ -24,6 +148,139 @@ func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (
 		&i.Reason,
 		&i.Activities,
 		&i.Resources,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listActivityLog = `-- name: ListActivityLog :many
+SELECT id, project_id, entry_date, text, source, created_at FROM activity_log_entry
+WHERE project_id = $1
+ORDER BY entry_date, created_at
+`
+
+func (q *Queries) ListActivityLog(ctx context.Context, projectID uuid.UUID) ([]ActivityLogEntry, error) {
+	rows, err := q.db.Query(ctx, listActivityLog, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ActivityLogEntry
+	for rows.Next() {
+		var i ActivityLogEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.EntryDate,
+			&i.Text,
+			&i.Source,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanItems = `-- name: ListPlanItems :many
+SELECT id, project_id, title, tag, col, stage, ref_material_id, start_day, days, position, created_at, updated_at FROM plan_item
+WHERE project_id = $1
+ORDER BY stage, position, start_day, created_at
+`
+
+func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]PlanItem, error) {
+	rows, err := q.db.Query(ctx, listPlanItems, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PlanItem
+	for rows.Next() {
+		var i PlanItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Tag,
+			&i.Col,
+			&i.Stage,
+			&i.RefMaterialID,
+			&i.StartDay,
+			&i.Days,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updatePlanItem = `-- name: UpdatePlanItem :one
+UPDATE plan_item SET
+    title           = $3,
+    tag             = $4,
+    col             = $5,
+    stage           = $6,
+    ref_material_id = $7,
+    start_day       = $8,
+    days            = $9,
+    position        = $10,
+    updated_at      = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, title, tag, col, stage, ref_material_id, start_day, days, position, created_at, updated_at
+`
+
+type UpdatePlanItemParams struct {
+	ID            uuid.UUID   `json:"id"`
+	ProjectID     uuid.UUID   `json:"project_id"`
+	Title         string      `json:"title"`
+	Tag           string      `json:"tag"`
+	Col           string      `json:"col"`
+	Stage         string      `json:"stage"`
+	RefMaterialID pgtype.UUID `json:"ref_material_id"`
+	StartDay      int32       `json:"start_day"`
+	Days          int32       `json:"days"`
+	Position      int32       `json:"position"`
+}
+
+// Sets ALL columns by id + project_id; the handler merges partial patches over
+// the current row before calling this, so every field is always supplied.
+func (q *Queries) UpdatePlanItem(ctx context.Context, arg UpdatePlanItemParams) (PlanItem, error) {
+	row := q.db.QueryRow(ctx, updatePlanItem,
+		arg.ID,
+		arg.ProjectID,
+		arg.Title,
+		arg.Tag,
+		arg.Col,
+		arg.Stage,
+		arg.RefMaterialID,
+		arg.StartDay,
+		arg.Days,
+		arg.Position,
+	)
+	var i PlanItem
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Tag,
+		&i.Col,
+		&i.Stage,
+		&i.RefMaterialID,
+		&i.StartDay,
+		&i.Days,
+		&i.Position,
+		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err

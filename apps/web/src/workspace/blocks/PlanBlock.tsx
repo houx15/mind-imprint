@@ -1,27 +1,29 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
   formingChat,
   formingChatEN,
-  freshChat,
-  emptyProposal,
   PROPOSAL_DIMS,
-  project as seedProject,
-  planItems as seedItems,
-  activityLog,
   TAG_LABEL,
   COLUMN_LABEL,
   TIMELINE_DAYS,
   STAGES,
   STAGE_1,
+  type BlockKey,
   type ChatMsg,
-  type LogEntry,
-  type PlanColumn,
-  type PlanItem,
-  type PlanTag,
-  type Proposal,
-  type ProtoProject,
 } from "./mockData";
+import {
+  putProposal,
+  getPlan,
+  createPlanItem,
+  patchPlanItem,
+  deletePlanItem,
+  getLog,
+  addLog,
+  coach,
+  type PlanItemPatch,
+} from "../api/workspace";
 
 const TAG_STYLE: Record<PlanTag, string> = {
   read: "bg-mk-primary-tint text-mk-primary",
@@ -34,62 +36,115 @@ const TAG_BAR: Record<PlanTag, string> = {
   review: "bg-mk-green",
 };
 
+// A plan card's tag is a doorway: it routes to the room that owns that kind of
+// work (读→阅读, 写→写作, 省→回顾).
+const roomForTag = (tag: PlanTag): BlockKey =>
+  tag === "read" ? "reading" : tag === "write" ? "writing" : "reflection";
+
 // The Plan block is two phases sharing one home. Phase A ("forming") is a calm
-// chat that turns talk (or dropped sources) into a goal statement; hitting
-// 生成计划 flips to Phase B ("working"), a project board you return to every
-// session — viewable as a Kanban or a Gantt, and exportable.
-export function PlanBlock({ fresh, onOpenItem }: { fresh: boolean; onOpenItem: (item: PlanItem) => void }) {
-  const [phase, setPhase] = useState<"forming" | "working">(fresh ? "forming" : "working");
-  const [project, setProject] = useState<ProtoProject>(
-    fresh ? { ...seedProject, proposal: emptyProposal } : seedProject,
-  );
-  const [chat, setChat] = useState<ChatMsg[]>(fresh ? freshChat : formingChat);
+// coach chat that turns talk into the four proposal dimensions; hitting 生成计划
+// flips to Phase B ("working"), a persisted project board you return to every
+// session — viewable as a Kanban, a Gantt or an activity log, and exportable.
+//
+// Everything here is API-backed (slice 2): proposal edits are debounced to
+// PUT /proposal; the board is CRUD against /plan; the chat calls /coach.
+export function PlanBlock({
+  projectId,
+  title,
+  qualification,
+  proposal,
+  onOpenRoom,
+  refreshWorkspace,
+}: {
+  projectId: string;
+  title: string;
+  qualification: string;
+  proposal: Proposal;
+  onOpenRoom: (room: BlockKey) => void;
+  refreshWorkspace: () => void;
+}) {
+  const [phase, setPhase] = useState<"forming" | "working">("working");
+  // Local proposal state seeded from the projection; the component is keyed on
+  // projectId upstream, so this initialises once per opened project.
+  const [prop, setProp] = useState<Proposal>(proposal);
+  const [chat, setChat] = useState<ChatMsg[]>(formingChat);
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const [draft, setDraft] = useState("");
-  const [board, setBoard] = useState<PlanItem[]>(seedItems);
+  const [sending, setSending] = useState(false);
+
+  // Debounced persistence of proposal edits (~600ms after the last keystroke).
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function persistProposal(next: Proposal) {
+    putProposal(projectId, next)
+      .then(() => refreshWorkspace())
+      .catch(() => {
+        /* keep the local edit; a later save or reload reconciles */
+      });
+  }
+  function setDim(key: keyof Proposal, v: string) {
+    const next = { ...prop, [key]: v };
+    setProp(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persistProposal(next), 600);
+  }
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  function onGenerate() {
+    // Flush any pending debounced save so the working board opens on a stored
+    // proposal (persist nothing destructive — just the dims as typed).
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    persistProposal(prop);
+    setPhase("working");
+  }
+
+  async function onSend() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setChat((c) => [...c, { role: "student", text }]);
+    setDraft("");
+    setSending(true);
+    // In EN mode nudge the model to reply in English; the scope stays the same.
+    const userInput = lang === "en" ? `${text}\n\n(reply in English)` : text;
+    try {
+      const reply = await coach(projectId, "forming", userInput);
+      setChat((c) => [...c, { role: "ai", text: reply }]);
+    } catch {
+      setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住这句——再说一次？）" }]);
+    } finally {
+      setSending(false);
+    }
+  }
 
   if (phase === "forming") {
     return (
       <FormingPhase
-        fresh={fresh}
-        project={project}
-        setProject={setProject}
+        title={title}
+        proposal={prop}
+        setDim={setDim}
         chat={chat}
         lang={lang}
-        onToggleLang={() => { const next = lang === "zh" ? "en" : "zh"; setLang(next); setChat(next === "en" ? formingChatEN : formingChat); }}
+        onToggleLang={() => {
+          const next = lang === "zh" ? "en" : "zh";
+          setLang(next);
+          setChat(next === "en" ? formingChatEN : formingChat);
+        }}
         draft={draft}
         setDraft={setDraft}
-        onSend={() => {
-          if (!draft.trim()) return;
-          setChat((c) => [
-            ...c,
-            { role: "student", text: draft.trim() },
-            { role: "ai", text: "记下了。我把它揉进右边的卡片里了——你看看是不是你的意思，不对就直接改。" },
-          ]);
-          setDraft("");
-        }}
-        onDrop={() =>
-          setChat((c) => [
-            ...c,
-            { role: "student", text: "（拖入了 3 个来源链接）" },
-            { role: "ai", text: "收到 3 篇。我先把它们放进「阅读」清单，也在计划里排上「读」的任务。你想先聊聊题目，还是直接开读？" },
-          ])
-        }
-        onGenerate={() => setPhase("working")}
+        sending={sending}
+        onSend={onSend}
+        onGenerate={onGenerate}
       />
     );
   }
 
   return (
     <WorkingPhase
-      project={project}
-      board={board}
+      projectId={projectId}
+      title={title}
+      qualification={qualification}
+      proposal={prop}
       onReopen={() => setPhase("forming")}
-      onMove={(id, column) => setBoard((xs) => xs.map((x) => (x.id === id ? { ...x, column } : x)))}
-      onReschedule={(id, start) => setBoard((xs) => xs.map((x) => (x.id === id ? { ...x, start } : x)))}
-      onResize={(id, days) => setBoard((xs) => xs.map((x) => (x.id === id ? { ...x, days } : x)))}
-      onAddTask={(stage) => setBoard((xs) => [...xs, { id: `p${xs.length + 1}-${Math.max(0, ...xs.map((_, i) => i))}`, title: "写：新任务", tag: "write", column: "todo", stage, start: 0, days: 2 }])}
-      onOpenItem={onOpenItem}
+      onOpenItem={(item) => onOpenRoom(roomForTag(item.tag))}
     />
   );
 }
@@ -99,23 +154,22 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 /* ---------- Phase A · forming ---------- */
 
 function FormingPhase(props: {
-  fresh: boolean;
-  project: ProtoProject;
-  setProject: (p: ProtoProject) => void;
+  title: string;
+  proposal: Proposal;
+  setDim: (key: keyof Proposal, v: string) => void;
   chat: ChatMsg[];
   lang: "zh" | "en";
   onToggleLang: () => void;
   draft: string;
   setDraft: (s: string) => void;
+  sending: boolean;
   onSend: () => void;
-  onDrop: () => void;
   onGenerate: () => void;
 }) {
-  const { fresh, project, setProject, chat, lang, onToggleLang, draft, setDraft, onSend, onDrop, onGenerate } = props;
+  const { title, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend, onGenerate } = props;
   const [writing, setWriting] = useState(false);
-  const covered = PROPOSAL_DIMS.filter((d) => project.proposal[d.key].trim().length > 0).length;
+  const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
   const ready = covered >= 1;
-  const setDim = (key: keyof Proposal, v: string) => setProject({ ...project, proposal: { ...project.proposal, [key]: v } });
   return (
     <div className="relative mx-auto grid h-full w-full max-w-6xl grid-cols-[1fr,380px] gap-8 px-10 py-9">
       {/* Chat column */}
@@ -137,18 +191,13 @@ function FormingPhase(props: {
           {chat.map((m, i) => (
             <ChatBubble key={i} msg={m} />
           ))}
-
-          {/* Brand-new project: the other way in — drop what you already have. */}
-          {fresh && (
-            <button
-              type="button"
-              onClick={onDrop}
-              className="mt-2 flex flex-col items-center gap-1.5 rounded-mk-lg border border-dashed border-mk-input bg-mk-input-bg/60 px-4 py-6 text-center transition hover:border-mk-primary/50 hover:bg-mk-primary-tint/40"
-            >
-              <span className="text-mk-primary"><Icon name="reading" size={22} /></span>
-              <span className="text-[13.5px] font-bold text-mk-ink">已经有资料了？把链接或文件拖进来</span>
-              <span className="text-[12px] text-mk-muted-2">印记会先帮你把它们整理成阅读清单，再一起排进计划</span>
-            </button>
+          {sending && (
+            <div className="flex justify-start">
+              <div className="max-w-[82%] rounded-mk-lg bg-mk-surface px-4 py-2.5 text-[14px] leading-relaxed text-mk-muted-2 shadow-[0_1px_2px_rgba(28,35,51,0.05)]">
+                <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>
+                在想……
+              </div>
+            </div>
           )}
         </div>
 
@@ -156,11 +205,12 @@ function FormingPhase(props: {
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
             rows={1}
             placeholder="说说你的想法……"
             className="max-h-28 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] text-mk-ink outline-none placeholder:text-mk-muted-2"
           />
-          <button type="button" onClick={onSend} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover">
+          <button type="button" onClick={onSend} disabled={sending} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
             <Icon name="send" size={17} />
           </button>
         </div>
@@ -179,7 +229,7 @@ function FormingPhase(props: {
           <p className="mb-4 text-[11.5px] text-mk-muted-2">不用写正式开题报告——把这几件事聊清楚就行。</p>
           <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto">
             {PROPOSAL_DIMS.map((d) => (
-              <DimField key={d.key} label={d.label} hint={d.hint} filled={project.proposal[d.key].trim().length > 0} value={project.proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
+              <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
             ))}
           </div>
         </div>
@@ -201,21 +251,29 @@ function FormingPhase(props: {
         </button>
       </aside>
 
-      {writing && <ProposalWriter proposal={project.proposal} setDim={setDim} onClose={() => setWriting(false)} />}
+      {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} onClose={() => setWriting(false)} />}
     </div>
   );
 }
 
 // The formal proposal is WRITTEN by the student (not generated). This is a
-// larger writing surface over the same four dimensions, headed as EPQ §1–§4,
-// with an export. Optional — the dimensions are already valued from the chat.
-function ProposalWriter({ proposal, setDim, onClose }: { proposal: Proposal; setDim: (k: keyof Proposal, v: string) => void; onClose: () => void }) {
+// larger writing surface over the same four (persisted) dimensions, headed as
+// EPQ §1–§4, with a structured export (real .docx lands in slice 6). Optional —
+// the dimensions are already valued from the chat.
+function ProposalWriter({ proposal, setDim, title, onClose }: { proposal: Proposal; setDim: (k: keyof Proposal, v: string) => void; title: string; onClose: () => void }) {
   const SECTIONS: { key: keyof Proposal; n: string; title: string; hint: string }[] = [
     { key: "objective", n: "§1", title: "题目、目标与职责", hint: "你想回答什么问题？想学会做什么？想发现什么？" },
     { key: "reason", n: "§2", title: "选题理由", hint: "与你所学学科的关联、个人兴趣、未来规划、想提升的知识/技能、为什么这个题目重要" },
     { key: "activities", n: "§3", title: "活动与时间安排", hint: "研究、想法的发展与分析、写作、数据收集、排练、成果产出、评估、准备展示等" },
     { key: "resources", n: "§4", title: "资源", hint: "图书馆、书籍、期刊、设备、场地、技术、经费等" },
   ];
+  function exportReport() {
+    const lines = [`# 开题报告 · ${title || "未命名项目"}`, ""];
+    for (const s of SECTIONS) {
+      lines.push(`## ${s.n} ${s.title}`, "", proposal[s.key].trim() || "（未填写）", "");
+    }
+    downloadFile("开题报告.md", lines.join("\n"), "text/markdown");
+  }
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
       <div className="flex max-h-[86%] w-[640px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_20px_60px_rgba(28,35,51,0.25)]" onClick={(e) => e.stopPropagation()}>
@@ -247,7 +305,7 @@ function ProposalWriter({ proposal, setDim, onClose }: { proposal: Proposal; set
         <div className="flex items-center justify-between border-t border-mk-border px-6 py-3.5">
           <span className="text-[12px] text-mk-muted-2">随时保存 · 你写的每一段都算数</span>
           <div className="flex gap-2">
-            <button type="button" className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">导出</button>
+            <button type="button" onClick={exportReport} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">导出</button>
             <button type="button" onClick={onClose} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">完成</button>
           </div>
         </div>
@@ -287,37 +345,92 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
   );
 }
 
+/* ---------- download helper (structured .md for now; .docx in slice 6) ---------- */
+
+function downloadFile(name: string, body: string, mime = "text/markdown") {
+  const blob = new Blob([body], { type: `${mime};charset=utf-8` });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /* ---------- Phase B · working (kanban / gantt / log) ---------- */
 
 const COLUMNS: PlanColumn[] = ["todo", "doing", "done"];
 type PlanView = "kanban" | "gantt" | "log";
 
 function WorkingPhase(props: {
-  project: ProtoProject;
-  board: PlanItem[];
+  projectId: string;
+  title: string;
+  qualification: string;
+  proposal: Proposal;
   onReopen: () => void;
-  onMove: (id: string, column: PlanColumn) => void;
-  onReschedule: (id: string, start: number) => void;
-  onResize: (id: string, days: number) => void;
-  onAddTask: (stage: string) => void;
   onOpenItem: (item: PlanItem) => void;
 }) {
-  const { project, board, onReopen, onMove, onReschedule, onResize, onAddTask, onOpenItem } = props;
+  const { projectId, title, qualification, proposal, onReopen, onOpenItem } = props;
   const [view, setView] = useState<PlanView>("kanban");
   const [open, setOpen] = useState(false);
 
-  function download(name: string, body: string) {
-    const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  // The board — loaded on enter, mutated optimistically then reconciled.
+  const [board, setBoard] = useState<PlanItem[]>([]);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPlan(true);
+    getPlan(projectId)
+      .then((items) => { if (!cancelled) setBoard(items); })
+      .catch(() => { /* leave empty; empty board is a valid state */ })
+      .finally(() => { if (!cancelled) setLoadingPlan(false); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  function reconcile() {
+    getPlan(projectId).then(setBoard).catch(() => {});
   }
+  // Optimistically apply a partial edit, then swap in the server's row (or
+  // reconcile from scratch if the write failed).
+  function patchItem(id: string, patch: PlanItemPatch) {
+    setBoard((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    patchPlanItem(projectId, id, patch)
+      .then((updated) => setBoard((xs) => xs.map((x) => (x.id === id ? updated : x))))
+      .catch(() => reconcile());
+  }
+  function addTask(stage: string) {
+    createPlanItem(projectId, { title: "写：新任务", tag: "write", column: "todo", stage, start: 0, days: 2 })
+      .then(() => reconcile())
+      .catch(() => {});
+  }
+  function removeItem(id: string) {
+    const prev = board;
+    setBoard((xs) => xs.filter((x) => x.id !== id));
+    deletePlanItem(projectId, id).catch(() => setBoard(prev));
+  }
+
+  // The activity log — loaded lazily the first time the tab is opened (also
+  // needed for its export).
+  const [log, setLog] = useState<LogEntry[] | null>(null);
+  useEffect(() => {
+    if (view === "log" && log === null) {
+      getLog(projectId).then(setLog).catch(() => setLog([]));
+    }
+  }, [view, log, projectId]);
+  function addLogEntry(text: string) {
+    addLog(projectId, text)
+      .then((entry) => setLog((l) => [...(l ?? []), entry]))
+      .catch(() => {});
+  }
+
   function exportPlan() {
-    const lines = [`# ${project.title}`, `_${project.qualLabel}_`, "", "| 任务 | 阶段 | 类型 | 状态 | 第几天 | 时长(天) |", "| --- | --- | --- | --- | --- | --- |"];
+    const lines = [`# ${title}`, `_${qualification}_`, "", "| 任务 | 阶段 | 类型 | 状态 | 第几天 | 时长(天) |", "| --- | --- | --- | --- | --- | --- |"];
     for (const i of board) lines.push(`| ${i.title} | ${i.stage} | ${TAG_LABEL[i.tag]} | ${COLUMN_LABEL[i.column]} | 第${i.start + 1}天 | ${i.days} |`);
-    download("项目计划.md", lines.join("\n"));
+    downloadFile("项目计划.md", lines.join("\n"));
+  }
+  function exportLog() {
+    const rows = log ?? [];
+    downloadFile("活动日志.md", `# 活动日志 · ${title}\n\n` + rows.map((e) => `- **${e.date}** ${e.text}`).join("\n"));
   }
 
   return (
@@ -326,8 +439,8 @@ function WorkingPhase(props: {
       <div className="mb-6 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-mk-primary-tint px-2.5 py-1 text-[11px] font-bold text-mk-primary">{project.qualLabel}</span>
-            <h1 className="font-sans text-[18px] font-bold text-mk-ink">{project.title}</h1>
+            <span className="rounded-full bg-mk-primary-tint px-2.5 py-1 text-[11px] font-bold text-mk-primary">{qualification}</span>
+            <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
           </div>
           <button type="button" onClick={() => setOpen((o) => !o)} className="text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
             {open ? "收起" : "查看我的题目"}
@@ -335,8 +448,8 @@ function WorkingPhase(props: {
         </div>
         {open && (
           <div className="mt-3 grid grid-cols-3 gap-4 border-t border-mk-border pt-3 text-[13px] leading-relaxed text-mk-muted">
-            <div><span className="font-bold text-mk-muted-2">缘由 · </span>{project.proposal.reason}</div>
-            <div className="col-span-2"><span className="font-bold text-mk-accent">目标 · </span>{project.proposal.objective}</div>
+            <div><span className="font-bold text-mk-muted-2">缘由 · </span>{proposal.reason || "—"}</div>
+            <div className="col-span-2"><span className="font-bold text-mk-accent">目标 · </span>{proposal.objective || "—"}</div>
           </div>
         )}
       </div>
@@ -353,7 +466,7 @@ function WorkingPhase(props: {
             <ViewTab active={view === "gantt"} onClick={() => setView("gantt")}>甘特图</ViewTab>
             <ViewTab active={view === "log"} onClick={() => setView("log")}>活动日志</ViewTab>
           </div>
-          <button type="button" onClick={view === "log" ? () => download("活动日志.md", `# 活动日志 · ${project.title}\n\n` + activityLog.map((e) => `- **${e.date}** ${e.text}`).join("\n")) : exportPlan} className="rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
+          <button type="button" onClick={view === "log" ? exportLog : exportPlan} className="rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
             导出
           </button>
           <button type="button" onClick={onReopen} className="flex items-center gap-1.5 rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
@@ -362,9 +475,9 @@ function WorkingPhase(props: {
         </div>
       </div>
 
-      {view === "kanban" && <KanbanView board={board} onMove={onMove} onAddTask={onAddTask} onOpenItem={onOpenItem} />}
-      {view === "gantt" && <GanttView board={board} onReschedule={onReschedule} onResize={onResize} onOpenItem={onOpenItem} />}
-      {view === "log" && <ActivityLogView />}
+      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onDelete={removeItem} onOpenItem={onOpenItem} />}
+      {view === "gantt" && <GanttView board={board} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onOpenItem={onOpenItem} />}
+      {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
     </div>
   );
 }
@@ -379,7 +492,7 @@ function ViewTab({ active, onClick, children }: { active: boolean; onClick: () =
 
 /* ----- Kanban (HTML5 drag between columns) ----- */
 
-function KanbanView({ board, onMove, onAddTask, onOpenItem }: { board: PlanItem[]; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onOpenItem: (i: PlanItem) => void }) {
+function KanbanView({ board, loading, onMove, onAddTask, onDelete, onOpenItem }: { board: PlanItem[]; loading: boolean; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onDelete: (id: string) => void; onOpenItem: (i: PlanItem) => void }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<PlanColumn | null>(null);
   return (
@@ -401,9 +514,13 @@ function KanbanView({ board, onMove, onAddTask, onOpenItem }: { board: PlanItem[
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
               {colItems.map((item) => (
-                <PlanCard key={item.id} item={item} dragging={dragId === item.id} onOpen={() => onOpenItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
+                <PlanCard key={item.id} item={item} dragging={dragId === item.id} onOpen={() => onOpenItem(item)} onDelete={() => onDelete(item.id)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
               ))}
-              {colItems.length === 0 && <div className="rounded-mk border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-muted-2">拖到这里</div>}
+              {colItems.length === 0 && (
+                <div className="rounded-mk border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-muted-2">
+                  {loading ? "加载中…" : "拖到这里"}
+                </div>
+              )}
             </div>
             {col === "todo" && (
               <button type="button" onClick={() => onAddTask(STAGE_1)} className="mt-2 rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">+ 添加任务</button>
@@ -415,17 +532,25 @@ function KanbanView({ board, onMove, onAddTask, onOpenItem }: { board: PlanItem[
   );
 }
 
-function PlanCard({ item, dragging, onOpen, onDragStart, onDragEnd }: { item: PlanItem; dragging: boolean; onOpen: () => void; onDragStart: () => void; onDragEnd: () => void }) {
+function PlanCard({ item, dragging, onOpen, onDelete, onDragStart, onDragEnd }: { item: PlanItem; dragging: boolean; onOpen: () => void; onDelete: () => void; onDragStart: () => void; onDragEnd: () => void }) {
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group cursor-grab rounded-mk border border-mk-border bg-mk-surface p-3 shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition active:cursor-grabbing hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)] ${dragging ? "opacity-40" : ""}`}
+      className={`group relative cursor-grab rounded-mk border border-mk-border bg-mk-surface p-3 shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition active:cursor-grabbing hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)] ${dragging ? "opacity-40" : ""}`}
     >
+      <button
+        type="button"
+        onClick={onDelete}
+        title="删除任务"
+        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[13px] leading-none text-mk-muted-2 opacity-0 transition hover:bg-mk-accent-tint hover:text-mk-accent group-hover:opacity-100"
+      >
+        ×
+      </button>
       <div className="mb-2 flex items-center gap-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
-        <span className="ml-auto truncate text-[10.5px] text-mk-muted-2">{item.stage.split(" · ")[0]}</span>
+        <span className="ml-auto truncate pr-5 text-[10.5px] text-mk-muted-2">{item.stage.split(" · ")[0]}</span>
       </div>
       <button type="button" onClick={onOpen} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-primary">{item.title}</button>
       <button type="button" onClick={onOpen} className="mt-2 text-[12px] font-semibold text-mk-primary opacity-0 transition hover:underline group-hover:opacity-100">进入 →</button>
@@ -529,27 +654,41 @@ function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedu
 
 /* ----- Activity log (real EPQ deliverable; auto-seeded + student notes) ----- */
 
-function ActivityLogView() {
-  const [log, setLog] = useState<LogEntry[]>(activityLog);
+function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd: (text: string) => void }) {
   const [draft, setDraft] = useState("");
+  const rows = log ?? [];
+  function submit() {
+    if (!draft.trim()) return;
+    onAdd(draft.trim());
+    setDraft("");
+  }
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface">
-        {log.map((e, i) => (
-          <div key={e.id} className={`flex gap-4 px-5 py-3.5 ${i < log.length - 1 ? "border-b border-mk-border-2" : ""}`}>
-            <span className="w-12 flex-none pt-0.5 text-[13px] font-bold text-mk-muted-2">{e.date}</span>
-            <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{e.text}</p>
-            <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[10.5px] font-bold ${e.source === "auto" ? "bg-mk-primary-tint text-mk-primary" : "bg-mk-green-tint text-mk-green"}`}>
-              {e.source === "auto" ? "自动" : "我记的"}
-            </span>
+        {log === null ? (
+          <div className="flex h-full items-center justify-center py-16 text-[13px] text-mk-muted-2">加载中…</div>
+        ) : rows.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
+            <p className="text-[14px] font-semibold text-mk-ink">还没有记录</p>
+            <p className="text-[12.5px] text-mk-muted-2">你在项目里做的事会自动记下——也可以现在补一笔。</p>
           </div>
-        ))}
+        ) : (
+          rows.map((e, i) => (
+            <div key={e.id} className={`flex gap-4 px-5 py-3.5 ${i < rows.length - 1 ? "border-b border-mk-border-2" : ""}`}>
+              <span className="w-12 flex-none pt-0.5 text-[13px] font-bold text-mk-muted-2">{e.date}</span>
+              <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{e.text}</p>
+              <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[10.5px] font-bold ${e.source === "auto" ? "bg-mk-primary-tint text-mk-primary" : "bg-mk-green-tint text-mk-green"}`}>
+                {e.source === "auto" ? "自动" : "我记的"}
+              </span>
+            </div>
+          ))
+        )}
       </div>
       <div className="mt-3 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5">
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
         <button
           type="button"
-          onClick={() => { if (!draft.trim()) return; setLog((l) => [...l, { id: `l${l.length + 1}`, date: "今天", text: draft.trim(), source: "me" }]); setDraft(""); }}
+          onClick={submit}
           className="rounded-mk bg-mk-primary px-3.5 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover"
         >
           记一笔
