@@ -62,6 +62,14 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
   const loop = useReadingLoop(projectId, source, api);
   const [draft, setDraft] = useState("");
   const [rightView, setRightView] = useState<"article" | "trace">("article");
+  // 引用原文 (focus context) — block ids the student has clicked to reference
+  // in her next coach turn. Only meaningful while idle (a card in flight
+  // repurposes the article for evidence-picking, not referencing).
+  const [refs, setRefs] = useState<string[]>([]);
+
+  function toggleRef(blockId: string) {
+    setRefs((prev) => (prev.includes(blockId) ? prev.filter((id) => id !== blockId) : [...prev, blockId]));
+  }
 
   const chatLogRef = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLDivElement | null>(null);
@@ -144,7 +152,9 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
     const t = text.trim();
     if (!t) return;
     setDraft("");
-    void loop.sendTurn(t);
+    const focusedSpans = refs.map((id) => ({ block_id: id, quote: source.blocks.find((b) => b.id === id)?.text ?? "" }));
+    setRefs([]);
+    void loop.sendTurn(t, focusedSpans);
   }
 
   return (
@@ -215,6 +225,16 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
           </div>
 
           <div className="mk-reading-room__composer-wrap">
+            {refs.length > 0 && (
+              <div className="mk-reading-room__focus-context">
+                <span>
+                  正在引用 <strong>{refs.length}</strong> 处原文
+                </span>
+                <button type="button" onClick={() => setRefs([])}>
+                  清除
+                </button>
+              </div>
+            )}
             <form
               className="mk-reading-room__composer"
               onSubmit={(e) => {
@@ -283,7 +303,9 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                 ? "点击 1 句话作答"
                 : loop.status === "proposed"
                   ? "先看示范，再开始选句"
-                  : "点击句子可引用原文"}
+                  : refs.length > 0
+                    ? `已引用 ${refs.length} 处 · 再点可取消`
+                    : "点击句子可引用原文"}
             </span>
           </div>
 
@@ -305,6 +327,8 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                   onSelectSpan={() => {}}
                   selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
                   onCreateSpan={loop.pickSentence}
+                  onReferenceBlock={loop.status === "idle" ? toggleRef : undefined}
+                  referencedBlockIds={refs}
                   renderAfterBlock={(blockId) => {
                     if (!card || cardBlockId !== blockId) return null;
                     return (

@@ -25,6 +25,15 @@ export type AnnotateProps = {
    * it is not supplied.
    */
   renderAfterBlock?: (blockId: string) => ReactNode;
+  /**
+   * "Click a sentence to reference it" (引用原文). When supplied AND
+   * `selectMode` is null (i.e. NOT in evidence-pick mode), each block
+   * becomes clickable and calls back with the block's id. Absent by
+   * default — behavior is unchanged when it is not supplied.
+   */
+  onReferenceBlock?: (blockId: string) => void;
+  /** Block ids currently referenced — rendered with a subtle highlight. */
+  referencedBlockIds?: string[];
 };
 
 const AUTHOR_MARK_STYLE: Record<"ai" | "student" | "imported", { background: string; border: string }> = {
@@ -33,8 +42,23 @@ const AUTHOR_MARK_STYLE: Record<"ai" | "student" | "imported", { background: str
   imported: { background: "#F3F0E8", border: "#B79A4C" },
 };
 
-export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode, onCreateSpan, renderAfterBlock }: AnnotateProps) {
+export function Annotate({
+  blocks,
+  state,
+  activeSpanId,
+  onSelectSpan,
+  selectMode,
+  onCreateSpan,
+  renderAfterBlock,
+  onReferenceBlock,
+  referencedBlockIds,
+}: AnnotateProps) {
   const activeSpan = activeSpanId ? state.spans.find((s) => s.id === activeSpanId) ?? null : null;
+
+  // Referencing (引用原文) is only offered outside evidence-pick mode — while
+  // selectMode is active the article is for picking evidence, not for
+  // building the conversation's referenced-sentence set.
+  const referenceEnabled = Boolean(onReferenceBlock) && !selectMode;
 
   // Attached only when selectMode is set — with it absent, no handler exists
   // on the element and behavior is unchanged.
@@ -83,9 +107,25 @@ export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode
       <div onMouseUp={handleMouseUp}>
         {blocks.map((block) => {
           const runs = segmentBlock(block.id, block.text, state.spans);
+          const referenced = Boolean(referencedBlockIds?.includes(block.id));
           return (
             <Fragment key={block.id}>
-              <p data-block-id={block.id} style={{ fontSize: 15, lineHeight: 2.1, color: "#2B3346", margin: "0 0 14px" }}>
+              <p
+                data-block-id={block.id}
+                onClick={referenceEnabled ? () => onReferenceBlock?.(block.id) : undefined}
+                style={{
+                  fontSize: 15,
+                  lineHeight: 2.1,
+                  color: "#2B3346",
+                  margin: "0 0 14px",
+                  padding: referenced ? "2px 10px" : "2px 0",
+                  borderLeft: referenced ? "3px solid #5C4A8A" : "3px solid transparent",
+                  background: referenced ? "#F7F5FB" : "transparent",
+                  borderRadius: referenced ? 4 : 0,
+                  cursor: referenceEnabled ? "pointer" : "default",
+                  transition: "background 0.14s ease, border-color 0.14s ease",
+                }}
+              >
                 {runs.map((run, i) => {
                   if (run.spanId == null) {
                     return <span key={i}>{run.text}</span>;
@@ -95,7 +135,12 @@ export function Annotate({ blocks, state, activeSpanId, onSelectSpan, selectMode
                   return (
                     <mark
                       key={i}
-                      onClick={() => onSelectSpan(run.spanId)}
+                      onClick={(e) => {
+                        // A mark click is its own action (open the span) — it
+                        // must not also bubble up to toggle a block reference.
+                        e.stopPropagation();
+                        onSelectSpan(run.spanId);
+                      }}
                       style={{
                         background: tone.background,
                         color: "#1C2333",

@@ -283,6 +283,27 @@
   border-top: 1px solid var(--line-soft);
   background: rgba(255, 255, 255, 0.94);
 }
+.mk-reading-room__focus-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.mk-reading-room__focus-context strong {
+  color: #5c4a8a;
+}
+.mk-reading-room__focus-context button {
+  border: 0;
+  padding: 3px;
+  color: var(--coral);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .mk-reading-room__composer {
   display: flex;
   align-items: flex-end;

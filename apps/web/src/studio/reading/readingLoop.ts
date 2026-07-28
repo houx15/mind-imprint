@@ -80,7 +80,7 @@ export type UseReadingLoop = {
   // Confirmed reading outcomes, oldest first — the 阅读成果 accumulation.
   outcomes: ReadingOutcome[];
   busy: boolean;
-  sendTurn: (text: string) => Promise<void>;
+  sendTurn: (text: string, focusedSpans?: { block_id: string; quote: string }[]) => Promise<void>;
   startPick: () => Promise<void>;
   pickSentence: (span: CreatedSpan) => Promise<void>;
   confirm: () => Promise<void>;
@@ -143,13 +143,16 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   }, []);
 
   const sendTurn = useCallback(
-    async (text: string) => {
+    async (text: string, focusedSpans?: { block_id: string; quote: string }[]) => {
       const trimmed = text.trim();
       if (!trimmed || busy || status !== "idle") return;
       setMessages((prev) => [...prev, { id: msgId(), role: "student", kind: "text", body: trimmed }]);
       setBusy(true);
       try {
-        for await (const ev of api.readTurn(projectId, source.id, { student_text: trimmed, focused_spans: [] })) {
+        for await (const ev of api.readTurn(projectId, source.id, {
+          student_text: trimmed,
+          focused_spans: focusedSpans ?? [],
+        })) {
           if (ev.type === "card") {
             const anchor = ev.anchors[0] ?? null;
             setCardInstanceId(ev.cardInstanceId);

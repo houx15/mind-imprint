@@ -159,4 +159,56 @@ describe("ReadingRoom — read-together loop", () => {
     expect(screen.queryByText("暂不匹配")).not.toBeInTheDocument();
     expect(screen.getByText(/在文章里选出你要用来回答/)).toBeInTheDocument();
   });
+
+  it("clicking a sentence references it, shows the chip, and sends it as focused_spans", async () => {
+    const fakeApi = makeFakeApi();
+    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    // Idle by default — the hint invites referencing.
+    expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
+    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+
+    const block0 = container.querySelector('[data-block-id="b0"]')!;
+    fireEvent.click(block0);
+
+    // The chip appears with a count of 1, and the hint updates.
+    expect(screen.getByText(/正在引用/)).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("已引用 1 处 · 再点可取消")).toBeInTheDocument();
+
+    // Reference a second block too.
+    const block1 = container.querySelector('[data-block-id="b1"]')!;
+    fireEvent.click(block1);
+    expect(screen.getByText("已引用 2 处 · 再点可取消")).toBeInTheDocument();
+
+    // Sending includes both referenced blocks as focused_spans, then clears them.
+    fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+
+    await screen.findByText("看懂示范，开始选句");
+    expect(fakeApi.readTurn).toHaveBeenCalledWith("p1", "m1", {
+      student_text: "这段怪怪的",
+      focused_spans: [
+        { block_id: "b0", quote: "过去二十年，卫星图显示地球在变绿。" },
+        { block_id: "b1", quote: "因此这项政策必然失败。" },
+      ],
+    });
+
+    // The chip is gone after sending — the reference set was cleared.
+    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+  });
+
+  it("清除 clears referenced blocks without sending", async () => {
+    const fakeApi = makeFakeApi();
+    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    const block0 = container.querySelector('[data-block-id="b0"]')!;
+    fireEvent.click(block0);
+    expect(screen.getByText(/正在引用/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("清除"));
+    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+    expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
+    expect(fakeApi.readTurn).not.toHaveBeenCalled();
+  });
 });
