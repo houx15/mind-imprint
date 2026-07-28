@@ -3,6 +3,7 @@ import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
+import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
 import "./ReadingRoom.css";
@@ -62,6 +63,10 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
   const loop = useReadingLoop(projectId, source, api);
   const [draft, setDraft] = useState("");
   const [rightView, setRightView] = useState<"article" | "trace">("article");
+  // 透镜库 (LensLibrary) — the student browses the reading deck and summons
+  // a CHOSEN card onto the article herself, rather than only ever waiting
+  // for the AI to propose one.
+  const [libraryOpen, setLibraryOpen] = useState(false);
   // 引用原文 (focus context) — block ids the student has clicked to reference
   // in her next coach turn. Only meaningful while idle (a card in flight
   // repurposes the article for evidence-picking, not referencing).
@@ -297,6 +302,14 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                 阅读成果 <span className="mk-reading-room__count">{loop.outcomes.length}</span>
               </button>
             </div>
+            <button
+              type="button"
+              className="mk-reading-room__library-btn"
+              disabled={loop.status !== "idle"}
+              onClick={() => setLibraryOpen(true)}
+            >
+              透镜库
+            </button>
             <span className="mk-reading-room__hint">
               <i />
               {loop.status === "active"
@@ -353,6 +366,16 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
           )}
         </section>
       </main>
+
+      {libraryOpen && (
+        <LensLibrary
+          onPick={(id) => {
+            setLibraryOpen(false);
+            void loop.summonCard(id);
+          }}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
     </div>
   );
 }

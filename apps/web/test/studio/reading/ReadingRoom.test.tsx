@@ -17,6 +17,7 @@ const SOURCE: MaterialSource = {
 // type, never invoked.
 const NOOP_API = {
   readTurn: async function* () {},
+  summonCard: async function* () {},
   activateProjectCard: async () => {},
   evaluateCardSelection: async () => {
     throw new Error("not used in this test");

@@ -48,6 +48,9 @@ export type ReadingLoopApi = {
     materialId: string,
     body: { student_text: string; focused_spans: { block_id: string; quote: string }[] },
   ): AsyncGenerator<StudioTurnEvent>;
+  // The lens-library summon path — the student picks a card herself rather
+  // than waiting for the router to propose one.
+  summonCard(projectId: string, materialId: string, cardId: string): AsyncGenerator<StudioTurnEvent>;
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   evaluateCardSelection(
     projectId: string,
@@ -81,6 +84,8 @@ export type UseReadingLoop = {
   outcomes: ReadingOutcome[];
   busy: boolean;
   sendTurn: (text: string, focusedSpans?: { block_id: string; quote: string }[]) => Promise<void>;
+  // Lens-library summon: the student picked cardId herself from the deck.
+  summonCard: (cardId: string) => Promise<void>;
   startPick: () => Promise<void>;
   pickSentence: (span: CreatedSpan) => Promise<void>;
   confirm: () => Promise<void>;
@@ -142,6 +147,34 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
     setEvalResult(null);
   }, []);
 
+  // applyTurnEvents drains one SSE turn (readTurn OR summonCard both yield
+  // the same StudioTurnEvent vocabulary) and applies its card/intervention
+  // events to loop state — shared by sendTurn (router-proposed summon) and
+  // summonCard (student-chosen summon) below.
+  const applyTurnEvents = useCallback(async (events: AsyncGenerator<StudioTurnEvent>) => {
+    for await (const ev of events) {
+      if (ev.type === "card") {
+        const anchor = ev.anchors[0] ?? null;
+        setCardInstanceId(ev.cardInstanceId);
+        setCardId(ev.cardId);
+        setExampleAnchor(anchor);
+        setExampleWhy(anchor?.question || ev.nudgeText);
+        setStudentSpan(null);
+        setEvalResult(null);
+        setStatus("proposed");
+        const name = CARD_REGISTRY[ev.cardId]?.name ?? ev.cardId;
+        setMessages((prev) => [
+          ...prev,
+          { id: msgId(), role: "assistant", kind: "lens", body: ev.nudgeText, cardName: name },
+        ]);
+      } else if (ev.type === "intervention") {
+        // A coach hint — appended, never replacing the thread.
+        setMessages((prev) => [...prev, { id: msgId(), role: "assistant", kind: "text", body: ev.body }]);
+      }
+      // "done" / "review" / "gate" / "error" — nothing to render here.
+    }
+  }, []);
+
   const sendTurn = useCallback(
     async (text: string, focusedSpans?: { block_id: string; quote: string }[]) => {
       const trimmed = text.trim();
@@ -149,35 +182,32 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
       setMessages((prev) => [...prev, { id: msgId(), role: "student", kind: "text", body: trimmed }]);
       setBusy(true);
       try {
-        for await (const ev of api.readTurn(projectId, source.id, {
-          student_text: trimmed,
-          focused_spans: focusedSpans ?? [],
-        })) {
-          if (ev.type === "card") {
-            const anchor = ev.anchors[0] ?? null;
-            setCardInstanceId(ev.cardInstanceId);
-            setCardId(ev.cardId);
-            setExampleAnchor(anchor);
-            setExampleWhy(anchor?.question || ev.nudgeText);
-            setStudentSpan(null);
-            setEvalResult(null);
-            setStatus("proposed");
-            const name = CARD_REGISTRY[ev.cardId]?.name ?? ev.cardId;
-            setMessages((prev) => [
-              ...prev,
-              { id: msgId(), role: "assistant", kind: "lens", body: ev.nudgeText, cardName: name },
-            ]);
-          } else if (ev.type === "intervention") {
-            // A coach hint — appended, never replacing the thread.
-            setMessages((prev) => [...prev, { id: msgId(), role: "assistant", kind: "text", body: ev.body }]);
-          }
-          // "done" / "review" / "gate" / "error" — nothing to render here.
-        }
+        await applyTurnEvents(
+          api.readTurn(projectId, source.id, { student_text: trimmed, focused_spans: focusedSpans ?? [] }),
+        );
       } finally {
         setBusy(false);
       }
     },
-    [api, projectId, source.id, busy, status],
+    [api, projectId, source.id, busy, status, applyTurnEvents],
+  );
+
+  // summonCard — the lens-library path: the student picked cardId herself
+  // from the deck (LensLibrary.onPick), rather than waiting for the router
+  // to propose one. No student chat bubble (she didn't type anything) — the
+  // card/intervention frame the server streams back carries the whole
+  // response, same as sendTurn's.
+  const summonCard = useCallback(
+    async (pickedCardId: string) => {
+      if (busy || status !== "idle") return;
+      setBusy(true);
+      try {
+        await applyTurnEvents(api.summonCard(projectId, source.id, pickedCardId));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [api, projectId, source.id, busy, status, applyTurnEvents],
   );
 
   const startPick = useCallback(async () => {
@@ -289,6 +319,7 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
     outcomes,
     busy,
     sendTurn,
+    summonCard,
     startPick,
     pickSentence,
     confirm,

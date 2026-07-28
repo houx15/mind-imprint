@@ -39,6 +39,17 @@ function makeFakeApi() {
       };
       yield { type: "done" as const };
     }),
+    summonCard: vi.fn(async function* () {
+      yield {
+        type: "card" as const,
+        cardInstanceId: "ci1",
+        cardId: "argument-map",
+        nudgeText: "先看这处示范，再换你自己的一句",
+        anchors: [EXAMPLE_ANCHOR],
+        materialId: "m1",
+      };
+      yield { type: "done" as const };
+    }),
     activateProjectCard: vi.fn(async () => {}),
     evaluateCardSelection: vi.fn(async () => ({
       verdict: "rethink" as const,
@@ -210,5 +221,37 @@ describe("ReadingRoom — read-together loop", () => {
     expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
     expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
     expect(fakeApi.readTurn).not.toHaveBeenCalled();
+  });
+
+  it("透镜库: browsing lists the deck, and picking a card summons it onto the article", async () => {
+    const fakeApi = makeFakeApi();
+    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    // Opening the library lists the reading deck, grouped — a source-check
+    // card (CRAAP) and a deep-reading card (论证地图) are both visible.
+    fireEvent.click(screen.getByRole("button", { name: "透镜库" }));
+    expect(screen.getByRole("dialog", { name: "透镜库" })).toBeInTheDocument();
+    expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeInTheDocument();
+    expect(screen.getByText("论证地图卡（结构 + 谬误）")).toBeInTheDocument();
+
+    // Picking a card calls summonCard and closes the library.
+    fireEvent.click(screen.getByText("论证地图卡（结构 + 谬误）"));
+    expect(fakeApi.summonCard).toHaveBeenCalledWith("p1", "m1", "argument-map");
+    expect(screen.queryByRole("dialog", { name: "透镜库" })).not.toBeInTheDocument();
+
+    // The loop goes to "proposed" — the hanging card appears, same as a
+    // router-proposed summon would render.
+    await screen.findByText("看懂示范，开始选句");
+  });
+
+  it("透镜库 button is disabled while a card is in flight", async () => {
+    const fakeApi = makeFakeApi();
+    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+    await screen.findByText("看懂示范，开始选句");
+
+    expect(screen.getByRole("button", { name: "透镜库" })).toBeDisabled();
   });
 });

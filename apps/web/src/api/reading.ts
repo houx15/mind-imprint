@@ -27,6 +27,35 @@ export async function* readTurn(
   }
 }
 
+// summonCard is the lens-library summon path: the student BROWSES the
+// reading deck and picks a card herself, rather than waiting for the
+// read-together router to propose one (readTurn above). Same SSE
+// generator shape as readTurn — a `card` frame on success, an
+// `intervention` frame (no card) on rejection/failure, always ending in
+// `done`.
+export async function* summonCard(
+  projectId: string,
+  materialId: string,
+  cardId: string,
+): AsyncGenerator<StudioTurnEvent> {
+  const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/materials/${materialId}/summon-card`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({ card_id: cardId }),
+  });
+  if (!res.ok || !res.body) {
+    let code = "internal_error", message = `HTTP ${res.status}`;
+    try { const b = await res.json(); if (b?.error) { code = b.error.code ?? code; message = b.error.message ?? message; } } catch { /* non-JSON */ }
+    yield { type: "error", code, message };
+    return;
+  }
+  for await (const frame of parseSSE(res.body)) {
+    const event = mapStudioFrame(frame);
+    if (event) yield event;
+  }
+}
+
 export async function evaluateCardSelection(
   projectId: string,
   cid: string,

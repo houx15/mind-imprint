@@ -28,7 +28,7 @@ import {
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
 } from "./teacher";
-import { readTurn, evaluateCardSelection } from "./reading";
+import { readTurn, summonCard, evaluateCardSelection } from "./reading";
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard };
 export { ApiError } from "./client";
@@ -75,6 +75,7 @@ export interface ApiClient {
   logSourceOpen(projectId: string, materialId: string, timeSpentS: number): Promise<void>;
   prepareSourceAnnotation(projectId: string, materialId: string): Promise<boolean>;
   readTurn(projectId: string, materialId: string, body: { student_text: string; focused_spans: { block_id: string; quote: string }[] }): AsyncGenerator<StudioTurnEvent>;
+  summonCard(projectId: string, materialId: string, cardId: string): AsyncGenerator<StudioTurnEvent>;
   evaluateCardSelection(projectId: string, cid: string, body: { block_id: string; start: number; end: number; quote: string; dimension: string }): Promise<SelectionEval>;
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
@@ -131,7 +132,7 @@ export const api: ApiClient = {
   listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
-  readTurn, evaluateCardSelection,
+  readTurn, summonCard, evaluateCardSelection,
   putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,

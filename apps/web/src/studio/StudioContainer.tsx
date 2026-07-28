@@ -21,7 +21,7 @@ import type { LocatedSpan } from "./StudioAnnotateCard";
 // needs to satisfy `ReadingLoopApi`).
 type StudioApi = Pick<
   typeof defaultApi,
-  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "prepareSourceAnnotation" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation" | "readTurn" | "activateProjectCard" | "evaluateCardSelection" | "submitProjectCard" | "skipProjectCard"
+  "listProjects" | "getProject" | "createProject" | "addMaterial" | "logSourceOpen" | "prepareSourceAnnotation" | "putBuffer" | "commitSnapshot" | "orderReview" | "orderSpotCheck" | "postDisposition" | "attestGate" | "finishProject" | "submitOnboarding" | "submitSelfScore" | "submitReflection" | "submitFraming" | "submitPerspectives" | "signDeclaration" | "reopenStation" | "readTurn" | "summonCard" | "activateProjectCard" | "evaluateCardSelection" | "submitProjectCard" | "skipProjectCard"
 >;
 
 type StudioConversation = ReturnType<typeof createStudioConversation>;
