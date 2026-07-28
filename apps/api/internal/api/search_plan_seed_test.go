@@ -9,6 +9,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,6 +22,102 @@ import (
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// -- card-walk helpers ------------------------------------------------------
+// These four helpers drive the studio tool-card round-trip (turn → surface →
+// activate → submit → complete) over the still-present studio-card HTTP
+// handlers. They were relocated here (verbatim) when the retired station-walk
+// test files that originally defined them were removed in Slice 7 — this file's
+// still-green search-plan-card tests are their sole remaining consumer.
+
+// surfaceWalkCard drives POST /turn and asserts it surfaced wantCardID, then
+// reads the fresh proposed card_instance back (plus whichever material its own
+// "evaluates" edge names, and any AI-generated anchors) straight off the graph.
+func surfaceWalkCard(t *testing.T, h http.Handler, pool *pgxpool.Pool, cookie *http.Cookie, projectID, wantCardID, prompt string) (cid, materialID string, anchors []agent.Anchor) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/turn",
+		strings.NewReader(`{"user_input":"`+prompt+`"}`))
+	h.ServeHTTP(rec, withCookie(req, cookie))
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"`+wantCardID+`"`) {
+		t.Fatalf("turn expected to surface %q card: %d — %s", wantCardID, rec.Code, body)
+	}
+
+	q := sqlc.New(pool)
+	cis, err := q.ListCardInstancesByProject(context.Background(), pgUUID(mustUUID(projectID)))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	found := false
+	var row sqlc.CardInstance
+	for _, ci := range cis {
+		if ci.CardID == wantCardID && ci.Status == "proposed" {
+			row, found = ci, true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no proposed %q card_instance found after turn", wantCardID)
+	}
+
+	edges, err := q.ListGraphEdgesByProject(context.Background(), mustUUID(projectID))
+	if err != nil {
+		t.Fatalf("ListGraphEdgesByProject: %v", err)
+	}
+	for _, e := range edges {
+		if e.Type == "evaluates" && e.FromKind == "card_instance" && e.FromID == row.ID && e.ToKind == "material" {
+			materialID = e.ToID.String()
+			break
+		}
+	}
+	if len(row.Anchors) > 0 {
+		_ = json.Unmarshal(row.Anchors, &anchors)
+	}
+	return row.ID.String(), materialID, anchors
+}
+
+// activateWalkCard drives POST /cards/{cid}/activate — the "打开" confirmation
+// before a card is filled.
+func activateWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, cid string) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/cards/"+cid+"/activate", nil), cookie))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("activate card %s: %d — %s", cid, rec.Code, rec.Body.String())
+	}
+}
+
+// submitWalkCard drives POST /cards/{cid}/submit with a filled anchor envelope,
+// checking only for the "event: done" frame (assertCardCompleted is the real
+// proof of completion).
+func submitWalkCard(t *testing.T, h http.Handler, cookie *http.Cookie, projectID, cid string, anchors []agent.Anchor) {
+	t.Helper()
+	anchorsJSON, err := json.Marshal(anchors)
+	if err != nil {
+		t.Fatalf("marshal anchors: %v", err)
+	}
+	body := `{"field_values":{},"event_trace":[{"kind":"submit","at":"2026-07-22T00:00:00Z"}],"anchors":` + string(anchorsJSON) + `}`
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+projectID+"/cards/"+cid+"/submit", strings.NewReader(body)), cookie))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "event: done") {
+		t.Fatalf("submit card %s: %d — %s", cid, rec.Code, rec.Body.String())
+	}
+}
+
+// assertCardCompleted confirms the card_instance actually reached "completed".
+func assertCardCompleted(t *testing.T, pool *pgxpool.Pool, cid string) {
+	t.Helper()
+	row, err := sqlc.New(pool).GetCardInstance(context.Background(), mustUUID(cid))
+	if err != nil {
+		t.Fatalf("GetCardInstance(%s): %v", cid, err)
+	}
+	if row.Status != "completed" {
+		t.Fatalf("card %s status = %q, want completed", cid, row.Status)
+	}
+}
 
 // setupProjectAtS1WithSearchPlan: create -> onboarding -> framing with a
 // two-direction search plan. Returns everything the surface helpers need.
