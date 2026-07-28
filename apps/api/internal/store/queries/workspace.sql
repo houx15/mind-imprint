@@ -151,3 +151,29 @@ DELETE FROM outline_node WHERE project_id = $1;
 INSERT INTO outline_node (project_id, text, depth, position)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
+
+-- Review · the five-dimension reflection doc (answers jsonb string array). ----
+
+-- name: GetProjectReflection :one
+SELECT * FROM project_reflection WHERE project_id = $1;
+
+-- name: UpsertProjectReflection :one
+INSERT INTO project_reflection (project_id, answers, done, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (project_id) DO UPDATE SET
+    answers    = EXCLUDED.answers,
+    done       = EXCLUDED.done,
+    updated_at = now()
+RETURNING *;
+
+-- Review · the 你的思维印记 mirror prose (first-open-wins). -------------------
+
+-- name: GetProjectMirror :one
+SELECT * FROM project_mirror_prose WHERE project_id = $1;
+
+-- name: InsertProjectMirror :exec
+-- First-open-wins: the first composer to insert a row wins; a concurrent loser's
+-- INSERT is a no-op (ON CONFLICT DO NOTHING) and it re-reads the winner's row.
+INSERT INTO project_mirror_prose (project_id, sections, carry_forwards, model, tier)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (project_id) DO NOTHING;

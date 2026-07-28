@@ -74,7 +74,12 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 	if err != nil {
 		return studio.ReportDTO{}, err
 	}
-	in := buildAssessmentInputFromProject(d, proj, graphSummary(ctx, a.d.Queries, projectID))
+	// Include the current edit-buffer draft (never-committed work still counts).
+	draft, derr := a.d.Queries.GetEditBuffer(ctx, projectID)
+	if derr != nil && !errors.Is(derr, pgx.ErrNoRows) {
+		return studio.ReportDTO{}, derr
+	}
+	in := buildAssessmentInputFromProject(d, proj, enrichedProjectGraphSummary(ctx, a.d.Queries, projectID), draft)
 
 	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
@@ -139,7 +144,7 @@ func reportDTOFromEvaluationRow(row sqlc.Evaluation) (studio.ReportDTO, error) {
 // bands, proj.Stations for gate progress) rather than recomputing any of
 // them independently — the studio.Project call above is the one place those
 // facts are derived.
-func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioProjection, graph string) agent.AssessmentInput {
+func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioProjection, graph, draft string) agent.AssessmentInput {
 	return agent.BuildAssessmentInput(
 		eventDigestsFromProject(d.Events),
 		cardUsesFromProject(d, proj.Coach.Equipment),
@@ -150,20 +155,88 @@ func buildAssessmentInputFromProject(d studio.ProjectData, proj studio.StudioPro
 		graph,
 		roundsFromProject(d),
 		true, // ProjectProjection — the writing-project template is the one project surface
-		workSamplesFromProject(d),
+		workSamplesFromProject(d, draft),
 	)
 }
 
-// workSamplesFromProject reports only what ProjectData actually carries: the
-// latest committed draft snapshot's text, when one exists. There is no query
-// listing every historical snapshot (see wordCountsFromProject's identical
-// honesty note), so this never claims more than the one work sample that is
-// readily available — never fabricated, never padded.
-func workSamplesFromProject(d studio.ProjectData) []string {
-	if d.LatestSnapshot == nil {
-		return []string{}
+// enrichedProjectGraphSummary prepends the real kick-off (proposal's four
+// dimensions), the student's reflection answers, and the outline text to the
+// claim/evidence graph summary, so the flagship assessor sees the project's
+// intent + reflection + structure — not only the argument graph. Every part is
+// best-effort and only included when it actually exists (no fabrication); a
+// read failure just drops that part.
+func enrichedProjectGraphSummary(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) string {
+	base := graphSummary(ctx, q, projectID)
+	var b strings.Builder
+	if p, err := q.GetProjectProposal(ctx, projectID); err == nil {
+		dims := []struct{ label, val string }{
+			{"目标", p.Objective}, {"为什么做", p.Reason},
+			{"打算怎么做", p.Activities}, {"需要什么", p.Resources},
+		}
+		wrote := false
+		for _, dm := range dims {
+			if strings.TrimSpace(dm.val) != "" {
+				if !wrote {
+					b.WriteString("【开题四问】\n")
+					wrote = true
+				}
+				fmt.Fprintf(&b, "- %s：%s\n", dm.label, strings.TrimSpace(dm.val))
+			}
+		}
 	}
-	return []string{d.LatestSnapshot.Content}
+	if refl, err := q.GetProjectReflection(ctx, projectID); err == nil {
+		var answers []string
+		if uerr := json.Unmarshal(refl.Answers, &answers); uerr == nil {
+			wrote := false
+			for i, ans := range answers {
+				if strings.TrimSpace(ans) != "" {
+					if !wrote {
+						b.WriteString("【学生回顾】\n")
+						wrote = true
+					}
+					fmt.Fprintf(&b, "%d. %s\n", i+1, strings.TrimSpace(ans))
+				}
+			}
+		}
+	}
+	if nodes, err := q.ListOutlineNodes(ctx, projectID); err == nil && len(nodes) > 0 {
+		wrote := false
+		for _, n := range nodes {
+			if strings.TrimSpace(n.Text) == "" {
+				continue
+			}
+			if !wrote {
+				b.WriteString("【写作提纲】\n")
+				wrote = true
+			}
+			indent := strings.Repeat("  ", int(n.Depth))
+			fmt.Fprintf(&b, "%s- %s\n", indent, strings.TrimSpace(n.Text))
+		}
+	}
+	if b.Len() == 0 {
+		return base
+	}
+	if strings.TrimSpace(base) != "" {
+		return b.String() + "\n【论证图】" + base
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// workSamplesFromProject reports the student's real writing: the latest
+// committed snapshot's text (when one exists) plus the current edit-buffer
+// draft (so a draft that was never "committed" still counts). The draft is
+// omitted when empty or byte-identical to the snapshot — never padded, never
+// double-counted.
+func workSamplesFromProject(d studio.ProjectData, draft string) []string {
+	out := []string{}
+	if d.LatestSnapshot != nil {
+		out = append(out, d.LatestSnapshot.Content)
+	}
+	draft = strings.TrimSpace(draft)
+	if draft != "" && (d.LatestSnapshot == nil || strings.TrimSpace(d.LatestSnapshot.Content) != draft) {
+		out = append(out, draft)
+	}
+	return out
 }
 
 // roundsFromProject pairs each student-message event ("prompt_sent" — the

@@ -10,6 +10,8 @@ import {
   Reference,
   MaterialSource,
   OutlineNode,
+  ReflectionDoc,
+  Mirror,
 } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
 
@@ -216,6 +218,45 @@ export class NoReadableContentError extends Error {
     super(message);
     this.name = "NoReadableContentError";
   }
+}
+
+// ---- Review room (slice 5) -----------------------------------------------
+// The student's own 5-dimension reflection + the AI-composed "你的思维印记"
+// mirror. Both persisted. Finish reuses the project-terminal client in
+// api/projects (not re-added here). Every fn parses through the shared contract.
+
+// GET /reflection-doc — the stored answers + done flag ("" answers when no row).
+export async function getReflection(id: string): Promise<ReflectionDoc> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/reflection-doc`);
+  return ReflectionDoc.parse(raw);
+}
+
+// PUT /reflection-doc — upsert the answers (and optionally flip done). Returns
+// the stored row.
+export async function putReflection(
+  id: string,
+  body: { answers: string[]; done?: boolean },
+): Promise<ReflectionDoc> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/reflection-doc`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return ReflectionDoc.parse(raw);
+}
+
+// GET /mirror — the stored mirror, or null when it hasn't been composed yet.
+// Never triggers an LLM call (that's POST /mirror's job, first-open-wins).
+export async function getMirror(id: string): Promise<Mirror | null> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/mirror`);
+  if (raw === null) return null;
+  return Mirror.parse(raw);
+}
+
+// POST /mirror — first-open-wins: returns the stored mirror if present (no
+// spend), else composes once (flagship) + stores. The one spend endpoint here.
+export async function postMirror(id: string): Promise<Mirror> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/mirror`, { method: "POST" });
+  return Mirror.parse(raw);
 }
 
 // POST /references/{rid}/enter-reading — ensure a readable material (fetch from

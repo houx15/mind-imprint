@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
+
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 )
@@ -48,16 +50,18 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Gate guard: 整稿体检 must have passed. Never trust the client.
-	recorded, gerr := store.ListGateStates(r.Context(), projectID)
-	if gerr != nil {
-		httpx.WriteError(w, r, gerr)
+	// Gate guard (Slice 5): the student must have finished their own reflection
+	// (完成回顾) before the project archives. Never trust the client — read the
+	// reflection row server-side. No row, or done=false → not yet.
+	refl, rerr := a.d.Queries.GetProjectReflection(r.Context(), projectID)
+	if rerr != nil && !errors.Is(rerr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, rerr)
 		return
 	}
-	if recorded["draft_polish"].Items["whole_draft_review"] != "solid" {
+	if errors.Is(rerr, pgx.ErrNoRows) || !refl.Done {
 		httpx.WriteError(w, r, &httpx.APIError{
-			Status: http.StatusUnprocessableEntity, Code: "gate_not_met",
-			Message: "还没通过整稿体检，先完成整稿体检再归档",
+			Status: http.StatusUnprocessableEntity, Code: "reflection_not_done",
+			Message: "先完成回顾再归档",
 		})
 		return
 	}

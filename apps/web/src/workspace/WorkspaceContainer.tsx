@@ -127,7 +127,14 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
                 onOpenRoom={setRoom}
               />
             )}
-            {room === "reflection" && <ReviewBlock />}
+            {room === "reflection" && (
+              <ReviewBlock
+                key={projectId}
+                projectId={projectId}
+                proposal={workspace.proposal}
+                onFinished={onFinished}
+              />
+            )}
           </>
         )}
       </main>

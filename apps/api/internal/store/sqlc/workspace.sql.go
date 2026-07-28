@@ -332,6 +332,26 @@ func (q *Queries) GetPlanItem(ctx context.Context, arg GetPlanItemParams) (PlanI
 	return i, err
 }
 
+const getProjectMirror = `-- name: GetProjectMirror :one
+
+SELECT project_id, sections, carry_forwards, model, tier, created_at FROM project_mirror_prose WHERE project_id = $1
+`
+
+// Review · the 你的思维印记 mirror prose (first-open-wins). -------------------
+func (q *Queries) GetProjectMirror(ctx context.Context, projectID uuid.UUID) (ProjectMirrorProse, error) {
+	row := q.db.QueryRow(ctx, getProjectMirror, projectID)
+	var i ProjectMirrorProse
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Sections,
+		&i.CarryForwards,
+		&i.Model,
+		&i.Tier,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getProjectProposal = `-- name: GetProjectProposal :one
 SELECT project_id, objective, reason, activities, resources, updated_at FROM project_proposal WHERE project_id = $1
 `
@@ -345,6 +365,24 @@ func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (
 		&i.Reason,
 		&i.Activities,
 		&i.Resources,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProjectReflection = `-- name: GetProjectReflection :one
+
+SELECT project_id, answers, done, updated_at FROM project_reflection WHERE project_id = $1
+`
+
+// Review · the five-dimension reflection doc (answers jsonb string array). ----
+func (q *Queries) GetProjectReflection(ctx context.Context, projectID uuid.UUID) (ProjectReflection, error) {
+	row := q.db.QueryRow(ctx, getProjectReflection, projectID)
+	var i ProjectReflection
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Answers,
+		&i.Done,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -384,6 +422,33 @@ func (q *Queries) GetReference(ctx context.Context, arg GetReferenceParams) (Ref
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertProjectMirror = `-- name: InsertProjectMirror :exec
+INSERT INTO project_mirror_prose (project_id, sections, carry_forwards, model, tier)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (project_id) DO NOTHING
+`
+
+type InsertProjectMirrorParams struct {
+	ProjectID     uuid.UUID `json:"project_id"`
+	Sections      []byte    `json:"sections"`
+	CarryForwards []byte    `json:"carry_forwards"`
+	Model         string    `json:"model"`
+	Tier          string    `json:"tier"`
+}
+
+// First-open-wins: the first composer to insert a row wins; a concurrent loser's
+// INSERT is a no-op (ON CONFLICT DO NOTHING) and it re-reads the winner's row.
+func (q *Queries) InsertProjectMirror(ctx context.Context, arg InsertProjectMirrorParams) error {
+	_, err := q.db.Exec(ctx, insertProjectMirror,
+		arg.ProjectID,
+		arg.Sections,
+		arg.CarryForwards,
+		arg.Model,
+		arg.Tier,
+	)
+	return err
 }
 
 const listActivityLog = `-- name: ListActivityLog :many
@@ -838,6 +903,34 @@ func (q *Queries) UpsertProjectProposal(ctx context.Context, arg UpsertProjectPr
 		&i.Reason,
 		&i.Activities,
 		&i.Resources,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertProjectReflection = `-- name: UpsertProjectReflection :one
+INSERT INTO project_reflection (project_id, answers, done, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (project_id) DO UPDATE SET
+    answers    = EXCLUDED.answers,
+    done       = EXCLUDED.done,
+    updated_at = now()
+RETURNING project_id, answers, done, updated_at
+`
+
+type UpsertProjectReflectionParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Answers   []byte    `json:"answers"`
+	Done      bool      `json:"done"`
+}
+
+func (q *Queries) UpsertProjectReflection(ctx context.Context, arg UpsertProjectReflectionParams) (ProjectReflection, error) {
+	row := q.db.QueryRow(ctx, upsertProjectReflection, arg.ProjectID, arg.Answers, arg.Done)
+	var i ProjectReflection
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Answers,
+		&i.Done,
 		&i.UpdatedAt,
 	)
 	return i, err

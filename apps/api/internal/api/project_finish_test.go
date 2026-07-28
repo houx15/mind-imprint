@@ -17,11 +17,23 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// markReflectionDone upserts a done=true reflection so the finish gate (Slice
+// 5: 完成回顾 before archive) is satisfied. The old draft_polish gate is gone.
+func markReflectionDone(t *testing.T, pool *pgxpool.Pool, projectID string) {
+	t.Helper()
+	if _, err := sqlc.New(pool).UpsertProjectReflection(context.Background(), sqlc.UpsertProjectReflectionParams{
+		ProjectID: mustUUID(projectID),
+		Answers:   []byte(`["这次我把论点收窄到国内新能源投资"]`),
+		Done:      true,
+	}); err != nil {
+		t.Fatalf("mark reflection done: %v", err)
+	}
+}
 
 // assertProjectStatus reads the project row directly and fails the test if
 // its status doesn't match want — used to confirm the one-time guard (a
@@ -52,10 +64,10 @@ func countProjectEvaluations(t *testing.T, pool *pgxpool.Pool, projectID string)
 	return n
 }
 
-// TestFinishProject_GateNotMet — the gate is enforced server-side: without a
-// solid whole_draft_review, finish 422s with gate_not_met, the project stays
-// 'active', and no evaluation row is written.
-func TestFinishProject_GateNotMet(t *testing.T) {
+// TestFinishProject_ReflectionNotDone — the gate is enforced server-side:
+// without a done=true reflection, finish 422s with reflection_not_done, the
+// project stays 'active', and no evaluation row is written.
+func TestFinishProject_ReflectionNotDone(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
@@ -68,19 +80,19 @@ func TestFinishProject_GateNotMet(t *testing.T) {
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("finish (gate unmet) = %d, want 422; body=%s", rec.Code, rec.Body)
+		t.Fatalf("finish (reflection not done) = %d, want 422; body=%s", rec.Code, rec.Body)
 	}
 	var perr struct {
 		Error struct {
 			Code string `json:"code"`
 		} `json:"error"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &perr); err != nil || perr.Error.Code != "gate_not_met" {
-		t.Fatalf("finish (gate unmet) code = %+v (err=%v), want gate_not_met; body=%s", perr, err, rec.Body)
+	if err := json.Unmarshal(rec.Body.Bytes(), &perr); err != nil || perr.Error.Code != "reflection_not_done" {
+		t.Fatalf("finish (reflection not done) code = %+v (err=%v), want reflection_not_done; body=%s", perr, err, rec.Body)
 	}
 	assertProjectStatus(t, pool, projectID, "active")
 	if n := countLLMCalls(t, pool, projectID); n != 0 {
-		t.Fatalf("llm_call rows after gate-unmet finish = %d, want 0 (never reached generation)", n)
+		t.Fatalf("llm_call rows after reflection-not-done finish = %d, want 0 (never reached generation)", n)
 	}
 }
 
@@ -97,13 +109,7 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
-	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
-	if err := store.UpsertGateState(context.Background(), mustUUID(projectID), "draft_polish", agent.RecordedGate{
-		Confirmed: true,
-		Items:     map[string]string{"whole_draft_review": "solid"},
-	}); err != nil {
-		t.Fatalf("UpsertGateState(whole_draft_review): %v", err)
-	}
+	markReflectionDone(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
@@ -184,13 +190,7 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
-	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
-	if err := store.UpsertGateState(context.Background(), mustUUID(projectID), "draft_polish", agent.RecordedGate{
-		Confirmed: true,
-		Items:     map[string]string{"whole_draft_review": "solid"},
-	}); err != nil {
-		t.Fatalf("UpsertGateState(whole_draft_review): %v", err)
-	}
+	markReflectionDone(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
@@ -233,13 +233,7 @@ func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
-	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
-	if err := store.UpsertGateState(context.Background(), mustUUID(projectID), "draft_polish", agent.RecordedGate{
-		Confirmed: true,
-		Items:     map[string]string{"whole_draft_review": "solid"},
-	}); err != nil {
-		t.Fatalf("UpsertGateState(whole_draft_review): %v", err)
-	}
+	markReflectionDone(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
