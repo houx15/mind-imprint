@@ -143,12 +143,29 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
+	// S4 · cross-phase card proposing (克制 summon rung). The coach may OFFER a
+	// student card mid-conversation; opening is the student's tap. Best-effort,
+	// gated + metered inside; nil on the respond/hint rungs.
+	proposal := a.coachCardProposal(r.Context(), projectID, scope, userInput, resolved)
+	if proposal != nil {
+		if err := store.AppendEvent(r.Context(), agent.EventRow{
+			ProjectID: projectID, Surface: "studio", Type: "coach_proposed",
+			Payload: mustJSON(map[string]any{"scope": scope, "cardId": proposal.CardID}),
+		}); err != nil {
+			slog.Warn("coach: append coach_proposed event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
 	// S4 · size-threshold compaction backstop: if the active window still
 	// overflows after fold-on-solidify, fold the oldest turns into the rolling
 	// conversation_digest. Best-effort; never disturbs the reply.
 	a.maybeCompactBackstop(r.Context(), projectID)
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": reply})
+	resp := map[string]any{"reply": reply}
+	if proposal != nil {
+		resp["proposal"] = coachProposalDTO{CardID: proposal.CardID, Reason: proposal.Reason, NudgeText: proposal.NudgeText}
+	}
+	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 
 // coachHistoryMsg is the display shape a room loads for its surface-slice of the

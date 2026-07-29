@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -45,6 +46,73 @@ func coachSurfaceLabel(scope string) string {
 // same set; FoldCoachSurfaces is idempotent (only non-folded rows), so a second
 // event just catches any turns added since the first.
 var solidifyFoldSurfaces = []string{"forming", "proposal_review"}
+
+// coachProposalDTO is the /coach response's optional proposal (camelCase,
+// matching packages/contracts's CardProposal). Present only on the summon rung.
+type coachProposalDTO struct {
+	CardID    string `json:"cardId"`
+	Reason    string `json:"reason"`
+	NudgeText string `json:"nudgeText"`
+}
+
+// coachProposeSurfaces are the room scopes where the coach may OFFER an
+// argument-moment card. The moment classifier's vocabulary (fact-opinion-value /
+// certainty-spectrum / steelman) are 立题/写作/回顾 tools per the placement map —
+// NOT reading-room (which has its own respond/hint/summon ladder) and NOT the
+// 文献库 (which has the exploration guide). Suppressing outside these surfaces
+// keeps a card from being offered where it doesn't belong.
+var coachProposeSurfaces = map[string]bool{
+	"writing":         true,
+	"forming":         true,
+	"proposal_review": true,
+	"reflection":      true,
+}
+
+// coachCardProposal decides whether to OFFER a student card on this coach turn.
+// Mirrors semanticCardCandidate's discipline (loop.go): surface gate → in-flight
+// guard (never offer over a card already proposed/active) → rune floor + eligible
+// set → shared classifier cap → one metered classify call. Returns nil (and, on
+// the gated paths, spends nothing) unless a still-eligible moment fires. The
+// classify call is metered as Purpose="classify" so it shares the per-project
+// MaxClassifyCallsPerProject backstop with the studio loop; the coach-propose
+// semantic is recorded separately as a coach_proposed event by the caller.
+func (a *API) coachCardProposal(ctx context.Context, projectID uuid.UUID, scope, studentText string, resolved gateway.Resolved) *agent.CardProposal {
+	if !coachProposeSurfaces[scope] {
+		return nil
+	}
+	rows, err := a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
+	if err != nil {
+		return nil
+	}
+	views := make([]agent.CardInstanceView, 0, len(rows))
+	for _, ci := range rows {
+		if ci.Status == "proposed" || ci.Status == "active" {
+			return nil // never offer over an in-flight card (no pile-up; no spend)
+		}
+		views = append(views, agent.CardInstanceView{ID: ci.ID.String(), CardID: ci.CardID, Status: ci.Status})
+	}
+	eligible := agent.EligibleMoments(views)
+	if len(eligible) == 0 {
+		return nil
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if n, cerr := store.CountClassifierCalls(ctx, projectID); cerr == nil && n >= agent.MaxClassifyCallsPerProject {
+		return nil // shared classifier spend backstop reached
+	}
+	proposal, usage, perr := agent.ProposeCoachCard(ctx, a.d.Provider, resolved, studentText, eligible)
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "classify",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("coach propose: record classify call failed", "err", rerr)
+		}
+	}
+	if perr != nil {
+		return nil
+	}
+	return proposal
+}
 
 // digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds. When
 // the coach's active (non-folded) window exceeds digestRuneBudget runes, the
