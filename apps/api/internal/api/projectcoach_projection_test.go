@@ -66,7 +66,13 @@ func seedFinalizedReference(t *testing.T, h http.Handler, cookie *http.Cookie, q
 	}); err != nil {
 		t.Fatalf("set phase tag: %v", err)
 	}
-	raw, merr := json.Marshal(map[string]any{"proposalImpact": proposalImpact})
+	// EA: a real finalized takeaway carries findings + a credibility verdict too,
+	// not just proposalImpact — the projection must surface them.
+	raw, merr := json.Marshal(map[string]any{
+		"proposalImpact": proposalImpact,
+		"findings":       []string{"中国贡献了全球净叶面积增加的相当一部分"},
+		"credibility":    map[string]any{"verdict": "strong", "why": "同行评议"},
+	})
 	if merr != nil {
 		t.Fatalf("marshal takeaway: %v", merr)
 	}
@@ -142,6 +148,13 @@ func TestProjection_ReadingStates(t *testing.T) {
 	}
 	if !strings.Contains(proj, "印记：作为让步段证据") {
 		t.Fatalf("已归纳 source must carry proposal_impact:\n%s", proj)
+	}
+	// EA: findings + credibility now reach the main coach too (not a dead-end).
+	if !strings.Contains(proj, "发现：中国贡献了全球净叶面积增加的相当一部分") {
+		t.Fatalf("已归纳 source must surface the top finding:\n%s", proj)
+	}
+	if !strings.Contains(proj, "可信度：strong") {
+		t.Fatalf("已归纳 source must surface the credibility verdict:\n%s", proj)
 	}
 	// Retarget on the distinguishing suffix, not bare "在读": the seeded
 	// in-progress title is itself "在读源", which contains "在读" and is

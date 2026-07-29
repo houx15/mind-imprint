@@ -70,7 +70,9 @@ export type ReadingRoomProps = {
   phaseTag?: PhaseTag | null;
   readingReason?: string | null;
   readingFocus?: string | null;
-  onBack: () => void;
+  // finalized tells the workspace whether the student 归纳'd this source before
+  // leaving, so it can show a carry-forward acknowledgment (EA).
+  onBack: (finalized: boolean) => void;
   // ReadingRoom owns the loop (`useReadingLoop`) internally, plus drives the
   // S2 brief/takeaway calls directly off the same api slice.
   api: ReadingRoomApi;
@@ -295,7 +297,7 @@ export function ReadingRoom({
   return (
     <div className="mk-reading-room">
       <header className="mk-reading-room__topbar">
-        <button type="button" className="mk-reading-room__back" onClick={onBack}>
+        <button type="button" className="mk-reading-room__back" onClick={() => onBack(finalizeDone)}>
           <BackIcon />
           返回工作区
         </button>

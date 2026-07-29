@@ -56,7 +56,13 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     setReadingReadingReason(readingReason ?? null);
     setReadingReadingFocus(readingFocus ?? null);
   }
-  function closeReadingSource() {
+  // EA · carry-forward acknowledgment: when the student 归纳'd a source before
+  // leaving, show a brief "you just read X — it's carried forward" note so the
+  // reading room doesn't feel like an island on exit (the takeaway now really
+  // rides the coach's spine). Only on a finalized read; a mere browse says nothing.
+  const [carryForward, setCarryForward] = useState<string | null>(null);
+  function closeReadingSource(finalized?: boolean) {
+    if (finalized && readingSource) setCarryForward(readingSource.title);
     setReadingSourceState(null);
     setReadingRefId("");
     setReadingSuggestedReason("");
@@ -171,22 +177,42 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     <div className="flex h-full w-full bg-mk-bg font-sans text-mk-ink">
       <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} />
       <main className="relative min-w-0 flex-1 overflow-hidden">
-        {workspace && summary && !summaryDismissed && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center px-4 pt-4">
-            <div className="pointer-events-auto flex max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
-              <span className="mt-0.5 text-mk-primary">
-                <Icon name="spark" size={16} />
-              </span>
-              <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
-              <button
-                type="button"
-                onClick={() => setSummaryDismissed(true)}
-                aria-label="收起"
-                className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
-              >
-                ×
-              </button>
-            </div>
+        {workspace && ((summary && !summaryDismissed) || carryForward) && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
+            {summary && !summaryDismissed && (
+              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
+                <span className="mt-0.5 text-mk-primary">
+                  <Icon name="spark" size={16} />
+                </span>
+                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
+                <button
+                  type="button"
+                  onClick={() => setSummaryDismissed(true)}
+                  aria-label="收起"
+                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {carryForward && (
+              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/50 px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
+                <span className="mt-0.5 text-mk-accent">
+                  <Icon name="spark" size={16} />
+                </span>
+                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">
+                  刚读完《{carryForward}》——你确认的发现和判断已经带进来了，写作时印记都记得。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCarryForward(null)}
+                  aria-label="收起"
+                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
         )}
         {error ? (

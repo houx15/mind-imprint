@@ -297,9 +297,20 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 			}
 			switch {
 			case ref.TakeawayFinalizedAt.Valid && len(ref.Takeaway) > 0:
+				// EA: surface the substance the student confirmed — not just the
+				// one-line proposal impact — so a later writing-room coach turn
+				// actually remembers what she read (findings/credibility were a
+				// write-only dead-end before). Kept compact (one line/source).
 				var tk agent.ReadingTakeaway
 				_ = json.Unmarshal(ref.Takeaway, &tk)
-				fmt.Fprintf(&b, "- %s%s｜印记：%s\n", truncateRunes(ref.Title, 32), phase, truncateRunes(tk.ProposalImpact, 40))
+				line := "印记：" + truncateRunes(tk.ProposalImpact, 40)
+				if len(tk.Findings) > 0 {
+					line += " · 发现：" + truncateRunes(tk.Findings[0], 34)
+				}
+				if v := strings.TrimSpace(tk.Credibility.Verdict); v != "" {
+					line += " · 可信度：" + v
+				}
+				fmt.Fprintf(&b, "- %s%s｜%s\n", truncateRunes(ref.Title, 32), phase, line)
 			case ref.MaterialID.Valid:
 				if !cardsLoaded {
 					cards, _ = a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
