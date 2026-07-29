@@ -99,6 +99,16 @@ type Collection struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type ConversationDigest struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	Prose       string    `json:"prose"`
+	TurnsFolded int32     `json:"turns_folded"`
+	Model       *string   `json:"model"`
+	Tier        *string   `json:"tier"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type Course struct {
 	ID         uuid.UUID `json:"id"`
 	Branch     string    `json:"branch"`

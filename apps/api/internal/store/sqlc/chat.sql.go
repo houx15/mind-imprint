@@ -135,6 +135,17 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Cha
 	return i, err
 }
 
+const foldChatMessagesByID = `-- name: FoldChatMessagesByID :exec
+UPDATE chat_message SET folded_at = now() WHERE id = ANY($1::uuid[])
+`
+
+// S4 age-based fold (surface-agnostic, unlike FoldChatSurface): mark exactly the
+// overflow turns folded once their content is durable in conversation_digest.
+func (q *Queries) FoldChatMessagesByID(ctx context.Context, dollar_1 []uuid.UUID) error {
+	_, err := q.db.Exec(ctx, foldChatMessagesByID, dollar_1)
+	return err
+}
+
 const foldChatSurface = `-- name: FoldChatSurface :exec
 UPDATE chat_message
 SET folded_at = now()
@@ -154,6 +165,25 @@ type FoldChatSurfaceParams struct {
 func (q *Queries) FoldChatSurface(ctx context.Context, arg FoldChatSurfaceParams) error {
 	_, err := q.db.Exec(ctx, foldChatSurface, arg.SeededProjectID, arg.Column2)
 	return err
+}
+
+const getConversationDigest = `-- name: GetConversationDigest :one
+SELECT project_id, prose, turns_folded, model, tier, created_at, updated_at FROM conversation_digest WHERE project_id = $1
+`
+
+func (q *Queries) GetConversationDigest(ctx context.Context, projectID uuid.UUID) (ConversationDigest, error) {
+	row := q.db.QueryRow(ctx, getConversationDigest, projectID)
+	var i ConversationDigest
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Prose,
+		&i.TurnsFolded,
+		&i.Model,
+		&i.Tier,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getThread = `-- name: GetThread :one
@@ -384,4 +414,86 @@ func (q *Queries) ListThreadsByUser(ctx context.Context, userID uuid.UUID) ([]Ch
 		return nil, err
 	}
 	return items, nil
+}
+
+const selectOldestActiveChatMessages = `-- name: SelectOldestActiveChatMessages :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.folded_at IS NULL
+  AND cm.id NOT IN (
+    SELECT cm2.id FROM chat_message cm2
+    JOIN chat_thread ct2 ON cm2.thread_id = ct2.id
+    WHERE ct2.seeded_project_id = $1 AND cm2.folded_at IS NULL
+    ORDER BY cm2.created_at DESC, cm2.id DESC
+    LIMIT $2
+  )
+ORDER BY cm.created_at, cm.id
+`
+
+type SelectOldestActiveChatMessagesParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Limit           int32       `json:"limit"`
+}
+
+// S4 compaction backstop's overflow: every non-folded turn on the project's
+// thread, oldest→newest, EXCLUDING the newest $2 (always kept live in the
+// window). These are the turns to compose into the digest, then fold.
+func (q *Queries) SelectOldestActiveChatMessages(ctx context.Context, arg SelectOldestActiveChatMessagesParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, selectOldestActiveChatMessages, arg.SeededProjectID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertConversationDigest = `-- name: UpsertConversationDigest :exec
+INSERT INTO conversation_digest (project_id, prose, turns_folded, model, tier, updated_at)
+VALUES ($1, $2, $3, $4, $5, now())
+ON CONFLICT (project_id) DO UPDATE
+  SET prose = EXCLUDED.prose, turns_folded = EXCLUDED.turns_folded,
+      model = EXCLUDED.model, tier = EXCLUDED.tier, updated_at = now()
+`
+
+type UpsertConversationDigestParams struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	Prose       string    `json:"prose"`
+	TurnsFolded int32     `json:"turns_folded"`
+	Model       *string   `json:"model"`
+	Tier        *string   `json:"tier"`
+}
+
+// One evolving digest row per project (grows as more turns fold; NOT
+// first-open-wins). turns_folded is the running count for the projection line.
+func (q *Queries) UpsertConversationDigest(ctx context.Context, arg UpsertConversationDigestParams) error {
+	_, err := q.db.Exec(ctx, upsertConversationDigest,
+		arg.ProjectID,
+		arg.Prose,
+		arg.TurnsFolded,
+		arg.Model,
+		arg.Tier,
+	)
+	return err
 }

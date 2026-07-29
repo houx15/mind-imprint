@@ -58,6 +58,39 @@ WHERE thread_id = (SELECT id FROM chat_thread WHERE seeded_project_id = $1 LIMIT
   AND surface = ANY($2::text[])
   AND folded_at IS NULL;
 
+-- name: SelectOldestActiveChatMessages :many
+-- S4 compaction backstop's overflow: every non-folded turn on the project's
+-- thread, oldest→newest, EXCLUDING the newest $2 (always kept live in the
+-- window). These are the turns to compose into the digest, then fold.
+SELECT cm.* FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.folded_at IS NULL
+  AND cm.id NOT IN (
+    SELECT cm2.id FROM chat_message cm2
+    JOIN chat_thread ct2 ON cm2.thread_id = ct2.id
+    WHERE ct2.seeded_project_id = $1 AND cm2.folded_at IS NULL
+    ORDER BY cm2.created_at DESC, cm2.id DESC
+    LIMIT $2
+  )
+ORDER BY cm.created_at, cm.id;
+
+-- name: FoldChatMessagesByID :exec
+-- S4 age-based fold (surface-agnostic, unlike FoldChatSurface): mark exactly the
+-- overflow turns folded once their content is durable in conversation_digest.
+UPDATE chat_message SET folded_at = now() WHERE id = ANY($1::uuid[]);
+
+-- name: GetConversationDigest :one
+SELECT * FROM conversation_digest WHERE project_id = $1;
+
+-- name: UpsertConversationDigest :exec
+-- One evolving digest row per project (grows as more turns fold; NOT
+-- first-open-wins). turns_folded is the running count for the projection line.
+INSERT INTO conversation_digest (project_id, prose, turns_folded, model, tier, updated_at)
+VALUES ($1, $2, $3, $4, $5, now())
+ON CONFLICT (project_id) DO UPDATE
+  SET prose = EXCLUDED.prose, turns_folded = EXCLUDED.turns_folded,
+      model = EXCLUDED.model, tier = EXCLUDED.tier, updated_at = now();
+
 -- Standalone Chat surface (Slice 11): threads owned by a user, not a project.
 -- The existing CreateChatMessage above is already thread-keyed and is reused.
 
