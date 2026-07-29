@@ -68,3 +68,14 @@ func (a *API) SurfaceAnchorsForTest(ctx context.Context, store agent.AgentStore,
 func (a *API) ReadingBriefForTest(ctx context.Context, projectID, materialID uuid.UUID) agent.ReadingBrief {
 	return a.readingBriefFor(ctx, projectID, materialID)
 }
+
+// BuildSpineProjectionForTest exposes the unexported buildSpineProjection
+// (projectcoach.go) to the external api_test package. buildSpineProjection
+// takes no *http.Request (it rides every coach turn AND the workspace
+// summary, neither of which always has one to hang a request-scoped test
+// helper off of), so — unlike request-driven endpoints elsewhere — a direct
+// method call is the only way to assert its output against seeded rows
+// (S2's 在读/已归纳 reading-state lines, projectcoach_projection_test.go).
+func (a *API) BuildSpineProjectionForTest(ctx context.Context, projectID uuid.UUID) (string, error) {
+	return a.buildSpineProjection(ctx, projectID)
+}

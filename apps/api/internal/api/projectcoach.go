@@ -2,12 +2,15 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"mindimprint/api/internal/agent"
 )
 
 // projectcoach.go — S1 support for the ONE continuous per-project coach
@@ -105,7 +108,9 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 		}
 	}
 
-	// 文献库 index.
+	// 文献库 index — state-aware (S2): 已归纳 carries the durable
+	// proposal_impact takeaway, 在读 shows a gentle in-progress count (never
+	// blocks), 未读 is unchanged from the pre-S2 line.
 	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil && len(refs) > 0 {
 		b.WriteString("文献库：\n")
 		for i, ref := range refs {
@@ -113,14 +118,25 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 				fmt.Fprintf(&b, "- …另有 %d 条\n", len(refs)-6)
 				break
 			}
-			meta := ""
-			if ref.Decision != nil && *ref.Decision != "" {
-				meta = "｜" + *ref.Decision
+			phase := ""
+			if ref.PhaseTag != nil && *ref.PhaseTag != "" {
+				phase = "｜" + *ref.PhaseTag
 			}
-			if ref.Credibility != nil && *ref.Credibility != "" {
-				meta += "｜可信度 " + *ref.Credibility
+			switch {
+			case ref.TakeawayFinalizedAt.Valid && len(ref.Takeaway) > 0:
+				var tk agent.ReadingTakeaway
+				_ = json.Unmarshal(ref.Takeaway, &tk)
+				fmt.Fprintf(&b, "- %s%s｜印记：%s\n", truncateRunes(ref.Title, 32), phase, truncateRunes(tk.ProposalImpact, 40))
+			case ref.MaterialID.Valid:
+				n := len(a.readingOutcomesByMaterialCtx(ctx, projectID, uuid.UUID(ref.MaterialID.Bytes)).Findings)
+				fmt.Fprintf(&b, "- %s%s｜在读·已确认 %d 条发现\n", truncateRunes(ref.Title, 32), phase, n)
+			default:
+				meta := ""
+				if ref.Decision != nil && *ref.Decision != "" {
+					meta = "｜" + *ref.Decision
+				}
+				fmt.Fprintf(&b, "- %s%s\n", truncateRunes(ref.Title, 40), meta)
 			}
-			fmt.Fprintf(&b, "- %s%s\n", truncateRunes(ref.Title, 40), meta)
 		}
 	}
 

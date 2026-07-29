@@ -10,6 +10,7 @@ package api
 // readeval.go) so we get the verdict + judgment, not just quote+finding.
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -25,13 +26,21 @@ import (
 
 // readingOutcomesByMaterial assembles the record half of the takeaway from
 // the student's CONFIRMED (status="completed") reading cards for this
-// material. Attribution to a material lives in each card's anchors JSON, not
-// in a card_instances column (card_instances has no material_id — see
+// material. Thin *http.Request-scoped forwarder over readingOutcomesByMaterialCtx
+// (S2 spine projection, projectcoach.go, has no request to hang off of).
+func (a *API) readingOutcomesByMaterial(r *http.Request, projectID, materialID uuid.UUID) agent.TakeawayRecord {
+	return a.readingOutcomesByMaterialCtx(r.Context(), projectID, materialID)
+}
+
+// readingOutcomesByMaterialCtx holds the actual assembly logic (moved out of
+// readingOutcomesByMaterial so the ctx-only spine projection can reuse it).
+// Attribution to a material lives in each card's anchors JSON, not in a
+// card_instances column (card_instances has no material_id — see
 // notesByMaterial's comment). Best-effort: a card whose anchors or
 // framework_fill don't parse is simply skipped, never fabricated.
-func (a *API) readingOutcomesByMaterial(r *http.Request, projectID, materialID uuid.UUID) agent.TakeawayRecord {
+func (a *API) readingOutcomesByMaterialCtx(ctx context.Context, projectID, materialID uuid.UUID) agent.TakeawayRecord {
 	var rec agent.TakeawayRecord
-	cis, err := a.d.Queries.ListCardInstancesByProject(r.Context(), pgtype.UUID{Bytes: projectID, Valid: true})
+	cis, err := a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
 	if err != nil {
 		return rec
 	}
