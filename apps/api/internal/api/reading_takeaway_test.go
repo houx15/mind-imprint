@@ -227,3 +227,72 @@ func TestGetTakeawayDraft_AssemblesAndSeeds(t *testing.T) {
 		t.Fatalf("want 1 draft llm_call, got %d", n)
 	}
 }
+
+// TestGetTakeawayDraft_EmptyRecordNoSpend — the regression pin for the
+// phantom-metering bug: a reference linked to a material with ZERO completed
+// reading cards (readingOutcomesByMaterial returns an empty record) must
+// short-circuit BEFORE the resolver/compose block — no network call, no
+// llm_call row — even though the resolver itself would happily succeed.
+// Before the fix, resolved.Provider != "" alone (regardless of whether
+// compose ever ran) triggered a metered 0-token row for a call that never
+// happened.
+func TestGetTakeawayDraft_EmptyRecordNoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	ctx := context.Background()
+	projectID := uuid.MustParse(seedProjectID)
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "NASA 报告", craapMaterialText)
+	ref, err := q.CreateReference(ctx, sqlc.CreateReferenceParams{
+		ProjectID: projectID, Title: "NASA 报告",
+		Tags: []byte("[]"), SearchHints: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("CreateReference: %v", err)
+	}
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: uuid.MustParse(matID), Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+	// Deliberately NO card instances created for this material — the student
+	// has opened takeaway-draft before confirming any reading.
+
+	rr := doJSON(t, h, cookie, http.MethodGet,
+		"/api/v1/projects/"+seedProjectID+"/references/"+ref.ID.String()+"/takeaway-draft", "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var out struct {
+		Record struct {
+			Findings []string `json:"findings"`
+		} `json:"record"`
+		SuggestedNewLeads       []string `json:"suggestedNewLeads"`
+		SuggestedProposalImpact string   `json:"suggestedProposalImpact"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode draft response: %v — %s", err, rr.Body.String())
+	}
+	if len(out.Record.Findings) != 0 {
+		t.Fatalf("record.findings should be empty, got %+v", out.Record.Findings)
+	}
+	if len(out.SuggestedNewLeads) != 0 {
+		t.Fatalf("suggestedNewLeads should be empty, got %+v", out.SuggestedNewLeads)
+	}
+	if out.SuggestedProposalImpact != "" {
+		t.Fatalf("suggestedProposalImpact should be empty, got %q", out.SuggestedProposalImpact)
+	}
+
+	// The regression pin: an empty record must never touch the resolver/
+	// compose/meter block, so NO llm_call row is written for this purpose.
+	if n := countLLMCallsByPurpose(t, pool, seedProjectID, "reading_takeaway_draft"); n != 0 {
+		t.Fatalf("want 0 draft llm_call for an empty record, got %d", n)
+	}
+}

@@ -61,10 +61,13 @@ const readingTakeawaySystem = `你是「思维印记」的陪读助手。学生�
 2) proposal_impact：这篇如何影响她的论点/论证（一句话，用她发现里已有的东西，不新增立场）。
 只输出 JSON：{"new_leads":[...],"proposal_impact":"..."}。这些是给学生的草稿建议，她会改写。`
 
-// hasRecordContent reports whether there is anything the student actually
+// HasRecordContent reports whether there is anything the student actually
 // confirmed to organize. An empty record means nothing to seed from — 克制
 // requires erroring rather than fabricating a synthesis out of nothing.
-func hasRecordContent(rec TakeawayRecord) bool {
+// Exported so callers (api.getTakeawayDraft) can gate the resolver/compose/
+// meter block on it BEFORE ever resolving a provider — an empty record must
+// never touch the network or the llm_call audit trail.
+func HasRecordContent(rec TakeawayRecord) bool {
 	return len(rec.Findings) > 0 || len(rec.KeyQuotes) > 0 || strings.TrimSpace(rec.Credibility.Verdict) != ""
 }
 
@@ -75,7 +78,7 @@ func hasRecordContent(rec TakeawayRecord) bool {
 // (readingOutcomesByMaterial). Errors, never fabricates, when the record is
 // empty (nothing confirmed to organize).
 func ComposeReadingTakeawaySuggestions(ctx context.Context, prov gateway.Provider, r gateway.Resolved, in ReadingTakeawayInput) ([]string, string, gateway.ChatUsage, error) {
-	if !hasRecordContent(in.Record) {
+	if !HasRecordContent(in.Record) {
 		return nil, "", gateway.ChatUsage{}, fmt.Errorf("agent: empty reading record — nothing to organize")
 	}
 	recJSON, _ := json.Marshal(in.Record)

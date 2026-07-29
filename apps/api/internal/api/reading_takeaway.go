@@ -114,9 +114,13 @@ func nonNilStrings(ss []string) []string {
 // mid-tier compose (agent.ComposeReadingTakeawaySuggestions) to SEED the two
 // synthesis fields the student will edit. Read-only — nothing is persisted or
 // finalized here (that's Task 6's PUT/finalize). 克制: if the resolver is
-// unavailable or the compose errs (e.g. an empty record — nothing confirmed
-// yet), this still returns 200 with the assembled record and empty
-// suggestions rather than 500ing; the student can always write her own.
+// unavailable or the compose errs, this still returns 200 with the assembled
+// record and empty suggestions rather than 500ing; the student can always
+// write her own. If the record is empty (nothing confirmed yet — a reachable
+// state when she opens this before completing any reading card), the whole
+// resolver/compose/meter block is skipped entirely: no network call, no
+// llm_call row — metering must only ever reflect a call that actually
+// happened.
 func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -146,19 +150,26 @@ func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 	in := agent.ReadingTakeawayInput{Brief: a.readingBriefFor(r.Context(), projectID, materialID), Record: record}
 	var leads []string
 	var impact string
-	if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
-		l, imp, usage, cerr := agent.ComposeReadingTakeawaySuggestions(r.Context(), a.d.Provider, resolved, in)
-		if resolved.Provider != "" {
-			store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-			if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
-				ProjectID: projectID, Surface: "studio", Purpose: "reading_takeaway_draft",
-				Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
-			}); e != nil {
-				slog.Warn("takeaway draft: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+	// An empty record has nothing to organize —
+	// agent.ComposeReadingTakeawaySuggestions would early-return an error
+	// before ever calling the gateway, so resolving a provider and metering a
+	// call here would be phantom bookkeeping for a network call that never
+	// happened. Skip the whole block.
+	if agent.HasRecordContent(record) {
+		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+			l, imp, usage, cerr := agent.ComposeReadingTakeawaySuggestions(r.Context(), a.d.Provider, resolved, in)
+			if resolved.Provider != "" {
+				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "reading_takeaway_draft",
+					Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+				}); e != nil {
+					slog.Warn("takeaway draft: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
 			}
-		}
-		if cerr == nil {
-			leads, impact = l, imp
+			if cerr == nil {
+				leads, impact = l, imp
+			}
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
