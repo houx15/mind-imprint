@@ -283,7 +283,7 @@ func (a *API) composeParentStageProse(ctx context.Context, r *http.Request, data
 		Ability: summary,
 	}
 	prose, usage, cerr := agent.ComposeParentStage(ctx, a.d.Provider, resolved, facts)
-	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+	if u, ok := UserFromContext(ctx); ok && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 		if !priced {
 			slog.Warn("parent stage llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)

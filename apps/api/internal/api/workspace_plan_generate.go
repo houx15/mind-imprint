@@ -148,7 +148,7 @@ func (a *API) generatePlanItems(ctx context.Context, projectID uuid.UUID, prop s
 
 	// Meter BEFORE any bail — a call that yields nothing still cost money. Only
 	// record when a real call happened (Resolved populated).
-	if resolved.Provider != "" {
+	if res.Usage.InputTokens > 0 || res.Usage.OutputTokens > 0 {
 		if err := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "plan_gen",
 			Resolved: resolved, PromptTokens: int32(res.Usage.InputTokens), CompletionTokens: int32(res.Usage.OutputTokens),

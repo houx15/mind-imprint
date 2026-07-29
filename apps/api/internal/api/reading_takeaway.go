@@ -178,7 +178,7 @@ func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 	if agent.HasRecordContent(record) {
 		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
 			l, imp, usage, cerr := agent.ComposeReadingTakeawaySuggestions(r.Context(), a.d.Provider, resolved, in)
-			if resolved.Provider != "" {
+			if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "reading_takeaway_draft",

@@ -19,8 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/agent"
+	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
 

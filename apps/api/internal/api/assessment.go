@@ -97,7 +97,7 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 	report, usage, aerr := agent.AssessReport(ctx, a.d.Provider, resolved, rubric.Model(), in)
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if resolved.Provider != "" {
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if err := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "assessment",
 			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),

@@ -95,7 +95,7 @@ func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request) {
 	items, usage, perr := agent.ProposeSpotCheck(r.Context(), a.d.Provider, resolved, station, targets)
 	// Record the call cost even if enforcement then rejected the output — a
 	// rejected call still cost money.
-	if resolved.Provider != "" {
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if err := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "spot_check",
 			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),

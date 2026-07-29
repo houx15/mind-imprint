@@ -30,7 +30,7 @@ type explorationLeadView struct {
 
 type explorationViewBody struct {
 	Leads             []explorationLeadView `json:"leads"`
-	DanglingSourceIDs []string               `json:"danglingSourceIds"`
+	DanglingSourceIDs []string              `json:"danglingSourceIds"`
 }
 
 // TestExplorationLeadCRUD covers the manual-add → list-projects → connect →

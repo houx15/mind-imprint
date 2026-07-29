@@ -61,7 +61,9 @@ func TestSignupWithTeacherInviteCreatesTeacher(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("mint invite: want 201, got %d — %s", rec.Code, rec.Body)
 	}
-	var created struct{ Code string `json:"code"` }
+	var created struct {
+		Code string `json:"code"`
+	}
 	json.Unmarshal(rec.Body.Bytes(), &created)
 
 	// Teacher signs up with it.
@@ -111,7 +113,9 @@ func TestSignupTeacherInviteEmailMismatch(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{"email": "bound@demo.local"})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/admin/teacher-invites", bytes.NewReader(body)), admin))
-	var created struct{ Code string `json:"code"` }
+	var created struct {
+		Code string `json:"code"`
+	}
 	json.Unmarshal(rec.Body.Bytes(), &created)
 
 	// Sign up with a different email than the invite was bound to.

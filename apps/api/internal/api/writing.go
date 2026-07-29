@@ -325,7 +325,7 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 	items, usage, perr := agent.ProposeReview(r.Context(), a.d.Provider, resolved, sk.ReviewCriteria, paras, graphSummary(r.Context(), a.d.Queries, projectID), voice, sbState == "over")
 	// Record the call cost even if enforcement then rejected the output — a
 	// rejected call still cost money.
-	if resolved.Provider != "" {
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if err := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "order_review",
 			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),

@@ -69,7 +69,9 @@ func TestRenderCourseStepRecordsUsage(t *testing.T) {
 	})
 	h := New(Deps{Queries: q, Pool: pool, Provider: stub,
 		ChatResolver: func(context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub"}, nil },
-		EvalResolver: func(context.Context) (gateway.Resolved, error) { return gateway.Resolved{Provider: "stub", Model: "stub-model", Tier: "flagship"}, nil }}).Handler()
+		EvalResolver: func(context.Context) (gateway.Resolved, error) {
+			return gateway.Resolved{Provider: "stub", Model: "stub-model", Tier: "flagship"}, nil
+		}}).Handler()
 	cookie := signInSeed(t, pool)
 
 	rec := httptest.NewRecorder()

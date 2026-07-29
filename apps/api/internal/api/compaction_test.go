@@ -140,6 +140,35 @@ func TestMaybeCompactBackstop_EmptyComposeFoldsNothing(t *testing.T) {
 	}
 }
 
+// TestMaybeCompactBackstop_ManyShortTurnsStillDigest — the audit fix: many SHORT
+// turns stay under digestRuneBudget yet exceed the coach's verbatim window, so
+// the count trigger must still digest the overflow (previously they slid out of
+// context undigested — a continuity gap).
+func TestMaybeCompactBackstop_ManyShortTurnsStillDigest(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// 10 short turns = 20 short messages: well under digestRuneBudget (6000) but
+	// over digestKeepLastN (=coachHistoryWindow, 12).
+	for i := 0; i < 10; i++ {
+		postCoachTurn(t, h, cookie, base, "writing", "嗯，我再想想这一点")
+	}
+
+	d, err := q.GetConversationDigest(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("many short turns should still trigger a digest: %v", err)
+	}
+	if d.TurnsFolded <= 0 {
+		t.Fatalf("turns_folded = %d, want > 0 (count trigger)", d.TurnsFolded)
+	}
+	if got := countFoldedCoachMsgs(t, pool, seedProjectID); got == 0 {
+		t.Fatalf("expected the overflow beyond the verbatim window to fold, got 0")
+	}
+}
+
 // TestSpineProjection_IncludesDigest — a stored digest rides the projection as a
 // 会话记忆 block; absent, no such block appears.
 func TestSpineProjection_IncludesDigest(t *testing.T) {

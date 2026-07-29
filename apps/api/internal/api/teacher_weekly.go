@@ -388,7 +388,7 @@ func (a *API) composeWeeklyProse(ctx context.Context, r *http.Request, facts age
 		return agent.WeeklyProse{}, false
 	}
 	prose, usage, cerr := agent.ComposeWeekly(ctx, a.d.Provider, resolved, facts)
-	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+	if u, ok := UserFromContext(ctx); ok && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 		if !priced {
 			slog.Warn("weekly llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)

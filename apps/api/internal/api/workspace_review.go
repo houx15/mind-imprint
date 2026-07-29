@@ -289,7 +289,7 @@ func (a *API) composeMirror(ctx context.Context, projectID uuid.UUID) (agent.Mir
 		return agent.MinimalMirror(), "", "", false
 	}
 	mirror, usage, cerr := agent.ComposeMirror(ctx, a.d.Provider, resolved, in)
-	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+	if u, ok := UserFromContext(ctx); ok && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		// Unpriced model → explicit $0.00 (CostNumeric(cost, true)), never the
 		// ok-derived NULL Numeric — llm_call.cost_estimate is NOT NULL.
 		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)

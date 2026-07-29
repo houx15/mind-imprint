@@ -39,7 +39,9 @@ func TestE2EOrgProvisioning(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("mint invite: %d %s", rec.Code, rec.Body)
 	}
-	var inv struct{ Code string `json:"code"` }
+	var inv struct {
+		Code string `json:"code"`
+	}
 	json.Unmarshal(rec.Body.Bytes(), &inv)
 
 	// 2. Teacher signs up with it.

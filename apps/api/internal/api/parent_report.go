@@ -277,7 +277,7 @@ func (a *API) composeParentProse(ctx context.Context, r *http.Request, data pare
 		return agent.ParentProse{}, false
 	}
 	prose, usage, cerr := agent.ComposeParent(ctx, a.d.Provider, resolved, data.Report, data.Name, data.Subject)
-	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+	if u, ok := UserFromContext(ctx); ok && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 		if !priced {
 			slog.Warn("parent llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)

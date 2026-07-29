@@ -116,7 +116,7 @@ func (a *API) composeReturnSummary(ctx context.Context, projectID uuid.UUID, pro
 		return "", "", "", false
 	}
 	prose, usage, cerr := agent.ComposeReturnSummary(ctx, a.d.Provider, resolved, projection)
-	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
+	if u, ok := UserFromContext(ctx); ok && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
 		if !priced {
 			slog.Warn("summary llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)

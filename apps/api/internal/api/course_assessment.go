@@ -97,7 +97,7 @@ func (a *API) generateCourseAssessment(w http.ResponseWriter, r *http.Request) {
 	// The project-side RecordLLMCall cannot be reused: it resolves the owning
 	// user via GetProject, and a course session has no project.
 	store := agent.NewSqlcCourseStore(a.d.Queries)
-	if resolved.Provider != "" {
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if err := store.RecordCourseLLMCall(r.Context(), sess.UserID, "assessment", resolved,
 			int32(usage.InputTokens), int32(usage.OutputTokens)); err != nil {
 			slog.Warn("generate_course_assessment: record llm call", "err", err)

@@ -116,13 +116,16 @@ func (a *API) coachCardProposal(ctx context.Context, projectID uuid.UUID, scope,
 	return proposal
 }
 
-// digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds. When
-// the coach's active (non-folded) window exceeds digestRuneBudget runes, the
-// oldest turns beyond the newest digestKeepLastN are composed into the rolling
-// conversation_digest and folded out of the window.
+// digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds.
+// digestKeepLastN is aligned to coachHistoryWindow (the coach's verbatim
+// context window): we never fold a turn the coach still shows, and — the audit
+// fix — a turn that FALLS OUT of that window is ALWAYS digested, whether it left
+// by turn-count or rune budget. Before, the backstop triggered on runes only
+// (6000), so many short turns slid out of the last-N window with their gist in
+// neither the verbatim window nor the digest (a continuity gap).
 const (
 	digestRuneBudget = 6000
-	digestKeepLastN  = 8
+	digestKeepLastN  = coachHistoryWindow
 )
 
 // maybeCompactBackstop is S4 lever-1's size-threshold backstop, run at the tail
@@ -142,8 +145,11 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
 	for _, m := range active {
 		total += len([]rune(m.Content))
 	}
-	if total <= digestRuneBudget {
-		return // under budget → no spend
+	// Compact when the window overflows by EITHER measure: too many runes (long
+	// turns) OR more turns than the coach shows verbatim (short turns that would
+	// otherwise slide out of context undigested).
+	if total <= digestRuneBudget && len(active) <= digestKeepLastN {
+		return // within the verbatim window and under budget → no spend
 	}
 
 	overflow, err := a.d.Queries.SelectOldestActiveChatMessages(ctx, sqlc.SelectOldestActiveChatMessagesParams{
