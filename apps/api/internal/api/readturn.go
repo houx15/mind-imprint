@@ -247,6 +247,7 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 			CompletedCards:        completedOnMaterial,
 			HasNewFocus:           len(body.FocusedSpans) > 0,
 		},
+		Brief: a.readingBriefFor(r.Context(), projectID, mid),
 	}
 
 	// Source-check ordering guard: don't summon SIFT before CRAAP, don't

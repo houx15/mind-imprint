@@ -97,6 +97,36 @@ func derefOr(p *string, fallback string) string {
 // read-turn injection, Task 3). Best-effort: a material with no reference or an
 // unset brief returns a zero ReadingBrief and the loop degrades to today.
 func (a *API) readingBriefFor(ctx context.Context, projectID, materialID uuid.UUID) agent.ReadingBrief {
-	// (implemented in Task 3, where ReadingBrief is consumed by the read-turn loop)
-	return agent.ReadingBrief{}
+	var br agent.ReadingBrief
+	// reference carries the brief; find it by material_id within the project.
+	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil {
+		for _, ref := range refs {
+			if ref.MaterialID.Valid && uuid.UUID(ref.MaterialID.Bytes) == materialID {
+				if ref.ReadingReason != nil {
+					br.Reason = *ref.ReadingReason
+				}
+				if ref.ReadingFocus != nil {
+					br.Focus = *ref.ReadingFocus
+				}
+				if ref.PhaseTag != nil {
+					br.PhaseTag = *ref.PhaseTag
+				}
+				break
+			}
+		}
+	}
+	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
+		br.ProposalSnap = firstNonEmpty(prop.Objective, prop.Reason)
+	}
+	return br
+}
+
+// firstNonEmpty returns the first non-blank string among ss, or "".
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	return ""
 }
