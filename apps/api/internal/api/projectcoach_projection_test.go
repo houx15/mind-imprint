@@ -143,7 +143,63 @@ func TestProjection_ReadingStates(t *testing.T) {
 	if !strings.Contains(proj, "印记：作为让步段证据") {
 		t.Fatalf("已归纳 source must carry proposal_impact:\n%s", proj)
 	}
-	if !strings.Contains(proj, "在读") {
-		t.Fatalf("在读 source must show in-progress state:\n%s", proj)
+	// Retarget on the distinguishing suffix, not bare "在读": the seeded
+	// in-progress title is itself "在读源", which contains "在读" and is
+	// rendered in EVERY branch — so a bare Contains("在读") passes even if
+	// the 在读 branch were deleted. The finding-count suffix only appears
+	// from the 在读 branch, so this fails if that branch breaks.
+	if !strings.Contains(proj, "在读·已确认 1 条发现") {
+		t.Fatalf("在读 source must show exactly 1 confirmed finding:\n%s", proj)
+	}
+}
+
+// seedUnreadReference seeds a reference with NO linked material — the 未读
+// state — but with Credibility and Decision set through the real PATCH
+// /references/{rid} endpoint, exactly as the pre-reading 信源体检 flow does
+// (both fields are independently settable before a student ever opens the
+// material). Regression guard for Finding 1: the 未读 branch must still
+// render BOTH ｜<decision> and ｜可信度 <credibility>, exactly like the
+// pre-S2 line.
+func seedUnreadReference(t *testing.T, h http.Handler, cookie *http.Cookie, title, credibility, decision string) {
+	t.Helper()
+	base := "/api/v1/projects/" + seedProjectID
+	rec := doJSON(t, h, cookie, "POST", base+"/references", fmt.Sprintf(`{"title":%q}`, title))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference: %d %s", rec.Code, rec.Body)
+	}
+	var wrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &wrap); err != nil {
+		t.Fatalf("decode reference: %v — %s", err, rec.Body)
+	}
+	patch := fmt.Sprintf(`{"credibility":%q,"decision":%q}`, credibility, decision)
+	rec = doJSON(t, h, cookie, "PATCH", base+"/references/"+wrap.Reference.ID, patch)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch reference credibility/decision: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestProjection_UnreadCarriesCredibility — Finding 1 regression guard: a
+// 未读 reference (no material) that has Credibility set via the
+// pre-reading 信源体检 flow must still surface it in the projection line,
+// alongside Decision, exactly like the pre-S2 line. Must FAIL if the
+// Credibility append is dropped from the 未读 (default) branch.
+func TestProjection_UnreadCarriesCredibility(t *testing.T) {
+	api, h, cookie, _ := projectionTestHandler(t)
+
+	seedUnreadReference(t, h, cookie, "未读源", "strong", "use")
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "｜use") {
+		t.Fatalf("未读 source must carry decision:\n%s", proj)
+	}
+	if !strings.Contains(proj, "｜可信度 strong") {
+		t.Fatalf("未读 source must carry credibility:\n%s", proj)
 	}
 }

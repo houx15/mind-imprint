@@ -135,6 +135,9 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 				if ref.Decision != nil && *ref.Decision != "" {
 					meta = "｜" + *ref.Decision
 				}
+				if ref.Credibility != nil && *ref.Credibility != "" {
+					meta += "｜可信度 " + *ref.Credibility
+				}
 				fmt.Fprintf(&b, "- %s%s\n", truncateRunes(ref.Title, 40), meta)
 			}
 		}
