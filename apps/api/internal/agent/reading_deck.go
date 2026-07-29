@@ -16,15 +16,21 @@ type ReadingCard struct {
 	Trigger string
 }
 
-// ReadingDeckIDs is the fixed set of reading-room cards (spec §18): source-check
-// (craap, sift) + deep reading. All are sentence-based, so all fit the
-// hang-on-sentence + you-find-the-evidence mechanic. Growing the deck later =
-// adding an id here; no page or mechanic change.
+// ReadingDeckIDs is the fixed set of reading-room cards: source-check (craap,
+// sift) + the 9 disciplinary reading lenses (学科透镜). The deep-reading slots
+// were the WRITING tool cards (argument-map/toulmin/…), whose purpose ("拆成
+// 结构图") doesn't map to the pick-one-sentence mechanic — so a student summon
+// could almost never ground a single illustrative sentence and hard-failed to
+// the "没找到好例子" coach line. The lenses are purpose-built for it (each carries
+// reading_lens.task_prompt/selection_hint/example_focus). Tool cards stay in
+// the writing studio; a lens's reading_lens.method_ids point back at them for
+// the future methods layer. Growing the deck = adding an id here AND to the web
+// READING_DECK_IDS. See docs/2026-07-29-reading-lenses-adopt-demo.md.
 var ReadingDeckIDs = []string{
 	"craap", "sift",
-	"fact-opinion-value", "argument-map", "toulmin", "steelman", "concession",
-	"data-literacy", "opcvl", "framing", "spin-detector", "cda",
-	"perspective-matrix", "certainty-spectrum", "science-knowing",
+	"lens-logic", "lens-methods", // 推理与证据
+	"lens-society", "lens-law", "lens-economics", "lens-ethics", // 人与制度
+	"lens-history", "lens-communication", "lens-systems", // 语境与系统
 }
 
 // ReadingDeck resolves ReadingDeckIDs against the card registry. It errors if
@@ -36,9 +42,15 @@ func ReadingDeck() ([]ReadingCard, error) {
 		if !ok {
 			return nil, fmt.Errorf("reading deck id %q not found in registry", id)
 		}
+		// For a lens, the router reasons better over "when to reach for this
+		// angle + what sentence it wants" than over the generic trigger — so
+		// prefer trigger_condition + task_prompt when reading_lens is present.
 		trigger := spec.TriggerCondition
 		if trigger == "" {
 			trigger = spec.Purpose
+		}
+		if spec.ReadingLens != nil && spec.ReadingLens.TaskPrompt != "" {
+			trigger = trigger + "。" + spec.ReadingLens.TaskPrompt
 		}
 		out = append(out, ReadingCard{CardID: spec.ID, Name: spec.Name, Trigger: trigger})
 	}

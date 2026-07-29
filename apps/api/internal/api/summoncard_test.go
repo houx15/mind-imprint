@@ -42,14 +42,14 @@ func TestSummonProjectCard_ValidCardEmitsCardFrame(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST",
 		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/summon-card",
-		strings.NewReader(`{"card_id":"argument-map"}`)), cookie)
+		strings.NewReader(`{"card_id":"lens-logic"}`)), cookie)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("summon-card: %d — %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"argument-map"`) {
-		t.Fatalf("expected an argument-map card event:\n%s", body)
+	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"lens-logic"`) {
+		t.Fatalf("expected a lens-logic card event:\n%s", body)
 	}
 	if strings.Contains(body, `"anchors":[]`) {
 		t.Fatalf("card frame carries empty anchors:\n%s", body)
@@ -64,12 +64,67 @@ func TestSummonProjectCard_ValidCardEmitsCardFrame(t *testing.T) {
 	}
 	found := false
 	for _, ci := range cis {
-		if ci.CardID == "argument-map" && ci.Status == "proposed" {
+		if ci.CardID == "lens-logic" && ci.Status == "proposed" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("no proposed argument-map card_instance persisted")
+		t.Fatalf("no proposed lens-logic card_instance persisted")
+	}
+}
+
+// TestSummonProjectCard_NoGroundableExampleStillOpens — the fix for the
+// "没找到好例子" hard-fail. When ProposeCardExample cannot ground a verbatim
+// example (here the stub returns a quote that is NOT in the article), the lens
+// must still open: a `card` frame with EMPTY anchors + the pick-your-own nudge,
+// a persisted proposed card_instance, and NO fallback intervention.
+func TestSummonProjectCard_NoGroundableExampleStillOpens(t *testing.T) {
+	pool := newAPITestPool(t)
+	articleText := "全球变暖正在加速冰川融化，科学家在南极观测到前所未有的冰架断裂。"
+	// A quote that is NOT a substring of the article → exampleOK=false.
+	exampleReply := `{"block_id":"b0","quote":"这句话根本不在文章里","why":"..."}`
+	h := New(Deps{
+		Queries:      sqlc.New(pool),
+		Pool:         pool,
+		Provider:     readingStubProvider(exampleReply),
+		EvalResolver: fakeEvalResolver(),
+		SpecByID:     cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	mid := ingestReadingMaterial(t, h, cookie, materialsTestProjectID, articleText)
+
+	rec := httptest.NewRecorder()
+	req := withCookie(httptest.NewRequest("POST",
+		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/summon-card",
+		strings.NewReader(`{"card_id":"lens-logic"}`)), cookie)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("summon-card: %d — %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: card") || !strings.Contains(body, `"card_id":"lens-logic"`) {
+		t.Fatalf("expected the lens to open anyway (card frame):\n%s", body)
+	}
+	if !strings.Contains(body, `"anchors":[]`) {
+		t.Fatalf("no-example summon should carry empty anchors:\n%s", body)
+	}
+	if strings.Contains(body, "没找到") {
+		t.Fatalf("no-example summon must NOT emit the hard-fail fallback:\n%s", body)
+	}
+
+	cis, err := sqlc.New(pool).ListCardInstancesByProject(context.Background(), pgUUID(uuid.MustParse(materialsTestProjectID)))
+	if err != nil {
+		t.Fatalf("ListCardInstancesByProject: %v", err)
+	}
+	found := false
+	for _, ci := range cis {
+		if ci.CardID == "lens-logic" && ci.Status == "proposed" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no-example summon should still persist a proposed card_instance")
 	}
 }
 
@@ -101,7 +156,7 @@ func TestSummonProjectCard_AlreadyOpenCardRejects(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST",
 		"/api/v1/projects/"+materialsTestProjectID+"/materials/"+mid+"/summon-card",
-		strings.NewReader(`{"card_id":"argument-map"}`)), cookie)
+		strings.NewReader(`{"card_id":"lens-logic"}`)), cookie)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("summon-card: %d — %s", rec.Code, rec.Body.String())
@@ -215,7 +270,7 @@ func TestSummonProjectCard_ForeignMaterial404s(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST",
 		"/api/v1/projects/"+materialsTestProjectID+"/materials/00000000-0000-0000-0000-0000000009ff/summon-card",
-		strings.NewReader(`{"card_id":"argument-map"}`)), cookie)
+		strings.NewReader(`{"card_id":"lens-logic"}`)), cookie)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("foreign material: want 404, got %d — %s", rec.Code, rec.Body.String())

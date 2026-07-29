@@ -73,6 +73,61 @@ func TestComputeOffsets_RuneIndicesOnCJK(t *testing.T) {
 	}
 }
 
+// The tolerant path: a model quote that is verbatim MODULO CJK punctuation
+// (half-width ,/. and straight quotes where the article has full-width) must
+// still ground to the ORIGINAL text's rune span — this is what stops the
+// summon hard-failing on an otherwise-correct quote.
+func TestComputeOffsets_TolerantOfPunctuationNormalization(t *testing.T) {
+	text := "研究者说：“地球变绿了”，但样本只覆盖北半球。"
+	// straight quotes + half-width comma + surrounding whitespace (trimmed);
+	// verbatim modulo punctuation, so NOT a byte substring of the original.
+	quote := ` "地球变绿了",但样本只覆盖北半球 `
+
+	start, end := computeOffsets(text, quote)
+	if end <= start {
+		t.Fatalf("tolerant match failed: got (%d, %d) — the summon would hard-fail", start, end)
+	}
+	// The returned span indexes the ORIGINAL text: slicing it back yields the
+	// original (full-width-punctuated) sentence, not the model's normalized form.
+	got := string([]rune(text)[start:end])
+	if !strings.Contains(got, "地球变绿了") || !strings.Contains(got, "北半球") {
+		t.Fatalf("tolerant span maps to wrong text: %q", got)
+	}
+}
+
+// buildCardExamplePrompt must fold in a lens's task_prompt/selection_hint/
+// example_focus when reading_lens is present (the whole reason lenses replaced
+// tool cards on this path); a card WITHOUT reading_lens falls back to
+// purpose/trigger and never references those fields.
+func TestBuildCardExamplePrompt_UsesLensFieldsWhenPresent(t *testing.T) {
+	lens, ok := cards.ByID("lens-logic")
+	if !ok {
+		t.Fatal("lens-logic not in registry")
+	}
+	p := buildCardExamplePrompt(lens)
+	if lens.ReadingLens == nil {
+		t.Fatal("lens-logic has no reading_lens (test precondition)")
+	}
+	for _, want := range []string{lens.ReadingLens.TaskPrompt, lens.ReadingLens.SelectionHint, lens.ReadingLens.ExampleFocus} {
+		if want != "" && !strings.Contains(p, want) {
+			t.Fatalf("lens prompt missing %q\n---\n%s", want, p)
+		}
+	}
+
+	// A plain tool card (no reading_lens) still builds a prompt and does not
+	// crash trying to read the nil block.
+	tool, ok := cards.ByID("argument-map")
+	if !ok {
+		t.Fatal("argument-map not in registry")
+	}
+	if tool.ReadingLens != nil {
+		t.Fatal("argument-map unexpectedly has reading_lens")
+	}
+	if got := buildCardExamplePrompt(tool); got == "" {
+		t.Fatal("tool-card prompt is empty")
+	}
+}
+
 func TestParseAnchorGenL1ResolvesTheRightMaterial(t *testing.T) {
 	materials := []Material{
 		{ID: "mat-a", Title: "NASA 观测", Blocks: []MaterialBlock{{ID: "b0", Text: "叶面积指数上升。"}}},

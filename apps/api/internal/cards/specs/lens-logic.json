@@ -1,0 +1,69 @@
+{
+  "id": "lens-logic",
+  "category": "学科透镜",
+  "name": "逻辑学：推理有没有跳步？",
+  "name_en": "Logic",
+  "purpose": "把一句话拆成证据、隐藏前提和结论，检查结论的力度有没有超过现有依据。",
+  "trigger_condition": "当你开始怀疑作者的论证能不能成立。",
+  "trigger_keywords": [
+    "逻辑",
+    "论证",
+    "推理",
+    "因果",
+    "结论",
+    "论据",
+    "假设",
+    "前提",
+    "谬误",
+    "过度概括"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D5"
+  ],
+  "rubric_tags": [
+    "D5"
+  ],
+  "related": [
+    "argument-map",
+    "toulmin",
+    "fact-opinion-value"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "reasoning",
+    "task_prompt": "选一句你认为“现有证据还推不出这个结论”的话。",
+    "selection_hint": "留意“因此、一定、都、意味着”等强结论。",
+    "example_focus": "证据是否足以支持结论",
+    "method_ids": [
+      "argument-map",
+      "toulmin",
+      "fact-opinion-value"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用逻辑透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "一句话读起来“有道理”，常常是因为结论的力度被悄悄放大了——发现因果跳跃、过度概括和未说明的前提，才看得清它站不站得住。",
+        "how": "把这句拆成证据、隐藏前提和结论，看结论有没有超过现有依据，找出其中一处推理缺口。",
+        "when": "当你开始怀疑作者的论证能不能成立，尤其读到“因此、一定、都、意味着”这类强结论时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的推理缺口，以及支持这项判断的原文证据"
+        }
+      ]
+    }
+  ]
+}

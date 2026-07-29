@@ -1,0 +1,70 @@
+{
+  "id": "lens-economics",
+  "category": "学科透镜",
+  "name": "经济学：激励与成本如何变化？",
+  "name_en": "Economics",
+  "purpose": "观察规则怎样改变人的选择，并追踪显性成本、机会成本、收益分配和外部影响。",
+  "trigger_condition": "当讨论涉及激励、资源配置、成本收益、价格或行为反应。",
+  "trigger_keywords": [
+    "经济学",
+    "激励",
+    "成本",
+    "收益",
+    "机会成本",
+    "价格",
+    "供需",
+    "资源配置",
+    "外部性",
+    "效率",
+    "选择"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D5",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D5",
+    "D6"
+  ],
+  "related": [
+    "money-trail",
+    "data-literacy"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "institutions",
+    "task_prompt": "选一句可能改变行为激励，或把成本转移给他人的陈述。",
+    "selection_hint": "追问：这样做后，人会怎样改变选择？",
+    "example_focus": "规则会怎样改变选择与成本分配",
+    "method_ids": [
+      "money-trail",
+      "data-literacy"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用经济学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "规则一旦改变，人就会调整选择——发现方案改变行为的方式，才看得清成本最终由谁承担。",
+        "how": "在这句里追问“这样做后，人会怎样改变选择”，找出一个激励变化，并指出可能被忽略的成本、机会成本或外部影响。",
+        "when": "当讨论涉及激励、资源配置、成本收益、价格或行为反应时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一个激励变化，以及可能被忽略的成本或行为反应"
+        }
+      ]
+    }
+  ]
+}

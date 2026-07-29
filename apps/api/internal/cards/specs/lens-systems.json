@@ -1,0 +1,70 @@
+{
+  "id": "lens-systems",
+  "category": "学科透镜",
+  "name": "系统科学：后果会怎样传导？",
+  "name_en": "Systems-Science",
+  "purpose": "把行动放入相互连接的系统，追踪直接影响、延迟后果、反馈循环和系统边界。",
+  "trigger_condition": "当讨论涉及长期后果、连锁反应、相互依赖或方案可持续性。",
+  "trigger_keywords": [
+    "系统科学",
+    "系统",
+    "长期",
+    "连锁",
+    "反馈",
+    "相互依赖",
+    "系统边界",
+    "扩散",
+    "循环",
+    "可持续",
+    "后续影响"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D5",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D5",
+    "D6"
+  ],
+  "related": [
+    "perspective-matrix",
+    "money-trail"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "context",
+    "task_prompt": "选一句可能引发连锁影响或反馈循环的陈述。",
+    "selection_hint": "顺着它追问：然后呢？谁又会受到影响？",
+    "example_focus": "局部行动会触发哪些后续影响",
+    "method_ids": [
+      "perspective-matrix",
+      "money-trail"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用系统科学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "一个局部方案往往会对其他主体和后续环节产生连锁影响——把它放进相互连接的系统，才看得见延迟后果和反馈循环。",
+        "how": "顺着这句追问“然后呢？谁又会受到影响？”，画出一条影响链，标出其中可能出现的反馈或延迟后果。",
+        "when": "当讨论涉及长期后果、连锁反应、相互依赖或方案可持续性时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一条影响链，以及其中可能出现的反馈或延迟后果"
+        }
+      ]
+    }
+  ]
+}

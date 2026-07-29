@@ -125,14 +125,22 @@ func startHeartbeat(ctx context.Context, em *studioEmitter) (stop chan struct{},
 	return stop, hbDone
 }
 
-// studioSuppressedSurfaceCardIDs keeps CRAAP/SIFT out of the studio coach
-// rail (Task 11, spec-read-together-redesign binding decision: "CRAAP/SIFT
-// are summonable in the READING ROOM ONLY"). Shared by postProjectTurn and
-// submitProjectCard's refeed (projectcards.go) — the two studio-surface
-// callers of agent.RunAgentStep — via AgentDeps.SuppressSurfaceCardIDs. The
-// reading room's own summon path (readturn.go) never goes through
-// RunAgentStep at all, so this has no effect there.
-var studioSuppressedSurfaceCardIDs = map[string]bool{"craap": true, "sift": true}
+// studioSuppressedSurfaceCardIDs keeps the reading-room deck out of the studio
+// coach rail (Task 11, spec-read-together-redesign binding decision: the deck
+// is summonable in the READING ROOM ONLY). Derived from the whole reading deck
+// so it stays in lockstep — CRAAP/SIFT plus the 9 disciplinary lenses, which
+// have no studio purpose. Shared by postProjectTurn and submitProjectCard's
+// refeed (projectcards.go) — the two studio-surface callers of
+// agent.RunAgentStep — via AgentDeps.SuppressSurfaceCardIDs. The reading room's
+// own summon path (readturn.go) never goes through RunAgentStep, so this has no
+// effect there.
+var studioSuppressedSurfaceCardIDs = func() map[string]bool {
+	m := make(map[string]bool, len(agent.ReadingDeckIDs))
+	for _, id := range agent.ReadingDeckIDs {
+		m[id] = true
+	}
+	return m
+}()
 
 // studioSimilarity is the Studio turn endpoint's enforcement.Similarity seam:
 // a keyless, offline lexical-overlap heuristic (no embedding call, no key, no

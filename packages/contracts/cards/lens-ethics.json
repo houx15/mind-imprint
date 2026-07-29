@@ -1,0 +1,73 @@
+{
+  "id": "lens-ethics",
+  "category": "学科透镜",
+  "name": "伦理学：哪些价值正在冲突？",
+  "name_en": "Ethics",
+  "purpose": "识别一项主张所保护和牺牲的价值，比较公平、伤害、自主、尊严与责任之间的取舍。",
+  "trigger_condition": "当讨论涉及正当性、公平、伤害、责任或价值冲突。",
+  "trigger_keywords": [
+    "伦理学",
+    "伦理",
+    "道德",
+    "价值",
+    "正当",
+    "公平",
+    "伤害",
+    "自主",
+    "尊严",
+    "责任",
+    "应该",
+    "权衡"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D3",
+    "D4"
+  ],
+  "rubric_tags": [
+    "D3",
+    "D4"
+  ],
+  "related": [
+    "ethics-lenses",
+    "ethics-roleplay",
+    "belief-spectrum"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "institutions",
+    "task_prompt": "选一句包含“应该如何做”或价值取舍的陈述。",
+    "selection_hint": "找出它保护了什么，又可能牺牲什么。",
+    "example_focus": "这项判断优先保护了什么价值",
+    "method_ids": [
+      "ethics-lenses",
+      "ethics-roleplay",
+      "belief-spectrum"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用伦理学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "很多价值判断藏在事实语气之下——把它保护和牺牲的价值说清楚，才不会让“应该如何做”被悄悄带过。",
+        "how": "找出这句保护了什么、又可能牺牲什么，比较公平、伤害、自主、尊严与责任之间的取舍，点出一组价值冲突。",
+        "when": "当讨论涉及正当性、公平、伤害、责任或价值冲突时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一组价值冲突，以及当前主张更优先保护的价值"
+        }
+      ]
+    }
+  ]
+}

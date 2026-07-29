@@ -14,8 +14,8 @@ func TestCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Catalog: %v", err)
 	}
-	if len(specs) != 36 {
-		t.Fatalf("catalog has %d specs, want 36", len(specs))
+	if len(specs) != 45 {
+		t.Fatalf("catalog has %d specs, want 45", len(specs))
 	}
 
 	seen := map[string]bool{}

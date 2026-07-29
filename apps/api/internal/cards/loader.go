@@ -37,6 +37,24 @@ type Spec struct {
 	Observe          []ObserveRule         `json:"observe"`
 	Consolidation    string                `json:"consolidation"`
 	IntrusivenessCap string                `json:"intrusiveness_cap"`
+
+	// ReadingLens is present ONLY on the reading-room disciplinary lenses
+	// (category 学科透镜). Additive/optional — nil on every writing tool card.
+	// It carries the pick-one-sentence fields the read-together summon prompt
+	// needs; buildCardExamplePrompt uses them when non-nil, else falls back to
+	// Purpose/TriggerCondition.
+	ReadingLens *ReadingLens `json:"reading_lens"`
+}
+
+// ReadingLens mirrors the TS contract's optional reading_lens block. A lens
+// answers "从什么角度看"; MethodIDs point at the writing tool cards that
+// answer "具体做什么" (the methods layer, surfaced later).
+type ReadingLens struct {
+	Family        string   `json:"family"` // reasoning | institutions | context
+	TaskPrompt    string   `json:"task_prompt"`
+	SelectionHint string   `json:"selection_hint"`
+	ExampleFocus  string   `json:"example_focus"`
+	MethodIDs     []string `json:"method_ids"`
 }
 
 // Params is the card's C2 params block. CRAAP uses tags (the annotate

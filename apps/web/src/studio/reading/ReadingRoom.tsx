@@ -26,6 +26,7 @@ export type ReadingRoomCard = {
   onConfirm: () => void;
   onRepick: () => void;
   onSkip: () => void;
+  hasExample: boolean;
 };
 
 export type ReadingRoomProps = {
@@ -128,9 +129,16 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
           onConfirm: loop.confirm,
           onRepick: loop.repick,
           onSkip: loop.skip,
+          hasExample: loop.exampleBlockId !== "",
         };
 
-  const cardBlockId = card ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) : null;
+  // A graceful-degrade summon has no example block to hang under — fall back to
+  // the first paragraph so the "pick your own sentence" card is always visible.
+  // Normal cards always carry a real exampleBlockId, so this only affects the
+  // no-example case (and hands off to studentBlockId the moment she picks).
+  const cardBlockId = card
+    ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) || (source.blocks[0]?.id ?? null)
+    : null;
 
   function locateBlock(blockId: string) {
     setRightView("article");
@@ -366,6 +374,7 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                         onConfirm={card.onConfirm}
                         onRepick={card.onRepick}
                         onSkip={card.onSkip}
+                        hasExample={card.hasExample}
                       />
                     );
                   }}

@@ -48,6 +48,13 @@ func readingDeckIDSet() map[string]bool {
 // real (billed) LLM call already ran. Never a broken/empty card.
 const summonProjectCardExampleFallback = "这篇文章里我一时没找到适合这副透镜的好例子，换个视角或直接问我都行。"
 
+// summonProjectCardNoExampleNudge is the nudge_text on a card minted WITHOUT a
+// grounded AI example. A student-chosen summon must never dead-end: when the
+// model can't ground a single illustrative sentence, the lens still opens and
+// she goes straight to finding her own evidence (the core you-find-the-evidence
+// loop) rather than being turned away with summonProjectCardExampleFallback.
+const summonProjectCardNoExampleNudge = "这副透镜就位了——直接在文章里挑一句你最想用它来读的话。"
+
 // summonProjectCard lets the student summon a CHOSEN reading card onto a
 // material herself. Mirrors postReadingTurn's SSE scaffold (project/material
 // load + ownership 404, heartbeat, studioEmitter, RecordLLMCall, done frame)
@@ -190,12 +197,10 @@ func (a *API) summonProjectCard(w http.ResponseWriter, r *http.Request) {
 
 	exampleAnchor, resolved, usage, exampleOK := agent.ProposeCardExample(r.Context(), a.d.Provider, a.d.EvalResolver, spec, matID, blocks)
 	a.recordReadingLLMCall(r.Context(), store, projectID, "read_card_example", resolved, usage)
-	if !exampleOK {
-		_ = em.Intervention("", summonProjectCardExampleFallback, "", "", "reply")
-		_ = em.Done()
-		return
-	}
 
+	// Mint the card whether or not an AI example grounded — the fallback message
+	// now fires ONLY on a true persistence error, never merely because the model
+	// couldn't distill one illustrative sentence.
 	row, cerr := store.CreateCardInstance(r.Context(), projectID, mid, body.CardID, "")
 	if cerr != nil {
 		slog.Error("summon card: create card instance failed",
@@ -204,14 +209,21 @@ func (a *API) summonProjectCard(w http.ResponseWriter, r *http.Request) {
 		_ = em.Done()
 		return
 	}
-	anchorsJSON, merr := json.Marshal([]agent.Anchor{exampleAnchor})
-	if merr != nil {
-		anchorsJSON = []byte("[]")
+
+	anchorsJSON := []byte("[]")
+	nudge := spec.Name
+	if exampleOK {
+		if aj, merr := json.Marshal([]agent.Anchor{exampleAnchor}); merr == nil {
+			anchorsJSON = aj
+		}
+		if serr := store.SetCardInstanceAnchors(r.Context(), projectID, row.ID, anchorsJSON); serr != nil {
+			slog.Warn("summon card: persist anchors failed",
+				"err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	} else {
+		// No groundable example — open the lens anyway; she finds her own sentence.
+		nudge = summonProjectCardNoExampleNudge
 	}
-	if serr := store.SetCardInstanceAnchors(r.Context(), projectID, row.ID, anchorsJSON); serr != nil {
-		slog.Warn("summon card: persist anchors failed",
-			"err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
-	}
-	_ = em.Card(row.ID.String(), body.CardID, spec.Name, anchorsJSON, matID)
+	_ = em.Card(row.ID.String(), body.CardID, nudge, anchorsJSON, matID)
 	_ = em.Done()
 }

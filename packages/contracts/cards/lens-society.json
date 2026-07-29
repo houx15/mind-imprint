@@ -1,0 +1,70 @@
+{
+  "id": "lens-society",
+  "category": "学科透镜",
+  "name": "社会学：谁得到机会，谁承担代价？",
+  "name_en": "Sociology",
+  "purpose": "从社会位置、制度安排、资源差异和权力关系出发，比较同一规则对不同群体的影响。",
+  "trigger_condition": "当讨论涉及公平、阶层、教育机会、社会规范或群体差异。",
+  "trigger_keywords": [
+    "社会学",
+    "群体",
+    "阶层",
+    "制度",
+    "权力",
+    "资源",
+    "教育公平",
+    "机会",
+    "社会规范",
+    "标签化",
+    "家庭背景"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D4",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D4",
+    "D6"
+  ],
+  "related": [
+    "perspective-matrix",
+    "knower-perspective"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "institutions",
+    "task_prompt": "选一句可能让不同群体得到不同机会或承担不同代价的话。",
+    "selection_hint": "追问：谁受益、谁更难参与、谁没有被提到？",
+    "example_focus": "同一安排是否对不同群体产生不同后果",
+    "method_ids": [
+      "perspective-matrix",
+      "knower-perspective"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用社会学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "同一条规则落在不同社会位置的人身上后果并不一样——平均数常常遮住群体差异，也遮住谁有权定义问题。",
+        "how": "追问这句里谁受益、谁更难参与、谁没有被提到，找出一处群体差异，并说明产生它的制度或资源条件。",
+        "when": "当讨论涉及公平、阶层、教育机会、社会规范或群体差异时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一处群体差异，以及产生差异的制度或资源条件"
+        }
+      ]
+    }
+  ]
+}

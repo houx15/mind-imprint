@@ -25,6 +25,21 @@ export const InteractionType = z.enum([
 ]);
 export const BodyStatus = z.enum(["full", "stub"]);
 
+// reading_lens — additive, optional. Present ONLY on the reading-room
+// disciplinary lenses (category 学科透镜): the fields the pick-one-sentence
+// read-together mechanic needs but the writing tool cards never carried.
+// A lens answers "从什么角度看"; its method_ids point at the writing tool
+// cards that answer "具体做什么" (the methods layer, surfaced later). Absent
+// on every tool card — the summon/router prompts fall back to purpose/trigger
+// when it is nil.
+export const ReadingLens = z.object({
+  family: z.enum(["reasoning", "institutions", "context"]),
+  task_prompt: z.string().min(1), // "选一句…" — what the student should pick
+  selection_hint: z.string().min(1), // "留意…" — how to spot such a sentence
+  example_focus: z.string().min(1), // what the AI's one example should highlight
+  method_ids: z.array(z.string()).optional(), // tool cards that operationalize this lens
+});
+
 export const CardSpec = z.object({
   id: z.string().min(1),
   category: z.string().min(1),
@@ -56,6 +71,7 @@ export const CardSpec = z.object({
   observe: z.array(z.object({ when: z.string(), move: z.record(z.unknown()) })).optional(),
   consolidation: z.string().optional(),
   intrusiveness_cap: z.enum(["I0", "I1", "I2", "I3", "I4"]).optional(),
+  reading_lens: ReadingLens.optional(),
 });
 
 export type Methodology = z.infer<typeof Methodology>;
@@ -64,4 +80,5 @@ export type Priority = z.infer<typeof Priority>;
 export type DisclosureTier = z.infer<typeof DisclosureTier>;
 export type InteractionType = z.infer<typeof InteractionType>;
 export type BodyStatus = z.infer<typeof BodyStatus>;
+export type ReadingLens = z.infer<typeof ReadingLens>;
 export type CardSpec = z.infer<typeof CardSpec>;

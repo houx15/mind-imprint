@@ -1,0 +1,76 @@
+{
+  "id": "lens-methods",
+  "category": "学科透镜",
+  "name": "科学方法论：证据可靠吗？",
+  "name_en": "Scientific-Method",
+  "purpose": "从概念定义、测量方式、样本、变量和误差出发，判断研究或模型结果能够支持多强的结论。",
+  "trigger_condition": "当文章用数据、研究、检测或模型结果支撑判断。",
+  "trigger_keywords": [
+    "科学方法",
+    "方法论",
+    "数据",
+    "测量",
+    "检测",
+    "概率",
+    "模型",
+    "变量",
+    "实验",
+    "误差",
+    "样本",
+    "阈值",
+    "准确率"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D1",
+    "D2",
+    "D5"
+  ],
+  "rubric_tags": [
+    "D1",
+    "D2",
+    "D5"
+  ],
+  "related": [
+    "data-literacy",
+    "certainty-spectrum",
+    "science-knowing"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "reasoning",
+    "task_prompt": "选一句依赖数据、检测、研究或模型结果的陈述。",
+    "selection_hint": "先问：测了什么、怎么测、适用于谁？",
+    "example_focus": "测量结果能否支持当前判断",
+    "method_ids": [
+      "data-literacy",
+      "certainty-spectrum",
+      "science-knowing"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用方法论透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "数据、检测和模型结果听起来客观，但口径、样本偏差和误差范围决定了它到底能支撑多强的结论。",
+        "how": "先问这句里测了什么、怎么测、适用于谁，定位一处测量、样本或条件问题，别把概率直接当成确定事实。",
+        "when": "当文章用数据、研究、检测或模型结果来支撑一个判断时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一项需要核实的证据条件，以及它怎样影响结论可信度"
+        }
+      ]
+    }
+  ]
+}

@@ -21,7 +21,7 @@ function LensRow({ entry, onPick }: { entry: ReadingDeckEntry; onPick: (cardId: 
 // this straight into loop.summonCard) and the caller is responsible for
 // closing the panel — this component itself holds no open/closed state.
 export function LensLibrary({ onPick, onClose }: LensLibraryProps) {
-  const { sourceCheck, deepReading } = groupReadingDeck(readingDeck());
+  const { sourceCheck, families } = groupReadingDeck(readingDeck());
 
   return (
     <div className="mk-lens-library__backdrop" role="presentation" onClick={onClose}>
@@ -53,16 +53,16 @@ export function LensLibrary({ onPick, onClose }: LensLibraryProps) {
               </div>
             </section>
           )}
-          {deepReading.length > 0 && (
-            <section className="mk-lens-library__group">
-              <h3>深读</h3>
+          {families.map((group) => (
+            <section key={group.key} className="mk-lens-library__group">
+              <h3>{group.label}</h3>
               <div className="mk-lens-library__rows">
-                {deepReading.map((entry) => (
+                {group.entries.map((entry) => (
                   <LensRow key={entry.id} entry={entry} onPick={onPick} />
                 ))}
               </div>
             </section>
-          )}
+          ))}
         </div>
       </div>
     </div>

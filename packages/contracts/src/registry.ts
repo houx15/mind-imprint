@@ -36,6 +36,16 @@ import sourceMap from "../cards/source-map.json";
 import spinDetector from "../cards/spin-detector.json";
 import steelman from "../cards/steelman.json";
 import toulmin from "../cards/toulmin.json";
+// —— reading lenses (学科透镜): the reading-room deck; see 2026-07-29-reading-lenses-adopt-demo.md ——
+import lensLogic from "../cards/lens-logic.json";
+import lensMethods from "../cards/lens-methods.json";
+import lensSociety from "../cards/lens-society.json";
+import lensLaw from "../cards/lens-law.json";
+import lensEconomics from "../cards/lens-economics.json";
+import lensEthics from "../cards/lens-ethics.json";
+import lensHistory from "../cards/lens-history.json";
+import lensCommunication from "../cards/lens-communication.json";
+import lensSystems from "../cards/lens-systems.json";
 
 const DEFAULT_RAW: Record<string, unknown> = {
   // demo cards
@@ -76,6 +86,16 @@ const DEFAULT_RAW: Record<string, unknown> = {
   "spin-detector": spinDetector,
   steelman,
   toulmin,
+  // reading lenses
+  "lens-logic": lensLogic,
+  "lens-methods": lensMethods,
+  "lens-society": lensSociety,
+  "lens-law": lensLaw,
+  "lens-economics": lensEconomics,
+  "lens-ethics": lensEthics,
+  "lens-history": lensHistory,
+  "lens-communication": lensCommunication,
+  "lens-systems": lensSystems,
 };
 
 export type CatalogEntry = {

@@ -1,0 +1,71 @@
+{
+  "id": "lens-law",
+  "category": "学科透镜",
+  "name": "法学：权利与程序清楚吗？",
+  "name_en": "Law",
+  "purpose": "区分权利、义务、责任和程序，检查一项规则由谁制定、如何执行、能否申诉。",
+  "trigger_condition": "当文章讨论政策、处罚、责任、隐私、禁止措施或申诉。",
+  "trigger_keywords": [
+    "法学",
+    "法律",
+    "权利",
+    "义务",
+    "责任",
+    "隐私",
+    "程序",
+    "申诉",
+    "举证",
+    "比例原则",
+    "处罚",
+    "合规"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D4",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D4",
+    "D6"
+  ],
+  "related": [
+    "ethics-lenses",
+    "source-map"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "institutions",
+    "task_prompt": "选一句涉及规则、权利、责任或程序保障的陈述。",
+    "selection_hint": "找“谁可以做什么、谁负责、如何申诉”。",
+    "example_focus": "规则是否兼顾权利、责任和程序",
+    "method_ids": [
+      "ethics-lenses",
+      "source-map"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用法学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "一条规则是否公正，不只看它禁止什么，更看它有没有兼顾权利边界、举证责任、比例原则和程序保障。",
+        "how": "在这句里区分权利、义务、责任和程序，找“谁可以做什么、谁负责、如何申诉”，定位一处需要澄清的问题。",
+        "when": "当文章讨论政策、处罚、责任、隐私、禁止措施或申诉时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一处需要澄清的权利、责任或程序问题，以及支持它的原文依据"
+        }
+      ]
+    }
+  ]
+}

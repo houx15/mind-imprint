@@ -116,13 +116,93 @@ func blockLookup(materials []Material) map[string][2]string {
 // is 3 bytes but 1 rune. Returning byte offsets highlighted the wrong
 // sentence on every Chinese material (spec §7.1). (0,0) when not found —
 // quote stays authoritative for the UI.
+//
+// Two-pass match. Pass 1 is an exact byte substring. Pass 2 tolerates the ONE
+// thing models routinely do to a Chinese quote — normalize CJK punctuation
+// (，vs , 。vs . “ vs ") and trim it — which broke an exact match on a quote
+// that IS verbatim modulo punctuation, hard-failing the whole summon. It folds
+// punctuation per rune (a 1:1 map, so rune offsets are preserved) and matches
+// on rune slices, mapping the hit straight back to the ORIGINAL text's rune
+// offsets. It never widens or narrows a real span; a true miss still yields (0,0).
 func computeOffsets(text, quote string) (int, int) {
-	i := strings.Index(text, quote)
-	if i < 0 {
+	if i := strings.Index(text, quote); i >= 0 {
+		start := utf8.RuneCountInString(text[:i])
+		return start, start + utf8.RuneCountInString(quote)
+	}
+	tr := []rune(text)
+	qr := []rune(strings.TrimSpace(quote))
+	if len(qr) == 0 || len(qr) > len(tr) {
 		return 0, 0
 	}
-	start := utf8.RuneCountInString(text[:i])
-	return start, start + utf8.RuneCountInString(quote)
+	ft := make([]rune, len(tr))
+	for i, r := range tr {
+		ft[i] = foldPunct(r)
+	}
+	fq := make([]rune, len(qr))
+	for i, r := range qr {
+		fq[i] = foldPunct(r)
+	}
+	idx := runeIndex(ft, fq)
+	if idx < 0 {
+		return 0, 0
+	}
+	return idx, idx + len(fq)
+}
+
+// foldPunct maps the CJK/ASCII punctuation pairs models interchange to a single
+// canonical rune, one rune in → one rune out (offset-preserving). Anything not
+// in the table passes through unchanged.
+func foldPunct(r rune) rune {
+	switch r {
+	case '，', '、':
+		return ','
+	case '。':
+		return '.'
+	case '！':
+		return '!'
+	case '？':
+		return '?'
+	case '；':
+		return ';'
+	case '：':
+		return ':'
+	case '（':
+		return '('
+	case '）':
+		return ')'
+	case '“', '”', '＂', '「', '」':
+		return '"'
+	case '‘', '’':
+		return '\''
+	case '—', '－', '–':
+		return '-'
+	case '　': // full-width space
+		return ' '
+	}
+	return r
+}
+
+// runeIndex is a naive substring search over rune slices, returning the rune
+// index of the first occurrence of sub in s, or -1. (strings.Index works on
+// bytes; folding changes byte widths but not rune counts, so the match has to
+// happen in rune space to keep offsets valid.)
+func runeIndex(s, sub []rune) int {
+	if len(sub) == 0 || len(sub) > len(s) {
+		return -1
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		match := true
+		for j := range sub {
+			if s[i+j] != sub[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
 }
 
 func parseAnchorGen(text string, spec cards.Spec, materials []Material, level GuidanceLevel) ([]Anchor, error) {

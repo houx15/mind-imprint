@@ -1,0 +1,73 @@
+{
+  "id": "lens-communication",
+  "category": "学科透镜",
+  "name": "传播学：表达方式怎样影响判断？",
+  "name_en": "Communication",
+  "purpose": "观察标题、标签、隐喻和叙述角度怎样突出一部分事实，同时把另一部分移出视野。",
+  "trigger_condition": "当某个用词、标题、标签或叙述方式明显影响读者态度。",
+  "trigger_keywords": [
+    "传播学",
+    "传播",
+    "媒体",
+    "框架",
+    "框定",
+    "措辞",
+    "叙事",
+    "受众",
+    "语气",
+    "标签",
+    "标题",
+    "声音"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D3",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D3",
+    "D6"
+  ],
+  "related": [
+    "framing",
+    "cda",
+    "spin-detector"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "context",
+    "task_prompt": "选一句可能通过用词或叙述角度引导读者判断的陈述。",
+    "selection_hint": "试着换一个词：读者的感受会不会变化？",
+    "example_focus": "表达方式怎样塑造读者的判断",
+    "method_ids": [
+      "framing",
+      "cda",
+      "spin-detector"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用传播学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "标题、标签、隐喻和叙述角度会突出一部分事实、把另一部分移出视野——看见框定，才不会被措辞牵着走。",
+        "how": "试着替换这句里的关键词，看读者感受是否变化，指出一处表达框定以及它突出和遮蔽了什么。",
+        "when": "当某个用词、标题、标签或叙述方式明显影响读者态度时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一处表达框定，以及它突出和遮蔽的内容"
+        }
+      ]
+    }
+  ]
+}

@@ -235,15 +235,15 @@ describe("ReadingRoom — read-together loop", () => {
     render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     // Opening the library lists the reading deck, grouped — a source-check
-    // card (CRAAP) and a deep-reading card (论证地图) are both visible.
+    // card (CRAAP) and a disciplinary lens (逻辑学) are both visible.
     fireEvent.click(screen.getByRole("button", { name: /透镜库/ }));
     expect(screen.getByRole("dialog", { name: "透镜库" })).toBeInTheDocument();
     expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeInTheDocument();
-    expect(screen.getByText("论证地图卡（结构 + 谬误）")).toBeInTheDocument();
+    expect(screen.getByText("逻辑学：推理有没有跳步？")).toBeInTheDocument();
 
     // Picking a card calls summonCard and closes the library.
-    fireEvent.click(screen.getByText("论证地图卡（结构 + 谬误）"));
-    expect(fakeApi.summonCard).toHaveBeenCalledWith("p1", "m1", "argument-map");
+    fireEvent.click(screen.getByText("逻辑学：推理有没有跳步？"));
+    expect(fakeApi.summonCard).toHaveBeenCalledWith("p1", "m1", "lens-logic");
     expect(screen.queryByRole("dialog", { name: "透镜库" })).not.toBeInTheDocument();
 
     // The loop goes to "proposed" — the hanging card appears, same as a

@@ -1,0 +1,71 @@
+{
+  "id": "lens-history",
+  "category": "学科透镜",
+  "name": "历史学：这个判断依赖什么背景？",
+  "name_en": "History",
+  "purpose": "把主张放回它形成的时间与制度背景，观察哪些条件发生了变化，哪些惯性仍在延续。",
+  "trigger_condition": "当文章比较过去与现在，解释制度起源、演变或社会变化。",
+  "trigger_keywords": [
+    "历史学",
+    "历史",
+    "过去",
+    "今天",
+    "时代",
+    "背景",
+    "起源",
+    "演变",
+    "变化",
+    "路径依赖",
+    "传统",
+    "长期以来"
+  ],
+  "priority": "P1",
+  "disclosure_tier": "tier-1",
+  "age_band": [
+    "MYP",
+    "DP"
+  ],
+  "interaction_type": "步骤引导卡",
+  "rubric_dims": [
+    "D2",
+    "D6"
+  ],
+  "rubric_tags": [
+    "D2",
+    "D6"
+  ],
+  "related": [
+    "opcvl",
+    "source-map"
+  ],
+  "body_status": "full",
+  "reading_lens": {
+    "family": "context",
+    "task_prompt": "选一句只有放回特定时间背景才容易理解的陈述。",
+    "selection_hint": "追问：它从什么时候开始，当时的条件是什么？",
+    "example_focus": "结论依赖哪些时代与制度背景",
+    "method_ids": [
+      "opcvl",
+      "source-map"
+    ]
+  },
+  "steps": [
+    {
+      "key": "read",
+      "title": "用历史学透镜读这一句",
+      "disclose": "always",
+      "methodology": {
+        "why": "把当下现象当成没有来历的常识，会漏掉路径依赖和时代差异——放回它形成的背景，判断才站得住。",
+        "how": "追问这句从什么时候开始、当时的条件是什么，找出一项关键背景条件，别用今天的条件直接替代过去。",
+        "when": "当文章比较过去与现在，解释制度起源、演变或社会变化时。"
+      },
+      "fields": [
+        {
+          "type": "textarea",
+          "key": "finding",
+          "label": "你在这句里发现的一项关键背景条件，以及它怎样限制当前判断"
+        }
+      ]
+    }
+  ]
+}

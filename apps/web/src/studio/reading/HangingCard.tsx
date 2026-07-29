@@ -16,6 +16,11 @@ export type HangingCardProps = {
   // dismissable. Optional so a caller that truly can't offer a skip path
   // (none today) still compiles.
   onSkip?: () => void;
+  // hasExample — false when the lens was summoned but the AI couldn't ground a
+  // single illustrative sentence (graceful-degrade summon). The "proposed"
+  // state then drops the "看懂示范" framing and invites her to pick her own
+  // sentence directly. Defaults true (the router/normal summon always has one).
+  hasExample?: boolean;
 };
 
 // The signature move (demo app.js:422-424): the card hangs under the AI's
@@ -95,7 +100,7 @@ function SkipLink({ onSkip }: { onSkip: () => void }) {
   );
 }
 
-export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip }: HangingCardProps) {
+export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip, hasExample = true }: HangingCardProps) {
   return (
     <div
       style={{
@@ -113,13 +118,21 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
       <div style={{ padding: "12px 15px 14px" }}>
         <div style={{ fontSize: 10.5, fontWeight: 700, color: "#5C4A8A", marginBottom: 8 }}>{cardName}</div>
 
-        {status === "proposed" && (
+        {status === "proposed" && hasExample && (
           <>
             <details style={{ marginBottom: 10 }}>
               <summary style={{ fontSize: 12, fontWeight: 600, color: "#8A92A3", cursor: "pointer" }}>为什么是这句（方法说明）</summary>
               <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginTop: 6 }}>{exampleWhy}</div>
             </details>
             <PrimaryButton onClick={onStartPick}>看懂示范，开始选句</PrimaryButton>
+            {onSkip && <SkipLink onSkip={onSkip} />}
+          </>
+        )}
+
+        {status === "proposed" && !hasExample && (
+          <>
+            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginBottom: 10 }}>{exampleWhy}</div>
+            <PrimaryButton onClick={onStartPick}>开始选句</PrimaryButton>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
         )}
