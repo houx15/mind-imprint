@@ -142,6 +142,97 @@ func TestExplorationLeadCRUD(t *testing.T) {
 	}
 }
 
+// TestExplorationLead_PartialPatchNoClobber locks in the S2 "full-replace data
+// loss" bug class for PATCH lead: a partial JSON body must merge onto the
+// existing row, never wipe fields the caller didn't mention. Absent field ≠
+// clear; only an explicit JSON null clears.
+func TestExplorationLead_PartialPatchNoClobber(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// Seed a lead.
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"这条论证站得住脚吗？"}`)
+	if rec.Code != 201 {
+		t.Fatalf("create lead = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var created struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created lead: %v — %s", err, rec.Body)
+	}
+	lid := created.Lead.ID
+
+	// Seed a reference to connect it to.
+	rec = doJSON(t, h, cookie, "POST", base+"/references", `{"title":"Nature Sustainability 论文"}`)
+	var refWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode created reference: %v — %s", err, rec.Body)
+	}
+	rid := refWrap.Reference.ID
+
+	// 1) PATCH both fields to connect the lead.
+	rec = doJSON(t, h, cookie, "PATCH", base+"/exploration/leads/"+lid,
+		`{"status":"connected","connectedReferenceId":"`+rid+`"}`)
+	if rec.Code != 200 {
+		t.Fatalf("patch connect = %d: %s", rec.Code, rec.Body)
+	}
+	var patched struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatalf("decode patched lead: %v — %s", err, rec.Body)
+	}
+	if patched.Lead.Status != "connected" {
+		t.Fatalf("status after connect = %q, want connected", patched.Lead.Status)
+	}
+	if patched.Lead.ConnectedReferenceID == nil || *patched.Lead.ConnectedReferenceID != rid {
+		t.Fatalf("connectedReferenceId after connect = %v, want %q", patched.Lead.ConnectedReferenceID, rid)
+	}
+
+	// 2) PATCH with ONLY status (connectedReferenceId field absent from the
+	// JSON body entirely) must NOT clobber text or the existing connection.
+	rec = doJSON(t, h, cookie, "PATCH", base+"/exploration/leads/"+lid, `{"status":"open"}`)
+	if rec.Code != 200 {
+		t.Fatalf("patch status-only = %d: %s", rec.Code, rec.Body)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatalf("decode status-only patched lead: %v — %s", err, rec.Body)
+	}
+	if patched.Lead.Status != "open" {
+		t.Fatalf("status after status-only patch = %q, want open", patched.Lead.Status)
+	}
+	if patched.Lead.Text != "这条论证站得住脚吗？" {
+		t.Fatalf("text after status-only patch = %q, want unchanged", patched.Lead.Text)
+	}
+	if patched.Lead.ConnectedReferenceID == nil || *patched.Lead.ConnectedReferenceID != rid {
+		t.Fatalf("connectedReferenceId after status-only patch = %v, want preserved %q (field-absent must not wipe)", patched.Lead.ConnectedReferenceID, rid)
+	}
+
+	// 3) PATCH with ONLY an explicit connectedReferenceId:null must disconnect
+	// the reference without touching status (absent from this body).
+	rec = doJSON(t, h, cookie, "PATCH", base+"/exploration/leads/"+lid, `{"connectedReferenceId":null}`)
+	if rec.Code != 200 {
+		t.Fatalf("patch disconnect-only = %d: %s", rec.Code, rec.Body)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatalf("decode disconnect-only patched lead: %v — %s", err, rec.Body)
+	}
+	if patched.Lead.ConnectedReferenceID != nil {
+		t.Fatalf("connectedReferenceId after explicit-null patch = %v, want nil", patched.Lead.ConnectedReferenceID)
+	}
+	if patched.Lead.Status != "open" {
+		t.Fatalf("status after disconnect-only patch = %q, want preserved open (status was absent from this body)", patched.Lead.Status)
+	}
+}
+
 // TestExploration_IDOR — a lead in project A must not be GET/PATCH/DELETE-able
 // via project B (404 in all cases, no mutation leaks across the boundary).
 func TestExploration_IDOR(t *testing.T) {
