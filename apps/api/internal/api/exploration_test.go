@@ -427,3 +427,51 @@ func TestExplorationGuide_EmptyGraphNoSpend(t *testing.T) {
 		t.Fatalf("want 0 exploration_guide llm_call for an empty graph, got %d", n)
 	}
 }
+
+// TestExplorationGuide_ComposeFailureNoSpend — Task 6 review fix (metering
+// precision): a NON-EMPTY graph (one engaged reference, so HasGraphContent
+// is true and the resolve+compose path is actually taken — unlike
+// EmptyGraphNoSpend, which never reaches the resolver at all) whose compose
+// call fails (the stub replies with non-JSON, so ComposeExplorationGuide's
+// json.Unmarshal errors and cerr != nil) must still return 200 with empty
+// directions, but must NOT record an llm_call row — an llm_call row
+// represents a COMPLETED call, and resolved.Provider != "" alone (the
+// resolver succeeding) is not proof of that. Contrast
+// TestExplorationGuide_ReturnsDirections, which pins that a SUCCESSFUL
+// compose records exactly one row.
+func TestExplorationGuide_ComposeFailureNoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		// Not valid JSON — ComposeExplorationGuide's stripFences+Unmarshal
+		// will fail, giving cerr != nil despite resolved.Provider != "".
+		Provider: readingStubProvider("not json"), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"NASA 卫星数据"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("seed reference = %d: %s", rec.Code, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/guide", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("guide = %d, want 200 even on compose failure: %s", rec.Code, rec.Body)
+	}
+	var out explorationGuideView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode guide response: %v — %s", err, rec.Body)
+	}
+	if len(out.Directions) != 0 {
+		t.Fatalf("directions = %+v, want empty when compose fails", out.Directions)
+	}
+
+	// The fix's regression pin: a resolved provider with a FAILED compose
+	// must not phantom-record a 0-token/$0 llm_call row.
+	if n := countLLMCallsByPurpose(t, pool, pid, "exploration_guide"); n != 0 {
+		t.Fatalf("want 0 exploration_guide llm_call on compose failure, got %d", n)
+	}
+}

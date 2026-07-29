@@ -341,9 +341,11 @@ func (a *API) assembleExplorationGuideInput(ctx context.Context, projectID uuid.
 // deterministically, and if the graph is empty (agent.HasGraphContent false)
 // skip the WHOLE resolver/compose/meter block — an empty graph must never
 // resolve a provider or touch the llm_call audit trail, not just skip
-// metering. Metering only fires when resolved.Provider != "" (a call actually
-// happened); a compose error still returns 200 with empty directions, never
-// 500 — the student can always keep going without the guide. No persistence:
+// metering. Metering only fires when resolved.Provider != "" AND the compose
+// call completed without error (an llm_call row represents a COMPLETED
+// call — a resolver success with a failed compose must not phantom-record a
+// 0-token/$0 row); a compose error still returns 200 with empty directions,
+// never 500 — the student can always keep going without the guide. No persistence:
 // the guide only proposes, the student decides whether to turn a direction
 // into a lead via createExplorationLead.
 func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
@@ -366,7 +368,7 @@ func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
 	if agent.HasGraphContent(in) {
 		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
 			ds, usage, cerr := agent.ComposeExplorationGuide(r.Context(), a.d.Provider, resolved, in)
-			if resolved.Provider != "" {
+			if resolved.Provider != "" && cerr == nil {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "exploration_guide",
