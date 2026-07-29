@@ -233,7 +233,9 @@ export function ReviewBlock({
 /* ---------- S5 · AI-use retrospective (复盘我与 AI 的互动) ---------- */
 
 function recordLine(r: AIUseRecord): string {
-  return `印记陪你走的这一程：${r.coachTurns} 轮对话 · 提议 ${r.cardsProposed} 张卡（你用了 ${r.cardsAccepted}、跳过 ${r.cardsDismissed}）· 你打开 ${r.sourcesOpened} 个来源 · 没有替你写正文、没有替你预测分数。`;
+  // cardsAccepted counts cards you engaged across every summon path (not only
+  // AI-proposed ones), so keep the two counts separate rather than a ratio.
+  return `印记陪你走的这一程：${r.coachTurns} 轮对话 · AI 提议 ${r.cardsProposed} 张卡（跳过 ${r.cardsDismissed}）· 你一共打开 ${r.cardsAccepted} 张卡 · 打开 ${r.sourcesOpened} 个来源 · 没有替你写正文、没有替你预测分数。`;
 }
 
 function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {

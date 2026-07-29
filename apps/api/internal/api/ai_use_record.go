@@ -33,9 +33,13 @@ func buildAIUseRecord(events []sqlc.Event, llmCalls []sqlc.LlmCall) aiUseRecord 
 			rec.CoachTurns++
 		case "coach_proposed":
 			rec.CardsProposed++
-		case "card_activated":
-			// The student OPENED a card (accepted the offer / self-summoned).
-			// Counted here (not card_completed) so accept is counted once.
+		case "card_activated", "card_logged", "rabbit_hole_logged":
+			// A card the student ENGAGED — across all summon paths, which each emit
+			// a DISJOINT event (reading loop → card_activated; coach/writing persist
+			// → card_logged; 兔子洞 → rabbit_hole_logged), so counting all three is
+			// exactly-once. card_activated ALONE misses every coach-proposed card
+			// (whole-branch review CRITICAL): those complete via /cards/persist and
+			// emit only card_logged, so an accepted proposal was reported as 0.
 			rec.CardsAccepted++
 		case "coach_proposal_skipped", "card_skipped":
 			rec.CardsDismissed++

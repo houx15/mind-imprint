@@ -76,8 +76,10 @@ func (a *API) buildProjectAIUseRecord(ctx context.Context, projectID uuid.UUID) 
 
 // aiUseRecordLine is a one-line objective-record digest for the assessor prompt.
 func aiUseRecordLine(r aiUseRecord) string {
-	return fmt.Sprintf("%d 轮对话 · AI 提议 %d 张卡（打开 %d、跳过 %d）· 打开 %d 个来源 · 无代写正文、无预测分数",
-		r.CoachTurns, r.CardsProposed, r.CardsAccepted, r.CardsDismissed, r.SourcesOpened)
+	// CardsAccepted spans all summon paths (not only the proposed ones), so phrase
+	// it as a separate count, not a subset of CardsProposed.
+	return fmt.Sprintf("%d 轮对话 · AI 提议 %d 张卡（跳过 %d）· 你一共打开 %d 张卡 · 打开 %d 个来源 · 无代写正文、无预测分数",
+		r.CoachTurns, r.CardsProposed, r.CardsDismissed, r.CardsAccepted, r.SourcesOpened)
 }
 
 // getAIUseDraft returns the objective record + a draft statement. The draft is

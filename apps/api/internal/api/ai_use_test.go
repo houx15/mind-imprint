@@ -84,6 +84,36 @@ func TestGetAIUseDraft_SeedsFromRecordAndMeters(t *testing.T) {
 	}
 }
 
+// TestGetAIUseDraft_CountsAcceptedCoachCard — the objective record must count a
+// coach-proposed card the student accepted via the REAL persist path (which
+// emits card_logged, NOT card_activated). Regression for the whole-branch
+// CRITICAL: card_activated-only counting reported accepted cards as 0.
+func TestGetAIUseDraft_CountsAcceptedCoachCard(t *testing.T) {
+	h, cookie, _ := aiUseHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rrP := httptest.NewRecorder()
+	h.ServeHTTP(rrP, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
+		strings.NewReader(`{"card_id":"certainty-spectrum","field_values":{"claim":"有限肯定"},"event_trace":[]}`)), cookie))
+	if rrP.Code != http.StatusOK {
+		t.Fatalf("persist = %d — %s", rrP.Code, rrP.Body)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/ai-use-draft", nil), cookie))
+	var d struct {
+		Record struct {
+			CardsAccepted int `json:"cardsAccepted"`
+		} `json:"record"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &d); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if d.Record.CardsAccepted < 1 {
+		t.Fatalf("an accepted coach card (card_logged) must count, got cardsAccepted=%d", d.Record.CardsAccepted)
+	}
+}
+
 func TestGetAIUseDraft_ReturnsSavedStatementNoSpend(t *testing.T) {
 	h, cookie, pool := aiUseHandler(t)
 	base := "/api/v1/projects/" + seedProjectID
