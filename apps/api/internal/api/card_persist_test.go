@@ -57,6 +57,57 @@ func TestPostPersistProjectCard_PersistsProposable(t *testing.T) {
 	}
 }
 
+func countSkippedCard(t *testing.T, pool *pgxpool.Pool, projectID, cardID string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM card_instances WHERE project_id=$1 AND card_id=$2 AND status='skipped'`,
+		mustUUID(projectID), cardID).Scan(&n); err != nil {
+		t.Fatalf("countSkippedCard: %v", err)
+	}
+	return n
+}
+
+// TestPostDismissProposal_RecordsSkipAndStopsReoffer — dismissing a proposal
+// marks the card skipped, so a subsequent qualifying coach turn no longer offers
+// it (铁律 · 不操纵 — once she says no, we don't ask again).
+func TestPostDismissProposal_RecordsSkipAndStopsReoffer(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: momentReplyProvider("fact_opinion"), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// First writing turn → a fact-opinion-value proposal.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"scope":"writing","user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
+	if !strings.Contains(rr.Body.String(), "fact-opinion-value") {
+		t.Fatalf("expected first turn to propose fact-opinion-value: %s", rr.Body)
+	}
+
+	// Dismiss it.
+	rrD := httptest.NewRecorder()
+	h.ServeHTTP(rrD, withCookie(httptest.NewRequest("POST", base+"/cards/dismiss-proposal",
+		strings.NewReader(`{"card_id":"fact-opinion-value"}`)), cookie))
+	if rrD.Code != http.StatusNoContent {
+		t.Fatalf("dismiss = %d, want 204 — %s", rrD.Code, rrD.Body)
+	}
+	if got := countSkippedCard(t, pool, seedProjectID, "fact-opinion-value"); got != 1 {
+		t.Fatalf("skipped fact-opinion-value = %d, want 1", got)
+	}
+
+	// A second qualifying writing turn must NOT re-offer fact-opinion-value.
+	rr2 := httptest.NewRecorder()
+	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"scope":"writing","user_input":"我还是觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
+	if strings.Contains(rr2.Body.String(), "fact-opinion-value") {
+		t.Fatalf("dismissed card must not be re-offered: %s", rr2.Body)
+	}
+}
+
 func TestPostPersistProjectCard_RejectsNonProposable(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID

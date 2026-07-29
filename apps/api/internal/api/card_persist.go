@@ -68,6 +68,48 @@ func (a *API) persistProjectCardEnvelope(ctx context.Context, projectID uuid.UUI
 	return row.ID, nil
 }
 
+// postDismissProposal records the student declining a coach card offer as a
+// skipped card_instance. EligibleMoments treats a card with an instance in ANY
+// status (including skipped) as ineligible, so this makes the coach STOP
+// offering that card — 铁律 2 · 不操纵: once she says no, we do not ask again.
+// Without this the dismiss was client-only and the coach re-offered the same
+// card every qualifying turn (whole-branch review IMPORTANT 2). Ownership-gated;
+// no spend; allowlist-enforced.
+func (a *API) postDismissProposal(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		CardID string `json:"card_id"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !coachProposableCards[body.CardID] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "card_id 不在可提议卡片范围内", nil))
+		return
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	row, err := store.CreateCardInstance(r.Context(), projectID, uuid.Nil, body.CardID, "")
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	if err := store.SetCardInstanceStatus(r.Context(), projectID, row.ID, "skipped"); err != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "coach_proposal_skipped",
+		Payload: mustJSON(map[string]any{"cardId": body.CardID}),
+	}); err != nil {
+		slog.Warn("dismiss proposal: append event failed", "err", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // postPersistProjectCard persists a completed envelope for a card the coach
 // proposed cross-phase. Ownership-gated; no LLM spend. card_id must be in the
 // proposable allowlist (else 400).

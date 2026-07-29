@@ -56,16 +56,15 @@ type coachProposalDTO struct {
 }
 
 // coachProposeSurfaces are the room scopes where the coach may OFFER an
-// argument-moment card. The moment classifier's vocabulary (fact-opinion-value /
-// certainty-spectrum / steelman) are 立题/写作/回顾 tools per the placement map —
-// NOT reading-room (which has its own respond/hint/summon ladder) and NOT the
-// 文献库 (which has the exploration guide). Suppressing outside these surfaces
-// keeps a card from being offered where it doesn't belong.
+// argument-moment card. The gate MUST equal the set of surfaces whose CLIENT
+// renders the proposal chip — otherwise the server spends a classify call and
+// records a coach_proposed event for an offer no student ever sees (whole-branch
+// review IMPORTANT 1). Today only WritingBlock renders it, so the gate is
+// writing-only; forming/proposal_review/reflection can be added the moment their
+// rooms render CoachProposal + wire persist. The classifier's vocabulary
+// (fact-opinion-value / certainty-spectrum / steelman) is writing-native anyway.
 var coachProposeSurfaces = map[string]bool{
-	"writing":         true,
-	"forming":         true,
-	"proposal_review": true,
-	"reflection":      true,
+	"writing": true,
 }
 
 // coachCardProposal decides whether to OFFER a student card on this coach turn.
@@ -100,7 +99,10 @@ func (a *API) coachCardProposal(ctx context.Context, projectID uuid.UUID, scope,
 		return nil // shared classifier spend backstop reached
 	}
 	proposal, usage, perr := agent.ProposeCoachCard(ctx, a.d.Provider, resolved, studentText, eligible)
-	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+	// Meter only a completed classify call (perr == nil): ProposeCoachCard zeroes
+	// usage on error today, but guard explicitly so a future partial-usage error
+	// contract can't record a phantom row (parity with maybeCompactBackstop).
+	if perr == nil && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
 		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "classify",
 			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),

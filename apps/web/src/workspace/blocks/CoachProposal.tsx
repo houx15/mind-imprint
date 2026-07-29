@@ -4,8 +4,8 @@ import type { CardProposalWire } from "../api/workspace";
 // may suggest opening a thinking-card mid-conversation; this renders the offer
 // as a gentle, dismissable chip under the reply. Opening is the student's tap
 // (铁律: triggering is automatic, opening is confirmed) — this component NEVER
-// auto-opens on render; 跳过 dismisses (and, like all friction, the skip is
-// itself recorded upstream — 过程即数据).
+// auto-opens on render. 跳过 calls onDismiss; the caller records the decline
+// upstream (so the coach stops offering that card — 铁律 · 不操纵).
 export function CoachProposal({
   proposal,
   onOpen,

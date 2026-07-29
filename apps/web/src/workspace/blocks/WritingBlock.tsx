@@ -3,7 +3,7 @@ import type { Proposal } from "@mind-imprint/contracts";
 import { putBuffer } from "../../api/writing";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard } from "../api/workspace";
+import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
 import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
@@ -657,6 +657,12 @@ function CoachRail({ projectId }: { projectId: string }) {
     setProposal(null);
     setOpenCardId(cardId);
   }
+  // Dismiss is an explicit "no": record it so the coach stops offering this card
+  // (铁律 · 不操纵). Best-effort — the chip clears regardless.
+  function dismissProposedCard(cardId: string) {
+    setProposal(null);
+    void dismissProposal(projectId, cardId).catch(() => {});
+  }
   async function submitProposedCard(fieldValues: Record<string, unknown>, eventTrace: unknown[]) {
     const cardId = openCardId;
     setOpenCardId(null);
@@ -685,7 +691,7 @@ function CoachRail({ projectId }: { projectId: string }) {
           </div>
         ))}
         {proposal && !openCardId ? (
-          <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => setProposal(null)} />
+          <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
         ) : null}
         {openCardId && CARD_REGISTRY[openCardId] ? (
           <StudioCardSheet

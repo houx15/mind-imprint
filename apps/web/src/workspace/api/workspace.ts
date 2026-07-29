@@ -132,6 +132,16 @@ export async function persistProjectCard(
   return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
 }
 
+// POST /cards/dismiss-proposal — record the student declining a coach card
+// offer (S4). Marks the card skipped so the coach stops offering it (铁律 ·
+// 不操纵). No spend.
+export async function dismissProposal(id: string, cardId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/v1/projects/${id}/cards/dismiss-proposal`, {
+    method: "POST",
+    body: JSON.stringify({ card_id: cardId }),
+  });
+}
+
 // POST /exploration/rabbit-hole — persist the completed 兔子洞 reflection (S4;
 // the S3 TODO). No spend; records the card_instance + a rabbit_hole_logged event.
 export async function postRabbitHoleCard(
