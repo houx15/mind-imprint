@@ -59,3 +59,12 @@ func GetEnrollmentParamsForTest(userID uuid.UUID, classID string) sqlc.GetEnroll
 func (a *API) SurfaceAnchorsForTest(ctx context.Context, store agent.AgentStore, projectID uuid.UUID, spec cards.Spec, cardInstanceID, checkedMaterialID string) ([]byte, bool) {
 	return a.surfaceAnchors(ctx, store, projectID, spec, cardInstanceID, checkedMaterialID, false)
 }
+
+// ReadingBriefForTest exposes the unexported readingBriefFor (reading_brief.go,
+// Task 3's one new DB-facing function) to the external api_test package, so a
+// DB-backed test can assert its return value directly against real
+// reference/proposal rows instead of only threading it through an HTTP
+// response or a captured LLM prompt.
+func (a *API) ReadingBriefForTest(ctx context.Context, projectID, materialID uuid.UUID) agent.ReadingBrief {
+	return a.readingBriefFor(ctx, projectID, materialID)
+}

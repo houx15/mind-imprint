@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -109,5 +110,65 @@ func TestPutReadingBrief_PreservesNotes(t *testing.T) {
 	note := out.Reference.Notes[0]
 	if note.Quote != "根据 NASA 卫星数据" || !strings.Contains(note.Finding, "Chen et al.") {
 		t.Fatalf("note projection wrong: %+v", note)
+	}
+}
+
+// TestReadingBriefFor_MatchesByMaterialAndLoadsProposal is the coverage-gap
+// fix: readingBriefFor (reading_brief.go) is the one new DB-facing function
+// in Task 3 and previously had no test exercising it against real Postgres
+// rows (only buildReadingRouteUserPrompt, with a hand-built agent.ReadingBrief
+// struct, was tested). Drives it directly via the ReadingBriefForTest seam
+// (export_test.go) against a persisted reference brief + proposal, and guards
+// the match-by-material_id logic: a material with no linked reference must
+// not pick up another reference's brief just because it shares the project.
+func TestReadingBriefFor_MatchesByMaterialAndLoadsProposal(t *testing.T) {
+	pool := newAPITestPool(t)
+	a := New(DepsForTest(pool))
+	h := a.Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	projectID := uuid.MustParse(seedProjectID)
+
+	// Seed a reference bound to a real material, carrying a persisted brief.
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "NASA 报告", craapMaterialText)
+	materialID := uuid.MustParse(matID)
+	ref := seedReference(t, q, "NASA 报告")
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: materialID, Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+	reason, focus, phase := "验证碳排放反例", "看引用来源是否可信", "反例检验"
+	if _, err := q.UpdateReadingBrief(ctx, sqlc.UpdateReadingBriefParams{
+		ID: ref.ID, ProjectID: projectID,
+		ReadingReason: &reason, ReadingFocus: &focus, PhaseTag: &phase,
+	}); err != nil {
+		t.Fatalf("persist brief: %v", err)
+	}
+	if _, err := q.UpsertProjectProposal(ctx, sqlc.UpsertProjectProposalParams{
+		ProjectID: projectID, Objective: "研究中国是否让地球更可持续",
+		Reason: "关心气候变化", Activities: "读 NASA/Nature，写论证", Resources: "Zotero + 学校图书馆",
+	}); err != nil {
+		t.Fatalf("persist proposal: %v", err)
+	}
+
+	// (a) happy path: the persisted brief + proposal snapshot load.
+	got := a.ReadingBriefForTest(ctx, projectID, materialID)
+	if got.Reason != reason || got.Focus != focus || got.PhaseTag != phase {
+		t.Fatalf("readingBriefFor did not load the persisted brief, got %+v", got)
+	}
+	if got.ProposalSnap != "研究中国是否让地球更可持续" {
+		t.Fatalf("readingBriefFor did not load the proposal snapshot, got %+v", got)
+	}
+
+	// (b) guard: a DIFFERENT material with no reference pointing at it must
+	// not pick up the seeded reference's brief just because it's the same
+	// project — this is the "wrong match" bug class the gap review flagged.
+	otherMatID := uuid.MustParse(ingestMaterialForTest(t, h, cookie, seedProjectID, "Nature 报告", craapMaterialText))
+	unmatched := a.ReadingBriefForTest(ctx, projectID, otherMatID)
+	if unmatched.Reason != "" || unmatched.Focus != "" || unmatched.PhaseTag != "" {
+		t.Fatalf("readingBriefFor matched an unrelated reference's brief for an unlinked material: %+v", unmatched)
 	}
 }
