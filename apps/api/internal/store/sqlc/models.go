@@ -398,6 +398,13 @@ type Project struct {
 	LastActiveAt  time.Time          `json:"last_active_at"`
 }
 
+type ProjectAiUse struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	UsedFor    string    `json:"used_for"`
+	NotUsedFor string    `json:"not_used_for"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 type ProjectMirrorProse struct {
 	ProjectID     uuid.UUID `json:"project_id"`
 	Sections      []byte    `json:"sections"`

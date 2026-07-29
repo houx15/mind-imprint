@@ -176,6 +176,18 @@ RETURNING *;
 
 -- Review · the five-dimension reflection doc (answers jsonb string array). ----
 
+-- name: GetProjectAIUse :one
+-- S5 · the student's AI-use statement (回顾 · 复盘我与 AI 的互动).
+SELECT * FROM project_ai_use WHERE project_id = $1;
+
+-- name: UpsertProjectAIUse :exec
+INSERT INTO project_ai_use (project_id, used_for, not_used_for, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (project_id) DO UPDATE SET
+    used_for     = EXCLUDED.used_for,
+    not_used_for = EXCLUDED.not_used_for,
+    updated_at   = now();
+
 -- name: GetProjectReflection :one
 SELECT * FROM project_reflection WHERE project_id = $1;
 

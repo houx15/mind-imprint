@@ -491,6 +491,25 @@ func (q *Queries) GetPlanItem(ctx context.Context, arg GetPlanItemParams) (PlanI
 	return i, err
 }
 
+const getProjectAIUse = `-- name: GetProjectAIUse :one
+
+SELECT project_id, used_for, not_used_for, updated_at FROM project_ai_use WHERE project_id = $1
+`
+
+// Review · the five-dimension reflection doc (answers jsonb string array). ----
+// S5 · the student's AI-use statement (回顾 · 复盘我与 AI 的互动).
+func (q *Queries) GetProjectAIUse(ctx context.Context, projectID uuid.UUID) (ProjectAiUse, error) {
+	row := q.db.QueryRow(ctx, getProjectAIUse, projectID)
+	var i ProjectAiUse
+	err := row.Scan(
+		&i.ProjectID,
+		&i.UsedFor,
+		&i.NotUsedFor,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProjectMirror = `-- name: GetProjectMirror :one
 
 SELECT project_id, sections, carry_forwards, model, tier, created_at FROM project_mirror_prose WHERE project_id = $1
@@ -530,11 +549,9 @@ func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (
 }
 
 const getProjectReflection = `-- name: GetProjectReflection :one
-
 SELECT project_id, answers, done, updated_at FROM project_reflection WHERE project_id = $1
 `
 
-// Review · the five-dimension reflection doc (answers jsonb string array). ----
 func (q *Queries) GetProjectReflection(ctx context.Context, projectID uuid.UUID) (ProjectReflection, error) {
 	row := q.db.QueryRow(ctx, getProjectReflection, projectID)
 	var i ProjectReflection
@@ -1274,6 +1291,26 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		&i.TakeawayFinalizedAt,
 	)
 	return i, err
+}
+
+const upsertProjectAIUse = `-- name: UpsertProjectAIUse :exec
+INSERT INTO project_ai_use (project_id, used_for, not_used_for, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (project_id) DO UPDATE SET
+    used_for     = EXCLUDED.used_for,
+    not_used_for = EXCLUDED.not_used_for,
+    updated_at   = now()
+`
+
+type UpsertProjectAIUseParams struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	UsedFor    string    `json:"used_for"`
+	NotUsedFor string    `json:"not_used_for"`
+}
+
+func (q *Queries) UpsertProjectAIUse(ctx context.Context, arg UpsertProjectAIUseParams) error {
+	_, err := q.db.Exec(ctx, upsertProjectAIUse, arg.ProjectID, arg.UsedFor, arg.NotUsedFor)
+	return err
 }
 
 const upsertProjectProposal = `-- name: UpsertProjectProposal :one
