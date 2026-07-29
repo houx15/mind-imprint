@@ -12,7 +12,10 @@ import {
   OutlineNode,
   ReflectionDoc,
   Mirror,
+  AIUseDraft as AIUseDraftSchema,
+  AIUseStatement as AIUseStatementSchema,
 } from "@mind-imprint/contracts";
+import type { AIUseDraft, AIUseStatement } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
 
 // The lean GET /projects/{id} projection the four-room shell needs — identity
@@ -96,7 +99,7 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
 // POST /coach — one restrained coaching turn (JSON, not SSE). The only spend
 // endpoint of the room. Returns the AI reply, plus (S4) an OPTIONAL cross-phase
 // card proposal — an OFFER the student may open or dismiss; never auto-opens.
-export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review";
+export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review" | "reflection";
 export const CardProposalWire = z.object({
   cardId: z.string(),
   reason: z.string(),
@@ -130,6 +133,22 @@ export async function persistProjectCard(
     body: JSON.stringify({ card_id: cardId, field_values: fieldValues, event_trace: eventTrace }),
   });
   return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
+}
+
+// S5 · AI-interaction retrospective (回顾 · 复盘我与 AI 的互动).
+// GET /ai-use-draft — the objective interaction record + a draft statement
+// (saved statement if any, else a mid-tier seed). Spends only to seed.
+export async function getAIUseDraft(id: string): Promise<AIUseDraft> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/ai-use-draft`);
+  return AIUseDraftSchema.parse(raw);
+}
+// POST /ai-use — persist the student-authored statement. No spend.
+export async function postAIUse(id: string, statement: AIUseStatement): Promise<AIUseStatement> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/ai-use`, {
+    method: "POST",
+    body: JSON.stringify(statement),
+  });
+  return AIUseStatementSchema.parse(raw);
 }
 
 // POST /cards/dismiss-proposal — record the student declining a coach card
