@@ -82,6 +82,15 @@ describe("Reference", () => {
     expect(parsed.phaseTag).toBeNull();
     expect(parsed.takeaway).toBeNull();
   });
+  // Whole-branch-review CRITICAL: the server must NEVER emit phaseTag: "" —
+  // PhaseTag is a closed 5-value enum with no "" member, so an empty string
+  // (the shape a naive full-replace PUT would persist for "no phase picked
+  // yet") throws here instead of degrading to null. This pins the invariant
+  // that apps/api's putReadingBrief (reading_brief.go) must normalize an
+  // empty phase_tag to NULL before persisting, never store/emit "".
+  it("rejects an empty-string phaseTag — the server must emit null instead", () => {
+    expect(() => Reference.parse({ ...ref, phaseTag: "" })).toThrow();
+  });
 });
 
 describe("PhaseTag", () => {

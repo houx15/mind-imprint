@@ -56,10 +56,11 @@ func (a *API) putReadingBrief(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	reason, focus, phase := body.ReadingReason, body.ReadingFocus, body.PhaseTag
 	row, err := a.d.Queries.UpdateReadingBrief(r.Context(), sqlc.UpdateReadingBriefParams{
 		ID: rid, ProjectID: projectID,
-		ReadingReason: &reason, ReadingFocus: &focus, PhaseTag: &phase,
+		ReadingReason: normOrNil(body.ReadingReason),
+		ReadingFocus:  normOrNil(body.ReadingFocus),
+		PhaseTag:      normOrNil(body.PhaseTag),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
@@ -91,6 +92,20 @@ func derefOr(p *string, fallback string) string {
 		return fallback
 	}
 	return *p
+}
+
+// normOrNil trims s and returns nil for an empty result. Full-replace PUT
+// semantics (clearing a field by sending "") must persist NULL, never "" —
+// an empty string stored in phase_tag serializes as `"phaseTag": ""`, which
+// fails the Zod PhaseTag enum (packages/contracts/src/reference.ts) on every
+// downstream read (getLibrary/postFinalizeReading), breaking the whole
+// Library once any source has an empty-phase brief.
+func normOrNil(s string) *string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // readingBriefFor loads the persisted brief for a material's reference (for

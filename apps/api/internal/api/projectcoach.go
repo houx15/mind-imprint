@@ -9,8 +9,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // projectcoach.go — S1 support for the ONE continuous per-project coach
@@ -113,6 +115,12 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 	// blocks), 未读 is unchanged from the pre-S2 line.
 	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil && len(refs) > 0 {
 		b.WriteString("文献库：\n")
+		// Cards are fetched AT MOST ONCE for the whole loop (lazily, only if a
+		// 在读 ref actually needs them) — readingOutcomesByMaterialCtx would
+		// otherwise re-run a full ListCardInstancesByProject scan per 在读 ref
+		// (up to 6 full scans per projection, built every coach turn).
+		var cards []sqlc.CardInstance
+		var cardsLoaded bool
 		for i, ref := range refs {
 			if i >= 6 {
 				fmt.Fprintf(&b, "- …另有 %d 条\n", len(refs)-6)
@@ -128,7 +136,11 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 				_ = json.Unmarshal(ref.Takeaway, &tk)
 				fmt.Fprintf(&b, "- %s%s｜印记：%s\n", truncateRunes(ref.Title, 32), phase, truncateRunes(tk.ProposalImpact, 40))
 			case ref.MaterialID.Valid:
-				n := len(a.readingOutcomesByMaterialCtx(ctx, projectID, uuid.UUID(ref.MaterialID.Bytes)).Findings)
+				if !cardsLoaded {
+					cards, _ = a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
+					cardsLoaded = true
+				}
+				n := len(readingOutcomesFromCards(cards, uuid.UUID(ref.MaterialID.Bytes)).Findings)
 				fmt.Fprintf(&b, "- %s%s｜在读·已确认 %d 条发现\n", truncateRunes(ref.Title, 32), phase, n)
 			default:
 				meta := ""

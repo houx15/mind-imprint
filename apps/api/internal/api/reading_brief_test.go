@@ -52,6 +52,78 @@ func TestPutReadingBrief_Persists(t *testing.T) {
 	}
 }
 
+// TestPutReadingBrief_EmptyPhaseStoresNull is the whole-branch-review CRITICAL
+// fix: the default path (a student saves a brief without picking a phase) has
+// the frontend send `phase_tag: ""`. Before the fix, putReadingBrief passed a
+// non-nil pointer to that empty string straight to UpdateReadingBrief, storing
+// "" in the column; toReferenceDTO then serialized `"phaseTag": ""`, which
+// fails the Zod PhaseTag enum (.nullable().optional() has no "" member) and
+// throws in getLibrary's/postFinalizeReading's Reference.parse. Guards that
+// putReadingBrief normalizes an empty phase_tag (and reading_reason/focus) to
+// NULL — never "" — while still persisting a genuinely non-empty reason.
+func TestPutReadingBrief_EmptyPhaseStoresNull(t *testing.T) {
+	h, cookie, q := planTestHandler(t)
+	projectID := uuid.MustParse(seedProjectID)
+	ref := seedReference(t, q, "未分阶段源")
+
+	body := `{"reading_reason":"验证碳排放反例","reading_focus":"","phase_tag":""}`
+	rr := doJSON(t, h, cookie, http.MethodPut,
+		"/api/v1/projects/"+seedProjectID+"/references/"+ref.ID.String()+"/reading-brief",
+		body)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Check the persisted row directly first — this is the shape that flows
+	// into toReferenceDTO/getLibrary.
+	row, err := q.GetReferenceForProject(context.Background(), sqlc.GetReferenceForProjectParams{
+		ID: ref.ID, ProjectID: projectID,
+	})
+	if err != nil {
+		t.Fatalf("GetReferenceForProject: %v", err)
+	}
+	if row.PhaseTag != nil {
+		t.Fatalf("phase_tag should be stored as NULL for an empty phase, got %q", *row.PhaseTag)
+	}
+	if row.ReadingFocus != nil {
+		t.Fatalf("reading_focus should be stored as NULL for an empty focus, got %q", *row.ReadingFocus)
+	}
+	if row.ReadingReason == nil || *row.ReadingReason != "验证碳排放反例" {
+		t.Fatalf("reading_reason should persist the non-empty value, got %v", row.ReadingReason)
+	}
+
+	// The PUT response's own echoed reference DTO must reflect the same nil,
+	// never "" — the shape that would fail Zod's PhaseTag enum on the TS side
+	// (getLibrary/postFinalizeReading both re-parse this exact projection).
+	var out struct {
+		Reference referenceView `json:"reference"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal response: %v — %s", err, rr.Body.String())
+	}
+	if out.Reference.PhaseTag != nil {
+		t.Fatalf("response reference.phaseTag should be nil, got %v", *out.Reference.PhaseTag)
+	}
+
+	// Round-trip through GET /library too — this is the exact path
+	// getLibrary's z.array(Reference).parse would throw on before the fix.
+	rec := doJSON(t, h, cookie, http.MethodGet, "/api/v1/projects/"+seedProjectID+"/library", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get library = %d: %s", rec.Code, rec.Body)
+	}
+	var lib struct {
+		References []referenceView `json:"references"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+		t.Fatalf("decode library: %v — %s", err, rec.Body)
+	}
+	for _, r := range lib.References {
+		if r.ID == ref.ID.String() && r.PhaseTag != nil {
+			t.Fatalf("library reference.phaseTag should be nil, got %v", *r.PhaseTag)
+		}
+	}
+}
+
 // TestPutReadingBrief_PreservesNotes guards against toReferenceDTO(row, nil)
 // wiping a reference's already-projected reading notes: seed a material with
 // a SUBMITTED (completed) reading card whose anchor carries a finding for it

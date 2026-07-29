@@ -34,16 +34,26 @@ func (a *API) readingOutcomesByMaterial(r *http.Request, projectID, materialID u
 
 // readingOutcomesByMaterialCtx holds the actual assembly logic (moved out of
 // readingOutcomesByMaterial so the ctx-only spine projection can reuse it).
-// Attribution to a material lives in each card's anchors JSON, not in a
-// card_instances column (card_instances has no material_id — see
-// notesByMaterial's comment). Best-effort: a card whose anchors or
-// framework_fill don't parse is simply skipped, never fabricated.
+// Runs its own ListCardInstancesByProject scan; callers that need this for
+// SEVERAL materials in the same request (e.g. buildSpineProjection's 文献库
+// loop) should instead fetch cards ONCE and call readingOutcomesFromCards
+// per-material to avoid an N+1 scan.
 func (a *API) readingOutcomesByMaterialCtx(ctx context.Context, projectID, materialID uuid.UUID) agent.TakeawayRecord {
-	var rec agent.TakeawayRecord
 	cis, err := a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
 	if err != nil {
-		return rec
+		return agent.TakeawayRecord{}
 	}
+	return readingOutcomesFromCards(cis, materialID)
+}
+
+// readingOutcomesFromCards is the PURE assembly core: given an already-fetched
+// slice of card instances (no DB access), assembles the record half of the
+// takeaway for one material. Attribution to a material lives in each card's
+// anchors JSON, not in a card_instances column (card_instances has no
+// material_id — see notesByMaterial's comment). Best-effort: a card whose
+// anchors or framework_fill don't parse is simply skipped, never fabricated.
+func readingOutcomesFromCards(cis []sqlc.CardInstance, materialID uuid.UUID) agent.TakeawayRecord {
+	var rec agent.TakeawayRecord
 	for _, ci := range cis {
 		if ci.Status != "completed" {
 			continue
