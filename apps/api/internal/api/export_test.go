@@ -79,3 +79,12 @@ func (a *API) ReadingBriefForTest(ctx context.Context, projectID, materialID uui
 func (a *API) BuildSpineProjectionForTest(ctx context.Context, projectID uuid.UUID) (string, error) {
 	return a.buildSpineProjection(ctx, projectID)
 }
+
+// ComputeDanglingSourceIdsForTest exposes the unexported computeDanglingSourceIds
+// (exploration.go, S3 Task 4) to the external api_test package —
+// TestComputeDanglingSourceIds (exploration_test.go) drives it directly with
+// synthetic sqlc.Reference/ExplorationLead struct literals as a pure-function
+// unit test, no DB round-trip needed for the projection logic itself.
+func ComputeDanglingSourceIdsForTest(refs []sqlc.Reference, leads []sqlc.ExplorationLead) []string {
+	return computeDanglingSourceIds(refs, leads)
+}
