@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -176,5 +177,82 @@ func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 		"record":                  toTakeawayRecordDTO(record),
 		"suggestedNewLeads":       nonNilStrings(leads),
 		"suggestedProposalImpact": impact,
+	})
+}
+
+// finalizeReadingReq is the student's FINAL synthesis only — record fields
+// (findings/credibility/keyQuotes) are never trusted from the client; they're
+// re-assembled server-side from her confirmed reading cards (see
+// postFinalizeReading).
+type finalizeReadingReq struct {
+	NewLeads       []string `json:"new_leads"`
+	ProposalImpact string   `json:"proposal_impact"`
+}
+
+// postFinalizeReading is the "student confirms" half of the takeaway's
+// split-hybrid (getTakeawayDraft is the "AI drafts" half). It RE-ASSEMBLES the
+// record half server-side from readingOutcomesByMaterial — the record's
+// source of truth is her CONFIRMED reading outcomes, never whatever the
+// client happened to send — folds in her authored/edited synthesis
+// (new_leads/proposal_impact), and persists the full 5-field takeaway.
+// FinalizeReadingTakeaway is an UPDATE: re-finalizing on a re-read SUPERSEDES,
+// it never inserts a second row. No LLM call, no metering, no HasEntitlement
+// gate — the student already did the thinking; this just records it. Also
+// non-blocking on a thin record (HasRecordContent is NOT checked here) — she
+// may finalize proposal_impact alone before any reading card is confirmed.
+func (a *API) postFinalizeReading(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rid, err := uuid.Parse(r.PathValue("rid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	var body finalizeReadingReq
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	ref, err := a.d.Queries.GetReferenceForProject(r.Context(), sqlc.GetReferenceForProjectParams{ID: rid, ProjectID: projectID})
+	if err != nil || !ref.MaterialID.Valid {
+		httpx.WriteError(w, r, httpx.ErrNotFound("尚未进入阅读室"))
+		return
+	}
+	materialID := uuid.UUID(ref.MaterialID.Bytes)
+	record := a.readingOutcomesByMaterial(r, projectID, materialID)
+	takeaway := agent.ReadingTakeaway{
+		Findings: record.Findings, Credibility: record.Credibility, KeyQuotes: record.KeyQuotes,
+		NewLeads: nonNilStrings(body.NewLeads), ProposalImpact: strings.TrimSpace(body.ProposalImpact),
+	}
+	raw, merr := json.Marshal(takeaway)
+	if merr != nil {
+		httpx.WriteError(w, r, merr)
+		return
+	}
+	row, err := a.d.Queries.FinalizeReadingTakeaway(r.Context(), sqlc.FinalizeReadingTakeawayParams{
+		ID: rid, ProjectID: projectID, Takeaway: raw,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// Best-effort activity log — same helper postPlanGenerate uses; a log
+	// failure must never fail the finalize itself.
+	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "归纳了《"+truncateRunes(ref.Title, 30)+"》"); err != nil {
+		slog.Warn("finalize reading: append auto-log failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	// Notes re-project from the reference's material — same fix patchReference
+	// applies; passing nil here would wipe the reference's notes[] in the
+	// response (a prior reviewer already caught this class of bug).
+	var notes []readingNoteDTO
+	if row.MaterialID.Valid {
+		notes = a.notesByMaterial(r, projectID)[uuid.UUID(row.MaterialID.Bytes).String()]
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"reference": toReferenceDTO(row, notes),
+		"takeaway":  takeaway,
 	})
 }

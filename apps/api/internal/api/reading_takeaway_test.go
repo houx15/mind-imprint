@@ -228,6 +228,45 @@ func TestGetTakeawayDraft_AssemblesAndSeeds(t *testing.T) {
 	}
 }
 
+// TestFinalizeReading_PersistsAndSupersedesNoSpend — Task 6: POST
+// finalize-reading re-assembles the record server-side (readingOutcomesByMaterial,
+// never trusted from the client), folds in the student's authored synthesis
+// (new_leads/proposal_impact), persists the full takeaway, and stamps
+// takeaway_finalized_at. A second finalize call on the same reference
+// SUPERSEDES (same row, not a second insert) and neither call spends —
+// finalize is the student confirming her own synthesis, not an LLM call.
+func TestFinalizeReading_PersistsAndSupersedesNoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	findingText := "中国碳排放总量常年全球第一，这是论证要正面处理的反例"
+	quoteText := "中国碳排放全球第一"
+	ref, _ := seedReadingOutcome(t, h, cookie, q, findingText, quoteText)
+	url := "/api/v1/projects/" + seedProjectID + "/references/" + ref.ID.String() + "/finalize-reading"
+
+	rr := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":["人均口径"],"proposal_impact":"让步段反例"}`)
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "让步段反例") {
+		t.Fatalf("finalize 1 failed: %d %s", rr.Code, rr.Body.String())
+	}
+	// Re-finalize supersedes.
+	rr2 := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":[],"proposal_impact":"改写后的影响"}`)
+	if rr2.Code != http.StatusOK || !strings.Contains(rr2.Body.String(), "改写后的影响") {
+		t.Fatalf("re-finalize should supersede: %d %s", rr2.Code, rr2.Body.String())
+	}
+	if strings.Contains(rr2.Body.String(), "让步段反例") {
+		t.Fatalf("re-finalize should replace, not append, the prior synthesis: %s", rr2.Body.String())
+	}
+	// Finalize spends NOTHING.
+	if n := countLLMCallsByPurpose(t, pool, seedProjectID, "reading_takeaway_draft") + countLLMCallsByPurpose(t, pool, seedProjectID, "reading_takeaway"); n != 0 {
+		t.Fatalf("finalize must not spend, got %d calls", n)
+	}
+}
+
 // TestGetTakeawayDraft_EmptyRecordNoSpend — the regression pin for the
 // phantom-metering bug: a reference linked to a material with ZERO completed
 // reading cards (readingOutcomesByMaterial returns an empty record) must
