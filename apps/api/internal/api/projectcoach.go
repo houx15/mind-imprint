@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -45,6 +46,88 @@ func coachSurfaceLabel(scope string) string {
 // event just catches any turns added since the first.
 var solidifyFoldSurfaces = []string{"forming", "proposal_review"}
 
+// digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds. When
+// the coach's active (non-folded) window exceeds digestRuneBudget runes, the
+// oldest turns beyond the newest digestKeepLastN are composed into the rolling
+// conversation_digest and folded out of the window.
+const (
+	digestRuneBudget = 6000
+	digestKeepLastN  = 8
+)
+
+// maybeCompactBackstop is S4 lever-1's size-threshold backstop, run at the tail
+// of a coach turn. Best-effort, no return: a failure never disturbs the reply.
+// Discipline (克制 / 过程即数据):
+//   - under budget → ZERO provider calls, ZERO spend;
+//   - meter ONLY a completed compact call (resolved.Provider != "" && cerr == nil);
+//   - the digest write PRECEDES the fold — a turn is never folded out of the
+//     window before its content is durable in conversation_digest.
+func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
+	pid := pgtype.UUID{Bytes: projectID, Valid: true}
+	active, err := a.d.Queries.ListActiveChatMessagesByProject(ctx, pid)
+	if err != nil {
+		return
+	}
+	total := 0
+	for _, m := range active {
+		total += len([]rune(m.Content))
+	}
+	if total <= digestRuneBudget {
+		return // under budget → no spend
+	}
+
+	overflow, err := a.d.Queries.SelectOldestActiveChatMessages(ctx, sqlc.SelectOldestActiveChatMessagesParams{
+		SeededProjectID: pid, Limit: digestKeepLastN,
+	})
+	if err != nil || len(overflow) == 0 {
+		return
+	}
+
+	prior, _ := a.d.Queries.GetConversationDigest(ctx, projectID) // zero value if no row yet
+	turns := make([]agent.DigestTurn, 0, len(overflow))
+	ids := make([]uuid.UUID, 0, len(overflow))
+	for _, m := range overflow {
+		turns = append(turns, agent.DigestTurn{Role: m.Role, Content: m.Content})
+		ids = append(ids, m.ID)
+	}
+
+	resolved, rerr := a.d.ChatResolver(ctx)
+	if rerr != nil {
+		return
+	}
+	prose, usage, cerr := agent.ComposeDigestMerge(ctx, a.d.Provider, resolved, prior.Prose, turns)
+
+	// Meter ONLY a completed call that actually spent tokens (matches coach.go's
+	// sibling guard): a compose error records nothing (S3's phantom-row fix), and
+	// an empty-but-successful completion records no 0-token row either.
+	if cerr == nil && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
+		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+		if mrerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "coach_compact",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); mrerr != nil {
+			slog.Warn("coach compact: record llm call failed", "err", mrerr)
+		}
+	}
+	if cerr != nil || strings.TrimSpace(prose) == "" {
+		return // compose failed / empty → fold NOTHING (digest-before-fold)
+	}
+
+	// Digest write PRECEDES fold: only after the overflow content is durable do we
+	// remove those turns from the active window.
+	model, tier := resolved.Model, resolved.Tier
+	if uerr := a.d.Queries.UpsertConversationDigest(ctx, sqlc.UpsertConversationDigestParams{
+		ProjectID: projectID, Prose: prose, TurnsFolded: prior.TurnsFolded + int32(len(overflow)),
+		Model: &model, Tier: &tier,
+	}); uerr != nil {
+		slog.Warn("coach compact: upsert digest failed; not folding", "err", uerr)
+		return // could not persist digest → do NOT fold
+	}
+	if ferr := a.d.Queries.FoldChatMessagesByID(ctx, ids); ferr != nil {
+		slog.Warn("coach compact: fold failed", "err", ferr)
+	}
+}
+
 // truncateRunes clamps s to at most n runes, appending … when clipped. Keeps
 // the projection compact without splitting a multibyte rune.
 func truncateRunes(s string, n int) string {
@@ -64,6 +147,12 @@ func truncateRunes(s string, n int) string {
 // on-demand skill; this is the thin projection that rides every turn.
 func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (string, error) {
 	var b strings.Builder
+
+	// S4 · folded history rides the projection as a compact 会话记忆 block, so the
+	// coach never forgets turns the backstop folded out of the active window.
+	if d, derr := a.d.Queries.GetConversationDigest(ctx, projectID); derr == nil && strings.TrimSpace(d.Prose) != "" {
+		fmt.Fprintf(&b, "会话记忆：%s\n", truncateRunes(d.Prose, 600))
+	}
 
 	proj, err := a.d.Queries.GetProject(ctx, projectID)
 	if err != nil {

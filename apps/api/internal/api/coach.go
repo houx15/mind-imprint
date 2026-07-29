@@ -143,6 +143,11 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
+	// S4 · size-threshold compaction backstop: if the active window still
+	// overflows after fold-on-solidify, fold the oldest turns into the rolling
+	// conversation_digest. Best-effort; never disturbs the reply.
+	a.maybeCompactBackstop(r.Context(), projectID)
+
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": reply})
 }
 
