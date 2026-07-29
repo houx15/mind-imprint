@@ -1,12 +1,15 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -257,4 +260,125 @@ func (a *API) deleteExplorationLead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// -- POST /exploration/guide (METERED — the ONLY LLM spend in this file) ---
+
+// guideDirectionDTO mirrors agent.GuideDirection; already camelCase
+// (direction/why) and matches contracts's GuideDirection field-for-field.
+type guideDirectionDTO struct {
+	Direction string `json:"direction"`
+	Why       string `json:"why"`
+}
+
+// toGuideDirectionDTOs never returns nil — the wire contract for this
+// endpoint is `[]`, not `null` (nonNilStrings's convention, reading_takeaway.go).
+func toGuideDirectionDTOs(ds []agent.GuideDirection) []guideDirectionDTO {
+	out := make([]guideDirectionDTO, 0, len(ds))
+	for _, d := range ds {
+		out = append(out, guideDirectionDTO{Direction: d.Direction, Why: d.Why})
+	}
+	return out
+}
+
+// assembleExplorationGuideInput projects the project's exploration graph
+// (engaged sources + open leads + proposal objective) into a pure
+// agent.ExplorationGuideInput — no LLM call here, just reads. Per-source
+// State mirrors buildSpineProjection's 文献库 block (projectcoach.go) exactly:
+// 已归纳 once takeaway_finalized_at is set, else 在读 once a material is
+// linked, else 未读. Tolerates a missing proposal (fresh project) by simply
+// leaving ProposalObjective "".
+func (a *API) assembleExplorationGuideInput(ctx context.Context, projectID uuid.UUID) agent.ExplorationGuideInput {
+	var in agent.ExplorationGuideInput
+	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
+		in.ProposalObjective = prop.Objective
+	}
+	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil {
+		for _, ref := range refs {
+			state := "未读"
+			switch {
+			case ref.TakeawayFinalizedAt.Valid:
+				state = "已归纳"
+			case ref.MaterialID.Valid:
+				state = "在读"
+			}
+			var decision, credibility, phase string
+			if ref.Decision != nil {
+				decision = *ref.Decision
+			}
+			if ref.Credibility != nil {
+				credibility = *ref.Credibility
+			}
+			if ref.PhaseTag != nil {
+				phase = *ref.PhaseTag
+			}
+			in.Sources = append(in.Sources, agent.ExplorationGraphSource{
+				Title: ref.Title, Decision: decision, Credibility: credibility, PhaseTag: phase, State: state,
+			})
+		}
+	}
+	if leads, err := a.d.Queries.ListExplorationLeads(ctx, projectID); err == nil {
+		for _, l := range leads {
+			switch l.Status {
+			case "open":
+				in.OpenLeads = append(in.OpenLeads, l.Text)
+			case "pruned":
+				in.PrunedCount++
+			case "connected":
+				in.ConnectedCount++
+			}
+		}
+	}
+	return in
+}
+
+// postExplorationGuide is the "深挖一层" guide — the ONLY LLM-spending
+// endpoint in S3's exploration surface. Points the student at the next
+// necessary research direction from her own exploration graph (engaged
+// sources + open leads), never fetching anything or concluding her research
+// for her (铁律 · 克制). Clones getTakeawayDraft's discipline
+// (reading_takeaway.go:144) exactly: HasEntitlement gate, assemble the input
+// deterministically, and if the graph is empty (agent.HasGraphContent false)
+// skip the WHOLE resolver/compose/meter block — an empty graph must never
+// resolve a provider or touch the llm_call audit trail, not just skip
+// metering. Metering only fires when resolved.Provider != "" (a call actually
+// happened); a compose error still returns 200 with empty directions, never
+// 500 — the student can always keep going without the guide. No persistence:
+// the guide only proposes, the student decides whether to turn a direction
+// into a lead via createExplorationLead.
+func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	in := a.assembleExplorationGuideInput(r.Context(), projectID)
+
+	var directions []agent.GuideDirection
+	if agent.HasGraphContent(in) {
+		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+			ds, usage, cerr := agent.ComposeExplorationGuide(r.Context(), a.d.Provider, resolved, in)
+			if resolved.Provider != "" {
+				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "exploration_guide",
+					Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+				}); e != nil {
+					slog.Warn("exploration guide: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
+			}
+			if cerr == nil {
+				directions = ds
+			}
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"directions": toGuideDirectionDTOs(directions)})
 }

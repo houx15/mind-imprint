@@ -6,12 +6,14 @@ package api_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -338,4 +340,90 @@ func containsID(ids []string, id string) bool {
 		}
 	}
 	return false
+}
+
+// explorationGuideView is the test's decode shape for POST .../exploration/guide.
+type explorationGuideView struct {
+	Directions []struct {
+		Direction string `json:"direction"`
+		Why       string `json:"why"`
+	} `json:"directions"`
+}
+
+// TestExplorationGuide_ReturnsDirections — Task 6: the guide assembles the
+// project's exploration graph (here, one engaged reference) and runs ONE
+// isolated mid-tier compose (agent.ComposeExplorationGuide) to point at the
+// next necessary direction. Exactly one llm_call row with purpose
+// "exploration_guide" is metered for the call that actually happened.
+func TestExplorationGuide_ReturnsDirections(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	guideReply := `{"directions":[{"direction":"找中国碳排放绝对量的一手数据","why":"你缺反例检验的来源"}]}`
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(guideReply), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"NASA 卫星数据"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("seed reference = %d: %s", rec.Code, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/guide", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("guide = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out explorationGuideView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode guide response: %v — %s", err, rec.Body)
+	}
+	if len(out.Directions) != 1 {
+		t.Fatalf("directions = %+v, want 1 (the stub's)", out.Directions)
+	}
+	if out.Directions[0].Direction != "找中国碳排放绝对量的一手数据" || out.Directions[0].Why != "你缺反例检验的来源" {
+		t.Fatalf("unexpected direction: %+v", out.Directions[0])
+	}
+
+	if n := countLLMCallsByPurpose(t, pool, pid, "exploration_guide"); n != 1 {
+		t.Fatalf("want 1 exploration_guide llm_call, got %d", n)
+	}
+}
+
+// TestExplorationGuide_EmptyGraphNoSpend — the no-spend guarantee (克制):
+// a fresh project with no references and no leads has nothing to point a
+// direction from (agent.HasGraphContent false), so the guide must return
+// 200 with empty directions WITHOUT ever resolving a provider or metering a
+// call — mirrors TestGetTakeawayDraft_EmptyRecordNoSpend's regression pin.
+func TestExplorationGuide_EmptyGraphNoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"directions":[]}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+	// Deliberately no references, no leads created for this project.
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/guide", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("guide = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out explorationGuideView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode guide response: %v — %s", err, rec.Body)
+	}
+	if len(out.Directions) != 0 {
+		t.Fatalf("directions = %+v, want empty for an empty graph", out.Directions)
+	}
+
+	// The regression pin: an empty graph must never touch the resolver/
+	// compose/meter block, so NO llm_call row is written for this purpose.
+	if n := countLLMCallsByPurpose(t, pool, pid, "exploration_guide"); n != 0 {
+		t.Fatalf("want 0 exploration_guide llm_call for an empty graph, got %d", n)
+	}
 }
