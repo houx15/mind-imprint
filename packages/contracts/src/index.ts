@@ -31,3 +31,4 @@ export * from "./activityLog";
 export * from "./reflectionDoc";
 export * from "./mirror";
 export * from "./workspace";
+export * from "./exploration";
