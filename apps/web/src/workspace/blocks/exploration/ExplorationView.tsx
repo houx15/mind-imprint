@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
-  CardInstance,
   ExplorationLead,
   ExplorationView as ExplorationViewData,
   GuideDirection,
   MaterialSource,
   PhaseTag,
   Reference,
-  TraceEvent,
 } from "@mind-imprint/contracts";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
-import { Icon } from "../../Icon";
 import { enterReading, NoReadableContentError } from "../../api/workspace";
 import { createLead, digDeeper, getExploration, patchLead } from "../../../api/exploration";
-import { StudioCardSheet } from "../../../studio/StudioCardSheet";
 
 // S3 rabbit-hole exploration surface (Task 9): the branch view over the
 // leads Task 8's endpoints track. No graph/tree library — this is a
@@ -58,8 +53,8 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const [digging, setDigging] = useState(false);
   const [diggingError, setDiggingError] = useState(false);
   const [adoptedDirections, setAdoptedDirections] = useState<Set<number>>(new Set());
-  const [rabbitHoleOpen, setRabbitHoleOpen] = useState(false);
   const [enteringRefId, setEnteringRefId] = useState<string | null>(null);
+  const [leadActionError, setLeadActionError] = useState(false);
 
   const refresh = useMemo(
     () => async () => {
@@ -104,11 +99,17 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
 
   function connectLead(lid: string, connectedReferenceId: string) {
     setPickerFor(null);
-    void withBusy(lid, () => patchLead(projectId, lid, { status: "connected", connectedReferenceId }));
+    setLeadActionError(false);
+    void withBusy(lid, () => patchLead(projectId, lid, { status: "connected", connectedReferenceId })).catch(() => {
+      setLeadActionError(true);
+    });
   }
   function pruneLead(lid: string) {
     setPickerFor(null);
-    void withBusy(lid, () => patchLead(projectId, lid, { status: "pruned" }));
+    setLeadActionError(false);
+    void withBusy(lid, () => patchLead(projectId, lid, { status: "pruned" })).catch(() => {
+      setLeadActionError(true);
+    });
   }
 
   async function addManualLead() {
@@ -186,13 +187,17 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
 
   const branchedRefs = references.filter((r) => (leadsBySource.get(r.id)?.length ?? 0) > 0);
   const danglingRefs = references.filter((r) => view.danglingSourceIds.includes(r.id));
-  const openLoose = view.leads.filter((l) => l.status === "open" && l.sourceReferenceId == null);
+  // Every lead with no source reference lands here — including leads that
+  // were connected/pruned whose origin reference was later deleted (DB sets
+  // sourceReferenceId to NULL on delete). Those must still render (with their
+  // resolved marker) instead of silently vanishing from the whole view.
+  const looseLeads = view.leads.filter((l) => l.sourceReferenceId == null);
 
   if (loading) {
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载探索图谱中…</div>;
   }
 
-  const empty = branchedRefs.length === 0 && danglingRefs.length === 0 && openLoose.length === 0;
+  const empty = branchedRefs.length === 0 && danglingRefs.length === 0 && looseLeads.length === 0;
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-mk-bg/40 px-6 py-5">
@@ -201,14 +206,12 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
           <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
           <p className="mt-0.5 text-[12px] text-mk-muted-2">来源怎么分出新的线索、还有什么线索没追完——一眼看全</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setRabbitHoleOpen(true)}
-          className="flex items-center gap-1.5 rounded-full border border-mk-primary/30 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
-        >
-          <Icon name="spark" size={13} /> 兔子洞 · 兴趣雷达
-        </button>
+        {/* TODO(S4): rabbit-hole card entry — needs envelope persistence to the process tree */}
       </div>
+
+      {leadActionError && (
+        <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>
+      )}
 
       {empty ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
@@ -277,12 +280,21 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
 
           <section>
             <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">待追的线索</h3>
-            {openLoose.length === 0 ? (
+            {looseLeads.length === 0 ? (
               <p className="mb-2 text-[12px] text-mk-muted-2">还没有手动记的线索——读完一篇来源会自动生成，或者自己记一条。</p>
             ) : (
               <div className="mb-2 flex flex-wrap gap-2">
-                {openLoose.map((l) => (
-                  <LooseLeadChip key={l.id} lead={l} busy={busyLeadIds.has(l.id)} onPrune={() => pruneLead(l.id)} />
+                {looseLeads.map((l) => (
+                  <BranchLeadChip
+                    key={l.id}
+                    lead={l}
+                    references={references}
+                    busy={busyLeadIds.has(l.id)}
+                    pickerOpen={pickerFor === l.id}
+                    onOpenPicker={() => setPickerFor(pickerFor === l.id ? null : l.id)}
+                    onConnect={(refId) => connectLead(l.id, refId)}
+                    onPrune={() => pruneLead(l.id)}
+                  />
                 ))}
               </div>
             )}
@@ -349,8 +361,6 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
           </div>
         )}
       </section>
-
-      {rabbitHoleOpen && <RabbitHoleModal onClose={() => setRabbitHoleOpen(false)} />}
     </div>
   );
 }
@@ -449,22 +459,6 @@ function BranchLeadChip({
   );
 }
 
-function LooseLeadChip({ lead, busy, onPrune }: { lead: ExplorationLead; busy: boolean; onPrune: () => void }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full bg-mk-bg px-3 py-1.5">
-      <span className="text-[12.5px] font-semibold text-mk-ink">{lead.text}</span>
-      <button
-        type="button"
-        onClick={onPrune}
-        disabled={busy}
-        className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[11px] font-bold text-mk-muted hover:text-mk-accent disabled:opacity-50"
-      >
-        剪枝
-      </button>
-    </div>
-  );
-}
-
 // Connected/pruned leads are resolved — no more actions, just a marker so the
 // branch still reads honestly (nothing silently vanishes once acted on).
 function ResolvedLeadChip({ lead, references }: { lead: ExplorationLead; references: Reference[] }) {
@@ -516,35 +510,6 @@ function ConnectPicker({
           </button>
         ))
       )}
-    </div>
-  );
-}
-
-/* ---------- Step 0: 兔子洞·兴趣雷达 — standalone card, no summon loop ---------- */
-
-// StudioCardSheet already renders any registry card standalone (spec in,
-// finished envelope out) — the same host the Chat/Ask-panel card offers use.
-// It needs no materialId/anchors/SSE turn loop, so this satisfies Step 0
-// without building a new summon path: we just mount the rabbit-hole spec
-// directly and log the finished envelope.
-function RabbitHoleModal({ onClose }: { onClose: () => void }) {
-  const spec = CARD_REGISTRY["rabbit-hole"];
-  if (!spec) return null;
-  function handleSubmit(env: CardInstance) {
-    // eslint-disable-next-line no-console
-    console.log("[探索图谱] 兔子洞·兴趣雷达 envelope", env);
-    onClose();
-  }
-  function handleSkip(eventTrace: TraceEvent[]) {
-    // eslint-disable-next-line no-console
-    console.log("[探索图谱] 兔子洞·兴趣雷达 skipped", eventTrace);
-    onClose();
-  }
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-6" onClick={onClose}>
-      <div className="w-full max-w-[460px]" onClick={(e) => e.stopPropagation()}>
-        <StudioCardSheet spec={spec} onSubmit={handleSubmit} onSkip={handleSkip} />
-      </div>
     </div>
   );
 }
