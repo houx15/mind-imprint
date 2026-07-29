@@ -16,9 +16,42 @@ export const ReadingNote = z.object({
 });
 export type ReadingNote = z.infer<typeof ReadingNote>;
 
+// PhaseTag — S2: which stage of the argument this source is being read FOR
+// (set via the reading brief, putReadingBrief). Drives the reading coach's
+// framing, never a free-text field — the five stages are the demo model's
+// closed set.
+export const PhaseTag = z.enum(["立题探索", "背景理解", "支持论点", "反例检验", "方法参考"]);
+export type PhaseTag = z.infer<typeof PhaseTag>;
+
+// Credibility5/KeyQuote/ReadingTakeaway — S2: the reading sub-agent's "return".
+// Credibility5 (distinct from the source-level Credibility enum above) is the
+// student's own verdict + reasoning from a completed CRAAP/SIFT card, carried
+// through verbatim. ReadingTakeaway is the full persisted/echoed 5-field
+// object (agent.ReadingTakeaway on the Go side, same camelCase tags): the
+// record half (findings/credibility/keyQuotes — the student's ALREADY
+// confirmed work, never re-guessed) plus the synthesis half (newLeads/
+// proposalImpact — seeded by one isolated compose call, the student edits and
+// finalizes).
+export const Credibility5 = z.object({ verdict: z.string(), why: z.string() });
+export type Credibility5 = z.infer<typeof Credibility5>;
+
+export const KeyQuote = z.object({ quote: z.string(), why: z.string() });
+export type KeyQuote = z.infer<typeof KeyQuote>;
+
+export const ReadingTakeaway = z.object({
+  findings: z.array(z.string()),
+  credibility: Credibility5,
+  keyQuotes: z.array(KeyQuote),
+  newLeads: z.array(z.string()),
+  proposalImpact: z.string(),
+});
+export type ReadingTakeaway = z.infer<typeof ReadingTakeaway>;
+
 // One row in the reading library. materialId links to readable content (created
 // lazily on first Reading-Room entry); notes are projected from card_instances/
-// reading-outcomes anchored to materialId.
+// reading-outcomes anchored to materialId. phaseTag/takeaway (S2) fold the
+// reading sub-agent's state onto the same row: both are optional+nullable —
+// absent/null until the student sets a reading brief / finalizes a takeaway.
 export const Reference = z.object({
   id: z.string(),
   title: z.string(),
@@ -36,5 +69,7 @@ export const Reference = z.object({
   searchHints: z.array(z.string()),
   materialId: z.string().nullable(),
   notes: z.array(ReadingNote),
+  phaseTag: PhaseTag.nullable().optional(),
+  takeaway: ReadingTakeaway.nullable().optional(),
 });
 export type Reference = z.infer<typeof Reference>;

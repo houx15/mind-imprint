@@ -44,9 +44,9 @@ type TakeawayRecord struct {
 type ReadingTakeaway struct {
 	Findings       []string    `json:"findings"`
 	Credibility    Credibility `json:"credibility"`
-	KeyQuotes      []KeyQuote  `json:"key_quotes"`
-	NewLeads       []string    `json:"new_leads"`
-	ProposalImpact string      `json:"proposal_impact"`
+	KeyQuotes      []KeyQuote  `json:"keyQuotes"`
+	NewLeads       []string    `json:"newLeads"`
+	ProposalImpact string      `json:"proposalImpact"`
 }
 
 // ReadingTakeawayInput is ComposeReadingTakeawaySuggestions's sole input: the

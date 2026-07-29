@@ -66,7 +66,7 @@ func seedFinalizedReference(t *testing.T, h http.Handler, cookie *http.Cookie, q
 	}); err != nil {
 		t.Fatalf("set phase tag: %v", err)
 	}
-	raw, merr := json.Marshal(map[string]any{"proposal_impact": proposalImpact})
+	raw, merr := json.Marshal(map[string]any{"proposalImpact": proposalImpact})
 	if merr != nil {
 		t.Fatalf("marshal takeaway: %v", merr)
 	}

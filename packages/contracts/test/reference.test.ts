@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Reference, UseDecision, Credibility, ReadingNote } from "../src/reference";
+import { Reference, UseDecision, Credibility, ReadingNote, PhaseTag, ReadingTakeaway } from "../src/reference";
 
 const ref = {
   id: "r1",
@@ -36,5 +36,53 @@ describe("Reference", () => {
     expect(UseDecision.parse(null)).toBeNull();
     expect(Credibility.parse("mixed")).toBe("mixed");
     expect(ReadingNote.parse({ quote: "q", finding: "f" }).finding).toBe("f");
+  });
+  it("accepts the reference WITHOUT the optional phaseTag/takeaway", () => {
+    const parsed = Reference.parse(ref);
+    expect(parsed.phaseTag).toBeUndefined();
+    expect(parsed.takeaway).toBeUndefined();
+  });
+  it("carries an optional structured takeaway + phaseTag", () => {
+    const withTakeaway = Reference.parse({
+      ...ref,
+      phaseTag: "反例检验",
+      takeaway: {
+        findings: ["中国碳排放总量全球第一"],
+        credibility: { verdict: "strong", why: "NASA 一手数据" },
+        keyQuotes: [{ quote: "China emits the most", why: "直接反例" }],
+        newLeads: ["核实人均口径"],
+        proposalImpact: "作为让步段的反例证据",
+      },
+    });
+    expect(withTakeaway.phaseTag).toBe("反例检验");
+    expect(withTakeaway.takeaway?.proposalImpact).toBe("作为让步段的反例证据");
+  });
+  it("accepts a null phaseTag/takeaway explicitly", () => {
+    const parsed = Reference.parse({ ...ref, phaseTag: null, takeaway: null });
+    expect(parsed.phaseTag).toBeNull();
+    expect(parsed.takeaway).toBeNull();
+  });
+});
+
+describe("PhaseTag", () => {
+  it("accepts the enum", () => {
+    expect(PhaseTag.parse("反例检验")).toBe("反例检验");
+    expect(PhaseTag.parse("立题探索")).toBe("立题探索");
+  });
+  it("rejects an unknown phase", () => {
+    expect(() => PhaseTag.parse("random")).toThrow();
+  });
+});
+
+describe("ReadingTakeaway", () => {
+  it("round-trips the full 5-field object", () => {
+    const raw = {
+      findings: ["f1", "f2"],
+      credibility: { verdict: "strong", why: "w" },
+      keyQuotes: [{ quote: "q", why: "w" }],
+      newLeads: ["l1"],
+      proposalImpact: "impact",
+    };
+    expect(ReadingTakeaway.parse(raw)).toEqual(raw);
   });
 });

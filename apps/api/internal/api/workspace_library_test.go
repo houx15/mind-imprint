@@ -574,7 +574,11 @@ func TestPasteContent(t *testing.T) {
 	}
 }
 
-// referenceView is the test's decode shape for a reference wire DTO.
+// referenceView is the test's decode shape for a reference wire DTO. PhaseTag/
+// Takeaway (Task 8) mirror toReferenceDTO's camelCase takeaway fold — the
+// takeaway's own keys (keyQuotes/newLeads/proposalImpact) must exactly match
+// agent.ReadingTakeaway's camelCase tags, the same contract packages/contracts'
+// ReadingTakeaway Zod schema parses.
 type referenceView struct {
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
@@ -595,4 +599,75 @@ type referenceView struct {
 		Quote   string `json:"quote"`
 		Finding string `json:"finding"`
 	} `json:"notes"`
+	PhaseTag *string                `json:"phaseTag"`
+	Takeaway *referenceTakeawayView `json:"takeaway"`
+}
+
+type referenceTakeawayView struct {
+	Findings    []string `json:"findings"`
+	Credibility struct {
+		Verdict string `json:"verdict"`
+		Why     string `json:"why"`
+	} `json:"credibility"`
+	KeyQuotes []struct {
+		Quote string `json:"quote"`
+		Why   string `json:"why"`
+	} `json:"keyQuotes"`
+	NewLeads       []string `json:"newLeads"`
+	ProposalImpact string   `json:"proposalImpact"`
+}
+
+// TestGetLibraryCarriesTakeawayAndPhaseTag — Task 8: the reference DTO folds
+// the reading sub-agent's phaseTag + full structured takeaway onto the same
+// row the library already renders (removing the interim finalize response's
+// separate top-level "takeaway" sibling key — it's now reference.takeaway
+// everywhere, including here). A finalized reference carries both; an
+// untouched one (no reading brief, no finalize) carries neither.
+func TestGetLibraryCarriesTakeawayAndPhaseTag(t *testing.T) {
+	api, h, cookie, q := projectionTestHandler(t)
+	_ = api
+
+	seedFinalizedReference(t, h, cookie, q, "已归纳源", "反例检验", "作为让步段证据")
+	doJSON(t, h, cookie, "POST", "/api/v1/projects/"+seedProjectID+"/references", `{"title":"未归纳源"}`)
+
+	rec := doJSON(t, h, cookie, "GET", "/api/v1/projects/"+seedProjectID+"/library", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get library = %d: %s", rec.Code, rec.Body)
+	}
+	var lib struct {
+		References []referenceView `json:"references"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+		t.Fatalf("decode library: %v — %s", err, rec.Body)
+	}
+
+	var finalized, untouched *referenceView
+	for i := range lib.References {
+		switch lib.References[i].Title {
+		case "已归纳源":
+			finalized = &lib.References[i]
+		case "未归纳源":
+			untouched = &lib.References[i]
+		}
+	}
+	if finalized == nil || untouched == nil {
+		t.Fatalf("expected both seeded references, got %+v", lib.References)
+	}
+
+	if finalized.PhaseTag == nil || *finalized.PhaseTag != "反例检验" {
+		t.Fatalf("finalized reference phaseTag = %v, want 反例检验", finalized.PhaseTag)
+	}
+	if finalized.Takeaway == nil {
+		t.Fatalf("finalized reference should carry a takeaway, got nil")
+	}
+	if finalized.Takeaway.ProposalImpact != "作为让步段证据" {
+		t.Fatalf("takeaway.proposalImpact = %q, want 作为让步段证据", finalized.Takeaway.ProposalImpact)
+	}
+
+	if untouched.PhaseTag != nil {
+		t.Fatalf("untouched reference phaseTag should be nil, got %v", untouched.PhaseTag)
+	}
+	if untouched.Takeaway != nil {
+		t.Fatalf("untouched reference takeaway should be nil, got %+v", untouched.Takeaway)
+	}
 }

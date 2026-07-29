@@ -262,6 +262,5 @@ func (a *API) postFinalizeReading(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"reference": toReferenceDTO(row, notes),
-		"takeaway":  takeaway,
 	})
 }

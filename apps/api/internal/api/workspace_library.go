@@ -57,29 +57,43 @@ type readingNoteDTO struct {
 // search_hints/material_id -> classification/collectionId/searchHints/materialId,
 // plus the projected notes[]. Credibility/decision are nullable enums (present
 // only once the student has judged the source); collectionId/materialId are
-// nullable links.
+// nullable links. phaseTag/takeaway (S2, Task 8) fold the reading sub-agent's
+// state onto the same row the library already renders: phaseTag is the reading
+// brief's phase (null until the student sets one via putReadingBrief), takeaway
+// is the full structured 5-field object (null until postFinalizeReading — this
+// is the same field the interim finalize response used to echo as a top-level
+// sibling key; folding it here removes that duplication).
 type referenceDTO struct {
-	ID             string           `json:"id"`
-	Title          string           `json:"title"`
-	Classification string           `json:"classification"`
-	Author         string           `json:"author"`
-	Credentials    string           `json:"credentials"`
-	Year           string           `json:"year"`
-	URL            string           `json:"url"`
-	Tags           []string         `json:"tags"`
-	CollectionID   *string          `json:"collectionId"`
-	Credibility    *string          `json:"credibility"`
-	Evaluation     string           `json:"evaluation"`
-	Decision       *string          `json:"decision"`
-	Pending        bool             `json:"pending"`
-	SearchHints    []string         `json:"searchHints"`
-	MaterialID     *string          `json:"materialId"`
-	Notes          []readingNoteDTO `json:"notes"`
+	ID             string                 `json:"id"`
+	Title          string                 `json:"title"`
+	Classification string                 `json:"classification"`
+	Author         string                 `json:"author"`
+	Credentials    string                 `json:"credentials"`
+	Year           string                 `json:"year"`
+	URL            string                 `json:"url"`
+	Tags           []string               `json:"tags"`
+	CollectionID   *string                `json:"collectionId"`
+	Credibility    *string                `json:"credibility"`
+	Evaluation     string                 `json:"evaluation"`
+	Decision       *string                `json:"decision"`
+	Pending        bool                   `json:"pending"`
+	SearchHints    []string               `json:"searchHints"`
+	MaterialID     *string                `json:"materialId"`
+	Notes          []readingNoteDTO       `json:"notes"`
+	PhaseTag       *string                `json:"phaseTag"`
+	Takeaway       *agent.ReadingTakeaway `json:"takeaway"`
 }
 
 func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 	if notes == nil {
 		notes = []readingNoteDTO{}
+	}
+	var takeaway *agent.ReadingTakeaway
+	if row.TakeawayFinalizedAt.Valid && len(row.Takeaway) > 0 {
+		var tk agent.ReadingTakeaway
+		if json.Unmarshal(row.Takeaway, &tk) == nil {
+			takeaway = &tk
+		}
 	}
 	return referenceDTO{
 		ID:             row.ID.String(),
@@ -98,6 +112,8 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		SearchHints:    jsonbToStrings(row.SearchHints),
 		MaterialID:     pgUUIDToStringPtr(row.MaterialID),
 		Notes:          notes,
+		PhaseTag:       row.PhaseTag,
+		Takeaway:       takeaway,
 	}
 }
 
