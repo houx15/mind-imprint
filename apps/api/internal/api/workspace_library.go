@@ -554,7 +554,28 @@ func (a *API) enterReading(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("enter-reading: append auto-log failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
-	httpx.WriteJSON(w, http.StatusOK, dto)
+
+	// suggestedReason: a deterministic first-draft intention (student edits).
+	// No spend — templated from the proposal objective + the source title. A
+	// fresh project has no proposal row yet (pgx.ErrNoRows), tolerated as an
+	// empty objective.
+	prop, _ := a.d.Queries.GetProjectProposal(r.Context(), projectID)
+	suggested := suggestReadingReason(prop.Objective, ref.Title)
+
+	// Merge onto the existing flat MaterialSource response rather than nesting
+	// it, so today's clients/tests decoding top-level fields keep working.
+	raw, err := json.Marshal(dto)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out["suggestedReason"] = suggested
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 // fetchMaterialForReference fetches ref.Url, creates the material + its
