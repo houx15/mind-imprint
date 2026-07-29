@@ -335,3 +335,159 @@ func TestGetTakeawayDraft_EmptyRecordNoSpend(t *testing.T) {
 		t.Fatalf("want 0 draft llm_call for an empty record, got %d", n)
 	}
 }
+
+// seedFinalizableReference seeds a bare reference linked to a material (so
+// postFinalizeReading's ref.MaterialID.Valid guard passes) — no reading cards
+// needed since lead materialization doesn't depend on record content, only on
+// new_leads/rid.
+func seedFinalizableReference(t *testing.T, h http.Handler, cookie *http.Cookie, q *sqlc.Queries) sqlc.Reference {
+	t.Helper()
+	ctx := context.Background()
+	projectID := uuid.MustParse(seedProjectID)
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "NASA 报告", craapMaterialText)
+	ref, err := q.CreateReference(ctx, sqlc.CreateReferenceParams{
+		ProjectID: projectID, Title: "NASA 报告",
+		Tags: []byte("[]"), SearchHints: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("CreateReference: %v", err)
+	}
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: uuid.MustParse(matID), Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+	return ref
+}
+
+// leadsForSource fetches GET /exploration and filters to leads whose
+// sourceReferenceId matches refID — the projection Task 5's materialized
+// leads land in (same endpoint Task 4 built).
+func leadsForSource(t *testing.T, h http.Handler, cookie *http.Cookie, refID string) []explorationLeadView {
+	t.Helper()
+	rr := doJSON(t, h, cookie, http.MethodGet, "/api/v1/projects/"+seedProjectID+"/exploration", "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("get exploration: %d %s", rr.Code, rr.Body.String())
+	}
+	var out explorationViewBody
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode exploration: %v — %s", err, rr.Body.String())
+	}
+	var matched []explorationLeadView
+	for _, l := range out.Leads {
+		if l.SourceReferenceID != nil && *l.SourceReferenceID == refID {
+			matched = append(matched, l)
+		}
+	}
+	return matched
+}
+
+// TestFinalize_MaterializesLeads — Task 5: a finalize whose new_leads carry
+// text materializes each as a first-class open/takeaway exploration branch,
+// attributed to the finalized reference via sourceReferenceId.
+func TestFinalize_MaterializesLeads(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	ref := seedFinalizableReference(t, h, cookie, q)
+	url := "/api/v1/projects/" + seedProjectID + "/references/" + ref.ID.String() + "/finalize-reading"
+
+	rr := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":["核实人均口径","另一条线索"],"proposal_impact":""}`)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("finalize: %d %s", rr.Code, rr.Body.String())
+	}
+
+	matched := leadsForSource(t, h, cookie, ref.ID.String())
+	if len(matched) != 2 {
+		t.Fatalf("want 2 materialized leads, got %d: %+v", len(matched), matched)
+	}
+	texts := map[string]bool{}
+	for _, l := range matched {
+		texts[l.Text] = true
+		if l.Status != "open" || l.Origin != "takeaway" {
+			t.Fatalf("lead status/origin = %q/%q, want open/takeaway", l.Status, l.Origin)
+		}
+	}
+	if !texts["核实人均口径"] || !texts["另一条线索"] {
+		t.Fatalf("materialized lead texts = %+v, want both seeded leads", texts)
+	}
+}
+
+// TestFinalize_IdempotentNoDuplicate — Task 5: re-finalizing the same
+// reference with the SAME new_leads text must not duplicate the already-
+// materialized lead (Count-then-insert dedupe by project+source+text).
+func TestFinalize_IdempotentNoDuplicate(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	ref := seedFinalizableReference(t, h, cookie, q)
+	url := "/api/v1/projects/" + seedProjectID + "/references/" + ref.ID.String() + "/finalize-reading"
+	body := `{"new_leads":["核实人均口径","另一条线索"],"proposal_impact":""}`
+
+	if rr := doJSON(t, h, cookie, http.MethodPost, url, body); rr.Code != http.StatusOK {
+		t.Fatalf("finalize 1: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := doJSON(t, h, cookie, http.MethodPost, url, body); rr.Code != http.StatusOK {
+		t.Fatalf("finalize 2 (re-finalize): %d %s", rr.Code, rr.Body.String())
+	}
+
+	matched := leadsForSource(t, h, cookie, ref.ID.String())
+	if len(matched) != 2 {
+		t.Fatalf("re-finalizing with the same new_leads should not duplicate, got %d: %+v", len(matched), matched)
+	}
+}
+
+// TestFinalize_DoesNotResurrectPruned — Task 5: once a materialized lead has
+// been explicitly pruned by the student, re-finalizing with the SAME lead
+// text must not resurrect it — the Count check sees the pruned row and skips
+// the insert, and the row's status stays "pruned".
+func TestFinalize_DoesNotResurrectPruned(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	ref := seedFinalizableReference(t, h, cookie, q)
+	url := "/api/v1/projects/" + seedProjectID + "/references/" + ref.ID.String() + "/finalize-reading"
+
+	if rr := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":["核实人均口径"],"proposal_impact":""}`); rr.Code != http.StatusOK {
+		t.Fatalf("finalize 1: %d %s", rr.Code, rr.Body.String())
+	}
+	matched := leadsForSource(t, h, cookie, ref.ID.String())
+	if len(matched) != 1 {
+		t.Fatalf("want 1 materialized lead before prune, got %d: %+v", len(matched), matched)
+	}
+	leadID := matched[0].ID
+
+	pruneURL := "/api/v1/projects/" + seedProjectID + "/exploration/leads/" + leadID
+	if rr := doJSON(t, h, cookie, http.MethodPatch, pruneURL, `{"status":"pruned"}`); rr.Code != http.StatusOK {
+		t.Fatalf("prune lead: %d %s", rr.Code, rr.Body.String())
+	}
+
+	// Re-finalize with the SAME lead text.
+	if rr := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":["核实人均口径"],"proposal_impact":""}`); rr.Code != http.StatusOK {
+		t.Fatalf("finalize 2 (re-finalize): %d %s", rr.Code, rr.Body.String())
+	}
+
+	matched = leadsForSource(t, h, cookie, ref.ID.String())
+	if len(matched) != 1 {
+		t.Fatalf("pruned lead should not be resurrected as a duplicate, got %d: %+v", len(matched), matched)
+	}
+	if matched[0].Status != "pruned" {
+		t.Fatalf("pruned lead's status should stay pruned, got %q", matched[0].Status)
+	}
+}

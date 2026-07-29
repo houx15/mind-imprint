@@ -263,6 +263,9 @@ func (a *API) postFinalizeReading(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("finalize reading: append auto-log failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	// Best-effort lead materialization (S3 D-S3-2) — a materialize failure
+	// must never fail the finalize itself, same posture as the log above.
+	a.materializeLeads(r.Context(), projectID, rid, body.NewLeads)
 	// Notes re-project from the reference's material — same fix patchReference
 	// applies; passing nil here would wipe the reference's notes[] in the
 	// response (a prior reviewer already caught this class of bug).
@@ -273,4 +276,49 @@ func (a *API) postFinalizeReading(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"reference": toReferenceDTO(row, notes),
 	})
+}
+
+// materializeLeads turns a finalized takeaway's new_leads into first-class
+// exploration branches (S3 D-S3-2, exploration.go's lead lifecycle) —
+// origin "takeaway", status "open", attributed to sourceRefID. Idempotent AND
+// non-resurrecting: for each non-blank text, a CountExplorationLeadForSource
+// hit (by project+source+text) means a lead with that text already exists for
+// this source — either materialized by a prior finalize (skip, no dup) or
+// materialized-then-pruned by the student (skip, no resurrection) — so the
+// same Count check gives both guarantees for free. Best-effort, mirroring
+// postFinalizeReading's appendAutoLog posture: any error here is logged and
+// swallowed, never surfaced to the caller — the finalize itself already
+// succeeded and must not be undone by a leads-side hiccup.
+func (a *API) materializeLeads(ctx context.Context, projectID, sourceRefID uuid.UUID, texts []string) {
+	existing, err := a.d.Queries.ListExplorationLeads(ctx, projectID)
+	if err != nil {
+		slog.Warn("finalize reading: materialize leads: list existing failed", "err", err)
+		return
+	}
+	pos := int32(len(existing))
+	srcRef := pgtype.UUID{Bytes: sourceRefID, Valid: true}
+	for _, text := range texts {
+		text = strings.TrimSpace(text)
+		if text == "" {
+			continue
+		}
+		n, err := a.d.Queries.CountExplorationLeadForSource(ctx, sqlc.CountExplorationLeadForSourceParams{
+			ProjectID: projectID, SourceReferenceID: srcRef, Text: text,
+		})
+		if err != nil {
+			slog.Warn("finalize reading: materialize leads: count failed", "err", err, "text", text)
+			continue
+		}
+		if n > 0 {
+			continue
+		}
+		if _, err := a.d.Queries.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
+			ProjectID: projectID, Text: text, Status: "open", Origin: "takeaway",
+			SourceReferenceID: srcRef, Position: pos,
+		}); err != nil {
+			slog.Warn("finalize reading: materialize leads: create failed", "err", err, "text", text)
+			continue
+		}
+		pos++
+	}
 }
