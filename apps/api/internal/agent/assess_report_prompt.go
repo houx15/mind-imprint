@@ -126,5 +126,13 @@ func assessReportUserInput(in AssessmentInput) string {
 			b.WriteString(fmt.Sprintf("%d. %s\n", i+1, s))
 		}
 	}
+	if in.AIUse.UsedFor != "" || in.AIUse.NotUsedFor != "" {
+		b.WriteString("学生的 AI 使用自述（复盘我与 AI 的互动）：\n")
+		if in.AIUse.RecordLine != "" {
+			b.WriteString("客观交互记录：" + in.AIUse.RecordLine + "\n")
+		}
+		b.WriteString("用 AI 做了：" + in.AIUse.UsedFor + "\n")
+		b.WriteString("没有用 AI 做：" + in.AIUse.NotUsedFor + "\n")
+	}
 	return b.String()
 }

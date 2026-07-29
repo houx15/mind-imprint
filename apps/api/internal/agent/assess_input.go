@@ -57,6 +57,20 @@ type AssessmentInput struct {
 	// text) fed to the assessor for the official projection + work-and-
 	// process section. Empty on chat/course.
 	WorkSamples []string
+
+	// AIUse is the student's AI-use self-report (S5 · 复盘我与 AI 的互动) plus a
+	// one-line objective interaction record. Project surface only (set post-
+	// build by the project handler); empty on chat/course. EVIDENCE for the
+	// responsible-AI-use lens — the assessor judges; this is not a score.
+	AIUse AIUseForAssessment
+}
+
+// AIUseForAssessment is the student's AI-use statement + the objective record
+// digest, fed to the assessor (S5).
+type AIUseForAssessment struct {
+	UsedFor    string
+	NotUsedFor string
+	RecordLine string
 }
 
 // BuildAssessmentInput digests the process record. Pure — no I/O; the handler

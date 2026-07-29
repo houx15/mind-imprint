@@ -10,9 +10,12 @@ package api
 // seeds a draft; the student authors used_for/not_used_for (AI 克制).
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
@@ -62,12 +65,19 @@ func toAIUseRecordView(r aiUseRecord) agent.AIUseRecordView {
 
 // buildProjectAIUseRecord assembles the objective interaction record for a
 // project from its events + llm_call rows. Best-effort loads (a failed load
-// degrades a slice to empty, never fails the endpoint).
-func (a *API) buildProjectAIUseRecord(r *http.Request, projectID [16]byte) aiUseRecord {
+// degrades a slice to empty, never fails the caller). ctx-based so both the
+// request handler and the finish-goroutine assessor can call it.
+func (a *API) buildProjectAIUseRecord(ctx context.Context, projectID uuid.UUID) aiUseRecord {
 	pid := pgtype.UUID{Bytes: projectID, Valid: true}
-	events, _ := a.d.Queries.ListEventsByProject(r.Context(), pid)
-	llmCalls, _ := a.d.Queries.ListLLMCallsByProject(r.Context(), pid)
+	events, _ := a.d.Queries.ListEventsByProject(ctx, pid)
+	llmCalls, _ := a.d.Queries.ListLLMCallsByProject(ctx, pid)
 	return buildAIUseRecord(events, llmCalls)
+}
+
+// aiUseRecordLine is a one-line objective-record digest for the assessor prompt.
+func aiUseRecordLine(r aiUseRecord) string {
+	return fmt.Sprintf("%d 轮对话 · AI 提议 %d 张卡（打开 %d、跳过 %d）· 打开 %d 个来源 · 无代写正文、无预测分数",
+		r.CoachTurns, r.CardsProposed, r.CardsAccepted, r.CardsDismissed, r.SourcesOpened)
 }
 
 // getAIUseDraft returns the objective record + a draft statement. The draft is
@@ -79,7 +89,7 @@ func (a *API) getAIUseDraft(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rec := a.buildProjectAIUseRecord(r, projectID)
+	rec := a.buildProjectAIUseRecord(r.Context(), projectID)
 
 	usedFor, notUsedFor := "", ""
 	if saved, err := a.d.Queries.GetProjectAIUse(r.Context(), projectID); err == nil {

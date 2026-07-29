@@ -80,6 +80,15 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 		return studio.ReportDTO{}, derr
 	}
 	in := buildAssessmentInputFromProject(d, proj, enrichedProjectGraphSummary(ctx, a.d.Queries, projectID), draft)
+	// S5 · feed the student's AI-use self-report + objective interaction record to
+	// the assessor (evidence for the responsible-AI-use lens). Best-effort; only
+	// when the student actually authored a statement.
+	if st, serr := a.d.Queries.GetProjectAIUse(ctx, projectID); serr == nil && (st.UsedFor != "" || st.NotUsedFor != "") {
+		in.AIUse = agent.AIUseForAssessment{
+			UsedFor: st.UsedFor, NotUsedFor: st.NotUsedFor,
+			RecordLine: aiUseRecordLine(a.buildProjectAIUseRecord(ctx, projectID)),
+		}
+	}
 
 	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
