@@ -20,12 +20,31 @@ vi.mock("@/api/writing", () => ({
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
+import { coach } from "@/workspace/api/workspace";
 import { exportDraftDocx } from "@/workspace/export";
-import { WritingBlock } from "@/workspace/blocks/WritingBlock";
+import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
+
+// WC · M1 — the caret-fallback paragraph math. Real separator offsets, no drift.
+describe("paragraphAtCaret (WC · M1)", () => {
+  const src = "P0 第一段。\n\nP1 第二段。\n\n\n\nP2 第三段。"; // gaps of 2 and 4 newlines
+  it("picks the block the caret sits in (start of a paragraph)", () => {
+    const p1Start = src.indexOf("P1");
+    expect(paragraphAtCaret(src, p1Start)).toBe("P1 第二段。");
+  });
+  it("does not drift across a 4-newline gap", () => {
+    const p2Start = src.indexOf("P2");
+    expect(paragraphAtCaret(src, p2Start)).toBe("P2 第三段。");
+    expect(paragraphAtCaret(src, src.length)).toBe("P2 第三段。");
+  });
+  it("empty text yields empty (button no-ops)", () => {
+    expect(paragraphAtCaret("", 0)).toBe("");
+  });
+});
 
 const mockReview = vi.mocked(runDraftReview);
 const mockPutBuffer = vi.mocked(putBuffer);
 const mockExport = vi.mocked(exportDraftDocx);
+const mockCoach = vi.mocked(coach);
 const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res" };
 
 beforeEach(() => {
@@ -90,5 +109,30 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(await screen.findByText(/体检没跑完/)).toBeInTheDocument();
     // autosave still fired before the review attempt
     expect(mockPutBuffer).toHaveBeenCalled();
+  });
+
+  it("summons a writing card from the deck (WC · card-hang)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={() => {}} />);
+    // deck launcher lives in the always-present rail
+    await userEvent.click(screen.getByTitle("写作卡"));
+    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
+    await userEvent.click(toulmin);
+    // StudioCardSheet mounts (its 工具卡 label + the card name)
+    expect(await screen.findByText("工具卡")).toBeInTheDocument();
+  });
+
+  it("pins a draft part and scopes the coach turn to it (WC · part-by-part)", async () => {
+    await openDraftTab();
+    await userEvent.click(screen.getByRole("button", { name: "就这一段问印记" }));
+    // pinned chip appears in the rail
+    expect(await screen.findByText("就这一段")).toBeInTheDocument();
+    const composer = screen.getByPlaceholderText("就这一段，你想问什么？");
+    await userEvent.type(composer, "这段够有力吗{Enter}");
+    await waitFor(() => {
+      const [, scope, turn] = mockCoach.mock.calls.at(-1)!;
+      expect(scope).toBe("writing");
+      expect(turn).toContain("就这一段想");
+      expect(turn).toContain("这段够有力吗");
+    });
   });
 });

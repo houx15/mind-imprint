@@ -130,14 +130,30 @@ func TestPostPersistProjectCard_PersistsWritingDeckCard(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID
 
-	// argument-map is a writing-deck card NOT pre-seeded (0018 seeds steelman + concession).
+	// toulmin is the ONLY deck card with completion + graph_effects — the persist
+	// path must NOT invoke CompleteCard (nil material would otherwise error), so
+	// it exercises the graph-card risk the other deck cards can't. Not pre-seeded.
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
-		strings.NewReader(`{"card_id":"argument-map","field_values":{"claim":"qualified yes","grounds":"greening 强、排放限制强"},"event_trace":[]}`)), cookie))
+		strings.NewReader(`{"card_id":"toulmin","field_values":{"claim":"qualified yes","grounds":"greening 强、排放限制强"},"event_trace":[]}`)), cookie))
 	if rr.Code != http.StatusOK {
-		t.Fatalf("writing-deck persist = %d — %s", rr.Code, rr.Body)
+		t.Fatalf("writing-deck (toulmin, graph card) persist = %d — %s", rr.Code, rr.Body)
 	}
-	if got := countCompletedCard(t, pool, seedProjectID, "argument-map"); got != 1 {
-		t.Fatalf("completed argument-map = %d, want 1", got)
+	if got := countCompletedCard(t, pool, seedProjectID, "toulmin"); got != 1 {
+		t.Fatalf("completed toulmin = %d, want 1", got)
+	}
+}
+
+// A writing-deck-only card (not AI-proposable) must NOT be dismissable via the
+// proposal-dismiss path — dismiss stays scoped to coachProposableCards, so a
+// future widening to persistableCard would fail this guard.
+func TestPostDismissProposal_RejectsWritingDeckOnlyCard(t *testing.T) {
+	h, cookie, _ := persistHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/dismiss-proposal",
+		strings.NewReader(`{"card_id":"toulmin"}`)), cookie))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("dismiss of a writing-deck-only card = %d, want 400 — %s", rr.Code, rr.Body)
 	}
 }

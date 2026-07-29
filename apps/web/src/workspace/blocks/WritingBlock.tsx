@@ -465,6 +465,27 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
 // (.docx/.pdf) are accepted but parked with a note — real parsing is later.
 const TEXT_EXT = [".md", ".txt", ".markdown"];
 
+// paragraphAtCaret returns the blank-line-separated paragraph the caret sits in
+// (trimmed). Bounds are computed from the ACTUAL separators (a blank-line gap is
+// 2..n chars), so it never drifts; a caret in a gap attaches to the following
+// block; empty text → "". Exported for direct unit testing (WC · M1).
+export function paragraphAtCaret(src: string, caret: number): string {
+  const bounds: Array<[number, number]> = [];
+  const re = /\n{2,}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    bounds.push([last, m.index]);
+    last = m.index + m[0].length;
+  }
+  bounds.push([last, src.length]);
+  for (const [s, e] of bounds) {
+    if (caret <= e) return src.slice(s, e).trim();
+  }
+  const [s] = bounds[bounds.length - 1]!;
+  return src.slice(s).trim();
+}
+
 function DraftPane({ projectId, title, onFocusPart }: { projectId: string; title: string; onFocusPart: (part: string) => void }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
@@ -481,14 +502,10 @@ function DraftPane({ projectId, title, onFocusPart }: { projectId: string; title
     if (!ta) return;
     let part = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
     if (!part) {
-      // no highlight → the paragraph (blank-line block) around the caret
-      const blocks = ta.value.split(/\n{2,}/);
-      let acc = 0;
-      for (const b of blocks) {
-        const end = acc + b.length;
-        if (ta.selectionStart <= end + 2) { part = b.trim(); break; }
-        acc = end + 2;
-      }
+      // no highlight → the blank-line paragraph the caret sits in. Compute real
+      // block bounds from the actual separators (gaps are 2..n chars, not a
+      // constant), and pick the first block whose end is at/after the caret.
+      part = paragraphAtCaret(ta.value, ta.selectionStart);
     }
     if (part) onFocusPart(part);
   }
@@ -790,10 +807,10 @@ function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; 
     const shown = focusPart ? `【就这一段】${text}` : text;
     setChat((c) => [...c, { role: "student", text: shown }]);
     setDraft("");
-    onClearFocus();
     setSending(true);
     try {
       const { reply, proposal: p } = await coach(projectId, "writing", turnText);
+      onClearFocus(); // clear the pinned part only on success — a failed turn keeps it so she needn't re-pin
       setChat((c) => [...c, { role: "ai", text: reply }]);
       // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
       // dismissable chip; opening it (below) is the student's tap, never auto.
