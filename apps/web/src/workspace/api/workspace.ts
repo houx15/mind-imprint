@@ -297,12 +297,27 @@ export async function postMirror(id: string): Promise<Mirror> {
 // POST /references/{rid}/enter-reading — ensure a readable material (fetch from
 // url on first entry) and return its full MaterialSource DTO. 422 → the typed
 // NoReadableContentError so the library can nudge instead of navigating.
-export async function enterReading(id: string, rid: string): Promise<MaterialSource> {
+//
+// The server also merges a `suggestedReason` field onto the same flat
+// response (a deterministic, no-model-call first-draft "why read this",
+// templated from the proposal objective + the reference title — see Go's
+// suggestReadingReason) — it isn't part of the shared MaterialSource contract
+// (that DTO is keyed by material, not by "why this reference"), so it's read
+// off the raw payload here rather than folded into MaterialSource.parse.
+export async function enterReading(
+  id: string,
+  rid: string,
+): Promise<{ source: MaterialSource; suggestedReason: string }> {
   try {
     const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/references/${rid}/enter-reading`, {
       method: "POST",
     });
-    return MaterialSource.parse(raw);
+    const source = MaterialSource.parse(raw);
+    const suggestedReason =
+      typeof raw === "object" && raw !== null && typeof (raw as { suggestedReason?: unknown }).suggestedReason === "string"
+        ? (raw as { suggestedReason: string }).suggestedReason
+        : "";
+    return { source, suggestedReason };
   } catch (e) {
     // 422 (no url / no material) OR any fetch failure → offer the paste box.
     if (e instanceof ApiError && (e.status === 422 || e.code === "fetch_failed")) {

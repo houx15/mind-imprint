@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport, SelectionEval } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -28,7 +28,7 @@ import {
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
 } from "./teacher";
-import { readTurn, summonCard, evaluateCardSelection, getOpenCard } from "./reading";
+import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "./reading";
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseTurnEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard };
 export { ApiError } from "./client";
@@ -77,6 +77,11 @@ export interface ApiClient {
   summonCard(projectId: string, materialId: string, cardId: string): AsyncGenerator<StudioTurnEvent>;
   evaluateCardSelection(projectId: string, cid: string, body: { block_id: string; start: number; end: number; quote: string; dimension: string }): Promise<SelectionEval>;
   getOpenCard(projectId: string, materialId: string): Promise<{ cardInstanceId: string; cardId: string; status: "proposed" | "active"; anchors: Anchor[] } | null>;
+  // S2: reading brief-in + takeaway finalize (Task 9) — rid is the reference
+  // id, not the material id source.id above.
+  putReadingBrief(projectId: string, rid: string, brief: ReadingBrief): Promise<void>;
+  getTakeawayDraft(projectId: string, rid: string): Promise<TakeawayDraft>;
+  postFinalizeReading(projectId: string, rid: string, body: { newLeads: string[]; proposalImpact: string }): Promise<Reference>;
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
@@ -133,6 +138,7 @@ export const api: ApiClient = {
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
   readTurn, summonCard, evaluateCardSelection, getOpenCard,
+  putReadingBrief, getTakeawayDraft, postFinalizeReading,
   putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
   getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,

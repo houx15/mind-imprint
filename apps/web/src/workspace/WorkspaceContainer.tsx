@@ -26,9 +26,23 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   const [error, setError] = useState<string | null>(null);
   // The reading-room swap slot. When set, the focused ReadingRoom surface
   // replaces the rooms entirely (mirrors the shipped studio's own swap).
-  // Nothing sets it yet — slice 3 wires a source-open to it; the mechanism
-  // (and its onBack teardown) already exists.
-  const [readingSource, setReadingSource] = useState<MaterialSource | null>(null);
+  const [readingSource, setReadingSourceState] = useState<MaterialSource | null>(null);
+  // The reference row + suggested brief seed the reading room needs
+  // alongside its MaterialSource (S2, Task 9) — see ReadingBlock's
+  // setReadingSource for where these are captured.
+  const [readingRefId, setReadingRefId] = useState("");
+  const [readingSuggestedReason, setReadingSuggestedReason] = useState("");
+
+  function openReadingSource(m: MaterialSource, referenceId: string, suggestedReason?: string) {
+    setReadingSourceState(m);
+    setReadingRefId(referenceId);
+    setReadingSuggestedReason(suggestedReason ?? "");
+  }
+  function closeReadingSource() {
+    setReadingSourceState(null);
+    setReadingRefId("");
+    setReadingSuggestedReason("");
+  }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
   // for in-progress projects (a non-empty proposal) — a brand-new project has
@@ -89,13 +103,13 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   function openProject(id: string) {
     setProjectId(id);
     setRoom("plan");
-    setReadingSource(null);
+    closeReadingSource();
   }
 
   function backToAll() {
     setProjectId(null);
     setWorkspace(null);
-    setReadingSource(null);
+    closeReadingSource();
     setError(null);
   }
 
@@ -120,9 +134,11 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     return (
       <ReadingRoom
         projectId={projectId}
+        referenceId={readingRefId}
         source={readingSource}
+        suggestedReason={readingSuggestedReason}
         api={api}
-        onBack={() => setReadingSource(null)}
+        onBack={closeReadingSource}
       />
     );
   }
@@ -167,7 +183,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
               />
             )}
             {room === "reading" && (
-              <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={setReadingSource} />
+              <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={openReadingSource} />
             )}
             {room === "writing" && (
               <WritingBlock

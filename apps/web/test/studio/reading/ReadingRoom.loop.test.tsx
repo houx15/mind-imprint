@@ -89,7 +89,7 @@ function selectTextInBlock(container: HTMLElement, blockId: string, start: numbe
 describe("ReadingRoom — read-together loop", () => {
   it("send → example → pick → feedback → confirm → outcome lands in 阅读成果", async () => {
     const fakeApi = makeFakeApi();
-    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     // The 阅读成果 tab starts at 0.
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toHaveTextContent("0");
@@ -152,7 +152,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("ignores a pick that exactly matches the example sentence", async () => {
     const fakeApi = makeFakeApi();
-    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -173,7 +173,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("clicking a sentence references it, shows the chip, and sends it as focused_spans", async () => {
     const fakeApi = makeFakeApi();
-    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     // Idle by default — the hint invites referencing.
     expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
@@ -218,7 +218,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("清除 clears referenced blocks without sending", async () => {
     const fakeApi = makeFakeApi();
-    const { container } = render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     const block0 = container.querySelector('[data-block-id="b0"]')!;
     fireEvent.click(block0);
@@ -232,7 +232,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("透镜库: browsing lists the deck, and picking a card summons it onto the article", async () => {
     const fakeApi = makeFakeApi();
-    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     // Opening the library lists the reading deck, grouped — a source-check
     // card (CRAAP) and a disciplinary lens (逻辑学) are both visible.
@@ -253,7 +253,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("跳过这副透镜 is available at proposed AND active, and calls loop.skip via onSkip", async () => {
     const fakeApi = makeFakeApi();
-    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -278,7 +278,7 @@ describe("ReadingRoom — read-together loop", () => {
 
   it("透镜库 button is disabled while a card is in flight", async () => {
     const fakeApi = makeFakeApi();
-    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -297,7 +297,7 @@ describe("ReadingRoom — read-together loop", () => {
         anchors: [EXAMPLE_ANCHOR],
       })),
     };
-    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
     // The room never opens with an invisible in-flight lens: the leftover
     // card renders (completable), and it is ALWAYS skippable.
     await screen.findByText("看懂示范，开始选句");

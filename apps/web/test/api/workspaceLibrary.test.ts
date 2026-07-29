@@ -177,12 +177,24 @@ describe("enterReading", () => {
     const spy = vi.fn(async () => json(MATERIAL_SOURCE));
     vi.stubGlobal("fetch", spy);
 
-    const source = await enterReading("p1", "r1");
+    const { source, suggestedReason } = await enterReading("p1", "r1");
     expect(source).toEqual(MATERIAL_SOURCE);
+    expect(suggestedReason).toBe("");
 
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("/api/v1/projects/p1/references/r1/enter-reading");
     expect(init.method).toBe("POST");
+  });
+
+  it("surfaces the server's suggestedReason merged onto the MaterialSource payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ ...MATERIAL_SOURCE, suggestedReason: "带着「问题」读这篇，我想验证：" })),
+    );
+
+    const { source, suggestedReason } = await enterReading("p1", "r1");
+    expect(source).toEqual(MATERIAL_SOURCE);
+    expect(suggestedReason).toBe("带着「问题」读这篇，我想验证：");
   });
 
   it("throws NoReadableContentError on 422", async () => {

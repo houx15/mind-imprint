@@ -52,7 +52,12 @@ export function ReadingBlock({
 }: {
   projectId: string;
   title: string;
-  setReadingSource: (m: MaterialSource) => void;
+  // referenceId is the Library row this material was opened from — the S2
+  // reading-brief/takeaway endpoints are keyed by reference id, not material
+  // id, so the room needs it threaded through. suggestedReason is the
+  // deterministic seed enter-reading computes (empty on the paste-body path,
+  // which has no proposal to template from).
+  setReadingSource: (m: MaterialSource, referenceId: string, suggestedReason?: string) => void;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -188,7 +193,7 @@ export function ReadingBlock({
       setRefs((xs) => [created, ...xs]);
       setSelId(created.id);
       const source = await pasteContent(projectId, created.id, src.text, src.title || undefined);
-      setReadingSource(source);
+      setReadingSource(source, created.id);
     } catch {
       reload();
     } finally {
@@ -559,6 +564,11 @@ function RefTable(props: {
 
 function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void }) {
   const hasRead = r.notes.length > 0;
+  // 已归纳/在读 badge (S2, Task 9) — derived, never a separate flag: a
+  // finalized takeaway means 已归纳; a linked material with no takeaway yet
+  // means she's opened it but hasn't wrapped it up (在读); neither shows for
+  // a source that's never been entered.
+  const readingBadge = r.takeaway != null ? "已归纳" : r.materialId != null ? "在读" : null;
   return (
     <div
       draggable
@@ -573,6 +583,12 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-green" : "border border-mk-muted-2"}`} />
           <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
           {r.pending && <span className="flex-none rounded bg-mk-accent-tint px-1.5 py-0.5 text-[10px] font-bold text-mk-accent">待找</span>}
+          {readingBadge && (
+            <span className={`flex-none rounded px-1.5 py-0.5 text-[10px] font-bold ${readingBadge === "已归纳" ? "bg-mk-green-tint text-mk-green" : "bg-mk-primary-tint text-mk-primary"}`}>
+              {readingBadge}
+            </span>
+          )}
+          {r.phaseTag && <span className="flex-none rounded bg-mk-bg px-1.5 py-0.5 text-[10px] font-bold text-mk-muted">{r.phaseTag}</span>}
         </div>
         <div className="mt-0.5 flex gap-1 pl-3">
           {r.tags.map((t) => (<span key={t} className="text-[10.5px] text-mk-muted-2">#{t}</span>))}
@@ -597,7 +613,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
   onRemoveTag: (t: string) => void;
   onPatchNow: (p: ReferencePatch) => void;
   onPatchDebounced: (p: ReferencePatch) => void;
-  onEnterReading: (m: MaterialSource) => void;
+  onEnterReading: (m: MaterialSource, referenceId: string, suggestedReason?: string) => void;
 }) {
   const [entering, setEntering] = useState(false);
   const [enterNote, setEnterNote] = useState<string | null>(null);
@@ -613,8 +629,8 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setEnterNote(null);
     setEntering(true);
     try {
-      const source = await enterReading(projectId, r.id);
-      onEnterReading(source);
+      const { source, suggestedReason } = await enterReading(projectId, r.id);
+      onEnterReading(source, r.id, suggestedReason);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
         // Fetch failed / no content → let the student paste the body in.
@@ -635,7 +651,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setPasteError(null);
     try {
       const source = await pasteContent(projectId, r.id, text);
-      onEnterReading(source);
+      onEnterReading(source, r.id);
     } catch {
       setPasteError("粘贴失败了，再试一次？");
     } finally {
@@ -740,15 +756,49 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
         />
       </div>
 
-      {r.notes.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">阅读笔记 · {r.notes.length}</p>
-          <div className="flex flex-col gap-2">
-            {r.notes.map((n, i) => (
-              <p key={i} className="border-l-2 border-mk-accent pl-2 text-[12px] leading-relaxed text-mk-ink">{n.finding}</p>
-            ))}
-          </div>
+      {/* S2 (Task 9): once finalized (完成这篇), the structured takeaway
+          supersedes the raw notes list as the reading record for this
+          source — findings/credibility/keyQuotes are her already-confirmed
+          work, newLeads/proposalImpact are her authored synthesis. */}
+      {r.takeaway ? (
+        <div className="mt-4 rounded-mk border border-mk-green/40 bg-mk-green-tint/40 p-3">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-green">已归纳 · 阅读成果</p>
+          {r.takeaway.findings.length > 0 && (
+            <ul className="mb-2 list-disc space-y-1 pl-4 text-[12px] leading-relaxed text-mk-ink">
+              {r.takeaway.findings.map((f, i) => (<li key={i}>{f}</li>))}
+            </ul>
+          )}
+          {r.takeaway.credibility.verdict && (
+            <p className="mb-2 text-[12px] leading-relaxed text-mk-ink">
+              <span className="font-bold">可信度 · {r.takeaway.credibility.verdict}</span>
+              {r.takeaway.credibility.why ? ` — ${r.takeaway.credibility.why}` : ""}
+            </p>
+          )}
+          {r.takeaway.keyQuotes.length > 0 && (
+            <div className="mb-2 flex flex-col gap-1.5">
+              {r.takeaway.keyQuotes.map((q, i) => (
+                <p key={i} className="border-l-2 border-mk-green pl-2 text-[12px] leading-relaxed text-mk-ink">“{q.quote}”{q.why ? ` — ${q.why}` : ""}</p>
+              ))}
+            </div>
+          )}
+          {r.takeaway.newLeads.length > 0 && (
+            <p className="mb-1 text-[12px] leading-relaxed text-mk-ink"><span className="font-bold">新的线索 · </span>{r.takeaway.newLeads.join("；")}</p>
+          )}
+          {r.takeaway.proposalImpact && (
+            <p className="text-[12px] leading-relaxed text-mk-ink"><span className="font-bold">对论点的影响 · </span>{r.takeaway.proposalImpact}</p>
+          )}
         </div>
+      ) : (
+        r.notes.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">阅读笔记 · {r.notes.length}</p>
+            <div className="flex flex-col gap-2">
+              {r.notes.map((n, i) => (
+                <p key={i} className="border-l-2 border-mk-accent pl-2 text-[12px] leading-relaxed text-mk-ink">{n.finding}</p>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       <div className="mt-5 flex flex-col gap-2">

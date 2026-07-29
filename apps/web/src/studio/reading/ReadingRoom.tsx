@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, MaterialSource, ReadingBrief, Reference, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
+import { PhaseTag } from "@mind-imprint/contracts";
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
 import { READING_DECK_IDS } from "./readingDeck";
 import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
+import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
 import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
 import "./ReadingRoom.css";
 
@@ -29,14 +31,41 @@ export type ReadingRoomCard = {
   hasExample: boolean;
 };
 
+// ReadingRoomApi — the loop's own slice (readTurn/activateProjectCard/…) plus
+// the three S2 brief/takeaway calls (Task 9), which the room drives directly
+// rather than through `useReadingLoop` — they aren't part of the client-side
+// card state machine, just one-off reads/writes keyed by the reference id.
+export type ReadingRoomApi = ReadingLoopApi & {
+  putReadingBrief(projectId: string, rid: string, brief: ReadingBrief): Promise<void>;
+  getTakeawayDraft(projectId: string, rid: string): Promise<TakeawayDraft>;
+  postFinalizeReading(
+    projectId: string,
+    rid: string,
+    body: { newLeads: string[]; proposalImpact: string },
+  ): Promise<Reference>;
+};
+
 export type ReadingRoomProps = {
   projectId: string;
+  // The reference row this material was opened from — the brief/takeaway
+  // endpoints (Task 9) are keyed by reference id (rid), NOT the material id
+  // (source.id below is the material). Always the reference the student
+  // opened via 进入阅读室/开始共读 in the Library.
+  referenceId: string;
   source: MaterialSource;
+  // A deterministic, no-model-call first-draft "why read this" — Go's
+  // suggestReadingReason, merged onto enter-reading's response. Seeds the
+  // brief banner; empty when entered via the paste-body fallback (no
+  // proposal-based suggestion computed there) or when the caller omits it.
+  // CONCERN: the persisted reason (once saved via putReadingBrief) is NOT
+  // exposed on Reference/MaterialSource anywhere the client can re-read it —
+  // re-opening this same source later re-seeds from this same suggestion
+  // rather than her last edit. See task-9-report.md.
+  suggestedReason?: string;
   onBack: () => void;
-  // The loop controller's own api slice (readTurn/activateProjectCard/
-  // evaluateCardSelection/submitProjectCard/skipProjectCard) — ReadingRoom
-  // owns the loop (`useReadingLoop`) internally now that Task 10 wires it.
-  api: ReadingLoopApi;
+  // ReadingRoom owns the loop (`useReadingLoop`) internally, plus drives the
+  // S2 brief/takeaway calls directly off the same api slice.
+  api: ReadingRoomApi;
   // Reinstates the reading-time logging that used to fire from
   // SourceDossier's open/close lifecycle (Task 8 binding) — StudioContainer
   // passes its existing `onOpenLogged` callback through here. Optional so a
@@ -62,10 +91,76 @@ function BackIcon() {
 // pane on the right with 文章 | 阅读成果 view-tabs. The article enters
 // select-mode once a card is `active`; the hanging card renders from the
 // loop's live status/eval; every confirmed finding accumulates in 阅读成果.
-export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: ReadingRoomProps) {
+export function ReadingRoom({ projectId, referenceId, source, suggestedReason, onBack, api, onOpenLogged }: ReadingRoomProps) {
   const loop = useReadingLoop(projectId, source, api);
   const [draft, setDraft] = useState("");
   const [rightView, setRightView] = useState<"article" | "trace">("article");
+
+  // Brief-in (S2, Task 9): why-read-THIS-source + which argument phase it's
+  // for. Seeded from suggestedReason (see the prop's doc comment on the
+  // seeding limitation); phaseTag starts unset. Every save resends all three
+  // fields — putReadingBrief is a full-replace endpoint, so omitting one
+  // would wipe it.
+  const [briefReason, setBriefReason] = useState(suggestedReason ?? "");
+  const [briefEditingReason, setBriefEditingReason] = useState(false);
+  const [briefFocus] = useState("");
+  const [briefPhase, setBriefPhase] = useState<PhaseTag | "">("");
+
+  function saveBrief(next?: { reason?: string; phase?: PhaseTag | "" }) {
+    const reason = next?.reason ?? briefReason;
+    const phase = next?.phase ?? briefPhase;
+    void api.putReadingBrief(projectId, referenceId, {
+      readingReason: reason,
+      readingFocus: briefFocus,
+      phaseTag: phase,
+    });
+  }
+
+  // 完成这篇 (S2, Task 9): the finalize panel. draft holds the assembled
+  // record (read-only) + seeded synthesis suggestions; leads/impact are the
+  // student's own edits to that seed.
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [finalizeLoading, setFinalizeLoading] = useState(false);
+  const [finalizeDraft, setFinalizeDraft] = useState<TakeawayDraft | null>(null);
+  const [finalizeLeads, setFinalizeLeads] = useState("");
+  const [finalizeImpact, setFinalizeImpact] = useState("");
+  const [finalizeSaving, setFinalizeSaving] = useState(false);
+  const [finalizeDone, setFinalizeDone] = useState(false);
+
+  async function openFinalize() {
+    setFinalizeOpen(true);
+    setFinalizeDone(false);
+    setFinalizeLoading(true);
+    try {
+      const draftResult = await api.getTakeawayDraft(projectId, referenceId);
+      setFinalizeDraft(draftResult);
+      setFinalizeLeads(draftResult.suggestedNewLeads.join("\n"));
+      setFinalizeImpact(draftResult.suggestedProposalImpact);
+    } catch {
+      setFinalizeDraft(null);
+    } finally {
+      setFinalizeLoading(false);
+    }
+  }
+
+  async function confirmFinalize() {
+    if (finalizeSaving) return;
+    setFinalizeSaving(true);
+    try {
+      await api.postFinalizeReading(projectId, referenceId, {
+        newLeads: finalizeLeads
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        proposalImpact: finalizeImpact.trim(),
+      });
+      setFinalizeDone(true);
+    } catch {
+      // keep the panel open so she can retry — never silently discard her edits
+    } finally {
+      setFinalizeSaving(false);
+    }
+  }
   // 透镜库 (LensLibrary) — the student browses the reading deck and summons
   // a CHOSEN card onto the article herself, rather than only ever waiting
   // for the AI to propose one.
@@ -188,6 +283,56 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
 
       <main className="mk-reading-room__workspace">
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          <div className="mk-reading-room__brief">
+            {briefEditingReason ? (
+              <input
+                autoFocus
+                className="mk-reading-room__brief-input"
+                value={briefReason}
+                onChange={(e) => setBriefReason(e.target.value)}
+                onBlur={() => {
+                  setBriefEditingReason(false);
+                  saveBrief();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+                placeholder="说说你读这篇是为了什么……"
+                aria-label="你读这篇是为了"
+              />
+            ) : (
+              <button
+                type="button"
+                className="mk-reading-room__brief-reason"
+                onClick={() => setBriefEditingReason(true)}
+              >
+                你读这篇是为了：
+                {briefReason ? (
+                  briefReason
+                ) : (
+                  <span className="mk-reading-room__brief-placeholder">点击填写…</span>
+                )}
+              </button>
+            )}
+            <select
+              className="mk-reading-room__brief-phase"
+              value={briefPhase}
+              onChange={(e) => {
+                const v = e.target.value as PhaseTag | "";
+                setBriefPhase(v);
+                saveBrief({ phase: v });
+              }}
+              aria-label="这篇材料用在哪个阶段"
+            >
+              <option value="">这篇用在哪个阶段…</option>
+              {PhaseTag.options.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="mk-reading-room__pane-heading">
             <span className="mk-reading-room__kicker">AI 思维陪练</span>
             <h1>换一个视角，再读一遍</h1>
@@ -340,6 +485,9 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
                     ? `已引用 ${refs.length} 处 · 再点可取消`
                     : "点击句子可引用原文"}
             </span>
+            <button type="button" className="mk-reading-room__finalize-btn" onClick={() => void openFinalize()}>
+              完成这篇
+            </button>
           </div>
 
           {rightView === "article" ? (
@@ -396,6 +544,21 @@ export function ReadingRoom({ projectId, source, onBack, api, onOpenLogged }: Re
             void loop.summonCard(id);
           }}
           onClose={() => setLibraryOpen(false)}
+        />
+      )}
+
+      {finalizeOpen && (
+        <FinalizeReadingPanel
+          loading={finalizeLoading}
+          draft={finalizeDraft}
+          leadsText={finalizeLeads}
+          onLeadsChange={setFinalizeLeads}
+          impactText={finalizeImpact}
+          onImpactChange={setFinalizeImpact}
+          saving={finalizeSaving}
+          done={finalizeDone}
+          onConfirm={() => void confirmFinalize()}
+          onClose={() => setFinalizeOpen(false)}
         />
       )}
     </div>

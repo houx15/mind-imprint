@@ -24,12 +24,19 @@ const NOOP_API = {
   },
   submitProjectCard: async function* () {},
   skipProjectCard: async () => {},
+  putReadingBrief: async () => {},
+  getTakeawayDraft: async () => {
+    throw new Error("not used in this test");
+  },
+  postFinalizeReading: async () => {
+    throw new Error("not used in this test");
+  },
 };
 
 describe("ReadingRoom", () => {
   it("renders the article and returns via back", () => {
     const onBack = vi.fn();
-    render(<ReadingRoom projectId="p1" source={SOURCE} onBack={onBack} api={NOOP_API} />);
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={onBack} api={NOOP_API} />);
     // The title shows in both the topbar brand and the article header.
     expect(screen.getAllByText("NASA 气候报告").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/全球平均气温持续上升/)).toBeInTheDocument();
@@ -37,5 +44,105 @@ describe("ReadingRoom", () => {
     expect(screen.getByText(/这条来源可信吗/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/返回工作区/));
     expect(onBack).toHaveBeenCalled();
+  });
+});
+
+// S2 (Task 9): brief-in banner — pre-filled from enter-reading's
+// `suggestedReason` seed, editable, saves via putReadingBrief. Every save
+// always sends all 3 ReadingBrief fields (reason/focus/phaseTag) — the
+// endpoint is full-replace, so a partial body would wipe whichever it omits.
+describe("ReadingRoom — brief banner (S2)", () => {
+  it("seeds the reason from suggestedReason and saves all 3 fields on blur", () => {
+    const putReadingBrief = vi.fn(async () => {});
+    const api = { ...NOOP_API, putReadingBrief };
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        suggestedReason="带着「问题」读这篇，我想验证："
+        onBack={() => {}}
+        api={api}
+      />,
+    );
+
+    // The seeded reason is shown up front — no click needed to see it.
+    expect(screen.getByText(/你读这篇是为了：带着「问题」读这篇，我想验证：/)).toBeInTheDocument();
+
+    // Click to edit, change the text, blur to save.
+    fireEvent.click(screen.getByText(/你读这篇是为了：/));
+    const input = screen.getByLabelText("你读这篇是为了");
+    expect(input).toHaveValue("带着「问题」读这篇，我想验证：");
+    fireEvent.change(input, { target: { value: "验证这篇能不能支持我的论点" } });
+    fireEvent.blur(input);
+
+    // All three ReadingBrief fields are always sent, even though only reason
+    // was edited here — focus/phaseTag stay at their current (empty) values
+    // rather than being omitted.
+    expect(putReadingBrief).toHaveBeenCalledWith("p1", "r1", {
+      readingReason: "验证这篇能不能支持我的论点",
+      readingFocus: "",
+      phaseTag: "",
+    });
+  });
+
+  it("saves phaseTag immediately on select, alongside reason/focus", () => {
+    const putReadingBrief = vi.fn(async () => {});
+    const api = { ...NOOP_API, putReadingBrief };
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={api} />);
+
+    fireEvent.change(screen.getByLabelText("这篇材料用在哪个阶段"), { target: { value: "支持论点" } });
+
+    expect(putReadingBrief).toHaveBeenCalledWith("p1", "r1", {
+      readingReason: "",
+      readingFocus: "",
+      phaseTag: "支持论点",
+    });
+  });
+});
+
+// S2 (Task 9): 完成这篇 finalize panel — getTakeawayDraft seeds a read-only
+// record + editable synthesis fields; confirming calls postFinalizeReading
+// with her edited values (never the seed verbatim, never the record).
+describe("ReadingRoom — 完成这篇 finalize panel (S2)", () => {
+  it("fetches the draft, shows the read-only record + editable synthesis, and confirms with her edits", async () => {
+    const getTakeawayDraft = vi.fn(async () => ({
+      record: {
+        findings: ["政策目标模糊。"],
+        credibility: { verdict: "中等可信", why: "官方数据但样本有限。" },
+        keyQuotes: [{ quote: "植被覆盖上升。", why: "支持结论。" }],
+      },
+      suggestedNewLeads: ["查一下具体地区数据"],
+      suggestedProposalImpact: "这篇支持我的论点，但需要补充地区细节。",
+    }));
+    const postFinalizeReading = vi.fn(async () => ({}) as never);
+    const api = { ...NOOP_API, getTakeawayDraft, postFinalizeReading };
+
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={api} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));
+    expect(getTakeawayDraft).toHaveBeenCalledWith("p1", "r1");
+
+    // The assembled record renders read-only.
+    await screen.findByText("政策目标模糊。");
+    expect(screen.getByText(/中等可信/)).toBeInTheDocument();
+    expect(screen.getByText(/植被覆盖上升/)).toBeInTheDocument();
+
+    // The two synthesis fields are editable and seeded from the suggestions.
+    const leadsField = screen.getByPlaceholderText(/这篇给你带来了什么新的线索/) as HTMLTextAreaElement;
+    const impactField = screen.getByPlaceholderText(/这篇对你的论点有什么影响/) as HTMLTextAreaElement;
+    expect(leadsField).toHaveValue("查一下具体地区数据");
+    expect(impactField).toHaveValue("这篇支持我的论点，但需要补充地区细节。");
+
+    fireEvent.change(leadsField, { target: { value: "查一下具体地区数据\n再找一篇反例" } });
+    fireEvent.change(impactField, { target: { value: "编辑后的影响描述" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "确认归纳" }));
+
+    await screen.findByText("已归纳 ✓");
+    expect(postFinalizeReading).toHaveBeenCalledWith("p1", "r1", {
+      newLeads: ["查一下具体地区数据", "再找一篇反例"],
+      proposalImpact: "编辑后的影响描述",
+    });
   });
 });
