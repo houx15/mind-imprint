@@ -278,7 +278,9 @@ func TestExploration_IDOR(t *testing.T) {
 // TestComputeDanglingSourceIds is a pure unit test of the exported test seam
 // wrapping computeDanglingSourceIds: a reference is dangling iff its
 // material_id is set AND its decision is null/"drop" AND no non-pruned lead
-// connects it. Pure function — struct literals directly, no DB round-trip.
+// connects it as EITHER the connected_reference_id OR the
+// source_reference_id (a source that spawned branches is used, not
+// dangling). Pure function — struct literals directly, no DB round-trip.
 func TestComputeDanglingSourceIds(t *testing.T) {
 	projectID := uuid.New()
 	decision := "drop"
@@ -299,9 +301,18 @@ func TestComputeDanglingSourceIds(t *testing.T) {
 	// A reference with no material_id (未读) → never dangling.
 	unread := sqlc.Reference{ID: uuid.New(), ProjectID: projectID, Title: "还没读的来源"}
 
-	refs := []sqlc.Reference{dropped, used, unread}
+	// The NASA-source happy path: finalized takeaway, material engaged,
+	// decision still unset (nil, neither "use" nor "drop") — but it spawned
+	// a takeaway lead. Must NOT be dangling despite having no decision yet.
+	spawner := sqlc.Reference{
+		ID: uuid.New(), ProjectID: projectID, Title: "牵出了新线索的来源",
+		MaterialID: pgtype.UUID{Bytes: uuid.New(), Valid: true},
+	}
 
-	// No leads at all: the dropped reference is dangling.
+	refs := []sqlc.Reference{dropped, used, unread, spawner}
+
+	// No leads at all: the dropped reference is dangling; spawner (no leads
+	// yet) is dangling too — spawning requires an actual lead.
 	dangling := ComputeDanglingSourceIdsForTest(refs, nil)
 	if !containsID(dangling, dropped.ID.String()) {
 		t.Fatalf("dangling = %v, want it to contain dropped reference %s", dangling, dropped.ID)
@@ -311,6 +322,9 @@ func TestComputeDanglingSourceIds(t *testing.T) {
 	}
 	if containsID(dangling, unread.ID.String()) {
 		t.Fatalf("dangling = %v, unread (no material) reference must never be dangling", dangling)
+	}
+	if !containsID(dangling, spawner.ID.String()) {
+		t.Fatalf("dangling = %v, want it to contain spawner (no leads yet) %s", dangling, spawner.ID)
 	}
 
 	// Once a non-pruned lead connects the dropped reference, it's no longer dangling.
@@ -330,6 +344,28 @@ func TestComputeDanglingSourceIds(t *testing.T) {
 	dangling = ComputeDanglingSourceIdsForTest(refs, prunedLeads)
 	if !containsID(dangling, dropped.ID.String()) {
 		t.Fatalf("dangling = %v, a pruned-lead connection must not un-dangle the source", dangling)
+	}
+
+	// A source that SPAWNED an open takeaway lead (source_reference_id, not
+	// connected_reference_id) is not dangling, even with material engaged and
+	// decision null — Finding 1's bug case.
+	spawnedRef := pgtype.UUID{Bytes: spawner.ID, Valid: true}
+	spawnLeads := []sqlc.ExplorationLead{
+		{ID: uuid.New(), ProjectID: projectID, Text: "新线索：中国碳排放全球第一", Status: "open", Origin: "takeaway", SourceReferenceID: spawnedRef},
+	}
+	dangling = ComputeDanglingSourceIdsForTest(refs, spawnLeads)
+	if containsID(dangling, spawner.ID.String()) {
+		t.Fatalf("dangling = %v, a source that spawned an open lead must not be dangling", dangling)
+	}
+
+	// Once that spawned lead is pruned, the source falls back to dangling —
+	// every branch it produced was abandoned, same as never branching.
+	spawnLeadsPruned := []sqlc.ExplorationLead{
+		{ID: uuid.New(), ProjectID: projectID, Text: "新线索：中国碳排放全球第一", Status: "pruned", Origin: "takeaway", SourceReferenceID: spawnedRef},
+	}
+	dangling = ComputeDanglingSourceIdsForTest(refs, spawnLeadsPruned)
+	if !containsID(dangling, spawner.ID.String()) {
+		t.Fatalf("dangling = %v, want spawner dangling again once its only spawned lead is pruned", dangling)
 	}
 }
 

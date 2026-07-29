@@ -86,16 +86,25 @@ func (a *API) getExploration(w http.ResponseWriter, r *http.Request) {
 // "use"/"maybe" means the student has already made something of it), AND its
 // id is not the connected_reference_id of any lead whose status != "pruned"
 // (a pruned connection doesn't count — the student explicitly abandoned that
-// thread, so the source is dangling again). Returns ids in stable order
-// (refs' own ListReferences order).
+// thread, so the source is dangling again). A reference is ALSO not dangling
+// if it's the source_reference_id of at least one non-pruned lead — a source
+// that spawned branches is USED, not dangling, even before it has an
+// explicit decision (the NASA-source happy path: finalized takeaway, open
+// takeaway leads under it, decision still unset). If every lead spawned from
+// it is pruned, it correctly falls back to dangling — the student abandoned
+// every branch, same as never having branched at all. Returns ids in stable
+// order (refs' own ListReferences order).
 func computeDanglingSourceIds(refs []sqlc.Reference, leads []sqlc.ExplorationLead) []string {
-	connected := map[string]bool{}
+	excluded := map[string]bool{}
 	for _, l := range leads {
 		if l.Status == "pruned" {
 			continue
 		}
 		if l.ConnectedReferenceID.Valid {
-			connected[uuid.UUID(l.ConnectedReferenceID.Bytes).String()] = true
+			excluded[uuid.UUID(l.ConnectedReferenceID.Bytes).String()] = true
+		}
+		if l.SourceReferenceID.Valid {
+			excluded[uuid.UUID(l.SourceReferenceID.Bytes).String()] = true
 		}
 	}
 	out := []string{}
@@ -107,7 +116,7 @@ func computeDanglingSourceIds(refs []sqlc.Reference, leads []sqlc.ExplorationLea
 			continue
 		}
 		id := ref.ID.String()
-		if connected[id] {
+		if excluded[id] {
 			continue
 		}
 		out = append(out, id)
@@ -285,9 +294,9 @@ func toGuideDirectionDTOs(ds []agent.GuideDirection) []guideDirectionDTO {
 // (engaged sources + open leads + proposal objective) into a pure
 // agent.ExplorationGuideInput — no LLM call here, just reads. Per-source
 // State mirrors buildSpineProjection's 文献库 block (projectcoach.go) exactly:
-// 已归纳 once takeaway_finalized_at is set, else 在读 once a material is
-// linked, else 未读. Tolerates a missing proposal (fresh project) by simply
-// leaving ProposalObjective "".
+// 已归纳 once takeaway_finalized_at is set AND a takeaway body actually
+// exists, else 在读 once a material is linked, else 未读. Tolerates a
+// missing proposal (fresh project) by simply leaving ProposalObjective "".
 func (a *API) assembleExplorationGuideInput(ctx context.Context, projectID uuid.UUID) agent.ExplorationGuideInput {
 	var in agent.ExplorationGuideInput
 	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
@@ -297,7 +306,7 @@ func (a *API) assembleExplorationGuideInput(ctx context.Context, projectID uuid.
 		for _, ref := range refs {
 			state := "未读"
 			switch {
-			case ref.TakeawayFinalizedAt.Valid:
+			case ref.TakeawayFinalizedAt.Valid && len(ref.Takeaway) > 0:
 				state = "已归纳"
 			case ref.MaterialID.Valid:
 				state = "在读"

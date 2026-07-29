@@ -185,7 +185,12 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     return m;
   }, [view.leads]);
 
-  const branchedRefs = references.filter((r) => (leadsBySource.get(r.id)?.length ?? 0) > 0);
+  // Only counts as "branched" with at least one non-pruned source-lead — a
+  // ref whose only leads are pruned has no visible open branch to show here,
+  // and the server's danglingSourceIds correctly re-includes it (a source
+  // whose leads are ALL pruned falls back to dangling). Without this guard
+  // that ref would render in both sections at once.
+  const branchedRefs = references.filter((r) => (leadsBySource.get(r.id) ?? []).some((l) => l.status !== "pruned"));
   const danglingRefs = references.filter((r) => view.danglingSourceIds.includes(r.id));
   // Every lead with no source reference lands here — including leads that
   // were connected/pruned whose origin reference was later deleted (DB sets
