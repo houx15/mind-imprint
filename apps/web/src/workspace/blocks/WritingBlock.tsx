@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Proposal } from "@mind-imprint/contracts";
-import { putBuffer } from "../../api/writing";
+import { putBuffer, runDraftReview } from "../../api/writing";
+import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
@@ -468,6 +469,29 @@ function DraftPane({ projectId }: { projectId: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const words = text.replace(/\s+/g, "").length;
 
+  // WA · 整稿体检: save a version + run the whole-draft review, render its advice
+  // read-only. Never edits the draft — 印记 checks argument/structure, you revise.
+  const [voice, setVoice] = useState<ReviewVoice>("board");
+  const [reviewing, setReviewing] = useState(false);
+  const [review, setReview] = useState<DraftReviewResult | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  async function runReview() {
+    if (reviewing || text.trim() === "") return;
+    setReviewing(true);
+    setReviewError(null);
+    // flush any pending autosave so the snapshot matches what's on screen
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    try {
+      await putBuffer(projectId, text);
+      setReview(await runDraftReview(projectId, text, voice));
+    } catch {
+      setReviewError("体检没跑完，稍后再试一次。");
+    } finally {
+      setReviewing(false);
+    }
+  }
+
   // Load the persisted draft on mount ("" when there's no buffer yet).
   useEffect(() => {
     let cancelled = false;
@@ -531,7 +555,30 @@ function DraftPane({ projectId }: { projectId: string }) {
               </div>
             )}
           </div>
-          {mode === "write" && <span className="text-[12px] font-semibold text-mk-muted-2">{words} 字</span>}
+          {mode === "write" && (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-semibold text-mk-muted-2">{words} 字</span>
+              <select
+                value={voice}
+                onChange={(e) => setVoice(e.target.value as ReviewVoice)}
+                aria-label="体检视角"
+                className="rounded-mk border border-mk-border bg-mk-surface px-2 py-1 text-[12px] text-mk-ink outline-none focus:border-mk-primary"
+              >
+                <option value="board">评审团</option>
+                <option value="sceptic">质疑者</option>
+                <option value="layperson">门外汉</option>
+                <option value="executioner">审判者</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void runReview()}
+                disabled={reviewing || text.trim() === ""}
+                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-mk-accent-hover disabled:opacity-50"
+              >
+                {reviewing ? "体检中…" : "让印记体检整稿"}
+              </button>
+            </div>
+          )}
         </div>
 
         {mode === "write" ? (
@@ -573,8 +620,61 @@ function DraftPane({ projectId }: { projectId: string }) {
             {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{uploadNote}</p>}
           </div>
         )}
+        {mode === "write" && (reviewError || reviewing || review) && (
+          <DraftReviewPanel reviewing={reviewing} error={reviewError} review={review} onClose={() => { setReview(null); setReviewError(null); }} />
+        )}
         <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
+    </div>
+  );
+}
+
+// DraftReviewPanel — WA: renders the 整稿体检 advice read-only. Each row names a
+// criterion, which descriptor band the draft evidences, what's still missing,
+// and a suggested DIRECTION (not a rewrite). The student revises in her own words.
+function DraftReviewPanel({
+  reviewing,
+  error,
+  review,
+  onClose,
+}: {
+  reviewing: boolean;
+  error: string | null;
+  review: DraftReviewResult | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mt-3 max-h-72 overflow-y-auto rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/30 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[13px] font-bold text-mk-ink">印记的整稿体检 · 供你参考，不替你改字</p>
+        <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">收起</button>
+      </div>
+      {reviewing ? (
+        <p className="text-[12.5px] text-mk-muted-2">印记正在逐段体检你的论证与结构……</p>
+      ) : error ? (
+        <p className="text-[12.5px] font-semibold text-mk-accent">{error}</p>
+      ) : review ? (
+        review.items.length === 0 ? (
+          <p className="text-[12.5px] text-mk-muted-2">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
+        ) : (
+          <>
+            <p className="mb-2 text-[11.5px] text-mk-muted-2">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
+            <ul className="flex flex-col gap-2">
+              {review.items.map((it: ReviewItem, i: number) => (
+                <li key={i} className="rounded-mk border border-mk-border bg-mk-surface p-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[12.5px] font-bold text-mk-primary">{it.criterion_name || it.criterion_code}</span>
+                    {it.band && <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10.5px] font-bold text-mk-primary">{it.band}</span>}
+                  </div>
+                  {it.evidence && <p className="mt-1 text-[12.5px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
+                  {it.missing && <p className="mt-1 text-[12.5px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
+                  {it.fix && <p className="mt-1 text-[12.5px] text-mk-accent"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
     </div>
   );
 }

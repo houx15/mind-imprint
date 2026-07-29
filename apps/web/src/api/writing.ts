@@ -45,6 +45,41 @@ export async function commitSnapshot(projectId: string, content: string): Promis
 // generator to know when the review is done, not to read its payload.
 export type ReviewVoice = "board" | "sceptic" | "layperson" | "executioner";
 
+// One row of the whole-draft 整稿体检 advice (agent.ReviewItem, snake_case on the
+// wire). band/points name WHICH descriptor cell the paragraph evidences — never a
+// grade (RL-3). fix is a suggested DIRECTION, not a rewrite.
+export const ReviewItem = z.object({
+  criterion_code: z.string(),
+  criterion_name: z.string(),
+  band: z.string(),
+  evidence: z.string(),
+  missing: z.string(),
+  fix: z.string(),
+  points: z.number().int().optional(),
+});
+export type ReviewItem = z.infer<typeof ReviewItem>;
+
+export type DraftReviewResult = { items: ReviewItem[]; wordCount: number; inBand: boolean };
+
+// runDraftReview — WA: the student-triggered "让印记体检整稿". Commits the current
+// draft as an immutable snapshot, then runs the whole-draft review and collects
+// the advice straight off the stream's final `review` frame (no projection
+// refetch needed — the frame carries the persisted ReviewItem[]). Throws on the
+// stream's error frame. Never touches the draft — the advice is the student's to
+// act on (AI 克制: checks thinking/structure, doesn't rewrite).
+export async function runDraftReview(projectId: string, content: string, voice: ReviewVoice = "board"): Promise<DraftReviewResult> {
+  const snap = await commitSnapshot(projectId, content);
+  let items: ReviewItem[] = [];
+  for await (const ev of orderReview(projectId, snap.id, voice)) {
+    if (ev.type === "error") throw new ApiError(ev.code, ev.message, 0);
+    if (ev.type === "review") {
+      const parsed = z.array(ReviewItem).safeParse(ev.items);
+      if (parsed.success) items = parsed.data;
+    }
+  }
+  return { items, wordCount: snap.wordCount, inBand: snap.inBand };
+}
+
 export async function* orderReview(projectId: string, snapshotId: string, voice: ReviewVoice = "board"): AsyncGenerator<StudioTurnEvent> {
   const q = voice === "board" ? "" : `?voice=${voice}`;
   const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/snapshots/${snapshotId}/review${q}`, {
