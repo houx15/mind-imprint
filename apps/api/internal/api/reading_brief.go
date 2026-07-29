@@ -65,12 +65,20 @@ func (a *API) putReadingBrief(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
+	// Notes re-project from the reference's (possibly unchanged) material —
+	// same pattern as patchReference (workspace_library.go), which also edits
+	// this row for an unrelated field and must not let a passed-nil notes arg
+	// wipe already-projected reading notes in the response.
+	var notes []readingNoteDTO
+	if row.MaterialID.Valid {
+		notes = a.notesByMaterial(r, projectID)[uuid.UUID(row.MaterialID.Bytes).String()]
+	}
 	// referenceDTO/toReferenceDTO don't carry the brief fields yet (that's
 	// Task 6/8's job, alongside the structured takeaway); echo what was just
 	// persisted as sibling top-level fields so the room can confirm the save
 	// without waiting on that DTO extension.
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"reference":     toReferenceDTO(row, nil),
+		"reference":     toReferenceDTO(row, notes),
 		"readingReason": derefOr(row.ReadingReason, ""),
 		"readingFocus":  derefOr(row.ReadingFocus, ""),
 		"phaseTag":      derefOr(row.PhaseTag, ""),
