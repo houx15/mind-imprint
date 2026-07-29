@@ -158,4 +158,16 @@ describe("ExplorationView", () => {
 
     expect(await screen.findByText(LOOSE_CONNECTED_LEAD.text)).toBeInTheDocument();
   });
+
+  // S4: the 兔子洞 card entry (S3's TODO). Opening is the student's tap — the
+  // card sheet is NOT mounted on render, only after the button click (克制).
+  it("rabbit-hole entry: the card sheet mounts only after tapping ＋ 兔子洞", async () => {
+    render(<ExplorationView projectId="p1" references={[NASA_REF, DANGLING_REF]} />);
+    await screen.findByText(LEAD_OPEN.text);
+
+    const entry = screen.getByRole("button", { name: "＋ 兔子洞" });
+    expect(screen.queryByText("兔子洞·兴趣雷达卡")).not.toBeInTheDocument();
+    await userEvent.click(entry);
+    expect(await screen.findByText("兔子洞·兴趣雷达卡")).toBeInTheDocument();
+  });
 });

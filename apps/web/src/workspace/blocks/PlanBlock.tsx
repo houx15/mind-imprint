@@ -160,7 +160,7 @@ export function PlanBlock({
     setChat((c) => [...c, { role: "student", text: studentEcho }]);
     setSending(true);
     try {
-      const reply = await coach(projectId, scope, userInput);
+      const { reply } = await coach(projectId, scope, userInput);
       setChat((c) => [...c, { role: "ai", text: reply }]);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);

@@ -1092,7 +1092,7 @@ function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: 
     setDraft("");
     setBusy(true);
     try {
-      const reply = await coach(projectId, "find_sources", text);
+      const { reply } = await coach(projectId, "find_sources", text);
       setChat((c) => [...c, { role: "ai", text: reply }]);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);

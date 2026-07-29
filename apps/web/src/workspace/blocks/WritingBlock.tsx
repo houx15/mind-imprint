@@ -3,8 +3,12 @@ import type { Proposal } from "@mind-imprint/contracts";
 import { putBuffer } from "../../api/writing";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getDraft, coach, getCoachHistory } from "../api/workspace";
+import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard } from "../api/workspace";
+import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { CoachProposal } from "./CoachProposal";
+import { StudioCardSheet } from "../../studio/StudioCardSheet";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
 // prototype used (the persisted OutlineNode adds a server-owned `position`,
@@ -604,6 +608,12 @@ function CoachRail({ projectId }: { projectId: string }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
+  // dismissable chip); `openCardId` is the card the student CHOSE to open — the
+  // only path to a card sheet, so triggering stays automatic while opening is
+  // the student's tap (铁律).
+  const [proposal, setProposal] = useState<CardProposalWire | null>(null);
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
 
   // S1 · one continuous session: load this room's slice of the project thread
   // once on open, appended after the greeting. Empty → greeting only.
@@ -628,18 +638,34 @@ function CoachRail({ projectId }: { projectId: string }) {
     setDraft("");
     setSending(true);
     try {
-      const reply = await coach(projectId, "writing", text);
+      const { reply, proposal: p } = await coach(projectId, "writing", text);
       setChat((c) => [...c, { role: "ai", text: reply }]);
-      // ── Card-summon hook ──────────────────────────────────────────────
-      // A future writing-scope coach turn may summon a thinking-card (e.g.
-      // 让步段 / 反例). When the coach response carries a summon signal, mount
-      // the Card Runtime here and refeed its standard envelope back into this
-      // thread. No behavior yet — the transport only returns the reply string.
-      // ──────────────────────────────────────────────────────────────────
+      // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
+      // dismissable chip; opening it (below) is the student's tap, never auto.
+      setProposal(p);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
     } finally {
       setSending(false);
+    }
+  }
+
+  // Opening a proposed card is the student's explicit choice (铁律). On submit
+  // the completed envelope persists (过程即数据 — recorded, not discarded), and
+  // the rail acknowledges it.
+  function openProposedCard(cardId: string) {
+    setProposal(null);
+    setOpenCardId(cardId);
+  }
+  async function submitProposedCard(fieldValues: Record<string, unknown>, eventTrace: unknown[]) {
+    const cardId = openCardId;
+    setOpenCardId(null);
+    if (!cardId) return;
+    try {
+      await persistProjectCard(projectId, cardId, fieldValues, eventTrace);
+      setChat((c) => [...c, { role: "ai", text: "记下了——你刚才的思考已经存进过程里。" }]);
+    } catch {
+      setChat((c) => [...c, { role: "ai", text: "刚才没存上，等下再试一次。" }]);
     }
   }
 
@@ -658,6 +684,16 @@ function CoachRail({ projectId }: { projectId: string }) {
             <div className={`max-w-[88%] rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
           </div>
         ))}
+        {proposal && !openCardId ? (
+          <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => setProposal(null)} />
+        ) : null}
+        {openCardId && CARD_REGISTRY[openCardId] ? (
+          <StudioCardSheet
+            spec={CARD_REGISTRY[openCardId]}
+            onSubmit={(env) => submitProposedCard(env.field_values, env.event_trace)}
+            onSkip={() => setOpenCardId(null)}
+          />
+        ) : null}
         {sending && (
           <div className="flex justify-start">
             <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3.5 py-2.5 text-[13px] leading-relaxed text-mk-muted-2">印记在想……</div>

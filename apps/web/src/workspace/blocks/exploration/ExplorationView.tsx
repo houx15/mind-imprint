@@ -7,8 +7,10 @@ import type {
   PhaseTag,
   Reference,
 } from "@mind-imprint/contracts";
-import { enterReading, NoReadableContentError } from "../../api/workspace";
+import { enterReading, NoReadableContentError, postRabbitHoleCard } from "../../api/workspace";
 import { createLead, digDeeper, getExploration, patchLead } from "../../../api/exploration";
+import { StudioCardSheet } from "../../../studio/StudioCardSheet";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 // S3 rabbit-hole exploration surface (Task 9): the branch view over the
 // leads Task 8's endpoints track. No graph/tree library — this is a
@@ -50,6 +52,9 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const [newLeadText, setNewLeadText] = useState("");
   const [creatingLead, setCreatingLead] = useState(false);
   const [directions, setDirections] = useState<GuideDirection[] | null>(null);
+  // S4 · the 兔子洞 card. Opening is the student's tap; on submit the reflection
+  // persists to the process tree (过程即数据) — no longer the S3 silent discard.
+  const [rabbitOpen, setRabbitOpen] = useState(false);
   const [digging, setDigging] = useState(false);
   const [diggingError, setDiggingError] = useState(false);
   const [adoptedDirections, setAdoptedDirections] = useState<Set<number>>(new Set());
@@ -211,8 +216,33 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
           <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
           <p className="mt-0.5 text-[12px] text-mk-muted-2">来源怎么分出新的线索、还有什么线索没追完——一眼看全</p>
         </div>
-        {/* TODO(S4): rabbit-hole card entry — needs envelope persistence to the process tree */}
+        {CARD_REGISTRY["rabbit-hole"] && (
+          <button
+            type="button"
+            onClick={() => setRabbitOpen(true)}
+            className="flex-none rounded-lg border border-mk-border bg-mk-surface px-3 py-1.5 text-[12px] font-semibold text-mk-ink hover:bg-mk-bg"
+          >
+            ＋ 兔子洞
+          </button>
+        )}
       </div>
+
+      {rabbitOpen && CARD_REGISTRY["rabbit-hole"] && (
+        <div className="mb-4">
+          <StudioCardSheet
+            spec={CARD_REGISTRY["rabbit-hole"]}
+            onSubmit={async (env) => {
+              setRabbitOpen(false);
+              try {
+                await postRabbitHoleCard(projectId, env.field_values, env.event_trace);
+              } catch {
+                setLeadActionError(true);
+              }
+            }}
+            onSkip={() => setRabbitOpen(false)}
+          />
+        </div>
+      )}
 
       {leadActionError && (
         <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>

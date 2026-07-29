@@ -94,14 +94,56 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
 }
 
 // POST /coach — one restrained coaching turn (JSON, not SSE). The only spend
-// endpoint of the room; returns the AI reply as a plain string.
+// endpoint of the room. Returns the AI reply, plus (S4) an OPTIONAL cross-phase
+// card proposal — an OFFER the student may open or dismiss; never auto-opens.
 export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review";
-export async function coach(id: string, scope: CoachScope, userInput: string): Promise<string> {
+export const CardProposalWire = z.object({
+  cardId: z.string(),
+  reason: z.string(),
+  nudgeText: z.string(),
+});
+export type CardProposalWire = z.infer<typeof CardProposalWire>;
+export interface CoachResult {
+  reply: string;
+  proposal: CardProposalWire | null;
+}
+export async function coach(id: string, scope: CoachScope, userInput: string): Promise<CoachResult> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
     method: "POST",
     body: JSON.stringify({ scope, user_input: userInput }),
   });
-  return z.object({ reply: z.string() }).parse(raw).reply;
+  const parsed = z.object({ reply: z.string(), proposal: CardProposalWire.nullish() }).parse(raw);
+  return { reply: parsed.reply, proposal: parsed.proposal ?? null };
+}
+
+// POST /cards/persist — persist a completed envelope for a card the coach
+// proposed cross-phase (S4). No spend; records the card_instance + a process
+// event. Only allowlisted (proposable) card ids are accepted server-side.
+export async function persistProjectCard(
+  id: string,
+  cardId: string,
+  fieldValues: Record<string, unknown>,
+  eventTrace: unknown[],
+): Promise<string> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/cards/persist`, {
+    method: "POST",
+    body: JSON.stringify({ card_id: cardId, field_values: fieldValues, event_trace: eventTrace }),
+  });
+  return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
+}
+
+// POST /exploration/rabbit-hole — persist the completed 兔子洞 reflection (S4;
+// the S3 TODO). No spend; records the card_instance + a rabbit_hole_logged event.
+export async function postRabbitHoleCard(
+  id: string,
+  fieldValues: Record<string, unknown>,
+  eventTrace: unknown[],
+): Promise<string> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/exploration/rabbit-hole`, {
+    method: "POST",
+    body: JSON.stringify({ field_values: fieldValues, event_trace: eventTrace }),
+  });
+  return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
 }
 
 // GET /coach/history — a room's surface-slice of the ONE per-project thread
