@@ -4,6 +4,7 @@ import { putBuffer } from "../../api/writing";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getDraft, coach } from "../api/workspace";
+import { MarkdownPreview } from "./MarkdownPreview";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
 // prototype used (the persisted OutlineNode adds a server-owned `position`,
@@ -11,10 +12,62 @@ import { getOutline, putOutline, getDraft, coach } from "../api/workspace";
 type Row = { id: string; text: string; depth: number };
 type ChatMsg = { role: "ai" | "student"; text: string };
 
+// Max outline nesting depth (0 = top level). Indent clamps here.
+const MAX_DEPTH = 2;
+
 // A monotonic client-side id for freshly-added rows before the server mints a
 // real one. Any string is fine — the server re-assigns ids on every PUT.
 let tempSeq = 0;
 const tempId = () => `tmp-${tempSeq++}`;
+
+// ── Outline keyboard reducer (pure, tested) ────────────────────────────────
+// The keystroke semantics of a real outliner, factored out so the behavior can
+// be unit-tested without a DOM:
+//   enter     → insert a blank sibling right below at the same depth, focus it
+//   indent    → depth + 1 (clamped ≤ MAX_DEPTH); caret stays put (no refocus)
+//   outdent   → depth − 1 (clamped ≥ 0); caret stays put
+//   backspace → only meaningful on an empty, non-first row: delete it and put
+//               the caret at the end of the previous row
+// `focus` is null when the caret should stay where the browser already has it
+// (indent/outdent don't reorder the DOM, so focus is naturally retained).
+export type OutlineKeyType = "enter" | "indent" | "outdent" | "backspace";
+export type OutlineKeyResult = { rows: Row[]; focus: { id: string; atEnd: boolean } | null };
+
+export function outlineKey(
+  rows: Row[],
+  type: OutlineKeyType,
+  id: string,
+  makeId: () => string = tempId,
+): OutlineKeyResult {
+  const i = rows.findIndex((r) => r.id === id);
+  if (i < 0) return { rows, focus: null };
+  const row = rows[i]!;
+  switch (type) {
+    case "enter": {
+      const nid = makeId();
+      const next = [...rows];
+      next.splice(i + 1, 0, { id: nid, text: "", depth: row.depth });
+      return { rows: next, focus: { id: nid, atEnd: false } };
+    }
+    case "indent": {
+      const depth = Math.min(MAX_DEPTH, row.depth + 1);
+      if (depth === row.depth) return { rows, focus: null };
+      return { rows: rows.map((r, idx) => (idx === i ? { ...r, depth } : r)), focus: null };
+    }
+    case "outdent": {
+      const depth = Math.max(0, row.depth - 1);
+      if (depth === row.depth) return { rows, focus: null };
+      return { rows: rows.map((r, idx) => (idx === i ? { ...r, depth } : r)), focus: null };
+    }
+    case "backspace": {
+      // Only delete when the row is empty and there's a previous row to merge
+      // the caret onto. Otherwise a no-op (the caller lets the default run).
+      if (row.text !== "" || i === 0) return { rows, focus: null };
+      const prev = rows[i - 1]!;
+      return { rows: rows.filter((_, idx) => idx !== i), focus: { id: prev.id, atEnd: true } };
+    }
+  }
+}
 
 // The Write block: two gears — 提纲 (outline) and 写作 (a single draft panel) —
 // with a slim goal strip up top so you write against your thesis, and an AI
@@ -78,6 +131,15 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
   // id-reconcile after it resolves) reads current state without stale closures.
   const nodesRef = useRef<Row[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Focus plumbing so typing flows like a real outliner: each row registers its
+  // input by id, and a key action parks a pending focus target that the effect
+  // applies once the new/changed rows have rendered.
+  const inputRefs = useRef(new Map<string, HTMLInputElement>());
+  const pendingFocus = useRef<{ id: string; atEnd: boolean } | null>(null);
+  const registerInput = (id: string, el: HTMLInputElement | null) => {
+    if (el) inputRefs.current.set(id, el);
+    else inputRefs.current.delete(id);
+  };
 
   // Persist the whole set, then adopt the server ids onto the rows we sent —
   // but only when the local set hasn't structurally changed meanwhile (same
@@ -159,10 +221,68 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
     const xs = nodesRef.current;
     const i = xs.findIndex((n) => n.id === id);
     const depth = xs[i]?.depth ?? 0;
+    const nid = tempId();
     const next = [...xs];
-    next.splice(i < 0 ? next.length : i + 1, 0, { id: tempId(), text: "", depth });
+    next.splice(i < 0 ? next.length : i + 1, 0, { id: nid, text: "", depth });
+    pendingFocus.current = { id: nid, atEnd: false };
     commit(next);
   };
+
+  // Add a child under a map node (or, for the synthetic root, a new top-level
+  // row). We insert right after the parent with depth+1 so the flat→tree build
+  // adopts it as that parent's child. Writes to the same `nodes` state, so the
+  // list view sees it too.
+  const addChild = (mapNodeId: string) => {
+    const xs = nodesRef.current;
+    const nid = tempId();
+    if (mapNodeId === "root") {
+      pendingFocus.current = { id: nid, atEnd: false };
+      commit([{ id: nid, text: "", depth: 0 }, ...xs]);
+      return;
+    }
+    const i = xs.findIndex((n) => n.id === mapNodeId);
+    if (i < 0) return;
+    const depth = Math.min(MAX_DEPTH, xs[i]!.depth + 1);
+    const next = [...xs];
+    next.splice(i + 1, 0, { id: nid, text: "", depth });
+    pendingFocus.current = { id: nid, atEnd: false };
+    commit(next);
+  };
+
+  // Translate a keydown on a row into an outline mutation. Returns true when it
+  // handled the key (so the caller can preventDefault); false lets the browser
+  // do its normal thing (typing, caret backspace inside text).
+  const onRowKey = (id: string, e: React.KeyboardEvent<HTMLInputElement>): void => {
+    let type: OutlineKeyType | null = null;
+    if (e.key === "Enter") type = "enter";
+    else if (e.key === "Tab") type = e.shiftKey ? "outdent" : "indent";
+    else if (e.key === "Backspace") {
+      const row = nodesRef.current.find((n) => n.id === id);
+      // Only intercept backspace on an already-empty row; inside text the
+      // default deletes a character.
+      if (!row || row.text !== "") return;
+      type = "backspace";
+    }
+    if (!type) return;
+    e.preventDefault();
+    const res = outlineKey(nodesRef.current, type, id);
+    if (res.focus) pendingFocus.current = res.focus;
+    commit(res.rows);
+  };
+
+  // Apply a parked focus target after the rows it references have rendered.
+  useEffect(() => {
+    const pf = pendingFocus.current;
+    if (!pf) return;
+    const el = inputRefs.current.get(pf.id);
+    if (!el) return;
+    el.focus();
+    if (pf.atEnd) {
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    }
+    pendingFocus.current = null;
+  }, [nodes]);
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -182,7 +302,17 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
           <div className="mx-auto max-w-2xl">
             <div className="flex flex-col">
               {nodes.map((n) => (
-                <OutlineRow key={n.id} node={n} onEdit={(t) => edit(n.id, t)} onIndent={() => bump(n.id, 1)} onOutdent={() => bump(n.id, -1)} onAdd={() => addAfter(n.id)} onRemove={() => remove(n.id)} />
+                <OutlineRow
+                  key={n.id}
+                  node={n}
+                  registerInput={(el) => registerInput(n.id, el)}
+                  onKey={(e) => onRowKey(n.id, e)}
+                  onEdit={(t) => edit(n.id, t)}
+                  onIndent={() => bump(n.id, 1)}
+                  onOutdent={() => bump(n.id, -1)}
+                  onAdd={() => addAfter(n.id)}
+                  onRemove={() => remove(n.id)}
+                />
               ))}
             </div>
             <button type="button" onClick={() => addAfter(nodes[nodes.length - 1]?.id ?? "")} className="mt-2 rounded-mk border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">
@@ -191,7 +321,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
           </div>
         </div>
       ) : (
-        <MindMap nodes={nodes} title={title} onEdit={edit} />
+        <MindMap nodes={nodes} title={title} onEdit={edit} onAddChild={addChild} />
       )}
     </div>
   );
@@ -205,7 +335,7 @@ const COL = 250;
 const ROW = 56;
 const NODE_W = 200;
 
-function MindMap({ nodes, title, onEdit }: { nodes: Row[]; title: string; onEdit: (id: string, t: string) => void }) {
+function MindMap({ nodes, title, onEdit, onAddChild }: { nodes: Row[]; title: string; onEdit: (id: string, t: string) => void; onAddChild: (id: string) => void }) {
   // Build a tree from the flat depth list, with the project title as the root.
   const root: MapNode = { id: "root", text: title || "未命名项目", depth: -1, children: [], row: 0, cx: 0, cy: 0 };
   const lastAtDepth: Record<number, MapNode> = { [-1]: root };
@@ -256,7 +386,7 @@ function MindMap({ nodes, title, onEdit }: { nodes: Row[]; title: string; onEdit
         {flat.map((n) => (
           <div
             key={n.id}
-            className={`absolute flex items-center rounded-mk border px-3 shadow-[0_1px_3px_rgba(28,35,51,0.06)] ${tone(n.depth)}`}
+            className={`group absolute flex items-center rounded-mk border px-3 shadow-[0_1px_3px_rgba(28,35,51,0.06)] ${tone(n.depth)}`}
             style={{ left: n.cx, top: n.cy - 18, width: NODE_W, height: 36 }}
           >
             {n.depth < 0 ? (
@@ -265,8 +395,21 @@ function MindMap({ nodes, title, onEdit }: { nodes: Row[]; title: string; onEdit
               <input
                 value={n.text}
                 onChange={(e) => onEdit(n.id, e.target.value)}
-                className={`w-full truncate bg-transparent text-[12.5px] outline-none ${n.depth === 0 ? "font-bold" : "font-semibold"}`}
+                placeholder="写一条……"
+                className={`w-full truncate bg-transparent text-[12.5px] outline-none placeholder:opacity-60 ${n.depth === 0 ? "font-bold" : "font-semibold"}`}
               />
+            )}
+            {/* Add a child under this node (depth clamps ≤ MAX_DEPTH). Hidden
+                until hover so the map stays calm; sits just off the right edge. */}
+            {n.depth < MAX_DEPTH && (
+              <button
+                type="button"
+                title="加一个子节点"
+                onClick={() => onAddChild(n.id)}
+                className="absolute -right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[15px] font-bold leading-none text-mk-muted-2 opacity-0 shadow-sm transition hover:border-mk-primary hover:text-mk-primary group-hover:opacity-100"
+              >
+                +
+              </button>
             )}
           </div>
         ))}
@@ -275,15 +418,17 @@ function MindMap({ nodes, title, onEdit }: { nodes: Row[]; title: string; onEdit
   );
 }
 
-function OutlineRow({ node, onEdit, onIndent, onOutdent, onAdd, onRemove }: { node: Row; onEdit: (t: string) => void; onIndent: () => void; onOutdent: () => void; onAdd: () => void; onRemove: () => void }) {
+function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, onAdd, onRemove }: { node: Row; registerInput: (el: HTMLInputElement | null) => void; onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void; onEdit: (t: string) => void; onIndent: () => void; onOutdent: () => void; onAdd: () => void; onRemove: () => void }) {
   const dot = node.depth === 0 ? "bg-mk-primary" : node.depth === 1 ? "bg-mk-accent" : "bg-mk-green";
   return (
     <div className="group flex items-center gap-2 rounded-mk py-1 hover:bg-mk-bg/60" style={{ paddingLeft: node.depth * 26 }}>
       <span className={`h-1.5 w-1.5 flex-none rounded-full ${dot}`} />
       <input
+        ref={registerInput}
         value={node.text}
         onChange={(e) => onEdit(e.target.value)}
-        placeholder="写一条……"
+        onKeyDown={onKey}
+        placeholder="写一条……（回车换行、Tab 缩进）"
         className={`min-w-0 flex-1 rounded bg-transparent px-1.5 py-1 text-mk-ink outline-none transition placeholder:text-mk-muted-2 focus:bg-mk-input-bg ${node.depth === 0 ? "text-[14.5px] font-bold" : "text-[13.5px]"}`}
       />
       <div className="flex flex-none items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
@@ -312,6 +457,7 @@ const TEXT_EXT = [".md", ".txt", ".markdown"];
 
 function DraftPane({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
+  const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [text, setText] = useState("");
   const [uploadNote, setUploadNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -369,20 +515,32 @@ function DraftPane({ projectId }: { projectId: string }) {
     <div className="flex min-h-0 flex-col px-8 py-6">
       <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-            <ModeTab active={mode === "write"} onClick={() => setMode("write")}>写在这里</ModeTab>
-            <ModeTab active={mode === "upload"} onClick={() => setMode("upload")}>我在别处写了</ModeTab>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
+              <ModeTab active={mode === "write"} onClick={() => setMode("write")}>写在这里</ModeTab>
+              <ModeTab active={mode === "upload"} onClick={() => setMode("upload")}>我在别处写了</ModeTab>
+            </div>
+            {mode === "write" && (
+              <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
+                <SubTab active={pane === "edit"} onClick={() => setPane("edit")}>写</SubTab>
+                <SubTab active={pane === "preview"} onClick={() => setPane("preview")}>预览</SubTab>
+              </div>
+            )}
           </div>
           {mode === "write" && <span className="text-[12px] font-semibold text-mk-muted-2">{words} 字</span>}
         </div>
 
         {mode === "write" ? (
-          <textarea
-            value={text}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="在这里写你的草稿……（支持 Markdown）"
-            className="min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border bg-mk-surface p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-          />
+          pane === "edit" ? (
+            <textarea
+              value={text}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="在这里写你的草稿……（支持 Markdown）"
+              className="min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border bg-mk-surface p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+            />
+          ) : (
+            <MarkdownPreview text={text} />
+          )
         ) : (
           <div
             className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center"
@@ -420,6 +578,16 @@ function DraftPane({ projectId }: { projectId: string }) {
 function ModeTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} className={`rounded-[10px] px-3 py-1.5 text-[12.5px] font-bold transition ${active ? "bg-mk-primary text-white" : "text-mk-muted-2 hover:text-mk-muted"}`}>
+      {children}
+    </button>
+  );
+}
+
+// A lighter segmented control for the 写/预览 switch — a tinted active state so
+// it reads as secondary to the write/upload tabs beside it.
+function SubTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={`rounded-[10px] px-3 py-1.5 text-[12.5px] font-bold transition ${active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:text-mk-muted"}`}>
       {children}
     </button>
   );

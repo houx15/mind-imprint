@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, StudioProjection, Anchor, MaterialSource, DualAxisReport, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport, SelectionEval } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport, SelectionEval } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -9,7 +9,7 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep } from "./courses";
-import { listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
+import { listProjects, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
 import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards } from "./cards";
@@ -58,8 +58,7 @@ export interface ApiClient {
   saveCourseProgress(id: string, input: { current_ordinal: number }): Promise<CourseProgress>;
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
-  getProject(id: string): Promise<StudioProjection>;
-  finishProject(id: string): Promise<DualAxisReport>;
+  finishProject(id: string): Promise<{ status: ProjectStatus }>;
   createProject(body: { title?: string; prompt: string }): Promise<{ id: string }>;
   submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
   submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void>;
@@ -130,7 +129,7 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCourseStep,
-  listProjects, getProject, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
+  listProjects, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
   readTurn, summonCard, evaluateCardSelection, getOpenCard,

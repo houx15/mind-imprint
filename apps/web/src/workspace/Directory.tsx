@@ -1,36 +1,60 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ProjectStatus } from "@mind-imprint/contracts";
 import { api } from "../api";
 import type { ProjectListItem } from "../api/projects";
 import { Icon } from "./Icon";
 
+// The status pill shown on each project row. The lifecycle is derived server-
+// side (forming → working → evaluating → done); the tints read at a glance.
+const STATUS_META: Record<ProjectStatus, { label: string; cls: string }> = {
+  forming: { label: "立题中", cls: "bg-mk-bg text-mk-muted" },
+  working: { label: "进行中", cls: "bg-mk-primary-tint text-mk-primary" },
+  evaluating: { label: "评估中", cls: "bg-mk-amber/15 text-mk-amber animate-pulse" },
+  done: { label: "已完成", cls: "bg-mk-green-tint text-mk-green" },
+};
+
 // The all-projects home: the student's list of workspaces + a create form.
 // Opening a row (or a fresh create) hands the id up to WorkspaceContainer,
-// which swaps the directory for the four-room shell. Create needs only a
-// title + qualification — no prompt gate (the old studio's seed step is gone).
-// Real per-room wiring lands in slices 2–5; this slice reuses the existing
-// listProjects/createProject client as-is.
-export function Directory({ onOpen }: { onOpen: (id: string) => void }) {
+// which swaps the directory for the four-room shell. Each row shows its
+// lifecycle status; while any project is "评估中" the list polls so it flips to
+// "已完成 · 查看评估报告" without a manual refresh.
+export function Directory({ onOpen, onViewReport }: { onOpen: (id: string) => void; onViewReport?: (id: string) => void }) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [qualification, setQualification] = useState("");
   const [creating, setCreating] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    async function load() {
       try {
         const list = await api.listProjects();
-        if (!cancelled) setProjects(list);
+        if (cancelled) return;
+        setProjects(list);
+        // Poll only while something is generating its evaluation.
+        const anyEvaluating = list.some((p) => p.status === "evaluating");
+        if (anyEvaluating && !pollRef.current) {
+          pollRef.current = setInterval(load, 15000);
+        } else if (!anyEvaluating && pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
       } catch {
         if (!cancelled) setError("加载失败，请重试");
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    }
+    void load();
     return () => {
       cancelled = true;
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
   }, []);
 
@@ -106,22 +130,39 @@ export function Directory({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {projects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onOpen(p.id)}
-                className="group flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-4 text-left shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)]"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-bold text-mk-ink group-hover:text-mk-primary">{p.title || "未命名项目"}</p>
-                  <span className="mt-1.5 inline-block rounded-full bg-mk-primary-tint px-2.5 py-0.5 text-[11px] font-bold text-mk-primary">{p.qualLabel || "项目"}</span>
+            {projects.map((p) => {
+              const status = STATUS_META[p.status] ?? STATUS_META.working;
+              return (
+                <div
+                  key={p.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpen(p.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(p.id); } }}
+                  className="group flex cursor-pointer items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-4 text-left shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-bold text-mk-ink group-hover:text-mk-primary">{p.title || "未命名项目"}</p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="inline-block rounded-full bg-mk-primary-tint px-2.5 py-0.5 text-[11px] font-bold text-mk-primary">{p.qualLabel || "项目"}</span>
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.cls}`}>{status.label}</span>
+                    </div>
+                  </div>
+                  {p.status === "done" && onViewReport && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onViewReport(p.id); }}
+                      className="flex-none rounded-mk border border-mk-green/40 bg-mk-green-tint px-3 py-1.5 text-[12.5px] font-bold text-mk-green transition hover:bg-mk-green/20"
+                    >
+                      查看评估报告 →
+                    </button>
+                  )}
+                  <span className="flex-none text-mk-muted-2 transition group-hover:text-mk-primary">
+                    <Icon name="arrow" size={18} />
+                  </span>
                 </div>
-                <span className="flex-none text-mk-muted-2 transition group-hover:text-mk-primary">
-                  <Icon name="arrow" size={18} />
-                </span>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

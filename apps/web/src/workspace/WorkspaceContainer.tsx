@@ -19,7 +19,7 @@ import type { BlockKey } from "./blocks/mockData";
 // Project Management (项目管理) is now fully API-backed (slice 2); the other
 // three rooms still run on local mock state (slices 3–5). The shell (identity,
 // qualification, the room swap) is live.
-export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) {
+export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: string) => void }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
   const [room, setRoom] = useState<BlockKey>("plan");
@@ -75,10 +75,19 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
     setError(null);
   }
 
+  // Open a finished project's process-evaluation report — routes up to the
+  // 成长报告 tab, deep-linked to that project's entry (see StudentApp).
+  const onViewReport = useCallback(
+    (id: string) => {
+      onFinished?.(id);
+    },
+    [onFinished],
+  );
+
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance).
   if (projectId == null) {
-    return <Directory onOpen={openProject} />;
+    return <Directory onOpen={openProject} onViewReport={onViewReport} />;
   }
 
   // A source open for reading replaces the whole workspace with the focused
@@ -132,7 +141,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: () => void }) 
                 key={projectId}
                 projectId={projectId}
                 proposal={workspace.proposal}
-                onFinished={onFinished}
+                onFinished={backToAll}
               />
             )}
           </>

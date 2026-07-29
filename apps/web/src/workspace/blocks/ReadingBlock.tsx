@@ -7,6 +7,7 @@ import {
   createReference,
   patchReference,
   enterReading,
+  pasteContent,
   coach,
   NoReadableContentError,
   type ReferencePatch,
@@ -173,6 +174,27 @@ export function ReadingBlock({
     }
   }
 
+  // Paste-source path: create the reference, immediately paste the body as its
+  // material, and open the Reading Room — the modal twin of the preview's
+  // paste fallback.
+  async function addPastedSource(src: { title: string; text: string; collectionId: string | null }) {
+    try {
+      const created = await createReference(projectId, {
+        title: src.title || undefined,
+        classification: "粘贴正文",
+        collectionId: src.collectionId,
+      });
+      setRefs((xs) => [created, ...xs]);
+      setSelId(created.id);
+      const source = await pasteContent(projectId, created.id, src.text, src.title || undefined);
+      setReadingSource(source);
+    } catch {
+      reload();
+    } finally {
+      setAdding(false);
+    }
+  }
+
   async function addCollection(name: string, parentId: string | null) {
     const n = name.trim();
     if (!n) return;
@@ -229,6 +251,7 @@ export function ReadingBlock({
       defaultCollection={collId === "all" ? collections[0]?.id ?? "" : collId}
       onClose={() => setAdding(false)}
       onSubmit={addSource}
+      onPaste={addPastedSource}
     />
   );
 
@@ -242,7 +265,11 @@ export function ReadingBlock({
     return (
       <div className="relative h-full">
         <EmptyLibrary onAdd={() => setAdding(true)} />
-        <FloatingCoach projectId={projectId} />
+        <FloatingCoach
+          projectId={projectId}
+          defaultOpen
+          opener="你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。"
+        />
         {modal}
       </div>
     );
@@ -574,6 +601,11 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
   const [entering, setEntering] = useState(false);
   const [enterNote, setEnterNote] = useState<string | null>(null);
   const [pendingUrl, setPendingUrl] = useState("");
+  // Paste-body fallback (#1): shown when enter-reading can't fetch the source.
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
 
   async function enter() {
     if (entering) return;
@@ -584,12 +616,29 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       onEnterReading(source);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
+        // Fetch failed / no content → let the student paste the body in.
         setEnterNote(e.message);
+        setShowPaste(true);
       } else {
         setEnterNote("打开阅读室失败，请重试");
       }
     } finally {
       setEntering(false);
+    }
+  }
+
+  async function startPaste() {
+    const text = pasteText.trim();
+    if (!text || pasteBusy) return;
+    setPasteBusy(true);
+    setPasteError(null);
+    try {
+      const source = await pasteContent(projectId, r.id, text);
+      onEnterReading(source);
+    } catch {
+      setPasteError("粘贴失败了，再试一次？");
+    } finally {
+      setPasteBusy(false);
     }
   }
 
@@ -710,6 +759,29 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
         ) : (
           <p className="text-center text-[11px] text-mk-muted-2">和印记逐句共读（已上线的阅读室）</p>
         )}
+
+        {showPaste && (
+          <div className="mt-1 rounded-mk border border-mk-border bg-mk-bg/50 p-3">
+            <p className="text-[12.5px] font-bold text-mk-ink">取不到正文？把文章正文粘进来</p>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-mk-muted-2">有些链接抓不到正文（网站限制 / 网络问题）。把正文复制粘进来，就能和印记逐句共读。</p>
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={6}
+              placeholder="把文章正文粘到这里……"
+              className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+            />
+            <button
+              type="button"
+              onClick={startPaste}
+              disabled={pasteBusy || !pasteText.trim()}
+              className="mt-2 w-full rounded-mk bg-mk-primary py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
+            >
+              {pasteBusy ? "开始中…" : "开始共读"}
+            </button>
+            {pasteError && <p className="mt-1.5 text-center text-[11px] font-semibold text-mk-accent">{pasteError}</p>}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -761,17 +833,23 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
 // Add a source: paste a link / DOI (印记 fills in the metadata) or upload a
 // file — and drop it into a collection. No auto-fetching of the source's
 // *content*; this only registers the reference.
-function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; classification: string; collectionId: string | null }) => void }) {
-  const [tab, setTab] = useState<"link" | "upload" | "manual">("link");
+function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onPaste }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; classification: string; collectionId: string | null }) => void; onPaste: (s: { title: string; text: string; collectionId: string | null }) => void }) {
+  const [tab, setTab] = useState<"link" | "paste" | "upload" | "manual">("link");
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
+  const [pasteBody, setPasteBody] = useState("");
   const [fileName, setFileName] = useState("");
   const [coll, setColl] = useState(defaultCollection);
+  const [pasting, setPasting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   function submit() {
     const collectionId = coll || null;
-    if (tab === "upload") {
+    if (tab === "paste") {
+      if (!pasteBody.trim() || pasting) return;
+      setPasting(true);
+      onPaste({ title: title.trim() || "粘贴正文", text: pasteBody.trim(), collectionId });
+    } else if (tab === "upload") {
       onSubmit({ title: fileName || "上传文档", url: "", classification: "上传文档", collectionId });
     } else if (tab === "manual") {
       onSubmit({ title: title || "新来源", url: "", classification: "", collectionId });
@@ -788,10 +866,10 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: {
           <button type="button" onClick={onClose} className="text-[18px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
         </div>
 
-        <div className="mb-4 flex rounded-mk border border-mk-border bg-mk-bg p-0.5 text-[12.5px] font-bold">
-          {(["link", "upload", "manual"] as const).map((t) => (
+        <div className="mb-4 flex rounded-mk border border-mk-border bg-mk-bg p-0.5 text-[12px] font-bold">
+          {(["link", "paste", "upload", "manual"] as const).map((t) => (
             <button key={t} type="button" onClick={() => setTab(t)} className={`flex-1 rounded-[10px] py-1.5 transition ${tab === t ? "bg-mk-surface text-mk-primary shadow-sm" : "text-mk-muted-2"}`}>
-              {t === "link" ? "粘贴链接 / DOI" : t === "upload" ? "上传文件" : "手动填写"}
+              {t === "link" ? "链接 / DOI" : t === "paste" ? "粘贴正文" : t === "upload" ? "上传文件" : "手动填写"}
             </button>
           ))}
         </div>
@@ -800,6 +878,13 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: {
           <div>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…  或  10.1038/s41893-…" className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary" />
             <p className="mt-1.5 text-[12px] text-mk-muted-2">印记会抓取标题、作者、日期——你可以再改。</p>
+          </div>
+        )}
+        {tab === "paste" && (
+          <div className="space-y-2">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="来源标题（可留空）" className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary" />
+            <textarea value={pasteBody} onChange={(e) => setPasteBody(e.target.value)} rows={6} placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……" className="w-full resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary" />
+            <p className="text-[12px] text-mk-muted-2">链接抓不到正文时用这个——粘完就打开阅读室。</p>
           </div>
         )}
         {tab === "upload" && (
@@ -826,7 +911,7 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit }: {
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">取消</button>
-          <button type="button" onClick={submit} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">添加</button>
+          <button type="button" onClick={submit} disabled={tab === "paste" && (pasting || !pasteBody.trim())} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60">{tab === "paste" ? (pasting ? "打开中…" : "开始共读") : "添加"}</button>
         </div>
       </div>
     </div>
@@ -871,10 +956,10 @@ function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
 
 /* ---------- floating coach ---------- */
 
-function FloatingCoach({ projectId }: { projectId: string }) {
-  const [open, setOpen] = useState(false);
+function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: string; defaultOpen?: boolean; opener?: string }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "ai", text: "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
+    { role: "ai", text: opener ?? "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

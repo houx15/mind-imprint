@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -49,6 +50,28 @@ func assertProjectStatus(t *testing.T, pool *pgxpool.Pool, projectID, want strin
 	if got != want {
 		t.Fatalf("project status = %q, want %q", got, want)
 	}
+}
+
+// waitProjectStatus polls the project row until its status equals want, or
+// fails after ~5s. Finish is now async (BE5): it returns 202 and a detached
+// goroutine drives status evaluating→finished (success) or evaluating→active
+// (reject/failure), so tests wait for the terminal state rather than reading it
+// off the finish response.
+func waitProjectStatus(t *testing.T, pool *pgxpool.Pool, projectID, want string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var got string
+	for time.Now().Before(deadline) {
+		if err := pool.QueryRow(context.Background(),
+			`SELECT status FROM project WHERE id = $1`, projectID).Scan(&got); err != nil {
+			t.Fatalf("read project status: %v", err)
+		}
+		if got == want {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("project status = %q after 5s, want %q", got, want)
 }
 
 // countProjectEvaluations counts evaluation rows scoped to projectID —
@@ -114,8 +137,25 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("finish (success) = %d, want 200; body=%s", rec.Code, rec.Body)
+	// Finish is now async (BE5): 202 evaluating, then a goroutine finishes it.
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("finish (success) = %d, want 202; body=%s", rec.Code, rec.Body)
+	}
+	var acc struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &acc); err != nil || acc.Status != "evaluating" {
+		t.Fatalf("finish 202 body = %s, want {status:evaluating}", rec.Body)
+	}
+
+	// Drive the goroutine to completion.
+	waitProjectStatus(t, pool, projectID, "finished")
+
+	// The report DTO now comes from GET /assessment (the read path).
+	recAssess := httptest.NewRecorder()
+	h.ServeHTTP(recAssess, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie))
+	if recAssess.Code != http.StatusOK {
+		t.Fatalf("GET assessment = %d, want 200; body=%s", recAssess.Code, recAssess.Body)
 	}
 	var dto struct {
 		DepthAxis []struct {
@@ -130,8 +170,8 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 		Narrative   string `json:"narrative"`
 		GeneratedAt string `json:"generatedAt"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &dto); err != nil {
-		t.Fatalf("decode finish DTO: %v — body=%s", err, rec.Body)
+	if err := json.Unmarshal(recAssess.Body.Bytes(), &dto); err != nil {
+		t.Fatalf("decode assessment DTO: %v — body=%s", err, recAssess.Body)
 	}
 	if dto.Narrative == "" || dto.GeneratedAt == "" {
 		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
@@ -150,6 +190,13 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	}
 
 	assertProjectStatus(t, pool, projectID, "finished")
+
+	// The workspace projection now derives status="done" for a finished project.
+	recProj := httptest.NewRecorder()
+	h.ServeHTTP(recProj, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID, nil), cookie))
+	if !strings.Contains(recProj.Body.String(), `"status":"done"`) {
+		t.Fatalf("projection status after finish = %s, want done", recProj.Body)
+	}
 
 	row, err := sqlc.New(pool).GetLatestProjectEvaluation(context.Background(), pgUUID(mustUUID(projectID)))
 	if err != nil {
@@ -195,9 +242,11 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("first finish = %d, want 200; body=%s", rec.Code, rec.Body)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("first finish = %d, want 202; body=%s", rec.Code, rec.Body)
 	}
+	// Let the goroutine drive it to finished before the second finish.
+	waitProjectStatus(t, pool, projectID, "finished")
 
 	rec2 := httptest.NewRecorder()
 	req2 := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
@@ -238,18 +287,12 @@ func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("finish (rejected) = %d, want 422; body=%s", rec.Code, rec.Body)
+	// Async: 202 up front; the goroutine rejects the report and reverts status.
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("finish (rejected) = %d, want 202; body=%s", rec.Code, rec.Body)
 	}
-	var perr struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &perr); err != nil || perr.Error.Code != "assessment_rejected" {
-		t.Fatalf("finish (rejected) code = %+v (err=%v), want assessment_rejected; body=%s", perr, err, rec.Body)
-	}
-	assertProjectStatus(t, pool, projectID, "active")
+	// The reject path rolls status back to 'active' (retryable).
+	waitProjectStatus(t, pool, projectID, "active")
 	if n := countProjectEvaluations(t, pool, projectID); n != 0 {
 		t.Fatalf("project evaluation rows after rejection = %d, want 0 (nothing persisted)", n)
 	}

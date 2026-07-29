@@ -17,3 +17,13 @@ UPDATE project SET last_active_at = now() WHERE id = $1;
 -- name: SetProjectFinished :exec
 -- A3 terminal: the first and only writer of project.status='finished'.
 UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1;
+
+-- name: SetProjectEvaluating :exec
+-- BE5: the non-blocking finish flips status to 'evaluating' before spawning the
+-- detached report goroutine; a second finish while 'evaluating' is refused.
+UPDATE project SET status = 'evaluating', last_active_at = now() WHERE id = $1;
+
+-- name: SetProjectActive :exec
+-- BE5: the finish goroutine rolls status back to 'active' when report
+-- generation fails or is rejected, so the terminal stays retryable.
+UPDATE project SET status = 'active', last_active_at = now() WHERE id = $1;

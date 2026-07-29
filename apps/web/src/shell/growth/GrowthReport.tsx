@@ -39,7 +39,7 @@ function HistoryRow({ entry, open, onToggle }: { entry: GrowthHistoryEntry; open
   );
 }
 
-function LearningRecord() {
+function LearningRecord({ initialScopeId }: { initialScopeId?: string | null }) {
   const [entries, setEntries] = useState<GrowthHistoryEntry[] | undefined>(undefined);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,13 +51,17 @@ function LearningRecord() {
         const list = await api.getGrowthHistory();
         if (cancelled) return;
         setEntries(list);
-        if (list.length > 0) setOpenId(`${list[0]!.surface}:${list[0]!.scopeId}`); // newest expanded
+        // Deep-link: if arriving from a project's "查看评估报告", open that
+        // entry; otherwise expand the newest.
+        const focused = initialScopeId && list.find((e) => e.scopeId === initialScopeId);
+        if (focused) setOpenId(`${focused.surface}:${focused.scopeId}`);
+        else if (list.length > 0) setOpenId(`${list[0]!.surface}:${list[0]!.scopeId}`);
       } catch {
         if (!cancelled) setError("加载失败，请重试");
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [initialScopeId]);
 
   if (entries === undefined) {
     return <div style={{ padding: 40, color: "#9AA1B0" }}>正在整理你的成长报告…</div>;
@@ -95,7 +99,7 @@ function LearningRecord() {
   );
 }
 
-export function GrowthReport() {
+export function GrowthReport({ initialScopeId }: { initialScopeId?: string | null } = {}) {
   const [tab, setTab] = useState<"learning" | "cards" | "ability">("learning");
   const tabStyle = (active: boolean) => ({
     padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
@@ -110,7 +114,7 @@ export function GrowthReport() {
           <button type="button" style={tabStyle(tab === "cards")} onClick={() => setTab("cards")}>工具卡</button>
           <button type="button" style={tabStyle(tab === "ability")} onClick={() => setTab("ability")}>能力素养</button>
         </div>
-        {tab === "learning" ? <LearningRecord /> : tab === "cards" ? <ToolkitCards /> : <AbilityModel />}
+        {tab === "learning" ? <LearningRecord initialScopeId={initialScopeId} /> : tab === "cards" ? <ToolkitCards /> : <AbilityModel />}
       </div>
     </div>
   );

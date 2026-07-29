@@ -8,6 +8,7 @@ import {
   patchReference,
   deleteReference,
   enterReading,
+  pasteContent,
   NoReadableContentError,
 } from "@/workspace/api/workspace";
 
@@ -192,5 +193,20 @@ describe("enterReading", () => {
   it("rethrows other errors as-is", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ error: { message: "boom" } }, 500)));
     await expect(enterReading("p1", "r1")).rejects.not.toBeInstanceOf(NoReadableContentError);
+  });
+});
+
+describe("pasteContent", () => {
+  it("POSTs {text,title} and Zod-parses the MaterialSource", async () => {
+    const spy = vi.fn(async () => json(MATERIAL_SOURCE));
+    vi.stubGlobal("fetch", spy);
+
+    const source = await pasteContent("p1", "r1", "植被覆盖上升。", "NASA 卫星植被覆盖数据");
+    expect(source).toEqual(MATERIAL_SOURCE);
+
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
+    expect(url).toContain("/api/v1/projects/p1/references/r1/paste-content");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ text: "植被覆盖上升。", title: "NASA 卫星植被覆盖数据" });
   });
 });

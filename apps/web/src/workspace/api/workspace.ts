@@ -95,13 +95,21 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
 
 // POST /coach — one restrained coaching turn (JSON, not SSE). The only spend
 // endpoint of the room; returns the AI reply as a plain string.
-export type CoachScope = "forming" | "find_sources" | "writing";
+export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review";
 export async function coach(id: string, scope: CoachScope, userInput: string): Promise<string> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
     method: "POST",
     body: JSON.stringify({ scope, user_input: userInput }),
   });
   return z.object({ reply: z.string() }).parse(raw).reply;
+}
+
+// POST /plan/generate — 印记 turns the kickoff into a first project plan. Spend
+// endpoint; returns the freshly created (persisted) plan items. Throws ApiError
+// with code "proposal_empty" when there's nothing to generate from yet.
+export async function generatePlan(id: string): Promise<PlanItem[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/plan/generate`, { method: "POST" });
+  return z.object({ items: z.array(PlanItem) }).parse(raw).items;
 }
 
 // ---- Read room / Library (slice 3) ---------------------------------------
@@ -214,7 +222,7 @@ export async function getDraft(id: string): Promise<string> {
 // Thrown when enter-reading gets a 422 — the source has no readable content
 // (no url, no material). The caller shows a gentle inline nudge, not a crash.
 export class NoReadableContentError extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly code: string = "no_content") {
     super(message);
     this.name = "NoReadableContentError";
   }
@@ -269,9 +277,25 @@ export async function enterReading(id: string, rid: string): Promise<MaterialSou
     });
     return MaterialSource.parse(raw);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 422) {
-      throw new NoReadableContentError(e.message || "这条来源还没有可读内容——先补一个链接或粘贴正文");
+    // 422 (no url / no material) OR any fetch failure → offer the paste box.
+    if (e instanceof ApiError && (e.status === 422 || e.code === "fetch_failed")) {
+      throw new NoReadableContentError(
+        e.message || "取不到这个链接的正文，可以直接把正文粘进来。",
+        e.code || "no_content",
+      );
     }
     throw e;
   }
+}
+
+// POST /references/{rid}/paste-content — the fallback when a link can't be
+// fetched: the student pastes the article body, which becomes the material's
+// blocks. Returns the full MaterialSource so the caller can open the Reading
+// Room immediately.
+export async function pasteContent(id: string, rid: string, text: string, title?: string): Promise<MaterialSource> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/references/${rid}/paste-content`, {
+    method: "POST",
+    body: JSON.stringify({ text, title }),
+  });
+  return MaterialSource.parse(raw);
 }

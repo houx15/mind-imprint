@@ -172,9 +172,11 @@ func (a *API) getMirror(w http.ResponseWriter, r *http.Request) {
 
 // postMirror is the ONLY Review endpoint that spends. First-open-wins: a stored
 // row is returned without a model call; otherwise the flagship composer runs
-// once and the result is persisted. A failed composition still records its cost
-// and still stores a graceful minimal mirror (never a 500, never a blank pane),
-// so the SECOND POST is again a no-spend read of that stored row.
+// once. A SUCCESSFUL composition is persisted (so the second POST is a no-spend
+// read of that row). A FAILED composition is NOT persisted (BE4): it returns a
+// graceful minimal mirror this once, so a later open — when real data or the
+// model becomes available — retries instead of being stuck on canned text
+// forever. Cost is still recorded on failure (composeMirror does it).
 func (a *API) postMirror(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -191,7 +193,17 @@ func (a *API) postMirror(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mirror, model, tier := a.composeMirror(ctx, projectID)
+	mirror, model, tier, composed := a.composeMirror(ctx, projectID)
+
+	// Compose failed → return the graceful minimal mirror WITHOUT persisting, so
+	// a later open retries (never a stuck canned mirror; BE4).
+	if !composed {
+		httpx.WriteJSON(w, http.StatusOK, mirrorDTO{
+			Sections:      toMirrorSectionDTOs(mirror.Sections),
+			CarryForwards: mirror.CarryForwards,
+		})
+		return
+	}
 
 	sectionsJSON, merr := json.Marshal(mirror.Sections)
 	if merr != nil {
@@ -222,6 +234,37 @@ func (a *API) postMirror(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, mirrorDTOFromRow(row))
 }
 
+// composeAndStoreProjectMirror is the finish goroutine's best-effort mirror
+// pass: compose once over the now-complete process record and persist ONLY on a
+// successful compose (same no-persist-on-failure rule as postMirror). Never
+// returns an error — a failed compose (or a mirror that already exists) simply
+// leaves the row for a later Review open to compose. ctx should carry the user
+// (WithUser) so the cost row records.
+func (a *API) composeAndStoreProjectMirror(ctx context.Context, projectID uuid.UUID) {
+	if _, gerr := a.d.Queries.GetProjectMirror(ctx, projectID); gerr == nil {
+		return // already composed — first-open-wins
+	} else if !errors.Is(gerr, pgx.ErrNoRows) {
+		return
+	}
+	mirror, model, tier, composed := a.composeMirror(ctx, projectID)
+	if !composed {
+		return // don't persist a failed compose (BE4)
+	}
+	sectionsJSON, merr := json.Marshal(mirror.Sections)
+	if merr != nil {
+		return
+	}
+	carriesJSON, cerr := json.Marshal(mirror.CarryForwards)
+	if cerr != nil {
+		return
+	}
+	if err := a.d.Queries.InsertProjectMirror(ctx, sqlc.InsertProjectMirrorParams{
+		ProjectID: projectID, Sections: sectionsJSON, CarryForwards: carriesJSON, Model: model, Tier: tier,
+	}); err != nil {
+		slog.Warn("finish mirror: insert failed", "err", err)
+	}
+}
+
 func toMirrorSectionDTOs(secs []agent.MirrorSection) []mirrorSectionDTO {
 	out := make([]mirrorSectionDTO, 0, len(secs))
 	for _, s := range secs {
@@ -233,15 +276,17 @@ func toMirrorSectionDTOs(secs []agent.MirrorSection) []mirrorSectionDTO {
 // composeMirror runs the flagship composer over the project's process record
 // and records the call's cost (surface="studio", purpose="mirror") BEFORE any
 // bail. It NEVER returns an error: on a missing provider or a rejected/failed
-// composition it returns MinimalMirror (still recording cost when a call was
-// actually made). Returns the mirror plus the resolved model/tier to persist.
-func (a *API) composeMirror(ctx context.Context, projectID uuid.UUID) (agent.Mirror, string, string) {
+// composition it returns MinimalMirror with composed=false (still recording cost
+// when a call was actually made). composed=true only on a real, successful
+// composition — the caller persists ONLY then (BE4). Returns the mirror plus the
+// resolved model/tier and the composed flag.
+func (a *API) composeMirror(ctx context.Context, projectID uuid.UUID) (agent.Mirror, string, string, bool) {
 	in := a.buildMirrorInput(ctx, projectID)
 
 	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
 		slog.Warn("mirror: no provider", "err", rerr)
-		return agent.MinimalMirror(), "", ""
+		return agent.MinimalMirror(), "", "", false
 	}
 	mirror, usage, cerr := agent.ComposeMirror(ctx, a.d.Provider, resolved, in)
 	if u, ok := UserFromContext(ctx); ok && resolved.Provider != "" {
@@ -262,10 +307,10 @@ func (a *API) composeMirror(ctx context.Context, projectID uuid.UUID) (agent.Mir
 		}
 	}
 	if cerr != nil {
-		slog.Warn("mirror: compose failed — storing minimal mirror", "err", cerr)
-		return agent.MinimalMirror(), resolved.Model, resolved.Tier
+		slog.Warn("mirror: compose failed — not persisting (retry on a later open)", "err", cerr)
+		return agent.MinimalMirror(), resolved.Model, resolved.Tier, false
 	}
-	return mirror, resolved.Model, resolved.Tier
+	return mirror, resolved.Model, resolved.Tier, true
 }
 
 // buildMirrorInput assembles the honest process record from the project's

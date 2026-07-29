@@ -196,6 +196,61 @@ func TestMirror_FirstOpenWins(t *testing.T) {
 	}
 }
 
+// TestMirror_FailedComposeNotPersisted — BE4: when the composer fails (model
+// returns non-JSON), POST /mirror returns a graceful minimal mirror but stores
+// NOTHING (GET is still null), so a later POST — once the model is usable —
+// composes and stores the real mirror instead of being stuck on canned text.
+func TestMirror_FailedComposeNotPersisted(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	pid := materialsTestProjectID
+
+	// First: a provider whose reply is NOT valid mirror JSON → compose fails.
+	hBad := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: assessStubProvider("这不是 JSON，只是随口一句。"), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+
+	recBad := httptest.NewRecorder()
+	hBad.ServeHTTP(recBad, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/mirror", strings.NewReader("")), cookie))
+	if recBad.Code != http.StatusOK {
+		t.Fatalf("POST mirror (failed compose) = %d, want 200 (graceful minimal); body=%s", recBad.Code, recBad.Body)
+	}
+	// It returned a minimal mirror but persisted NOTHING — GET is still null.
+	recGet := httptest.NewRecorder()
+	hBad.ServeHTTP(recGet, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+pid+"/mirror", nil), cookie))
+	if strings.TrimSpace(recGet.Body.String()) != "null" {
+		t.Fatalf("GET mirror after failed compose = %q, want null (nothing persisted)", recGet.Body.String())
+	}
+	var stored int
+	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM project_mirror_prose WHERE project_id = $1`, pid).Scan(&stored)
+	if stored != 0 {
+		t.Fatalf("project_mirror rows after failed compose = %d, want 0 (BE4: never persist the fallback)", stored)
+	}
+
+	// Now a working provider: the retry composes and stores the real mirror.
+	hGood := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: assessStubProvider(mirrorReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	recGood := httptest.NewRecorder()
+	hGood.ServeHTTP(recGood, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/mirror", strings.NewReader("")), cookie))
+	if recGood.Code != http.StatusOK {
+		t.Fatalf("POST mirror (retry) = %d, want 200; body=%s", recGood.Code, recGood.Body)
+	}
+	var m mirrorWire
+	if err := json.Unmarshal(recGood.Body.Bytes(), &m); err != nil {
+		t.Fatalf("decode retry mirror: %v — %s", err, recGood.Body)
+	}
+	if len(m.Sections) != 2 {
+		t.Fatalf("retry mirror sections = %d, want 2 (real compose)", len(m.Sections))
+	}
+	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM project_mirror_prose WHERE project_id = $1`, pid).Scan(&stored)
+	if stored != 1 {
+		t.Fatalf("project_mirror rows after successful retry = %d, want 1", stored)
+	}
+}
+
 // TestFinishGate_ReflectionDoneThenAssessment — the rewired finish gate: finish
 // is blocked (422 reflection_not_done) until the reflection is marked done via
 // PUT /reflection-doc, after which finish succeeds, an evaluation row is
@@ -227,12 +282,13 @@ func TestFinishGate_ReflectionDoneThenAssessment(t *testing.T) {
 	// Mark reflection done through the real handler.
 	putReflection(t, h, cookie, pid, `{"answers":["把论点收窄到国内新能源投资"],"done":true}`)
 
-	// Finish now succeeds.
+	// Finish now succeeds — async: 202 then a goroutine finishes it.
 	recOK := httptest.NewRecorder()
 	h.ServeHTTP(recOK, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/finish", strings.NewReader("")), cookie))
-	if recOK.Code != http.StatusOK {
-		t.Fatalf("finish (reflection done) = %d, want 200; body=%s", recOK.Code, recOK.Body)
+	if recOK.Code != http.StatusAccepted {
+		t.Fatalf("finish (reflection done) = %d, want 202; body=%s", recOK.Code, recOK.Body)
 	}
+	waitProjectStatus(t, pool, pid, "finished")
 	if n := countProjectEvaluations(t, pool, pid); n != 1 {
 		t.Fatalf("evaluation rows after finish = %d, want 1", n)
 	}

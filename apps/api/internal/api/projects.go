@@ -1,14 +1,17 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/skills"
+	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/studio"
 )
 
@@ -18,6 +21,48 @@ type projectListItem struct {
 	Title         string `json:"title"`
 	QualLabel     string `json:"qualLabel"`
 	ActiveStation string `json:"activeStation"`
+	Status        string `json:"status"`
+}
+
+// anyProposalDim reports whether any of the four kick-off dimensions carries
+// content — the "has the student started framing?" signal for displayStatus.
+func anyProposalDim(p sqlc.ProjectProposal) bool {
+	return strings.TrimSpace(p.Objective) != "" ||
+		strings.TrimSpace(p.Reason) != "" ||
+		strings.TrimSpace(p.Activities) != "" ||
+		strings.TrimSpace(p.Resources) != ""
+}
+
+// displayStatus maps a persisted project.status to the four-state lifecycle the
+// UI shows: finished→"done", evaluating→"evaluating", else (active) any framing
+// started (a non-empty proposal dim OR ≥1 plan item)→"working", else "forming".
+func displayStatus(status string, hasProposal, hasPlan bool) string {
+	switch status {
+	case "finished":
+		return "done"
+	case "evaluating":
+		return "evaluating"
+	default:
+		if hasProposal || hasPlan {
+			return "working"
+		}
+		return "forming"
+	}
+}
+
+// deriveDisplayStatus reads the proposal + plan-item existence for one project
+// and folds them through displayStatus. Two cheap reads per project — fine for
+// the ≤10-project list; best-effort (a read error just reads as "absent").
+func (a *API) deriveDisplayStatus(ctx context.Context, projectID uuid.UUID, status string) string {
+	hasProposal := false
+	if p, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
+		hasProposal = anyProposalDim(p)
+	}
+	hasPlan := false
+	if items, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil && len(items) > 0 {
+		hasPlan = true
+	}
+	return displayStatus(status, hasProposal, hasPlan)
 }
 
 // listProjects returns the caller's projects with enough state to render the
@@ -45,6 +90,7 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 			Title:         p.Title,
 			QualLabel:     p.Qualification,
 			ActiveStation: proj.ActiveStation,
+			Status:        a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})
@@ -88,6 +134,7 @@ type workspaceProjection struct {
 	Title         string            `json:"title"`
 	Qualification string            `json:"qualification"`
 	Proposal      workspaceProposal `json:"proposal"`
+	Status        string            `json:"status"`
 }
 
 // getProject returns the lean WorkspaceProjection for one project.
@@ -102,6 +149,7 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prop := workspaceProposal{}
+	hasProposal := false
 	row, err := a.d.Queries.GetProjectProposal(r.Context(), id)
 	switch {
 	case err == nil:
@@ -111,16 +159,22 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 			Activities: row.Activities,
 			Resources:  row.Resources,
 		}
+		hasProposal = anyProposalDim(row)
 	case errors.Is(err, pgx.ErrNoRows):
 		// no proposal yet — leave zero-value {"","","",""}
 	default:
 		httpx.WriteError(w, r, err)
 		return
 	}
+	hasPlan := false
+	if items, perr := a.d.Queries.ListPlanItems(r.Context(), id); perr == nil && len(items) > 0 {
+		hasPlan = true
+	}
 	httpx.WriteJSON(w, http.StatusOK, workspaceProjection{
 		ID:            p.ID.String(),
 		Title:         p.Title,
 		Qualification: p.Qualification,
 		Proposal:      prop,
+		Status:        displayStatus(p.Status, hasProposal, hasPlan),
 	})
 }

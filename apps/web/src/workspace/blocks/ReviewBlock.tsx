@@ -28,6 +28,10 @@ export function ReviewBlock({
   const [done, setDone] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const hasProposal = [proposal.objective, proposal.reason, proposal.activities, proposal.resources].some(
+    (v) => v.trim() !== "",
+  );
   const answersRef = useRef<string[]>(reflectionPrompts.map(() => ""));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,9 +81,12 @@ export function ReviewBlock({
     }, 600);
   }
 
-  // 完成回顾: persist answers with done=true, then finish the project (which
-  // generates the process assessment into the growth report). A 422 means the
-  // server still considers the reflection unfinished — surface its message.
+  // 完成回顾: persist answers with done=true, then finish the project. finish is
+  // async (202) — it kicks off the flagship process assessment in the background
+  // and returns status "evaluating" immediately; we don't block the UI, we open
+  // a modal that sends the student back to 全部项目 (where the report shows up
+  // later as "评估中" → "已完成"). A 422 means the server still considers the
+  // reflection unfinished — surface its message inline.
   async function finish() {
     if (finishing || done) return;
     setFinishing(true);
@@ -89,6 +96,7 @@ export function ReviewBlock({
       await putReflection(projectId, { answers: answersRef.current, done: true });
       await finishProject(projectId);
       setDone(true);
+      setShowModal(true);
     } catch (e) {
       if (e instanceof ApiError) {
         setFinishError(e.message || "还不能归档，请稍后再试。");
@@ -139,14 +147,14 @@ export function ReviewBlock({
           <div className="mt-7 flex flex-wrap items-center gap-4">
             {done ? (
               <>
-                <span className="text-[13px] font-semibold text-mk-green">已归档 · 这次的过程评估已记入你的成长报告</span>
+                <span className="text-[13px] font-semibold text-mk-green">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
                 {onFinished && (
                   <button
                     type="button"
                     onClick={onFinished}
                     className="rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-primary-hover"
                   >
-                    查看成长报告 →
+                    回到全部项目 →
                   </button>
                 )}
               </>
@@ -172,19 +180,50 @@ export function ReviewBlock({
       </div>
 
       {/* aside · the mirror */}
-      <MirrorPane projectId={projectId} />
+      <MirrorPane projectId={projectId} hasProposal={hasProposal} />
+
+      {/* finish modal · the assessment runs in the background; the student is
+          free to leave. One action returns to 全部项目, where the row shows
+          "评估中" and later "已完成 · 查看评估报告". */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
+            <div className="flex items-center gap-2 text-mk-primary">
+              <Icon name="spark" size={18} />
+              <h2 className="font-sans text-[18px] font-bold text-mk-ink">评估报告生成中</h2>
+            </div>
+            <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+              印记正在回看你的全过程，生成过程评估——可能需要几分钟。你可以先去别处，生成好后在「全部项目」里点开查看。
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  onFinished?.();
+                }}
+                className="rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-primary-hover"
+              >
+                回到全部项目
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ---------- right · the "你的思维印记" mirror ---------- */
 
-function MirrorPane({ projectId }: { projectId: string }) {
+function MirrorPane({ projectId, hasProposal }: { projectId: string; hasProposal: boolean }) {
   const [mirror, setMirror] = useState<Mirror | null>(null);
   const [composing, setComposing] = useState(true);
 
-  // GET the stored mirror; if none exists yet, POST once to compose it
-  // (first-open-wins on the server — a concurrent open won't double-spend).
+  // GET the stored mirror; if none exists yet AND there's real work to mirror
+  // (a non-empty proposal), POST once to compose it (first-open-wins on the
+  // server). On a blank project we don't compose an empty mirror — an honest
+  // "come back later" beats canned text.
   useEffect(() => {
     let cancelled = false;
     setMirror(null);
@@ -192,7 +231,7 @@ function MirrorPane({ projectId }: { projectId: string }) {
     (async () => {
       try {
         let m = await getMirror(projectId);
-        if (m == null) m = await postMirror(projectId);
+        if (m == null && hasProposal) m = await postMirror(projectId);
         if (!cancelled) setMirror(m);
       } catch {
         /* leave the empty state; a reopen retries */
@@ -203,7 +242,7 @@ function MirrorPane({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, hasProposal]);
 
   return (
     <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
@@ -219,7 +258,9 @@ function MirrorPane({ projectId }: { projectId: string }) {
         {composing && !mirror ? (
           <p className="text-[12.5px] leading-relaxed text-mk-muted-2">印记正在回看你的全过程，整理这份思维印记……</p>
         ) : !mirror ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-muted-2">这份印记还没能整理出来——稍后重新打开回顾再看看。</p>
+          <p className="text-[12.5px] leading-relaxed text-mk-muted-2">
+            {hasProposal ? "这份印记还没能整理出来——稍后重新打开回顾再看看。" : "完成一些工作后，这里会长出你的思维印记。"}
+          </p>
         ) : (
           <>
             <div className="flex flex-col gap-4">

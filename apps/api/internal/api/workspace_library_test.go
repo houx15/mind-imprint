@@ -462,6 +462,118 @@ func TestLibraryOwnership404(t *testing.T) {
 	}
 }
 
+// errFetcher is a Fetcher that always fails — for exercising enter-reading's
+// fetch-failure branch (BE1: 422 with a parseable code=fetch_failed envelope).
+type errFetcher struct{}
+
+func (errFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
+	return "", "", fmt.Errorf("simulated fetch failure")
+}
+
+// TestEnterReadingFetchFailed422 — a reference with a URL that can't be fetched
+// returns 422 with a standard {error:{code:"fetch_failed",message}} envelope so
+// the reading-room client can offer its paste-body fallback (BE1).
+func TestEnterReadingFetchFailed422(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: errFetcher{}}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"取不到的来源","url":"https://blocked.example/article"}`)
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &refWrap)
+	rid := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references/"+rid+"/enter-reading", "")
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("enter-reading (fetch fail) = %d, want 422: %s", rec.Code, rec.Body)
+	}
+	var perr struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &perr); err != nil {
+		t.Fatalf("decode error envelope: %v — %s", err, rec.Body)
+	}
+	if perr.Error.Code != "fetch_failed" {
+		t.Fatalf("error code = %q, want fetch_failed; body=%s", perr.Error.Code, rec.Body)
+	}
+	if !strings.Contains(perr.Error.Message, "粘") {
+		t.Fatalf("error message = %q, want the gentle paste-fallback message", perr.Error.Message)
+	}
+}
+
+// TestPasteContent — pasting an article body creates a source="pasted" material,
+// links it to the reference, and returns the full MaterialSource DTO (BE1).
+// Blank text is a 400.
+func TestPasteContent(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// A reference whose URL can't be fetched — the paste fallback's real case.
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"手动粘贴的文章"}`)
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &refWrap)
+	rid := refWrap.Reference.ID
+
+	// Blank text → 400.
+	recBlank := doJSON(t, h, cookie, "POST", base+"/references/"+rid+"/paste-content", `{"text":"   "}`)
+	if recBlank.Code != http.StatusBadRequest {
+		t.Fatalf("paste blank = %d, want 400: %s", recBlank.Code, recBlank.Body)
+	}
+
+	// Real paste → 200 MaterialSource with pasted blocks.
+	body := `{"text":"中国的可再生能源投资连续五年全球第一。\n\n但碳排放总量同样位居世界前列，这是绕不开的反例。"}`
+	rec = doJSON(t, h, cookie, "POST", base+"/references/"+rid+"/paste-content", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("paste-content = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var ms struct {
+		ID     string            `json:"id"`
+		Title  string            `json:"title"`
+		Origin string            `json:"origin"`
+		Blocks []json.RawMessage `json:"blocks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &ms); err != nil {
+		t.Fatalf("decode MaterialSource: %v — %s", err, rec.Body)
+	}
+	if ms.Origin != "pasted" {
+		t.Fatalf("origin = %q, want pasted", ms.Origin)
+	}
+	if len(ms.Blocks) < 2 {
+		t.Fatalf("blocks = %d, want ≥2 (two paragraphs segmented)", len(ms.Blocks))
+	}
+	if ms.Title != "手动粘贴的文章" {
+		t.Fatalf("title = %q, want the reference title", ms.Title)
+	}
+
+	// The reference now links the created material, and a source_log_entry landed.
+	var linked string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT material_id FROM reference WHERE id = $1`, rid).Scan(&linked); err != nil {
+		t.Fatalf("reference.material_id not set: %v", err)
+	}
+	if linked != ms.ID {
+		t.Fatalf("reference.material_id = %q, want %q", linked, ms.ID)
+	}
+	var logs int
+	_ = pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM source_log_entry WHERE material_id = $1`, ms.ID).Scan(&logs)
+	if logs != 1 {
+		t.Fatalf("source_log_entry rows = %d, want 1 (RL-2)", logs)
+	}
+}
+
 // referenceView is the test's decode shape for a reference wire DTO.
 type referenceView struct {
 	ID             string   `json:"id"`

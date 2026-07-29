@@ -243,10 +243,13 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 		Provider: assessStubProvider(dualAxisReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(),
 		SpecByID: cards.ByID,
 	}).Handler()
+	// Finish is async (BE5): 202 evaluating, then a goroutine drives it to
+	// finished — wait for that before reading the assessment.
 	rec = doJSON(t, hFinish, cookie, "POST", base+"/finish", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST finish = %d: %s", rec.Code, rec.Body)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("POST finish = %d, want 202: %s", rec.Code, rec.Body)
 	}
+	waitProjectStatus(t, pool, pid, "finished")
 
 	rec = doJSON(t, hCore, cookie, "GET", base+"/assessment", "")
 	if rec.Code != http.StatusOK {
@@ -281,7 +284,12 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 		t.Fatalf("growth/history missing the finished project %s: %+v", pid, history.Entries)
 	}
 
-	// -- 8. Mirror composes once (first-open-wins, no second spend) ----------
+	// -- 8. Mirror composes then first-open-wins (no second spend) -----------
+	// Finish's own goroutine already best-effort-attempted a mirror (BE5) with
+	// the assessment provider, which isn't valid mirror JSON — so it spent but
+	// stored nothing. This step composes the real mirror with a mirror provider;
+	// we assert first-open-wins as a DELTA (the second POST adds no new call)
+	// rather than an absolute count, since the finish attempt confounds it.
 	hMirror := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
 		Provider: assessStubProvider(mirrorReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(),
@@ -302,15 +310,13 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 	if len(mirror.Sections) == 0 || len(mirror.CarryForwards) == 0 {
 		t.Fatalf("mirror missing sections/carryForwards: %s", rec.Body)
 	}
-	if n := countLLMCallsByPurpose(t, pool, pid, "mirror"); n != 1 {
-		t.Fatalf("mirror llm_call rows after first POST = %d, want 1", n)
-	}
-	// Second POST is a no-spend read of the stored row.
+	afterFirst := countLLMCallsByPurpose(t, pool, pid, "mirror")
+	// Second POST is a no-spend read of the stored row (first-open-wins).
 	if r := doJSON(t, hMirror, cookie, "POST", base+"/mirror", ""); r.Code != http.StatusOK {
 		t.Fatalf("second POST mirror = %d: %s", r.Code, r.Body)
 	}
-	if n := countLLMCallsByPurpose(t, pool, pid, "mirror"); n != 1 {
-		t.Fatalf("mirror llm_call rows after second POST = %d, want still 1 (first-open-wins)", n)
+	if n := countLLMCallsByPurpose(t, pool, pid, "mirror"); n != afterFirst {
+		t.Fatalf("mirror llm_call rows after second POST = %d, want still %d (first-open-wins)", n, afterFirst)
 	}
 }
 

@@ -577,8 +577,14 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 
 	t, body, ferr := a.d.Fetcher.FetchReadable(r.Context(), ref.Url)
 	if ferr != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_failed",
-			"取不到这个链接的正文，可以直接把正文粘进来。", nil))
+		// 422 (not 400) + a standard {error:{code,message}} envelope so the
+		// reading-room client can parse code="fetch_failed" and offer its inline
+		// paste-body box instead of a generic error.
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "fetch_failed",
+			Message: "取不到这个链接的正文，可以直接把正文粘进来。",
+		})
 		return uuid.UUID{}, true
 	}
 	blocks := materialize.Segment(body)
@@ -643,6 +649,135 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 		return uuid.UUID{}, true
 	}
 	return mat.ID, false
+}
+
+// -- paste-content ----------------------------------------------------------
+
+// pasteContent is the reading-room fallback for a URL that can't be fetched
+// (enter-reading's 422 fetch_failed): the student pastes the article body and
+// we create a material (source="pasted") from it via the exact paste path
+// ingestMaterial uses (materialize.Segment → blocks → material + its
+// source_log_entry in one tx, RL-2: never a material without a log entry), link
+// it to the reference, and return the full MaterialSource DTO so the room can
+// open it immediately. No model/network spend — plain owned-project write, so no
+// entitlement gate (unlike enter-reading's fetch branch).
+func (a *API) pasteContent(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rid, err := uuid.Parse(r.PathValue("rid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	ref, err := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: rid, ProjectID: projectID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	var body struct {
+		Text  string `json:"text"`
+		Title string `json:"title"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(body.Text) == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "把正文粘进来再打开。", nil))
+		return
+	}
+
+	blocks := materialize.Segment(body.Text)
+	if len(blocks) == 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_body", "正文是空的。", nil))
+		return
+	}
+	title := strings.TrimSpace(body.Title)
+	if title == "" {
+		title = strings.TrimSpace(ref.Title)
+	}
+	if title == "" {
+		title = "粘贴的正文"
+	}
+	rawBlocks, err := json.Marshal(blocks)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// One transaction: material + its source_log_entry + the reference link land
+	// together (a material with no log entry is the RL-2-forbidden "never opened"
+	// state, exactly as ingestMaterial/fetchMaterialForReference guard).
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	mat, err := qtx.CreateProjectMaterial(r.Context(), sqlc.CreateProjectMaterialParams{
+		TaskID:    pgtype.UUID{},
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Kind:      "article",
+		Source:    "pasted",
+		Title:     title,
+		SourceUrl: nil,
+		Blocks:    rawBlocks,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := qtx.CreateSourceLogEntry(r.Context(), sqlc.CreateSourceLogEntryParams{
+		ProjectID:  projectID,
+		MaterialID: pgtype.UUID{Bytes: mat.ID, Valid: true},
+		Url:        ref.Url,
+		Title:      title,
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := qtx.SetReferenceMaterial(r.Context(), sqlc.SetReferenceMaterialParams{
+		ID:         ref.ID,
+		ProjectID:  projectID,
+		MaterialID: pgtype.UUID{Bytes: mat.ID, Valid: true},
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// Project the material's dossier state (fresh → zero/false defaults), exactly
+	// as enter-reading returns it.
+	d, err := studio.Load(r.Context(), a.d.Queries, projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var dto *studio.MaterialDTO
+	mats := studio.ProjectMaterials(d)
+	for i := range mats {
+		if mats[i].ID == mat.ID.String() {
+			dto = &mats[i]
+			break
+		}
+	}
+	if dto == nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "粘贴正文《"+title+"》"); err != nil {
+		slog.Warn("paste-content: append auto-log failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
 // -- shared jsonb helpers ---------------------------------------------------

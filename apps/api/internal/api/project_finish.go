@@ -1,22 +1,27 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 )
 
-// finishProject is the project's terminal (A3): the one-time, student-initiated
-// act that mints the project's growth report. Guards the S5 gate server-side,
-// generates the flagship report (cost recorded even on reject), and — only on
-// success — marks the project finished and appends a project_finished event.
-// finished ⟺ has a terminal report: a rejected report leaves the project active
-// (retryable). Already finished → 409 (no regeneration; DEC-A3.5).
+// finishProject is the project's terminal (A3), now NON-BLOCKING (BE5). After
+// the guards (ownership → entitlement → already-finished/evaluating 409 →
+// reflection-done gate), it flips status to 'evaluating', returns 202 {status:
+// "evaluating"} immediately, and a DETACHED goroutine (context.Background(), NOT
+// the request context) generates the flagship report. On success it marks the
+// project 'finished' + appends project_finished + best-effort composes the
+// mirror; on failure/reject it rolls status back to 'active' (retryable).
+// finished ⟺ has a terminal report. One report only (DEC-A3.5): a second finish
+// while 'finished' or 'evaluating' is refused with 409.
 func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -33,11 +38,8 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-
-	// One-time guard: already finished → 409. (Load the row fresh — loadOwnedProject
-	// already fetched it, but re-read via studio.Load's project or GetProject to
-	// read status.)
+	// One-time / in-flight guard: finished → 409 (no regeneration); evaluating →
+	// 409 (a report is already being generated; don't spawn a second).
 	proj, err := a.d.Queries.GetProject(r.Context(), projectID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -46,6 +48,12 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 	if proj.Status == "finished" {
 		httpx.WriteError(w, r, &httpx.APIError{
 			Status: http.StatusConflict, Code: "already_finished", Message: "任务已归档",
+		})
+		return
+	}
+	if proj.Status == "evaluating" {
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status: http.StatusConflict, Code: "evaluating", Message: "正在评估中",
 		})
 		return
 	}
@@ -66,30 +74,54 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate the terminal report (flagship; cost recorded even on reject).
-	dto, gerr2 := a.generateProjectReport(r.Context(), projectID)
-	if errors.Is(gerr2, errAssessmentRejected) {
-		httpx.WriteError(w, r, &httpx.APIError{
-			Status: http.StatusUnprocessableEntity, Code: "assessment_rejected",
-			Message: "这次评估没通过内部校验，请再试一次",
-		})
-		return
-	}
-	if gerr2 != nil {
-		httpx.WriteError(w, r, gerr2)
-		return
-	}
-
-	// Success: mark finished + record the terminal event. finished ⟺ report.
-	if err := a.d.Queries.SetProjectFinished(r.Context(), projectID); err != nil {
+	// Claim the in-flight state synchronously (so a concurrent finish 409s), then
+	// return 202 and generate off the request path.
+	if err := a.d.Queries.SetProjectEvaluating(r.Context(), projectID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if err := store.AppendEvent(r.Context(), agent.EventRow{
+	go a.runProjectReport(u, projectID)
+
+	httpx.WriteJSON(w, http.StatusAccepted, map[string]string{"status": "evaluating"})
+}
+
+// runProjectReport is the detached finish worker. It runs on a fresh
+// context.Background() (the request context is already gone) carrying the user
+// (WithUser) so cost rows record. On a successful report it marks the project
+// 'finished', appends project_finished, and best-effort composes the mirror over
+// the now-complete process record. On any failure — including a rejected
+// assessment — it rolls status back to 'active' so the terminal stays retryable.
+func (a *API) runProjectReport(u User, projectID uuid.UUID) {
+	ctx := WithUser(context.Background(), u)
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	dto, gerr := a.generateProjectReport(ctx, projectID)
+	if gerr != nil {
+		if errors.Is(gerr, errAssessmentRejected) {
+			slog.Warn("finish worker: assessment rejected — reverting to active", "project", projectID)
+		} else {
+			slog.Error("finish worker: report generation failed — reverting to active", "err", gerr, "project", projectID)
+		}
+		if aerr := a.d.Queries.SetProjectActive(ctx, projectID); aerr != nil {
+			slog.Error("finish worker: revert to active failed", "err", aerr, "project", projectID)
+		}
+		return
+	}
+
+	// Best-effort real post-completion mirror (persist only on success; BE4).
+	// Composed BEFORE flipping to 'finished' so that status='finished' is a clean
+	// "report + mirror both done" signal — no window where a client polling on
+	// finished races an in-flight mirror.
+	a.composeAndStoreProjectMirror(ctx, projectID)
+
+	if err := a.d.Queries.SetProjectFinished(ctx, projectID); err != nil {
+		slog.Error("finish worker: mark finished failed", "err", err, "project", projectID)
+		return
+	}
+	if err := store.AppendEvent(ctx, agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "project_finished",
 		Payload: mustJSON(map[string]any{"generatedAt": dto.GeneratedAt}),
 	}); err != nil {
-		slog.Warn("finish_project: append event", "err", err)
+		slog.Warn("finish worker: append project_finished event", "err", err)
 	}
-	httpx.WriteJSON(w, http.StatusOK, dto)
 }

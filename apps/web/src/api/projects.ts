@@ -1,4 +1,4 @@
-import { CreateProjectResult, DualAxisReport, StudioProjection } from "@mind-imprint/contracts";
+import { CreateProjectResult, ProjectStatus } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 export type ProjectListItem = {
@@ -6,6 +6,7 @@ export type ProjectListItem = {
   title: string;
   qualLabel: string;
   activeStation: string;
+  status: ProjectStatus;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {
@@ -13,17 +14,13 @@ export async function listProjects(): Promise<ProjectListItem[]> {
   return res.projects;
 }
 
-export async function getProject(id: string): Promise<StudioProjection> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}`);
-  return StudioProjection.parse(raw); // fail loud on drift
-}
-
-// A3: the project terminal — closes out the project and returns the
-// freshly persisted growth report; this is the one-time terminal action,
-// not a repeatable generation endpoint.
-export async function finishProject(id: string): Promise<DualAxisReport> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/finish`, { method: "POST" });
-  return DualAxisReport.parse(raw);
+// A3: the project terminal — 完成回顾 kicks off the flagship process assessment
+// (which can take minutes) in the background and returns immediately with the
+// project's new status ("evaluating"). The report is polled for via listProjects
+// (status → "done") and read from the growth report, not returned here.
+export async function finishProject(id: string): Promise<{ status: ProjectStatus }> {
+  const raw = await apiFetch<{ status: ProjectStatus }>(`/api/v1/projects/${id}/finish`, { method: "POST" });
+  return { status: ProjectStatus.parse(raw.status) };
 }
 
 export async function createProject(body: { title?: string; prompt: string }): Promise<{ id: string }> {

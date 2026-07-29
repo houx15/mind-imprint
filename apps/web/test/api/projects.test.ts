@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getProject, listProjects, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives } from "@/api/projects";
+import { listProjects, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives } from "@/api/projects";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -7,61 +7,13 @@ describe("listProjects", () => {
   it("unwraps the {projects} envelope into a bare array", async () => {
     const body = {
       projects: [
-        { id: "00000000-0000-0000-0000-000000000101", title: "T", qualLabel: "0457 个人报告", activeStation: "S4" },
+        { id: "00000000-0000-0000-0000-000000000101", title: "T", qualLabel: "0457 个人报告", activeStation: "S4", status: "working" },
       ],
     };
     vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
     const list = await listProjects();
     expect(list.length).toBe(1);
     expect(list[0]?.id).toBe("00000000-0000-0000-0000-000000000101");
-  });
-});
-
-const sample = {
-  project: { title: "T", qualLabel: "0457 个人报告" },
-  stations: [{ code: "S4", name: "论证构建", view: "结构", state: "current", gate: { total: 7, passed: 2 } }],
-  activeStation: "S4",
-  coach: { anchor: "论证图 · 治理决心主张", messages: [{ kind: "ai", body: "b", tag: "D5", anchor: "论证图 · 治理决心主张" }], equipment: [] },
-  onboarding: { restatePrompt: "r", rubricRows: [], planSteps: [], assignmentText: "", studentRestate: "", studentWeakPicks: [] },
-  // N3d Task 9: StudioProjection now requires these two top-level fields
-  // (contracts commit 49a37ed) — this fixture predates that and was left
-  // failing to parse until now.
-  framing: { researchQuestion: "", terms: [], answers: [], searchPlan: [] },
-  perspectives: { rows: [], sourcesPerPerspective: false },
-  materials: [],
-  activeCard: null,
-  structure: [],
-  spotChecks: {
-    evaluateSources: { items: [], orderable: false },
-    buildArgument: { items: [], orderable: false },
-  },
-  readiness: [],
-  selfScore: { dims: [], bands: ["还需努力", "基本达到", "稳了"] },
-  prediction: { predicted: [], actual: [], overlap: 0, revealed: false },
-  reflection: { text: "", prompts: [] },
-  declaration: { asks: 0, dispositions: 0, cardsSpontaneous: 0, cardsPrompted: 0, aiWrittenProse: 0, signed: false },
-  finished: false,
-  canFinish: false,
-  writing: {
-    buffer: "",
-    latestSnapshot: null,
-    wordBudget: { min: 300, max: 500 },
-    citationsMatched: false,
-    review: { items: [] },
-  },
-};
-
-describe("getProject", () => {
-  it("parses a valid StudioProjection", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(sample), { status: 200, headers: { "Content-Type": "application/json" } }));
-    const p = await getProject("00000000-0000-0000-0000-000000000101");
-    expect(p.activeStation).toBe("S4");
-    expect(p.coach.messages[0]).toMatchObject({ kind: "ai", anchor: "论证图 · 治理决心主张" });
-  });
-
-  it("throws on a malformed projection (schema drift)", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ ...sample, activeStation: "S9" }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    await expect(getProject("x")).rejects.toThrow();
   });
 });
 

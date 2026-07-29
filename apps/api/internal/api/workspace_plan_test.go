@@ -64,6 +64,129 @@ func TestPutProposal_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestCoach_ProposalReviewScope — BE2: the proposal_review scope produces a
+// restrained reply (the frontend passes the four dims as user_input).
+func TestCoach_ProposalReviewScope(t *testing.T) {
+	h, cookie, _ := planTestHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"scope":"proposal_review","user_input":"目标：看中国是否让地球更可持续；缘由：我关心气候；活动：读NASA/Nature；资源：Zotero"}`)), cookie))
+	if rr.Code != 200 {
+		t.Fatalf("coach proposal_review = %d — %s", rr.Code, rr.Body)
+	}
+	var resp struct {
+		Reply string `json:"reply"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil || strings.TrimSpace(resp.Reply) == "" {
+		t.Fatalf("coach proposal_review reply empty (err=%v): %s", err, rr.Body)
+	}
+}
+
+// planGenReply is a valid plan/generate JSON array (5 tasks, tags balanced).
+const planGenReply = `[
+  {"title":"通读并溯源 NASA 与 Nature 数据","tag":"read","stage":"阶段一 · 研究","start":0,"days":4},
+  {"title":"整理正反两方证据","tag":"read","stage":"阶段一 · 研究","start":4,"days":3},
+  {"title":"写论点与提纲","tag":"write","stage":"阶段二 · 写作","start":7,"days":3},
+  {"title":"写第一版正文","tag":"write","stage":"阶段二 · 写作","start":10,"days":5},
+  {"title":"回顾并检查反例","tag":"review","stage":"阶段二 · 写作","start":15,"days":3}]`
+
+// TestPlanGenerate_ProposalEmpty — BE3: with an empty kick-off, plan/generate
+// refuses with 422 proposal_empty and creates no plan items.
+func TestPlanGenerate_ProposalEmpty(t *testing.T) {
+	h, cookie, _ := planTestHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/plan/generate", strings.NewReader("")), cookie))
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("plan/generate (empty proposal) = %d, want 422; body=%s", rr.Code, rr.Body)
+	}
+	var perr struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &perr); err != nil || perr.Error.Code != "proposal_empty" {
+		t.Fatalf("plan/generate code = %+v (err=%v), want proposal_empty; body=%s", perr, err, rr.Body)
+	}
+}
+
+// TestPlanGenerate_CreatesItems — BE3: with a filled proposal, plan/generate
+// persists the model's tasks as todo plan_items, returns them, meters one
+// plan_gen call, and drops the auto-log line.
+func TestPlanGenerate_CreatesItems(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: assessStubProvider(planGenReply), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := seedProjectID
+	base := "/api/v1/projects/" + pid
+
+	// Fill the proposal so the kick-off isn't empty.
+	rrProp := httptest.NewRecorder()
+	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+	if rrProp.Code != 200 {
+		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/plan/generate", strings.NewReader("")), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("plan/generate = %d, want 200; body=%s", rr.Code, rr.Body)
+	}
+	var out struct {
+		Items []struct {
+			ID     string `json:"id"`
+			Title  string `json:"title"`
+			Tag    string `json:"tag"`
+			Column string `json:"column"`
+			Stage  string `json:"stage"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode items: %v — %s", err, rr.Body)
+	}
+	if len(out.Items) != 5 {
+		t.Fatalf("generated items = %d, want 5 (the model reply)", len(out.Items))
+	}
+	for _, it := range out.Items {
+		if it.Column != "todo" {
+			t.Fatalf("item %q column = %q, want todo", it.Title, it.Column)
+		}
+		if !map[string]bool{"read": true, "write": true, "review": true}[it.Tag] {
+			t.Fatalf("item %q tag = %q, invalid", it.Title, it.Tag)
+		}
+	}
+
+	// GET /plan reflects the persisted items.
+	rrList := httptest.NewRecorder()
+	h.ServeHTTP(rrList, withCookie(httptest.NewRequest("GET", base+"/plan", nil), cookie))
+	var listed struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	_ = json.Unmarshal(rrList.Body.Bytes(), &listed)
+	if len(listed.Items) != 5 {
+		t.Fatalf("plan list after generate = %d, want 5", len(listed.Items))
+	}
+
+	if n := countLLMCallsByPurpose(t, pool, pid, "plan_gen"); n != 1 {
+		t.Fatalf("plan_gen llm_call rows = %d, want 1", n)
+	}
+	var autolog int
+	_ = pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM activity_log_entry WHERE project_id=$1 AND text=$2`, pid, "印记根据开题生成了项目计划").Scan(&autolog)
+	if autolog != 1 {
+		t.Fatalf("plan_gen auto-log rows = %d, want 1", autolog)
+	}
+}
+
 func TestPlanItem_CRUDLifecycle(t *testing.T) {
 	h, cookie, _ := planTestHandler(t)
 	base := "/api/v1/projects/" + seedProjectID

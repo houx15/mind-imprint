@@ -106,6 +106,28 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 	return items, nil
 }
 
+const setProjectActive = `-- name: SetProjectActive :exec
+UPDATE project SET status = 'active', last_active_at = now() WHERE id = $1
+`
+
+// BE5: the finish goroutine rolls status back to 'active' when report
+// generation fails or is rejected, so the terminal stays retryable.
+func (q *Queries) SetProjectActive(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setProjectActive, id)
+	return err
+}
+
+const setProjectEvaluating = `-- name: SetProjectEvaluating :exec
+UPDATE project SET status = 'evaluating', last_active_at = now() WHERE id = $1
+`
+
+// BE5: the non-blocking finish flips status to 'evaluating' before spawning the
+// detached report goroutine; a second finish while 'evaluating' is refused.
+func (q *Queries) SetProjectEvaluating(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setProjectEvaluating, id)
+	return err
+}
+
 const setProjectFinished = `-- name: SetProjectFinished :exec
 UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1
 `
