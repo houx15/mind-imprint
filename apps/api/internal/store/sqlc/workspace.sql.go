@@ -12,6 +12,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countExplorationLeadForSource = `-- name: CountExplorationLeadForSource :one
+SELECT count(*) FROM exploration_lead
+WHERE project_id = $1 AND source_reference_id = $2 AND text = $3
+`
+
+type CountExplorationLeadForSourceParams struct {
+	ProjectID         uuid.UUID   `json:"project_id"`
+	SourceReferenceID pgtype.UUID `json:"source_reference_id"`
+	Text              string      `json:"text"`
+}
+
+// The idempotent-materialize dedupe check for postFinalizeReading (D-S3-2):
+// re-finalizing a source must not duplicate a lead whose text already exists
+// for that (project, source).
+func (q *Queries) CountExplorationLeadForSource(ctx context.Context, arg CountExplorationLeadForSourceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countExplorationLeadForSource, arg.ProjectID, arg.SourceReferenceID, arg.Text)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createActivityLogEntry = `-- name: CreateActivityLogEntry :one
 INSERT INTO activity_log_entry (project_id, entry_date, text, source)
 VALUES ($1, $2, $3, $4)
@@ -72,6 +93,49 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 		&i.ParentID,
 		&i.Position,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createExplorationLead = `-- name: CreateExplorationLead :one
+INSERT INTO exploration_lead (
+    project_id, text, status, origin, source_reference_id, connected_reference_id, position
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at
+`
+
+type CreateExplorationLeadParams struct {
+	ProjectID            uuid.UUID   `json:"project_id"`
+	Text                 string      `json:"text"`
+	Status               string      `json:"status"`
+	Origin               string      `json:"origin"`
+	SourceReferenceID    pgtype.UUID `json:"source_reference_id"`
+	ConnectedReferenceID pgtype.UUID `json:"connected_reference_id"`
+	Position             int32       `json:"position"`
+}
+
+func (q *Queries) CreateExplorationLead(ctx context.Context, arg CreateExplorationLeadParams) (ExplorationLead, error) {
+	row := q.db.QueryRow(ctx, createExplorationLead,
+		arg.ProjectID,
+		arg.Text,
+		arg.Status,
+		arg.Origin,
+		arg.SourceReferenceID,
+		arg.ConnectedReferenceID,
+		arg.Position,
+	)
+	var i ExplorationLead
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Status,
+		&i.Origin,
+		&i.SourceReferenceID,
+		&i.ConnectedReferenceID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -257,6 +321,20 @@ func (q *Queries) DeleteCollection(ctx context.Context, arg DeleteCollectionPara
 	return err
 }
 
+const deleteExplorationLead = `-- name: DeleteExplorationLead :exec
+DELETE FROM exploration_lead WHERE id = $1 AND project_id = $2
+`
+
+type DeleteExplorationLeadParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) DeleteExplorationLead(ctx context.Context, arg DeleteExplorationLeadParams) error {
+	_, err := q.db.Exec(ctx, deleteExplorationLead, arg.ID, arg.ProjectID)
+	return err
+}
+
 const deletePlanItem = `-- name: DeletePlanItem :exec
 DELETE FROM plan_item WHERE id = $1 AND project_id = $2
 `
@@ -352,6 +430,34 @@ func (q *Queries) GetCollection(ctx context.Context, arg GetCollectionParams) (C
 		&i.ParentID,
 		&i.Position,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getExplorationLeadForProject = `-- name: GetExplorationLeadForProject :one
+SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at FROM exploration_lead WHERE id = $1 AND project_id = $2
+`
+
+type GetExplorationLeadForProjectParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+// IDOR guard, mirrors GetReferenceForProject.
+func (q *Queries) GetExplorationLeadForProject(ctx context.Context, arg GetExplorationLeadForProjectParams) (ExplorationLead, error) {
+	row := q.db.QueryRow(ctx, getExplorationLeadForProject, arg.ID, arg.ProjectID)
+	var i ExplorationLead
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Status,
+		&i.Origin,
+		&i.SourceReferenceID,
+		&i.ConnectedReferenceID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -664,6 +770,45 @@ func (q *Queries) ListCollections(ctx context.Context, projectID uuid.UUID) ([]C
 	return items, nil
 }
 
+const listExplorationLeads = `-- name: ListExplorationLeads :many
+
+SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at FROM exploration_lead
+WHERE project_id = $1
+ORDER BY position, created_at
+`
+
+// S3 · rabbit-hole exploration leads (branch off reading takeaways). ---------
+func (q *Queries) ListExplorationLeads(ctx context.Context, projectID uuid.UUID) ([]ExplorationLead, error) {
+	rows, err := q.db.Query(ctx, listExplorationLeads, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExplorationLead
+	for rows.Next() {
+		var i ExplorationLead
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Status,
+			&i.Origin,
+			&i.SourceReferenceID,
+			&i.ConnectedReferenceID,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOutlineNodes = `-- name: ListOutlineNodes :many
 
 SELECT id, project_id, text, depth, position, created_at, updated_at FROM outline_node
@@ -874,6 +1019,54 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 		&i.ParentID,
 		&i.Position,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateExplorationLead = `-- name: UpdateExplorationLead :one
+UPDATE exploration_lead SET
+    text                   = $3,
+    status                 = $4,
+    connected_reference_id = $5,
+    position               = $6,
+    updated_at             = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at
+`
+
+type UpdateExplorationLeadParams struct {
+	ID                   uuid.UUID   `json:"id"`
+	ProjectID            uuid.UUID   `json:"project_id"`
+	Text                 string      `json:"text"`
+	Status               string      `json:"status"`
+	ConnectedReferenceID pgtype.UUID `json:"connected_reference_id"`
+	Position             int32       `json:"position"`
+}
+
+// Sets text, status, connected_reference_id, position by id + project_id; the
+// handler merges partial patches over the current row first (UpdatePlanItem's
+// pattern).
+func (q *Queries) UpdateExplorationLead(ctx context.Context, arg UpdateExplorationLeadParams) (ExplorationLead, error) {
+	row := q.db.QueryRow(ctx, updateExplorationLead,
+		arg.ID,
+		arg.ProjectID,
+		arg.Text,
+		arg.Status,
+		arg.ConnectedReferenceID,
+		arg.Position,
+	)
+	var i ExplorationLead
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Status,
+		&i.Origin,
+		&i.SourceReferenceID,
+		&i.ConnectedReferenceID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

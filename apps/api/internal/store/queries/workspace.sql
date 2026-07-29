@@ -211,3 +211,43 @@ SELECT * FROM project_summary_prose WHERE project_id = $1;
 INSERT INTO project_summary_prose (project_id, prose, model, tier)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (project_id) DO NOTHING;
+
+-- S3 · rabbit-hole exploration leads (branch off reading takeaways). ---------
+
+-- name: ListExplorationLeads :many
+SELECT * FROM exploration_lead
+WHERE project_id = $1
+ORDER BY position, created_at;
+
+-- name: CreateExplorationLead :one
+INSERT INTO exploration_lead (
+    project_id, text, status, origin, source_reference_id, connected_reference_id, position
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: GetExplorationLeadForProject :one
+-- IDOR guard, mirrors GetReferenceForProject.
+SELECT * FROM exploration_lead WHERE id = $1 AND project_id = $2;
+
+-- name: UpdateExplorationLead :one
+-- Sets text, status, connected_reference_id, position by id + project_id; the
+-- handler merges partial patches over the current row first (UpdatePlanItem's
+-- pattern).
+UPDATE exploration_lead SET
+    text                   = $3,
+    status                 = $4,
+    connected_reference_id = $5,
+    position               = $6,
+    updated_at             = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: DeleteExplorationLead :exec
+DELETE FROM exploration_lead WHERE id = $1 AND project_id = $2;
+
+-- name: CountExplorationLeadForSource :one
+-- The idempotent-materialize dedupe check for postFinalizeReading (D-S3-2):
+-- re-finalizing a source must not duplicate a lead whose text already exists
+-- for that (project, source).
+SELECT count(*) FROM exploration_lead
+WHERE project_id = $1 AND source_reference_id = $2 AND text = $3;

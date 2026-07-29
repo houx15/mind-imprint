@@ -236,6 +236,19 @@ type Event struct {
 	CourseID  pgtype.UUID `json:"course_id"`
 }
 
+type ExplorationLead struct {
+	ID                   uuid.UUID   `json:"id"`
+	ProjectID            uuid.UUID   `json:"project_id"`
+	Text                 string      `json:"text"`
+	Status               string      `json:"status"`
+	Origin               string      `json:"origin"`
+	SourceReferenceID    pgtype.UUID `json:"source_reference_id"`
+	ConnectedReferenceID pgtype.UUID `json:"connected_reference_id"`
+	Position             int32       `json:"position"`
+	CreatedAt            time.Time   `json:"created_at"`
+	UpdatedAt            time.Time   `json:"updated_at"`
+}
+
 type GraphEdge struct {
 	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"project_id"`
