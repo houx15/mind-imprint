@@ -108,17 +108,36 @@ func TestPostDismissProposal_RecordsSkipAndStopsReoffer(t *testing.T) {
 	}
 }
 
-func TestPostPersistProjectCard_RejectsNonProposable(t *testing.T) {
+func TestPostPersistProjectCard_RejectsNonPersistable(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID
 
+	// craap is a reading card in neither allowlist (not AI-proposable, not in the
+	// writing deck) → must be refused.
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
-		strings.NewReader(`{"card_id":"toulmin","field_values":{"x":"y"},"event_trace":[]}`)), cookie))
+		strings.NewReader(`{"card_id":"craap","field_values":{"x":"y"},"event_trace":[]}`)), cookie))
 	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("non-proposable card = %d, want 400 — %s", rr.Code, rr.Body)
+		t.Fatalf("non-persistable card = %d, want 400 — %s", rr.Code, rr.Body)
 	}
-	if got := countCompletedCard(t, pool, seedProjectID, "toulmin"); got != 0 {
-		t.Fatalf("non-proposable must persist nothing, got %d", got)
+	if got := countCompletedCard(t, pool, seedProjectID, "craap"); got != 0 {
+		t.Fatalf("non-persistable must persist nothing, got %d", got)
+	}
+}
+
+// WC · a student-summoned writing-deck card persists through the same path.
+func TestPostPersistProjectCard_PersistsWritingDeckCard(t *testing.T) {
+	h, cookie, pool := persistHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// argument-map is a writing-deck card NOT pre-seeded (0018 seeds steelman + concession).
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
+		strings.NewReader(`{"card_id":"argument-map","field_values":{"claim":"qualified yes","grounds":"greening 强、排放限制强"},"event_trace":[]}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("writing-deck persist = %d — %s", rr.Code, rr.Body)
+	}
+	if got := countCompletedCard(t, pool, seedProjectID, "argument-map"); got != 1 {
+		t.Fatalf("completed argument-map = %d, want 1", got)
 	}
 }

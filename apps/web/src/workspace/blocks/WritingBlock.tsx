@@ -93,6 +93,9 @@ export function WritingBlock({
   onOpenRoom: (room: BlockKey) => void;
 }) {
   const [tab, setTab] = useState<"outline" | "draft">("outline");
+  // WC · part-by-part: the draft part the student has pinned to think through
+  // with 印记 (lifted so DraftPane can set it and the rail can consume it).
+  const [focusPart, setFocusPart] = useState<string | null>(null);
   return (
     <div className="flex h-full flex-col">
       {/* goal strip */}
@@ -110,8 +113,8 @@ export function WritingBlock({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr,320px]">
-        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} title={title} />}
-        <CoachRail projectId={projectId} />
+        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} title={title} onFocusPart={setFocusPart} />}
+        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} />
       </div>
     </div>
   );
@@ -462,12 +465,33 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
 // (.docx/.pdf) are accepted but parked with a note — real parsing is later.
 const TEXT_EXT = [".md", ".txt", ".markdown"];
 
-function DraftPane({ projectId, title }: { projectId: string; title: string }) {
+function DraftPane({ projectId, title, onFocusPart }: { projectId: string; title: string; onFocusPart: (part: string) => void }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [text, setText] = useState("");
   const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const draftRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // WC · pin the selected paragraph to think through with 印记. Falls back to the
+  // paragraph under the caret when nothing is highlighted.
+  function askAboutPart() {
+    const ta = draftRef.current;
+    if (!ta) return;
+    let part = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
+    if (!part) {
+      // no highlight → the paragraph (blank-line block) around the caret
+      const blocks = ta.value.split(/\n{2,}/);
+      let acc = 0;
+      for (const b of blocks) {
+        const end = acc + b.length;
+        if (ta.selectionStart <= end + 2) { part = b.trim(); break; }
+        acc = end + 2;
+      }
+    }
+    if (part) onFocusPart(part);
+  }
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const words = text.replace(/\s+/g, "").length;
 
@@ -581,6 +605,15 @@ function DraftPane({ projectId, title }: { projectId: string; title: string }) {
               </button>
               <button
                 type="button"
+                onClick={askAboutPart}
+                disabled={pane !== "edit" || text.trim() === ""}
+                title={hasSelection ? "就选中的这一段问印记" : "就光标所在的这一段问印记"}
+                className="rounded-mk border border-mk-primary/40 px-3 py-1.5 text-[12.5px] font-semibold text-mk-primary hover:bg-mk-primary-tint disabled:opacity-50"
+              >
+                就这一段问印记
+              </button>
+              <button
+                type="button"
                 onClick={() => { void exportDraftDocx(text, { title }).catch(() => {/* never crash the room */}); }}
                 disabled={text.trim() === ""}
                 className="rounded-mk border border-mk-border px-3 py-1.5 text-[12.5px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-50"
@@ -594,8 +627,10 @@ function DraftPane({ projectId, title }: { projectId: string; title: string }) {
         {mode === "write" ? (
           pane === "edit" ? (
             <textarea
+              ref={draftRef}
               value={text}
               onChange={(e) => onChange(e.target.value)}
+              onSelect={(e) => setHasSelection(e.currentTarget.selectionStart !== e.currentTarget.selectionEnd)}
               placeholder="在这里写你的草稿……（支持 Markdown）"
               className="min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border bg-mk-surface p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
             />
@@ -714,10 +749,15 @@ const RAIL_GREETING: ChatMsg = {
   text: "把你正在纠结的那一段贴过来，或者告诉我它想让读者信什么——我们从这个目的倒推它够不够。",
 };
 
-function CoachRail({ projectId }: { projectId: string }) {
+// WC · the writing thinking-cards a student can summon in the Write room (all
+// persist through /cards/persist's writing-deck allowlist).
+const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman"];
+
+function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; focusPart: string | null; onClearFocus: () => void }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(false);
   // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
   // dismissable chip); `openCardId` is the card the student CHOSE to open — the
   // only path to a card sheet, so triggering stays automatic while opening is
@@ -744,11 +784,16 @@ function CoachRail({ projectId }: { projectId: string }) {
   async function send() {
     const text = draft.trim();
     if (!text || sending) return;
-    setChat((c) => [...c, { role: "student", text }]);
+    // WC · if a draft part is pinned, scope this turn to it so 印记 checks THAT
+    // part's argument/function — never rewriting it.
+    const turnText = focusPart ? `就这一段想（帮我看它的论证与功能，别替我改写）：\n「${focusPart}」\n\n${text}` : text;
+    const shown = focusPart ? `【就这一段】${text}` : text;
+    setChat((c) => [...c, { role: "student", text: shown }]);
     setDraft("");
+    onClearFocus();
     setSending(true);
     try {
-      const { reply, proposal: p } = await coach(projectId, "writing", text);
+      const { reply, proposal: p } = await coach(projectId, "writing", turnText);
       setChat((c) => [...c, { role: "ai", text: reply }]);
       // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
       // dismissable chip; opening it (below) is the student's tap, never auto.
@@ -816,13 +861,47 @@ function CoachRail({ projectId }: { projectId: string }) {
           </div>
         )}
       </div>
+      {/* WC · writing-card deck picker (student summons a thinking-card onto the part) */}
+      {deckOpen && (
+        <div className="border-t border-mk-border bg-mk-bg px-3 py-2">
+          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">挑一张写作卡，想清楚你这一段的论证——你填，印记不替你写</p>
+          <div className="flex flex-wrap gap-1.5">
+            {WRITING_DECK.map((id) => CARD_REGISTRY[id] && (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { setDeckOpen(false); openProposedCard(id); }}
+                title={CARD_REGISTRY[id]!.purpose}
+                className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
+              >
+                {CARD_REGISTRY[id]!.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {focusPart && (
+        <div className="flex items-center gap-2 border-t border-mk-accent/30 bg-mk-accent-tint/30 px-3 py-2">
+          <span className="flex-none text-[11px] font-bold text-mk-accent">就这一段</span>
+          <span className="min-w-0 flex-1 truncate text-[12px] text-mk-muted">{focusPart}</span>
+          <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">✕</button>
+        </div>
+      )}
       <div className="flex items-end gap-2 border-t border-mk-border p-3">
+        <button
+          type="button"
+          onClick={() => setDeckOpen((v) => !v)}
+          title="写作卡"
+          className={`flex h-9 w-9 flex-none items-center justify-center rounded-mk border text-[16px] font-bold transition ${deckOpen ? "border-mk-primary bg-mk-primary-tint text-mk-primary" : "border-mk-border text-mk-muted-2 hover:text-mk-primary"}`}
+        >
+          ＋
+        </button>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
           rows={1}
-          placeholder="问问这段逻辑、这个结构……"
+          placeholder={focusPart ? "就这一段，你想问什么？" : "问问这段逻辑、这个结构……"}
           className="max-h-24 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
         />
         <button

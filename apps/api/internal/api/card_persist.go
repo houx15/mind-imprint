@@ -30,6 +30,24 @@ var coachProposableCards = map[string]bool{
 	"steelman":           true,
 }
 
+// writingDeckCards is the allowlist of writing thinking-cards the STUDENT may
+// summon in the Write room (WC · part-by-part). Persisted the same way (a
+// completed card_instance + event, no node mint for the legacy ones) — the
+// student fills them to think through an argument; 印记 never writes the body.
+var writingDeckCards = map[string]bool{
+	"toulmin":      true,
+	"pee":          true,
+	"concession":   true,
+	"steelman":     true,
+	"argument-map": true,
+}
+
+// persistableCard reports whether card_id may be persisted through the generic
+// path — either an AI-proposable card or a student-summonable writing-deck card.
+func persistableCard(id string) bool {
+	return coachProposableCards[id] || writingDeckCards[id]
+}
+
 // persistProjectCardEnvelope creates → submits → completes a project-scoped
 // (no-material) card_instance for cardID and logs eventType. Validates the
 // envelope outer shape (field_values object; event_trace, when present, a typed
@@ -127,8 +145,8 @@ func (a *API) postPersistProjectCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if !coachProposableCards[body.CardID] {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "card_id 不在可提议卡片范围内", nil))
+	if !persistableCard(body.CardID) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "card_id 不在可持久化的卡片范围内", nil))
 		return
 	}
 	id, err := a.persistProjectCardEnvelope(r.Context(), projectID, body.CardID, body.FieldValues, body.EventTrace, "card_logged")
