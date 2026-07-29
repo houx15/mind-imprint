@@ -153,6 +153,24 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 				fmt.Fprintf(&b, "- %s%s\n", truncateRunes(ref.Title, 40), meta)
 			}
 		}
+
+		// 探索 branch state (S3, Task 7): open leads still to follow + sources
+		// read but not yet connected or pruned — a nudge to keep the coach
+		// aware of the rabbit-hole graph without deep-fetching it every turn.
+		// Best-effort: a failed ListExplorationLeads just skips this line,
+		// matching the block's existing degrade-don't-fail posture.
+		if leads, err := a.d.Queries.ListExplorationLeads(ctx, projectID); err == nil {
+			var open int
+			for _, l := range leads {
+				if l.Status == "open" {
+					open++
+				}
+			}
+			dangling := len(computeDanglingSourceIds(refs, leads))
+			if open > 0 || dangling > 0 {
+				fmt.Fprintf(&b, "探索：待追 %d 条线索 · %d 个悬空来源\n", open, dangling)
+			}
+		}
 	}
 
 	// 提纲 skeleton (top-level nodes only).

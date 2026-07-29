@@ -182,6 +182,65 @@ func seedUnreadReference(t *testing.T, h http.Handler, cookie *http.Cookie, titl
 	}
 }
 
+// TestProjection_ExplorationLine — Task 7: the spine projection's 文献库
+// block must surface the exploration graph's branch state (open leads +
+// dangling sources) so the continuous coach stays aware of it, and must omit
+// the line entirely when there's nothing to flag.
+func TestProjection_ExplorationLine(t *testing.T) {
+	api, h, cookie, q := projectionTestHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// 2 open leads.
+	for _, text := range []string{"中国的碳排放总量会不会推翻论点？", "另一条待追的线索"} {
+		rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", fmt.Sprintf(`{"text":%q}`, text))
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create lead: %d %s", rec.Code, rec.Body)
+		}
+	}
+
+	// 1 dangling source: a reference with an engaged material, no decision,
+	// and not connected by any lead.
+	ctx := context.Background()
+	projectID := mustUUID(seedProjectID)
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "悬空源", craapMaterialText)
+	ref, err := q.CreateReference(ctx, sqlc.CreateReferenceParams{
+		ProjectID: projectID, Title: "悬空源", Tags: []byte("[]"), SearchHints: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("CreateReference: %v", err)
+	}
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: uuid.MustParse(matID), Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+
+	proj, err := api.BuildSpineProjectionForTest(ctx, projectID)
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "探索：待追 2 条线索 · 1 个悬空来源") {
+		t.Fatalf("projection must surface open leads + dangling sources:\n%s", proj)
+	}
+}
+
+// TestProjection_ExplorationLineOmittedWhenClear — the 探索 line must be
+// entirely absent when there are zero open leads and zero dangling sources
+// (a project that hasn't touched exploration at all, e.g. the projection
+// tests' seed project before this test runs).
+func TestProjection_ExplorationLineOmittedWhenClear(t *testing.T) {
+	api, _, _, _ := projectionTestHandler(t)
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if strings.Contains(proj, "探索：") {
+		t.Fatalf("projection must NOT contain a 探索 line when clear:\n%s", proj)
+	}
+}
+
 // TestProjection_UnreadCarriesCredibility — Finding 1 regression guard: a
 // 未读 reference (no material) that has Credibility set via the
 // pre-reading 信源体检 flow must still surface it in the projection line,
