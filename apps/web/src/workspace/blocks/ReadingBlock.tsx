@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Collection, MaterialSource, Reference } from "@mind-imprint/contracts";
+import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
   getLibrary,
@@ -56,8 +56,19 @@ export function ReadingBlock({
   // reading-brief/takeaway endpoints are keyed by reference id, not material
   // id, so the room needs it threaded through. suggestedReason is the
   // deterministic seed enter-reading computes (empty on the paste-body path,
-  // which has no proposal to template from).
-  setReadingSource: (m: MaterialSource, referenceId: string, suggestedReason?: string) => void;
+  // which has no proposal to template from). phaseTag/readingReason/
+  // readingFocus (Task 9 fix) are the reference's PERSISTED brief — passed
+  // through so the room seeds its banner from her true last-saved values
+  // instead of always re-deriving/blanking them, which used to let editing
+  // one field wipe the other on the room's next full-replace save.
+  setReadingSource: (
+    m: MaterialSource,
+    referenceId: string,
+    suggestedReason?: string,
+    phaseTag?: PhaseTag | null,
+    readingReason?: string | null,
+    readingFocus?: string | null,
+  ) => void;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -613,7 +624,14 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
   onRemoveTag: (t: string) => void;
   onPatchNow: (p: ReferencePatch) => void;
   onPatchDebounced: (p: ReferencePatch) => void;
-  onEnterReading: (m: MaterialSource, referenceId: string, suggestedReason?: string) => void;
+  onEnterReading: (
+    m: MaterialSource,
+    referenceId: string,
+    suggestedReason?: string,
+    phaseTag?: PhaseTag | null,
+    readingReason?: string | null,
+    readingFocus?: string | null,
+  ) => void;
 }) {
   const [entering, setEntering] = useState(false);
   const [enterNote, setEnterNote] = useState<string | null>(null);
@@ -630,7 +648,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setEntering(true);
     try {
       const { source, suggestedReason } = await enterReading(projectId, r.id);
-      onEnterReading(source, r.id, suggestedReason);
+      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
         // Fetch failed / no content → let the student paste the body in.
@@ -651,7 +669,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setPasteError(null);
     try {
       const source = await pasteContent(projectId, r.id, text);
-      onEnterReading(source, r.id);
+      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus);
     } catch {
       setPasteError("粘贴失败了，再试一次？");
     } finally {

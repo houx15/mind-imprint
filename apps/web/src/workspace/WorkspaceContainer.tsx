@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { MaterialSource, WorkspaceProjection } from "@mind-imprint/contracts";
+import type { MaterialSource, PhaseTag, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { Icon, BLOCK_META } from "./Icon";
@@ -29,19 +29,40 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   const [readingSource, setReadingSourceState] = useState<MaterialSource | null>(null);
   // The reference row + suggested brief seed the reading room needs
   // alongside its MaterialSource (S2, Task 9) — see ReadingBlock's
-  // setReadingSource for where these are captured.
+  // setReadingSource for where these are captured. phaseTag/readingReason/
+  // readingFocus (Task 9 fix) are the reference's PERSISTED brief — threaded
+  // through so a reopened source seeds the banner from its true saved
+  // values instead of a stale suggestion/always-blank, which is what used to
+  // let one field's edit silently wipe the other on the next full-replace
+  // save.
   const [readingRefId, setReadingRefId] = useState("");
   const [readingSuggestedReason, setReadingSuggestedReason] = useState("");
+  const [readingPhaseTag, setReadingPhaseTag] = useState<PhaseTag | null>(null);
+  const [readingReadingReason, setReadingReadingReason] = useState<string | null>(null);
+  const [readingReadingFocus, setReadingReadingFocus] = useState<string | null>(null);
 
-  function openReadingSource(m: MaterialSource, referenceId: string, suggestedReason?: string) {
+  function openReadingSource(
+    m: MaterialSource,
+    referenceId: string,
+    suggestedReason?: string,
+    phaseTag?: PhaseTag | null,
+    readingReason?: string | null,
+    readingFocus?: string | null,
+  ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
     setReadingSuggestedReason(suggestedReason ?? "");
+    setReadingPhaseTag(phaseTag ?? null);
+    setReadingReadingReason(readingReason ?? null);
+    setReadingReadingFocus(readingFocus ?? null);
   }
   function closeReadingSource() {
     setReadingSourceState(null);
     setReadingRefId("");
     setReadingSuggestedReason("");
+    setReadingPhaseTag(null);
+    setReadingReadingReason(null);
+    setReadingReadingFocus(null);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -137,6 +158,9 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
         referenceId={readingRefId}
         source={readingSource}
         suggestedReason={readingSuggestedReason}
+        phaseTag={readingPhaseTag}
+        readingReason={readingReadingReason}
+        readingFocus={readingReadingFocus}
         api={api}
         onBack={closeReadingSource}
       />

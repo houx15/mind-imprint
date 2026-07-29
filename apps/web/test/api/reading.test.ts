@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { readTurn, evaluateCardSelection, getOpenCard } from "@/api/reading";
+import { readTurn, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "@/api/reading";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -116,5 +116,110 @@ describe("getOpenCard", () => {
     const result = await getOpenCard("p1", "m1");
 
     expect(result).toBeNull();
+  });
+});
+
+// S2 (Task 9) wire-level tests for the 3 client fns the ReadingRoom brief/
+// finalize UI drives directly (not through useReadingLoop) — guards the
+// snake_case wire against silent regression, same convention as readTurn/
+// evaluateCardSelection above.
+describe("putReadingBrief", () => {
+  it("PUTs to .../references/{rid}/reading-brief with a snake_case full-replace body", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify({
+      reference: {}, readingReason: "验证碳排放反例", readingFocus: "看引用来源", phaseTag: "反例检验",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", spy);
+
+    await putReadingBrief("p1", "r1", {
+      readingReason: "验证碳排放反例",
+      readingFocus: "看引用来源",
+      phaseTag: "反例检验",
+    });
+
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
+    expect(url).toContain("/api/v1/projects/p1/references/r1/reading-brief");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({
+      reading_reason: "验证碳排放反例",
+      reading_focus: "看引用来源",
+      phase_tag: "反例检验",
+    });
+  });
+});
+
+describe("getTakeawayDraft", () => {
+  it("GETs .../references/{rid}/takeaway-draft and Zod-parses TakeawayDraft", async () => {
+    const response = {
+      record: {
+        findings: ["政策目标模糊。"],
+        credibility: { verdict: "中等可信", why: "官方数据但样本有限。" },
+        keyQuotes: [{ quote: "植被覆盖上升。", why: "支持结论。" }],
+      },
+      suggestedNewLeads: ["查一下具体地区数据"],
+      suggestedProposalImpact: "这篇支持我的论点，但需要补充地区细节。",
+    };
+    const spy = vi.fn(async () => new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", spy);
+
+    const result = await getTakeawayDraft("p1", "r1");
+
+    expect(result).toEqual(response);
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/references/r1/takeaway-draft");
+  });
+});
+
+describe("postFinalizeReading", () => {
+  it("POSTs {new_leads, proposal_impact} and Zod-parses the returned Reference", async () => {
+    const reference = {
+      id: "r1",
+      title: "China's carbon trajectory",
+      classification: "期刊论文",
+      author: "Nature Sustainability",
+      credentials: "同行评议",
+      year: "2024",
+      url: "https://www.nature.com/",
+      tags: ["气候"],
+      collectionId: null,
+      credibility: "strong" as const,
+      evaluation: "权威且新近",
+      decision: "use" as const,
+      pending: false,
+      searchHints: [],
+      materialId: "m1",
+      notes: [],
+      phaseTag: "反例检验",
+      readingReason: "验证碳排放反例",
+      readingFocus: "看引用来源",
+      takeaway: {
+        findings: ["中国碳排放总量全球第一"],
+        credibility: { verdict: "strong", why: "NASA 一手数据" },
+        keyQuotes: [{ quote: "China emits the most", why: "直接反例" }],
+        newLeads: ["核实人均口径"],
+        proposalImpact: "作为让步段的反例证据",
+      },
+    };
+    const spy = vi.fn(async () => new Response(JSON.stringify({ reference }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", spy);
+
+    const result = await postFinalizeReading("p1", "r1", {
+      newLeads: ["核实人均口径"],
+      proposalImpact: "作为让步段的反例证据",
+    });
+
+    expect(result.takeaway?.proposalImpact).toBe("作为让步段的反例证据");
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
+    expect(url).toContain("/api/v1/projects/p1/references/r1/finalize-reading");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({
+      new_leads: ["核实人均口径"],
+      proposal_impact: "作为让步段的反例证据",
+    });
   });
 });

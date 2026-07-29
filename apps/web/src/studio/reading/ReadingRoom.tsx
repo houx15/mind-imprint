@@ -54,14 +54,22 @@ export type ReadingRoomProps = {
   referenceId: string;
   source: MaterialSource;
   // A deterministic, no-model-call first-draft "why read this" — Go's
-  // suggestReadingReason, merged onto enter-reading's response. Seeds the
-  // brief banner; empty when entered via the paste-body fallback (no
-  // proposal-based suggestion computed there) or when the caller omits it.
-  // CONCERN: the persisted reason (once saved via putReadingBrief) is NOT
-  // exposed on Reference/MaterialSource anywhere the client can re-read it —
-  // re-opening this same source later re-seeds from this same suggestion
-  // rather than her last edit. See task-9-report.md.
+  // suggestReadingReason, merged onto enter-reading's response. Used as the
+  // reason seed ONLY when the reference has no persisted readingReason yet
+  // (a source opened for the first time); empty when entered via the
+  // paste-body fallback (no proposal-based suggestion computed there) or
+  // when the caller omits it.
   suggestedReason?: string;
+  // The reference's PERSISTED brief (Task 9 fix) — phaseTag/readingReason/
+  // readingFocus now surface on the Reference DTO (toReferenceDTO), so a
+  // reopened source seeds the banner from her TRUE last-saved values instead
+  // of re-deriving a stale default. This matters because putReadingBrief is a
+  // full-replace PUT: every save resends all 3 fields, so seeding any one of
+  // them from the wrong source (e.g. always "" or always the template) would
+  // silently overwrite whichever field the student didn't touch this time.
+  phaseTag?: PhaseTag | null;
+  readingReason?: string | null;
+  readingFocus?: string | null;
   onBack: () => void;
   // ReadingRoom owns the loop (`useReadingLoop`) internally, plus drives the
   // S2 brief/takeaway calls directly off the same api slice.
@@ -91,20 +99,36 @@ function BackIcon() {
 // pane on the right with 文章 | 阅读成果 view-tabs. The article enters
 // select-mode once a card is `active`; the hanging card renders from the
 // loop's live status/eval; every confirmed finding accumulates in 阅读成果.
-export function ReadingRoom({ projectId, referenceId, source, suggestedReason, onBack, api, onOpenLogged }: ReadingRoomProps) {
+export function ReadingRoom({
+  projectId,
+  referenceId,
+  source,
+  suggestedReason,
+  phaseTag,
+  readingReason,
+  readingFocus,
+  onBack,
+  api,
+  onOpenLogged,
+}: ReadingRoomProps) {
   const loop = useReadingLoop(projectId, source, api);
   const [draft, setDraft] = useState("");
   const [rightView, setRightView] = useState<"article" | "trace">("article");
 
-  // Brief-in (S2, Task 9): why-read-THIS-source + which argument phase it's
-  // for. Seeded from suggestedReason (see the prop's doc comment on the
-  // seeding limitation); phaseTag starts unset. Every save resends all three
-  // fields — putReadingBrief is a full-replace endpoint, so omitting one
-  // would wipe it.
-  const [briefReason, setBriefReason] = useState(suggestedReason ?? "");
+  // Brief-in (S2, Task 9; data-loss fix): why-read-THIS-source + which
+  // argument phase it's for. Seeded from the PERSISTED brief when one
+  // exists (readingReason/phaseTag/readingFocus, plumbed from the
+  // reference row) — suggestedReason is only the fallback for a source with
+  // no saved reason yet. Every save resends all three fields —
+  // putReadingBrief is a full-replace endpoint — so seeding from the true
+  // saved values (not a stale template / always-blank) is what keeps an
+  // edit to ONE field from wiping the other on save.
+  const [briefReason, setBriefReason] = useState(
+    readingReason && readingReason.trim() ? readingReason : suggestedReason ?? "",
+  );
   const [briefEditingReason, setBriefEditingReason] = useState(false);
-  const [briefFocus] = useState("");
-  const [briefPhase, setBriefPhase] = useState<PhaseTag | "">("");
+  const [briefFocus] = useState(readingFocus ?? "");
+  const [briefPhase, setBriefPhase] = useState<PhaseTag | "">(phaseTag ?? "");
 
   function saveBrief(next?: { reason?: string; phase?: PhaseTag | "" }) {
     const reason = next?.reason ?? briefReason;

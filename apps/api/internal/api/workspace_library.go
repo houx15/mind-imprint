@@ -62,7 +62,12 @@ type readingNoteDTO struct {
 // brief's phase (null until the student sets one via putReadingBrief), takeaway
 // is the full structured 5-field object (null until postFinalizeReading — this
 // is the same field the interim finalize response used to echo as a top-level
-// sibling key; folding it here removes that duplication).
+// sibling key; folding it here removes that duplication). readingReason/
+// readingFocus (Task 9 fix) surface the SAME persisted brief fields
+// putReadingBrief writes, so a client reopening a source can seed its editor
+// from the true saved values instead of re-deriving a stale default — without
+// this, a full-replace PUT of the brief silently overwrites whichever field
+// the client didn't have available to resend.
 type referenceDTO struct {
 	ID             string                 `json:"id"`
 	Title          string                 `json:"title"`
@@ -81,6 +86,8 @@ type referenceDTO struct {
 	MaterialID     *string                `json:"materialId"`
 	Notes          []readingNoteDTO       `json:"notes"`
 	PhaseTag       *string                `json:"phaseTag"`
+	ReadingReason  *string                `json:"readingReason"`
+	ReadingFocus   *string                `json:"readingFocus"`
 	Takeaway       *agent.ReadingTakeaway `json:"takeaway"`
 }
 
@@ -113,6 +120,8 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		MaterialID:     pgUUIDToStringPtr(row.MaterialID),
 		Notes:          notes,
 		PhaseTag:       row.PhaseTag,
+		ReadingReason:  row.ReadingReason,
+		ReadingFocus:   row.ReadingFocus,
 		Takeaway:       takeaway,
 	}
 }

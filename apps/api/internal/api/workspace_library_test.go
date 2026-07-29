@@ -599,8 +599,10 @@ type referenceView struct {
 		Quote   string `json:"quote"`
 		Finding string `json:"finding"`
 	} `json:"notes"`
-	PhaseTag *string                `json:"phaseTag"`
-	Takeaway *referenceTakeawayView `json:"takeaway"`
+	PhaseTag      *string                `json:"phaseTag"`
+	ReadingReason *string                `json:"readingReason"`
+	ReadingFocus  *string                `json:"readingFocus"`
+	Takeaway      *referenceTakeawayView `json:"takeaway"`
 }
 
 type referenceTakeawayView struct {
@@ -623,11 +625,23 @@ type referenceTakeawayView struct {
 // separate top-level "takeaway" sibling key — it's now reference.takeaway
 // everywhere, including here). A finalized reference carries both; an
 // untouched one (no reading brief, no finalize) carries neither.
+//
+// Task 9 fix extends this: readingReason/readingFocus (the persisted brief
+// fields putReadingBrief writes) must ALSO surface on the DTO — without them,
+// a client reopening a source has no way to seed its brief-banner editor from
+// the true saved values, so its next full-replace PUT resends a stale/blank
+// value and silently wipes whichever field it didn't have.
 func TestGetLibraryCarriesTakeawayAndPhaseTag(t *testing.T) {
 	api, h, cookie, q := projectionTestHandler(t)
 	_ = api
 
 	seedFinalizedReference(t, h, cookie, q, "已归纳源", "反例检验", "作为让步段证据")
+	// seedFinalizedReference only sets phaseTag; layer the reason/focus on top
+	// via the real brief endpoint (full-replace, so phase_tag must be resent to
+	// avoid wiping it — exactly the hazard this fix guards against elsewhere).
+	finalizedID := findReferenceIDByTitle(t, q, "已归纳源")
+	doJSON(t, h, cookie, "PUT", "/api/v1/projects/"+seedProjectID+"/references/"+finalizedID+"/reading-brief",
+		`{"reading_reason":"验证碳排放反例","reading_focus":"看引用来源","phase_tag":"反例检验"}`)
 	doJSON(t, h, cookie, "POST", "/api/v1/projects/"+seedProjectID+"/references", `{"title":"未归纳源"}`)
 
 	rec := doJSON(t, h, cookie, "GET", "/api/v1/projects/"+seedProjectID+"/library", "")
@@ -663,6 +677,12 @@ func TestGetLibraryCarriesTakeawayAndPhaseTag(t *testing.T) {
 	if finalized.Takeaway.ProposalImpact != "作为让步段证据" {
 		t.Fatalf("takeaway.proposalImpact = %q, want 作为让步段证据", finalized.Takeaway.ProposalImpact)
 	}
+	if finalized.ReadingReason == nil || *finalized.ReadingReason != "验证碳排放反例" {
+		t.Fatalf("finalized reference readingReason = %v, want 验证碳排放反例", finalized.ReadingReason)
+	}
+	if finalized.ReadingFocus == nil || *finalized.ReadingFocus != "看引用来源" {
+		t.Fatalf("finalized reference readingFocus = %v, want 看引用来源", finalized.ReadingFocus)
+	}
 
 	if untouched.PhaseTag != nil {
 		t.Fatalf("untouched reference phaseTag should be nil, got %v", untouched.PhaseTag)
@@ -670,4 +690,29 @@ func TestGetLibraryCarriesTakeawayAndPhaseTag(t *testing.T) {
 	if untouched.Takeaway != nil {
 		t.Fatalf("untouched reference takeaway should be nil, got %+v", untouched.Takeaway)
 	}
+	if untouched.ReadingReason != nil {
+		t.Fatalf("untouched reference readingReason should be nil, got %v", untouched.ReadingReason)
+	}
+	if untouched.ReadingFocus != nil {
+		t.Fatalf("untouched reference readingFocus should be nil, got %v", untouched.ReadingFocus)
+	}
+}
+
+// findReferenceIDByTitle looks up a seeded reference's id by title within the
+// seeded demo project — a small test helper for layering a second write (the
+// reading-brief PUT) onto a reference seedFinalizedReference already created,
+// without changing that shared helper's signature for its other callers.
+func findReferenceIDByTitle(t *testing.T, q *sqlc.Queries, title string) string {
+	t.Helper()
+	refs, err := q.ListReferences(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("ListReferences: %v", err)
+	}
+	for _, ref := range refs {
+		if ref.Title == title {
+			return ref.ID.String()
+		}
+	}
+	t.Fatalf("no reference titled %q found", title)
+	return ""
 }

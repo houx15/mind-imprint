@@ -52,6 +52,11 @@ export type ReadingTakeaway = z.infer<typeof ReadingTakeaway>;
 // reading-outcomes anchored to materialId. phaseTag/takeaway (S2) fold the
 // reading sub-agent's state onto the same row: both are optional+nullable —
 // absent/null until the student sets a reading brief / finalizes a takeaway.
+// readingReason/readingFocus (Task 9 fix) surface the SAME persisted brief
+// fields putReadingBrief writes — without them a client reopening a source has
+// no true saved value to seed its brief editor from, so its next full-replace
+// PUT resends a stale/blank value and silently wipes whichever field it
+// couldn't see.
 export const Reference = z.object({
   id: z.string(),
   title: z.string(),
@@ -70,6 +75,8 @@ export const Reference = z.object({
   materialId: z.string().nullable(),
   notes: z.array(ReadingNote),
   phaseTag: PhaseTag.nullable().optional(),
+  readingReason: z.string().nullable().optional(),
+  readingFocus: z.string().nullable().optional(),
   takeaway: ReadingTakeaway.nullable().optional(),
 });
 export type Reference = z.infer<typeof Reference>;

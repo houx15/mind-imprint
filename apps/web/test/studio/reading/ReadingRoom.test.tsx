@@ -99,6 +99,47 @@ describe("ReadingRoom — brief banner (S2)", () => {
       phaseTag: "支持论点",
     });
   });
+
+  // REGRESSION (Task 9 fix): the banner used to seed briefPhase from "" and
+  // briefReason from suggestedReason (never the persisted value), so editing
+  // ONLY the reason on a reopened source resent phase_tag: "" — silently
+  // wiping the already-saved phaseTag, because putReadingBrief is a
+  // full-replace PUT. This must FAIL before ReadingRoom seeds briefReason/
+  // briefPhase from the persisted readingReason/phaseTag props, and PASS
+  // after.
+  it("preserves the persisted phaseTag when only the reason is edited on a reopened source", () => {
+    const putReadingBrief = vi.fn(async () => {});
+    const api = { ...NOOP_API, putReadingBrief };
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        readingReason="验证碳排放反例"
+        phaseTag="反例检验"
+        onBack={() => {}}
+        api={api}
+      />,
+    );
+
+    // The persisted reason shows up front (not suggestedReason, which is
+    // absent here) — reopening the source must not lose it either.
+    expect(screen.getByText(/你读这篇是为了：验证碳排放反例/)).toBeInTheDocument();
+
+    // Edit ONLY the reason.
+    fireEvent.click(screen.getByText(/你读这篇是为了：/));
+    const input = screen.getByLabelText("你读这篇是为了");
+    fireEvent.change(input, { target: { value: "换一个更准确的说法" } });
+    fireEvent.blur(input);
+
+    // The save must carry the EDITED reason AND the PRESERVED phaseTag — not
+    // "" for phaseTag, which would silently wipe the saved value.
+    expect(putReadingBrief).toHaveBeenCalledWith("p1", "r1", {
+      readingReason: "换一个更准确的说法",
+      readingFocus: "",
+      phaseTag: "反例检验",
+    });
+  });
 });
 
 // S2 (Task 9): 完成这篇 finalize panel — getTakeawayDraft seeds a read-only

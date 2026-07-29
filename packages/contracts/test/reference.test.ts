@@ -42,6 +42,26 @@ describe("Reference", () => {
     expect(parsed.phaseTag).toBeUndefined();
     expect(parsed.takeaway).toBeUndefined();
   });
+  it("accepts the reference WITHOUT the optional readingReason/readingFocus", () => {
+    const parsed = Reference.parse(ref);
+    expect(parsed.readingReason).toBeUndefined();
+    expect(parsed.readingFocus).toBeUndefined();
+  });
+  it("carries the persisted brief's readingReason/readingFocus (Task 9 fix)", () => {
+    const withBrief = Reference.parse({
+      ...ref,
+      phaseTag: "反例检验",
+      readingReason: "验证碳排放反例",
+      readingFocus: "看引用来源是否可信",
+    });
+    expect(withBrief.readingReason).toBe("验证碳排放反例");
+    expect(withBrief.readingFocus).toBe("看引用来源是否可信");
+  });
+  it("accepts a null readingReason/readingFocus explicitly", () => {
+    const parsed = Reference.parse({ ...ref, readingReason: null, readingFocus: null });
+    expect(parsed.readingReason).toBeNull();
+    expect(parsed.readingFocus).toBeNull();
+  });
   it("carries an optional structured takeaway + phaseTag", () => {
     const withTakeaway = Reference.parse({
       ...ref,
