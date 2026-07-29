@@ -132,12 +132,13 @@ describe("getLog / addLog", () => {
 });
 
 describe("coach", () => {
-  it("POSTs {scope,user_input} and returns the reply string", async () => {
+  it("POSTs {scope,user_input} and returns the reply + optional proposal (S4)", async () => {
     const spy = vi.fn(async () => json({ reply: "那你更偏向哪一边？" }));
     vi.stubGlobal("fetch", spy);
 
-    const reply = await coach("p1", "forming", "我不确定用什么尺度");
+    const { reply, proposal } = await coach("p1", "forming", "我不确定用什么尺度");
     expect(reply).toBe("那你更偏向哪一边？");
+    expect(proposal).toBeNull();
 
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
     expect(url).toContain("/api/v1/projects/p1/coach");
