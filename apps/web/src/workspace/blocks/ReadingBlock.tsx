@@ -14,6 +14,7 @@ import {
   type ReferencePatch,
 } from "../api/workspace";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
+import { ExplorationView } from "./exploration/ExplorationView";
 
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
@@ -79,6 +80,10 @@ export function ReadingBlock({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
+  // 列表 ⇄ 探索图谱 (Task 9): 列表 is today's Zotero-shaped table, unchanged;
+  // 探索图谱 is the S3 rabbit-hole branch view over the same references.
+  // Defaults to 列表 — opening the graph is always an explicit choice.
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -293,54 +298,85 @@ export function ReadingBlock({
   }
 
   return (
-    <div className="relative grid h-full" style={{ gridTemplateColumns: `${railOpen ? "220px" : "48px"} 1fr 300px` }}>
-      <CollectionsRail
-        open={railOpen}
-        onToggle={() => setRailOpen((o) => !o)}
-        collections={collections}
-        collId={collId}
-        onPick={(id) => { setCollId(id); setActiveTag(null); }}
-        tags={allTags}
-        activeTag={activeTag}
-        onTag={setActiveTag}
-        total={refs.length}
-        countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => r.collectionId != null && new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
-        onDropRef={(collId2, refId) => patchNow(refId, { collectionId: collId2 })}
-        onCreateCollection={(name) => addCollection(name, null)}
-      />
+    <div className="relative flex h-full flex-col">
+      <div className="flex items-center justify-end border-b border-mk-border bg-mk-surface px-4 py-1.5">
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+      </div>
 
-      <RefTable
-        rows={rows}
-        selId={selected?.id ?? ""}
-        onSelect={setSelId}
-        checked={checked}
-        onCheck={toggleCheck}
-        onClearChecks={() => setChecked(new Set())}
-        onExportBib={exportAnnotatedBib}
-        collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
-        activeTag={activeTag}
-        onAdd={() => setAdding(true)}
-      />
+      <div className="min-h-0 flex-1">
+        {viewMode === "list" ? (
+          <div className="grid h-full" style={{ gridTemplateColumns: `${railOpen ? "220px" : "48px"} 1fr 300px` }}>
+            <CollectionsRail
+              open={railOpen}
+              onToggle={() => setRailOpen((o) => !o)}
+              collections={collections}
+              collId={collId}
+              onPick={(id) => { setCollId(id); setActiveTag(null); }}
+              tags={allTags}
+              activeTag={activeTag}
+              onTag={setActiveTag}
+              total={refs.length}
+              countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => r.collectionId != null && new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
+              onDropRef={(collId2, refId) => patchNow(refId, { collectionId: collId2 })}
+              onCreateCollection={(name) => addCollection(name, null)}
+            />
 
-      {selected ? (
-        <Preview
-          key={selected.id}
-          projectId={projectId}
-          item={selected}
-          allTags={allTags}
-          onAddTag={(t) => addTag(selected.id, t)}
-          onRemoveTag={(t) => removeTag(selected.id, t)}
-          onPatchNow={(p) => patchNow(selected.id, p)}
-          onPatchDebounced={(p) => patchDebounced(selected.id, p)}
-          onEnterReading={setReadingSource}
-        />
-      ) : (
-        <div className="border-l border-mk-border bg-mk-surface" />
-      )}
+            <RefTable
+              rows={rows}
+              selId={selected?.id ?? ""}
+              onSelect={setSelId}
+              checked={checked}
+              onCheck={toggleCheck}
+              onClearChecks={() => setChecked(new Set())}
+              onExportBib={exportAnnotatedBib}
+              collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
+              activeTag={activeTag}
+              onAdd={() => setAdding(true)}
+            />
+
+            {selected ? (
+              <Preview
+                key={selected.id}
+                projectId={projectId}
+                item={selected}
+                allTags={allTags}
+                onAddTag={(t) => addTag(selected.id, t)}
+                onRemoveTag={(t) => removeTag(selected.id, t)}
+                onPatchNow={(p) => patchNow(selected.id, p)}
+                onPatchDebounced={(p) => patchDebounced(selected.id, p)}
+                onEnterReading={setReadingSource}
+              />
+            ) : (
+              <div className="border-l border-mk-border bg-mk-surface" />
+            )}
+          </div>
+        ) : (
+          <ExplorationView projectId={projectId} references={refs} onEnterReading={setReadingSource} />
+        )}
+      </div>
 
       <FloatingCoach projectId={projectId} />
 
       {modal}
+    </div>
+  );
+}
+
+// 列表 ⇄ 探索图谱 segmented toggle — Task 9. 列表 is the default; opening
+// 探索图谱 is always an explicit click (铁律 2 不操纵 applies to surfaces too).
+function ViewModeToggle({ mode, onChange }: { mode: "list" | "graph"; onChange: (m: "list" | "graph") => void }) {
+  return (
+    <div className="flex rounded-mk border border-mk-border bg-mk-bg p-0.5 text-[12px] font-bold">
+      {(["list", "graph"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(m)}
+          className={`rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-primary shadow-sm" : "text-mk-muted-2 hover:text-mk-ink"}`}
+        >
+          {m === "list" ? "列表" : "探索图谱"}
+        </button>
+      ))}
     </div>
   );
 }
