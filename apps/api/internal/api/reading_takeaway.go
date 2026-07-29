@@ -11,12 +11,15 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // readingOutcomesByMaterial assembles the record half of the takeaway from
@@ -62,4 +65,105 @@ func (a *API) readingOutcomesByMaterial(r *http.Request, projectID, materialID u
 		}
 	}
 	return rec
+}
+
+// credibilityDTO/keyQuoteDTO/takeawayRecordDTO are agent.TakeawayRecord's
+// wire shape — camelCase since the TS side Zod-parses this response directly
+// (Task 8), and slices are never emitted as `null` (nonNilStrings/an explicit
+// make below), so the student's draft editor never has to null-guard.
+type credibilityDTO struct {
+	Verdict string `json:"verdict"`
+	Why     string `json:"why"`
+}
+
+type keyQuoteDTO struct {
+	Quote string `json:"quote"`
+	Why   string `json:"why"`
+}
+
+type takeawayRecordDTO struct {
+	Findings    []string       `json:"findings"`
+	Credibility credibilityDTO `json:"credibility"`
+	KeyQuotes   []keyQuoteDTO  `json:"keyQuotes"`
+}
+
+func toTakeawayRecordDTO(rec agent.TakeawayRecord) takeawayRecordDTO {
+	quotes := make([]keyQuoteDTO, 0, len(rec.KeyQuotes))
+	for _, q := range rec.KeyQuotes {
+		quotes = append(quotes, keyQuoteDTO{Quote: q.Quote, Why: q.Why})
+	}
+	return takeawayRecordDTO{
+		Findings:    nonNilStrings(rec.Findings),
+		Credibility: credibilityDTO{Verdict: rec.Credibility.Verdict, Why: rec.Credibility.Why},
+		KeyQuotes:   quotes,
+	}
+}
+
+// nonNilStrings returns ss, or an empty (never nil) slice — nil encodes as
+// JSON `null`, and the wire contract for this endpoint is `[]`.
+func nonNilStrings(ss []string) []string {
+	if ss == nil {
+		return []string{}
+	}
+	return ss
+}
+
+// getTakeawayDraft is the "AI drafts, student confirms" step of the reading
+// takeaway's split-hybrid: assembles the record half deterministically
+// (readingOutcomesByMaterial, never re-guessed) and runs ONE isolated
+// mid-tier compose (agent.ComposeReadingTakeawaySuggestions) to SEED the two
+// synthesis fields the student will edit. Read-only — nothing is persisted or
+// finalized here (that's Task 6's PUT/finalize). 克制: if the resolver is
+// unavailable or the compose errs (e.g. an empty record — nothing confirmed
+// yet), this still returns 200 with the assembled record and empty
+// suggestions rather than 500ing; the student can always write her own.
+func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+	rid, err := uuid.Parse(r.PathValue("rid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	ref, err := a.d.Queries.GetReferenceForProject(r.Context(), sqlc.GetReferenceForProjectParams{ID: rid, ProjectID: projectID})
+	if err != nil || !ref.MaterialID.Valid {
+		httpx.WriteError(w, r, httpx.ErrNotFound("尚未进入阅读室"))
+		return
+	}
+	materialID := uuid.UUID(ref.MaterialID.Bytes)
+	record := a.readingOutcomesByMaterial(r, projectID, materialID)
+
+	in := agent.ReadingTakeawayInput{Brief: a.readingBriefFor(r.Context(), projectID, materialID), Record: record}
+	var leads []string
+	var impact string
+	if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+		l, imp, usage, cerr := agent.ComposeReadingTakeawaySuggestions(r.Context(), a.d.Provider, resolved, in)
+		if resolved.Provider != "" {
+			store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+			if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+				ProjectID: projectID, Surface: "studio", Purpose: "reading_takeaway_draft",
+				Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			}); e != nil {
+				slog.Warn("takeaway draft: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+		if cerr == nil {
+			leads, impact = l, imp
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"record":                  toTakeawayRecordDTO(record),
+		"suggestedNewLeads":       nonNilStrings(leads),
+		"suggestedProposalImpact": impact,
+	})
 }
