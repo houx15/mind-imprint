@@ -162,7 +162,7 @@ INSERT INTO reference (
     project_id, title, classification, author, credentials, year, url,
     tags, collection_id, credibility, evaluation, decision, pending, search_hints
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at
 `
 
 type CreateReferenceParams struct {
@@ -220,6 +220,11 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
 	)
 	return i, err
 }
@@ -278,6 +283,54 @@ type DeleteReferenceParams struct {
 func (q *Queries) DeleteReference(ctx context.Context, arg DeleteReferenceParams) error {
 	_, err := q.db.Exec(ctx, deleteReference, arg.ID, arg.ProjectID)
 	return err
+}
+
+const finalizeReadingTakeaway = `-- name: FinalizeReadingTakeaway :one
+UPDATE reference
+SET takeaway = $3, takeaway_finalized_at = now(), updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at
+`
+
+type FinalizeReadingTakeawayParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Takeaway  []byte    `json:"takeaway"`
+}
+
+// Takeaways-out: land the compact 5-field object and stamp finalized_at.
+// UPDATE (not insert) — re-finalize on a re-read SUPERSEDES (§1, deliberately
+// unlike S1's first-open-wins proposal prose; reading is iterative).
+func (q *Queries) FinalizeReadingTakeaway(ctx context.Context, arg FinalizeReadingTakeawayParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, finalizeReadingTakeaway, arg.ID, arg.ProjectID, arg.Takeaway)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
+	)
+	return i, err
 }
 
 const getCollection = `-- name: GetCollection :one
@@ -408,7 +461,7 @@ func (q *Queries) GetProjectSummaryProse(ctx context.Context, projectID uuid.UUI
 }
 
 const getReference = `-- name: GetReference :one
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at FROM reference WHERE id = $1 AND project_id = $2
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at FROM reference WHERE id = $1 AND project_id = $2
 `
 
 type GetReferenceParams struct {
@@ -439,6 +492,54 @@ func (q *Queries) GetReference(ctx context.Context, arg GetReferenceParams) (Ref
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
+	)
+	return i, err
+}
+
+const getReferenceForProject = `-- name: GetReferenceForProject :one
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at FROM reference WHERE id = $1 AND project_id = $2
+`
+
+type GetReferenceForProjectParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+// Scope a reference id to its project (the IDOR guard for the reading-brief /
+// takeaway endpoints, mirroring patchReference's ownership scoping).
+func (q *Queries) GetReferenceForProject(ctx context.Context, arg GetReferenceForProjectParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, getReferenceForProject, arg.ID, arg.ProjectID)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
 	)
 	return i, err
 }
@@ -640,7 +741,7 @@ func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]Pla
 
 const listReferences = `-- name: ListReferences :many
 
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at FROM reference
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at FROM reference
 WHERE project_id = $1
 ORDER BY position, created_at
 `
@@ -675,6 +776,11 @@ func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Re
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReadingReason,
+			&i.ReadingFocus,
+			&i.PhaseTag,
+			&i.Takeaway,
+			&i.TakeawayFinalizedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -691,7 +797,7 @@ UPDATE reference SET
     material_id = $3,
     updated_at  = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at
 `
 
 type SetReferenceMaterialParams struct {
@@ -724,6 +830,11 @@ func (q *Queries) SetReferenceMaterial(ctx context.Context, arg SetReferenceMate
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
 	)
 	return i, err
 }
@@ -828,6 +939,61 @@ func (q *Queries) UpdatePlanItem(ctx context.Context, arg UpdatePlanItemParams) 
 	return i, err
 }
 
+const updateReadingBrief = `-- name: UpdateReadingBrief :one
+UPDATE reference
+SET reading_reason = $3, reading_focus = $4, phase_tag = $5, updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at
+`
+
+type UpdateReadingBriefParams struct {
+	ID            uuid.UUID `json:"id"`
+	ProjectID     uuid.UUID `json:"project_id"`
+	ReadingReason *string   `json:"reading_reason"`
+	ReadingFocus  *string   `json:"reading_focus"`
+	PhaseTag      *string   `json:"phase_tag"`
+}
+
+// Brief-in: persist why-read-this + optional focus + phase_tag on the source.
+// Editable any time; does not touch the takeaway.
+func (q *Queries) UpdateReadingBrief(ctx context.Context, arg UpdateReadingBriefParams) (Reference, error) {
+	row := q.db.QueryRow(ctx, updateReadingBrief,
+		arg.ID,
+		arg.ProjectID,
+		arg.ReadingReason,
+		arg.ReadingFocus,
+		arg.PhaseTag,
+	)
+	var i Reference
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Classification,
+		&i.Author,
+		&i.Credentials,
+		&i.Year,
+		&i.Url,
+		&i.Tags,
+		&i.CollectionID,
+		&i.Credibility,
+		&i.Evaluation,
+		&i.Decision,
+		&i.Pending,
+		&i.SearchHints,
+		&i.MaterialID,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
+	)
+	return i, err
+}
+
 const updateReference = `-- name: UpdateReference :one
 UPDATE reference SET
     title          = $3,
@@ -845,7 +1011,7 @@ UPDATE reference SET
     search_hints   = $15,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at
 `
 
 type UpdateReferenceParams struct {
@@ -908,6 +1074,11 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReadingReason,
+		&i.ReadingFocus,
+		&i.PhaseTag,
+		&i.Takeaway,
+		&i.TakeawayFinalizedAt,
 	)
 	return i, err
 }

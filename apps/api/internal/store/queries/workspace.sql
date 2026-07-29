@@ -135,6 +135,28 @@ UPDATE reference SET
 WHERE id = $1 AND project_id = $2
 RETURNING *;
 
+-- name: GetReferenceForProject :one
+-- Scope a reference id to its project (the IDOR guard for the reading-brief /
+-- takeaway endpoints, mirroring patchReference's ownership scoping).
+SELECT * FROM reference WHERE id = $1 AND project_id = $2;
+
+-- name: UpdateReadingBrief :one
+-- Brief-in: persist why-read-this + optional focus + phase_tag on the source.
+-- Editable any time; does not touch the takeaway.
+UPDATE reference
+SET reading_reason = $3, reading_focus = $4, phase_tag = $5, updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: FinalizeReadingTakeaway :one
+-- Takeaways-out: land the compact 5-field object and stamp finalized_at.
+-- UPDATE (not insert) — re-finalize on a re-read SUPERSEDES (§1, deliberately
+-- unlike S1's first-open-wins proposal prose; reading is iterative).
+UPDATE reference
+SET takeaway = $3, takeaway_finalized_at = now(), updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
 -- Write · outline nodes (depth-indexed flat list, projected to a tree). ------
 
 -- name: ListOutlineNodes :many

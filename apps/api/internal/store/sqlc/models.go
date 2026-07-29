@@ -409,25 +409,30 @@ type ProjectSummaryProse struct {
 }
 
 type Reference struct {
-	ID             uuid.UUID   `json:"id"`
-	ProjectID      uuid.UUID   `json:"project_id"`
-	Title          string      `json:"title"`
-	Classification string      `json:"classification"`
-	Author         string      `json:"author"`
-	Credentials    string      `json:"credentials"`
-	Year           string      `json:"year"`
-	Url            string      `json:"url"`
-	Tags           []byte      `json:"tags"`
-	CollectionID   pgtype.UUID `json:"collection_id"`
-	Credibility    *string     `json:"credibility"`
-	Evaluation     string      `json:"evaluation"`
-	Decision       *string     `json:"decision"`
-	Pending        bool        `json:"pending"`
-	SearchHints    []byte      `json:"search_hints"`
-	MaterialID     pgtype.UUID `json:"material_id"`
-	Position       int32       `json:"position"`
-	CreatedAt      time.Time   `json:"created_at"`
-	UpdatedAt      time.Time   `json:"updated_at"`
+	ID                  uuid.UUID          `json:"id"`
+	ProjectID           uuid.UUID          `json:"project_id"`
+	Title               string             `json:"title"`
+	Classification      string             `json:"classification"`
+	Author              string             `json:"author"`
+	Credentials         string             `json:"credentials"`
+	Year                string             `json:"year"`
+	Url                 string             `json:"url"`
+	Tags                []byte             `json:"tags"`
+	CollectionID        pgtype.UUID        `json:"collection_id"`
+	Credibility         *string            `json:"credibility"`
+	Evaluation          string             `json:"evaluation"`
+	Decision            *string            `json:"decision"`
+	Pending             bool               `json:"pending"`
+	SearchHints         []byte             `json:"search_hints"`
+	MaterialID          pgtype.UUID        `json:"material_id"`
+	Position            int32              `json:"position"`
+	CreatedAt           time.Time          `json:"created_at"`
+	UpdatedAt           time.Time          `json:"updated_at"`
+	ReadingReason       *string            `json:"reading_reason"`
+	ReadingFocus        *string            `json:"reading_focus"`
+	PhaseTag            *string            `json:"phase_tag"`
+	Takeaway            []byte             `json:"takeaway"`
+	TakeawayFinalizedAt pgtype.Timestamptz `json:"takeaway_finalized_at"`
 }
 
 type School struct {
