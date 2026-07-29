@@ -49,13 +49,47 @@ test("J-studio: project lifecycle → commit → 整稿体检 → finish → 你
     });
     expect(review.status()).toBe(200);
 
-    // finish → generates the flagship 你的思维印记 report.
+    // Complete the reflection (mirrors 完成回顾) — finish's server-side gate
+    // refuses to archive until project_reflection.done is true.
+    const refl = await page.request.put(`${API}/projects/${projectId}/reflection-doc`, {
+      data: {
+        answers: [
+          "回看这一程，我最大的收获是学会把证据放在它能支撑的范围里说话。",
+          "我一开始想直接下结论，后来学会先追问来源到底能证明什么。",
+          "撞到反例时我没有回避，而是把它写成让步段。",
+          "如果重来，我会更早地区分口径，避免把年度排放和累计责任混在一起。",
+          "带走的一点：强证据不只是可信，还得有边界、有位置。",
+        ],
+        done: true,
+      },
+    });
+    expect(refl.ok()).toBeTruthy();
+
+    // finish → kicks off the flagship 你的思维印记 report ASYNC. Since the
+    // workspace redesign (9e928b0) finish returns 202 {status:"evaluating"} and
+    // a DETACHED goroutine generates the report — so poll GET /assessment until
+    // the flagship report lands (this also exercises S5's AI-use feed into the
+    // assessor). (Previously this test asserted a synchronous 200 + inline
+    // report, stale since the async refactor.)
     const finish = await page.request.post(`${API}/projects/${projectId}/finish`, { timeout: 150_000 });
-    expect(finish.status()).toBe(200);
-    const report = await finish.json();
+    expect(finish.status()).toBe(202);
+
+    let report: string | null = null;
+    for (let i = 0; i < 45; i++) {
+      const a = await page.request.get(`${API}/projects/${projectId}/assessment`);
+      if (a.ok()) {
+        const body = await a.text();
+        if (body && body.includes("depthAxis")) {
+          report = body;
+          break;
+        }
+      }
+      await page.waitForTimeout(3000);
+    }
+    expect(report, "flagship report generated async within timeout").not.toBeNull();
     // RL-5 / shape: a real dual-axis report, not an empty stub.
-    expect(JSON.stringify(report)).toContain("depthAxis");
-    expect(JSON.stringify(report)).toContain("narrative");
+    expect(report).toContain("depthAxis");
+    expect(report).toContain("narrative");
   }
 
   // 4. UI: 成长报告 — all three tabs now carry real data.
