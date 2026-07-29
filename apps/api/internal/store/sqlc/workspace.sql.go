@@ -388,6 +388,25 @@ func (q *Queries) GetProjectReflection(ctx context.Context, projectID uuid.UUID)
 	return i, err
 }
 
+const getProjectSummaryProse = `-- name: GetProjectSummaryProse :one
+
+SELECT project_id, prose, model, tier, created_at FROM project_summary_prose WHERE project_id = $1
+`
+
+// S1 · summary-on-return prose (first-open-wins, same pattern as the mirror). --
+func (q *Queries) GetProjectSummaryProse(ctx context.Context, projectID uuid.UUID) (ProjectSummaryProse, error) {
+	row := q.db.QueryRow(ctx, getProjectSummaryProse, projectID)
+	var i ProjectSummaryProse
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Prose,
+		&i.Model,
+		&i.Tier,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getReference = `-- name: GetReference :one
 SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at FROM reference WHERE id = $1 AND project_id = $2
 `
@@ -445,6 +464,31 @@ func (q *Queries) InsertProjectMirror(ctx context.Context, arg InsertProjectMirr
 		arg.ProjectID,
 		arg.Sections,
 		arg.CarryForwards,
+		arg.Model,
+		arg.Tier,
+	)
+	return err
+}
+
+const insertProjectSummaryProse = `-- name: InsertProjectSummaryProse :exec
+INSERT INTO project_summary_prose (project_id, prose, model, tier)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (project_id) DO NOTHING
+`
+
+type InsertProjectSummaryProseParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Prose     string    `json:"prose"`
+	Model     string    `json:"model"`
+	Tier      string    `json:"tier"`
+}
+
+// First composer wins; a concurrent loser's INSERT is a no-op and it re-reads
+// the winner's row. A failed compose is never inserted (retries next open).
+func (q *Queries) InsertProjectSummaryProse(ctx context.Context, arg InsertProjectSummaryProseParams) error {
+	_, err := q.db.Exec(ctx, insertProjectSummaryProse,
+		arg.ProjectID,
+		arg.Prose,
 		arg.Model,
 		arg.Tier,
 	)

@@ -8,7 +8,7 @@
 - **AI 克制** — the agent hands thinking back; never concludes for the student.
 - **一次只问一个 · 不操纵 · 过程即数据** — the four 铁律 hold.
 - **我们占「思考」这一层** — we don't own the student's document; the spine records *thinking*, not the artifact.
-- **NEW governing axis — context engineering.** The product is a long, continuous project. The architecture exists to keep **one coherent conversation** affordable and focused. Its levers: **memory** (cross-project, who the student is) → **spine** (per-project durable state) → **rolling window** (recent raw chat), with **sub-agent isolation** (heavy blobs out), **compaction** (chat → spine), and **projection** (compact context per turn). Everything below is an application of these six.
+- **NEW governing axis — context engineering.** The product is a long, continuous project. The architecture exists to keep **one coherent conversation** affordable and focused. Its levers: **memory** (cross-project, who the student is) → **spine** (per-project durable state) → **rolling window** (recent raw chat), managed by the agent's three moves — **compaction** (chat → spine), **sub-agent isolation** (heavy blobs out), and **session reset** (a new session at project/finish boundaries) — plus **projection** (compact context per turn). One agent, one continuous session; surfaces are views, not agents. See §5 for the corrected core.
 - **Three things the agent wields, kept distinct:** **skills** (the agent's own procedures — *how it does things*), **卡 cards** (student-facing thinking tools — *what it hands the student to do*), **透镜 lenses** (a reading sub-type). Skills are the runtime; cards/lenses are content it deploys.
 
 ## 2. Mental model — one agent, many tools, one spine
@@ -80,7 +80,17 @@ Everything the agent needs for *this* project, structured, small:
 
 **Projection, not dump.** Each main-agent turn sees a *compact projection* of the spine (proposal summary, plan status, reading-list index with one-line takeaways, outline skeleton, recent activity) — full details are fetched on demand via a skill. The projection is itself a context-management lever.
 
-## 5. Compaction contract — the spine IS the target
+## 5. One session, three context levers (the corrected core)
+
+**There is not "one agent per surface," nor "surfaces talking to a main agent." There is ONE agent running ONE continuous session per project.** The surfaces (计划 / 阅读 / 写作 / 回顾 …) are **views** — the surface the one agent is currently working on, never a separate conversation and never a thread selector. Moving between rooms moves the camera; the agent carries the whole thread with it. Room/`scope` is just "active surface" metadata attached to a turn.
+
+That one agent keeps its own context affordable with **three levers** — this is the operational heart of the architecture:
+
+1. **Compact** — fold solidified dialogue into the spine (§below). The thread stays lean; nothing is lost, because the spine *is* the memory.
+2. **Switch to a sub-agent** — when a task must ingest something big and return something small (reading a source, the graded assessment). Context isolation, brief-in / takeaways-out (§3, §6).
+3. **Open a new session** — the hard reset, when continuity stops helping. The natural boundary is a **new project = new session**; and **post-回顾**, where the project finishes → the assessment distills a memory delta → the next thing starts fresh. Finer in-project triggers (a fully-resolved tangent) are deferred until we build that boundary. *(For S1: one project = one session.)*
+
+### Compaction contract — the spine IS the target (lever 1, in detail)
 
 Never "summarize chat into a blob." Continuously **convert conversation into durable structure**, keeping only a rolling window of raw turns.
 
@@ -88,7 +98,7 @@ Never "summarize chat into a blob." Continuously **convert conversation into dur
    - Proposal v1 finalized → the shaping dialogue distills into `proposal`; those raw turns leave the window.
    - A reading sub-agent returns → takeaways land on the source; **its transcript + the article never entered the main thread at all.**
    - Plan generated / outline section settled / a card completed → folded likewise.
-2. **Finalization point: 回顾 / finish.** The project completes here → assessment sub-agent runs, and the whole process compacts into the evaluation + 思维印记. This is your "review = compaction point OR agent" — it is **both**: a compaction boundary *and* where the assessment agent fires.
+2. **Finalization point: 回顾 / finish.** The project completes here → assessment sub-agent runs, and the whole process compacts into the evaluation + 思维印记. This is your "review = compaction point OR agent" — it is **both**: a compaction boundary *and* where the assessment agent fires. It is also lever 3's boundary (new session next).
 3. **Size-threshold backstop:** if the raw window still exceeds a token budget, fold the oldest turns into `conversation digest`. **Not time-based** — time is the wrong axis.
 
 Because the two heavy blobs (article bodies, full-process grading) are isolated in sub-agents, the main thread stays mostly *dialogue + spine* and compaction pressure is low.

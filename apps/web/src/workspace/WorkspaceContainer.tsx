@@ -4,7 +4,7 @@ import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace } from "./api/workspace";
+import { getWorkspace, postProjectSummary } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
@@ -29,6 +29,12 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   // Nothing sets it yet — slice 3 wires a source-open to it; the mechanism
   // (and its onBack teardown) already exists.
   const [readingSource, setReadingSource] = useState<MaterialSource | null>(null);
+  // S1 · summary-on-return: a compact re-entry paragraph, composed once per
+  // project (first-open-wins), shown as a dismissible welcome-back toast. Only
+  // for in-progress projects (a non-empty proposal) — a brand-new project has
+  // nothing to summarise.
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -49,10 +55,28 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     let cancelled = false;
     setWorkspace(null);
     setError(null);
+    setSummary(null);
+    setSummaryDismissed(false);
     (async () => {
       try {
         const w = await getWorkspace(projectId);
-        if (!cancelled) setWorkspace(w);
+        if (cancelled) return;
+        setWorkspace(w);
+        // Compose-on-first-open (server is first-open-wins → no repeat spend),
+        // but only for an in-progress project.
+        const p = w.proposal;
+        const inProgress = [p.objective, p.reason, p.activities, p.resources].some(
+          (s) => s.trim().length > 0,
+        );
+        if (inProgress) {
+          postProjectSummary(projectId)
+            .then((prose) => {
+              if (!cancelled && prose.trim()) setSummary(prose);
+            })
+            .catch(() => {
+              /* summary is a nicety; never block the room on it */
+            });
+        }
       } catch {
         if (!cancelled) setError("加载失败，请重试");
       }
@@ -106,7 +130,25 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   return (
     <div className="flex h-full w-full bg-mk-bg font-sans text-mk-ink">
       <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} />
-      <main className="min-w-0 flex-1 overflow-hidden">
+      <main className="relative min-w-0 flex-1 overflow-hidden">
+        {workspace && summary && !summaryDismissed && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center px-4 pt-4">
+            <div className="pointer-events-auto flex max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
+              <span className="mt-0.5 text-mk-primary">
+                <Icon name="spark" size={16} />
+              </span>
+              <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
+              <button
+                type="button"
+                onClick={() => setSummaryDismissed(true)}
+                aria-label="收起"
+                className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
         ) : !workspace ? (

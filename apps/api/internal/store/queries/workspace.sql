@@ -177,3 +177,15 @@ SELECT * FROM project_mirror_prose WHERE project_id = $1;
 INSERT INTO project_mirror_prose (project_id, sections, carry_forwards, model, tier)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (project_id) DO NOTHING;
+
+-- S1 · summary-on-return prose (first-open-wins, same pattern as the mirror). --
+
+-- name: GetProjectSummaryProse :one
+SELECT * FROM project_summary_prose WHERE project_id = $1;
+
+-- name: InsertProjectSummaryProse :exec
+-- First composer wins; a concurrent loser's INSERT is a no-op and it re-reads
+-- the winner's row. A failed compose is never inserted (retries next open).
+INSERT INTO project_summary_prose (project_id, prose, model, tier)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (project_id) DO NOTHING;

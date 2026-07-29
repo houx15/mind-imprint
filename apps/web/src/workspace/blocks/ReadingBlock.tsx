@@ -9,6 +9,7 @@ import {
   enterReading,
   pasteContent,
   coach,
+  getCoachHistory,
   NoReadableContentError,
   type ReferencePatch,
 } from "../api/workspace";
@@ -963,6 +964,22 @@ function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: 
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // S1 · one continuous session: load this room's slice of the project thread
+  // once on open, appended after the greeting. Empty → greeting only.
+  useEffect(() => {
+    let alive = true;
+    getCoachHistory(projectId, "find_sources")
+      .then((msgs) => {
+        if (alive && msgs.length) setChat((c) => [...c, ...msgs]);
+      })
+      .catch(() => {
+        /* keep greeting-only; the next turn still persists */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   async function send() {
     const text = draft.trim();

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -61,6 +62,15 @@ func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
 	if firstSave {
 		if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "开题四问初次落定"); err != nil {
 			slog.Warn("proposal: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+		// S1 · lever 1 (compaction): the proposal has solidified, so the 立题
+		// shaping dialogue is now durable structure — fold those raw turns out
+		// of the coach's active window. Best-effort; a fold failure must never
+		// fail the save. The turns stay in the thread; the spine carries the
+		// result.
+		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+		if err := store.FoldCoachSurfaces(r.Context(), projectID, solidifyFoldSurfaces); err != nil {
+			slog.Warn("proposal: fold shaping turns failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
 

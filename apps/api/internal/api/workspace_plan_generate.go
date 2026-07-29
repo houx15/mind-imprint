@@ -111,6 +111,14 @@ func (a *API) postPlanGenerate(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("plan generate: append auto-log failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	// S1 · lever 1 (compaction): the plan has solidified — fold the shaping
+	// dialogue (which reuses the forming/proposal_review scopes) out of the
+	// coach's active window. Idempotent (only non-folded rows), best-effort.
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if err := store.FoldCoachSurfaces(r.Context(), projectID, solidifyFoldSurfaces); err != nil {
+		slog.Warn("plan generate: fold shaping turns failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
 }
 

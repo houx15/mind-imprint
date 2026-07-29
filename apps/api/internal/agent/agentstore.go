@@ -203,6 +203,62 @@ func (s *sqlcAgentStore) LoadChatHistory(ctx context.Context, projectID uuid.UUI
 	return out, nil
 }
 
+// AppendProjectCoachMessage persists one surface-tagged coach turn (role
+// "user"|"assistant") to the project's ONE thread (S1 · one continuous
+// session), creating the thread on first use. surface is the room the turn
+// happened on; "" stores NULL (untagged). Unlike CreateChatMessage (the
+// intervention-loop's student-only writer), this persists BOTH sides of the
+// conversational coach exchange, since the four-room coach's replies are
+// conversational (chat_message), not interventions.
+func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string) error {
+	threadID, err := s.getOrCreateThread(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	var surfPtr *string
+	if surface != "" {
+		surfPtr = &surface
+	}
+	_, err = s.q.CreateProjectCoachMessage(ctx, sqlc.CreateProjectCoachMessageParams{
+		ThreadID: threadID, Role: role, Content: content, Surface: surfPtr,
+	})
+	return err
+}
+
+// LoadActiveCoachHistory reads the coach's CONTEXT window: every NON-FOLDED
+// turn on the project's thread, both roles, oldest→newest, capped to the most
+// recent `limit`. Continuity ignores surface — the one agent sees the whole
+// thread; folded turns (already distilled into the spine) are excluded so the
+// window stays lean (S1 · lever 1).
+func (s *sqlcAgentStore) LoadActiveCoachHistory(ctx context.Context, projectID uuid.UUID, limit int) ([]ChatTurn, error) {
+	pg := pgtype.UUID{Bytes: projectID, Valid: true}
+	msgs, err := s.q.ListActiveChatMessagesByProject(ctx, pg)
+	if err != nil {
+		return nil, err
+	}
+	turns := make([]ChatTurn, 0, len(msgs))
+	for _, m := range msgs {
+		turns = append(turns, ChatTurn{Role: m.Role, Content: m.Content})
+	}
+	if limit > 0 && len(turns) > limit {
+		turns = turns[len(turns)-limit:]
+	}
+	return turns, nil
+}
+
+// FoldCoachSurfaces folds every live turn on the named surfaces into the spine
+// (S1 · lever 1, compaction): set folded_at so those raw turns leave the
+// coach's active window the moment their artifact solidifies (proposal
+// finalized → forming/proposal_review; plan generated → plan). The turns stay
+// in the thread (still shown on reload); the spine now carries the result.
+// Best-effort at the call site — a fold failure must never fail the save.
+func (s *sqlcAgentStore) FoldCoachSurfaces(ctx context.Context, projectID uuid.UUID, surfaces []string) error {
+	return s.q.FoldChatSurface(ctx, sqlc.FoldChatSurfaceParams{
+		SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Column2:         surfaces,
+	})
+}
+
 // CreateCardInstance instantiates a proposed card_instance for cardID on
 // materialID. card_instances.task_id went nullable alongside material.task_id
 // (migration 0020) — project-scoped materials from Slice 6b's source-log

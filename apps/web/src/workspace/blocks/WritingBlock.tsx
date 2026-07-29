@@ -3,7 +3,7 @@ import type { Proposal } from "@mind-imprint/contracts";
 import { putBuffer } from "../../api/writing";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getDraft, coach } from "../api/workspace";
+import { getOutline, putOutline, getDraft, coach, getCoachHistory } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
@@ -604,6 +604,22 @@ function CoachRail({ projectId }: { projectId: string }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+
+  // S1 · one continuous session: load this room's slice of the project thread
+  // once on open, appended after the greeting. Empty → greeting only.
+  useEffect(() => {
+    let alive = true;
+    getCoachHistory(projectId, "writing")
+      .then((msgs) => {
+        if (alive && msgs.length) setChat((c) => [...c, ...msgs]);
+      })
+      .catch(() => {
+        /* keep greeting-only; the next turn still persists */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   async function send() {
     const text = draft.trim();

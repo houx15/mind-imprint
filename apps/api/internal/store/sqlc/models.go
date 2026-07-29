@@ -50,14 +50,16 @@ type CardInstance struct {
 }
 
 type ChatMessage struct {
-	ID             uuid.UUID `json:"id"`
-	ThreadID       uuid.UUID `json:"thread_id"`
-	Role           string    `json:"role"`
-	Content        string    `json:"content"`
-	Modality       string    `json:"modality"`
-	Attachments    []byte    `json:"attachments"`
-	QuotedFragment *string   `json:"quoted_fragment"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             uuid.UUID          `json:"id"`
+	ThreadID       uuid.UUID          `json:"thread_id"`
+	Role           string             `json:"role"`
+	Content        string             `json:"content"`
+	Modality       string             `json:"modality"`
+	Attachments    []byte             `json:"attachments"`
+	QuotedFragment *string            `json:"quoted_fragment"`
+	CreatedAt      time.Time          `json:"created_at"`
+	Surface        *string            `json:"surface"`
+	FoldedAt       pgtype.Timestamptz `json:"folded_at"`
 }
 
 type ChatThread struct {
@@ -396,6 +398,14 @@ type ProjectReflection struct {
 	Answers   []byte    `json:"answers"`
 	Done      bool      `json:"done"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ProjectSummaryProse struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Prose     string    `json:"prose"`
+	Model     string    `json:"model"`
+	Tier      string    `json:"tier"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Reference struct {

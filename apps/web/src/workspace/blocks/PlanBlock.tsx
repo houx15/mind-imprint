@@ -20,6 +20,7 @@ import {
   getLog,
   addLog,
   coach,
+  getCoachHistory,
   generatePlan,
   type PlanItemPatch,
 } from "../api/workspace";
@@ -109,6 +110,25 @@ export function PlanBlock({
     saveTimer.current = setTimeout(() => persistProposal(next), 600);
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  // S1 · one continuous session: load THIS room's slice of the project's thread
+  // once on open, appended after the scripted intro so re-entry shows the
+  // conversation so far. Empty (a fresh project) → intro only, unchanged.
+  useEffect(() => {
+    let alive = true;
+    getCoachHistory(projectId, "forming")
+      .then((msgs) => {
+        if (!alive || msgs.length === 0) return;
+        setChat((c) => [...c, ...msgs]);
+        setChipsDismissed(true);
+      })
+      .catch(() => {
+        /* keep the intro-only view; the next turn still persists */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   async function onGenerate() {
     if (generating) return;

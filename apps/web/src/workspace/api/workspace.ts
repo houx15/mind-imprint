@@ -104,6 +104,33 @@ export async function coach(id: string, scope: CoachScope, userInput: string): P
   return z.object({ reply: z.string() }).parse(raw).reply;
 }
 
+// GET /coach/history — a room's surface-slice of the ONE per-project thread
+// (S1 · continuous session). Both sides, role already mapped to the room's
+// student|ai shape; folded turns included. No spend.
+const CoachHistoryMsg = z.object({ role: z.enum(["student", "ai"]), text: z.string() });
+export type CoachHistoryMsg = z.infer<typeof CoachHistoryMsg>;
+export async function getCoachHistory(id: string, surface: CoachScope): Promise<CoachHistoryMsg[]> {
+  const raw = await apiFetch<unknown>(
+    `/api/v1/projects/${id}/coach/history?surface=${encodeURIComponent(surface)}`,
+  );
+  return z.object({ messages: z.array(CoachHistoryMsg) }).parse(raw).messages;
+}
+
+// GET /summary — the stored summary-on-return prose, or null until composed.
+// No spend.
+export async function getProjectSummary(id: string): Promise<string | null> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/summary`);
+  if (raw === null) return null;
+  return z.object({ prose: z.string() }).parse(raw).prose;
+}
+
+// POST /summary — compose-once (first-open-wins) the re-entry paragraph from the
+// project spine. Spend endpoint; returns the prose.
+export async function postProjectSummary(id: string): Promise<string> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/summary`, { method: "POST" });
+  return z.object({ prose: z.string() }).parse(raw).prose;
+}
+
 // POST /plan/generate — 印记 turns the kickoff into a first project plan. Spend
 // endpoint; returns the freshly created (persisted) plan items. Throws ApiError
 // with code "proposal_empty" when there's nothing to generate from yet.

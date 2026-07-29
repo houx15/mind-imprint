@@ -15,7 +15,7 @@ import (
 const createChatMessage = `-- name: CreateChatMessage :one
 INSERT INTO chat_message (thread_id, role, content, modality)
 VALUES ($1, $2, $3, $4)
-RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at
+RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at
 `
 
 type CreateChatMessageParams struct {
@@ -42,6 +42,50 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 		&i.Attachments,
 		&i.QuotedFragment,
 		&i.CreatedAt,
+		&i.Surface,
+		&i.FoldedAt,
+	)
+	return i, err
+}
+
+const createProjectCoachMessage = `-- name: CreateProjectCoachMessage :one
+
+INSERT INTO chat_message (thread_id, role, content, modality, surface)
+VALUES ($1, $2, $3, 'text', $4)
+RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at
+`
+
+type CreateProjectCoachMessageParams struct {
+	ThreadID uuid.UUID `json:"thread_id"`
+	Role     string    `json:"role"`
+	Content  string    `json:"content"`
+	Surface  *string   `json:"surface"`
+}
+
+// S1 · one continuous per-project session. The four-room coach persists both
+// sides to this thread, surface-tagged; folded turns stay in the thread (shown
+// on reload) but drop out of the coach's active context window.
+// Persist one surface-tagged coach turn (role user|assistant) to the project's
+// thread. Mirrors CreateChatMessage but carries the active surface.
+func (q *Queries) CreateProjectCoachMessage(ctx context.Context, arg CreateProjectCoachMessageParams) (ChatMessage, error) {
+	row := q.db.QueryRow(ctx, createProjectCoachMessage,
+		arg.ThreadID,
+		arg.Role,
+		arg.Content,
+		arg.Surface,
+	)
+	var i ChatMessage
+	err := row.Scan(
+		&i.ID,
+		&i.ThreadID,
+		&i.Role,
+		&i.Content,
+		&i.Modality,
+		&i.Attachments,
+		&i.QuotedFragment,
+		&i.CreatedAt,
+		&i.Surface,
+		&i.FoldedAt,
 	)
 	return i, err
 }
@@ -91,6 +135,27 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Cha
 	return i, err
 }
 
+const foldChatSurface = `-- name: FoldChatSurface :exec
+UPDATE chat_message
+SET folded_at = now()
+WHERE thread_id = (SELECT id FROM chat_thread WHERE seeded_project_id = $1 LIMIT 1)
+  AND surface = ANY($2::text[])
+  AND folded_at IS NULL
+`
+
+type FoldChatSurfaceParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Column2         []string    `json:"column_2"`
+}
+
+// Lever 1 (compaction): fold every live turn on the named surfaces into the
+// spine the moment an artifact solidifies (proposal finalized / plan generated).
+// The turns stay in the thread; they just leave the active context window.
+func (q *Queries) FoldChatSurface(ctx context.Context, arg FoldChatSurfaceParams) error {
+	_, err := q.db.Exec(ctx, foldChatSurface, arg.SeededProjectID, arg.Column2)
+	return err
+}
+
 const getThread = `-- name: GetThread :one
 SELECT id, user_id, title, seeded_project_id, created_at FROM chat_thread WHERE id = $1
 `
@@ -129,8 +194,49 @@ func (q *Queries) GetThreadByProject(ctx context.Context, seededProjectID pgtype
 	return i, err
 }
 
+const listActiveChatMessagesByProject = `-- name: ListActiveChatMessagesByProject :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.folded_at IS NULL
+ORDER BY cm.created_at, cm.id
+`
+
+// The coach's CONTEXT window: every non-folded turn on the project's thread,
+// both roles, oldest→newest. Continuity ignores surface (whole thread); Go caps
+// to the last N.
+func (q *Queries) ListActiveChatMessagesByProject(ctx context.Context, seededProjectID pgtype.UUID) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listActiveChatMessagesByProject, seededProjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listChatMessagesByProject = `-- name: ListChatMessagesByProject :many
-SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at FROM chat_message cm
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1
 ORDER BY cm.created_at, cm.id
@@ -154,6 +260,53 @@ func (q *Queries) ListChatMessagesByProject(ctx context.Context, seededProjectID
 			&i.Attachments,
 			&i.QuotedFragment,
 			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatMessagesByProjectSurface = `-- name: ListChatMessagesByProjectSurface :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+ORDER BY cm.created_at, cm.id
+`
+
+type ListChatMessagesByProjectSurfaceParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Surface         *string     `json:"surface"`
+}
+
+// The DISPLAY slice for one room: that surface's turns (folded included — a
+// folded turn is still part of the visible conversation).
+func (q *Queries) ListChatMessagesByProjectSurface(ctx context.Context, arg ListChatMessagesByProjectSurfaceParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesByProjectSurface, arg.SeededProjectID, arg.Surface)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -166,7 +319,7 @@ func (q *Queries) ListChatMessagesByProject(ctx context.Context, seededProjectID
 }
 
 const listMessagesByThread = `-- name: ListMessagesByThread :many
-SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
+SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListMessagesByThread(ctx context.Context, threadID uuid.UUID) ([]ChatMessage, error) {
@@ -187,6 +340,8 @@ func (q *Queries) ListMessagesByThread(ctx context.Context, threadID uuid.UUID) 
 			&i.Attachments,
 			&i.QuotedFragment,
 			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
 		); err != nil {
 			return nil, err
 		}
