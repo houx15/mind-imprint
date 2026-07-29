@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Proposal } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
+import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
@@ -99,6 +100,7 @@ export function WritingBlock({
         <span className="flex-none rounded-full bg-mk-accent-tint px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
         <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
         <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-primary">看开题 →</button>
+        <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover">写完了 · 去完成 →</button>
       </div>
 
       {/* tabs */}
@@ -108,7 +110,7 @@ export function WritingBlock({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr,320px]">
-        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} />}
+        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} title={title} />}
         <CoachRail projectId={projectId} />
       </div>
     </div>
@@ -460,7 +462,7 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
 // (.docx/.pdf) are accepted but parked with a note — real parsing is later.
 const TEXT_EXT = [".md", ".txt", ".markdown"];
 
-function DraftPane({ projectId }: { projectId: string }) {
+function DraftPane({ projectId, title }: { projectId: string; title: string }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [text, setText] = useState("");
@@ -576,6 +578,14 @@ function DraftPane({ projectId }: { projectId: string }) {
                 className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-mk-accent-hover disabled:opacity-50"
               >
                 {reviewing ? "体检中…" : "让印记体检整稿"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { void exportDraftDocx(text, { title }).catch(() => {/* never crash the room */}); }}
+                disabled={text.trim() === ""}
+                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12.5px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-50"
+              >
+                导出成品 .docx
               </button>
             </div>
           )}

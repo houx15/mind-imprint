@@ -160,6 +160,48 @@ export async function exportProposalDocx(
   return typed;
 }
 
+/* ---------- 3b · Draft body → .docx (WritingBlock, WB) ---------- */
+
+// The student's written body → .docx, so 完成→带走 is one motion. Light markdown:
+// lines starting with #/##/### become headings, blank lines split paragraphs.
+// Pure student text — 铁律: we export what the student wrote, we don't author or
+// submit it.
+export async function exportDraftDocx(content: string, project: { title: string; qualification?: string }): Promise<Blob> {
+  const docx = await import("docx");
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+
+  const children: InstanceType<typeof Paragraph>[] = [
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(project.title || "未命名项目")] }),
+  ];
+  if (project.qualification) {
+    children.push(new Paragraph({ children: [new TextRun({ text: project.qualification, italics: true })] }));
+  }
+  const body = (content || "").trim();
+  if (!body) {
+    children.push(new Paragraph({ children: [new TextRun({ text: "（正文还没有写）", italics: true })] }));
+  } else {
+    for (const block of body.split(/\n{2,}/)) {
+      for (const line of block.split(/\n/)) {
+        const h = /^(#{1,3})\s+(.*)$/.exec(line);
+        if (h) {
+          const hashes = h[1] ?? "#";
+          const heading = h[2] ?? "";
+          const level = hashes.length === 1 ? HeadingLevel.HEADING_1 : hashes.length === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3;
+          children.push(new Paragraph({ heading: level, children: [new TextRun(heading)] }));
+        } else {
+          children.push(new Paragraph({ children: [new TextRun(line)] }));
+        }
+      }
+    }
+  }
+
+  const doc = new Document({ sections: [{ children }] });
+  const blob = await Packer.toBlob(doc);
+  const typed = blob.type === DOCX_MIME ? blob : new Blob([await blob.arrayBuffer()], { type: DOCX_MIME });
+  saveBlob("成品正文_Draft.docx", typed);
+  return typed;
+}
+
 /* ---------- 4 · Activity Log → .docx (PlanBlock log view) ---------- */
 
 export async function exportActivityLog(entries: LogEntry[], project: { title: string }): Promise<Blob> {

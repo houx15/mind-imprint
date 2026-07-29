@@ -17,12 +17,15 @@ vi.mock("@/api/writing", () => ({
   putBuffer: vi.fn(async () => {}),
   runDraftReview: vi.fn(),
 }));
+vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
+import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock } from "@/workspace/blocks/WritingBlock";
 
 const mockReview = vi.mocked(runDraftReview);
 const mockPutBuffer = vi.mocked(putBuffer);
+const mockExport = vi.mocked(exportDraftDocx);
 const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res" };
 
 beforeEach(() => {
@@ -65,6 +68,19 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await userEvent.selectOptions(screen.getByLabelText("体检视角"), "sceptic");
     await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
     await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.any(String), "sceptic"));
+  });
+
+  it("exports the body via 导出成品 (WB)", async () => {
+    const ta = await openDraftTab();
+    await userEvent.click(screen.getByRole("button", { name: /导出成品/ }));
+    await waitFor(() => expect(mockExport).toHaveBeenCalledWith(ta.value, expect.objectContaining({ title: "T" })));
+  });
+
+  it("goal strip routes to Review to finish (WB)", async () => {
+    const onOpenRoom = vi.fn();
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={onOpenRoom} />);
+    await userEvent.click(screen.getByRole("button", { name: /去完成/ }));
+    expect(onOpenRoom).toHaveBeenCalledWith("reflection");
   });
 
   it("surfaces an error without crashing", async () => {

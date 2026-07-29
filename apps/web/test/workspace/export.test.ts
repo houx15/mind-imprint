@@ -8,6 +8,7 @@ import {
   exportTimescale,
   exportProposalDocx,
   exportActivityLog,
+  exportDraftDocx,
 } from "../../src/workspace/export";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -112,5 +113,18 @@ describe("workspace exports", () => {
   it("exportAnnotatedBib handles an empty library without throwing", async () => {
     const blob = await exportAnnotatedBib([], project);
     expect(blob.size).toBeGreaterThan(0);
+  });
+
+  it("exportDraftDocx builds a .docx from the student's body (WB)", async () => {
+    const blob = await exportDraftDocx("# 引言\n第一段。\n\n第二段的论证。", { title: "中国是否让地球更可持续", qualification: "EPQ" });
+    expect(blob.size).toBeGreaterThan(0);
+    expect(blob.type).toBe(DOCX_MIME);
+    expect(await startsWithPK(blob)).toBe(true);
+  });
+
+  it("exportDraftDocx handles an empty body without throwing", async () => {
+    const blob = await exportDraftDocx("", { title: "空项目" });
+    expect(blob.size).toBeGreaterThan(0);
+    expect(await startsWithPK(blob)).toBe(true);
   });
 });
