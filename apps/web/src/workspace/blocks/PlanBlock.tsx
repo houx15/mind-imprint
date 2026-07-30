@@ -22,10 +22,12 @@ import {
   coach,
   getCoachHistory,
   generatePlan,
+  createReference,
   type PlanItemPatch,
 } from "../api/workspace";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
+import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
@@ -93,6 +95,8 @@ export function PlanBlock({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [seedBoard, setSeedBoard] = useState<PlanItem[] | undefined>(undefined);
+  // Link-bridge offer for the most recent coach turn (克制 chip under the reply).
+  const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
 
   // Debounced persistence of proposal edits (~600ms after the last keystroke).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,19 +158,49 @@ export function PlanBlock({
     }
   }
 
-  // One restrained coaching turn appended to the chat, with a busy state.
+  // One restrained coaching turn appended to the chat, with a busy state. A URL
+  // the student dropped surfaces as a link-bridge offer (克制 chip) under the
+  // reply; it clears at the start of each turn so a stale offer never lingers.
   async function runCoachTurn(scope: "forming" | "proposal_review", userInput: string, studentEcho: string) {
     if (sending) return;
     setChat((c) => [...c, { role: "student", text: studentEcho }]);
+    setLinkOffer(null);
     setSending(true);
     try {
-      const { reply } = await coach(projectId, scope, userInput);
+      const { reply, linkOffer: offer } = await coach(projectId, scope, userInput);
       setChat((c) => [...c, { role: "ai", text: reply }]);
+      if (offer) setLinkOffer({ url: offer.url, status: "idle" });
     } catch {
       setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
       setSending(false);
     }
+  }
+
+  // Link-bridge chip handlers. 加入文献库 promotes the pasted link to a
+  // first-class reference; 一起读这篇 does the same then opens the Reading Room,
+  // where the existing 进入阅读室 flow fetches the body. Neither fetches here.
+  async function onAddLink() {
+    if (!linkOffer || linkOffer.status !== "idle") return;
+    setLinkOffer({ ...linkOffer, status: "adding" });
+    try {
+      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url });
+      setLinkOffer((o) => (o ? { ...o, status: "added" } : o));
+    } catch {
+      setLinkOffer((o) => (o ? { ...o, status: "idle" } : o)); // let them retry
+    }
+  }
+  async function onReadTogether() {
+    if (!linkOffer || linkOffer.status === "adding") return;
+    if (linkOffer.status !== "added") {
+      // Mark adding so the chip's buttons disable — a fast double-tap can't
+      // create the reference twice. Best-effort create; still navigate even if
+      // it fails (the library may already hold it).
+      setLinkOffer({ ...linkOffer, status: "adding" });
+      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url }).catch(() => {});
+    }
+    setLinkOffer(null);
+    onOpenRoom("reading");
   }
 
   async function onSend() {
@@ -223,6 +257,7 @@ export function PlanBlock({
           setLang(next);
           setChat(introChat(next));
           setChipsDismissed(false);
+          setLinkOffer(null); // don't strand a chip under a freshly-reset intro
         }}
         draft={draft}
         setDraft={setDraft}
@@ -235,6 +270,10 @@ export function PlanBlock({
         onGenerate={onGenerate}
         generating={generating}
         genError={genError}
+        linkOffer={linkOffer}
+        onAddLink={onAddLink}
+        onReadTogether={onReadTogether}
+        onDismissLink={() => setLinkOffer(null)}
       />
     );
   }
@@ -275,10 +314,15 @@ function FormingPhase(props: {
   onGenerate: () => void;
   generating: boolean;
   genError: string | null;
+  linkOffer: { url: string; status: LinkOfferStatus } | null;
+  onAddLink: () => void;
+  onReadTogether: () => void;
+  onDismissLink: () => void;
 }) {
   const {
     title, qualification, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
+    linkOffer, onAddLink, onReadTogether, onDismissLink,
   } = props;
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
@@ -304,6 +348,15 @@ function FormingPhase(props: {
           {chat.map((m, i) => (
             <ChatBubble key={i} msg={m} />
           ))}
+          {linkOffer && !sending && (
+            <CoachLinkOffer
+              url={linkOffer.url}
+              status={linkOffer.status}
+              onAdd={onAddLink}
+              onReadTogether={onReadTogether}
+              onDismiss={onDismissLink}
+            />
+          )}
           {showChips && !sending && (
             <div className="flex flex-wrap gap-2 pl-1">
               <button

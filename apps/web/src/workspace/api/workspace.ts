@@ -106,17 +106,25 @@ export const CardProposalWire = z.object({
   nudgeText: z.string(),
 });
 export type CardProposalWire = z.infer<typeof CardProposalWire>;
+// linkOffer — the link-in-coach → resource bridge (2026-07-30). When the student
+// drops a URL into a coach turn, the reply carries an OPTIONAL offer to add it to
+// the library / read it together; the chip is confirmed by a tap, never auto-acts.
+export const LinkOfferWire = z.object({ url: z.string() });
+export type LinkOfferWire = z.infer<typeof LinkOfferWire>;
 export interface CoachResult {
   reply: string;
   proposal: CardProposalWire | null;
+  linkOffer: LinkOfferWire | null;
 }
 export async function coach(id: string, scope: CoachScope, userInput: string): Promise<CoachResult> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
     method: "POST",
     body: JSON.stringify({ scope, user_input: userInput }),
   });
-  const parsed = z.object({ reply: z.string(), proposal: CardProposalWire.nullish() }).parse(raw);
-  return { reply: parsed.reply, proposal: parsed.proposal ?? null };
+  const parsed = z
+    .object({ reply: z.string(), proposal: CardProposalWire.nullish(), linkOffer: LinkOfferWire.nullish() })
+    .parse(raw);
+  return { reply: parsed.reply, proposal: parsed.proposal ?? null, linkOffer: parsed.linkOffer ?? null };
 }
 
 // POST /cards/persist — persist a completed envelope for a card the coach
