@@ -47,7 +47,7 @@ func ComposeJourney(ctx context.Context, provider gateway.Provider, resolver gat
 			{Role: gateway.RoleSystem, Content: composePrompt(sk)},
 			{Role: gateway.RoleUser, Content: "学生贴进来的内容：\n" + pasted},
 		},
-		MaxTokens: 1200,
+		MaxTokens: 3000, // reasoning-model headroom (deepseek-v4-pro) — see reading_router.go
 	}
 	res, cerr := gateway.Collect(ctx, provider, resolved, req)
 	if cerr != nil {

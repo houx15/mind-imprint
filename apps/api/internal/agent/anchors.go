@@ -360,7 +360,7 @@ func (g *llmAnchorGenerator) Generate(ctx context.Context, spec cards.Spec, mate
 			{Role: gateway.RoleSystem, Content: buildAnchorPrompt(spec, level)},
 			{Role: gateway.RoleUser, Content: BuildMaterialContext(materials)},
 		},
-		MaxTokens: 1500,
+		MaxTokens: 3000, // reasoning-model headroom (deepseek-v4-pro) — see reading_router.go
 	}
 	res, err := gateway.Collect(ctx, g.provider, resolved, req)
 	if err != nil {

@@ -69,7 +69,7 @@ func renderTeaching(ctx context.Context, in CourseStepInput, provider gateway.Pr
 			{Role: gateway.RoleSystem, Content: teachingPrompt(in)},
 			{Role: gateway.RoleUser, Content: assetsText(in.Assets)},
 		},
-		MaxTokens: 1200,
+		MaxTokens: 3000, // reasoning-model headroom (deepseek-v4-pro) — see reading_router.go
 	}
 	res, err := gateway.Collect(ctx, provider, resolved, req)
 	if err != nil {
