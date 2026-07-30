@@ -60,6 +60,58 @@ func TestRouteReading_FallsBackToRespondOnGarbage(t *testing.T) {
 	}
 }
 
+func TestRouteReading_RetriesOnEmptyReply(t *testing.T) {
+	// 1st attempt: valid JSON but EMPTY reply (the generic-fallback trigger).
+	// 2nd attempt: a real reply. RouteReading must retry and return the real one,
+	// with usage accumulated across BOTH calls (cost stays accurate).
+	empty := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"decision":"respond","reply":""}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 30, OutputTokens: 2}},
+		{Kind: gateway.EventDone},
+	}
+	good := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"decision":"respond","reply":"这句里最关键的词是哪一个？"}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 40, OutputTokens: 6}},
+		{Kind: gateway.EventDone},
+	}
+	p := gateway.NewSequenceStubProvider(empty, good)
+	d, _, usage, err := RouteReading(context.Background(), p, readingStubResolver(), ReadingRouteInput{StudentText: "hi"})
+	if err != nil {
+		t.Fatalf("RouteReading error: %v", err)
+	}
+	if p.Calls != 2 {
+		t.Fatalf("empty reply must trigger exactly one retry (2 calls), got %d", p.Calls)
+	}
+	if d.Reply != "这句里最关键的词是哪一个？" {
+		t.Fatalf("retry reply not returned: %+v", d)
+	}
+	if usage.InputTokens != 70 || usage.OutputTokens != 8 {
+		t.Fatalf("usage must accumulate across attempts, got %+v", usage)
+	}
+}
+
+func TestRouteReading_NoRetryWhenFirstReplyIsGood(t *testing.T) {
+	good := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"decision":"respond","reply":"你先说说这句让你困惑在哪？"}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 40, OutputTokens: 6}},
+		{Kind: gateway.EventDone},
+	}
+	// If a retry fired it would hit `bad` and blank the reply — so a passing
+	// assertion proves no needless second call.
+	bad := []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: "garbage"}, {Kind: gateway.EventDone}}
+	p := gateway.NewSequenceStubProvider(good, bad)
+	d, _, _, err := RouteReading(context.Background(), p, readingStubResolver(), ReadingRouteInput{StudentText: "hi"})
+	if err != nil {
+		t.Fatalf("RouteReading error: %v", err)
+	}
+	if p.Calls != 1 {
+		t.Fatalf("a good first reply must not retry, got %d calls", p.Calls)
+	}
+	if d.Reply != "你先说说这句让你困惑在哪？" {
+		t.Fatalf("first good reply not returned: %+v", d)
+	}
+}
+
 func TestRouteReading_ResolverErrorDegradesToRespond(t *testing.T) {
 	p := gateway.NewStubProvider(nil)
 	badResolver := gateway.KeyResolver(func(ctx context.Context) (gateway.Resolved, error) {

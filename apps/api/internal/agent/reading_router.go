@@ -82,28 +82,44 @@ func RouteReading(ctx context.Context, p gateway.Provider, resolver gateway.KeyR
 		// visible output is tiny; the headroom is for the reasoning that precedes it.
 		MaxTokens: 3000,
 	}
-	res, err := gateway.Collect(ctx, p, resolved, req)
-	if err != nil {
-		return respond, gateway.Resolved{}, gateway.ChatUsage{}, nil
+	// Up to 2 attempts. The flagship is a REASONING model that intermittently
+	// returns an empty or unparseable reply on a real article + lens catalog
+	// (~1 in N turns) — which lands the read-together loop on the generic
+	// "具体是哪一句" fallback (live bug-hunt 2026-07-30). One retry cuts that
+	// tail; usage accumulates across attempts so 档位+token+成本 stays accurate.
+	var total gateway.ChatUsage
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := gateway.Collect(ctx, p, resolved, req)
+		if err != nil {
+			return respond, resolved, total, nil // network error: don't hammer the API
+		}
+		total.InputTokens += res.Usage.InputTokens
+		total.OutputTokens += res.Usage.OutputTokens
+		var reply routerReply
+		if perr := json.Unmarshal([]byte(stripFences(res.Text)), &reply); perr != nil {
+			continue // truncated/garbage — retry once, then degrade to respond
+		}
+		d := ReadingDecision{
+			Decision: reply.Decision, CardID: reply.CardID, Reason: reply.Reason, Reply: reply.Reply,
+			ExampleBlockID: reply.ExampleBlockID, ExampleQuote: reply.ExampleQuote,
+			ExampleWhy: reply.ExampleWhy, FollowupPlan: reply.FollowupPlan,
+		}
+		switch d.Decision {
+		case "respond", "hint", "summon":
+		default:
+			d = respond
+		}
+		// An empty reply is exactly what triggers the generic fallback downstream
+		// — retry once for a real one before giving up.
+		if strings.TrimSpace(d.Reply) == "" && attempt == 0 {
+			continue
+		}
+		if len(d.FollowupPlan) > 2 {
+			d.FollowupPlan = d.FollowupPlan[:2]
+		}
+		return d, resolved, total, nil
 	}
-	var reply routerReply
-	if perr := json.Unmarshal([]byte(stripFences(res.Text)), &reply); perr != nil {
-		return respond, resolved, res.Usage, nil
-	}
-	d := ReadingDecision{
-		Decision: reply.Decision, CardID: reply.CardID, Reason: reply.Reason, Reply: reply.Reply,
-		ExampleBlockID: reply.ExampleBlockID, ExampleQuote: reply.ExampleQuote,
-		ExampleWhy: reply.ExampleWhy, FollowupPlan: reply.FollowupPlan,
-	}
-	switch d.Decision {
-	case "respond", "hint", "summon":
-	default:
-		d = respond
-	}
-	if len(d.FollowupPlan) > 2 {
-		d.FollowupPlan = d.FollowupPlan[:2]
-	}
-	return d, resolved, res.Usage, nil
+	return respond, resolved, total, nil
 }
 
 func buildRouterPrompt(in ReadingRouteInput) string {
