@@ -95,7 +95,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 
 	// Always-on spine projection (D2). A build error degrades to no projection
 	// rather than failing the turn.
-	projection, perr := a.buildSpineProjection(r.Context(), projectID)
+	projection, perr := a.buildSpineProjection(r.Context(), projectID, scope)
 	if perr != nil {
 		slog.Warn("coach: build spine projection failed; proceeding without it", "err", perr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		projection = ""

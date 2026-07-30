@@ -221,7 +221,7 @@ func truncateRunes(s string, n int) string {
 // — a missing proposal (fresh project) or a failed sub-read degrades that line
 // to a placeholder rather than failing the turn. Deep detail is a later
 // on-demand skill; this is the thin projection that rides every turn.
-func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (string, error) {
+func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, surface string) (string, error) {
 	var b strings.Builder
 
 	// S4 · folded history rides the projection as a compact 会话记忆 block, so the
@@ -253,6 +253,13 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID) (st
 		fmt.Fprintf(&b, "- 缘由：%s\n", proposalDimOrBlank(prop.Reason))
 		fmt.Fprintf(&b, "- 活动：%s\n", proposalDimOrBlank(prop.Activities))
 		fmt.Fprintf(&b, "- 资源：%s\n", proposalDimOrBlank(prop.Resources))
+	}
+	// EC · on the forming surfaces, steer the coach toward the kick-off
+	// dimensions the student hasn't touched yet — so 立题 actually drives
+	// coverage instead of only passively seeing （未填）markers. Guides one at a
+	// time, never fills the panel (克制 · AI 绝不替学生写开题).
+	if surface == "forming" || surface == "proposal_review" {
+		b.WriteString(formingCoverageNudge(prop.Objective, prop.Reason, prop.Activities, prop.Resources))
 	}
 
 	// 计划 status.
@@ -387,4 +394,23 @@ func proposalDimOrBlank(s string) string {
 		return "（未填）"
 	}
 	return truncateRunes(s, 60)
+}
+
+// formingCoverageNudge (EC) names the kick-off dimensions the student hasn't
+// touched, as a one-line steer for the forming coach: guide toward them, one at
+// a time, never fill them (克制). Empty when all four are covered.
+func formingCoverageNudge(objective, reason, activities, resources string) string {
+	dims := []struct{ name, val string }{
+		{"目标", objective}, {"缘由", reason}, {"活动", activities}, {"资源", resources},
+	}
+	var missing []string
+	for _, d := range dims {
+		if strings.TrimSpace(d.val) == "" {
+			missing = append(missing, d.name)
+		}
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	return "（开题还没触及：" + strings.Join(missing, "、") + "——顺着学生的话，把话题往其中一个维度带一步，一次只带一个，别替他写。）\n"
 }

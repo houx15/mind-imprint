@@ -76,7 +76,7 @@ func (a *API) postProjectSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projection, perr := a.buildSpineProjection(ctx, projectID)
+	projection, perr := a.buildSpineProjection(ctx, projectID, "")
 	if perr != nil {
 		// No projection (e.g. project read failed) → graceful fallback, no persist.
 		slog.Warn("summary: build projection failed", "err", perr, "request_id", httpx.RequestIDFromContext(ctx))

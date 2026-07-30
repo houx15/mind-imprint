@@ -174,6 +174,14 @@ export function PlanBlock({
     if (!text || sending) return;
     setChipsDismissed(true);
     setDraft("");
+    // EC · flush a pending dim autosave BEFORE the turn so the coach's spine read
+    // (GetProjectProposal) sees the latest dimensions — otherwise a dim typed
+    // within the 600ms debounce is invisible to this turn (race).
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      await putProposal(projectId, prop).catch(() => {/* the turn still proceeds */});
+    }
     // In EN mode nudge the model to reply in English; the scope stays the same.
     const userInput = lang === "en" ? `${text}\n\n(reply in English)` : text;
     await runCoachTurn("forming", userInput, text);

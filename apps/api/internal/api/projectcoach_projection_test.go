@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -142,7 +143,7 @@ func TestProjection_ReadingStates(t *testing.T) {
 	seedFinalizedReference(t, h, cookie, q, "已归纳源", "反例检验", "作为让步段证据")
 	seedInProgressReference(t, h, cookie, q, "在读源")
 
-	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID))
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "")
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
@@ -229,7 +230,7 @@ func TestProjection_ExplorationLine(t *testing.T) {
 		t.Fatalf("link reference to material: %v", err)
 	}
 
-	proj, err := api.BuildSpineProjectionForTest(ctx, projectID)
+	proj, err := api.BuildSpineProjectionForTest(ctx, projectID, "")
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
@@ -245,7 +246,7 @@ func TestProjection_ExplorationLine(t *testing.T) {
 func TestProjection_ExplorationLineOmittedWhenClear(t *testing.T) {
 	api, _, _, _ := projectionTestHandler(t)
 
-	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID))
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "")
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
@@ -264,7 +265,7 @@ func TestProjection_UnreadCarriesCredibility(t *testing.T) {
 
 	seedUnreadReference(t, h, cookie, "未读源", "strong", "use")
 
-	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID))
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "")
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
@@ -273,5 +274,37 @@ func TestProjection_UnreadCarriesCredibility(t *testing.T) {
 	}
 	if !strings.Contains(proj, "｜可信度 strong") {
 		t.Fatalf("未读 source must carry credibility:\n%s", proj)
+	}
+}
+
+// TestProjection_FormingCoverageNudge — EC: on the forming surface the projection
+// names the kick-off dimensions the student hasn't touched (so the coach can
+// drive coverage); off the forming surface it carries no such nudge.
+func TestProjection_FormingCoverageNudge(t *testing.T) {
+	api, h, cookie, _ := projectionTestHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// Partial proposal: 目标 + 缘由 filled, 活动 + 资源 empty.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证中国是否让地球更可持续","reason":"我关心气候","activities":"","resources":""}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("put proposal = %d — %s", rr.Code, rr.Body)
+	}
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "forming")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "开题还没触及：活动、资源") {
+		t.Fatalf("forming projection must name the untouched dims:\n%s", proj)
+	}
+
+	proj2, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "writing")
+	if err != nil {
+		t.Fatalf("projection (writing): %v", err)
+	}
+	if strings.Contains(proj2, "开题还没触及") {
+		t.Fatalf("non-forming projection must NOT carry the coverage nudge:\n%s", proj2)
 	}
 }

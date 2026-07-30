@@ -175,7 +175,7 @@ func TestSpineProjection_IncludesDigest(t *testing.T) {
 	api, _, _, q := projectionTestHandler(t)
 	ctx := context.Background()
 
-	proj, err := api.BuildSpineProjectionForTest(ctx, mustUUID(seedProjectID))
+	proj, err := api.BuildSpineProjectionForTest(ctx, mustUUID(seedProjectID), "")
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestSpineProjection_IncludesDigest(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("upsert digest: %v", err)
 	}
-	proj2, err := api.BuildSpineProjectionForTest(ctx, mustUUID(seedProjectID))
+	proj2, err := api.BuildSpineProjectionForTest(ctx, mustUUID(seedProjectID), "")
 	if err != nil {
 		t.Fatalf("projection 2: %v", err)
 	}

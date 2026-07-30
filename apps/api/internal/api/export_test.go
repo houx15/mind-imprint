@@ -76,8 +76,8 @@ func (a *API) ReadingBriefForTest(ctx context.Context, projectID, materialID uui
 // helper off of), so — unlike request-driven endpoints elsewhere — a direct
 // method call is the only way to assert its output against seeded rows
 // (S2's 在读/已归纳 reading-state lines, projectcoach_projection_test.go).
-func (a *API) BuildSpineProjectionForTest(ctx context.Context, projectID uuid.UUID) (string, error) {
-	return a.buildSpineProjection(ctx, projectID)
+func (a *API) BuildSpineProjectionForTest(ctx context.Context, projectID uuid.UUID, surface string) (string, error) {
+	return a.buildSpineProjection(ctx, projectID, surface)
 }
 
 // ComputeDanglingSourceIdsForTest exposes the unexported computeDanglingSourceIds
