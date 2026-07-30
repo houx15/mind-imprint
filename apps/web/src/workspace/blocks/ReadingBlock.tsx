@@ -15,6 +15,7 @@ import {
 } from "../api/workspace";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { ExplorationView } from "./exploration/ExplorationView";
+import { getExploration } from "../../api/exploration";
 
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
@@ -89,6 +90,23 @@ export function ReadingBlock({
   // field coalesces independently.
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // EB · a discoverability signal for the rabbit-hole: how many leads still need
+  // following + how many read-but-unconnected (dangling) sources. Shown as a
+  // badge on the 探索图谱 toggle so the graph advertises itself — the student
+  // still chooses to open it (不操纵; no auto-switch).
+  const [explorationSignal, setExplorationSignal] = useState(0);
+  const loadExplorationSignal = useMemo(
+    () => async () => {
+      try {
+        const v = await getExploration(projectId);
+        setExplorationSignal(v.leads.filter((l) => l.status === "open").length + v.danglingSourceIds.length);
+      } catch {
+        /* the badge is a nicety; never block the room */
+      }
+    },
+    [projectId],
+  );
+
   const reload = useMemo(
     () => async () => {
       try {
@@ -98,8 +116,9 @@ export function ReadingBlock({
       } catch {
         /* keep the last-good library; the room stays usable */
       }
+      void loadExplorationSignal();
     },
-    [projectId],
+    [projectId, loadExplorationSignal],
   );
 
   useEffect(() => {
@@ -112,6 +131,7 @@ export function ReadingBlock({
         setRefs(lib.references);
         setCollections(lib.collections);
         setSelId(lib.references[0]?.id ?? "");
+        void loadExplorationSignal();
       } catch {
         /* an empty library reads as the empty state */
       } finally {
@@ -300,7 +320,7 @@ export function ReadingBlock({
   return (
     <div className="relative flex h-full flex-col">
       <div className="flex items-center justify-end border-b border-mk-border bg-mk-surface px-4 py-1.5">
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} signal={explorationSignal} />
       </div>
 
       <div className="min-h-0 flex-1">
@@ -364,7 +384,7 @@ export function ReadingBlock({
 
 // 列表 ⇄ 探索图谱 segmented toggle — Task 9. 列表 is the default; opening
 // 探索图谱 is always an explicit click (铁律 2 不操纵 applies to surfaces too).
-function ViewModeToggle({ mode, onChange }: { mode: "list" | "graph"; onChange: (m: "list" | "graph") => void }) {
+export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "graph"; onChange: (m: "list" | "graph") => void; signal: number }) {
   return (
     <div className="flex rounded-mk border border-mk-border bg-mk-bg p-0.5 text-[12px] font-bold">
       {(["list", "graph"] as const).map((m) => (
@@ -372,9 +392,18 @@ function ViewModeToggle({ mode, onChange }: { mode: "list" | "graph"; onChange: 
           key={m}
           type="button"
           onClick={() => onChange(m)}
-          className={`rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-primary shadow-sm" : "text-mk-muted-2 hover:text-mk-ink"}`}
+          className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-primary shadow-sm" : "text-mk-muted-2 hover:text-mk-ink"}`}
         >
           {m === "list" ? "列表" : "探索图谱"}
+          {/* EB · advertise pending leads/dangling so the graph is discoverable */}
+          {m === "graph" && signal > 0 && (
+            <span
+              title={`${signal} 条线索待追 / 悬空来源`}
+              className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-mk-accent px-1 text-[10px] font-bold leading-4 text-white"
+            >
+              {signal}
+            </span>
+          )}
         </button>
       ))}
     </div>

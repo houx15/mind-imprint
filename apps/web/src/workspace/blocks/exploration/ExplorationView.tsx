@@ -252,7 +252,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
         <div className="flex flex-1 flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
           <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
           <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
-            去文献库读完一篇来源、归纳出「新的线索」（比如 NASA 报告或《自然·可持续发展》那篇论文），线索会自动长到这里；也可以自己手动记一条待追的方向。
+            读完一篇来源、并在「归纳」时写下你发现的新线索，它们就会长到这里（比如从 NASA 报告牵到《自然·可持续发展》那篇论文）。也随时可以自己记一条待追的方向——下面就能加。
           </p>
         </div>
       ) : (
