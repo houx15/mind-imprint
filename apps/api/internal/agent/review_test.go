@@ -110,6 +110,39 @@ func TestReviewSystemPromptAsksForPoints_AllVoices(t *testing.T) {
 	}
 }
 
+func TestReviewSystemPromptNamesAllFields_AllVoices(t *testing.T) {
+	// Regression: the prompt must name band/evidence/fix explicitly or the model
+	// silently omits them (observed live 2026-07-30 — only missing+points came back).
+	for _, v := range []Voice{VoiceBoard, VoiceSceptic, VoiceLayperson, VoiceExecutioner} {
+		p := reviewSystemPrompt(v, false)
+		for _, key := range []string{"band", "evidence", "fix"} {
+			if !strings.Contains(p, key) {
+				t.Fatalf("voice %s: prompt must name required key %q", v, key)
+			}
+		}
+	}
+}
+
+func TestProposeReviewFillsBandWhenModelOmits(t *testing.T) {
+	// The model dropped band (empty) but gave points — the pill must not be blank.
+	prov := reviewProvider(`[{"criterion_code":"表D","band":"","evidence":"e","missing":"m","fix":"f","points":3},{"criterion_code":"表D","band":"","evidence":"","missing":"m","fix":"f","points":0}]`)
+	criteria := []skills.ReviewCriterion{{Code: "表D", Name: "来源与证据", Points: 4}}
+	items, _, err := ProposeReview(context.Background(), prov, gateway.Resolved{}, criteria,
+		[]string{"第一段"}, "摘要", VoiceBoard, false)
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("want 2 items, got %d", len(items))
+	}
+	if items[0].Band != "到第 3 分点" {
+		t.Fatalf("band should fall back to the points cell, got %q", items[0].Band)
+	}
+	if items[1].Band != "尚未落点" {
+		t.Fatalf("band for points=0 should be 尚未落点, got %q", items[1].Band)
+	}
+}
+
 func TestProposeReviewParsesPoints(t *testing.T) {
 	prov := reviewProvider(`[{"criterion_code":"表D","band":"到达 identify","evidence":"有一手源","missing":"孤儿证据没接上","fix":"把它接到主张","points":3}]`)
 	criteria := []skills.ReviewCriterion{{Code: "表D", Name: "来源与证据", Points: 4}}

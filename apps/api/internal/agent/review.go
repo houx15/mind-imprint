@@ -95,6 +95,21 @@ const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。对�
 const reviewPointsInstruction = `每个对象另外给出 points：这张表当前收到的证据够到第几分点，
 取 0 到该表总分点之间的整数（题面已给出每张表的总分点）。points 只表示"落在评分表的哪一格"，不是预估分数。`
 
+// reviewSchemaInstruction names EVERY required JSON key explicitly. Without it
+// the model reliably emits only the fields the posture foregrounds (missing) and
+// the one field named above (points), and silently omits band/evidence/fix —
+// leaving the student with criteria that show "还缺什么" but no rating and no
+// direction (observed live 2026-07-30). Voice-invariant: it fixes the output
+// contract, never the coaching lens or the RL-1 iron rule.
+const reviewSchemaInstruction = `每个对象必须完整给出下面每一个字段，一个都不能省：
+- criterion_code：评分表代号；
+- band：一句话点出这张表现在大致落在哪一档（如"刚起步/接近达标/已达标"，或该表的描述词，简短即可，不是分数）；
+- evidence：草稿里已经交到这张表的证据（引用或转述草稿里的原话；确实没有就给空字符串）；
+- missing：这张表还缺什么（只说方向）；
+- fix：下一步可以往哪个方向补（只给方向，不能是可直接粘贴的成品句子）；
+- points：上面说明的整数。
+band、evidence、fix 最容易被漏掉——请逐字段填好，宁可简短也不要整段留空。只输出这个 JSON 数组，不要多余文字。`
+
 // reviewSystemPrompt builds the system content for a review: the posture for
 // the chosen voice, the voice-invariant points instruction, plus the deletion
 // lens when overBudget. Pure — no I/O — so posture selection is unit-testable
@@ -111,7 +126,7 @@ func reviewSystemPrompt(voice Voice, overBudget bool) string {
 	default:
 		base = reviewPosturePrompt
 	}
-	base = base + "\n" + reviewPointsInstruction
+	base = base + "\n" + reviewPointsInstruction + "\n" + reviewSchemaInstruction
 	if overBudget {
 		return base + "\n" + reviewOverBudgetLens
 	}
@@ -194,9 +209,21 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 				return nil, usage, fmt.Errorf("agent: review output rejected by banned-phrasing rule %q", rule.Name)
 			}
 		}
+		// Belt-and-suspenders: even with the schema instruction the reasoning
+		// model can still occasionally drop band. Derive a non-empty label from
+		// points so the rating pill is never blank (points names the cell, band
+		// is just its human label — RL-3: not a grade).
+		band := wv.Band
+		if strings.TrimSpace(band) == "" {
+			if wv.Points <= 0 {
+				band = "尚未落点"
+			} else {
+				band = fmt.Sprintf("到第 %d 分点", wv.Points)
+			}
+		}
 		items = append(items, ReviewItem{
 			CriterionCode: code, CriterionName: name[code],
-			Band: wv.Band, Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
+			Band: band, Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
 			Points: wv.Points,
 		})
 	}
