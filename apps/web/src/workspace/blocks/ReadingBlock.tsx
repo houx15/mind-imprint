@@ -640,11 +640,12 @@ function RefTable(props: {
 
 function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void }) {
   const hasRead = r.notes.length > 0;
-  // 已归纳/在读 badge (S2, Task 9) — derived, never a separate flag: a
-  // finalized takeaway means 已归纳; a linked material with no takeaway yet
-  // means she's opened it but hasn't wrapped it up (在读); neither shows for
-  // a source that's never been entered.
-  const readingBadge = r.takeaway != null ? "已归纳" : r.materialId != null ? "在读" : null;
+  // 已归纳/在读/未读 badge — derived, never a separate flag: a finalized
+  // takeaway means 已归纳; a linked material with no takeaway yet means she's
+  // opened it but hasn't wrapped it up (在读); a saved source with no material
+  // yet is 未读 (body never fetched — honest so an added-but-unopened link never
+  // looks read). A pending lead keeps its own 待找 badge, not 未读.
+  const readingBadge = r.takeaway != null ? "已归纳" : r.materialId != null ? "在读" : r.pending ? null : "未读";
   return (
     <div
       draggable
@@ -660,7 +661,15 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
           <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
           {r.pending && <span className="flex-none rounded bg-mk-accent-tint px-1.5 py-0.5 text-[10px] font-bold text-mk-accent">待找</span>}
           {readingBadge && (
-            <span className={`flex-none rounded px-1.5 py-0.5 text-[10px] font-bold ${readingBadge === "已归纳" ? "bg-mk-green-tint text-mk-green" : "bg-mk-primary-tint text-mk-primary"}`}>
+            <span
+              className={`flex-none rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                readingBadge === "已归纳"
+                  ? "bg-mk-green-tint text-mk-green"
+                  : readingBadge === "在读"
+                    ? "bg-mk-primary-tint text-mk-primary"
+                    : "bg-mk-bg text-mk-muted-2"
+              }`}
+            >
               {readingBadge}
             </span>
           )}

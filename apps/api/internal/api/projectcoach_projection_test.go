@@ -277,6 +277,23 @@ func TestProjection_UnreadCarriesCredibility(t *testing.T) {
 	}
 }
 
+// TestProjection_UnreadMarksNoContent — honesty 铁律: an added-but-never-opened
+// source (no material) must be marked "尚未读取正文" in the projection so the
+// coach never implies it read a source whose body was never fetched.
+func TestProjection_UnreadMarksNoContent(t *testing.T) {
+	api, h, cookie, _ := projectionTestHandler(t)
+
+	seedUnreadReference(t, h, cookie, "只有链接没读的源", "", "")
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "尚未读取正文") {
+		t.Fatalf("an unread source must be marked as having no content:\n%s", proj)
+	}
+}
+
 // TestProjection_FormingCoverageNudge — EC: on the forming surface the projection
 // names the kick-off dimensions the student hasn't touched (so the coach can
 // drive coverage); off the forming surface it carries no such nudge.

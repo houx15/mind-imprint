@@ -284,7 +284,8 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 
 	// 文献库 index — state-aware (S2): 已归纳 carries the durable
 	// proposal_impact takeaway, 在读 shows a gentle in-progress count (never
-	// blocks), 未读 is unchanged from the pre-S2 line.
+	// blocks), 未读/pending is marked "尚未读取正文" so the coach never implies it
+	// read a source whose body was never fetched (honesty 铁律).
 	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil && len(refs) > 0 {
 		b.WriteString("文献库：\n")
 		// Cards are fetched AT MOST ONCE for the whole loop (lazily, only if a
@@ -326,14 +327,22 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				n := len(readingOutcomesFromCards(cards, uuid.UUID(ref.MaterialID.Bytes)).Findings)
 				fmt.Fprintf(&b, "- %s%s｜在读·已确认 %d 条发现\n", truncateRunes(ref.Title, 32), phase, n)
 			default:
-				meta := ""
+				// 未读: URL saved (or a lead) but the body was never fetched —
+				// material_id is null, so the coach has NO content for this source.
+				// It MUST be told so it never implies knowledge of a source it
+				// cannot see (honesty 铁律: AI 克制, 绝不替学生定论). A pending lead
+				// has no URL yet; both surface as contentless.
+				meta := "｜尚未读取正文，我还看不到内容"
+				if ref.Pending {
+					meta = "｜待补充，还没有内容"
+				}
 				if ref.Decision != nil && *ref.Decision != "" {
-					meta = "｜" + *ref.Decision
+					meta += "｜" + *ref.Decision
 				}
 				if ref.Credibility != nil && *ref.Credibility != "" {
 					meta += "｜可信度 " + *ref.Credibility
 				}
-				fmt.Fprintf(&b, "- %s%s\n", truncateRunes(ref.Title, 40), meta)
+				fmt.Fprintf(&b, "- %s%s%s\n", truncateRunes(ref.Title, 40), phase, meta)
 			}
 		}
 
