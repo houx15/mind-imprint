@@ -165,6 +165,13 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	if proposal != nil {
 		resp["proposal"] = coachProposalDTO{CardID: proposal.CardID, Reason: proposal.Reason, NudgeText: proposal.NudgeText}
 	}
+	// Link-in-coach → resource bridge: a URL the student just dropped becomes a
+	// gentle chip offer (add-to-library / read-together). Free — no spend — so a
+	// scope-agnostic offer with no client renderer is not an invisible paid
+	// offer. Opening is the student's tap.
+	if offer := a.detectLinkOffer(r.Context(), projectID, userInput); offer != nil {
+		resp["linkOffer"] = offer
+	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 

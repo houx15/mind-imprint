@@ -40,7 +40,7 @@ beforeEach(() => {
     },
     draft: { usedFor: "溯源提问", notUsedFor: "代写正文" },
   });
-  mockCoach.mockResolvedValue({ reply: "你先自己答——你的结论回答了原题吗？", proposal: null });
+  mockCoach.mockResolvedValue({ reply: "你先自己答——你的结论回答了原题吗？", proposal: null, linkOffer: null });
 });
 
 describe("ReviewBlock · AI-use retrospective (S5)", () => {
