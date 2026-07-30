@@ -43,7 +43,9 @@ func ProposeCardExample(ctx context.Context, p gateway.Provider, resolver gatewa
 			{Role: gateway.RoleSystem, Content: buildCardExamplePrompt(spec)},
 			{Role: gateway.RoleUser, Content: renderCardExampleArticle(blocks)},
 		},
-		MaxTokens: 400,
+		// 3000, not 400: reasoning-model headroom (see reading_router.go) — a
+		// truncated example anchor makes the card summon degrade/fail.
+		MaxTokens: 3000,
 	}
 	res, err := gateway.Collect(ctx, p, resolved, req)
 	if err != nil {

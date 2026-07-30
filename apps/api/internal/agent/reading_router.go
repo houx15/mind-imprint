@@ -74,7 +74,13 @@ func RouteReading(ctx context.Context, p gateway.Provider, resolver gateway.KeyR
 			{Role: gateway.RoleSystem, Content: buildRouterPrompt(in)},
 			{Role: gateway.RoleUser, Content: buildReadingRouteUserPrompt(in)},
 		},
-		MaxTokens: 400,
+		// 3000, not 400: the flagship is a REASONING model (deepseek-v4-pro) —
+		// on a real article + lens catalog its reasoning_content alone exceeds a
+		// 400-token budget, truncating before any final JSON, so the router
+		// returned an empty Reply and the read-together turn ALWAYS fell back to
+		// the generic "which sentence?" default (live bug-hunt 2026-07-30). The
+		// visible output is tiny; the headroom is for the reasoning that precedes it.
+		MaxTokens: 3000,
 	}
 	res, err := gateway.Collect(ctx, p, resolved, req)
 	if err != nil {

@@ -81,7 +81,9 @@ func EvaluateSelection(ctx context.Context, p gateway.Provider, resolver gateway
 			{Role: gateway.RoleSystem, Content: buildEvalPrompt(spec, dimension)},
 			{Role: gateway.RoleUser, Content: "学生从文章里选的句子：「" + studentSpan.Quote + "」"},
 		},
-		MaxTokens: 700,
+		// 3000, not 700: reasoning-model headroom (see reading_router.go) — a
+		// truncated eval returns an empty verdict and the 3-check silently fails.
+		MaxTokens: 3000,
 	}
 	res, err := gateway.Collect(ctx, p, resolved, req)
 	if err != nil {
