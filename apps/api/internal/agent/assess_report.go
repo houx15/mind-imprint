@@ -374,7 +374,20 @@ func normalizeOfficialProjection(w *officialProjectionWire) *OfficialProjection 
 // keeps an occasional bad emission from 422-ing a real student's finish. Only
 // parse failures retry; a banned-phrasing rejection does NOT (that is a content
 // decision, not a transient) and neither does a transport error.
-const maxAssessAttempts = 2
+//
+// NOTE (live bug-hunt 2026-07-30): the DEFAULT failure was not malformed JSON
+// but TRUNCATED JSON ("unexpected end of JSON input") — a rich essay's full
+// DualAxis report (86 fields + prose) plus the reasoner's reasoning tokens
+// exceeded the old 8000 MaxTokens, so BOTH attempts truncated identically and
+// the finish reverted to active (~1/3 of essays). MaxTokens was raised to 16000
+// (verified accepted by deepseek-v4-pro) so the report fits; retry still guards
+// the genuinely-malformed case.
+// Raised 2→4 (live bug-hunt 2026-07-30): even with the truncation fixed, the
+// reasoning model still emits a syntactically-malformed report on a minority of
+// large essays, and each attempt is an INDEPENDENT draw, so P(all fail) drops
+// geometrically with attempts. 4 keeps the headline flagship promise reliable
+// without downgrading; the vast majority succeed on attempt 1 (no extra cost).
+const maxAssessAttempts = 4
 
 func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, m rubric.DualAxis, in AssessmentInput) (Report, gateway.ChatUsage, error) {
 	var usage gateway.ChatUsage
@@ -388,7 +401,7 @@ func AssessReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved
 			// The gateway default (1024) truncates it mid-JSON → "unexpected end of
 			// JSON input" → the whole assessment 422s. Give it room for the full
 			// report (flagship, never downgraded).
-			MaxTokens: 8000,
+			MaxTokens: 16000,
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: assessReportSystemPrompt(m, in.ProjectProjection)},
 				{Role: gateway.RoleUser, Content: assessReportUserInput(in)},

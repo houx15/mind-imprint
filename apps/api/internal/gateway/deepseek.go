@@ -65,7 +65,12 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 	// still set MaxTokens explicitly (e.g. course render 1200).
 	maxTokens := req.MaxTokens
 	if maxTokens == 0 {
-		maxTokens = 8000
+		// 16000 (verified accepted by deepseek-v4-pro): the large-output calls
+		// that rely on this default (mirror / weekly / parent prose / whole-draft
+		// review) were, like the assessment report, truncating mid-JSON at 8000
+		// on rich inputs — a reasoning model spends part of the budget on
+		// reasoning tokens, so the visible-output headroom must be generous.
+		maxTokens = 16000
 	}
 	body := map[string]any{
 		"model":      r.Model,
