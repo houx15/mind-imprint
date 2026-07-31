@@ -34,6 +34,14 @@ WHERE project_id = $1 AND type = 'plan'
 ORDER BY created_at, id
 LIMIT 1;
 
+-- name: GetWritingLanguageNode :one
+-- The essay's target writing language (#4), stored as a writing_language node
+-- at creation. Latest wins. Returns just the body ({"lang":"en"|"zh"|"bilingual"}).
+SELECT body FROM graph_node
+WHERE project_id = $1 AND type = 'writing_language'
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+
 -- name: UpdateGraphNodeBody :one
 UPDATE graph_node SET body = $2 WHERE id = $1 RETURNING *;
 

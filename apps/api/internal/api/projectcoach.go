@@ -240,6 +240,20 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	}
 	fmt.Fprintf(&b, "主题：%s（%s）\n", title, proj.Qualification)
 
+	// #4: the essay's target writing language, so the coach knows the final
+	// product's language (it may chaperone in Chinese but should remember the
+	// deliverable's language and remind the student at the right moment).
+	if wlBody, werr := a.d.Queries.GetWritingLanguageNode(ctx, projectID); werr == nil {
+		var wl struct {
+			Lang string `json:"lang"`
+		}
+		if json.Unmarshal(wlBody, &wl) == nil {
+			if label := writingLangLabel(wl.Lang); label != "" {
+				fmt.Fprintf(&b, "写作语言：%s（成品最终用这门语言写）\n", label)
+			}
+		}
+	}
+
 	// 开题四问.
 	prop, perr := a.d.Queries.GetProjectProposal(ctx, projectID)
 	if perr != nil && !errors.Is(perr, pgx.ErrNoRows) {
@@ -260,6 +274,12 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	// time, never fills the panel (克制 · AI 绝不替学生写开题).
 	if surface == "forming" || surface == "proposal_review" {
 		b.WriteString(formingCoverageNudge(prop.Objective, prop.Reason, prop.Activities, prop.Resources))
+	}
+	// #17 · in 文献库 the coach should proactively help the student generate
+	// search keywords and point at databases — but never search for her or hand
+	// her conclusions (克制).
+	if surface == "find_sources" {
+		b.WriteString("（学生在找资料：主动帮他想几个检索关键词，提醒中文和英文期刊都值得查，可以先从中国知网、Google Scholar 入手；读过几篇后再从里面滚出新的关键词和关键学者。给方向和关键词，别替他去搜、别直接下可信与否的结论。）\n")
 	}
 
 	// 计划 status.
@@ -405,9 +425,25 @@ func proposalDimOrBlank(s string) string {
 	return truncateRunes(s, 60)
 }
 
-// formingCoverageNudge (EC) names the kick-off dimensions the student hasn't
-// touched, as a one-line steer for the forming coach: guide toward them, one at
-// a time, never fill them (克制). Empty when all four are covered.
+// writingLangLabel maps the stored writing_language code to a human label for
+// the coach projection; unknown/empty → "" (the projection omits the line).
+func writingLangLabel(code string) string {
+	switch strings.TrimSpace(code) {
+	case "en":
+		return "English"
+	case "zh":
+		return "中文"
+	case "bilingual":
+		return "双语"
+	default:
+		return ""
+	}
+}
+
+// formingCoverageNudge (EC) steers the forming coach over the kick-off
+// dimensions: name the ones the student hasn't touched, one at a time, never
+// fill them (克制). When all four are covered it emits a FINISH signal (#13) so
+// the coach stops re-asking and tells the student the kick-off has taken shape.
 func formingCoverageNudge(objective, reason, activities, resources string) string {
 	dims := []struct{ name, val string }{
 		{"目标", objective}, {"缘由", reason}, {"活动", activities}, {"资源", resources},
@@ -419,7 +455,9 @@ func formingCoverageNudge(objective, reason, activities, resources string) strin
 		}
 	}
 	if len(missing) == 0 {
-		return ""
+		// #13 · finish signal: don't keep interrogating a completed kick-off.
+		return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』，不要再反复追问同一件事。）\n"
 	}
-	return "（开题还没触及：" + strings.Join(missing, "、") + "——顺着学生的话，把话题往其中一个维度带一步，一次只带一个，别替他写。）\n"
+	return "（开题还没落定：" + strings.Join(missing, "、") +
+		"——顺着学生的话往其中一个维度带一步，一次只带一个。若他其实已经在对话里说清了某一维，先认可它、请他确认要不要记进右侧的开题栏，别再重复追问同一维；始终别替他写。）\n"
 }

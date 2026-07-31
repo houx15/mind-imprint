@@ -313,7 +313,7 @@ func TestProjection_FormingCoverageNudge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
-	if !strings.Contains(proj, "开题还没触及：活动、资源") {
+	if !strings.Contains(proj, "开题还没落定：活动、资源") {
 		t.Fatalf("forming projection must name the untouched dims:\n%s", proj)
 	}
 
@@ -321,7 +321,62 @@ func TestProjection_FormingCoverageNudge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("projection (writing): %v", err)
 	}
-	if strings.Contains(proj2, "开题还没触及") {
+	if strings.Contains(proj2, "开题还没落定") {
 		t.Fatalf("non-forming projection must NOT carry the coverage nudge:\n%s", proj2)
+	}
+}
+
+// #4: when a writing_language node exists, the projection tells the coach the
+// essay's target language so it can honor + remind (it's absent otherwise).
+func TestProjection_WritingLanguageLine(t *testing.T) {
+	api, _, _, q := projectionTestHandler(t)
+	projectID := mustUUID(seedProjectID)
+
+	// Absent by default (seed project has no writing_language node).
+	proj0, err := api.BuildSpineProjectionForTest(context.Background(), projectID, "forming")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if strings.Contains(proj0, "写作语言") {
+		t.Fatalf("no writing_language node → no line, got:\n%s", proj0)
+	}
+
+	if _, err := q.InsertGraphNode(context.Background(), sqlc.InsertGraphNodeParams{
+		ProjectID: projectID, Type: "writing_language", Body: []byte(`{"lang":"en"}`), Author: "student", SpanRef: nil,
+	}); err != nil {
+		t.Fatalf("insert writing_language node: %v", err)
+	}
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), projectID, "forming")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "写作语言：English") {
+		t.Fatalf("projection must carry the writing language:\n%s", proj)
+	}
+}
+
+// #13 finish signal: once all four kick-off dims are filled, the forming
+// projection stops naming missing dims and tells the coach the kick-off has
+// taken shape (so it stops re-asking) — never on a non-forming surface.
+func TestProjection_FormingFinishSignal(t *testing.T) {
+	api, h, cookie, _ := projectionTestHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证中国是否让地球更可持续","reason":"我关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("put proposal = %d — %s", rr.Code, rr.Body)
+	}
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "forming")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "开题四问都落定了") {
+		t.Fatalf("a fully-covered forming projection must emit the finish signal:\n%s", proj)
+	}
+	if strings.Contains(proj, "开题还没落定") {
+		t.Fatalf("a fully-covered forming projection must not still name missing dims:\n%s", proj)
 	}
 }

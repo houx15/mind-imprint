@@ -95,6 +95,22 @@ func (q *Queries) GetPlanNode(ctx context.Context, projectID uuid.UUID) (GraphNo
 	return i, err
 }
 
+const getWritingLanguageNode = `-- name: GetWritingLanguageNode :one
+SELECT body FROM graph_node
+WHERE project_id = $1 AND type = 'writing_language'
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+// The essay's target writing language (#4), stored as a writing_language node
+// at creation. Latest wins. Returns just the body ({"lang":...}).
+func (q *Queries) GetWritingLanguageNode(ctx context.Context, projectID uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getWritingLanguageNode, projectID)
+	var body []byte
+	err := row.Scan(&body)
+	return body, err
+}
+
 const insertGraphEdge = `-- name: InsertGraphEdge :one
 INSERT INTO graph_edge (project_id, type, from_kind, from_id, to_kind, to_id)
 VALUES ($1, $2, $3, $4, $5, $6)
