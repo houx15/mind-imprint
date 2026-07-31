@@ -187,6 +187,46 @@ func TestPlanGenerate_CreatesItems(t *testing.T) {
 	}
 }
 
+// TestPlanGenerate_ReplacesExistingPlan — #15: regenerating replaces the board
+// wholesale instead of stacking a second plan. Generate twice; the list must
+// still hold 5 items (the latest plan), not 10.
+func TestPlanGenerate_ReplacesExistingPlan(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: assessStubProvider(planGenReply), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rrProp := httptest.NewRecorder()
+	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+	if rrProp.Code != 200 {
+		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
+	}
+
+	for i := 0; i < 2; i++ {
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/plan/generate", strings.NewReader("")), cookie))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("plan/generate #%d = %d, want 200; body=%s", i+1, rr.Code, rr.Body)
+		}
+	}
+
+	rrList := httptest.NewRecorder()
+	h.ServeHTTP(rrList, withCookie(httptest.NewRequest("GET", base+"/plan", nil), cookie))
+	var listed struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	_ = json.Unmarshal(rrList.Body.Bytes(), &listed)
+	if len(listed.Items) != 5 {
+		t.Fatalf("plan list after two generates = %d, want 5 (replaced, not stacked)", len(listed.Items))
+	}
+}
+
 func TestPlanItem_CRUDLifecycle(t *testing.T) {
 	h, cookie, _ := planTestHandler(t)
 	base := "/api/v1/projects/" + seedProjectID

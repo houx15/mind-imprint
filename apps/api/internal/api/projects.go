@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -135,6 +136,9 @@ type workspaceProjection struct {
 	Qualification string            `json:"qualification"`
 	Proposal      workspaceProposal `json:"proposal"`
 	Status        string            `json:"status"`
+	// CreatedAt (RFC3339) anchors the plan timeline to real calendar dates —
+	// the Gantt date axis + today-line and the Kanban date markers (#14).
+	CreatedAt string `json:"createdAt"`
 }
 
 // getProject returns the lean WorkspaceProjection for one project.
@@ -176,5 +180,6 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		Qualification: p.Qualification,
 		Proposal:      prop,
 		Status:        displayStatus(p.Status, hasProposal, hasPlan),
+		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
 	})
 }

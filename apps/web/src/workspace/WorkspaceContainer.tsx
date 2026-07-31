@@ -228,6 +228,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
                 title={workspace.title}
                 qualification={workspace.qualification}
                 proposal={workspace.proposal}
+                createdAt={workspace.createdAt}
                 onOpenRoom={setRoom}
                 refreshWorkspace={refreshWorkspace}
               />

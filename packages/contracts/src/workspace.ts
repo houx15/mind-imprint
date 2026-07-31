@@ -15,5 +15,8 @@ export const WorkspaceProjection = z.object({
   qualification: z.string(),
   status: ProjectStatus,
   proposal: Proposal,
+  // RFC3339 project creation time — anchors the plan timeline to calendar dates
+  // (#14). Optional so older mocks without it still parse; client falls back to now.
+  createdAt: z.string().optional(),
 });
 export type WorkspaceProjection = z.infer<typeof WorkspaceProjection>;

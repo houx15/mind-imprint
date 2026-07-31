@@ -44,6 +44,11 @@ RETURNING *;
 -- name: DeletePlanItem :exec
 DELETE FROM plan_item WHERE id = $1 AND project_id = $2;
 
+-- name: DeletePlanItemsByProject :exec
+-- Regenerating the plan replaces it wholesale (#15): clear the whole board
+-- before inserting the freshly generated tasks, in one transaction.
+DELETE FROM plan_item WHERE project_id = $1;
+
 -- name: ListActivityLog :many
 SELECT * FROM activity_log_entry
 WHERE project_id = $1

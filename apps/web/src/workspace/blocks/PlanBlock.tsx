@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
@@ -67,6 +67,7 @@ export function PlanBlock({
   title,
   qualification,
   proposal,
+  createdAt,
   onOpenRoom,
   refreshWorkspace,
 }: {
@@ -74,6 +75,7 @@ export function PlanBlock({
   title: string;
   qualification: string;
   proposal: Proposal;
+  createdAt?: string;
   onOpenRoom: (room: BlockKey) => void;
   refreshWorkspace: () => void;
 }) {
@@ -95,6 +97,8 @@ export function PlanBlock({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [seedBoard, setSeedBoard] = useState<PlanItem[] | undefined>(undefined);
+  // #15: shown before a regenerate overwrites an existing plan.
+  const [confirmRegen, setConfirmRegen] = useState(false);
   // Link-bridge offer for the most recent coach turn (克制 chip under the reply).
   const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
 
@@ -134,7 +138,21 @@ export function PlanBlock({
     };
   }, [projectId]);
 
+  // #15: generating replaces the whole board server-side. If a plan already
+  // exists, confirm before overwriting so a regenerate never silently wipes the
+  // student's arranged/moved cards. onGenerate is the guard; doGenerate is the work.
   async function onGenerate() {
+    if (generating) return;
+    const existing = await getPlan(projectId).catch(() => [] as PlanItem[]);
+    if (existing.length > 0) {
+      setConfirmRegen(true);
+      return;
+    }
+    void doGenerate();
+  }
+
+  async function doGenerate() {
+    setConfirmRegen(false);
     if (generating) return;
     // Flush any pending debounced save so the plan is generated from the stored
     // proposal (persist nothing destructive — just the dims as typed).
@@ -245,36 +263,41 @@ export function PlanBlock({
 
   if (phase === "forming") {
     return (
-      <FormingPhase
-        title={title}
-        qualification={qualification}
-        proposal={prop}
-        setDim={setDim}
-        chat={chat}
-        lang={lang}
-        onToggleLang={() => {
-          // Switch the coach's reply language WITHOUT discarding the
-          // conversation. Previously this reset chat to the intro-only array,
-          // which wiped the whole history (worst if toggled mid-reply). The
-          // localized intro stays as-is; only subsequent replies switch language.
-          setLang(lang === "zh" ? "en" : "zh");
-        }}
-        draft={draft}
-        setDraft={setDraft}
-        sending={sending}
-        onSend={onSend}
-        showChips={!chipsDismissed && chat.length === 1}
-        onGuideMe={onGuideMe}
-        onSelfFill={() => setChipsDismissed(true)}
-        onReview={onReview}
-        onGenerate={onGenerate}
-        generating={generating}
-        genError={genError}
-        linkOffer={linkOffer}
-        onAddLink={onAddLink}
-        onReadTogether={onReadTogether}
-        onDismissLink={() => setLinkOffer(null)}
-      />
+      <>
+        <FormingPhase
+          title={title}
+          qualification={qualification}
+          proposal={prop}
+          setDim={setDim}
+          chat={chat}
+          lang={lang}
+          onToggleLang={() => {
+            // Switch the coach's reply language WITHOUT discarding the
+            // conversation. Previously this reset chat to the intro-only array,
+            // which wiped the whole history (worst if toggled mid-reply). The
+            // localized intro stays as-is; only subsequent replies switch language.
+            setLang(lang === "zh" ? "en" : "zh");
+          }}
+          draft={draft}
+          setDraft={setDraft}
+          sending={sending}
+          onSend={onSend}
+          showChips={!chipsDismissed && chat.length === 1}
+          onGuideMe={onGuideMe}
+          onSelfFill={() => setChipsDismissed(true)}
+          onReview={onReview}
+          onGenerate={onGenerate}
+          generating={generating}
+          genError={genError}
+          linkOffer={linkOffer}
+          onAddLink={onAddLink}
+          onReadTogether={onReadTogether}
+          onDismissLink={() => setLinkOffer(null)}
+        />
+        {confirmRegen && (
+          <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
+        )}
+      </>
     );
   }
 
@@ -285,6 +308,7 @@ export function PlanBlock({
       qualification={qualification}
       proposal={prop}
       seedBoard={seedBoard}
+      createdAt={createdAt}
       onReopen={() => setPhase("forming")}
       onOpenItem={(item) => onOpenRoom(roomForTag(item.tag))}
     />
@@ -292,6 +316,47 @@ export function PlanBlock({
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+/* ---------- #14: plan-timeline calendar dates ---------- */
+const DAY_MS = 86400000;
+const WEEKDAY_ZH = ["日", "一", "二", "三", "四", "五", "六"];
+function addDays(base: Date, n: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function fmtMD(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+// Whole-day index of `target` relative to `anchor` (both truncated to local
+// midnight), so "today" lands on the right column regardless of clock time.
+function dayIndexFromAnchor(anchor: Date, target: Date): number {
+  const a = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+  const t = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return Math.round((t.getTime() - a.getTime()) / DAY_MS);
+}
+
+// #15: the overwrite guard shown before a regenerate replaces an existing plan.
+function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" role="dialog" aria-modal="true">
+      <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-[0_8px_32px_rgba(28,35,51,0.18)]">
+        <h3 className="text-[16px] font-bold text-mk-ink">重新生成计划？</h3>
+        <p className="mt-2.5 text-[13.5px] leading-relaxed text-mk-muted">
+          这会按你最新的开题决定重排整个项目，并<span className="font-bold text-mk-ink">覆盖你现在的计划</span>——已经挪动、拆分或标记完成的卡片都会被替换。确定吗？
+        </p>
+        <div className="mt-5 flex justify-end gap-2.5">
+          <button type="button" onClick={onCancel} className="rounded-mk border border-mk-border bg-mk-surface px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink">
+            取消
+          </button>
+          <button type="button" onClick={onConfirm} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">
+            确定重排
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ---------- Phase A · forming ---------- */
 
@@ -573,10 +638,14 @@ function WorkingPhase(props: {
   qualification: string;
   proposal: Proposal;
   seedBoard?: PlanItem[];
+  createdAt?: string;
   onReopen: () => void;
   onOpenItem: (item: PlanItem) => void;
 }) {
-  const { projectId, title, qualification, proposal, seedBoard, onReopen, onOpenItem } = props;
+  const { projectId, title, qualification, proposal, seedBoard, createdAt, onReopen, onOpenItem } = props;
+  // #14: anchor the plan timeline to real calendar dates. Fall back to today
+  // when the project has no creation timestamp (older mocks).
+  const anchor = useMemo(() => (createdAt ? new Date(createdAt) : new Date()), [createdAt]);
   const [view, setView] = useState<PlanView>("kanban");
   const [open, setOpen] = useState(false);
 
@@ -711,8 +780,8 @@ function WorkingPhase(props: {
         </div>
       </div>
 
-      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
-      {view === "gantt" && <GanttView board={board} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
+      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
+      {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
       {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
 
       {editing && (
@@ -738,7 +807,7 @@ function ViewTab({ active, onClick, children }: { active: boolean; onClick: () =
 
 /* ----- Kanban (HTML5 drag between columns) ----- */
 
-function KanbanView({ board, loading, onMove, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; loading: boolean; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
+function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; loading: boolean; anchor: Date; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<PlanColumn | null>(null);
   return (
@@ -760,7 +829,7 @@ function KanbanView({ board, loading, onMove, onAddTask, onEditItem, onJumpItem 
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
               {colItems.map((item) => (
-                <PlanCard key={item.id} item={item} dragging={dragId === item.id} onEdit={() => onEditItem(item)} onJump={() => onJumpItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
+                <PlanCard key={item.id} item={item} anchor={anchor} dragging={dragId === item.id} onEdit={() => onEditItem(item)} onJump={() => onJumpItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
               ))}
               {colItems.length === 0 && (
                 <div className="rounded-mk border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-muted-2">
@@ -780,7 +849,10 @@ function KanbanView({ board, loading, onMove, onAddTask, onEditItem, onJumpItem 
 
 // A plan card: the body (tag row + title) opens the edit popover; the single
 // dedicated "进入 →" button is the doorway jump to the room. #4.
-function PlanCard({ item, dragging, onEdit, onJump, onDragStart, onDragEnd }: { item: PlanItem; dragging: boolean; onEdit: () => void; onJump: () => void; onDragStart: () => void; onDragEnd: () => void }) {
+function PlanCard({ item, anchor, dragging, onEdit, onJump, onDragStart, onDragEnd }: { item: PlanItem; anchor: Date; dragging: boolean; onEdit: () => void; onJump: () => void; onDragStart: () => void; onDragEnd: () => void }) {
+  // #14: the card's scheduled window as calendar dates.
+  const startDate = addDays(anchor, item.start);
+  const endDate = addDays(anchor, item.start + Math.max(1, item.days) - 1);
   return (
     <div
       draggable
@@ -793,6 +865,7 @@ function PlanCard({ item, dragging, onEdit, onJump, onDragStart, onDragEnd }: { 
         <span className="ml-auto truncate text-[10.5px] text-mk-muted-2">{item.stage.split(" · ")[0]}</span>
       </button>
       <button type="button" onClick={onEdit} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-primary">{item.title}</button>
+      <div className="mt-1.5 text-[11px] font-medium text-mk-muted-2">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
       <button type="button" onClick={onJump} className="mt-2 flex items-center gap-0.5 text-[12px] font-semibold text-mk-primary opacity-0 transition hover:underline group-hover:opacity-100">进入 →</button>
     </div>
   );
@@ -800,8 +873,10 @@ function PlanCard({ item, dragging, onEdit, onJump, onDragStart, onDragEnd }: { 
 
 /* ----- Gantt (drag to move, resize handle to change duration), by stage ----- */
 
-function GanttView({ board, onReschedule, onResize, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
+function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; anchor: Date; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
   const days = Array.from({ length: TIMELINE_DAYS }, (_, i) => i);
+  // #14: today's column (−1 when outside the window) drives the today-line.
+  const todayIdx = dayIndexFromAnchor(anchor, new Date());
   // Render every stage actually present on the board (a generated plan may use
   // stage names beyond the two canonical ones), keeping board order.
   const stages = Array.from(new Set(board.map((i) => i.stage)));
@@ -810,11 +885,24 @@ function GanttView({ board, onReschedule, onResize, onAddTask, onEditItem, onJum
       <div className="min-w-[820px]">
         {/* Day header */}
         <div className="sticky top-0 z-10 grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-surface">
-          <div className="px-4 py-2.5 text-[12px] font-bold text-mk-muted-2">任务</div>
+          <div className="flex flex-col justify-center px-4 py-1.5 text-[12px] font-bold text-mk-muted-2">
+            任务
+            <span className="text-[10px] font-medium text-mk-muted-2/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
+          </div>
           <div className="grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
-            {days.map((d) => (
-              <div key={d} className={`border-l border-mk-border-2 py-2.5 text-center text-[11px] font-semibold ${d % 7 >= 5 ? "text-mk-muted-2" : "text-mk-muted"}`}>{d + 1}</div>
-            ))}
+            {days.map((d) => {
+              const date = addDays(anchor, d);
+              const dow = date.getDay();
+              const isWeekend = dow === 0 || dow === 6;
+              const isToday = d === todayIdx;
+              const showMonth = d === 0 || date.getDate() === 1;
+              return (
+                <div key={d} className={`border-l border-mk-border-2 py-1.5 text-center ${isWeekend ? "text-mk-muted-2" : "text-mk-muted"} ${isToday ? "bg-mk-primary-tint" : ""}`}>
+                  <div className="text-[9px] leading-tight opacity-70">{WEEKDAY_ZH[dow]}</div>
+                  <div className={`text-[11px] font-semibold leading-tight ${isToday ? "text-mk-primary" : ""}`}>{showMonth ? fmtMD(date) : date.getDate()}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
         {/* Stage groups */}
@@ -839,7 +927,17 @@ function GanttView({ board, onReschedule, onResize, onAddTask, onEditItem, onJum
                   </div>
                   <div data-track className="relative h-11">
                     <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
-                      {days.map((d) => (<div key={d} className={`border-l border-mk-border-2 ${d % 7 >= 5 ? "bg-mk-bg/60" : ""}`} />))}
+                      {days.map((d) => {
+                        const dow = addDays(anchor, d).getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        const isToday = d === todayIdx;
+                        return (
+                          <div
+                            key={d}
+                            className={`${isToday ? "border-l-2 border-l-mk-primary/60 bg-mk-primary-tint/25" : `border-l border-mk-border-2 ${isWeekend ? "bg-mk-bg/60" : ""}`}`}
+                          />
+                        );
+                      })}
                     </div>
                     <GanttBar item={item} onReschedule={onReschedule} onResize={onResize} />
                   </div>

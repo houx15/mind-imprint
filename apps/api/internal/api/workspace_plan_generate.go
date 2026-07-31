@@ -84,6 +84,14 @@ func (a *API) postPlanGenerate(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
 
+	// #15: regenerating replaces the plan wholesale. Clear the existing board
+	// first so re-generating (after 聊聊计划) reschedules the project instead of
+	// stacking a second plan on top of the first. No-op on the first generate.
+	if err := qtx.DeletePlanItemsByProject(r.Context(), projectID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	out := make([]planItemDTO, 0, len(items))
 	for i, it := range items {
 		row, cerr := qtx.CreatePlanItem(r.Context(), sqlc.CreatePlanItemParams{

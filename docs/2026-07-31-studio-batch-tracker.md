@@ -15,7 +15,7 @@ Branch: `fix/studio-batch-2026-07-31`. Source: a 23-item studio feedback batch +
 ## Slices
 - [x] **A · Forming composer bugs** — #3a taller input · #3b preserve newlines (pre-wrap) · #5 lang-toggle keeps history · #12 IME-safe Enter (all 3 composers). Tests: shell 16 green; web tsc clean.
 - [x] **B · Project creation** — #1 assignment-prompt (multiline) + type selector · #4 writing-language selector · type now persists as `qualification` (was discarded), writing language → `writing_language` graph node. Coach *awareness* of the language lands in F. Tests: go create suite green, contracts 306, web tsc clean.
-- [ ] **C · Plan board** — #15 regenerate confirm + replace (not append) · #14 gantt/kanban calendar dates + today line.
+- [x] **C · Plan board** — #15 regenerate now REPLACES the board (new `DeletePlanItemsByProject` in the generate tx) behind a confirm modal (`RegenConfirm`) that only fires when a plan already exists · #14 plan timeline anchored to `project.createdAt` (added to the lean workspace projection): gantt header shows calendar dates + weekday, a today column/line, kanban cards show their date window. Tests: new replace test + studio/api/contracts/web all green.
 - [ ] **D · Reading room bugs** — #10 归纳 422 · #11 modal auto-close+return · #16/#21 empty library · #19 link-add in reading coach · #20 lens-read breakage.
 - [ ] **E · Reading room features** — #8 self-annotate · #9 sentence select · #22 carry motivation · #7/#18 cards appearing.
 - [ ] **F · Coach tuning** — #2 open questions · #13 verbosity/repetition + finish signal · #17 proactive keyword/database help.

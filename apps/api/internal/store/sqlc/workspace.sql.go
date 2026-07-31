@@ -349,6 +349,17 @@ func (q *Queries) DeletePlanItem(ctx context.Context, arg DeletePlanItemParams) 
 	return err
 }
 
+const deletePlanItemsByProject = `-- name: DeletePlanItemsByProject :exec
+DELETE FROM plan_item WHERE project_id = $1
+`
+
+// Regenerating the plan replaces it wholesale (#15): clear the whole board
+// before inserting the freshly generated tasks, in one transaction.
+func (q *Queries) DeletePlanItemsByProject(ctx context.Context, projectID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deletePlanItemsByProject, projectID)
+	return err
+}
+
 const deleteReference = `-- name: DeleteReference :exec
 DELETE FROM reference WHERE id = $1 AND project_id = $2
 `
