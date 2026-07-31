@@ -123,3 +123,49 @@ export function selectionToSpan(): CreatedSpan | null {
   if (!sel || sel.rangeCount === 0) return null;
   return rangeToSpan(sel.getRangeAt(0));
 }
+
+/**
+ * Resolve a viewport point (a click's clientX/clientY) to the RUNE offset within
+ * its block — for click-to-select-a-sentence (#9). Uses the standard
+ * `caretPositionFromPoint` (or WebKit's `caretRangeFromPoint`), then accumulates
+ * rune length across the block's text nodes the same way `rangeToSpan` does.
+ * Returns null when the point isn't inside an annotated block.
+ */
+export function pointToRuneOffset(x: number, y: number): { blockId: string; offset: number } | null {
+  let node: Node | null = null;
+  let nodeOffset = 0;
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  if (typeof doc.caretPositionFromPoint === "function") {
+    const pos = doc.caretPositionFromPoint(x, y);
+    if (pos) {
+      node = pos.offsetNode;
+      nodeOffset = pos.offset;
+    }
+  } else if (typeof doc.caretRangeFromPoint === "function") {
+    const range = doc.caretRangeFromPoint(x, y);
+    if (range) {
+      node = range.startContainer;
+      nodeOffset = range.startOffset;
+    }
+  }
+  if (!node) return null;
+
+  const boundary = resolveTextBoundary(node, nodeOffset);
+  if (!boundary) return null;
+  const block = findBlockId(boundary.node);
+  if (!block) return null;
+
+  const walker = document.createTreeWalker(block.blockEl, NodeFilter.SHOW_TEXT);
+  let acc = 0;
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    if (n === boundary.node) {
+      return { blockId: block.blockId, offset: acc + runeLen((n as Text).data.slice(0, boundary.offset)) };
+    }
+    acc += runeLen((n as Text).data);
+  }
+  return { blockId: block.blockId, offset: acc };
+}

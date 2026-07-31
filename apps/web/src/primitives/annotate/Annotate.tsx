@@ -1,7 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 import type { AnnotateState } from "@mind-imprint/contracts";
 import { segmentBlock } from "./segment";
-import { selectionToSpan, type CreatedSpan } from "./selection";
+import { selectionToSpan, pointToRuneOffset, type CreatedSpan } from "./selection";
+import { segmentSentences, sentenceAtOffset } from "./sentences";
 
 export type AnnotateProps = {
   blocks: { id: string; text: string }[];
@@ -60,11 +61,31 @@ export function Annotate({
   // building the conversation's referenced-sentence set.
   const referenceEnabled = Boolean(onReferenceBlock) && !selectMode;
 
-  // In select-mode, picking is CLICK-to-pick-a-whole-sentence (matches the
-  // reference demo): clicking any sentence selects that entire block as the
-  // evidence. A drag still works too (partial selection) via onMouseUp.
+  // In select-mode, a click picks the ONE SENTENCE under the cursor (#9),
+  // resolved from the click point → rune offset → containing sentence. Falls
+  // back to the whole block when the block is a single sentence or the point
+  // can't be resolved. A drag still gives a fine-grained partial span via onMouseUp.
   const pickBlock = (block: { id: string; text: string }) => {
     onCreateSpan?.({ blockId: block.id, start: 0, end: Array.from(block.text).length, text: block.text });
+  };
+  const pickSentence = (block: { id: string; text: string }, clientX: number, clientY: number) => {
+    if (!onCreateSpan) return;
+    const sentences = segmentSentences(block.text);
+    if (sentences.length <= 1) {
+      pickBlock(block);
+      return;
+    }
+    const pt = pointToRuneOffset(clientX, clientY);
+    if (!pt || pt.blockId !== block.id) {
+      pickBlock(block); // couldn't locate the click → whole block, never a wrong guess
+      return;
+    }
+    const sel = sentenceAtOffset(sentences, pt.offset);
+    if (!sel) {
+      pickBlock(block);
+      return;
+    }
+    onCreateSpan({ blockId: block.id, start: sel.start, end: sel.end, text: sel.text });
   };
 
   // Attached only when selectMode is set — with it absent, no handler exists
@@ -123,7 +144,7 @@ export function Annotate({
                 data-block-id={block.id}
                 onClick={
                   selectMode
-                    ? () => pickBlock(block)
+                    ? (e) => pickSentence(block, e.clientX, e.clientY)
                     : referenceEnabled
                       ? () => onReferenceBlock?.(block.id)
                       : undefined
@@ -151,11 +172,11 @@ export function Annotate({
                     <mark
                       key={i}
                       onClick={(e) => {
-                        // In select-mode a click anywhere in a sentence —
-                        // including on the AI's underlined example — picks that
-                        // whole sentence, so the mark must NOT swallow it.
+                        // In select-mode a click anywhere — including on the
+                        // AI's underlined example — picks the SENTENCE under the
+                        // cursor, so the mark must NOT swallow it.
                         if (selectMode) {
-                          pickBlock(block);
+                          pickSentence(block, e.clientX, e.clientY);
                           return;
                         }
                         // Otherwise a mark click is its own action (open the

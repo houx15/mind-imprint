@@ -277,14 +277,25 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   const pickSentence = useCallback(
     async (span: CreatedSpan) => {
       if (!cardInstanceId || !cardId) return;
-      // Guardrail: the example sentence itself is not a valid pick — she must
-      // choose a DIFFERENT sentence. Clicking selects a whole block, so this is
-      // block-level. BUT only reject when she actually has another block to
-      // pick: on a single-block article (an abstract-only source, where the AI
-      // example sits in the only block) rejecting every pick froze the room
-      // (#20). There, allow the pick so she can proceed.
-      if (exampleAnchor && span.blockId === exampleAnchor.block_id && source.blocks.length > 1) {
-        return;
+      // Guardrail: the AI's EXAMPLE sentence itself is not a valid pick — she
+      // must choose a DIFFERENT one. Now that a click selects a single sentence
+      // (#9), this is a precise range-overlap test against the example, so a
+      // different sentence IN THE SAME block is allowed. Exception: if she
+      // picked the whole block (single-sentence fallback — an abstract-only
+      // source with one sentence), there is no alternative, so allow it rather
+      // than freeze the room (#20).
+      if (exampleAnchor && span.blockId === exampleAnchor.block_id) {
+        const block = source.blocks.find((b) => b.id === span.blockId);
+        const blockLen = block ? Array.from(block.text).length : 0;
+        const pickedWholeBlock = span.start === 0 && span.end >= blockLen;
+        const overlapsExample = span.start < exampleAnchor.end && exampleAnchor.start < span.end;
+        // Skip the rejection ONLY when there is genuinely nothing else to pick:
+        // a single-block source where she picked the whole (one-sentence) block.
+        // With other blocks present she still has an alternative, so reject.
+        const noAlternative = source.blocks.length <= 1 && pickedWholeBlock;
+        if (overlapsExample && !noAlternative) {
+          return;
+        }
       }
       setStudentSpan(span);
       setStatus("evaluating");
