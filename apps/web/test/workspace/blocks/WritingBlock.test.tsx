@@ -7,6 +7,9 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/workspace/api/workspace", () => ({
   getOutline: vi.fn(async () => []),
   putOutline: vi.fn(async () => []),
+  getSnippets: vi.fn(async () => []),
+  putSnippets: vi.fn(async () => []),
+  getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
   getDraft: vi.fn(async () => "我的草稿第一段。中国在可再生能源上的贡献是实质性的。"),
   coach: vi.fn(async () => ({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null })),
   getCoachHistory: vi.fn(async () => []),

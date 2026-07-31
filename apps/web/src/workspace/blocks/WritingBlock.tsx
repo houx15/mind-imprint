@@ -6,6 +6,7 @@ import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
+import { MaterialsSidebar } from "./MaterialsSidebar";
 import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
@@ -125,7 +126,9 @@ export function WritingBlock({
           <DraftPane projectId={projectId} title={title} onFocusPart={setFocusPart} />
         )}
         <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} />
-        {/* #23 · draggable materials sidebar (K2) is mounted here in the next slice. */}
+        {/* #23 · draggable materials sidebar — floats over the tab pane, defaults
+            left, 收进片段 appends to the snippet board from any tab. */}
+        <MaterialsSidebar projectId={projectId} onInsert={(text) => snip.add(text)} />
       </div>
     </div>
   );
