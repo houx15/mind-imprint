@@ -10,6 +10,7 @@ import {
   Reference,
   MaterialSource,
   OutlineNode,
+  Snippet,
   ReflectionDoc,
   Mirror,
   AIUseDraft as AIUseDraftSchema,
@@ -344,6 +345,22 @@ export async function putOutline(id: string, nodes: OutlineNodeInput[]): Promise
     body: JSON.stringify({ nodes }),
   });
   return z.array(OutlineNode).parse((raw as { nodes: unknown }).nodes);
+}
+
+// GET /snippets — the 片段 board, ordered by position (#23).
+export async function getSnippets(id: string): Promise<Snippet[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/snippets`);
+  return z.array(Snippet).parse((raw as { snippets: unknown }).snippets);
+}
+
+// PUT /snippets — replace the whole set; returns the fresh snippets (ids +
+// position assigned by the server). Mirrors putOutline's whole-set replace.
+export async function putSnippets(id: string, snippets: { text: string }[]): Promise<Snippet[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/snippets`, {
+    method: "PUT",
+    body: JSON.stringify({ snippets }),
+  });
+  return z.array(Snippet).parse((raw as { snippets: unknown }).snippets);
 }
 
 // GET /draft — the current edit_buffer content ("" when there's no row yet).

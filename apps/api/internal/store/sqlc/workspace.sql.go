@@ -294,6 +294,31 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 	return i, err
 }
 
+const createSnippet = `-- name: CreateSnippet :one
+INSERT INTO snippet (project_id, text, position)
+VALUES ($1, $2, $3)
+RETURNING id, project_id, text, position, created_at
+`
+
+type CreateSnippetParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Text      string    `json:"text"`
+	Position  int32     `json:"position"`
+}
+
+func (q *Queries) CreateSnippet(ctx context.Context, arg CreateSnippetParams) (Snippet, error) {
+	row := q.db.QueryRow(ctx, createSnippet, arg.ProjectID, arg.Text, arg.Position)
+	var i Snippet
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteAllOutlineNodes = `-- name: DeleteAllOutlineNodes :exec
 DELETE FROM outline_node WHERE project_id = $1
 `
@@ -302,6 +327,16 @@ DELETE FROM outline_node WHERE project_id = $1
 // deleting then re-inserting the posted array in one transaction.
 func (q *Queries) DeleteAllOutlineNodes(ctx context.Context, projectID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAllOutlineNodes, projectID)
+	return err
+}
+
+const deleteAllSnippets = `-- name: DeleteAllSnippets :exec
+DELETE FROM snippet WHERE project_id = $1
+`
+
+// PUT /snippets replaces the whole set (delete + re-insert the posted array).
+func (q *Queries) DeleteAllSnippets(ctx context.Context, projectID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllSnippets, projectID)
 	return err
 }
 
@@ -959,6 +994,40 @@ func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Re
 			&i.Takeaway,
 			&i.TakeawayFinalizedAt,
 			&i.ReadingNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSnippets = `-- name: ListSnippets :many
+
+SELECT id, project_id, text, position, created_at FROM snippet
+WHERE project_id = $1
+ORDER BY position, created_at
+`
+
+// Write · snippets (片段: flat, ordered text fragments). -----------------------
+func (q *Queries) ListSnippets(ctx context.Context, projectID uuid.UUID) ([]Snippet, error) {
+	rows, err := q.db.Query(ctx, listSnippets, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Snippet
+	for rows.Next() {
+		var i Snippet
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Position,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

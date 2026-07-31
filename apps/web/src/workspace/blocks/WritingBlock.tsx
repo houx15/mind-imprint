@@ -5,7 +5,7 @@ import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writi
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
 import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
@@ -92,10 +92,13 @@ export function WritingBlock({
   proposal: Proposal;
   onOpenRoom: (room: BlockKey) => void;
 }) {
-  const [tab, setTab] = useState<"outline" | "draft">("outline");
+  const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
+  // #23: snippets state is lifted here so the materials sidebar (below) can
+  // append a source's note as a new snippet regardless of the active tab.
+  const snip = useSnippets(projectId);
   return (
     <div className="flex h-full flex-col">
       {/* goal strip */}
@@ -108,13 +111,131 @@ export function WritingBlock({
 
       {/* tabs */}
       <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">提纲</Tab>
-        <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">写作</Tab>
+        <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
+        <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
+        <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr,320px]">
-        {tab === "outline" ? <OutlinePane projectId={projectId} title={title} /> : <DraftPane projectId={projectId} title={title} onFocusPart={setFocusPart} />}
+      <div className="relative grid min-h-0 flex-1 grid-cols-[1fr,320px]">
+        {tab === "outline" ? (
+          <OutlinePane projectId={projectId} title={title} />
+        ) : tab === "snippets" ? (
+          <SnippetsPane snip={snip} />
+        ) : (
+          <DraftPane projectId={projectId} title={title} onFocusPart={setFocusPart} />
+        )}
         <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} />
+        {/* #23 · draggable materials sidebar (K2) is mounted here in the next slice. */}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- #23 · snippets (片段) ---------- */
+
+export type Snip = { id: string; text: string };
+
+// useSnippets owns the 片段 board's load + debounced whole-set save (mirrors
+// OutlinePane's persistence), lifted so both SnippetsPane and the materials
+// sidebar mutate one source of truth.
+export type SnippetsHandle = {
+  snippets: Snip[];
+  add: (text: string) => void;
+  update: (id: string, text: string) => void;
+  remove: (id: string) => void;
+};
+function useSnippets(projectId: string): SnippetsHandle {
+  const [snippets, setSnippets] = useState<Snip[]>([]);
+  const ref = useRef<Snip[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function save(rows: Snip[]) {
+    try {
+      const server = await putSnippets(projectId, rows.map((s) => ({ text: s.text })));
+      if (ref.current.length === server.length) {
+        const next = ref.current.map((s, i) => ({ ...s, id: server[i]!.id }));
+        ref.current = next;
+        setSnippets(next);
+      }
+    } catch {
+      /* keep local; the next debounced save retries */
+    }
+  }
+  function commit(next: Snip[]) {
+    ref.current = next;
+    setSnippets(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => save(next), 700);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await getSnippets(projectId);
+        if (cancelled) return;
+        const rows = loaded.map((s) => ({ id: s.id, text: s.text }));
+        ref.current = rows;
+        setSnippets(rows);
+      } catch {
+        /* leave empty */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  useEffect(
+    () => () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        void save(ref.current);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  return {
+    snippets,
+    add: (text) => commit([...ref.current, { id: tempId(), text }]),
+    update: (id, text) => commit(ref.current.map((s) => (s.id === id ? { ...s, text } : s))),
+    remove: (id) => commit(ref.current.filter((s) => s.id !== id)),
+  };
+}
+
+function SnippetsPane({ snip }: { snip: SnippetsHandle }) {
+  return (
+    <div className="min-h-0 overflow-y-auto px-8 py-6">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-4">
+          <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
+          <p className="mt-1 text-[13px] text-mk-muted">把要用的引文、笔记、灵光一现的句子先攒在这里——之后再搬进大纲或正文。从右侧「材料」也能一键收进来。</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          {snip.snippets.map((s) => (
+            <div key={s.id} className="group rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
+              <textarea
+                value={s.text}
+                onChange={(e) => snip.update(s.id, e.target.value)}
+                rows={3}
+                placeholder="写下或粘贴一个片段……"
+                className="w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+              />
+              <div className="mt-1 flex justify-end">
+                <button type="button" onClick={() => snip.remove(s.id)} className="text-[12px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除</button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => snip.add("")}
+            className="rounded-mk-lg border border-dashed border-mk-border py-3 text-[13px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
+          >
+            + 新片段
+          </button>
+        </div>
       </div>
     </div>
   );

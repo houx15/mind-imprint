@@ -69,6 +69,55 @@ func getOutline(t *testing.T, h http.Handler, cookie *http.Cookie, projectID str
 // TestPutOutline_RoundTripsWithNestedDepths — a PUT with nested depths persists
 // and a following GET returns the same nodes in order, with server-assigned
 // positions (= array index), fresh ids, and depth preserved.
+// #23: snippets round-trip + whole-set replace (mirrors the outline contract).
+func TestPutSnippets_RoundTripAndReplace(t *testing.T) {
+	h, cookie := writeTestHandler(t)
+	pid := materialsTestProjectID
+	base := "/api/v1/projects/" + pid + "/snippets"
+
+	putSnippets := func(body string) []struct {
+		ID       string `json:"id"`
+		Text     string `json:"text"`
+		Position int32  `json:"position"`
+	} {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", base, strings.NewReader(body)), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("PUT snippets = %d, want 200; body=%s", rec.Code, rec.Body)
+		}
+		var resp struct {
+			Snippets []struct {
+				ID       string `json:"id"`
+				Text     string `json:"text"`
+				Position int32  `json:"position"`
+			} `json:"snippets"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v — %s", err, rec.Body)
+		}
+		return resp.Snippets
+	}
+
+	got := putSnippets(`{"snippets":[{"text":"碳排放全球第一（反例）"},{"text":"NASA 绿化数据"}]}`)
+	if len(got) != 2 || got[0].Text != "碳排放全球第一（反例）" || got[0].Position != 0 || got[1].Position != 1 || got[0].ID == "" {
+		t.Fatalf("snippet round-trip wrong: %+v", got)
+	}
+
+	// A second PUT with fewer replaces the whole set (delete + re-insert).
+	shrunk := putSnippets(`{"snippets":[{"text":"只留一条"}]}`)
+	if len(shrunk) != 1 || shrunk[0].Text != "只留一条" {
+		t.Fatalf("replace semantics failed: %+v", shrunk)
+	}
+
+	// GET reflects the replaced set.
+	recGet := httptest.NewRecorder()
+	h.ServeHTTP(recGet, withCookie(httptest.NewRequest("GET", base, nil), cookie))
+	if !strings.Contains(recGet.Body.String(), "只留一条") || strings.Contains(recGet.Body.String(), "碳排放全球第一") {
+		t.Fatalf("GET after replace wrong: %s", recGet.Body)
+	}
+}
+
 func TestPutOutline_RoundTripsWithNestedDepths(t *testing.T) {
 	h, cookie := writeTestHandler(t)
 	pid := materialsTestProjectID

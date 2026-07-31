@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getOutline, putOutline, getDraft } from "@/workspace/api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft } from "@/workspace/api/workspace";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -28,6 +28,35 @@ describe("getOutline", () => {
   it("throws on schema drift", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ nodes: [{ id: "x" }] })));
     await expect(getOutline("p1")).rejects.toThrow();
+  });
+});
+
+const SNIPPETS = [
+  { id: "s1", text: "碳排放全球第一（反例）", position: 0 },
+  { id: "s2", text: "NASA 绿化数据", position: 1 },
+];
+
+describe("getSnippets", () => {
+  it("GETs /snippets and Zod-parses the snippets array", async () => {
+    const spy = vi.fn(async () => json({ snippets: SNIPPETS }));
+    vi.stubGlobal("fetch", spy);
+    const got = await getSnippets("p1");
+    expect(got).toEqual(SNIPPETS);
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/snippets");
+  });
+});
+
+describe("putSnippets", () => {
+  it("PUTs the {text}[] array and returns the fresh snippets", async () => {
+    const spy = vi.fn(async () => json({ snippets: SNIPPETS }));
+    vi.stubGlobal("fetch", spy);
+    const got = await putSnippets("p1", [{ text: "碳排放全球第一（反例）" }, { text: "NASA 绿化数据" }]);
+    expect(got).toEqual(SNIPPETS);
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
+    expect(url).toContain("/api/v1/projects/p1/snippets");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ snippets: [{ text: "碳排放全球第一（反例）" }, { text: "NASA 绿化数据" }] });
   });
 });
 

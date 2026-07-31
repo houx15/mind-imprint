@@ -482,6 +482,14 @@ type Session struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Snippet struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Text      string    `json:"text"`
+	Position  int32     `json:"position"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type SourceLogEntry struct {
 	ID          uuid.UUID   `json:"id"`
 	ProjectID   uuid.UUID   `json:"project_id"`

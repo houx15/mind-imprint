@@ -60,7 +60,7 @@ beforeEach(() => {
 
 async function openDraftTab() {
   render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={() => {}} />);
-  await userEvent.click(screen.getByRole("button", { name: "写作" }));
+  await userEvent.click(screen.getByRole("button", { name: "正文" }));
   const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
   // getDraft resolves async — wait for the persisted draft to populate.
   await waitFor(() => expect(ta.value.length).toBeGreaterThan(0));

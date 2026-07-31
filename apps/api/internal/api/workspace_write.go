@@ -155,6 +155,87 @@ func (a *API) getDraft(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"content": content})
 }
 
+// snippetDTO is the wire shape for a 片段 (id/text/position, camelCase).
+type snippetDTO struct {
+	ID       string `json:"id"`
+	Text     string `json:"text"`
+	Position int32  `json:"position"`
+}
+
+func toSnippetDTO(row sqlc.Snippet) snippetDTO {
+	return snippetDTO{ID: row.ID.String(), Text: row.Text, Position: row.Position}
+}
+
+// listSnippets returns the project's snippets ordered by position.
+func (a *API) listSnippets(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rows, err := a.d.Queries.ListSnippets(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]snippetDTO, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, toSnippetDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"snippets": out})
+}
+
+// putSnippets replaces the whole snippet set in one tx (delete + re-insert the
+// posted array, position = index), then re-reads it — mirrors putOutline. No
+// model call (student scratch); plain owned-project REST.
+func (a *API) putSnippets(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Snippets []struct {
+			Text string `json:"text"`
+		} `json:"snippets"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+	if err := qtx.DeleteAllSnippets(r.Context(), projectID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	for i, s := range body.Snippets {
+		if _, err := qtx.CreateSnippet(r.Context(), sqlc.CreateSnippetParams{
+			ProjectID: projectID, Text: s.Text, Position: int32(i),
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rows, err := a.d.Queries.ListSnippets(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]snippetDTO, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, toSnippetDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"snippets": out})
+}
+
 // clampDepth keeps outline depth in the proto's 0..2 range (bullet nesting is
 // three levels deep; anything the client sends outside that is clamped, never
 // rejected).

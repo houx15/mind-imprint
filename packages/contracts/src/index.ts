@@ -27,6 +27,7 @@ export * from "./planItem";
 export * from "./collection";
 export * from "./reference";
 export * from "./outlineNode";
+export * from "./snippet";
 export * from "./activityLog";
 export * from "./reflectionDoc";
 export * from "./mirror";

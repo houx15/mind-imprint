@@ -180,6 +180,22 @@ INSERT INTO outline_node (project_id, text, depth, position)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
+-- Write · snippets (片段: flat, ordered text fragments). -----------------------
+
+-- name: ListSnippets :many
+SELECT * FROM snippet
+WHERE project_id = $1
+ORDER BY position, created_at;
+
+-- name: DeleteAllSnippets :exec
+-- PUT /snippets replaces the whole set (delete + re-insert the posted array).
+DELETE FROM snippet WHERE project_id = $1;
+
+-- name: CreateSnippet :one
+INSERT INTO snippet (project_id, text, position)
+VALUES ($1, $2, $3)
+RETURNING *;
+
 -- Review · the five-dimension reflection doc (answers jsonb string array). ----
 
 -- name: GetProjectAIUse :one
