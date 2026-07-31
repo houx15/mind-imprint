@@ -80,6 +80,7 @@ type referenceDTO struct {
 	CollectionID   *string                `json:"collectionId"`
 	Credibility    *string                `json:"credibility"`
 	Evaluation     string                 `json:"evaluation"`
+	ReadingNote    string                 `json:"readingNote"`
 	Decision       *string                `json:"decision"`
 	Pending        bool                   `json:"pending"`
 	SearchHints    []string               `json:"searchHints"`
@@ -126,6 +127,7 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		CollectionID:   pgUUIDToStringPtr(row.CollectionID),
 		Credibility:    row.Credibility,
 		Evaluation:     row.Evaluation,
+		ReadingNote:    row.ReadingNote,
 		Decision:       row.Decision,
 		Pending:        row.Pending,
 		SearchHints:    jsonbToStrings(row.SearchHints),
@@ -413,6 +415,7 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		Decision       json.RawMessage `json:"decision"`
 		Pending        *bool           `json:"pending"`
 		SearchHints    *[]string       `json:"searchHints"`
+		ReadingNote    *string         `json:"readingNote"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -434,6 +437,7 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		Decision:       cur.Decision,
 		Pending:        cur.Pending,
 		SearchHints:    cur.SearchHints,
+		ReadingNote:    cur.ReadingNote,
 	}
 	if body.Title != nil {
 		next.Title = *body.Title
@@ -455,6 +459,9 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Evaluation != nil {
 		next.Evaluation = *body.Evaluation
+	}
+	if body.ReadingNote != nil {
+		next.ReadingNote = *body.ReadingNote
 	}
 	if body.Pending != nil {
 		next.Pending = *body.Pending

@@ -103,7 +103,7 @@ LIMIT 1
 `
 
 // The essay's target writing language (#4), stored as a writing_language node
-// at creation. Latest wins. Returns just the body ({"lang":...}).
+// at creation. Latest wins. Returns just the body ({"lang":"en"|"zh"|"bilingual"}).
 func (q *Queries) GetWritingLanguageNode(ctx context.Context, projectID uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getWritingLanguageNode, projectID)
 	var body []byte

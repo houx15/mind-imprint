@@ -185,6 +185,16 @@ func TestLibraryReferencesCRUD(t *testing.T) {
 		t.Fatalf("decision = %v, want use", got.Decision)
 	}
 
+	// #8: the student's own reading_note round-trips via PATCH and is echoed on
+	// the reference DTO (so the reading room seeds it on re-entry).
+	rec = doJSON(t, h, cookie, "PATCH", base+"/references/"+ref.ID, `{"readingNote":"我觉得这段的因果跳了一步"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch reading_note = %d: %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), `"readingNote":"我觉得这段的因果跳了一步"`) {
+		t.Fatalf("reading_note not persisted/echoed: %s", rec.Body)
+	}
+
 	// Present-null clears a nullable enum.
 	rec = doJSON(t, h, cookie, "PATCH", base+"/references/"+ref.ID, `{"credibility":null}`)
 	if rec.Code != http.StatusOK {

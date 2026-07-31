@@ -463,6 +463,7 @@ type Reference struct {
 	PhaseTag            *string            `json:"phase_tag"`
 	Takeaway            []byte             `json:"takeaway"`
 	TakeawayFinalizedAt pgtype.Timestamptz `json:"takeaway_finalized_at"`
+	ReadingNote         string             `json:"reading_note"`
 }
 
 type School struct {

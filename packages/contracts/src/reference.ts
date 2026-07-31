@@ -69,6 +69,9 @@ export const Reference = z.object({
   collectionId: z.string().nullable(),
   credibility: Credibility.nullable(),
   evaluation: z.string(),
+  // #8: the student's own freeform note on this source (我的笔记), edited in the
+  // reading room. Optional so older fixtures/mocks without it still parse.
+  readingNote: z.string().optional(),
   decision: UseDecision,
   pending: z.boolean(),
   searchHints: z.array(z.string()),

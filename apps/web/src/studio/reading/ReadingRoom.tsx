@@ -70,6 +70,10 @@ export type ReadingRoomProps = {
   phaseTag?: PhaseTag | null;
   readingReason?: string | null;
   readingFocus?: string | null;
+  // #8: the student's own freeform note on this source (我的笔记). Seeded from
+  // the reference DTO; edits persist via onSaveNote (patchReference upstream).
+  readingNote?: string | null;
+  onSaveNote?: (note: string) => Promise<void>;
   // finalized tells the workspace whether the student 归纳'd this source before
   // leaving, so it can show a carry-forward acknowledgment (EA).
   onBack: (finalized: boolean) => void;
@@ -115,6 +119,8 @@ export function ReadingRoom({
   phaseTag,
   readingReason,
   readingFocus,
+  readingNote,
+  onSaveNote,
   onBack,
   api,
   onOpenLogged,
@@ -158,6 +164,26 @@ export function ReadingRoom({
   const [finalizeImpact, setFinalizeImpact] = useState("");
   const [finalizeSaving, setFinalizeSaving] = useState(false);
   const [finalizeDone, setFinalizeDone] = useState(false);
+
+  // #8: the student's own freeform note on this source. Seeded from the
+  // reference, saved on blur via onSaveNote (patchReference upstream). Opens
+  // expanded when a note already exists so she sees it on re-entry.
+  const [note, setNote] = useState(readingNote ?? "");
+  const [noteOpen, setNoteOpen] = useState(Boolean(readingNote && readingNote.trim()));
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSavedAt, setNoteSavedAt] = useState(0);
+  async function saveNote() {
+    if (!onSaveNote) return;
+    setNoteSaving(true);
+    try {
+      await onSaveNote(note);
+      setNoteSavedAt(Date.now());
+    } catch {
+      /* keep her text so she can retry — never silently discard */
+    } finally {
+      setNoteSaving(false);
+    }
+  }
 
   async function openFinalize() {
     setFinalizeOpen(true);
@@ -574,6 +600,33 @@ export function ReadingRoom({
                     );
                   }}
                 />
+                {onSaveNote && (
+                  <div style={{ marginTop: 20, borderTop: "1px solid #E9E4F2", paddingTop: 14 }}>
+                    <button
+                      type="button"
+                      onClick={() => setNoteOpen((o) => !o)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "#5C4A8A" }}
+                    >
+                      <span style={{ transform: noteOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
+                      我的笔记{!noteOpen && note.trim() ? " ·  已记" : ""}
+                    </button>
+                    {noteOpen && (
+                      <div style={{ marginTop: 8 }}>
+                        <textarea
+                          value={note}
+                          onChange={(e) => setNote(e.target.value)}
+                          onBlur={() => void saveNote()}
+                          placeholder="随手记下你自己的想法、疑问、要引用的点——只属于你，不喂给评估。"
+                          rows={4}
+                          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", border: "1px solid #E3DCF2", borderRadius: 10, background: "#FBFAFE", padding: "10px 12px", fontSize: 13.5, lineHeight: 1.7, color: "#2B3346", outline: "none", fontFamily: "inherit" }}
+                        />
+                        <div style={{ marginTop: 4, fontSize: 11.5, color: "#9AA1B0", height: 14 }}>
+                          {noteSaving ? "保存中…" : noteSavedAt ? "已保存" : "失焦自动保存"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </article>
           ) : (

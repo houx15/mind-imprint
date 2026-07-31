@@ -10,7 +10,7 @@ Branch `feat/studio-deferred-2026-07-31`. Ships the 5 items deferred from the ma
 
 ## Slices
 - [x] **G · #9 sentence-select** — click selects the SENTENCE under the cursor (`sentences.ts` segmenter + `pointToRuneOffset` in selection.ts + Annotate wiring); #20 example-guard tightened to sentence-range overlap (whole-block escape only when a single-block source has no alternative). Tests: annotate+reading 68 green.
-- [ ] **H · #8 self-annotate** — reading_note column + PATCH + ReadingRoom textarea.
+- [x] **H · #8 self-annotate** — dedicated `reading_note` column (migration 0043 + sqlc regen, pinned to repo's v1.27.0 so the diff is minimal); patchable via `PATCH /references/{rid}` (`readingNote`); a collapsible "我的笔记" box in the ReadingRoom seeded from the reference + saved on blur. Tests: reference CRUD round-trip + contracts 306 + web reading 34 green.
 - [ ] **I · #13 right-bar confirm chips** — coach detects a covered dim → confirm chip writes it on tap.
 - [ ] **J · #18 cards in forming/library** — S4 card-offer pattern on forming + find_sources coaches.
 - [ ] **K · #23 writing-room redesign** — 3 tabs + draggable materials sidebar.

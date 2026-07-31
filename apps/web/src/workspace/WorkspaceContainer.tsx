@@ -4,7 +4,7 @@ import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, postProjectSummary } from "./api/workspace";
+import { getWorkspace, postProjectSummary, patchReference } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
@@ -40,6 +40,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   const [readingPhaseTag, setReadingPhaseTag] = useState<PhaseTag | null>(null);
   const [readingReadingReason, setReadingReadingReason] = useState<string | null>(null);
   const [readingReadingFocus, setReadingReadingFocus] = useState<string | null>(null);
+  const [readingReadingNote, setReadingReadingNote] = useState<string | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -48,6 +49,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     phaseTag?: PhaseTag | null,
     readingReason?: string | null,
     readingFocus?: string | null,
+    readingNote?: string | null,
   ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
@@ -55,6 +57,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     setReadingPhaseTag(phaseTag ?? null);
     setReadingReadingReason(readingReason ?? null);
     setReadingReadingFocus(readingFocus ?? null);
+    setReadingReadingNote(readingNote ?? null);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -69,6 +72,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     setReadingPhaseTag(null);
     setReadingReadingReason(null);
     setReadingReadingFocus(null);
+    setReadingReadingNote(null);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -167,6 +171,8 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
         phaseTag={readingPhaseTag}
         readingReason={readingReadingReason}
         readingFocus={readingReadingFocus}
+        readingNote={readingReadingNote}
+        onSaveNote={(note) => patchReference(projectId, readingRefId, { readingNote: note }).then(() => {})}
         api={api}
         onBack={closeReadingSource}
       />

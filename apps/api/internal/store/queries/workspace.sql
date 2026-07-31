@@ -125,6 +125,7 @@ UPDATE reference SET
     decision       = $13,
     pending        = $14,
     search_hints   = $15,
+    reading_note   = $16,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
 RETURNING *;

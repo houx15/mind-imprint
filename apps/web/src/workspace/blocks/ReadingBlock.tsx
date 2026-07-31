@@ -707,6 +707,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     phaseTag?: PhaseTag | null,
     readingReason?: string | null,
     readingFocus?: string | null,
+    readingNote?: string | null,
   ) => void;
 }) {
   const [entering, setEntering] = useState(false);
@@ -724,7 +725,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setEntering(true);
     try {
       const { source, suggestedReason } = await enterReading(projectId, r.id);
-      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus);
+      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
         // Fetch failed / no content → let the student paste the body in.
@@ -745,7 +746,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setPasteError(null);
     try {
       const source = await pasteContent(projectId, r.id, text);
-      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus);
+      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote);
     } catch {
       setPasteError("粘贴失败了，再试一次？");
     } finally {
