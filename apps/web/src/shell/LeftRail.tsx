@@ -22,15 +22,9 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
-  {
-    key: "chat",
-    label: "聊天",
-    icon: (stroke) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-      </svg>
-    ),
-  },
+  // 聊天 (chat) tab hidden 2026-07-31 to keep the product MVP-focused. The
+  // "chat" surface + backend remain; only the left-rail entry is removed. To
+  // restore, re-add the NavItem here (key/label/icon preserved in git history).
   {
     key: "studio",
     label: "工作室",

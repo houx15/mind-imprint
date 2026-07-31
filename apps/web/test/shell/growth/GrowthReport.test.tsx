@@ -67,30 +67,22 @@ describe("GrowthReport", () => {
   });
 });
 
-const emptyAbility = {
-  totalSessions: 0,
-  depth: ["D1", "D3", "D4", "D5"].map((code) => ({ code, name: code, level: -1, levelLabel: "", evidenceCount: 0 })),
-  autonomy: { sessions: 0, boundarySettings: 0, adversaryInvites: 0, opportunitiesTaken: 0, opportunitiesMissed: 0 },
-};
-
 describe("GrowthReport tabs", () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it("shows all three tabs and switches between them", async () => {
+  // 能力素养 (AbilityModel) was hidden 2026-07-31 for MVP focus — only 学习记录
+  // and 工具卡 remain. The AbilityModel component + endpoint still exist.
+  it("shows the two remaining tabs and switches between them", async () => {
     vi.spyOn(api, "getGrowthHistory").mockResolvedValue([]);
-    vi.spyOn(api, "getAbilityModel").mockResolvedValue(emptyAbility as never);
     vi.spyOn(api, "getGrowthCards").mockResolvedValue([] as never);
     render(<GrowthReport />);
     expect(screen.getByRole("button", { name: /学习记录/ })).toBeTruthy();
     const cardsTab = screen.getByRole("button", { name: /工具卡/ });
-    const abilityTab = screen.getByRole("button", { name: /能力素养/ });
+    expect(screen.queryByRole("button", { name: /能力素养/ })).toBeNull();
     // default tab is the history hub
     await waitFor(() => expect(screen.getByText(/还没有报告/)).toBeTruthy());
     // 工具卡
     fireEvent.click(cardsTab);
     await waitFor(() => expect(screen.getByText(/还没有收集到工具卡/)).toBeTruthy());
-    // 能力素养
-    fireEvent.click(abilityTab);
-    await waitFor(() => expect(screen.getByText(/还没有足够的数据/)).toBeTruthy());
   });
 });

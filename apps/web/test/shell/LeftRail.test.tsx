@@ -3,10 +3,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { LeftRail } from "@/shell/LeftRail";
 
 describe("LeftRail", () => {
-  it("renders the five pillar tabs in order", () => {
+  // 聊天 (chat) hidden 2026-07-31 for MVP focus — four rail tabs remain.
+  it("renders the four pillar tabs in order", () => {
     render(<LeftRail tab="studio" onTab={() => {}} />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["课程", "聊天", "工作室", "成长报告", "设置"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["课程", "工作室", "成长报告", "设置"]);
   });
 
   it("marks the active tab via aria-selected", () => {
@@ -25,14 +26,14 @@ describe("LeftRail", () => {
     expect(onTab).toHaveBeenCalledWith("settings");
   });
 
-  it("renders the five shipped rail items per the binding design", () => {
+  it("renders the four shipped rail items; 聊天 is hidden", () => {
     render(<LeftRail tab="studio" onTab={() => {}} />);
-    expect(screen.getByText("聊天")).toBeTruthy();
     expect(screen.getByText("课程")).toBeTruthy();
     expect(screen.getByText("工作室")).toBeTruthy();
     expect(screen.getByText("成长报告")).toBeTruthy();
     expect(screen.getByText("设置")).toBeTruthy();
-    // The retired labels are gone.
+    // 聊天 hidden for MVP focus; other retired labels also gone.
+    expect(screen.queryByText("聊天")).toBeNull();
     expect(screen.queryByText("批判思维")).toBeNull();
     expect(screen.queryByText("我的评估")).toBeNull();
   });

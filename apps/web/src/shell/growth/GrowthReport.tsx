@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { GrowthHistoryEntry } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { DualAxisReport } from "../report/DualAxisReport";
-import { AbilityModel } from "./AbilityModel";
+// AbilityModel (能力素养) hidden 2026-07-31 for MVP focus — import removed to
+// avoid an unused-symbol error; the component file stays for later restore.
 import { ToolkitCards } from "./ToolkitCards";
 
 const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
@@ -100,7 +101,7 @@ function LearningRecord({ initialScopeId }: { initialScopeId?: string | null }) 
 }
 
 export function GrowthReport({ initialScopeId }: { initialScopeId?: string | null } = {}) {
-  const [tab, setTab] = useState<"learning" | "cards" | "ability">("learning");
+  const [tab, setTab] = useState<"learning" | "cards">("learning");
   const tabStyle = (active: boolean) => ({
     padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
     fontSize: 13.5, fontWeight: 700,
@@ -112,9 +113,10 @@ export function GrowthReport({ initialScopeId }: { initialScopeId?: string | nul
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
           <button type="button" style={tabStyle(tab === "learning")} onClick={() => setTab("learning")}>学习记录</button>
           <button type="button" style={tabStyle(tab === "cards")} onClick={() => setTab("cards")}>工具卡</button>
-          <button type="button" style={tabStyle(tab === "ability")} onClick={() => setTab("ability")}>能力素养</button>
+          {/* 能力素养 tab hidden 2026-07-31 for MVP focus. AbilityModel + its
+              api/ability endpoint remain; re-add the button to restore. */}
         </div>
-        {tab === "learning" ? <LearningRecord initialScopeId={initialScopeId} /> : tab === "cards" ? <ToolkitCards /> : <AbilityModel />}
+        {tab === "cards" ? <ToolkitCards /> : <LearningRecord initialScopeId={initialScopeId} />}
       </div>
     </div>
   );

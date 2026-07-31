@@ -1166,7 +1166,7 @@ function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: 
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
               rows={1}
               placeholder="问从哪找、可不可信……"
               className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"

@@ -253,11 +253,11 @@ export function PlanBlock({
         chat={chat}
         lang={lang}
         onToggleLang={() => {
-          const next = lang === "zh" ? "en" : "zh";
-          setLang(next);
-          setChat(introChat(next));
-          setChipsDismissed(false);
-          setLinkOffer(null); // don't strand a chip under a freshly-reset intro
+          // Switch the coach's reply language WITHOUT discarding the
+          // conversation. Previously this reset chat to the intro-only array,
+          // which wiped the whole history (worst if toggled mid-reply). The
+          // localized intro stays as-is; only subsequent replies switch language.
+          setLang(lang === "zh" ? "en" : "zh");
         }}
         draft={draft}
         setDraft={setDraft}
@@ -389,10 +389,12 @@ function FormingPhase(props: {
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-            rows={1}
-            placeholder="说说你的想法……"
-            className="max-h-28 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+            // Guard the IME: an Enter that commits a Chinese candidate has
+            // isComposing=true — don't send mid-composition. Shift+Enter = newline.
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend(); } }}
+            rows={2}
+            placeholder="说说你的想法……（Shift+Enter 换行）"
+            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
           />
           <button type="button" onClick={onSend} disabled={sending} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
             <Icon name="send" size={17} />
@@ -552,7 +554,7 @@ function ChatBubble({ msg }: { msg: ChatMsg }) {
   const isAi = msg.role === "ai";
   return (
     <div className={`flex ${isAi ? "justify-start" : "justify-end"}`}>
-      <div className={`max-w-[82%] rounded-mk-lg px-4 py-2.5 text-[14px] leading-relaxed ${isAi ? "bg-mk-surface text-mk-ink shadow-[0_1px_2px_rgba(28,35,51,0.05)]" : "bg-mk-primary text-white"}`}>
+      <div className={`max-w-[82%] whitespace-pre-wrap rounded-mk-lg px-4 py-2.5 text-[14px] leading-relaxed ${isAi ? "bg-mk-surface text-mk-ink shadow-[0_1px_2px_rgba(28,35,51,0.05)]" : "bg-mk-primary text-white"}`}>
         {isAi && <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>}
         {renderRich(msg.text)}
       </div>
@@ -944,7 +946,7 @@ function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd: (text:
         )}
       </div>
       <div className="mt-3 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5">
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
         <button
           type="button"
           onClick={submit}

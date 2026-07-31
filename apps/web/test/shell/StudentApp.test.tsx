@@ -59,12 +59,9 @@ describe("StudentApp", () => {
     expect(screen.queryByTestId("studio-container")).toBeNull();
   });
 
-  it("renders the chat surface on 聊天", async () => {
-    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    fireEvent.click(screen.getByText("聊天"));
-    expect(screen.getByTestId("chat-container")).toBeTruthy();
-    expect(screen.queryByTestId("studio-container")).toBeNull();
-  });
+  // 聊天 rail entry hidden 2026-07-31 for MVP focus — no nav path to the chat
+  // surface anymore, so the click-through test is retired. ChatContainer still
+  // exists and can be routed to programmatically.
 
   it("switches to the Courses tab and renders the course grid", async () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
