@@ -87,6 +87,12 @@ export type ReadingRoomProps = {
 // reading) — the demo's `.starter-row`, one tap fills + sends.
 const STARTERS = ["这条来源可信吗？", "帮我看看这段的论证", "这句是事实还是观点？"];
 
+// #7: starters that should deterministically SUMMON a card (via the reliable
+// lens-library path) instead of a 克制 coach turn that rarely proposes one.
+// "这条来源可信吗？" → the CRAAP source-check card. The other two stay
+// conversational (they depend on a sentence the student hasn't picked yet).
+const STARTER_SUMMON: Record<string, string> = { "这条来源可信吗？": "craap" };
+
 function BackIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -465,11 +471,23 @@ export function ReadingRoom({
               </button>
             </form>
             <div className="mk-reading-room__starter-row">
-              {STARTERS.map((prompt) => (
-                <button key={prompt} type="button" onClick={() => send(prompt)} disabled={busyOrCarded}>
-                  {prompt}
-                </button>
-              ))}
+              {STARTERS.map((prompt) => {
+                // #7: the credibility starter deterministically summons the
+                // source-check card (the reliable 透镜库 path) — a plain coach
+                // turn is 克制-biased and rarely proposes one, so clicking
+                // "这条来源可信吗？" used to surface nothing.
+                const summonId = STARTER_SUMMON[prompt];
+                return (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => (summonId ? void loop.summonCard(summonId) : send(prompt))}
+                    disabled={busyOrCarded}
+                  >
+                    {prompt}
+                  </button>
+                );
+              })}
               <button
                 type="button"
                 className="mk-reading-room__library-btn"

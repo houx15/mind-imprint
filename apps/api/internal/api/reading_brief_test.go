@@ -244,3 +244,42 @@ func TestReadingBriefFor_MatchesByMaterialAndLoadsProposal(t *testing.T) {
 		t.Fatalf("readingBriefFor matched an unrelated reference's brief for an unlinked material: %+v", unmatched)
 	}
 }
+
+// #22: a linked reference with NO persisted reading_reason yet still carries a
+// motivation into reading — seeded from the proposal objective — so the
+// read-turn agent reads WITH a purpose instead of a blank brief. (An unlinked
+// material stays blank; that guard is covered above.)
+func TestReadingBriefFor_SeedsMotivationFromProposal(t *testing.T) {
+	pool := newAPITestPool(t)
+	a := New(DepsForTest(pool))
+	h := a.Handler()
+	cookie := signInSeed(t, pool)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	projectID := uuid.MustParse(seedProjectID)
+
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "NASA 报告", craapMaterialText)
+	materialID := uuid.MustParse(matID)
+	ref := seedReference(t, q, "NASA 报告")
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: materialID, Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+	// Deliberately NO UpdateReadingBrief — the student hasn't written her reason.
+	if _, err := q.UpsertProjectProposal(ctx, sqlc.UpsertProjectProposalParams{
+		ProjectID: projectID, Objective: "研究中国是否让地球更可持续",
+		Reason: "关心气候变化", Activities: "读 NASA/Nature", Resources: "Zotero",
+	}); err != nil {
+		t.Fatalf("persist proposal: %v", err)
+	}
+
+	got := a.ReadingBriefForTest(ctx, projectID, materialID)
+	if strings.TrimSpace(got.Reason) == "" {
+		t.Fatalf("readingBriefFor should seed a motivation from the proposal when reading_reason is unset, got empty")
+	}
+	if !strings.Contains(got.Reason, "研究中国是否让地球更可持续") {
+		t.Fatalf("seeded motivation should carry the proposal objective, got %q", got.Reason)
+	}
+}

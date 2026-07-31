@@ -113,10 +113,14 @@ func normOrNil(s string) *string {
 // unset brief returns a zero ReadingBrief and the loop degrades to today.
 func (a *API) readingBriefFor(ctx context.Context, projectID, materialID uuid.UUID) agent.ReadingBrief {
 	var br agent.ReadingBrief
+	var refTitle string
+	var matched bool
 	// reference carries the brief; find it by material_id within the project.
 	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil {
 		for _, ref := range refs {
 			if ref.MaterialID.Valid && uuid.UUID(ref.MaterialID.Bytes) == materialID {
+				matched = true
+				refTitle = ref.Title
 				if ref.ReadingReason != nil {
 					br.Reason = *ref.ReadingReason
 				}
@@ -132,6 +136,15 @@ func (a *API) readingBriefFor(ctx context.Context, projectID, materialID uuid.UU
 	}
 	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
 		br.ProposalSnap = firstNonEmpty(prop.Objective, prop.Reason)
+		// #22: carry a motivation into reading automatically. When a reference is
+		// linked but the student hasn't written her own reading_reason yet, fall
+		// back to the same proposal-derived suggestion the banner shows, so the
+		// read-turn agent always reads WITH a purpose — without writing her field
+		// (克制: transient until she edits it herself). Only when a reference
+		// actually matched: an unlinked material has no reading context to seed.
+		if matched && strings.TrimSpace(br.Reason) == "" {
+			br.Reason = suggestReadingReason(prop.Objective, refTitle)
+		}
 	}
 	return br
 }
