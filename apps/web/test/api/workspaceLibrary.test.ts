@@ -77,8 +77,16 @@ describe("getLibrary", () => {
     expect(url).toContain("/api/v1/projects/p1/library");
   });
 
-  it("throws on schema drift", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => json({ collections: [], references: [{ id: "x" }] })));
+  it("skips a malformed reference instead of blanking the whole library (#16/#21)", async () => {
+    // A single unparseable reference (e.g. a legacy null-slice takeaway) must
+    // not throw and blank the list — it is dropped, the good ones survive.
+    vi.stubGlobal("fetch", vi.fn(async () => json({ collections: [], references: [REFERENCE, { id: "x" }] })));
+    const lib = await getLibrary("p1");
+    expect(lib.references).toEqual([REFERENCE]);
+  });
+
+  it("still throws on collection schema drift", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ collections: [{ id: "x" }], references: [] })));
     await expect(getLibrary("p1")).rejects.toThrow();
   });
 });
