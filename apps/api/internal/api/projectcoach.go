@@ -116,6 +116,54 @@ func (a *API) coachCardProposal(ctx context.Context, projectID uuid.UUID, scope,
 	return proposal
 }
 
+// formingDimProposal (#13) offers a 克制 confirm chip to record a still-empty
+// kick-off dimension the student just articulated — so the 开题四问 panel fills
+// as they talk, WITHOUT the AI writing her proposal (she taps to confirm; 打开
+// 由学生确认). Forming surfaces only; gated (uncovered dims + rune floor inside
+// ProposeFormingDim) + metered like coachCardProposal, sharing its classify cap.
+func (a *API) formingDimProposal(ctx context.Context, projectID uuid.UUID, scope, studentText string, resolved gateway.Resolved) *agent.FormingDimSuggestion {
+	if scope != "forming" && scope != "proposal_review" {
+		return nil
+	}
+	var uncovered []string
+	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
+		if strings.TrimSpace(prop.Objective) == "" {
+			uncovered = append(uncovered, "objective")
+		}
+		if strings.TrimSpace(prop.Reason) == "" {
+			uncovered = append(uncovered, "reason")
+		}
+		if strings.TrimSpace(prop.Activities) == "" {
+			uncovered = append(uncovered, "activities")
+		}
+		if strings.TrimSpace(prop.Resources) == "" {
+			uncovered = append(uncovered, "resources")
+		}
+	} else {
+		uncovered = []string{"objective", "reason", "activities", "resources"} // no row → all empty
+	}
+	if len(uncovered) == 0 {
+		return nil
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if n, cerr := store.CountClassifierCalls(ctx, projectID); cerr == nil && n >= agent.MaxClassifyCallsPerProject {
+		return nil // shared classifier spend backstop reached
+	}
+	sug, usage, perr := agent.ProposeFormingDim(ctx, a.d.Provider, resolved, studentText, uncovered)
+	if perr == nil && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
+		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "classify",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("forming dim propose: record classify call failed", "err", rerr)
+		}
+	}
+	if perr != nil {
+		return nil
+	}
+	return sug
+}
+
 // digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds.
 // digestKeepLastN is aligned to coachHistoryWindow (the coach's verbatim
 // context window): we never fold a turn the coach still shows, and — the audit

@@ -111,10 +111,19 @@ export type CardProposalWire = z.infer<typeof CardProposalWire>;
 // the library / read it together; the chip is confirmed by a tap, never auto-acts.
 export const LinkOfferWire = z.object({ url: z.string() });
 export type LinkOfferWire = z.infer<typeof LinkOfferWire>;
+// dimSuggestion — #13 forming confirm-chip. When the student articulates a
+// still-empty kick-off dimension, the reply carries an offer to record a
+// faithful one-line summary of HER words into that dim; she taps to confirm.
+export const DimSuggestionWire = z.object({
+  dim: z.enum(["objective", "reason", "activities", "resources"]),
+  value: z.string(),
+});
+export type DimSuggestionWire = z.infer<typeof DimSuggestionWire>;
 export interface CoachResult {
   reply: string;
   proposal: CardProposalWire | null;
   linkOffer: LinkOfferWire | null;
+  dimSuggestion: DimSuggestionWire | null;
 }
 export async function coach(id: string, scope: CoachScope, userInput: string): Promise<CoachResult> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
@@ -122,9 +131,19 @@ export async function coach(id: string, scope: CoachScope, userInput: string): P
     body: JSON.stringify({ scope, user_input: userInput }),
   });
   const parsed = z
-    .object({ reply: z.string(), proposal: CardProposalWire.nullish(), linkOffer: LinkOfferWire.nullish() })
+    .object({
+      reply: z.string(),
+      proposal: CardProposalWire.nullish(),
+      linkOffer: LinkOfferWire.nullish(),
+      dimSuggestion: DimSuggestionWire.nullish(),
+    })
     .parse(raw);
-  return { reply: parsed.reply, proposal: parsed.proposal ?? null, linkOffer: parsed.linkOffer ?? null };
+  return {
+    reply: parsed.reply,
+    proposal: parsed.proposal ?? null,
+    linkOffer: parsed.linkOffer ?? null,
+    dimSuggestion: parsed.dimSuggestion ?? null,
+  };
 }
 
 // POST /cards/persist — persist a completed envelope for a card the coach

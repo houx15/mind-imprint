@@ -156,6 +156,12 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// #13 · forming confirm-chip: on 立题, if the student just articulated a
+	// still-empty kick-off dimension, offer to record it (she confirms with a
+	// tap — the AI never writes her proposal). Gated + metered inside; nil off
+	// the forming surfaces or when nothing was articulated.
+	dimSuggestion := a.formingDimProposal(r.Context(), projectID, scope, userInput, resolved)
+
 	// S4 · size-threshold compaction backstop: if the active window still
 	// overflows after fold-on-solidify, fold the oldest turns into the rolling
 	// conversation_digest. Best-effort; never disturbs the reply.
@@ -164,6 +170,9 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"reply": reply}
 	if proposal != nil {
 		resp["proposal"] = coachProposalDTO{CardID: proposal.CardID, Reason: proposal.Reason, NudgeText: proposal.NudgeText}
+	}
+	if dimSuggestion != nil {
+		resp["dimSuggestion"] = dimSuggestion
 	}
 	// Link-in-coach → resource bridge: a URL the student just dropped becomes a
 	// gentle chip offer (add-to-library / read-together). Free — no spend — so a

@@ -24,6 +24,7 @@ import {
   generatePlan,
   createReference,
   type PlanItemPatch,
+  type DimSuggestionWire,
 } from "../api/workspace";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
@@ -99,6 +100,9 @@ export function PlanBlock({
   const [seedBoard, setSeedBoard] = useState<PlanItem[] | undefined>(undefined);
   // #15: shown before a regenerate overwrites an existing plan.
   const [confirmRegen, setConfirmRegen] = useState(false);
+  // #13: the coach's offer to record a kick-off dimension the student just
+  // articulated — she confirms with a tap (the AI never writes it on its own).
+  const [dimSuggestion, setDimSuggestion] = useState<DimSuggestionWire | null>(null);
   // Link-bridge offer for the most recent coach turn (克制 chip under the reply).
   const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
 
@@ -183,11 +187,13 @@ export function PlanBlock({
     if (sending) return;
     setChat((c) => [...c, { role: "student", text: studentEcho }]);
     setLinkOffer(null);
+    setDimSuggestion(null);
     setSending(true);
     try {
-      const { reply, linkOffer: offer } = await coach(projectId, scope, userInput);
+      const { reply, linkOffer: offer, dimSuggestion: dim } = await coach(projectId, scope, userInput);
       setChat((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
+      if (dim) setDimSuggestion(dim);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
@@ -219,6 +225,21 @@ export function PlanBlock({
     }
     setLinkOffer(null);
     onOpenRoom("reading");
+  }
+
+  // #13: record the confirmed dimension into the 开题四问 panel + persist now, so
+  // the right bar fills as they talk. Appends when the field already has content
+  // (she may have typed meanwhile) so a tap never clobbers her own words.
+  function confirmDim() {
+    if (!dimSuggestion) return;
+    const key = dimSuggestion.dim as keyof Proposal;
+    const existing = prop[key].trim();
+    const value = existing ? `${existing}\n${dimSuggestion.value}` : dimSuggestion.value;
+    const next = { ...prop, [key]: value };
+    setProp(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    persistProposal(next);
+    setDimSuggestion(null);
   }
 
   async function onSend() {
@@ -293,6 +314,9 @@ export function PlanBlock({
           onAddLink={onAddLink}
           onReadTogether={onReadTogether}
           onDismissLink={() => setLinkOffer(null)}
+          dimSuggestion={dimSuggestion}
+          onConfirmDim={confirmDim}
+          onDismissDim={() => setDimSuggestion(null)}
         />
         {confirmRegen && (
           <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
@@ -358,6 +382,34 @@ function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
   );
 }
 
+const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
+  objective: "目标",
+  reason: "缘由",
+  activities: "活动",
+  resources: "资源",
+};
+
+// #13: the 克制 confirm chip — offers to record a kick-off dimension the student
+// just articulated (a faithful one-line summary of HER words) into the right-
+// side 开题四问 panel. Nothing is written until she taps 记进 (打开由学生确认).
+function DimConfirmChip({ suggestion, onConfirm, onDismiss }: { suggestion: DimSuggestionWire; onConfirm: () => void; onDismiss: () => void }) {
+  const label = DIM_LABEL[suggestion.dim];
+  return (
+    <div className="rounded-mk-lg border border-mk-green/40 bg-mk-green-tint/50 px-3.5 py-3 text-[13px] text-mk-ink">
+      <p className="font-semibold leading-snug text-mk-green">要不要把这点记进「{label}」？</p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{suggestion.value}</p>
+      <div className="mt-2.5 flex items-center gap-2">
+        <button type="button" onClick={onConfirm} className="rounded-full bg-mk-green px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
+          记进「{label}」
+        </button>
+        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">
+          跳过
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Phase A · forming ---------- */
 
 function FormingPhase(props: {
@@ -383,11 +435,15 @@ function FormingPhase(props: {
   onAddLink: () => void;
   onReadTogether: () => void;
   onDismissLink: () => void;
+  dimSuggestion: DimSuggestionWire | null;
+  onConfirmDim: () => void;
+  onDismissDim: () => void;
 }) {
   const {
     title, qualification, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
+    dimSuggestion, onConfirmDim, onDismissDim,
   } = props;
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
@@ -421,6 +477,9 @@ function FormingPhase(props: {
               onReadTogether={onReadTogether}
               onDismiss={onDismissLink}
             />
+          )}
+          {dimSuggestion && !sending && (
+            <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
           )}
           {showChips && !sending && (
             <div className="flex flex-wrap gap-2 pl-1">
