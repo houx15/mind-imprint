@@ -2,6 +2,8 @@
 
 Branch: `fix/studio-batch-2026-07-31`. Source: a 23-item studio feedback batch + 2 MVP hides from the product owner. Design forks resolved (see below). #23 deferred to its own brainstorm.
 
+**STATUS: all 6 slices committed; full suites green (contracts 306 · web full · Go internal/api 440s + studio/agent/gateway); whole-branch review CLEAN (no Critical/High/Medium — only 4 Low/no-action notes). Awaiting merge/deploy decision.** Deferred features (own passes): #23 writing-room redesign, #8 self-annotate, #9 sentence-select, #18 cards in forming/library, #13 right-bar-auto-fill.
+
 ## Design decisions (locked)
 - **#1 project creation** → capture the **assignment prompt** (multi-line) + a **project-type selector**. The refined research question emerges in forming.
 - **#4 writing language** → set **at creation** (中文 / English / 双语); coach adapts, export follows.

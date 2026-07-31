@@ -875,7 +875,8 @@ function PlanCard({ item, anchor, dragging, onEdit, onJump, onDragStart, onDragE
 
 function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; anchor: Date; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
   const days = Array.from({ length: TIMELINE_DAYS }, (_, i) => i);
-  // #14: today's column (−1 when outside the window) drives the today-line.
+  // #14: today's day-index from the anchor drives the today-line. When it
+  // falls outside [0, TIMELINE_DAYS) no column matches, so nothing highlights.
   const todayIdx = dayIndexFromAnchor(anchor, new Date());
   // Render every stage actually present on the board (a generated plan may use
   // stage names beyond the two canonical ones), keeping board order.
