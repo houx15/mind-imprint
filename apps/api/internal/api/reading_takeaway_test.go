@@ -267,6 +267,73 @@ func TestFinalizeReading_PersistsAndSupersedesNoSpend(t *testing.T) {
 	}
 }
 
+// TestFinalizeReading_EmptyRecordEmitsNonNullSlices — the regression pin for
+// the reading-room crash cluster (#10/#11/#16/#21): finalizing WITHOUT any
+// completed reading card (the common case — she just types leads/impact) left
+// findings/keyQuotes nil, which marshalled to JSON null and broke the client's
+// z.array contract on the response AND on every later whole-library parse. The
+// finalize 200 must carry [] (never null) for every takeaway slice.
+func TestFinalizeReading_EmptyRecordEmitsNonNullSlices(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: readingStubProvider(`{"new_leads":[],"proposal_impact":""}`), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	ctx := context.Background()
+	projectID := uuid.MustParse(seedProjectID)
+	matID := ingestMaterialForTest(t, h, cookie, seedProjectID, "NASA 报告", craapMaterialText)
+	ref, err := q.CreateReference(ctx, sqlc.CreateReferenceParams{
+		ProjectID: projectID, Title: "NASA 报告", Tags: []byte("[]"), SearchHints: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("CreateReference: %v", err)
+	}
+	if _, err := q.SetReferenceMaterial(ctx, sqlc.SetReferenceMaterialParams{
+		ID: ref.ID, ProjectID: projectID,
+		MaterialID: pgtype.UUID{Bytes: uuid.MustParse(matID), Valid: true},
+	}); err != nil {
+		t.Fatalf("link reference to material: %v", err)
+	}
+	// No card instances — the record is empty. This is exactly the case that
+	// used to serialize findings/keyQuotes as null.
+
+	url := "/api/v1/projects/" + seedProjectID + "/references/" + ref.ID.String() + "/finalize-reading"
+	rr := doJSON(t, h, cookie, http.MethodPost, url, `{"new_leads":["人均口径"],"proposal_impact":"让步段反例"}`)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("finalize (empty record) = %d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	// The precise crash trigger — no slice may serialize as null.
+	for _, bad := range []string{`"findings":null`, `"keyQuotes":null`, `"newLeads":null`} {
+		if strings.Contains(body, bad) {
+			t.Fatalf("takeaway serialized a null slice %q — breaks the client z.array contract: %s", bad, body)
+		}
+	}
+	// And the response must parse into empty (non-nil) slices + the typed impact.
+	var out struct {
+		Reference struct {
+			Takeaway struct {
+				Findings       []string `json:"findings"`
+				KeyQuotes      []any    `json:"keyQuotes"`
+				NewLeads       []string `json:"newLeads"`
+				ProposalImpact string   `json:"proposalImpact"`
+			} `json:"takeaway"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode finalize response: %v — %s", err, body)
+	}
+	if out.Reference.Takeaway.Findings == nil || out.Reference.Takeaway.KeyQuotes == nil {
+		t.Fatalf("findings/keyQuotes must be [] not null: %s", body)
+	}
+	if out.Reference.Takeaway.ProposalImpact != "让步段反例" {
+		t.Fatalf("proposalImpact = %q, want 让步段反例", out.Reference.Takeaway.ProposalImpact)
+	}
+}
+
 // TestGetTakeawayDraft_EmptyRecordNoSpend — the regression pin for the
 // phantom-metering bug: a reference linked to a material with ZERO completed
 // reading cards (readingOutcomesByMaterial returns an empty record) must

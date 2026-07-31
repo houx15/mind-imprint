@@ -181,6 +181,9 @@ export function ReadingRoom({
         proposalImpact: finalizeImpact.trim(),
       });
       setFinalizeDone(true);
+      // #11: briefly show the ✓, then close the modal so she lands back on the
+      // reading conversation instead of having to hunt for a 关闭 button.
+      window.setTimeout(() => setFinalizeOpen(false), 900);
     } catch {
       // keep the panel open so she can retry — never silently discard her edits
     } finally {

@@ -16,6 +16,7 @@ import {
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
+import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
@@ -311,6 +312,7 @@ export function ReadingBlock({
           projectId={projectId}
           defaultOpen
           opener="你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。"
+          onLibraryChanged={reload}
         />
         {modal}
       </div>
@@ -375,7 +377,7 @@ export function ReadingBlock({
         )}
       </div>
 
-      <FloatingCoach projectId={projectId} />
+      <FloatingCoach projectId={projectId} onLibraryChanged={reload} />
 
       {modal}
     </div>
@@ -1099,13 +1101,29 @@ function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
 
 /* ---------- floating coach ---------- */
 
-function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: string; defaultOpen?: boolean; opener?: string }) {
+function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChanged }: { projectId: string; defaultOpen?: boolean; opener?: string; onLibraryChanged?: () => void }) {
   const [open, setOpen] = useState(defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "ai", text: opener ?? "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  // #19: a URL the student drops in the find-资料 coach surfaces as a link-bridge
+  // offer (克制 chip) so she can add it to the library right here — previously
+  // this coach dropped the linkOffer, so pasting a link never added the paper.
+  const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
+
+  async function addOfferedLink() {
+    if (!linkOffer) return;
+    setLinkOffer({ ...linkOffer, status: "adding" });
+    try {
+      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url });
+      setLinkOffer((o) => (o ? { ...o, status: "added" } : o));
+      onLibraryChanged?.();
+    } catch {
+      setLinkOffer((o) => (o ? { ...o, status: "idle" } : o)); // let her retry
+    }
+  }
 
   // S1 · one continuous session: load this room's slice of the project thread
   // once on open, appended after the greeting. Empty → greeting only.
@@ -1128,10 +1146,12 @@ function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: 
     if (!text || busy) return;
     setChat((c) => [...c, { role: "student", text }]);
     setDraft("");
+    setLinkOffer(null);
     setBusy(true);
     try {
-      const { reply } = await coach(projectId, "find_sources", text);
+      const { reply, linkOffer: offer } = await coach(projectId, "find_sources", text);
       setChat((c) => [...c, { role: "ai", text: reply }]);
+      if (offer) setLinkOffer({ url: offer.url, status: "idle" });
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
     } finally {
@@ -1160,6 +1180,15 @@ function FloatingCoach({ projectId, defaultOpen = false, opener }: { projectId: 
               <div className="flex justify-start">
                 <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted-2">印记在想……</div>
               </div>
+            )}
+            {linkOffer && (
+              <CoachLinkOffer
+                url={linkOffer.url}
+                status={linkOffer.status}
+                onAdd={() => void addOfferedLink()}
+                onReadTogether={() => void addOfferedLink()}
+                onDismiss={() => setLinkOffer(null)}
+              />
             )}
           </div>
           <div className="flex items-end gap-2 border-t border-mk-border p-2.5">

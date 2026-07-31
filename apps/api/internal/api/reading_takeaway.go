@@ -128,6 +128,16 @@ func nonNilStrings(ss []string) []string {
 	return ss
 }
 
+// nonNilKeyQuotes mirrors nonNilStrings for the takeaway's keyQuotes: a nil
+// slice marshals to JSON null, which the client contract (z.array) rejects —
+// blanking not just this finalize's 200 but every later whole-library parse.
+func nonNilKeyQuotes(qs []agent.KeyQuote) []agent.KeyQuote {
+	if qs == nil {
+		return []agent.KeyQuote{}
+	}
+	return qs
+}
+
 // getTakeawayDraft is the "AI drafts, student confirms" step of the reading
 // takeaway's split-hybrid: assembles the record half deterministically
 // (readingOutcomesByMaterial, never re-guessed) and runs ONE isolated
@@ -241,8 +251,12 @@ func (a *API) postFinalizeReading(w http.ResponseWriter, r *http.Request) {
 	}
 	materialID := uuid.UUID(ref.MaterialID.Bytes)
 	record := a.readingOutcomesByMaterial(r, projectID, materialID)
+	// Every slice must be non-nil: a finalize with no completed reading card
+	// (the common case — she just typed leads/impact) leaves record.Findings /
+	// record.KeyQuotes nil, which marshal to JSON null and break the client's
+	// z.array contract on the response AND on every later getLibrary parse.
 	takeaway := agent.ReadingTakeaway{
-		Findings: record.Findings, Credibility: record.Credibility, KeyQuotes: record.KeyQuotes,
+		Findings: nonNilStrings(record.Findings), Credibility: record.Credibility, KeyQuotes: nonNilKeyQuotes(record.KeyQuotes),
 		NewLeads: nonNilStrings(body.NewLeads), ProposalImpact: strings.TrimSpace(body.ProposalImpact),
 	}
 	raw, merr := json.Marshal(takeaway)

@@ -227,9 +227,18 @@ export async function generatePlan(id: string): Promise<PlanItem[]> {
 export async function getLibrary(id: string): Promise<{ collections: Collection[]; references: Reference[] }> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/library`);
   const obj = raw as { collections: unknown; references: unknown };
+  // Parse references PER ROW so a single malformed reference (e.g. a legacy
+  // takeaway with a null slice) can't throw and blank the entire library.
+  const rawRefs = Array.isArray(obj.references) ? obj.references : [];
+  const references: Reference[] = [];
+  for (const r of rawRefs) {
+    const parsed = Reference.safeParse(r);
+    if (parsed.success) references.push(parsed.data);
+    else console.warn("getLibrary: skipping unparseable reference", parsed.error);
+  }
   return {
     collections: z.array(Collection).parse(obj.collections),
-    references: z.array(Reference).parse(obj.references),
+    references,
   };
 }
 

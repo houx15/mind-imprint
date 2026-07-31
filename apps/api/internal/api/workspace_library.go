@@ -99,6 +99,18 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 	if row.TakeawayFinalizedAt.Valid && len(row.Takeaway) > 0 {
 		var tk agent.ReadingTakeaway
 		if json.Unmarshal(row.Takeaway, &tk) == nil {
+			// Heal rows finalized before the non-nil fix: a stored null slice
+			// unmarshals to nil and re-marshals to null, which the client
+			// z.array contract rejects — one bad row blanks the whole library.
+			if tk.Findings == nil {
+				tk.Findings = []string{}
+			}
+			if tk.KeyQuotes == nil {
+				tk.KeyQuotes = []agent.KeyQuote{}
+			}
+			if tk.NewLeads == nil {
+				tk.NewLeads = []string{}
+			}
 			takeaway = &tk
 		}
 	}

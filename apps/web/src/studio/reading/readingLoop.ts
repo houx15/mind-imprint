@@ -278,9 +278,12 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
     async (span: CreatedSpan) => {
       if (!cardInstanceId || !cardId) return;
       // Guardrail: the example sentence itself is not a valid pick — she must
-      // choose a DIFFERENT sentence. Clicking now selects a whole block, so the
-      // guard is block-level: a pick in the example's own block is ignored.
-      if (exampleAnchor && span.blockId === exampleAnchor.block_id) {
+      // choose a DIFFERENT sentence. Clicking selects a whole block, so this is
+      // block-level. BUT only reject when she actually has another block to
+      // pick: on a single-block article (an abstract-only source, where the AI
+      // example sits in the only block) rejecting every pick froze the room
+      // (#20). There, allow the pick so she can proceed.
+      if (exampleAnchor && span.blockId === exampleAnchor.block_id && source.blocks.length > 1) {
         return;
       }
       setStudentSpan(span);
@@ -298,7 +301,7 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
       setEvalResult(result);
       setStatus("feedback");
     },
-    [api, projectId, cardInstanceId, cardId, exampleAnchor],
+    [api, projectId, cardInstanceId, cardId, exampleAnchor, source],
   );
 
   const confirm = useCallback(async () => {
