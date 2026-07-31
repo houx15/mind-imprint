@@ -143,10 +143,20 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
-	// S4 · cross-phase card proposing (克制 summon rung). The coach may OFFER a
-	// student card mid-conversation; opening is the student's tap. Best-effort,
-	// gated + metered inside; nil on the respond/hint rungs.
-	proposal := a.coachCardProposal(r.Context(), projectID, scope, userInput, resolved)
+	// #13 · forming confirm-chip: on 立题, if the student just articulated a
+	// still-empty kick-off dimension, offer to record it (she confirms with a
+	// tap — the AI never writes her proposal). Gated + metered inside; nil off
+	// the forming surfaces or when nothing was articulated.
+	dimSuggestion := a.formingDimProposal(r.Context(), projectID, scope, userInput, resolved)
+
+	// S4 / #18 · cross-phase card proposing (克制 summon rung). The coach may
+	// OFFER a thinking-card mid-conversation (forming / 文献库 / 写作); opening is
+	// the student's tap. Mutually exclusive with the dim-chip so a single turn
+	// never shows two offers — the dim-chip wins on 立题.
+	var proposal *agent.CardProposal
+	if dimSuggestion == nil {
+		proposal = a.coachCardProposal(r.Context(), projectID, scope, userInput, resolved)
+	}
 	if proposal != nil {
 		if err := store.AppendEvent(r.Context(), agent.EventRow{
 			ProjectID: projectID, Surface: "studio", Type: "coach_proposed",
@@ -155,12 +165,6 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("coach: append coach_proposed event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
-
-	// #13 · forming confirm-chip: on 立题, if the student just articulated a
-	// still-empty kick-off dimension, offer to record it (she confirms with a
-	// tap — the AI never writes her proposal). Gated + metered inside; nil off
-	// the forming surfaces or when nothing was articulated.
-	dimSuggestion := a.formingDimProposal(r.Context(), projectID, scope, userInput, resolved)
 
 	// S4 · size-threshold compaction backstop: if the active window still
 	// overflows after fold-on-solidify, fold the oldest turns into the rolling

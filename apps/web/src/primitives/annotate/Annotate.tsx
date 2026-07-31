@@ -176,6 +176,9 @@ export function Annotate({
                         // AI's underlined example — picks the SENTENCE under the
                         // cursor, so the mark must NOT swallow it.
                         if (selectMode) {
+                          // Stop the click from ALSO bubbling to the <p> onClick,
+                          // which would fire pickSentence twice (two evaluate spends).
+                          e.stopPropagation();
                           pickSentence(block, e.clientX, e.clientY);
                           return;
                         }

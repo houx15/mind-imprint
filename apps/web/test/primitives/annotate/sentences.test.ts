@@ -42,6 +42,11 @@ describe("segmentSentences", () => {
     expect(segs[0]!.text).toBe("他说「这不可持续」。");
     expect(segs[1]!.text).toBe("然后走了。");
   });
+
+  it("splits an English sentence ending in a closing quote (.\")", () => {
+    const segs = segmentSentences(`He said "go home." Then he left.`);
+    expect(segs.map((s) => s.text)).toEqual([`He said "go home."`, "Then he left."]);
+  });
 });
 
 describe("sentenceAtOffset", () => {

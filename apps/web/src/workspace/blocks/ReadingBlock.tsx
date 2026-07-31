@@ -17,6 +17,8 @@ import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
+import { CoachCardPanel } from "./CoachCardPanel";
+import type { CardProposalWire } from "../api/workspace";
 
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
@@ -1109,6 +1111,8 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  // #18: the coach's thinking-card offer in 文献库 (克制 chip); opening is a tap.
+  const [cardProposal, setCardProposal] = useState<CardProposalWire | null>(null);
   // #19: a URL the student drops in the find-资料 coach surfaces as a link-bridge
   // offer (克制 chip) so she can add it to the library right here — previously
   // this coach dropped the linkOffer, so pasting a link never added the paper.
@@ -1148,11 +1152,13 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
     setChat((c) => [...c, { role: "student", text }]);
     setDraft("");
     setLinkOffer(null);
+    setCardProposal(null);
     setBusy(true);
     try {
-      const { reply, linkOffer: offer } = await coach(projectId, "find_sources", text);
+      const { reply, linkOffer: offer, proposal: card } = await coach(projectId, "find_sources", text);
       setChat((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
+      if (card) setCardProposal(card);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
     } finally {
@@ -1189,6 +1195,14 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
                 onAdd={() => void addOfferedLink()}
                 onReadTogether={() => void addOfferedLink()}
                 onDismiss={() => setLinkOffer(null)}
+              />
+            )}
+            {!busy && (
+              <CoachCardPanel
+                projectId={projectId}
+                proposal={cardProposal}
+                onProposalConsumed={() => setCardProposal(null)}
+                onLogged={(t) => setChat((c) => [...c, { role: "ai", text: t }])}
               />
             )}
           </div>

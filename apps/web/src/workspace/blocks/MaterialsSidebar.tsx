@@ -39,7 +39,14 @@ export function MaterialsSidebar({ projectId, onInsert }: { projectId: string; o
   }
   function onHeaderPointerMove(e: React.PointerEvent) {
     if (!drag.current) return;
-    setPos({ x: Math.max(0, e.clientX - drag.current.dx), y: Math.max(0, e.clientY - drag.current.dy) });
+    // Clamp so the panel can never be dragged fully off-screen and lost (its
+    // header — and the close button — must stay reachable).
+    const maxX = Math.max(0, window.innerWidth - 120);
+    const maxY = Math.max(0, window.innerHeight - 80);
+    setPos({
+      x: Math.min(maxX, Math.max(0, e.clientX - drag.current.dx)),
+      y: Math.min(maxY, Math.max(0, e.clientY - drag.current.dy)),
+    });
   }
   function onHeaderPointerUp(e: React.PointerEvent) {
     drag.current = null;

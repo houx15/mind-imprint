@@ -154,12 +154,11 @@ function useSnippets(projectId: string): SnippetsHandle {
 
   async function save(rows: Snip[]) {
     try {
-      const server = await putSnippets(projectId, rows.map((s) => ({ text: s.text })));
-      if (ref.current.length === server.length) {
-        const next = ref.current.map((s, i) => ({ ...s, id: server[i]!.id }));
-        ref.current = next;
-        setSnippets(next);
-      }
+      // Whole-set replace ignores incoming ids (the server mints fresh ones), so
+      // the client id is purely a local React key — keep it STABLE across saves.
+      // Adopting the server id here would change the key and remount the
+      // textarea mid-edit, dropping focus/caret (review MEDIUM). So don't swap.
+      await putSnippets(projectId, rows.map((s) => ({ text: s.text })));
     } catch {
       /* keep local; the next debounced save retries */
     }

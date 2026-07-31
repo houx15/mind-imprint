@@ -25,7 +25,9 @@ import {
   createReference,
   type PlanItemPatch,
   type DimSuggestionWire,
+  type CardProposalWire,
 } from "../api/workspace";
+import { CoachCardPanel } from "./CoachCardPanel";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
@@ -103,6 +105,9 @@ export function PlanBlock({
   // #13: the coach's offer to record a kick-off dimension the student just
   // articulated — she confirms with a tap (the AI never writes it on its own).
   const [dimSuggestion, setDimSuggestion] = useState<DimSuggestionWire | null>(null);
+  // #18: the coach's cross-phase thinking-card offer (克制 chip); opening is the
+  // student's tap. Mutually exclusive with dimSuggestion server-side.
+  const [cardProposal, setCardProposal] = useState<CardProposalWire | null>(null);
   // Link-bridge offer for the most recent coach turn (克制 chip under the reply).
   const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
 
@@ -188,12 +193,14 @@ export function PlanBlock({
     setChat((c) => [...c, { role: "student", text: studentEcho }]);
     setLinkOffer(null);
     setDimSuggestion(null);
+    setCardProposal(null);
     setSending(true);
     try {
-      const { reply, linkOffer: offer, dimSuggestion: dim } = await coach(projectId, scope, userInput);
+      const { reply, linkOffer: offer, dimSuggestion: dim, proposal: card } = await coach(projectId, scope, userInput);
       setChat((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
       if (dim) setDimSuggestion(dim);
+      if (card) setCardProposal(card);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
@@ -317,6 +324,10 @@ export function PlanBlock({
           dimSuggestion={dimSuggestion}
           onConfirmDim={confirmDim}
           onDismissDim={() => setDimSuggestion(null)}
+          projectId={projectId}
+          cardProposal={cardProposal}
+          onCardConsumed={() => setCardProposal(null)}
+          onCardLogged={(t) => setChat((c) => [...c, { role: "ai", text: t }])}
         />
         {confirmRegen && (
           <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
@@ -438,12 +449,17 @@ function FormingPhase(props: {
   dimSuggestion: DimSuggestionWire | null;
   onConfirmDim: () => void;
   onDismissDim: () => void;
+  projectId: string;
+  cardProposal: CardProposalWire | null;
+  onCardConsumed: () => void;
+  onCardLogged: (text: string) => void;
 }) {
   const {
     title, qualification, proposal, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
     dimSuggestion, onConfirmDim, onDismissDim,
+    projectId, cardProposal, onCardConsumed, onCardLogged,
   } = props;
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
@@ -480,6 +496,9 @@ function FormingPhase(props: {
           )}
           {dimSuggestion && !sending && (
             <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
+          )}
+          {!sending && (
+            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onLogged={onCardLogged} />
           )}
           {showChips && !sending && (
             <div className="flex flex-wrap gap-2 pl-1">

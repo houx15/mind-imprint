@@ -63,8 +63,16 @@ type coachProposalDTO struct {
 // writing-only; forming/proposal_review/reflection can be added the moment their
 // rooms render CoachProposal + wire persist. The classifier's vocabulary
 // (fact-opinion-value / certainty-spectrum / steelman) is writing-native anyway.
+// #18: forming, proposal_review and 文献库(find_sources) join writing — the
+// coach may offer a thinking-card in those rooms too. The gate MUST stay equal
+// to the set of surfaces whose CLIENT renders the CoachProposal chip (PlanBlock
+// forming + ReadingBlock library + WritingBlock), else the server would spend a
+// classify call + record a coach_proposed event for an offer no student sees.
 var coachProposeSurfaces = map[string]bool{
-	"writing": true,
+	"writing":         true,
+	"forming":         true,
+	"proposal_review": true,
+	"find_sources":    true,
 }
 
 // coachCardProposal decides whether to OFFER a student card on this coach turn.
