@@ -59,7 +59,7 @@ export interface ApiClient {
   renderCourseStep(courseId: string, ordinal: number): Promise<RenderedStep>;
   listProjects(): Promise<ProjectListItem[]>;
   finishProject(id: string): Promise<{ status: ProjectStatus }>;
-  createProject(body: { title?: string; prompt: string }): Promise<{ id: string }>;
+  createProject(body: { title?: string; prompt: string; projectType?: string; writingLanguage?: "en" | "zh" | "bilingual" }): Promise<{ id: string }>;
   submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
   submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void>;
   submitReflection(projectId: string, body: { text: string }): Promise<void>;

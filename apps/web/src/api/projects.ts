@@ -23,7 +23,12 @@ export async function finishProject(id: string): Promise<{ status: ProjectStatus
   return { status: ProjectStatus.parse(raw.status) };
 }
 
-export async function createProject(body: { title?: string; prompt: string }): Promise<{ id: string }> {
+export async function createProject(body: {
+  title?: string;
+  prompt: string;
+  projectType?: string;
+  writingLanguage?: "en" | "zh" | "bilingual";
+}): Promise<{ id: string }> {
   const raw = await apiFetch<unknown>(`/api/v1/projects`, { method: "POST", body: JSON.stringify(body) });
   return CreateProjectResult.parse(raw);
 }

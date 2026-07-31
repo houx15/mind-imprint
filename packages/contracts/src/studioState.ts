@@ -345,9 +345,19 @@ export const StudioProjection = z.object({
 });
 export type StudioProjection = z.infer<typeof StudioProjection>;
 
+// The essay's target writing language, chosen at creation (#4). The coach is
+// told this and the export follows it; students on the international track
+// ultimately write in English, so that is the default.
+export const WritingLanguage = z.enum(["en", "zh", "bilingual"]);
+export type WritingLanguage = z.infer<typeof WritingLanguage>;
+
 export const CreateProjectBody = z.object({
   title: z.string().optional(),
   prompt: z.string().min(1),
+  // projectType is a display label (拓展论文 EE / TOK 论文 / …) shown as the
+  // project pill; it does not change which onboarding fixture loads.
+  projectType: z.string().optional(),
+  writingLanguage: WritingLanguage.optional(),
 });
 export type CreateProjectBody = z.infer<typeof CreateProjectBody>;
 

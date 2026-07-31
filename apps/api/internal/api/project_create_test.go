@@ -143,6 +143,93 @@ func TestCreateProject_MintsResearchQuestion(t *testing.T) {
 	}
 }
 
+// #1 + #4: the creation selector's project type is stored as the display
+// qualification (not the fixture code), and the chosen writing language is
+// persisted as a writing_language graph node.
+func TestCreateProject_StoresTypeAndWritingLanguage(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body := strings.NewReader(`{"title":"我的论文","prompt":"讨论语境与理解","projectType":"TOK 论文","writingLanguage":"en"}`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /projects = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" {
+		t.Fatalf("decode id: %v — body=%s", err, rec.Body)
+	}
+	pid := uuid.MustParse(out.ID)
+
+	var qual string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT qualification FROM project WHERE id=$1`, pid).Scan(&qual); err != nil {
+		t.Fatalf("project row missing: %v", err)
+	}
+	if qual != "TOK 论文" {
+		t.Errorf("qualification = %q, want the selected type 'TOK 论文'", qual)
+	}
+
+	var wlBody []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT body FROM graph_node WHERE project_id=$1 AND type='writing_language'`, pid).Scan(&wlBody); err != nil {
+		t.Fatalf("writing_language node missing: %v", err)
+	}
+	var wl struct {
+		Lang string `json:"lang"`
+	}
+	if err := json.Unmarshal(wlBody, &wl); err != nil || wl.Lang != "en" {
+		t.Fatalf("writing_language node lang = %q (err %v), want en", wl.Lang, err)
+	}
+}
+
+// An absent projectType keeps the back-compat "0457" qualification, and an
+// unknown writing language falls back to en.
+func TestCreateProject_DefaultsWhenTypeAndLangAbsent(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body := strings.NewReader(`{"title":"我的论文","prompt":"讨论语境与理解","writingLanguage":"martian"}`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /projects = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	pid := uuid.MustParse(out.ID)
+
+	var qual string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT qualification FROM project WHERE id=$1`, pid).Scan(&qual); err != nil {
+		t.Fatalf("project row missing: %v", err)
+	}
+	if qual != "0457" {
+		t.Errorf("qualification = %q, want 0457 fallback", qual)
+	}
+	var wlBody []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT body FROM graph_node WHERE project_id=$1 AND type='writing_language'`, pid).Scan(&wlBody); err != nil {
+		t.Fatalf("writing_language node missing: %v", err)
+	}
+	if !strings.Contains(string(wlBody), `"en"`) {
+		t.Errorf("writing_language body = %s, want en fallback", wlBody)
+	}
+}
+
 func TestCreateProject_EmptyPromptRejected(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()

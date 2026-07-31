@@ -32,8 +32,10 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Title  string `json:"title"`
-		Prompt string `json:"prompt"`
+		Title           string `json:"title"`
+		Prompt          string `json:"prompt"`
+		ProjectType     string `json:"projectType"`
+		WritingLanguage string `json:"writingLanguage"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
@@ -49,10 +51,32 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		title = "未命名论文"
 	}
 
-	const qualification = "0457"
-	fx, ok := onboarding.Load(qualification)
+	// projectType (#1) is a DISPLAY label chosen from the creation selector; it
+	// is stored in project.qualification (which is display-only everywhere — the
+	// pill, the coach header, the projection) and defaults to "0457" for back-
+	// compat with callers that don't send one. It does NOT choose the onboarding
+	// fixture: only the 0457 board exists, so the fixture code stays fixed.
+	qualification := strings.TrimSpace(req.ProjectType)
+	if qualification == "" {
+		qualification = "0457"
+	}
+	if len([]rune(qualification)) > 40 {
+		qualification = string([]rune(qualification)[:40])
+	}
+	// writingLanguage (#4) — the essay's target language, persisted as a graph
+	// node so the coach can be told it and the export can follow it. Whitelisted;
+	// students on the international track ultimately write in English.
+	writingLang := strings.TrimSpace(req.WritingLanguage)
+	switch writingLang {
+	case "en", "zh", "bilingual":
+	default:
+		writingLang = "en"
+	}
+
+	const fixtureCode = "0457"
+	fx, ok := onboarding.Load(fixtureCode)
 	if !ok {
-		httpx.WriteError(w, r, errors.New("onboarding fixture missing for qualification "+qualification))
+		httpx.WriteError(w, r, errors.New("onboarding fixture missing for qualification "+fixtureCode))
 		return
 	}
 	rubricBody, _ := json.Marshal(map[string]any{"restate_prompt": fx.RestatePrompt, "rows": fx.Rows})
@@ -62,6 +86,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	// author "student" because she wrote it. S1's banner renders it read-only
 	// (dc.html:878–884) and frame_question's node_present item reads it.
 	rqBody, _ := json.Marshal(map[string]any{"text": title})
+	wlBody, _ := json.Marshal(map[string]any{"lang": writingLang})
 
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
@@ -87,6 +112,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		{"rubric_translation", "ai", rubricBody},
 		{"milestone_plan", "ai", planBody},
 		{"research_question", "student", rqBody},
+		{"writing_language", "student", wlBody},
 	} {
 		if _, err := qtx.InsertGraphNode(r.Context(), sqlc.InsertGraphNodeParams{
 			ProjectID: proj.ID, Type: n.typ, Body: n.body, Author: n.author, SpanRef: nil,
