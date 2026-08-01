@@ -155,15 +155,27 @@ func (a *API) getDraft(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"content": content})
 }
 
-// snippetDTO is the wire shape for a 片段 (id/text/position, camelCase).
+// snippetDTO is the wire shape for a 片段 (id/text/position/section, camelCase).
+// section is the outline heading / 线索 label the snippet is filed under, or null
+// (未归类) — #5.
 type snippetDTO struct {
-	ID       string `json:"id"`
-	Text     string `json:"text"`
-	Position int32  `json:"position"`
+	ID       string  `json:"id"`
+	Text     string  `json:"text"`
+	Position int32   `json:"position"`
+	Section  *string `json:"section"`
 }
 
 func toSnippetDTO(row sqlc.Snippet) snippetDTO {
-	return snippetDTO{ID: row.ID.String(), Text: row.Text, Position: row.Position}
+	return snippetDTO{ID: row.ID.String(), Text: row.Text, Position: row.Position, Section: row.Section}
+}
+
+// normalizeSection collapses an empty/whitespace label to NULL (未归类) so a
+// snippet is never filed under a blank category.
+func normalizeSection(s *string) *string {
+	if s == nil || strings.TrimSpace(*s) == "" {
+		return nil
+	}
+	return s
 }
 
 // listSnippets returns the project's snippets ordered by position.
@@ -194,7 +206,8 @@ func (a *API) putSnippets(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Snippets []struct {
-			Text string `json:"text"`
+			Text    string  `json:"text"`
+			Section *string `json:"section"`
 		} `json:"snippets"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
@@ -214,7 +227,7 @@ func (a *API) putSnippets(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, s := range body.Snippets {
 		if _, err := qtx.CreateSnippet(r.Context(), sqlc.CreateSnippetParams{
-			ProjectID: projectID, Text: s.Text, Position: int32(i),
+			ProjectID: projectID, Text: s.Text, Position: int32(i), Section: normalizeSection(s.Section),
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return

@@ -192,8 +192,8 @@ ORDER BY position, created_at;
 DELETE FROM snippet WHERE project_id = $1;
 
 -- name: CreateSnippet :one
-INSERT INTO snippet (project_id, text, position)
-VALUES ($1, $2, $3)
+INSERT INTO snippet (project_id, text, position, section)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- Review · the five-dimension reflection doc (answers jsonb string array). ----

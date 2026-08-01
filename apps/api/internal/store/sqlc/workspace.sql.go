@@ -295,19 +295,20 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 }
 
 const createSnippet = `-- name: CreateSnippet :one
-INSERT INTO snippet (project_id, text, position)
-VALUES ($1, $2, $3)
-RETURNING id, project_id, text, position, created_at
+INSERT INTO snippet (project_id, text, position, section)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, text, position, created_at, section
 `
 
 type CreateSnippetParams struct {
 	ProjectID uuid.UUID `json:"project_id"`
 	Text      string    `json:"text"`
 	Position  int32     `json:"position"`
+	Section   *string   `json:"section"`
 }
 
 func (q *Queries) CreateSnippet(ctx context.Context, arg CreateSnippetParams) (Snippet, error) {
-	row := q.db.QueryRow(ctx, createSnippet, arg.ProjectID, arg.Text, arg.Position)
+	row := q.db.QueryRow(ctx, createSnippet, arg.ProjectID, arg.Text, arg.Position, arg.Section)
 	var i Snippet
 	err := row.Scan(
 		&i.ID,
@@ -315,6 +316,7 @@ func (q *Queries) CreateSnippet(ctx context.Context, arg CreateSnippetParams) (S
 		&i.Text,
 		&i.Position,
 		&i.CreatedAt,
+		&i.Section,
 	)
 	return i, err
 }
@@ -1007,7 +1009,7 @@ func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Re
 
 const listSnippets = `-- name: ListSnippets :many
 
-SELECT id, project_id, text, position, created_at FROM snippet
+SELECT id, project_id, text, position, created_at, section FROM snippet
 WHERE project_id = $1
 ORDER BY position, created_at
 `
@@ -1028,6 +1030,7 @@ func (q *Queries) ListSnippets(ctx context.Context, projectID uuid.UUID) ([]Snip
 			&i.Text,
 			&i.Position,
 			&i.CreatedAt,
+			&i.Section,
 		); err != nil {
 			return nil, err
 		}

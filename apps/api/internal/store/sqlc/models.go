@@ -488,6 +488,7 @@ type Snippet struct {
 	Text      string    `json:"text"`
 	Position  int32     `json:"position"`
 	CreatedAt time.Time `json:"created_at"`
+	Section   *string   `json:"section"`
 }
 
 type SourceLogEntry struct {

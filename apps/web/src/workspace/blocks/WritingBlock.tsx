@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
+import { getExploration } from "../../api/exploration";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
@@ -137,7 +138,7 @@ export function WritingBlock({
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} />
+          <SnippetsPane snip={snip} projectId={projectId} />
         ) : (
           <DraftPane
             projectId={projectId}
@@ -196,16 +197,18 @@ export function WritingBlock({
 
 /* ---------- #23 · snippets (片段) ---------- */
 
-export type Snip = { id: string; text: string };
+export type Snip = { id: string; text: string; section: string | null };
 
 // useSnippets owns the 片段 board's load + debounced whole-set save (mirrors
 // OutlinePane's persistence), lifted so both SnippetsPane and the materials
-// sidebar mutate one source of truth.
+// sidebar mutate one source of truth. section (#5) files a snippet under an
+// outline heading / 线索 label (null = 未归类).
 export type SnippetsHandle = {
   snippets: Snip[];
-  add: (text: string) => void;
+  add: (text: string, section?: string | null) => void;
   update: (id: string, text: string) => void;
   remove: (id: string) => void;
+  setSection: (id: string, section: string | null) => void;
 };
 function useSnippets(projectId: string): SnippetsHandle {
   const [snippets, setSnippets] = useState<Snip[]>([]);
@@ -218,7 +221,7 @@ function useSnippets(projectId: string): SnippetsHandle {
       // the client id is purely a local React key — keep it STABLE across saves.
       // Adopting the server id here would change the key and remount the
       // textarea mid-edit, dropping focus/caret (review MEDIUM). So don't swap.
-      await putSnippets(projectId, rows.map((s) => ({ text: s.text })));
+      await putSnippets(projectId, rows.map((s) => ({ text: s.text, section: s.section })));
     } catch {
       /* keep local; the next debounced save retries */
     }
@@ -236,7 +239,7 @@ function useSnippets(projectId: string): SnippetsHandle {
       try {
         const loaded = await getSnippets(projectId);
         if (cancelled) return;
-        const rows = loaded.map((s) => ({ id: s.id, text: s.text }));
+        const rows = loaded.map((s) => ({ id: s.id, text: s.text, section: s.section }));
         ref.current = rows;
         setSnippets(rows);
       } catch {
@@ -261,45 +264,199 @@ function useSnippets(projectId: string): SnippetsHandle {
 
   return {
     snippets,
-    add: (text) => commit([...ref.current, { id: tempId(), text }]),
+    add: (text, section = null) => commit([...ref.current, { id: tempId(), text, section }]),
     update: (id, text) => commit(ref.current.map((s) => (s.id === id ? { ...s, text } : s))),
     remove: (id) => commit(ref.current.filter((s) => s.id !== id)),
+    setSection: (id, section) => commit(ref.current.map((s) => (s.id === id ? { ...s, section } : s))),
   };
 }
 
-function SnippetsPane({ snip }: { snip: SnippetsHandle }) {
+// UNFILED is the sentinel value for the 未归类 option in the 归到 <select>
+// (an empty option value maps to section=null).
+const UNFILED = "__unfiled__";
+const dedupe = (xs: string[]) => Array.from(new Set(xs));
+
+// #5 · the 片段 board, organized into foldable sections. A section is a top-level
+// outline heading or an open 线索 (both plain string labels); a snippet is filed
+// under one via drag (a ⠿ handle onto a section header) or the 归到 <select>.
+// The draft itself stays a plain textarea — this is organizing thinking material,
+// not a structured document editor (铁律②).
+function SnippetsPane({ snip, projectId }: { snip: SnippetsHandle; projectId: string }) {
+  // Section labels a snippet can be filed under: top-level outline headings + open 线索.
+  const [outlineHeads, setOutlineHeads] = useState<string[]>([]);
+  const [leadLabels, setLeadLabels] = useState<string[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropLabel, setDropLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const [outline, exploration] = await Promise.allSettled([getOutline(projectId), getExploration(projectId)]);
+      if (!alive) return;
+      if (outline.status === "fulfilled") setOutlineHeads(dedupe(outline.value.filter((n) => n.depth === 0 && n.text.trim()).map((n) => n.text.trim())));
+      if (exploration.status === "fulfilled") setLeadLabels(dedupe(exploration.value.leads.filter((l) => l.status !== "pruned" && l.text.trim()).map((l) => l.text.trim())));
+    })();
+    return () => { alive = false; };
+  }, [projectId]);
+
+  const knownLabels = useMemo(() => dedupe([...outlineHeads, ...leadLabels]), [outlineHeads, leadLabels]);
+
+  // Build ordered groups: outline headings, then leads, then any orphaned
+  // section label still present on a snippet (renamed/deleted — never vanish),
+  // then 未归类 last.
+  const { groups, unfiled } = useMemo(() => {
+    const bySection = new Map<string, Snip[]>();
+    const un: Snip[] = [];
+    for (const s of snip.snippets) {
+      if (s.section == null) un.push(s);
+      else { const arr = bySection.get(s.section) ?? []; arr.push(s); bySection.set(s.section, arr); }
+    }
+    const ordered: { label: string; kind: "outline" | "lead" | "orphan"; snips: Snip[] }[] = [];
+    for (const l of outlineHeads) ordered.push({ label: l, kind: "outline", snips: bySection.get(l) ?? [] });
+    for (const l of leadLabels) if (!outlineHeads.includes(l)) ordered.push({ label: l, kind: "lead", snips: bySection.get(l) ?? [] });
+    for (const [label, snips] of bySection) if (!knownLabels.includes(label)) ordered.push({ label, kind: "orphan", snips });
+    return { groups: ordered, unfiled: un };
+  }, [snip.snippets, outlineHeads, leadLabels, knownLabels]);
+
+  function dropOnto(label: string | null) {
+    if (dragId) snip.setSection(dragId, label);
+    setDragId(null);
+    setDropLabel(null);
+  }
+
   return (
     <div className="min-h-0 overflow-y-auto px-8 py-6">
       <div className="mx-auto max-w-2xl">
         <div className="mb-4">
           <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
-          <p className="mt-1 text-[13px] text-mk-muted">把要用的引文、笔记、灵光一现的句子先攒在这里——之后再搬进大纲或正文。从右侧「材料」也能一键收进来。</p>
+          <p className="mt-1 text-[13px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
         </div>
-        <div className="flex flex-col gap-3">
-          {snip.snippets.map((s) => (
-            <div key={s.id} className="group rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
-              <textarea
-                value={s.text}
-                onChange={(e) => snip.update(s.id, e.target.value)}
-                rows={3}
-                placeholder="写下或粘贴一个片段……"
-                className="w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
-              />
-              <div className="mt-1 flex justify-end">
+        <div className="flex flex-col gap-4">
+          {groups.map((g) => (
+            <SnippetSection
+              key={`${g.kind}:${g.label}`}
+              label={g.label}
+              kind={g.kind}
+              snips={g.snips}
+              collapsed={collapsed.has(g.label)}
+              isDropTarget={dropLabel === g.label}
+              sectionOptions={knownLabels}
+              onToggle={() => setCollapsed((c) => { const n = new Set(c); n.has(g.label) ? n.delete(g.label) : n.add(g.label); return n; })}
+              onAdd={() => snip.add("", g.label)}
+              onDragOverHead={() => setDropLabel(g.label)}
+              onDropHead={() => dropOnto(g.label)}
+              snip={snip}
+              onDragStart={setDragId}
+            />
+          ))}
+          {/* 未归类 — also the drop target for un-filing */}
+          <SnippetSection
+            label="未归类"
+            kind="unfiled"
+            snips={unfiled}
+            collapsed={collapsed.has(UNFILED)}
+            isDropTarget={dropLabel === UNFILED}
+            sectionOptions={knownLabels}
+            onToggle={() => setCollapsed((c) => { const n = new Set(c); n.has(UNFILED) ? n.delete(UNFILED) : n.add(UNFILED); return n; })}
+            onAdd={() => snip.add("", null)}
+            onDragOverHead={() => setDropLabel(UNFILED)}
+            onDropHead={() => dropOnto(null)}
+            snip={snip}
+            onDragStart={setDragId}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SnippetSection({
+  label, kind, snips, collapsed, isDropTarget, sectionOptions, onToggle, onAdd, onDragOverHead, onDropHead, snip, onDragStart,
+}: {
+  label: string;
+  kind: "outline" | "lead" | "orphan" | "unfiled";
+  snips: Snip[];
+  collapsed: boolean;
+  isDropTarget: boolean;
+  sectionOptions: string[];
+  onToggle: () => void;
+  onAdd: () => void;
+  onDragOverHead: () => void;
+  onDropHead: () => void;
+  snip: SnippetsHandle;
+  onDragStart: (id: string | null) => void;
+}) {
+  const tag = kind === "outline" ? "章节" : kind === "lead" ? "线索" : kind === "orphan" ? "旧标签" : "";
+  const tone = kind === "lead" ? "text-mk-green" : kind === "orphan" ? "text-mk-muted-2" : "text-mk-primary";
+  return (
+    <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-primary bg-mk-primary-tint/30" : "border-mk-border-2 bg-mk-bg/30"}`}>
+      <div
+        onDragOver={(e) => { e.preventDefault(); onDragOverHead(); }}
+        onDrop={(e) => { e.preventDefault(); onDropHead(); }}
+        className="flex items-center gap-2 px-3 py-2"
+      >
+        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className={`text-mk-muted-2 transition ${collapsed ? "" : "rotate-90"}`}>▸</span>
+          {tag && <span className={`flex-none rounded-full bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold ${tone}`}>{tag}</span>}
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-mk-ink">{label}</span>
+          <span className="flex-none text-[11.5px] font-semibold text-mk-muted-2">{snips.length}</span>
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="flex flex-col gap-2 px-3 pb-3">
+          {snips.map((s) => (
+            <div
+              key={s.id}
+              className="group rounded-mk border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]"
+            >
+              <div className="flex items-start gap-1.5">
+                <span
+                  draggable
+                  onDragStart={() => onDragStart(s.id)}
+                  onDragEnd={() => onDragStart(null)}
+                  title="拖到某个章节/线索下"
+                  className="mt-1 flex-none cursor-grab text-[13px] leading-none text-mk-muted-2 active:cursor-grabbing"
+                >
+                  ⠿
+                </span>
+                <textarea
+                  value={s.text}
+                  onChange={(e) => snip.update(s.id, e.target.value)}
+                  rows={2}
+                  placeholder="写下或粘贴一个片段……"
+                  className="min-h-0 w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-end gap-2">
+                <label className="flex items-center gap-1 text-[11px] text-mk-muted-2">
+                  归到
+                  <select
+                    value={s.section ?? UNFILED}
+                    onChange={(e) => snip.setSection(s.id, e.target.value === UNFILED ? null : e.target.value)}
+                    aria-label="把片段归到"
+                    className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                  >
+                    <option value={UNFILED}>未归类</option>
+                    {/* keep a stale/orphan section selectable so its value shows */}
+                    {s.section && !sectionOptions.includes(s.section) && <option value={s.section}>{s.section}</option>}
+                    {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </label>
                 <button type="button" onClick={() => snip.remove(s.id)} className="text-[12px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除</button>
               </div>
             </div>
           ))}
           <button
             type="button"
-            onClick={() => snip.add("")}
-            className="rounded-mk-lg border border-dashed border-mk-border py-3 text-[13px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
+            onClick={onAdd}
+            className="rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
           >
-            + 新片段
+            + 在此加片段
           </button>
         </div>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }
 

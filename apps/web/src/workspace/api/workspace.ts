@@ -355,7 +355,7 @@ export async function getSnippets(id: string): Promise<Snippet[]> {
 
 // PUT /snippets — replace the whole set; returns the fresh snippets (ids +
 // position assigned by the server). Mirrors putOutline's whole-set replace.
-export async function putSnippets(id: string, snippets: { text: string }[]): Promise<Snippet[]> {
+export async function putSnippets(id: string, snippets: { text: string; section?: string | null }[]): Promise<Snippet[]> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/snippets`, {
     method: "PUT",
     body: JSON.stringify({ snippets }),

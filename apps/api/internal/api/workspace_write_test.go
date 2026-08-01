@@ -76,9 +76,10 @@ func TestPutSnippets_RoundTripAndReplace(t *testing.T) {
 	base := "/api/v1/projects/" + pid + "/snippets"
 
 	putSnippets := func(body string) []struct {
-		ID       string `json:"id"`
-		Text     string `json:"text"`
-		Position int32  `json:"position"`
+		ID       string  `json:"id"`
+		Text     string  `json:"text"`
+		Position int32   `json:"position"`
+		Section  *string `json:"section"`
 	} {
 		t.Helper()
 		rec := httptest.NewRecorder()
@@ -88,9 +89,10 @@ func TestPutSnippets_RoundTripAndReplace(t *testing.T) {
 		}
 		var resp struct {
 			Snippets []struct {
-				ID       string `json:"id"`
-				Text     string `json:"text"`
-				Position int32  `json:"position"`
+				ID       string  `json:"id"`
+				Text     string  `json:"text"`
+				Position int32   `json:"position"`
+				Section  *string `json:"section"`
 			} `json:"snippets"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
@@ -99,9 +101,17 @@ func TestPutSnippets_RoundTripAndReplace(t *testing.T) {
 		return resp.Snippets
 	}
 
-	got := putSnippets(`{"snippets":[{"text":"碳排放全球第一（反例）"},{"text":"NASA 绿化数据"}]}`)
+	// #5 · section round-trips: a filed snippet keeps its label, an unfiled one
+	// (and one with a blank/whitespace label) comes back null.
+	got := putSnippets(`{"snippets":[{"text":"碳排放全球第一（反例）","section":"反例与让步"},{"text":"NASA 绿化数据","section":"  "}]}`)
 	if len(got) != 2 || got[0].Text != "碳排放全球第一（反例）" || got[0].Position != 0 || got[1].Position != 1 || got[0].ID == "" {
 		t.Fatalf("snippet round-trip wrong: %+v", got)
+	}
+	if got[0].Section == nil || *got[0].Section != "反例与让步" {
+		t.Fatalf("section not persisted: %+v", got[0].Section)
+	}
+	if got[1].Section != nil {
+		t.Fatalf("blank section should normalize to null: %+v", got[1].Section)
 	}
 
 	// A second PUT with fewer replaces the whole set (delete + re-insert).

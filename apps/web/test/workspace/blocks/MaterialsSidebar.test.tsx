@@ -83,7 +83,7 @@ describe("MaterialsSidebar", () => {
         projectId="p1"
         activeTab="draft"
         locked={false}
-        snippets={[{ id: "s1", text: "我攒的一个片段" }]}
+        snippets={[{ id: "s1", text: "我攒的一个片段", section: null }]}
         onAddSnippet={() => {}}
         onInsertToDraft={onInsertToDraft}
       />,

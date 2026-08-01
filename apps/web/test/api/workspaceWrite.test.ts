@@ -32,8 +32,8 @@ describe("getOutline", () => {
 });
 
 const SNIPPETS = [
-  { id: "s1", text: "碳排放全球第一（反例）", position: 0 },
-  { id: "s2", text: "NASA 绿化数据", position: 1 },
+  { id: "s1", text: "碳排放全球第一（反例）", position: 0, section: null },
+  { id: "s2", text: "NASA 绿化数据", position: 1, section: null },
 ];
 
 describe("getSnippets", () => {

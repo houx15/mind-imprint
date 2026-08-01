@@ -20,10 +20,11 @@ vi.mock("@/api/writing", () => ({
   putBuffer: vi.fn(async () => {}),
   runDraftReview: vi.fn(),
 }));
+vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
-import { coach, getLibrary } from "@/workspace/api/workspace";
+import { coach, getLibrary, getOutline, getSnippets, putSnippets } from "@/workspace/api/workspace";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
 
@@ -191,6 +192,23 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
       expect(turn).toContain("我的草稿第一段");
       expect(turn).toContain("这段够有力吗");
     });
+  });
+
+  it("files a snippet under an outline section via 归到, persisting the section (#5)", async () => {
+    vi.mocked(getOutline).mockResolvedValue([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
+    vi.mocked(getSnippets).mockResolvedValue([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    // the main 片段 tab (the sidebar also has a 片段 source tab) — the workspace tab comes first in DOM
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    const select = await screen.findByLabelText("把片段归到");
+    await userEvent.selectOptions(select, "背景与主张");
+    await waitFor(
+      () => {
+        const last = vi.mocked(putSnippets).mock.calls.at(-1);
+        expect(last?.[1]).toEqual([{ text: "我的片段", section: "背景与主张" }]);
+      },
+      { timeout: 2000 },
+    );
   });
 
   it("selection chip can run the chosen voice's 体检 on just that paragraph (#8)", async () => {

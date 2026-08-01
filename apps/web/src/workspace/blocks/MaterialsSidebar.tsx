@@ -32,7 +32,7 @@ export function MaterialsSidebar({
   projectId: string;
   activeTab: "outline" | "snippets" | "draft";
   locked: boolean;
-  snippets: { id: string; text: string }[];
+  snippets: { id: string; text: string; section: string | null }[];
   onAddSnippet: (text: string) => void;
   onInsertToDraft: (text: string) => void;
 }) {
@@ -42,6 +42,11 @@ export function MaterialsSidebar({
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
+  // #15 · a brief toast so placing a fragment isn't a silent no-op when its
+  // destination (the 片段 board) isn't the tab you're looking at.
+  const [toast, setToast] = useState<string | null>(null);
+  // #16 · filter the 片段 browse by category (章节/线索 label the snippet is filed under).
+  const [snipFilter, setSnipFilter] = useState<string>("__all__");
   // Floating position within the writing room's relative container; defaults left.
   const [pos, setPos] = useState({ x: 16, y: 16 });
   const drag = useRef<{ dx: number; dy: number } | null>(null);
@@ -91,12 +96,18 @@ export function MaterialsSidebar({
   }
 
   // Place a fragment where the student is working, with a brief "done" flash.
+  // When it lands somewhere off-screen (收进片段 while not on the 片段 tab), also
+  // toast so it never feels like nothing happened (#15).
   function place(text: string, key: string) {
     const t = text.trim();
     if (!t) return;
     (toDraft ? onInsertToDraft : onAddSnippet)(t);
     setPlaced(key);
     window.setTimeout(() => setPlaced((k) => (k === key ? null : k)), 1200);
+    if (!toDraft && activeTab !== "snippets") {
+      setToast("已收进「片段」——切到片段标签查看");
+      window.setTimeout(() => setToast(null), 2400);
+    }
   }
 
   function importOutline() {
@@ -220,15 +231,33 @@ export function MaterialsSidebar({
               })}
             </div>
           )
-        ) : (
-          snippets.filter((s) => s.text.trim()).length === 0 ? (
-            <Empty>还没有片段。在「片段」里攒一些，或从「材料」收进来。</Empty>
-          ) : (
+        ) : (() => {
+          const withText = snippets.filter((s) => s.text.trim());
+          if (withText.length === 0) return <Empty>还没有片段。在「片段」里攒一些，或从「材料」收进来。</Empty>;
+          // #16 · categories the snippets are filed under (章节/线索 labels)
+          const cats = Array.from(new Set(withText.map((s) => s.section).filter((x): x is string => !!x)));
+          const filtered = withText.filter((s) =>
+            snipFilter === "__all__" ? true : snipFilter === "__unfiled__" ? s.section == null : s.section === snipFilter,
+          );
+          return (
             <div className="flex flex-col gap-1.5">
-              {snippets.filter((s) => s.text.trim()).map((s) => {
+              {cats.length > 0 && (
+                <select
+                  value={snipFilter}
+                  onChange={(e) => setSnipFilter(e.target.value)}
+                  aria-label="按分类筛选片段"
+                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                >
+                  <option value="__all__">全部分类</option>
+                  {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <option value="__unfiled__">未归类</option>
+                </select>
+              )}
+              {filtered.map((s) => {
                 const key = `s:${s.id}`;
                 return (
                   <div key={key} className="rounded bg-mk-bg/50 p-2">
+                    {s.section && <div className="mb-0.5 truncate text-[10px] font-bold text-mk-primary">{s.section}</div>}
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{s.text}</div>
                     {/* in 片段 tab inserting a snippet into snippets is a no-op path;
                         only offer placing when it goes somewhere new (正文). */}
@@ -237,9 +266,12 @@ export function MaterialsSidebar({
                 );
               })}
             </div>
-          )
-        )}
+          );
+        })()}
       </div>
+      {toast && (
+        <div className="flex-none border-t border-mk-border bg-mk-primary-tint px-3 py-2 text-[11.5px] font-semibold text-mk-primary">{toast}</div>
+      )}
     </div>
   );
 }
