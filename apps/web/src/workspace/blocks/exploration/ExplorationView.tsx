@@ -225,13 +225,18 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     return m;
   }, [topLevel]);
 
-  // Only counts as "branched" with at least one non-pruned source-lead — a
-  // ref whose only leads are pruned has no visible open branch to show here,
-  // and the server's danglingSourceIds correctly re-includes it (a source
-  // whose leads are ALL pruned falls back to dangling). Without this guard
-  // that ref would render in both sections at once.
-  const branchedRefs = references.filter((r) => (leadsBySource.get(r.id) ?? []).some((l) => l.status !== "pruned"));
-  const danglingRefs = references.filter((r) => view.danglingSourceIds.includes(r.id));
+  // A ref is "branched" (renders its lead tree) when it has a top-level lead that
+  // is itself non-pruned OR still has a non-pruned 分支 beneath it — otherwise an
+  // open child would vanish when its parent lead is pruned (the parent falls to
+  // dangling server-side, but its open children must stay reachable). Exclude
+  // those from dangling so a ref never renders in both sections (review Medium).
+  const hasOpenDescendant = (leadId: string): boolean =>
+    (childrenByParent.get(leadId) ?? []).some((k) => k.status !== "pruned" || hasOpenDescendant(k.id));
+  const branchedRefs = references.filter((r) =>
+    (leadsBySource.get(r.id) ?? []).some((l) => l.status !== "pruned" || hasOpenDescendant(l.id)),
+  );
+  const branchedIds = new Set(branchedRefs.map((r) => r.id));
+  const danglingRefs = references.filter((r) => view.danglingSourceIds.includes(r.id) && !branchedIds.has(r.id));
   // Every top-level lead with no source reference lands here — including leads
   // that were connected/pruned whose origin reference was later deleted (DB sets
   // sourceReferenceId to NULL on delete). Those must still render (with their
