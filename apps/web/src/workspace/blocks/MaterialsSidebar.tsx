@@ -45,6 +45,7 @@ export function MaterialsSidebar({
   // #15 · a brief toast so placing a fragment isn't a silent no-op when its
   // destination (the 片段 board) isn't the tab you're looking at.
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // #16 · filter the 片段 browse by category (章节/线索 label the snippet is filed under).
   const [snipFilter, setSnipFilter] = useState<string>("__all__");
   // Floating position within the writing room's relative container; defaults left.
@@ -106,9 +107,12 @@ export function MaterialsSidebar({
     window.setTimeout(() => setPlaced((k) => (k === key ? null : k)), 1200);
     if (!toDraft && activeTab !== "snippets") {
       setToast("已收进「片段」——切到片段标签查看");
-      window.setTimeout(() => setToast(null), 2400);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 2400);
     }
   }
+  // clear a pending toast timer on unmount (review Low)
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   function importOutline() {
     const md = outlineToHeadings(outline);
@@ -236,14 +240,17 @@ export function MaterialsSidebar({
           if (withText.length === 0) return <Empty>还没有片段。在「片段」里攒一些，或从「材料」收进来。</Empty>;
           // #16 · categories the snippets are filed under (章节/线索 labels)
           const cats = Array.from(new Set(withText.map((s) => s.section).filter((x): x is string => !!x)));
+          // clamp a filter whose category has since vanished back to 全部 so the
+          // pane never strands the user on a dead value (review Low).
+          const effFilter = snipFilter === "__all__" || snipFilter === "__unfiled__" || cats.includes(snipFilter) ? snipFilter : "__all__";
           const filtered = withText.filter((s) =>
-            snipFilter === "__all__" ? true : snipFilter === "__unfiled__" ? s.section == null : s.section === snipFilter,
+            effFilter === "__all__" ? true : effFilter === "__unfiled__" ? s.section == null : s.section === effFilter,
           );
           return (
             <div className="flex flex-col gap-1.5">
               {cats.length > 0 && (
                 <select
-                  value={snipFilter}
+                  value={effFilter}
                   onChange={(e) => setSnipFilter(e.target.value)}
                   aria-label="按分类筛选片段"
                   className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
