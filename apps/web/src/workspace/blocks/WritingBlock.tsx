@@ -11,6 +11,7 @@ import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
+import { compileCardEnvelope } from "../../studio/compileCard";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
@@ -146,7 +147,7 @@ export function WritingBlock({
             registerInsert={(fn) => { draftInsertRef.current = fn; }}
           />
         )}
-        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} locked={locked} />
+        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} locked={locked} onCardArtifact={(text) => snip.add(text)} />
         {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
             fragment where you're working: into the draft at the caret on 正文,
             else appended as a new snippet. */}
@@ -333,19 +334,16 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
     else inputRefs.current.delete(id);
   };
 
-  // Persist the whole set, then adopt the server ids onto the rows we sent —
-  // but only when the local set hasn't structurally changed meanwhile (same
-  // length), so an id-swap never clobbers a mid-flight edit. On failure keep
+  // Persist the whole set. The server re-mints ids on every PUT, but the client
+  // id is only a local React key — keep it STABLE across saves. Adopting the
+  // server id here (the old behavior) changed key={n.id} on the mounted rows,
+  // remounting the focused <input> ~700ms after every keystroke and dropping
+  // focus/caret — the "Enter/Tab/mouse-move drops me out of editing" bug. So we
+  // deliberately DON'T swap ids (mirrors useSnippets above). On failure keep
   // local; the next debounce retries.
   async function save(rows: Row[]) {
     try {
-      const server = await putOutline(projectId, rows.map((r) => ({ id: r.id, text: r.text, depth: r.depth })));
-      const cur = nodesRef.current;
-      if (cur.length === server.length) {
-        const next = cur.map((n, i) => ({ ...n, id: server[i]!.id }));
-        nodesRef.current = next;
-        setNodes(next);
-      }
+      await putOutline(projectId, rows.map((r) => ({ id: r.id, text: r.text, depth: r.depth })));
     } catch {
       /* keep local; the next debounced save retries */
     }
@@ -462,6 +460,16 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
     commit(res.rows);
   };
 
+  // Mind-map keyboard parity (#11): the map's inputs carried no keydown, so a
+  // student couldn't grow the map without the mouse. XMind convention — Enter
+  // adds a sibling after this node, Tab adds a child (depth+1). Both reuse the
+  // add* helpers, which park pendingFocus so the new node's input takes focus
+  // once rendered (the map inputs register into inputRefs too).
+  const onNodeKey = (id: string, e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === "Enter") { e.preventDefault(); addAfter(id); }
+    else if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); addChild(id); }
+  };
+
   // Apply a parked focus target after the rows it references have rendered.
   useEffect(() => {
     const pf = pendingFocus.current;
@@ -513,7 +521,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
           </div>
         </div>
       ) : (
-        <MindMap nodes={nodes} title={title} onEdit={edit} onAddChild={addChild} />
+        <MindMap nodes={nodes} title={title} onEdit={edit} onAddChild={addChild} registerInput={registerInput} onNodeKey={onNodeKey} />
       )}
     </div>
   );
@@ -527,7 +535,7 @@ const COL = 250;
 const ROW = 56;
 const NODE_W = 200;
 
-function MindMap({ nodes, title, onEdit, onAddChild }: { nodes: Row[]; title: string; onEdit: (id: string, t: string) => void; onAddChild: (id: string) => void }) {
+function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }: { nodes: Row[]; title: string; onEdit: (id: string, t: string) => void; onAddChild: (id: string) => void; registerInput: (id: string, el: HTMLInputElement | null) => void; onNodeKey: (id: string, e: React.KeyboardEvent<HTMLInputElement>) => void }) {
   // Build a tree from the flat depth list, with the project title as the root.
   const root: MapNode = { id: "root", text: title || "未命名项目", depth: -1, children: [], row: 0, cx: 0, cy: 0 };
   const lastAtDepth: Record<number, MapNode> = { [-1]: root };
@@ -585,9 +593,11 @@ function MindMap({ nodes, title, onEdit, onAddChild }: { nodes: Row[]; title: st
               <span className="truncate text-[13px] font-bold">{n.text}</span>
             ) : (
               <input
+                ref={(el) => registerInput(n.id, el)}
                 value={n.text}
                 onChange={(e) => onEdit(n.id, e.target.value)}
-                placeholder="写一条……"
+                onKeyDown={(e) => onNodeKey(n.id, e)}
+                placeholder="写一条……（回车加同级、Tab 加子节点）"
                 className={`w-full truncate bg-transparent text-[12.5px] outline-none placeholder:opacity-60 ${n.depth === 0 ? "font-bold" : "font-semibold"}`}
               />
             )}
@@ -1040,7 +1050,7 @@ const RAIL_GREETING: ChatMsg = {
 // persist through /cards/persist's writing-deck allowlist).
 const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman"];
 
-function CoachRail({ projectId, focusPart, onClearFocus, locked }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean }) {
+function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean; onCardArtifact: (text: string) => void }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -1074,7 +1084,9 @@ function CoachRail({ projectId, focusPart, onClearFocus, locked }: { projectId: 
     // WC · if a draft part is pinned, scope this turn to it so 印记 checks THAT
     // part's argument/function — never rewriting it.
     const turnText = focusPart ? `就这一段想（帮我看它的论证与功能，别替我改写）：\n「${focusPart}」\n\n${text}` : text;
-    const shown = focusPart ? `【就这一段】${text}` : text;
+    // #9 · show the referenced paragraph in the sent bubble (was just the bare
+    // 【就这一段】 label, so the thread didn't say WHICH part you asked about).
+    const shown = focusPart ? `【就这一段】「${focusPart}」\n\n${text}` : text;
     setChat((c) => [...c, { role: "student", text: shown }]);
     setDraft("");
     setSending(true);
@@ -1111,7 +1123,17 @@ function CoachRail({ projectId, focusPart, onClearFocus, locked }: { projectId: 
     if (!cardId) return;
     try {
       await persistProjectCard(projectId, cardId, fieldValues, eventTrace);
-      setChat((c) => [...c, { role: "ai", text: "记下了——你刚才的思考已经存进过程里。" }]);
+      // #7 · a finished card no longer vanishes: compile the student's own
+      // answers into a 片段 she can see, edit, and pull into the draft — and say
+      // so, naming the card, so the used card leaves a visible trace (#9).
+      const spec = CARD_REGISTRY[cardId];
+      const artifact = spec ? compileCardEnvelope(spec, fieldValues) : "";
+      if (artifact) {
+        onCardArtifact(artifact);
+        setChat((c) => [...c, { role: "ai", text: `记下了——已把你在《${spec!.name}》里写的收进「片段」，去那儿看看、改改，随时能插进正文。` }]);
+      } else {
+        setChat((c) => [...c, { role: "ai", text: "记下了——你刚才的思考已经存进过程里。" }]);
+      }
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没存上，等下再试一次。" }]);
     }

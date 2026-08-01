@@ -233,8 +233,19 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
             spec={CARD_REGISTRY["rabbit-hole"]}
             onSubmit={async (env) => {
               setRabbitOpen(false);
+              setLeadActionError(false);
               try {
                 await postRabbitHoleCard(projectId, env.field_values, env.event_trace);
+                // #13 · the card used to close with no visible change. Now the
+                // student's "next exploration direction" (or, failing that, her
+                // interest anchor) becomes a real 线索 — it shows up in 待追的线索
+                // and can be connected to a source or dug into.
+                const fv = env.field_values as Record<string, unknown>;
+                const seed = [fv.explorable_direction, fv.anchor_note]
+                  .map((v) => (typeof v === "string" ? v.trim() : ""))
+                  .find((s) => s.length > 0);
+                if (seed) await createLead(projectId, seed);
+                await refresh();
               } catch {
                 setLeadActionError(true);
               }

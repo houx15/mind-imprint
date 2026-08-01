@@ -970,9 +970,14 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
   // #14: today's day-index from the anchor drives the today-line. When it
   // falls outside [0, TIMELINE_DAYS) no column matches, so nothing highlights.
   const todayIdx = dayIndexFromAnchor(anchor, new Date());
-  // Render every stage actually present on the board (a generated plan may use
-  // stage names beyond the two canonical ones), keeping board order.
+  // Render every stage present on the board (a generated plan may use stage
+  // names beyond the two canonical ones), ordered by where the stage actually
+  // sits on the timeline — its earliest task start — so 阶段二 never renders
+  // after 阶段三 just because its first task happened to be created/loaded later
+  // (#10). Ties fall back to first-appearance order (Array.sort is stable).
   const stages = Array.from(new Set(board.map((i) => i.stage)));
+  const stageStart = (s: string) => Math.min(...board.filter((i) => i.stage === s).map((i) => i.start));
+  stages.sort((a, b) => stageStart(a) - stageStart(b));
   return (
     <div className="min-h-0 flex-1 overflow-auto rounded-mk-lg border border-mk-border bg-mk-surface">
       <div className="min-w-[820px]">

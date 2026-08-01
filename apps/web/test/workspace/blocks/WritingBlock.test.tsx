@@ -160,6 +160,20 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(ta.value).toContain(before.slice(0, 6)); // original draft preserved
   });
 
+  it("mind map grows from the keyboard: Enter adds a sibling, Tab adds a child (#11)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    // the outline tab is default; switch its inner view to the mind map
+    await userEvent.click(screen.getByRole("button", { name: "思维导图" }));
+    const nodeInputs = () => screen.getAllByPlaceholderText(/回车加同级/);
+    // empty outline seeds one blank node
+    await waitFor(() => expect(nodeInputs()).toHaveLength(1));
+    nodeInputs()[0]!.focus();
+    fireEvent.keyDown(nodeInputs()[0]!, { key: "Enter" });
+    await waitFor(() => expect(nodeInputs()).toHaveLength(2));
+    fireEvent.keyDown(nodeInputs()[0]!, { key: "Tab" });
+    await waitFor(() => expect(nodeInputs()).toHaveLength(3));
+  });
+
   it("floating 问印记 chip on a selection scopes the coach turn to it (WC · #7)", async () => {
     const ta = await openDraftTab();
     // simulate highlighting the first sentence, then releasing the mouse
