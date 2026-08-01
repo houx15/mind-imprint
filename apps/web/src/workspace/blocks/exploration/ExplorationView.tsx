@@ -245,9 +245,12 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                   .map((v) => (typeof v === "string" ? v.trim() : ""))
                   .find((s) => s.length > 0);
                 if (seed) await createLead(projectId, seed);
-                await refresh();
               } catch {
                 setLeadActionError(true);
+              } finally {
+                // Always re-fetch: even if createLead failed after the card
+                // persisted, the graph should reflect reality (review Low).
+                await refresh();
               }
             }}
             onSkip={() => setRabbitOpen(false)}
