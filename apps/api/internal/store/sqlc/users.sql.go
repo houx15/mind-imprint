@@ -31,3 +31,32 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	)
 	return i, err
 }
+
+const getUserCardTheme = `-- name: GetUserCardTheme :one
+SELECT card_theme FROM users WHERE id = $1
+`
+
+// The student's chosen 工具卡图鉴 cover colorway (see migration 0047). Narrow
+// read, does not touch the full User row.
+func (q *Queries) GetUserCardTheme(ctx context.Context, userID uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getUserCardTheme, userID)
+	var cardTheme string
+	err := row.Scan(&cardTheme)
+	return cardTheme, err
+}
+
+const setUserCardTheme = `-- name: SetUserCardTheme :exec
+UPDATE users SET card_theme = $2 WHERE id = $1
+`
+
+type SetUserCardThemeParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	CardTheme string    `json:"card_theme"`
+}
+
+// Set the student's cover colorway. The 4-value CHECK is enforced by the column;
+// the handler validates against cards.ValidTheme before calling.
+func (q *Queries) SetUserCardTheme(ctx context.Context, arg SetUserCardThemeParams) error {
+	_, err := q.db.Exec(ctx, setUserCardTheme, arg.UserID, arg.CardTheme)
+	return err
+}

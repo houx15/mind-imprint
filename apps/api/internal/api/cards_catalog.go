@@ -44,10 +44,7 @@ func (a *API) getCardsCatalog(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	ctx := r.Context()
 
-	theme := r.URL.Query().Get("theme")
-	if !cards.ValidTheme(theme) {
-		theme = cards.DefaultTheme
-	}
+	theme := a.resolveCardTheme(ctx, r, u.ID)
 
 	specs, err := cards.Catalog()
 	if err != nil {
