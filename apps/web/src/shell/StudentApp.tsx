@@ -21,13 +21,16 @@ export function StudentApp({
   // Directory "查看评估报告" action), we deep-link the 成长报告 to that entry.
   // Cleared when the growth tab is opened directly from the left rail.
   const [growthFocus, setGrowthFocus] = useState<string | null>(null);
+  // Deep-link into a specific course from a tool card's "去学这张卡的课程" link.
+  // Cleared when the 课程 tab is opened directly from the left rail.
+  const [courseFocus, setCourseFocus] = useState<string | null>(null);
 
   return (
     <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
-      <LeftRail tab={tab} onTab={(t) => { if (t === "growth") setGrowthFocus(null); setTab(t); }} />
+      <LeftRail tab={tab} onTab={(t) => { if (t === "growth") setGrowthFocus(null); if (t === "courses") setCourseFocus(null); setTab(t); }} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         {tab === "chat" && <ChatContainer />}
-        {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("studio")} />}
+        {tab === "courses" && <CoursesContainer onGoPortal={() => setTab("studio")} initialCourseId={courseFocus} />}
         {tab === "studio" && (
           <WorkspaceContainer
             onFinished={(projectId?: string) => {
@@ -36,7 +39,7 @@ export function StudentApp({
             }}
           />
         )}
-        {tab === "growth" && <GrowthReport initialScopeId={growthFocus} />}
+        {tab === "growth" && <GrowthReport initialScopeId={growthFocus} onOpenCourse={(id) => { setCourseFocus(id); setTab("courses"); }} />}
         {tab === "settings" && (
           <SettingsView session={session} user={session.getUser()} onLogout={onLogout} />
         )}

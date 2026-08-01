@@ -74,15 +74,15 @@ describe("GrowthReport tabs", () => {
   // and 工具卡 remain. The AbilityModel component + endpoint still exist.
   it("shows the two remaining tabs and switches between them", async () => {
     vi.spyOn(api, "getGrowthHistory").mockResolvedValue([]);
-    vi.spyOn(api, "getGrowthCards").mockResolvedValue([] as never);
+    vi.spyOn(api, "getCardsCatalog").mockResolvedValue({ theme: "light", cards: [] } as never);
     render(<GrowthReport />);
     expect(screen.getByRole("button", { name: /学习记录/ })).toBeTruthy();
     const cardsTab = screen.getByRole("button", { name: /工具卡/ });
     expect(screen.queryByRole("button", { name: /能力素养/ })).toBeNull();
     // default tab is the history hub
     await waitFor(() => expect(screen.getByText(/还没有报告/)).toBeTruthy());
-    // 工具卡
+    // 工具卡 → the gallery (its header renders even with an empty catalog)
     fireEvent.click(cardsTab);
-    await waitFor(() => expect(screen.getByText(/还没有收集到工具卡/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/全部 0 张/)).toBeTruthy());
   });
 });

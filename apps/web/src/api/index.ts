@@ -1,4 +1,4 @@
-import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, Course, CourseSummary, CourseProgress, RenderedStep, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, CourseSession, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
@@ -12,7 +12,7 @@ import { listCourses, getCourse, getCourseProgress, saveCourseProgress, renderCo
 import { listProjects, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
 import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
-import { getGrowthCards } from "./cards";
+import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, prepareSourceAnnotation, type AddMaterialBody } from "./materials";
 import { uploadUserImage, resolveUrl } from "./oss";
@@ -114,6 +114,8 @@ export interface ApiClient {
   getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
   getAbilityModel(): Promise<AbilityModel>;
   getGrowthCards(): Promise<CollectedCard[]>;
+  getCardsCatalog(theme?: CoverTheme): Promise<{ cards: CardCatalogEntry[]; theme: CoverTheme }>;
+  setCardTheme(theme: CoverTheme): Promise<CoverTheme>;
   getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
   getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
@@ -147,7 +149,7 @@ export const api: ApiClient = {
   getCourseAssessment, generateCourseAssessment,
   getGrowthHistory,
   getAbilityModel,
-  getGrowthCards,
+  getGrowthCards, getCardsCatalog, setCardTheme,
   getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   uploadUserImage, resolveUrl,

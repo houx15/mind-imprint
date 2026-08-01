@@ -100,7 +100,7 @@ function LearningRecord({ initialScopeId }: { initialScopeId?: string | null }) 
   );
 }
 
-export function GrowthReport({ initialScopeId }: { initialScopeId?: string | null } = {}) {
+export function GrowthReport({ initialScopeId, onOpenCourse }: { initialScopeId?: string | null; onOpenCourse?: (courseId: string) => void } = {}) {
   const [tab, setTab] = useState<"learning" | "cards">("learning");
   const tabStyle = (active: boolean) => ({
     padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
@@ -116,7 +116,7 @@ export function GrowthReport({ initialScopeId }: { initialScopeId?: string | nul
           {/* 能力素养 tab hidden 2026-07-31 for MVP focus. AbilityModel + its
               api/ability endpoint remain; re-add the button to restore. */}
         </div>
-        {tab === "cards" ? <ToolkitCards /> : <LearningRecord initialScopeId={initialScopeId} />}
+        {tab === "cards" ? <ToolkitCards onOpenCourse={onOpenCourse} /> : <LearningRecord initialScopeId={initialScopeId} />}
       </div>
     </div>
   );
