@@ -194,6 +194,23 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     });
   });
 
+  it("分节 mode: generate sections from the outline and write under a heading (#5)", async () => {
+    vi.mocked(getOutline).mockResolvedValue([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
+    await openDraftTab();
+    await userEvent.click(screen.getByRole("button", { name: "分节" }));
+    await userEvent.click(await screen.findByRole("button", { name: /从大纲生成章节/ }));
+    // the outline heading becomes an editable section heading
+    expect(await screen.findByDisplayValue("背景与主张")).toBeInTheDocument();
+    // write in the generated section's body → the draft serializes with the heading
+    const bodies = screen.getAllByPlaceholderText("在这一节写……");
+    await userEvent.type(bodies[bodies.length - 1]!, "这是正文。");
+    await waitFor(() => {
+      const last = vi.mocked(putBuffer).mock.calls.at(-1)?.[1] ?? "";
+      expect(last).toContain("# 背景与主张");
+      expect(last).toContain("这是正文。");
+    });
+  });
+
   it("files a snippet under an outline section via 归到, persisting the section (#5)", async () => {
     vi.mocked(getOutline).mockResolvedValue([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
     vi.mocked(getSnippets).mockResolvedValue([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);

@@ -8,6 +8,7 @@ import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
+import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
@@ -850,6 +851,12 @@ export function paragraphAtCaret(src: string, caret: number): string {
 function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { projectId: string; title: string; locked: boolean; onFocusPart: (part: string) => void; registerInsert: (fn: ((t: string) => void) | null) => void }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
+  // #5-follow-on · 自由 (one free textarea) vs 分节 (write under outline-driven
+  // headings). A toggle — free-form is always available (never a cage).
+  const [layout, setLayout] = useState<"free" | "sections">("free");
+  // When 分节 is active, the sections editor registers its own insert here so
+  // the materials sidebar drops a fragment into the focused section.
+  const sectionInsertRef = useRef<((t: string) => void) | null>(null);
   const [text, setText] = useState("");
   const [uploadNote, setUploadNote] = useState<string | null>(null);
   // #7 · a floating "问印记" chip that appears next to a text selection. selPop
@@ -973,6 +980,12 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
     if (!frag) return;
     setMode("write");
     setPane("edit");
+    // #5 · in 分节 mode the sections editor owns placement (into the focused
+    // section); the free textarea path below only runs in 自由 mode.
+    if (layout === "sections" && sectionInsertRef.current) {
+      sectionInsertRef.current(frag);
+      return;
+    }
     const cur = textRef.current;
     const ta = draftRef.current;
     // honor the caret only once the textarea has been focused — a never-focused
@@ -1018,6 +1031,12 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
               <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
                 <SubTab active={pane === "edit"} onClick={() => setPane("edit")}>写</SubTab>
                 <SubTab active={pane === "preview"} onClick={() => { setSelPop(null); setPane("preview"); }}>预览</SubTab>
+              </div>
+            )}
+            {mode === "write" && pane === "edit" && (
+              <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
+                <SubTab active={layout === "free"} onClick={() => setLayout("free")}>自由</SubTab>
+                <SubTab active={layout === "sections"} onClick={() => setLayout("sections")}>分节</SubTab>
               </div>
             )}
           </div>
@@ -1068,17 +1087,27 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
 
         {mode === "write" ? (
           pane === "edit" ? (
-            <textarea
-              ref={draftRef}
-              value={text}
-              onChange={(e) => onChange(e.target.value)}
-              onFocus={() => { hasFocusedRef.current = true; }}
-              onMouseUp={onDraftMouseUp}
-              onScroll={() => setSelPop(null)}
-              readOnly={locked}
-              placeholder="在这里写你的草稿……（支持 Markdown）"
-              className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 ${locked ? "bg-mk-bg/60 cursor-default" : "bg-mk-surface focus:border-mk-primary"}`}
-            />
+            layout === "sections" ? (
+              <SectionedDraft
+                projectId={projectId}
+                text={text}
+                onChange={onChange}
+                locked={locked}
+                registerInsert={(fn) => { sectionInsertRef.current = fn; }}
+              />
+            ) : (
+              <textarea
+                ref={draftRef}
+                value={text}
+                onChange={(e) => onChange(e.target.value)}
+                onFocus={() => { hasFocusedRef.current = true; }}
+                onMouseUp={onDraftMouseUp}
+                onScroll={() => setSelPop(null)}
+                readOnly={locked}
+                placeholder="在这里写你的草稿……（支持 Markdown）"
+                className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 ${locked ? "bg-mk-bg/60 cursor-default" : "bg-mk-surface focus:border-mk-primary"}`}
+              />
+            )
           ) : (
             <MarkdownPreview text={text} />
           )
@@ -1146,6 +1175,123 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
         )}
         <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
+    </div>
+  );
+}
+
+// #5 · the 分节 draft editor: write under outline-driven headings. A VIEW over
+// the same Markdown draft string (parses in, serializes out via onChange), so
+// 体检 / 导出 / 预览 all consume the draft unchanged. Free-form text is one
+// toggle away — this organizes the student's structure, it never authors or
+// lays out her deliverable (铁律②).
+function SectionedDraft({
+  projectId,
+  text,
+  onChange,
+  locked,
+  registerInsert,
+}: {
+  projectId: string;
+  text: string;
+  onChange: (next: string) => void;
+  locked: boolean;
+  registerInsert: (fn: ((t: string) => void) | null) => void;
+}) {
+  const [sections, setSections] = useState<DraftSection[]>(() => parseSections(text));
+  const [outlineHeads, setOutlineHeads] = useState<string[]>([]);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+
+  useEffect(() => {
+    let alive = true;
+    getOutline(projectId)
+      .then((nodes) => { if (alive) setOutlineHeads(nodes.filter((n) => n.depth === 0 && n.text.trim()).map((n) => n.text.trim())); })
+      .catch(() => {/* leave empty — the generate button just won't show */});
+    return () => { alive = false; };
+  }, [projectId]);
+
+  function commit(next: DraftSection[]) {
+    setSections(next);
+    onChange(serializeSections(next));
+  }
+  const setHeading = (id: string, heading: string) => commit(sectionsRef.current.map((s) => (s.id === id ? { ...s, heading } : s)));
+  const setBody = (id: string, body: string) => commit(sectionsRef.current.map((s) => (s.id === id ? { ...s, body } : s)));
+  const removeSection = (id: string) => commit(sectionsRef.current.filter((s) => s.id !== id));
+  const addSection = () => { const s = newSection(); commit([...sectionsRef.current, s]); setFocusId(s.id); };
+  const generate = () => { const gen = sectionsFromOutline(outlineHeads, sectionsRef.current); if (gen.length) commit([...sectionsRef.current, ...gen]); };
+
+  // Insert a fragment (materials sidebar) into the focused section's body — else
+  // the last section, else a new intro when there are none yet.
+  function insert(t: string) {
+    if (locked) return;
+    const frag = t.trim();
+    if (!frag) return;
+    const cur = sectionsRef.current;
+    const target = (focusId && cur.some((s) => s.id === focusId) ? focusId : cur[cur.length - 1]?.id) ?? null;
+    if (!target) { commit([{ ...newSection(0), body: frag }]); return; }
+    commit(cur.map((s) => (s.id === target ? { ...s, body: s.body ? `${s.body}\n\n${frag}` : frag } : s)));
+  }
+  const insertRef = useRef(insert);
+  insertRef.current = insert;
+  useEffect(() => {
+    registerInsert((t) => insertRef.current(t));
+    return () => registerInsert(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-4">
+      {!locked && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {outlineHeads.length > 0 && (
+            <button type="button" onClick={generate} className="rounded-mk border border-mk-primary/40 px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint">＋ 从大纲生成章节</button>
+          )}
+          <span className="text-[11.5px] text-mk-muted-2">在小标题下写；从右侧「材料」插入会落到你正在写的这一节。</span>
+        </div>
+      )}
+      {sections.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <p className="text-[13px] text-mk-muted-2">还没有章节。{outlineHeads.length > 0 ? "用大纲生成，或" : ""}加一节，在标题下写。</p>
+          {!locked && <button type="button" onClick={addSection} className="rounded-mk bg-mk-primary px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover">＋ 加一节</button>}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {sections.map((s) => (
+            <section key={s.id} className="group rounded-mk-lg border border-mk-border-2 bg-mk-bg/20 p-3">
+              {s.level > 0 ? (
+                <input
+                  value={s.heading}
+                  onChange={(e) => setHeading(s.id, e.target.value)}
+                  onFocus={() => setFocusId(s.id)}
+                  readOnly={locked}
+                  placeholder="小标题……"
+                  className={`w-full bg-transparent font-sans font-bold text-mk-ink outline-none placeholder:text-mk-muted-2 ${s.level === 1 ? "text-[16px]" : "text-[14px]"}`}
+                />
+              ) : (
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-mk-muted-2">开头（无标题）</div>
+              )}
+              <textarea
+                value={s.body}
+                onChange={(e) => setBody(s.id, e.target.value)}
+                onFocus={() => setFocusId(s.id)}
+                readOnly={locked}
+                rows={4}
+                placeholder="在这一节写……"
+                className="mt-1.5 w-full resize-y bg-transparent font-sans text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+              />
+              {!locked && (
+                <div className="mt-1 flex justify-end">
+                  <button type="button" onClick={() => removeSection(s.id)} className="text-[11.5px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除本节</button>
+                </div>
+              )}
+            </section>
+          ))}
+          {!locked && (
+            <button type="button" onClick={addSection} className="rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">＋ 加一节</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
