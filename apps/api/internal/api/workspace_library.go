@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -647,6 +648,38 @@ func fetchFailedError(err error) *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusUnprocessableEntity, Code: "fetch_failed", Message: msg, Details: details}
 }
 
+// patchReferenceMeta fills an empty reference's Author/Year from the DOI
+// metadata we recovered (#4), so the annotated bib is populated even when the
+// full text couldn't be fetched. Best-effort: only fills fields the student
+// left blank (never overwrites her own), and logs rather than surfaces errors.
+func (a *API) patchReferenceMeta(ctx context.Context, projectID uuid.UUID, ref sqlc.Reference, m *materialize.DOIMeta) {
+	if m == nil {
+		return
+	}
+	author, year := ref.Author, ref.Year
+	changed := false
+	if strings.TrimSpace(author) == "" && strings.TrimSpace(m.Author) != "" {
+		author = m.Author
+		changed = true
+	}
+	if strings.TrimSpace(year) == "" && strings.TrimSpace(m.Year) != "" {
+		year = m.Year
+		changed = true
+	}
+	if !changed {
+		return
+	}
+	if _, err := a.d.Queries.UpdateReference(ctx, sqlc.UpdateReferenceParams{
+		ID: ref.ID, ProjectID: projectID,
+		Title: ref.Title, Classification: ref.Classification, Author: author, Credentials: ref.Credentials,
+		Year: year, Url: ref.Url, Tags: ref.Tags, CollectionID: ref.CollectionID,
+		Credibility: ref.Credibility, Evaluation: ref.Evaluation, Decision: ref.Decision,
+		Pending: ref.Pending, SearchHints: ref.SearchHints, ReadingNote: ref.ReadingNote,
+	}); err != nil {
+		slog.Warn("patch reference meta failed", "err", err, "ref", ref.ID)
+	}
+}
+
 // fetchMaterialForReference fetches ref.Url, creates the material + its
 // source_log_entry, and binds ref.material_id — all in one transaction (a
 // material with no log entry is a source that was never "opened", RL-2's
@@ -667,9 +700,14 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 
 	t, body, ferr := a.d.Fetcher.FetchReadable(r.Context(), ref.Url)
 	if ferr != nil {
-		// 422 (not 400) + a standard {error:{code,message,details}} envelope so
-		// the reading-room client can parse code="fetch_failed" and offer its
-		// inline paste-body box — now enriched with any DOI metadata we recovered.
+		// #4 · fill the bib (author/year) from any recovered DOI metadata, then
+		// 422 + a standard {error:{code,message,details}} envelope so the
+		// reading-room client can parse code="fetch_failed" and offer its inline
+		// paste-body box — enriched with the same metadata.
+		var fe *materialize.FetchError
+		if errors.As(ferr, &fe) && fe.Meta != nil {
+			a.patchReferenceMeta(r.Context(), projectID, ref, fe.Meta)
+		}
 		httpx.WriteError(w, r, fetchFailedError(ferr))
 		return uuid.UUID{}, true
 	}

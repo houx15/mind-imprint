@@ -19,6 +19,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 
 	"github.com/google/uuid"
@@ -725,4 +726,50 @@ func findReferenceIDByTitle(t *testing.T, q *sqlc.Queries, title string) string 
 	}
 	t.Fatalf("no reference titled %q found", title)
 	return ""
+}
+
+// metaFetcher fails every fetch but carries recovered DOI metadata, so we can
+// assert the reference bib gets filled (#4).
+type metaFetcher struct{}
+
+func (metaFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
+	return "", "", &materialize.FetchError{Reason: "unsupported_content", Meta: &materialize.DOIMeta{
+		Author: "A B; C D", Year: "2020", Journal: "某期刊", Abstract: "摘要",
+	}}
+}
+
+// #4 · opening a DOI whose full text can't be fetched fills the reference's empty
+// author/year from Crossref metadata, and the 422 carries it for the paste box.
+func TestEnterReading_DOIMetaFillsBib(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: metaFetcher{}}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"某文","url":"https://doi.org/10.1/x"}`)
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode ref: %v — %s", err, rec.Body)
+	}
+	rid := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references/"+rid+"/enter-reading", "")
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("enter-reading = %d, want 422: %s", rec.Code, rec.Body)
+	}
+	// author/year filled from the DOI metadata.
+	var author, year string
+	if err := pool.QueryRow(context.Background(), `SELECT author, year FROM reference WHERE id = $1`, rid).Scan(&author, &year); err != nil {
+		t.Fatalf("read ref: %v", err)
+	}
+	if author != "A B; C D" || year != "2020" {
+		t.Fatalf("bib not filled: author=%q year=%q", author, year)
+	}
+	// the 422 payload carries the metadata (for the paste box).
+	if !strings.Contains(rec.Body.String(), "A B; C D") || !strings.Contains(rec.Body.String(), "摘要") {
+		t.Fatalf("422 details missing metadata: %s", rec.Body)
+	}
 }
