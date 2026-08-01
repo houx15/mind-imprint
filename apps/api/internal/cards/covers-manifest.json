@@ -1,0 +1,134 @@
+{
+  "T00": {
+    "light": "web/db0bf232-7d80-4216-88b1-238cec5111b4.webp",
+    "cyber-sage": "web/b329823a-58ba-43d4-83e9-1c87c65ca3eb.webp",
+    "cyber-slate": "web/4ac56987-d438-4e93-a30c-6ed7b5dc0f31.webp",
+    "cyber-warm": "web/ac92dacf-de3f-4a2d-ac03-2384e8589312.webp"
+  },
+  "T01": {
+    "light": "web/08fabc21-8108-4c0c-b881-399c21e13b8c.webp",
+    "cyber-sage": "web/71d0707b-2be9-4dd2-ab7d-68c42954e129.webp",
+    "cyber-slate": "web/e7c74d0c-16af-44bf-bc18-752fde6cba22.webp",
+    "cyber-warm": "web/d218b85a-1e1b-4ff8-a270-ff9864c58ae8.webp"
+  },
+  "T04": {
+    "light": "web/d9a0310e-0421-494e-9102-c9f6d3af1c01.webp",
+    "cyber-sage": "web/a261bf6a-377d-451a-81fe-27b6837d7f1d.webp",
+    "cyber-slate": "web/319b9056-7156-4470-b33f-06fb1b13a501.webp",
+    "cyber-warm": "web/7610e795-f1f3-4ecb-9718-c8cbadbb74d1.webp"
+  },
+  "T06": {
+    "light": "web/ea018db7-703a-46d8-8c78-0b7199bf39d6.webp",
+    "cyber-sage": "web/d84b7795-790d-439a-af49-1fc1b7e4f51f.webp",
+    "cyber-slate": "web/7e1aaeb2-a11d-4727-92cf-305a8e042fd6.webp",
+    "cyber-warm": "web/75ea0cf4-d049-4000-b604-3c178bdcfb2d.webp"
+  },
+  "T07": {
+    "light": "web/47ededd3-6e09-48dc-a172-7b75c246ef20.webp",
+    "cyber-sage": "web/321ca651-cbe1-445b-a4a8-7c44506d83c5.webp",
+    "cyber-slate": "web/d1b41bb0-0bf7-478a-966c-d6aa86d6b8d3.webp",
+    "cyber-warm": "web/fb8b0980-1b8c-461a-a05d-0ed1bdbc03e9.webp"
+  },
+  "T08": {
+    "light": "web/88a49069-12d2-40a5-8940-ecb74b1afc4c.webp",
+    "cyber-sage": "web/19487f5f-6550-470c-b415-c9729cae87ab.webp",
+    "cyber-slate": "web/4cc29f02-06b3-4833-bfc2-267b52d43066.webp",
+    "cyber-warm": "web/61932ba3-016f-4a64-ab41-332488ee1794.webp"
+  },
+  "T09": {
+    "light": "web/42be56a3-d4aa-4fb1-afc1-e0c05bd428af.webp",
+    "cyber-sage": "web/910939b1-66d6-4651-a4a4-facc6a5263c5.webp",
+    "cyber-slate": "web/e8cce3c0-3d44-46fa-a4a8-91f0e4241dff.webp",
+    "cyber-warm": "web/4b904a8b-15c9-4818-a8c7-fd1194df9676.webp"
+  },
+  "T10": {
+    "light": "web/a3342b4f-05b7-4c34-bde8-9b3e4c5a3f65.webp",
+    "cyber-sage": "web/f9c0c35b-311c-49e0-a9c3-d56c2b29df37.webp",
+    "cyber-slate": "web/ef478d83-c5e7-4820-9a47-b96017dbc63d.webp",
+    "cyber-warm": "web/fec2f6dc-02ed-418a-80ea-78aabc54f54f.webp"
+  },
+  "T12": {
+    "light": "web/b20baa57-3741-4ce0-9398-e9693e542bed.webp",
+    "cyber-sage": "web/540212a7-b195-4a99-9644-6aedb72530e8.webp",
+    "cyber-slate": "web/579daa8e-8c86-46a9-ae85-e6eb14acf474.webp",
+    "cyber-warm": "web/68d6c747-0e76-421f-a0c4-76202151d592.webp"
+  },
+  "T15": {
+    "light": "web/35b85af0-2c51-47ff-a9e0-020f4adbf954.webp",
+    "cyber-sage": "web/e4d5e457-8493-4394-98d9-27da9c3744a1.webp",
+    "cyber-slate": "web/44f1ec77-8023-4b3b-8307-9e2ca145ca88.webp",
+    "cyber-warm": "web/b8ebaab2-516b-4b4d-b7c9-de0854678a8c.webp"
+  },
+  "T18": {
+    "light": "web/f12377ce-f4a3-4ff2-b965-df9986fef599.webp",
+    "cyber-sage": "web/ae1cb1d3-3301-468d-925c-66c0646bee84.webp",
+    "cyber-slate": "web/79391d52-9d34-466e-a8c3-17c36b549514.webp",
+    "cyber-warm": "web/69059492-dc48-4a47-908e-a426dbcd1959.webp"
+  },
+  "T20": {
+    "light": "web/17737ac2-3788-4698-b059-d6001f474844.webp",
+    "cyber-sage": "web/dad76702-4f45-4f9c-abe4-614981669b18.webp",
+    "cyber-slate": "web/4d45fc8a-03a8-41e7-822f-b3d0e5963ae6.webp",
+    "cyber-warm": "web/e1581418-63c9-4cc4-942d-e8f91092dedc.webp"
+  },
+  "T21": {
+    "light": "web/43412880-854c-46c1-94c3-4182c043281d.webp",
+    "cyber-sage": "web/2a3ea6ca-1a75-4a60-8a1e-6faa53a58863.webp",
+    "cyber-slate": "web/d100a7f5-6c3a-4cb3-94fd-1b203d0c2fcd.webp",
+    "cyber-warm": "web/70e9f89a-947d-47d4-a9de-0dedde69b395.webp"
+  },
+  "T23": {
+    "light": "web/bbe3e6de-b283-4f95-836a-2497d4aa6828.webp",
+    "cyber-sage": "web/0a6dbffc-5e03-4e02-b689-b80b40157fe2.webp",
+    "cyber-slate": "web/06dc1379-cc33-4441-a942-33e347dd6810.webp",
+    "cyber-warm": "web/5b4f7fdc-2b8d-4d27-be13-047db0e200d7.webp"
+  },
+  "T24": {
+    "light": "web/6c822788-d9b5-4cdb-86bd-d07e6bd39fd8.webp",
+    "cyber-sage": "web/a6110c4c-163d-4bee-a331-09225da6c416.webp",
+    "cyber-slate": "web/77f06f15-c147-4a07-8b2a-1fbe434fa2b8.webp",
+    "cyber-warm": "web/a9bb25e6-8059-4295-beec-370c522295c2.webp"
+  },
+  "T27": {
+    "light": "web/18c277c1-125c-410b-aece-477e19e079f6.webp",
+    "cyber-sage": "web/410c20b2-ddb2-4490-a8cd-9a20cae33ffd.webp",
+    "cyber-slate": "web/4580f80d-519f-4464-a0d6-da6f242c1d20.webp",
+    "cyber-warm": "web/fc0286c8-4f0f-4511-9526-d5360509615e.webp"
+  },
+  "T28": {
+    "light": "web/cfded5cb-6c35-44bf-9d40-f6c7efe7b223.webp",
+    "cyber-sage": "web/95141a1c-acc9-4ccc-83b6-cdd04799e959.webp",
+    "cyber-slate": "web/c42bfaa8-421c-41a2-a0d1-83598ababa78.webp",
+    "cyber-warm": "web/8c035812-75ad-4222-aff8-a70031bc3108.webp"
+  },
+  "T30": {
+    "light": "web/ff569c64-a137-47a1-a882-461569da5bd2.webp",
+    "cyber-sage": "web/7e0b5871-372f-4e75-bdbf-e8306c70441e.webp",
+    "cyber-slate": "web/e0438073-8a11-4615-92d4-9f8421c6b701.webp",
+    "cyber-warm": "web/d8e16f8d-8912-40d9-8806-a9aef3cb3e06.webp"
+  },
+  "T31": {
+    "light": "web/7b443a2c-bc94-4deb-a966-417370370073.webp",
+    "cyber-sage": "web/2f2588a8-3a20-4f06-a54d-9c72629c3b5d.webp",
+    "cyber-slate": "web/a0db9d9e-25ad-415d-b3f1-3a7c2ecc2b81.webp",
+    "cyber-warm": "web/52b75888-9933-4ff4-a174-91da78bc3735.webp"
+  },
+  "T32": {
+    "light": "web/89e461ee-6fc8-4946-8825-b569112bcdd0.webp",
+    "cyber-sage": "web/bc3ab45d-565f-4016-8240-e8c7a73c4cb8.webp",
+    "cyber-slate": "web/e9f70046-980d-4f67-baab-37736076499d.webp",
+    "cyber-warm": "web/44139be3-2555-4ac7-9b86-7ede50737913.webp"
+  },
+  "T35": {
+    "light": "web/222af3f0-59fd-4f90-95fb-a1deac9276f9.webp",
+    "cyber-sage": "web/d5550048-a580-48ab-985d-da450975b30c.webp",
+    "cyber-slate": "web/99c43f11-fb86-43f6-a386-d24145f55b15.webp",
+    "cyber-warm": "web/dae7f51a-0e74-467c-9caf-cebc7e3b3c7c.webp"
+  },
+  "T36": {
+    "light": "web/a4161681-a688-4b8c-bfe3-46d25c767bd6.webp",
+    "cyber-sage": "web/080e1db1-64fd-4a5e-a62b-153968189c60.webp",
+    "cyber-slate": "web/8a69f4b0-6d9e-482a-82e2-cffcca672fd9.webp",
+    "cyber-warm": "web/7694dc67-d128-436d-bd49-7a37dd73ad83.webp"
+  }
+}

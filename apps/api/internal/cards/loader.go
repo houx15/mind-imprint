@@ -26,6 +26,13 @@ type Spec struct {
 	Mode             string `json:"mode"`
 	Steps            []Step `json:"steps"`
 
+	// Gallery metadata (工具卡图鉴): AssetID is the cover-art set key (T-number),
+	// empty when no design exists; Example is a short worked example. Both
+	// additive/optional. Stage lists the workspace phases the card suits.
+	AssetID string   `json:"asset_id"`
+	Example string   `json:"example"`
+	Stage   []string `json:"stage"`
+
 	// C2 card format evolution (agent-spec §3): the primitive binding + the
 	// runtime's typed view of params/completion/graph_effects/observe. All
 	// additive and optional — legacy cards (no C2 block) parse unchanged.

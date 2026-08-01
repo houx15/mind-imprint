@@ -55,6 +55,13 @@ export const CardSpec = z.object({
   steps: z.array(Step).min(1),
   rubric_tags: z.array(z.string()),
   mode: z.enum(["annotation", "form"]).default("form"),
+  // gallery metadata (工具卡图鉴) — additive, optional.
+  // asset_id links the card to its cover-art set (T-number, e.g. "T01"); absent
+  // when no design exists for the card (see docs/2026-08-01-card-asset-coverage.md).
+  // example is a short worked example shown in the gallery detail; when absent the
+  // web falls back to the first step's methodology.example, then methodology.how.
+  asset_id: z.string().optional(),
+  example: z.string().optional(),
   // routing metadata (library frontmatter) — additive, optional
   name_en: z.string().optional(),
   priority: Priority.optional(),
