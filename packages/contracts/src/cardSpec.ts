@@ -15,6 +15,12 @@ export const Step = z.object({
   disclose: z.enum(["always", "on_demand"]),
   methodology: Methodology,
   fields: z.array(FieldPrimitive).min(1),
+  // sentence_frames — additive, optional (#6). Fill-in-the-blank 句式 scaffolds
+  // (TOEFL-style) a student can adapt into her own sentence, shown above the
+  // field. Skeletons only — never finished sentences about her own thesis
+  // (铁律①: 印记 never writes the deliverable). Present on sentence-building
+  // writing cards; absent everywhere else.
+  sentence_frames: z.array(z.string().min(1)).optional(),
 });
 
 export const Priority = z.enum(["P0", "P1", "P2"]);

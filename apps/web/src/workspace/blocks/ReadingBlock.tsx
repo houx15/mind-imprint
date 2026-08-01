@@ -18,7 +18,7 @@ import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
-import { CoachCardPanel } from "./CoachCardPanel";
+import { CoachCardPanel, READING_DECK } from "./CoachCardPanel";
 import type { CardProposalWire } from "../api/workspace";
 
 // #4 (review M1) · remembers the chosen 列表/探索图谱 view per project for the
@@ -1269,6 +1269,7 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
                 proposal={cardProposal}
                 onProposalConsumed={() => setCardProposal(null)}
                 onLogged={(t) => setChat((c) => [...c, { role: "ai", text: t }])}
+                deck={READING_DECK}
               />
             )}
           </div>

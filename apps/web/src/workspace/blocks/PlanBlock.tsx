@@ -27,7 +27,7 @@ import {
   type DimSuggestionWire,
   type CardProposalWire,
 } from "../api/workspace";
-import { CoachCardPanel } from "./CoachCardPanel";
+import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
@@ -512,7 +512,7 @@ function FormingPhase(props: {
             <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
           )}
           {!sending && (
-            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onLogged={onCardLogged} />
+            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onLogged={onCardLogged} deck={FORMING_DECK} />
           )}
           {showChips && !sending && (
             <div className="flex flex-wrap gap-2 pl-1">

@@ -8,10 +8,20 @@ import { Icon } from "../Icon";
 // #18: the tool-card surface shared by forming (立题) + the library (找资料),
 // mirroring the writing room's rail. Two paths, both 打开由学生确认:
 //   - AI-proposed: `proposal` (from the coach turn) renders a dismissable chip;
-//   - self-summon: a 工具卡 picker lets the student open a deck card herself.
+//   - self-summon: a 工具卡 shelf lets the student open a deck card herself.
 // Opening → StudioCardSheet → persistProjectCard (过程即数据; 印记 never fills it).
-// The default deck is the three general thinking cards the server allows the
-// cross-phase proposer to persist (card_persist.go coachProposableCards).
+//
+// Phase-scoped decks (#17/#18): each surface offers only the cards that help
+// THAT phase. 立题 sharpens the question and plans the search; 找资料/读 dissects a
+// source and weighs perspectives; the exploration graph owns the one
+// resource-finding card (rabbit-hole, elsewhere). The writing room has its own
+// deck in WritingBlock. The server mirrors every summonable id in
+// card_persist.go's persistable allowlist.
+export const FORMING_DECK = ["question-card", "framing", "perspective-matrix", "search-plan"];
+export const READING_DECK = ["fact-opinion-value", "perspective-matrix"];
+// The three general thinking cards the cross-phase proposer may offer
+// (card_persist.go coachProposableCards) — kept as the default when no
+// phase deck is passed.
 export const THINKING_DECK = ["fact-opinion-value", "certainty-spectrum", "steelman"];
 
 export function CoachCardPanel({
@@ -28,11 +38,9 @@ export function CoachCardPanel({
   deck?: string[];
 }) {
   const [openCardId, setOpenCardId] = useState<string | null>(null);
-  const [deckOpen, setDeckOpen] = useState(false);
 
   function openCard(id: string) {
     onProposalConsumed();
-    setDeckOpen(false);
     setOpenCardId(id);
   }
   function dismiss() {
@@ -46,7 +54,9 @@ export function CoachCardPanel({
     if (!id) return;
     try {
       await persistProjectCard(projectId, id, fieldValues, eventTrace);
-      onLogged?.("记下了——你刚才的思考已经存进过程里。");
+      // #9 · name the card so the used card leaves a visible trace in the thread.
+      const name = CARD_REGISTRY[id]?.name;
+      onLogged?.(name ? `记下了——你在《${name}》里的思考已存进过程。` : "记下了——你刚才的思考已经存进过程里。");
     } catch {
       onLogged?.("刚才没存上，等下再试一次。");
     }
@@ -66,30 +76,27 @@ export function CoachCardPanel({
           onSkip={() => setOpenCardId(null)}
         />
       )}
+      {/* #8 · the card shelf is always visible (was hidden behind a 工具卡 toggle
+          that students ignored). 触发自动、打开由学生确认 — showing the deck isn't
+          opening a card; tapping one is her choice. */}
       {!openCardId && availableDeck.length > 0 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setDeckOpen((o) => !o)}
-            className="inline-flex items-center gap-1 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
-          >
-            <Icon name="spark" size={12} /> 工具卡
-          </button>
-          {deckOpen && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {availableDeck.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => openCard(id)}
-                  title={CARD_REGISTRY[id]!.purpose}
-                  className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
-                >
-                  {CARD_REGISTRY[id]!.name}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="rounded-mk border border-mk-border-2 bg-mk-bg/50 p-2">
+          <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[11px] font-bold text-mk-muted-2">
+            <Icon name="spark" size={12} /> 工具卡 · 挑一张想清楚（你填，印记不替你写）
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {availableDeck.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => openCard(id)}
+                title={CARD_REGISTRY[id]!.purpose}
+                className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
+              >
+                {CARD_REGISTRY[id]!.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

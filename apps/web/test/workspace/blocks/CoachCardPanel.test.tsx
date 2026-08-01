@@ -20,12 +20,20 @@ describe("CoachCardPanel", () => {
     expect(onConsumed).toHaveBeenCalled();
   });
 
-  it("self-summon: the 工具卡 toggle reveals the deck", () => {
+  it("self-summon: the card shelf is always visible (#8), defaulting to the thinking deck", () => {
     render(<CoachCardPanel projectId="p1" proposal={null} onProposalConsumed={() => {}} />);
-    // Only the 工具卡 toggle is visible before opening the deck.
-    expect(screen.getAllByRole("button")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: /工具卡/ }));
-    // The deck cards (the three thinking cards from CARD_REGISTRY) now show.
-    expect(screen.getAllByRole("button").length).toBeGreaterThan(1);
+    // #8 · the deck is no longer hidden behind a 工具卡 toggle — the three
+    // default thinking cards show as tappable chips immediately.
+    expect(screen.getByRole("button", { name: "事实/观点/价值判断卡" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "确定度光谱卡" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "让步段·反方最强卡" })).toBeTruthy();
+  });
+
+  it("honors a phase-scoped deck (#17/#18)", () => {
+    render(<CoachCardPanel projectId="p1" proposal={null} onProposalConsumed={() => {}} deck={["question-card", "search-plan"]} />);
+    expect(screen.getByRole("button", { name: "提问卡" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "检索方向审视" })).toBeTruthy();
+    // a card outside the passed deck is not offered here
+    expect(screen.queryByRole("button", { name: "确定度光谱卡" })).toBeNull();
   });
 });

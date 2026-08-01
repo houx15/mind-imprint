@@ -42,10 +42,21 @@ var writingDeckCards = map[string]bool{
 	"argument-map": true,
 }
 
+// studioDeckCards is the allowlist of phase-scoped cards the STUDENT may summon
+// from the 立题 (forming) and 找资料/读 (reading) card shelves (#17/#18). Mirrors
+// the frontend FORMING_DECK / READING_DECK. Persisted the same way — a completed
+// card_instance + event — so 打开→填写→提交 is real; 印记 never fills them.
+var studioDeckCards = map[string]bool{
+	"question-card":      true, // 提问卡 — sharpen the research question
+	"framing":            true, // 语言框定卡 — frame the problem/scope
+	"perspective-matrix": true, // 视角对照矩阵 — who's affected / multiple views
+	"search-plan":        true, // 检索方向审视 — plan the search
+}
+
 // persistableCard reports whether card_id may be persisted through the generic
-// path — either an AI-proposable card or a student-summonable writing-deck card.
+// path — an AI-proposable card, a writing-deck card, or a phase-deck card.
 func persistableCard(id string) bool {
-	return coachProposableCards[id] || writingDeckCards[id]
+	return coachProposableCards[id] || writingDeckCards[id] || studioDeckCards[id]
 }
 
 // persistProjectCardEnvelope creates → submits → completes a project-scoped

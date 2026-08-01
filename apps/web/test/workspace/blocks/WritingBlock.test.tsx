@@ -132,8 +132,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
 
   it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
-    // deck launcher lives in the always-present rail
-    await userEvent.click(screen.getByTitle("写作卡"));
+    // #8 · the writing-card shelf is open by default in the always-present rail
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
     // StudioCardSheet mounts in the centered modal (its 工具卡 label + the card name)
@@ -192,5 +191,17 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
       expect(turn).toContain("我的草稿第一段");
       expect(turn).toContain("这段够有力吗");
     });
+  });
+
+  it("selection chip can run the chosen voice's 体检 on just that paragraph (#8)", async () => {
+    const ta = await openDraftTab();
+    await userEvent.selectOptions(screen.getByLabelText("体检视角"), "sceptic");
+    ta.setSelectionRange(0, 8);
+    fireEvent.mouseUp(ta, { clientX: 20, clientY: 20 });
+    await userEvent.click(await screen.findByRole("button", { name: "体检这段" }));
+    // the review runs on the selected paragraph (not the whole draft), with the
+    // chosen voice — and the panel says it checked just this段.
+    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", "我的草稿第一段。", "sceptic"));
+    expect(await screen.findByText(/体检了你选中的这一段/)).toBeInTheDocument();
   });
 });

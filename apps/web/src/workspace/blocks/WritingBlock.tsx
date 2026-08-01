@@ -732,16 +732,24 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
   const [reviewing, setReviewing] = useState(false);
   const [review, setReview] = useState<DraftReviewResult | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // #8 · the 体检 voices work on the whole draft OR just a selected paragraph —
+  // scope drives the panel's wording so it's clear what got checked.
+  const [reviewScope, setReviewScope] = useState<"draft" | "part">("draft");
 
-  async function runReview() {
-    if (reviewing || locked || text.trim() === "") return;
+  // Run the chosen voice's review. No arg → whole draft; a scopeText → just that
+  // paragraph (from the selection chip). Never rewrites — 印记 checks argument
+  // and structure, the student revises in her own words.
+  async function runReview(scopeText?: string) {
+    const target = scopeText ?? text;
+    if (reviewing || locked || target.trim() === "") return;
     setReviewing(true);
     setReviewError(null);
-    // flush any pending autosave so the snapshot matches what's on screen
+    setReviewScope(scopeText ? "part" : "draft");
+    // flush any pending autosave so the persisted buffer matches what's on screen
     if (saveTimer.current) clearTimeout(saveTimer.current);
     try {
       await putBuffer(projectId, text);
-      setReview(await runDraftReview(projectId, text, voice));
+      setReview(await runDraftReview(projectId, target, voice));
     } catch {
       setReviewError("体检没跑完，稍后再试一次。");
     } finally {
@@ -950,20 +958,34 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
             onMouseDown preventDefault keeps the textarea selection alive through the
             click, so we still have the pinned text. */}
         {selPop && mode === "write" && pane === "edit" && !locked && (
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { onFocusPart(selPop.text); setSelPop(null); }}
+          <div
             // sit above the pointer, but flip below when the selection is near the
             // pane top so the chip never clips over the toolbar (review L3).
             style={{ left: selPop.x, top: selPop.y, transform: selPop.y < 44 ? "translate(-50%, 45%)" : "translate(-50%, -130%)" }}
-            className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_14px_rgba(28,35,51,0.25)] hover:bg-mk-primary-hover"
+            className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary p-1 shadow-[0_4px_14px_rgba(28,35,51,0.25)]"
+            onMouseDown={(e) => e.preventDefault()}
           >
-            <Icon name="spark" size={13} /> 问印记
-          </button>
+            {/* #7 · chat about this part */}
+            <button
+              type="button"
+              onClick={() => { onFocusPart(selPop.text); setSelPop(null); }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
+            >
+              <Icon name="spark" size={13} /> 问印记
+            </button>
+            <span className="h-3.5 w-px bg-white/30" />
+            {/* #8 · run the chosen voice's 体检 on just this paragraph */}
+            <button
+              type="button"
+              onClick={() => { const t = selPop.text; setSelPop(null); void runReview(t); }}
+              className="rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
+            >
+              体检这段
+            </button>
+          </div>
         )}
         {mode === "write" && (reviewError || reviewing || review) && (
-          <DraftReviewPanel reviewing={reviewing} error={reviewError} review={review} onClose={() => { setReview(null); setReviewError(null); }} />
+          <DraftReviewPanel scope={reviewScope} reviewing={reviewing} error={reviewError} review={review} onClose={() => { setReview(null); setReviewError(null); }} />
         )}
         <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
@@ -975,11 +997,13 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
 // criterion, which descriptor band the draft evidences, what's still missing,
 // and a suggested DIRECTION (not a rewrite). The student revises in her own words.
 function DraftReviewPanel({
+  scope,
   reviewing,
   error,
   review,
   onClose,
 }: {
+  scope: "draft" | "part";
   reviewing: boolean;
   error: string | null;
   review: DraftReviewResult | null;
@@ -988,7 +1012,7 @@ function DraftReviewPanel({
   return (
     <div className="mt-3 max-h-72 overflow-y-auto rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/30 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[13px] font-bold text-mk-ink">印记的整稿体检 · 供你参考，不替你改字</p>
+        <p className="text-[13px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
         <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">收起</button>
       </div>
       {reviewing ? (
@@ -1047,14 +1071,18 @@ const RAIL_GREETING: ChatMsg = {
 };
 
 // WC · the writing thinking-cards a student can summon in the Write room (all
-// persist through /cards/persist's writing-deck allowlist).
-const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman"];
+// persist through /cards/persist's writing-deck allowlist). #17 adds the two
+// knowledge cards that are writing/checking tools (not source-finding):
+// 确定度光谱 (match hedging to certainty) and 事实/观点/价值判断 (sort a passage).
+const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman", "certainty-spectrum", "fact-opinion-value"];
 
 function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean; onCardArtifact: (text: string) => void }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [deckOpen, setDeckOpen] = useState(false);
+  // #8 · the writing-card shelf shows by default (was hidden behind ＋, ignored).
+  // The ＋ button now collapses/expands it; opening a card is still her tap.
+  const [deckOpen, setDeckOpen] = useState(true);
   // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
   // dismissable chip); `openCardId` is the card the student CHOSE to open — the
   // only path to a card sheet, so triggering stays automatic while opening is

@@ -51,6 +51,25 @@ export function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepK
   );
 }
 
+// #6 · fill-in-the-blank 句式 scaffolds shown above a step's fields. Reference
+// skeletons the student adapts into her own words — 印记 never writes the
+// sentence for her (铁律①). Always visible (not behind the 方法 toggle) so the
+// help is actually seen.
+function SentenceFrames({ step }: { step: Step }) {
+  const frames = (step as { sentence_frames?: string[] }).sentence_frames;
+  if (!frames || frames.length === 0) return null;
+  return (
+    <div className="mb-4 rounded-mk border border-mk-accent/30 bg-mk-accent-tint/20 p-3">
+      <div className="mb-1.5 text-[12px] font-bold text-mk-accent">参考句式 · 换成你自己的话</div>
+      <ul className="space-y-1">
+        {frames.map((f, i) => (
+          <li key={i} className="text-[12.5px] leading-relaxed text-[#3A4256]">{f}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function StepFields({ step, values, onField }: { step: Step; values: Record<string, unknown>; onField: Props["onField"] }) {
   const visible = step.fields.filter((field) => {
     const cond = (field as { show_if?: { key: string; equals: string } }).show_if;
@@ -77,6 +96,7 @@ export function CardRenderer({ card, values, onField, onExpandStep, onNote, hide
           <section key={step.key} className="rounded-mk border border-mk-border-2 bg-white p-5">
             <h3 className="mb-4 text-[15px] font-bold text-mk-ink">{step.title}</h3>
             {!hideMethodology && <MethodologyPanel step={step} onNote={onNote} />}
+            <SentenceFrames step={step} />
             <StepFields step={step} values={values} onField={onField} />
           </section>
         ),
