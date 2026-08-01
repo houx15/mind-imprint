@@ -9,8 +9,9 @@ const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 // Local enum→label maps (kept here so the export module owns no UI imports).
-const TAG_LABEL: Record<PlanItem["tag"], string> = { read: "读", write: "写", review: "省" };
-const COLUMN_LABEL: Record<PlanItem["column"], string> = { todo: "待办", doing: "进行中", done: "完成" };
+// Exports are the student's IB / international-track deliverables — pure English.
+const TAG_LABEL: Record<PlanItem["tag"], string> = { read: "Read", write: "Write", review: "Review" };
+const COLUMN_LABEL: Record<PlanItem["column"], string> = { todo: "To Do", doing: "In Progress", done: "Done" };
 // The annotated-bib "Should I use this resource?" verdict (English form-facing).
 const USE_LABEL: Record<"use" | "maybe" | "drop", string> = { use: "YES", maybe: "MAYBE", drop: "NO" };
 
@@ -56,10 +57,10 @@ export async function exportAnnotatedBib(refs: Reference[], project: { title: st
     r.url || "",
     relevanceCell(r),
     r.evaluation || "",
-    r.decision ? USE_LABEL[r.decision] : "待定",
+    r.decision ? USE_LABEL[r.decision] : "TBD",
   ]);
   const aoa: (string | number)[][] = [
-    [`Research Title: ${project.title || "未命名项目"}`],
+    [`Research Title: ${project.title || "Untitled Project"}`],
     [`How many articles/papers: ${rows.length}`],
     [],
     header,
@@ -71,7 +72,7 @@ export async function exportAnnotatedBib(refs: Reference[], project: { title: st
   XLSX.utils.book_append_sheet(wb, ws, "Annotated Bibliography");
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   const blob = new Blob([buf], { type: XLSX_MIME });
-  saveBlob("注释书目_AnnotatedBibliography.xlsx", blob);
+  saveBlob("AnnotatedBibliography.xlsx", blob);
   return blob;
 }
 
@@ -84,7 +85,7 @@ export async function exportTimescale(
 ): Promise<Blob> {
   const XLSX = await import("xlsx");
   const dayCols = Array.from({ length: timelineDays }, (_, i) => i + 1);
-  const header = ["WBS NUMBER", "TASK TITLE", "类型", "状态", ...dayCols.map((d) => String(d))];
+  const header = ["WBS NUMBER", "TASK TITLE", "TYPE", "STATUS", ...dayCols.map((d) => String(d))];
 
   // Distinct stages in first-appearance order (no dependency on mock STAGES).
   const stages: string[] = [];
@@ -92,7 +93,7 @@ export async function exportTimescale(
 
   const aoa: (string | number)[][] = [
     ["TIMESCALE"],
-    [`Project: ${project.title || "未命名项目"}`],
+    [`Project: ${project.title || "Untitled Project"}`],
     ["Name / Date:"],
     [],
     header,
@@ -113,7 +114,7 @@ export async function exportTimescale(
   XLSX.utils.book_append_sheet(wb, ws, "Timescale");
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   const blob = new Blob([buf], { type: XLSX_MIME });
-  saveBlob("项目计划_Timescale.xlsx", blob);
+  saveBlob("Timescale.xlsx", blob);
   return blob;
 }
 
@@ -130,19 +131,19 @@ export async function exportProposalDocx(
   // when a section is empty.
   const textParagraphs = (raw: string): InstanceType<typeof Paragraph>[] => {
     const value = (raw || "").trim();
-    if (!value) return [new Paragraph({ children: [new TextRun({ text: "（未填写）", italics: true })] })];
+    if (!value) return [new Paragraph({ children: [new TextRun({ text: "(not filled in)", italics: true })] })];
     return value.split(/\n+/).map((line) => new Paragraph({ children: [new TextRun(line)] }));
   };
 
   const sections: { n: string; title: string; text: string }[] = [
-    { n: "§1", title: "题目、目标与职责", text: proposal.objective },
-    { n: "§2", title: "选题理由", text: proposal.reason },
-    { n: "§3", title: "活动与时间安排", text: proposal.activities },
-    { n: "§4", title: "资源", text: proposal.resources },
+    { n: "§1", title: "Title, Objective & Responsibilities", text: proposal.objective },
+    { n: "§2", title: "Rationale", text: proposal.reason },
+    { n: "§3", title: "Activities & Timeline", text: proposal.activities },
+    { n: "§4", title: "Resources", text: proposal.resources },
   ];
 
   const children: InstanceType<typeof Paragraph>[] = [
-    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(project.title || "未命名项目")] }),
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(project.title || "Untitled Project")] }),
   ];
   if (project.qualification) {
     children.push(new Paragraph({ children: [new TextRun({ text: project.qualification, italics: true })] }));
@@ -156,7 +157,7 @@ export async function exportProposalDocx(
   const blob = await Packer.toBlob(doc);
   // Packer.toBlob may not stamp the OOXML mime; normalise it for callers/tests.
   const typed = blob.type === DOCX_MIME ? blob : new Blob([await blob.arrayBuffer()], { type: DOCX_MIME });
-  saveBlob("开题报告_Proposal.docx", typed);
+  saveBlob("Proposal.docx", typed);
   return typed;
 }
 
@@ -171,14 +172,14 @@ export async function exportDraftDocx(content: string, project: { title: string;
   const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
 
   const children: InstanceType<typeof Paragraph>[] = [
-    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(project.title || "未命名项目")] }),
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(project.title || "Untitled Project")] }),
   ];
   if (project.qualification) {
     children.push(new Paragraph({ children: [new TextRun({ text: project.qualification, italics: true })] }));
   }
   const body = (content || "").trim();
   if (!body) {
-    children.push(new Paragraph({ children: [new TextRun({ text: "（正文还没有写）", italics: true })] }));
+    children.push(new Paragraph({ children: [new TextRun({ text: "(The body has not been written yet.)", italics: true })] }));
   } else {
     for (const block of body.split(/\n{2,}/)) {
       for (const line of block.split(/\n/)) {
@@ -198,7 +199,7 @@ export async function exportDraftDocx(content: string, project: { title: string;
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
   const typed = blob.type === DOCX_MIME ? blob : new Blob([await blob.arrayBuffer()], { type: DOCX_MIME });
-  saveBlob("成品正文_Draft.docx", typed);
+  saveBlob("Draft.docx", typed);
   return typed;
 }
 
@@ -215,12 +216,12 @@ export async function exportActivityLog(entries: LogEntry[], project: { title: s
     });
 
   const headerRow = new TableRow({
-    children: [cell("Date", { bold: true, width: 15 }), cell("记录", { bold: true, width: 70 }), cell("来源", { bold: true, width: 15 })],
+    children: [cell("Date", { bold: true, width: 15 }), cell("Entry", { bold: true, width: 70 }), cell("Source", { bold: true, width: 15 })],
   });
   const bodyRows = entries.map(
     (e) =>
       new TableRow({
-        children: [cell(e.date), cell(e.text), cell(e.source === "auto" ? "自动" : "我记的")],
+        children: [cell(e.date), cell(e.text), cell(e.source === "auto" ? "Auto" : "By me")],
       }),
   );
 
@@ -235,7 +236,7 @@ export async function exportActivityLog(entries: LogEntry[], project: { title: s
         children: [
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
-            children: [new TextRun(`活动日志 / Production Log — ${project.title || "未命名项目"}`)],
+            children: [new TextRun(`Production Log — ${project.title || "Untitled Project"}`)],
           }),
           table,
         ],
@@ -244,6 +245,6 @@ export async function exportActivityLog(entries: LogEntry[], project: { title: s
   });
   const blob = await Packer.toBlob(doc);
   const typed = blob.type === DOCX_MIME ? blob : new Blob([await blob.arrayBuffer()], { type: DOCX_MIME });
-  saveBlob("活动日志_ProductionLog.docx", typed);
+  saveBlob("ProductionLog.docx", typed);
   return typed;
 }

@@ -39,6 +39,9 @@ export function ReviewBlock({
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  // #5 · 完成回顾 is the second guarded moment (point of no return): archiving
+  // locks 正文与回顾 and generates the assessment. Confirm before running it.
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const hasProposal = [proposal.objective, proposal.reason, proposal.activities, proposal.resources].some(
     (v) => v.trim() !== "",
   );
@@ -178,7 +181,7 @@ export function ReviewBlock({
               <>
                 <button
                   type="button"
-                  onClick={() => void finish()}
+                  onClick={() => setConfirmFinish(true)}
                   disabled={finishing}
                   className="rounded-mk bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-hover disabled:opacity-50"
                 >
@@ -197,6 +200,35 @@ export function ReviewBlock({
 
       {/* aside · the mirror */}
       <MirrorPane projectId={projectId} hasProposal={hasProposal} />
+
+      {/* #5 · 完成回顾 confirm — the point of no return. Archiving locks 正文与回顾
+          and generates the process assessment. */}
+      {confirmFinish && !done && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
+            <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成回顾并归档？</h2>
+            <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+              归档后，<span className="font-bold text-mk-ink">正文与回顾都会锁定、无法再修改</span>，印记会据此生成过程评估（记入成长报告，这里不打分）。确定完成吗？
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmFinish(false)}
+                className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
+              >
+                再看看
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmFinish(false); void finish(); }}
+                className="rounded-mk bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-hover"
+              >
+                完成回顾
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* finish modal · the assessment runs in the background; the student is
           free to leave. One action returns to 全部项目, where the row shows

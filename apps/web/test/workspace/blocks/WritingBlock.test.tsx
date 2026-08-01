@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // WA · the Write room's 整稿体检 (check-my-draft). Mock the thin api modules
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 async function openDraftTab() {
-  render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={() => {}} />);
+  render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
   await userEvent.click(screen.getByRole("button", { name: "正文" }));
   const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
   // getDraft resolves async — wait for the persisted draft to populate.
@@ -98,11 +98,24 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await waitFor(() => expect(mockExport).toHaveBeenCalledWith(ta.value, expect.objectContaining({ title: "T" })));
   });
 
-  it("goal strip routes to Review to finish (WB)", async () => {
+  it("写完了 opens a confirm modal that routes to Review (WB · #5)", async () => {
     const onOpenRoom = vi.fn();
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={onOpenRoom} />);
-    await userEvent.click(screen.getByRole("button", { name: /去完成/ }));
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={onOpenRoom} />);
+    await userEvent.click(screen.getByRole("button", { name: "写完了" }));
+    // it's a guarded moment — the modal shows, it doesn't route immediately
+    expect(onOpenRoom).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: /去回顾/ }));
     expect(onOpenRoom).toHaveBeenCalledWith("reflection");
+  });
+
+  it("archived project renders the draft read-only, no 体检 (WB · #5 lock)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.value.length).toBeGreaterThan(0));
+    expect(ta).toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: "让印记体检整稿" })).toBeNull();
+    expect(screen.getByText(/正文只读/)).toBeInTheDocument();
   });
 
   it("surfaces an error without crashing", async () => {
@@ -114,20 +127,24 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(mockPutBuffer).toHaveBeenCalled();
   });
 
-  it("summons a writing card from the deck (WC · card-hang)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} onOpenRoom={() => {}} />);
+  it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
     // deck launcher lives in the always-present rail
     await userEvent.click(screen.getByTitle("写作卡"));
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
-    // StudioCardSheet mounts (its 工具卡 label + the card name)
+    // StudioCardSheet mounts in the centered modal (its 工具卡 label + the card name)
     expect(await screen.findByText("工具卡")).toBeInTheDocument();
   });
 
-  it("pins a draft part and scopes the coach turn to it (WC · part-by-part)", async () => {
-    await openDraftTab();
-    await userEvent.click(screen.getByRole("button", { name: "就这一段问印记" }));
-    // pinned chip appears in the rail
+  it("floating 问印记 chip on a selection scopes the coach turn to it (WC · #7)", async () => {
+    const ta = await openDraftTab();
+    // simulate highlighting the first sentence, then releasing the mouse
+    ta.setSelectionRange(0, 8);
+    fireEvent.mouseUp(ta, { clientX: 20, clientY: 20 });
+    const chip = await screen.findByRole("button", { name: /问印记/ });
+    await userEvent.click(chip);
+    // the pinned part appears in the rail + the composer switches to part-mode
     expect(await screen.findByText("就这一段")).toBeInTheDocument();
     const composer = screen.getByPlaceholderText("就这一段，你想问什么？");
     await userEvent.type(composer, "这段够有力吗{Enter}");
@@ -135,6 +152,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
       const [, scope, turn] = mockCoach.mock.calls.at(-1)!;
       expect(scope).toBe("writing");
       expect(turn).toContain("就这一段想");
+      expect(turn).toContain("我的草稿第一段");
       expect(turn).toContain("这段够有力吗");
     });
   });

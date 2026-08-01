@@ -14,6 +14,7 @@ import {
   type ReferencePatch,
 } from "../api/workspace";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
+import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
@@ -86,7 +87,9 @@ export function ReadingBlock({
   const [railOpen, setRailOpen] = useState(true);
   // 列表 ⇄ 探索图谱 (Task 9): 列表 is today's Zotero-shaped table, unchanged;
   // 探索图谱 is the S3 rabbit-hole branch view over the same references.
-  // Defaults to 列表 — opening the graph is always an explicit choice.
+  // #4: default to 探索图谱 once the project HAS sources (set after the initial
+  // load, below); a brand-new/empty library opens on 列表 where the add
+  // affordances live. Within a project the student's manual toggle then sticks.
   const [viewMode, setViewMode] = useState<"list" | "graph">("list");
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
@@ -134,6 +137,10 @@ export function ReadingBlock({
         setRefs(lib.references);
         setCollections(lib.collections);
         setSelId(lib.references[0]?.id ?? "");
+        // #4 · open on the exploration graph when there's already something to
+        // explore; the empty library stays on 列表 (set before loading clears,
+        // so there's no list→graph flash behind the loading guard).
+        if (lib.references.length > 0) setViewMode("graph");
         void loadExplorationSignal();
       } catch {
         /* an empty library reads as the empty state */
@@ -199,6 +206,19 @@ export function ReadingBlock({
     const r = refs.find((x) => x.id === refId);
     if (!r) return;
     patchNow(refId, { tags: r.tags.filter((x) => x !== tag) });
+  }
+
+  // #2 · tag which argument-stage a source served, editable inline from the list
+  // so older/untagged readings can be labelled. phaseTag lives on the reading
+  // brief (a full-replace), so carry the source's existing reason/focus through.
+  function setPhaseTag(refId: string, phase: PhaseTag | "") {
+    const r = refs.find((x) => x.id === refId);
+    setRefs((xs) => xs.map((x) => (x.id === refId ? { ...x, phaseTag: phase === "" ? null : phase } : x)));
+    putReadingBrief(projectId, refId, {
+      readingReason: r?.readingReason ?? "",
+      readingFocus: r?.readingFocus ?? "",
+      phaseTag: phase,
+    }).catch(() => reload());
   }
 
   async function addSource(src: { title: string; url: string; classification: string; collectionId: string | null }) {
@@ -356,6 +376,7 @@ export function ReadingBlock({
               collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
               activeTag={activeTag}
               onAdd={() => setAdding(true)}
+              onSetPhase={setPhaseTag}
             />
 
             {selected ? (
@@ -595,8 +616,9 @@ function RefTable(props: {
   collName: string;
   activeTag: string | null;
   onAdd: () => void;
+  onSetPhase: (id: string, phase: PhaseTag | "") => void;
 }) {
-  const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd } = props;
+  const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd, onSetPhase } = props;
   const nChecked = checked.size;
   return (
     <div className="flex min-h-0 flex-col bg-mk-surface">
@@ -635,14 +657,37 @@ function RefTable(props: {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rows.map((r) => (
-          <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} />
+          <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} onSetPhase={(p) => onSetPhase(r.id, p)} />
         ))}
       </div>
     </div>
   );
 }
 
-function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void }) {
+const PHASE_OPTIONS: PhaseTag[] = ["立题探索", "背景理解", "支持论点", "反例检验", "方法参考"];
+
+// #2 · a compact inline stage picker. Unset shows a subtle "＋阶段" prompt; set
+// shows the stage in an accent pill. Editing persists via the reading brief so
+// even older/untagged readings can be labelled from the list.
+function PhaseTagPicker({ value, onChange }: { value: PhaseTag | null; onChange: (p: PhaseTag | "") => void }) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value as PhaseTag | "")}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      draggable={false}
+      aria-label="用于哪个阶段"
+      title="标注：这条来源用在哪个阶段"
+      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold outline-none ${value ? "bg-mk-accent-tint text-mk-accent" : "bg-mk-bg text-mk-muted-2"}`}
+    >
+      <option value="">＋阶段</option>
+      {PHASE_OPTIONS.map((p) => (<option key={p} value={p}>{p}</option>))}
+    </select>
+  );
+}
+
+function Row({ r, active, checked, onSelect, onCheck, onSetPhase }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void; onSetPhase: (phase: PhaseTag | "") => void }) {
   const hasRead = r.notes.length > 0;
   // 已归纳/在读/未读 badge — derived, never a separate flag: a finalized
   // takeaway means 已归纳; a linked material with no takeaway yet means she's
@@ -659,10 +704,12 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
       <button type="button" onClick={onCheck} className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? "border-mk-primary bg-mk-primary text-white" : "border-mk-input bg-mk-surface"}`}>
         {checked && <span className="text-[10px] leading-none">✓</span>}
       </button>
-      <button type="button" onClick={onSelect} className="min-w-0 text-left">
+      <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-green" : "border border-mk-muted-2"}`} />
-          <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
+          <button type="button" onClick={onSelect} className="flex min-w-0 items-center gap-1.5 text-left">
+            <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-green" : "border border-mk-muted-2"}`} />
+            <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
+          </button>
           {r.pending && <span className="flex-none rounded bg-mk-accent-tint px-1.5 py-0.5 text-[10px] font-bold text-mk-accent">待找</span>}
           {readingBadge && (
             <span
@@ -677,12 +724,13 @@ function Row({ r, active, checked, onSelect, onCheck }: { r: Reference; active: 
               {readingBadge}
             </span>
           )}
-          {r.phaseTag && <span className="flex-none rounded bg-mk-bg px-1.5 py-0.5 text-[10px] font-bold text-mk-muted">{r.phaseTag}</span>}
+          {/* #2 · which argument-stage this source served — inline-editable */}
+          <PhaseTagPicker value={r.phaseTag ?? null} onChange={onSetPhase} />
         </div>
-        <div className="mt-0.5 flex gap-1 pl-3">
+        <button type="button" onClick={onSelect} className="mt-0.5 flex gap-1 pl-3 text-left">
           {r.tags.map((t) => (<span key={t} className="text-[10.5px] text-mk-muted-2">#{t}</span>))}
-        </div>
-      </button>
+        </button>
+      </div>
       <button type="button" onClick={onSelect} className="truncate text-left text-[12px] text-mk-muted">{r.classification || "—"}{r.year ? ` · ${r.year}` : ""}</button>
       <button type="button" onClick={onSelect} className="text-center text-[12px] font-semibold text-mk-muted-2">{r.notes.length > 0 ? `✎ ${r.notes.length}` : "—"}</button>
       <button type="button" onClick={onSelect} className="text-left">
