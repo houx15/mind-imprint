@@ -124,6 +124,7 @@ function OnDemandStep({ step, values, onField, onExpandStep, onNote, hideMethodo
       {open && (
         <div className="px-5 pb-5">
           {!hideMethodology && <MethodologyPanel step={step} onNote={onNote} />}
+          <SentenceFrames step={step} />
           <StepFields step={step} values={values} onField={onField} />
         </div>
       )}
