@@ -30,8 +30,8 @@ export function saveBlob(name: string, blob: Blob): void {
 // The cited parts of a source, as recorded in the Reading Room, flattened into
 // the annotated-bib "Relevance" cell.
 function relevanceCell(ref: Reference): string {
-  const parts = ref.notes.map((n) => `「${n.quote}」→ ${n.finding}`);
-  return parts.length > 0 ? parts.join("；") : "—";
+  const parts = ref.notes.map((n) => `"${n.quote}" → ${n.finding}`);
+  return parts.length > 0 ? parts.join("; ") : "—";
 }
 
 /* ---------- 1 · Annotated Bibliography → .xlsx (ReadingBlock) ---------- */

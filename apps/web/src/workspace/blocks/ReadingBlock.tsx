@@ -21,6 +21,12 @@ import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 import { CoachCardPanel } from "./CoachCardPanel";
 import type { CardProposalWire } from "../api/workspace";
 
+// #4 (review M1) · remembers the chosen 列表/探索图谱 view per project for the
+// life of the session, so a manual toggle survives the room unmounting (switching
+// rooms / opening a source). Absence of a key means "not yet auto-defaulted" —
+// the first load then picks graph-if-sources-exist, else list.
+const viewModeMemo = new Map<string, "list" | "graph">();
+
 // Display labels — pure enum→label maps (kept local so the room owns no mock
 // seed data). Values mirror the contract's Credibility / UseDecision enums.
 const CRED_LABEL: Record<NonNullable<Reference["credibility"]>, string> = {
@@ -87,10 +93,17 @@ export function ReadingBlock({
   const [railOpen, setRailOpen] = useState(true);
   // 列表 ⇄ 探索图谱 (Task 9): 列表 is today's Zotero-shaped table, unchanged;
   // 探索图谱 is the S3 rabbit-hole branch view over the same references.
-  // #4: default to 探索图谱 once the project HAS sources (set after the initial
-  // load, below); a brand-new/empty library opens on 列表 where the add
-  // affordances live. Within a project the student's manual toggle then sticks.
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  // #4: default to 探索图谱 once the project HAS sources (auto-default runs once
+  // per project, below); a brand-new/empty library opens on 列表 where the add
+  // affordances live. The student's manual toggle then sticks across room
+  // re-entry — ReadingBlock unmounts when switching rooms / opening a source to
+  // read, so the choice is remembered in a module-level per-project memo
+  // (viewModeMemo) rather than lost on remount (review M1).
+  const [viewMode, setViewModeRaw] = useState<"list" | "graph">(() => viewModeMemo.get(projectId) ?? "list");
+  const chooseViewMode = (m: "list" | "graph") => {
+    viewModeMemo.set(projectId, m);
+    setViewModeRaw(m);
+  };
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -138,9 +151,14 @@ export function ReadingBlock({
         setCollections(lib.collections);
         setSelId(lib.references[0]?.id ?? "");
         // #4 · open on the exploration graph when there's already something to
-        // explore; the empty library stays on 列表 (set before loading clears,
-        // so there's no list→graph flash behind the loading guard).
-        if (lib.references.length > 0) setViewMode("graph");
+        // explore; the empty library stays on 列表. Auto-default runs ONCE per
+        // project (guarded by the memo) so a later manual toggle isn't overridden
+        // on the next mount (review M1). Set before loading clears → no flash.
+        if (!viewModeMemo.has(projectId)) {
+          const m = lib.references.length > 0 ? "graph" : "list";
+          viewModeMemo.set(projectId, m);
+          setViewModeRaw(m);
+        }
         void loadExplorationSignal();
       } catch {
         /* an empty library reads as the empty state */
@@ -344,7 +362,7 @@ export function ReadingBlock({
   return (
     <div className="relative flex h-full flex-col">
       <div className="flex items-center justify-end border-b border-mk-border bg-mk-surface px-4 py-1.5">
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} signal={explorationSignal} />
+        <ViewModeToggle mode={viewMode} onChange={chooseViewMode} signal={explorationSignal} />
       </div>
 
       <div className="min-h-0 flex-1">

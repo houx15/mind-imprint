@@ -136,7 +136,7 @@ export function WritingBlock({
         ) : (
           <DraftPane projectId={projectId} title={title} locked={locked} onFocusPart={setFocusPart} />
         )}
-        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} />
+        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} locked={locked} />
         {/* #23 · draggable materials sidebar — floats over the tab pane, defaults
             left, 收进片段 appends to the snippet board from any tab. */}
         <MaterialsSidebar projectId={projectId} onInsert={(text) => snip.add(text)} />
@@ -879,7 +879,9 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => { onFocusPart(selPop.text); setSelPop(null); }}
-            style={{ left: selPop.x, top: selPop.y, transform: "translate(-50%, -130%)" }}
+            // sit above the pointer, but flip below when the selection is near the
+            // pane top so the chip never clips over the toolbar (review L3).
+            style={{ left: selPop.x, top: selPop.y, transform: selPop.y < 44 ? "translate(-50%, 45%)" : "translate(-50%, -130%)" }}
             className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_4px_14px_rgba(28,35,51,0.25)] hover:bg-mk-primary-hover"
           >
             <Icon name="spark" size={13} /> 问印记
@@ -973,7 +975,7 @@ const RAIL_GREETING: ChatMsg = {
 // persist through /cards/persist's writing-deck allowlist).
 const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman"];
 
-function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; focusPart: string | null; onClearFocus: () => void }) {
+function CoachRail({ projectId, focusPart, onClearFocus, locked }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -1003,7 +1005,7 @@ function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; 
 
   async function send() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if (!text || sending || locked) return;
     // WC · if a draft part is pinned, scope this turn to it so 印记 checks THAT
     // part's argument/function — never rewriting it.
     const turnText = focusPart ? `就这一段想（帮我看它的论证与功能，别替我改写）：\n「${focusPart}」\n\n${text}` : text;
@@ -1075,7 +1077,7 @@ function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; 
         )}
       </div>
       {/* WC · writing-card deck picker (student summons a thinking-card onto the part) */}
-      {deckOpen && (
+      {deckOpen && !locked && (
         <div className="border-t border-mk-border bg-mk-bg px-3 py-2">
           <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">挑一张写作卡，想清楚你这一段的论证——你填，印记不替你写</p>
           <div className="flex flex-wrap gap-1.5">
@@ -1100,32 +1102,38 @@ function CoachRail({ projectId, focusPart, onClearFocus }: { projectId: string; 
           <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">✕</button>
         </div>
       )}
-      <div className="flex items-end gap-2 border-t border-mk-border p-3">
-        <button
-          type="button"
-          onClick={() => setDeckOpen((v) => !v)}
-          title="写作卡"
-          className={`flex h-9 w-9 flex-none items-center justify-center rounded-mk border text-[16px] font-bold transition ${deckOpen ? "border-mk-primary bg-mk-primary-tint text-mk-primary" : "border-mk-border text-mk-muted-2 hover:text-mk-primary"}`}
-        >
-          ＋
-        </button>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-          rows={1}
-          placeholder={focusPart ? "就这一段，你想问什么？" : "问问这段逻辑、这个结构……"}
-          className="max-h-24 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-        />
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={sending}
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-50"
-        >
-          <Icon name="send" size={16} />
-        </button>
-      </div>
+      {locked ? (
+        // #5 (review L2) · an archived project's process is sealed — the writing
+        // coach takes no new turns/cards so 过程即数据 stays true to the record.
+        <div className="border-t border-mk-border p-3 text-center text-[12px] font-semibold text-mk-muted-2">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
+      ) : (
+        <div className="flex items-end gap-2 border-t border-mk-border p-3">
+          <button
+            type="button"
+            onClick={() => setDeckOpen((v) => !v)}
+            title="写作卡"
+            className={`flex h-9 w-9 flex-none items-center justify-center rounded-mk border text-[16px] font-bold transition ${deckOpen ? "border-mk-primary bg-mk-primary-tint text-mk-primary" : "border-mk-border text-mk-muted-2 hover:text-mk-primary"}`}
+          >
+            ＋
+          </button>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
+            rows={1}
+            placeholder={focusPart ? "就这一段，你想问什么？" : "问问这段逻辑、这个结构……"}
+            className="max-h-24 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+          />
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={sending}
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-50"
+          >
+            <Icon name="send" size={16} />
+          </button>
+        </div>
+      )}
 
       {/* #3 · the opened tool card is a centered modal over the whole room, not a
           card buried in the right rail. Triggering stays automatic (the proposal

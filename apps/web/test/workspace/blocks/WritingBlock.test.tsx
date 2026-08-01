@@ -116,6 +116,9 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(ta).toHaveAttribute("readonly");
     expect(screen.queryByRole("button", { name: "让印记体检整稿" })).toBeNull();
     expect(screen.getByText(/正文只读/)).toBeInTheDocument();
+    // L2 · the writing coach rail is sealed too (no new turns/cards post-archive)
+    expect(screen.queryByPlaceholderText("问问这段逻辑、这个结构……")).toBeNull();
+    expect(screen.getByText(/过程已封存/)).toBeInTheDocument();
   });
 
   it("surfaces an error without crashing", async () => {
