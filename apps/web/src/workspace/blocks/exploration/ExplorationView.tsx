@@ -136,6 +136,18 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     }
   }
 
+  // #12 · hang a 分支 under a lead.
+  async function addBranch(parentLeadId: string, text: string) {
+    const t = text.trim();
+    if (!t) return;
+    try {
+      await createLead(projectId, t, { parentLeadId });
+      await refresh();
+    } catch {
+      setLeadActionError(true);
+    }
+  }
+
   async function runDigDeeper() {
     if (digging) return;
     setDigging(true);
@@ -156,7 +168,9 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     if (adoptedDirections.has(i)) return;
     setAdoptedDirections((s) => new Set(s).add(i));
     try {
-      await createLead(projectId, direction);
+      // #12 · when the directions came from digging ONE lead, adopt them as its
+      // 分支 (nested under it); otherwise as a top-level thread.
+      await createLead(projectId, direction, focusLead ? { parentLeadId: focusLead.id } : undefined);
       await refresh();
     } catch {
       setAdoptedDirections((s) => {
@@ -182,9 +196,26 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     }
   }
 
-  const leadsBySource = useMemo(() => {
+  // #12 · 分支 render NESTED under their parent, not in the flat lists. Split
+  // top-level threads (parentLeadId null) from children, and index children by
+  // parent for the recursive render. (Parent delete cascades to children, so
+  // there are no orphaned 分支.)
+  const childrenByParent = useMemo(() => {
     const m = new Map<string, ExplorationLead[]>();
     for (const l of view.leads) {
+      if (l.parentLeadId) {
+        const arr = m.get(l.parentLeadId) ?? [];
+        arr.push(l);
+        m.set(l.parentLeadId, arr);
+      }
+    }
+    return m;
+  }, [view.leads]);
+  const topLevel = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
+
+  const leadsBySource = useMemo(() => {
+    const m = new Map<string, ExplorationLead[]>();
+    for (const l of topLevel) {
       if (l.sourceReferenceId) {
         const arr = m.get(l.sourceReferenceId) ?? [];
         arr.push(l);
@@ -192,7 +223,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
       }
     }
     return m;
-  }, [view.leads]);
+  }, [topLevel]);
 
   // Only counts as "branched" with at least one non-pruned source-lead — a
   // ref whose only leads are pruned has no visible open branch to show here,
@@ -201,11 +232,11 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   // that ref would render in both sections at once.
   const branchedRefs = references.filter((r) => (leadsBySource.get(r.id) ?? []).some((l) => l.status !== "pruned"));
   const danglingRefs = references.filter((r) => view.danglingSourceIds.includes(r.id));
-  // Every lead with no source reference lands here — including leads that
-  // were connected/pruned whose origin reference was later deleted (DB sets
+  // Every top-level lead with no source reference lands here — including leads
+  // that were connected/pruned whose origin reference was later deleted (DB sets
   // sourceReferenceId to NULL on delete). Those must still render (with their
   // resolved marker) instead of silently vanishing from the whole view.
-  const looseLeads = view.leads.filter((l) => l.sourceReferenceId == null);
+  const looseLeads = topLevel.filter((l) => l.sourceReferenceId == null);
 
   if (loading) {
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载探索图谱中…</div>;
@@ -284,6 +315,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                     key={ref.id}
                     ref_={ref}
                     leads={leadsBySource.get(ref.id) ?? []}
+                    childrenByParent={childrenByParent}
                     references={references}
                     busyLeadIds={busyLeadIds}
                     pickerFor={pickerFor}
@@ -291,6 +323,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                     onConnect={connectLead}
                     onPrune={pruneLead}
                     onDig={(l) => { setFocusLead(l); setThought(""); setDirections(null); }}
+                    onAddBranch={addBranch}
                   />
                 ))}
               </div>
@@ -337,18 +370,20 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
             {looseLeads.length === 0 ? (
               <p className="mb-2 text-[12px] text-mk-muted-2">还没有手动记的线索——读完一篇来源会自动生成，或者自己记一条。</p>
             ) : (
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-2 flex flex-col gap-2">
                 {looseLeads.map((l) => (
-                  <BranchLeadChip
+                  <LeadWithBranches
                     key={l.id}
                     lead={l}
+                    childrenByParent={childrenByParent}
                     references={references}
-                    busy={busyLeadIds.has(l.id)}
-                    pickerOpen={pickerFor === l.id}
-                    onOpenPicker={() => setPickerFor(pickerFor === l.id ? null : l.id)}
-                    onConnect={(refId) => connectLead(l.id, refId)}
-                    onPrune={() => pruneLead(l.id)}
-                    onDig={() => { setFocusLead(l); setThought(""); setDirections(null); }}
+                    busyLeadIds={busyLeadIds}
+                    pickerFor={pickerFor}
+                    onOpenPicker={setPickerFor}
+                    onConnect={connectLead}
+                    onPrune={pruneLead}
+                    onDig={(lead) => { setFocusLead(lead); setThought(""); setDirections(null); }}
+                    onAddBranch={addBranch}
                   />
                 ))}
               </div>
@@ -442,6 +477,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
 function SourceBranch({
   ref_,
   leads,
+  childrenByParent,
   references,
   busyLeadIds,
   pickerFor,
@@ -449,9 +485,11 @@ function SourceBranch({
   onConnect,
   onPrune,
   onDig,
+  onAddBranch,
 }: {
   ref_: Reference;
   leads: ExplorationLead[];
+  childrenByParent: Map<string, ExplorationLead[]>;
   references: Reference[];
   busyLeadIds: Set<string>;
   pickerFor: string | null;
@@ -459,6 +497,7 @@ function SourceBranch({
   onConnect: (lid: string, connectedReferenceId: string) => void;
   onPrune: (lid: string) => void;
   onDig: (lead: ExplorationLead) => void;
+  onAddBranch: (parentLeadId: string, text: string) => void;
 }) {
   const badge = readingBadge(ref_);
   return (
@@ -471,19 +510,109 @@ function SourceBranch({
       </div>
       <div className="ml-3 flex flex-col gap-1.5 border-l-2 border-mk-border pl-4 pt-2">
         {leads.map((l) => (
-          <BranchLeadChip
+          <LeadWithBranches
             key={l.id}
             lead={l}
+            childrenByParent={childrenByParent}
             references={references}
-            busy={busyLeadIds.has(l.id)}
-            pickerOpen={pickerFor === l.id}
-            onOpenPicker={() => onOpenPicker(pickerFor === l.id ? null : l.id)}
-            onConnect={(refId) => onConnect(l.id, refId)}
-            onPrune={() => onPrune(l.id)}
-            onDig={() => onDig(l)}
+            busyLeadIds={busyLeadIds}
+            pickerFor={pickerFor}
+            onOpenPicker={onOpenPicker}
+            onConnect={onConnect}
+            onPrune={onPrune}
+            onDig={onDig}
+            onAddBranch={onAddBranch}
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+// #12 · a lead plus its 分支, nested recursively. The chip carries the actions;
+// beneath it, an indented rail holds child branches and an inline "add a 分支"
+// input (toggled from the chip's ＋分支).
+function LeadWithBranches({
+  lead,
+  childrenByParent,
+  references,
+  busyLeadIds,
+  pickerFor,
+  onOpenPicker,
+  onConnect,
+  onPrune,
+  onDig,
+  onAddBranch,
+}: {
+  lead: ExplorationLead;
+  childrenByParent: Map<string, ExplorationLead[]>;
+  references: Reference[];
+  busyLeadIds: Set<string>;
+  pickerFor: string | null;
+  onOpenPicker: (lid: string | null) => void;
+  onConnect: (lid: string, refId: string) => void;
+  onPrune: (lid: string) => void;
+  onDig: (lead: ExplorationLead) => void;
+  onAddBranch: (parentLeadId: string, text: string) => void;
+}) {
+  const kids = childrenByParent.get(lead.id) ?? [];
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState("");
+  const submit = () => {
+    const t = text.trim();
+    if (!t) return;
+    onAddBranch(lead.id, t);
+    setText("");
+    setAdding(false);
+  };
+  return (
+    <div>
+      <BranchLeadChip
+        lead={lead}
+        references={references}
+        busy={busyLeadIds.has(lead.id)}
+        pickerOpen={pickerFor === lead.id}
+        onOpenPicker={() => onOpenPicker(pickerFor === lead.id ? null : lead.id)}
+        onConnect={(refId) => onConnect(lead.id, refId)}
+        onPrune={() => onPrune(lead.id)}
+        onDig={() => onDig(lead)}
+        onAddBranch={lead.status === "open" ? () => setAdding((v) => !v) : undefined}
+      />
+      {(kids.length > 0 || adding) && (
+        <div className="ml-3 mt-1.5 flex flex-col gap-1.5 border-l-2 border-mk-border/70 pl-3">
+          {kids.map((k) => (
+            <LeadWithBranches
+              key={k.id}
+              lead={k}
+              childrenByParent={childrenByParent}
+              references={references}
+              busyLeadIds={busyLeadIds}
+              pickerFor={pickerFor}
+              onOpenPicker={onOpenPicker}
+              onConnect={onConnect}
+              onPrune={onPrune}
+              onDig={onDig}
+              onAddBranch={onAddBranch}
+            />
+          ))}
+          {adding && (
+            <div className="flex items-center gap-1.5 rounded-mk border border-mk-border bg-mk-surface px-2 py-1">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit();
+                  if (e.key === "Escape") { setAdding(false); setText(""); }
+                }}
+                autoFocus
+                placeholder="这条线索下的一个分支……"
+                className="flex-1 bg-transparent text-[12px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+              />
+              <button type="button" onClick={submit} disabled={!text.trim()} className="flex-none rounded-full bg-mk-primary px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-50">加</button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -497,6 +626,7 @@ function BranchLeadChip({
   onConnect,
   onPrune,
   onDig,
+  onAddBranch,
 }: {
   lead: ExplorationLead;
   references: Reference[];
@@ -506,6 +636,7 @@ function BranchLeadChip({
   onConnect: (refId: string) => void;
   onPrune: () => void;
   onDig?: () => void;
+  onAddBranch?: () => void;
 }) {
   if (lead.status !== "open") {
     return <ResolvedLeadChip lead={lead} references={references} />;
@@ -514,6 +645,17 @@ function BranchLeadChip({
     <div className="relative flex items-center gap-2 rounded-full bg-mk-primary-tint/60 px-3 py-1.5">
       <span className="text-[12.5px] font-semibold text-mk-ink">{lead.text}</span>
       <div className="ml-auto flex flex-none items-center gap-1.5">
+        {onAddBranch && (
+          <button
+            type="button"
+            onClick={onAddBranch}
+            disabled={busy}
+            title="在这条线索下加一个分支"
+            className="rounded-full border border-mk-primary/40 bg-mk-surface px-2 py-0.5 text-[11px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-50"
+          >
+            ＋分支
+          </button>
+        )}
         {onDig && (
           <button
             type="button"

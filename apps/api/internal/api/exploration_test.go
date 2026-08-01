@@ -26,6 +26,59 @@ type explorationLeadView struct {
 	SourceReferenceID    *string `json:"sourceReferenceId"`
 	ConnectedReferenceID *string `json:"connectedReferenceId"`
 	Position             int32   `json:"position"`
+	ParentLeadID         *string `json:"parentLeadId"`
+}
+
+// #12 · a 线索 can hang 分支 (child leads) under it via parentLeadId; a foreign
+// parent is rejected (IDOR).
+func TestExplorationLead_Branch(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"父线索"}`)
+	var parent struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &parent); err != nil {
+		t.Fatalf("decode parent: %v — %s", err, rec.Body)
+	}
+	if parent.Lead.ParentLeadID != nil {
+		t.Fatalf("top-level lead should have nil parentLeadId: %+v", parent.Lead)
+	}
+	parentID := parent.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"子分支","parentLeadId":"`+parentID+`"}`)
+	if rec.Code != 201 {
+		t.Fatalf("create branch = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var child struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &child); err != nil {
+		t.Fatalf("decode child: %v — %s", err, rec.Body)
+	}
+	if child.Lead.ParentLeadID == nil || *child.Lead.ParentLeadID != parentID {
+		t.Fatalf("branch parentLeadId = %v, want %s", child.Lead.ParentLeadID, parentID)
+	}
+
+	// A parent that isn't a lead in this project → 400 (IDOR guard).
+	recBad := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"x","parentLeadId":"`+uuid.NewString()+`"}`)
+	if recBad.Code != 400 {
+		t.Fatalf("foreign parent = %d, want 400: %s", recBad.Code, recBad.Body)
+	}
+
+	// GET reflects both leads, the child carrying its parent.
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	if len(view.Leads) != 2 {
+		t.Fatalf("want 2 leads, got %d: %+v", len(view.Leads), view.Leads)
+	}
 }
 
 type explorationViewBody struct {

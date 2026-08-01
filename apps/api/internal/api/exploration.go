@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
@@ -35,6 +36,7 @@ type explorationLeadDTO struct {
 	SourceReferenceID    *string `json:"sourceReferenceId"`
 	ConnectedReferenceID *string `json:"connectedReferenceId"`
 	Position             int32   `json:"position"`
+	ParentLeadID         *string `json:"parentLeadId"` // #12 · null = top-level thread
 }
 
 func toExplorationLeadDTO(row sqlc.ExplorationLead) explorationLeadDTO {
@@ -46,6 +48,7 @@ func toExplorationLeadDTO(row sqlc.ExplorationLead) explorationLeadDTO {
 		SourceReferenceID:    pgUUIDToStringPtr(row.SourceReferenceID),
 		ConnectedReferenceID: pgUUIDToStringPtr(row.ConnectedReferenceID),
 		Position:             row.Position,
+		ParentLeadID:         pgUUIDToStringPtr(row.ParentLeadID),
 	}
 }
 
@@ -134,7 +137,8 @@ func (a *API) createExplorationLead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Text string `json:"text"`
+		Text         string  `json:"text"`
+		ParentLeadID *string `json:"parentLeadId"` // #12 · when set, this is a 分支 under that lead
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -144,17 +148,33 @@ func (a *API) createExplorationLead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "线索不能是空的", nil))
 		return
 	}
+	// #12 · optional parent: validate it's a lead in THIS project (IDOR) before
+	// hanging a 分支 under it.
+	var parent pgtype.UUID
+	if body.ParentLeadID != nil && strings.TrimSpace(*body.ParentLeadID) != "" {
+		pid, perr := uuid.Parse(*body.ParentLeadID)
+		if perr != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是有效的 id", nil))
+			return
+		}
+		if _, err := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: pid, ProjectID: projectID}); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是这个项目里的线索", nil))
+			return
+		}
+		parent = pgtype.UUID{Bytes: pid, Valid: true}
+	}
 	existing, err := a.d.Queries.ListExplorationLeads(r.Context(), projectID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	row, err := a.d.Queries.CreateExplorationLead(r.Context(), sqlc.CreateExplorationLeadParams{
-		ProjectID: projectID,
-		Text:      body.Text,
-		Status:    "open",
-		Origin:    "manual",
-		Position:  int32(len(existing)),
+		ProjectID:    projectID,
+		Text:         body.Text,
+		Status:       "open",
+		Origin:       "manual",
+		Position:     int32(len(existing)),
+		ParentLeadID: parent,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

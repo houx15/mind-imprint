@@ -19,6 +19,8 @@ export const ExplorationLead = z.object({
   sourceReferenceId: z.string().nullable(),
   connectedReferenceId: z.string().nullable(),
   position: z.number(),
+  // #12 · a 分支 hangs under a parent lead; null = a top-level thread.
+  parentLeadId: z.string().nullable().default(null),
 });
 export type ExplorationLead = z.infer<typeof ExplorationLead>;
 

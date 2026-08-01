@@ -99,9 +99,9 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createExplorationLead = `-- name: CreateExplorationLead :one
 INSERT INTO exploration_lead (
-    project_id, text, status, origin, source_reference_id, connected_reference_id, position
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at
+    project_id, text, status, origin, source_reference_id, connected_reference_id, position, parent_lead_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at, parent_lead_id
 `
 
 type CreateExplorationLeadParams struct {
@@ -112,6 +112,7 @@ type CreateExplorationLeadParams struct {
 	SourceReferenceID    pgtype.UUID `json:"source_reference_id"`
 	ConnectedReferenceID pgtype.UUID `json:"connected_reference_id"`
 	Position             int32       `json:"position"`
+	ParentLeadID         pgtype.UUID `json:"parent_lead_id"`
 }
 
 func (q *Queries) CreateExplorationLead(ctx context.Context, arg CreateExplorationLeadParams) (ExplorationLead, error) {
@@ -123,6 +124,7 @@ func (q *Queries) CreateExplorationLead(ctx context.Context, arg CreateExplorati
 		arg.SourceReferenceID,
 		arg.ConnectedReferenceID,
 		arg.Position,
+		arg.ParentLeadID,
 	)
 	var i ExplorationLead
 	err := row.Scan(
@@ -136,6 +138,7 @@ func (q *Queries) CreateExplorationLead(ctx context.Context, arg CreateExplorati
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentLeadID,
 	)
 	return i, err
 }
@@ -485,7 +488,7 @@ func (q *Queries) GetCollection(ctx context.Context, arg GetCollectionParams) (C
 }
 
 const getExplorationLeadForProject = `-- name: GetExplorationLeadForProject :one
-SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at FROM exploration_lead WHERE id = $1 AND project_id = $2
+SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at, parent_lead_id FROM exploration_lead WHERE id = $1 AND project_id = $2
 `
 
 type GetExplorationLeadForProjectParams struct {
@@ -508,6 +511,7 @@ func (q *Queries) GetExplorationLeadForProject(ctx context.Context, arg GetExplo
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentLeadID,
 	)
 	return i, err
 }
@@ -841,7 +845,7 @@ func (q *Queries) ListCollections(ctx context.Context, projectID uuid.UUID) ([]C
 
 const listExplorationLeads = `-- name: ListExplorationLeads :many
 
-SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at FROM exploration_lead
+SELECT id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at, parent_lead_id FROM exploration_lead
 WHERE project_id = $1
 ORDER BY position, created_at
 `
@@ -867,6 +871,7 @@ func (q *Queries) ListExplorationLeads(ctx context.Context, projectID uuid.UUID)
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentLeadID,
 		); err != nil {
 			return nil, err
 		}
@@ -1137,7 +1142,7 @@ UPDATE exploration_lead SET
     position               = $6,
     updated_at             = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at
+RETURNING id, project_id, text, status, origin, source_reference_id, connected_reference_id, position, created_at, updated_at, parent_lead_id
 `
 
 type UpdateExplorationLeadParams struct {
@@ -1173,6 +1178,7 @@ func (q *Queries) UpdateExplorationLead(ctx context.Context, arg UpdateExplorati
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentLeadID,
 	)
 	return i, err
 }

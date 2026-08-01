@@ -12,10 +12,11 @@ export async function getExploration(projectId: string): Promise<ExplorationView
   return ExplorationView.parse(raw);
 }
 
-export async function createLead(projectId: string, text: string): Promise<ExplorationLead> {
+// createLead adds a manual lead — top-level, or a 分支 under parentLeadId (#12).
+export async function createLead(projectId: string, text: string, opts?: { parentLeadId?: string }): Promise<ExplorationLead> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/leads`, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, parentLeadId: opts?.parentLeadId ?? null }),
   });
   return ExplorationLead.parse((raw as { lead: unknown }).lead);
 }

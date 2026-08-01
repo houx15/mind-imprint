@@ -64,6 +64,7 @@ const LEAD_OPEN = {
   sourceReferenceId: NASA_REF.id,
   connectedReferenceId: null,
   position: 0,
+  parentLeadId: null,
 };
 
 // The Important fix from the S2/S3 review: a lead whose source reference was
@@ -77,6 +78,7 @@ const LOOSE_CONNECTED_LEAD = {
   sourceReferenceId: null,
   connectedReferenceId: NASA_REF.id,
   position: 1,
+  parentLeadId: null,
 };
 
 beforeEach(() => {
@@ -94,6 +96,7 @@ beforeEach(() => {
     sourceReferenceId: null,
     connectedReferenceId: null,
     position: 2,
+    parentLeadId: null,
   });
   mockDigDeeper.mockResolvedValue({
     directions: [{ direction: "查一下中国的可再生能源装机增速", why: "能直接检验反例是否站得住" }],
@@ -141,7 +144,8 @@ describe("ExplorationView", () => {
     await user.click(screen.getByRole("button", { name: "记为线索" }));
 
     await waitFor(() => {
-      expect(mockCreateLead).toHaveBeenCalledWith("p1", "查一下中国的可再生能源装机增速");
+      // whole-graph dig → adopt as a top-level lead (no parent)
+      expect(mockCreateLead).toHaveBeenCalledWith("p1", "查一下中国的可再生能源装机增速", undefined);
     });
   });
 
@@ -159,6 +163,23 @@ describe("ExplorationView", () => {
     await waitFor(() => {
       expect(mockDigDeeper).toHaveBeenCalledWith("p1", { leadId: "lead1", thought: "我想比人均和总量" });
     });
+  });
+
+  it("分支: a child lead renders nested and ＋分支 creates a lead under its parent (#12)", async () => {
+    const CHILD = {
+      id: "child1", text: "分支：核算口径", status: "open" as const, origin: "manual" as const,
+      sourceReferenceId: null, connectedReferenceId: null, position: 3, parentLeadId: "lead1",
+    };
+    mockGetExploration.mockResolvedValue({ leads: [LEAD_OPEN, CHILD], danglingSourceIds: [] });
+    const user = userEvent.setup();
+    render(<ExplorationView projectId="p1" references={[NASA_REF, DANGLING_REF]} />);
+    // the child renders (nested under its parent), not in a flat list
+    expect(await screen.findByText("分支：核算口径")).toBeInTheDocument();
+    // open the parent's add-branch input, type, submit
+    await user.click(screen.getAllByRole("button", { name: "＋分支" })[0]!);
+    await user.type(screen.getByPlaceholderText(/这条线索下的一个分支/), "新分支");
+    await user.click(screen.getByRole("button", { name: "加" }));
+    await waitFor(() => expect(mockCreateLead).toHaveBeenCalledWith("p1", "新分支", { parentLeadId: "lead1" }));
   });
 
   it("dangling: a reference in danglingSourceIds renders in the 悬空来源 tray", async () => {

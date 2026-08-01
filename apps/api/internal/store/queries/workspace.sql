@@ -255,8 +255,8 @@ ORDER BY position, created_at;
 
 -- name: CreateExplorationLead :one
 INSERT INTO exploration_lead (
-    project_id, text, status, origin, source_reference_id, connected_reference_id, position
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    project_id, text, status, origin, source_reference_id, connected_reference_id, position, parent_lead_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetExplorationLeadForProject :one
