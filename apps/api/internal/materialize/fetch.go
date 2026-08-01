@@ -90,17 +90,42 @@ func newFetcher(guard bool) *HTTPFetcher {
 	return &HTTPFetcher{client: c}
 }
 
+// browserUA mimics a real browser so publisher/CDN bot-walls (a common source of
+// 403 "取不到正文") don't reject us outright, while still self-identifying (#4).
+const browserUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 MindImprint/1.0"
+
+// setBrowserHeaders sends a realistic UA + Accept headers. Many sites 403 the
+// default Go/bot UA or serve a stub without an Accept header.
+func setBrowserHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", browserUA)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+}
+
 // FetchReadable fetches rawURL and returns an extracted title + text, or a *FetchError.
 func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", "", &FetchError{Reason: "blocked", Err: errors.New("unsupported url")}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	// #4 · if this is a DOI, resolve it to the publisher's landing page + title
+	// via Crossref first (best-effort — failure leaves the original URL). Fetch
+	// the landing page directly: more often real HTML than the doi.org redirect
+	// chain, and the title is recovered even if body extraction stays thin.
+	fetchURL, fallbackTitle := rawURL, ""
+	if doi, ok := extractDOI(u); ok {
+		if rURL, rTitle := f.resolveDOI(ctx, doi); rURL != "" {
+			fetchURL = rURL
+			fallbackTitle = rTitle
+		} else if rTitle != "" {
+			fallbackTitle = rTitle
+		}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
 	if err != nil {
 		return "", "", &FetchError{Reason: "blocked", Err: err}
 	}
-	req.Header.Set("User-Agent", "MindImprintBot/1.0 (+material)")
+	setBrowserHeaders(req)
 	resp, err := f.client.Do(req)
 	if err != nil {
 		var fe *FetchError
@@ -127,8 +152,11 @@ func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (string,
 		return "", "", &FetchError{Reason: "too_large", Err: nil}
 	}
 	if isText {
-		return "", string(body), nil
+		return fallbackTitle, string(body), nil
 	}
 	title, text := extractHTML(body)
+	if title == "" {
+		title = fallbackTitle
+	}
 	return title, text, nil
 }
