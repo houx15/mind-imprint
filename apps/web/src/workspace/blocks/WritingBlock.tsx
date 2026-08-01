@@ -153,6 +153,7 @@ export function WritingBlock({
         <MaterialsSidebar
           projectId={projectId}
           activeTab={tab}
+          locked={locked}
           snippets={snip.snippets}
           onAddSnippet={(text) => snip.add(text)}
           onInsertToDraft={(text) => draftInsertRef.current?.(text)}
@@ -692,8 +693,10 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
   // #9 · textRef mirrors the latest draft so the sidebar's insert (registered
-  // once, below) reads current content without a stale closure.
+  // once, below) reads current content without a stale closure. hasFocusedRef
+  // tracks whether the caret is meaningful yet (review L3).
   const textRef = useRef("");
+  const hasFocusedRef = useRef(false);
 
   // #7 · on mouse-up in the draft, if there's a highlighted range, float the
   // "问印记" chip just above the pointer. No selection (or a locked draft) hides
@@ -797,8 +800,11 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
     setPane("edit");
     const cur = textRef.current;
     const ta = draftRef.current;
-    const start = ta ? ta.selectionStart : cur.length;
-    const end = ta ? ta.selectionEnd : cur.length;
+    // honor the caret only once the textarea has been focused — a never-focused
+    // textarea reports selectionStart 0, which would insert above the intro; in
+    // that case append at the end instead (review L3).
+    const start = ta && hasFocusedRef.current ? ta.selectionStart : cur.length;
+    const end = ta && hasFocusedRef.current ? ta.selectionEnd : cur.length;
     const before = cur.slice(0, start);
     const after = cur.slice(end);
     const lead = before && !before.endsWith("\n") ? "\n\n" : "";
@@ -891,6 +897,7 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
               ref={draftRef}
               value={text}
               onChange={(e) => onChange(e.target.value)}
+              onFocus={() => { hasFocusedRef.current = true; }}
               onMouseUp={onDraftMouseUp}
               onScroll={() => setSelPop(null)}
               readOnly={locked}

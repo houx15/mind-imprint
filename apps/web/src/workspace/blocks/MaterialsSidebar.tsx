@@ -24,12 +24,14 @@ type OutlineRow = { id: string; text: string; depth: number };
 export function MaterialsSidebar({
   projectId,
   activeTab,
+  locked,
   snippets,
   onAddSnippet,
   onInsertToDraft,
 }: {
   projectId: string;
   activeTab: "outline" | "snippets" | "draft";
+  locked: boolean;
   snippets: { id: string; text: string }[];
   onAddSnippet: (text: string) => void;
   onInsertToDraft: (text: string) => void;
@@ -142,6 +144,11 @@ export function MaterialsSidebar({
         <SourceTab active={source === "outline"} onClick={() => setSource("outline")}>大纲</SourceTab>
         <SourceTab active={source === "snippet"} onClick={() => setSource("snippet")}>片段</SourceTab>
       </div>
+      {locked && (
+        // review M1 · archived project — browse-only, so no place buttons flash a
+        // false "已插入" on a draft that can't change.
+        <p className="flex-none border-b border-mk-border bg-mk-bg/60 px-3 py-1.5 text-[11.5px] font-semibold text-mk-muted-2">已归档 · 只读浏览</p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
         {source === "material" ? (
@@ -175,7 +182,7 @@ export function MaterialsSidebar({
                                 <div key={key} className="rounded bg-mk-bg/50 p-2">
                                   <div className="text-[10px] font-bold uppercase tracking-wide text-mk-muted-2">{c.label}</div>
                                   <div className="mt-0.5 text-[12.5px] leading-relaxed text-mk-ink">{c.text}</div>
-                                  <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(c.text, key)} />
+                                  {!locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(c.text, key)} />}
                                 </div>
                               );
                             })}
@@ -193,7 +200,7 @@ export function MaterialsSidebar({
             <Empty>大纲还是空的。去「大纲」里搭个骨架，这里就能把它搬进正文。</Empty>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {toDraft && (
+              {toDraft && !locked && (
                 <button
                   type="button"
                   onClick={importOutline}
@@ -205,9 +212,9 @@ export function MaterialsSidebar({
               {outline.filter((n) => n.text.trim()).map((n) => {
                 const key = `o:${n.id}`;
                 return (
-                  <div key={key} className="rounded bg-mk-bg/50 p-2" style={{ marginLeft: n.depth * 12 }}>
+                  <div key={key} className="rounded bg-mk-bg/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{n.text}</div>
-                    <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(n.text, key)} />
+                    {!locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(n.text, key)} />}
                   </div>
                 );
               })}
@@ -225,7 +232,7 @@ export function MaterialsSidebar({
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{s.text}</div>
                     {/* in 片段 tab inserting a snippet into snippets is a no-op path;
                         only offer placing when it goes somewhere new (正文). */}
-                    {toDraft && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(s.text, key)} />}
+                    {toDraft && !locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(s.text, key)} />}
                   </div>
                 );
               })}
@@ -272,7 +279,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 function outlineToHeadings(rows: OutlineRow[]): string {
   return rows
     .filter((n) => n.text.trim())
-    .map((n) => `${"#".repeat(Math.min(n.depth + 1, 3))} ${n.text.trim()}`)
+    // clamp both ends — String.repeat throws on a negative count, and the
+    // OutlineNode contract doesn't floor depth at 0 (review L2).
+    .map((n) => `${"#".repeat(Math.max(1, Math.min(n.depth + 1, 3)))} ${n.text.trim()}`)
     .join("\n\n");
 }
 
