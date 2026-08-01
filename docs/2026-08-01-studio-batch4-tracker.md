@@ -34,3 +34,12 @@ Per-slice reviews (slices 1–3) folded in. Slice 4+5 covered by the final whole
 
 ## Deploy
 Full deploy (migration + Go + web): server `git pull` → `compose build api web` → `compose run --rm api --migrate-up` (0045 → v45) → `compose up -d api web` (db untouched). Smoke green (web 200, api healthz, prod-smoke: auth + DeepSeek SSE + voice TTS).
+
+## Batch-4b follow-on (same day) — the two deferrals, built after user pushback
+
+Branch `feat/studio-batch4b-2026-08-01` off main `2f563f6`. **MERGED + DEPLOYED. Prod HEAD `b1a3d66`, db v46 (migration 0046).** Whole-branch review clean; one Medium fixed. User corrected my 铁律② framing (organizing the student's OWN structure is scaffolding, not a 排版 editor — the constraint is only "don't write their words / don't be a Docs clone") and asked for both deferrals now.
+
+- **分支 (nested child leads, #12)** `8d7467d`: migration 0046 `exploration_lead.parent_lead_id` (self-FK, ON DELETE CASCADE) — no parent = top-level, no separate table. Hand-edited sqlc across all 4 lead queries (parent_lead_id last in every col-list + Scan). `createLead(text,{parentLeadId})` IDOR-checked; `LeadWithBranches` renders leads + 分支 recursively; ＋分支 inline-add; a per-lead 深挖 direction adopts as that lead's child. Review Medium `b1a3d66`: a source's open 分支 no longer vanish when their top-level parent is pruned (branchedRefs keeps refs with a non-pruned descendant; dangling excludes them).
+- **DOI metadata + abstract (#4)** `c5ff451`: `resolveDOI` returns full `DOIMeta` (title/author/year/journal/JATS-stripped abstract); `FetchError.Meta` attached via named-return + defer (no interface change); `fetchFailedError` builds the 422 with details; the reading paste box shows the recovered info + a foldable abstract and asks for the full text. (Deferred: auto-writing the reference's author/year fields — shown for now.)
+
+Deploy identical to above (build api+web → `--migrate-up` 0045→...→0046 → up -d). Smoke green.
