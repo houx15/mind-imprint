@@ -19,6 +19,7 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
   const [assessment, setAssessment] = useState<DualAxisReportT | null>(null);
   const [assessErr, setAssessErr] = useState(false);
   const [collectedCardIds, setCollectedCardIds] = useState<string[]>([]);
+  const [coverByCard, setCoverByCard] = useState<Record<string, string>>({});
   const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
@@ -35,6 +36,17 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         const session = await api.getCourseSession(courseId);
         if (!cancelled) setCollectedCardIds(session.collectedCards.map((cc) => cc.cardId));
       } catch { /* no session yet */ }
+
+      // Card covers for the "收集到的工具" block (good-to-have). Best-effort: the
+      // catalog carries a signed cover URL per card for the student's theme.
+      try {
+        const cat = await api.getCardsCatalog();
+        if (!cancelled) {
+          const m: Record<string, string> = {};
+          for (const c of cat.cards) if (c.coverUrl) m[c.cardId] = c.coverUrl;
+          setCoverByCard(m);
+        }
+      } catch { /* covers are optional; text pills still render */ }
 
       // DEC-A1.4: auto-generate once, never a loop or a button — GET first,
       // POST only when the session has no report yet.
@@ -159,13 +171,27 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         {collectedCards.length > 0 && (
           <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>收集到的工具</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {collectedCards.map((c, i) => (
-                <div key={`${c.cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
-                  {c.spec.name}
-                </div>
-              ))}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {collectedCards.map((c, i) => {
+                const cover = coverByCard[c.cardId];
+                if (cover) {
+                  // colored cover (the student collected it in this course) + name
+                  return (
+                    <div key={`${c.cardId}-${i}`} style={{ width: 96, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ width: 96, aspectRatio: "2 / 3", borderRadius: 11, overflow: "hidden", border: "1px solid #E3E6EF", boxShadow: "0 2px 8px rgba(15,20,45,.08)" }}>
+                        <img src={cover} alt={c.spec.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2A3B7A", lineHeight: 1.35 }}>{c.spec.name}</div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={`${c.cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11, height: "fit-content" }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
+                    {c.spec.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
