@@ -141,3 +141,15 @@ SELECT count(*)::int FROM (
   WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
     AND p.user_id = @user_id AND ci.card_id = @card_id
 ) rows;
+
+-- name: ListProjectCardCompletionsByUser :many
+-- Per-card PROJECT-SCOPE completion counts for a user, across ALL her projects.
+-- This is the "genuine practice" signal for card proficiency: project-scope
+-- 'completed' is gated on the card's own completion predicate (projectcards.go's
+-- CompleteCard), unlike the chat/course scopes which write completed
+-- unconditionally. Mirrors CountCompletedCardUsesByUser's scoping but grouped
+-- over every card at once, for the 工具卡图鉴 proficiency computation.
+SELECT ci.card_id AS card_id, count(*)::int AS completions
+FROM card_instances ci JOIN project p ON p.id = ci.project_id
+WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = @user_id
+GROUP BY ci.card_id;

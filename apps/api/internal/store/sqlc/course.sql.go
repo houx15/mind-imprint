@@ -336,3 +336,31 @@ func (q *Queries) UpsertCourseStepRender(ctx context.Context, arg UpsertCourseSt
 	)
 	return i, err
 }
+
+const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
+SELECT DISTINCT course_id FROM course_session
+WHERE user_id = $1 AND status = 'finished'
+`
+
+// Course ids the user has FINISHED (any 'finished' course_session). Feeds the
+// proficiency "course learning" signal: a card whose teaching course is finished
+// counts as learned even if the student never completed the card object itself.
+func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, finishedCourseIDsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var courseID uuid.UUID
+		if err := rows.Scan(&courseID); err != nil {
+			return nil, err
+		}
+		items = append(items, courseID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

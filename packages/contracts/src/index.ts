@@ -20,6 +20,7 @@ export * from "./studioState";
 export * from "./growthHistory";
 export * from "./ability";
 export * from "./collectedCards";
+export * from "./cardCatalog";
 export * from "./parentReport";
 export * from "./reading";
 export * from "./proposal";

@@ -70,3 +70,10 @@ VALUES ($1, $2, $3)
 ON CONFLICT (course_step_id) DO UPDATE
 SET content = EXCLUDED.content, source = EXCLUDED.source, created_at = now()
 RETURNING *;
+
+-- name: FinishedCourseIDsByUser :many
+-- Course ids the user has FINISHED (any 'finished' course_session). Feeds the
+-- proficiency "course learning" signal: a card whose teaching course is finished
+-- counts as learned even if the student never completed the card object itself.
+SELECT DISTINCT course_id FROM course_session
+WHERE user_id = @user_id AND status = 'finished';

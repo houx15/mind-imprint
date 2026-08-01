@@ -711,3 +711,41 @@ func (q *Queries) SubmitThreadCardInstance(ctx context.Context, arg SubmitThread
 	)
 	return i, err
 }
+
+const listProjectCardCompletionsByUser = `-- name: ListProjectCardCompletionsByUser :many
+SELECT ci.card_id AS card_id, count(*)::int AS completions
+FROM card_instances ci JOIN project p ON p.id = ci.project_id
+WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = $1
+GROUP BY ci.card_id
+`
+
+type ListProjectCardCompletionsByUserRow struct {
+	CardID      string `json:"card_id"`
+	Completions int32  `json:"completions"`
+}
+
+// Per-card PROJECT-SCOPE completion counts for a user, across ALL her projects.
+// This is the "genuine practice" signal for card proficiency: project-scope
+// 'completed' is gated on the card's own completion predicate (projectcards.go's
+// CompleteCard), unlike the chat/course scopes which write completed
+// unconditionally. Mirrors CountCompletedCardUsesByUser's scoping but grouped
+// over every card at once, for the 工具卡图鉴 proficiency computation.
+func (q *Queries) ListProjectCardCompletionsByUser(ctx context.Context, userID uuid.UUID) ([]ListProjectCardCompletionsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listProjectCardCompletionsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectCardCompletionsByUserRow
+	for rows.Next() {
+		var i ListProjectCardCompletionsByUserRow
+		if err := rows.Scan(&i.CardID, &i.Completions); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
