@@ -28,7 +28,7 @@ describe("ToolkitCards gallery", () => {
     vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
-    expect(screen.getByText(/已解锁/)).toBeTruthy();
+    expect(screen.getByText(/已遇到/)).toBeTruthy();
     // category headers for the three represented categories
     expect(screen.getByText("知识工具")).toBeTruthy();
     expect(screen.getByText("信息素养")).toBeTruthy();

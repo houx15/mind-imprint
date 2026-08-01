@@ -41,7 +41,11 @@ type cardCatalogEntryDTO struct {
 // comes from ?theme= (falls back to the default colorway when absent/unknown);
 // S2 will default it to the student's saved users.card_theme.
 func (a *API) getCardsCatalog(w http.ResponseWriter, r *http.Request) {
-	u, _ := UserFromContext(r.Context())
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
 	ctx := r.Context()
 
 	theme := a.resolveCardTheme(ctx, r, u.ID)

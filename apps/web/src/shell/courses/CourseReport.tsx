@@ -32,21 +32,27 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
       setCompleted(comp);
       setCourse(c);
 
+      let hasCollected = false;
       try {
         const session = await api.getCourseSession(courseId);
+        hasCollected = session.collectedCards.length > 0;
         if (!cancelled) setCollectedCardIds(session.collectedCards.map((cc) => cc.cardId));
       } catch { /* no session yet */ }
 
-      // Card covers for the "收集到的工具" block (good-to-have). Best-effort: the
-      // catalog carries a signed cover URL per card for the student's theme.
-      try {
-        const cat = await api.getCardsCatalog();
-        if (!cancelled) {
-          const m: Record<string, string> = {};
-          for (const c of cat.cards) if (c.coverUrl) m[c.cardId] = c.coverUrl;
-          setCoverByCard(m);
-        }
-      } catch { /* covers are optional; text pills still render */ }
+      // Card covers for the "收集到的工具" block (good-to-have). Best-effort, and
+      // only when the session actually collected cards — otherwise the catalog
+      // (and its cover signing) is wasted work. The catalog carries a signed
+      // cover URL per card for the student's theme.
+      if (hasCollected) {
+        try {
+          const cat = await api.getCardsCatalog();
+          if (!cancelled) {
+            const m: Record<string, string> = {};
+            for (const c of cat.cards) if (c.coverUrl) m[c.cardId] = c.coverUrl;
+            setCoverByCard(m);
+          }
+        } catch { /* covers are optional; text pills still render */ }
+      }
 
       // DEC-A1.4: auto-generate once, never a loop or a button — GET first,
       // POST only when the session has no report yet.

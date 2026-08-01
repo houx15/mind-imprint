@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CARD_REGISTRY, COVER_THEMES, type CardCatalogEntry, type CoverTheme } from "@mind-imprint/contracts";
 import { api } from "../../api";
 
@@ -91,7 +91,7 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
       }}>
         {encountered
           ? <Stars n={c.stars} />
-          : <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.82)" }}>未解锁</span>}
+          : <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.82)" }}>还没遇到</span>}
         <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", lineHeight: 1.3, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
       </div>
 
@@ -138,7 +138,7 @@ function DetailModal({ c, onClose, onOpenCourse }: { c: Detail; onClose: () => v
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: "#5B6474", background: "rgba(255,255,255,.7)", border: "1px solid #EAECF2", borderRadius: 8, padding: "2px 8px" }}>{c.category}</span>
-              {c.encountered ? <Stars n={c.stars} /> : <span style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0" }}>未解锁</span>}
+              {c.encountered ? <Stars n={c.stars} /> : <span style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0" }}>还没遇到</span>}
             </div>
           </div>
         </div>
@@ -210,7 +210,11 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
   const [cards, setCards] = useState<CardCatalogEntry[] | undefined>(undefined);
   const [theme, setTheme] = useState<CoverTheme>("light");
   const [error, setError] = useState<string | null>(null);
+  const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Monotonic token so an out-of-order theme re-fetch (double-click) can't land
+  // a stale theme's covers over a newer selection.
+  const themeReq = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,15 +229,30 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
     return () => { cancelled = true; };
   }, []);
 
+  // Picking a colorway re-fetches fresh signed covers and persists the choice.
+  // A failure here is cosmetic: it shows a self-clearing notice and rolls the
+  // selection back — it must NEVER blank the gallery (that's what `error` gates,
+  // and `error` is only ever set by the initial load).
   async function pickTheme(t: CoverTheme) {
     if (t === theme) return;
-    setTheme(t);
+    const prev = theme;
+    const token = ++themeReq.current;
+    setTheme(t); // optimistic
+    setThemeNotice(null);
     try {
-      const res = await api.getCardsCatalog(t); // fresh signed covers for the theme
+      const res = await api.getCardsCatalog(t);
+      if (themeReq.current !== token) return; // a newer pick superseded this one
       setCards(res.cards);
-      void api.setCardTheme(t); // persist (fire-and-forget; the covers already updated)
+      void api.setCardTheme(t).catch(() => {
+        // covers already updated; a failed persist just reverts on next load
+        setThemeNotice("配色没能保存，刷新后可能恢复");
+        window.setTimeout(() => setThemeNotice(null), 3000);
+      });
     } catch {
-      setError("换配色失败，请重试");
+      if (themeReq.current !== token) return;
+      setTheme(prev); // roll back the optimistic swatch
+      setThemeNotice("换配色失败，请重试");
+      window.setTimeout(() => setThemeNotice(null), 3000);
     }
   }
 
@@ -257,9 +276,10 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.6 }}>
-          全部 {cards.length} 张思维工具卡 · 你已解锁 <b style={{ color: "#1C2333" }}>{learnt}</b> 张。彩色是练过的，灰色是还没遇到的。
+          全部 {cards.length} 张思维工具卡 · 你已遇到 <b style={{ color: "#1C2333" }}>{learnt}</b> 张。彩色是练过的，灰色是还没遇到的。
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {themeNotice && <span style={{ fontSize: 11.5, color: "#B0432E", fontWeight: 600 }}>{themeNotice}</span>}
           <span style={{ fontSize: 12, color: "#9AA1B0", fontWeight: 600 }}>封面配色</span>
           {COVER_THEMES.map((t) => (
             <button
