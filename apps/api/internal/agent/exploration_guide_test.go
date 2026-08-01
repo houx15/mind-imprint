@@ -2,10 +2,37 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/gateway"
 )
+
+// #12/#13 · a focused dig: a single lead (with the student's own thinking) is
+// graph content to point from even with no sources/leads, and both land in the
+// prompt so the directions center on THAT thread.
+func TestComposeExplorationGuide_FocusLeadAndThought(t *testing.T) {
+	script := []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"directions":[{"direction":"d","why":"w"}]}`},
+		{Kind: gateway.EventDone},
+	}
+	prov := gateway.NewStubProvider(script)
+	in := ExplorationGuideInput{FocusLead: "中国人均排放 vs 总量的口径", Thought: "我怀疑这是两套叙事"}
+	if !HasGraphContent(in) {
+		t.Fatal("a focus lead alone must count as graph content to point from")
+	}
+	dirs, _, err := ComposeExplorationGuide(context.Background(), prov, gateway.Resolved{Provider: "fake", Model: "m"}, in)
+	if err != nil {
+		t.Fatalf("compose: %v", err)
+	}
+	if len(dirs) != 1 {
+		t.Fatalf("want 1 direction, got %d", len(dirs))
+	}
+	user := prov.LastRequest.Messages[1].Content
+	if !strings.Contains(user, "中国人均排放 vs 总量的口径") || !strings.Contains(user, "我怀疑这是两套叙事") {
+		t.Fatalf("focus lead / thought missing from prompt: %s", user)
+	}
+}
 
 func TestComposeExplorationGuide_ParsesDirections(t *testing.T) {
 	script := []gateway.StreamEvent{

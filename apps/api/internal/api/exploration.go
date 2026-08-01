@@ -371,7 +371,23 @@ func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// #12/#13 · optional focus: dig deeper from ONE lead, carrying the student's
+	// own thinking. Absent body → whole-graph 深挖一层 (unchanged).
+	var body struct {
+		LeadID  string `json:"leadId"`
+		Thought string `json:"thought"`
+	}
+	_ = decodeJSON(r, &body) // best-effort; an empty/absent body is valid
+
 	in := a.assembleExplorationGuideInput(r.Context(), projectID)
+	if strings.TrimSpace(body.LeadID) != "" {
+		if lid, perr := uuid.Parse(body.LeadID); perr == nil {
+			if lead, lerr := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: lid, ProjectID: projectID}); lerr == nil {
+				in.FocusLead = lead.Text
+			}
+		}
+	}
+	in.Thought = strings.TrimSpace(body.Thought)
 
 	var directions []agent.GuideDirection
 	if agent.HasGraphContent(in) {

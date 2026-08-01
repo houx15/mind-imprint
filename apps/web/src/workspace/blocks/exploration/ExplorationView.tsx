@@ -58,6 +58,10 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const [digging, setDigging] = useState(false);
   const [diggingError, setDiggingError] = useState(false);
   const [adoptedDirections, setAdoptedDirections] = useState<Set<number>>(new Set());
+  // #12/#13 · dig deeper from ONE lead, carrying the student's own thinking.
+  // null = the whole-graph 深挖一层.
+  const [focusLead, setFocusLead] = useState<ExplorationLead | null>(null);
+  const [thought, setThought] = useState("");
   const [enteringRefId, setEnteringRefId] = useState<string | null>(null);
   const [leadActionError, setLeadActionError] = useState(false);
 
@@ -139,7 +143,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     setDirections(null);
     setAdoptedDirections(new Set());
     try {
-      const guide = await digDeeper(projectId);
+      const guide = await digDeeper(projectId, focusLead ? { leadId: focusLead.id, thought: thought.trim() } : undefined);
       setDirections(guide.directions);
     } catch {
       setDiggingError(true);
@@ -286,6 +290,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                     onOpenPicker={setPickerFor}
                     onConnect={connectLead}
                     onPrune={pruneLead}
+                    onDig={(l) => { setFocusLead(l); setThought(""); setDirections(null); }}
                   />
                 ))}
               </div>
@@ -343,6 +348,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                     onOpenPicker={() => setPickerFor(pickerFor === l.id ? null : l.id)}
                     onConnect={(refId) => connectLead(l.id, refId)}
                     onPrune={() => pruneLead(l.id)}
+                    onDig={() => { setFocusLead(l); setThought(""); setDirections(null); }}
                   />
                 ))}
               </div>
@@ -371,10 +377,17 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
       )}
 
       <section className="mt-6 rounded-mk-lg border border-mk-primary/25 bg-mk-primary-tint/30 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-[13.5px] font-bold text-mk-ink">深挖一层</h3>
-            <p className="mt-0.5 text-[12px] text-mk-muted-2">让印记根据你已经读过的来源，提几个可以继续挖的方向——不会自动帮你记下</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[13.5px] font-bold text-mk-ink">{focusLead ? "深挖这条线索" : "深挖一层"}</h3>
+            {focusLead ? (
+              <p className="mt-0.5 truncate text-[12px] font-semibold text-mk-primary">
+                「{focusLead.text}」
+                <button type="button" onClick={() => { setFocusLead(null); setThought(""); }} className="ml-1 font-bold text-mk-muted-2 hover:text-mk-ink">改回整体 ×</button>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[12px] text-mk-muted-2">让印记根据你已经读过的来源，提几个可以继续挖的方向——不会自动帮你记下</p>
+            )}
           </div>
           <button
             type="button"
@@ -382,9 +395,19 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
             disabled={digging}
             className="flex-none rounded-mk bg-mk-primary px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
           >
-            {digging ? "在想……" : "深挖一层"}
+            {digging ? "在想……" : focusLead ? "让印记给方向" : "深挖一层"}
           </button>
         </div>
+
+        {focusLead && (
+          <textarea
+            value={thought}
+            onChange={(e) => setThought(e.target.value)}
+            rows={2}
+            placeholder="说说你现在的想法（可选）——印记会顺着你的思路给方向"
+            className="mt-3 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+          />
+        )}
 
         {digging && <p className="mt-3 text-[12.5px] text-mk-muted-2">印记在想新的方向……</p>}
         {!digging && diggingError && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">刚才没接上，再试一次？</p>}
@@ -425,6 +448,7 @@ function SourceBranch({
   onOpenPicker,
   onConnect,
   onPrune,
+  onDig,
 }: {
   ref_: Reference;
   leads: ExplorationLead[];
@@ -434,6 +458,7 @@ function SourceBranch({
   onOpenPicker: (lid: string | null) => void;
   onConnect: (lid: string, connectedReferenceId: string) => void;
   onPrune: (lid: string) => void;
+  onDig: (lead: ExplorationLead) => void;
 }) {
   const badge = readingBadge(ref_);
   return (
@@ -455,6 +480,7 @@ function SourceBranch({
             onOpenPicker={() => onOpenPicker(pickerFor === l.id ? null : l.id)}
             onConnect={(refId) => onConnect(l.id, refId)}
             onPrune={() => onPrune(l.id)}
+            onDig={() => onDig(l)}
           />
         ))}
       </div>
@@ -470,6 +496,7 @@ function BranchLeadChip({
   onOpenPicker,
   onConnect,
   onPrune,
+  onDig,
 }: {
   lead: ExplorationLead;
   references: Reference[];
@@ -478,6 +505,7 @@ function BranchLeadChip({
   onOpenPicker: () => void;
   onConnect: (refId: string) => void;
   onPrune: () => void;
+  onDig?: () => void;
 }) {
   if (lead.status !== "open") {
     return <ResolvedLeadChip lead={lead} references={references} />;
@@ -486,6 +514,17 @@ function BranchLeadChip({
     <div className="relative flex items-center gap-2 rounded-full bg-mk-primary-tint/60 px-3 py-1.5">
       <span className="text-[12.5px] font-semibold text-mk-ink">{lead.text}</span>
       <div className="ml-auto flex flex-none items-center gap-1.5">
+        {onDig && (
+          <button
+            type="button"
+            onClick={onDig}
+            disabled={busy}
+            title="让印记顺着这条线索给你下一步方向"
+            className="rounded-full border border-mk-primary/40 bg-mk-surface px-2 py-0.5 text-[11px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-50"
+          >
+            深挖这条
+          </button>
+        )}
         <button
           type="button"
           onClick={onOpenPicker}

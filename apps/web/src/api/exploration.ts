@@ -38,10 +38,13 @@ export async function deleteLead(projectId: string, lid: string): Promise<void> 
   });
 }
 
-export async function digDeeper(projectId: string): Promise<ExplorationGuide> {
+// digDeeper — 深挖. With no opts it points off the whole graph (深挖一层); with a
+// leadId (+ optional thought) it focuses on ONE lead, carrying the student's own
+// thinking (#12/#13).
+export async function digDeeper(projectId: string, opts?: { leadId?: string; thought?: string }): Promise<ExplorationGuide> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/guide`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(opts ?? {}),
   });
   return ExplorationGuide.parse(raw);
 }

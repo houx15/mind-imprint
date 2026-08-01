@@ -145,6 +145,22 @@ describe("ExplorationView", () => {
     });
   });
 
+  it("per-lead dig: 深挖这条 focuses the lead and passes leadId + thought (#12/#13)", async () => {
+    const user = userEvent.setup();
+    render(<ExplorationView projectId="p1" references={[NASA_REF, DANGLING_REF]} />);
+    await screen.findByText(LEAD_OPEN.text);
+
+    await user.click(screen.getByRole("button", { name: "深挖这条" }));
+    // the dig section now names this lead and offers a thought input
+    expect(await screen.findByText("深挖这条线索")).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/说说你现在的想法/), "我想比人均和总量");
+    await user.click(screen.getByRole("button", { name: "让印记给方向" }));
+
+    await waitFor(() => {
+      expect(mockDigDeeper).toHaveBeenCalledWith("p1", { leadId: "lead1", thought: "我想比人均和总量" });
+    });
+  });
+
   it("dangling: a reference in danglingSourceIds renders in the 悬空来源 tray", async () => {
     render(<ExplorationView projectId="p1" references={[NASA_REF, DANGLING_REF]} />);
 

@@ -36,6 +36,11 @@ type ExplorationGuideInput struct {
 	OpenLeads         []string // open lead texts
 	PrunedCount       int
 	ConnectedCount    int
+	// #12/#13 · when the student asks to dig deeper from ONE lead, FocusLead is
+	// that lead's text and Thought is what she typed she's thinking. Both "" for
+	// the whole-graph 深挖一层. A focus lead is itself graph content to point from.
+	FocusLead string
+	Thought   string
 }
 
 // GuideDirection is one next-necessary-direction suggestion — a prompt to
@@ -55,7 +60,7 @@ const explorationGuideSystem = `你在帮学生看清研究的森林，而不是
 // BEFORE ever resolving a provider — an empty graph must never touch the
 // network or the llm_call audit trail.
 func HasGraphContent(in ExplorationGuideInput) bool {
-	return len(in.Sources) > 0 || len(in.OpenLeads) > 0
+	return len(in.Sources) > 0 || len(in.OpenLeads) > 0 || strings.TrimSpace(in.FocusLead) != ""
 }
 
 // ComposeExplorationGuide points the student at the next necessary research
@@ -84,6 +89,15 @@ func ComposeExplorationGuide(ctx context.Context, prov gateway.Provider, r gatew
 		}
 	}
 	b.WriteString("已跳过：" + strconv.Itoa(in.PrunedCount) + " 条；已接上：" + strconv.Itoa(in.ConnectedCount) + " 条。\n")
+	// #12/#13 · a focused dig: center the directions on this one lead + the
+	// student's own thinking, instead of the whole graph.
+	if strings.TrimSpace(in.FocusLead) != "" {
+		b.WriteString("\n学生想重点深挖这条线索：" + in.FocusLead + "\n")
+		if strings.TrimSpace(in.Thought) != "" {
+			b.WriteString("她此刻的想法：" + in.Thought + "\n")
+		}
+		b.WriteString("请围绕这条线索给出下一步可追问的方向。\n")
+	}
 
 	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
