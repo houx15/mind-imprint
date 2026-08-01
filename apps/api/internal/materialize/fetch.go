@@ -114,11 +114,13 @@ func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (string,
 	// chain, and the title is recovered even if body extraction stays thin.
 	fetchURL, fallbackTitle := rawURL, ""
 	if doi, ok := extractDOI(u); ok {
-		if rURL, rTitle := f.resolveDOI(ctx, doi); rURL != "" {
+		rURL, rTitle := f.resolveDOI(ctx, doi)
+		fallbackTitle = rTitle
+		// Only adopt a resolved URL that is a well-formed http(s) URL — never let
+		// Crossref's response steer us to a non-web scheme (defense-in-depth; the
+		// SSRF guard already blocks private IPs at dial).
+		if ru, perr := url.Parse(rURL); perr == nil && (ru.Scheme == "http" || ru.Scheme == "https") && ru.Host != "" {
 			fetchURL = rURL
-			fallbackTitle = rTitle
-		} else if rTitle != "" {
-			fallbackTitle = rTitle
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
