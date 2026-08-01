@@ -23,7 +23,7 @@ vi.mock("@/api/writing", () => ({
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
-import { coach } from "@/workspace/api/workspace";
+import { coach, getLibrary } from "@/workspace/api/workspace";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
 
@@ -138,6 +138,26 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await userEvent.click(toulmin);
     // StudioCardSheet mounts in the centered modal (its 工具卡 label + the card name)
     expect(await screen.findByText("工具卡")).toBeInTheDocument();
+  });
+
+  it("materials sidebar inserts a fragment into the draft at the caret (#9)", async () => {
+    vi.mocked(getLibrary).mockResolvedValueOnce({
+      collections: [],
+      references: [
+        {
+          id: "rx", title: "来源X", classification: "", author: "", credentials: "", year: "", url: "",
+          tags: [], collectionId: null, credibility: null, evaluation: "", readingNote: "我的笔记X",
+          decision: null, pending: false, searchHints: [], materialId: "m", notes: [], takeaway: null,
+        },
+      ] as never,
+    });
+    const ta = await openDraftTab();
+    const before = ta.value;
+    // expand the material in the sidebar, then place it into the draft
+    fireEvent.click(await screen.findByText("来源X"));
+    fireEvent.click((await screen.findAllByRole("button", { name: /插入正文/ }))[0]!);
+    await waitFor(() => expect(ta.value).toContain("我的笔记X"));
+    expect(ta.value).toContain(before.slice(0, 6)); // original draft preserved
   });
 
   it("floating 问印记 chip on a selection scopes the coach turn to it (WC · #7)", async () => {

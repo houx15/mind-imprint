@@ -104,6 +104,10 @@ export function WritingBlock({
   // (评估中 / 已完成) the draft is read-only — the true point of no return.
   const [showFinishModal, setShowFinishModal] = useState(false);
   const locked = status === "evaluating" || status === "done";
+  // #9 · the materials sidebar (any tab) places a fragment into the draft at the
+  // caret. DraftPane registers its inserter here on mount; the sidebar calls it
+  // only when 正文 is active (so DraftPane is mounted and the ref is set).
+  const draftInsertRef = useRef<((t: string) => void) | null>(null);
   // #23: snippets state is lifted here so the materials sidebar (below) can
   // append a source's note as a new snippet regardless of the active tab.
   const snip = useSnippets(projectId);
@@ -134,12 +138,25 @@ export function WritingBlock({
         ) : tab === "snippets" ? (
           <SnippetsPane snip={snip} />
         ) : (
-          <DraftPane projectId={projectId} title={title} locked={locked} onFocusPart={setFocusPart} />
+          <DraftPane
+            projectId={projectId}
+            title={title}
+            locked={locked}
+            onFocusPart={setFocusPart}
+            registerInsert={(fn) => { draftInsertRef.current = fn; }}
+          />
         )}
         <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} locked={locked} />
-        {/* #23 · draggable materials sidebar — floats over the tab pane, defaults
-            left, 收进片段 appends to the snippet board from any tab. */}
-        <MaterialsSidebar projectId={projectId} onInsert={(text) => snip.add(text)} />
+        {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
+            fragment where you're working: into the draft at the caret on 正文,
+            else appended as a new snippet. */}
+        <MaterialsSidebar
+          projectId={projectId}
+          activeTab={tab}
+          snippets={snip.snippets}
+          onAddSnippet={(text) => snip.add(text)}
+          onInsertToDraft={(text) => draftInsertRef.current?.(text)}
+        />
       </div>
 
       {/* #5 · 写完了 confirm — the first guarded moment. Finishing means the piece
@@ -662,7 +679,7 @@ export function paragraphAtCaret(src: string, caret: number): string {
   return src.slice(s).trim();
 }
 
-function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: string; title: string; locked: boolean; onFocusPart: (part: string) => void }) {
+function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { projectId: string; title: string; locked: boolean; onFocusPart: (part: string) => void; registerInsert: (fn: ((t: string) => void) | null) => void }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   const [text, setText] = useState("");
@@ -674,6 +691,9 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
   const fileInput = useRef<HTMLInputElement | null>(null);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
+  // #9 · textRef mirrors the latest draft so the sidebar's insert (registered
+  // once, below) reads current content without a stale closure.
+  const textRef = useRef("");
 
   // #7 · on mouse-up in the draft, if there's a highlighted range, float the
   // "问印记" chip just above the pointer. No selection (or a locked draft) hides
@@ -722,7 +742,7 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
     (async () => {
       try {
         const content = await getDraft(projectId);
-        if (!cancelled) setText(content);
+        if (!cancelled) { setText(content); textRef.current = content; }
       } catch {
         /* leave empty; the placeholder shows */
       }
@@ -742,6 +762,7 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
 
   function onChange(next: string) {
     setText(next);
+    textRef.current = next;
     setSelPop(null); // any edit invalidates the floating selection chip
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -754,6 +775,7 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
     if (TEXT_EXT.some((ext) => name.endsWith(ext))) {
       const content = await file.text();
       setText(content);
+      textRef.current = content;
       setUploadNote(null);
       setMode("write");
       void putBuffer(projectId, content).catch(() => {/* retries via next edit */});
@@ -763,6 +785,42 @@ function DraftPane({ projectId, title, locked, onFocusPart }: { projectId: strin
       setUploadNote(`已上传「${file.name}」，正文解析稍后支持。`);
     }
   }
+
+  // #9 · insert a fragment (from the materials sidebar) into the draft at the
+  // caret — 印记 never authors, the STUDENT places her own material. Reads the
+  // live text/caret from refs; separates with blank lines; no-op when locked.
+  function insertAtCaret(t: string) {
+    if (locked) return;
+    const frag = t.trim();
+    if (!frag) return;
+    setMode("write");
+    setPane("edit");
+    const cur = textRef.current;
+    const ta = draftRef.current;
+    const start = ta ? ta.selectionStart : cur.length;
+    const end = ta ? ta.selectionEnd : cur.length;
+    const before = cur.slice(0, start);
+    const after = cur.slice(end);
+    const lead = before && !before.endsWith("\n") ? "\n\n" : "";
+    const tail = after && !after.startsWith("\n") ? "\n\n" : "";
+    const next = before + lead + frag + tail + after;
+    onChange(next);
+    const caret = (before + lead + frag).length;
+    requestAnimationFrame(() => {
+      const el = draftRef.current;
+      if (el) { el.focus(); el.setSelectionRange(caret, caret); }
+    });
+  }
+  // Register the inserter once; a ref holds the latest closure so the stable
+  // registered fn always sees current state. Unregister on unmount so the
+  // sidebar's insert no-ops when the draft tab isn't mounted.
+  const insertRef = useRef<(t: string) => void>(() => {});
+  insertRef.current = insertAtCaret;
+  useEffect(() => {
+    registerInsert((t) => insertRef.current(t));
+    return () => registerInsert(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-col px-8 py-6">

@@ -30,34 +30,75 @@ const REF = {
   },
 };
 
+const OUTLINE = [
+  { id: "o1", text: "引言", depth: 0, position: 0 },
+  { id: "o2", text: "主张一", depth: 1, position: 1 },
+];
+
 describe("MaterialsSidebar", () => {
-  beforeEach(() => { vi.restoreAllMocks(); });
-
-  it("lists references, unfolds their notes, and 收进片段 calls onInsert", async () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
     vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] as never });
-    const onInsert = vi.fn();
-    render(<MaterialsSidebar projectId="p1" onInsert={onInsert} />);
+    vi.spyOn(workspaceApi, "getOutline").mockResolvedValue(OUTLINE as never);
+  });
 
-    // The reference row appears.
-    const row = await screen.findByText("NASA 绿化报告");
-    // Expand it → the note-bearing chunks show.
-    fireEvent.click(row);
+  it("materials: unfolds notes and 收进片段 appends a snippet (snippets tab)", async () => {
+    const onAddSnippet = vi.fn();
+    render(
+      <MaterialsSidebar projectId="p1" activeTab="snippets" snippets={[]} onAddSnippet={onAddSnippet} onInsertToDraft={() => {}} />,
+    );
+    fireEvent.click(await screen.findByText("NASA 绿化报告"));
     await waitFor(() => expect(screen.getByText("我觉得变绿≠可持续")).toBeTruthy());
-    expect(screen.getByText("让步段要正面处理这个反例")).toBeTruthy();
-    expect(screen.getByText("中国碳排放总量全球第一")).toBeTruthy();
+    const btns = screen.getAllByRole("button", { name: /收进片段/ });
+    fireEvent.click(btns[0]!);
+    expect(onAddSnippet).toHaveBeenCalledWith("我觉得变绿≠可持续");
+  });
 
-    // 收进片段 on the first chunk inserts that text.
-    const insertButtons = screen.getAllByRole("button", { name: /收进片段/ });
-    fireEvent.click(insertButtons[0]!);
-    expect(onInsert).toHaveBeenCalledWith("我觉得变绿≠可持续");
+  it("materials: on the 正文 tab, the action inserts into the draft instead (#9)", async () => {
+    const onInsertToDraft = vi.fn();
+    render(
+      <MaterialsSidebar projectId="p1" activeTab="draft" snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+    );
+    fireEvent.click(await screen.findByText("NASA 绿化报告"));
+    const btns = await screen.findAllByRole("button", { name: /插入正文/ });
+    fireEvent.click(btns[0]!);
+    expect(onInsertToDraft).toHaveBeenCalledWith("我觉得变绿≠可持续");
+  });
+
+  it("大纲 source: import lays outline titles into the draft as headings (#9)", async () => {
+    const onInsertToDraft = vi.fn();
+    render(
+      <MaterialsSidebar projectId="p1" activeTab="draft" snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+    );
+    // switch the browsed source to 大纲
+    fireEvent.click(await screen.findByRole("button", { name: "大纲" }));
+    fireEvent.click(await screen.findByRole("button", { name: /把大纲导入正文/ }));
+    expect(onInsertToDraft).toHaveBeenCalledWith("# 引言\n\n## 主张一");
+  });
+
+  it("片段 source: on the 正文 tab, clicking a snippet inserts it into the draft (#9)", async () => {
+    const onInsertToDraft = vi.fn();
+    render(
+      <MaterialsSidebar
+        projectId="p1"
+        activeTab="draft"
+        snippets={[{ id: "s1", text: "我攒的一个片段" }]}
+        onAddSnippet={() => {}}
+        onInsertToDraft={onInsertToDraft}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "片段" }));
+    fireEvent.click(await screen.findByText("我攒的一个片段"));
+    const btns = await screen.findAllByRole("button", { name: /插入正文/ });
+    fireEvent.click(btns[0]!);
+    expect(onInsertToDraft).toHaveBeenCalledWith("我攒的一个片段");
   });
 
   it("collapses to a 材料 tab and reopens", async () => {
-    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [] });
-    render(<MaterialsSidebar projectId="p1" onInsert={() => {}} />);
-    // Close it.
+    render(
+      <MaterialsSidebar projectId="p1" activeTab="draft" snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+    );
     fireEvent.click(screen.getByText("×"));
-    // A 材料 reopen tab remains.
     const reopen = await screen.findByRole("button", { name: /材料/ });
     fireEvent.click(reopen);
     expect(screen.getByText(/拖动可移动/)).toBeTruthy();
