@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -622,6 +623,30 @@ func (a *API) enterReading(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
+// fetchFailedError builds the 422 paste-fallback for a failed fetch, enriched
+// with any DOI metadata Crossref returned (#4): the title, authors, year,
+// journal, and abstract we recovered even though the full text couldn't be
+// fetched — so the reading room shows them and asks the student to paste the
+// body, rather than a bare "取不到正文".
+func fetchFailedError(err error) *httpx.APIError {
+	msg := "取不到这个链接的正文，可以直接把正文粘进来。"
+	var details any
+	var fe *materialize.FetchError
+	if errors.As(err, &fe) && fe.Meta != nil {
+		m := fe.Meta
+		details = map[string]any{
+			"title": m.Title, "author": m.Author, "year": m.Year,
+			"journal": m.Journal, "abstract": m.Abstract,
+		}
+		if strings.TrimSpace(m.Abstract) != "" {
+			msg = "只自动取到了这篇的元信息和摘要，正文取不到——看看摘要，把正文粘进来就能逐句共读。"
+		} else if strings.TrimSpace(m.Title) != "" {
+			msg = "取到了这篇的元信息，但正文取不到——把正文粘进来就能逐句共读。"
+		}
+	}
+	return &httpx.APIError{Status: http.StatusUnprocessableEntity, Code: "fetch_failed", Message: msg, Details: details}
+}
+
 // fetchMaterialForReference fetches ref.Url, creates the material + its
 // source_log_entry, and binds ref.material_id — all in one transaction (a
 // material with no log entry is a source that was never "opened", RL-2's
@@ -642,14 +667,10 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 
 	t, body, ferr := a.d.Fetcher.FetchReadable(r.Context(), ref.Url)
 	if ferr != nil {
-		// 422 (not 400) + a standard {error:{code,message}} envelope so the
-		// reading-room client can parse code="fetch_failed" and offer its inline
-		// paste-body box instead of a generic error.
-		httpx.WriteError(w, r, &httpx.APIError{
-			Status:  http.StatusUnprocessableEntity,
-			Code:    "fetch_failed",
-			Message: "取不到这个链接的正文，可以直接把正文粘进来。",
-		})
+		// 422 (not 400) + a standard {error:{code,message,details}} envelope so
+		// the reading-room client can parse code="fetch_failed" and offer its
+		// inline paste-body box — now enriched with any DOI metadata we recovered.
+		httpx.WriteError(w, r, fetchFailedError(ferr))
 		return uuid.UUID{}, true
 	}
 	blocks := materialize.Segment(body)

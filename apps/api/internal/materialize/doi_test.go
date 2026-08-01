@@ -2,6 +2,7 @@ package materialize
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -92,6 +93,39 @@ func TestFetchReadable_DOICrossrefFailFallsBack(t *testing.T) {
 	}
 	if !strings.Contains(text, "原始正文") {
 		t.Errorf("fallback fetch of original URL failed: %q", text)
+	}
+}
+
+// When the DOI's full text can't be fetched (landing 404s), the FetchError still
+// carries the Crossref metadata we recovered (#4) — title, authors, year,
+// journal, JATS-stripped abstract.
+func TestFetchReadable_DOIMetaOnBodyFailure(t *testing.T) {
+	landing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer landing.Close()
+	crossref := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":{"title":["论文标题"],"abstract":"<jats:p>这是<jats:italic>摘要</jats:italic>文本</jats:p>","author":[{"given":"A","family":"B"},{"given":"C","family":"D"}],"issued":{"date-parts":[[2021,5]]},"container-title":["某期刊"],"resource":{"primary":{"URL":"` + landing.URL + `"}}}}`))
+	}))
+	defer crossref.Close()
+	old := crossrefBase
+	crossrefBase = crossref.URL + "/"
+	defer func() { crossrefBase = old }()
+
+	_, _, err := newUnguardedFetcher().FetchReadable(context.Background(), "https://doi.org/10.1/x")
+	var fe *FetchError
+	if !errors.As(err, &fe) {
+		t.Fatalf("want *FetchError, got %T: %v", err, err)
+	}
+	if fe.Meta == nil {
+		t.Fatal("expected recovered DOI metadata on the FetchError")
+	}
+	if fe.Meta.Title != "论文标题" || fe.Meta.Author != "A B; C D" || fe.Meta.Year != "2021" || fe.Meta.Journal != "某期刊" {
+		t.Fatalf("meta wrong: %+v", fe.Meta)
+	}
+	if fe.Meta.Abstract != "这是摘要文本" { // JATS tags stripped
+		t.Fatalf("abstract not JATS-stripped: %q", fe.Meta.Abstract)
 	}
 }
 

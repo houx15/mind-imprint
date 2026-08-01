@@ -370,10 +370,16 @@ export async function getDraft(id: string): Promise<string> {
   return z.object({ content: z.string() }).parse(raw).content;
 }
 
+// #4 · bibliographic metadata Crossref recovered for a DOI whose full text
+// couldn't be fetched — shown in the paste box so the student sees it and pastes
+// the body. Every field optional.
+export type SourceMeta = { title?: string; author?: string; year?: string; journal?: string; abstract?: string };
+
 // Thrown when enter-reading gets a 422 — the source has no readable content
 // (no url, no material). The caller shows a gentle inline nudge, not a crash.
+// For a DOI, `meta` carries what we DID recover (title/authors/abstract).
 export class NoReadableContentError extends Error {
-  constructor(message: string, public readonly code: string = "no_content") {
+  constructor(message: string, public readonly code: string = "no_content", public readonly meta?: SourceMeta) {
     super(message);
     this.name = "NoReadableContentError";
   }
@@ -443,11 +449,14 @@ export async function enterReading(
         : "";
     return { source, suggestedReason };
   } catch (e) {
-    // 422 (no url / no material) OR any fetch failure → offer the paste box.
+    // 422 (no url / no material) OR any fetch failure → offer the paste box,
+    // carrying any recovered DOI metadata (#4).
     if (e instanceof ApiError && (e.status === 422 || e.code === "fetch_failed")) {
+      const meta = e.details && typeof e.details === "object" ? (e.details as SourceMeta) : undefined;
       throw new NoReadableContentError(
         e.message || "取不到这个链接的正文，可以直接把正文粘进来。",
         e.code || "no_content",
+        meta,
       );
     }
     throw e;

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -44,13 +45,29 @@ func cleanDOI(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), ".,;)")
 }
 
-// resolveDOI asks Crossref for a DOI's canonical landing URL and title.
-// Best-effort: any failure returns ("","") so the caller just fetches the
-// original URL — DOI resolution can only help, never regress.
-func (f *HTTPFetcher) resolveDOI(ctx context.Context, doi string) (resolvedURL, title string) {
+// DOIMeta is the bibliographic metadata Crossref returns for a DOI (#4). Any
+// field may be empty. Surfaced to the student even when full text can't be
+// fetched: fill the annotated bib from Author/Year/Journal, read the Abstract,
+// then paste the full text.
+type DOIMeta struct {
+	URL      string // publisher landing (may be "")
+	Title    string
+	Author   string // "Given Family; Given Family; …"
+	Year     string
+	Journal  string
+	Abstract string // plain text (JATS markup stripped)
+}
+
+// jatsTag strips JATS/XML tags from a Crossref abstract.
+var jatsTag = regexp.MustCompile(`<[^>]+>`)
+
+// resolveDOI asks Crossref for a DOI's landing URL + bibliographic metadata.
+// Best-effort: any failure returns nil so the caller just fetches the original
+// URL — DOI resolution can only help, never regress.
+func (f *HTTPFetcher) resolveDOI(ctx context.Context, doi string) *DOIMeta {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, crossrefBase+url.PathEscape(doi), nil)
 	if err != nil {
-		return "", ""
+		return nil
 	}
 	// Crossref asks bots to identify themselves; a contactable UA joins the
 	// polite pool. No key required.
@@ -58,16 +75,25 @@ func (f *HTTPFetcher) resolveDOI(ctx context.Context, doi string) (resolvedURL, 
 	req.Header.Set("Accept", "application/json")
 	resp, err := f.client.Do(req)
 	if err != nil {
-		return "", ""
+		return nil
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", ""
+		return nil
 	}
 	var out struct {
 		Message struct {
-			Title    []string `json:"title"`
-			URL      string   `json:"URL"`
+			Title          []string `json:"title"`
+			ContainerTitle []string `json:"container-title"`
+			Abstract       string   `json:"abstract"`
+			URL            string   `json:"URL"`
+			Author         []struct {
+				Given  string `json:"given"`
+				Family string `json:"family"`
+			} `json:"author"`
+			Issued struct {
+				DateParts [][]int `json:"date-parts"`
+			} `json:"issued"`
 			Resource struct {
 				Primary struct {
 					URL string `json:"URL"`
@@ -76,14 +102,34 @@ func (f *HTTPFetcher) resolveDOI(ctx context.Context, doi string) (resolvedURL, 
 		} `json:"message"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
-		return "", ""
+		return nil
 	}
+	m := &DOIMeta{}
 	if len(out.Message.Title) > 0 {
-		title = strings.TrimSpace(out.Message.Title[0])
+		m.Title = strings.TrimSpace(out.Message.Title[0])
 	}
-	resolvedURL = out.Message.Resource.Primary.URL
-	if resolvedURL == "" {
-		resolvedURL = out.Message.URL
+	if len(out.Message.ContainerTitle) > 0 {
+		m.Journal = strings.TrimSpace(out.Message.ContainerTitle[0])
 	}
-	return resolvedURL, title
+	if a := out.Message.Abstract; a != "" {
+		m.Abstract = strings.TrimSpace(jatsTag.ReplaceAllString(a, ""))
+	}
+	names := make([]string, 0, len(out.Message.Author))
+	for _, a := range out.Message.Author {
+		n := strings.TrimSpace(a.Given + " " + a.Family)
+		if n != "" {
+			names = append(names, n)
+		}
+	}
+	m.Author = strings.Join(names, "; ")
+	if len(out.Message.Issued.DateParts) > 0 && len(out.Message.Issued.DateParts[0]) > 0 {
+		if y := out.Message.Issued.DateParts[0][0]; y > 0 {
+			m.Year = strconv.Itoa(y)
+		}
+	}
+	m.URL = out.Message.Resource.Primary.URL
+	if m.URL == "" {
+		m.URL = out.Message.URL
+	}
+	return m
 }

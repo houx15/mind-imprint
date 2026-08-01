@@ -12,6 +12,7 @@ import {
   getCoachHistory,
   NoReadableContentError,
   type ReferencePatch,
+  type SourceMeta,
 } from "../api/workspace";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
@@ -784,6 +785,8 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
   // Paste-body fallback (#1): shown when enter-reading can't fetch the source.
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  // #4 · DOI metadata recovered when the full text couldn't be fetched.
+  const [pasteMeta, setPasteMeta] = useState<SourceMeta | null>(null);
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pasteError, setPasteError] = useState<string | null>(null);
 
@@ -796,8 +799,10 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
-        // Fetch failed / no content → let the student paste the body in.
+        // Fetch failed / no content → let the student paste the body in,
+        // showing any DOI metadata + abstract we recovered (#4).
         setEnterNote(e.message);
+        setPasteMeta(e.meta ?? null);
         setShowPaste(true);
       } else {
         setEnterNote("打开阅读室失败，请重试");
@@ -977,7 +982,26 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
         {showPaste && (
           <div className="mt-1 rounded-mk border border-mk-border bg-mk-bg/50 p-3">
             <p className="text-[12.5px] font-bold text-mk-ink">取不到正文？把文章正文粘进来</p>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-mk-muted-2">有些链接抓不到正文（网站限制 / 网络问题）。把正文复制粘进来，就能和印记逐句共读。</p>
+            {/* #4 · what Crossref recovered for a DOI, even without the full text */}
+            {pasteMeta && (pasteMeta.title || pasteMeta.author || pasteMeta.abstract) ? (
+              <div className="mt-2 rounded-mk border border-mk-primary/25 bg-mk-primary-tint/20 p-2.5">
+                <p className="text-[11px] font-bold text-mk-primary">已从 DOI 取到这篇的信息（正文仍需你粘贴）</p>
+                {pasteMeta.title && <p className="mt-1 text-[12.5px] font-semibold leading-relaxed text-mk-ink">{pasteMeta.title}</p>}
+                {(pasteMeta.author || pasteMeta.year || pasteMeta.journal) && (
+                  <p className="mt-0.5 text-[11.5px] text-mk-muted-2">
+                    {[pasteMeta.author, pasteMeta.year, pasteMeta.journal].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                {pasteMeta.abstract && (
+                  <details className="mt-1.5">
+                    <summary className="cursor-pointer text-[11.5px] font-semibold text-mk-primary">摘要</summary>
+                    <p className="mt-1 max-h-40 overflow-y-auto text-[12px] leading-relaxed text-mk-ink">{pasteMeta.abstract}</p>
+                  </details>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-[11.5px] leading-relaxed text-mk-muted-2">有些链接抓不到正文（网站限制 / 网络问题）。把正文复制粘进来，就能和印记逐句共读。</p>
+            )}
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}

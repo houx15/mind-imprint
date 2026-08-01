@@ -18,10 +18,14 @@ const (
 	maxRedirects = 3
 )
 
-// FetchError carries a stable machine reason for a failed fetch.
+// FetchError carries a stable machine reason for a failed fetch. For a DOI whose
+// body couldn't be fetched, Meta carries the Crossref metadata we DID recover
+// (#4) — so the caller can still show the student the title/authors/abstract and
+// ask her to paste the full text.
 type FetchError struct {
 	Reason string
 	Err    error
+	Meta   *DOIMeta
 }
 
 func (e *FetchError) Error() string {
@@ -102,27 +106,42 @@ func setBrowserHeaders(req *http.Request) {
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 }
 
-// FetchReadable fetches rawURL and returns an extracted title + text, or a *FetchError.
-func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+// FetchReadable fetches rawURL and returns an extracted title + text, or a
+// *FetchError (which, for a DOI, carries the recovered Crossref metadata).
+func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (title string, text string, err error) {
+	u, perr := url.Parse(rawURL)
+	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", "", &FetchError{Reason: "blocked", Err: errors.New("unsupported url")}
 	}
-	// #4 · if this is a DOI, resolve it to the publisher's landing page + title
-	// via Crossref first (best-effort — failure leaves the original URL). Fetch
-	// the landing page directly: more often real HTML than the doi.org redirect
-	// chain, and the title is recovered even if body extraction stays thin.
+	// #4 · if this is a DOI, resolve it to the publisher's landing page + full
+	// metadata via Crossref first (best-effort — failure leaves the original
+	// URL). Fetch the landing page directly: more often real HTML than the
+	// doi.org redirect chain, and the title/abstract are recovered even if body
+	// extraction fails.
 	fetchURL, fallbackTitle := rawURL, ""
+	var doiMeta *DOIMeta
 	if doi, ok := extractDOI(u); ok {
-		rURL, rTitle := f.resolveDOI(ctx, doi)
-		fallbackTitle = rTitle
-		// Only adopt a resolved URL that is a well-formed http(s) URL — never let
-		// Crossref's response steer us to a non-web scheme (defense-in-depth; the
-		// SSRF guard already blocks private IPs at dial).
-		if ru, perr := url.Parse(rURL); perr == nil && (ru.Scheme == "http" || ru.Scheme == "https") && ru.Host != "" {
-			fetchURL = rURL
+		doiMeta = f.resolveDOI(ctx, doi)
+		if doiMeta != nil {
+			fallbackTitle = doiMeta.Title
+			// Only adopt a resolved URL that is a well-formed http(s) URL — never
+			// let Crossref's response steer us to a non-web scheme (defense-in-depth;
+			// the SSRF guard already blocks private IPs at dial).
+			if ru, uerr := url.Parse(doiMeta.URL); uerr == nil && (ru.Scheme == "http" || ru.Scheme == "https") && ru.Host != "" {
+				fetchURL = doiMeta.URL
+			}
 		}
 	}
+	// On any FetchError, attach the DOI metadata we recovered so the caller can
+	// still show it and invite a paste of the full text.
+	defer func() {
+		if err != nil && doiMeta != nil {
+			var fe *FetchError
+			if errors.As(err, &fe) {
+				fe.Meta = doiMeta
+			}
+		}
+	}()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
 	if err != nil {
 		return "", "", &FetchError{Reason: "blocked", Err: err}
@@ -156,7 +175,7 @@ func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (string,
 	if isText {
 		return fallbackTitle, string(body), nil
 	}
-	title, text := extractHTML(body)
+	title, text = extractHTML(body)
 	if title == "" {
 		title = fallbackTitle
 	}
