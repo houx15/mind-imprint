@@ -8,9 +8,8 @@ package api
 // postCourseAsk (Task 6) is the free-Q&A AI bar: no phase runtime left to
 // drive (agent/course_coach.go's package doc), just one coach turn scoped to
 // {slug, ordinal}, streamed over SSE mirroring chat.go's postChatTurn.
-// postAdminUploadCourse (Task 7) remains a temporary 501 stub, kept only so
-// the tree builds between tasks; its real implementation is NOT this task's
-// concern.
+// postAdminUploadCourse (Task 7) is the OSS_ADMIN_KEY-gated developer publish
+// path — see course_admin.go, not this file.
 
 import (
 	"encoding/json"
@@ -336,16 +335,4 @@ func (a *API) postCourseAsk(w http.ResponseWriter, r *http.Request) {
 
 	_ = em.Text(out.Body)
 	_ = em.Done()
-}
-
-// postAdminUploadCourse publishes one course's authored content.
-//
-// TODO(Task 7): implement — parse+validate the authored structure/
-// render_cache bundle behind the OSS-admin-key bearer gate, then
-// agent.UpsertCourse. This is a temporary stub ONLY so the tree builds
-// between Task 5 and Task 7 — do not extend it here.
-func (a *API) postAdminUploadCourse(w http.ResponseWriter, r *http.Request) {
-	httpx.WriteJSON(w, http.StatusNotImplemented, map[string]any{
-		"error": map[string]string{"code": "not_implemented", "message": "admin course upload lands in Task 7"},
-	})
 }
