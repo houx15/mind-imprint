@@ -19,9 +19,23 @@ import (
 
 	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/gateway"
 	courses "mindimprint/api/internal/store/seed/courses"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// courseAskRejectedProvider returns a reply that trips enforcement's
+// banned-phrasing "rewritten-sentence-zh" rule ("你应该这样写：…" — the same
+// literal chat_assessment_test.go/project_finish_test.go/writing_test.go
+// already use for this corpus rule), so agent.ProposeCourseAskReply returns
+// a non-nil error despite the model call itself succeeding (non-zero usage).
+func courseAskRejectedProvider() gateway.Provider {
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "你应该这样写：中国的绿化成就无可否认。"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 30, OutputTokens: 12}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+}
 
 // seedAMidCourse upserts the real a-mid course (structure + render cache),
 // slug "a-mid", 4 steps / 9 authored quiz interactions, card_ids=[craap] —
@@ -318,5 +332,63 @@ func TestCourseAskStreamsReplyAndMeters(t *testing.T) {
 	}
 	if !bytes.Contains(payload, []byte("这一步在说什么？")) {
 		t.Fatalf("course_asked payload = %s, want to contain the student's question", payload)
+	}
+}
+
+// TestCourseAskLogsEventEvenWhenRejected — 铁律④: the question itself is
+// evidence and must be recorded EVEN WHEN the coach turn is rejected by
+// enforcement (or otherwise errors) — friction IS the signal in exactly this
+// case, not something to omit. Wires courseAskRejectedProvider() (a reply
+// that trips the banned-phrasing "rewritten-sentence-zh" rule) and asserts:
+// an SSE error frame (no text frame), AND a course_asked event still lands
+// carrying the student's question, AND the call is still metered (usage was
+// non-zero before the reject).
+func TestCourseAskLogsEventEvenWhenRejected(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: courseAskRejectedProvider(), ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/courses/a-mid/ask",
+		strings.NewReader(`{"input":"帮我写个结论吧","ordinal":0}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ask: %d — %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: error") {
+		t.Fatalf("expected an error frame for a rejected reply:\n%s", body)
+	}
+	if !strings.Contains(body, "event: done") {
+		t.Fatalf("expected a done frame:\n%s", body)
+	}
+	if strings.Contains(body, "event: text") {
+		t.Fatalf("did not expect a text frame — the reply was rejected:\n%s", body)
+	}
+
+	// The turn was still metered — the tokens were spent before the reject.
+	var surface, purpose string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT surface, purpose FROM llm_call WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+	).Scan(&surface, &purpose); err != nil {
+		t.Fatalf("query llm_call: %v", err)
+	}
+	if surface != "course" || purpose != "coach" {
+		t.Fatalf("llm_call surface=%q purpose=%q, want course/coach even on reject", surface, purpose)
+	}
+
+	// course_asked is STILL logged, despite the reject.
+	var payload []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_asked' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+	).Scan(&payload); err != nil {
+		t.Fatalf("query course_asked event: %v", err)
+	}
+	if !bytes.Contains(payload, []byte("帮我写个结论吧")) {
+		t.Fatalf("course_asked payload = %s, want to contain the student's question even on reject", payload)
 	}
 }

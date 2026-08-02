@@ -300,6 +300,21 @@ func (a *API) postCourseAsk(w http.ResponseWriter, r *http.Request) {
 		<-hbDone
 	}()
 
+	// 铁律④: the question itself is evidence, logged BEFORE the coach turn —
+	// unconditionally, regardless of whether the model call below succeeds,
+	// errors, or is enforcement-rejected (friction IS the signal in the
+	// reject case, not something to omit). Mirrors chat.go's postChatTurn,
+	// which logs its own prompt_sent event before calling RunChatStep. A log
+	// failure must not fail the turn that hasn't happened yet.
+	eventPayload, perr := json.Marshal(map[string]any{"input": body.Input, "ordinal": body.Ordinal})
+	if perr != nil {
+		eventPayload = []byte(`{}`)
+	}
+	if err := store.LogCourseEvent(r.Context(), u.ID, courseID, "course_asked", eventPayload); err != nil {
+		slog.Warn("course ask: append course_asked event failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
 	out, usage, aerr := agent.ProposeCourseAskReply(r.Context(), a.d.Provider, resolved,
 		structure.Title, stepTitle, structure.CourseGoal, stepText, body.Input)
 	// Meter regardless of aerr: enforcement can reject AFTER the tokens were
@@ -320,18 +335,6 @@ func (a *API) postCourseAsk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = em.Text(out.Body)
-
-	// 铁律④: the question itself is evidence, logged even though it never
-	// gates anything. A log failure must not fail an already-answered turn.
-	eventPayload, perr := json.Marshal(map[string]any{"input": body.Input, "ordinal": body.Ordinal})
-	if perr != nil {
-		eventPayload = []byte(`{}`)
-	}
-	if err := store.LogCourseEvent(r.Context(), u.ID, courseID, "course_asked", eventPayload); err != nil {
-		slog.Warn("course ask: append course_asked event failed",
-			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
-	}
-
 	_ = em.Done()
 }
 
