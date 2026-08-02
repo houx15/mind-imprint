@@ -1070,7 +1070,21 @@ function DraftPane({
       setSelPop(null);
     }
   }
+  // Q6 · autosave resilience — debounce ~1.2s after the student stops typing,
+  // plus a periodic safety-net flush (~18s) so a long uninterrupted typing
+  // stretch never goes unsaved just because the debounce keeps getting reset.
+  // dirtyRef/savingRef are refs (not state) so the interval/backoff timers
+  // always read the LATEST value without a stale closure. A failed save is
+  // never allowed to touch `text` — the textarea only ever gets loaded once
+  // (on mount, above), so local edits can't be clobbered by a stale refetch;
+  // this just has to keep retrying until the same content lands.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedFadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  const savingRef = useRef(false);
+  const retryAttempt = useRef(0);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "retrying">("idle");
   const words = text.replace(/\s+/g, "").length;
 
   // WA · 整稿体检: save a version + run the whole-draft review, render its advice
@@ -1099,8 +1113,14 @@ function DraftPane({
     setReviewScope(scopeText ? "part" : "draft");
     // flush any pending autosave so the persisted buffer matches what's on screen
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
     try {
       await putBuffer(projectId, text);
+      // this save landed synchronously (not via the debounce/retry path) —
+      // reflect it in the same status indicator so the two paths never disagree.
+      dirtyRef.current = false;
+      retryAttempt.current = 0;
+      flashSaved();
       try {
         setReview(await runDraftReview(projectId, target, useVoice));
       } catch (err) {
@@ -1151,22 +1171,91 @@ function DraftPane({
     };
   }, [projectId]);
 
-  // Flush a pending autosave on unmount so a last keystroke isn't lost.
+  // Q6 · briefly show "已保存" then fade back to the quiet idle (no badge) —
+  // a nag-free confirmation, not a persistent banner.
+  function flashSaved() {
+    setSaveStatus("saved");
+    if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+    savedFadeTimer.current = setTimeout(() => {
+      setSaveStatus((s) => (s === "saved" ? "idle" : s));
+    }, 2000);
+  }
+
+  // Q6 · the one place that actually calls putBuffer for the debounce/periodic
+  // path. Always sends the LATEST content (textRef, read at call time) rather
+  // than whatever triggered this attempt, so a retry after a failure never
+  // resends stale text once the student has kept typing. On failure the local
+  // (dirty) text is never touched — only the status flips to "retrying" and a
+  // backoff timer schedules another attempt.
+  async function flushSave() {
+    if (savingRef.current || !dirtyRef.current) return;
+    savingRef.current = true;
+    setSaveStatus("saving");
+    const attemptedContent = textRef.current;
+    try {
+      await putBuffer(projectId, attemptedContent);
+      retryAttempt.current = 0;
+      if (textRef.current === attemptedContent) {
+        // nothing changed while the request was in flight — clean.
+        dirtyRef.current = false;
+        flashSaved();
+      } else {
+        // more edits landed mid-save — still dirty, catch up shortly.
+        setSaveStatus("idle");
+        scheduleSave(600);
+      }
+    } catch {
+      setSaveStatus("retrying");
+      const attempt = ++retryAttempt.current;
+      const delay = Math.min(3000 * 2 ** (attempt - 1), 20000); // 3s, 6s, 12s, capped at 20s
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      retryTimer.current = setTimeout(() => { void flushSave(); }, delay);
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
+  function scheduleSave(delayMs: number) {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void flushSave(); }, delayMs);
+  }
+
+  // Q6 · a periodic safety-net flush independent of the debounce — a student
+  // typing continuously keeps resetting the debounce timer, so without this a
+  // long unbroken stretch of edits would never actually save until she pauses.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (dirtyRef.current && !savingRef.current) void flushSave();
+    }, 18000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Flush a pending autosave on unmount/tab-switch so a last edit is never
+  // lost — best-effort (fire-and-forget; there's no component left to show a
+  // retry state to), same content-freshness guarantee as flushSave above.
   useEffect(
     () => () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
+      if (dirtyRef.current) {
+        void putBuffer(projectId, textRef.current).catch(() => {/* best-effort; nothing left to retry against */});
+      }
     },
-    [],
+    [projectId],
   );
 
   function onChange(next: string) {
     setText(next);
     textRef.current = next;
+    dirtyRef.current = true;
     setSelPop(null); // any edit invalidates the floating selection chip
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      void putBuffer(projectId, next).catch(() => {/* retries on next keystroke */});
-    }, 800);
+    // a fresh edit deserves a prompt retry cadence again, not whatever backoff
+    // a previous failure had climbed to.
+    retryAttempt.current = 0;
+    if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
+    scheduleSave(1200);
   }
 
   async function handleFile(file: File) {
@@ -1175,9 +1264,10 @@ function DraftPane({
       const content = await file.text();
       setText(content);
       textRef.current = content;
+      dirtyRef.current = true;
       setUploadNote(null);
       setMode("write");
-      void putBuffer(projectId, content).catch(() => {/* retries via next edit */});
+      scheduleSave(300); // route through the same retry/status pipeline as onChange
     } else {
       // .docx / .pdf and friends — accepted but not parsed yet. Don't crash;
       // just tell the student we've noted it.
@@ -1230,9 +1320,19 @@ function DraftPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Q2 · once a 整稿体检 result (or an in-flight/errored attempt) exists, lay
+  // the draft out left/review right instead of stacking the panel below the
+  // textarea — the student can read the advice next to her own words. Widen
+  // the pane's max-width only in that state so the review column has room;
+  // stacks back to one column below the lg breakpoint (narrow widths).
+  const showReview = mode === "write" && !!(reviewError || reviewing || review);
+
   return (
     <div className="flex min-h-0 flex-col px-8 py-6">
-      <div ref={paneRef} className="relative mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+      <div
+        ref={paneRef}
+        className={`relative mx-auto flex min-h-0 w-full flex-1 flex-col ${showReview ? "max-w-6xl" : "max-w-2xl"}`}
+      >
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {!locked && (
@@ -1257,6 +1357,7 @@ function DraftPane({
           {mode === "write" && (
             <div className="flex items-center gap-2">
               <span className="text-[12px] font-semibold text-mk-muted-2">{words} 字</span>
+              {!locked && <SaveStatusIndicator status={saveStatus} />}
               {!locked && (
                 <>
                   {/* #6 · 体检视角: each option carries a plain-language description so
@@ -1299,94 +1400,106 @@ function DraftPane({
           <p className="mb-3 rounded-mk border border-mk-border bg-mk-bg px-3 py-2 text-[12.5px] font-semibold text-mk-muted-2">这篇已归档，正文只读——你仍可预览与导出。</p>
         )}
 
-        {mode === "write" ? (
-          pane === "edit" ? (
-            layout === "sections" ? (
-              <SectionedDraft
-                projectId={projectId}
-                text={text}
-                onChange={onChange}
-                locked={locked}
-                registerInsert={(fn) => { sectionInsertRef.current = fn; }}
-              />
+        {/* Q2 · left/right split once a 体检 result (or an in-flight/errored
+            attempt) is present: draft on the left, review on the right —
+            responsive, stacks to one column below lg. With no review to show,
+            this collapses back to the single centered column. */}
+        <div className={`grid min-h-0 flex-1 gap-5 ${showReview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+          <div className="flex min-h-0 flex-col">
+            {mode === "write" ? (
+              pane === "edit" ? (
+                layout === "sections" ? (
+                  <SectionedDraft
+                    projectId={projectId}
+                    text={text}
+                    onChange={onChange}
+                    locked={locked}
+                    registerInsert={(fn) => { sectionInsertRef.current = fn; }}
+                  />
+                ) : (
+                  <textarea
+                    ref={draftRef}
+                    value={text}
+                    onChange={(e) => onChange(e.target.value)}
+                    onFocus={() => { hasFocusedRef.current = true; }}
+                    onMouseUp={onDraftMouseUp}
+                    onScroll={() => setSelPop(null)}
+                    readOnly={locked}
+                    placeholder="在这里写你的草稿……（支持 Markdown）"
+                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 ${locked ? "bg-mk-bg/60 cursor-default" : "bg-mk-surface focus:border-mk-primary"}`}
+                  />
+                )
+              ) : (
+                <MarkdownPreview text={text} />
+              )
             ) : (
-              <textarea
-                ref={draftRef}
-                value={text}
-                onChange={(e) => onChange(e.target.value)}
-                onFocus={() => { hasFocusedRef.current = true; }}
-                onMouseUp={onDraftMouseUp}
-                onScroll={() => setSelPop(null)}
-                readOnly={locked}
-                placeholder="在这里写你的草稿……（支持 Markdown）"
-                className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 ${locked ? "bg-mk-bg/60 cursor-default" : "bg-mk-surface focus:border-mk-primary"}`}
-              />
-            )
-          ) : (
-            <MarkdownPreview text={text} />
-          )
-        ) : (
-          <div
-            className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files[0];
-              if (f) void handleFile(f);
-            }}
-          >
-            <span className="text-mk-primary"><Icon name="writing" size={28} /></span>
-            <p className="mt-3 text-[15px] font-bold text-mk-ink">把你写好的文档拖进来</p>
-            <p className="mt-1 text-[13px] text-mk-muted-2">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".md,.markdown,.txt,.docx,.pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void handleFile(f);
-                e.target.value = "";
-              }}
-            />
-            <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">选择文件</button>
-            {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{uploadNote}</p>}
+              <div
+                className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files[0];
+                  if (f) void handleFile(f);
+                }}
+              >
+                <span className="text-mk-primary"><Icon name="writing" size={28} /></span>
+                <p className="mt-3 text-[15px] font-bold text-mk-ink">把你写好的文档拖进来</p>
+                <p className="mt-1 text-[13px] text-mk-muted-2">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".md,.markdown,.txt,.docx,.pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">选择文件</button>
+                {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{uploadNote}</p>}
+              </div>
+            )}
+            {/* #7 · floating "问印记" chip — appears next to a text selection; clicking
+                it pins that part into the coach composer (replaces the old top button).
+                onMouseDown preventDefault keeps the textarea selection alive through the
+                click, so we still have the pinned text. Positioned against paneRef
+                (the outer relative container), so it stays correct regardless of this
+                inner column wrapper — which isn't itself a positioning context. */}
+            {selPop && mode === "write" && pane === "edit" && !locked && (
+              <div
+                // sit above the pointer, but flip below when the selection is near the
+                // pane top so the chip never clips over the toolbar (review L3).
+                style={{ left: selPop.x, top: selPop.y, transform: selPop.y < 44 ? "translate(-50%, 45%)" : "translate(-50%, -130%)" }}
+                className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary p-1 shadow-[0_4px_14px_rgba(28,35,51,0.25)]"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {/* #7 · chat about this part */}
+                <button
+                  type="button"
+                  onClick={() => { onFocusPart(selPop.text); setSelPop(null); }}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
+                >
+                  <Icon name="spark" size={13} /> 问印记
+                </button>
+                <span className="h-3.5 w-px bg-white/30" />
+                {/* #8 · run the chosen voice's 体检 on just this paragraph */}
+                <button
+                  type="button"
+                  onClick={() => { const t = selPop.text; setSelPop(null); void runReview(t); }}
+                  className="rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
+                >
+                  体检这段
+                </button>
+              </div>
+            )}
           </div>
-        )}
-        {/* #7 · floating "问印记" chip — appears next to a text selection; clicking
-            it pins that part into the coach composer (replaces the old top button).
-            onMouseDown preventDefault keeps the textarea selection alive through the
-            click, so we still have the pinned text. */}
-        {selPop && mode === "write" && pane === "edit" && !locked && (
-          <div
-            // sit above the pointer, but flip below when the selection is near the
-            // pane top so the chip never clips over the toolbar (review L3).
-            style={{ left: selPop.x, top: selPop.y, transform: selPop.y < 44 ? "translate(-50%, 45%)" : "translate(-50%, -130%)" }}
-            className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary p-1 shadow-[0_4px_14px_rgba(28,35,51,0.25)]"
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {/* #7 · chat about this part */}
-            <button
-              type="button"
-              onClick={() => { onFocusPart(selPop.text); setSelPop(null); }}
-              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
-            >
-              <Icon name="spark" size={13} /> 问印记
-            </button>
-            <span className="h-3.5 w-px bg-white/30" />
-            {/* #8 · run the chosen voice's 体检 on just this paragraph */}
-            <button
-              type="button"
-              onClick={() => { const t = selPop.text; setSelPop(null); void runReview(t); }}
-              className="rounded-full px-2.5 py-1 text-[12px] font-bold text-white hover:bg-white/15"
-            >
-              体检这段
-            </button>
-          </div>
-        )}
-        {mode === "write" && (reviewError || reviewing || review) && (
-          <DraftReviewPanel scope={reviewScope} reviewing={reviewing} error={reviewError} review={review} onClose={() => { setReview(null); setReviewError(null); }} />
-        )}
+          {showReview && (
+            <div className="min-h-0">
+              <DraftReviewPanel scope={reviewScope} reviewing={reviewing} error={reviewError} review={review} onClose={() => { setReview(null); setReviewError(null); }} />
+            </div>
+          )}
+        </div>
         <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
     </div>
@@ -1526,39 +1639,56 @@ function DraftReviewPanel({
   review: DraftReviewResult | null;
   onClose: () => void;
 }) {
+  // Q2 · this now sits BESIDE the draft (not below it), so it fills its
+  // column's height and scrolls its own content instead of capping at a fixed
+  // max-height — the header (title + 收起) stays put while the list scrolls.
   return (
-    <div className="mt-3 max-h-72 overflow-y-auto rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/30 p-4">
-      <div className="mb-2 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/30 p-4">
+      <div className="mb-2 flex flex-none items-center justify-between">
         <p className="text-[13px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
         <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">收起</button>
       </div>
-      {reviewing ? (
-        <p className="text-[12.5px] text-mk-muted-2">印记正在逐段体检你的论证与结构……</p>
-      ) : error ? (
-        <p className="text-[12.5px] font-semibold text-mk-accent">{error}</p>
-      ) : review ? (
-        review.items.length === 0 ? (
-          <p className="text-[12.5px] text-mk-muted-2">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
-        ) : (
-          <>
-            <p className="mb-2 text-[11.5px] text-mk-muted-2">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
-            <ul className="flex flex-col gap-2">
-              {review.items.map((it: ReviewItem, i: number) => (
-                <li key={i} className="rounded-mk border border-mk-border bg-mk-surface p-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[12.5px] font-bold text-mk-primary">{it.criterion_name || it.criterion_code}</span>
-                    {it.band && <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10.5px] font-bold text-mk-primary">{it.band}</span>}
-                  </div>
-                  {it.evidence && <p className="mt-1 text-[12.5px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
-                  {it.missing && <p className="mt-1 text-[12.5px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
-                  {it.fix && <p className="mt-1 text-[12.5px] text-mk-accent"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
-                </li>
-              ))}
-            </ul>
-          </>
-        )
-      ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {reviewing ? (
+          <p className="text-[12.5px] text-mk-muted-2">印记正在逐段体检你的论证与结构……</p>
+        ) : error ? (
+          <p className="text-[12.5px] font-semibold text-mk-accent">{error}</p>
+        ) : review ? (
+          review.items.length === 0 ? (
+            <p className="text-[12.5px] text-mk-muted-2">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
+          ) : (
+            <>
+              <p className="mb-2 text-[11.5px] text-mk-muted-2">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
+              <ul className="flex flex-col gap-2">
+                {review.items.map((it: ReviewItem, i: number) => (
+                  <li key={i} className="rounded-mk border border-mk-border bg-mk-surface p-3">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[12.5px] font-bold text-mk-primary">{it.criterion_name || it.criterion_code}</span>
+                      {it.band && <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10.5px] font-bold text-mk-primary">{it.band}</span>}
+                    </div>
+                    {it.evidence && <p className="mt-1 text-[12.5px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
+                    {it.missing && <p className="mt-1 text-[12.5px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
+                    {it.fix && <p className="mt-1 text-[12.5px] text-mk-accent"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+// Q6 · a small, quiet autosave indicator beside the 字数 counter — never a
+// nagging modal. "idle" renders nothing (nothing worth mentioning right now).
+function SaveStatusIndicator({ status }: { status: "idle" | "saving" | "saved" | "retrying" }) {
+  if (status === "idle") return null;
+  const label = status === "saving" ? "正在保存…" : status === "saved" ? "已保存" : "未保存 · 正在重试…";
+  return (
+    <span className={`text-[12px] font-semibold ${status === "retrying" ? "text-mk-accent" : "text-mk-muted-2"}`}>
+      {label}
+    </span>
   );
 }
 

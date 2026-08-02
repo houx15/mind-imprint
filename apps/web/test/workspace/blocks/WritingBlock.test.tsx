@@ -254,11 +254,16 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // write in the generated section's body → the draft serializes with the heading
     const bodies = screen.getAllByPlaceholderText("在这一节写……");
     await userEvent.type(bodies[bodies.length - 1]!, "这是正文。");
-    await waitFor(() => {
-      const last = vi.mocked(putBuffer).mock.calls.at(-1)?.[1] ?? "";
-      expect(last).toContain("# 背景与主张");
-      expect(last).toContain("这是正文。");
-    });
+    // Q6 · the autosave debounce is ~1.2s (was 800ms) — give waitFor enough
+    // room past the default 1s timeout.
+    await waitFor(
+      () => {
+        const last = vi.mocked(putBuffer).mock.calls.at(-1)?.[1] ?? "";
+        expect(last).toContain("# 背景与主张");
+        expect(last).toContain("这是正文。");
+      },
+      { timeout: 3000 },
+    );
   });
 
   // #6 · replaces the old assumption that the live outline auto-appears as a
@@ -479,5 +484,80 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(await screen.findByText("这段够有力吗")).toBeInTheDocument();
     const quote = document.querySelector("blockquote");
     expect(quote?.textContent).toBe("我的草稿第一段。");
+  });
+
+  // Q2 · once a 整稿体检 result exists, the draft and the review panel share a
+  // responsive two-column container (grid-cols-1 lg:grid-cols-2) instead of
+  // the review stacking below the textarea. No column split before a review
+  // exists; closing the review (收起) collapses it back to one column.
+  it("整稿体检 renders in a side-by-side container with the draft once a result exists (Q2)", async () => {
+    const ta = await openDraftTab();
+    function splitAncestorOf(el: HTMLElement): HTMLElement | null {
+      let cur: HTMLElement | null = el;
+      while (cur) {
+        if (cur.className?.includes?.("lg:grid-cols-2")) return cur;
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+    // before running a review: no split container yet
+    expect(splitAncestorOf(ta)).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
+    expect(await screen.findByText(/分析与论证/)).toBeInTheDocument();
+
+    const split = splitAncestorOf(ta);
+    expect(split).not.toBeNull();
+    // the draft (textarea) and the review panel (收起 control) are both
+    // inside that same split container, side by side.
+    const collapse = screen.getByRole("button", { name: "收起" });
+    expect(split!.contains(ta)).toBe(true);
+    expect(split!.contains(collapse)).toBe(true);
+
+    // closing the review collapses the layout back to a single column
+    await userEvent.click(collapse);
+    expect(screen.queryByRole("button", { name: "收起" })).toBeNull();
+    expect(splitAncestorOf(ta)).toBeNull();
+  });
+
+  // Q6 · autosave debounces after typing stops, never loses local edits on a
+  // failed save (shows a retry indicator and keeps retrying instead of
+  // reverting the textarea), and confirms success once the retry lands.
+  it(
+    "autosaves on a debounce; a failed save keeps local edits and shows a retry indicator until it recovers (Q6)",
+    async () => {
+      mockPutBuffer.mockRejectedValueOnce(new Error("network down"));
+      const ta = await openDraftTab();
+      const before = ta.value;
+      await userEvent.type(ta, "又写了一点。");
+      const expected = before + "又写了一点。";
+
+      // the debounce (~1.2s after the last keystroke) fires the first save
+      // attempt, which fails.
+      await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledWith("p1", expected), { timeout: 2500 });
+      expect(await screen.findByText(/未保存.*正在重试/)).toBeInTheDocument();
+      // the local edit is never clobbered by the failed save.
+      expect(ta.value).toBe(expected);
+
+      // the backoff retry lands and succeeds — no student action needed.
+      await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledTimes(2), { timeout: 5000 });
+      expect(mockPutBuffer).toHaveBeenLastCalledWith("p1", expected);
+      expect(await screen.findByText("已保存")).toBeInTheDocument();
+      expect(ta.value).toBe(expected); // still untouched by any save round-trip
+    },
+    12000,
+  );
+
+  // Q6 · switching away from 正文 (unmounting DraftPane) flushes any pending
+  // dirty edit rather than silently dropping it.
+  it("flushes a pending autosave when the 正文 tab is left (Q6)", async () => {
+    const ta = await openDraftTab();
+    const before = ta.value;
+    fireEvent.change(ta, { target: { value: before + "最后一句还没保存。" } });
+    // switch away immediately, before the debounce would have fired on its own.
+    // "大纲" is ambiguous (the main tab + the materials sidebar's own source
+    // tab) — the main workspace tab comes first in the DOM.
+    await userEvent.click(screen.getAllByRole("button", { name: "大纲" })[0]!);
+    await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledWith("p1", before + "最后一句还没保存。"));
   });
 });

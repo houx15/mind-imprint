@@ -70,6 +70,12 @@ export function MaterialsSidebar({
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
+  // Q1 · a persistent (not transient) record of which items have been
+  // inserted into the 正文 draft — unlike `placed` above (a brief "done" flash
+  // that clears itself), this sticks so the student can tell "已插入正文" at a
+  // glance even later, while the button itself stays fully clickable: the
+  // same item can always be inserted again. Client-only, no persistence.
+  const [insertedKeys, setInsertedKeys] = useState<Set<string>>(new Set());
   // #15 · a brief toast so placing a fragment isn't a silent no-op when its
   // destination (the 片段 board) isn't the tab you're looking at.
   const [toast, setToast] = useState<string | null>(null);
@@ -192,6 +198,9 @@ export function MaterialsSidebar({
     const t = text.trim();
     if (!t) return;
     (toDraft ? onInsertToDraft : onAddSnippet)(t);
+    // Q1 · mark it 已插入正文 (sticks) whenever it actually went into the draft —
+    // never cleared, so re-inserting the same item just re-confirms the badge.
+    if (toDraft) setInsertedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
     setPlaced(key);
     window.setTimeout(() => setPlaced((k) => (k === key ? null : k)), 1200);
     if (!toDraft && activeTab !== "snippets") {
@@ -321,7 +330,7 @@ export function MaterialsSidebar({
                                 <div key={key} className="rounded bg-mk-bg/50 p-2">
                                   <div className="text-[10px] font-bold uppercase tracking-wide text-mk-muted-2">{c.label}</div>
                                   <div className="mt-0.5 text-[12.5px] leading-relaxed text-mk-ink">{c.text}</div>
-                                  {!locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(c.text, key)} />}
+                                  {!locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label={actionLabel} onClick={() => place(c.text, key)} />}
                                 </div>
                               );
                             })}
@@ -372,7 +381,7 @@ export function MaterialsSidebar({
                 return (
                   <div key={key} className="rounded bg-mk-bg/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{n.text}</div>
-                    {toDraft && !locked && <PlaceButton done={placed === key} label="插入正文" onClick={() => place(n.text, key)} />}
+                    {toDraft && !locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label="插入正文" onClick={() => place(n.text, key)} />}
                   </div>
                 );
               })}
@@ -411,7 +420,7 @@ export function MaterialsSidebar({
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{s.text}</div>
                     {/* in 片段 tab inserting a snippet into snippets is a no-op path;
                         only offer placing when it goes somewhere new (正文). */}
-                    {toDraft && !locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(s.text, key)} />}
+                    {toDraft && !locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label={actionLabel} onClick={() => place(s.text, key)} />}
                   </div>
                 );
               })}
@@ -438,9 +447,15 @@ function SourceTab({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function PlaceButton({ done, label, onClick }: { done: boolean; label: string; onClick: () => void }) {
+// Q1 · `done` is the brief transient flash (clears itself after ~1.2s);
+// `inserted` is the persistent 已插入正文 badge — once true it stays, but the
+// button underneath stays enabled so the same item can be inserted again.
+function PlaceButton({ done, inserted, label, onClick }: { done: boolean; inserted?: boolean; label: string; onClick: () => void }) {
   return (
-    <div className="mt-1 flex justify-end">
+    <div className="mt-1 flex items-center justify-end gap-1.5">
+      {inserted && !done && (
+        <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10px] font-bold text-mk-primary">已插入正文</span>
+      )}
       <button
         type="button"
         onClick={onClick}

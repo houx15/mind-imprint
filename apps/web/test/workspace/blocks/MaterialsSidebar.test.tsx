@@ -71,6 +71,28 @@ describe("MaterialsSidebar", () => {
     expect(onInsertToDraft).toHaveBeenCalledWith("我觉得变绿≠可持续");
   });
 
+  // Q1 · after a successful insert, the item gets a persistent "已插入正文"
+  // badge (distinct from the brief "已插入正文 ✓" flash on the button itself,
+  // which clears after ~1.2s) — but the button must stay clickable so the
+  // same fragment can be inserted again.
+  it("materials: a successful insert marks the item 已插入正文, and it stays re-insertable (Q1)", async () => {
+    const onInsertToDraft = vi.fn();
+    render(
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+    );
+    fireEvent.click(await screen.findByText("NASA 绿化报告"));
+    const btn = (await screen.findAllByRole("button", { name: /插入正文/ }))[0]!;
+    fireEvent.click(btn);
+    expect(onInsertToDraft).toHaveBeenCalledTimes(1);
+    // the transient "done" flash clears (~1.2s); the persistent badge (a plain
+    // span, exact text "已插入正文" with no "✓") then shows on its own.
+    await waitFor(() => expect(screen.getByText("已插入正文")).toBeInTheDocument(), { timeout: 2000 });
+    // still fully clickable — inserting again fires the callback again
+    fireEvent.click(screen.getAllByRole("button", { name: /插入正文/ })[0]!);
+    expect(onInsertToDraft).toHaveBeenCalledTimes(2);
+    expect(onInsertToDraft.mock.calls[1]![0]).toBe("我觉得变绿≠可持续");
+  });
+
   it("大纲 source: import lays outline titles into the draft as headings (#9)", async () => {
     const onInsertToDraft = vi.fn();
     render(
