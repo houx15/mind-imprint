@@ -24,6 +24,7 @@ vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
+import { ApiError } from "@/api/client";
 import { coach, getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
@@ -122,13 +123,35 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(screen.getByText(/过程已封存/)).toBeInTheDocument();
   });
 
-  it("surfaces an error without crashing", async () => {
-    mockReview.mockRejectedValueOnce(new Error("boom"));
+  it("retries once on a transient failure, then surfaces the network-flavored message if both fail (item #10)", async () => {
+    // #10 · one client-side retry guards a transient hiccup — both attempts
+    // must fail before the error shows.
+    mockReview.mockRejectedValueOnce(new Error("boom")).mockRejectedValueOnce(new Error("boom again"));
     await openDraftTab();
     await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
-    expect(await screen.findByText(/体检没跑完/)).toBeInTheDocument();
+    expect(await screen.findByText(/体检没跑完.*网络/)).toBeInTheDocument();
+    expect(mockReview).toHaveBeenCalledTimes(2);
     // autosave still fired before the review attempt
     expect(mockPutBuffer).toHaveBeenCalled();
+  });
+
+  it("a transient failure that succeeds on retry never shows an error (item #10)", async () => {
+    mockReview.mockRejectedValueOnce(new Error("boom"));
+    const ta = await openDraftTab();
+    await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
+    expect(await screen.findByText(/分析与论证/)).toBeInTheDocument();
+    expect(screen.queryByText(/体检没跑完/)).toBeNull();
+    expect(mockReview).toHaveBeenCalledTimes(2);
+    expect(ta.value.length).toBeGreaterThan(0); // never touched the draft
+  });
+
+  it("a review_rejected server verdict shows its own message and does NOT retry (item #10)", async () => {
+    mockReview.mockRejectedValueOnce(new ApiError("review_rejected", "这次体检没通过内部校验，请再试一次", 0));
+    await openDraftTab();
+    await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
+    expect(await screen.findByText("这次体检没通过内部校验，请再试一次。")).toBeInTheDocument();
+    // a content decision — never retried client-side (the server already retried once itself).
+    expect(mockReview).toHaveBeenCalledTimes(1);
   });
 
   it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
@@ -334,5 +357,58 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
     await waitFor(() => expect(reflectProjectCard).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: "收进片段" })).toBeNull();
+  });
+
+  // #8-second (item A) — the persistent rail shelf: always visible (no ＋ to
+  // hide it), writing cards under 正文 + the four examiner voices under
+  // 正文·检查, reachable from ANY tab (the rail is a tab-sibling of the draft).
+  it("the persistent tool shelf is always visible from any tab — no ＋ toggle (item A)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    // still on the default 大纲 tab — the rail's shelf shows regardless
+    expect(await screen.findByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
+    expect(screen.getByText(/正文·检查/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "评审团" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "质疑者" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "门外汉" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "审判者" })).toBeInTheDocument();
+    // the old hidden-behind-＋ shelf is gone — nothing toggles it anymore
+    expect(screen.queryByTitle("写作卡")).toBeNull();
+  });
+
+  it("a shelf voice button runs a whole-draft 体检 from any tab, switching to 正文 to show it (item A)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    // still on 大纲 — click 质疑者 in the persistent shelf, no scoped paragraph pinned
+    await userEvent.click(await screen.findByRole("button", { name: "质疑者" }));
+    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.stringContaining("我的草稿第一段"), "sceptic"));
+    // it switched to 正文 so the review panel is actually visible
+    expect(await screen.findByText(/印记的整稿体检/)).toBeInTheDocument();
+  });
+
+  it("once a paragraph is pinned, each voice grows a 这段 option that scopes just to it (item A)", async () => {
+    const ta = await openDraftTab();
+    ta.setSelectionRange(0, 8);
+    fireEvent.mouseUp(ta, { clientX: 20, clientY: 20 });
+    await userEvent.click(await screen.findByRole("button", { name: /问印记/ }));
+    const scoped = await screen.findAllByRole("button", { name: "这段" });
+    expect(scoped).toHaveLength(4); // one per voice, once a paragraph is pinned
+    await userEvent.click(scoped[0]!); // paired with 评审团 (VOICE_ORDER[0] = board)
+    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", "我的草稿第一段。", "board"));
+    expect(await screen.findByText(/体检了你选中的这一段/)).toBeInTheDocument();
+  });
+
+  // #9-second (item B) — the sent bubble shows the referenced paragraph as a
+  // styled quote callout, never a literal 【就这一段】 text token.
+  it("styles a referenced paragraph as a quoted callout, not a literal 【就这一段】 token (item B)", async () => {
+    const ta = await openDraftTab();
+    ta.setSelectionRange(0, 8);
+    fireEvent.mouseUp(ta, { clientX: 20, clientY: 20 });
+    await userEvent.click(await screen.findByRole("button", { name: /问印记/ }));
+    const composer = screen.getByPlaceholderText("就这一段，你想问什么？");
+    await userEvent.type(composer, "这段够有力吗{Enter}");
+    await waitFor(() => expect(mockCoach).toHaveBeenCalled());
+    expect(screen.queryByText(/【就这一段】/)).toBeNull();
+    expect(await screen.findByText("这段够有力吗")).toBeInTheDocument();
+    const quote = document.querySelector("blockquote");
+    expect(quote?.textContent).toBe("我的草稿第一段。");
   });
 });

@@ -133,6 +133,15 @@ func reviewSystemPrompt(voice Voice, overBudget bool) string {
 	return base
 }
 
+// maxReviewAttempts bounds retries when the model's reply is UNPARSEABLE JSON
+// or resolves to zero usable items after criterion-code matching — the same
+// "transient generation hiccup, not a content decision" failure class
+// reading_router.go / assess_report.go already guard with a retry (live
+// bug-hunts 2026-07-30). A banned-phrasing rejection is a content decision —
+// real, banned output was produced — and does NOT retry: re-asking the same
+// model for the same content would just look like probing around RL-1.
+const maxReviewAttempts = 2
+
 // ProposeReview asks the flagship model for a whole-draft work-order over the
 // snapshot's paragraphs, then runs the full enforcement stack on every field
 // before returning. A single banned-phrasing / output-check violation rejects
@@ -178,57 +187,79 @@ func ProposeReview(ctx context.Context, prov gateway.Provider, r gateway.Resolve
 	user := fmt.Sprintf("评分表：%s\n\n论证摘要：%s\n\n草稿（分段）：\n%s",
 		strings.Join(codes, "、"), graphSummary, strings.Join(paragraphs, "\n\n"))
 
-	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: reviewSystemPrompt(voice, overBudget)},
 			{Role: gateway.RoleUser, Content: user},
 		},
-	})
-	if err != nil {
-		return nil, gateway.ChatUsage{}, err
 	}
-	usage := res.Usage
 
-	var wires []reviewItemWire
-	if err := json.Unmarshal([]byte(strings.TrimSpace(res.Text)), &wires); err != nil {
-		return nil, usage, fmt.Errorf("agent: review output not a JSON array: %w", err)
-	}
-	items := make([]ReviewItem, 0, len(wires))
-	for _, wv := range wires {
-		code, known := resolveCode(wv.CriterionCode)
-		if !known {
-			slog.Warn("review: dropping item with unrecognized criterion code", "code", wv.CriterionCode)
-			continue // ignore criteria the skill didn't ask for
+	var usage gateway.ChatUsage
+	var lastErr error
+	for attempt := 1; attempt <= maxReviewAttempts; attempt++ {
+		res, err := gateway.Collect(ctx, prov, r, req)
+		if err != nil {
+			return nil, usage, err // transport error: don't retry, don't hammer the API
 		}
-		// Enforcement on every free-text field the model produced.
-		for _, field := range []string{wv.Evidence.String(), wv.Missing.String(), wv.Fix.String()} {
-			if field == "" {
-				continue
-			}
-			if rule := enforcement.BannedPhrasing(field); rule != nil {
-				return nil, usage, fmt.Errorf("agent: review output rejected by banned-phrasing rule %q", rule.Name)
-			}
+		// Accumulate across attempts so the caller still records the true
+		// 档位+token+成本 even when an earlier attempt was thrown away.
+		usage.InputTokens += res.Usage.InputTokens
+		usage.OutputTokens += res.Usage.OutputTokens
+
+		var wires []reviewItemWire
+		// stripFences: a reasoning model asked to output "只输出 JSON 数组" still
+		// occasionally wraps the array in ```json fences (the same failure class
+		// already hardened in reading_router.go/anchors.go/course.go/etc.) —
+		// review.go had been left on a bare TrimSpace, so a fenced reply failed
+		// json.Unmarshal outright and surfaced client-side as the blanket "体检没
+		// 跑完，稍后再试一次" (item #10). Most likely to bite on an unusual, tiny
+		// scope like a single selected paragraph, where the model has little to
+		// work with against the full rubric and is more prone to hedge/wrap its
+		// answer instead of emitting the bare array.
+		if err := json.Unmarshal([]byte(stripFences(res.Text)), &wires); err != nil {
+			lastErr = fmt.Errorf("agent: review output not a JSON array: %w", err)
+			continue // truncated/fenced/garbage — retry once before giving up
 		}
-		// Belt-and-suspenders: even with the schema instruction the reasoning
-		// model can still occasionally drop band. Derive a non-empty label from
-		// points so the rating pill is never blank (points names the cell, band
-		// is just its human label — RL-3: not a grade).
-		band := wv.Band
-		if strings.TrimSpace(band) == "" {
-			if wv.Points <= 0 {
-				band = "尚未落点"
-			} else {
-				band = fmt.Sprintf("到第 %d 分点", wv.Points)
+		items := make([]ReviewItem, 0, len(wires))
+		for _, wv := range wires {
+			code, known := resolveCode(wv.CriterionCode)
+			if !known {
+				slog.Warn("review: dropping item with unrecognized criterion code", "code", wv.CriterionCode)
+				continue // ignore criteria the skill didn't ask for
 			}
+			// Enforcement on every free-text field the model produced.
+			for _, field := range []string{wv.Evidence.String(), wv.Missing.String(), wv.Fix.String()} {
+				if field == "" {
+					continue
+				}
+				if rule := enforcement.BannedPhrasing(field); rule != nil {
+					// A content decision, not a transient — never retried.
+					return nil, usage, fmt.Errorf("agent: review output rejected by banned-phrasing rule %q", rule.Name)
+				}
+			}
+			// Belt-and-suspenders: even with the schema instruction the reasoning
+			// model can still occasionally drop band. Derive a non-empty label from
+			// points so the rating pill is never blank (points names the cell, band
+			// is just its human label — RL-3: not a grade).
+			band := wv.Band
+			if strings.TrimSpace(band) == "" {
+				if wv.Points <= 0 {
+					band = "尚未落点"
+				} else {
+					band = fmt.Sprintf("到第 %d 分点", wv.Points)
+				}
+			}
+			items = append(items, ReviewItem{
+				CriterionCode: code, CriterionName: name[code],
+				Band: band, Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
+				Points: wv.Points,
+			})
 		}
-		items = append(items, ReviewItem{
-			CriterionCode: code, CriterionName: name[code],
-			Band: band, Evidence: wv.Evidence.String(), Missing: wv.Missing.String(), Fix: wv.Fix.String(),
-			Points: wv.Points,
-		})
+		if len(items) == 0 {
+			lastErr = fmt.Errorf("agent: review produced no usable items")
+			continue // every item's criterion code was unresolvable — retry once
+		}
+		return items, usage, nil
 	}
-	if len(items) == 0 {
-		return nil, usage, fmt.Errorf("agent: review produced no usable items")
-	}
-	return items, usage, nil
+	return nil, usage, lastErr
 }

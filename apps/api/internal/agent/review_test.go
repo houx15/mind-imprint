@@ -41,6 +41,133 @@ func TestProposeReview_ParsesWorkOrder(t *testing.T) {
 	_ = usage
 }
 
+// TestProposeReview_FencedReplyOnSingleParagraph_item10 — item #10's root-cause
+// reproduction. review.go's json.Unmarshal ran on a bare strings.TrimSpace,
+// unlike ~10 other agent/*.go call sites (anchors.go, course.go, formingdim.go,
+// reading_router.go, reading_takeaway.go, ai_use.go, exploration_guide.go,
+// reading_eval.go, reading_card_example.go, journey.go) which already call the
+// shared stripFences() first. A reasoning model asked to output "只输出 JSON
+// 数组" still occasionally wraps the array in ```json fences — most plausible
+// on an unusual, tiny scope like a single selected paragraph checked against
+// the FULL essay rubric, where the model has little to work with and is more
+// prone to hedge/wrap instead of emitting the bare array. Before this fix that
+// reply failed json.Unmarshal outright → ProposeReview returned an error →
+// order_review's perr branch → client saw the blanket "review_rejected" /
+// "体检没跑完，稍后再试一次" — for ANY 体检 (not exclusively paragraph-scoped,
+// but most likely to bite there). This reply now parses cleanly.
+func TestProposeReview_FencedReplyOnSingleParagraph_item10(t *testing.T) {
+	fenced := "```json\n" + `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}]` + "\n```"
+	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
+	// A single short paragraph — the 体检这段 scope, not a whole multi-paragraph draft.
+	items, _, err := ProposeReview(context.Background(), reviewProvider(fenced), gateway.Resolved{Provider: "deepseek", Model: "x"}, criteria, []string{"我的草稿第一段。"}, "", VoiceBoard, false)
+	if err != nil {
+		t.Fatalf("a ```json-fenced reply must parse via stripFences, got: %v", err)
+	}
+	if len(items) != 1 || items[0].CriterionCode != "表E" {
+		t.Fatalf("items = %+v", items)
+	}
+}
+
+func TestProposeReview_RetriesOnUnparseableReply(t *testing.T) {
+	garbage := "抱歉，这段内容太短，我无法给出完整的评分表。" // no JSON array at all — a plausible short-paragraph hedge
+	good := `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}]`
+	p := gateway.NewSequenceStubProvider(
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: garbage},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 5}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: good},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 12, OutputTokens: 6}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+	)
+	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
+	items, usage, err := ProposeReview(context.Background(), p, gateway.Resolved{}, criteria, []string{"我的草稿第一段。"}, "", VoiceBoard, false)
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if p.Calls != 2 {
+		t.Fatalf("an unparseable reply must retry exactly once (2 calls), got %d", p.Calls)
+	}
+	if len(items) != 1 {
+		t.Fatalf("items = %+v", items)
+	}
+	// Usage accumulates across attempts — a rejected/retried call still cost money.
+	if usage.InputTokens != 22 || usage.OutputTokens != 11 {
+		t.Fatalf("usage must accumulate across attempts, got %+v", usage)
+	}
+}
+
+func TestProposeReview_ExhaustsRetriesAndReturnsError(t *testing.T) {
+	// Every attempt is garbage — the stub returns the same script every call.
+	garbage := reviewProvider("not json at all")
+	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
+	_, _, err := ProposeReview(context.Background(), garbage, gateway.Resolved{}, criteria, []string{"我的草稿第一段。"}, "", VoiceBoard, false)
+	if err == nil {
+		t.Fatal("expected an error once every attempt fails to parse")
+	}
+}
+
+func TestProposeReview_BannedPhrasingDoesNotRetry(t *testing.T) {
+	// A content decision, not a transient — must reject on the FIRST attempt,
+	// never re-ask the model for the same (already-banned) content.
+	bad := `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"你应该这样写：中国的转型是叠加式的。"}]`
+	good := `[{"criterion_code":"表E","band":"5–6 段","evidence":"e","missing":"m","fix":"f"}]`
+	p := gateway.NewSequenceStubProvider(
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: bad},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 1, OutputTokens: 1}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: good},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 1, OutputTokens: 1}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+	)
+	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
+	_, _, err := ProposeReview(context.Background(), p, gateway.Resolved{}, criteria, []string{"p1"}, "", VoiceBoard, false)
+	if err == nil {
+		t.Fatal("expected banned-phrasing rejection")
+	}
+	if p.Calls != 1 {
+		t.Fatalf("a banned-phrasing rejection must NOT retry, got %d calls", p.Calls)
+	}
+}
+
+func TestProposeReview_RetriesWhenNoCriterionCodeResolves(t *testing.T) {
+	// Every item's criterion_code is unrecognized on attempt 1 (dropped), so
+	// zero usable items survive — the same "transient, try again" class as an
+	// unparseable reply, not a content decision.
+	unresolvable := `[{"criterion_code":"完全不存在的表","band":"b","evidence":"e","missing":"m","fix":"f"}]`
+	good := `[{"criterion_code":"表E","band":"b","evidence":"e","missing":"m","fix":"f"}]`
+	p := gateway.NewSequenceStubProvider(
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: unresolvable},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 1, OutputTokens: 1}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+		[]gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: good},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 1, OutputTokens: 1}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		},
+	)
+	criteria := []skills.ReviewCriterion{{Code: "表E", Name: "分析"}}
+	items, _, err := ProposeReview(context.Background(), p, gateway.Resolved{}, criteria, []string{"p1"}, "", VoiceBoard, false)
+	if err != nil {
+		t.Fatalf("propose: %v", err)
+	}
+	if p.Calls != 2 {
+		t.Fatalf("zero usable items must retry once, got %d calls", p.Calls)
+	}
+	if len(items) != 1 || items[0].CriterionCode != "表E" {
+		t.Fatalf("items = %+v", items)
+	}
+}
+
 func TestProposeReview_RejectsBannedPhrase(t *testing.T) {
 	// A reply whose fix rewrites the student's sentence for her — must be
 	// rejected by the enforcement stack (banned-phrasing), not returned.

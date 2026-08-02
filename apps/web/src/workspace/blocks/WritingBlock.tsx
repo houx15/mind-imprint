@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
+import { ApiError } from "../../api/client";
 import { getExploration } from "../../api/exploration";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
@@ -20,7 +21,10 @@ import { CARD_REGISTRY } from "@mind-imprint/contracts";
 // prototype used (the persisted OutlineNode adds a server-owned `position`,
 // which the array order carries here).
 type Row = { id: string; text: string; depth: number };
-type ChatMsg = { role: "ai" | "student"; text: string };
+// #9-second · quotedPart carries a referenced paragraph SEPARATELY from the
+// question text, so the rail can render it as a styled callout above the
+// bubble instead of baking a literal 【就这一段】 token into the message string.
+type ChatMsg = { role: "ai" | "student"; text: string; quotedPart?: string };
 
 // Max outline nesting depth (0 = top level). Indent clamps here.
 const MAX_DEPTH = 2;
@@ -102,6 +106,17 @@ export function WritingBlock({
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
+  // #8-second · a voice-scoped 体检 requested from the persistent rail shelf
+  // (CoachRail, a tab-sibling of DraftPane) — lifted here as a queued request
+  // rather than a direct call, since the shelf is reachable from any tab and
+  // DraftPane may not be mounted yet. requestReview switches to 正文 (so the
+  // review panel is visible) and queues the request; DraftPane's own
+  // mount-effect flushes it once it's actually mounted (and its draft loaded).
+  const [pendingReview, setPendingReview] = useState<{ scope?: string; voice: ReviewVoice } | null>(null);
+  function requestReview(scope: string | undefined, v: ReviewVoice) {
+    setTab("draft");
+    setPendingReview({ scope, voice: v });
+  }
   // #5 · 写完了 is a guarded moment. Clicking it opens a confirm modal before
   // routing to the reflection room to finish. Once the project is archived
   // (评估中 / 已完成) the draft is read-only — the true point of no return.
@@ -167,6 +182,8 @@ export function WritingBlock({
             locked={locked}
             onFocusPart={setFocusPart}
             registerInsert={(fn) => { draftInsertRef.current = fn; }}
+            pendingReview={pendingReview}
+            onPendingReviewHandled={() => setPendingReview(null)}
           />
         )}
         <CoachRail
@@ -176,6 +193,7 @@ export function WritingBlock({
           locked={locked}
           onCardArtifact={(text, section) => snip.add(text, section)}
           sectionOptions={knownSectionLabels}
+          onRunReview={requestReview}
         />
         {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
             fragment where you're working: into the draft at the caret on 正文,
@@ -912,6 +930,19 @@ const VOICE_META: Record<ReviewVoice, { label: string; desc: string }> = {
 };
 const VOICE_ORDER: ReviewVoice[] = ["board", "sceptic", "layperson", "executioner"];
 
+// #10 · classify a failed 体检 so the student sees an honest, distinguishing
+// message instead of one blanket "体检没跑完" string. `review_rejected` is the
+// server telling us it ran the review and threw the output away (enforcement
+// / unparseable model reply) — a DIFFERENT situation from a transient network
+// hiccup, so it gets its own copy. Everything else (network drop, timeout,
+// unexpected HTTP failure) reads as transient.
+function classifyReviewError(err: unknown): string {
+  if (err instanceof ApiError && err.code === "review_rejected") {
+    return "这次体检没通过内部校验，请再试一次。";
+  }
+  return "体检没跑完（可能是网络不稳定），稍后再试一次。";
+}
+
 // paragraphAtCaret returns the blank-line-separated paragraph the caret sits in
 // (trimmed). Bounds are computed from the ACTUAL separators (a blank-line gap is
 // 2..n chars), so it never drifts; a caret in a gap attaches to the following
@@ -933,7 +964,27 @@ export function paragraphAtCaret(src: string, caret: number): string {
   return src.slice(s).trim();
 }
 
-function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { projectId: string; title: string; locked: boolean; onFocusPart: (part: string) => void; registerInsert: (fn: ((t: string) => void) | null) => void }) {
+function DraftPane({
+  projectId,
+  title,
+  locked,
+  onFocusPart,
+  registerInsert,
+  pendingReview,
+  onPendingReviewHandled,
+}: {
+  projectId: string;
+  title: string;
+  locked: boolean;
+  onFocusPart: (part: string) => void;
+  registerInsert: (fn: ((t: string) => void) | null) => void;
+  // #8-second · a voice-scoped 体检 requested from the persistent rail shelf
+  // (a tab-sibling of this pane) — queued here rather than called directly so
+  // it's never lost to the mount race when the request also switches the tab
+  // to 正文 (this pane's own mount-effect below flushes it once mounted).
+  pendingReview: { scope?: string; voice: ReviewVoice } | null;
+  onPendingReviewHandled: () => void;
+}) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
   // #5-follow-on · 自由 (one free textarea) vs 分节 (write under outline-driven
@@ -986,9 +1037,14 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
   const [reviewScope, setReviewScope] = useState<"draft" | "part">("draft");
 
   // Run the chosen voice's review. No arg → whole draft; a scopeText → just that
-  // paragraph (from the selection chip). Never rewrites — 印记 checks argument
-  // and structure, the student revises in her own words.
-  async function runReview(scopeText?: string) {
+  // paragraph (from the selection chip, or the shelf's 这段 button). Never
+  // rewrites — 印记 checks argument and structure, the student revises in her
+  // own words. `voiceOverride` lets the persistent rail shelf pick a voice
+  // directly (its per-voice buttons) without going through the toolbar <select>
+  // first — it also updates that <select> so the two stay in sync.
+  async function runReview(scopeText?: string, voiceOverride?: ReviewVoice) {
+    const useVoice = voiceOverride ?? voice;
+    if (voiceOverride && voiceOverride !== voice) setVoice(voiceOverride);
     const target = scopeText ?? text;
     if (reviewing || locked || target.trim() === "") return;
     setReviewing(true);
@@ -998,13 +1054,37 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
     if (saveTimer.current) clearTimeout(saveTimer.current);
     try {
       await putBuffer(projectId, text);
-      setReview(await runDraftReview(projectId, target, voice));
-    } catch {
-      setReviewError("体检没跑完，稍后再试一次。");
+      try {
+        setReview(await runDraftReview(projectId, target, useVoice));
+      } catch (err) {
+        // #10 · one retry, but only for a TRANSIENT failure. `review_rejected`
+        // means the server already ran the review and threw the output away
+        // (its own retry included, see agent.ProposeReview) — retrying the
+        // identical content client-side would just resend the same rejected
+        // request, so that one surfaces immediately instead.
+        if (err instanceof ApiError && err.code === "review_rejected") throw err;
+        setReview(await runDraftReview(projectId, target, useVoice));
+      }
+    } catch (err) {
+      setReviewError(classifyReviewError(err));
     } finally {
       setReviewing(false);
     }
   }
+
+  // #8-second · flush a review requested from the persistent rail shelf. A
+  // whole-draft request needs `text` loaded first — the request may have also
+  // just switched the tab here, remounting this pane fresh, so the effect
+  // below hasn't populated `text` yet. Wait for draftReady in that case; a
+  // paragraph-scoped request carries its own text and can run immediately.
+  const [draftReady, setDraftReady] = useState(false);
+  useEffect(() => {
+    if (!pendingReview) return;
+    if (!pendingReview.scope && !draftReady) return;
+    void runReview(pendingReview.scope, pendingReview.voice);
+    onPendingReviewHandled();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingReview, draftReady]);
 
   // Load the persisted draft on mount ("" when there's no buffer yet).
   useEffect(() => {
@@ -1015,6 +1095,8 @@ function DraftPane({ projectId, title, locked, onFocusPart, registerInsert }: { 
         if (!cancelled) { setText(content); textRef.current = content; }
       } catch {
         /* leave empty; the placeholder shows */
+      } finally {
+        if (!cancelled) setDraftReady(true);
       }
     })();
     return () => {
@@ -1471,6 +1553,7 @@ function CoachRail({
   locked,
   onCardArtifact,
   sectionOptions,
+  onRunReview,
 }: {
   projectId: string;
   focusPart: string | null;
@@ -1481,13 +1564,13 @@ function CoachRail({
   onCardArtifact: (text: string, section: string | null) => void;
   // Known 片段 board section labels the student can file the artifact under.
   sectionOptions: string[];
+  // #8-second · request a voice-scoped 体检 from the persistent shelf below.
+  // No scope arg → whole draft; a scope string → just that paragraph.
+  onRunReview: (scope: string | undefined, voice: ReviewVoice) => void;
 }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  // #8 · the writing-card shelf shows by default (was hidden behind ＋, ignored).
-  // The ＋ button now collapses/expands it; opening a card is still her tap.
-  const [deckOpen, setDeckOpen] = useState(true);
   // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
   // dismissable chip); `openCardId` is the card the student CHOSE to open — the
   // only path to a card sheet, so triggering stays automatic while opening is
@@ -1522,10 +1605,10 @@ function CoachRail({
     // WC · if a draft part is pinned, scope this turn to it so 印记 checks THAT
     // part's argument/function — never rewriting it.
     const turnText = focusPart ? `就这一段想（帮我看它的论证与功能，别替我改写）：\n「${focusPart}」\n\n${text}` : text;
-    // #9 · show the referenced paragraph in the sent bubble (was just the bare
-    // 【就这一段】 label, so the thread didn't say WHICH part you asked about).
-    const shown = focusPart ? `【就这一段】「${focusPart}」\n\n${text}` : text;
-    setChat((c) => [...c, { role: "student", text: shown }]);
+    // #9-second · the referenced paragraph rides as its own field (quotedPart),
+    // rendered as a styled quote block above the bubble — never baked into the
+    // message string as a literal 【就这一段】 token.
+    setChat((c) => [...c, { role: "student", text, quotedPart: focusPart ?? undefined }]);
     setDraft("");
     setSending(true);
     try {
@@ -1605,7 +1688,17 @@ function CoachRail({
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {chat.map((m, i) => (
           <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-            <div className={`max-w-[88%] rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+            <div className="max-w-[88%]">
+              {/* #9-second · the referenced paragraph is a styled quote callout
+                  above the question — never a 【就这一段】 token baked into the
+                  bubble text. */}
+              {m.quotedPart && (
+                <blockquote className="mb-1 rounded-mk border-l-[3px] border-mk-accent bg-mk-accent-tint/40 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
+                  {m.quotedPart}
+                </blockquote>
+              )}
+              <div className={`rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+            </div>
           </div>
         ))}
         {proposal && !openCardId ? (
@@ -1642,21 +1735,52 @@ function CoachRail({
           </div>
         )}
       </div>
-      {/* WC · writing-card deck picker (student summons a thinking-card onto the part) */}
-      {deckOpen && !locked && (
+      {/* #8-second · the persistent tool shelf — always visible (no ＋ to hide
+          it), grouped by what it targets: 正文 (the writing thinking-cards,
+          summoned onto a paragraph) and 正文·检查 (the four examiner voices,
+          each choosable against the WHOLE draft or — once a paragraph is
+          pinned via 问印记 — just 这段). Triggering a card/voice is automatic
+          UI; OPENING the card sheet or SEEING the check result still needs her
+          tap/click (铁律 · 不操纵). */}
+      {!locked && (
         <div className="border-t border-mk-border bg-mk-bg px-3 py-2">
-          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">挑一张写作卡，想清楚你这一段的论证——你填，印记不替你写</p>
+          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">正文 · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
           <div className="flex flex-wrap gap-1.5">
             {WRITING_DECK.map((id) => CARD_REGISTRY[id] && (
               <button
                 key={id}
                 type="button"
-                onClick={() => { setDeckOpen(false); openProposedCard(id); }}
+                onClick={() => openProposedCard(id)}
                 title={CARD_REGISTRY[id]!.purpose}
                 className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
               >
                 {CARD_REGISTRY[id]!.name}
               </button>
+            ))}
+          </div>
+          <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-muted-2">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
+          <div className="flex flex-col gap-1">
+            {VOICE_ORDER.map((v) => (
+              <div key={v} className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onRunReview(undefined, v)}
+                  title={`${VOICE_META[v].desc} · 体检整稿`}
+                  className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
+                >
+                  {VOICE_META[v].label}
+                </button>
+                {focusPart && (
+                  <button
+                    type="button"
+                    onClick={() => onRunReview(focusPart, v)}
+                    title="只体检你目前选中的这一段"
+                    className="rounded-full border border-mk-accent/40 px-2 py-0.5 text-[11px] font-semibold text-mk-accent hover:bg-mk-accent-tint"
+                  >
+                    这段
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>
@@ -1674,14 +1798,6 @@ function CoachRail({
         <div className="border-t border-mk-border p-3 text-center text-[12px] font-semibold text-mk-muted-2">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
       ) : (
         <div className="flex items-end gap-2 border-t border-mk-border p-3">
-          <button
-            type="button"
-            onClick={() => setDeckOpen((v) => !v)}
-            title="写作卡"
-            className={`flex h-9 w-9 flex-none items-center justify-center rounded-mk border text-[16px] font-bold transition ${deckOpen ? "border-mk-primary bg-mk-primary-tint text-mk-primary" : "border-mk-border text-mk-muted-2 hover:text-mk-primary"}`}
-          >
-            ＋
-          </button>
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
