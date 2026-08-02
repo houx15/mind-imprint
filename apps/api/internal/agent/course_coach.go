@@ -2,103 +2,72 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"mindimprint/api/internal/agent/enforcement"
 	"mindimprint/api/internal/gateway"
-	"mindimprint/api/internal/skills"
 )
 
-// course_coach.go — the Course-variant coach (agent-spec §5.3). Course is the
-// most permissive of the three postures: teaching IS the point here, so the
-// coach may explain and demonstrate — but it still never produces the
-// student's assessed deliverable, and the consolidation rule holds. Runs on
-// the chaperone (mid-tier) resolver like the chat coach, not the flagship.
-const courseCoachPosturePrompt = `你是「思维印记」的课程陪练。你在带一节课，按脚本走。
+// course_coach.go — the Course-variant coach, rewritten for course v2's
+// free-Q&A AI bar (Task 6). Course v2 has no phase runtime left (migration
+// 0050 dropped course_session/course_step; Task 5 deleted course_step.go's
+// old CourseStore/RunCourseStep along with it) — the coach no longer walks a
+// script or emits {"type":"reply"|"advance"} JSON. It answers ONE free
+// question about the CURRENT step and stops. Same restraint the old
+// courseCoachPosturePrompt held (Course may explain/demonstrate — teaching
+// IS the point — but never produces the student's assessed deliverable, and
+// the enforcement subset (ValidateOutput + BannedPhrasing) still runs on the
+// output), applied to a single-shot Q&A instead of a scripted turn.
 
-- 可以讲解、可以演示：这是学习空间，把方法讲清楚是你的职责。但绝不替学生写出他要被评估的成品，绝不替他下结论。
-- 一次只问一个：回复简短，顺着学生的话往深里带一步。
-- 克制：当学生已经在思考时，别打断；当他想让你替他想时，把问题还给他。
-- 工具卡的「框架」在用过之后才揭示，不在用之前——先做，再命名。
-- 你不能重排或跳过阶段，不能替换这一阶段声明的卡。
-
-输出必须是一个 JSON 对象，只能是下面两种之一：
-{"type":"reply","body":"你要对学生说的话"}
-{"type":"advance","to":"下一阶段的 id"}
-
-只有当这一阶段的完成条件真的达成时，才输出 advance；否则输出 reply，把还差的那一步说给学生。`
-
-// CourseScript is the session script the coach is executing: what course this
-// is, its phases in binding order, and where we are.
-type CourseScript struct {
-	CourseTitle string
-	PhaseTitles []string
-	CurrentIdx  int
-}
-
-// BuildCourseContext is the course context recipe (agent-spec §5.3) and
-// nothing more: the session script + the current phase goal + this phase's
-// dialogue + the active card instance. Explicitly NOT the project graph — a
-// course's graph is small and session-scoped. Pure; its own test.
-func BuildCourseContext(script CourseScript, phase skills.Contract, history []ChatTurn, cardSummary, intentHint string) string {
+// BuildCourseAskPrompt returns the free-Q&A coach's system prompt: it names
+// the course, the current step, and the course's stated goal, states the
+// posture (student asks freely, coach helps him think it through — not
+// answers for him), and then the four 铁律 guardrails verbatim: ① never hand
+// over this step's quiz answer, only help him judge it himself; ② never
+// conclude or write for him; ③ one question at a time; ④ keep it short.
+// stepText (the step's authored content, when available) rides along as
+// grounding context ONLY — the prompt explicitly tells the model not to
+// recite it back, just to use it to answer in-context.
+func BuildCourseAskPrompt(courseTitle, stepTitle, courseGoal, stepText string) string {
 	var b strings.Builder
-	b.WriteString("课程：" + script.CourseTitle + "\n")
-	b.WriteString("脚本（阶段顺序，不可重排）：" + strings.Join(script.PhaseTitles, " → ") + "\n")
-	if script.CurrentIdx >= 0 && script.CurrentIdx < len(script.PhaseTitles) {
-		b.WriteString("当前阶段：" + script.PhaseTitles[script.CurrentIdx] + "\n")
-	}
-	b.WriteString("这一阶段的目标：" + phase.Goal + "\n")
-	if phase.SoftCondition != "" {
-		b.WriteString("这一阶段的完成条件：" + phase.SoftCondition + "\n")
-	}
-	if cardSummary != "" {
-		b.WriteString("当前工具卡：" + cardSummary + "\n")
-	}
-	b.WriteString("\n这一阶段的对话（从旧到新）：\n")
-	for _, t := range history {
-		who := "学生"
-		if t.Role == "assistant" {
-			who = "你"
-		}
-		b.WriteString(who + "：" + t.Content + "\n")
-	}
-	switch intentHint {
-	case "advance":
-		b.WriteString("\n学生点了「继续」，这一阶段的完成条件已经满足，正在进入下一阶段。用 reply 写一句简短、温暖的过渡话：先肯定他这一阶段的思考，再自然地带到下一步。\n")
-	default:
-		b.WriteString("\n学生问了你一个问题。用 reply 回应他。\n")
+	fmt.Fprintf(&b, "你是「印记」，正在陪一名学生上《%s》这门课的「%s」这一步。本课目标：%s。学生会自由提问，请简明地帮他把这一步想清楚。\n",
+		courseTitle, stepTitle, courseGoal)
+	b.WriteString("硬规则：① 不要直接给出本步测验题的正确答案，只引导他自己判断；② 不替他下结论、不替他写作；③ 一次只问一个问题；④ 回答简短。\n")
+	if strings.TrimSpace(stepText) != "" {
+		b.WriteString("\n这一步的内容（仅供你理解语境，不要逐字复述给学生）：\n" + stepText + "\n")
 	}
 	return b.String()
 }
 
-// ProposeCourseReply runs one course-coach call through the full enforcement
-// stack. Mirrors ProposeChatReply: no anchor, no criterion, no OutputCheck
-// echo pass (Course has no draft to echo). Usage is returned even on reject —
-// the tokens were spent, so the caller must still meter the call.
-func ProposeCourseReply(ctx context.Context, prov gateway.Provider, r gateway.Resolved, ctxStr string) (enforcement.AgentOutput, gateway.ChatUsage, error) {
+// ProposeCourseAskReply runs one free-Q&A course-coach turn: builds the
+// prompt (BuildCourseAskPrompt), sends the student's question as the sole
+// user turn (no history — a course-ask is a one-shot bar, not a thread), and
+// runs the same enforcement subset ProposeChatReply does: ValidateOutput
+// (reply shape) + BannedPhrasing. No JSON envelope from the model — the raw
+// text IS the reply body, mirroring ProposeChatReply exactly. Usage is
+// populated whenever Collect succeeded, INCLUDING when enforcement then
+// rejects the reply — the tokens were already spent, so the caller must
+// still meter the call.
+func ProposeCourseAskReply(ctx context.Context, prov gateway.Provider, r gateway.Resolved, courseTitle, stepTitle, courseGoal, stepText, studentInput string) (enforcement.AgentOutput, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: courseCoachPosturePrompt},
-			{Role: gateway.RoleUser, Content: ctxStr},
+			{Role: gateway.RoleSystem, Content: BuildCourseAskPrompt(courseTitle, stepTitle, courseGoal, stepText)},
+			{Role: gateway.RoleUser, Content: studentInput},
 		},
 	}
 	res, err := gateway.Collect(ctx, prov, r, req)
 	if err != nil {
 		return enforcement.AgentOutput{}, gateway.ChatUsage{}, err
 	}
-	// From here on, usage is non-zero and MUST travel with every return.
 	usage := res.Usage
-	var out enforcement.AgentOutput
-	if err := json.Unmarshal([]byte(res.Text), &out); err != nil {
-		return enforcement.AgentOutput{}, usage, fmt.Errorf("course coach: parse output: %w", err)
-	}
+
+	out := enforcement.AgentOutput{Type: "reply", Body: strings.TrimSpace(res.Text)}
 	if err := enforcement.ValidateOutput(out); err != nil {
 		return enforcement.AgentOutput{}, usage, err
 	}
 	if rule := enforcement.BannedPhrasing(out.Body); rule != nil {
-		return enforcement.AgentOutput{}, usage, fmt.Errorf("agent: course reply rejected by banned-phrasing rule %q", rule.Name)
+		return enforcement.AgentOutput{}, usage, fmt.Errorf("agent: course ask reply rejected by banned-phrasing rule %q", rule.Name)
 	}
 	return out, usage, nil
 }

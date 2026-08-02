@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -230,5 +231,92 @@ func TestCourseV2UnknownSlug404(t *testing.T) {
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/does-not-exist/report", nil), cookie))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown slug report: want 404 got %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestCourseAskMissingInputBadRequest asserts postCourseAsk 400s on an empty
+// input BEFORE committing to the SSE stream — the same JSON-error-before-
+// stream-commit rule postChatTurn follows (chat.go's own doc comment).
+func TestCourseAskMissingInputBadRequest(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: fakeProvider(), ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body, _ := json.Marshal(map[string]any{"input": "", "ordinal": 0})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/courses/a-mid/ask", bytes.NewReader(body)), cookie))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty input: want 400 got %d %s", rec.Code, rec.Body)
+	}
+	if rec.Header().Get("Content-Type") == "text/event-stream" {
+		t.Fatalf("empty input must not commit to the SSE stream")
+	}
+}
+
+// TestCourseAskStreamsReplyAndMeters — a free-Q&A ask turn streams the coach's
+// reply as an SSE text frame followed by done, records exactly one llm_call
+// row (surface=course, purpose=coach, project_id NULL — a course ask is never
+// project-scoped), and logs one course_asked event carrying the student's
+// question. Mirrors chat_test.go's TestChatTurn_TextOnly assertion shape.
+func TestCourseAskStreamsReplyAndMeters(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: fakeProvider(), ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// 401 unauth.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest("POST", "/api/v1/courses/a-mid/ask",
+		strings.NewReader(`{"input":"这一步在说什么？","ordinal":0}`)))
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("unauth: want 401, got %d", rr.Code)
+	}
+
+	rr = httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/courses/a-mid/ask",
+		strings.NewReader(`{"input":"这一步在说什么？","ordinal":0}`))
+	h.ServeHTTP(rr, withCookie(req, cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("ask: %d — %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "event: text") {
+		t.Fatalf("expected a text frame:\n%s", body)
+	}
+	if !strings.Contains(body, "event: done") {
+		t.Fatalf("expected a done frame:\n%s", body)
+	}
+	if strings.Contains(body, "event: error") {
+		t.Fatalf("did not expect an error frame:\n%s", body)
+	}
+
+	// One llm_call row recorded, surface=course, purpose=coach, project_id NULL.
+	var surface, purpose string
+	var projectIDNull bool
+	if err := pool.QueryRow(context.Background(),
+		`SELECT surface, purpose, project_id IS NULL FROM llm_call WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+	).Scan(&surface, &purpose, &projectIDNull); err != nil {
+		t.Fatalf("query llm_call: %v", err)
+	}
+	if surface != "course" || purpose != "coach" || !projectIDNull {
+		t.Fatalf("llm_call surface=%q purpose=%q projectIDNull=%v, want course/coach/true", surface, purpose, projectIDNull)
+	}
+
+	// One course_asked event logged, carrying the student's question.
+	var payload []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_asked' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+	).Scan(&payload); err != nil {
+		t.Fatalf("query course_asked event: %v", err)
+	}
+	if !bytes.Contains(payload, []byte("这一步在说什么？")) {
+		t.Fatalf("course_asked payload = %s, want to contain the student's question", payload)
 	}
 }

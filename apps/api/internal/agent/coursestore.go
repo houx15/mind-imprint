@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -260,6 +262,30 @@ func (s *sqlcAgentStore) LogCourseEvent(ctx context.Context, userID, courseID uu
 		Surface:   "course",
 		Type:      typ,
 		Payload:   payload,
+	})
+	return err
+}
+
+// RecordCourseLLMCall meters one course-surface LLM call (Task 6's free-Q&A
+// coach turn) — ported verbatim from the pre-migration-0050 sqlcCourseStore
+// (see git history: 4c2d8e7~1's coursestore.go) onto the current
+// *sqlcAgentStore receiver, since that old course-only store type was
+// retired along with the phase runtime it backed. project_id is always NULL
+// (course.go's other course-scoped writes use the same pgtype.UUID{Valid:
+// false} — a course-surface call is never scoped to a project).
+func (s *sqlcAgentStore) RecordCourseLLMCall(ctx context.Context, userID uuid.UUID, purpose string, resolved gateway.Resolved, prompt, completion int32) error {
+	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, int(prompt), int(completion))
+	if !priced {
+		slog.Warn("course llm_call: unpriced model — cost recorded as 0", "provider", resolved.Provider, "model", resolved.Model)
+	}
+	// llm_call.cost_estimate is NOT NULL, so an unpriced model records an
+	// explicit $0.00 via CostNumeric(cost, true) (with the warn above) — NOT
+	// the nullable-evaluation NULL. See gateway/pricing.go and agentstore.go.
+	_, err := s.q.RecordLLMCall(ctx, sqlc.RecordLLMCallParams{
+		UserID: userID, ProjectID: pgtype.UUID{Valid: false},
+		Surface: "course", Purpose: purpose,
+		Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
+		PromptTokens: prompt, CompletionTokens: completion, CostEstimate: gateway.CostNumeric(cost, true),
 	})
 	return err
 }
