@@ -1122,9 +1122,31 @@ function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedu
 
 /* ----- Activity log (real EPQ deliverable; auto-seeded + student notes) ----- */
 
-function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd: (text: string) => void }) {
+// #5 — the log a student sees should read as a timeline of real progress, not
+// every "opened/viewing X" the platform happens to notice. This is a DISPLAY
+// filter only (铁律④ 过程即数据): the server still writes every auto-seeded
+// entry via appendAutoLog (apps/api/internal/api/*.go) and `log` (the state
+// this component receives) stays the full, unfiltered list — export
+// (exportActivityLog, called on the raw `log`, not on these filtered rows)
+// and any future assessor/process read still see everything. We only decide,
+// here, which rows EARN a spot in the student-facing timeline.
+//
+// The wire (contracts LogEntry) has no `type` — auto entries are free text
+// templated at the call site — so milestones are recognized by the phrase
+// each call site uses today. A student's own note (source="me") is never
+// noise: she chose to write it.
+const NOISE_PATTERNS = [
+  /^打开来源/, // workspace_library.go:609 — entering the reading room, not finishing it
+  /^新增计划任务/, // workspace_plan.go:187 — routine board bookkeeping, not a milestone
+];
+export function isMilestoneLogEntry(entry: LogEntry): boolean {
+  if (entry.source === "me") return true;
+  return !NOISE_PATTERNS.some((re) => re.test(entry.text));
+}
+
+export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd: (text: string) => void }) {
   const [draft, setDraft] = useState("");
-  const rows = log ?? [];
+  const rows = (log ?? []).filter(isMilestoneLogEntry);
   function submit() {
     if (!draft.trim()) return;
     onAdd(draft.trim());
