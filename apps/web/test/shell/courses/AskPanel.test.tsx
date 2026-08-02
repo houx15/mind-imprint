@@ -96,30 +96,17 @@ describe("AskPanel", () => {
     expect(screen.getByText("问印记")).toBeInTheDocument();
   });
 
-  // Minor 3 (whole-branch): a message may legitimately be offer-only — a
-  // rehydrated open card offer (CoursePlayer.tsx) or a live `card` frame with
-  // no reply body — and must not render an empty bordered bubble above the
-  // card preview. Mirrors the server's own guard against an empty frame
-  // (course_session.go's Text-on-non-empty-Reply).
-  it("renders no empty bubble for an offer-only message", () => {
+  // Task 10: AskPanel is a free helper with no card offers — a message with
+  // no text yet (e.g. an assistant turn whose first stream chunk hasn't
+  // landed) must not render an empty bordered bubble.
+  it("renders no empty bubble for a message with no text yet", () => {
     render(
       <AskPanel
         {...props}
-        messages={[
-          {
-            id: "offer-1",
-            role: "assistant",
-            text: "",
-            offer: { cardInstanceId: "ci1", cardId: "craap", materialId: "m1" },
-            offerPhase: "offered",
-          },
-        ]}
+        messages={[{ id: "m1", role: "assistant", text: "" }]}
       />,
     );
     expect(screen.queryByTestId("ask-bubble")).not.toBeInTheDocument();
-    // The card preview itself still renders.
-    expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeInTheDocument();
-    expect(screen.getByText("接受")).toBeInTheDocument();
   });
 
   it("still renders the bubble for a message with text", () => {

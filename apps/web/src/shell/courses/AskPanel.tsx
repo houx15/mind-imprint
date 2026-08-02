@@ -1,26 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CardInstance } from "@mind-imprint/contracts";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { AsrStream } from "../../api/voice";
 import { MicCapture } from "../../audio/capture";
 import { Bean } from "../../studio/Bean";
-import { StudioCardSheet } from "../../studio/StudioCardSheet";
 
 // The 问印记 ask panel — binding design docs/design/思维印记_工作区.dc.html
 // lines 349-397. Copy is verbatim: 问印记 · 随时打断我，问任何问题 ·
-// 正在看： · 你可能想问 · 输入你的问题…… · 按住说话，问老师. Confirm-to-open
-// (铁律 2 不操纵) holds here exactly as Chat's in-thread card offer does: a
-// card offer never auto-mounts the card runtime — it renders as a preview
-// with an explicit 接受 button, and only that click mounts StudioCardSheet.
-
-export type AskCardOffer = { cardInstanceId: string; cardId: string; materialId: string };
+// 正在看： · 你可能想问 · 输入你的问题…… · 按住说话，问老师.
+//
+// Task 10: this is now a free helper — no card offers, no phase runtime. The
+// course player is linear (SegmentTimeline pages through the render cache);
+// the coach here only ever answers questions, it never proposes a tool card.
 
 export type AskMessage = {
   id: string;
   role: "student" | "assistant";
   text: string;
-  offer?: AskCardOffer;
-  offerPhase?: "offered" | "accepted" | "resolved";
 };
 
 export type AskPanelProps = {
@@ -32,10 +26,6 @@ export type AskPanelProps = {
   messages: AskMessage[];
   pending: boolean;
   onSend: (text: string) => void;
-  onAcceptOffer?: (messageId: string) => void;
-  onDismissOffer?: (messageId: string) => void;
-  onCardSubmit?: (messageId: string, env: CardInstance) => void;
-  onCardSkip?: (messageId: string) => void;
 };
 
 function ChevronRightIcon() {
@@ -71,60 +61,6 @@ function MicIcon() {
   );
 }
 
-// The in-panel card offer preview — same shape as Chat's CardOfferBlock
-// (dc.html precedent proven decoupled), scaled to the 330px column.
-function AskCardOfferBlock({
-  messageId,
-  offer,
-  phase,
-  onAccept,
-  onDismiss,
-  onSubmit,
-  onSkip,
-}: {
-  messageId: string;
-  offer: AskCardOffer;
-  phase: "offered" | "accepted" | "resolved";
-  onAccept?: (messageId: string) => void;
-  onDismiss?: (messageId: string) => void;
-  onSubmit?: (messageId: string, env: CardInstance) => void;
-  onSkip?: (messageId: string) => void;
-}) {
-  const spec = CARD_REGISTRY[offer.cardId];
-  if (!spec || phase === "resolved") return null;
-
-  if (phase === "accepted") {
-    return (
-      <div style={{ marginTop: 8, width: "100%" }}>
-        <StudioCardSheet spec={spec} onSubmit={(env) => onSubmit?.(messageId, env)} onSkip={() => onSkip?.(messageId)} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ marginTop: 8, width: "100%", background: "#fff", border: "1px solid #E4E8F5", borderRadius: 12, padding: "12px 14px" }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: "#1C2333" }}>{spec.name}</div>
-      <div style={{ fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6, marginTop: 4 }}>{spec.purpose}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={() => onAccept?.(messageId)}
-          style={{ background: "#2A3B7A", color: "#fff", border: "none", padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-        >
-          接受
-        </button>
-        <button
-          type="button"
-          onClick={() => onDismiss?.(messageId)}
-          style={{ background: "none", border: "none", color: "#9AA1B0", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-        >
-          暂不需要
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function AskPanel({
   expanded,
   onToggle,
@@ -134,10 +70,6 @@ export function AskPanel({
   messages,
   pending,
   onSend,
-  onAcceptOffer,
-  onDismissOffer,
-  onCardSubmit,
-  onCardSkip,
 }: AskPanelProps) {
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
@@ -250,11 +182,9 @@ export function AskPanel({
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
             {messages.map((m) => (
               <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "assistant" ? "flex-start" : "flex-end" }}>
-                {/* A message may legitimately be offer-only (a rehydrated open
-                    card offer, or a live `card` frame with no reply text) —
-                    render the bubble only when there is text, matching the
-                    server's own guard against an empty frame
-                    (course_session.go's Text-on-non-empty-Reply). */}
+                {/* Guard against an empty bubble on a frame with no reply
+                    text yet (e.g. the assistant message is still streaming
+                    its first chunk). */}
                 {m.text !== "" && (
                   <div
                     data-testid="ask-bubble"
@@ -266,17 +196,6 @@ export function AskPanel({
                   >
                     {m.text}
                   </div>
-                )}
-                {m.offer && m.offerPhase && (
-                  <AskCardOfferBlock
-                    messageId={m.id}
-                    offer={m.offer}
-                    phase={m.offerPhase}
-                    onAccept={onAcceptOffer}
-                    onDismiss={onDismissOffer}
-                    onSubmit={onCardSubmit}
-                    onSkip={onCardSkip}
-                  />
                 )}
               </div>
             ))}
