@@ -100,8 +100,9 @@ ORDER BY position, created_at;
 -- name: CreateReference :one
 INSERT INTO reference (
     project_id, title, classification, author, credentials, year, url,
-    tags, collection_id, credibility, evaluation, decision, pending, search_hints
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    tags, collection_id, credibility, evaluation, decision, pending, search_hints,
+    abstract, journal
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: GetReference :one
@@ -126,6 +127,8 @@ UPDATE reference SET
     pending        = $14,
     search_hints   = $15,
     reading_note   = $16,
+    abstract       = $17,
+    journal        = $18,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
 RETURNING *;

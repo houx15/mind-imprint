@@ -81,5 +81,12 @@ export const Reference = z.object({
   readingReason: z.string().nullable().optional(),
   readingFocus: z.string().nullable().optional(),
   takeaway: ReadingTakeaway.nullable().optional(),
+  // #4: bibliographic metadata recovered from a DOI via Crossref and persisted
+  // on the reference — the abstract (context, not the article body) + the
+  // journal/container title (annotated-bib field). Optional (like readingNote)
+  // so older fixtures/mocks without them still parse; the Go DTO always emits
+  // them (defaulting to "") so at runtime they're present.
+  abstract: z.string().optional(),
+  journal: z.string().optional(),
 });
 export type Reference = z.infer<typeof Reference>;

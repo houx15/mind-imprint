@@ -92,6 +92,12 @@ type referenceDTO struct {
 	ReadingReason  *string                `json:"readingReason"`
 	ReadingFocus   *string                `json:"readingFocus"`
 	Takeaway       *agent.ReadingTakeaway `json:"takeaway"`
+	// #4: the Crossref abstract + journal recovered from a DOI (persisted on the
+	// reference row; "" until a DOI resolved). The abstract is context for the
+	// reading room / library preview, not the article body; journal fills the
+	// annotated bib.
+	Abstract string `json:"abstract"`
+	Journal  string `json:"journal"`
 }
 
 func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
@@ -139,6 +145,8 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		ReadingReason:  row.ReadingReason,
 		ReadingFocus:   row.ReadingFocus,
 		Takeaway:       takeaway,
+		Abstract:       row.Abstract,
+		Journal:        row.Journal,
 	}
 }
 
@@ -440,6 +448,8 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		Pending:        cur.Pending,
 		SearchHints:    cur.SearchHints,
 		ReadingNote:    cur.ReadingNote,
+		Abstract:       cur.Abstract,
+		Journal:        cur.Journal,
 	}
 	if body.Title != nil {
 		next.Title = *body.Title
@@ -648,15 +658,19 @@ func fetchFailedError(err error) *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusUnprocessableEntity, Code: "fetch_failed", Message: msg, Details: details}
 }
 
-// patchReferenceMeta fills an empty reference's Author/Year from the DOI
-// metadata we recovered (#4), so the annotated bib is populated even when the
-// full text couldn't be fetched. Best-effort: only fills fields the student
-// left blank (never overwrites her own), and logs rather than surfaces errors.
+// patchReferenceMeta fills a reference's bibliographic fields from the DOI
+// metadata we recovered (#4), so the annotated bib + reading-room header are
+// populated whether or not the full text could be fetched. Abstract/journal are
+// context we always persist when Crossref returned them (they have no
+// student-authored counterpart to protect); author/year are only filled when
+// the student left them blank (never overwrites her own). Best-effort: logs
+// rather than surfaces errors.
 func (a *API) patchReferenceMeta(ctx context.Context, projectID uuid.UUID, ref sqlc.Reference, m *materialize.DOIMeta) {
 	if m == nil {
 		return
 	}
 	author, year := ref.Author, ref.Year
+	abstract, journal := ref.Abstract, ref.Journal
 	changed := false
 	if strings.TrimSpace(author) == "" && strings.TrimSpace(m.Author) != "" {
 		author = m.Author
@@ -664,6 +678,16 @@ func (a *API) patchReferenceMeta(ctx context.Context, projectID uuid.UUID, ref s
 	}
 	if strings.TrimSpace(year) == "" && strings.TrimSpace(m.Year) != "" {
 		year = m.Year
+		changed = true
+	}
+	// Abstract/journal: fill when we recovered them and don't already have them
+	// (a re-read shouldn't clobber a longer stored abstract with a blank one).
+	if strings.TrimSpace(abstract) == "" && strings.TrimSpace(m.Abstract) != "" {
+		abstract = m.Abstract
+		changed = true
+	}
+	if strings.TrimSpace(journal) == "" && strings.TrimSpace(m.Journal) != "" {
+		journal = m.Journal
 		changed = true
 	}
 	if !changed {
@@ -675,6 +699,7 @@ func (a *API) patchReferenceMeta(ctx context.Context, projectID uuid.UUID, ref s
 		Year: year, Url: ref.Url, Tags: ref.Tags, CollectionID: ref.CollectionID,
 		Credibility: ref.Credibility, Evaluation: ref.Evaluation, Decision: ref.Decision,
 		Pending: ref.Pending, SearchHints: ref.SearchHints, ReadingNote: ref.ReadingNote,
+		Abstract: abstract, Journal: journal,
 	}); err != nil {
 		slog.Warn("patch reference meta failed", "err", err, "ref", ref.ID)
 	}
@@ -698,7 +723,7 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 		return uuid.UUID{}, true
 	}
 
-	t, body, ferr := a.d.Fetcher.FetchReadable(r.Context(), ref.Url)
+	t, body, meta, ferr := a.d.Fetcher.FetchReadable(r.Context(), ref.Url)
 	if ferr != nil {
 		// #4 · fill the bib (author/year) from any recovered DOI metadata, then
 		// 422 + a standard {error:{code,message,details}} envelope so the
@@ -710,6 +735,13 @@ func (a *API) fetchMaterialForReference(w http.ResponseWriter, r *http.Request, 
 		}
 		httpx.WriteError(w, r, fetchFailedError(ferr))
 		return uuid.UUID{}, true
+	}
+	// #4 · SUCCESS path: the full text WAS fetched, but a DOI still resolved to
+	// Crossref metadata — persist the abstract/journal (+ author/year if the
+	// student left them blank) so the annotated bib + reading-room header show
+	// them, not just the failure fallback. Best-effort, before the material tx.
+	if meta != nil {
+		a.patchReferenceMeta(r.Context(), projectID, ref, meta)
 	}
 	blocks := materialize.Segment(body)
 	if len(blocks) == 0 {

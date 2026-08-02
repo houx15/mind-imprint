@@ -47,6 +47,46 @@ describe("ReadingRoom", () => {
   });
 });
 
+// #4/#5: the reference's persisted bib (abstract/journal/author/year/url) shows
+// in the article header — abstract as a collapsible 摘要 block, a metadata line,
+// and a 打开原文 external link.
+describe("ReadingRoom — bibliographic metadata header (#4/#5)", () => {
+  it("renders the abstract, metadata line, and 打开原文 link from bib", () => {
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        bib={{
+          author: "Chen, C. et al.",
+          year: "2019",
+          journal: "Nature Sustainability",
+          abstract: "China's greening trend is real but its drivers are contested.",
+          url: "https://doi.org/10.1038/s41893-019-0220-7",
+        }}
+        onBack={() => {}}
+        api={NOOP_API}
+      />,
+    );
+    // metadata line
+    expect(screen.getByText("Chen, C. et al.")).toBeInTheDocument();
+    expect(screen.getByText("Nature Sustainability")).toBeInTheDocument();
+    // abstract (context) is present
+    expect(screen.getByText(/greening trend is real/)).toBeInTheDocument();
+    // 打开原文 external link points at the source url, opens in a new tab safely
+    const link = screen.getByRole("link", { name: /打开原文/ });
+    expect(link).toHaveAttribute("href", "https://doi.org/10.1038/s41893-019-0220-7");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("shows no abstract block or link when bib is absent", () => {
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={NOOP_API} />);
+    expect(screen.queryByText(/打开原文/)).toBeNull();
+    expect(screen.queryByText("摘要")).toBeNull();
+  });
+});
+
 // S2 (Task 9): brief-in banner — pre-filled from enter-reading's
 // `suggestedReason` seed, editable, saves via putReadingBrief. Every save
 // always sends all 3 ReadingBrief fields (reason/focus/phaseTag) — the

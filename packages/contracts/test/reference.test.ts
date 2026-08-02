@@ -82,6 +82,21 @@ describe("Reference", () => {
     expect(parsed.phaseTag).toBeNull();
     expect(parsed.takeaway).toBeNull();
   });
+  // #4: DOI-recovered abstract + journal, persisted on the row.
+  it("accepts a reference WITHOUT abstract/journal (older fixtures still parse)", () => {
+    const parsed = Reference.parse(ref);
+    expect(parsed.abstract).toBeUndefined();
+    expect(parsed.journal).toBeUndefined();
+  });
+  it("carries a recovered abstract + journal", () => {
+    const parsed = Reference.parse({
+      ...ref,
+      abstract: "China's emissions fell 3% in 2024 while renewables grew.",
+      journal: "Nature Sustainability",
+    });
+    expect(parsed.abstract).toContain("renewables grew");
+    expect(parsed.journal).toBe("Nature Sustainability");
+  });
   // Whole-branch-review CRITICAL: the server must NEVER emit phaseTag: "" —
   // PhaseTag is a closed 5-value enum with no "" member, so an empty string
   // (the shape a naive full-replace PUT would persist for "no phase picked

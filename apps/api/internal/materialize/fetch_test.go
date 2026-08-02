@@ -24,7 +24,7 @@ func TestFetchReadableExtractsHTML(t *testing.T) {
 		_, _ = w.Write([]byte(`<html><head><title>标题</title></head><body><nav>菜单</nav><p>第一段。</p><script>ignore()</script><p>第二段。</p></body></html>`))
 	}))
 	defer srv.Close()
-	title, text, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
+	title, text, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestFetchReadableRejectsNonHTML(t *testing.T) {
 		_, _ = w.Write([]byte(`{"x":1}`))
 	}))
 	defer srv.Close()
-	_, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
+	_, _, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
 	if reasonOf(t, err) != "unsupported_content" {
 		t.Fatalf("want unsupported_content, got %v", err)
 	}
@@ -53,7 +53,7 @@ func TestFetchReadableBadStatus(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	_, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
+	_, _, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL)
 	if reasonOf(t, err) != "bad_status" {
 		t.Fatalf("want bad_status, got %v", err)
 	}
@@ -67,14 +67,14 @@ func TestFetchReadableBlocksLoopbackByScheme(t *testing.T) {
 	}))
 	defer srv.Close()
 	// Force the guard by pointing NewGuardedFetcher at it — see note below.
-	_, _, err := newGuardedFetcher().FetchReadable(context.Background(), srv.URL)
+	_, _, _, err := newGuardedFetcher().FetchReadable(context.Background(), srv.URL)
 	if reasonOf(t, err) != "blocked" {
 		t.Fatalf("want blocked, got %v", err)
 	}
 }
 
 func TestFetchReadableRejectsBadScheme(t *testing.T) {
-	_, _, err := NewFetcher().FetchReadable(context.Background(), "file:///etc/passwd")
+	_, _, _, err := NewFetcher().FetchReadable(context.Background(), "file:///etc/passwd")
 	if reasonOf(t, err) != "blocked" {
 		t.Fatalf("want blocked, got %v", err)
 	}

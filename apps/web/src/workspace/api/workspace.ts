@@ -395,6 +395,12 @@ export async function getDraft(id: string): Promise<string> {
 // the body. Every field optional.
 export type SourceMeta = { title?: string; author?: string; year?: string; journal?: string; abstract?: string };
 
+// #4 · the persisted bibliographic metadata a reference carries into the Reading
+// Room header (SourceMeta plus the original url for the 打开原文 link). Threaded
+// alongside the MaterialSource on 进入阅读室 so the room can show the abstract as
+// context + a metadata line + an external link to the source.
+export type ReferenceBib = SourceMeta & { url?: string };
+
 // Thrown when enter-reading gets a 422 — the source has no readable content
 // (no url, no material). The caller shows a gentle inline nudge, not a crash.
 // For a DOI, `meta` carries what we DID recover (title/authors/abstract).

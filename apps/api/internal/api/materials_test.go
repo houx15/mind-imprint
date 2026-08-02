@@ -22,6 +22,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -41,19 +42,19 @@ var (
 	fakeParaRe  = regexp.MustCompile(`(?is)<p>(.*?)</p>`)
 )
 
-func (fakeFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
+func (fakeFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, *materialize.DOIMeta, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	body := string(raw)
 	title := ""
@@ -64,7 +65,7 @@ func (fakeFetcher) FetchReadable(ctx context.Context, rawURL string) (string, st
 	for _, m := range fakeParaRe.FindAllStringSubmatch(body, -1) {
 		paras = append(paras, strings.TrimSpace(m[1]))
 	}
-	return title, strings.Join(paras, "\n\n"), nil
+	return title, strings.Join(paras, "\n\n"), nil, nil
 }
 
 // countRows returns the row count of table (test-only helper; table is always

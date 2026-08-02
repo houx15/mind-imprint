@@ -465,6 +465,8 @@ type Reference struct {
 	Takeaway            []byte             `json:"takeaway"`
 	TakeawayFinalizedAt pgtype.Timestamptz `json:"takeaway_finalized_at"`
 	ReadingNote         string             `json:"reading_note"`
+	Abstract            string             `json:"abstract"`
+	Journal             string             `json:"journal"`
 }
 
 type School struct {

@@ -227,9 +227,10 @@ func (q *Queries) CreatePlanItem(ctx context.Context, arg CreatePlanItemParams) 
 const createReference = `-- name: CreateReference :one
 INSERT INTO reference (
     project_id, title, classification, author, credentials, year, url,
-    tags, collection_id, credibility, evaluation, decision, pending, search_hints
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note
+    tags, collection_id, credibility, evaluation, decision, pending, search_hints,
+    abstract, journal
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
 `
 
 type CreateReferenceParams struct {
@@ -247,6 +248,8 @@ type CreateReferenceParams struct {
 	Decision       *string     `json:"decision"`
 	Pending        bool        `json:"pending"`
 	SearchHints    []byte      `json:"search_hints"`
+	Abstract       string      `json:"abstract"`
+	Journal        string      `json:"journal"`
 }
 
 func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams) (Reference, error) {
@@ -265,6 +268,8 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 		arg.Decision,
 		arg.Pending,
 		arg.SearchHints,
+		arg.Abstract,
+		arg.Journal,
 	)
 	var i Reference
 	err := row.Scan(
@@ -293,6 +298,8 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
@@ -419,7 +426,7 @@ const finalizeReadingTakeaway = `-- name: FinalizeReadingTakeaway :one
 UPDATE reference
 SET takeaway = $3, takeaway_finalized_at = now(), updated_at = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
 `
 
 type FinalizeReadingTakeawayParams struct {
@@ -460,6 +467,8 @@ func (q *Queries) FinalizeReadingTakeaway(ctx context.Context, arg FinalizeReadi
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
@@ -638,7 +647,7 @@ func (q *Queries) GetProjectSummaryProse(ctx context.Context, projectID uuid.UUI
 }
 
 const getReference = `-- name: GetReference :one
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note FROM reference WHERE id = $1 AND project_id = $2
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference WHERE id = $1 AND project_id = $2
 `
 
 type GetReferenceParams struct {
@@ -675,12 +684,14 @@ func (q *Queries) GetReference(ctx context.Context, arg GetReferenceParams) (Ref
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
 
 const getReferenceForProject = `-- name: GetReferenceForProject :one
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note FROM reference WHERE id = $1 AND project_id = $2
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference WHERE id = $1 AND project_id = $2
 `
 
 type GetReferenceForProjectParams struct {
@@ -719,6 +730,8 @@ func (q *Queries) GetReferenceForProject(ctx context.Context, arg GetReferenceFo
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
@@ -960,7 +973,7 @@ func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]Pla
 
 const listReferences = `-- name: ListReferences :many
 
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note FROM reference
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference
 WHERE project_id = $1
 ORDER BY position, created_at
 `
@@ -1001,6 +1014,8 @@ func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Re
 			&i.Takeaway,
 			&i.TakeawayFinalizedAt,
 			&i.ReadingNote,
+			&i.Abstract,
+			&i.Journal,
 		); err != nil {
 			return nil, err
 		}
@@ -1052,7 +1067,7 @@ UPDATE reference SET
     material_id = $3,
     updated_at  = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
 `
 
 type SetReferenceMaterialParams struct {
@@ -1091,6 +1106,8 @@ func (q *Queries) SetReferenceMaterial(ctx context.Context, arg SetReferenceMate
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
@@ -1248,7 +1265,7 @@ const updateReadingBrief = `-- name: UpdateReadingBrief :one
 UPDATE reference
 SET reading_reason = $3, reading_focus = $4, phase_tag = $5, updated_at = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
 `
 
 type UpdateReadingBriefParams struct {
@@ -1296,6 +1313,8 @@ func (q *Queries) UpdateReadingBrief(ctx context.Context, arg UpdateReadingBrief
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }
@@ -1316,9 +1335,11 @@ UPDATE reference SET
     pending        = $14,
     search_hints   = $15,
     reading_note   = $16,
+    abstract       = $17,
+    journal        = $18,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
 `
 
 type UpdateReferenceParams struct {
@@ -1338,6 +1359,8 @@ type UpdateReferenceParams struct {
 	Pending        bool        `json:"pending"`
 	SearchHints    []byte      `json:"search_hints"`
 	ReadingNote    string      `json:"reading_note"`
+	Abstract       string      `json:"abstract"`
+	Journal        string      `json:"journal"`
 }
 
 // Sets ALL editable columns by id + project_id; the handler merges partial
@@ -1361,6 +1384,8 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		arg.Pending,
 		arg.SearchHints,
 		arg.ReadingNote,
+		arg.Abstract,
+		arg.Journal,
 	)
 	var i Reference
 	err := row.Scan(
@@ -1389,6 +1414,8 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		&i.Takeaway,
 		&i.TakeawayFinalizedAt,
 		&i.ReadingNote,
+		&i.Abstract,
+		&i.Journal,
 	)
 	return i, err
 }

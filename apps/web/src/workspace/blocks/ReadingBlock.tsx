@@ -13,6 +13,7 @@ import {
   NoReadableContentError,
   type ReferencePatch,
   type SourceMeta,
+  type ReferenceBib,
 } from "../api/workspace";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
@@ -81,6 +82,10 @@ export function ReadingBlock({
     phaseTag?: PhaseTag | null,
     readingReason?: string | null,
     readingFocus?: string | null,
+    readingNote?: string | null,
+    // #4: the reference's persisted bib (abstract/journal/author/year/url) so the
+    // Reading Room header can show the abstract + metadata + a 打开原文 link.
+    bib?: ReferenceBib,
   ) => void;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
@@ -346,13 +351,21 @@ export function ReadingBlock({
 
   // Empty library — a brand-new project with no sources yet.
   if (refs.length === 0) {
+    // #3 · the coach already knows the project topic every turn — the empty
+    // greeting should ACKNOWLEDGE it, not ask for it. A static interpolated
+    // string (no model call); falls back to the old ask only when no topic is
+    // set yet.
+    const topic = title?.trim();
+    const opener = topic
+      ? `你的题目是「${topic}」。想找什么证据来支撑或检验它？我给你方向和关键词——但我不替你搜。`
+      : "你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。";
     return (
       <div className="relative h-full">
-        <EmptyLibrary onAdd={() => setAdding(true)} />
+        <EmptyLibrary onAdd={() => setAdding(true)} topic={topic} />
         <FloatingCoach
           projectId={projectId}
           defaultOpen
-          opener="你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。"
+          opener={opener}
           onLibraryChanged={reload}
         />
         {modal}
@@ -761,6 +774,14 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase }: { r: Referen
 
 /* ---------- right · thin preview ---------- */
 
+// refBib projects a reference row's persisted bibliographic metadata (#4) into
+// the ReferenceBib the Reading Room header consumes — abstract/journal fall back
+// to "" via the contract default, so a source with no DOI simply shows no
+// abstract block.
+function refBib(r: Reference): ReferenceBib {
+  return { title: r.title, author: r.author, year: r.year, journal: r.journal, abstract: r.abstract, url: r.url };
+}
+
 function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNow, onPatchDebounced, onEnterReading }: {
   projectId: string;
   item: Reference;
@@ -777,6 +798,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     readingReason?: string | null,
     readingFocus?: string | null,
     readingNote?: string | null,
+    bib?: ReferenceBib,
   ) => void;
 }) {
   const [entering, setEntering] = useState(false);
@@ -796,7 +818,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setEntering(true);
     try {
       const { source, suggestedReason } = await enterReading(projectId, r.id);
-      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote);
+      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r));
     } catch (e) {
       if (e instanceof NoReadableContentError) {
         // Fetch failed / no content → let the student paste the body in,
@@ -819,7 +841,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setPasteError(null);
     try {
       const source = await pasteContent(projectId, r.id, text);
-      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote);
+      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r));
     } catch {
       setPasteError("粘贴失败了，再试一次？");
     } finally {
@@ -871,6 +893,27 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
         <MetaEdit k="日期" v={r.year} onChange={(v) => onPatchDebounced({ year: v })} placeholder="年份" />
         <MetaEdit k="链接" v={r.url} onChange={(v) => onPatchDebounced({ url: v })} placeholder="https://…" />
       </div>
+
+      {/* #5 · 打开原文: an honest external link to the source (readable extraction
+          already "opens" the content on 进入阅读室; this opens the live page). */}
+      {r.url?.trim() && (
+        <a
+          href={r.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-[12px] font-bold text-mk-primary hover:underline"
+        >
+          打开原文 ↗
+        </a>
+      )}
+
+      {/* #4 · recovered abstract (from a DOI via Crossref) — collapsible context. */}
+      {r.abstract?.trim() && (
+        <details className="mt-3 rounded-mk border border-mk-border bg-mk-bg/50 p-3">
+          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">摘要</summary>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-mk-ink">{r.abstract}</p>
+        </details>
+      )}
 
       {/* Author credentials — annotated-bib field */}
       <div className="mt-3">
@@ -1173,15 +1216,20 @@ function MetaEdit({ k, v, onChange, placeholder }: { k: string; v: string; onCha
 
 /* ---------- empty state ---------- */
 
-function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
+function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
       <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-mk-primary-tint text-mk-primary">
         <Icon name="reading" size={30} />
       </div>
       <h2 className="font-sans text-[22px] font-bold text-mk-ink">你的文献库还是空的</h2>
+      {/* #3 · when the topic is known, acknowledge it here too instead of the
+          generic prompt — the platform already has it, no need to re-ask. */}
       <p className="mt-2 max-w-md text-[14px] leading-relaxed text-mk-muted">
-        先加一篇来源——一个链接、一份 PDF，或手动填写都行。<br />
+        {topic
+          ? `围绕「${topic}」，先加一篇来源——一个链接、一份 PDF，或手动填写都行。`
+          : "先加一篇来源——一个链接、一份 PDF，或手动填写都行。"}
+        <br />
         印记不替你搜，但你不知道去哪找、找到了不确定可不可信，随时右下角问它。
       </p>
       <div className="mt-6 flex items-center gap-3">

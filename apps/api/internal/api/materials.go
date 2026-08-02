@@ -58,7 +58,7 @@ func (a *API) ingestMaterial(w http.ResponseWriter, r *http.Request) {
 
 	title, text, origin := req.Title, req.Text, "pasted"
 	if req.URL != "" {
-		t, body, ferr := a.d.Fetcher.FetchReadable(r.Context(), req.URL)
+		t, body, _, ferr := a.d.Fetcher.FetchReadable(r.Context(), req.URL)
 		if ferr != nil {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_failed",
 				"取不到这个链接的正文，可以直接把正文粘进来。", nil))

@@ -598,6 +598,58 @@
   color: var(--ink-faint);
   font-size: 12px;
 }
+/* #4 · bibliographic line (author · year · journal) — a touch stronger than the
+   material meta above it so the source's own citation reads as citation. */
+.mk-reading-room__article-bib {
+  margin-top: 6px;
+  color: var(--ink-soft, var(--ink-faint));
+}
+.mk-reading-room__article-bib .mk-reading-room__journal {
+  font-style: italic;
+}
+/* #5 · 打开原文 external link. */
+.mk-reading-room__source-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.mk-reading-room__source-link:hover {
+  text-decoration: underline;
+}
+/* #4 · collapsible 摘要 (abstract) — context, visually secondary to the body. */
+.mk-reading-room__abstract {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+  border-radius: 10px;
+}
+.mk-reading-room__abstract > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  list-style: none;
+}
+.mk-reading-room__abstract > summary::-webkit-details-marker {
+  display: none;
+}
+.mk-reading-room__abstract > summary::after {
+  content: " ▸";
+}
+.mk-reading-room__abstract[open] > summary::after {
+  content: " ▾";
+}
+.mk-reading-room__abstract > p {
+  margin: 10px 0 2px;
+  font-family: var(--font-reading);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-soft, var(--ink));
+}
 
 /* The Annotate body itself renders the serif article runs; nudge its base
    size/leading up to reading scale via its wrapper. */

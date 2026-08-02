@@ -6,6 +6,7 @@ import (
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/oss"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -15,7 +16,7 @@ import (
 // guard blocks by design). Never used by the agent — only the student's
 // explicit POST /projects/{id}/materials reaches it (RL-2, spec §4).
 type Fetcher interface {
-	FetchReadable(ctx context.Context, rawURL string) (title, text string, err error)
+	FetchReadable(ctx context.Context, rawURL string) (title, text string, meta *materialize.DOIMeta, err error)
 }
 
 // Deps are everything the handlers need, wired once at startup.

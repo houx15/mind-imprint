@@ -73,6 +73,18 @@ export type ReadingRoomProps = {
   // #8: the student's own freeform note on this source (我的笔记). Seeded from
   // the reference DTO; edits persist via onSaveNote (patchReference upstream).
   readingNote?: string | null;
+  // #4: the reference's persisted bibliographic metadata (recovered from a DOI
+  // via Crossref). The abstract is CONTEXT shown collapsibly in the header, not
+  // the article body; author/year/journal fill a metadata line; url backs the
+  // 打开原文 external link. All optional — a source with no DOI shows none of it.
+  bib?: {
+    title?: string;
+    author?: string;
+    year?: string;
+    journal?: string;
+    abstract?: string;
+    url?: string;
+  } | null;
   onSaveNote?: (note: string) => Promise<void>;
   // finalized tells the workspace whether the student 归纳'd this source before
   // leaving, so it can show a carry-forward acknowledgment (EA).
@@ -120,6 +132,7 @@ export function ReadingRoom({
   readingReason,
   readingFocus,
   readingNote,
+  bib,
   onSaveNote,
   onBack,
   api,
@@ -573,6 +586,37 @@ export function ReadingRoom({
                     {source.origin && <span>来源 · {source.origin}</span>}
                     <span>{source.blocks.length} 段 · 课堂讨论材料</span>
                   </div>
+                  {/* #4 · bibliographic metadata line (author · year · journal),
+                      recovered from a DOI via Crossref and persisted on the
+                      reference — only rendered when we actually have some. */}
+                  {bib && (bib.author || bib.year || bib.journal) && (
+                    <div className="mk-reading-room__article-meta mk-reading-room__article-bib">
+                      {bib.author && <span>{bib.author}</span>}
+                      {bib.year && <span>{bib.year}</span>}
+                      {bib.journal && <span className="mk-reading-room__journal">{bib.journal}</span>}
+                    </div>
+                  )}
+                  {/* #5 · 打开原文: an honest external link to the source. The
+                      readable extraction on the right IS "opening" the content;
+                      this lets her open the live page in a new tab too. */}
+                  {bib?.url && (
+                    <a
+                      className="mk-reading-room__source-link"
+                      href={bib.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      打开原文 ↗
+                    </a>
+                  )}
+                  {/* #4 · the abstract is CONTEXT, not the article body — a
+                      collapsed 摘要 block so it never competes with the text. */}
+                  {bib?.abstract && bib.abstract.trim() && (
+                    <details className="mk-reading-room__abstract">
+                      <summary>摘要</summary>
+                      <p>{bib.abstract}</p>
+                    </details>
+                  )}
                 </header>
                 <Annotate
                   blocks={source.blocks}

@@ -53,12 +53,21 @@ func TestFetchReadable_DOIResolvesViaCrossref(t *testing.T) {
 	crossrefBase = crossref.URL + "/"
 	defer func() { crossrefBase = old }()
 
-	title, text, err := newUnguardedFetcher().FetchReadable(context.Background(), "https://doi.org/10.1234/abc")
+	title, text, meta, err := newUnguardedFetcher().FetchReadable(context.Background(), "https://doi.org/10.1234/abc")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 	if title != "真正的论文标题" {
 		t.Errorf("title = %q, want Crossref fallback", title)
+	}
+	// #4 · the DOI metadata is now threaded out on the SUCCESS path too (not just
+	// on FetchError), so the caller can persist abstract/journal even when the
+	// full text WAS fetched.
+	if meta == nil {
+		t.Fatal("expected DOI metadata on the success path")
+	}
+	if meta.Title != "真正的论文标题" {
+		t.Errorf("meta.Title = %q, want Crossref title", meta.Title)
 	}
 	if !strings.Contains(text, "出版社正文第一段") {
 		t.Errorf("landing body not fetched: %q", text)
@@ -87,7 +96,7 @@ func TestFetchReadable_DOICrossrefFailFallsBack(t *testing.T) {
 	}))
 	defer origin.Close()
 	// embed a DOI in the path so extractDOI fires, but keep the loopback host
-	_, text, err := newUnguardedFetcher().FetchReadable(context.Background(), origin.URL+"/10.1234/xyz")
+	_, text, _, err := newUnguardedFetcher().FetchReadable(context.Background(), origin.URL+"/10.1234/xyz")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -113,7 +122,7 @@ func TestFetchReadable_DOIMetaOnBodyFailure(t *testing.T) {
 	crossrefBase = crossref.URL + "/"
 	defer func() { crossrefBase = old }()
 
-	_, _, err := newUnguardedFetcher().FetchReadable(context.Background(), "https://doi.org/10.1/x")
+	_, _, _, err := newUnguardedFetcher().FetchReadable(context.Background(), "https://doi.org/10.1/x")
 	var fe *FetchError
 	if !errors.As(err, &fe) {
 		t.Fatalf("want *FetchError, got %T: %v", err, err)
@@ -137,7 +146,7 @@ func TestFetchReadable_SendsBrowserUA(t *testing.T) {
 		_, _ = w.Write([]byte(`<html><body><p>x</p></body></html>`))
 	}))
 	defer srv.Close()
-	if _, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL); err != nil {
+	if _, _, _, err := newUnguardedFetcher().FetchReadable(context.Background(), srv.URL); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	if !strings.Contains(gotUA, "Mozilla/5.0") || !strings.Contains(gotUA, "MindImprint") {

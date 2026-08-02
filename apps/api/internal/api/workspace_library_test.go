@@ -477,8 +477,8 @@ func TestLibraryOwnership404(t *testing.T) {
 // fetch-failure branch (BE1: 422 with a parseable code=fetch_failed envelope).
 type errFetcher struct{}
 
-func (errFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
-	return "", "", fmt.Errorf("simulated fetch failure")
+func (errFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, *materialize.DOIMeta, error) {
+	return "", "", nil, fmt.Errorf("simulated fetch failure")
 }
 
 // TestEnterReadingFetchFailed422 — a reference with a URL that can't be fetched
@@ -614,6 +614,8 @@ type referenceView struct {
 	ReadingReason *string                `json:"readingReason"`
 	ReadingFocus  *string                `json:"readingFocus"`
 	Takeaway      *referenceTakeawayView `json:"takeaway"`
+	Abstract      string                 `json:"abstract"`
+	Journal       string                 `json:"journal"`
 }
 
 type referenceTakeawayView struct {
@@ -732,8 +734,8 @@ func findReferenceIDByTitle(t *testing.T, q *sqlc.Queries, title string) string 
 // assert the reference bib gets filled (#4).
 type metaFetcher struct{}
 
-func (metaFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, error) {
-	return "", "", &materialize.FetchError{Reason: "unsupported_content", Meta: &materialize.DOIMeta{
+func (metaFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, *materialize.DOIMeta, error) {
+	return "", "", nil, &materialize.FetchError{Reason: "unsupported_content", Meta: &materialize.DOIMeta{
 		Author: "A B; C D", Year: "2020", Journal: "某期刊", Abstract: "摘要",
 	}}
 }
@@ -771,5 +773,78 @@ func TestEnterReading_DOIMetaFillsBib(t *testing.T) {
 	// the 422 payload carries the metadata (for the paste box).
 	if !strings.Contains(rec.Body.String(), "A B; C D") || !strings.Contains(rec.Body.String(), "摘要") {
 		t.Fatalf("422 details missing metadata: %s", rec.Body)
+	}
+}
+
+// metaSuccessFetcher SUCCEEDS (returns readable body) AND carries recovered DOI
+// metadata — the case #4 previously dropped: the abstract/journal are recovered
+// but the full text was also fetched, so the failure fallback never fired.
+type metaSuccessFetcher struct{}
+
+func (metaSuccessFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, *materialize.DOIMeta, error) {
+	return "论文标题", "正文第一段。\n\n正文第二段。", &materialize.DOIMeta{
+		Author: "E F; G H", Year: "2019", Journal: "自然可持续", Abstract: "这是持久化的摘要。",
+	}, nil
+}
+
+// #4 · opening a DOI whose full text DOES fetch still persists the recovered
+// abstract + journal (and empty author/year) on the reference, and getLibrary
+// returns them — the success path, not just the 422 fallback.
+func TestEnterReading_DOISuccessPersistsAbstract(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: metaSuccessFetcher{}}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"某文","url":"https://doi.org/10.1/y"}`)
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode ref: %v — %s", err, rec.Body)
+	}
+	rid := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references/"+rid+"/enter-reading", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enter-reading = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	// abstract + journal persisted on the row.
+	var abstract, journal, author, year string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT abstract, journal, author, year FROM reference WHERE id = $1`, rid).
+		Scan(&abstract, &journal, &author, &year); err != nil {
+		t.Fatalf("read ref: %v", err)
+	}
+	if abstract != "这是持久化的摘要。" || journal != "自然可持续" {
+		t.Fatalf("abstract/journal not persisted: abstract=%q journal=%q", abstract, journal)
+	}
+	if author != "E F; G H" || year != "2019" {
+		t.Fatalf("author/year not filled: author=%q year=%q", author, year)
+	}
+	// getLibrary emits abstract + journal in the DTO.
+	rec = doJSON(t, h, cookie, "GET", base+"/library", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("library = %d: %s", rec.Code, rec.Body)
+	}
+	var lib struct {
+		References []referenceView `json:"references"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+		t.Fatalf("decode library: %v — %s", err, rec.Body)
+	}
+	var found *referenceView
+	for i := range lib.References {
+		if lib.References[i].ID == rid {
+			found = &lib.References[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("reference %s not in library", rid)
+	}
+	if found.Abstract != "这是持久化的摘要。" || found.Journal != "自然可持续" {
+		t.Fatalf("DTO missing abstract/journal: %+v", found)
 	}
 }

@@ -106,12 +106,16 @@ func setBrowserHeaders(req *http.Request) {
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 }
 
-// FetchReadable fetches rawURL and returns an extracted title + text, or a
-// *FetchError (which, for a DOI, carries the recovered Crossref metadata).
-func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (title string, text string, err error) {
+// FetchReadable fetches rawURL and returns an extracted title + text + any DOI
+// metadata Crossref resolved (#4 — nil when the URL isn't a DOI or resolution
+// failed), or a *FetchError (which, for a DOI, also carries the recovered
+// Crossref metadata on its .Meta so a failed fetch can still surface it). The
+// success-path meta lets the caller persist abstract/journal/author/year even
+// when the full text WAS fetched, not just on the 422 fallback.
+func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (title string, text string, meta *DOIMeta, err error) {
 	u, perr := url.Parse(rawURL)
 	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", "", &FetchError{Reason: "blocked", Err: errors.New("unsupported url")}
+		return "", "", nil, &FetchError{Reason: "blocked", Err: errors.New("unsupported url")}
 	}
 	// #4 · if this is a DOI, resolve it to the publisher's landing page + full
 	// metadata via Crossref first (best-effort — failure leaves the original
@@ -144,40 +148,40 @@ func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (title s
 	}()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
 	if err != nil {
-		return "", "", &FetchError{Reason: "blocked", Err: err}
+		return "", "", nil, &FetchError{Reason: "blocked", Err: err}
 	}
 	setBrowserHeaders(req)
 	resp, err := f.client.Do(req)
 	if err != nil {
 		var fe *FetchError
 		if errors.As(err, &fe) {
-			return "", "", fe
+			return "", "", nil, fe
 		}
-		return "", "", &FetchError{Reason: "unreachable", Err: err}
+		return "", "", nil, &FetchError{Reason: "unreachable", Err: err}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", "", &FetchError{Reason: "bad_status", Err: fmt.Errorf("status %d", resp.StatusCode)}
+		return "", "", nil, &FetchError{Reason: "bad_status", Err: fmt.Errorf("status %d", resp.StatusCode)}
 	}
 	ct := resp.Header.Get("Content-Type")
 	isHTML := strings.HasPrefix(ct, "text/html")
 	isText := strings.HasPrefix(ct, "text/plain")
 	if !isHTML && !isText {
-		return "", "", &FetchError{Reason: "unsupported_content", Err: fmt.Errorf("content-type %q", ct)}
+		return "", "", nil, &FetchError{Reason: "unsupported_content", Err: fmt.Errorf("content-type %q", ct)}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
 	if err != nil {
-		return "", "", &FetchError{Reason: "unreachable", Err: err}
+		return "", "", nil, &FetchError{Reason: "unreachable", Err: err}
 	}
 	if len(body) > maxBodyBytes {
-		return "", "", &FetchError{Reason: "too_large", Err: nil}
+		return "", "", nil, &FetchError{Reason: "too_large", Err: nil}
 	}
 	if isText {
-		return fallbackTitle, string(body), nil
+		return fallbackTitle, string(body), doiMeta, nil
 	}
 	title, text = extractHTML(body)
 	if title == "" {
 		title = fallbackTitle
 	}
-	return title, text, nil
+	return title, text, doiMeta, nil
 }

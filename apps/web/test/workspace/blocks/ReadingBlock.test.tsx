@@ -80,3 +80,34 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
     );
   });
 });
+
+// #3 · when the library is empty, the coach greeting ACKNOWLEDGES the known
+// project topic (a static interpolated string — no model call) instead of asking
+// for it, and the empty-state copy names the topic too.
+describe("ReadingBlock · #3 topic-aware empty state", () => {
+  it("interpolates the project topic into the coach opener and empty copy", async () => {
+    const { getLibrary } = await import("@/workspace/api/workspace");
+    vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
+    render(
+      <ReadingBlock
+        projectId="p1"
+        title="中国是否让地球变得更可持续？"
+        setReadingSource={() => {}}
+      />,
+    );
+    // the coach greeting names the topic and keeps the 不替你搜 restraint
+    expect(
+      await screen.findByText(/你的题目是「中国是否让地球变得更可持续？」/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/但我不替你搜/)).toBeInTheDocument();
+    // the empty-state copy references the topic too
+    expect(screen.getByText(/围绕「中国是否让地球变得更可持续？」/)).toBeInTheDocument();
+  });
+
+  it("falls back to the generic ask when no topic is set", async () => {
+    const { getLibrary } = await import("@/workspace/api/workspace");
+    vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
+    render(<ReadingBlock projectId="p1" title="" setReadingSource={() => {}} />);
+    expect(await screen.findByText(/跟我说说你的题目/)).toBeInTheDocument();
+  });
+});

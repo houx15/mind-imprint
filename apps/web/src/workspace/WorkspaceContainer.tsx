@@ -4,7 +4,7 @@ import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, postProjectSummary, patchReference } from "./api/workspace";
+import { getWorkspace, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
@@ -41,6 +41,9 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   const [readingReadingReason, setReadingReadingReason] = useState<string | null>(null);
   const [readingReadingFocus, setReadingReadingFocus] = useState<string | null>(null);
   const [readingReadingNote, setReadingReadingNote] = useState<string | null>(null);
+  // #4 · the reference's persisted bib (abstract/journal/author/year/url) shown
+  // in the Reading Room header.
+  const [readingBib, setReadingBib] = useState<ReferenceBib | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -50,6 +53,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     readingReason?: string | null,
     readingFocus?: string | null,
     readingNote?: string | null,
+    bib?: ReferenceBib,
   ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
@@ -58,6 +62,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     setReadingReadingReason(readingReason ?? null);
     setReadingReadingFocus(readingFocus ?? null);
     setReadingReadingNote(readingNote ?? null);
+    setReadingBib(bib ?? null);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -73,6 +78,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     setReadingReadingReason(null);
     setReadingReadingFocus(null);
     setReadingReadingNote(null);
+    setReadingBib(null);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -172,6 +178,7 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
         readingReason={readingReadingReason}
         readingFocus={readingReadingFocus}
         readingNote={readingReadingNote}
+        bib={readingBib}
         onSaveNote={(note) => patchReference(projectId, readingRefId, { readingNote: note }).then(() => {})}
         api={api}
         onBack={closeReadingSource}
