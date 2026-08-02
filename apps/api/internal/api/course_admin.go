@@ -57,7 +57,7 @@ type postAdminUploadCourseRenderCache struct {
 // (course.id) — a re-upload of the same id REPLACES the course's content,
 // per agent.UpsertCourse's own upsert-by-slug contract.
 func (a *API) postAdminUploadCourse(w http.ResponseWriter, r *http.Request) {
-	if a.d.OSSAdminKey == "" || ossBearer(r) != a.d.OSSAdminKey {
+	if !a.ossAdminAuthed(r) { // constant-time compare (oss.go) — same gate as the OSS admin routes
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("需要有效的管理密钥")) // 401, no key echoed
 		return
 	}
