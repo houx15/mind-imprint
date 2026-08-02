@@ -4,7 +4,6 @@ import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
 import { finishWriting, reopenWriting } from "../../api/projects";
 import { ApiError } from "../../api/client";
-import { getExploration } from "../../api/exploration";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
@@ -227,7 +226,7 @@ export function WritingBlock({
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} projectId={projectId} importedSections={importedSections} />
+          <SnippetsPane snip={snip} importedSections={importedSections} />
         ) : (
           <DraftPane
             projectId={projectId}
@@ -247,6 +246,7 @@ export function WritingBlock({
           onCardArtifact={(text, section) => snip.add(text, section)}
           sectionOptions={knownSectionLabels}
           onRunReview={requestReview}
+          activePanel={tab}
         />
         {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
             fragment where you're working: into the draft at the caret on 正文,
@@ -396,36 +396,27 @@ function useSnippets(projectId: string): SnippetsHandle {
 const UNFILED = "__unfiled__";
 const dedupe = (xs: string[]) => Array.from(new Set(xs));
 
-// #5/#6 · the 片段 board, organized into foldable sections. A section is either
-// an outline heading the student explicitly IMPORTED (see importedSectionsMemo
-// — the live outline is never auto-rendered here) or an open 探索 线索 (both
-// plain string labels); a snippet is filed under one via drag (a ⠿ handle onto
-// a section header) or the 归到 <select>. The draft itself stays a plain
-// textarea — this is organizing thinking material, not a structured document
-// editor (铁律②).
-function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHandle; projectId: string; importedSections: string[] }) {
-  // 探索 线索 sections still auto-populate from the live exploration graph — only
-  // the OUTLINE side was the unwanted auto-render (item #6); leads are unaffected.
-  const [leadLabels, setLeadLabels] = useState<string[]>([]);
+// #5/#6/Item C (batch5 follow-up) · the 片段 board, organized into foldable
+// sections. A section is ONLY an outline heading the student explicitly
+// IMPORTED (see importedSectionsMemo — the live outline is never auto-rendered
+// here) — the board no longer auto-creates a section for every open 探索 线索
+// (that read as noise the student didn't ask for; 铁律② no manipulation via
+// surprise structure). A snippet already filed under a stale/vanished label
+// (e.g. one left over from before this change, or a renamed/deleted heading)
+// degrades gracefully into an "orphan" section showing that stored label,
+// rather than disappearing. Filing is via drag (a ⠿ handle onto a section
+// header) or the 归到 <select>. The draft itself stays a plain textarea — this
+// is organizing thinking material, not a structured document editor (铁律②).
+function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; importedSections: string[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropLabel, setDropLabel] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    void getExploration(projectId)
-      .then((exploration) => {
-        if (alive) setLeadLabels(dedupe(exploration.leads.filter((l) => l.status !== "pruned" && l.text.trim()).map((l) => l.text.trim())));
-      })
-      .catch(() => { /* leave last-good */ });
-    return () => { alive = false; };
-  }, [projectId]);
+  const knownLabels = useMemo(() => dedupe(importedSections), [importedSections]);
 
-  const knownLabels = useMemo(() => dedupe([...importedSections, ...leadLabels]), [importedSections, leadLabels]);
-
-  // Build ordered groups: imported outline headings, then leads, then any
-  // orphaned section label still present on a snippet (renamed/deleted —
-  // never vanish), then 未归类 last.
+  // Build ordered groups: imported outline headings, then any orphaned
+  // section label still present on a snippet (renamed/deleted heading, or a
+  // stale 线索 label from before this change — never vanish), then 未归类 last.
   const { groups, unfiled } = useMemo(() => {
     const bySection = new Map<string, Snip[]>();
     const un: Snip[] = [];
@@ -433,12 +424,11 @@ function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHan
       if (s.section == null) un.push(s);
       else { const arr = bySection.get(s.section) ?? []; arr.push(s); bySection.set(s.section, arr); }
     }
-    const ordered: { label: string; kind: "outline" | "lead" | "orphan"; snips: Snip[] }[] = [];
+    const ordered: { label: string; kind: "outline" | "orphan"; snips: Snip[] }[] = [];
     for (const l of importedSections) ordered.push({ label: l, kind: "outline", snips: bySection.get(l) ?? [] });
-    for (const l of leadLabels) if (!importedSections.includes(l)) ordered.push({ label: l, kind: "lead", snips: bySection.get(l) ?? [] });
     for (const [label, snips] of bySection) if (!knownLabels.includes(label)) ordered.push({ label, kind: "orphan", snips });
     return { groups: ordered, unfiled: un };
-  }, [snip.snippets, importedSections, leadLabels, knownLabels]);
+  }, [snip.snippets, importedSections, knownLabels]);
 
   function dropOnto(label: string | null) {
     if (dragId) snip.setSection(dragId, label);
@@ -496,7 +486,7 @@ function SnippetSection({
   label, kind, snips, collapsed, isDropTarget, sectionOptions, onToggle, onAdd, onDragOverHead, onDropHead, snip, onDragStart,
 }: {
   label: string;
-  kind: "outline" | "lead" | "orphan" | "unfiled";
+  kind: "outline" | "orphan" | "unfiled";
   snips: Snip[];
   collapsed: boolean;
   isDropTarget: boolean;
@@ -511,8 +501,8 @@ function SnippetSection({
   snip: SnippetsHandle;
   onDragStart: (id: string | null) => void;
 }) {
-  const tag = kind === "outline" ? "章节" : kind === "lead" ? "线索" : kind === "orphan" ? "旧标签" : "";
-  const tone = kind === "lead" ? "text-mk-green" : kind === "orphan" ? "text-mk-muted-2" : "text-mk-primary";
+  const tag = kind === "outline" ? "章节" : kind === "orphan" ? "旧标签" : "";
+  const tone = kind === "orphan" ? "text-mk-muted-2" : "text-mk-primary";
   // #9 · a snippet defaults to a READ view; double-click enters edit mode (a
   // taller textarea + a ✓ to leave it). Local to this section instance — a
   // freshly-programmatic snippet (AI rail / card compile / materials) is never
@@ -1597,11 +1587,23 @@ const RAIL_GREETING: ChatMsg = {
   text: "把你正在纠结的那一段贴过来，或者告诉我它想让读者信什么——我们从这个目的倒推它够不够。",
 };
 
-// WC · the writing thinking-cards a student can summon in the Write room (all
-// persist through /cards/persist's writing-deck allowlist). #17 adds the two
-// knowledge cards that are writing/checking tools (not source-finding):
-// 确定度光谱 (match hedging to certainty) and 事实/观点/价值判断 (sort a passage).
-const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "fact-opinion-value"];
+// Batch5 follow-up · the persistent shelf's card GROUP depends on which of the
+// three main panels (大纲/片段/正文) is active — different thinking work needs
+// different tools, though a card may reasonably serve more than one panel
+// (e.g. argument-map helps both skeleton-planning and final-draft checking).
+// All still submit through the same reflectProjectCard(..., "writing") path —
+// only the OFFERED set changes, not the plumbing (all persist through
+// /cards/persist's writing-deck allowlist).
+const PANEL_DECK: Record<"outline" | "snippets" | "draft", string[]> = {
+  outline: ["question-card", "perspective-matrix", "argument-map"],
+  snippets: ["pee", "fact-opinion-value", "concession", "toulmin"],
+  draft: ["pee", "concession", "toulmin", "argument-map"],
+};
+const PANEL_LABEL: Record<"outline" | "snippets" | "draft", string> = {
+  outline: "大纲",
+  snippets: "片段",
+  draft: "正文",
+};
 
 function CoachRail({
   projectId,
@@ -1611,6 +1613,7 @@ function CoachRail({
   onCardArtifact,
   sectionOptions,
   onRunReview,
+  activePanel,
 }: {
   projectId: string;
   focusPart: string | null;
@@ -1624,6 +1627,10 @@ function CoachRail({
   // #8-second · request a voice-scoped 体检 from the persistent shelf below.
   // No scope arg → whole draft; a scope string → just that paragraph.
   onRunReview: (scope: string | undefined, voice: ReviewVoice) => void;
+  // Batch5 follow-up · which of the three main panels is active — selects the
+  // shelf's card group (PANEL_DECK) and gates 正文·检查 (examiner voices only
+  // make sense once there's prose to check).
+  activePanel: "outline" | "snippets" | "draft";
 }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
@@ -1810,9 +1817,9 @@ function CoachRail({
           tap/click (铁律 · 不操纵). */}
       {!locked && (
         <div className="border-t border-mk-border bg-mk-bg px-3 py-2">
-          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">正文 · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
+          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
           <div className="flex flex-wrap gap-1.5">
-            {WRITING_DECK.map((id) => CARD_REGISTRY[id] && (
+            {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
               <button
                 key={id}
                 type="button"
@@ -1824,31 +1831,38 @@ function CoachRail({
               </button>
             ))}
           </div>
-          <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-muted-2">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
-          <div className="flex flex-col gap-1">
-            {VOICE_ORDER.map((v) => (
-              <div key={v} className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onRunReview(undefined, v)}
-                  title={`${VOICE_META[v].desc} · 体检整稿`}
-                  className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
-                >
-                  {VOICE_META[v].label}
-                </button>
-                {focusPart && (
-                  <button
-                    type="button"
-                    onClick={() => onRunReview(focusPart, v)}
-                    title="只体检你目前选中的这一段"
-                    className="rounded-full border border-mk-accent/40 px-2 py-0.5 text-[11px] font-semibold text-mk-accent hover:bg-mk-accent-tint"
-                  >
-                    这段
-                  </button>
-                )}
+          {/* 正文·检查 (the four examiner voices) only makes sense once there's
+              prose to check — scoped to the 正文 panel, unlike the card shelf
+              above which spans all three. */}
+          {activePanel === "draft" && (
+            <>
+              <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-muted-2">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
+              <div className="flex flex-col gap-1">
+                {VOICE_ORDER.map((v) => (
+                  <div key={v} className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onRunReview(undefined, v)}
+                      title={`${VOICE_META[v].desc} · 体检整稿`}
+                      className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
+                    >
+                      {VOICE_META[v].label}
+                    </button>
+                    {focusPart && (
+                      <button
+                        type="button"
+                        onClick={() => onRunReview(focusPart, v)}
+                        title="只体检你目前选中的这一段"
+                        className="rounded-full border border-mk-accent/40 px-2 py-0.5 text-[11px] font-semibold text-mk-accent hover:bg-mk-accent-tint"
+                      >
+                        这段
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       )}
       {focusPart && (

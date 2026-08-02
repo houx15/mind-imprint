@@ -209,4 +209,33 @@ describe("MaterialsSidebar", () => {
     fireEvent.click(reopen);
     expect(screen.getByText(/拖动可移动/)).toBeTruthy();
   });
+
+  // Batch5 follow-up Item B · which source tabs are offered depends on the
+  // active MAIN panel (大纲/片段/正文 in WritingBlock) passed in as activeTab.
+  describe("per-panel tab visibility (Item B)", () => {
+    it("大纲 panel: only 材料 is offered", async () => {
+      render(
+        <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="outline" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+      );
+      await screen.findByText("NASA 绿化报告"); // 材料 loaded and shown by default
+      expect(screen.queryByRole("button", { name: "大纲" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "片段" })).toBeNull();
+    });
+
+    it("片段 panel: 材料 + 大纲 are offered, not 片段", async () => {
+      render(
+        <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="snippets" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+      );
+      expect(await screen.findByRole("button", { name: "大纲" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "片段" })).toBeNull();
+    });
+
+    it("正文 panel: all three sources are offered", async () => {
+      render(
+        <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+      );
+      expect(await screen.findByRole("button", { name: "大纲" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "片段" })).toBeInTheDocument();
+    });
+  });
 });

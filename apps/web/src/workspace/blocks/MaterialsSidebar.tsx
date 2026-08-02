@@ -51,6 +51,22 @@ export function MaterialsSidebar({
   const [refs, setRefs] = useState<Reference[]>([]);
   const [outline, setOutline] = useState<OutlineRow[]>([]);
   const [source, setSource] = useState<Source>("material");
+  // Batch5 follow-up Item B · which source tabs are offered depends on the
+  // active MAIN panel: 大纲 only needs 材料 (nothing to browse yet); 片段 adds
+  // 大纲 (turning headings into evidence); 正文 adds 片段 too (everything you've
+  // gathered, ready to place). 材料 is always available. If the panel changes
+  // out from under a hidden source (e.g. she was on 大纲/片段 source, then
+  // switched the main panel back to 大纲), fall back to 材料 rather than
+  // leaving the sidebar stuck on a source it no longer offers a tab for.
+  const showOutlineSource = activeTab !== "outline";
+  const showSnippetSource = activeTab === "draft";
+  useEffect(() => {
+    setSource((cur) => {
+      if (cur === "outline" && !showOutlineSource) return "material";
+      if (cur === "snippet" && !showSnippetSource) return "material";
+      return cur;
+    });
+  }, [showOutlineSource, showSnippetSource]);
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
@@ -239,11 +255,13 @@ export function MaterialsSidebar({
         <button type="button" onClick={() => setOpen(false)} className="text-[15px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
       </header>
 
-      {/* #9 · source switcher — browse materials, the outline, or your snippets */}
+      {/* #9 · source switcher — browse materials, the outline, or your snippets.
+          Item B: which tabs show up depends on the active main panel (大纲 only
+          gets 材料; 片段 adds 大纲; 正文 adds 片段 too). */}
       <div className="flex flex-none gap-1 border-b border-mk-border px-2 py-1.5">
         <SourceTab active={source === "material"} onClick={() => setSource("material")}>材料</SourceTab>
-        <SourceTab active={source === "outline"} onClick={() => setSource("outline")}>大纲</SourceTab>
-        <SourceTab active={source === "snippet"} onClick={() => setSource("snippet")}>片段</SourceTab>
+        {showOutlineSource && <SourceTab active={source === "outline"} onClick={() => setSource("outline")}>大纲</SourceTab>}
+        {showSnippetSource && <SourceTab active={source === "snippet"} onClick={() => setSource("snippet")}>片段</SourceTab>}
       </div>
       {locked && (
         // review M1 · archived project — browse-only, so no place buttons flash a

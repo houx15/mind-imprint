@@ -31,6 +31,7 @@ import { runDraftReview, putBuffer } from "@/api/writing";
 import { ApiError } from "@/api/client";
 import { coach, getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
 import { finishWriting, reopenWriting } from "@/api/projects";
+import { getExploration } from "@/api/exploration";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
 
@@ -182,8 +183,9 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // #8 · the writing-card shelf is open by default in the always-present rail
-    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
-    await userEvent.click(toulmin);
+    // — still on the default 大纲 panel, whose deck is question-card/perspective-matrix/argument-map.
+    const argumentMap = await screen.findByRole("button", { name: /论证地图卡/ });
+    await userEvent.click(argumentMap);
     // StudioCardSheet mounts in the centered modal (its 工具卡 label + the card name)
     expect(await screen.findByText("工具卡")).toBeInTheDocument();
   });
@@ -270,6 +272,23 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(screen.queryByText("背景与主张")).toBeNull();
   });
 
+  // Batch5 follow-up Item C · the board used to also auto-render a section for
+  // every open 探索 线索 — that's now removed entirely; only imported outline
+  // sections + 未归类 remain, even when the exploration graph has open leads.
+  it("片段 board: no longer auto-creates a 线索 section from the exploration graph (Item C)", async () => {
+    vi.mocked(getExploration).mockResolvedValueOnce({
+      leads: [
+        { id: "l1", text: "碳排放反例线索", status: "open", origin: "manual", sourceReferenceId: null, connectedReferenceId: null, position: 0, parentLeadId: null },
+      ],
+      danglingSourceIds: [],
+    } as never);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    await screen.findByText("未归类"); // the baseline section always renders
+    expect(screen.queryByText("碳排放反例线索")).toBeNull();
+    expect(screen.queryByText("线索")).toBeNull(); // no 线索-tagged section header anywhere
+  });
+
   it("片段 board: importing the outline turns headings into foldable sections, and 归到 persists the section (#5/#6)", async () => {
     // Queue TWO resolutions — OutlinePane fetches once on the default 大纲 tab's
     // mount, and the materials sidebar fetches again lazily when its own 大纲
@@ -348,6 +367,8 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   it("finishing a writing card reflects to the coach first, then offers 收进片段 as a full paragraph (item C)", async () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "ci1", reply: "这个主张已经很清楚了。" });
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
+    // toulmin lives in the 片段/正文 decks, not 大纲 (the default panel) — switch first.
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
     const claimField = await screen.findByLabelText("你要论证的核心判断，用一句话说清。");
@@ -377,6 +398,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   it("an empty writing card is a no-op: no chat turn, no 收进片段 offer (item C)", async () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "", reply: "" });
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
     await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
@@ -385,27 +407,49 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   });
 
   // #8-second (item A) — the persistent rail shelf: always visible (no ＋ to
-  // hide it), writing cards under 正文 + the four examiner voices under
-  // 正文·检查, reachable from ANY tab (the rail is a tab-sibling of the draft).
-  it("the persistent tool shelf is always visible from any tab — no ＋ toggle (item A)", async () => {
+  // hide it). Batch5 follow-up: the CARD GROUP now depends on which main panel
+  // (大纲/片段/正文) is active, and 正文·检查 (the four examiner voices) only
+  // shows under 正文 — checking prose only makes sense once there's prose.
+  it("the persistent tool shelf swaps card groups per panel; 正文·检查 only shows under 正文 (item A)", async () => {
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
-    // still on the default 大纲 tab — the rail's shelf shows regardless
-    expect(await screen.findByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
+    // still on the default 大纲 tab — its deck, no examiner voices
+    expect(await screen.findByRole("button", { name: /提问卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /视角对照矩阵/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /论证地图卡/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /论证构建卡/ })).toBeNull(); // toulmin isn't in the 大纲 deck
+    expect(screen.queryByText(/正文·检查/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "评审团" })).toBeNull();
+    // the old hidden-behind-＋ shelf is gone — nothing toggles it anymore
+    expect(screen.queryByTitle("写作卡")).toBeNull();
+
+    // 片段 — its own deck, still no examiner voices
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    expect(await screen.findByRole("button", { name: /PEE 写作卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /事实\/观点\/价值判断卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /让步段/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /提问卡/ })).toBeNull(); // not in the 片段 deck
+    expect(screen.queryByText(/正文·检查/)).toBeNull();
+
+    // 正文 — its deck (overlaps 片段's, minus 事实/观点/价值判断) + 正文·检查 appears
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    expect(await screen.findByRole("button", { name: /PEE 写作卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /让步段/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /论证地图卡/ })).toBeInTheDocument();
     expect(screen.getByText(/正文·检查/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "评审团" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "质疑者" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "门外汉" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "审判者" })).toBeInTheDocument();
-    // the old hidden-behind-＋ shelf is gone — nothing toggles it anymore
-    expect(screen.queryByTitle("写作卡")).toBeNull();
   });
 
-  it("a shelf voice button runs a whole-draft 体检 from any tab, switching to 正文 to show it (item A)", async () => {
+  it("正文's 质疑者 examiner-voice button runs a whole-draft 体检 (item A)", async () => {
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
-    // still on 大纲 — click 质疑者 in the persistent shelf, no scoped paragraph pinned
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    // click 质疑者 in the persistent shelf, no scoped paragraph pinned
     await userEvent.click(await screen.findByRole("button", { name: "质疑者" }));
     await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.stringContaining("我的草稿第一段"), "sceptic"));
-    // it switched to 正文 so the review panel is actually visible
     expect(await screen.findByText(/印记的整稿体检/)).toBeInTheDocument();
   });
 
