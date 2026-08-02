@@ -21,7 +21,7 @@ func TestSetCardAnchorsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	pgTaskID := pgtype.UUID{Bytes: task.ID, Valid: true}
-	card, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: pgTaskID})
+	card, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "craap", TaskID: pgTaskID})
 	if err != nil {
 		t.Fatal(err)
 	}

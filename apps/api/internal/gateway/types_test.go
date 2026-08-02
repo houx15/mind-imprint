@@ -10,7 +10,7 @@ func TestChatMessageJSONShape(t *testing.T) {
 		Role:    RoleAssistant,
 		Content: "hi",
 		ToolCalls: []ToolCall{
-			{ID: "tc_1", Name: "summon_card", Args: map[string]any{"card_id": "sift_craap"}},
+			{ID: "tc_1", Name: "summon_card", Args: map[string]any{"card_id": "craap"}},
 		},
 	}
 	b, err := json.Marshal(m)

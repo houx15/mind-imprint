@@ -670,18 +670,18 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 	if action1 == nil || action1.Kind != "surface_card" {
 		t.Fatalf("want a surface_card action from the named moment, got %+v", action1)
 	}
-	if action1.CardID != "steelman" {
-		t.Fatalf("surfaced card = %q, want steelman (the one_sided moment's card)", action1.CardID)
+	if action1.CardID != "concession" {
+		t.Fatalf("surfaced card = %q, want concession (the one_sided moment's card)", action1.CardID)
 	}
 	if action1.MaterialID != "" {
-		t.Fatalf("steelman MaterialID = %q, want empty (project-scoped, per momentCard)", action1.MaterialID)
+		t.Fatalf("concession MaterialID = %q, want empty (project-scoped, per momentCard)", action1.MaterialID)
 	}
 	cardInstanceID, err := uuid.Parse(action1.CardInstanceID)
 	if err != nil {
 		t.Fatalf("parse CardInstanceID: %v", err)
 	}
 
-	// Step 3: assert a REAL card_instance row for "steelman" exists, proposed.
+	// Step 3: assert a REAL card_instance row for "concession" exists, proposed.
 	list, err := q.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: project.ID, Valid: true})
 	if err != nil {
 		t.Fatalf("ListCardInstancesByProject: %v", err)
@@ -689,25 +689,24 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 	if len(list) != 1 || list[0].ID != cardInstanceID {
 		t.Fatalf("ListCardInstancesByProject = %+v, want 1 row matching %s", list, cardInstanceID)
 	}
-	if list[0].CardID != "steelman" || list[0].Status != "proposed" {
+	if list[0].CardID != "concession" || list[0].Status != "proposed" {
 		t.Fatalf("unexpected card_instance: card_id=%q status=%q", list[0].CardID, list[0].Status)
 	}
 
 	// Step 4: submit it completed with real field_values, through the exact
 	// store-call sequence projectcards.go's handler runs: SetCardInstanceAnchors
 	// -> SubmitProjectCardInstance -> GetCardInstance -> CompleteCard ->
-	// SetCardInstanceStatus("completed"). steelman is a field-only card (no
+	// SetCardInstanceStatus("completed"). concession is a field-only card (no
 	// "completion" predicates, no "graph_effects" in its spec JSON), so its
 	// anchors are empty and its real content lives entirely in field_values,
 	// keyed step-key -> field-key, exactly as SerializeCardForRefeed
 	// (refeed.go) reads it back.
+	thesis := "大规模推广核电是让能源结构变得可持续的关键一步"
 	counterStrongest := "反方最强点是：福岛与切尔诺贝利证明重大核事故一旦发生，后果不可逆、代价极其巨大，选址与监管一旦失误便无法挽回。"
 	concede := "我承认严重核事故一旦发生，后果确实可能不可逆、代价巨大，这一点不能回避。"
 	rebuttal := "但只要采用第三代反应堆设计并强化独立监管，事故概率可以降到极低水平，而气候变化的长期代价更加确定且同样不可逆。"
 	fieldValues := map[string]map[string]any{
-		"stance":            {"your_stance": "大规模推广核电是让能源结构变得可持续的关键一步"},
-		"strongest_counter": {"counter_strongest": counterStrongest},
-		"concession":        {"concede": concede, "rebuttal": rebuttal, "self_check": []string{"让步是真诚的，没有弱化反方", "回应扣住了反方最强点，而不是旁枝末节"}},
+		"concession": {"thesis": thesis, "counter": counterStrongest, "concede": concede, "rebut": rebuttal},
 	}
 	fieldValuesJSON, err := json.Marshal(fieldValues)
 	if err != nil {
@@ -721,9 +720,9 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 		t.Fatalf("SubmitProjectCardInstance: %v", err)
 	}
 
-	spec, ok := cards.ByID("steelman")
+	spec, ok := cards.ByID("concession")
 	if !ok {
-		t.Fatal("cards.ByID(steelman) not found")
+		t.Fatal("cards.ByID(concession) not found")
 	}
 	deps2 := agent.AgentDeps{Store: store}
 	complete, err := agent.CompleteCard(ctx, deps2, spec, cardInstanceID)
@@ -731,7 +730,7 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 		t.Fatalf("CompleteCard: %v", err)
 	}
 	if !complete {
-		t.Fatal("want complete = true for a fully filled steelman card")
+		t.Fatal("want complete = true for a fully filled concession card")
 	}
 	if err := store.SetCardInstanceStatus(ctx, project.ID, cardInstanceID, "completed"); err != nil {
 		t.Fatalf("SetCardInstanceStatus: %v", err)
@@ -820,9 +819,9 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 	}
 
 	// Step 7: suppression. A second student_turn with the SAME text must NOT
-	// mint a second steelman instance. The completed steelman card_instance
+	// mint a second concession instance. The completed concession card_instance
 	// already retires the one_sided moment (EligibleMoments suppresses on ANY
-	// status, including "completed"), but "fact_opinion"/"overclaim" are still
+	// status, including "completed"), but "fact_opinion" is still
 	// eligible, so the classifier DOES run again — its answer just must not
 	// win. Stub it to (wrongly) say "one_sided" again: EligibleMoments must
 	// exclude it from the candidate set it hands ClassifyMoment, so even a
@@ -840,23 +839,23 @@ func TestRefactor2CardsLoop_SemanticMomentToRefeed(t *testing.T) {
 		t.Fatalf("RunAgentStep (2nd student_turn): %v", err)
 	}
 	if secondProv.LastRequest.Messages == nil {
-		t.Fatal("want the classifier to have been called again (fact_opinion/overclaim are still eligible)")
+		t.Fatal("want the classifier to have been called again (fact_opinion is still eligible)")
 	}
 	if action3 != nil {
-		t.Fatalf("want silence — steelman is suppressed in ANY status — got %+v", action3)
+		t.Fatalf("want silence — concession is suppressed in ANY status — got %+v", action3)
 	}
 
 	list2, err := q.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: project.ID, Valid: true})
 	if err != nil {
 		t.Fatalf("ListCardInstancesByProject (2nd pass): %v", err)
 	}
-	steelmanCount := 0
+	concessionCount := 0
 	for _, row := range list2 {
-		if row.CardID == "steelman" {
-			steelmanCount++
+		if row.CardID == "concession" {
+			concessionCount++
 		}
 	}
-	if len(list2) != 1 || steelmanCount != 1 {
-		t.Fatalf("want exactly 1 steelman card_instance total after the 2nd student_turn, got %+v", list2)
+	if len(list2) != 1 || concessionCount != 1 {
+		t.Fatalf("want exactly 1 concession card_instance total after the 2nd student_turn, got %+v", list2)
 	}
 }

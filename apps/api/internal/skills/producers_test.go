@@ -42,7 +42,7 @@ var gateItemProducers = map[string]string{
 	"source_quality_spot_check": "api.orderSpotCheck",
 	// S4 build_argument
 	"warrants":                   "api.attestS3S4",
-	"steelman":                   "api.attestS3S4",
+	"concession":                 "api.attestS3S4",
 	"warrant_quality_spot_check": "api.orderSpotCheck",
 	// S5 draft_polish
 	"citations_matched":  "api.attestGate",

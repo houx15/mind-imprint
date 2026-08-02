@@ -42,15 +42,15 @@ func TestPostPersistProjectCard_PersistsProposable(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID
 
-	// certainty-spectrum is proposable and NOT pre-seeded (0018 seeds steelman).
+	// fact-opinion-value is proposable and NOT pre-seeded (0018 seeds steelman + concession).
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
-		strings.NewReader(`{"card_id":"certainty-spectrum","field_values":{"claim":"中国让地球更可持续","certainty":"有限肯定"},"event_trace":[]}`)), cookie))
+		strings.NewReader(`{"card_id":"fact-opinion-value","field_values":{"claim":"中国让地球更可持续","kind":"观点"},"event_trace":[]}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("persist = %d — %s", rr.Code, rr.Body)
 	}
-	if got := countCompletedCard(t, pool, seedProjectID, "certainty-spectrum"); got != 1 {
-		t.Fatalf("completed certainty-spectrum = %d, want 1", got)
+	if got := countCompletedCard(t, pool, seedProjectID, "fact-opinion-value"); got != 1 {
+		t.Fatalf("completed fact-opinion-value = %d, want 1", got)
 	}
 	if got := countEventsByType(t, pool, seedProjectID, "card_logged"); got != 1 {
 		t.Fatalf("card_logged events = %d, want 1", got)

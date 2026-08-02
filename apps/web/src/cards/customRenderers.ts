@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import { CardRenderer, type CardBodyProps } from "./CardRenderer";
 import { BeliefSpectrumRenderer } from "./renderers/BeliefSpectrumRenderer";
-import { SiftCraapRenderer } from "./renderers/SiftCraapRenderer";
 import { InnerPartsRenderer } from "./renderers/InnerPartsRenderer";
 
 // Escape-hatch: a card_id may map to a bespoke renderer that overrides the
@@ -10,7 +9,6 @@ import { InnerPartsRenderer } from "./renderers/InnerPartsRenderer";
 // builds the standard envelope identically. Custom look, standard output.
 export const customRenderers: Record<string, ComponentType<CardBodyProps>> = {
   "belief-spectrum": BeliefSpectrumRenderer,
-  "sift_craap": SiftCraapRenderer,
   "emotional-alignment": InnerPartsRenderer,
 };
 

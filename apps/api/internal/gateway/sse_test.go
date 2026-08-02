@@ -15,7 +15,7 @@ func TestSSEWriterEncodesEvents(t *testing.T) {
 	if err := s.Text("你好"); err != nil {
 		t.Fatalf("Text: %v", err)
 	}
-	if err := s.Card("ci_1", "sift_craap", "要不要核查一下来源？", []byte(`[{"id":"a0","question":"可信吗？"}]`), "mat_1"); err != nil {
+	if err := s.Card("ci_1", "craap", "要不要核查一下来源？", []byte(`[{"id":"a0","question":"可信吗？"}]`), "mat_1"); err != nil {
 		t.Fatalf("Card: %v", err)
 	}
 	if err := s.Done("msg_1"); err != nil {
@@ -29,7 +29,7 @@ func TestSSEWriterEncodesEvents(t *testing.T) {
 	if !strings.Contains(body, "event: card\ndata: ") || !strings.Contains(body, `"card_instance_id":"ci_1"`) {
 		t.Fatalf("card frame wrong:\n%s", body)
 	}
-	if !strings.Contains(body, `"card_id":"sift_craap"`) || !strings.Contains(body, `"nudge_text":"要不要核查一下来源？"`) {
+	if !strings.Contains(body, `"card_id":"craap"`) || !strings.Contains(body, `"nudge_text":"要不要核查一下来源？"`) {
 		t.Fatalf("card payload wrong:\n%s", body)
 	}
 	// Anchors ride the card event as a raw JSON array (not a re-escaped string).

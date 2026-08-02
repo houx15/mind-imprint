@@ -14,7 +14,7 @@ func TestApplyReadingGate_OpenCardSuppressesNewSummon(t *testing.T) {
 }
 
 func TestApplyReadingGate_BreathingRoomDowngradesSummonToHint(t *testing.T) {
-	got := ApplyReadingGate(summon("framing"), PacingState{TurnsSinceLastPropose: 1}, OrderingGuard{})
+	got := ApplyReadingGate(summon("argument-map"), PacingState{TurnsSinceLastPropose: 1}, OrderingGuard{})
 	if got.Decision != "hint" {
 		t.Fatalf("within breathing window summon→hint, got %+v", got)
 	}

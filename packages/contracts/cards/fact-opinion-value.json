@@ -12,7 +12,7 @@
   "age_band": ["MYP", "DP"],
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D4", "D5"],
-  "related": ["argument-map", "certainty-spectrum", "cda"],
+  "related": ["argument-map", "cda"],
   "body_status": "full",
   "rubric_tags": ["D4", "D5"],
   "primitive": "sort",

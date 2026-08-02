@@ -26,7 +26,7 @@ func TestCardLifecycle(t *testing.T) {
 	}
 	pgTaskID := pgtype.UUID{Bytes: task.ID, Valid: true}
 
-	c1, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "sift_craap", TaskID: pgTaskID})
+	c1, err := q.CreateCardInstance(ctx, sqlc.CreateCardInstanceParams{CardID: "craap", TaskID: pgTaskID})
 	if err != nil {
 		t.Fatal(err)
 	}

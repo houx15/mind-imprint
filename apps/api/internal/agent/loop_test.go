@@ -969,7 +969,7 @@ func TestRunAgentStepSkipsClassifierOnShortText(t *testing.T) {
 
 // TestRunAgentStepSemanticMomentSurfacesItsCard covers the happy path: with no
 // structural candidate competing, a named moment ("one_sided") becomes a
-// surface_card candidate for that moment's card (steelman, per momentCard).
+// surface_card candidate for that moment's card (concession, per momentCard).
 func TestRunAgentStepSemanticMomentSurfacesItsCard(t *testing.T) {
 	store := &fakeAgentStore{graph: GraphView{}, cardInstances: map[uuid.UUID]CardInstanceRow{}}
 	prov := &countingProvider{inner: scriptedProvider("one_sided")}
@@ -984,8 +984,8 @@ func TestRunAgentStepSemanticMomentSurfacesItsCard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if action == nil || action.Kind != "surface_card" || action.CardID != "steelman" {
-		t.Fatalf("want a surface_card(steelman) action, got %+v", action)
+	if action == nil || action.Kind != "surface_card" || action.CardID != "concession" {
+		t.Fatalf("want a surface_card(concession) action, got %+v", action)
 	}
 	if prov.calls != 1 {
 		t.Fatalf("want exactly one classify call, got %d", prov.calls)
@@ -1028,14 +1028,13 @@ func TestClassifierCappedPerProject(t *testing.T) {
 
 // TestRunAgentStepSemanticSuppressedByAnyStatus covers EligibleMoments'
 // suppression rule: once every moment's target card already has a
-// card_instance in ANY status (here, all three "skipped"), nothing is
+// card_instance in ANY status (here, both "skipped"), nothing is
 // eligible, so the classifier must not even be called.
 func TestRunAgentStepSemanticSuppressedByAnyStatus(t *testing.T) {
 	g := GraphView{
 		CardInstances: []CardInstanceView{
-			{ID: uuid.New().String(), CardID: "steelman", Status: "skipped"},
+			{ID: uuid.New().String(), CardID: "concession", Status: "skipped"},
 			{ID: uuid.New().String(), CardID: "fact-opinion-value", Status: "skipped"},
-			{ID: uuid.New().String(), CardID: "certainty-spectrum", Status: "skipped"},
 		},
 	}
 	store := &fakeAgentStore{graph: g}
@@ -1086,8 +1085,8 @@ func TestRunAgentStepClassifyNoUsageWarnsUnmetered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if action == nil || action.Kind != "surface_card" || action.CardID != "steelman" {
-		t.Fatalf("want the semantic steelman candidate to still surface despite zero usage, got %+v", action)
+	if action == nil || action.Kind != "surface_card" || action.CardID != "concession" {
+		t.Fatalf("want the semantic concession candidate to still surface despite zero usage, got %+v", action)
 	}
 	if store.recordLLMCallCalls != 0 {
 		t.Fatalf("want zero RecordLLMCall calls when usage is zero (nothing to meter), got %d", store.recordLLMCallCalls)
@@ -1194,15 +1193,15 @@ func TestRunAgentStepSkipSurfaceCardsSuppressesSemantic(t *testing.T) {
 	}
 }
 
-// siftFieldValues marshals a minimal sift_craap field_values jsonb blob —
+// moneyFieldValues marshals a minimal money-trail field_values jsonb blob —
 // exactly the shape SubmitProjectCardInstance persists and GetCardInstance
 // reads back — for the N3b Seam B refeed tests below.
-func siftFieldValues(t *testing.T) []byte {
+func moneyFieldValues(t *testing.T) []byte {
 	t.Helper()
 	b, err := json.Marshal(map[string]map[string]any{
-		"sift": {
-			"stop":   "证明中国让地球更可持续",
-			"better": "原始研究来自 NASA / Nature Sustainability",
+		"main": {
+			"claim":   "证明中国让地球更可持续",
+			"meaning": "原始研究来自 NASA / Nature Sustainability",
 		},
 	})
 	if err != nil {
@@ -1224,9 +1223,9 @@ func TestRunAgentStepRefeedAsksAboutTheCompletedCard(t *testing.T) {
 		cardInstances: map[uuid.UUID]CardInstanceRow{
 			instanceID: {
 				ID:          instanceID,
-				CardID:      "sift_craap",
+				CardID:      "money-trail",
 				Status:      "completed",
-				FieldValues: siftFieldValues(t),
+				FieldValues: moneyFieldValues(t),
 			},
 		},
 	}
@@ -1272,7 +1271,7 @@ func TestRunAgentStepRefeedSilentOnSkipped(t *testing.T) {
 	store := &fakeAgentStore{
 		graph: GraphView{},
 		cardInstances: map[uuid.UUID]CardInstanceRow{
-			instanceID: {ID: instanceID, CardID: "sift_craap", Status: "skipped"},
+			instanceID: {ID: instanceID, CardID: "money-trail", Status: "skipped"},
 		},
 	}
 	prov := &countingProvider{inner: scriptedProvider("should never be called")}
@@ -1296,7 +1295,7 @@ func TestRunAgentStepRefeedSilentOnSkipped(t *testing.T) {
 }
 
 // TestRunAgentStepRefeedSilentOnEmptyCompletedCard is the regression for
-// whole-branch review MINOR 5: steelman.json declares no `completion`
+// whole-branch review MINOR 5: concession.json declares no `completion`
 // predicates, so EvaluateCompletion reports complete=true over zero
 // predicates — a student who opens the card and immediately submits gets
 // status "completed" with nothing filled in. Before the fix, refeedCandidate
@@ -1311,7 +1310,7 @@ func TestRunAgentStepRefeedSilentOnEmptyCompletedCard(t *testing.T) {
 		cardInstances: map[uuid.UUID]CardInstanceRow{
 			// No FieldValues, no Anchors: nothing for the serializer to turn
 			// into a step, even though status is "completed".
-			instanceID: {ID: instanceID, CardID: "steelman", Status: "completed"},
+			instanceID: {ID: instanceID, CardID: "concession", Status: "completed"},
 		},
 	}
 	prov := &countingProvider{inner: scriptedProvider("should never be called")}
@@ -1349,9 +1348,9 @@ func TestRunAgentStepRefeedOutranksOtherCandidates(t *testing.T) {
 		cardInstances: map[uuid.UUID]CardInstanceRow{
 			instanceID: {
 				ID:          instanceID,
-				CardID:      "sift_craap",
+				CardID:      "money-trail",
 				Status:      "completed",
-				FieldValues: siftFieldValues(t),
+				FieldValues: moneyFieldValues(t),
 			},
 		},
 	}

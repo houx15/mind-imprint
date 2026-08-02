@@ -216,8 +216,8 @@ func TestRunChatStepSemanticMomentOffersItsCard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Offer == nil || res.Offer.CardID != "steelman" {
-		t.Fatalf("want a steelman offer from the one_sided moment, got %+v", res.Offer)
+	if res.Offer == nil || res.Offer.CardID != "concession" {
+		t.Fatalf("want a concession offer from the one_sided moment, got %+v", res.Offer)
 	}
 	if prov.calls != 2 {
 		t.Fatalf("want two provider calls (classify + coach), got %d", prov.calls)
@@ -246,13 +246,13 @@ func TestRunChatStepSemanticOfferHasNoMaterial(t *testing.T) {
 	}
 }
 
-// Any-status suppression: a skipped steelman is never re-offered in the thread.
+// Any-status suppression: a skipped concession is never re-offered in the thread.
 func TestRunChatStepSemanticSuppressedByAnyStatus(t *testing.T) {
 	fs := newFakeChatStore()
-	fs.cards = []ScopedCard{{ID: uuid.New(), CardID: "steelman", Status: "skipped"}}
+	fs.cards = []ScopedCard{{ID: uuid.New(), CardID: "concession", Status: "skipped"}}
 	// The classifier still names one_sided (a real, but now-ineligible, moment) —
 	// ClassifyMoment's exact-match-against-eligible contract must collapse this
-	// to MomentNone rather than re-offering the already-skipped steelman.
+	// to MomentNone rather than re-offering the already-skipped concession.
 	prov := &countingProvider{inner: scriptedProvider("one_sided")}
 
 	res, err := RunChatStep(context.Background(), ChatDeps{Store: fs, Provider: prov, Resolved: testResolved, UserID: uuid.New(), ThreadID: uuid.New()}, longEnoughText)
@@ -260,12 +260,12 @@ func TestRunChatStepSemanticSuppressedByAnyStatus(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if res.Offer != nil {
-		t.Fatalf("want no offer — steelman was already dispositioned (skipped), got %+v", res.Offer)
+		t.Fatalf("want no offer — concession was already dispositioned (skipped), got %+v", res.Offer)
 	}
 	if fs.cardsCreated != 0 {
 		t.Fatalf("want no card instance minted, got %d", fs.cardsCreated)
 	}
-	// fact_opinion and overclaim are still eligible, so the classifier still runs.
+	// fact_opinion is still eligible, so the classifier still runs.
 	if prov.calls != 2 {
 		t.Fatalf("want two provider calls (classify still runs for the remaining eligible moments, + coach), got %d", prov.calls)
 	}
@@ -275,7 +275,7 @@ func TestRunChatStepSemanticSuppressedByAnyStatus(t *testing.T) {
 // review IMPORTANT 2: ChatCardCandidate only suppresses a re-offer of the
 // SAME card id (CRAAP), so nothing stopped the classifier branch from
 // minting a second, DIFFERENT card offer on top of one still unanswered —
-// a student could rack up CRAAP, then steelman, then certainty-spectrum,
+// a student could rack up CRAAP, then concession, then certainty-spectrum,
 // ... across consecutive messages with none of them opened, which is the
 // nagging posture 铁律 2 forbids. Here a "craap" card is already `proposed`
 // (unrelated to the moment cards), no link is in the message, and the
@@ -329,8 +329,8 @@ func TestRunChatStepClassifyNoUsageWarnsUnmetered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Offer == nil || res.Offer.CardID != "steelman" {
-		t.Fatalf("want a steelman offer from the one_sided moment despite zero usage, got %+v", res.Offer)
+	if res.Offer == nil || res.Offer.CardID != "concession" {
+		t.Fatalf("want a concession offer from the one_sided moment despite zero usage, got %+v", res.Offer)
 	}
 	for _, p := range fs.llmCallPurposes {
 		if p == "classify" {
@@ -397,8 +397,8 @@ func TestRunChatStepClassifierErrorStillReplies(t *testing.T) {
 func TestRunChatStepFoldsCompletedCardsIntoContext(t *testing.T) {
 	fs := newFakeChatStore()
 	fs.cards = []ScopedCard{{
-		ID: uuid.New(), CardID: "sift_craap", Status: "completed",
-		FieldValues: siftFieldValues(t),
+		ID: uuid.New(), CardID: "money-trail", Status: "completed",
+		FieldValues: moneyFieldValues(t),
 	}}
 	prov := &capturingProvider{inner: scriptedProvider("你为什么这么想？")}
 
@@ -412,7 +412,7 @@ func TestRunChatStepFoldsCompletedCardsIntoContext(t *testing.T) {
 	if prov.lastPrompt == "" {
 		t.Fatal("expected the provider to have been called with a non-empty prompt")
 	}
-	if !strings.Contains(prov.lastPrompt, "SIFT×CRAAP 信息核查") {
+	if !strings.Contains(prov.lastPrompt, "资金链溯源卡") {
 		t.Fatalf("prompt did not carry the completed card's name:\n%s", prov.lastPrompt)
 	}
 	if !strings.Contains(prov.lastPrompt, "证明中国让地球更可持续") {
@@ -426,9 +426,9 @@ func TestRunChatStepFoldsCompletedCardsIntoContext(t *testing.T) {
 func TestRunChatStepIgnoresIncompleteCardsInContext(t *testing.T) {
 	fs := newFakeChatStore()
 	fs.cards = []ScopedCard{
-		{ID: uuid.New(), CardID: "sift_craap", Status: "proposed", FieldValues: siftFieldValues(t)},
-		{ID: uuid.New(), CardID: "sift_craap", Status: "active", FieldValues: siftFieldValues(t)},
-		{ID: uuid.New(), CardID: "sift_craap", Status: "skipped", FieldValues: siftFieldValues(t)},
+		{ID: uuid.New(), CardID: "money-trail", Status: "proposed", FieldValues: moneyFieldValues(t)},
+		{ID: uuid.New(), CardID: "money-trail", Status: "active", FieldValues: moneyFieldValues(t)},
+		{ID: uuid.New(), CardID: "money-trail", Status: "skipped", FieldValues: moneyFieldValues(t)},
 	}
 	prov := &capturingProvider{inner: scriptedProvider("你为什么这么想？")}
 
@@ -439,7 +439,7 @@ func TestRunChatStepIgnoresIncompleteCardsInContext(t *testing.T) {
 	if res.Reply == "" {
 		t.Fatalf("want a reply")
 	}
-	if strings.Contains(prov.lastPrompt, "SIFT×CRAAP 信息核查") {
+	if strings.Contains(prov.lastPrompt, "资金链溯源卡") {
 		t.Fatalf("an incomplete card must not contribute to the context:\n%s", prov.lastPrompt)
 	}
 	if strings.Contains(prov.lastPrompt, "证明中国让地球更可持续") {

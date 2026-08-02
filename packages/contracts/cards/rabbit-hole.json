@@ -12,7 +12,7 @@
   "trigger_keywords": ["好有意思", "我还想知道", "这个很酷", "顺便问一下", "为什么会这样"],
   "interaction_type": "选择追问卡",
   "rubric_dims": ["D1", "D6"],
-  "related": ["question-card", "source-map", "learning-report"],
+  "related": ["question-card", "learning-report"],
   "body_status": "full",
   "rubric_tags": ["D1", "D6"],
   "steps": [

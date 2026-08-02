@@ -23,10 +23,6 @@ const (
 	// if it were a checkable fact.
 	MomentFactOpinion Moment = "fact_opinion"
 
-	// MomentOverclaim: the student's expressed certainty outruns the evidence
-	// he has actually given.
-	MomentOverclaim Moment = "overclaim"
-
 	// MomentOneSided: the student argues from one side only, never engaging
 	// the strongest opposing case.
 	MomentOneSided Moment = "one_sided"
@@ -35,7 +31,7 @@ const (
 // AllMoments is the vocabulary in stable priority order — when the classifier
 // is offered several, this is the order it sees them in, and the order
 // EligibleMoments returns.
-var AllMoments = []Moment{MomentFactOpinion, MomentOverclaim, MomentOneSided}
+var AllMoments = []Moment{MomentFactOpinion, MomentOneSided}
 
 // momentEntry is everything the rest of the system needs to know about one
 // moment. This table is the SINGLE SOURCE for a moment's card id, its
@@ -62,17 +58,10 @@ var momentCard = map[Moment]momentEntry{
 		Reason:    "student stated an arguable opinion as a checkable fact",
 		Criterion: "D3",
 	},
-	MomentOverclaim: {
-		CardID:    "certainty-spectrum",
-		Desc:      "学生表达的确定程度，高于他给出的证据所能支撑的程度。",
-		Flag:      "学生的语气比他的证据更确定——这是给结论标定「确定度」的时机。",
-		Reason:    "student's certainty outruns the evidence given",
-		Criterion: "D3",
-	},
 	MomentOneSided: {
-		CardID:    "steelman",
+		CardID:    "concession",
 		Desc:      "学生只从一侧论证，没有处理最强的反面意见。",
-		Flag:      "学生只从一侧论证——这是构造对方最强版本的时机。",
+		Flag:      "学生只从一侧论证——这是主动承认对立观点、写出让步段的时机。",
 		Reason:    "student argues from one side only",
 		Criterion: "D4",
 	},

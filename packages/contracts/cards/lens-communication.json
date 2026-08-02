@@ -35,7 +35,6 @@
     "D6"
   ],
   "related": [
-    "framing",
     "cda",
     "spin-detector"
   ],
@@ -46,7 +45,6 @@
     "selection_hint": "试着换一个词：读者的感受会不会变化？",
     "example_focus": "表达方式怎样塑造读者的判断",
     "method_ids": [
-      "framing",
       "cda",
       "spin-detector"
     ]

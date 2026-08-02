@@ -94,13 +94,13 @@ func TestSlotHasText(t *testing.T) {
 	}
 }
 
-func TestSteelmanCardCounts(t *testing.T) {
-	completed := []sqlc.CardInstance{{CardID: "steelman", Status: "completed"}}
-	skipped := []sqlc.CardInstance{{CardID: "steelman", Status: "skipped"}}
-	if !hasCompletedSteelmanCard(completed) {
-		t.Error("a completed steelman card is a producer for the steelman item")
+func TestConcessionCardCounts(t *testing.T) {
+	completed := []sqlc.CardInstance{{CardID: "concession", Status: "completed"}}
+	skipped := []sqlc.CardInstance{{CardID: "concession", Status: "skipped"}}
+	if !hasCompletedConcessionCard(completed) {
+		t.Error("a completed concession card is a producer for the concession item")
 	}
-	if hasCompletedSteelmanCard(skipped) {
-		t.Error("a skipped steelman card must not satisfy the steelman item")
+	if hasCompletedConcessionCard(skipped) {
+		t.Error("a skipped concession card must not satisfy the concession item")
 	}
 }

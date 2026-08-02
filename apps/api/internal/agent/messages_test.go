@@ -33,19 +33,19 @@ func TestBuildLlmMessagesUserAndPlainAssistant(t *testing.T) {
 }
 
 func TestBuildLlmMessagesResolvedCardEmitsToolUsePlusResult(t *testing.T) {
-	spec, _ := cards.ByID("sift_craap")
+	spec, _ := cards.ByID("money-trail")
 	call := &SummonCardCall{
 		ID:             "tc_1",
 		Name:           "summon_card",
-		Args:           SummonCardArgs{CardID: "sift_craap", Reason: "r", NudgeText: "n"},
+		Args:           SummonCardArgs{CardID: "money-trail", Reason: "r", NudgeText: "n"},
 		CardInstanceID: "ci_1",
 	}
-	ci := CardInstance{ID: "ci_1", CardID: "sift_craap", Status: "completed", FieldValues: map[string]map[string]any{"sift": {"stop": "x"}}}
+	ci := CardInstance{ID: "ci_1", CardID: "money-trail", Status: "completed", FieldValues: map[string]map[string]any{"main": {"claim": "x"}}}
 	msgs := BuildLlmMessages(BuildLlmMessagesOptions{
 		SystemPrompt: "SYS",
 		Messages:     []StoredMessage{{Role: "assistant", Content: "看看这张卡", ToolCall: call}},
 		CardByID:     func(id string) (CardInstance, bool) { return ci, id == "ci_1" },
-		SpecByID:     func(id string) (cards.Spec, bool) { return spec, id == "sift_craap" },
+		SpecByID:     func(id string) (cards.Spec, bool) { return spec, id == "money-trail" },
 	})
 	// system + assistant(tool_use) + tool(result)
 	if len(msgs) != 3 {
@@ -63,7 +63,7 @@ func TestBuildLlmMessagesResolvedCardEmitsToolUsePlusResult(t *testing.T) {
 	if err := json.Unmarshal([]byte(tool.Content), &payload); err != nil {
 		t.Fatalf("tool content not JSON: %v", err)
 	}
-	if payload["card_id"] != "sift_craap" || payload["status"] != "completed" {
+	if payload["card_id"] != "money-trail" || payload["status"] != "completed" {
 		t.Fatalf("refeed payload wrong: %v", payload)
 	}
 }
@@ -72,10 +72,10 @@ func TestBuildLlmMessagesUnresolvedCardFallsBackToText(t *testing.T) {
 	call := &SummonCardCall{
 		ID:             "tc_1",
 		Name:           "summon_card",
-		Args:           SummonCardArgs{CardID: "sift_craap", Reason: "r", NudgeText: "要不要试试这张卡？"},
+		Args:           SummonCardArgs{CardID: "money-trail", Reason: "r", NudgeText: "要不要试试这张卡？"},
 		CardInstanceID: "ci_1",
 	}
-	ci := CardInstance{ID: "ci_1", CardID: "sift_craap", Status: "proposed"}
+	ci := CardInstance{ID: "ci_1", CardID: "money-trail", Status: "proposed"}
 	// content empty → should fall back to nudge_text
 	msgs := BuildLlmMessages(BuildLlmMessagesOptions{
 		SystemPrompt: "SYS",

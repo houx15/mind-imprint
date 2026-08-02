@@ -38,9 +38,7 @@
     "D5"
   ],
   "related": [
-    "data-literacy",
-    "certainty-spectrum",
-    "science-knowing"
+    "data-literacy"
   ],
   "body_status": "full",
   "reading_lens": {
@@ -49,9 +47,7 @@
     "selection_hint": "先问：测了什么、怎么测、适用于谁？",
     "example_focus": "测量结果能否支持当前判断",
     "method_ids": [
-      "data-literacy",
-      "certainty-spectrum",
-      "science-knowing"
+      "data-literacy"
     ]
   },
   "steps": [

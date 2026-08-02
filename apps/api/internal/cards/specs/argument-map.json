@@ -12,7 +12,7 @@
   "age_band": ["MYP", "DP"],
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D5"],
-  "related": ["fact-opinion-value", "steelman", "pee"],
+  "related": ["fact-opinion-value", "pee"],
   "body_status": "full",
   "rubric_tags": ["D5"],
   "steps": [

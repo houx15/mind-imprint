@@ -36,7 +36,6 @@
   ],
   "related": [
     "ethics-lenses",
-    "ethics-roleplay",
     "belief-spectrum"
   ],
   "body_status": "full",
@@ -47,7 +46,6 @@
     "example_focus": "这项判断优先保护了什么价值",
     "method_ids": [
       "ethics-lenses",
-      "ethics-roleplay",
       "belief-spectrum"
     ]
   },

@@ -21,7 +21,7 @@ func TestBuildCoachContextRendersRefeedForCardInstanceAnchor(t *testing.T) {
 		Level:      "I2",
 	}
 	refeed := &RefeedPayload{
-		CardID:   "sift_craap",
+		CardID:   "craap",
 		CardName: "SIFT×CRAAP 信息核查",
 		Status:   "completed",
 		Steps: []RefeedStep{

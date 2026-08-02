@@ -11,7 +11,7 @@
   "age_band": ["MYP", "DP"],
   "interaction_type": "量表光谱卡",
   "rubric_dims": ["D4"],
-  "related": ["steelman", "ethics-roleplay", "source-map"],
+  "related": [],
   "body_status": "full",
   "rubric_tags": ["D4"],
   "steps": [

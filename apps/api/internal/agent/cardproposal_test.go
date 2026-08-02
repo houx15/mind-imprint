@@ -15,7 +15,7 @@ func stubMomentProvider(id string) *countingProvider {
 	})}
 }
 
-var allEligible = []Moment{MomentFactOpinion, MomentOverclaim, MomentOneSided}
+var allEligible = []Moment{MomentFactOpinion, MomentOneSided}
 
 func TestProposeCoachCard_SummonOnMoment(t *testing.T) {
 	prov := stubMomentProvider("fact_opinion")

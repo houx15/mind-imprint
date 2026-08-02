@@ -2,7 +2,7 @@
   "id": "writing-project",
   "kind": "project",
   "vocabulary": "per-board",
-  "cards": ["craap", "sift", "concession", "steelman", "toulmin"],
+  "cards": ["craap", "sift", "concession", "toulmin"],
   "intake": { "procedure": "decompose_imported_to_graph" },
   "word_budget": { "min": 1500, "max": 2000 },
   "review_criteria": [
@@ -77,12 +77,12 @@
       "produces": ["claim", "concession"],
       "view": "结构",
       "title": "论证构建",
-      "repertoire": ["toulmin", "concession", "steelman"],
+      "repertoire": ["toulmin", "concession"],
       "gate": {
         "machine": [
           { "kind": "node_present", "type": "concession" }
         ],
-        "student_written": ["warrants", "steelman"],
+        "student_written": ["warrants"],
         "human": ["warrant_quality_spot_check"]
       }
     },

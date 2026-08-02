@@ -62,7 +62,7 @@ func TestEligibleMomentsDropsAnyStatus(t *testing.T) {
 	// An offer is never a wall: a card_instance in ANY status — including
 	// skipped — makes its moment permanently ineligible.
 	for _, status := range []string{"proposed", "active", "completed", "skipped"} {
-		got := EligibleMoments([]CardInstanceView{{CardID: "steelman", Status: status}})
+		got := EligibleMoments([]CardInstanceView{{CardID: "concession", Status: status}})
 		for _, m := range got {
 			if m == MomentOneSided {
 				t.Fatalf("status %q: one_sided still eligible after an offer", status)
@@ -87,7 +87,7 @@ func TestClassifyMomentParsesExactMatchOnly(t *testing.T) {
 		want  Moment
 	}{
 		{"exact", "one_sided", MomentOneSided},
-		{"trimmed", "  overclaim\n", MomentOverclaim},
+		{"trimmed", "  fact_opinion\n", MomentFactOpinion},
 		{"none", "none", MomentNone},
 		{"chatty", "我认为这是 one_sided 的时机。", MomentNone},
 		{"unknown id", "steelman", MomentNone},
@@ -115,7 +115,7 @@ func TestClassifyMomentRejectsIneligible(t *testing.T) {
 	// The model named a real moment that is NOT in the eligible set — it must
 	// not be honoured, or a suppressed card would be re-offered.
 	prov := &fakeMomentProvider{text: "one_sided"}
-	got, _, err := ClassifyMoment(t.Context(), prov, gateway.Resolved{}, "一段足够长的学生发言内容在这里。", []Moment{MomentOverclaim})
+	got, _, err := ClassifyMoment(t.Context(), prov, gateway.Resolved{}, "一段足够长的学生发言内容在这里。", []Moment{MomentFactOpinion})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -140,11 +140,11 @@ func TestClassifyMomentNoCallWhenNothingEligible(t *testing.T) {
 
 func TestClassifyMomentPromptListsOnlyEligible(t *testing.T) {
 	prov := &fakeMomentProvider{text: "none"}
-	if _, _, err := ClassifyMoment(t.Context(), prov, gateway.Resolved{}, "一段足够长的学生发言内容在这里。", []Moment{MomentOverclaim}); err != nil {
+	if _, _, err := ClassifyMoment(t.Context(), prov, gateway.Resolved{}, "一段足够长的学生发言内容在这里。", []Moment{MomentFactOpinion}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	joined := prov.lastPrompt
-	if !strings.Contains(joined, string(MomentOverclaim)) {
+	if !strings.Contains(joined, string(MomentFactOpinion)) {
 		t.Fatalf("prompt does not offer the eligible moment: %s", joined)
 	}
 	if strings.Contains(joined, string(MomentOneSided)) {

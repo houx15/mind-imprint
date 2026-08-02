@@ -3,42 +3,42 @@ package cards
 import "testing"
 
 func TestSpecParsesStepsAndFields(t *testing.T) {
-	s, ok := ByID("sift_craap")
+	s, ok := ByID("money-trail")
 	if !ok {
-		t.Fatal("sift_craap not found")
+		t.Fatal("money-trail not found")
 	}
-	if s.InteractionType != "步骤引导卡" {
+	if s.InteractionType != "画布导图卡" {
 		t.Fatalf("interaction_type = %q", s.InteractionType)
 	}
-	if len(s.Steps) != 2 {
-		t.Fatalf("steps = %d, want 2", len(s.Steps))
+	if len(s.Steps) != 1 {
+		t.Fatalf("steps = %d, want 1", len(s.Steps))
 	}
-	sift := s.Steps[0]
-	if sift.Key != "sift" || sift.Title != "SIFT · 横向找更多来源" {
-		t.Fatalf("step 0 = %q / %q", sift.Key, sift.Title)
+	main := s.Steps[0]
+	if main.Key != "main" || main.Title != "资金链溯源" {
+		t.Fatalf("step 0 = %q / %q", main.Key, main.Title)
 	}
-	if len(sift.Fields) != 4 {
-		t.Fatalf("sift fields = %d, want 4", len(sift.Fields))
+	if len(main.Fields) != 4 {
+		t.Fatalf("main fields = %d, want 4", len(main.Fields))
 	}
-	// field 0 is the Stop textarea
-	if sift.Fields[0].Key != "stop" || sift.Fields[0].Type != "textarea" {
-		t.Fatalf("field 0 = %q / %q", sift.Fields[0].Key, sift.Fields[0].Type)
+	// field 0 is the claim text field
+	if main.Fields[0].Key != "claim" || main.Fields[0].Type != "text" {
+		t.Fatalf("field 0 = %q / %q", main.Fields[0].Key, main.Fields[0].Type)
 	}
-	if sift.Fields[0].Label != "Stop：你打算用这条信息说明什么？" {
-		t.Fatalf("field 0 label = %q", sift.Fields[0].Label)
+	if main.Fields[0].Label != "要溯源的说法是什么？" {
+		t.Fatalf("field 0 label = %q", main.Fields[0].Label)
 	}
-	// field 1 is the repeatable_group "sources" with 3 item_fields
-	sources := sift.Fields[1]
-	if sources.Key != "sources" || sources.Type != "repeatable_group" {
-		t.Fatalf("field 1 = %q / %q", sources.Key, sources.Type)
+	// field 1 is the repeatable_group "chain" with 3 item_fields
+	chain := main.Fields[1]
+	if chain.Key != "chain" || chain.Type != "repeatable_group" {
+		t.Fatalf("field 1 = %q / %q", chain.Key, chain.Type)
 	}
-	if len(sources.ItemFields) != 3 {
-		t.Fatalf("item_fields = %d, want 3", len(sources.ItemFields))
+	if len(chain.ItemFields) != 3 {
+		t.Fatalf("item_fields = %d, want 3", len(chain.ItemFields))
 	}
-	if sources.ItemFields[0].Key != "name" || sources.ItemFields[0].Label != "来源" {
-		t.Fatalf("item 0 = %q / %q", sources.ItemFields[0].Key, sources.ItemFields[0].Label)
+	if chain.ItemFields[0].Key != "who" || chain.ItemFields[0].Label != "节点（谁）" {
+		t.Fatalf("item 0 = %q / %q", chain.ItemFields[0].Key, chain.ItemFields[0].Label)
 	}
-	if sources.ItemFields[2].Label != "可信？" {
-		t.Fatalf("item 2 label = %q", sources.ItemFields[2].Label)
+	if chain.ItemFields[2].Label != "它的钱 / 利益从哪来？" {
+		t.Fatalf("item 2 label = %q", chain.ItemFields[2].Label)
 	}
 }

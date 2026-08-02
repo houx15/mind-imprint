@@ -98,7 +98,7 @@ func TestPromptText_RealTextVsHonestEmpty(t *testing.T) {
 // yields "" rather than the literal "prompt_sent" (whole-branch review C1).
 func TestRoundsFromProject_UsesRealPromptText(t *testing.T) {
 	d := studio.ProjectData{Events: []studio.Event{
-		{Type: "card_surfaced", Surface: "studio", Payload: []byte(`{"card_id":"sift_craap"}`)},
+		{Type: "card_surfaced", Surface: "studio", Payload: []byte(`{"card_id":"craap"}`)},
 		{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{"text":"我想改 thesis"}`)},
 		{Type: "prompt_sent", Surface: "studio", Payload: []byte(`{}`)},
 	}}
@@ -140,7 +140,7 @@ func TestRoundsFromEvidence_UsesRealPromptText(t *testing.T) {
 // still yields an honest empty prompt (never a fabricated one).
 func TestRoundsFromEvidence_CourseMessageIsARound(t *testing.T) {
 	events := []studio.Event{
-		{Type: "card_surfaced", Surface: "course", Payload: []byte(`{"card_id":"sift_craap"}`)},
+		{Type: "card_surfaced", Surface: "course", Payload: []byte(`{"card_id":"craap"}`)},
 		{Type: "course_message", Surface: "course", Payload: []byte(`{"unprompted":true,"text":"这条数据可信吗？"}`)},
 		{Type: "course_message", Surface: "course", Payload: []byte(`{"unprompted":true}`)},
 	}
@@ -171,14 +171,14 @@ func TestBuildAssessmentInputFromEvidenceEmpty(t *testing.T) {
 func TestBuildAssessmentInputFromEvidence_ChatShape(t *testing.T) {
 	events := []studio.Event{
 		{Type: "prompt_sent", Surface: "chat", Payload: json.RawMessage(`{}`)},
-		{Type: "card_surfaced", Surface: "chat", Payload: json.RawMessage(`{"card_id":"sift_craap"}`)},
+		{Type: "card_surfaced", Surface: "chat", Payload: json.RawMessage(`{"card_id":"craap"}`)},
 	}
-	cards := []sqlc.CardInstance{{CardID: "sift_craap", Status: "completed"}}
+	cards := []sqlc.CardInstance{{CardID: "craap", Status: "completed"}}
 	in := buildAssessmentInputFromEvidence(events, cards)
 	if len(in.GateProgress) != 0 || len(in.WordCounts) != 0 || in.GraphSummary != "" {
 		t.Fatalf("chat evidence must carry no gate/wordcount/graph args: %+v", in)
 	}
-	if len(in.CardUses) != 1 || in.CardUses[0].CardID != "sift_craap" {
+	if len(in.CardUses) != 1 || in.CardUses[0].CardID != "craap" {
 		t.Fatalf("card evidence not mapped: %+v", in.CardUses)
 	}
 }

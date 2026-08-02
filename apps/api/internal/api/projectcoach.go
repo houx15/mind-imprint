@@ -62,7 +62,7 @@ type coachProposalDTO struct {
 // review IMPORTANT 1). Today only WritingBlock renders it, so the gate is
 // writing-only; forming/proposal_review/reflection can be added the moment their
 // rooms render CoachProposal + wire persist. The classifier's vocabulary
-// (fact-opinion-value / certainty-spectrum / steelman) is writing-native anyway.
+// (fact-opinion-value / concession) is writing-native anyway.
 // #18: forming, proposal_review and 文献库(find_sources) join writing — the
 // coach may offer a thinking-card in those rooms too. The gate MUST stay equal
 // to the set of surfaces whose CLIENT renders the CoachProposal chip (PlanBlock

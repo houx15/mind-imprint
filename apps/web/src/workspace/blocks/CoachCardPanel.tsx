@@ -17,12 +17,12 @@ import { Icon } from "../Icon";
 // resource-finding card (rabbit-hole, elsewhere). The writing room has its own
 // deck in WritingBlock. The server mirrors every summonable id in
 // card_persist.go's persistable allowlist.
-export const FORMING_DECK = ["question-card", "framing", "perspective-matrix", "search-plan"];
+export const FORMING_DECK = ["question-card", "perspective-matrix", "search-plan"];
 export const READING_DECK = ["fact-opinion-value", "perspective-matrix"];
 // The three general thinking cards the cross-phase proposer may offer
 // (card_persist.go coachProposableCards) — kept as the default when no
 // phase deck is passed.
-export const THINKING_DECK = ["fact-opinion-value", "certainty-spectrum", "steelman"];
+export const THINKING_DECK = ["fact-opinion-value", "concession"];
 
 export function CoachCardPanel({
   projectId,

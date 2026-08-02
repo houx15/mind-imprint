@@ -12,7 +12,7 @@
   "age_band": ["DP"],
   "interaction_type": "回放验证卡",
   "rubric_dims": ["D6"],
-  "related": ["knower-perspective", "certainty-spectrum", "checkpoint"],
+  "related": ["knower-perspective"],
   "body_status": "full",
   "rubric_tags": ["D6"],
   "steps": [

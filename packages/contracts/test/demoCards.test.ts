@@ -1,10 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { CardSpec } from "../src/cardSpec";
-import siftCraap from "../cards/sift_craap.json";
 import concession from "../cards/concession.json";
 
 describe("demo cards carry routing metadata", () => {
-  for (const [key, raw] of Object.entries({ sift_craap: siftCraap, concession })) {
+  for (const [key, raw] of Object.entries({ concession })) {
     it(`${key} is valid with metadata + body_status full`, () => {
       const p = CardSpec.safeParse(raw);
       expect(p.success).toBe(true);

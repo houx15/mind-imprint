@@ -12,7 +12,7 @@
   "age_band": ["DP"],
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D4", "D5"],
-  "related": ["framing", "fact-opinion-value", "belief-spectrum"],
+  "related": ["fact-opinion-value", "belief-spectrum"],
   "body_status": "full",
   "rubric_tags": ["D4", "D5"],
   "steps": [

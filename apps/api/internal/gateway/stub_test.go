@@ -9,7 +9,7 @@ func TestStubProviderReplaysScript(t *testing.T) {
 	script := []StreamEvent{
 		{Kind: EventTextDelta, TextDelta: "你好"},
 		{Kind: EventTextDelta, TextDelta: "，我们一起核查。"},
-		{Kind: EventToolUse, ToolUse: &StreamToolUse{ID: "tc_1", Name: "summon_card", ArgsJSON: `{"card_id":"sift_craap","reason":"r","nudge_text":"n"}`}},
+		{Kind: EventToolUse, ToolUse: &StreamToolUse{ID: "tc_1", Name: "summon_card", ArgsJSON: `{"card_id":"craap","reason":"r","nudge_text":"n"}`}},
 		{Kind: EventUsage, Usage: &ChatUsage{InputTokens: 120, OutputTokens: 45}},
 		{Kind: EventDone, StopReason: StopToolCall},
 	}

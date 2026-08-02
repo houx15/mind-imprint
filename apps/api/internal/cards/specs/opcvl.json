@@ -12,7 +12,7 @@
   "trigger_keywords": ["史料", "来源分析", "OPCVL", "这张海报", "历史材料", "价值和局限"],
   "interaction_type": "步骤引导卡",
   "rubric_dims": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
-  "related": ["source-map", "fact-opinion-value", "ai-boundary"],
+  "related": ["fact-opinion-value", "ai-boundary"],
   "body_status": "full",
   "rubric_tags": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
   "steps": [

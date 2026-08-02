@@ -12,7 +12,7 @@
   "age_band": ["MYP", "DP"],
   "interaction_type": "步骤引导卡",
   "rubric_dims": ["D2", "D3"],
-  "related": ["craap", "money-trail", "source-map"],
+  "related": ["craap", "money-trail"],
   "body_status": "full",
   "rubric_tags": ["D2", "D3"],
   "primitive": "compare",

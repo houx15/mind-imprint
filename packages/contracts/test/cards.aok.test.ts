@@ -1,13 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { CardSpec } from "../src/cardSpec";
 import opcvl from "../cards/opcvl.json";
-import scienceKnowing from "../cards/science-knowing.json";
-import aokMethods from "../cards/aok-methods.json";
 
 const batch = {
   "opcvl": opcvl,
-  "science-knowing": scienceKnowing,
-  "aok-methods": aokMethods,
 };
 
 describe("AOK cards", () => {

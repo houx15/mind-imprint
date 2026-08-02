@@ -30,9 +30,9 @@ func TestCountDeclaration_CountersFromExistingData(t *testing.T) {
 			{ID: uuid.New(), Action: "reject"},
 		},
 		Cards: []sqlc.CardInstance{
-			{ID: c1, CardID: "sift_craap"},
+			{ID: c1, CardID: "craap"},
 			{ID: c2, CardID: "concession"},
-			{ID: c3, CardID: "steelman"},
+			{ID: c3, CardID: "toulmin"},
 		},
 		Interventions: []sqlc.Intervention{
 			// Links c1 → c1 is 提示后; c2/c3 are unlinked → 自发.
@@ -91,9 +91,9 @@ func TestCountDeclaration_AgreesWithLiveProjection(t *testing.T) {
 	c1, c2, c3, c4 := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	d := studio.ProjectData{
 		Cards: []sqlc.CardInstance{
-			{ID: c1, CardID: "sift_craap"},
+			{ID: c1, CardID: "craap"},
 			{ID: c2, CardID: "concession"},
-			{ID: c3, CardID: "steelman"},
+			{ID: c3, CardID: "toulmin"},
 			{ID: c4, CardID: "perspective-matrix"},
 		},
 		Interventions: []sqlc.Intervention{

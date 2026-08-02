@@ -35,8 +35,7 @@
     "D6"
   ],
   "related": [
-    "ethics-lenses",
-    "source-map"
+    "ethics-lenses"
   ],
   "body_status": "full",
   "reading_lens": {
@@ -45,8 +44,7 @@
     "selection_hint": "找“谁可以做什么、谁负责、如何申诉”。",
     "example_focus": "规则是否兼顾权利、责任和程序",
     "method_ids": [
-      "ethics-lenses",
-      "source-map"
+      "ethics-lenses"
     ]
   },
   "steps": [

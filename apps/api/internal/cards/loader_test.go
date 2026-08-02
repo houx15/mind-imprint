@@ -14,8 +14,8 @@ func TestCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Catalog: %v", err)
 	}
-	if len(specs) != 45 {
-		t.Fatalf("catalog has %d specs, want 45", len(specs))
+	if len(specs) != 34 {
+		t.Fatalf("catalog has %d specs, want 34", len(specs))
 	}
 
 	seen := map[string]bool{}
@@ -152,26 +152,24 @@ func TestSpecParsesSortScaleMatrixParams(t *testing.T) {
 }
 
 func TestLegacyCardStillParsesWithZeroValuedNewParams(t *testing.T) {
-	s, ok := ByID("steelman")
+	s, ok := ByID("concession")
 	if !ok {
-		t.Fatal("steelman spec missing")
+		t.Fatal("concession spec missing")
 	}
 	if len(s.Params.Buckets) != 0 || len(s.Params.Cols) != 0 || s.Params.MinItems != 0 {
 		t.Fatalf("legacy card picked up C2 params: %+v", s.Params)
 	}
 }
 
-// TestNewPrimitiveCardsAreWiredConsistently proves the three C2 sort/scale/
-// matrix bindings authored onto fact-opinion-value, certainty-spectrum, and
-// the new perspective-matrix card are internally consistent: primitive kind,
-// completion predicate, declared vocabulary/columns, and (for the matrix)
-// the perspectives graph effect.
+// TestNewPrimitiveCardsAreWiredConsistently proves the C2 sort/matrix
+// bindings authored onto fact-opinion-value and the perspective-matrix card
+// are internally consistent: primitive kind, completion predicate, declared
+// vocabulary/columns, and (for the matrix) the perspectives graph effect.
 func TestNewPrimitiveCardsAreWiredConsistently(t *testing.T) {
 	for _, tc := range []struct {
 		id, primitive, predicate string
 	}{
 		{"fact-opinion-value", "sort", "items_bucketed"},
-		{"certainty-spectrum", "scale", "items_bucketed"},
 		{"perspective-matrix", "matrix", "matrix_complete"},
 	} {
 		s, ok := ByID(tc.id)
@@ -192,9 +190,9 @@ func TestNewPrimitiveCardsAreWiredConsistently(t *testing.T) {
 		}
 	}
 
-	// sort/scale: every completion tag must be a declared bucket, else the
+	// sort: every completion tag must be a declared bucket, else the
 	// card can never complete.
-	for _, id := range []string{"fact-opinion-value", "certainty-spectrum"} {
+	for _, id := range []string{"fact-opinion-value"} {
 		s, _ := ByID(id)
 		declared := map[string]bool{}
 		for _, b := range s.Params.Buckets {

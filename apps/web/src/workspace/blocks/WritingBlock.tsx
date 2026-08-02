@@ -1377,7 +1377,7 @@ const RAIL_GREETING: ChatMsg = {
 // persist through /cards/persist's writing-deck allowlist). #17 adds the two
 // knowledge cards that are writing/checking tools (not source-finding):
 // 确定度光谱 (match hedging to certainty) and 事实/观点/价值判断 (sort a passage).
-const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "steelman", "certainty-spectrum", "fact-opinion-value"];
+const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "fact-opinion-value"];
 
 function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean; onCardArtifact: (text: string) => void }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);

@@ -33,10 +33,10 @@ func TestAnthropicStreamsTextThenToolUse(t *testing.T) {
 		`data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"summon_card","input":{}}}`,
 		``,
 		`event: content_block_delta`,
-		`data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"card_id\":\"sift"}}`,
+		`data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"card_id\":\"cr"}}`,
 		``,
 		`event: content_block_delta`,
-		`data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"_craap\",\"reason\":\"r\",\"nudge_text\":\"n\"}"}}`,
+		`data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"aap\",\"reason\":\"r\",\"nudge_text\":\"n\"}"}}`,
 		``,
 		`event: content_block_stop`,
 		`data: {"type":"content_block_stop","index":1}`,
@@ -86,7 +86,7 @@ func TestAnthropicStreamsTextThenToolUse(t *testing.T) {
 	if tool == nil || tool.Name != "summon_card" || tool.ID != "toolu_1" {
 		t.Fatalf("tool use missing/wrong: %+v", tool)
 	}
-	if tool.ArgsJSON != `{"card_id":"sift_craap","reason":"r","nudge_text":"n"}` {
+	if tool.ArgsJSON != `{"card_id":"craap","reason":"r","nudge_text":"n"}` {
 		t.Fatalf("reassembled args = %q", tool.ArgsJSON)
 	}
 	if usage == nil || usage.InputTokens != 120 || usage.OutputTokens != 45 {

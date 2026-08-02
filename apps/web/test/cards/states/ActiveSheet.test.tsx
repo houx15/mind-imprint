@@ -6,7 +6,7 @@ import { ActiveSheet } from "@/cards/states/ActiveSheet";
 
 const reg = loadRegistry();
 const props = () => ({
-  card: reg.sift_craap!, values: {},
+  card: reg.concession!, values: {},
   onField: vi.fn(), onExpandStep: vi.fn(), onNoteOpen: vi.fn(), onSubmit: vi.fn(), onClose: vi.fn(),
 });
 
@@ -24,7 +24,7 @@ describe("ActiveSheet", () => {
   it("shows the takeover header and the card name", () => {
     render(<ActiveSheet {...props()} />);
     expect(screen.getByText("现在轮到你想")).toBeInTheDocument();
-    expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+    expect(screen.getByText("让步段 · 以退为进")).toBeInTheDocument();
   });
   it("forwards the per-step 方法 panel's expand to onNoteOpen", async () => {
     const p = { ...props(), card: methodologyCard };

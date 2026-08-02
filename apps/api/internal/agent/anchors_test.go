@@ -12,7 +12,7 @@ import (
 
 func annotationSpec() cards.Spec {
 	return cards.Spec{
-		ID: "sift_craap", Name: "CRAAP", Mode: "annotation",
+		ID: "craap", Name: "CRAAP", Mode: "annotation",
 		Steps: []cards.Step{{Key: "authority", Title: "权威性 · Authority"}, {Key: "accuracy", Title: "准确性 · Accuracy"}},
 	}
 }

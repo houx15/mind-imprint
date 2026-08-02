@@ -12,7 +12,7 @@
   "trigger_keywords": ["该不该", "对不对", "道德", "应不应该", "公平吗", "可以这样做吗"],
   "interaction_type": "选择追问卡",
   "rubric_dims": ["D9"],
-  "related": ["ethics-roleplay", "ai-decision-tree", "fact-opinion-value"],
+  "related": ["ai-decision-tree", "fact-opinion-value"],
   "body_status": "full",
   "rubric_tags": ["D9"],
   "steps": [

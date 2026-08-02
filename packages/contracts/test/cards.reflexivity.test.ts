@@ -2,12 +2,10 @@ import { describe, it, expect } from "vitest";
 import { CardSpec } from "../src/cardSpec";
 import knowerPerspective from "../cards/knower-perspective.json";
 import metacognition from "../cards/metacognition.json";
-import checkpoint from "../cards/checkpoint.json";
 
 const batch = {
   "knower-perspective": knowerPerspective,
   "metacognition": metacognition,
-  "checkpoint": checkpoint,
 };
 
 describe("反身性与元认知 cards", () => {

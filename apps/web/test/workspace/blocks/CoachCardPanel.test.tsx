@@ -10,7 +10,7 @@ describe("CoachCardPanel", () => {
     render(
       <CoachCardPanel
         projectId="p1"
-        proposal={{ cardId: "steelman", reason: "one_sided", nudgeText: "要不要打开「先说对方最强的版本」？" }}
+        proposal={{ cardId: "concession", reason: "one_sided", nudgeText: "要不要打开「先说对方最强的版本」？" }}
         onProposalConsumed={onConsumed}
       />,
     );
@@ -22,11 +22,10 @@ describe("CoachCardPanel", () => {
 
   it("self-summon: the card shelf is always visible (#8), defaulting to the thinking deck", () => {
     render(<CoachCardPanel projectId="p1" proposal={null} onProposalConsumed={() => {}} />);
-    // #8 · the deck is no longer hidden behind a 工具卡 toggle — the three
+    // #8 · the deck is no longer hidden behind a 工具卡 toggle — the
     // default thinking cards show as tappable chips immediately.
     expect(screen.getByRole("button", { name: "事实/观点/价值判断卡" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "确定度光谱卡" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "让步段·反方最强卡" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "让步段 · 以退为进" })).toBeTruthy();
   });
 
   it("honors a phase-scoped deck (#17/#18)", () => {
@@ -34,6 +33,6 @@ describe("CoachCardPanel", () => {
     expect(screen.getByRole("button", { name: "提问卡" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "检索方向审视" })).toBeTruthy();
     // a card outside the passed deck is not offered here
-    expect(screen.queryByRole("button", { name: "确定度光谱卡" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "事实/观点/价值判断卡" })).toBeNull();
   });
 });

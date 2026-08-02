@@ -94,7 +94,7 @@ func TestGetAIUseDraft_CountsAcceptedCoachCard(t *testing.T) {
 
 	rrP := httptest.NewRecorder()
 	h.ServeHTTP(rrP, withCookie(httptest.NewRequest("POST", base+"/cards/persist",
-		strings.NewReader(`{"card_id":"certainty-spectrum","field_values":{"claim":"有限肯定"},"event_trace":[]}`)), cookie))
+		strings.NewReader(`{"card_id":"fact-opinion-value","field_values":{"claim":"有限肯定"},"event_trace":[]}`)), cookie))
 	if rrP.Code != http.StatusOK {
 		t.Fatalf("persist = %d — %s", rrP.Code, rrP.Body)
 	}

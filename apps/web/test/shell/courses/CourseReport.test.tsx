@@ -230,12 +230,12 @@ describe("CourseReport", () => {
   it("renders one pill per collected card, named via CARD_REGISTRY", async () => {
     (api.getCourseSession as any).mockResolvedValue({
       id: "sess1", courseId: "co1", phase: "done", phaseTitle: "完成", status: "finished",
-      messages: [], openCards: [], collectedCards: [{ cardId: "sift_craap" }],
+      messages: [], openCards: [], collectedCards: [{ cardId: "concession" }],
     });
     render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
     await screen.findByText("能力评估");
     expect(await screen.findByText("收集到的工具")).toBeInTheDocument();
-    expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+    expect(screen.getByText("让步段 · 以退为进")).toBeInTheDocument();
   });
 
   // A1: 工具收集 counted course.tools_count — the static authored catalogue
@@ -249,7 +249,7 @@ describe("CourseReport", () => {
     (api.getCourse as any).mockResolvedValue({ ...course, tools_count: 4 });
     (api.getCourseSession as any).mockResolvedValue({
       id: "sess1", courseId: "co1", phase: "done", phaseTitle: "完成", status: "finished",
-      messages: [], openCards: [], collectedCards: [{ cardId: "sift_craap" }],
+      messages: [], openCards: [], collectedCards: [{ cardId: "concession" }],
     });
 
     render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
@@ -261,7 +261,7 @@ describe("CourseReport", () => {
     // Agreement check: the tile's count must equal the number of pills the
     // 收集到的工具 block actually renders below it.
     expect(await screen.findByText("收集到的工具")).toBeInTheDocument();
-    expect(screen.getByText("SIFT×CRAAP 信息核查")).toBeInTheDocument();
+    expect(screen.getByText("让步段 · 以退为进")).toBeInTheDocument();
   });
 
   // No fabricated empty state — the design has none, and an empty block would

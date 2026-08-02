@@ -12,7 +12,7 @@
   "age_band": ["DP"],
   "interaction_type": "分类标注卡",
   "rubric_dims": ["D2", "D4", "D5"],
-  "related": ["money-trail", "multimodal-decode", "science-knowing"],
+  "related": ["money-trail", "multimodal-decode"],
   "body_status": "full",
   "rubric_tags": ["D2", "D4", "D5"],
   "steps": [

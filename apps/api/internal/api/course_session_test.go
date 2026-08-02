@@ -673,7 +673,7 @@ func TestGetCourseSession_CarriesCollectedCards(t *testing.T) {
 	for _, c := range []struct{ cardID, status string }{
 		{"craap", "completed"},
 		{"concession", "skipped"},
-		{"steelman", "proposed"},
+		{"toulmin", "proposed"},
 	} {
 		if _, err := q.CreateSessionCardInstance(ctx, sqlc.CreateSessionCardInstanceParams{
 			SessionID: sid, CardID: c.cardID, Status: c.status,

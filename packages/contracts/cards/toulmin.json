@@ -11,7 +11,7 @@
   "age_band": ["MYP", "DP"],
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D4", "D5", "D7"],
-  "related": ["argument-map", "steelman", "concession"],
+  "related": ["argument-map", "concession"],
   "body_status": "full",
   "rubric_tags": ["D4", "D5", "D7"],
   "primitive": "graph",

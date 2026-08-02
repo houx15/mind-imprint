@@ -12,7 +12,7 @@
   "age_band": ["DP"],
   "interaction_type": "选择追问卡",
   "rubric_dims": ["D6"],
-  "related": ["framing", "metacognition", "belief-spectrum"],
+  "related": ["metacognition", "belief-spectrum"],
   "body_status": "full",
   "rubric_tags": ["D6"],
   "steps": [

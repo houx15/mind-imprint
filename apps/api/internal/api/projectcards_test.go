@@ -26,11 +26,10 @@ import (
 
 // createProjectCardForTest inserts a card_instance scoped to the seeded demo
 // project (…0101) / task (…0100) via CreateProjectCardInstance, and returns
-// its id as a string for building request paths. Uses the "craap" spec
-// (not "sift_craap") — Task 5's submit test needs a card whose spec
-// actually declares completion predicates + graph_effects so a fully
-// answered submission can mint an evidence node; "sift_craap" declares
-// neither.
+// its id as a string for building request paths. Uses the "craap" spec —
+// Task 5's submit test needs a card whose spec actually declares completion
+// predicates + graph_effects so a fully answered submission can mint an
+// evidence node; a field-only card (e.g. concession) declares neither.
 func createProjectCardForTest(t *testing.T, pool *pgxpool.Pool) string {
 	t.Helper()
 	q := sqlc.New(pool)

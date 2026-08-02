@@ -12,7 +12,7 @@
   "trigger_keywords": ["能不能用 AI", "这样用可以吗", "算作弊吗", "AI 帮我", "该不该交给 AI"],
   "interaction_type": "步骤引导卡",
   "rubric_dims": ["D8", "D9"],
-  "related": ["ai-collaboration", "ethics-lenses", "learning-report"],
+  "related": ["ethics-lenses", "learning-report"],
   "body_status": "full",
   "rubric_tags": ["D8", "D9"],
   "steps": [

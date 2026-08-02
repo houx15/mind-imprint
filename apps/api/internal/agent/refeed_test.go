@@ -1,77 +1,77 @@
 package agent
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"mindimprint/api/internal/cards"
 )
 
-func mustSift(t *testing.T) cards.Spec {
+func mustMoney(t *testing.T) cards.Spec {
 	t.Helper()
-	s, ok := cards.ByID("sift_craap")
+	s, ok := cards.ByID("money-trail")
 	if !ok {
-		t.Fatal("sift_craap not in catalog")
+		t.Fatal("money-trail not in catalog")
 	}
 	return s
 }
 
 func TestRefeedSkippedIsMinimal(t *testing.T) {
-	spec := mustSift(t)
-	p := SerializeCardForRefeed(spec, CardInstance{CardID: "sift_craap", Status: "skipped"})
-	b, err := json.Marshal(p)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+	spec := mustMoney(t)
+	p := SerializeCardForRefeed(spec, CardInstance{CardID: "money-trail", Status: "skipped"})
+	if p.CardID != "money-trail" || p.CardName != spec.Name || p.Status != "skipped" {
+		t.Fatalf("skipped payload wrong: %+v", p)
 	}
-	wantBytes, err := os.ReadFile(filepath.Join("testdata", "refeed_sift_skipped.json"))
-	if err != nil {
-		t.Fatalf("read golden: %v", err)
-	}
-	if !jsonEqual(t, b, wantBytes) {
-		t.Fatalf("skipped refeed mismatch.\n got: %s\nwant: %s", b, wantBytes)
+	if len(p.Steps) != 0 {
+		t.Fatalf("skipped payload must carry no steps, got %d", len(p.Steps))
 	}
 }
 
-func TestRefeedCompletedMatchesGolden(t *testing.T) {
-	spec := mustSift(t)
+func TestRefeedCompletedPairsLabelsWithValues(t *testing.T) {
+	spec := mustMoney(t)
 	inst := CardInstance{
-		CardID: "sift_craap",
+		CardID: "money-trail",
 		Status: "completed",
 		FieldValues: map[string]map[string]any{
-			"sift": {
-				"stop": "证明中国让地球更可持续",
-				"sources": []any{
-					map[string]any{"name": "NASA", "type": "官方", "verdict": "可信"},
-					map[string]any{"name": "Nature Sustainability", "type": "学者/机构", "verdict": "可信"},
+			"main": {
+				"claim": "糖对健康无害",
+				"chain": []any{
+					map[string]any{"who": "糖业协会", "role": "资助者", "source": "会员企业会费"},
+					map[string]any{"who": "某大学实验室", "role": "发布者", "source": "协会资助的课题"},
 				},
-				"better": "原始研究来自 NASA / Nature Sustainability",
-				"trace":  "https://www.nature.com/...",
+				"alignment": "一致",
+				"meaning":   "出资方利益与结论一致，需找独立来源交叉验证。",
 			},
 		},
 	}
 	p := SerializeCardForRefeed(spec, inst)
-	b, err := json.Marshal(p)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+	if p.Status != "completed" || p.CardID != "money-trail" {
+		t.Fatalf("payload identity/status wrong: %+v", p)
 	}
-	wantBytes, err := os.ReadFile(filepath.Join("testdata", "refeed_sift_completed.json"))
-	if err != nil {
-		t.Fatalf("read golden: %v", err)
+	if len(p.Steps) != 1 || p.Steps[0].Title != "资金链溯源" {
+		t.Fatalf("steps wrong: %+v", p.Steps)
 	}
-	if !jsonEqual(t, b, wantBytes) {
-		t.Fatalf("completed refeed mismatch.\n got: %s\nwant: %s", b, wantBytes)
+	answers := p.Steps[0].Answers
+	// the claim text field is paired with its label
+	if answers[0].Label != "要溯源的说法是什么？" || answers[0].Value != "糖对健康无害" {
+		t.Fatalf("claim answer wrong: %+v", answers[0])
+	}
+	// the repeatable_group is an array of {item-label: value}
+	rows, ok := answers[1].Value.([]map[string]any)
+	if !ok {
+		t.Fatalf("chain value not []map: %T", answers[1].Value)
+	}
+	if rows[0]["节点（谁）"] != "糖业协会" || rows[0]["这是哪一环"] != "资助者" || rows[0]["它的钱 / 利益从哪来？"] != "会员企业会费" {
+		t.Fatalf("remap wrong: %v", rows[0])
 	}
 }
 
 func TestRefeedOmitsEmptyFields(t *testing.T) {
-	spec := mustSift(t)
+	spec := mustMoney(t)
 	inst := CardInstance{
-		CardID: "sift_craap",
+		CardID: "money-trail",
 		Status: "completed",
 		FieldValues: map[string]map[string]any{
-			"sift": {"stop": "x"},
+			"main": {"claim": "x"},
 		},
 	}
 	p := SerializeCardForRefeed(spec, inst)
@@ -87,14 +87,14 @@ func TestRefeedOmitsEmptyFields(t *testing.T) {
 }
 
 func TestRefeedRepeatableGroupRemap(t *testing.T) {
-	spec := mustSift(t)
+	spec := mustMoney(t)
 	inst := CardInstance{
-		CardID: "sift_craap",
+		CardID: "money-trail",
 		Status: "completed",
 		FieldValues: map[string]map[string]any{
-			"sift": {
-				"sources": []any{
-					map[string]any{"name": "NASA", "type": "官方", "verdict": "可信"},
+			"main": {
+				"chain": []any{
+					map[string]any{"who": "糖业协会", "role": "资助者", "source": "会员企业会费"},
 				},
 			},
 		},
@@ -104,7 +104,7 @@ func TestRefeedRepeatableGroupRemap(t *testing.T) {
 	if !ok {
 		t.Fatalf("repeatable value not []map: %T", p.Steps[0].Answers[0].Value)
 	}
-	if rows[0]["来源"] != "NASA" || rows[0]["类型"] != "官方" || rows[0]["可信？"] != "可信" {
+	if rows[0]["节点（谁）"] != "糖业协会" || rows[0]["这是哪一环"] != "资助者" || rows[0]["它的钱 / 利益从哪来？"] != "会员企业会费" {
 		t.Fatalf("remap wrong: %v", rows[0])
 	}
 }
@@ -113,9 +113,9 @@ func TestRefeedRepeatableGroupRemap(t *testing.T) {
 // its answers live on `anchors` (field_values stays empty), and they must reach
 // the refeed payload — otherwise "摘要回灌" drops the student's actual thinking.
 func TestRefeedFoldsAnnotationAnchors(t *testing.T) {
-	spec := mustSift(t)
+	spec := mustMoney(t)
 	inst := CardInstance{
-		CardID: "sift_craap",
+		CardID: "money-trail",
 		Status: "completed",
 		// annotation cards leave field_values empty; the student's answers ride anchors.
 		Anchors: []Anchor{
@@ -158,19 +158,4 @@ func TestAnchorStepsLabelsFallBackToQuoteBeforeDimension(t *testing.T) {
 	if steps[1].Answers[0].Label != "观点" {
 		t.Fatalf("step1 label = %q, want 观点", steps[1].Answers[0].Label)
 	}
-}
-
-// jsonEqual compares two JSON byte slices semantically (key order independent).
-func jsonEqual(t *testing.T, a, b []byte) bool {
-	t.Helper()
-	var x, y any
-	if err := json.Unmarshal(a, &x); err != nil {
-		t.Fatalf("unmarshal a: %v", err)
-	}
-	if err := json.Unmarshal(b, &y); err != nil {
-		t.Fatalf("unmarshal b: %v", err)
-	}
-	ab, _ := json.Marshal(x)
-	bb, _ := json.Marshal(y)
-	return string(ab) == string(bb)
 }

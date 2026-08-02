@@ -73,18 +73,18 @@ func TestProjectStations_S4Current(t *testing.T) {
 
 func TestProjectStations_GateProgress(t *testing.T) {
 	sk := writingSkill(t)
-	// build_argument gate: 1 machine (node_present concession) + 2
-	// student_written + 1 human = 4 items. no_unsupported_claim was removed in
-	// the N6 sweep (warn-not-block: it warns via the coach's D5 nudge instead
-	// of being a blocking machine item).
+	// build_argument gate: 1 machine (node_present concession) + 1
+	// student_written (warrants) + 1 human = 3 items. no_unsupported_claim was
+	// removed in the N6 sweep (warn-not-block); the steelman student_written
+	// item was removed when the steelman card was retired (batch-5).
 	d := ProjectData{Plan: planNode(`["decode_task"]`)}
 	stations, _, err := projectStations(sk, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 4 {
-		t.Fatalf("S4 gate = %+v, want total 4", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 3 {
+		t.Fatalf("S4 gate = %+v, want total 3", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (empty graph)", s4.Gate.Passed)
@@ -120,8 +120,8 @@ func TestProjectStations_GateProgress_NoVacuousPassOnNonEmptyGraph(t *testing.T)
 		t.Fatalf("current = %q, want S4", current)
 	}
 	s4 := stations[4]
-	if s4.Gate == nil || s4.Gate.Total != 4 {
-		t.Fatalf("S4 gate = %+v, want total 4", s4.Gate)
+	if s4.Gate == nil || s4.Gate.Total != 3 {
+		t.Fatalf("S4 gate = %+v, want total 3", s4.Gate)
 	}
 	if s4.Gate.Passed != 0 {
 		t.Fatalf("S4 passed = %d, want 0 (no concession/claim/evidence nodes yet — nothing passes vacuously on a non-empty graph)", s4.Gate.Passed)

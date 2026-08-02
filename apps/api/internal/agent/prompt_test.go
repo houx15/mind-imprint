@@ -12,7 +12,7 @@ import (
 func TestBuildCatalogTextFormatsOneEntry(t *testing.T) {
 	catalog := []cards.Spec{
 		{
-			ID:               "sift_craap",
+			ID:               "craap",
 			Category:         "信息素养",
 			Name:             "SIFT×CRAAP 信息核查",
 			Purpose:          "先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)",
@@ -22,7 +22,7 @@ func TestBuildCatalogTextFormatsOneEntry(t *testing.T) {
 	}
 	got := BuildCatalogText(catalog)
 	want := "【信息素养】\n" +
-		"· sift_craap｜SIFT×CRAAP 信息核查（步骤引导卡）\n" +
+		"· craap｜SIFT×CRAAP 信息核查（步骤引导卡）\n" +
 		"   何时用：学生准备直接采信或引用一个网络来源，但还没核查出处\n" +
 		"   能帮他：先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)"
 	if got != want {

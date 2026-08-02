@@ -69,7 +69,7 @@
 
 ## 验收主动脉（端到端演示脚本）
 
-场景锚定 **Phoebe / 「中国是否让地球变得更可持续？」**：新建任务粘文章链接 → AI 调 `summon_card("sift_craap")` → 学生填 SIFT 四步溯源到 NASA / Nature Sustainability → 摘要回灌、一次只问一个 → 写论证撞反例（中国碳排放全球第一）→ AI 调 `summon_card("concession")` 完成让步段 → 过程树实时生长 → 评估那一刀跑出 rubric 评级 + 过程叙述，以「你的思维印记」呈现。mockup 用真实内容，别用 lorem ipsum。
+场景锚定 **Phoebe / 「中国是否让地球变得更可持续？」**：新建任务粘文章链接 → AI 调 `summon_card("craap")` → 学生用 CRAAP 对来源做溯源体检，追到 NASA / Nature Sustainability → 摘要回灌、一次只问一个 → 写论证撞反例（中国碳排放全球第一）→ AI 调 `summon_card("concession")` 完成让步段 → 过程树实时生长 → 评估那一刀跑出 rubric 评级 + 过程叙述，以「你的思维印记」呈现。mockup 用真实内容，别用 lorem ipsum。
 
 ---
 

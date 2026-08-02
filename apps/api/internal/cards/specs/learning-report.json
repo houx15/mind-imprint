@@ -11,7 +11,7 @@
   "trigger_keywords": ["交作业", "提交", "声明", "反思", "报告", "我是怎么做的"],
   "interaction_type": "报告生成卡",
   "rubric_dims": ["D6", "D8", "D9"],
-  "related": ["metacognition", "checkpoint", "ai-decision-tree", "rabbit-hole"],
+  "related": ["metacognition", "ai-decision-tree", "rabbit-hole"],
   "body_status": "full",
   "rubric_tags": ["D6", "D8", "D9"],
   "steps": [

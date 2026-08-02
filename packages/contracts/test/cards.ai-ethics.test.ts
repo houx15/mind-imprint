@@ -1,16 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { CardSpec } from "../src/cardSpec";
-import aiCollaboration from "../cards/ai-collaboration.json";
 import aiBoundary from "../cards/ai-boundary.json";
 import ethicsLenses from "../cards/ethics-lenses.json";
-import ethicsRoleplay from "../cards/ethics-roleplay.json";
 import aiDecisionTree from "../cards/ai-decision-tree.json";
 
 const batch = {
-  "ai-collaboration": aiCollaboration,
   "ai-boundary": aiBoundary,
   "ethics-lenses": ethicsLenses,
-  "ethics-roleplay": ethicsRoleplay,
   "ai-decision-tree": aiDecisionTree,
 };
 

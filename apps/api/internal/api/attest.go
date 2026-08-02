@@ -94,13 +94,13 @@ func slotHasText(nodes []sqlc.GraphNode, nodeType string) bool {
 	return false
 }
 
-// hasCompletedSteelmanCard reports whether the standalone 钢人卡 was completed.
-// That card has no graph_effects and mints no node, so without this a student
-// who did the steelman card and not the Toulmin counter slot would write a
-// steelman and get no credit for it. A SKIPPED card never counts.
-func hasCompletedSteelmanCard(cards []sqlc.CardInstance) bool {
+// hasCompletedConcessionCard reports whether the standalone 让步段卡 was
+// completed. That card mints no counter node, so without this a student who did
+// the concession card and not the Toulmin counter slot would engage the
+// opposing side and get no credit for it. A SKIPPED card never counts.
+func hasCompletedConcessionCard(cards []sqlc.CardInstance) bool {
 	for _, c := range cards {
-		if c.CardID == "steelman" && c.Status == "completed" {
+		if c.CardID == "concession" && c.Status == "completed" {
 			return true
 		}
 	}
@@ -143,8 +143,8 @@ func (a *API) attestS3S4(ctx context.Context, projectID uuid.UUID) {
 			"source_risk_notes": allArticlesHaveRiskNote(materials, nodes, edges),
 		},
 		"build_argument": {
-			"warrants": slotHasText(nodes, "warrant"),
-			"steelman": slotHasText(nodes, "counter") || hasCompletedSteelmanCard(cards),
+			"warrants":   slotHasText(nodes, "warrant"),
+			"concession": slotHasText(nodes, "counter") || hasCompletedConcessionCard(cards),
 		},
 	}
 

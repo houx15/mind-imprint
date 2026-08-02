@@ -12,7 +12,7 @@
   "age_band": ["DP"],
   "interaction_type": "画布导图卡",
   "rubric_dims": ["D2", "D3", "D9"],
-  "related": ["sift", "craap", "source-map"],
+  "related": ["sift", "craap"],
   "body_status": "full",
   "rubric_tags": ["D2", "D3", "D9"],
   "steps": [

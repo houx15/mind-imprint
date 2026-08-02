@@ -11,7 +11,7 @@
   "trigger_keywords": ["AI 说的对吗", "来源呢", "你确定吗", "引用", "数据是真的吗", "编的吧"],
   "interaction_type": "步骤引导卡",
   "rubric_dims": ["D9", "D3"],
-  "related": ["ai-collaboration", "sift", "opcvl"],
+  "related": ["sift", "opcvl"],
   "body_status": "full",
   "rubric_tags": ["D9", "D3"],
   "steps": [

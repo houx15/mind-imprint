@@ -23,8 +23,8 @@ func TestDeepSeekStreamsTextThenToolUse(t *testing.T) {
 	frames := strings.Join([]string{
 		`data: {"choices":[{"delta":{"content":"你好"}}]}`,
 		`data: {"choices":[{"delta":{"content":"，核查一下"}}]}`,
-		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"summon_card","arguments":"{\"card_id\":\"sift"}}]}}]}`,
-		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"_craap\",\"reason\":\"r\",\"nudge_text\":\"n\"}"}}]}}]}`,
+		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"summon_card","arguments":"{\"card_id\":\"cr"}}]}}]}`,
+		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"aap\",\"reason\":\"r\",\"nudge_text\":\"n\"}"}}]}}]}`,
 		`data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":120,"completion_tokens":45}}`,
 		`data: [DONE]`,
 		``,
@@ -64,7 +64,7 @@ func TestDeepSeekStreamsTextThenToolUse(t *testing.T) {
 	if tool == nil || tool.Name != "summon_card" {
 		t.Fatalf("tool use missing")
 	}
-	if tool.ArgsJSON != `{"card_id":"sift_craap","reason":"r","nudge_text":"n"}` {
+	if tool.ArgsJSON != `{"card_id":"craap","reason":"r","nudge_text":"n"}` {
 		t.Fatalf("reassembled args = %q", tool.ArgsJSON)
 	}
 	if usage == nil || usage.InputTokens != 120 || usage.OutputTokens != 45 {

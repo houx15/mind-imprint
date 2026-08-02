@@ -1,13 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { CardSpec } from "../src/cardSpec";
-import sourceMap from "../cards/source-map.json";
 import beliefSpectrum from "../cards/belief-spectrum.json";
-import corpusHook from "../cards/corpus-hook.json";
 
 const batch = {
-  "source-map": sourceMap,
   "belief-spectrum": beliefSpectrum,
-  "corpus-hook": corpusHook,
 };
 
 describe("溯源与多视角 cards", () => {

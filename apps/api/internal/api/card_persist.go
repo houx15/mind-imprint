@@ -26,8 +26,7 @@ import (
 // coach never proposes.
 var coachProposableCards = map[string]bool{
 	"fact-opinion-value": true,
-	"certainty-spectrum": true,
-	"steelman":           true,
+	"concession":         true,
 }
 
 // writingDeckCards is the allowlist of writing thinking-cards the STUDENT may
@@ -38,7 +37,6 @@ var writingDeckCards = map[string]bool{
 	"toulmin":      true,
 	"pee":          true,
 	"concession":   true,
-	"steelman":     true,
 	"argument-map": true,
 }
 
@@ -48,7 +46,6 @@ var writingDeckCards = map[string]bool{
 // card_instance + event — so 打开→填写→提交 is real; 印记 never fills them.
 var studioDeckCards = map[string]bool{
 	"question-card":      true, // 提问卡 — sharpen the research question
-	"framing":            true, // 语言框定卡 — frame the problem/scope
 	"perspective-matrix": true, // 视角对照矩阵 — who's affected / multiple views
 	"search-plan":        true, // 检索方向审视 — plan the search
 }

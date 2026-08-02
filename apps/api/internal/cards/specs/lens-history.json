@@ -35,8 +35,7 @@
     "D6"
   ],
   "related": [
-    "opcvl",
-    "source-map"
+    "opcvl"
   ],
   "body_status": "full",
   "reading_lens": {
@@ -45,8 +44,7 @@
     "selection_hint": "追问：它从什么时候开始，当时的条件是什么？",
     "example_focus": "结论依赖哪些时代与制度背景",
     "method_ids": [
-      "opcvl",
-      "source-map"
+      "opcvl"
     ]
   },
   "steps": [
