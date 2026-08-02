@@ -1,0 +1,2397 @@
+{
+  "id": "b-mid",
+  "title": "学术写作原来是这样",
+  "input_level": "mid",
+  "source_docs": {
+    "raw": "B_原始_学术写作原来是这样_副本.docx",
+    "design": "B_AI设计_学术写作_AI辅助课程设计_含SIFT.docx"
+  },
+  "course_goal": "学生能运用SIFT核查法评估信源，拆解良构论证，并在矛盾证据中写出带让步段的限定式议论文。",
+  "teaching_thread": "从一篇公众号推文出发，依次完成纵向溯源、横向阅读、信源权威评估、文献精读、良构论证拆解、处理矛盾与让步段写作、元认知反思，逐步掌握学术写作的核心批判性思维技能。",
+  "steps": [
+    {
+      "id": "step_01",
+      "title": "导入：名校书面作品要求与任务发布",
+      "purpose": "建立学习动机：让学生理解名校看重思考痕迹而非答案，并发布真实写作任务，制造认知冲突。",
+      "student_action": "理解本课需要先判断材料是否可靠，再决定如何使用。",
+      "principle": "动机激发：通过真实任务和名校要求建立学习必要性。",
+      "ai_role": "只呈现任务张力和学习必要性，不提前处理后续方法步骤的核心材料。",
+      "restraint": "AI不评价学生初始想法，不暗示答案方向。",
+      "teaching_flow": [
+        "引出核心观点：名校要的是思考痕迹，不是正确答案。",
+        "发布写作任务：中国是否让地球更可持续？"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "写作任务发布"
+      ],
+      "avoid": [
+        "直接给出推文可信度判断",
+        "提前引入SIFT方法细节"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_01",
+          "role": "展示哈佛书面作品要求，建立动机",
+          "use_when": "导入环节展示名校要求"
+        },
+        {
+          "asset_id": "img_12",
+          "role": "展示剑桥书面作品要求，强化动机",
+          "use_when": "导入环节展示名校要求"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出名校看重思考过程",
+        "学生意识到公众号推文不能直接采信"
+      ],
+      "interaction_plan": [
+        {
+          "id": "int_01",
+          "goal": "学生能说出名校重视思考痕迹而非答案",
+          "type": "single_choice",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        },
+        {
+          "id": "int_02",
+          "goal": "学生意识到公众号推文不能直接采信",
+          "type": "single_choice",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_intro",
+          "goal": "理解学术写作的重要性",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "名校要的是思考痕迹，不是正确答案。今天任务：中国是否让地球更可持续？",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_01",
+          "type": "image",
+          "title": "哈佛大学招生网站中“Documents & Articles”板块的书面作品要求截图",
+          "src": "/api/oss/read?objectKey=courses%2F0d64b704-3683-45e5-9caa-5a1ffc3b8dbd.webp",
+          "note": "这张图展示哈佛招生页面对学术性文稿、研究作品和创意写作等“Documents & Articles”的提交要求，适合用来引导学生理解：名校看重的不只是结论，而是写作中的证据、来源意识和思考痕迹，也能帮助学生建立“学术写作需要可核查材料支撑”的任务意识。\n建议用途：用于课程导入页、动机建立环节或案例开场；可在讲解“Written Work / 书面作品”时配图展示，也可放在讨论“为什么学术写作要展示思考过程”这一页。\n标签：哈佛招生、书面作品、学术写作、思考痕迹、申请材料\n可见内容：页面顶部显示 HARVARD COLLEGE Admissions & Financial Aid；中间高亮区域标题为 Documents & Articles，正文说明 scholarly articles、research、creative writing 等材料应通过 Applicant Status Portal 提交；右侧可见 Visit Harvard 等栏目。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.876Z",
+          "updatedAt": "2026-07-29T01:51:42.814Z"
+        },
+        {
+          "id": "img_12",
+          "type": "image",
+          "title": "剑桥大学本科申请“written work”要求截图",
+          "src": "/api/oss/read?objectKey=courses%2Fac93f410-47a5-4add-9e43-9d585c879bc8.webp",
+          "note": "这张图展示剑桥大学官网本科申请页面中“Submitted work”部分，明确写着申请者需在面试前提交两份 written work。适合用来引导学生理解：名校申请重视书面作品本身的思考痕迹、论证能力与学术表达，而不只是标准答案。\n建议用途：用于课程开场导入或动机激发；放在讲解“学术写作为何重要”“名校看重什么”环节；也可作为讨论题素材，让学生比较 written work 与一般应试作文的差异。\n标签：剑桥大学、本科申请、书面作品、学术写作、申请材料\n可见内容：页面标题为 University of Cambridge / Undergraduate Study / Submitted work。正文可见：Applicants to all Colleges are required to submit two pieces of written work prior to interview. 下方还有关于招生决定由各学院负责的说明。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.885Z",
+          "updatedAt": "2026-07-29T01:51:42.829Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_intro_1",
+          "type": "teaching",
+          "title": "展示名校要求",
+          "text": "展示哈佛和剑桥书面作品要求截图，提问：名校想从你的书面作品中看到什么？",
+          "asset_ids": [
+            "img_01",
+            "img_12"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_intro_2",
+          "type": "interaction",
+          "title": "思考痕迹的重要性",
+          "text": "判断：名校招生官更看重标准答案，还是写作中的思考过程、证据意识和来源核查？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "int_01"
+        },
+        {
+          "id": "fb_intro_3",
+          "type": "interaction",
+          "title": "材料可信性判断",
+          "text": "判断：如果一篇公众号推文看起来能支持自己的写作观点，下一步应该先做什么？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "int_02"
+        },
+        {
+          "id": "fb_intro_summary",
+          "type": "summary",
+          "title": "收束",
+          "text": "第1步：先停下来，不把材料直接当答案。第2步：追问来源和证据，看它来自哪里、凭什么成立。第3步：再决定如何使用，它能支持什么，不能替我们判断什么。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "teacher_adjusted",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:11:15.242Z",
+        "alignment_notes": [
+          "互动直接对应flow_block fb_intro_1（展示名校要求）和fb_intro_2（引出核心观点），帮助学生理解名校看重思考痕迹。",
+          "ai_role为只呈现任务张力，不评价学生初始想法，因此互动为开放讨论性质，无标准答案，但选项B最符合课程意图。",
+          "restraint要求不暗示答案方向，但作为互动设计，需提供正确选项以引导思考，同时解释说明。",
+          "success_criteria要求'学生能说出名校看重思考过程'，此互动直接检验该目标。",
+          "interaction_plan建议single_choice开放讨论，本设计符合。"
+        ],
+        "interactions": [
+          {
+            "id": "int_01",
+            "type": "single_choice",
+            "prompt": "根据哈佛和剑桥的申请要求，名校招生官更想通过书面作品看见什么？",
+            "options": [
+              {
+                "id": "A",
+                "text": "答案是否和标准答案完全一致"
+              },
+              {
+                "id": "B",
+                "text": "思考过程、材料来源和论证痕迹"
+              },
+              {
+                "id": "C",
+                "text": "页面排版是否足够专业好看"
+              },
+              {
+                "id": "D",
+                "text": "文章篇幅是否越长越有价值"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "名校看书面作品，不是为了找一个现成答案，而是为了判断学生如何提出问题、选择材料、组织证据并形成表达。",
+            "remediation_questions": []
+          },
+          {
+            "id": "int_02",
+            "type": "single_choice",
+            "prompt": "如果一篇公众号推文看起来能支持你的写作观点，下一步最合理的动作是什么？",
+            "options": [
+              {
+                "id": "A",
+                "text": "看到标题和截图后直接引用"
+              },
+              {
+                "id": "B",
+                "text": "先核查来源、原始证据和可验证性"
+              },
+              {
+                "id": "C",
+                "text": "只要语言专业，就当作可靠材料"
+              },
+              {
+                "id": "D",
+                "text": "完全不用公众号，也不继续追查"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "公众号可以成为追问的起点，但不能直接成为结论依据。先核查来源和原始证据，才能决定它能不能进入写作。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_02",
+      "title": "纵向溯源：从公众号到原始论文",
+      "purpose": "学生学会将主张追溯回原始出处，理解信源层级（公众号<媒体<官网<同行评审期刊）。",
+      "student_action": "跟随AI示范，从公众号推文出发，依次追到NASA官网和Nature Sustainability论文，并判断信源层级。",
+      "principle": "溯源/信源金字塔：把主张一层层追回原始出处。",
+      "ai_role": "AI出声示范第一层（从推文到NASA官网），然后带学生追到Nature论文。",
+      "restraint": "AI不直接判断推文可信度，只示范如何查。",
+      "teaching_flow": [
+        "展示公众号推文，指出其中主张“美航局发现地球变绿”。",
+        "示范：如何搜索NASA官网核实该主张。",
+        "展示NASA官网报道，指出其引用Nature Sustainability论文。",
+        "带学生打开Nature Sustainability论文页面，确认原始出处。",
+        "引导学生总结信源层级：公众号→NASA官网→Nature论文。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "公众号推文截图",
+        "NASA官网链接",
+        "Nature Sustainability论文页面"
+      ],
+      "avoid": [
+        "AI直接说“这篇可信”",
+        "跳过学生动手搜索环节"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_20",
+          "role": "作为溯源起点",
+          "use_when": "展示公众号推文"
+        },
+        {
+          "asset_id": "img_23",
+          "role": "展示NASA官网报道",
+          "use_when": "示范从推文到NASA"
+        },
+        {
+          "asset_id": "img_24",
+          "role": "展示NASA报道中引用论文",
+          "use_when": "展示从NASA到论文的链接"
+        },
+        {
+          "asset_id": "img_03",
+          "role": "展示Nature Sustainability论文首页",
+          "use_when": "展示最终原始出处"
+        },
+        {
+          "asset_id": "asset_mrvpl1uh",
+          "role": "NASA链接供学生点击",
+          "use_when": "学生动手搜索时"
+        },
+        {
+          "asset_id": "link_nature_article",
+          "role": "Nature论文链接供学生点击",
+          "use_when": "学生动手搜索时"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出从推文到原始论文的追溯路径",
+        "学生能区分信源层级"
+      ],
+      "interaction_plan": [
+        {
+          "id": "trace_q1",
+          "goal": "确认学生理解溯源路径",
+          "type": "ordering",
+          "answer_policy": "正确顺序：公众号→NASA官网→Nature论文"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_trace",
+          "goal": "练习溯源并排序信源层级",
+          "interaction_type": "ordering"
+        }
+      ],
+      "raw_text": "公众号推文→NASA官网→Nature Sustainability论文，信源有层级。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_20",
+          "type": "image",
+          "title": "微信公众号文章截图：〈美航局卫星发现地球变绿了，源头在印度和中国，这是真的吗？〉",
+          "src": "/api/oss/read?objectKey=courses%2F197dd227-591f-4a9a-b4ff-de3fde750a9a.webp",
+          "note": "这是一张待核查的公众号推文页面截图，适合用于课程中的“纵向溯源”与“SIFT核查”起步：先识别来源、标题和传播语境，再进一步追到 NASA 官网和原始论文。它能帮助学生理解：学术写作前不能直接接受二手转述，而要先判断信源是否可靠、主张是否被准确转述。\n建议用途：可放在导入环节作为核查对象展示；也可用于带学生做第一步“先停一下、识别来源”，再引导他们点击或追索原始出处，进入后续的纵向溯源与横向阅读任务。\n标签：公众号推文、信源核查、纵向溯源、SIFT、媒体素养、学术写作\n可见内容：手机微信文章页面截图，标题为“美航局卫星发现地球变绿了，源头在印度和中国，这是真的吗？”，作者/账号显示为“地球边界”，正文提示“向上滑动查看内容”，并出现引导关注、免费订阅等文字，下面开始介绍卫星与地球变绿的相关内容，页面下方可见一张地球/卫星配图的上半部分。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.891Z",
+          "updatedAt": "2026-07-29T01:51:42.834Z"
+        },
+        {
+          "id": "asset_mrvpl1uh",
+          "type": "link",
+          "title": "NASA链接",
+          "src": "https://www.nasa.gov/centers-and-facilities/ames/human-activity-in-china-and-india-dominates-the-greening-of-earth-nasa-study-shows/",
+          "note": "NASA 查看链接",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:35:57.227Z",
+          "updatedAt": "2026-07-29T01:51:42.810Z"
+        },
+        {
+          "id": "img_23",
+          "type": "image",
+          "title": "NASA 官网关于“中印人类活动推动地球变绿”的报道截图",
+          "src": "/api/oss/read?objectKey=courses%2F3ff017b7-3d0a-4e7f-b574-b96245e3fb13.webp",
+          "note": "这张图展示了 NASA 官网新闻页面及其标题，可用于教学中带学生从公众号转向原始信源，理解“纵向溯源”如何把二手转述追到权威机构报道，并进一步为后续核查原始论文做铺垫。\n建议用途：可放在“从公众号追到 NASA 官网”这一环节，作为教师示范溯源步骤的证据页；也可在小组活动中让学生判断这是不是原始出处、概括标题主张，并继续追查到论文链接。\n标签：纵向溯源、NASA官网、信源核查、学术写作、批判性思维\n可见内容：页面顶部为 NASA 标志与搜索图标，标题为“Human Activity in China and India Dominates the Greening of Earth, NASA Study Shows”，正文可见关于地球变绿、叶面积增加以及中国和印度贡献的说明，并标注作者 Abby Tabor。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.893Z",
+          "updatedAt": "2026-07-29T01:51:42.836Z"
+        },
+        {
+          "id": "img_24",
+          "type": "image",
+          "title": "NASA 新闻中关于中国和印度“变绿”研究的引用截图",
+          "src": "/api/oss/read?objectKey=courses%2F6c369376-1f0f-4944-b756-27e6810d1e4d.webp",
+          "note": "这张图展示了 NASA 报道中对研究结论的转述，并明确标出论文发表于 Nature Sustainability。适合在课程中帮助学生练习纵向溯源：从二手报道追到原始学术论文，判断主张是否被准确转述，以及如何据此继续核查信源可信度。\n建议用途：放在“Trace / 溯源”步骤中作为示例截图，让学生从新闻报道定位到原始论文；可用于课堂提问、标注引用来源、追踪论文出处的小组练习。\n标签：纵向溯源、信源核查、NASA、Nature期刊、学术论文、新闻引文\n可见内容：英文段落说明中国和印度的耕地面积、绿叶总面积和粮食产量变化，末行高亮写着“This research was published online, Feb. 11, 2019, in the journal Nature Sustainability.”",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.894Z",
+          "updatedAt": "2026-07-29T01:51:42.837Z"
+        },
+        {
+          "id": "img_03",
+          "type": "image",
+          "title": "Nature Sustainability 论文页面：China and India lead in greening of the world through land-use management",
+          "src": "/api/oss/read?objectKey=courses%2Fe2f467d8-3ac4-4d1f-8c8a-62a29f0412e3.webp",
+          "note": "这是一篇 Nature Sustainability 论文的首页截图，适合作为纵向溯源的最终一级信源示例。它能帮助学生理解：公众号或二手报道中的“地球变绿”说法必须追到原始论文，核查论文标题、发表日期、期刊来源与作者信息，再判断结论是否被准确转述。\n建议用途：用于课堂中“追溯原始出处”步骤的截图示范；可放在讲解 SIFT 的 Trace 环节，带学生识别论文标题、期刊名、发布日期和作者，并判断其是否为二手转载的源头。\n标签：纵向溯源、学术期刊、信源核查、Nature Sustainability、证据阅读\n可见内容：页面顶部显示 nature sustainability；文章类型为 Article，发布时间 11 February 2019；标题为 China and India lead in greening of the world through land-use management；下方列出多位作者姓名，以及 Nature Sustainability 2, 122–129 (2019)、Cite this article、Accesses、Citations、Altmetric 等信息。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.878Z",
+          "updatedAt": "2026-07-29T01:51:42.816Z"
+        },
+        {
+          "id": "link_nature_article",
+          "type": "link",
+          "title": "Nature Sustainability 原文",
+          "src": "https://www.nature.com/articles/s41893-019-0220-7",
+          "note": "用于对照论文原文，查看标题、摘要、正文和图表所在位置。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-24T07:29:09.145Z",
+          "updatedAt": "2026-07-29T01:51:42.839Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_trace_1",
+          "type": "teaching",
+          "title": "展示起点",
+          "text": "展示公众号推文，指出主张“美航局发现地球变绿”。",
+          "asset_ids": [
+            "img_20"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_trace_2",
+          "type": "teaching",
+          "title": "示范溯源第一层",
+          "text": "示范如何搜索NASA官网核实该主张。",
+          "asset_ids": [
+            "asset_mrvpl1uh"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_trace_3",
+          "type": "teaching",
+          "title": "展示NASA报道",
+          "text": "展示NASA官网报道，指出其引用Nature Sustainability论文。",
+          "asset_ids": [
+            "img_23",
+            "img_24"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_trace_4",
+          "type": "teaching",
+          "title": "带学生追到原始论文",
+          "text": "带学生打开Nature Sustainability论文页面，确认原始出处。",
+          "asset_ids": [
+            "img_03",
+            "link_nature_article"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_trace_5",
+          "type": "interaction",
+          "title": "排序信源层级",
+          "text": "引导学生排序：公众号、NASA官网、Nature论文，哪个层级最高？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "trace_q1"
+        },
+        {
+          "id": "fb_trace_6",
+          "type": "summary",
+          "title": "总结信源金字塔",
+          "text": "总结：公众号 < 媒体 < 官网 < 同行评审期刊。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:11:22.621Z",
+        "alignment_notes": [
+          "交互设计为排序题，要求学生将公众号推文、NASA官网报道、Nature论文按信源层级从高到低排序，直接对应flow_block fb_trace_5的排序任务。",
+          "AI角色为示范者，不直接判断可信度，交互让学生自己排序，符合restraint。",
+          "成功标准包括学生能区分信源层级，排序题直接检验该能力。",
+          "交互位于flow_block fb_trace_5，在示范和展示之后，总结之前，符合教学流程。",
+          "选项使用学生可见的文本，无隐藏标签。"
+        ],
+        "interactions": [
+          {
+            "id": "trace_q1",
+            "type": "ordering",
+            "prompt": "请将以下信源按从最接近原始出处到最远离原始出处的顺序排列。",
+            "options": [
+              {
+                "id": "b",
+                "text": "NASA 官网报道"
+              },
+              {
+                "id": "c",
+                "text": "公众号推文"
+              },
+              {
+                "id": "a",
+                "text": "Nature Sustainability 论文"
+              }
+            ],
+            "correct_answer": [
+              "a",
+              "b",
+              "c"
+            ],
+            "explanation": "正确的顺序是：Nature Sustainability 论文（原始研究）→ NASA 官网报道（转述原始研究）→ 公众号推文（二次转述）。信源层级越高，越接近原始出处，可信度越高。",
+            "remediation_questions": [
+              {
+                "id": "trace_q1_remediation",
+                "type": "single_choice",
+                "prompt": "以下哪个信源层级最高（最接近原始出处）？",
+                "options": [
+                  {
+                    "id": "b",
+                    "text": "NASA 官网报道"
+                  },
+                  {
+                    "id": "a",
+                    "text": "公众号推文"
+                  },
+                  {
+                    "id": "c",
+                    "text": "Nature Sustainability 论文"
+                  }
+                ],
+                "correct_answer": [
+                  "c"
+                ],
+                "explanation": "Nature Sustainability 论文是原始研究，层级最高；NASA 官网报道转述了该论文；公众号推文是二次转述，层级最低。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_03",
+      "title": "横向阅读：找更好的报道",
+      "purpose": "学生学会离开当前来源，搜索多方报道，辨别证实与回声，并看出框定差异。",
+      "student_action": "搜索至少三家不同立场/国别的媒体对同一发现的报道，带回发现，与AI讨论证实与框定差异。",
+      "principle": "横向阅读：离开来源，看别人怎么说同一件事。",
+      "ai_role": "AI教搜索方法，学生搜完后帮辨别证实 vs 回声，点出框定差异。",
+      "restraint": "AI不替学生判断哪家可信，不预先告知框定差异。",
+      "teaching_flow": [
+        "回顾溯源结果，提出：除了往上追，还可以往旁边看。",
+        "教搜索关键词：China India greening NASA。",
+        "学生动手搜索，带回至少三家媒体报道。",
+        "AI引导学生比较：这些报道是独立证实还是同源转载？",
+        "点出框定差异：新华社强调贡献，西方媒体强调排放。"
+      ],
+      "activity_flow": [
+        {
+          "id": "act_lat_search",
+          "type": "source_submission",
+          "prompt": "请搜索至少三家不同媒体对“中国和印度让地球变绿”的报道，并提交链接。",
+          "evaluation_goal": "检查学生是否找到多家独立来源",
+          "after_segment_index": 2,
+          "required_mode": "at_least_one"
+        }
+      ],
+      "must_include": [
+        "搜索关键词指导",
+        "学生动手搜索环节",
+        "比较证实与回声"
+      ],
+      "avoid": [
+        "AI替学生搜索",
+        "AI预先列出框定差异"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_15",
+          "role": "作为横向阅读示例之一（Investopedia碳排放文章）",
+          "use_when": "讨论框定差异时展示"
+        },
+        {
+          "asset_id": "img_16",
+          "role": "展示碳排放饼图，作为框定差异示例",
+          "use_when": "讨论框定差异时展示"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出至少两家媒体报道的异同",
+        "学生能区分证实与回声"
+      ],
+      "interaction_plan": [
+        {
+          "id": "lat_q1",
+          "goal": "检查学生是否能辨别证实与回声",
+          "type": "single_choice",
+          "answer_policy": "学生判断后AI反馈"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_lat",
+          "goal": "练习横向阅读并比较报道",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "横向阅读：离开当前来源，看多方报道，辨别证实与回声。",
+      "links": [],
+      "materials": [],
+      "flow_blocks": [
+        {
+          "id": "fb_lat_1",
+          "type": "teaching",
+          "title": "引入横向阅读",
+          "text": "回顾溯源，提出：除了往上追，还可以往旁边看。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_lat_2",
+          "type": "teaching",
+          "title": "教搜索方法",
+          "text": "教搜索关键词：China India greening NASA。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_lat_3",
+          "type": "source_submission",
+          "title": "学生搜索并提交",
+          "text": "学生动手搜索，带回至少三家媒体报道。",
+          "asset_ids": [],
+          "activity_id": "act_lat_search",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_lat_4",
+          "type": "interaction",
+          "title": "比较报道",
+          "text": "AI引导学生比较：这些报道是独立证实还是同源转载？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "lat_q1"
+        },
+        {
+          "id": "fb_lat_5",
+          "type": "teaching",
+          "title": "点出框定差异",
+          "text": "横向阅读的重点不是把搜索结果堆在一起，而是比较不同来源如何选择角度、强调什么、回避什么。提交的报道可以帮助我们判断：这些来源是否独立，是否只是转述同一份原始材料，又是否加入了新的采访、数据或立场。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_lat_6",
+          "type": "summary",
+          "title": "总结横向阅读价值",
+          "text": "总结：横向阅读帮你看到不同框定，为后续论证埋伏笔。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:11:36.385Z",
+        "alignment_notes": [
+          "交互设计在flow_block fb_lat_4（比较报道）之后，符合流程。",
+          "ai_role要求AI不替学生判断，但交互是让学生自己判断，AI只反馈解释，符合。",
+          "restraint要求不预先告知框定差异，交互聚焦于证实vs回声，不涉及框定差异内容。",
+          "success_criteria要求'学生能区分证实与回声'，交互直接测试此能力。",
+          "interaction_plan中的lat_q1被实现为single_choice，并增加了remediation_questions。",
+          "student_action要求搜索后带回发现，交互基于学生可能找到的典型报道设计，但选项需根据实际提交调整。",
+          "交互lat_q1的prompt中预设了具体报道，但学生实际提交的报道可能不同，应改为基于学生提交的报道进行判断。",
+          "交互lat_q1的correct_answer硬编码为新华社，但实际教学中需根据学生提交的报道动态判断，不符合Socratic restraint。",
+          "缺少一个交互来引导学生比较框定差异（如新华社强调贡献 vs 西方媒体强调排放），这是success_criteria要求的内容。"
+        ],
+        "interactions": [
+          {
+            "id": "lat_q1",
+            "type": "single_choice",
+            "prompt": "比较你找到的报道，它们在框定（framing）上有何差异？例如，新华社的报道可能强调“中国和印度让地球变绿”的贡献，而西方媒体可能同时提及中国的碳排放。你观察到了什么？",
+            "options": [
+              {
+                "id": "b",
+                "text": "所有报道的框定完全一致"
+              },
+              {
+                "id": "c",
+                "text": "我不确定如何比较框定"
+              },
+              {
+                "id": "a",
+                "text": "不同报道的侧重点不同，有的强调贡献，有的强调排放"
+              }
+            ],
+            "correct_answer": [
+              "a"
+            ],
+            "explanation": "框定差异是横向阅读的关键发现。不同媒体基于其立场和受众，会选择不同的角度呈现同一事实。例如，新华社可能突出绿化贡献，而西方媒体可能同时讨论碳排放问题。",
+            "remediation_questions": [
+              {
+                "id": "lat_q1_remed",
+                "type": "single_choice",
+                "prompt": "以下哪项最可能体现框定差异？",
+                "options": [
+                  {
+                    "id": "b",
+                    "text": "两篇报道都引用同一NASA数据"
+                  },
+                  {
+                    "id": "c",
+                    "text": "两篇报道都来自同一通讯社"
+                  },
+                  {
+                    "id": "a",
+                    "text": "一篇报道标题为“中国绿化成就”，另一篇为“中国碳排放仍居高位”"
+                  }
+                ],
+                "correct_answer": [
+                  "a"
+                ],
+                "explanation": "框定差异体现在报道的角度、标题、强调点不同。引用同一数据或来自同一来源可能意味着同源，而非框定差异。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_04",
+      "title": "信源权威评估：评估Nature Sustainability",
+      "purpose": "学生学会用CRRAAB的信誉与权威维度评估学术来源。",
+      "student_action": "评估Nature Sustainability期刊的信誉与权威，回答AI的苏格拉底追问。",
+      "principle": "CRRAAB信誉·权威：说错有代价者更可信；同行评审保障准确。",
+      "ai_role": "AI通过苏格拉底追问引导学生思考，不直接判定。",
+      "restraint": "AI不直接说“Nature权威”，而是让学生自己得出结论。",
+      "teaching_flow": [
+        "展示Nature Sustainability期刊信息（创刊年份、影响因子、同行评审）。",
+        "提问：在Nature上发文意味着什么？",
+        "提问：如果Nature刊发错误，会损失什么？",
+        "引导学生总结：信誉与权威如何保障可信度。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "Nature Sustainability期刊信息",
+        "苏格拉底追问"
+      ],
+      "avoid": [
+        "AI直接给出权威结论"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_02",
+          "role": "展示Nature期刊首页",
+          "use_when": "介绍Nature期刊"
+        },
+        {
+          "asset_id": "img_25",
+          "role": "展示Nature期刊封面",
+          "use_when": "介绍Nature期刊"
+        },
+        {
+          "asset_id": "img_05",
+          "role": "展示论文作者单位，辅助评估权威性",
+          "use_when": "讨论作者背景时"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出Nature期刊的权威性依据（影响因子、同行评审、历史）",
+        "学生能理解信誉与权威的关系"
+      ],
+      "interaction_plan": [
+        {
+          "id": "auth_q1",
+          "goal": "引导学生思考权威性",
+          "type": "single_choice",
+          "answer_policy": "开放讨论，AI反馈"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_auth",
+          "goal": "评估信源权威性",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "Nature Sustainability：1869年创刊，影响因子32.1，同行评审，信誉保障。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_02",
+          "type": "image",
+          "title": "Nature 期刊首页与出版平台截图",
+          "src": "/api/oss/read?objectKey=courses%2Fa6eb2352-07df-4131-b17a-b3d7687a7329.webp",
+          "note": "这张图展示的是 Nature 官网首页及期刊内容入口，适合帮助学生理解“原始信源”与“学术期刊平台”的区别：它能用来追溯论文是否出自权威同行评审期刊，但不能直接当作公众号推文的起点。放在课程里可用于训练学生从二手转述回到一手文献，并判断来源层级。\n建议用途：用于课堂中“纵向溯源 / 查来源”环节，示范如何从论文标题或引用顺着找到 Nature 官网；也可放在“横向阅读”前作为辨认学术期刊平台的视觉样例，提醒学生区分期刊首页、论文页和社交媒体转载页。\n标签：Nature期刊、学术出版、信源追溯、同行评审、文献检索\n可见内容：页面顶部有 nature 标志与导航栏，包含 Explore content、About the journal、Publish with us、Subscribe、Search、Log in 等入口。页面主体展示多篇 Nature 新闻/文章卡片，如关于 PhD students、mouse inflammation、psilocybin、micro aerial vehicle、expired reagents 等；右侧还可见期刊封面与 Current issue、Contents、Subscribe 等按钮。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.877Z",
+          "updatedAt": "2026-07-29T01:51:42.815Z"
+        },
+        {
+          "id": "img_25",
+          "type": "image",
+          "title": "《Nature》期刊封面：聚合酶结构与论文专题页",
+          "src": "/api/oss/read?objectKey=courses%2F7f12fa3f-e52f-40a2-b2e9-0f476ca756ba.webp",
+          "note": "这是一张《Nature》杂志封面，画面上方有显著的“nature”刊名，正文区展示了本期专题“POL POSITIONS”等学术内容。适合在课程中用来帮助学生理解：什么是高权威学术期刊、如何从期刊层级判断信源可信度，以及“追溯到原始论文”时最终应回到怎样的出版语境。\n建议用途：可放在“纵向溯源”或“信源评估”环节，作为讲解顶级学术期刊外观与权威性标志的示例图；也可用于引导学生识别论文来源、期刊封面信息与专题栏目。\n标签：Nature期刊、学术信源、权威期刊、文献溯源、期刊封面\n可见内容：可见大标题“nature”；专题标题“POL POSITIONS”；副标题“Structures reveal secrets of transcription initiation that help RNA polymerase III to drive protein synthesis”；底部还有若干栏目标题如“DANGERS IN THE LIGHT”“DYNAMIC DROPLETS”“INEQUALITIES IN URBAN ACCESS”。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.895Z",
+          "updatedAt": "2026-07-29T01:51:42.838Z"
+        },
+        {
+          "id": "img_05",
+          "type": "image",
+          "title": "论文作者单位与通讯邮箱信息片段",
+          "src": "/api/oss/read?objectKey=courses%2F8a5ca7d8-7c67-4e4f-8062-5c39af5889ae.webp",
+          "note": "这是一段论文首页的作者单位列表和通讯作者邮箱，不是正文论点本身。适合在文献精读中帮助学生识别论文的作者背景、机构分布、跨国合作情况，以及顺着作者单位进一步判断研究来源与学术可信度。\n建议用途：可放在“纵向溯源”或“信源评估”环节，让学生先辨认论文的机构来源，再追问作者背景与研究可信度；也可作为文献首页阅读训练中的信息提取练习。\n标签：作者单位、通讯作者、期刊论文、信源评估、文献精读\n可见内容：可见文本为多行作者单位信息，包含 Boston University、Peking University、Indian Institute of Science、NASA Ames Research Center 等机构，以及通讯邮箱 chenchi@bu.edu。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.879Z",
+          "updatedAt": "2026-07-29T01:51:42.817Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_auth_1",
+          "type": "teaching",
+          "title": "展示期刊信息",
+          "text": "展示Nature Sustainability期刊信息：创刊年份、影响因子、同行评审。",
+          "asset_ids": [
+            "img_02",
+            "img_25"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_auth_2",
+          "type": "interaction",
+          "title": "苏格拉底追问1",
+          "text": "提问：在Nature上发文意味着什么？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "auth_q1"
+        },
+        {
+          "id": "fb_auth_3",
+          "type": "interaction",
+          "title": "苏格拉底追问2",
+          "text": "提问：如果Nature刊发错误，会损失什么？",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "auth_q1"
+        },
+        {
+          "id": "fb_auth_4",
+          "type": "summary",
+          "title": "总结权威性",
+          "text": "总结：信誉与权威保障可信度，同行评审是关键。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:11:44.617Z",
+        "alignment_notes": [
+          "交互设计紧扣flow_blocks中的苏格拉底追问，引导学生思考Nature期刊的权威性依据。",
+          "选项设计避免AI直接给出结论，而是让学生选择最合理的描述，符合ai_role的苏格拉底追问和restraint。",
+          "成功标准要求学生能说出权威性依据，交互的correct_answer和explanation覆盖了影响因子、同行评审、历史等。",
+          "remediation_questions进一步追问信誉损失，强化信誉与权威的关系。"
+        ],
+        "interactions": [
+          {
+            "id": "auth_q1",
+            "type": "multiple_choice",
+            "prompt": "在这个来源上发表意味着什么？ 如果它判断出错，会损失什么？请选择更合理的理解。",
+            "options": [
+              {
+                "id": "B",
+                "text": "如果刊出明显错误，期刊会损失学术声誉和公信力。"
+              },
+              {
+                "id": "A",
+                "text": "发表在有声誉的学术期刊上，意味着研究需要接受更严格的公开检验。"
+              },
+              {
+                "id": "D",
+                "text": "只要标题和排版看起来专业，就可以直接相信。"
+              },
+              {
+                "id": "C",
+                "text": "还要继续看它是否经过公开审查或同类专业检验。"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "先追问来源的资格、出错代价和审查机制，判断才不是凭感觉；只看标题或排版并不足以说明可信。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_05",
+      "title": "文献精读：读懂Nature Sustainability论文",
+      "purpose": "学生学会结构化阅读学术论文：先读摘要与结论，再看图表，最后看方法。",
+      "student_action": "跟随AI引导，按摘要→结论→图表→论证顺序阅读论文，提取关键信息。",
+      "principle": "文献精读法/结构化阅读：先摘要结论，再图表方法，不逐字啃。",
+      "ai_role": "AI按顺序带读，帮拆专业术语，但不替学生总结论点。",
+      "restraint": "AI不替学生总结论文论点，只提供阅读脚手架。",
+      "teaching_flow": [
+        "展示论文标题和摘要，引导学生拆解标题关键词。",
+        "带读摘要，圈出关键信息（全球变绿、中国印度主导、土地利用管理）。",
+        "展示结论部分，让学生找出三个主要论点。",
+        "展示图表（图1、图2），引导学生读图注并提取数据。",
+        "总结论文核心发现。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "论文标题拆解",
+        "摘要精读",
+        "图表解读"
+      ],
+      "avoid": [
+        "逐字逐句翻译全文",
+        "AI替学生总结论点"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_03",
+          "role": "展示论文首页，包含标题和摘要",
+          "use_when": "开始精读时"
+        },
+        {
+          "asset_id": "link_nature_article",
+          "role": "阅读材料",
+          "use_when": "提供论文原文链接时"
+        },
+        {
+          "asset_id": "img_04",
+          "role": "展示论文正文，讨论地球变绿",
+          "use_when": "精读正文时"
+        },
+        {
+          "asset_id": "img_06",
+          "role": "展示全球植被变绿趋势地图",
+          "use_when": "图表解读时"
+        },
+        {
+          "asset_id": "img_07",
+          "role": "展示中印耕地绿化趋势图表",
+          "use_when": "图表解读时"
+        },
+        {
+          "asset_id": "img_11",
+          "role": "展示高亮的结果段落",
+          "use_when": "精读结果时"
+        },
+        {
+          "asset_id": "img_13",
+          "role": "展示植被净变化数据表",
+          "use_when": "图表解读时"
+        },
+        {
+          "asset_id": "upload_mrymcdvr_c509d",
+          "role": "论文全文PDF供学生参考",
+          "use_when": "学生自主阅读时"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出论文的三个主要论点",
+        "学生能正确解读图表数据"
+      ],
+      "interaction_plan": [
+        {
+          "id": "interact_read_summary",
+          "goal": "检查学生是否能提取论文核心主张和关键证据",
+          "type": "single_choice",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_read1",
+          "goal": "提取摘要关键信息",
+          "interaction_type": "multiple_choice"
+        },
+        {
+          "id": "task_read2",
+          "goal": "解读图表数据",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "结构化阅读：先摘要结论，再图表方法，不逐字啃。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_03",
+          "type": "image",
+          "title": "Nature Sustainability 论文页面：China and India lead in greening of the world through land-use management",
+          "src": "/api/oss/read?objectKey=courses%2Fe2f467d8-3ac4-4d1f-8c8a-62a29f0412e3.webp",
+          "note": "这是一篇 Nature Sustainability 论文的首页截图，适合作为纵向溯源的最终一级信源示例。它能帮助学生理解：公众号或二手报道中的“地球变绿”说法必须追到原始论文，核查论文标题、发表日期、期刊来源与作者信息，再判断结论是否被准确转述。\n建议用途：用于课堂中“追溯原始出处”步骤的截图示范；可放在讲解 SIFT 的 Trace 环节，带学生识别论文标题、期刊名、发布日期和作者，并判断其是否为二手转载的源头。\n标签：纵向溯源、学术期刊、信源核查、Nature Sustainability、证据阅读\n可见内容：页面顶部显示 nature sustainability；文章类型为 Article，发布时间 11 February 2019；标题为 China and India lead in greening of the world through land-use management；下方列出多位作者姓名，以及 Nature Sustainability 2, 122–129 (2019)、Cite this article、Accesses、Citations、Altmetric 等信息。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.878Z",
+          "updatedAt": "2026-07-29T01:51:42.816Z"
+        },
+        {
+          "id": "img_04",
+          "type": "image",
+          "title": "Nature Sustainability 论文正文截图：地球变绿与人类土地利用作用",
+          "src": "/api/oss/read?objectKey=courses%2F0ca79f11-839e-40d0-b024-bfc64fd1f8c7.webp",
+          "note": "这是一段 Nature Sustainability 论文正文，讨论卫星数据中的“地球变绿”现象，并强调人类土地利用管理、CO2 施肥效应等因素的作用。适合用于文献精读教学，帮助学生练习从摘要和正文中提取核心论点、识别因果主张、理解数据证据与结论之间的对应关系，也可用于训练对学术论文中“结果—解释—限制”的阅读。\n建议用途：可放在“文献精读”环节，作为学生拆解论文标题、摘要、结果段落和图文论证的练习素材；也可用于让学生圈画关键词、标注主张与证据、比较公众号转述与原始论文的差异。\n标签：学术论文、文献精读、地球变绿、卫星数据、人类土地利用、证据阅读\n可见内容：图片为 Nature Sustainability 论文正文截图。可见标题内容提到“Satellite data show increasing leaf area of vegetation…”；正文中“Results”部分突出写着“The Earth is greening.”，并说明 MODIS 数据显示全球约三分之一的植被面积在变绿、约 5% 在变褐，同时讨论中国和印度的变绿与森林、耕地及土地利用管理相关。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.879Z",
+          "updatedAt": "2026-07-29T01:51:42.817Z"
+        },
+        {
+          "id": "img_06",
+          "type": "image",
+          "title": "全球植被变绿趋势地图（2000—2017年）",
+          "src": "/api/oss/read?objectKey=courses%2F3b4d80ba-7c6d-4bdb-9b80-d9bc8d18ae80.webp",
+          "note": "这是一张展示全球年均叶面积指数（LAI）变化趋势的论文图，绿色表示植被增绿、橙红色表示变褐，红圈标出了多个显著增绿区域。它很适合用来训练学生把“图像证据”与论文主张对应起来，理解研究如何用数据支持“中国和印度对全球变绿有重要贡献”的结论，并进一步讨论图表中的范围、指标和统计显著性。\n建议用途：可放在“文献精读”或“图表解读”环节：先让学生读图注再找关键信息，标出增绿区域与颜色含义；也可用于“证据核查”环节，让学生判断这张图如何支撑论文结论，并练习用图表概括研究发现。\n标签：全球绿化、植被趋势、叶面积指数、论文图表、数据可视化\n可见内容：图中标题为“Map of trends in annual average MODIS LAI for 2000-2017”。左下角插图显示变褐与增绿频率分布；底部色带表示年均LAI趋势从负值到正值的变化。图注说明显著趋势用颜色编码，灰色为不显著，白色为荒漠、冰雪、水体等区域；红圈标出多个主要增绿区域，尤其与耕地重叠。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.880Z",
+          "updatedAt": "2026-07-29T01:51:42.818Z"
+        },
+        {
+          "id": "img_07",
+          "type": "image",
+          "title": "论文图表：中印及全球耕地绿化趋势与耕作面积变化",
+          "src": "/api/oss/read?objectKey=courses%2F5cf34f07-e959-4930-8c7e-2d05c6d7aa2e.webp",
+          "note": "这是一张论文中的数据图表，左侧用地图展示中国和印度耕地叶面积指数（LAI）的年度变化趋势，右侧用折线图比较中国、印度和全球的收获面积与可耕面积变化。适合在文献精读中引导学生从图中提取证据、理解作者如何用可视化支持“地球变绿”或“人类活动影响植被变化”的论点，并训练学生区分区域结论、全球结论和图表中的异常值。\n建议用途：可放在“文献精读/读图找证据”环节，要求学生先读图注，再分别描述地图和折线图传达的结论，最后回答这张图支持了什么主张、还有哪些需要谨慎解释的地方。\n标签：论文图表、数据可视化、绿化趋势、耕地变化、文献精读、证据提取\n可见内容：图中包含多个子图，显示 China、India、World 的 area ratio 变化，以及中国和印度耕地 annual average LAI trend；图注提到“Leaf area trends in croplands of China and India”“Harvested area and arable area”“outlier”。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.881Z",
+          "updatedAt": "2026-07-29T01:51:42.819Z"
+        },
+        {
+          "id": "link_nature_article",
+          "type": "link",
+          "title": "Nature Sustainability 原文",
+          "src": "https://www.nature.com/articles/s41893-019-0220-7",
+          "note": "用于对照论文原文，查看标题、摘要、正文和图表所在位置。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-24T07:29:09.145Z",
+          "updatedAt": "2026-07-29T01:51:42.839Z"
+        },
+        {
+          "id": "img_11",
+          "type": "image",
+          "title": "Nature Sustainability 论文页面中被高亮的结果段落",
+          "src": "/api/oss/read?objectKey=courses%2F10b3e28a-e57a-4a28-9bfb-42abeca3214c.webp",
+          "note": "这张图展示了学术论文正文里被标出的关键结论句，适合用来训练学生在精读时快速识别主结论、数据结论与限制条件，并理解如何从图表/结果段落提炼论证要点，而不是只看标题或摘要。\n建议用途：可放在“文献精读”环节，作为示范图让学生圈出结果句、判断作者的核心结论，并练习把论文中的发现改写成自己的笔记；也可用于讲解如何从数据结果中提炼论点与保留限制条件。\n标签：文献精读、结果段落、关键证据、高亮标注、Nature期刊\n可见内容：页面来自 Nature Sustainability，底部高亮的结果段落写着“The Earth is greening. According to MODIS data, one-third of the global vegetated area is greening and 5% is browning…”，并提到 leaf area 的增加与减少比例变化。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.884Z",
+          "updatedAt": "2026-07-29T01:51:42.827Z"
+        },
+        {
+          "id": "img_13",
+          "type": "image",
+          "title": "Nature Sustainability 论文中的植被净变化数据表",
+          "src": "/api/oss/read?objectKey=courses%2Fbbef85a4-e6d3-4c40-ac72-29e55836e6c3.webp",
+          "note": "这是一页学术论文截图，中心是 Table 1，列出 2000–2017 年森林、其他木本植被、草地、耕地和全部植被的净变化面积，并按全球、纬度带、MAT、ATP 等维度分组。适合在课程中帮助学生理解：如何从论文表格读取定量证据、识别分组变量与比较对象、把数据结果转化为论证依据，以及如何在精读时判断作者结论是否被数据支持。\n建议用途：放在“文献精读”环节，用于带学生逐列读表、圈出关键数值、讨论表格如何支持或限制论文主张；也可作为小组练习材料，让学生把表格数据改写成一句规范的学术表述。\n标签：论文表格、数据证据、文献精读、植被变化、Nature Sustainability\n可见内容：页面上方是“Table 1 | Net changes in leaf area (10^6 million km^2) for the period 2000–2017”，表格按 Forests、Other woody vegetation、Grasslands、Croplands、All vegetation 分列，按 Global、纬度带、MAT、ATP 等分类给出数值；下方有补充说明文字，提到与 AVHRR data 的比较；页脚可见 Nature Sustainability 期刊信息。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.886Z",
+          "updatedAt": "2026-07-29T01:51:42.830Z"
+        },
+        {
+          "id": "upload_mrymcdvr_c509d",
+          "type": "link",
+          "title": "论文全文",
+          "src": "/assets/uploads/mrymcdvf-China-and-India-lead-in-greening-of-the-world.pdf",
+          "note": "",
+          "origin": "teacher_uploaded",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-24T07:28:34.792Z",
+          "updatedAt": "2026-07-29T01:51:42.838Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_read_1",
+          "type": "teaching",
+          "title": "定位论文入口",
+          "text": "进入论文时先确认题名页、原文链接、期刊和发表时间，知道自己正在读的是原始论文而不是二手报道。这里先不急着判断结论，只把论文身份和阅读入口确认清楚。",
+          "asset_ids": [
+            "img_03",
+            "link_nature_article",
+            "upload_mrymcdvr_c509d"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_read_2",
+          "type": "teaching",
+          "title": "先读摘要",
+          "text": "第一遍先读摘要，目的不是逐句翻译，而是抓住论文的路线图：研究对象是什么，作者认为主要驱动因素是什么，中国和印度被放在什么位置。摘要会告诉我们接下来要到正文和图表里验证哪些关键词。",
+          "asset_ids": [
+            "img_04"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_read_3",
+          "type": "teaching",
+          "title": "再看结论",
+          "text": "读完摘要后，再看结论或结果段，确认作者最后落下来的核心判断。这里的重点是把摘要里的关键词和结论中的主张对应起来：论文到底说了什么，又没有说什么。先让学生自己判断主张，再进入图表证据。",
+          "asset_ids": [
+            "img_11"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_read_4",
+          "type": "interaction",
+          "title": "提取论文主张",
+          "text": "根据摘要和结论判断论文的核心主张。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "interact_read_summary"
+        },
+        {
+          "id": "fb_read_5",
+          "type": "teaching",
+          "title": "再读图表与方法",
+          "text": "主张判断出来后，才回到图表和方法部分追问它凭什么成立。图表帮助我们看数据是否支持结论，方法帮助我们看这些数据是怎样来的、适用范围在哪里。这样读论文，顺序就是先抓主张，再核证据，而不是被细节拖着走。",
+          "asset_ids": [
+            "img_06",
+            "img_07",
+            "img_13"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_read_6",
+          "type": "summary",
+          "title": "总结精读策略",
+          "text": "读论文的顺序是：先读摘要抓研究路线，再读结论确认核心主张，然后读图表核验证据，最后看方法和限制判断结论边界。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "teacher_adjusted",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:11:54.380Z",
+        "alignment_notes": [
+          "第一个交互对应flow_block fb_read_2（精读摘要），检查摘要关键信息提取。",
+          "第二个交互对应flow_block fb_read_4（解读图表），检查图表数据解读。",
+          "交互类型符合学习任务要求：multiple_choice和single_choice。",
+          "选项均为学生可选择的陈述，无隐藏标签。",
+          "符合ai_role（不替学生总结）和restraint（只提供脚手架）的要求。"
+        ],
+        "interactions": [
+          {
+            "id": "interact_read_summary",
+            "type": "single_choice",
+            "prompt": "根据刚才的阅读，论文的核心主张是什么？",
+            "options": [
+              {
+                "id": "A",
+                "text": "地球在变绿，人类土地利用是主要驱动，中国和印度贡献显著"
+              },
+              {
+                "id": "B",
+                "text": "地球在变绿，但主要是自然因素导致的"
+              },
+              {
+                "id": "C",
+                "text": "地球在变绿，但中国和印度的贡献不大"
+              },
+              {
+                "id": "D",
+                "text": "地球在变绿，但论文没有给出具体证据"
+              }
+            ],
+            "correct_answer": [
+              "A"
+            ],
+            "explanation": "论文顶部概述、结果段和图表共同指出：地球在变绿，人类土地利用管理是重要驱动，中国和印度贡献显著。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_06",
+      "title": "良构论证拆解：漏斗式论证",
+      "purpose": "学生学会拆解良构论证的三层漏斗结构，理解事实论据如何将观点变成事实。",
+      "student_action": "跟随AI拆解第一层论点，然后独立拆解其余两层。",
+      "principle": "良构论证/漏斗式：多层事实论据层层缩小反驳空间。",
+      "ai_role": "AI带学生拆第一层（示范漏斗怎么看），然后放手让学生自己拆论点2、3。",
+      "restraint": "AI只示范第一层，不替学生拆完。",
+      "teaching_flow": [
+        "回顾论文三个论点，聚焦论点1：地球在变绿。",
+        "展示漏斗式论证结构示意图。",
+        "AI示范拆解第一层：论据1（1/3植被变绿，5%变黄）。",
+        "学生独立拆解论据2（变绿的2/3是耕地和林地）和论据3（65%以上在中国和印度）。",
+        "总结：三层数据茧房如何包裹核心论点。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "漏斗式论证结构示意图",
+        "AI示范第一层",
+        "学生独立拆解其余层"
+      ],
+      "avoid": [
+        "AI替学生拆完所有层"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_14",
+          "role": "展示漏斗式论证结构示意图",
+          "use_when": "讲解漏斗式论证时"
+        },
+        {
+          "asset_id": "img_11",
+          "role": "teaching_material",
+          "use_when": "这张图展示了学术论文正文里被标出的关键结论句，适合用来训练学生在精读时快速识别主结论、数据结论与限制条件，并理解如何从图表/结果段落提炼论证要点，而不是只看标题或摘要。\n建议用途：可放在“文献精读”环节，作为示范图让学生圈出结果句、判断作者的核心结论，并练习把论文中的发现改写成自己的笔记；也可用于讲解如何从数据结果中提炼论点与保留限制条件。\n标签：文献精读、结果段落、关键证据、高亮标注、Nature期刊\n可见内容：页面来自 Nature Sustainability，底部高亮的结果段落写着“The Earth is greening. According to MODIS data, one-third of the global vegetated area is greening and 5% is browning…”，并提到 leaf area 的增加与减少比例变化。"
+        }
+      ],
+      "success_criteria": [
+        "学生能独立拆解出三层论据",
+        "学生能解释漏斗式论证如何增强说服力"
+      ],
+      "interaction_plan": [
+        {
+          "id": "arg_q1",
+          "goal": "检查学生是否能拆解论证结构",
+          "type": "ordering",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        },
+        {
+          "id": "arg_q2",
+          "goal": "迁移漏斗式论证方法，判断论点2和论点3应如何从宽到细拆证据",
+          "type": "ordering",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_arg",
+          "goal": "拆解漏斗式论证",
+          "interaction_type": "ordering"
+        }
+      ],
+      "raw_text": "漏斗式论证：三层数据茧房包裹核心论点，每层缩小反驳空间。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_11",
+          "type": "image",
+          "title": "Nature Sustainability 论文页面中被高亮的结果段落",
+          "src": "/api/oss/read?objectKey=courses%2F10b3e28a-e57a-4a28-9bfb-42abeca3214c.webp",
+          "note": "这张图展示了学术论文正文里被标出的关键结论句，适合用来训练学生在精读时快速识别主结论、数据结论与限制条件，并理解如何从图表/结果段落提炼论证要点，而不是只看标题或摘要。\n建议用途：可放在“文献精读”环节，作为示范图让学生圈出结果句、判断作者的核心结论，并练习把论文中的发现改写成自己的笔记；也可用于讲解如何从数据结果中提炼论点与保留限制条件。\n标签：文献精读、结果段落、关键证据、高亮标注、Nature期刊\n可见内容：页面来自 Nature Sustainability，底部高亮的结果段落写着“The Earth is greening. According to MODIS data, one-third of the global vegetated area is greening and 5% is browning…”，并提到 leaf area 的增加与减少比例变化。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.884Z",
+          "updatedAt": "2026-07-29T01:51:42.827Z"
+        },
+        {
+          "id": "img_14",
+          "type": "image",
+          "title": "漏斗式论证结构示意图：地球变绿的论点与证据层级",
+          "src": "/api/oss/read?objectKey=courses%2F71f6e9ac-4a63-484a-a096-93eec2753805.webp",
+          "note": "这张图用倒三角/漏斗结构展示从“观点”到“事实证据”的逐层收束：先提出“地球正在变绿”的主张，再依次给出全球植被变化比例、绿化来源、以及中国和印度相关植被地变化等更具体证据。适合帮助学生理解学术写作中的良构论证如何从宽泛论点逐步落实到可核查数据，也能配合课程中的“拆论点、找证据、判断证据支撑力度”训练。\n建议用途：放在“良构论证/拆解论点”环节，先让学生判断哪一句是主张、哪几句是证据；再要求学生把每层证据对应到原文或原始研究，练习从结论追到数据来源。也可用于小组讨论：哪些表述仍然偏概括，哪些已经更接近可验证事实。\n标签：良构论证、漏斗式结构、证据链、学术写作、批判性思维\n可见内容：图中为倒三角形漏斗论证图，顶部写有“Argument 1: The Earth is greening.”，右上角标注“opinion→Fact”。中间三层分别写着“Evidence 1: one-third of the global vegetated area is greening and 5% is browning.”、“Evidence 2: Two-thirds of this greening is from croplands and forests.”，底部写着“Evidence 3: This greening is seen over 65% of the vegetated lands in the China and India)”。右侧另有红字“Fact”。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.887Z",
+          "updatedAt": "2026-07-29T01:51:42.831Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_arg_1",
+          "type": "teaching",
+          "title": "回顾论点",
+          "text": "先回到论文结果段，确认作者围绕“地球在变绿”提出了怎样的主张。这里不是重新读论文，而是把上一节抓到的主张拿出来，准备观察它怎样被证据层层支撑。",
+          "asset_ids": [
+            "img_11"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_arg_2",
+          "type": "teaching",
+          "title": "展示漏斗结构",
+          "text": "漏斗式论证的关键，是先给出较宽的事实范围，再逐步缩小到更具体、更能锁定结论的证据。宽处负责建立背景，窄处负责降低反驳空间。我们先用论点1示范这个结构。",
+          "asset_ids": [
+            "img_14"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_arg_3",
+          "type": "teaching",
+          "title": "AI示范第一层",
+          "text": "示范时先看最宽的一层：全球植被面积中三分之一变绿、百分之五变黄。这个证据能说明总体趋势，但还没有说明变绿来自哪里、由什么驱动。所以它适合作为漏斗的上层，而不是最终锁定结论的底层证据。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_arg_4",
+          "type": "interaction",
+          "title": "学生独立排序论点1证据",
+          "text": "学生先判断论点1的三层证据应怎样从宽到细排列。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "arg_q1"
+        },
+        {
+          "id": "fb_arg_5",
+          "type": "interaction",
+          "title": "迁移到论点2和论点3",
+          "text": "学生把同一套漏斗拆解方法迁移到论点2和论点3。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "arg_q2"
+        },
+        {
+          "id": "fb_arg_6",
+          "type": "summary",
+          "title": "总结漏斗论证",
+          "text": "漏斗式论证不是把要点排漂亮，而是把观点逐层压实：先给较宽事实，再找中层机制，最后落到最具体、最能锁定结论的证据。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:12:02.577Z",
+        "alignment_notes": [
+          "交互设计为排序题，要求学生将三层论据按漏斗式结构排序，直接对应flow_block fb_arg_4中学生独立拆解论据2和3的任务。",
+          "ai_role要求AI只示范第一层，学生独立拆解其余两层，因此交互只涉及论据2和3的排序，但为了完整性包含了全部三层，且正确顺序从宽泛到具体，符合漏斗式论证逻辑。",
+          "restraint得到遵守：交互不包含AI替学生拆解的内容，而是让学生自己排序。",
+          "success_criteria中'学生能独立拆解出三层论据'通过排序题检验，'学生能解释漏斗式论证如何增强说服力'在解释中体现。",
+          "interaction_plan中的ordering类型被采用，但调整为包含三层论据的排序，而非仅论据2和3，以更全面检验理解。",
+          "remediation_questions提供补救，针对排序错误的学生，用单选题巩固漏斗式结构概念。"
+        ],
+        "interactions": [
+          {
+            "id": "arg_q1",
+            "type": "ordering",
+            "prompt": "请将以下三层论据按漏斗式论证的正确顺序排列（从最宽泛到最具体）：",
+            "options": [
+              {
+                "id": "b",
+                "text": "变绿的 2/3 来自耕地和林地"
+              },
+              {
+                "id": "a",
+                "text": "全球植被面积中 1/3 变绿，5% 变黄"
+              },
+              {
+                "id": "c",
+                "text": "65% 以上的变绿发生在中国和印度"
+              }
+            ],
+            "correct_answer": [
+              "a",
+              "b",
+              "c"
+            ],
+            "explanation": "漏斗式论证从最宽泛的全球数据开始，逐步聚焦到绿化来源，再进一步聚焦到中国和印度这两个主要贡献对象。",
+            "remediation_questions": [
+              {
+                "id": "arg_q1_rem1",
+                "type": "single_choice",
+                "prompt": "漏斗式论证中，最宽泛的论据应该放在哪一层？",
+                "options": [
+                  {
+                    "id": "b",
+                    "text": "第二层（中间层）"
+                  },
+                  {
+                    "id": "a",
+                    "text": "第一层（最外层）"
+                  },
+                  {
+                    "id": "c",
+                    "text": "第三层（最内层）"
+                  }
+                ],
+                "correct_answer": [
+                  "a"
+                ],
+                "explanation": "漏斗式论证从最宽泛的论据开始，逐步收窄到最具体的论据，因此最宽泛的论据应放在第一层。"
+              }
+            ]
+          },
+          {
+            "id": "arg_q2",
+            "type": "ordering",
+            "prompt": "如果把漏斗式论证迁移到“论点2”和“论点3”，下面哪种证据推进顺序更合理？请从宽到细排列。",
+            "options": [
+              {
+                "id": "middle",
+                "text": "这个趋势主要来自哪些类型或因素"
+              },
+              {
+                "id": "specific",
+                "text": "哪些国家、地区或数据最能锁定结论"
+              },
+              {
+                "id": "broad",
+                "text": "总体趋势或整体比例是否已经被论文说明"
+              }
+            ],
+            "correct_answer": [
+              "broad",
+              "middle",
+              "specific"
+            ],
+            "explanation": "迁移漏斗式论证时，不能只记某一题的答案，而要复用证据推进逻辑：先建立总体事实，再解释中层机制，最后用具体对象锁定结论。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_07",
+      "title": "处理矛盾：问题限定与让步段",
+      "purpose": "学生学会在矛盾证据中限定问题（To what degree），并写出让步段。",
+      "student_action": "面对矛盾证据（NASA变绿 vs IEA碳排放第一），给问题加上限定词，选定中心论点，写出让步段。",
+      "principle": "多视角/矛盾整合；问题限定；让步段/以退为进。",
+      "ai_role": "AI抛矛盾证据，提示加限定词，但中心论点和让步段由学生自己写，AI只检查结构。",
+      "restraint": "AI不替学生定论点，不替学生写让步段。",
+      "teaching_flow": [
+        "展示矛盾证据：NASA说中国让地球变绿，IEA说中国碳排放全球第一。",
+        "提问：如何同时处理这两个事实？",
+        "提示：给问题加上“To what degree”。",
+        "学生选定中心论点（如“很大程度上”），写出让步段。",
+        "AI检查让步段结构：是否先承认再反驳。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "矛盾证据展示",
+        "问题限定提示",
+        "学生写让步段"
+      ],
+      "avoid": [
+        "AI替学生定论点",
+        "AI替学生写让步段"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_16",
+          "role": "展示碳排放饼图，作为矛盾证据",
+          "use_when": "展示矛盾证据时"
+        },
+        {
+          "asset_id": "img_17",
+          "role": "展示论点限定与让步段示意表",
+          "use_when": "讲解让步段结构时"
+        }
+      ],
+      "success_criteria": [
+        "学生能写出包含让步段的议论文段落",
+        "让步段体现“以退为进”结构"
+      ],
+      "interaction_plan": [
+        {
+          "id": "contra_q1",
+          "goal": "引导学生思考如何整合矛盾证据",
+          "type": "single_choice",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        },
+        {
+          "id": "contra_q2",
+          "goal": "检查学生是否能识别让步段的合理结构",
+          "type": "single_choice",
+          "answer_policy": "答错后调用补救 Agent，最多 2 轮；仍未掌握则解释主问题答案。"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_contra",
+          "goal": "练习写让步段",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "矛盾证据：NASA变绿 vs IEA碳排放第一。加限定词To what degree，写让步段。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_15",
+          "type": "image",
+          "title": "Investopedia网站文章页面：全球二氧化碳排放量最大的五个国家",
+          "src": "/api/oss/read?objectKey=courses%2Fbf6fcb14-fbde-4f25-ae95-002ffdc2c30d.webp",
+          "note": "这是一篇英文财经/科普网站的网页文章截图，正文在介绍全球 CO2 主要排放国家及排放来源。适合在课程中用来训练学生做横向阅读与信源评估：先判断作者、审校与事实核查信息，再把页面中的结论拿去和更权威的原始数据源对照，辨别“看起来有数据支持”的二手解读是否可靠。也可用于引导学生把环境议题中的统计结论拆成可核查的具体主张。\n建议用途：可放入“横向阅读/查来源”环节，先让学生判断这篇网页的作者性、审校链条和数据来源，再要求他们回到原始数据库核对结论；也可作为“反向或矛盾证据”材料，让学生比较不同来源对同一环境议题的表述差异。\n标签：二氧化碳排放、横向阅读、信源评估、环境数据、财经科普\n可见内容：页面来自 Investopedia，标题为“The 5 Countries That Produce the Most Carbon Dioxide (CO2)”，左侧有目录，列出 China、The United States、India、Russia、Japan 等章节。正文提到 CO2 是温室气体，工业革命后排放增加，并引用 Global Carbon Atlas 的数据说明主要排放国。页面显示作者、更新日期、审校和事实核查信息。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.888Z",
+          "updatedAt": "2026-07-29T01:51:42.831Z"
+        },
+        {
+          "id": "img_16",
+          "type": "image",
+          "title": "各国CO2排放占比饼图",
+          "src": "/api/oss/read?objectKey=courses%2F5bff1563-787f-4bb3-98ae-f8b87d5606da.webp",
+          "note": "这是一张展示全球各国二氧化碳排放份额的饼图，突出中国占比最高（28%）。在课程中可用来帮助学生理解：面对“地球变绿”这类正面结论时，仍需同时核查反向证据与背景数据，学会把单一研究放回更大的议题中进行辩证判断，避免只凭一张图就下结论。\n建议用途：可放在“处理矛盾证据”或“横向阅读”环节，作为课堂提问图：让学生判断这张图支持了什么观点、不能支持什么观点，并结合原论文结论讨论如何写限定式论证或让步段。\n标签：碳排放、中国、饼图、气候变化、证据核查、数据可视化\n可见内容：标题为“Share of CO2 Emissions by Country”。图中列出中国28%、世界其他地区23%、美国15%、印度7%、俄罗斯5%、日本3%，以及德国、伊朗、韩国、沙特、印尼、加拿大、墨西哥、南非、巴西、土耳其、澳大利亚、英国、波兰等国家的占比。底部注明“Countries color coded by continent.”，来源为 Union of Concerned Scientists，右下角有 Investopedia 标识。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.889Z",
+          "updatedAt": "2026-07-29T01:51:42.832Z"
+        },
+        {
+          "id": "img_17",
+          "type": "image",
+          "title": "论点限定与让步段示意表：以中国让地球更可持续为题",
+          "src": "/api/oss/read?objectKey=courses%2Fe82a080e-9f50-4ccb-b018-81cb983c6d23.webp",
+          "note": "这张图用表格展示同一题目在不同论证力度下的 thesis statement、限定范围（to a larger/lesser extent）和让步表达。适合帮助学生理解学术写作里如何避免绝对化判断，如何用“to what extent”收束论点，并在主张中加入反方信息形成更平衡的让步段。\n建议用途：可放在“问题限定与让步段”讲解页，作为示例让学生比较不同立场强度；也可用于课堂拆句练习、改写论点句、补写让步段，或作为 AI 生成 thesis 之后的人类审校示范素材。\n标签：论点限定、让步段、thesis statement、To what extent、批判性写作、论证结构\n可见内容：图片是一个三列表格，顶部写着“To what extent Did China make the Earth become more sustainable?”。左列标注“Thesis statement:”以及“To a larger extent”“To a lesser extent”；中间和右侧分别给出不同版本的论点句，如“China has greatly contributed to the sustainability of Earth by effectively managing its land use.”、“China made the Earth become less sustainable because China is the largest emitter of carbon dioxide gas in the world.”，下方还有对应的扩展或让步表达示例，部分关键词如 contributed、less sustainable、absorb、emitted 用彩色高亮。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.889Z",
+          "updatedAt": "2026-07-29T01:51:42.833Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_contra_1",
+          "type": "teaching",
+          "title": "展示矛盾证据",
+          "text": "前面论文强调的是“地球正在变绿”，但写作不能只停在支持性证据上。现在我们看两份相反方向的材料：一份文章讨论碳排放大国，另一张图显示各国二氧化碳排放占比。它们不是要推翻前面的论文，而是提醒我们：同一个国家可能同时有绿化贡献和排放压力，判断必须带上范围和条件。",
+          "asset_ids": [
+            "img_15",
+            "img_16"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_contra_2",
+          "type": "interaction",
+          "title": "讨论矛盾",
+          "text": "学生先判断面对相反证据时应如何调整写作问题。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "contra_q1"
+        },
+        {
+          "id": "fb_contra_3",
+          "type": "teaching",
+          "title": "提示问题限定",
+          "text": "处理矛盾证据时，最关键的动作不是立刻选边，而是把问题改得更精确。比如不要问“中国是不是让地球更可持续”，而是问“中国在多大程度上、通过哪些行为、在哪些方面让地球更可持续”。限定词能让论证从绝对判断变成可讨论、可证明的判断。",
+          "asset_ids": [
+            "img_17"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_contra_4",
+          "type": "interaction",
+          "title": "学生写让步段",
+          "text": "学生判断哪一种让步表达更符合先承认限制、再收束主张的结构。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "contra_q2"
+        },
+        {
+          "id": "fb_contra_5",
+          "type": "teaching",
+          "title": "检查结构",
+          "text": "写让步段时，句子表面有“虽然、但是”还不够。我们要检查它是否真的完成了三个动作：先承认反方证据确实提出限制，再用限定词缩小自己的主张范围，最后说明自己的判断在这个限定范围内仍然成立。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_contra_6",
+          "type": "summary",
+          "title": "总结让步段作用",
+          "text": "相反证据不是要被回避，而是要被纳入论证结构中：先承认限制，再限定问题，最后让自己的判断更稳。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:12:14.424Z",
+        "alignment_notes": [
+          "互动设计紧扣flow_block fb_contra_2（讨论矛盾），引导学生思考如何整合矛盾证据，符合ai_role中“AI抛矛盾证据，提示加限定词”的要求。",
+          "选项b体现了“给问题加上To what degree”的提示，符合restraint中“AI不替学生定论点”的原则，因为互动只引导思考，不替学生写论点。",
+          "成功标准要求学生能写出让步段，但本互动仅作为前置思考，不直接测试写作，符合interaction_plan中“开放讨论”的意图。",
+          "避免了AI替学生定论点或写让步段，仅提供选择项引导学生正确思路。",
+          "交互contra_q1是选择题，但步骤要求学生写让步段，而非选择做法。",
+          "交互contra_q1的选项d涉及让步段，但AI不应替学生写让步段，且该选项暗示了反驳方向。",
+          "缺少一个让学生实际写让步段并接受AI结构检查的交互。"
+        ],
+        "interactions": [
+          {
+            "id": "contra_q1",
+            "type": "single_choice",
+            "prompt": "面对“NASA说中国让地球变绿”和“IEA说中国碳排放全球第一”这两个看似矛盾的事实，以下哪种做法最符合学术写作的要求？",
+            "options": [
+              {
+                "id": "c",
+                "text": "认为两个事实互相矛盾，因此无法得出任何结论"
+              },
+              {
+                "id": "d",
+                "text": "直接写一个让步段，先承认碳排放高，再反驳说变绿更重要"
+              },
+              {
+                "id": "a",
+                "text": "选择其中一个事实作为论据，忽略另一个"
+              },
+              {
+                "id": "b",
+                "text": "承认两个事实都存在，然后通过限定问题（如“在多大程度上”）来整合论证"
+              }
+            ],
+            "correct_answer": [
+              "b"
+            ],
+            "explanation": "学术写作要求面对矛盾证据时，不回避也不简单取舍，而是通过限定问题（如“to what degree”）来整合，使论证更严谨。选项d虽然涉及让步段，但“反驳说变绿更重要”可能过于绝对，且未体现问题限定。",
+            "remediation_questions": [
+              {
+                "id": "contra_q1_remedy",
+                "type": "single_choice",
+                "prompt": "在学术写作中，处理矛盾证据的关键步骤是什么？",
+                "options": [
+                  {
+                    "id": "b",
+                    "text": "承认矛盾，并通过限定问题来整合"
+                  },
+                  {
+                    "id": "a",
+                    "text": "只选择支持自己观点的证据"
+                  },
+                  {
+                    "id": "c",
+                    "text": "直接否定其中一个证据"
+                  }
+                ],
+                "correct_answer": [
+                  "b"
+                ],
+                "explanation": "正确做法是承认矛盾，并通过限定问题（如“在多大程度上”）来整合，使论证更全面。"
+              }
+            ]
+          },
+          {
+            "id": "contra_q2",
+            "type": "single_choice",
+            "prompt": "现在请你选定一个中心论点（如“中国在让地球变绿方面做出了贡献，但碳排放问题仍需关注”），并写出一个包含让步段的段落。请从以下选项中选择最符合“以退为进”结构的让步段：",
+            "options": [
+              {
+                "id": "d",
+                "text": "中国让地球变绿了，所以碳排放问题不重要。"
+              },
+              {
+                "id": "a",
+                "text": "虽然中国的碳排放量全球第一，但中国在绿化方面也做出了巨大贡献，因此中国对地球的贡献更大。"
+              },
+              {
+                "id": "b",
+                "text": "尽管中国在植树造林方面取得了显著成就，使地球变绿，但与此同时，中国的碳排放量也是全球最高的，这给环境带来了压力。因此，中国在可持续发展方面既有贡献也有挑战。"
+              },
+              {
+                "id": "c",
+                "text": "中国的碳排放量很高，所以中国对地球的负面影响更大，绿化贡献微不足道。"
+              }
+            ],
+            "correct_answer": [
+              "b"
+            ],
+            "explanation": "选项b先承认对方观点（碳排放高），再提出己方观点（绿化贡献），体现了“以退为进”的让步段结构。选项a虽然也有让步，但结尾偏向一方，不够平衡。",
+            "remediation_questions": [
+              {
+                "id": "contra_q2_remedy",
+                "type": "single_choice",
+                "prompt": "让步段的核心结构是什么？",
+                "options": [
+                  {
+                    "id": "b",
+                    "text": "先承认对方观点，再提出己方观点"
+                  },
+                  {
+                    "id": "c",
+                    "text": "只提出己方观点"
+                  },
+                  {
+                    "id": "a",
+                    "text": "只承认对方观点"
+                  }
+                ],
+                "correct_answer": [
+                  "b"
+                ],
+                "explanation": "让步段的核心是“以退为进”，先承认对方观点的合理性，再提出己方观点，使论证更全面。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_08",
+      "title": "元认知与好奇心：反思与延伸",
+      "purpose": "学生反思自己的信源视角偏狭，并理解好奇心是学术力的引擎。",
+      "student_action": "反思自己查到的来源是否来自同一视角，讨论“兔子洞”经历，理解好奇心驱动学习。",
+      "principle": "元认知/反身性；求知动机。",
+      "ai_role": "AI触发反思，不评判学生的结论。",
+      "restraint": "AI不评判学生的反思内容。",
+      "teaching_flow": [
+        "提问：你查的这些来源，是不是都来自某一类视角？",
+        "引导学生反思信源多样性。",
+        "展示“兔子洞”概念：为查一个点却迷上另一个问题。",
+        "展示金色飞贼图片，比喻好奇心如金色飞贼。",
+        "总结：学术力始于好奇心，不要只在乎结果。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "信源视角反思",
+        "兔子洞概念",
+        "好奇心驱动"
+      ],
+      "avoid": [
+        "AI评判学生反思",
+        "给出标准答案"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "img_18",
+          "role": "展示金色飞贼，比喻好奇心",
+          "use_when": "讲解好奇心时"
+        }
+      ],
+      "success_criteria": [
+        "学生能反思自己的信源视角",
+        "学生能说出好奇心对学术的重要性"
+      ],
+      "interaction_plan": [
+        {
+          "id": "meta_q1",
+          "goal": "触发信源视角反思",
+          "type": "single_choice",
+          "answer_policy": "开放讨论"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_meta",
+          "goal": "反思信源视角",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "反思信源视角，保持好奇心，学术力始于追问。",
+      "links": [],
+      "materials": [
+        {
+          "id": "img_18",
+          "type": "image",
+          "title": "《哈利·波特》金色飞贼摆件与书页特写",
+          "src": "/api/oss/read?objectKey=courses%2F2d18d1f4-94a0-4ef1-ac48-6cfae3c55f6b.webp",
+          "note": "画面中的金色飞贼摆件和《Harry Potter》书页，适合在课程收束时引导学生理解“好奇心、持续追问、追踪线索”的学习态度：像追逐飞贼一样，不急于下结论，而是不断回到证据与原始出处继续核查。\n建议用途：可用于结尾页或转场页，配合旁白强调“保持好奇、继续追问、回到证据”的学习态度；也可作为元认知/学习动机模块的视觉隐喻，引出课后延伸思考。\n标签：好奇心、持续追问、学习动机、批判性思维、课程收束\n可见内容：书页上可见“HARRY POTTER”字样，画面主体为金色飞贼造型摆件，背景为桌面与设备。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+          "createdAt": "2026-07-22T06:36:17.890Z",
+          "updatedAt": "2026-07-29T01:51:42.834Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "fb_meta_1",
+          "type": "teaching",
+          "title": "回到自己的信源视角",
+          "text": "到这里，我们已经走完了从素材核查到论证写作的主要路径。最后一步不是再学一个新技巧，而是回头看自己的查找过程：我是不是只找到了同一类来源？我有没有主动寻找不同立场、不同身份的材料？这个反思决定了下一次写作会不会仍然被单一材料牵着走。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_meta_2",
+          "type": "interaction",
+          "title": "反思信源视角",
+          "text": "学生反思自己查到的材料是否来自过于单一的视角。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": "meta_q1"
+        },
+        {
+          "id": "fb_meta_3",
+          "type": "teaching",
+          "title": "引入好奇心隐喻",
+          "text": "保持好奇心，不是不断找新奇材料，而是在一个线索看似结束时继续问：它从哪里来？还有谁这样说？有没有相反材料？这张图可以作为一个隐喻：真正有价值的线索往往不会停在第一页搜索结果里，需要我们追着证据继续往下走。",
+          "asset_ids": [
+            "img_18"
+          ],
+          "activity_id": "",
+          "interaction_id": ""
+        },
+        {
+          "id": "fb_meta_4",
+          "type": "summary",
+          "title": "总结课程",
+          "text": "看到素材时先停下来，沿来源往上追，横向找不同来源对照，再回到原始证据精读，最后把证据组织成有保留、有依据的表达。",
+          "asset_ids": [],
+          "activity_id": "",
+          "interaction_id": ""
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "interaction_agent",
+        "status": "reviewed",
+        "generated_at": "2026-07-29T01:12:21.394Z",
+        "alignment_notes": [
+          "交互设计直接对应flow_block fb_meta_1（反思信源视角），触发学生对信源多样性的反思。",
+          "选项设计避免评判，符合restraint要求。",
+          "交互类型为single_choice，符合interaction_plan中的计划。",
+          "成功标准：学生能反思自己的信源视角，通过选择暴露视角单一问题，并引导后续讨论。"
+        ],
+        "interactions": [
+          {
+            "id": "meta_q1",
+            "type": "single_choice",
+            "prompt": "回顾你为写作任务查找的资料，这些来源的视角是否偏向某一类？",
+            "options": [
+              {
+                "id": "C",
+                "text": "我没有注意过视角问题，只是找能用的信息"
+              },
+              {
+                "id": "B",
+                "text": "不，我特意找了不同立场和不同类型的来源"
+              },
+              {
+                "id": "A",
+                "text": "是的，我查到的资料大多来自同一立场或同一类型的媒体"
+              }
+            ],
+            "correct_answer": [
+              "A"
+            ],
+            "explanation": "选择A或C都值得反思：学术写作需要多元视角。选择B说明你已有意识，但可以进一步检查是否真正覆盖了不同观点。",
+            "remediation_questions": [
+              {
+                "id": "meta_q1_remedy",
+                "type": "single_choice",
+                "prompt": "如果发现来源视角单一，下一步你会怎么做？",
+                "options": [
+                  {
+                    "id": "C",
+                    "text": "放弃这个题目，换一个更容易找到多元视角的题目"
+                  },
+                  {
+                    "id": "B",
+                    "text": "只保留现有资料，在写作中说明局限性"
+                  },
+                  {
+                    "id": "A",
+                    "text": "主动搜索对立观点或不同立场的资料"
+                  }
+                ],
+                "correct_answer": [
+                  "A"
+                ],
+                "explanation": "主动寻找对立观点是拓展视角的关键，也是学术好奇心的体现。"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "asset_library": [
+    {
+      "id": "asset_mrvpl1uh",
+      "type": "link",
+      "title": "NASA链接",
+      "src": "https://www.nasa.gov/centers-and-facilities/ames/human-activity-in-china-and-india-dominates-the-greening-of-earth-nasa-study-shows/",
+      "note": "NASA 查看链接",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:35:57.227Z",
+      "updatedAt": "2026-07-29T01:51:42.810Z"
+    },
+    {
+      "id": "img_01",
+      "type": "image",
+      "title": "哈佛大学招生网站中“Documents & Articles”板块的书面作品要求截图",
+      "src": "/api/oss/read?objectKey=courses%2F0d64b704-3683-45e5-9caa-5a1ffc3b8dbd.webp",
+      "note": "这张图展示哈佛招生页面对学术性文稿、研究作品和创意写作等“Documents & Articles”的提交要求，适合用来引导学生理解：名校看重的不只是结论，而是写作中的证据、来源意识和思考痕迹，也能帮助学生建立“学术写作需要可核查材料支撑”的任务意识。\n建议用途：用于课程导入页、动机建立环节或案例开场；可在讲解“Written Work / 书面作品”时配图展示，也可放在讨论“为什么学术写作要展示思考过程”这一页。\n标签：哈佛招生、书面作品、学术写作、思考痕迹、申请材料\n可见内容：页面顶部显示 HARVARD COLLEGE Admissions & Financial Aid；中间高亮区域标题为 Documents & Articles，正文说明 scholarly articles、research、creative writing 等材料应通过 Applicant Status Portal 提交；右侧可见 Visit Harvard 等栏目。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.876Z",
+      "updatedAt": "2026-07-29T01:51:42.814Z"
+    },
+    {
+      "id": "img_02",
+      "type": "image",
+      "title": "Nature 期刊首页与出版平台截图",
+      "src": "/api/oss/read?objectKey=courses%2Fa6eb2352-07df-4131-b17a-b3d7687a7329.webp",
+      "note": "这张图展示的是 Nature 官网首页及期刊内容入口，适合帮助学生理解“原始信源”与“学术期刊平台”的区别：它能用来追溯论文是否出自权威同行评审期刊，但不能直接当作公众号推文的起点。放在课程里可用于训练学生从二手转述回到一手文献，并判断来源层级。\n建议用途：用于课堂中“纵向溯源 / 查来源”环节，示范如何从论文标题或引用顺着找到 Nature 官网；也可放在“横向阅读”前作为辨认学术期刊平台的视觉样例，提醒学生区分期刊首页、论文页和社交媒体转载页。\n标签：Nature期刊、学术出版、信源追溯、同行评审、文献检索\n可见内容：页面顶部有 nature 标志与导航栏，包含 Explore content、About the journal、Publish with us、Subscribe、Search、Log in 等入口。页面主体展示多篇 Nature 新闻/文章卡片，如关于 PhD students、mouse inflammation、psilocybin、micro aerial vehicle、expired reagents 等；右侧还可见期刊封面与 Current issue、Contents、Subscribe 等按钮。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.877Z",
+      "updatedAt": "2026-07-29T01:51:42.815Z"
+    },
+    {
+      "id": "img_03",
+      "type": "image",
+      "title": "Nature Sustainability 论文页面：China and India lead in greening of the world through land-use management",
+      "src": "/api/oss/read?objectKey=courses%2Fe2f467d8-3ac4-4d1f-8c8a-62a29f0412e3.webp",
+      "note": "这是一篇 Nature Sustainability 论文的首页截图，适合作为纵向溯源的最终一级信源示例。它能帮助学生理解：公众号或二手报道中的“地球变绿”说法必须追到原始论文，核查论文标题、发表日期、期刊来源与作者信息，再判断结论是否被准确转述。\n建议用途：用于课堂中“追溯原始出处”步骤的截图示范；可放在讲解 SIFT 的 Trace 环节，带学生识别论文标题、期刊名、发布日期和作者，并判断其是否为二手转载的源头。\n标签：纵向溯源、学术期刊、信源核查、Nature Sustainability、证据阅读\n可见内容：页面顶部显示 nature sustainability；文章类型为 Article，发布时间 11 February 2019；标题为 China and India lead in greening of the world through land-use management；下方列出多位作者姓名，以及 Nature Sustainability 2, 122–129 (2019)、Cite this article、Accesses、Citations、Altmetric 等信息。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.878Z",
+      "updatedAt": "2026-07-29T01:51:42.816Z"
+    },
+    {
+      "id": "img_04",
+      "type": "image",
+      "title": "Nature Sustainability 论文正文截图：地球变绿与人类土地利用作用",
+      "src": "/api/oss/read?objectKey=courses%2F0ca79f11-839e-40d0-b024-bfc64fd1f8c7.webp",
+      "note": "这是一段 Nature Sustainability 论文正文，讨论卫星数据中的“地球变绿”现象，并强调人类土地利用管理、CO2 施肥效应等因素的作用。适合用于文献精读教学，帮助学生练习从摘要和正文中提取核心论点、识别因果主张、理解数据证据与结论之间的对应关系，也可用于训练对学术论文中“结果—解释—限制”的阅读。\n建议用途：可放在“文献精读”环节，作为学生拆解论文标题、摘要、结果段落和图文论证的练习素材；也可用于让学生圈画关键词、标注主张与证据、比较公众号转述与原始论文的差异。\n标签：学术论文、文献精读、地球变绿、卫星数据、人类土地利用、证据阅读\n可见内容：图片为 Nature Sustainability 论文正文截图。可见标题内容提到“Satellite data show increasing leaf area of vegetation…”；正文中“Results”部分突出写着“The Earth is greening.”，并说明 MODIS 数据显示全球约三分之一的植被面积在变绿、约 5% 在变褐，同时讨论中国和印度的变绿与森林、耕地及土地利用管理相关。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.879Z",
+      "updatedAt": "2026-07-29T01:51:42.817Z"
+    },
+    {
+      "id": "img_05",
+      "type": "image",
+      "title": "论文作者单位与通讯邮箱信息片段",
+      "src": "/api/oss/read?objectKey=courses%2F8a5ca7d8-7c67-4e4f-8062-5c39af5889ae.webp",
+      "note": "这是一段论文首页的作者单位列表和通讯作者邮箱，不是正文论点本身。适合在文献精读中帮助学生识别论文的作者背景、机构分布、跨国合作情况，以及顺着作者单位进一步判断研究来源与学术可信度。\n建议用途：可放在“纵向溯源”或“信源评估”环节，让学生先辨认论文的机构来源，再追问作者背景与研究可信度；也可作为文献首页阅读训练中的信息提取练习。\n标签：作者单位、通讯作者、期刊论文、信源评估、文献精读\n可见内容：可见文本为多行作者单位信息，包含 Boston University、Peking University、Indian Institute of Science、NASA Ames Research Center 等机构，以及通讯邮箱 chenchi@bu.edu。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.879Z",
+      "updatedAt": "2026-07-29T01:51:42.817Z"
+    },
+    {
+      "id": "img_06",
+      "type": "image",
+      "title": "全球植被变绿趋势地图（2000—2017年）",
+      "src": "/api/oss/read?objectKey=courses%2F3b4d80ba-7c6d-4bdb-9b80-d9bc8d18ae80.webp",
+      "note": "这是一张展示全球年均叶面积指数（LAI）变化趋势的论文图，绿色表示植被增绿、橙红色表示变褐，红圈标出了多个显著增绿区域。它很适合用来训练学生把“图像证据”与论文主张对应起来，理解研究如何用数据支持“中国和印度对全球变绿有重要贡献”的结论，并进一步讨论图表中的范围、指标和统计显著性。\n建议用途：可放在“文献精读”或“图表解读”环节：先让学生读图注再找关键信息，标出增绿区域与颜色含义；也可用于“证据核查”环节，让学生判断这张图如何支撑论文结论，并练习用图表概括研究发现。\n标签：全球绿化、植被趋势、叶面积指数、论文图表、数据可视化\n可见内容：图中标题为“Map of trends in annual average MODIS LAI for 2000-2017”。左下角插图显示变褐与增绿频率分布；底部色带表示年均LAI趋势从负值到正值的变化。图注说明显著趋势用颜色编码，灰色为不显著，白色为荒漠、冰雪、水体等区域；红圈标出多个主要增绿区域，尤其与耕地重叠。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.880Z",
+      "updatedAt": "2026-07-29T01:51:42.818Z"
+    },
+    {
+      "id": "img_07",
+      "type": "image",
+      "title": "论文图表：中印及全球耕地绿化趋势与耕作面积变化",
+      "src": "/api/oss/read?objectKey=courses%2F5cf34f07-e959-4930-8c7e-2d05c6d7aa2e.webp",
+      "note": "这是一张论文中的数据图表，左侧用地图展示中国和印度耕地叶面积指数（LAI）的年度变化趋势，右侧用折线图比较中国、印度和全球的收获面积与可耕面积变化。适合在文献精读中引导学生从图中提取证据、理解作者如何用可视化支持“地球变绿”或“人类活动影响植被变化”的论点，并训练学生区分区域结论、全球结论和图表中的异常值。\n建议用途：可放在“文献精读/读图找证据”环节，要求学生先读图注，再分别描述地图和折线图传达的结论，最后回答这张图支持了什么主张、还有哪些需要谨慎解释的地方。\n标签：论文图表、数据可视化、绿化趋势、耕地变化、文献精读、证据提取\n可见内容：图中包含多个子图，显示 China、India、World 的 area ratio 变化，以及中国和印度耕地 annual average LAI trend；图注提到“Leaf area trends in croplands of China and India”“Harvested area and arable area”“outlier”。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.881Z",
+      "updatedAt": "2026-07-29T01:51:42.819Z"
+    },
+    {
+      "id": "img_08",
+      "type": "image",
+      "title": "学术论文正文双栏截图：Methods 方法部分与公式说明",
+      "src": "/api/oss/read?objectKey=courses%2Ffdc83fe3-1fd4-44f0-96bd-09456dd255b8.webp",
+      "note": "这是一页英文论文正文的双栏排版截图，内容集中在方法部分：左栏介绍 MODIS LAI、AVHRR LAI3g 等叶面积指数数据产品，右栏包含中国森林清查数据、LAI 趋势计算、净叶面积变化公式以及生长季/年均 LAI 的处理说明。适合用于训练学生精读学术论文时识别方法、变量、数据来源、统计检验和公式含义，帮助他们从“看懂论文怎么做”入手，而不是只看结论。\n建议用途：用于文献精读环节：让学生圈出方法部分中的数据来源、变量定义和统计检验；配合“摘要-方法-图表-结论”阅读顺序做分段提问；也可作为拆解论文方法与判断证据强弱的课堂练习素材。\n标签：论文正文、方法部分、文献精读、数据来源、统计方法、公式解读\n可见内容：可见英文标题与段落包括 Methods、MODIS LAI product、AVHRR LAI3g product、Forestry inventory data of China、Calculation of LAI trends、Calculation of the net change in leaf area、Growing season-integrated LAI and annual average LAI，以及一个净叶面积变化公式。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/fdc83fe3-1fd4-44f0-96bd-09456dd255b8.webp",
+      "originalSrc": "/assets/case-b/img_08.png",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/fdc83fe3-1fd4-44f0-96bd-09456dd255b8.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 553006,
+          "uploadedBytes": 108454,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.882Z",
+      "updatedAt": "2026-07-29T01:51:42.825Z"
+    },
+    {
+      "id": "img_09",
+      "type": "image",
+      "title": "论文正文中的参考文献列表局部",
+      "src": "/api/oss/read?objectKey=courses%2F1085748d-f28f-49b3-acbf-3c1a0efbb2e5.webp",
+      "note": "这张图展示的是学术论文正文末尾的参考文献条目，适合用来训练学生识别证据来源、判断文献类型、追踪原始出处，以及理解“正文论点需要由可核查信源支撑”这一写作原则。\n建议用途：可放入“纵向溯源”或“文献精读”环节，带学生练习从正文主张追到参考文献，再根据条目判断资料类型、权威性与可追溯性。\n标签：参考文献、信源核查、论文阅读、证据追溯、学术写作\n可见内容：截图为论文参考文献列表局部，左右两栏编号条目密集排列，可见多条作者、年份、期刊名、卷期页码及网址链接，如 Nature、Science、FAO、NASA 等来源。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/1085748d-f28f-49b3-acbf-3c1a0efbb2e5.webp",
+      "originalSrc": "/assets/case-b/img_09.png",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/1085748d-f28f-49b3-acbf-3c1a0efbb2e5.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 344881,
+          "uploadedBytes": 85270,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.883Z",
+      "updatedAt": "2026-07-29T01:51:42.826Z"
+    },
+    {
+      "id": "img_11",
+      "type": "image",
+      "title": "Nature Sustainability 论文页面中被高亮的结果段落",
+      "src": "/api/oss/read?objectKey=courses%2F10b3e28a-e57a-4a28-9bfb-42abeca3214c.webp",
+      "note": "这张图展示了学术论文正文里被标出的关键结论句，适合用来训练学生在精读时快速识别主结论、数据结论与限制条件，并理解如何从图表/结果段落提炼论证要点，而不是只看标题或摘要。\n建议用途：可放在“文献精读”环节，作为示范图让学生圈出结果句、判断作者的核心结论，并练习把论文中的发现改写成自己的笔记；也可用于讲解如何从数据结果中提炼论点与保留限制条件。\n标签：文献精读、结果段落、关键证据、高亮标注、Nature期刊\n可见内容：页面来自 Nature Sustainability，底部高亮的结果段落写着“The Earth is greening. According to MODIS data, one-third of the global vegetated area is greening and 5% is browning…”，并提到 leaf area 的增加与减少比例变化。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.884Z",
+      "updatedAt": "2026-07-29T01:51:42.827Z"
+    },
+    {
+      "id": "img_10",
+      "type": "image",
+      "title": "学术论文结构与批判性思维要素对应流程图",
+      "src": "/api/oss/read?objectKey=courses%2Fffcc0030-e1e7-4a02-b187-82592a88993c.webp",
+      "note": "这张图把学术论文的“引言—方法—讨论—结论”四部分，分别对应到“明确问题—寻找方案—验证结果—反思总结”等批判性思维动作，适合帮助学生理解论文写作不是堆材料，而是按研究问题推进论证、评估证据并形成综合判断。\n建议用途：可放在讲解论文结构、拆解论证步骤、总结课堂板书时；也适合用于让学生把一篇论文的各部分与批判性思维动作逐一对应，作为写作提纲或小组讨论任务的视觉支架。\n标签：学术论文结构、批判性思维、论文写作、研究问题、论证流程、反思总结\n可见内容：图中左侧为“学术论文的结构”，依次列出“引言、方法、讨论、结论”；中间对应说明分别是“确立研究的背景、范围和目标”“如何进行研究，选择科学的方法”“分析结果，验证结果的意义”“对研究结果进行综合性评价”；右侧为“逻辑批判思维要素”，依次对应“明确问题、寻找方案、验证结果、反思总结”，用箭头连接形成流程关系。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/ffcc0030-e1e7-4a02-b187-82592a88993c.webp",
+      "originalSrc": "/assets/case-b/img_10.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/ffcc0030-e1e7-4a02-b187-82592a88993c.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 84081,
+          "uploadedBytes": 47384,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.884Z",
+      "updatedAt": "2026-07-29T01:51:42.828Z"
+    },
+    {
+      "id": "img_12",
+      "type": "image",
+      "title": "剑桥大学本科申请“written work”要求截图",
+      "src": "/api/oss/read?objectKey=courses%2Fac93f410-47a5-4add-9e43-9d585c879bc8.webp",
+      "note": "这张图展示剑桥大学官网本科申请页面中“Submitted work”部分，明确写着申请者需在面试前提交两份 written work。适合用来引导学生理解：名校申请重视书面作品本身的思考痕迹、论证能力与学术表达，而不只是标准答案。\n建议用途：用于课程开场导入或动机激发；放在讲解“学术写作为何重要”“名校看重什么”环节；也可作为讨论题素材，让学生比较 written work 与一般应试作文的差异。\n标签：剑桥大学、本科申请、书面作品、学术写作、申请材料\n可见内容：页面标题为 University of Cambridge / Undergraduate Study / Submitted work。正文可见：Applicants to all Colleges are required to submit two pieces of written work prior to interview. 下方还有关于招生决定由各学院负责的说明。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.885Z",
+      "updatedAt": "2026-07-29T01:51:42.829Z"
+    },
+    {
+      "id": "img_13",
+      "type": "image",
+      "title": "Nature Sustainability 论文中的植被净变化数据表",
+      "src": "/api/oss/read?objectKey=courses%2Fbbef85a4-e6d3-4c40-ac72-29e55836e6c3.webp",
+      "note": "这是一页学术论文截图，中心是 Table 1，列出 2000–2017 年森林、其他木本植被、草地、耕地和全部植被的净变化面积，并按全球、纬度带、MAT、ATP 等维度分组。适合在课程中帮助学生理解：如何从论文表格读取定量证据、识别分组变量与比较对象、把数据结果转化为论证依据，以及如何在精读时判断作者结论是否被数据支持。\n建议用途：放在“文献精读”环节，用于带学生逐列读表、圈出关键数值、讨论表格如何支持或限制论文主张；也可作为小组练习材料，让学生把表格数据改写成一句规范的学术表述。\n标签：论文表格、数据证据、文献精读、植被变化、Nature Sustainability\n可见内容：页面上方是“Table 1 | Net changes in leaf area (10^6 million km^2) for the period 2000–2017”，表格按 Forests、Other woody vegetation、Grasslands、Croplands、All vegetation 分列，按 Global、纬度带、MAT、ATP 等分类给出数值；下方有补充说明文字，提到与 AVHRR data 的比较；页脚可见 Nature Sustainability 期刊信息。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.886Z",
+      "updatedAt": "2026-07-29T01:51:42.830Z"
+    },
+    {
+      "id": "img_14",
+      "type": "image",
+      "title": "漏斗式论证结构示意图：地球变绿的论点与证据层级",
+      "src": "/api/oss/read?objectKey=courses%2F71f6e9ac-4a63-484a-a096-93eec2753805.webp",
+      "note": "这张图用倒三角/漏斗结构展示从“观点”到“事实证据”的逐层收束：先提出“地球正在变绿”的主张，再依次给出全球植被变化比例、绿化来源、以及中国和印度相关植被地变化等更具体证据。适合帮助学生理解学术写作中的良构论证如何从宽泛论点逐步落实到可核查数据，也能配合课程中的“拆论点、找证据、判断证据支撑力度”训练。\n建议用途：放在“良构论证/拆解论点”环节，先让学生判断哪一句是主张、哪几句是证据；再要求学生把每层证据对应到原文或原始研究，练习从结论追到数据来源。也可用于小组讨论：哪些表述仍然偏概括，哪些已经更接近可验证事实。\n标签：良构论证、漏斗式结构、证据链、学术写作、批判性思维\n可见内容：图中为倒三角形漏斗论证图，顶部写有“Argument 1: The Earth is greening.”，右上角标注“opinion→Fact”。中间三层分别写着“Evidence 1: one-third of the global vegetated area is greening and 5% is browning.”、“Evidence 2: Two-thirds of this greening is from croplands and forests.”，底部写着“Evidence 3: This greening is seen over 65% of the vegetated lands in the China and India)”。右侧另有红字“Fact”。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.887Z",
+      "updatedAt": "2026-07-29T01:51:42.831Z"
+    },
+    {
+      "id": "img_15",
+      "type": "image",
+      "title": "Investopedia网站文章页面：全球二氧化碳排放量最大的五个国家",
+      "src": "/api/oss/read?objectKey=courses%2Fbf6fcb14-fbde-4f25-ae95-002ffdc2c30d.webp",
+      "note": "这是一篇英文财经/科普网站的网页文章截图，正文在介绍全球 CO2 主要排放国家及排放来源。适合在课程中用来训练学生做横向阅读与信源评估：先判断作者、审校与事实核查信息，再把页面中的结论拿去和更权威的原始数据源对照，辨别“看起来有数据支持”的二手解读是否可靠。也可用于引导学生把环境议题中的统计结论拆成可核查的具体主张。\n建议用途：可放入“横向阅读/查来源”环节，先让学生判断这篇网页的作者性、审校链条和数据来源，再要求他们回到原始数据库核对结论；也可作为“反向或矛盾证据”材料，让学生比较不同来源对同一环境议题的表述差异。\n标签：二氧化碳排放、横向阅读、信源评估、环境数据、财经科普\n可见内容：页面来自 Investopedia，标题为“The 5 Countries That Produce the Most Carbon Dioxide (CO2)”，左侧有目录，列出 China、The United States、India、Russia、Japan 等章节。正文提到 CO2 是温室气体，工业革命后排放增加，并引用 Global Carbon Atlas 的数据说明主要排放国。页面显示作者、更新日期、审校和事实核查信息。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.888Z",
+      "updatedAt": "2026-07-29T01:51:42.831Z"
+    },
+    {
+      "id": "img_16",
+      "type": "image",
+      "title": "各国CO2排放占比饼图",
+      "src": "/api/oss/read?objectKey=courses%2F5bff1563-787f-4bb3-98ae-f8b87d5606da.webp",
+      "note": "这是一张展示全球各国二氧化碳排放份额的饼图，突出中国占比最高（28%）。在课程中可用来帮助学生理解：面对“地球变绿”这类正面结论时，仍需同时核查反向证据与背景数据，学会把单一研究放回更大的议题中进行辩证判断，避免只凭一张图就下结论。\n建议用途：可放在“处理矛盾证据”或“横向阅读”环节，作为课堂提问图：让学生判断这张图支持了什么观点、不能支持什么观点，并结合原论文结论讨论如何写限定式论证或让步段。\n标签：碳排放、中国、饼图、气候变化、证据核查、数据可视化\n可见内容：标题为“Share of CO2 Emissions by Country”。图中列出中国28%、世界其他地区23%、美国15%、印度7%、俄罗斯5%、日本3%，以及德国、伊朗、韩国、沙特、印尼、加拿大、墨西哥、南非、巴西、土耳其、澳大利亚、英国、波兰等国家的占比。底部注明“Countries color coded by continent.”，来源为 Union of Concerned Scientists，右下角有 Investopedia 标识。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.889Z",
+      "updatedAt": "2026-07-29T01:51:42.832Z"
+    },
+    {
+      "id": "img_17",
+      "type": "image",
+      "title": "论点限定与让步段示意表：以中国让地球更可持续为题",
+      "src": "/api/oss/read?objectKey=courses%2Fe82a080e-9f50-4ccb-b018-81cb983c6d23.webp",
+      "note": "这张图用表格展示同一题目在不同论证力度下的 thesis statement、限定范围（to a larger/lesser extent）和让步表达。适合帮助学生理解学术写作里如何避免绝对化判断，如何用“to what extent”收束论点，并在主张中加入反方信息形成更平衡的让步段。\n建议用途：可放在“问题限定与让步段”讲解页，作为示例让学生比较不同立场强度；也可用于课堂拆句练习、改写论点句、补写让步段，或作为 AI 生成 thesis 之后的人类审校示范素材。\n标签：论点限定、让步段、thesis statement、To what extent、批判性写作、论证结构\n可见内容：图片是一个三列表格，顶部写着“To what extent Did China make the Earth become more sustainable?”。左列标注“Thesis statement:”以及“To a larger extent”“To a lesser extent”；中间和右侧分别给出不同版本的论点句，如“China has greatly contributed to the sustainability of Earth by effectively managing its land use.”、“China made the Earth become less sustainable because China is the largest emitter of carbon dioxide gas in the world.”，下方还有对应的扩展或让步表达示例，部分关键词如 contributed、less sustainable、absorb、emitted 用彩色高亮。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.889Z",
+      "updatedAt": "2026-07-29T01:51:42.833Z"
+    },
+    {
+      "id": "img_18",
+      "type": "image",
+      "title": "《哈利·波特》金色飞贼摆件与书页特写",
+      "src": "/api/oss/read?objectKey=courses%2F2d18d1f4-94a0-4ef1-ac48-6cfae3c55f6b.webp",
+      "note": "画面中的金色飞贼摆件和《Harry Potter》书页，适合在课程收束时引导学生理解“好奇心、持续追问、追踪线索”的学习态度：像追逐飞贼一样，不急于下结论，而是不断回到证据与原始出处继续核查。\n建议用途：可用于结尾页或转场页，配合旁白强调“保持好奇、继续追问、回到证据”的学习态度；也可作为元认知/学习动机模块的视觉隐喻，引出课后延伸思考。\n标签：好奇心、持续追问、学习动机、批判性思维、课程收束\n可见内容：书页上可见“HARRY POTTER”字样，画面主体为金色飞贼造型摆件，背景为桌面与设备。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.890Z",
+      "updatedAt": "2026-07-29T01:51:42.834Z"
+    },
+    {
+      "id": "img_20",
+      "type": "image",
+      "title": "微信公众号文章截图：〈美航局卫星发现地球变绿了，源头在印度和中国，这是真的吗？〉",
+      "src": "/api/oss/read?objectKey=courses%2F197dd227-591f-4a9a-b4ff-de3fde750a9a.webp",
+      "note": "这是一张待核查的公众号推文页面截图，适合用于课程中的“纵向溯源”与“SIFT核查”起步：先识别来源、标题和传播语境，再进一步追到 NASA 官网和原始论文。它能帮助学生理解：学术写作前不能直接接受二手转述，而要先判断信源是否可靠、主张是否被准确转述。\n建议用途：可放在导入环节作为核查对象展示；也可用于带学生做第一步“先停一下、识别来源”，再引导他们点击或追索原始出处，进入后续的纵向溯源与横向阅读任务。\n标签：公众号推文、信源核查、纵向溯源、SIFT、媒体素养、学术写作\n可见内容：手机微信文章页面截图，标题为“美航局卫星发现地球变绿了，源头在印度和中国，这是真的吗？”，作者/账号显示为“地球边界”，正文提示“向上滑动查看内容”，并出现引导关注、免费订阅等文字，下面开始介绍卫星与地球变绿的相关内容，页面下方可见一张地球/卫星配图的上半部分。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.891Z",
+      "updatedAt": "2026-07-29T01:51:42.834Z"
+    },
+    {
+      "id": "img_19",
+      "type": "image",
+      "title": "手机微信聊天截图：转发“地球变绿”相关新闻并回复表情",
+      "src": "/api/oss/read?objectKey=courses%2F5047688a-4af8-4b01-9b4a-80d39d9bfa6d.webp",
+      "note": "这张图展示了学生在微信聊天中看到一则关于“NASA发现地球变绿、源头在印度和中国”的转发内容，并用轻松语气回复。它适合用来引出课程中的“先停一停、再查来源”的信源核查动作，帮助学生意识到社交媒体上的信息不能直接当作结论使用，需要继续追到原始出处。\n建议用途：可放在课程导入、SIFT中的 Stop/Trace 示范、课堂提问“这条消息可靠吗？”以及让学生练习从社交平台信息追溯到NASA原始报道的环节。\n标签：微信聊天、社交媒体传播、信源核查、横向阅读、纵向溯源\n可见内容：手机微信聊天界面，联系人为Phoebe。聊天中出现一条转发卡片，标题可见“美航局卫星发现地球变绿了，源头在印度和中国，这是怎…”，来源标注“地球边界”。下方有“jade姐，康康这个”等文字，以及一张猫咪表情包。输入栏和中文键盘可见。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/5047688a-4af8-4b01-9b4a-80d39d9bfa6d.webp",
+      "originalSrc": "/assets/case-b/img_19.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/5047688a-4af8-4b01-9b4a-80d39d9bfa6d.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 63226,
+          "uploadedBytes": 36740,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.891Z",
+      "updatedAt": "2026-07-29T01:51:42.835Z"
+    },
+    {
+      "id": "img_21",
+      "type": "image",
+      "title": "微信公众号「地球边界」主页截图",
+      "src": "/api/oss/read?objectKey=courses%2Fa9d9a8be-34ea-44ed-9903-02e3626ddd89.webp",
+      "note": "这张图适合用于教学中的“查来源/评估信源”环节：让学生先看账号名称、头像、简介与推文列表，再判断它是科普媒体、个人账号还是二次转述平台，从而理解为什么不能只凭公众号标题就直接采信，需要继续追查原始出处与报道语境。\n建议用途：可放在“Source-checking with SIFT”或“查来源（Investigate）”教学活动中，作为小组讨论截图，让学生圈出可疑信号、判断账号类型，并练习从公众号标题追到原始新闻/论文。\n标签：公众号、信源核查、来源评估、横向阅读、SIFT\n可见内容：手机界面显示微信公众号主页，账号名为“地球边界”，右侧有 Follow 按钮，简介为“了解天下实时热点。” 下方是推文列表，标题包括“宇航员在太空中死亡后遗体怎么办？最坏的情况：可能被吃掉”“世界上还有在另一个‘你’？现有理论将证明平行宇宙的存在”“火星着陆的恐怖七分钟，毅力号‘猛踩刹车’全过程”等。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/a9d9a8be-34ea-44ed-9903-02e3626ddd89.webp",
+      "originalSrc": "/assets/case-b/img_21.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/a9d9a8be-34ea-44ed-9903-02e3626ddd89.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 56618,
+          "uploadedBytes": 40578,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.892Z",
+      "updatedAt": "2026-07-29T01:51:42.835Z"
+    },
+    {
+      "id": "img_23",
+      "type": "image",
+      "title": "NASA 官网关于“中印人类活动推动地球变绿”的报道截图",
+      "src": "/api/oss/read?objectKey=courses%2F3ff017b7-3d0a-4e7f-b574-b96245e3fb13.webp",
+      "note": "这张图展示了 NASA 官网新闻页面及其标题，可用于教学中带学生从公众号转向原始信源，理解“纵向溯源”如何把二手转述追到权威机构报道，并进一步为后续核查原始论文做铺垫。\n建议用途：可放在“从公众号追到 NASA 官网”这一环节，作为教师示范溯源步骤的证据页；也可在小组活动中让学生判断这是不是原始出处、概括标题主张，并继续追查到论文链接。\n标签：纵向溯源、NASA官网、信源核查、学术写作、批判性思维\n可见内容：页面顶部为 NASA 标志与搜索图标，标题为“Human Activity in China and India Dominates the Greening of Earth, NASA Study Shows”，正文可见关于地球变绿、叶面积增加以及中国和印度贡献的说明，并标注作者 Abby Tabor。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.893Z",
+      "updatedAt": "2026-07-29T01:51:42.836Z"
+    },
+    {
+      "id": "img_22",
+      "type": "image",
+      "title": "微信公众账号信息页截图：显示“地球边界”公众号的主体信息",
+      "src": "/api/oss/read?objectKey=courses%2Fc32abb2e-1a10-445b-88ce-fbc85eb88e3f.webp",
+      "note": "这张图适合在课程中帮助学生练习“查来源/评估信源”的第一步：先看公众号是谁、账号主体类型、地区和历史名称，再判断它是否可能是转载、评论还是原始研究来源。它能支持学生理解“公众号≠权威出处”，并为后续纵向溯源到 NASA 官网和 Nature 论文做铺垫。\n建议用途：可放在“Step 1 溯源追踪/查来源”环节，作为课堂示例截图引导学生判断账号主体与来源可信度；也可用于小组讨论、批注练习或 AI 辅助核查演示。\n标签：微信公众号、信源核查、来源评估、纵向溯源、学术写作\n可见内容：手机界面的公众号信息页，标题为“关于公众号”。可见公众号简介“了解天下实时热点。”，Weixin ID 为 gh_f604f17f8e4c，Account Entity 显示“个人”，Gender 为 Female，Region 为山西省，Name History 显示“2021年03月09日 Register‘地球边界’”。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/c32abb2e-1a10-445b-88ce-fbc85eb88e3f.webp",
+      "originalSrc": "/assets/case-b/img_22.png",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/c32abb2e-1a10-445b-88ce-fbc85eb88e3f.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 105680,
+          "uploadedBytes": 12636,
+          "format": "webp"
+        }
+      },
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.893Z",
+      "updatedAt": "2026-07-29T01:51:42.837Z"
+    },
+    {
+      "id": "img_24",
+      "type": "image",
+      "title": "NASA 新闻中关于中国和印度“变绿”研究的引用截图",
+      "src": "/api/oss/read?objectKey=courses%2F6c369376-1f0f-4944-b756-27e6810d1e4d.webp",
+      "note": "这张图展示了 NASA 报道中对研究结论的转述，并明确标出论文发表于 Nature Sustainability。适合在课程中帮助学生练习纵向溯源：从二手报道追到原始学术论文，判断主张是否被准确转述，以及如何据此继续核查信源可信度。\n建议用途：放在“Trace / 溯源”步骤中作为示例截图，让学生从新闻报道定位到原始论文；可用于课堂提问、标注引用来源、追踪论文出处的小组练习。\n标签：纵向溯源、信源核查、NASA、Nature期刊、学术论文、新闻引文\n可见内容：英文段落说明中国和印度的耕地面积、绿叶总面积和粮食产量变化，末行高亮写着“This research was published online, Feb. 11, 2019, in the journal Nature Sustainability.”",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.894Z",
+      "updatedAt": "2026-07-29T01:51:42.837Z"
+    },
+    {
+      "id": "img_25",
+      "type": "image",
+      "title": "《Nature》期刊封面：聚合酶结构与论文专题页",
+      "src": "/api/oss/read?objectKey=courses%2F7f12fa3f-e52f-40a2-b2e9-0f476ca756ba.webp",
+      "note": "这是一张《Nature》杂志封面，画面上方有显著的“nature”刊名，正文区展示了本期专题“POL POSITIONS”等学术内容。适合在课程中用来帮助学生理解：什么是高权威学术期刊、如何从期刊层级判断信源可信度，以及“追溯到原始论文”时最终应回到怎样的出版语境。\n建议用途：可放在“纵向溯源”或“信源评估”环节，作为讲解顶级学术期刊外观与权威性标志的示例图；也可用于引导学生识别论文来源、期刊封面信息与专题栏目。\n标签：Nature期刊、学术信源、权威期刊、文献溯源、期刊封面\n可见内容：可见大标题“nature”；专题标题“POL POSITIONS”；副标题“Structures reveal secrets of transcription initiation that help RNA polymerase III to drive protein synthesis”；底部还有若干栏目标题如“DANGERS IN THE LIGHT”“DYNAMIC DROPLETS”“INEQUALITIES IN URBAN ACCESS”。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-22T06:36:17.895Z",
+      "updatedAt": "2026-07-29T01:51:42.838Z"
+    },
+    {
+      "id": "upload_mrymcdvr_c509d",
+      "type": "link",
+      "title": "论文全文",
+      "src": "/assets/uploads/mrymcdvf-China-and-India-lead-in-greening-of-the-world.pdf",
+      "note": "",
+      "origin": "teacher_uploaded",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-24T07:28:34.792Z",
+      "updatedAt": "2026-07-29T01:51:42.838Z"
+    },
+    {
+      "id": "link_nature_article",
+      "type": "link",
+      "title": "Nature Sustainability 原文",
+      "src": "https://www.nature.com/articles/s41893-019-0220-7",
+      "note": "用于对照论文原文，查看标题、摘要、正文和图表所在位置。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-24T07:29:09.145Z",
+      "updatedAt": "2026-07-29T01:51:42.839Z"
+    },
+    {
+      "id": "link_wechat_original",
+      "type": "link",
+      "title": "公众号原文链接",
+      "src": "https://mp.weixin.qq.com/s/vW5lj-Q4QXK17_JdhWUOxA",
+      "note": "用于从公众号推文出发，确认二手转述的原始页面。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "8f19fad2-ce5e-490f-899d-34d1c0905d7a",
+      "createdAt": "2026-07-24T08:03:54.170Z",
+      "updatedAt": "2026-07-29T01:51:42.839Z"
+    },
+    {
+      "id": "mrthbdq7-asset",
+      "type": "image",
+      "title": "素材图片 mrthbdq7-asset",
+      "src": "/assets/uploads/mrthbdq7-asset.png",
+      "note": "从当前课程素材目录自动发现；具体用途由 Mid 抽取 Agent 根据原始文档和课程阶段判断。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-29T01:50:33.760Z",
+      "updatedAt": "2026-07-29T01:51:42.840Z"
+    },
+    {
+      "id": "mrthjryt-asset",
+      "type": "image",
+      "title": "素材图片 mrthjryt-asset",
+      "src": "/assets/uploads/mrthjryt-asset.jpg",
+      "note": "从当前课程素材目录自动发现；具体用途由 Mid 抽取 Agent 根据原始文档和课程阶段判断。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "02ee8c51-1519-4d80-9542-c2090fd7dd70",
+      "createdAt": "2026-07-29T01:50:33.761Z",
+      "updatedAt": "2026-07-29T01:51:42.841Z"
+    }
+  ]
+}

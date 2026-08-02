@@ -20,14 +20,17 @@ func TestMigration0024SessionScope(t *testing.T) {
 	}
 	ctx := context.Background()
 	pool := newTestPool(t)
-	courseID := "00000000-0000-0000-0000-0000000000c1"
 
+	// course_session (and the course row this test used to attach it to) no
+	// longer exist at head — migration 0050 (course v2) drops course_session
+	// entirely and CASCADE-drops the FK from event.session_id/
+	// evaluations.session_id along with it, so session_id is now an
+	// unenforced uuid column. What this test actually exercises —
+	// event_scope_ck / evaluations_scope_ck accepting a non-null session_id —
+	// no longer needs a real row behind it, so a fabricated id stands in.
 	var sessionID string
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO course_session (user_id, course_id, skill_id, phase)
-		VALUES ($1, $2, 'info-literacy-course', 'demonstrate')
-		RETURNING id::text`, refactor2SeededStudentID, courseID).Scan(&sessionID); err != nil {
-		t.Fatalf("seed course_session: %v", err)
+	if err := pool.QueryRow(ctx, `SELECT gen_random_uuid()::text`).Scan(&sessionID); err != nil {
+		t.Fatalf("fabricate session id: %v", err)
 	}
 
 	// 1. A session-scoped event satisfies event_scope_ck with only session_id.
@@ -121,14 +124,13 @@ func TestMigration0024Down(t *testing.T) {
 	}
 	ctx := context.Background()
 	pool := newTestPool(t)
-	courseID := "00000000-0000-0000-0000-0000000000c1"
 
+	// See TestMigration0024SessionScope: course_session is gone at head
+	// (0050, course v2), so a fabricated id stands in for what used to be a
+	// real course_session row.
 	var sessionID string
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO course_session (user_id, course_id, skill_id, phase)
-		VALUES ($1, $2, 'info-literacy-course', 'demonstrate')
-		RETURNING id::text`, refactor2SeededStudentID, courseID).Scan(&sessionID); err != nil {
-		t.Fatalf("seed course_session: %v", err)
+	if err := pool.QueryRow(ctx, `SELECT gen_random_uuid()::text`).Scan(&sessionID); err != nil {
+		t.Fatalf("fabricate session id: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO evaluations (session_id, scores, narrative, model, tier, status)
@@ -180,13 +182,24 @@ func TestMigration0024Down(t *testing.T) {
 		t.Fatal("restored evaluations_scope_ck should reject a scopeless row, got no error")
 	}
 
-	// And Up restores it.
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
-		t.Fatalf("goose up after down: %v", err)
-	}
-	var one int
-	if err := pool.QueryRow(ctx, `
-		SELECT 1 FROM information_schema.columns WHERE table_name='event' AND column_name='session_id'`).Scan(&one); err != nil {
-		t.Fatalf("event.session_id missing after re-Up: %v", err)
-	}
+	// No "and Up restores it" round-trip here (unlike
+	// TestMigration0025Down/TestMigration0031Down). 0024's own Up adds
+	// event.session_id / evaluations.session_id as an FK to course_session
+	// itself (`REFERENCES course_session(id)`) — not just a column that
+	// happens to reference something course-related, like 0031's
+	// event.course_id. Course v2 (0050) permanently drops course_session
+	// (its Down deliberately does not recreate it — no back-compat), and
+	// that DROP is physical, not just a goose-version bookkeeping fact:
+	// once newTestPool has run 0050 once (it always does — it migrates to
+	// head), course_session is gone for the rest of this container's life,
+	// so replaying 0024's own Up can never succeed again, at ANY target
+	// version, in this or any other database that has ever reached head.
+	// Capping UpToContext at 24 (the fix that worked for
+	// TestMigration0025Down/TestMigration0031Down, whose own Up migrations
+	// don't reference course_session) does not help here. This is a
+	// structural, permanent consequence of the course-v2 redesign, not a
+	// test bug — Down-verification above (columns/constraints gone, scope
+	// checks behave correctly) is what this test can still meaningfully
+	// assert; the round-trip back to Up is retired along with
+	// course_session.
 }

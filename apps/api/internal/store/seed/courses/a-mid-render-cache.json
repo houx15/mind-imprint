@@ -1,0 +1,622 @@
+{
+  "version": "v4",
+  "courseId": "a-mid",
+  "courseTitle": "CRRAAB 信源评估：从机构到亲历者到专家",
+  "exportedAt": "2026-07-31T10:04:18.352Z",
+  "steps": [
+    {
+      "stepId": "step_01",
+      "provider": "manual",
+      "model": "json-published-cache",
+      "updatedAt": "2026-07-31T09:48:11.301Z",
+      "content": {
+        "title": "为什么需要信息过滤神器？",
+        "subtitle": "建立学习动机：从YouTube视频查找任务出发，引出信息质量参差不齐的问题，让学生产生使用评估框架的需求。",
+        "segments": [
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_01",
+            "text": "请先看《经济学人》YouTube 视频封面。判断一个视频来源时，不要先被画面和标题带着走，而要先确认谁在发布它、它想讨论什么。",
+            "asset_ids": [
+              "doc_img_02"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_02",
+            "text": "再看这张关于 YouTube 学习使用情况的柱状图。一个平台被很多人使用，只能说明它传播广、入口方便，不能自动证明里面的信息都可靠。",
+            "asset_ids": [
+              "doc_img_03"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_03",
+            "text": "所以，当我们面对网络材料时，第一步不是立刻相信，也不是立刻否定，而是先建立评估意识：这条信息来自哪里、凭什么可信、有没有局限。",
+            "asset_ids": [],
+            "items": []
+          },
+          {
+            "kind": "structure",
+            "flow_block_id": "block_summary",
+            "text": "遇到看起来有用的材料时，要先停下来判断来源和证据；平台热度不能替代信源评估。",
+            "asset_ids": [],
+            "items": [
+              {
+                "label": "看来源",
+                "text": "先确认发布者是谁"
+              },
+              {
+                "label": "看证据",
+                "text": "再问它凭什么支持判断"
+              },
+              {
+                "label": "留边界",
+                "text": "最后保留材料可能的局限"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "intro_q1",
+            "type": "single_choice",
+            "prompt": "先看视频封面。判断一个视频来源时，最应该先看哪条线索？",
+            "options": [
+              {
+                "id": "A",
+                "text": "视频画面是否震撼"
+              },
+              {
+                "id": "B",
+                "text": "封面或页面上标出的发布机构"
+              },
+              {
+                "id": "C",
+                "text": "标题里的关键词数量"
+              },
+              {
+                "id": "D",
+                "text": "平台是否足够流行"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "判断来源要先看发布者或机构标识，再进入内容本身。",
+            "remediation_questions": []
+          },
+          {
+            "id": "intro_q2",
+            "type": "single_choice",
+            "prompt": "很多人用 YouTube 学习，这能直接证明视频内容可靠吗？",
+            "options": [
+              {
+                "id": "A",
+                "text": "能，使用人数越多越可靠"
+              },
+              {
+                "id": "B",
+                "text": "不能，流行度只能说明传播范围，不能替代信源评估"
+              },
+              {
+                "id": "C",
+                "text": "能，只要平台足够大就可靠"
+              },
+              {
+                "id": "D",
+                "text": "不能，所以所有公开视频都不可信"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "平台流行度不等于内容可信度，仍要继续看来源、证据和立场。",
+            "remediation_questions": []
+          }
+        ],
+        "student_question": "",
+        "expected_response": "",
+        "board": []
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0
+      }
+    },
+    {
+      "stepId": "step_02",
+      "provider": "manual",
+      "model": "json-published-cache",
+      "updatedAt": "2026-07-31T09:48:11.304Z",
+      "content": {
+        "title": "AI示范：评估《经济学人》机构（I do）",
+        "subtitle": "给学生一个完整的CRRAAB评估范例，展示如何将六维框架应用于出版机构信源，建立“好评估长什么样”的样板。",
+        "segments": [
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_01",
+            "text": "现在进入机构信源示范。我们看《经济学人》的背景资料：它是历史悠久的国际新闻周刊，有编辑传统、读者定位和明确立场。评估机构时，不是只问它有名没名，而是看它怎样生产信息、怎样承担声誉成本。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_02",
+            "text": "先看时效性。创刊时间很早不代表内容陈旧，关键是它现在是否持续更新、是否能回应正在发生的问题。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_03",
+            "text": "《经济学人》是周刊，内容持续更新，所以时效性通常可以接受。这里要区分“机构历史久”和“信息过时”这两件事。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_04",
+            "text": "再看相关性。它覆盖政治、经济、科技和社会议题，但相关性不能泛泛而谈，仍要回到具体文章和具体任务。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_05",
+            "text": "如果研究问题与公共议题、经济政策或国际新闻有关，它往往有相关性；如果任务要求原始研究数据，它就不能替代论文或一手资料。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_06",
+            "text": "接着看信誉。机构说错话会损失读者、订阅、公共声誉和专业信任，这些代价会倒逼它建立编辑标准。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_07",
+            "text": "信誉不是“名气大所以可信”，而是它是否长期接受公开检验，是否有纠错和编辑机制，是否承担说错的成本。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_08",
+            "text": "权威性要看机构在相关领域是否有持续报道能力、编辑网络和专业积累。匿名写作形成的是机构声音，这能增强一致性，也会让具体作者责任不那么清楚。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_09",
+            "text": "准确性要继续追问证据来源。事实核查传统能提高可信度，但课堂判断不能停在“它看起来专业”，还要看文章有没有引用数据、专家或原始材料。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_10",
+            "text": "最后看偏见。它有自己的读者群、编辑立场和价值倾向，因此可信机构也可能选择性强调某些角度。可靠不等于中立无偏。",
+            "asset_ids": [
+              "doc_img_06"
+            ],
+            "items": []
+          },
+          {
+            "kind": "structure",
+            "flow_block_id": "block_11",
+            "text": "所以，机构信源的价值在于稳定的编辑标准和声誉约束；它的限制在于立场、受众和选题角度。评估时要同时看到这两面。",
+            "asset_ids": [],
+            "items": [
+              {
+                "label": "机制",
+                "text": "是否有持续发布和编辑标准"
+              },
+              {
+                "label": "代价",
+                "text": "说错是否会损失声誉和信任"
+              },
+              {
+                "label": "立场",
+                "text": "可靠机构仍可能有选择性角度"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "demo_predict_C",
+            "type": "single_choice",
+            "prompt": "判断机构时效性时，哪种说法更合理？",
+            "options": [
+              {
+                "id": "A",
+                "text": "创刊年代早，所以内容一定过时"
+              },
+              {
+                "id": "B",
+                "text": "看它是否持续更新并回应当前问题"
+              },
+              {
+                "id": "C",
+                "text": "只看网站设计是否现代"
+              },
+              {
+                "id": "D",
+                "text": "只看机构是否有名"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "时效性看信息是否及时更新、是否适合当前任务，不是看机构年龄。",
+            "remediation_questions": []
+          },
+          {
+            "id": "demo_predict_R",
+            "type": "single_choice",
+            "prompt": "判断相关性时，哪一步最关键？",
+            "options": [
+              {
+                "id": "A",
+                "text": "把机构内容和自己的具体研究任务对应起来"
+              },
+              {
+                "id": "B",
+                "text": "只要是大媒体就默认相关"
+              },
+              {
+                "id": "C",
+                "text": "只看标题里有没有同一个关键词"
+              },
+              {
+                "id": "D",
+                "text": "跳过任务，先看文章长短"
+              }
+            ],
+            "correct_answer": [
+              "A"
+            ],
+            "explanation": "相关性必须回到具体任务：这条材料能不能回答我要判断的问题。",
+            "remediation_questions": []
+          },
+          {
+            "id": "demo_predict_R2",
+            "type": "single_choice",
+            "prompt": "机构的信誉主要来自哪里？",
+            "options": [
+              {
+                "id": "A",
+                "text": "版面看起来专业"
+              },
+              {
+                "id": "B",
+                "text": "长期公开发布、接受读者和同行检验，并承担说错的声誉成本"
+              },
+              {
+                "id": "C",
+                "text": "文章语气很肯定"
+              },
+              {
+                "id": "D",
+                "text": "名字听起来像权威机构"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "信誉来自可被检验的发布机制和声誉成本，而不是表面包装。",
+            "remediation_questions": []
+          }
+        ],
+        "student_question": "",
+        "expected_response": "",
+        "board": []
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0
+      }
+    },
+    {
+      "stepId": "step_03",
+      "provider": "manual",
+      "model": "json-published-cache",
+      "updatedAt": "2026-07-31T09:48:11.305Z",
+      "content": {
+        "title": "AI引导：评估三位亲历者（We do）",
+        "subtitle": "在最微妙的信源上做引导练习，脚手架逐维递减，让学生从AI带过渡到主动评估。核心学习发生在这里。",
+        "segments": [
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_01",
+            "text": "现在换一种信源：亲历者。三位受访者分别来自孟加拉、危地马拉和斐济，他们没有研究机构头衔，但都在讲自己正在经历的气候影响。亲历者的价值，首先来自第一手经验。",
+            "asset_ids": [
+              "doc_img_07",
+              "doc_img_08"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_02",
+            "text": "先看比较直观的两维：时效和相关。视频讨论的是当前气候影响，三位受访者都直接经历洪水、干旱或海平面上升，所以材料与主题高度相关。",
+            "asset_ids": [
+              "doc_img_07",
+              "doc_img_08"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_03",
+            "text": "接下来判断信誉和权威。这里的关键不是学历高低，而是他是否真的处在事件现场、是否代表某种真实经验、说错会不会影响他和周围人的判断。",
+            "asset_ids": [
+              "doc_img_07",
+              "doc_img_08"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_04",
+            "text": "再看准确性。亲历者能提供现场经验，但个人经验仍需要与外部数据、其他报道或长期记录相互核对。",
+            "asset_ids": [
+              "doc_img_07",
+              "doc_img_08"
+            ],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_05",
+            "text": "最后看偏见。亲历者可能有利益、情绪和处境限制，也可能只呈现被采访到的一部分人。判断偏见时，要问：谁被听见了，谁没有出现？",
+            "asset_ids": [
+              "doc_img_07",
+              "doc_img_08"
+            ],
+            "items": []
+          },
+          {
+            "kind": "structure",
+            "flow_block_id": "block_06",
+            "text": "亲历者不是因为有头衔才有价值，而是因为他们提供第一手经验。使用这类材料时，要保留它的现场感，也要用外部证据校验它的范围和限制。",
+            "asset_ids": [],
+            "items": [
+              {
+                "label": "经验位置",
+                "text": "他是否亲历或直接接触事件"
+              },
+              {
+                "label": "代表范围",
+                "text": "他的经验能代表什么，不能代表什么"
+              },
+              {
+                "label": "外部校验",
+                "text": "个人经验还要和数据、报道互相印证"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "guided_q1",
+            "type": "multiple_choice",
+            "prompt": "评估亲历者的信誉和权威时，哪些追问是必要的？",
+            "options": [
+              {
+                "id": "A",
+                "text": "他是否亲身经历或直接接触这件事"
+              },
+              {
+                "id": "B",
+                "text": "他说错后是否会影响自己、社区或公共判断"
+              },
+              {
+                "id": "C",
+                "text": "他的经验是否只能代表局部处境"
+              },
+              {
+                "id": "D",
+                "text": "他没有学术头衔，所以完全不能作为信源"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "亲历者的权威来自第一手经验，但范围通常有限，需要同时判断经验位置、说错代价和代表性。",
+            "remediation_questions": []
+          },
+          {
+            "id": "guided_q2",
+            "type": "multiple_choice",
+            "prompt": "识别亲历者材料的偏见时，哪些问题更有帮助？",
+            "options": [
+              {
+                "id": "A",
+                "text": "视频是否只采访了受影响最明显的人"
+              },
+              {
+                "id": "B",
+                "text": "有没有相反经验或受益者没有被呈现"
+              },
+              {
+                "id": "C",
+                "text": "受访者的处境是否会影响他说话角度"
+              },
+              {
+                "id": "D",
+                "text": "只要是真实经历，就不可能有偏见"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "真实经历仍可能有选择性。偏见判断要看被呈现的人、没被呈现的人，以及处境如何塑造表达。",
+            "remediation_questions": []
+          }
+        ],
+        "student_question": "",
+        "expected_response": "",
+        "board": []
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0
+      }
+    },
+    {
+      "stepId": "step_04",
+      "provider": "manual",
+      "model": "json-published-cache",
+      "updatedAt": "2026-07-31T09:48:11.306Z",
+      "content": {
+        "title": "独立评估：专家 Dr Rogelj（You do）",
+        "subtitle": "学生基本独立完成CRRAAB评估，AI退到只反馈。这是收尾，检验学生是否真正掌握。",
+        "segments": [
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_01",
+            "text": "现在进入独立评估。Dr. Rogelj 是气候科学家，我们要判断的不是“专家一定可信”，而是他的话为什么值得相信、又有哪些边界。",
+            "asset_ids": [],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_02",
+            "text": "先独立看他的表达：他是否给出证据来源，是否说明概率和不确定性，是否把复杂问题说成绝对结论。",
+            "asset_ids": [],
+            "items": []
+          },
+          {
+            "kind": "teaching",
+            "flow_block_id": "block_03",
+            "text": "完成第一轮判断后，把注意力放到“专家如何表达不确定性”。可信专家不会把风险说成百分百确定，而会说明模型、区间和证据限制。",
+            "asset_ids": [],
+            "items": []
+          },
+          {
+            "kind": "structure",
+            "flow_block_id": "block_04",
+            "text": "所以，评估专家信源时，不能因为有头衔就直接采信；要看他的专业位置、证据来源、审查机制，以及是否诚实呈现不确定性。",
+            "asset_ids": [],
+            "items": [
+              {
+                "label": "专业位置",
+                "text": "他是否在相关领域有真实研究经验"
+              },
+              {
+                "label": "证据机制",
+                "text": "他说法是否连接数据、模型或公开研究"
+              },
+              {
+                "label": "边界意识",
+                "text": "他是否说明不确定性，而不是把判断说满"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "indep_q1",
+            "type": "multiple_choice",
+            "prompt": "判断 Dr. Rogelj 的权威性时，哪些线索值得保留？",
+            "options": [
+              {
+                "id": "A",
+                "text": "他是否是相关领域研究者"
+              },
+              {
+                "id": "B",
+                "text": "他说法是否连接研究、模型或数据"
+              },
+              {
+                "id": "C",
+                "text": "他是否承认预测中的不确定性"
+              },
+              {
+                "id": "D",
+                "text": "只要出现博士头衔，就不需要继续判断"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "专家可信度来自专业位置、证据连接和边界意识，不是单靠头衔。",
+            "remediation_questions": []
+          },
+          {
+            "id": "indep_q2",
+            "type": "multiple_choice",
+            "prompt": "专家表达中哪些特征会提高可信度？",
+            "options": [
+              {
+                "id": "A",
+                "text": "公开说明概率、范围或不确定性"
+              },
+              {
+                "id": "B",
+                "text": "把判断说得绝对，不留任何余地"
+              },
+              {
+                "id": "C",
+                "text": "说明结论来自哪些证据或研究机制"
+              },
+              {
+                "id": "D",
+                "text": "避免用身份替代证据"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "C",
+              "D"
+            ],
+            "explanation": "可信表达通常会说明证据来源和不确定性，而不是用权威身份直接压过判断。",
+            "remediation_questions": []
+          }
+        ],
+        "student_question": "",
+        "expected_response": "",
+        "board": []
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0
+      }
+    }
+  ]
+}

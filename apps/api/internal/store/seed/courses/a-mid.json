@@ -1,0 +1,1127 @@
+{
+  "id": "a-mid",
+  "title": "CRRAAB 信源评估：从机构到亲历者到专家",
+  "input_level": "mid",
+  "source_docs": {
+    "raw": "data/course-sources/a-mid/raw-A_-_-_-.docx",
+    "design": "data/course-sources/a-mid/design-A_AI-_CRRAAB_AI-.docx"
+  },
+  "course_goal": "学生能运用CRRAAB六维框架（时效、相关、信誉、权威、准确、偏见）评估三种不同类型信源（出版机构、亲历者、专家），并理解同一维度对不同信源的含义差异。",
+  "teaching_thread": "逐步放手：AI示范评估机构（I do）→ AI引导评估亲历者（We do）→ 学生独立评估专家（You do）",
+  "steps": [
+    {
+      "id": "step_01",
+      "title": "为什么需要信息过滤神器？",
+      "purpose": "建立学习动机：从YouTube视频查找任务出发，引出信息质量参差不齐的问题，让学生产生使用评估框架的需求。",
+      "student_action": "观看视频封面和柱状图，思考平台流行度与信息可信度的关系，参与讨论。",
+      "principle": "学习始于真实任务和认知冲突：学生先感受到“信息很多但不确定是否可靠”的张力，再引入工具。",
+      "ai_role": "展示材料，提问引导思考，不给出答案。",
+      "restraint": "AI不提前介绍CRRAAB框架，只通过问题让学生意识到需要评估。",
+      "teaching_flow": [
+        "展示《经济学人》YouTube视频封面（），提问：这个视频讲什么？谁发布的？",
+        "展示柱状图（），提问：YouTube很受欢迎，但里面的信息都可靠吗？",
+        "引出问题：我们如何判断一个信息是否可信？今天学习一个工具。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "展示视频封面和柱状图",
+        "引导学生思考平台流行度不等于可信度"
+      ],
+      "avoid": [
+        "不要提前展示CRRAAB框架细节",
+        "不要直接给出评估结论"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "doc_img_02",
+          "role": "引发兴趣",
+          "use_when": "展示视频封面，让学生识别来源和主题"
+        },
+        {
+          "asset_id": "doc_img_03",
+          "role": "制造认知冲突",
+          "use_when": "展示柱状图，讨论流行度与可信度的关系"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出YouTube视频的来源是《经济学人》",
+        "学生能意识到信息需要评估"
+      ],
+      "interaction_plan": [
+        {
+          "id": "intro_q1",
+          "goal": "识别视频来源和主题",
+          "type": "single_choice",
+          "answer_policy": "学生选择后AI展示正确答案并简要解释"
+        },
+        {
+          "id": "intro_q2",
+          "goal": "思考平台流行度与可信度的关系",
+          "type": "single_choice",
+          "answer_policy": "学生选择后AI展示不同观点，不给出定论"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_intro_1",
+          "goal": "识别视频来源和主题",
+          "interaction_type": "single_choice"
+        },
+        {
+          "id": "task_intro_2",
+          "goal": "思考平台流行度与可信度的关系",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "信息过滤神器！YouTube视频《See what 3 degree of global warming looks like》来自《经济学人》。但信息质量良莠不齐，如何确认信息可用？",
+      "links": [],
+      "materials": [
+        {
+          "id": "doc_img_02",
+          "type": "image",
+          "title": "《经济学人》YouTube 气候视频封面：3°C全球变暖效果",
+          "src": "/api/oss/read?objectKey=courses%2F8c617e2d-a222-4299-ae91-ff1508a88631.webp",
+          "note": "这是一张来自《经济学人》YouTube 视频的封面图，主题明确指向“3°C全球变暖会是什么样子”。在课程中，它适合用来训练学生先判断信源属于出版机构/媒体机构，再进一步评估机构信源的权威性、目的性与相关性：机构为什么制作这类内容、它想影响谁、以及这种机构立场会怎样塑造气候议题的呈现。也适合帮助学生理解本课“先看容器，再看内容”的评估顺序。\n建议用途：可用于导入环节展示封面，让学生先识别来源机构与主题；随后引导学生按CRRAAB中的权威性、目的性、相关性做快速判断；也可作为小组讨论的首张素材，练习“先看机构再看内容”的评估流程。\n标签：气候变化、经济学人、YouTube视频、媒体机构、信源评估、权威性\n可见内容：左上角有红色“The Economist”标识；中央大字写着“See what 3°C of global warming looks like”；背景是从太空视角看到的地球弧面与云层。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+          "createdAt": "2026-07-30T04:19:20.546Z",
+          "updatedAt": "2026-07-30T05:13:05.348Z"
+        },
+        {
+          "id": "doc_img_03",
+          "type": "image",
+          "title": "美国“00后”和“80/90后”首选 YouTube 作为学习工具的比例柱状图",
+          "src": "/api/oss/read?objectKey=courses%2Fd0dcaebf-d602-4dd5-8c59-fe40472f000e.webp",
+          "note": "这张图通过两组柱状对比呈现不同年龄段美国人将 YouTube 选为首选学习工具的占比，适合用来引出“平台流行度”与“信息可信度”不是一回事。它能帮助学生理解：一个信息平台被很多人使用，并不自动意味着其中内容可靠；做 CRRAAB 评估时，不能只看受欢迎程度，还要继续判断来源的权威性、准确性和相关性。\n建议用途：可放在导入环节先让学生读图、说出两个年龄组的差异，再追问“受欢迎的平台是否就更可信”，用来过渡到 CRRAAB 中对相关性、权威性和准确性的讨论。\n标签：YouTube、学习工具、年龄对比、平台影响力、信息评估、信源判断\n可见内容：柱状图纵轴约 52% 到 60%。“美国‘00后’”约 59%，“美国‘80/90后’”约 55%。下方标题为“YouTube 作为首选的学习工具”。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+          "createdAt": "2026-07-30T04:19:20.547Z",
+          "updatedAt": "2026-07-30T05:13:05.350Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "block_01",
+          "type": "teaching",
+          "text": "请先看《经济学人》YouTube 视频封面。判断一个视频来源时，不要先被画面和标题带着走，而要先确认谁在发布它、它想讨论什么。",
+          "asset_ids": [
+            "doc_img_02"
+          ]
+        },
+        {
+          "id": "block_intro_q1",
+          "type": "interaction",
+          "text": "识别视频来源和主题",
+          "interaction_id": "intro_q1",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_02",
+          "type": "teaching",
+          "text": "再看这张关于 YouTube 学习使用情况的柱状图。一个平台被很多人使用，只能说明它传播广、入口方便，不能自动证明里面的信息都可靠。",
+          "asset_ids": [
+            "doc_img_03"
+          ]
+        },
+        {
+          "id": "block_intro_q2",
+          "type": "interaction",
+          "text": "区分平台流行度和内容可信度",
+          "interaction_id": "intro_q2",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_03",
+          "type": "teaching",
+          "text": "所以，当我们面对网络材料时，第一步不是立刻相信，也不是立刻否定，而是先建立评估意识：这条信息来自哪里、凭什么可信、有没有局限。",
+          "asset_ids": []
+        },
+        {
+          "id": "block_summary",
+          "type": "summary",
+          "text": "遇到看起来有用的材料时，要先停下来判断来源和证据；平台热度不能替代信源评估。",
+          "asset_ids": [],
+          "items": [
+            {
+              "label": "看来源",
+              "text": "先确认发布者是谁"
+            },
+            {
+              "label": "看证据",
+              "text": "再问它凭什么支持判断"
+            },
+            {
+              "label": "留边界",
+              "text": "最后保留材料可能的局限"
+            }
+          ]
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "manual_fix",
+        "status": "ready",
+        "generated_at": "2026-07-31T09:41:57.855Z",
+        "alignment_notes": [],
+        "interactions": [
+          {
+            "id": "intro_q1",
+            "type": "single_choice",
+            "prompt": "先看视频封面。判断一个视频来源时，最应该先看哪条线索？",
+            "options": [
+              {
+                "id": "A",
+                "text": "视频画面是否震撼"
+              },
+              {
+                "id": "B",
+                "text": "封面或页面上标出的发布机构"
+              },
+              {
+                "id": "C",
+                "text": "标题里的关键词数量"
+              },
+              {
+                "id": "D",
+                "text": "平台是否足够流行"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "判断来源要先看发布者或机构标识，再进入内容本身。",
+            "remediation_questions": []
+          },
+          {
+            "id": "intro_q2",
+            "type": "single_choice",
+            "prompt": "很多人用 YouTube 学习，这能直接证明视频内容可靠吗？",
+            "options": [
+              {
+                "id": "A",
+                "text": "能，使用人数越多越可靠"
+              },
+              {
+                "id": "B",
+                "text": "不能，流行度只能说明传播范围，不能替代信源评估"
+              },
+              {
+                "id": "C",
+                "text": "能，只要平台足够大就可靠"
+              },
+              {
+                "id": "D",
+                "text": "不能，所以所有公开视频都不可信"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "平台流行度不等于内容可信度，仍要继续看来源、证据和立场。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_02",
+      "title": "AI示范：评估《经济学人》机构（I do）",
+      "purpose": "给学生一个完整的CRRAAB评估范例，展示如何将六维框架应用于出版机构信源，建立“好评估长什么样”的样板。",
+      "student_action": "观看AI逐维评估，每维之前先预测，再对照AI分析。",
+      "principle": "示范阶段学生是观察者，但通过预测-对照保持主动参与。",
+      "ai_role": "AI全程出声示范，逐维讲解判断逻辑，展示七个高亮点。",
+      "restraint": "AI在这一环节全做，但学生需先预测再对照。",
+      "teaching_flow": [
+        "展示维基百科《经济学人》词条截图（），AI指出七个高亮点。",
+        "AI逐维示范：C时效（创刊1843年，但内容持续更新）、R相关（主题相关）、R信誉（主编负责制，有损失动机）、A权威（匿名集体声音，两面性）、A准确（事实核查传统）、B偏见（盎格鲁视角，倾向市场化方案）。",
+        "每维之前让学生预测（如“你觉得偏见这一维有没有问题？”），再展示AI分析。",
+        "总结：机构信源的可靠性来自其标准，但也要注意其立场。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "展示七个高亮点",
+        "逐维示范并讲解判断逻辑",
+        "每维前让学生预测"
+      ],
+      "avoid": [
+        "不要跳过预测环节直接给答案",
+        "不要只讲优点不讲两面性"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "doc_img_06",
+          "role": "示范材料",
+          "use_when": "展示维基百科词条和高亮点，用于逐维评估"
+        }
+      ],
+      "success_criteria": [
+        "学生能说出CRRAAB六维名称",
+        "学生能理解机构信源的评估重点"
+      ],
+      "interaction_plan": [
+        {
+          "id": "demo_predict_C",
+          "goal": "预测AI对时效性的判断",
+          "type": "single_choice",
+          "answer_policy": "学生预测后AI展示实际分析，学生对照"
+        },
+        {
+          "id": "demo_predict_R",
+          "goal": "预测AI对相关性的判断",
+          "type": "single_choice",
+          "answer_policy": "学生预测后AI展示实际分析，学生对照"
+        },
+        {
+          "id": "demo_predict_R2",
+          "goal": "预测AI对信誉的判断",
+          "type": "single_choice",
+          "answer_policy": "学生预测后AI展示实际分析，学生对照"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_demo_1",
+          "goal": "预测AI对某一维的判断",
+          "interaction_type": "single_choice"
+        }
+      ],
+      "raw_text": "AI示范：用CRRAAB评估《经济学人》机构，七个高亮点，逐维讲解。",
+      "links": [],
+      "materials": [
+        {
+          "id": "doc_img_06",
+          "type": "image",
+          "title": "维基百科《The Economist》词条与 CRRAAB 机构信源评估提示图",
+          "src": "/api/oss/read?objectKey=courses%2F0f4bcbdf-e2b8-4029-8f0e-5178de517126.webp",
+          "note": "这张图呈现的是《The Economist》在维基百科中的词条截图，并配有 1-7 条引导问题与多色高亮证据，适合用于课程中“机构信源”的示范评估。它能帮助学生理解：评估出版机构时，不能只看内容表面，而要结合地域与版面定位、机构规模与专业标准、历史表现、匿名写作形成的“集体声音”、编辑立场、事实核查习惯以及读者群体等线索，分别对应 CRRAAB 中的时效、相关、信誉、权威、准确与偏见。\n建议用途：适合放在教师示范讲解中，逐条指着高亮证据带学生口头完成 CRRAAB 评估；也可用于小组讨论，让学生把每个高亮点对应到某一维度并说明理由，最后汇总成机构信源判断。\n标签：CRRAAB、信源评估、The Economist、维基百科、机构信源、媒体偏见\n可见内容：图片顶部写明摘录来自维基百科《The Economist》词条，并要求结合高亮点 1-7 的指导问题评估其作为信息来源的可靠性，同时提示 CRRAAB 六个维度。左侧是七个英文引导问题，右侧是《The Economist》词条内容，包含对其国际周刊定位、伦敦总部、创立于 1843 年、全球发行与数字传播、匿名署名形成集体声音、自由主义编辑立场、严格事实核查与高收入高教育读者群等信息的多处彩色高亮。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+          "createdAt": "2026-07-30T04:19:20.550Z",
+          "updatedAt": "2026-07-30T05:13:05.351Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "block_01",
+          "type": "teaching",
+          "text": "现在进入机构信源示范。我们看《经济学人》的背景资料：它是历史悠久的国际新闻周刊，有编辑传统、读者定位和明确立场。评估机构时，不是只问它有名没名，而是看它怎样生产信息、怎样承担声誉成本。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_02",
+          "type": "teaching",
+          "text": "先看时效性。创刊时间很早不代表内容陈旧，关键是它现在是否持续更新、是否能回应正在发生的问题。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_demo_predict_C",
+          "type": "interaction",
+          "text": "预测时效性判断",
+          "interaction_id": "demo_predict_C",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_03",
+          "type": "teaching",
+          "text": "《经济学人》是周刊，内容持续更新，所以时效性通常可以接受。这里要区分“机构历史久”和“信息过时”这两件事。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_04",
+          "type": "teaching",
+          "text": "再看相关性。它覆盖政治、经济、科技和社会议题，但相关性不能泛泛而谈，仍要回到具体文章和具体任务。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_demo_predict_R",
+          "type": "interaction",
+          "text": "预测相关性判断",
+          "interaction_id": "demo_predict_R",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_05",
+          "type": "teaching",
+          "text": "如果研究问题与公共议题、经济政策或国际新闻有关，它往往有相关性；如果任务要求原始研究数据，它就不能替代论文或一手资料。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_06",
+          "type": "teaching",
+          "text": "接着看信誉。机构说错话会损失读者、订阅、公共声誉和专业信任，这些代价会倒逼它建立编辑标准。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_demo_predict_R2",
+          "type": "interaction",
+          "text": "预测信誉判断",
+          "interaction_id": "demo_predict_R2",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_07",
+          "type": "teaching",
+          "text": "信誉不是“名气大所以可信”，而是它是否长期接受公开检验，是否有纠错和编辑机制，是否承担说错的成本。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_08",
+          "type": "teaching",
+          "text": "权威性要看机构在相关领域是否有持续报道能力、编辑网络和专业积累。匿名写作形成的是机构声音，这能增强一致性，也会让具体作者责任不那么清楚。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_09",
+          "type": "teaching",
+          "text": "准确性要继续追问证据来源。事实核查传统能提高可信度，但课堂判断不能停在“它看起来专业”，还要看文章有没有引用数据、专家或原始材料。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_10",
+          "type": "teaching",
+          "text": "最后看偏见。它有自己的读者群、编辑立场和价值倾向，因此可信机构也可能选择性强调某些角度。可靠不等于中立无偏。",
+          "asset_ids": [
+            "doc_img_06"
+          ]
+        },
+        {
+          "id": "block_11",
+          "type": "summary",
+          "text": "所以，机构信源的价值在于稳定的编辑标准和声誉约束；它的限制在于立场、受众和选题角度。评估时要同时看到这两面。",
+          "asset_ids": [],
+          "items": [
+            {
+              "label": "机制",
+              "text": "是否有持续发布和编辑标准"
+            },
+            {
+              "label": "代价",
+              "text": "说错是否会损失声誉和信任"
+            },
+            {
+              "label": "立场",
+              "text": "可靠机构仍可能有选择性角度"
+            }
+          ]
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "manual_fix",
+        "status": "ready",
+        "generated_at": "2026-07-31T09:41:57.857Z",
+        "alignment_notes": [],
+        "interactions": [
+          {
+            "id": "demo_predict_C",
+            "type": "single_choice",
+            "prompt": "判断机构时效性时，哪种说法更合理？",
+            "options": [
+              {
+                "id": "A",
+                "text": "创刊年代早，所以内容一定过时"
+              },
+              {
+                "id": "B",
+                "text": "看它是否持续更新并回应当前问题"
+              },
+              {
+                "id": "C",
+                "text": "只看网站设计是否现代"
+              },
+              {
+                "id": "D",
+                "text": "只看机构是否有名"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "时效性看信息是否及时更新、是否适合当前任务，不是看机构年龄。",
+            "remediation_questions": []
+          },
+          {
+            "id": "demo_predict_R",
+            "type": "single_choice",
+            "prompt": "判断相关性时，哪一步最关键？",
+            "options": [
+              {
+                "id": "A",
+                "text": "把机构内容和自己的具体研究任务对应起来"
+              },
+              {
+                "id": "B",
+                "text": "只要是大媒体就默认相关"
+              },
+              {
+                "id": "C",
+                "text": "只看标题里有没有同一个关键词"
+              },
+              {
+                "id": "D",
+                "text": "跳过任务，先看文章长短"
+              }
+            ],
+            "correct_answer": [
+              "A"
+            ],
+            "explanation": "相关性必须回到具体任务：这条材料能不能回答我要判断的问题。",
+            "remediation_questions": []
+          },
+          {
+            "id": "demo_predict_R2",
+            "type": "single_choice",
+            "prompt": "机构的信誉主要来自哪里？",
+            "options": [
+              {
+                "id": "A",
+                "text": "版面看起来专业"
+              },
+              {
+                "id": "B",
+                "text": "长期公开发布、接受读者和同行检验，并承担说错的声誉成本"
+              },
+              {
+                "id": "C",
+                "text": "文章语气很肯定"
+              },
+              {
+                "id": "D",
+                "text": "名字听起来像权威机构"
+              }
+            ],
+            "correct_answer": [
+              "B"
+            ],
+            "explanation": "信誉来自可被检验的发布机制和声誉成本，而不是表面包装。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_03",
+      "title": "AI引导：评估三位亲历者（We do）",
+      "purpose": "在最微妙的信源上做引导练习，脚手架逐维递减，让学生从AI带过渡到主动评估。核心学习发生在这里。",
+      "student_action": "在AI引导下逐维评估三位亲历者，从C/R维度AI示范，到R/A维度苏格拉底追问，到A维度仅提示，到B维度学生主导。",
+      "principle": "逐步放手：脚手架在同一练习内逐维递减，学生主动性逐渐增加。",
+      "ai_role": "AI根据fading表调整脚手架强度：C/R全程带，R/A追问，A仅提示，B只反馈。",
+      "restraint": "AI绝不替学生说出偏见维的结论，只在事后追问。",
+      "teaching_flow": [
+        "展示三位亲历者截图（）和评估表（）。",
+        "C/R维度：AI直接示范如何评估时效和相关（较直观）。",
+        "R/A维度：AI苏格拉底式追问——村长说错了会损失什么？没受过教育的村民对自己村子算权威吗？",
+        "A维度：学生自己评，卡住时AI提示——他的说法和硬数据对得上吗？",
+        "B维度：学生自己找偏见，AI事后追问——有没有人从变暖中受益却没被采访？逼出选择性偏误。",
+        "总结：亲历者权威来自第一手经验；区分既得利益与确认偏误；注意没说出来的。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "逼出三个高级命中点：亲历者权威、既得利益vs确认偏误、选择性偏误",
+        "脚手架逐维递减"
+      ],
+      "avoid": [
+        "AI不要在偏见维给出结论",
+        "不要跳过追问环节"
+      ],
+      "asset_intent": [
+        {
+          "asset_id": "doc_img_07",
+          "role": "评估对象",
+          "use_when": "展示三位亲历者截图，用于逐维评估"
+        },
+        {
+          "asset_id": "doc_img_08",
+          "role": "评估工具",
+          "use_when": "展示CRRAAB评估表，引导学生填写"
+        }
+      ],
+      "success_criteria": [
+        "学生能识别亲历者的权威来源",
+        "学生能区分既得利益与确认偏误",
+        "学生能注意到选择性偏误"
+      ],
+      "interaction_plan": [
+        {
+          "id": "guided_q1",
+          "goal": "评估亲历者的信誉和权威",
+          "type": "single_choice",
+          "answer_policy": "AI追问后学生选择，AI反馈"
+        },
+        {
+          "id": "guided_q2",
+          "goal": "识别偏见类型",
+          "type": "multiple_choice",
+          "answer_policy": "学生选择后AI追问，引导发现选择性偏误"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_guided_1",
+          "goal": "评估亲历者的信誉和权威",
+          "interaction_type": "single_choice"
+        },
+        {
+          "id": "task_guided_2",
+          "goal": "识别偏见类型",
+          "interaction_type": "multiple_choice"
+        }
+      ],
+      "raw_text": "AI引导评估三位亲历者：孟加拉气候难民、危地马拉农民、斐济村长。脚手架逐维递减。",
+      "links": [],
+      "materials": [
+        {
+          "id": "doc_img_07",
+          "type": "image",
+          "title": "《经济学人》气候纪录片中的三位亲历者受访截图",
+          "src": "/api/oss/read?objectKey=courses%2F48907ba2-7496-4f1c-87ca-eac9a336519f.webp",
+          "note": "这张图展示同一支气候变化纪录片中的三位亲历者：孟加拉的气候难民、危地马拉的小规模农民、斐济的村长。适合在CRRAAB课程中帮助学生理解：亲历者信源的“权威”来自第一手经历，而不是专家资历；同时也能讨论不同受访者可能因身份、处境和利益而产生的偏见与立场差异。\n建议用途：放在“AI引导评估亲历者（We do）”环节，教师带领学生逐一判断三位受访者的权威来源，并讨论他们各自的经验、可能立场与偏见；可用于全班投屏标注、分组讨论或逐维提问。\n标签：亲历者信源、权威性、偏见识别、气候变化、纪录片、CRRAAB\n可见内容：画面为三张并列的视频截图，分别标注“Minara Begum / Climate refugee, Dakha, Bengal”“Israel Ramirez Rivera / Small-scale farmer, Guatemala”“Barney Dunn / Village Headman, Togoru, Fiji”，左上角可见 The Economist 标识。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+          "createdAt": "2026-07-30T04:19:20.550Z",
+          "updatedAt": "2026-07-30T05:13:05.352Z"
+        },
+        {
+          "id": "doc_img_08",
+          "type": "image",
+          "title": "CRRAAB六维评估表：评估《经济学人》气候变化视频中的三位亲历者信源",
+          "src": "/api/oss/read?objectKey=courses%2F3bbf30ac-737b-45f6-9d5f-ec52c06e744d.webp",
+          "note": "这是一张信源评估表截图，内容围绕《经济学人》YouTube 视频《See what 3 degree of global warming looks like》里的三位受访亲历者，按 Currency、Relevance、Reputation、Authority、Accuracy、Bias 六维逐项分析。它适合帮助学生理解：亲历者信源的“权威”主要来自第一手经验，而不是学历或头衔；同时也能训练学生识别亲历者叙述中的确认偏差、选择性呈现，以及如何用外部证据核对其说法。\n建议用途：可放在“AI 引导评估亲历者（We do）”环节投屏讲解，带学生逐行拆解六维框架；也可用于小组讨论、证据标注、偏见圈画与外部资料交叉验证练习。\n标签：CRRAAB、信源评估、亲历者信源、气候变化、偏见识别、YouTube视频\n可见内容：画面主体是一张两列表格，左列为 Guiding questions，右列为 Evaluation notes。表格按 C Currency、R Relevance、R Reputation、A Authority、A Accuracy、B Bias 六行展开；右侧红色文字针对《经济学人》视频中三位受访者的时效性、相关性、声誉、权威性、准确性和偏见进行说明。底部还有一条 YouTube 评论截图，作为偏见与受众反应的补充材料。",
+          "origin": "course_saved",
+          "ossKey": "",
+          "originalSrc": "",
+          "metadata": {},
+          "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+          "createdAt": "2026-07-30T04:19:20.551Z",
+          "updatedAt": "2026-07-30T05:13:05.353Z"
+        }
+      ],
+      "flow_blocks": [
+        {
+          "id": "block_01",
+          "type": "teaching",
+          "text": "现在换一种信源：亲历者。三位受访者分别来自孟加拉、危地马拉和斐济，他们没有研究机构头衔，但都在讲自己正在经历的气候影响。亲历者的价值，首先来自第一手经验。",
+          "asset_ids": [
+            "doc_img_07",
+            "doc_img_08"
+          ]
+        },
+        {
+          "id": "block_02",
+          "type": "teaching",
+          "text": "先看比较直观的两维：时效和相关。视频讨论的是当前气候影响，三位受访者都直接经历洪水、干旱或海平面上升，所以材料与主题高度相关。",
+          "asset_ids": [
+            "doc_img_07",
+            "doc_img_08"
+          ]
+        },
+        {
+          "id": "block_03",
+          "type": "teaching",
+          "text": "接下来判断信誉和权威。这里的关键不是学历高低，而是他是否真的处在事件现场、是否代表某种真实经验、说错会不会影响他和周围人的判断。",
+          "asset_ids": [
+            "doc_img_07",
+            "doc_img_08"
+          ]
+        },
+        {
+          "id": "block_guided_q1",
+          "type": "interaction",
+          "text": "判断亲历者的信誉和权威",
+          "interaction_id": "guided_q1",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_04",
+          "type": "teaching",
+          "text": "再看准确性。亲历者能提供现场经验，但个人经验仍需要与外部数据、其他报道或长期记录相互核对。",
+          "asset_ids": [
+            "doc_img_07",
+            "doc_img_08"
+          ]
+        },
+        {
+          "id": "block_05",
+          "type": "teaching",
+          "text": "最后看偏见。亲历者可能有利益、情绪和处境限制，也可能只呈现被采访到的一部分人。判断偏见时，要问：谁被听见了，谁没有出现？",
+          "asset_ids": [
+            "doc_img_07",
+            "doc_img_08"
+          ]
+        },
+        {
+          "id": "block_guided_q2",
+          "type": "interaction",
+          "text": "识别亲历者材料的偏见",
+          "interaction_id": "guided_q2",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_06",
+          "type": "summary",
+          "text": "亲历者不是因为有头衔才有价值，而是因为他们提供第一手经验。使用这类材料时，要保留它的现场感，也要用外部证据校验它的范围和限制。",
+          "asset_ids": [],
+          "items": [
+            {
+              "label": "经验位置",
+              "text": "他是否亲历或直接接触事件"
+            },
+            {
+              "label": "代表范围",
+              "text": "他的经验能代表什么，不能代表什么"
+            },
+            {
+              "label": "外部校验",
+              "text": "个人经验还要和数据、报道互相印证"
+            }
+          ]
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "manual_fix",
+        "status": "ready",
+        "generated_at": "2026-07-31T09:41:57.857Z",
+        "alignment_notes": [],
+        "interactions": [
+          {
+            "id": "guided_q1",
+            "type": "multiple_choice",
+            "prompt": "评估亲历者的信誉和权威时，哪些追问是必要的？",
+            "options": [
+              {
+                "id": "A",
+                "text": "他是否亲身经历或直接接触这件事"
+              },
+              {
+                "id": "B",
+                "text": "他说错后是否会影响自己、社区或公共判断"
+              },
+              {
+                "id": "C",
+                "text": "他的经验是否只能代表局部处境"
+              },
+              {
+                "id": "D",
+                "text": "他没有学术头衔，所以完全不能作为信源"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "亲历者的权威来自第一手经验，但范围通常有限，需要同时判断经验位置、说错代价和代表性。",
+            "remediation_questions": []
+          },
+          {
+            "id": "guided_q2",
+            "type": "multiple_choice",
+            "prompt": "识别亲历者材料的偏见时，哪些问题更有帮助？",
+            "options": [
+              {
+                "id": "A",
+                "text": "视频是否只采访了受影响最明显的人"
+              },
+              {
+                "id": "B",
+                "text": "有没有相反经验或受益者没有被呈现"
+              },
+              {
+                "id": "C",
+                "text": "受访者的处境是否会影响他说话角度"
+              },
+              {
+                "id": "D",
+                "text": "只要是真实经历，就不可能有偏见"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "真实经历仍可能有选择性。偏见判断要看被呈现的人、没被呈现的人，以及处境如何塑造表达。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_04",
+      "title": "独立评估：专家 Dr Rogelj（You do）",
+      "purpose": "学生基本独立完成CRRAAB评估，AI退到只反馈。这是收尾，检验学生是否真正掌握。",
+      "student_action": "学生自己逐维评估专家Rogelj，写完后AI挑刺追问。",
+      "principle": "独立完成阶段，学生需要自己抓到高级洞见：承认不确定性反而更可信。",
+      "ai_role": "AI提供转录，不替学生下结论，只在写完后追问。",
+      "restraint": "AI不主动指出该信什么或该怀疑什么，只反馈。",
+      "teaching_flow": [
+        "AI给出纪录片中Rogelj的转录（文字展示）。",
+        "学生自己逐维评估，AI不干预。",
+        "学生提交评估后，AI追问：你说他权威，他凭什么让你信？他有没有把不确定性藏起来？",
+        "总结：好专家会引用来源、坦诚不确定性；不因其权威就盲信。"
+      ],
+      "activity_flow": [],
+      "must_include": [
+        "学生独立完成评估",
+        "AI事后追问高级洞见"
+      ],
+      "avoid": [
+        "AI不要主动提示高级洞见",
+        "不要在学生评估过程中给引导"
+      ],
+      "asset_intent": [],
+      "success_criteria": [
+        "学生能独立完成六维评估",
+        "学生能抓到‘坦诚不确定性更可信’这一洞见"
+      ],
+      "interaction_plan": [
+        {
+          "id": "indep_q1",
+          "goal": "评估专家的权威性",
+          "type": "single_choice",
+          "answer_policy": "学生选择后AI追问"
+        },
+        {
+          "id": "indep_q2",
+          "goal": "识别专家可信度的关键特征",
+          "type": "multiple_choice",
+          "answer_policy": "学生选择后AI反馈，引导发现不确定性坦诚"
+        }
+      ],
+      "learning_tasks": [
+        {
+          "id": "task_indep_1",
+          "goal": "评估专家的权威性",
+          "interaction_type": "single_choice"
+        },
+        {
+          "id": "task_indep_2",
+          "goal": "识别专家可信度的关键特征",
+          "interaction_type": "multiple_choice"
+        }
+      ],
+      "raw_text": "独立评估专家Dr Rogelj：他给出概率区间，坦诚不确定性。",
+      "links": [],
+      "materials": [],
+      "flow_blocks": [
+        {
+          "id": "block_01",
+          "type": "teaching",
+          "text": "现在进入独立评估。Dr. Rogelj 是气候科学家，我们要判断的不是“专家一定可信”，而是他的话为什么值得相信、又有哪些边界。",
+          "asset_ids": []
+        },
+        {
+          "id": "block_02",
+          "type": "teaching",
+          "text": "先独立看他的表达：他是否给出证据来源，是否说明概率和不确定性，是否把复杂问题说成绝对结论。",
+          "asset_ids": []
+        },
+        {
+          "id": "block_indep_q1",
+          "type": "interaction",
+          "text": "评估专家的权威性",
+          "interaction_id": "indep_q1",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_03",
+          "type": "teaching",
+          "text": "完成第一轮判断后，把注意力放到“专家如何表达不确定性”。可信专家不会把风险说成百分百确定，而会说明模型、区间和证据限制。",
+          "asset_ids": []
+        },
+        {
+          "id": "block_indep_q2",
+          "type": "interaction",
+          "text": "识别专家可信度的关键特征",
+          "interaction_id": "indep_q2",
+          "activity_id": "",
+          "asset_ids": []
+        },
+        {
+          "id": "block_04",
+          "type": "summary",
+          "text": "所以，评估专家信源时，不能因为有头衔就直接采信；要看他的专业位置、证据来源、审查机制，以及是否诚实呈现不确定性。",
+          "asset_ids": [],
+          "items": [
+            {
+              "label": "专业位置",
+              "text": "他是否在相关领域有真实研究经验"
+            },
+            {
+              "label": "证据机制",
+              "text": "他说法是否连接数据、模型或公开研究"
+            },
+            {
+              "label": "边界意识",
+              "text": "他是否说明不确定性，而不是把判断说满"
+            }
+          ]
+        }
+      ],
+      "interaction_blueprint": {
+        "source": "manual_fix",
+        "status": "ready",
+        "generated_at": "2026-07-31T09:41:57.857Z",
+        "alignment_notes": [],
+        "interactions": [
+          {
+            "id": "indep_q1",
+            "type": "multiple_choice",
+            "prompt": "判断 Dr. Rogelj 的权威性时，哪些线索值得保留？",
+            "options": [
+              {
+                "id": "A",
+                "text": "他是否是相关领域研究者"
+              },
+              {
+                "id": "B",
+                "text": "他说法是否连接研究、模型或数据"
+              },
+              {
+                "id": "C",
+                "text": "他是否承认预测中的不确定性"
+              },
+              {
+                "id": "D",
+                "text": "只要出现博士头衔，就不需要继续判断"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "B",
+              "C"
+            ],
+            "explanation": "专家可信度来自专业位置、证据连接和边界意识，不是单靠头衔。",
+            "remediation_questions": []
+          },
+          {
+            "id": "indep_q2",
+            "type": "multiple_choice",
+            "prompt": "专家表达中哪些特征会提高可信度？",
+            "options": [
+              {
+                "id": "A",
+                "text": "公开说明概率、范围或不确定性"
+              },
+              {
+                "id": "B",
+                "text": "把判断说得绝对，不留任何余地"
+              },
+              {
+                "id": "C",
+                "text": "说明结论来自哪些证据或研究机制"
+              },
+              {
+                "id": "D",
+                "text": "避免用身份替代证据"
+              }
+            ],
+            "correct_answer": [
+              "A",
+              "C",
+              "D"
+            ],
+            "explanation": "可信表达通常会说明证据来源和不确定性，而不是用权威身份直接压过判断。",
+            "remediation_questions": []
+          }
+        ]
+      }
+    }
+  ],
+  "asset_library": [
+    {
+      "id": "doc_img_01",
+      "type": "image",
+      "title": "《经济学人》网站顶部导航栏截图",
+      "src": "/api/oss/read?objectKey=courses%2Fbbcce410-46d6-47bb-a851-194de2ccf380.webp",
+      "note": "这张图展示了《经济学人》网页的标识与导航区，可用于让学生识别信源的发布机构，并理解在 CRRAAB 中“权威/信誉”首先要看信息来自谁、由什么机构发布。它特别适合配合机构类信源分析，帮助学生区分“机构来源的可靠性”与内容本身的论点。\n建议用途：用于导入机构类信源评估；教师可让学生先根据页面元素判断发布者，再引导填写 CRRAAB 中的权威、信誉与目的性维度。\n标签：经济学人、网站截图、机构信源、权威性、信源评估\n可见内容：可见“The Economist”标志，以及“Menu”“Weekly edition”“Search”等网站导航文字。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/bbcce410-46d6-47bb-a851-194de2ccf380.webp",
+      "originalSrc": "/assets/generated/a-mid-raw-A_-_-_/doc_img_01.png",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/bbcce410-46d6-47bb-a851-194de2ccf380.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 26282,
+          "uploadedBytes": 4688,
+          "format": "webp"
+        }
+      },
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.545Z",
+      "updatedAt": "2026-07-30T04:19:20.545Z"
+    },
+    {
+      "id": "doc_img_02",
+      "type": "image",
+      "title": "《经济学人》YouTube 气候视频封面：3°C全球变暖效果",
+      "src": "/api/oss/read?objectKey=courses%2F8c617e2d-a222-4299-ae91-ff1508a88631.webp",
+      "note": "这是一张来自《经济学人》YouTube 视频的封面图，主题明确指向“3°C全球变暖会是什么样子”。在课程中，它适合用来训练学生先判断信源属于出版机构/媒体机构，再进一步评估机构信源的权威性、目的性与相关性：机构为什么制作这类内容、它想影响谁、以及这种机构立场会怎样塑造气候议题的呈现。也适合帮助学生理解本课“先看容器，再看内容”的评估顺序。\n建议用途：可用于导入环节展示封面，让学生先识别来源机构与主题；随后引导学生按CRRAAB中的权威性、目的性、相关性做快速判断；也可作为小组讨论的首张素材，练习“先看机构再看内容”的评估流程。\n标签：气候变化、经济学人、YouTube视频、媒体机构、信源评估、权威性\n可见内容：左上角有红色“The Economist”标识；中央大字写着“See what 3°C of global warming looks like”；背景是从太空视角看到的地球弧面与云层。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.546Z",
+      "updatedAt": "2026-07-30T05:13:05.348Z"
+    },
+    {
+      "id": "doc_img_03",
+      "type": "image",
+      "title": "美国“00后”和“80/90后”首选 YouTube 作为学习工具的比例柱状图",
+      "src": "/api/oss/read?objectKey=courses%2Fd0dcaebf-d602-4dd5-8c59-fe40472f000e.webp",
+      "note": "这张图通过两组柱状对比呈现不同年龄段美国人将 YouTube 选为首选学习工具的占比，适合用来引出“平台流行度”与“信息可信度”不是一回事。它能帮助学生理解：一个信息平台被很多人使用，并不自动意味着其中内容可靠；做 CRRAAB 评估时，不能只看受欢迎程度，还要继续判断来源的权威性、准确性和相关性。\n建议用途：可放在导入环节先让学生读图、说出两个年龄组的差异，再追问“受欢迎的平台是否就更可信”，用来过渡到 CRRAAB 中对相关性、权威性和准确性的讨论。\n标签：YouTube、学习工具、年龄对比、平台影响力、信息评估、信源判断\n可见内容：柱状图纵轴约 52% 到 60%。“美国‘00后’”约 59%，“美国‘80/90后’”约 55%。下方标题为“YouTube 作为首选的学习工具”。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.547Z",
+      "updatedAt": "2026-07-30T05:13:05.350Z"
+    },
+    {
+      "id": "doc_img_04",
+      "type": "image",
+      "title": "CRAAP 信息过滤神器五维框架示意图",
+      "src": "/api/oss/read?objectKey=courses%2Fa3c4226a-089f-4381-a753-47f99b47a361.webp",
+      "note": "这张图用 C-R-A-A-P 五个维度概括信源评估的基本问题：时效性、相关性、权威性、准确性和目的性。适合帮助学生先建立“评估信息要看哪些方面”的整体框架，再理解本课的 CRRAAB 是在 CRAAP 基础上进一步细分了信誉和偏见，强调不同信源类型的评估重点不同。\n建议用途：可放在导入环节作为信源评估框架总览；教师逐一讲解五维含义，并与 CRRAAB 的六维框架做对比；也可用于课堂板书或幻灯片中快速唤起学生对评估维度的记忆。\n标签：信息评估、CRAAP框架、时效性、权威性、准确性\n可见内容：标题为“CRAAP 信息过滤神器”。画面中依次展示五个圆形字母图标：C 对应 Currency（时效性），R 对应 Relevance（相关性），A 对应 Authority（权威性），A 对应 Accuracy（准确性），P 对应 Purpose（目的性）。",
+      "origin": "course_saved",
+      "ossKey": "courses/a3c4226a-089f-4381-a753-47f99b47a361.webp",
+      "originalSrc": "/assets/generated/a-mid-raw-A_-_-_/doc_img_04.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/a3c4226a-089f-4381-a753-47f99b47a361.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 51345,
+          "uploadedBytes": 28268,
+          "format": "webp"
+        }
+      },
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.548Z",
+      "updatedAt": "2026-07-30T05:08:47.425Z"
+    },
+    {
+      "id": "doc_img_05",
+      "type": "image",
+      "title": "CRAAP 六步信息评估框架环形示意图",
+      "src": "/api/oss/read?objectKey=courses%2F40c60ce2-2397-4ceb-8909-f4244e938e41.webp",
+      "note": "这是一张用于讲解信息筛选的概念图，画面中用 C、R、A、A、P 五个字母围成循环，分别对应时效性、相关性、来源/权威、准确性和目的性，并配有中英双语说明。它适合帮助学生先建立“用问题过滤信息”的整体意识，再作为后续 CRRAAB 六维框架的铺垫，理解为什么在评估不同信源时还要继续补充“信誉/权威”和“偏见”两个维度。\n建议用途：可用于导入环节做概念引入；教师逐项指认五个维度并提问；配合板书把每个字母对应到具体判断标准；也可作为从 CRAAP 过渡到 CRRAAB 的桥接图，提示学生后续还要加入权威/信誉与偏见分析。\n标签：信息评估、CRAAP框架、信源判断、时效性、准确性、目的性\n可见内容：画面中央写“六步融合”，周围环形排列 C、R、A、A、P 五个圆点；对应文字包括“信息产生的时间 / The timeliness of the info”“信息对当下而言的重要性 / How the info fits your needs”“信息的来源 / The source of the info”“信息的准确度 / Reliability and correctness of the info”“信息存在的原因 / The reason the info exis”。",
+      "origin": "course_saved",
+      "ossKey": "courses/40c60ce2-2397-4ceb-8909-f4244e938e41.webp",
+      "originalSrc": "/assets/generated/a-mid-raw-A_-_-_/doc_img_05.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/40c60ce2-2397-4ceb-8909-f4244e938e41.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 67907,
+          "uploadedBytes": 39044,
+          "format": "webp"
+        }
+      },
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.549Z",
+      "updatedAt": "2026-07-30T05:08:47.426Z"
+    },
+    {
+      "id": "doc_img_07",
+      "type": "image",
+      "title": "《经济学人》气候纪录片中的三位亲历者受访截图",
+      "src": "/api/oss/read?objectKey=courses%2F48907ba2-7496-4f1c-87ca-eac9a336519f.webp",
+      "note": "这张图展示同一支气候变化纪录片中的三位亲历者：孟加拉的气候难民、危地马拉的小规模农民、斐济的村长。适合在CRRAAB课程中帮助学生理解：亲历者信源的“权威”来自第一手经历，而不是专家资历；同时也能讨论不同受访者可能因身份、处境和利益而产生的偏见与立场差异。\n建议用途：放在“AI引导评估亲历者（We do）”环节，教师带领学生逐一判断三位受访者的权威来源，并讨论他们各自的经验、可能立场与偏见；可用于全班投屏标注、分组讨论或逐维提问。\n标签：亲历者信源、权威性、偏见识别、气候变化、纪录片、CRRAAB\n可见内容：画面为三张并列的视频截图，分别标注“Minara Begum / Climate refugee, Dakha, Bengal”“Israel Ramirez Rivera / Small-scale farmer, Guatemala”“Barney Dunn / Village Headman, Togoru, Fiji”，左上角可见 The Economist 标识。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.550Z",
+      "updatedAt": "2026-07-30T05:13:05.352Z"
+    },
+    {
+      "id": "doc_img_06",
+      "type": "image",
+      "title": "维基百科《The Economist》词条与 CRRAAB 机构信源评估提示图",
+      "src": "/api/oss/read?objectKey=courses%2F0f4bcbdf-e2b8-4029-8f0e-5178de517126.webp",
+      "note": "这张图呈现的是《The Economist》在维基百科中的词条截图，并配有 1-7 条引导问题与多色高亮证据，适合用于课程中“机构信源”的示范评估。它能帮助学生理解：评估出版机构时，不能只看内容表面，而要结合地域与版面定位、机构规模与专业标准、历史表现、匿名写作形成的“集体声音”、编辑立场、事实核查习惯以及读者群体等线索，分别对应 CRRAAB 中的时效、相关、信誉、权威、准确与偏见。\n建议用途：适合放在教师示范讲解中，逐条指着高亮证据带学生口头完成 CRRAAB 评估；也可用于小组讨论，让学生把每个高亮点对应到某一维度并说明理由，最后汇总成机构信源判断。\n标签：CRRAAB、信源评估、The Economist、维基百科、机构信源、媒体偏见\n可见内容：图片顶部写明摘录来自维基百科《The Economist》词条，并要求结合高亮点 1-7 的指导问题评估其作为信息来源的可靠性，同时提示 CRRAAB 六个维度。左侧是七个英文引导问题，右侧是《The Economist》词条内容，包含对其国际周刊定位、伦敦总部、创立于 1843 年、全球发行与数字传播、匿名署名形成集体声音、自由主义编辑立场、严格事实核查与高收入高教育读者群等信息的多处彩色高亮。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.550Z",
+      "updatedAt": "2026-07-30T05:13:05.351Z"
+    },
+    {
+      "id": "doc_img_08",
+      "type": "image",
+      "title": "CRRAAB六维评估表：评估《经济学人》气候变化视频中的三位亲历者信源",
+      "src": "/api/oss/read?objectKey=courses%2F3bbf30ac-737b-45f6-9d5f-ec52c06e744d.webp",
+      "note": "这是一张信源评估表截图，内容围绕《经济学人》YouTube 视频《See what 3 degree of global warming looks like》里的三位受访亲历者，按 Currency、Relevance、Reputation、Authority、Accuracy、Bias 六维逐项分析。它适合帮助学生理解：亲历者信源的“权威”主要来自第一手经验，而不是学历或头衔；同时也能训练学生识别亲历者叙述中的确认偏差、选择性呈现，以及如何用外部证据核对其说法。\n建议用途：可放在“AI 引导评估亲历者（We do）”环节投屏讲解，带学生逐行拆解六维框架；也可用于小组讨论、证据标注、偏见圈画与外部资料交叉验证练习。\n标签：CRRAAB、信源评估、亲历者信源、气候变化、偏见识别、YouTube视频\n可见内容：画面主体是一张两列表格，左列为 Guiding questions，右列为 Evaluation notes。表格按 C Currency、R Relevance、R Reputation、A Authority、A Accuracy、B Bias 六行展开；右侧红色文字针对《经济学人》视频中三位受访者的时效性、相关性、声誉、权威性、准确性和偏见进行说明。底部还有一条 YouTube 评论截图，作为偏见与受众反应的补充材料。",
+      "origin": "course_saved",
+      "ossKey": "",
+      "originalSrc": "",
+      "metadata": {},
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.551Z",
+      "updatedAt": "2026-07-30T05:13:05.353Z"
+    },
+    {
+      "id": "doc_img_09",
+      "type": "image",
+      "title": "布鲁姆认知目标分类金字塔示意图",
+      "src": "/api/oss/read?objectKey=courses%2F0e0953f1-e9fb-4e9f-b9f3-3bf562bbdb7d.webp",
+      "note": "这张图展示了从“记忆、理解、应用、分析、评价、创造”逐级提升的认知层级，并标出了低阶与高阶思维的区别。放在CRRAAB信源评估课程中，适合帮助学生理解：信源评估不只是找信息和复述信息，而是要进入分析、评价甚至创造性的整合判断；也可用来说明课程中从AI示范到学生独立评估的思维升级过程。\n建议用途：可用于课程导入或板书说明，帮助学生把CRRAAB信源评估与高阶思维联系起来；也适合在讲解“评价”维度时插入，提示学生从“理解内容”走向“判断信源质量”；还可在活动说明中作为分层任务依据。\n标签：布鲁姆分类、高阶思维、认知层级、评价任务、信息素养\n可见内容：图中是一个认知目标金字塔。底部依次为“记忆 Remember”“理解 Understand”“应用 Apply”“分析 Analyze”“评价 Evaluate”“创造 Create”，左侧标有“低阶思维/浅层学习”和“高阶思维/深度学习”，右侧配有各层对应动作词，如“回忆、识别、解释、分类、比较、执行、评判、核查、生成、计划”等。",
+      "origin": "oss_uploaded",
+      "ossKey": "courses/0e0953f1-e9fb-4e9f-b9f3-3bf562bbdb7d.webp",
+      "originalSrc": "/assets/generated/a-mid-raw-A_-_-_/doc_img_09.jpg",
+      "metadata": {
+        "oss": {
+          "objectKey": "courses/0e0953f1-e9fb-4e9f-b9f3-3bf562bbdb7d.webp",
+          "requiredContentType": "image/webp",
+          "originalBytes": 83599,
+          "uploadedBytes": 47640,
+          "format": "webp"
+        }
+      },
+      "createdBy": "5795a483-b3c3-44a5-8fe2-38fff273e771",
+      "createdAt": "2026-07-30T04:19:20.552Z",
+      "updatedAt": "2026-07-30T04:19:20.552Z"
+    }
+  ]
+}

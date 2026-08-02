@@ -145,8 +145,13 @@ func TestMigration0025Down(t *testing.T) {
 		t.Fatalf("after Down the surface='chat' exemption must be restored: %v", err)
 	}
 
-	// And Up restores the thread scope.
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
+	// And Up restores the thread scope. UpToContext(..., 25), not UpContext:
+	// course v2 (0050) permanently drops course_session (Down does not
+	// recreate it — no back-compat), so a bare Up-to-head would replay
+	// 0032's original CREATE VIEW (LEFT JOIN course_session) and fail with
+	// "relation course_session does not exist". Stop exactly at 0025, the
+	// migration under test — same reasoning as TestMigration0024Down.
+	if err := goose.UpToContext(ctx, db, "migrations", 25); err != nil {
 		t.Fatalf("goose up after down: %v", err)
 	}
 	var one int

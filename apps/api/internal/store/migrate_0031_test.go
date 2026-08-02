@@ -4,12 +4,26 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
-// seededCourseID is the course seeded by migration 0012 (0012_seed_course.sql).
-const seededCourseID = "00000000-0000-0000-0000-0000000000c1"
+// seedCourse inserts a minimal course v2 row (course v2 / migration 0050
+// deletes 0012's seeded course, and every column it added — structure,
+// render_cache, etc — has a default, so branch/title are the only required
+// fields) and returns its id. Replaces the old seededCourseID constant, which
+// pointed at 0012's row and no longer resolves to anything once 0050 has run.
+func seedCourse(t *testing.T, ctx context.Context, pool *pgxpool.Pool) string {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO course (branch, title) VALUES ('批判性思维', 'migrate-0031 test course')
+		RETURNING id::text`).Scan(&id); err != nil {
+		t.Fatalf("seed course: %v", err)
+	}
+	return id
+}
 
 // TestMigration0031EventCourseScope: event gains a nullable course_id,
 // event_scope_ck widens to include it, and the widened check still rejects a
@@ -25,12 +39,13 @@ func TestMigration0031EventCourseScope(t *testing.T) {
 	}
 	ctx := context.Background()
 	pool := newTestPool(t)
+	courseID := seedCourse(t, ctx, pool)
 
 	// 1. A course-scoped event satisfies event_scope_ck with only course_id.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, course_id, surface, type, payload)
 		VALUES ($1, $2, 'course', 'step_viewed', '{"ordinal":0}'::jsonb)`,
-		refactor2SeededStudentID, seededCourseID); err != nil {
+		refactor2SeededStudentID, courseID); err != nil {
 		t.Fatalf("course-scoped event must satisfy event_scope_ck: %v", err)
 	}
 
@@ -83,11 +98,12 @@ func TestMigration0031Down(t *testing.T) {
 	}
 	ctx := context.Background()
 	pool := newTestPool(t)
+	courseID := seedCourse(t, ctx, pool)
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO event (user_id, course_id, surface, type, payload)
 		VALUES ($1, $2, 'course', 'step_viewed', '{"ordinal":0}'::jsonb)`,
-		refactor2SeededStudentID, seededCourseID); err != nil {
+		refactor2SeededStudentID, courseID); err != nil {
 		t.Fatalf("seed course-scoped event (what a real render writes): %v", err)
 	}
 
@@ -121,8 +137,14 @@ func TestMigration0031Down(t *testing.T) {
 		t.Fatal("after Down, an unscoped event should still violate the restored event_scope_ck")
 	}
 
-	// And Up restores the course scope.
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
+	// And Up restores the course scope. UpToContext(..., 31), not UpContext:
+	// course v2 (0050) permanently drops course_session (Down does not
+	// recreate it — no back-compat), so a bare Up-to-head would replay
+	// 0032's original CREATE VIEW (LEFT JOIN course_session) and fail with
+	// "relation course_session does not exist". Stop exactly at 0031, the
+	// migration under test — same reasoning as TestMigration0024Down /
+	// TestMigration0025Down.
+	if err := goose.UpToContext(ctx, db, "migrations", 31); err != nil {
 		t.Fatalf("goose up after down: %v", err)
 	}
 	if err := pool.QueryRow(ctx, `
