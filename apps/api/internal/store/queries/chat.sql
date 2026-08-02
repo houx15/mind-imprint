@@ -26,9 +26,12 @@ ORDER BY cm.created_at, cm.id;
 
 -- name: CreateProjectCoachMessage :one
 -- Persist one surface-tagged coach turn (role user|assistant) to the project's
--- thread. Mirrors CreateChatMessage but carries the active surface.
-INSERT INTO chat_message (thread_id, role, content, modality, surface)
-VALUES ($1, $2, $3, 'text', $4)
+-- thread. Mirrors CreateChatMessage but carries the active surface. attachments
+-- reuses the existing jsonb column to carry a card-turn's structured reference
+-- ({"card":{"cardId","fieldValues"}}), so a reloaded thread re-renders a
+-- completed card as a clickable chip; '[]' for a plain turn.
+INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments)
+VALUES ($1, $2, $3, 'text', $4, $5)
 RETURNING *;
 
 -- name: ListActiveChatMessagesByProject :many

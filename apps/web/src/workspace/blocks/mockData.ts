@@ -2,6 +2,8 @@
 // No API, no backend — everything here is fixture content anchored to the
 // canonical demo: Phoebe / "中国的发展让地球更可持续了吗？".
 
+import type { CardTurnRef } from "@mind-imprint/contracts";
+
 export type BlockKey = "plan" | "reading" | "writing" | "reflection";
 
 export type PlanTag = "read" | "write" | "review";
@@ -70,7 +72,10 @@ export const CRED_LABEL: Record<NonNullable<Reference["credibility"]>, string> =
   weak: "存疑",
 };
 
-export type ChatMsg = { role: "ai" | "student"; text: string };
+// `card`, when set, marks a card-turn: the bubble renders as a content-first
+// clickable chip that opens a read-only view of the student's answers, instead
+// of raw text. `text` stays the plain compiled fallback.
+export type ChatMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null };
 
 // The four proposal dimensions (EPQ 开题报告 §1–§4). The forming chat coaches
 // across all four; a formal proposal doc is an OPTIONAL export — never forced.

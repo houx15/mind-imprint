@@ -211,6 +211,23 @@ func (s *sqlcAgentStore) LoadChatHistory(ctx context.Context, projectID uuid.UUI
 // conversational coach exchange, since the four-room coach's replies are
 // conversational (chat_message), not interventions.
 func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string) error {
+	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, nil)
+}
+
+// AppendProjectCoachCardMessage is AppendProjectCoachMessage for a CARD turn:
+// the same persisted chat turn, but carrying a structured card reference in the
+// attachments jsonb ({"card":{"cardId","fieldValues"}}) so a reloaded thread
+// re-renders the completed card as a clickable, content-first chip (opening a
+// read-only record) instead of the plain compiled text. `content` stays the
+// compiled fallback (any non-card-aware reader still sees the words).
+func (s *sqlcAgentStore) AppendProjectCoachCardMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string, attachments []byte) error {
+	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, attachments)
+}
+
+// appendProjectCoachMessage is the shared body. attachments defaults to the
+// column's empty-array shape ('[]') when nil so the NOT NULL column never sees a
+// NULL (the explicit param bypasses the SQL DEFAULT).
+func (s *sqlcAgentStore) appendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string, attachments []byte) error {
 	threadID, err := s.getOrCreateThread(ctx, projectID)
 	if err != nil {
 		return err
@@ -219,8 +236,11 @@ func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectI
 	if surface != "" {
 		surfPtr = &surface
 	}
+	if len(attachments) == 0 {
+		attachments = []byte("[]")
+	}
 	_, err = s.q.CreateProjectCoachMessage(ctx, sqlc.CreateProjectCoachMessageParams{
-		ThreadID: threadID, Role: role, Content: content, Surface: surfPtr,
+		ThreadID: threadID, Role: role, Content: content, Surface: surfPtr, Attachments: attachments,
 	})
 	return err
 }

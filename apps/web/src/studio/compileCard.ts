@@ -9,7 +9,7 @@ import type { CardSpec } from "@mind-imprint/contracts";
 // It's a plain projection, not authorship (铁律①): it only reformats what the
 // STUDENT typed into the card — it never adds sentences of its own.
 
-function valueToText(v: unknown): string {
+export function valueToText(v: unknown): string {
   if (v == null) return "";
   if (typeof v === "string") return v.trim();
   if (typeof v === "number" || typeof v === "boolean") return String(v);
@@ -20,6 +20,31 @@ function valueToText(v: unknown): string {
     return Object.values(v as Record<string, unknown>).map(valueToText).filter(Boolean).join(" · ");
   }
   return "";
+}
+
+// cardFieldEntries walks a completed card's declared fields (in field order)
+// and returns one {label, value} per NON-EMPTY answer — a content-first
+// projection of what the STUDENT typed (铁律①: never authorship). Custom-
+// renderer keys that don't line up with a declared field still surface (so no
+// answer is dropped). Used by the card-turn chip (leads with entries[0].value —
+// the student's own content, not the card name) and its read-only viewer.
+export function cardFieldEntries(spec: CardSpec, fieldValues: Record<string, unknown>): { label: string; value: string }[] {
+  const entries: { label: string; value: string }[] = [];
+  const seen = new Set<string>();
+  for (const step of spec.steps) {
+    for (const field of step.fields) {
+      const value = valueToText(fieldValues[field.key]);
+      if (!value) continue;
+      seen.add(field.key);
+      entries.push({ label: field.label, value });
+    }
+  }
+  for (const k of Object.keys(fieldValues).sort()) {
+    if (seen.has(k)) continue;
+    const value = valueToText(fieldValues[k]);
+    if (value) entries.push({ label: k, value });
+  }
+  return entries;
 }
 
 // compileCardEnvelope walks the card's declared fields (in field order) and

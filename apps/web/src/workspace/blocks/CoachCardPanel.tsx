@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
 import { persistProjectCard, reflectProjectCard, dismissProposal, type CardProposalWire } from "../api/workspace";
 import { compileCardForCoach } from "../../studio/compileCard";
 import { CoachProposal } from "./CoachProposal";
@@ -42,8 +42,10 @@ export function CoachCardPanel({
   onLogged?: (text: string) => void;
   // Slice 2 reflect path: when `surface` is set, submit runs a coach turn that
   // responds to the card's content; the compiled student turn + the AI reply are
-  // handed back so the parent shows BOTH in the thread.
-  onReflected?: (studentText: string, reply: string) => void;
+  // handed back so the parent shows BOTH in the thread. `card` (present unless
+  // the card was empty) lets the parent render the student turn as a content-
+  // first clickable chip instead of raw compiled text.
+  onReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
   surface?: string;
   deck?: string[];
 }) {
@@ -68,8 +70,10 @@ export function CoachCardPanel({
     if (surface && onReflected) {
       const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
       try {
-        const { reply } = await reflectProjectCard(projectId, id, fieldValues, eventTrace, surface);
-        onReflected(studentText, reply);
+        const res = await reflectProjectCard(projectId, id, fieldValues, eventTrace, surface);
+        // The server echoes the persisted card ref (null on an empty-card no-op);
+        // pass it so the parent renders a content-first chip, not raw text.
+        onReflected(studentText, res.reply, res.card ?? undefined);
       } catch {
         // Soft inline note — never crash the room; the student's words still show.
         onReflected(studentText, "刚才没接住这张卡，等下再试一次。");

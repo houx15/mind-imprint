@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal } from "@mind-imprint/contracts";
+import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
   PROPOSAL_DIMS,
@@ -28,6 +28,7 @@ import {
   type CardProposalWire,
 } from "../api/workspace";
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
+import { CardTurnChip } from "./CardTurnChip";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
@@ -333,13 +334,19 @@ export function PlanBlock({
           projectId={projectId}
           cardProposal={cardProposal}
           onCardConsumed={() => setCardProposal(null)}
-          onCardReflected={(studentText, reply) =>
+          onCardReflected={(studentText, reply, card) =>
             setChat((c) => [
               ...c,
-              ...(studentText ? [{ role: "student" as const, text: studentText }] : []),
+              // A card turn renders as a content-first chip (card set), falling
+              // back to raw compiled text only if the server didn't echo a card.
+              ...(card
+                ? [{ role: "student" as const, text: studentText, card }]
+                : studentText
+                  ? [{ role: "student" as const, text: studentText }]
+                  : []),
               ...(reply
                 ? [{ role: "ai" as const, text: reply }]
-                : studentText
+                : card || studentText
                   ? []
                   : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
             ])
@@ -469,7 +476,7 @@ function FormingPhase(props: {
   projectId: string;
   cardProposal: CardProposalWire | null;
   onCardConsumed: () => void;
-  onCardReflected: (studentText: string, reply: string) => void;
+  onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
     title, qualification, proposal, onBackToBoard, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
@@ -719,6 +726,9 @@ function renderRich(text: string) {
 
 function ChatBubble({ msg }: { msg: ChatMsg }) {
   const isAi = msg.role === "ai";
+  // A card-turn renders as a content-first clickable chip (opens the read-only
+  // record), never as raw compiled text.
+  if (msg.card) return <CardTurnChip card={msg.card} />;
   return (
     <div className={`flex ${isAi ? "justify-start" : "justify-end"}`}>
       <div className={`max-w-[82%] whitespace-pre-wrap rounded-mk-lg px-4 py-2.5 text-[14px] leading-relaxed ${isAi ? "bg-mk-surface text-mk-ink shadow-[0_1px_2px_rgba(28,35,51,0.05)]" : "bg-mk-primary text-white"}`}>

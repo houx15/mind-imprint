@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -188,12 +189,49 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 
+// chatCardRef is the structured card reference stored in a card-turn's
+// attachments jsonb (see AppendProjectCoachCardMessage) and projected onto the
+// coach-history DTO, so a reloaded thread re-renders a completed card as a
+// content-first clickable chip (opening a read-only record) — self-contained,
+// no separate fetch. FieldValues is the student's raw answers (the record).
+type chatCardRef struct {
+	CardID      string          `json:"cardId"`
+	FieldValues json.RawMessage `json:"fieldValues"`
+}
+
+// chatAttachments is the attachments-jsonb envelope: an optional card reference
+// alongside whatever else the column may hold. A plain turn stores '[]', which
+// unmarshals to a zero value with Card == nil.
+type chatAttachments struct {
+	Card *chatCardRef `json:"card,omitempty"`
+}
+
+// cardRefFromAttachments decodes a chat_message's attachments jsonb into a card
+// reference, returning nil for a plain turn ('[]', empty, or malformed) or a
+// card entry with no id. Tolerant: attachments defaults to a JSON array ('[]'),
+// which fails object-unmarshal — that's expected and simply means "no card".
+func cardRefFromAttachments(raw []byte) *chatCardRef {
+	if len(raw) == 0 {
+		return nil
+	}
+	var a chatAttachments
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return nil
+	}
+	if a.Card == nil || strings.TrimSpace(a.Card.CardID) == "" {
+		return nil
+	}
+	return a.Card
+}
+
 // coachHistoryMsg is the display shape a room loads for its surface-slice of the
 // one thread: the workspace ChatMsg shape (role "student"|"ai"), mapped from the
-// stored DB roles (user|assistant).
+// stored DB roles (user|assistant). Card is set on a card-turn so the room
+// renders a chip instead of raw text; omitted on a plain turn.
 type coachHistoryMsg struct {
-	Role string `json:"role"`
-	Text string `json:"text"`
+	Role string       `json:"role"`
+	Text string       `json:"text"`
+	Card *chatCardRef `json:"card,omitempty"`
 }
 
 // getCoachHistory returns one room's surface-slice of the ONE per-project thread
@@ -224,7 +262,7 @@ func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 		if m.Role == "assistant" {
 			role = "ai"
 		}
-		msgs = append(msgs, coachHistoryMsg{Role: role, Text: m.Content})
+		msgs = append(msgs, coachHistoryMsg{Role: role, Text: m.Content, Card: cardRefFromAttachments(m.Attachments)})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": msgs})
 }

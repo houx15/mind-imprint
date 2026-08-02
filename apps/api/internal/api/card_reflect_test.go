@@ -41,6 +41,21 @@ func countChatMessages(t *testing.T, pool *pgxpool.Pool, projectID, role, surfac
 	return n
 }
 
+// studentTurnAttachments reads the most-recent student turn's attachments jsonb
+// on a surface — where a card turn stores its structured {"card":{…}} reference.
+func studentTurnAttachments(t *testing.T, pool *pgxpool.Pool, projectID, surface string) string {
+	t.Helper()
+	var att []byte
+	if err := pool.QueryRow(context.Background(),
+		`SELECT cm.attachments FROM chat_message cm JOIN chat_thread ct ON cm.thread_id = ct.id
+		 WHERE ct.seeded_project_id=$1 AND cm.role='user' AND cm.surface=$2
+		 ORDER BY cm.created_at DESC LIMIT 1`,
+		mustUUID(projectID), surface).Scan(&att); err != nil {
+		t.Fatalf("studentTurnAttachments: %v", err)
+	}
+	return string(att)
+}
+
 // TestPostReflectProjectCard_EmptyIsNoOp — an empty card neither persists nor
 // spends (铁律 · 不操纵 / 过程即数据 without fake work).
 func TestPostReflectProjectCard_EmptyIsNoOp(t *testing.T) {
@@ -87,12 +102,31 @@ func TestPostReflectProjectCard_PersistsAndReplies(t *testing.T) {
 	var out struct {
 		CardInstanceID string `json:"cardInstanceId"`
 		Reply          string `json:"reply"`
+		Card           *struct {
+			CardID      string          `json:"cardId"`
+			FieldValues json.RawMessage `json:"fieldValues"`
+		} `json:"card"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode: %v — %s", err, rr.Body)
 	}
 	if out.CardInstanceID == "" || out.Reply == "" {
 		t.Fatalf("filled card should return a card id + reply, got %+v", out)
+	}
+	// The response echoes the card reference so the LIVE turn renders the chip.
+	if out.Card == nil || out.Card.CardID != "question-card" {
+		t.Fatalf("filled card should echo a card ref for question-card, got %+v", out.Card)
+	}
+	if !strings.Contains(string(out.Card.FieldValues), "中国是否让地球更可持续") {
+		t.Fatalf("echoed card should carry the student's field values, got %s", out.Card.FieldValues)
+	}
+	// The persisted student turn carries the same structured card reference in
+	// its attachments jsonb, so a RELOADED thread re-renders the chip (not raw
+	// text) — self-contained, no separate fetch.
+	// jsonb re-serializes with cosmetic spacing, so match on the tokens, not an
+	// exact substring.
+	if att := studentTurnAttachments(t, pool, seedProjectID, "forming"); !strings.Contains(att, `"cardId"`) || !strings.Contains(att, "question-card") {
+		t.Fatalf("persisted student card turn should carry the card ref in attachments, got %s", att)
 	}
 	if got := countCompletedCard(t, pool, seedProjectID, "question-card"); got != 1 {
 		t.Fatalf("completed question-card = %d, want 1", got)

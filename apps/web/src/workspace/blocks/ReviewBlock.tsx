@@ -15,9 +15,10 @@ import {
   coach,
   getCoachHistory,
 } from "../api/workspace";
-import type { AIUseRecord } from "@mind-imprint/contracts";
+import type { AIUseRecord, CardTurnRef } from "@mind-imprint/contracts";
 import type { CardProposalWire } from "../api/workspace";
 import { CoachCardPanel } from "./CoachCardPanel";
+import { CardTurnChip } from "./CardTurnChip";
 
 // #21 · the 回顾 card shelf — review/reflection thinking cards the STUDENT may
 // summon to look back on her own thinking (印记 supports, never writes her
@@ -450,7 +451,9 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
 
 /* ---------- S5 · defense-readiness conversation (scope=reflection) ---------- */
 
-type RevMsg = { role: "ai" | "student"; text: string };
+// `card`, when set, marks a card-turn: rendered as a content-first clickable
+// chip opening a read-only view of the student's answers (not raw text).
+type RevMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null };
 
 function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: boolean }) {
   const [chat, setChat] = useState<RevMsg[]>([]);
@@ -464,7 +467,7 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
     (async () => {
       try {
         const hist = await getCoachHistory(projectId, "reflection");
-        if (!cancelled) setChat(hist.map((m) => ({ role: m.role === "ai" ? "ai" : "student", text: m.text })));
+        if (!cancelled) setChat(hist.map((m) => ({ role: m.role === "ai" ? "ai" : "student", text: m.text, card: m.card })));
       } catch {
         /* empty thread */
       }
@@ -500,17 +503,23 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
       </p>
       {chat.length > 0 && (
         <div className="mt-3 flex flex-col gap-2">
-          {chat.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-              <div
-                className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[13px] leading-relaxed ${
-                  m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"
-                }`}
-              >
-                {m.text}
+          {chat.map((m, i) =>
+            // A card-turn renders as a content-first clickable chip (opens the
+            // read-only record), never as raw compiled text.
+            m.card ? (
+              <CardTurnChip key={i} card={m.card} />
+            ) : (
+              <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
+                <div
+                  className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[13px] leading-relaxed ${
+                    m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"
+                  }`}
+                >
+                  {m.text}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
       {/* #21 · the reflection card shelf + any AI-proposed chip. Reflecting on a
@@ -523,8 +532,18 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
             projectId={projectId}
             proposal={cardProposal}
             onProposalConsumed={() => setCardProposal(null)}
-            onReflected={(studentText, reply) =>
-              setChat((c) => [...c, { role: "student", text: studentText }, { role: "ai", text: reply }])
+            onReflected={(studentText, reply, card) =>
+              setChat((c) => [
+                ...c,
+                // Card turn → content-first chip; fall back to raw text if the
+                // server didn't echo a card.
+                ...(card
+                  ? [{ role: "student" as const, text: studentText, card }]
+                  : studentText
+                    ? [{ role: "student" as const, text: studentText }]
+                    : []),
+                ...(reply ? [{ role: "ai" as const, text: reply }] : []),
+              ])
             }
             surface="reflection"
             deck={REFLECTION_DECK}

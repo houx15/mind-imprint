@@ -16,6 +16,7 @@ import {
   AIUseDraft as AIUseDraftSchema,
   AIUseStatement as AIUseStatementSchema,
   CardReflectReply,
+  CardTurnRef,
 } from "@mind-imprint/contracts";
 import type { AIUseDraft, AIUseStatement } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
@@ -226,7 +227,14 @@ export async function postRabbitHoleCard(
 // GET /coach/history — a room's surface-slice of the ONE per-project thread
 // (S1 · continuous session). Both sides, role already mapped to the room's
 // student|ai shape; folded turns included. No spend.
-const CoachHistoryMsg = z.object({ role: z.enum(["student", "ai"]), text: z.string() });
+// A card-turn message carries a structured `card` reference (cardId + the
+// student's fieldValues) so a reloaded thread re-renders it as a clickable chip
+// — self-contained, no separate fetch. `text` stays the plain compiled fallback.
+const CoachHistoryMsg = z.object({
+  role: z.enum(["student", "ai"]),
+  text: z.string(),
+  card: CardTurnRef.nullish(),
+});
 export type CoachHistoryMsg = z.infer<typeof CoachHistoryMsg>;
 export async function getCoachHistory(id: string, surface: CoachScope): Promise<CoachHistoryMsg[]> {
   const raw = await apiFetch<unknown>(

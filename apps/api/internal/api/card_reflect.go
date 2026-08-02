@@ -114,7 +114,21 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 	// Persist the compiled card as a STUDENT chat_message on this surface so the
 	// used card leaves a visible, content-bearing trace (best-effort — the reply
 	// does not depend on it, since the current turn is already in `history`).
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", compiled, surface); err != nil {
+	// A structured card reference rides in the attachments jsonb so a RELOADED
+	// thread re-renders this turn as a content-first clickable chip (opening a
+	// read-only record), not raw compiled text; `compiled` stays the fallback.
+	fvRaw := body.FieldValues
+	if len(fvRaw) == 0 {
+		fvRaw = json.RawMessage("{}")
+	}
+	cardRef := chatCardRef{CardID: body.CardID, FieldValues: fvRaw}
+	cardAttachments, merr := json.Marshal(chatAttachments{Card: &cardRef})
+	if merr != nil {
+		// Fall back to a plain turn — never drop the trace over a marshal error.
+		slog.Warn("card reflect: marshal card attachment failed; persisting plain turn", "err", merr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		cardAttachments = nil
+	}
+	if err := store.AppendProjectCoachCardMessage(r.Context(), projectID, "user", compiled, surface, cardAttachments); err != nil {
 		slog.Warn("card reflect: persist student card turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
@@ -166,5 +180,8 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("card reflect: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"cardInstanceId": cardInstanceID.String(), "reply": reply})
+	// Echo the persisted card reference so the LIVE turn renders the same
+	// content-first chip a reloaded thread does (the client already holds these,
+	// but returning them keeps live + reloaded rendering on one shape).
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"cardInstanceId": cardInstanceID.String(), "reply": reply, "card": cardRef})
 }

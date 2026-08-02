@@ -16,7 +16,8 @@ import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
+import { CardTurnChip } from "./CardTurnChip";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
 // prototype used (the persisted OutlineNode adds a server-owned `position`,
@@ -25,7 +26,9 @@ type Row = { id: string; text: string; depth: number };
 // #9-second · quotedPart carries a referenced paragraph SEPARATELY from the
 // question text, so the rail can render it as a styled callout above the
 // bubble instead of baking a literal 【就这一段】 token into the message string.
-type ChatMsg = { role: "ai" | "student"; text: string; quotedPart?: string };
+// `card`, when set, marks a card-turn: the bubble renders as a content-first
+// clickable chip opening a read-only view of the student's answers (not raw text).
+type ChatMsg = { role: "ai" | "student"; text: string; quotedPart?: string; card?: CardTurnRef | null };
 
 // Max outline nesting depth (0 = top level). Indent clamps here.
 const MAX_DEPTH = 2;
@@ -1703,11 +1706,14 @@ function CoachRail({
     const spec = CARD_REGISTRY[cardId];
     const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
     try {
-      const { reply } = await reflectProjectCard(projectId, cardId, fieldValues, eventTrace, "writing");
-      if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
+      const { reply, card } = await reflectProjectCard(projectId, cardId, fieldValues, eventTrace, "writing");
+      // A card turn renders as a content-first chip (card set); fall back to raw
+      // compiled text only if the server didn't echo a card.
+      if (card) setChat((c) => [...c, { role: "student", text: studentText, card }]);
+      else if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
       if (reply) {
         setChat((c) => [...c, { role: "ai", text: reply }]);
-      } else if (!studentText) {
+      } else if (!card && !studentText) {
         setChat((c) => [...c, { role: "ai", text: "这张卡还没填内容，先留着，想清楚了再来。" }]);
       }
       // #7/#8 · offer (never silently add) the compiled paragraph as a 片段.
@@ -1740,21 +1746,27 @@ function CoachRail({
         <p className="mt-1 text-[11.5px] text-mk-muted-2">聊提纲、挑逻辑、撞反例——但不替你写正文。</p>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {chat.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-            <div className="max-w-[88%]">
-              {/* #9-second · the referenced paragraph is a styled quote callout
-                  above the question — never a 【就这一段】 token baked into the
-                  bubble text. */}
-              {m.quotedPart && (
-                <blockquote className="mb-1 rounded-mk border-l-[3px] border-mk-accent bg-mk-accent-tint/40 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
-                  {m.quotedPart}
-                </blockquote>
-              )}
-              <div className={`rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+        {chat.map((m, i) =>
+          // A card-turn renders as a content-first clickable chip (opens the
+          // read-only record), never as raw compiled text.
+          m.card ? (
+            <CardTurnChip key={i} card={m.card} />
+          ) : (
+            <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
+              <div className="max-w-[88%]">
+                {/* #9-second · the referenced paragraph is a styled quote callout
+                    above the question — never a 【就这一段】 token baked into the
+                    bubble text. */}
+                {m.quotedPart && (
+                  <blockquote className="mb-1 rounded-mk border-l-[3px] border-mk-accent bg-mk-accent-tint/40 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
+                    {m.quotedPart}
+                  </blockquote>
+                )}
+                <div className={`rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          ),
+        )}
         {proposal && !openCardId ? (
           <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
         ) : null}

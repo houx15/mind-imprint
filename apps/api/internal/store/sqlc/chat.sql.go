@@ -50,29 +50,34 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 
 const createProjectCoachMessage = `-- name: CreateProjectCoachMessage :one
 
-INSERT INTO chat_message (thread_id, role, content, modality, surface)
-VALUES ($1, $2, $3, 'text', $4)
+INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments)
+VALUES ($1, $2, $3, 'text', $4, $5)
 RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at
 `
 
 type CreateProjectCoachMessageParams struct {
-	ThreadID uuid.UUID `json:"thread_id"`
-	Role     string    `json:"role"`
-	Content  string    `json:"content"`
-	Surface  *string   `json:"surface"`
+	ThreadID    uuid.UUID `json:"thread_id"`
+	Role        string    `json:"role"`
+	Content     string    `json:"content"`
+	Surface     *string   `json:"surface"`
+	Attachments []byte    `json:"attachments"`
 }
 
 // S1 · one continuous per-project session. The four-room coach persists both
 // sides to this thread, surface-tagged; folded turns stay in the thread (shown
 // on reload) but drop out of the coach's active context window.
 // Persist one surface-tagged coach turn (role user|assistant) to the project's
-// thread. Mirrors CreateChatMessage but carries the active surface.
+// thread. Mirrors CreateChatMessage but carries the active surface. attachments
+// reuses the existing jsonb column to carry a card-turn's structured reference
+// ({"card":{"cardId","fieldValues"}}), so a reloaded thread re-renders a
+// completed card as a clickable chip; '[]' for a plain turn.
 func (q *Queries) CreateProjectCoachMessage(ctx context.Context, arg CreateProjectCoachMessageParams) (ChatMessage, error) {
 	row := q.db.QueryRow(ctx, createProjectCoachMessage,
 		arg.ThreadID,
 		arg.Role,
 		arg.Content,
 		arg.Surface,
+		arg.Attachments,
 	)
 	var i ChatMessage
 	err := row.Scan(
