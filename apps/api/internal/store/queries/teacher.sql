@@ -45,9 +45,11 @@ WHERE ev.user_id = @user_id
   AND ev.created_at >= @week_start AND ev.created_at < @week_end;
 
 -- name: ListStudentReportsForTeacher :many
--- Every report one class member owns, across all three scopes, newest-first,
--- one row per scope. Teacher variant of ListGrowthHistory: same shape, but the
--- owner filter is replaced by "this user AND a student member of this class".
+-- Every report one class member owns, across both remaining scopes,
+-- newest-first, one row per scope. Teacher variant of ListGrowthHistory: same
+-- shape, but the owner filter is replaced by "this user AND a student member
+-- of this class". The course-session arm is retired along with course_session
+-- itself (migration 0050, course v2, no back-compat).
 SELECT surface, scope_id, label, sublabel, created_at
 FROM (
   (SELECT DISTINCT ON (e.project_id)
@@ -56,14 +58,6 @@ FROM (
    FROM evaluations e JOIN project p ON p.id = e.project_id
    WHERE e.project_id IS NOT NULL AND p.user_id = @user_id
    ORDER BY e.project_id, e.created_at DESC)
-  UNION ALL
-  (SELECT DISTINCT ON (e.session_id)
-     'course'::text, e.session_id, c.title, cs.phase, e.created_at
-   FROM evaluations e
-     JOIN course_session cs ON cs.id = e.session_id
-     JOIN course c ON c.id = cs.course_id
-   WHERE e.session_id IS NOT NULL AND cs.user_id = @user_id
-   ORDER BY e.session_id, e.created_at DESC)
   UNION ALL
   (SELECT DISTINCT ON (e.thread_id)
      'chat'::text, e.thread_id, t.title, NULL::text, e.created_at
@@ -103,15 +97,6 @@ SELECT e.scores, e.created_at, p.title AS project_title,
 FROM evaluations e
 JOIN project p ON p.id = e.project_id
 WHERE e.project_id = @scope_id AND p.user_id = @user_id
-ORDER BY e.created_at DESC
-LIMIT 1;
-
--- name: GetStudentSessionEvaluationForTeacher :one
-SELECT e.scores, e.created_at, c.title AS course_title
-FROM evaluations e
-JOIN course_session cs ON cs.id = e.session_id
-JOIN course c ON c.id = cs.course_id
-WHERE e.session_id = @scope_id AND cs.user_id = @user_id
 ORDER BY e.created_at DESC
 LIMIT 1;
 

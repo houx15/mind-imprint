@@ -48,21 +48,6 @@ func TestListGrowthHistory(t *testing.T) {
 		t.Fatalf("seed project eval: %v", err)
 	}
 
-	// Owned course session + its report (course c1 is seeded by 0012).
-	var sessionID pgtype.UUID
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO course_session (user_id, course_id, skill_id, phase)
-		VALUES ($1, '00000000-0000-0000-0000-0000000000c1', 'info-literacy-course', 'reflect')
-		RETURNING id`, refactor2SeededStudentID).Scan(&sessionID); err != nil {
-		t.Fatalf("seed course_session: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO evaluations (session_id, scores, narrative, model, tier, status)
-		VALUES ($1, $2, 'course narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		sessionID, reportJSON); err != nil {
-		t.Fatalf("seed session eval: %v", err)
-	}
-
 	// Owned chat thread + its report.
 	var threadID pgtype.UUID
 	if err := pool.QueryRow(ctx, `
@@ -106,8 +91,10 @@ func TestListGrowthHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListGrowthHistory: %v", err)
 	}
-	if len(rows) != 3 {
-		t.Fatalf("got %d rows, want 3 (own project+course+chat, other user excluded)", len(rows))
+	// The course-session scope is retired along with course_session itself
+	// (migration 0050, course v2, no back-compat) — only project+chat remain.
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (own project+chat, other user excluded)", len(rows))
 	}
 	surfaces := map[string]string{}
 	scoresBySurface := map[string][]byte{}
@@ -117,9 +104,6 @@ func TestListGrowthHistory(t *testing.T) {
 	}
 	if surfaces["project"] != "中国可持续" {
 		t.Errorf("project label = %q, want 中国可持续", surfaces["project"])
-	}
-	if surfaces["course"] != "信息素养" && surfaces["course"] == "" {
-		t.Errorf("course row missing; got labels %v", surfaces)
 	}
 	if surfaces["chat"] != "CRAAP 溯源" {
 		t.Errorf("chat label = %q, want CRAAP 溯源", surfaces["chat"])

@@ -317,12 +317,6 @@ SELECT scores, created_at FROM (
    WHERE e.project_id IS NOT NULL AND p.user_id = $1
    ORDER BY e.project_id, e.created_at DESC)
   UNION ALL
-  (SELECT DISTINCT ON (e.session_id)
-     e.scores, e.created_at
-   FROM evaluations e JOIN course_session cs ON cs.id = e.session_id
-   WHERE e.session_id IS NOT NULL AND cs.user_id = $1
-   ORDER BY e.session_id, e.created_at DESC)
-  UNION ALL
   (SELECT DISTINCT ON (e.thread_id)
      e.scores, e.created_at
    FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
@@ -337,8 +331,8 @@ type ListEvaluationsByUserRow struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// C ability model: the latest evaluation per scope the caller owns across all
-// three scopes, oldest-first, for cross-session aggregation. One report per
+// C ability model: the latest evaluation per scope the caller owns across both
+// remaining scopes, oldest-first, for cross-session aggregation. One report per
 // session is the product invariant (terminal reports are one-time; chat opt-in
 // is UI-gated to one), but the generate endpoints INSERT with no upsert guard,
 // so the invariant is client-side-only. DISTINCT ON makes this query defend it
@@ -378,16 +372,6 @@ FROM (
    WHERE e.project_id IS NOT NULL AND p.user_id = $1
    ORDER BY e.project_id, e.created_at DESC)
   UNION ALL
-  (SELECT DISTINCT ON (e.session_id)
-     'course'::text, e.session_id,
-     c.title, cs.phase,
-     e.created_at, e.scores, e.narrative
-   FROM evaluations e
-     JOIN course_session cs ON cs.id = e.session_id
-     JOIN course c ON c.id = cs.course_id
-   WHERE e.session_id IS NOT NULL AND cs.user_id = $1
-   ORDER BY e.session_id, e.created_at DESC)
-  UNION ALL
   (SELECT DISTINCT ON (e.thread_id)
      'chat'::text, e.thread_id,
      t.title, NULL::text,
@@ -409,12 +393,13 @@ type ListGrowthHistoryRow struct {
 	Narrative string      `json:"narrative"`
 }
 
-// A3 growth history: every report the caller owns, across all three scopes,
-// newest-first, one row per scope (reports are one-time; DISTINCT ON is
-// defensive — if two ever share a scope, the latest wins). Owner-filtered
+// A3 growth history: every report the caller owns, across both remaining
+// scopes, newest-first, one row per scope (reports are one-time; DISTINCT ON
+// is defensive — if two ever share a scope, the latest wins). Owner-filtered
 // through each scope's own join, so the returned ids are guaranteed owned and
 // the embedded report needs no second per-row auth. Labels: project.title /
-// course.title (+ session phase as sublabel) / chat_thread.title.
+// chat_thread.title. The course-session arm is retired along with
+// course_session itself (migration 0050, course v2, no back-compat).
 func (q *Queries) ListGrowthHistory(ctx context.Context, userID uuid.UUID) ([]ListGrowthHistoryRow, error) {
 	rows, err := q.db.Query(ctx, listGrowthHistory, userID)
 	if err != nil {

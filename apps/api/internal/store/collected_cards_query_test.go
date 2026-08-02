@@ -58,20 +58,6 @@ func TestListCollectedCardsByUser(t *testing.T) {
 		t.Fatalf("seed skipped toulmin: %v", err)
 	}
 
-	// Owned course session: ONE completed "opcvl".
-	var sessionID pgtype.UUID
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO course_session (user_id, course_id, skill_id, phase)
-		VALUES ($1, '00000000-0000-0000-0000-0000000000c1', 'info-literacy-course', 'reflect')
-		RETURNING id`, subject).Scan(&sessionID); err != nil {
-		t.Fatalf("seed course_session: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO card_instances (session_id, card_id, status)
-		VALUES ($1, 'opcvl', 'completed')`, sessionID); err != nil {
-		t.Fatalf("seed opcvl: %v", err)
-	}
-
 	// Owned chat thread: ONE completed "craap" — exercises the chat UNION branch.
 	var threadID pgtype.UUID
 	if err := pool.QueryRow(ctx, `
@@ -110,10 +96,12 @@ func TestListCollectedCardsByUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListCollectedCardsByUser: %v", err)
 	}
-	// Three owned cards: concession (uses 2, project) + opcvl (course) + craap (chat).
-	// toulmin skipped → absent; other user's concession → absent.
-	if len(rows) != 3 {
-		t.Fatalf("got %d rows, want 3 (concession+opcvl+craap; skipped & other-user excluded)", len(rows))
+	// Two owned cards: concession (uses 2, project) + craap (chat). toulmin
+	// skipped → absent; other user's concession → absent. The course-session
+	// scope is retired along with course_session itself (migration 0050,
+	// course v2, no back-compat).
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (concession+craap; skipped & other-user excluded)", len(rows))
 	}
 	byCard := map[string]sqlc.ListCollectedCardsByUserRow{}
 	for _, r := range rows {
@@ -135,9 +123,6 @@ func TestListCollectedCardsByUser(t *testing.T) {
 	} else if time.Since(last) > 48*time.Hour {
 		t.Errorf("concession last_used = %v, want the later (~1 day ago) timestamp", last)
 	}
-	if op, ok := byCard["opcvl"]; !ok || op.Uses != 1 || len(op.Surfaces) != 1 || op.Surfaces[0] != "course" {
-		t.Errorf("opcvl = %+v, want uses 1 / surfaces [course]", byCard["opcvl"])
-	}
 	if cr, ok := byCard["craap"]; !ok || cr.Uses != 1 || len(cr.Surfaces) != 1 || cr.Surfaces[0] != "chat" {
 		t.Errorf("craap = %+v, want uses 1 / surfaces [chat]", byCard["craap"])
 	}
@@ -149,15 +134,16 @@ func TestListCollectedCardsByUser(t *testing.T) {
 // CountCompletedCardUsesByUser is the guidance fade's producer (design §3,
 // agent/guidance.go): a narrow, single-card-id count, PROJECT SCOPE ONLY —
 // deliberately narrower than ListCollectedCardsByUser above, which stays
-// three-scope for the 工具卡 tab. Proving same-user completed project-scope
+// multi-scope for the 工具卡 tab. Proving same-user completed project-scope
 // counts, active/skipped don't, a different card_id doesn't, a different
 // user's completed card doesn't, AND — whole-branch review IMPORTANT 2 —
-// that a completed CHAT-scope and a completed COURSE-scope card_instance for
-// THIS SAME user and THIS SAME card_id do NOT count either: chat.go and
-// course_session.go both write status='completed' unconditionally on
-// submit, with no completion predicate and no anchors, so counting them
-// here would hand maximum scaffold removal to a student who has never once
-// done the card properly.
+// that a completed CHAT-scope card_instance for THIS SAME user and THIS SAME
+// card_id does NOT count either: chat.go writes status='completed'
+// unconditionally on submit, with no completion predicate and no anchors, so
+// counting it here would hand maximum scaffold removal to a student who has
+// never once done the card properly. (The course-session scope this test
+// used to also exercise is retired along with course_session itself —
+// migration 0050, course v2, no back-compat.)
 func TestCountCompletedCardUsesByUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -242,22 +228,6 @@ func TestCountCompletedCardUsesByUser(t *testing.T) {
 		t.Fatalf("seed chat-scope completed concession: %v", err)
 	}
 
-	// 6. A completed "concession" in a COURSE session — SAME subject user,
-	// SAME card_id — must NOT count either, for the same ungated-submit
-	// reason (course_session.go).
-	var sessionID pgtype.UUID
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO course_session (user_id, course_id, skill_id, phase)
-		VALUES ($1, '00000000-0000-0000-0000-0000000000c1', 'info-literacy-course', 'reflect')
-		RETURNING id`, subject).Scan(&sessionID); err != nil {
-		t.Fatalf("seed course_session: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO card_instances (session_id, card_id, status)
-		VALUES ($1, 'concession', 'completed')`, sessionID); err != nil {
-		t.Fatalf("seed course-scope completed concession: %v", err)
-	}
-
 	got, err := q.CountCompletedCardUsesByUser(ctx, sqlc.CountCompletedCardUsesByUserParams{
 		UserID: uuid.UUID(subject.Bytes), CardID: "concession",
 	})
@@ -267,6 +237,6 @@ func TestCountCompletedCardUsesByUser(t *testing.T) {
 	if got != 1 {
 		t.Errorf("count = %d, want 1 (only the one completed PROJECT-scope concession for this "+
 			"user counts; active/skipped, a different card_id, another user's card, AND this same "+
-			"user's completed chat-scope + course-scope concession cards must all be excluded)", got)
+			"user's completed chat-scope concession card must all be excluded)", got)
 	}
 }

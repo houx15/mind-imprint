@@ -10,188 +10,110 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countCourseSteps = `-- name: CountCourseSteps :one
-SELECT count(*) FROM course_step WHERE course_id = $1
+const getCourseBySlug = `-- name: GetCourseBySlug :one
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache
+FROM course WHERE slug = $1
 `
 
-func (q *Queries) CountCourseSteps(ctx context.Context, courseID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countCourseSteps, courseID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+type GetCourseBySlugRow struct {
+	ID          uuid.UUID `json:"id"`
+	Slug        string    `json:"slug"`
+	Branch      string    `json:"branch"`
+	Title       string    `json:"title"`
+	Blurb       string    `json:"blurb"`
+	TimeLabel   string    `json:"time_label"`
+	CardIds     []string  `json:"card_ids"`
+	StepCount   int32     `json:"step_count"`
+	Structure   []byte    `json:"structure"`
+	RenderCache []byte    `json:"render_cache"`
 }
 
-const deleteCourseProgressByUserCourse = `-- name: DeleteCourseProgressByUserCourse :exec
-DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2
-`
-
-type DeleteCourseProgressByUserCourseParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	CourseID uuid.UUID `json:"course_id"`
-}
-
-func (q *Queries) DeleteCourseProgressByUserCourse(ctx context.Context, arg DeleteCourseProgressByUserCourseParams) error {
-	_, err := q.db.Exec(ctx, deleteCourseProgressByUserCourse, arg.UserID, arg.CourseID)
-	return err
-}
-
-const getCourse = `-- name: GetCourse :one
-SELECT id, branch, title, blurb, tasks_count, tools_count, time_label, created_at FROM course WHERE id = $1
-`
-
-func (q *Queries) GetCourse(ctx context.Context, id uuid.UUID) (Course, error) {
-	row := q.db.QueryRow(ctx, getCourse, id)
-	var i Course
+func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getCourseBySlug, slug)
+	var i GetCourseBySlugRow
 	err := row.Scan(
 		&i.ID,
+		&i.Slug,
 		&i.Branch,
 		&i.Title,
 		&i.Blurb,
-		&i.TasksCount,
-		&i.ToolsCount,
 		&i.TimeLabel,
-		&i.CreatedAt,
+		&i.CardIds,
+		&i.StepCount,
+		&i.Structure,
+		&i.RenderCache,
 	)
 	return i, err
 }
 
-const getCourseProgress = `-- name: GetCourseProgress :one
-SELECT id, user_id, course_id, current_ordinal, completed_ordinals, updated_at FROM course_progress WHERE user_id = $1 AND course_id = $2
+const getCourseProgressBySlug = `-- name: GetCourseProgressBySlug :one
+SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at
+FROM course_progress p JOIN course c ON c.id = p.course_id
+WHERE p.user_id = $1 AND c.slug = $2
 `
 
-type GetCourseProgressParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	CourseID uuid.UUID `json:"course_id"`
+type GetCourseProgressBySlugParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Slug   string    `json:"slug"`
 }
 
-func (q *Queries) GetCourseProgress(ctx context.Context, arg GetCourseProgressParams) (CourseProgress, error) {
-	row := q.db.QueryRow(ctx, getCourseProgress, arg.UserID, arg.CourseID)
-	var i CourseProgress
+type GetCourseProgressBySlugRow struct {
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+}
+
+func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProgressBySlugParams) (GetCourseProgressBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getCourseProgressBySlug, arg.UserID, arg.Slug)
+	var i GetCourseProgressBySlugRow
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
 		&i.CourseID,
 		&i.CurrentOrdinal,
 		&i.CompletedOrdinals,
+		&i.StartedAt,
+		&i.CompletedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getCourseStepByOrdinal = `-- name: GetCourseStepByOrdinal :one
-SELECT id, course_id, ordinal, kind, purpose, assets, challenge_type, authored_content FROM course_step WHERE course_id = $1 AND ordinal = $2
+const listCourseRows = `-- name: ListCourseRows :many
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count
+FROM course ORDER BY branch, title
 `
 
-type GetCourseStepByOrdinalParams struct {
-	CourseID uuid.UUID `json:"course_id"`
-	Ordinal  int32     `json:"ordinal"`
+type ListCourseRowsRow struct {
+	Slug      string   `json:"slug"`
+	Branch    string   `json:"branch"`
+	Title     string   `json:"title"`
+	Blurb     string   `json:"blurb"`
+	TimeLabel string   `json:"time_label"`
+	CardIds   []string `json:"card_ids"`
+	StepCount int32    `json:"step_count"`
 }
 
-func (q *Queries) GetCourseStepByOrdinal(ctx context.Context, arg GetCourseStepByOrdinalParams) (CourseStep, error) {
-	row := q.db.QueryRow(ctx, getCourseStepByOrdinal, arg.CourseID, arg.Ordinal)
-	var i CourseStep
-	err := row.Scan(
-		&i.ID,
-		&i.CourseID,
-		&i.Ordinal,
-		&i.Kind,
-		&i.Purpose,
-		&i.Assets,
-		&i.ChallengeType,
-		&i.AuthoredContent,
-	)
-	return i, err
-}
-
-const getCourseStepRender = `-- name: GetCourseStepRender :one
-SELECT course_step_id, content, source, created_at FROM course_step_render WHERE course_step_id = $1
-`
-
-func (q *Queries) GetCourseStepRender(ctx context.Context, courseStepID uuid.UUID) (CourseStepRender, error) {
-	row := q.db.QueryRow(ctx, getCourseStepRender, courseStepID)
-	var i CourseStepRender
-	err := row.Scan(
-		&i.CourseStepID,
-		&i.Content,
-		&i.Source,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const listCourseSteps = `-- name: ListCourseSteps :many
-SELECT id, course_id, ordinal, kind, purpose, assets, challenge_type, authored_content FROM course_step WHERE course_id = $1 ORDER BY ordinal
-`
-
-func (q *Queries) ListCourseSteps(ctx context.Context, courseID uuid.UUID) ([]CourseStep, error) {
-	rows, err := q.db.Query(ctx, listCourseSteps, courseID)
+func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, error) {
+	rows, err := q.db.Query(ctx, listCourseRows)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CourseStep
+	var items []ListCourseRowsRow
 	for rows.Next() {
-		var i CourseStep
+		var i ListCourseRowsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CourseID,
-			&i.Ordinal,
-			&i.Kind,
-			&i.Purpose,
-			&i.Assets,
-			&i.ChallengeType,
-			&i.AuthoredContent,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCourses = `-- name: ListCourses :many
-SELECT c.id, c.branch, c.title, c.blurb, c.tasks_count, c.tools_count, c.time_label, c.created_at, count(s.id) AS step_count
-FROM course c
-LEFT JOIN course_step s ON s.course_id = c.id
-GROUP BY c.id
-ORDER BY c.created_at
-`
-
-type ListCoursesRow struct {
-	ID         uuid.UUID `json:"id"`
-	Branch     string    `json:"branch"`
-	Title      string    `json:"title"`
-	Blurb      string    `json:"blurb"`
-	TasksCount int32     `json:"tasks_count"`
-	ToolsCount int32     `json:"tools_count"`
-	TimeLabel  string    `json:"time_label"`
-	CreatedAt  time.Time `json:"created_at"`
-	StepCount  int64     `json:"step_count"`
-}
-
-func (q *Queries) ListCourses(ctx context.Context) ([]ListCoursesRow, error) {
-	rows, err := q.db.Query(ctx, listCourses)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCoursesRow
-	for rows.Next() {
-		var i ListCoursesRow
-		if err := rows.Scan(
-			&i.ID,
+			&i.Slug,
 			&i.Branch,
 			&i.Title,
 			&i.Blurb,
-			&i.TasksCount,
-			&i.ToolsCount,
 			&i.TimeLabel,
-			&i.CreatedAt,
+			&i.CardIds,
 			&i.StepCount,
 		); err != nil {
 			return nil, err
@@ -204,163 +126,98 @@ func (q *Queries) ListCourses(ctx context.Context) ([]ListCoursesRow, error) {
 	return items, nil
 }
 
-const recordCourseStepViewed = `-- name: RecordCourseStepViewed :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, $3, ARRAY[$3]::int[])
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET completed_ordinals = (
-        SELECT array_agg(DISTINCT v ORDER BY v)
-        FROM unnest(array_append(course_progress.completed_ordinals, $3::int)) AS v
-    ),
-    updated_at = now()
-RETURNING id, user_id, course_id, current_ordinal, completed_ordinals, updated_at
+const upsertCourse = `-- name: UpsertCourse :one
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+ON CONFLICT (slug) DO UPDATE SET
+  branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
+  time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
+  step_count = EXCLUDED.step_count, structure = EXCLUDED.structure,
+  render_cache = EXCLUDED.render_cache, updated_at = now()
+RETURNING id, slug
 `
 
-type RecordCourseStepViewedParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	CourseID uuid.UUID `json:"course_id"`
-	Ordinal  int32     `json:"ordinal"`
+type UpsertCourseParams struct {
+	Slug        string   `json:"slug"`
+	Branch      string   `json:"branch"`
+	Title       string   `json:"title"`
+	Blurb       string   `json:"blurb"`
+	TimeLabel   string   `json:"time_label"`
+	CardIds     []string `json:"card_ids"`
+	StepCount   int32    `json:"step_count"`
+	Structure   []byte   `json:"structure"`
+	RenderCache []byte   `json:"render_cache"`
 }
 
-// The `steps_viewed` floor's ONLY input writer (DEC-12.2 / whole-branch
-// C1+C3): called once per real POST .../steps/{ordinal}/render — the moment
-// the student's browser actually opens that page — appending the ordinal to
-// completed_ordinals idempotently (array_agg DISTINCT dedupes a re-render of
-// an already-viewed page). A client can never assert this column: PUT
-// /progress (SetCourseCurrentOrdinal above) does not accept it.
-func (q *Queries) RecordCourseStepViewed(ctx context.Context, arg RecordCourseStepViewedParams) (CourseProgress, error) {
-	row := q.db.QueryRow(ctx, recordCourseStepViewed, arg.UserID, arg.CourseID, arg.Ordinal)
-	var i CourseProgress
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.CourseID,
-		&i.CurrentOrdinal,
-		&i.CompletedOrdinals,
-		&i.UpdatedAt,
+type UpsertCourseRow struct {
+	ID   uuid.UUID `json:"id"`
+	Slug string    `json:"slug"`
+}
+
+func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (UpsertCourseRow, error) {
+	row := q.db.QueryRow(ctx, upsertCourse,
+		arg.Slug,
+		arg.Branch,
+		arg.Title,
+		arg.Blurb,
+		arg.TimeLabel,
+		arg.CardIds,
+		arg.StepCount,
+		arg.Structure,
+		arg.RenderCache,
 	)
-	return i, err
-}
-
-const setCourseCurrentOrdinal = `-- name: SetCourseCurrentOrdinal :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, $3, '{}')
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET current_ordinal = EXCLUDED.current_ordinal, updated_at = now()
-RETURNING id, user_id, course_id, current_ordinal, completed_ordinals, updated_at
-`
-
-type SetCourseCurrentOrdinalParams struct {
-	UserID         uuid.UUID `json:"user_id"`
-	CourseID       uuid.UUID `json:"course_id"`
-	CurrentOrdinal int32     `json:"current_ordinal"`
-}
-
-// The resume-position write (PUT /courses/{id}/progress): current_ordinal is
-// UX, never a floor input (Slice-12 whole-branch C1+C3 fix), so this is the
-// ONLY column it touches. completed_ordinals is left untouched on conflict —
-// RecordCourseStepViewed below is its only writer — and defaults to empty on
-// a fresh row (no step has been server-recorded as viewed yet).
-func (q *Queries) SetCourseCurrentOrdinal(ctx context.Context, arg SetCourseCurrentOrdinalParams) (CourseProgress, error) {
-	row := q.db.QueryRow(ctx, setCourseCurrentOrdinal, arg.UserID, arg.CourseID, arg.CurrentOrdinal)
-	var i CourseProgress
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.CourseID,
-		&i.CurrentOrdinal,
-		&i.CompletedOrdinals,
-		&i.UpdatedAt,
-	)
+	var i UpsertCourseRow
+	err := row.Scan(&i.ID, &i.Slug)
 	return i, err
 }
 
 const upsertCourseProgress = `-- name: UpsertCourseProgress :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET current_ordinal = EXCLUDED.current_ordinal,
-    completed_ordinals = EXCLUDED.completed_ordinals,
-    updated_at = now()
-RETURNING id, user_id, course_id, current_ordinal, completed_ordinals, updated_at
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
+VALUES ($1,$2,$3,$4, COALESCE($5, now()), $6, now())
+ON CONFLICT (user_id, course_id) DO UPDATE SET
+  current_ordinal = EXCLUDED.current_ordinal,
+  completed_ordinals = EXCLUDED.completed_ordinals,
+  started_at = COALESCE(course_progress.started_at, EXCLUDED.started_at),
+  completed_at = COALESCE(EXCLUDED.completed_at, course_progress.completed_at),
+  updated_at = now()
+RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
 `
 
 type UpsertCourseProgressParams struct {
-	UserID            uuid.UUID `json:"user_id"`
-	CourseID          uuid.UUID `json:"course_id"`
-	CurrentOrdinal    int32     `json:"current_ordinal"`
-	CompletedOrdinals []int32   `json:"completed_ordinals"`
+	UserID            uuid.UUID          `json:"user_id"`
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 }
 
-func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProgressParams) (CourseProgress, error) {
+type UpsertCourseProgressRow struct {
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+}
+
+func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProgressParams) (UpsertCourseProgressRow, error) {
 	row := q.db.QueryRow(ctx, upsertCourseProgress,
 		arg.UserID,
 		arg.CourseID,
 		arg.CurrentOrdinal,
 		arg.CompletedOrdinals,
+		arg.StartedAt,
+		arg.CompletedAt,
 	)
-	var i CourseProgress
+	var i UpsertCourseProgressRow
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
 		&i.CourseID,
 		&i.CurrentOrdinal,
 		&i.CompletedOrdinals,
+		&i.StartedAt,
+		&i.CompletedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const upsertCourseStepRender = `-- name: UpsertCourseStepRender :one
-INSERT INTO course_step_render (course_step_id, content, source)
-VALUES ($1, $2, $3)
-ON CONFLICT (course_step_id) DO UPDATE
-SET content = EXCLUDED.content, source = EXCLUDED.source, created_at = now()
-RETURNING course_step_id, content, source, created_at
-`
-
-type UpsertCourseStepRenderParams struct {
-	CourseStepID uuid.UUID `json:"course_step_id"`
-	Content      []byte    `json:"content"`
-	Source       string    `json:"source"`
-}
-
-func (q *Queries) UpsertCourseStepRender(ctx context.Context, arg UpsertCourseStepRenderParams) (CourseStepRender, error) {
-	row := q.db.QueryRow(ctx, upsertCourseStepRender, arg.CourseStepID, arg.Content, arg.Source)
-	var i CourseStepRender
-	err := row.Scan(
-		&i.CourseStepID,
-		&i.Content,
-		&i.Source,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
-SELECT DISTINCT course_id FROM course_session
-WHERE user_id = $1 AND status = 'finished'
-`
-
-// Course ids the user has FINISHED (any 'finished' course_session). Feeds the
-// proficiency "course learning" signal: a card whose teaching course is finished
-// counts as learned even if the student never completed the card object itself.
-func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, finishedCourseIDsByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []uuid.UUID
-	for rows.Next() {
-		var courseID uuid.UUID
-		if err := rows.Scan(&courseID); err != nil {
-			return nil, err
-		}
-		items = append(items, courseID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

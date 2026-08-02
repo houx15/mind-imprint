@@ -1,79 +1,40 @@
--- name: ListCourses :many
-SELECT c.*, count(s.id) AS step_count
-FROM course c
-LEFT JOIN course_step s ON s.course_id = c.id
-GROUP BY c.id
-ORDER BY c.created_at;
+-- Course v2 (migration 0050): the phase-gated runtime (course_session/
+-- course_message/course_step/course_step_render) is retired. `course` now
+-- holds the externally-authored structure + published render cache verbatim
+-- (+ attached tool card ids), addressed by a stable slug; course.id stays a
+-- uuid so the pre-existing event.course_id FK (0031) survives. course_progress
+-- stays the page-position unit, now with started_at/completed_at bookkeeping.
 
--- name: GetCourse :one
-SELECT * FROM course WHERE id = $1;
+-- name: ListCourseRows :many
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count
+FROM course ORDER BY branch, title;
 
--- name: CountCourseSteps :one
-SELECT count(*) FROM course_step WHERE course_id = $1;
+-- name: GetCourseBySlug :one
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache
+FROM course WHERE slug = $1;
 
--- name: ListCourseSteps :many
-SELECT * FROM course_step WHERE course_id = $1 ORDER BY ordinal;
+-- name: UpsertCourse :one
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+ON CONFLICT (slug) DO UPDATE SET
+  branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
+  time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
+  step_count = EXCLUDED.step_count, structure = EXCLUDED.structure,
+  render_cache = EXCLUDED.render_cache, updated_at = now()
+RETURNING id, slug;
 
--- name: GetCourseProgress :one
-SELECT * FROM course_progress WHERE user_id = $1 AND course_id = $2;
-
--- name: DeleteCourseProgressByUserCourse :exec
-DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2;
+-- name: GetCourseProgressBySlug :one
+SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at
+FROM course_progress p JOIN course c ON c.id = p.course_id
+WHERE p.user_id = $1 AND c.slug = $2;
 
 -- name: UpsertCourseProgress :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET current_ordinal = EXCLUDED.current_ordinal,
-    completed_ordinals = EXCLUDED.completed_ordinals,
-    updated_at = now()
-RETURNING *;
-
--- name: SetCourseCurrentOrdinal :one
--- The resume-position write (PUT /courses/{id}/progress): current_ordinal is
--- UX, never a floor input (Slice-12 whole-branch C1+C3 fix), so this is the
--- ONLY column it touches. completed_ordinals is left untouched on conflict —
--- RecordCourseStepViewed below is its only writer — and defaults to empty on
--- a fresh row (no step has been server-recorded as viewed yet).
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, $3, '{}')
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET current_ordinal = EXCLUDED.current_ordinal, updated_at = now()
-RETURNING *;
-
--- name: RecordCourseStepViewed :one
--- The `steps_viewed` floor's ONLY input writer (DEC-12.2 / whole-branch
--- C1+C3): called once per real POST .../steps/{ordinal}/render — the moment
--- the student's browser actually opens that page — appending the ordinal to
--- completed_ordinals idempotently (array_agg DISTINCT dedupes a re-render of
--- an already-viewed page). A client can never assert this column: PUT
--- /progress (SetCourseCurrentOrdinal above) does not accept it.
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals)
-VALUES ($1, $2, sqlc.arg(ordinal), ARRAY[sqlc.arg(ordinal)]::int[])
-ON CONFLICT (user_id, course_id) DO UPDATE
-SET completed_ordinals = (
-        SELECT array_agg(DISTINCT v ORDER BY v)
-        FROM unnest(array_append(course_progress.completed_ordinals, sqlc.arg(ordinal)::int)) AS v
-    ),
-    updated_at = now()
-RETURNING *;
-
--- name: GetCourseStepByOrdinal :one
-SELECT * FROM course_step WHERE course_id = $1 AND ordinal = $2;
-
--- name: GetCourseStepRender :one
-SELECT * FROM course_step_render WHERE course_step_id = $1;
-
--- name: UpsertCourseStepRender :one
-INSERT INTO course_step_render (course_step_id, content, source)
-VALUES ($1, $2, $3)
-ON CONFLICT (course_step_id) DO UPDATE
-SET content = EXCLUDED.content, source = EXCLUDED.source, created_at = now()
-RETURNING *;
-
--- name: FinishedCourseIDsByUser :many
--- Course ids the user has FINISHED (any 'finished' course_session). Feeds the
--- proficiency "course learning" signal: a card whose teaching course is finished
--- counts as learned even if the student never completed the card object itself.
-SELECT DISTINCT course_id FROM course_session
-WHERE user_id = @user_id AND status = 'finished';
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
+VALUES ($1,$2,$3,$4, COALESCE($5, now()), $6, now())
+ON CONFLICT (user_id, course_id) DO UPDATE SET
+  current_ordinal = EXCLUDED.current_ordinal,
+  completed_ordinals = EXCLUDED.completed_ordinals,
+  started_at = COALESCE(course_progress.started_at, EXCLUDED.started_at),
+  completed_at = COALESCE(EXCLUDED.completed_at, course_progress.completed_at),
+  updated_at = now()
+RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at;

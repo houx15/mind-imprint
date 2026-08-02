@@ -70,34 +70,6 @@ func (q *Queries) GetStudentProjectEvaluationForTeacher(ctx context.Context, arg
 	return i, err
 }
 
-const getStudentSessionEvaluationForTeacher = `-- name: GetStudentSessionEvaluationForTeacher :one
-SELECT e.scores, e.created_at, c.title AS course_title
-FROM evaluations e
-JOIN course_session cs ON cs.id = e.session_id
-JOIN course c ON c.id = cs.course_id
-WHERE e.session_id = $1 AND cs.user_id = $2
-ORDER BY e.created_at DESC
-LIMIT 1
-`
-
-type GetStudentSessionEvaluationForTeacherParams struct {
-	ScopeID pgtype.UUID `json:"scope_id"`
-	UserID  uuid.UUID   `json:"user_id"`
-}
-
-type GetStudentSessionEvaluationForTeacherRow struct {
-	Scores      []byte    `json:"scores"`
-	CreatedAt   time.Time `json:"created_at"`
-	CourseTitle string    `json:"course_title"`
-}
-
-func (q *Queries) GetStudentSessionEvaluationForTeacher(ctx context.Context, arg GetStudentSessionEvaluationForTeacherParams) (GetStudentSessionEvaluationForTeacherRow, error) {
-	row := q.db.QueryRow(ctx, getStudentSessionEvaluationForTeacher, arg.ScopeID, arg.UserID)
-	var i GetStudentSessionEvaluationForTeacherRow
-	err := row.Scan(&i.Scores, &i.CreatedAt, &i.CourseTitle)
-	return i, err
-}
-
 const getStudentThreadEvaluationForTeacher = `-- name: GetStudentThreadEvaluationForTeacher :one
 SELECT e.scores, e.created_at, t.title AS thread_title
 FROM evaluations e
@@ -367,14 +339,6 @@ FROM (
    WHERE e.project_id IS NOT NULL AND p.user_id = $1
    ORDER BY e.project_id, e.created_at DESC)
   UNION ALL
-  (SELECT DISTINCT ON (e.session_id)
-     'course'::text, e.session_id, c.title, cs.phase, e.created_at
-   FROM evaluations e
-     JOIN course_session cs ON cs.id = e.session_id
-     JOIN course c ON c.id = cs.course_id
-   WHERE e.session_id IS NOT NULL AND cs.user_id = $1
-   ORDER BY e.session_id, e.created_at DESC)
-  UNION ALL
   (SELECT DISTINCT ON (e.thread_id)
      'chat'::text, e.thread_id, t.title, NULL::text, e.created_at
    FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
@@ -392,9 +356,11 @@ type ListStudentReportsForTeacherRow struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
-// Every report one class member owns, across all three scopes, newest-first,
-// one row per scope. Teacher variant of ListGrowthHistory: same shape, but the
-// owner filter is replaced by "this user AND a student member of this class".
+// Every report one class member owns, across both remaining scopes,
+// newest-first, one row per scope. Teacher variant of ListGrowthHistory: same
+// shape, but the owner filter is replaced by "this user AND a student member
+// of this class". The course-session arm is retired along with course_session
+// itself (migration 0050, course v2, no back-compat).
 func (q *Queries) ListStudentReportsForTeacher(ctx context.Context, userID uuid.UUID) ([]ListStudentReportsForTeacherRow, error) {
 	rows, err := q.db.Query(ctx, listStudentReportsForTeacher, userID)
 	if err != nil {

@@ -27,22 +27,22 @@ type CountCompletedCardUsesByUserParams struct {
 
 // How many times this student has COMPLETED this specific card, PROJECT
 // SCOPE ONLY — user-scoped across ALL her projects (a second project must
-// not reset her to novice), but deliberately NOT unioned with the
-// course_session/chat_thread scopes ListCollectedCardsByUser above unions.
+// not reset her to novice), but deliberately NOT unioned with the chat scope
+// ListCollectedCardsByUser above unions.
 //
 // Whole-branch review IMPORTANT 2 (N3c): this feeds the guidance fade
 // (agent/guidance.go), which removes AI scaffolding (the question, then the
 // located span) the more completions it counts. Only the project scope's
 // "completed" is gated on the card's own completion predicate
 // (projectcards.go's CompleteCard runs it before flipping status) — it
-// genuinely reflects work the card was for. chat.go and course_session.go
-// both write status='completed' UNCONDITIONALLY on submit, with no
-// predicate and no anchors at all (chat/course cards are thin by design):
-// a student can submit an anchor-less chat CRAAP sheet twice and have her
-// FIRST-EVER Studio CRAAP card surface at max scaffold removed, having never
-// once done the card properly. Counting those two ungated surfaces here
-// would make the ladder's premise false, so this query counts project-scope
-// completions only — see the spec's own §3 for the full reasoning. A skip
+// genuinely reflects work the card was for. chat.go writes status='completed'
+// UNCONDITIONALLY on submit, with no predicate and no anchors at all (chat
+// cards are thin by design): a student can submit an anchor-less chat CRAAP
+// sheet twice and have her FIRST-EVER Studio CRAAP card surface at max
+// scaffold removed, having never once done the card properly. Counting that
+// ungated surface here would make the ladder's premise false, so this query
+// counts project-scope completions only — see the spec's own §3 for the full
+// reasoning. A skip
 // is a decline and does not count either way.
 func (q *Queries) CountCompletedCardUsesByUser(ctx context.Context, arg CountCompletedCardUsesByUserParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countCompletedCardUsesByUser, arg.UserID, arg.CardID)
@@ -350,10 +350,6 @@ FROM (
    FROM card_instances ci JOIN project p ON p.id = ci.project_id
    WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = $1)
   UNION ALL
-  (SELECT ci.card_id, 'course'::text, ci.created_at
-   FROM card_instances ci JOIN course_session cs ON cs.id = ci.session_id
-   WHERE ci.session_id IS NOT NULL AND ci.status = 'completed' AND cs.user_id = $1)
-  UNION ALL
   (SELECT ci.card_id, 'chat'::text, ci.created_at
    FROM card_instances ci JOIN chat_thread t ON t.id = ci.thread_id
    WHERE ci.thread_id IS NOT NULL AND ci.status = 'completed' AND t.user_id = $1)
@@ -369,13 +365,13 @@ type ListCollectedCardsByUserRow struct {
 	LastUsed interface{} `json:"last_used"`
 }
 
-// Every tool card the caller has COMPLETED at least once, across all three
-// scopes, deduped to one row per card_id with a usage summary. status='completed'
-// only (a skip is a decline, matching collectedCourseSessionCards). Owner-filtered
-// through each scope's own parent join (card_instances has no user_id). No cost,
-// no model — a pure read for the 工具卡 tab. created_at (always non-null) is the
-// usage timestamp; completed_at is only set on the session-scope path, so it is
-// not used here.
+// Every tool card the caller has COMPLETED at least once, across both
+// remaining scopes, deduped to one row per card_id with a usage summary.
+// status='completed' only (a skip is a decline). Owner-filtered through each
+// scope's own parent join (card_instances has no user_id). No cost, no model
+// — a pure read for the 工具卡 tab. created_at (always non-null) is the usage
+// timestamp. The course-session scope is retired along with course_session
+// itself (migration 0050, course v2, no back-compat).
 func (q *Queries) ListCollectedCardsByUser(ctx context.Context, userID uuid.UUID) ([]ListCollectedCardsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listCollectedCardsByUser, userID)
 	if err != nil {
@@ -727,7 +723,7 @@ type ListProjectCardCompletionsByUserRow struct {
 // Per-card PROJECT-SCOPE completion counts for a user, across ALL her projects.
 // This is the "genuine practice" signal for card proficiency: project-scope
 // 'completed' is gated on the card's own completion predicate (projectcards.go's
-// CompleteCard), unlike the chat/course scopes which write completed
+// CompleteCard), unlike the chat scope which writes completed
 // unconditionally. Mirrors CountCompletedCardUsesByUser's scoping but grouped
 // over every card at once, for the 工具卡图鉴 proficiency computation.
 func (q *Queries) ListProjectCardCompletionsByUser(ctx context.Context, userID uuid.UUID) ([]ListProjectCardCompletionsByUserRow, error) {
