@@ -1,52 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { Course, CourseSummary, CourseProgress, CourseSession } from "../src/course";
+import { RenderCache, Interaction, CoursePlayerPayload, CourseSummary, CourseReport } from "../src/course";
 
-const summary = { id: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "…", tasks_count: 3, tools_count: 4, time_label: "约 40 分钟", step_count: 4 };
-const step = { id: "s1", course_id: "co1", ordinal: 0, kind: "teaching", purpose: "建立横向溯源意识", assets: [{ id: "a0", kind: "text", title: "开场", value: "最近一张卫星图刷屏。" }], challenge_type: null, authored_content: { subtitle: "…", body: ["…"], foreground_asset_id: null } };
-
-describe("Course contracts", () => {
-  it("parses a course summary", () => { expect(CourseSummary.parse(summary).step_count).toBe(4); });
-  it("parses a full course with steps", () => { expect(Course.parse({ ...summary, steps: [step] }).steps).toHaveLength(1); });
-  it("rejects an unknown step kind", () => { expect(Course.parse.bind(null, { ...summary, steps: [{ ...step, kind: "quiz" }] })).toThrow(); });
-  it("parses progress with completed ordinals", () => { expect(CourseProgress.parse({ course_id: "co1", current_ordinal: 2, completed_ordinals: [0, 1], updated_at: "1" }).completed_ordinals).toEqual([0, 1]); });
-
-  it("parses a rendered step", async () => {
-    const { RenderedStep } = await import("../src/course");
-    expect(RenderedStep.parse({ ordinal: 0, kind: "teaching", template: "teaching", content: { subtitle: "x" }, source: "generated" }).source).toBe("generated");
-  });
-
-  // Whole-branch Critical-2: openCards carries a card offer the session has
-  // not yet dispositioned, so a reload can restore it into the ask panel.
-  it("parses a session with an open card offer", () => {
-    const parsed = CourseSession.parse({
-      id: "s1", courseId: "co1", phase: "guided", phaseTitle: "引导", status: "active",
-      messages: [], openCards: [{ cardInstanceId: "ci1", cardId: "craap", materialId: "m1" }], collectedCards: [],
+describe("course v2 contracts", () => {
+  it("parses an ordering interaction", () => {
+    const i = Interaction.parse({
+      id: "q1", type: "ordering", prompt: "排序",
+      options: [{ id: "A", text: "一" }, { id: "B", text: "二" }],
+      correct_answer: ["A", "B"], explanation: "因为", remediation_questions: [],
     });
-    expect(parsed.openCards).toHaveLength(1);
-    expect(parsed.openCards[0]!.cardId).toBe("craap");
+    expect(i.type).toBe("ordering");
   });
-
-  it("rejects a session missing openCards", () => {
-    expect(CourseSession.parse.bind(null, {
-      id: "s1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], collectedCards: [],
-    })).toThrow();
-  });
-
-  // A1: collectedCards carries the session's COMPLETED cards — the report's
-  // 收集到的工具 block. Distinct from openCards, which is undispositioned
-  // offers only.
-  it("parses a session with a collected card", () => {
-    const parsed = CourseSession.parse({
-      id: "s1", courseId: "co1", phase: "reflect", phaseTitle: "回看", status: "finished",
-      messages: [], openCards: [], collectedCards: [{ cardId: "craap" }],
+  it("parses a render cache with teaching + structure segments", () => {
+    const rc = RenderCache.parse({
+      version: "v4", courseId: "a-mid", courseTitle: "T",
+      steps: [{ stepId: "step_01", content: {
+        title: "t", subtitle: "s",
+        segments: [{ kind: "teaching", flow_block_id: "b1", text: "hi", asset_ids: ["m1"], items: [] }],
+        interactions: [], board: [],
+      } }],
     });
-    expect(parsed.collectedCards).toHaveLength(1);
-    expect(parsed.collectedCards[0]!.cardId).toBe("craap");
+    expect(rc.steps[0]!.content.segments[0]!.kind).toBe("teaching");
   });
-
-  it("rejects a session missing collectedCards", () => {
-    expect(CourseSession.parse.bind(null, {
-      id: "s1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [], openCards: [],
-    })).toThrow();
+  it("rejects an unknown interaction type", () => {
+    expect(() => Interaction.parse({ id: "x", type: "essay", prompt: "", options: [], correct_answer: [], explanation: "", remediation_questions: [] })).toThrow();
+  });
+  it("summary + payload + report shapes", () => {
+    CourseSummary.parse({ slug: "a-mid", branch: "A", title: "t", blurb: "b", time_label: "20 分钟", card_ids: ["craap"], step_count: 4 });
+    CourseReport.parse({ title: "t", goal: "g", teaching_thread: "th", completedStepTitles: ["s1"], cardIds: ["craap"], secondsSpent: 600, quiz: { total: 4, correct: 3 } });
   });
 });

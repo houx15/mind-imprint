@@ -1,102 +1,115 @@
 import { z } from "zod";
 
-export const CourseStepKind = z.enum(["teaching", "challenge"]);
-export const CourseAssetKind = z.enum(["image", "text", "link"]);
-
+export const CourseAssetType = z.enum(["image", "link", "text"]);
 export const CourseAsset = z.object({
   id: z.string(),
-  kind: CourseAssetKind,
-  title: z.string(),
-  value: z.string(),
-});
+  type: CourseAssetType,
+  title: z.string().default(""),
+  src: z.string().default(""),
+  ossKey: z.string().optional().default(""),
+  note: z.string().optional().default(""),
+}).passthrough();
 
-export const CourseStep = z.object({
+// Named CourseInteractionType (not InteractionType) to avoid colliding with
+// cardSpec.ts's InteractionType, which index.ts re-exports via `export *`.
+export const CourseInteractionType = z.enum(["single_choice", "multiple_choice", "ordering"]);
+export const InteractionOption = z.object({ id: z.string(), text: z.string() });
+export const Interaction: z.ZodType<any> = z.lazy(() => z.object({
   id: z.string(),
-  course_id: z.string(),
-  ordinal: z.number().int(),
-  kind: CourseStepKind,
-  purpose: z.string(),
-  assets: z.array(CourseAsset),
-  challenge_type: z.string().nullable(),
-  authored_content: z.unknown(),
-});
+  type: CourseInteractionType,
+  prompt: z.string(),
+  options: z.array(InteractionOption).default([]),
+  correct_answer: z.array(z.string()).default([]),
+  explanation: z.string().default(""),
+  remediation_questions: z.array(Interaction).default([]),
+}).passthrough());
+
+export const StructureItem = z.object({ label: z.string(), text: z.string() });
+export const RenderSegment = z.object({
+  kind: z.enum(["teaching", "structure"]),
+  flow_block_id: z.string().default(""),
+  text: z.string().default(""),
+  asset_ids: z.array(z.string()).default([]),
+  items: z.array(StructureItem).default([]),
+}).passthrough();
+
+export const RenderStepContent = z.object({
+  title: z.string().default(""),
+  subtitle: z.string().default(""),
+  segments: z.array(RenderSegment).default([]),
+  interactions: z.array(Interaction).default([]),
+  board: z.array(z.unknown()).default([]),
+}).passthrough();
+
+export const RenderCacheStep = z.object({ stepId: z.string(), content: RenderStepContent }).passthrough();
+export const RenderCache = z.object({
+  version: z.string().default(""),
+  courseId: z.string(),
+  courseTitle: z.string().default(""),
+  steps: z.array(RenderCacheStep),
+}).passthrough();
+
+// Structure: the player only reads id/title/steps[].{id,title,materials} and
+// asset_library for asset resolution; everything else is authoring metadata.
+export const CourseStructureStep = z.object({
+  id: z.string(),
+  title: z.string().default(""),
+  materials: z.array(CourseAsset).default([]),
+}).passthrough();
+export const CourseStructure = z.object({
+  id: z.string(),
+  title: z.string(),
+  course_goal: z.string().default(""),
+  teaching_thread: z.string().default(""),
+  steps: z.array(CourseStructureStep),
+  asset_library: z.array(CourseAsset).default([]),
+}).passthrough();
 
 export const CourseSummary = z.object({
-  id: z.string(),
+  slug: z.string(),
   branch: z.string(),
   title: z.string(),
   blurb: z.string(),
-  tasks_count: z.number().int(),
-  tools_count: z.number().int(),
   time_label: z.string(),
+  card_ids: z.array(z.string()),
   step_count: z.number().int(),
 });
 
-export const Course = CourseSummary.extend({ steps: z.array(CourseStep) });
+export const CoursePlayerPayload = z.object({
+  slug: z.string(),
+  title: z.string(),
+  branch: z.string(),
+  cardIds: z.array(z.string()),
+  structure: CourseStructure,
+  renderCache: RenderCache,
+});
 
 export const CourseProgress = z.object({
-  course_id: z.string(),
+  course_slug: z.string(),
   current_ordinal: z.number().int(),
   completed_ordinals: z.array(z.number().int()),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
   updated_at: z.string(),
 });
 
-export const RenderedStep = z.object({
-  ordinal: z.number().int(),
-  kind: CourseStepKind,
-  template: z.enum(["teaching", "challenge"]),
-  content: z.unknown(),
-  source: z.enum(["generated", "authored"]),
+export const CourseReport = z.object({
+  title: z.string(),
+  goal: z.string(),
+  teaching_thread: z.string(),
+  completedStepTitles: z.array(z.string()),
+  cardIds: z.array(z.string()),
+  secondsSpent: z.number().int(),
+  quiz: z.object({ total: z.number().int(), correct: z.number().int() }),
 });
 
-export type CourseStepKind = z.infer<typeof CourseStepKind>;
 export type CourseAsset = z.infer<typeof CourseAsset>;
-export type CourseStep = z.infer<typeof CourseStep>;
+export type Interaction = z.infer<typeof Interaction>;
+export type RenderSegment = z.infer<typeof RenderSegment>;
+export type RenderStepContent = z.infer<typeof RenderStepContent>;
+export type RenderCache = z.infer<typeof RenderCache>;
+export type CourseStructure = z.infer<typeof CourseStructure>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
-export type Course = z.infer<typeof Course>;
+export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
-export type RenderedStep = z.infer<typeof RenderedStep>;
-
-// Slice 12 (Course policy): the session runtime layer above the page-position
-// layer above. camelCase, matching the Go DTOs' JSON tags (a fresh runtime
-// surface, following Chat's convention rather than this file's older
-// snake_case one).
-export const CourseMessage = z.object({
-  id: z.string(),
-  phase: z.string(),
-  role: z.enum(["student", "assistant"]),
-  content: z.string(),
-  createdAt: z.string(),
-});
-
-// CourseCardOffer is one card offer the session has not yet dispositioned
-// (status proposed or active) — carried on session load so a reload can
-// restore an offer that would otherwise live only in React state (Slice 12
-// whole-branch Critical-2: without this, a reload during `guided` erased the
-// offer and the card_dispositioned floor could never be met again).
-export const CourseCardOffer = z.object({
-  cardInstanceId: z.string(),
-  cardId: z.string(),
-  materialId: z.string(),
-});
-
-// CourseCollectedCard is one tool the student completed in this session — the
-// 收集到的工具 block's row. Distinct from CourseCardOffer, which carries only
-// undispositioned offers (proposed/active) for reload rehydration.
-export const CourseCollectedCard = z.object({ cardId: z.string() });
-export type CourseCollectedCard = z.infer<typeof CourseCollectedCard>;
-
-export const CourseSession = z.object({
-  id: z.string(),
-  courseId: z.string(),
-  phase: z.string(),
-  phaseTitle: z.string(),
-  status: z.enum(["active", "finished"]),
-  messages: z.array(CourseMessage),
-  openCards: z.array(CourseCardOffer),
-  collectedCards: z.array(CourseCollectedCard),
-});
-
-export type CourseMessage = z.infer<typeof CourseMessage>;
-export type CourseCardOffer = z.infer<typeof CourseCardOffer>;
-export type CourseSession = z.infer<typeof CourseSession>;
+export type CourseReport = z.infer<typeof CourseReport>;
