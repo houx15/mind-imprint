@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
+  CardTurnRef,
   ExplorationLead,
   ExplorationView as ExplorationViewData,
   GuideDirection,
@@ -7,9 +8,10 @@ import type {
   PhaseTag,
   Reference,
 } from "@mind-imprint/contracts";
-import { enterReading, NoReadableContentError, postRabbitHoleCard } from "../../api/workspace";
+import { enterReading, NoReadableContentError, reflectProjectCard } from "../../api/workspace";
 import { createLead, digDeeper, getExploration, patchLead } from "../../../api/exploration";
 import { StudioCardSheet } from "../../../studio/StudioCardSheet";
+import { compileCardForCoach } from "../../../studio/compileCard";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 // S3 rabbit-hole exploration surface (Task 9): the branch view over the
@@ -51,6 +53,12 @@ export type ExplorationViewProps = {
   // client-side reference store here). Returns the created Reference so this
   // view can immediately attach it under a lead when one was chosen.
   onCreateReference?: (input: { title: string; url?: string }) => Promise<Reference>;
+  // Followup fix (2026-08): the rabbit-hole card now goes through the shared
+  // reflect turn (like every other deck card), so it gets AI feedback on what
+  // the student actually wrote instead of a silent persist. This view has no
+  // chat thread of its own — the parent (ReadingBlock's 找资料 coach panel)
+  // renders the student turn + reply, mirroring CoachCardPanel's onReflected.
+  onCardReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
 };
 
 function readingBadge(r: Reference): { label: string; cls: string } | null {
@@ -59,7 +67,7 @@ function readingBadge(r: Reference): { label: string; cls: string } | null {
   return null;
 }
 
-export function ExplorationView({ projectId, references, onEnterReading, onCreateReference }: ExplorationViewProps) {
+export function ExplorationView({ projectId, references, onEnterReading, onCreateReference, onCardReflected }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -402,12 +410,25 @@ export function ExplorationView({ projectId, references, onEnterReading, onCreat
                   .find((s) => s.length > 0) ?? "";
               const selectedLead = rabbitLeadId ? view.leads.find((l) => l.id === rabbitLeadId) ?? null : null;
               setRabbitLeadId(null);
-              // Persist the durable card_instance first (过程即数据) — independent
-              // of whether a dig/lead follows.
+              // FEEDBACK: route through the shared reflect turn (card_persist.go's
+              // explorationDeckCards allowlist) — exactly ONE card_instance per
+              // submit, plus a coach reply on what the student actually wrote,
+              // consistent with every other deck card (forming/writing/reflection).
+              // Persist first — independent of whether a dig/lead follows.
+              const spec = CARD_REGISTRY["rabbit-hole"];
+              const studentText = spec ? compileCardForCoach(spec, fv) : "";
               try {
-                await postRabbitHoleCard(projectId, env.field_values, env.event_trace);
+                const res = await reflectProjectCard(
+                  projectId,
+                  "rabbit-hole",
+                  env.field_values,
+                  env.event_trace,
+                  "find_sources",
+                );
+                onCardReflected?.(studentText, res.reply, res.card ?? undefined);
               } catch {
                 setLeadActionError(true);
+                onCardReflected?.(studentText, "刚才没接住这张卡，等下再试一次。");
               }
               try {
                 if (selectedLead) {

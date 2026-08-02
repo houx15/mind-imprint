@@ -62,11 +62,20 @@ var reflectionDeckCards = map[string]bool{
 	"knower-perspective": true, // 认知者视角 — how who she is shaped what she saw
 }
 
+// explorationDeckCards is the allowlist of exploration-surface cards the
+// STUDENT may submit from the 探索图谱 (find_sources) — today just the 兔子洞
+// (rabbit-hole) card. Routed through the shared reflect turn (card_reflect.go)
+// like every other deck, so filling it out gets a coach reply on what she
+// actually wrote instead of a silent persist (followup fix 2026-08).
+var explorationDeckCards = map[string]bool{
+	"rabbit-hole": true,
+}
+
 // persistableCard reports whether card_id may be persisted through the generic
-// path — an AI-proposable card, a writing-deck card, a phase-deck card, or a
-// reflection-deck card.
+// path — an AI-proposable card, a writing-deck card, a phase-deck card, an
+// exploration-deck card, or a reflection-deck card.
 func persistableCard(id string) bool {
-	return coachProposableCards[id] || writingDeckCards[id] || studioDeckCards[id] || reflectionDeckCards[id]
+	return coachProposableCards[id] || writingDeckCards[id] || studioDeckCards[id] || explorationDeckCards[id] || reflectionDeckCards[id]
 }
 
 // persistProjectCardEnvelope creates → submits → completes a project-scoped

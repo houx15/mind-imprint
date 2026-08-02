@@ -14,23 +14,29 @@ vi.mock("@/api/exploration", () => ({
   deleteLead: vi.fn(),
   digDeeper: vi.fn(),
 }));
-// Batch5 Item B: the rabbit-hole finalize path persists the card via this
-// workspace client — mocked so submitting the real StudioCardSheet in tests
-// never hits the network, and so the persist call itself is assertable.
+// Followup fix (2026-08): the rabbit-hole finalize path now runs through the
+// shared reflect turn (card_persist.go's explorationDeckCards allowlist) so it
+// gets AI feedback like every other deck card — mocked so submitting the real
+// StudioCardSheet in tests never hits the network, and so the reflect call
+// itself (and the feedback it hands back to the parent) is assertable.
 vi.mock("@/workspace/api/workspace", () => ({
   enterReading: vi.fn(),
   NoReadableContentError: class extends Error {},
-  postRabbitHoleCard: vi.fn(async () => "card-1"),
+  reflectProjectCard: vi.fn(async () => ({
+    cardInstanceId: "card-1",
+    reply: "AI 反馈：这个方向能查一查沙漠光伏的生态影响。",
+    card: null,
+  })),
 }));
 
 import { getExploration, createLead, patchLead, digDeeper } from "@/api/exploration";
-import { postRabbitHoleCard } from "@/workspace/api/workspace";
+import { reflectProjectCard } from "@/workspace/api/workspace";
 
 const mockGetExploration = vi.mocked(getExploration);
 const mockCreateLead = vi.mocked(createLead);
 const mockPatchLead = vi.mocked(patchLead);
 const mockDigDeeper = vi.mocked(digDeeper);
-const mockPostRabbitHoleCard = vi.mocked(postRabbitHoleCard);
+const mockReflectProjectCard = vi.mocked(reflectProjectCard);
 
 // Reference fixture shape matches apps/web/test/api/workspaceLibrary.test.ts.
 function makeRef(overrides: Partial<Reference>): Reference {
@@ -269,12 +275,20 @@ describe("ExplorationView", () => {
     expect(mockCreateLead).not.toHaveBeenCalled();
   });
 
-  // Batch5 Item B: the rabbit-hole redesign. Selecting an open 线索 to dig
-  // from turns finalize into: persist the card, THEN reuse digDeeper, showing
-  // suggestions in the SAME shared focus panel — never invisible.
-  it("rabbit-hole finalize: selecting a 线索 persists the card, calls digDeeper, and shows suggestions in the focus panel", async () => {
+  // Batch5 Item B, updated by the followup fix (2026-08): selecting an open
+  // 线索 to dig from turns finalize into: reflect the card (FEEDBACK, exactly
+  // once), THEN AUTOMATICALLY reuse digDeeper (SUGGESTIONS, no manual "让印记
+  //给方向" click), showing suggestions in the SAME shared focus panel.
+  it("rabbit-hole finalize: selecting a 线索 reflects the card (feedback), auto-runs digDeeper (suggestions), and shows both", async () => {
     const user = userEvent.setup();
-    render(<ExplorationView projectId="p1" references={[NASA_REF, DANGLING_REF]} />);
+    const onCardReflected = vi.fn();
+    render(
+      <ExplorationView
+        projectId="p1"
+        references={[NASA_REF, DANGLING_REF]}
+        onCardReflected={onCardReflected}
+      />,
+    );
     await screen.findByText(LEAD_OPEN.text);
 
     await user.click(screen.getByRole("button", { name: "＋ 兔子洞" }));
@@ -283,7 +297,25 @@ describe("ExplorationView", () => {
     await user.selectOptions(screen.getByLabelText("从哪条线索挖"), LEAD_OPEN.id);
     await user.click(screen.getByRole("button", { name: /提交并钉到过程树/ }));
 
-    await waitFor(() => expect(mockPostRabbitHoleCard).toHaveBeenCalled());
+    // FEEDBACK: the reflect turn ran on the rabbit-hole card, exactly once —
+    // not the old coach-silent persist path.
+    await waitFor(() => expect(mockReflectProjectCard).toHaveBeenCalledTimes(1));
+    expect(mockReflectProjectCard).toHaveBeenCalledWith(
+      "p1",
+      "rabbit-hole",
+      expect.any(Object),
+      expect.any(Array),
+      "find_sources",
+    );
+    // ...and the reply was handed up to the parent room (no manual click).
+    await waitFor(() => {
+      expect(onCardReflected).toHaveBeenCalledWith(
+        expect.any(String),
+        "AI 反馈：这个方向能查一查沙漠光伏的生态影响。",
+        undefined,
+      );
+    });
+    // SUGGESTIONS: digDeeper ran automatically — no manual "让印记给方向" click.
     await waitFor(() => {
       expect(mockDigDeeper).toHaveBeenCalledWith("p1", { leadId: LEAD_OPEN.id, thought: "" });
     });
@@ -297,7 +329,9 @@ describe("ExplorationView", () => {
   });
 
   // Item B: leaving no lead selected and writing nothing must never be a
-  // silent no-op (the S3 invisibility bug) — it tells the student so.
+  // silent no-op (the S3 invisibility bug) — it tells the student so. The
+  // card still reflects (feedback always runs), it's only the dig/lead
+  // follow-up that's skipped when there's nothing to go on.
   it("rabbit-hole finalize: no lead selected and nothing written shows a gentle notice, not silence", async () => {
     mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [] });
     const user = userEvent.setup();
@@ -308,6 +342,7 @@ describe("ExplorationView", () => {
     await screen.findByText("兔子洞·兴趣雷达卡");
     await user.click(screen.getByRole("button", { name: /提交并钉到过程树/ }));
 
+    await waitFor(() => expect(mockReflectProjectCard).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/这次没记下新的方向或线索/)).toBeInTheDocument();
     expect(mockCreateLead).not.toHaveBeenCalled();
     expect(mockDigDeeper).not.toHaveBeenCalled();

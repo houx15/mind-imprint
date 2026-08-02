@@ -38,6 +38,18 @@ func countCompletedCard(t *testing.T, pool *pgxpool.Pool, projectID, cardID stri
 	return n
 }
 
+// countEventsByType shared across the persist/reflect/ai-use test files (was
+// previously defined in the now-removed exploration_card_test.go).
+func countEventsByType(t *testing.T, pool *pgxpool.Pool, projectID, typ string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM event WHERE project_id=$1 AND type=$2`, mustUUID(projectID), typ).Scan(&n); err != nil {
+		t.Fatalf("countEventsByType: %v", err)
+	}
+	return n
+}
+
 func TestPostPersistProjectCard_PersistsProposable(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID

@@ -210,20 +210,6 @@ export async function dismissProposal(id: string, cardId: string): Promise<void>
   });
 }
 
-// POST /exploration/rabbit-hole — persist the completed 兔子洞 reflection (S4;
-// the S3 TODO). No spend; records the card_instance + a rabbit_hole_logged event.
-export async function postRabbitHoleCard(
-  id: string,
-  fieldValues: Record<string, unknown>,
-  eventTrace: unknown[],
-): Promise<string> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/exploration/rabbit-hole`, {
-    method: "POST",
-    body: JSON.stringify({ field_values: fieldValues, event_trace: eventTrace }),
-  });
-  return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
-}
-
 // GET /coach/history — a room's surface-slice of the ONE per-project thread
 // (S1 · continuous session). Both sides, role already mapped to the room's
 // student|ai shape; folded turns included. No spend.

@@ -94,7 +94,6 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.patchExplorationLead))
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.deleteExplorationLead))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/guide", protected(a.postExplorationGuide))
-	mux.Handle("POST /api/v1/projects/{id}/exploration/rabbit-hole", protected(a.postExplorationRabbitHole))
 	mux.Handle("POST /api/v1/projects/{id}/cards/persist", protected(a.postPersistProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/reflect", protected(a.postReflectProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/dismiss-proposal", protected(a.postDismissProposal))

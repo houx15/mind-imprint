@@ -147,6 +147,43 @@ func TestPostReflectProjectCard_PersistsAndReplies(t *testing.T) {
 	}
 }
 
+// TestPostReflectProjectCard_RabbitHolePersistsAndReplies — followup fix
+// (2026-08): the rabbit-hole card used to persist through a separate,
+// coach-silent endpoint (/exploration/rabbit-hole). It's now in the reflect
+// allowlist (explorationDeckCards) so filling it out gets feedback on what the
+// student actually wrote, exactly like every other deck card — and exactly ONE
+// card_instance is created.
+func TestPostReflectProjectCard_RabbitHolePersistsAndReplies(t *testing.T) {
+	h, cookie, pool := reflectHandler(t)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/cards/reflect",
+		strings.NewReader(`{"card_id":"rabbit-hole","field_values":{"anchor_note":"沙漠里的太阳能板为什么效率那么高","explorable_direction":"大规模沙漠光伏对当地生态的影响"},"event_trace":[],"surface":"find_sources"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("rabbit-hole reflect = %d — %s", rr.Code, rr.Body)
+	}
+	var out struct {
+		CardInstanceID string `json:"cardInstanceId"`
+		Reply          string `json:"reply"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if out.CardInstanceID == "" || out.Reply == "" {
+		t.Fatalf("filled rabbit-hole card should return a card id + reply, got %+v", out)
+	}
+	if got := countCompletedCard(t, pool, seedProjectID, "rabbit-hole"); got != 1 {
+		t.Fatalf("completed rabbit-hole card_instances = %d, want exactly 1 (no double-persist)", got)
+	}
+	if got := countEventsByType(t, pool, seedProjectID, "card_logged"); got != 1 {
+		t.Fatalf("card_logged events = %d, want 1", got)
+	}
+	if got := countChatMessages(t, pool, seedProjectID, "assistant", "find_sources"); got < 1 {
+		t.Fatalf("assistant reply turn on find_sources = %d, want >=1", got)
+	}
+}
+
 // TestPostReflectProjectCard_RejectsNonPersistable — a card in no allowlist is
 // refused (400), so the endpoint can't be used to forge arbitrary card state.
 func TestPostReflectProjectCard_RejectsNonPersistable(t *testing.T) {

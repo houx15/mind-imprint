@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
+import type { CardTurnRef, Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
   getLibrary,
@@ -21,6 +21,7 @@ import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
 import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 import { CoachCardPanel, READING_DECK } from "./CoachCardPanel";
+import { CardTurnChip } from "./CardTurnChip";
 import type { CardProposalWire } from "../api/workspace";
 
 // #4 (review M1) · remembers the chosen 列表/探索图谱 view per project for the
@@ -48,7 +49,10 @@ const CRED_STYLE: Record<NonNullable<Reference["credibility"]>, string> = {
   weak: "bg-mk-bg text-mk-muted",
 };
 
-type ChatMsg = { role: "ai" | "student"; text: string };
+// `card` (followup fix 2026-08): a rabbit-hole (or other exploration deck)
+// card submitted via the shared reflect turn renders as a content-first
+// clickable chip, mirroring PlanBlock/ReviewBlock/WritingBlock's card turns.
+type ChatMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null };
 
 // The Reading block = a Zotero-shaped Library: collections + tags (left) for
 // categorization, a reference table (center) that scales to many sources with
@@ -110,6 +114,14 @@ export function ReadingBlock({
     viewModeMemo.set(projectId, m);
     setViewModeRaw(m);
   };
+  // Followup fix (2026-08): bridges a rabbit-hole reflect result from
+  // ExplorationView (探索图谱, a sibling of FloatingCoach) into the 找资料 coach
+  // thread FloatingCoach owns — see the prop comment at each end.
+  const [pendingCardReflection, setPendingCardReflection] = useState<{
+    studentText: string;
+    reply: string;
+    card?: CardTurnRef;
+  } | null>(null);
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -436,6 +448,13 @@ export function ReadingBlock({
             references={refs}
             onEnterReading={setReadingSource}
             onCreateReference={createUntrackedSource}
+            // Followup fix (2026-08): ExplorationView and FloatingCoach are
+            // SIBLINGS (not parent/child) — the rabbit-hole card's reflect
+            // result is bridged up here and handed to FloatingCoach as a
+            // pending turn, so the feedback lands in the SAME 找资料 coach
+            // thread every other card uses (and pops the panel open, since
+            // this feedback is unprompted — she didn't have it open to ask).
+            onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
           />
         )}
       </div>
@@ -445,6 +464,8 @@ export function ReadingBlock({
         defaultOpen={refs.length === 0}
         opener={refs.length === 0 ? emptyOpener : undefined}
         onLibraryChanged={reload}
+        pendingCardReflection={pendingCardReflection}
+        onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
       />
 
       {modal}
@@ -1255,7 +1276,26 @@ function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
 
 /* ---------- floating coach ---------- */
 
-function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChanged }: { projectId: string; defaultOpen?: boolean; opener?: string; onLibraryChanged?: () => void }) {
+function FloatingCoach({
+  projectId,
+  defaultOpen = false,
+  opener,
+  onLibraryChanged,
+  pendingCardReflection,
+  onPendingCardReflectionConsumed,
+}: {
+  projectId: string;
+  defaultOpen?: boolean;
+  opener?: string;
+  onLibraryChanged?: () => void;
+  // Followup fix (2026-08): a rabbit-hole (or other exploration deck) card
+  // submitted from the SIBLING ExplorationView already ran the shared reflect
+  // turn and persisted to this same "find_sources" surface — this prop hands
+  // the live result down so it renders here immediately (and pops the panel
+  // open) instead of waiting for a remount to reload history.
+  pendingCardReflection?: { studentText: string; reply: string; card?: CardTurnRef } | null;
+  onPendingCardReflectionConsumed?: () => void;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "ai", text: opener ?? "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
@@ -1297,6 +1337,26 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
     };
   }, [projectId]);
 
+  // Followup fix (2026-08): a pending rabbit-hole reflect result arrives from
+  // the sibling ExplorationView — render it (content-first chip when a card is
+  // present, else raw text) and surface the panel, since this feedback is
+  // unprompted (she was in 探索图谱, not this chat).
+  useEffect(() => {
+    if (!pendingCardReflection) return;
+    const { studentText, reply, card } = pendingCardReflection;
+    setChat((c) => [
+      ...c,
+      ...(card
+        ? [{ role: "student" as const, text: studentText, card }]
+        : studentText
+          ? [{ role: "student" as const, text: studentText }]
+          : []),
+      ...(reply ? [{ role: "ai" as const, text: reply }] : []),
+    ]);
+    setOpen(true);
+    onPendingCardReflectionConsumed?.();
+  }, [pendingCardReflection, onPendingCardReflectionConsumed]);
+
   async function send() {
     const text = draft.trim();
     if (!text || busy) return;
@@ -1329,11 +1389,17 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
             <button type="button" onClick={() => setOpen(false)} className="text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
           </header>
           <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">
-            {chat.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-                <div className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[12.5px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
-              </div>
-            ))}
+            {chat.map((m, i) =>
+              // A card turn (e.g. rabbit-hole via reflect) renders as a
+              // content-first clickable chip, never raw compiled text.
+              m.card ? (
+                <CardTurnChip key={i} card={m.card} />
+              ) : (
+                <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[12.5px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+                </div>
+              ),
+            )}
             {busy && (
               <div className="flex justify-start">
                 <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted-2">印记在想……</div>
@@ -1353,7 +1419,26 @@ function FloatingCoach({ projectId, defaultOpen = false, opener, onLibraryChange
                 projectId={projectId}
                 proposal={cardProposal}
                 onProposalConsumed={() => setCardProposal(null)}
-                onLogged={(t) => setChat((c) => [...c, { role: "ai", text: t }])}
+                // Followup fix (2026-08): READING_DECK cards (e.g. 事实/观点/价值,
+                // 视角对照矩阵) used to persist-only with a canned "记下了…" line;
+                // now they run the shared reflect turn like every other deck, so
+                // the coach responds to what the student actually wrote.
+                onReflected={(studentText, reply, card) =>
+                  setChat((c) => [
+                    ...c,
+                    ...(card
+                      ? [{ role: "student" as const, text: studentText, card }]
+                      : studentText
+                        ? [{ role: "student" as const, text: studentText }]
+                        : []),
+                    ...(reply
+                      ? [{ role: "ai" as const, text: reply }]
+                      : card || studentText
+                        ? []
+                        : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
+                  ])
+                }
+                surface="find_sources"
                 deck={READING_DECK}
               />
             )}
