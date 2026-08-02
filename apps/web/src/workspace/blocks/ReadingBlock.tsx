@@ -443,30 +443,52 @@ export function ReadingBlock({
             </div>
           )
         ) : (
-          <ExplorationView
-            projectId={projectId}
-            references={refs}
-            onEnterReading={setReadingSource}
-            onCreateReference={createUntrackedSource}
-            // Followup fix (2026-08): ExplorationView and FloatingCoach are
-            // SIBLINGS (not parent/child) — the rabbit-hole card's reflect
-            // result is bridged up here and handed to FloatingCoach as a
-            // pending turn, so the feedback lands in the SAME 找资料 coach
-            // thread every other card uses (and pops the panel open, since
-            // this feedback is unprompted — she didn't have it open to ask).
-            onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
-          />
+          // Q3 followup (2026-08): 探索图谱 has no reference-preview sidebar
+          // (unlike 列表, where the Preview column already occupies the right
+          // column), so the "找资料" coach has nowhere to sit except floating
+          // over the graph — instead it's docked as a permanent right column
+          // here, sized/styled like the writing room's CoachRail, and always
+          // visible (no collapse-behind-a-chip).
+          <div className="relative grid h-full min-h-0 grid-cols-[1fr,320px]">
+            <ExplorationView
+              projectId={projectId}
+              references={refs}
+              onEnterReading={setReadingSource}
+              onCreateReference={createUntrackedSource}
+              // Followup fix (2026-08): ExplorationView and FloatingCoach are
+              // SIBLINGS (not parent/child) — the rabbit-hole card's reflect
+              // result is bridged up here and handed to FloatingCoach as a
+              // pending turn, so the feedback lands in the SAME 找资料 coach
+              // thread every other card uses (and pops the panel open, since
+              // this feedback is unprompted — she didn't have it open to ask).
+              onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
+            />
+            <FloatingCoach
+              docked
+              projectId={projectId}
+              defaultOpen={refs.length === 0}
+              opener={refs.length === 0 ? emptyOpener : undefined}
+              onLibraryChanged={reload}
+              pendingCardReflection={pendingCardReflection}
+              onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+            />
+          </div>
         )}
       </div>
 
-      <FloatingCoach
-        projectId={projectId}
-        defaultOpen={refs.length === 0}
-        opener={refs.length === 0 ? emptyOpener : undefined}
-        onLibraryChanged={reload}
-        pendingCardReflection={pendingCardReflection}
-        onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
-      />
+      {/* 列表 keeps the reference-preview sidebar, so the coach stays a
+          floating chip there (opening it is still the student's tap — 铁律
+          2 不操纵). 探索图谱 renders its OWN docked coach column above instead. */}
+      {viewMode === "list" && (
+        <FloatingCoach
+          projectId={projectId}
+          defaultOpen={refs.length === 0}
+          opener={refs.length === 0 ? emptyOpener : undefined}
+          onLibraryChanged={reload}
+          pendingCardReflection={pendingCardReflection}
+          onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+        />
+      )}
 
       {modal}
     </div>
@@ -1283,6 +1305,7 @@ function FloatingCoach({
   onLibraryChanged,
   pendingCardReflection,
   onPendingCardReflectionConsumed,
+  docked = false,
 }: {
   projectId: string;
   defaultOpen?: boolean;
@@ -1295,8 +1318,13 @@ function FloatingCoach({
   // open) instead of waiting for a remount to reload history.
   pendingCardReflection?: { studentText: string; reply: string; card?: CardTurnRef } | null;
   onPendingCardReflectionConsumed?: () => void;
+  // Q3 followup (2026-08): renders as a permanent right-hand column (no
+  // floating chip, no collapse) when this coach has no competing sidebar to
+  // hide behind — i.e. inside 探索图谱. Same chat/coach behavior throughout;
+  // only the outer chrome (docked aside vs floating chip+panel) differs.
+  docked?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(docked || defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "ai", text: opener ?? "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
   ]);
@@ -1377,6 +1405,99 @@ function FloatingCoach({
     }
   }
 
+  // Shared between the docked-column and floating-chip chrome — same coach
+  // content/behavior either way, only the surrounding chrome differs.
+  const chatBody = (
+    <>
+      {chat.map((m, i) =>
+        // A card turn (e.g. rabbit-hole via reflect) renders as a
+        // content-first clickable chip, never raw compiled text.
+        m.card ? (
+          <CardTurnChip key={i} card={m.card} />
+        ) : (
+          <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
+            <div className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[12.5px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+          </div>
+        ),
+      )}
+      {busy && (
+        <div className="flex justify-start">
+          <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted-2">印记在想……</div>
+        </div>
+      )}
+      {linkOffer && (
+        <CoachLinkOffer
+          url={linkOffer.url}
+          status={linkOffer.status}
+          onAdd={() => void addOfferedLink()}
+          onReadTogether={() => void addOfferedLink()}
+          onDismiss={() => setLinkOffer(null)}
+        />
+      )}
+      {!busy && (
+        <CoachCardPanel
+          projectId={projectId}
+          proposal={cardProposal}
+          onProposalConsumed={() => setCardProposal(null)}
+          // Followup fix (2026-08): READING_DECK cards (e.g. 事实/观点/价值,
+          // 视角对照矩阵) used to persist-only with a canned "记下了…" line;
+          // now they run the shared reflect turn like every other deck, so
+          // the coach responds to what the student actually wrote.
+          onReflected={(studentText, reply, card) =>
+            setChat((c) => [
+              ...c,
+              ...(card
+                ? [{ role: "student" as const, text: studentText, card }]
+                : studentText
+                  ? [{ role: "student" as const, text: studentText }]
+                  : []),
+              ...(reply
+                ? [{ role: "ai" as const, text: reply }]
+                : card || studentText
+                  ? []
+                  : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
+            ])
+          }
+          surface="find_sources"
+          deck={READING_DECK}
+        />
+      )}
+    </>
+  );
+
+  const inputBar = (
+    <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
+        rows={1}
+        placeholder="问从哪找、可不可信……"
+        className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+      />
+      <button type="button" onClick={send} disabled={busy} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-60">
+        <Icon name="send" size={15} />
+      </button>
+    </div>
+  );
+
+  // Q3 · docked column — no collapse chip, always visible (styled like the
+  // writing room's CoachRail: bordered aside, header, scrollable body, input).
+  if (docked) {
+    return (
+      <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
+        <header className="border-b border-mk-border px-4 py-3">
+          <div className="flex items-center gap-2 text-mk-primary">
+            <Icon name="spark" size={15} />
+            <span className="text-[13.5px] font-bold">印记 · 找资料</span>
+          </div>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">{chatBody}</div>
+        {inputBar}
+      </aside>
+    );
+  }
+
   return (
     <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end">
       {open && (
@@ -1388,74 +1509,8 @@ function FloatingCoach({
             </div>
             <button type="button" onClick={() => setOpen(false)} className="text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
           </header>
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">
-            {chat.map((m, i) =>
-              // A card turn (e.g. rabbit-hole via reflect) renders as a
-              // content-first clickable chip, never raw compiled text.
-              m.card ? (
-                <CardTurnChip key={i} card={m.card} />
-              ) : (
-                <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[12.5px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
-                </div>
-              ),
-            )}
-            {busy && (
-              <div className="flex justify-start">
-                <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted-2">印记在想……</div>
-              </div>
-            )}
-            {linkOffer && (
-              <CoachLinkOffer
-                url={linkOffer.url}
-                status={linkOffer.status}
-                onAdd={() => void addOfferedLink()}
-                onReadTogether={() => void addOfferedLink()}
-                onDismiss={() => setLinkOffer(null)}
-              />
-            )}
-            {!busy && (
-              <CoachCardPanel
-                projectId={projectId}
-                proposal={cardProposal}
-                onProposalConsumed={() => setCardProposal(null)}
-                // Followup fix (2026-08): READING_DECK cards (e.g. 事实/观点/价值,
-                // 视角对照矩阵) used to persist-only with a canned "记下了…" line;
-                // now they run the shared reflect turn like every other deck, so
-                // the coach responds to what the student actually wrote.
-                onReflected={(studentText, reply, card) =>
-                  setChat((c) => [
-                    ...c,
-                    ...(card
-                      ? [{ role: "student" as const, text: studentText, card }]
-                      : studentText
-                        ? [{ role: "student" as const, text: studentText }]
-                        : []),
-                    ...(reply
-                      ? [{ role: "ai" as const, text: reply }]
-                      : card || studentText
-                        ? []
-                        : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-                  ])
-                }
-                surface="find_sources"
-                deck={READING_DECK}
-              />
-            )}
-          </div>
-          <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-              rows={1}
-              placeholder="问从哪找、可不可信……"
-              className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-            />
-            <button type="button" onClick={send} disabled={busy} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-60">
-              <Icon name="send" size={15} />
-            </button>
-          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">{chatBody}</div>
+          {inputBar}
         </div>
       )}
       <button

@@ -225,8 +225,9 @@ export function ReviewBlock({
               {/* S5 · 复盘我与 AI 的互动 — the objective record + the student's own statement */}
               <AIUsePanel projectId={projectId} done={done} />
 
-              {/* S5 · supportive reflection-completion conversation + #21 reflection card shelf */}
-              <ReviewCoachThread projectId={projectId} locked={done} />
+              {/* Q4 followup (2026-08): 「印记陪你把回顾写完」moved OUT of this bottom
+                  spot and INTO the right sidebar (see the aside below) — it's the
+                  ACTIVE coach while she's filling the form, not a buried footnote. */}
 
               <div className="mt-7 flex flex-wrap items-center gap-4">
                 {archived ? (
@@ -286,13 +287,23 @@ export function ReviewBlock({
         </div>
       </div>
 
-      {/* aside · the mirror — composes ONLY after the student finished her own
-          reflection (#21). canCompose gates the fetch/compose entirely. */}
-      <MirrorPane
-        projectId={projectId}
-        canCompose={writingFinished && (done || archived)}
-        onReady={setMirrorReady}
-      />
+      {/* aside · Q4 followup (2026-08): the right sidebar is the ACTIVE coach
+          WHILE she's editing (「印记陪你把回顾写完」+ the reflection card shelf +
+          问印记 chat), so help is visible the whole time instead of buried at
+          the bottom of the left column. Once she marks her OWN reflection done
+          (#21 mutual-reflection order — unchanged), the sidebar becomes the
+          mirror ("你的思维印记"), which composes only then. Before 完成写作
+          unlocks the room, the mirror's own locked placeholder shows instead
+          (nothing to coach yet). */}
+      {writingFinished && !done && !archived ? (
+        <ReviewCoachThread projectId={projectId} locked={done} />
+      ) : (
+        <MirrorPane
+          projectId={projectId}
+          canCompose={writingFinished && (done || archived)}
+          onReady={setMirrorReady}
+        />
+      )}
 
       {/* #5 · 定稿并评估 confirm — the point of no return. Archiving locks 正文与回顾
           and generates the process assessment. */}
@@ -495,81 +506,93 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
     }
   }
 
+  // Q4 followup (2026-08): rendered as a docked right-sidebar aside (styled
+  // like MirrorPane, which occupies the same slot once she's done) instead of
+  // a bordered card buried at the bottom of the left column — same coach
+  // content/behavior throughout, only the chrome moved.
   return (
-    <section className="mt-6 rounded-mk-lg border border-mk-border bg-mk-surface p-5">
-      <h2 className="font-sans text-[15px] font-bold text-mk-ink">印记陪你把回顾写完</h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">
-        卡在哪一块不知道怎么写，都可以跟印记说说。它一次只问一个问题，帮你想起细节、找到词——但话得你自己写。挑一张回顾卡也能帮你想清楚。
-      </p>
-      {chat.length > 0 && (
-        <div className="mt-3 flex flex-col gap-2">
-          {chat.map((m, i) =>
-            // A card-turn renders as a content-first clickable chip (opens the
-            // read-only record), never as raw compiled text.
-            m.card ? (
-              <CardTurnChip key={i} card={m.card} />
-            ) : (
-              <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-                <div
-                  className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[13px] leading-relaxed ${
-                    m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"
-                  }`}
-                >
-                  {m.text}
+    <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
+      <header className="border-b border-mk-border px-5 py-4">
+        <div className="flex items-center gap-2 text-mk-primary">
+          <Icon name="spark" size={16} />
+          <h2 className="font-sans text-[15px] font-bold">印记陪你把回顾写完</h2>
+        </div>
+        <p className="mt-1 text-[11.5px] text-mk-muted-2">
+          卡在哪一块不知道怎么写，都可以跟印记说说。它一次只问一个问题，帮你想起细节、找到词——但话得你自己写。挑一张回顾卡也能帮你想清楚。
+        </p>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        {chat.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {chat.map((m, i) =>
+              // A card-turn renders as a content-first clickable chip (opens the
+              // read-only record), never as raw compiled text.
+              m.card ? (
+                <CardTurnChip key={i} card={m.card} />
+              ) : (
+                <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
+                  <div
+                    className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[13px] leading-relaxed ${
+                      m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
                 </div>
-              </div>
-            ),
-          )}
-        </div>
-      )}
-      {/* #21 · the reflection card shelf + any AI-proposed chip. Reflecting on a
-          card runs a coach turn (reflectProjectCard, surface="reflection") whose
-          student turn + AI reply drop into this same thread. Hidden once the
-          student marks her reflection done (locked). */}
-      {!locked && !sending && (
-        <div className="mt-3">
-          <CoachCardPanel
-            projectId={projectId}
-            proposal={cardProposal}
-            onProposalConsumed={() => setCardProposal(null)}
-            onReflected={(studentText, reply, card) =>
-              setChat((c) => [
-                ...c,
-                // Card turn → content-first chip; fall back to raw text if the
-                // server didn't echo a card.
-                ...(card
-                  ? [{ role: "student" as const, text: studentText, card }]
-                  : studentText
-                    ? [{ role: "student" as const, text: studentText }]
-                    : []),
-                ...(reply ? [{ role: "ai" as const, text: reply }] : []),
-              ])
-            }
-            surface="reflection"
-            deck={REFLECTION_DECK}
-          />
-        </div>
-      )}
+              ),
+            )}
+          </div>
+        )}
+        {/* #21 · the reflection card shelf + any AI-proposed chip. Reflecting on a
+            card runs a coach turn (reflectProjectCard, surface="reflection") whose
+            student turn + AI reply drop into this same thread. Hidden once the
+            student marks her reflection done (locked). */}
+        {!locked && !sending && (
+          <div className="mt-3">
+            <CoachCardPanel
+              projectId={projectId}
+              proposal={cardProposal}
+              onProposalConsumed={() => setCardProposal(null)}
+              onReflected={(studentText, reply, card) =>
+                setChat((c) => [
+                  ...c,
+                  // Card turn → content-first chip; fall back to raw text if the
+                  // server didn't echo a card.
+                  ...(card
+                    ? [{ role: "student" as const, text: studentText, card }]
+                    : studentText
+                      ? [{ role: "student" as const, text: studentText }]
+                      : []),
+                  ...(reply ? [{ role: "ai" as const, text: reply }] : []),
+                ])
+              }
+              surface="reflection"
+              deck={REFLECTION_DECK}
+            />
+          </div>
+        )}
+      </div>
       {!locked && (
-        <div className="mt-3 flex gap-2">
+        <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void send()}
             placeholder="卡在哪一题？说说你的初步想法，我陪你理清——但话得你自己写"
-            className="flex-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary"
+            className="flex-1 rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
           />
           <button
             type="button"
             onClick={() => void send()}
             disabled={sending}
-            className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white transition hover:bg-mk-primary-hover disabled:opacity-50"
+            className="flex-none rounded-mk bg-mk-primary px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-50"
           >
             问印记
           </button>
         </div>
       )}
-    </section>
+    </aside>
   );
 }
 

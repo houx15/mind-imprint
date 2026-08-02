@@ -152,3 +152,33 @@ describe("ReviewBlock · mutual reflection ordering (#21)", () => {
     expect(screen.getByRole("button", { name: /元认知/ })).toBeInTheDocument();
   });
 });
+
+// Q4 followup (2026-08): the right sidebar is the ACTIVE coach while she's
+// editing — "印记陪你把回顾写完" + the reflection cards + 问印记 chat all live
+// there (not buried at the bottom of the left column) — and it becomes the
+// mirror ("你的思维印记") only once she's marked her own reflection done.
+describe("ReviewBlock · Q4 coach-then-mirror right sidebar", () => {
+  it("shows the coach (not the mirror) in the sidebar while editing, then swaps to the mirror after 我写完了我的反思", async () => {
+    mockGetMirror.mockResolvedValue(null);
+    mockPostMirror.mockResolvedValue(MIRROR);
+
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    await screen.findByText(/12 轮对话/);
+
+    // during editing: the coach heading + chat input are visible, the mirror
+    // heading/compose is NOT
+    expect(screen.getByText("印记陪你把回顾写完")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/卡在哪一题/)).toBeInTheDocument();
+    expect(screen.queryByText("你的思维印记")).toBeNull();
+    expect(mockPostMirror).not.toHaveBeenCalled();
+
+    // step (a): mark her own reflection done
+    await userEvent.click(screen.getByRole("button", { name: /我写完了我的反思/ }));
+    await waitFor(() => expect(mockPutReflection).toHaveBeenCalledWith("p1", { answers: expect.any(Array), done: true }));
+
+    // now the sidebar swaps: mirror shows, coach thread is gone
+    expect(await screen.findByText("你的思维印记")).toBeInTheDocument();
+    expect(screen.queryByText("印记陪你把回顾写完")).toBeNull();
+    await waitFor(() => expect(mockPostMirror).toHaveBeenCalledWith("p1"));
+  });
+});

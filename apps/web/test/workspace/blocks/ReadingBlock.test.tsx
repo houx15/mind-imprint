@@ -94,6 +94,28 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
   });
 });
 
+// Q3 followup (2026-08): 探索图谱 has no reference-preview sidebar (unlike
+// 列表), so the "找资料" coach docks as a permanent, always-visible right
+// column there instead of hiding behind a floating chip. 列表 keeps the old
+// floating-chip behavior since its Preview column already occupies that space.
+describe("ReadingBlock · Q3 docked coach in 探索图谱", () => {
+  it("docks the 找资料 coach as a visible right column in 探索图谱 (not a floating chip)", async () => {
+    render(<ReadingBlock projectId="q3-graph" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    // docked: visible by default — no floating chip is needed to open it
+    expect(await screen.findByText("印记 · 找资料")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).toBeNull();
+  });
+
+  it("keeps the coach as a floating chip in 列表 (reference-preview sidebar intact)", async () => {
+    render(<ReadingBlock projectId="q3-list" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    // list view: the floating chip is the only way to open the coach
+    expect(await screen.findByRole("button", { name: /问印记 · 找资料/ })).toBeInTheDocument();
+  });
+});
+
 // #3 · when the library is empty, the coach greeting ACKNOWLEDGES the known
 // project topic (a static interpolated string — no model call) instead of asking
 // for it, and the empty-state copy names the topic too.
