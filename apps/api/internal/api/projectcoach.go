@@ -68,11 +68,16 @@ type coachProposalDTO struct {
 // to the set of surfaces whose CLIENT renders the CoachProposal chip (PlanBlock
 // forming + ReadingBlock library + WritingBlock), else the server would spend a
 // classify call + record a coach_proposed event for an offer no student sees.
+// Slice 5 (#21): reflection joins the set — while the student fills her OWN
+// reflection, the coach may offer a review/reflection card (ReviewBlock now
+// renders the CoachProposal chip + a REFLECTION_DECK shelf, keeping the gate
+// equal to the client-renders-chip set).
 var coachProposeSurfaces = map[string]bool{
 	"writing":         true,
 	"forming":         true,
 	"proposal_review": true,
 	"find_sources":    true,
+	"reflection":      true,
 }
 
 // coachCardProposal decides whether to OFFER a student card on this coach turn.

@@ -18,5 +18,9 @@ export const WorkspaceProjection = z.object({
   // RFC3339 project creation time — anchors the plan timeline to calendar dates
   // (#14). Optional so older mocks without it still parse; client falls back to now.
   createdAt: z.string().optional(),
+  // #20 · the 完成写作 milestone: true once the draft is locked read-only and the
+  // 回顾 room is unlocked. Drives WritingBlock's read-only lock + ReviewBlock's
+  // view-only gate. Optional (defaults false) so older mocks/responses still parse.
+  writingFinished: z.boolean().optional().default(false),
 });
 export type WorkspaceProjection = z.infer<typeof WorkspaceProjection>;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
+import { finishWriting, reopenWriting } from "../../api/projects";
 import { ApiError } from "../../api/client";
 import { getExploration } from "../../api/exploration";
 import { exportDraftDocx } from "../export";
@@ -94,13 +95,21 @@ export function WritingBlock({
   title,
   proposal,
   status,
+  writingFinished,
   onOpenRoom,
+  refreshWorkspace,
 }: {
   projectId: string;
   title: string;
   proposal: Proposal;
   status: ProjectStatus;
+  // #20 · the 完成写作 milestone — draft is read-only once true. Separate from
+  // status (evaluating/done terminally lock too).
+  writingFinished: boolean;
   onOpenRoom: (room: BlockKey) => void;
+  // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
+  // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
+  refreshWorkspace: () => Promise<void> | void;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -117,11 +126,46 @@ export function WritingBlock({
     setTab("draft");
     setPendingReview({ scope, voice: v });
   }
-  // #5 · 写完了 is a guarded moment. Clicking it opens a confirm modal before
-  // routing to the reflection room to finish. Once the project is archived
-  // (评估中 / 已完成) the draft is read-only — the true point of no return.
+  // #5/#20 · 完成写作 is a guarded moment. Clicking it opens a confirm modal;
+  // confirming locks the draft read-only (writing_finished_at) AND routes to 回顾
+  // (which only unlocks once writing is finished). Reversible via 重新打开写作
+  // until the project is archived. Once archived (评估中 / 已完成) the draft is
+  // terminally read-only — the true point of no return.
   const [showFinishModal, setShowFinishModal] = useState(false);
-  const locked = status === "evaluating" || status === "done";
+  const [finishingWriting, setFinishingWriting] = useState(false);
+  const [finishWritingError, setFinishWritingError] = useState<string | null>(null);
+  // archived = the terminal finalize path has begun (can't reopen writing then).
+  const archived = status === "evaluating" || status === "done";
+  const locked = archived || writingFinished;
+
+  // #20 · confirm → lock the draft → go to 回顾. finishWriting is idempotent;
+  // 422 draft_empty when there's nothing written yet.
+  async function doFinishWriting() {
+    if (finishingWriting) return;
+    setFinishingWriting(true);
+    setFinishWritingError(null);
+    try {
+      await finishWriting(projectId);
+      await refreshWorkspace();
+      onOpenRoom("reflection");
+    } catch (e) {
+      setFinishWritingError(
+        e instanceof ApiError ? e.message || "还不能完成写作，请稍后再试。" : "刚才没接上，稍等再试一次。",
+      );
+    } finally {
+      setFinishingWriting(false);
+    }
+  }
+
+  // #20 (铁律②) · reopen — reversible until the project is archived.
+  async function doReopenWriting() {
+    try {
+      await reopenWriting(projectId);
+      await refreshWorkspace();
+    } catch {
+      /* best-effort; the affordance stays and can be retried */
+    }
+  }
   // #9 · the materials sidebar (any tab) places a fragment into the draft at the
   // caret. DraftPane registers its inserter here on mount; the sidebar calls it
   // only when 正文 is active (so DraftPane is mounted and the ref is set).
@@ -156,10 +200,16 @@ export function WritingBlock({
         <span className="flex-none rounded-full bg-mk-accent-tint px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
         <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
         <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-primary">看开题 →</button>
-        {locked ? (
+        {archived ? (
           <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary">已归档 · 看回顾 →</button>
+        ) : writingFinished ? (
+          <>
+            {/* #20 · reversible — 重新打开写作 unlocks the draft again (铁律②). */}
+            <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="重新打开写作，继续修改初稿">重新打开写作</button>
+            <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover">去回顾 →</button>
+          </>
         ) : (
-          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover">写完了</button>
+          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
         )}
       </div>
 
@@ -210,16 +260,19 @@ export function WritingBlock({
         />
       </div>
 
-      {/* #5 · 写完了 confirm — the first guarded moment. Finishing means the piece
-          heads to 回顾 to wrap up; once you 归档 there, 正文与回顾都会锁定、不能再改，
-          并生成过程评估。 */}
+      {/* #5/#20 · 完成写作 confirm — the first guarded moment. Confirming LOCKS the
+          draft read-only and unlocks 回顾. Reversible via 重新打开写作 until you 归档
+          there, at which point 正文与回顾都会锁定、不能再改，并生成过程评估。 */}
       {showFinishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
-            <h2 className="font-sans text-[18px] font-bold text-mk-ink">写完了？</h2>
+            <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-              接下来去<span className="font-bold text-mk-ink">回顾</span>收尾。回顾完成并<span className="font-bold text-mk-ink">归档</span>后，正文与回顾都会<span className="font-bold text-mk-accent">锁定、无法再修改</span>，并生成过程评估。现在还可以回来改。
+              点「完成写作」会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
             </p>
+            {finishWritingError && (
+              <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{finishWritingError}</p>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
@@ -230,10 +283,11 @@ export function WritingBlock({
               </button>
               <button
                 type="button"
-                onClick={() => { setShowFinishModal(false); onOpenRoom("reflection"); }}
-                className="rounded-mk bg-mk-primary px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-primary-hover"
+                disabled={finishingWriting}
+                onClick={() => { setShowFinishModal(false); void doFinishWriting(); }}
+                className="rounded-mk bg-mk-primary px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-primary-hover disabled:opacity-50"
               >
-                去回顾 →
+                {finishingWriting ? "锁定中……" : "完成写作，去回顾 →"}
               </button>
             </div>
           </div>

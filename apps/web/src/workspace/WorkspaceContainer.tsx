@@ -256,7 +256,9 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
                 title={workspace.title}
                 proposal={workspace.proposal}
                 status={workspace.status}
+                writingFinished={workspace.writingFinished ?? false}
                 onOpenRoom={setRoom}
+                refreshWorkspace={refreshWorkspace}
               />
             )}
             {room === "reflection" && (
@@ -264,6 +266,9 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
                 key={projectId}
                 projectId={projectId}
                 proposal={workspace.proposal}
+                status={workspace.status}
+                writingFinished={workspace.writingFinished ?? false}
+                onOpenRoom={setRoom}
                 onFinished={backToAll}
               />
             )}

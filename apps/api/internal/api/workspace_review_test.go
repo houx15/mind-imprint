@@ -264,6 +264,9 @@ func TestFinishGate_ReflectionDoneThenAssessment(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	pid := materialsTestProjectID
 
+	// Satisfy the #20 writing gate so the reflection gate is the one under test.
+	markWritingFinished(t, pool, pid)
+
 	// Finish before reflection done → 422 reflection_not_done.
 	recBlocked := httptest.NewRecorder()
 	h.ServeHTTP(recBlocked, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+pid+"/finish", strings.NewReader("")), cookie))

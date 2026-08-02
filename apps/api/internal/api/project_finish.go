@@ -58,6 +58,18 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Gate guard (Slice 5 · #20): writing must be finished (完成写作) before the
+	// project can be finalized — the two-stage 写作→回顾 flow archives only after
+	// the draft is locked. Defensive: the UI already gates 定稿 behind 完成写作,
+	// but never trust the client.
+	if !proj.WritingFinishedAt.Valid {
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status: http.StatusUnprocessableEntity, Code: "writing_not_finished",
+			Message: "先在写作房间完成写作，再定稿评估",
+		})
+		return
+	}
+
 	// Gate guard (Slice 5): the student must have finished their own reflection
 	// (完成回顾) before the project archives. Never trust the client — read the
 	// reflection row server-side. No row, or done=false → not yet.

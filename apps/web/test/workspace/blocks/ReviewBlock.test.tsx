@@ -3,7 +3,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // S5 · the review room's AI-use retrospective panel + defense-readiness coach
-// thread. Mock the thin api modules ReviewBlock calls directly.
+// thread + (S5·#20/#21) the two-stage 写作→回顾 flow: view-only lock until writing
+// is finished, and the mirror only after the student finishes her own reflection.
 vi.mock("@/workspace/api/workspace", () => ({
   getReflection: vi.fn(async () => ({ answers: [], done: false })),
   putReflection: vi.fn(async () => ({ answers: [], done: false })),
@@ -13,17 +14,31 @@ vi.mock("@/workspace/api/workspace", () => ({
   postAIUse: vi.fn(async (_id: string, s: unknown) => s),
   coach: vi.fn(),
   getCoachHistory: vi.fn(async () => []),
+  // used by the #21 reflection card shelf (CoachCardPanel)
+  reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
+  persistProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1" })),
+  dismissProposal: vi.fn(async () => {}),
 }));
-vi.mock("../../api/projects", () => ({ finishProject: vi.fn(async () => ({})) }));
+vi.mock("@/api/projects", () => ({ finishProject: vi.fn(async () => ({ status: "evaluating" })) }));
 
-import { getAIUseDraft, postAIUse, coach } from "@/workspace/api/workspace";
+import { getAIUseDraft, postAIUse, coach, getMirror, postMirror, putReflection } from "@/workspace/api/workspace";
+import { finishProject } from "@/api/projects";
 import { ReviewBlock } from "@/workspace/blocks/ReviewBlock";
 
 const mockDraft = vi.mocked(getAIUseDraft);
 const mockPostAIUse = vi.mocked(postAIUse);
 const mockCoach = vi.mocked(coach);
+const mockGetMirror = vi.mocked(getMirror);
+const mockPostMirror = vi.mocked(postMirror);
+const mockPutReflection = vi.mocked(putReflection);
+const mockFinishProject = vi.mocked(finishProject);
 
 const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "关心气候", activities: "读 NASA/Nature", resources: "Zotero" };
+
+const MIRROR = {
+  sections: [{ title: "你怎么想的", body: "你从溯源开始，撞上反例后做了让步。" }],
+  carryForwards: ["下次先找反例", "把结论接回原题"],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,7 +60,7 @@ beforeEach(() => {
 
 describe("ReviewBlock · AI-use retrospective (S5)", () => {
   it("renders the objective record + seeded statement and saves the student's edit", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} />);
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
 
     // objective record line (the absences included)
     expect(await screen.findByText(/12 轮对话/)).toBeInTheDocument();
@@ -64,7 +79,7 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
   });
 
   it("defense-readiness thread sends a reflection-scope coach turn", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} />);
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/); // wait for mount loads
 
     await userEvent.type(screen.getByPlaceholderText(/想让印记追问哪一处/), "我的结论是不是太弱了");
@@ -74,5 +89,66 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
       expect(mockCoach).toHaveBeenCalledWith("p1", "reflection", "我的结论是不是太弱了");
     });
     expect(await screen.findByText(/你先自己答/)).toBeInTheDocument();
+  });
+});
+
+describe("ReviewBlock · view-only lock before 完成写作 (#20)", () => {
+  it("locks the room until writing is finished — no AI-use seed, no mirror, no finish", async () => {
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={false} onOpenRoom={() => {}} />);
+
+    // the lock notice + a route to the writing room
+    expect(await screen.findByText(/先在写作房间点「完成写作」/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /去写作房间/ })).toBeInTheDocument();
+
+    // reflection textareas are read-only outline
+    const areas = screen.getAllByPlaceholderText(/完成写作后在这里回顾/) as HTMLTextAreaElement[];
+    expect(areas.length).toBeGreaterThan(0);
+    areas.forEach((a) => expect(a).toBeDisabled());
+
+    // nothing composes / no finish path
+    expect(mockGetMirror).not.toHaveBeenCalled();
+    expect(mockPostMirror).not.toHaveBeenCalled();
+    expect(mockDraft).not.toHaveBeenCalled(); // AI-use draft not seeded
+    expect(screen.queryByRole("button", { name: /我写完了我的反思/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /定稿并开始评估/ })).toBeNull();
+    // the mirror pane shows the "you first, AI after" note (no compose)
+    expect(screen.getByText(/你先说，AI 后照/)).toBeInTheDocument();
+  });
+});
+
+describe("ReviewBlock · mutual reflection ordering (#21)", () => {
+  it("composes the mirror only AFTER the student finishes her reflection, then gates 定稿", async () => {
+    mockGetMirror.mockResolvedValue(null);
+    mockPostMirror.mockResolvedValue(MIRROR);
+
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    await screen.findByText(/12 轮对话/);
+
+    // BEFORE marking her reflection done: no mirror compose, no 定稿 button
+    expect(mockPostMirror).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /定稿并开始评估/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /我写完了我的反思/ })).toBeInTheDocument();
+
+    // step (a): student marks HER reflection done
+    await userEvent.click(screen.getByRole("button", { name: /我写完了我的反思/ }));
+    await waitFor(() => expect(mockPutReflection).toHaveBeenCalledWith("p1", { answers: expect.any(Array), done: true }));
+
+    // NOW the mirror composes (AI reflects second)
+    await waitFor(() => expect(mockPostMirror).toHaveBeenCalledWith("p1"));
+    expect(await screen.findByText(/你从溯源开始/)).toBeInTheDocument();
+
+    // step (b): 定稿并评估 now available → finishProject
+    const finalize = await screen.findByRole("button", { name: /定稿并开始评估/ });
+    await userEvent.click(finalize);
+    await userEvent.click(screen.getByRole("button", { name: "定稿并评估" })); // confirm
+    await waitFor(() => expect(mockFinishProject).toHaveBeenCalledWith("p1"));
+  });
+
+  it("renders the reflection card shelf once unlocked (#21)", async () => {
+    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    await screen.findByText(/12 轮对话/);
+    // REFLECTION_DECK cards are summonable by the student
+    expect(await screen.findByRole("button", { name: /学习报告/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /元认知/ })).toBeInTheDocument();
   });
 });

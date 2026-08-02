@@ -232,7 +232,11 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 		t.Fatalf("draft buffer not persisted: %q", draft.Content)
 	}
 
-	// -- 7. Reflection-doc done → finish → assessment → growth/history -------
+	// -- 7. 完成写作 (#20) → reflection-doc done → finish → assessment ----------
+	// The two-stage 写作→回顾 flow: writing must be finished before finalize.
+	if r := doJSON(t, hCore, cookie, "POST", base+"/finish-writing", ""); r.Code != http.StatusOK {
+		t.Fatalf("POST finish-writing = %d, want 200: %s", r.Code, r.Body)
+	}
 	doOK(t, hCore, cookie, "PUT", base+"/reflection-doc",
 		`{"answers":["我学会了先收窄问题","读到的一手数据真的进了论证","下次动笔前先写一句 thesis","","反例让我把结论收紧了"],"done":true}`)
 

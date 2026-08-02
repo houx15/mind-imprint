@@ -388,15 +388,16 @@ type PlanItem struct {
 }
 
 type Project struct {
-	ID            uuid.UUID          `json:"id"`
-	UserID        uuid.UUID          `json:"user_id"`
-	Qualification string             `json:"qualification"`
-	Title         string             `json:"title"`
-	Deadline      pgtype.Timestamptz `json:"deadline"`
-	BoardCfgVer   int32              `json:"board_cfg_ver"`
-	Status        string             `json:"status"`
-	CreatedAt     time.Time          `json:"created_at"`
-	LastActiveAt  time.Time          `json:"last_active_at"`
+	ID                uuid.UUID          `json:"id"`
+	UserID            uuid.UUID          `json:"user_id"`
+	Qualification     string             `json:"qualification"`
+	Title             string             `json:"title"`
+	Deadline          pgtype.Timestamptz `json:"deadline"`
+	BoardCfgVer       int32              `json:"board_cfg_ver"`
+	Status            string             `json:"status"`
+	CreatedAt         time.Time          `json:"created_at"`
+	LastActiveAt      time.Time          `json:"last_active_at"`
+	WritingFinishedAt pgtype.Timestamptz `json:"writing_finished_at"`
 }
 
 type ProjectAiUse struct {

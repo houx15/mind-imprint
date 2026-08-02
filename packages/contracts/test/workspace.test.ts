@@ -21,4 +21,8 @@ describe("WorkspaceProjection", () => {
   it("rejects an unknown status", () => {
     expect(() => WorkspaceProjection.parse({ ...wire, status: "archived" })).toThrow();
   });
+  it("#20 · defaults writingFinished to false when absent, and parses it when present", () => {
+    expect(WorkspaceProjection.parse(wire).writingFinished).toBe(false);
+    expect(WorkspaceProjection.parse({ ...wire, writingFinished: true }).writingFinished).toBe(true);
+  });
 });

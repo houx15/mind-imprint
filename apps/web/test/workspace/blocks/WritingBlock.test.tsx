@@ -22,12 +22,20 @@ vi.mock("@/api/writing", () => ({
 }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
+vi.mock("@/api/projects", () => ({
+  finishWriting: vi.fn(async () => ({ writingFinished: true })),
+  reopenWriting: vi.fn(async () => ({ writingFinished: false })),
+}));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
 import { ApiError } from "@/api/client";
 import { coach, getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
+import { finishWriting, reopenWriting } from "@/api/projects";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
+
+const mockFinishWriting = vi.mocked(finishWriting);
+const mockReopenWriting = vi.mocked(reopenWriting);
 
 // WC · M1 — the caret-fallback paragraph math. Real separator offsets, no drift.
 describe("paragraphAtCaret (WC · M1)", () => {
@@ -64,7 +72,7 @@ beforeEach(() => {
 });
 
 async function openDraftTab() {
-  render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+  render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
   await userEvent.click(screen.getByRole("button", { name: "正文" }));
   const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
   // getDraft resolves async — wait for the persisted draft to populate.
@@ -100,18 +108,35 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await waitFor(() => expect(mockExport).toHaveBeenCalledWith(ta.value, expect.objectContaining({ title: "T" })));
   });
 
-  it("写完了 opens a confirm modal that routes to Review (WB · #5)", async () => {
+  it("完成写作 opens a confirm modal that locks the draft then routes to Review (WB · #20)", async () => {
     const onOpenRoom = vi.fn();
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={onOpenRoom} />);
-    await userEvent.click(screen.getByRole("button", { name: "写完了" }));
-    // it's a guarded moment — the modal shows, it doesn't route immediately
+    const refresh = vi.fn(async () => {});
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={refresh} onOpenRoom={onOpenRoom} />);
+    await userEvent.click(screen.getByRole("button", { name: "完成写作" }));
+    // it's a guarded moment — the modal shows, it doesn't lock/route immediately
+    expect(mockFinishWriting).not.toHaveBeenCalled();
     expect(onOpenRoom).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: /去回顾/ }));
+    await userEvent.click(screen.getByRole("button", { name: /完成写作，去回顾/ }));
+    await waitFor(() => expect(mockFinishWriting).toHaveBeenCalledWith("p1"));
+    expect(refresh).toHaveBeenCalled();
     expect(onOpenRoom).toHaveBeenCalledWith("reflection");
   });
 
+  it("writingFinished shows read-only draft + 重新打开写作 (WB · #20)", async () => {
+    const refresh = vi.fn(async () => {});
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={true} refreshWorkspace={refresh} onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.value.length).toBeGreaterThan(0));
+    expect(ta).toHaveAttribute("readonly");
+    // reversible (铁律②): 重新打开写作 clears the milestone
+    await userEvent.click(screen.getByRole("button", { name: "重新打开写作" }));
+    await waitFor(() => expect(mockReopenWriting).toHaveBeenCalledWith("p1"));
+    expect(refresh).toHaveBeenCalled();
+  });
+
   it("archived project renders the draft read-only, no 体检 (WB · #5 lock)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "正文" }));
     const ta = (await screen.findByPlaceholderText(/在这里写你的草稿/)) as HTMLTextAreaElement;
     await waitFor(() => expect(ta.value.length).toBeGreaterThan(0));
@@ -155,7 +180,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   });
 
   it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // #8 · the writing-card shelf is open by default in the always-present rail
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
@@ -184,7 +209,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   });
 
   it("mind map grows from the keyboard: Enter adds a sibling, Tab adds a child (#11)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // the outline tab is default; switch its inner view to the mind map
     await userEvent.click(screen.getByRole("button", { name: "思维导图" }));
     const nodeInputs = () => screen.getAllByPlaceholderText(/回车加同级/);
@@ -239,7 +264,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   it("片段 board: the live outline is not auto-rendered as a section (#6)", async () => {
     vi.mocked(getOutline).mockResolvedValueOnce([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
     vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     await screen.findByText("我的片段");
     expect(screen.queryByText("背景与主张")).toBeNull();
@@ -256,7 +281,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // A distinct projectId — the imported-section set is a per-project client
     // memory (importedSectionsMemo) that outlives this render, so a shared
     // "p1" would leak "背景与主张" into every later test using that id.
-    render(<WritingBlock projectId="p-outline-import" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p-outline-import" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // the main 片段 tab (the sidebar also has a 片段 source tab) — the workspace tab comes first in DOM.
     // Switching off 大纲 first also unmounts OutlinePane's own list/思维导图 toggle
     // (which is ALSO labeled "大纲"), so the sidebar's "大纲" source tab becomes
@@ -297,7 +322,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   // #9 · a snippet defaults to a read view; only double-click opens edit mode.
   it("片段 board: a snippet defaults to a read view; double-click edits, ✓ leaves edit mode (item A)", async () => {
     vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     const readView = await screen.findByText("我的片段");
     // read mode: no textarea holds this value yet
@@ -311,7 +336,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   });
 
   it("片段 board: 「+ 在此加片段」opens the new blank row in edit mode immediately (item A)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     await userEvent.click(await screen.findByRole("button", { name: "+ 在此加片段" }));
     const ta = await screen.findByPlaceholderText("写下或粘贴一个片段……");
@@ -322,7 +347,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   // offers 收进片段 as an explicit action — never a silent labeled-value dump.
   it("finishing a writing card reflects to the coach first, then offers 收进片段 as a full paragraph (item C)", async () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "ci1", reply: "这个主张已经很清楚了。" });
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
     const claimField = await screen.findByLabelText("你要论证的核心判断，用一句话说清。");
@@ -351,7 +376,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
 
   it("an empty writing card is a no-op: no chat turn, no 收进片段 offer (item C)", async () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "", reply: "" });
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
     await userEvent.click(toulmin);
     await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
@@ -363,7 +388,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   // hide it), writing cards under 正文 + the four examiner voices under
   // 正文·检查, reachable from ANY tab (the rail is a tab-sibling of the draft).
   it("the persistent tool shelf is always visible from any tab — no ＋ toggle (item A)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // still on the default 大纲 tab — the rail's shelf shows regardless
     expect(await screen.findByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
     expect(screen.getByText(/正文·检查/)).toBeInTheDocument();
@@ -376,7 +401,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   });
 
   it("a shelf voice button runs a whole-draft 体检 from any tab, switching to 正文 to show it (item A)", async () => {
-    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
     // still on 大纲 — click 质疑者 in the persistent shelf, no scoped paragraph pinned
     await userEvent.click(await screen.findByRole("button", { name: "质疑者" }));
     await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.stringContaining("我的草稿第一段"), "sceptic"));

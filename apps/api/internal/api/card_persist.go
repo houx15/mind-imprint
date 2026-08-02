@@ -50,10 +50,23 @@ var studioDeckCards = map[string]bool{
 	"search-plan":        true, // 检索方向审视 — plan the search
 }
 
+// reflectionDeckCards is the allowlist of review/reflection cards the STUDENT
+// may summon from the 回顾 (reflection) card shelf (#21 · REFLECTION_DECK).
+// Persisted + reflected the same way — a completed card_instance + event, then a
+// coach turn that responds to what she wrote — so 印记 supports her OWN
+// reflection without writing it (铁律①). These help her look back on her
+// thinking; they are NOT the AI's mirror (that stays gated behind 完成回顾).
+var reflectionDeckCards = map[string]bool{
+	"learning-report":    true, // 学习报告 — what she learned, in her words
+	"metacognition":      true, // 元认知 — how her thinking changed
+	"knower-perspective": true, // 认知者视角 — how who she is shaped what she saw
+}
+
 // persistableCard reports whether card_id may be persisted through the generic
-// path — an AI-proposable card, a writing-deck card, or a phase-deck card.
+// path — an AI-proposable card, a writing-deck card, a phase-deck card, or a
+// reflection-deck card.
 func persistableCard(id string) bool {
-	return coachProposableCards[id] || writingDeckCards[id] || studioDeckCards[id]
+	return coachProposableCards[id] || writingDeckCards[id] || studioDeckCards[id] || reflectionDeckCards[id]
 }
 
 // persistProjectCardEnvelope creates → submits → completes a project-scoped

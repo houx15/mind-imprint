@@ -139,6 +139,10 @@ type workspaceProjection struct {
 	// CreatedAt (RFC3339) anchors the plan timeline to real calendar dates —
 	// the Gantt date axis + today-line and the Kanban date markers (#14).
 	CreatedAt string `json:"createdAt"`
+	// WritingFinished (#20) — the 完成写作 milestone: true once the draft is locked
+	// read-only and the 回顾 room is unlocked. Both rooms read it (WritingBlock's
+	// read-only lock; ReviewBlock's view-only gate).
+	WritingFinished bool `json:"writingFinished"`
 }
 
 // getProject returns the lean WorkspaceProjection for one project.
@@ -175,11 +179,12 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		hasPlan = true
 	}
 	httpx.WriteJSON(w, http.StatusOK, workspaceProjection{
-		ID:            p.ID.String(),
-		Title:         p.Title,
-		Qualification: p.Qualification,
-		Proposal:      prop,
-		Status:        displayStatus(p.Status, hasProposal, hasPlan),
-		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
+		ID:              p.ID.String(),
+		Title:           p.Title,
+		Qualification:   p.Qualification,
+		Proposal:        prop,
+		Status:          displayStatus(p.Status, hasProposal, hasPlan),
+		CreatedAt:       p.CreatedAt.Format(time.RFC3339),
+		WritingFinished: p.WritingFinishedAt.Valid,
 	})
 }

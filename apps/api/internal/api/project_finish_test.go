@@ -36,6 +36,15 @@ func markReflectionDone(t *testing.T, pool *pgxpool.Pool, projectID string) {
 	}
 }
 
+// markWritingFinished sets the 完成写作 milestone (Slice 5 · #20) so the finish
+// gate (writing must be finished before finalize) is satisfied.
+func markWritingFinished(t *testing.T, pool *pgxpool.Pool, projectID string) {
+	t.Helper()
+	if err := sqlc.New(pool).SetProjectWritingFinished(context.Background(), mustUUID(projectID)); err != nil {
+		t.Fatalf("mark writing finished: %v", err)
+	}
+}
+
 // assertProjectStatus reads the project row directly and fails the test if
 // its status doesn't match want — used to confirm the one-time guard (a
 // rejected report leaves the project 'active'; a successful one flips it to
@@ -99,6 +108,9 @@ func TestFinishProject_ReflectionNotDone(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	projectID := materialsTestProjectID
 
+	// Satisfy the writing gate so the reflection gate is the one that fires.
+	markWritingFinished(t, pool, projectID)
+
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
 	h.ServeHTTP(rec, req)
@@ -133,6 +145,7 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	projectID := materialsTestProjectID
 
 	markReflectionDone(t, pool, projectID)
+	markWritingFinished(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
@@ -238,6 +251,7 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 	projectID := materialsTestProjectID
 
 	markReflectionDone(t, pool, projectID)
+	markWritingFinished(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
@@ -283,6 +297,7 @@ func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
 	projectID := materialsTestProjectID
 
 	markReflectionDone(t, pool, projectID)
+	markWritingFinished(t, pool, projectID)
 
 	rec := httptest.NewRecorder()
 	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
