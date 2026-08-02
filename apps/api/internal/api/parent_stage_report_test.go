@@ -77,13 +77,23 @@ func seedStageStudent(t *testing.T, pool *pgxpool.Pool, h http.Handler, teacherE
 			t.Fatalf("append prompt_sent: %v", err)
 		}
 	}
-	// event.course_id has an FK to course(id); use a real seeded course —
+	// event.course_id has an FK to course(id). Migration 0050 (course v2)
+	// deleted every pre-existing seeded course row (`DELETE FROM course`), so
+	// there is no longer a course guaranteed to exist — upsert a throwaway one
+	// purely to satisfy the FK; its content is irrelevant, only its id.
 	// distinctness for course_steps is by (course,ordinal), not which course.
-	courses, cerr := q.ListCourses(context.Background())
-	if cerr != nil || len(courses) == 0 {
-		t.Fatalf("list courses: %v (len=%d)", cerr, len(courses))
+	if _, err := q.UpsertCourse(context.Background(), sqlc.UpsertCourseParams{
+		Slug: "parent-stage-report-fixture", Branch: "A", Title: "t", Blurb: "b",
+		TimeLabel: "5 分钟", CardIds: []string{}, StepCount: 1,
+		Structure: []byte(`{}`), RenderCache: []byte(`{}`),
+	}); err != nil {
+		t.Fatalf("upsert fixture course: %v", err)
 	}
-	courseID := pgtype.UUID{Bytes: courses[0].ID, Valid: true}
+	course, cerr := q.GetCourseBySlug(context.Background(), "parent-stage-report-fixture")
+	if cerr != nil {
+		t.Fatalf("get fixture course: %v", cerr)
+	}
+	courseID := pgtype.UUID{Bytes: course.ID, Valid: true}
 	for _, ord := range []string{"1", "2"} {
 		if _, err := q.AppendEvent(context.Background(), sqlc.AppendEventParams{
 			UserID:   student,

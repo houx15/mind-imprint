@@ -5,6 +5,20 @@ const (
 	skipCooldownTurns      = 3
 )
 
+// containsStr is a tiny linear membership check — kept here (its only
+// remaining caller) after course_step.go's retirement (Task 5, course v2:
+// migration 0050 dropped the course_session/course_step tables the old
+// CourseStore-backed runtime needed; nothing in the course v2 surface uses
+// this pacing-gate helper).
+func containsStr(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
+
 // OrderingGuard is the source-check ordering prior, derived from the graph by
 // the caller (Task 5) using SurfaceCardCandidates' rules: don't summon SIFT
 // before the material has a CRAAP evaluation; don't summon CRAAP on a material

@@ -47,3 +47,14 @@ ON CONFLICT (user_id, course_id) DO UPDATE SET
   completed_at = COALESCE(EXCLUDED.completed_at, course_progress.completed_at),
   updated_at = now()
 RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at;
+
+-- name: FinishedCourseIDsByUser :many
+-- Task 5 addition: cards_catalog.go's proficiency computation ("which
+-- courses has this student finished") needs this and it was dropped by
+-- Task 3 with no v2 replacement ("no v2 replacement asked for" — it used to
+-- read course_session.status='finished', a table migration 0050 removed).
+-- Ported to the v2 schema: a course is finished when course_progress.
+-- completed_at is set (SaveProgress sets it exactly when the student's
+-- current_ordinal reaches the last authored step — see coursestore.go).
+SELECT DISTINCT course_id FROM course_progress
+WHERE user_id = $1 AND completed_at IS NOT NULL;

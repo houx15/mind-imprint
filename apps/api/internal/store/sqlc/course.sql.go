@@ -258,3 +258,31 @@ func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProg
 	)
 	return i, err
 }
+
+const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
+SELECT DISTINCT course_id FROM course_progress
+WHERE user_id = $1 AND completed_at IS NOT NULL
+`
+
+// Task 5 addition (hand-edited, sqlc not run): ports the pre-v2
+// FinishedCourseIDsByUser (course_session.status='finished') onto
+// course_progress.completed_at IS NOT NULL — see course.sql's comment.
+func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, finishedCourseIDsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var courseID uuid.UUID
+		if err := rows.Scan(&courseID); err != nil {
+			return nil, err
+		}
+		items = append(items, courseID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

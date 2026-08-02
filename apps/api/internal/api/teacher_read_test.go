@@ -429,93 +429,17 @@ func TestStudentReportProjectHappyPath(t *testing.T) {
 	}
 }
 
-// TestStudentReportCourseHappyPathAndCrossOwner — a course report round-trips
-// as core-only (officialProjection null, empty context); a correct
-// surface+scopeId that belongs to a DIFFERENT student 404s (closes the
-// untested course ownership guard).
-func TestStudentReportCourseHappyPathAndCrossOwner(t *testing.T) {
-	pool := newAPITestPool(t)
-	h := New(DepsForTest(pool)).Handler()
-	q := mustNewQueries(pool)
-
-	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "sr-course-teacher@demo.local"))
-	classID := createClassViaAPI(t, h, teacher, "Student Report Course Class")
-
-	studentID := createStudent(t, pool, SeedSchoolID, "sr-course-student@demo.local")
-	enrollStudent(t, pool, studentID, classID)
-
-	session, err := q.CreateCourseSession(context.Background(), sqlc.CreateCourseSessionParams{
-		UserID: studentID, CourseID: uuid.MustParse(seededCourseID), SkillID: "info-literacy-course", Phase: "demonstrate",
-	})
-	if err != nil {
-		t.Fatalf("create course session: %v", err)
-	}
-	report := agent.Report{
-		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L2"}},
-		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 2, Opportunity: "given_taken"}},
-	}
-	scores, err := json.Marshal(report)
-	if err != nil {
-		t.Fatalf("marshal report: %v", err)
-	}
-	if _, err := q.InsertSessionEvaluation(context.Background(), sqlc.InsertSessionEvaluationParams{
-		SessionID: pgtype.UUID{Bytes: session.ID, Valid: true},
-		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
-	}); err != nil {
-		t.Fatalf("insert session evaluation: %v", err)
-	}
-
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest(
-		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/course/"+session.ID.String(), nil,
-	), teacher))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("course report got %d body=%s", rec.Code, rec.Body)
-	}
-	var resp teacherReportForTest
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v — body=%s", err, rec.Body)
-	}
-	if resp.Report.OfficialProjection != nil {
-		t.Fatalf("officialProjection should be null for a course report: %+v", resp.Report.OfficialProjection)
-	}
-	if resp.Context.ProjectTitle != "" || resp.Context.ResearchQuestion != "" {
-		t.Fatalf("context should be empty for a course report: %+v", resp.Context)
-	}
-	// FIX 5: context.title is populated from the course's title even though
-	// this surface has no project framing.
-	if resp.Context.Title != "一条网络信息，该不该信" {
-		t.Fatalf("context.title = %q, want the seeded course's title", resp.Context.Title)
-	}
-	// FIX 1: badges are populated on every surface, not just project.
-	if resp.Context.DBadge != "L2" || resp.Context.ABadge != "2.0" {
-		t.Fatalf("context badges = dBadge=%q aBadge=%q, want L2/2.0", resp.Context.DBadge, resp.Context.ABadge)
-	}
-
-	// Cross-owner: a DIFFERENT student's course session, addressed via the
-	// authorized student's path — the scope-ownership JOIN must reject it.
-	otherStudentID := createStudent(t, pool, SeedSchoolID, "sr-course-other@demo.local")
-	otherSession, err := q.CreateCourseSession(context.Background(), sqlc.CreateCourseSessionParams{
-		UserID: otherStudentID, CourseID: uuid.MustParse(seededCourseID), SkillID: "info-literacy-course", Phase: "demonstrate",
-	})
-	if err != nil {
-		t.Fatalf("create other course session: %v", err)
-	}
-	if _, err := q.InsertSessionEvaluation(context.Background(), sqlc.InsertSessionEvaluationParams{
-		SessionID: pgtype.UUID{Bytes: otherSession.ID, Valid: true},
-		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
-	}); err != nil {
-		t.Fatalf("insert other session evaluation: %v", err)
-	}
-
-	rec2 := httptest.NewRecorder()
-	h.ServeHTTP(rec2, withCookie(httptest.NewRequest(
-		"GET", "/api/v1/classes/"+classID+"/students/"+studentID.String()+"/reports/course/"+otherSession.ID.String(), nil,
-	), teacher))
-	if rec2.Code != http.StatusNotFound {
-		t.Fatalf("cross-owner course scope got %d, want 404", rec2.Code)
-	}
-}
+// NOTE (Task 5, course v2): TestStudentReportCourseHappyPathAndCrossOwner used
+// to live here — it exercised the retired course_session-scoped teacher
+// evaluation report (sqlc.CreateCourseSession + InsertSessionEvaluation by
+// session id). Migration 0050 dropped course_session entirely and course v2
+// has no rubric-evaluation concept for the course surface (CourseReport, the
+// v2 replacement, is a quiz-tally + completed-step-titles summary, not an
+// agent.Report); getStudentReport's "course" case has no v2 data source, so
+// it now falls through to the same 404 the default (unknown surface) case
+// already returns. Deleted alongside the test rather than ported, per Task
+// 3's own note that this query ("no v2 replacement in scope") was left
+// unresolved for a later task to decide.
 
 // TestStudentReportChatHappyPathAndCrossOwner — same shape as the course
 // case, for the chat surface (closes the untested chat ownership guard).

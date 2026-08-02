@@ -346,16 +346,14 @@ func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
 		ctx.ProjectTitle = row.ProjectTitle
 		ctx.Title = row.ProjectTitle
 		ctx.ResearchQuestion = rqFromNode(row.RqBody, row.ProjectTitle)
-	case "course":
-		row, e := a.d.Queries.GetStudentSessionEvaluationForTeacher(r.Context(), sqlc.GetStudentSessionEvaluationForTeacherParams{
-			ScopeID: pgScopeID, UserID: userID,
-		})
-		if e != nil {
-			httpx.WriteError(w, r, e)
-			return
-		}
-		scores, createdAt = row.Scores, row.CreatedAt
-		ctx.Title = row.CourseTitle
+	// "course" has no case here: migration 0050 (course v2) dropped
+	// course_session — the rubric-evaluation report this surface used to read
+	// (GetStudentSessionEvaluationForTeacher, removed by Task 3 with "no v2
+	// replacement in scope") has no successor. Course v2's own report
+	// (getCourseReport, course.go) is a quiz-tally + completed-step-titles
+	// summary, not an agent.Report — a different shape this teacher endpoint
+	// doesn't (yet) know how to render. Falls through to default → 404, same
+	// as any other unrecognized surface.
 	case "chat":
 		row, e := a.d.Queries.GetStudentThreadEvaluationForTeacher(r.Context(), sqlc.GetStudentThreadEvaluationForTeacherParams{
 			ScopeID: pgScopeID, UserID: userID,
