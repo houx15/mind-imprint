@@ -23,6 +23,8 @@ Every card finish should: **AI feedback on the student's actual content → stud
 
 ## Progress ledger
 (append one line per slice when review is clean)
+- S5: complete (commit 176f598, db 0049; contracts 297 / web 682 / go build+vet+all-non-docker + internal/api testcontainers green)
+- WHOLE-BRANCH review (self, seam-focused): reflect endpoint across forming/writing/reflection OK (coachProposeSurfaces + persistableCard aligned); no deck references a deleted card; server reflectionDeckCards == web REFLECTION_DECK; projection contract grows handled. CLEAN.
 - S4b: complete (commit 1a558de, web 678 frontend-only; 来源-under-线索 via branch+connect, no migration)
 - S4a: complete (commit e2863a6, db 0048; contracts 296 / web 672 / go incl internal/api testcontainers green; sqlc hand-edit reviewed — column/Scan order consistent across 8 queries)
 - S3b: complete (commit b12d7e2, web 668 / go agent green; #10 root cause = missing stripFences() in review.go; noted follow-up: paragraph-scope commitSnapshot flips word_budget gate)
