@@ -47,3 +47,31 @@ export function compileCardEnvelope(spec: CardSpec, fieldValues: Record<string, 
   if (lines.length === 0) return "";
   return `【${spec.name}】\n\n${lines.join("\n\n")}`;
 }
+
+// compileCardForCoach compiles a completed card into a short student-turn text
+// the coach responds to — the SAME algorithm as the Go CompileCardForCoach
+// (apps/api/internal/agent/compile_card.go), so the locally-shown student turn
+// and the server-persisted one read identically on reload. Emits
+// `我刚填完《<name>》：` then one `- <label>：<value>` line per non-empty field,
+// with a generic key-dump fallback for custom-renderer keys. Returns "" when the
+// student filled nothing (an empty card is a no-op). Still a projection, not
+// authorship (铁律①): only the student's own words are reformatted.
+export function compileCardForCoach(spec: CardSpec, fieldValues: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const step of spec.steps) {
+    for (const field of step.fields) {
+      const text = valueToText(fieldValues[field.key]);
+      if (!text) continue;
+      seen.add(field.key);
+      lines.push(`- ${field.label}：${text}`);
+    }
+  }
+  for (const k of Object.keys(fieldValues).sort()) {
+    if (seen.has(k)) continue;
+    const text = valueToText(fieldValues[k]);
+    if (text) lines.push(`- ${k}：${text}`);
+  }
+  if (lines.length === 0) return "";
+  return `我刚填完《${spec.name}》：\n${lines.join("\n")}`;
+}

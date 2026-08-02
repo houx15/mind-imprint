@@ -35,4 +35,5 @@ export * from "./mirror";
 export * from "./workspace";
 export * from "./exploration";
 export * from "./cardProposal";
+export * from "./cardReflect";
 export * from "./aiUse";

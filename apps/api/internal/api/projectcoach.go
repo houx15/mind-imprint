@@ -496,10 +496,13 @@ func writingLangLabel(code string) string {
 	}
 }
 
-// formingCoverageNudge (EC) steers the forming coach over the kick-off
+// formingCoverageNudge (EC + Slice 2) steers the forming coach over the kick-off
 // dimensions: name the ones the student hasn't touched, one at a time, never
-// fill them (克制). When all four are covered it emits a FINISH signal (#13) so
-// the coach stops re-asking and tells the student the kick-off has taken shape.
+// fill them (克制). Slice 2 adds substance — BEFORE steering to the next
+// uncovered dimension the coach gives ONE specific piece of feedback on what the
+// student just wrote, judged against that dimension's standard (the old "先认可它"
+// was too thin). When all four are covered it emits a FINISH signal (#13) so the
+// coach stops re-asking and tells the student the kick-off has taken shape.
 func formingCoverageNudge(objective, reason, activities, resources string) string {
 	dims := []struct{ name, val string }{
 		{"目标", objective}, {"缘由", reason}, {"活动", activities}, {"资源", resources},
@@ -514,6 +517,19 @@ func formingCoverageNudge(objective, reason, activities, resources string) strin
 		// #13 · finish signal: don't keep interrogating a completed kick-off.
 		return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』，不要再反复追问同一件事。）\n"
 	}
-	return "（开题还没落定：" + strings.Join(missing, "、") +
-		"——顺着学生的话往其中一个维度带一步，一次只带一个。若他其实已经在对话里说清了某一维，先认可它、请他确认要不要记进右侧的开题栏，别再重复追问同一维；始终别替他写。）\n"
+	var b strings.Builder
+	b.WriteString("（开题还没落定：" + strings.Join(missing, "、") +
+		"。先针对学生刚说的那一维给一条具体、贴着他内容的反馈——拿它和这一维的标准对一下，指出还差哪一点，再顺势往其中一个还没谈到的维度带一步，一次只带一个。各维的标准：\n")
+	b.WriteString("- 目标：一句清晰、完整、可研究的研究问题（要是完整的句子，不是一个话题词）。\n")
+	b.WriteString("- 缘由：学生自己的经历，以及这段经历和这个主题的具体联系。\n")
+	b.WriteString("- 活动与时间：要覆盖四个阶段——澄清问题 → 收集素材/搭故事线 → 写作 → 回顾。\n")
+	b.WriteString("- 资源：每个阶段都有对应的资源支撑（资源要和活动对得上）。\n")
+	b.WriteString("若他其实已经在对话里说清了某一维，先认可它、请他确认要不要记进右侧的开题栏，别再重复追问同一维；给反馈和方向，但始终别替他写。")
+	// While still shaping 目标/缘由, nudge him to START collecting possible
+	// literature/materials in passing — 顺手收集，不替他搜。
+	if strings.TrimSpace(objective) == "" || strings.TrimSpace(reason) == "" {
+		b.WriteString("在聊目标/缘由时，可以顺带提醒他开始留意、收集一些可能支撑这个想法的文献或素材（顺手收集就好，别替他去搜）。")
+	}
+	b.WriteString("）\n")
+	return b.String()
 }

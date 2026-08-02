@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
-import { persistProjectCard, dismissProposal, type CardProposalWire } from "../api/workspace";
+import { persistProjectCard, reflectProjectCard, dismissProposal, type CardProposalWire } from "../api/workspace";
+import { compileCardForCoach } from "../../studio/compileCard";
 import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { Icon } from "../Icon";
@@ -29,12 +30,21 @@ export function CoachCardPanel({
   proposal,
   onProposalConsumed,
   onLogged,
+  onReflected,
+  surface,
   deck = THINKING_DECK,
 }: {
   projectId: string;
   proposal: CardProposalWire | null;
   onProposalConsumed: () => void;
+  // Legacy path (no coach turn): the card persists and a single acknowledgement
+  // string is surfaced. Used where a coach reflect isn't wired yet.
   onLogged?: (text: string) => void;
+  // Slice 2 reflect path: when `surface` is set, submit runs a coach turn that
+  // responds to the card's content; the compiled student turn + the AI reply are
+  // handed back so the parent shows BOTH in the thread.
+  onReflected?: (studentText: string, reply: string) => void;
+  surface?: string;
   deck?: string[];
 }) {
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -52,10 +62,26 @@ export function CoachCardPanel({
     const id = openCardId;
     setOpenCardId(null);
     if (!id) return;
+    const spec = CARD_REGISTRY[id];
+
+    // Slice 2 · reflect path: the coach responds to what the student wrote.
+    if (surface && onReflected) {
+      const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
+      try {
+        const { reply } = await reflectProjectCard(projectId, id, fieldValues, eventTrace, surface);
+        onReflected(studentText, reply);
+      } catch {
+        // Soft inline note — never crash the room; the student's words still show.
+        onReflected(studentText, "刚才没接住这张卡，等下再试一次。");
+      }
+      return;
+    }
+
+    // Legacy path: persist only, with a canned acknowledgement.
     try {
       await persistProjectCard(projectId, id, fieldValues, eventTrace);
       // #9 · name the card so the used card leaves a visible trace in the thread.
-      const name = CARD_REGISTRY[id]?.name;
+      const name = spec?.name;
       onLogged?.(name ? `记下了——你在《${name}》里的思考已存进过程。` : "记下了——你刚才的思考已经存进过程里。");
     } catch {
       onLogged?.("刚才没存上，等下再试一次。");

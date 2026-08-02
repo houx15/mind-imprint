@@ -333,7 +333,17 @@ export function PlanBlock({
           projectId={projectId}
           cardProposal={cardProposal}
           onCardConsumed={() => setCardProposal(null)}
-          onCardLogged={(t) => setChat((c) => [...c, { role: "ai", text: t }])}
+          onCardReflected={(studentText, reply) =>
+            setChat((c) => [
+              ...c,
+              ...(studentText ? [{ role: "student" as const, text: studentText }] : []),
+              ...(reply
+                ? [{ role: "ai" as const, text: reply }]
+                : studentText
+                  ? []
+                  : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
+            ])
+          }
         />
         {confirmRegen && (
           <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
@@ -459,14 +469,14 @@ function FormingPhase(props: {
   projectId: string;
   cardProposal: CardProposalWire | null;
   onCardConsumed: () => void;
-  onCardLogged: (text: string) => void;
+  onCardReflected: (studentText: string, reply: string) => void;
 }) {
   const {
     title, qualification, proposal, onBackToBoard, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
     dimSuggestion, onConfirmDim, onDismissDim,
-    projectId, cardProposal, onCardConsumed, onCardLogged,
+    projectId, cardProposal, onCardConsumed, onCardReflected,
   } = props;
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
@@ -512,7 +522,7 @@ function FormingPhase(props: {
             <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
           )}
           {!sending && (
-            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onLogged={onCardLogged} deck={FORMING_DECK} />
+            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
           )}
           {showChips && !sending && (
             <div className="flex flex-wrap gap-2 pl-1">

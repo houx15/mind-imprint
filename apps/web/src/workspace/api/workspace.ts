@@ -15,6 +15,7 @@ import {
   Mirror,
   AIUseDraft as AIUseDraftSchema,
   AIUseStatement as AIUseStatementSchema,
+  CardReflectReply,
 } from "@mind-imprint/contracts";
 import type { AIUseDraft, AIUseStatement } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
@@ -161,6 +162,25 @@ export async function persistProjectCard(
     body: JSON.stringify({ card_id: cardId, field_values: fieldValues, event_trace: eventTrace }),
   });
   return z.object({ cardInstanceId: z.string() }).parse(raw).cardInstanceId;
+}
+
+// POST /cards/reflect — Slice 2 · persist a completed card AND get a coach turn
+// that RESPONDS to the card's content (fixes the old persist-then-canned-string
+// path). `surface` is the active room's coach scope (e.g. "forming"), which tags
+// the persisted turns and steers the coach's projection. This SPENDS a coach
+// turn. An empty card is a server-side no-op ({cardInstanceId:"", reply:""}).
+export async function reflectProjectCard(
+  id: string,
+  cardId: string,
+  fieldValues: Record<string, unknown>,
+  eventTrace: unknown[],
+  surface: string,
+): Promise<CardReflectReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/cards/reflect`, {
+    method: "POST",
+    body: JSON.stringify({ card_id: cardId, field_values: fieldValues, event_trace: eventTrace, surface }),
+  });
+  return CardReflectReply.parse(raw);
 }
 
 // S5 · AI-interaction retrospective (回顾 · 复盘我与 AI 的互动).
