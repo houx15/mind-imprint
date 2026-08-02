@@ -8,9 +8,12 @@ import { Icon } from "../Icon";
 // reference's notes / 归纳 / reading-card fragments), 大纲 (the outline), and
 // 片段 (the snippet board) — and places any fragment where the student is
 // working: into the DRAFT at the caret when the 正文 tab is active, otherwise
-// appended as a new snippet. On 正文 it can also lay the whole outline in as
-// Markdown headings (把大纲导入正文), so the three tabs feel like one workspace.
-// Defaults docked LEFT; drag the header to move; collapse to a small tab.
+// appended as a new snippet. The 大纲 source also offers two whole-outline
+// imports, independent of which tab is active: 把大纲导入正文 lays the headings
+// into the draft as Markdown; 把大纲导入为片段分组 (#6) turns them into foldable
+// 片段 board sections (an explicit one-shot opt-in — the live outline is never
+// auto-rendered there). Defaults docked LEFT; drag the header to move; collapse
+// to a small tab.
 
 const CRED_LABEL: Record<NonNullable<Reference["credibility"]>, string> = {
   strong: "可信度高",
@@ -28,6 +31,8 @@ export function MaterialsSidebar({
   snippets,
   onAddSnippet,
   onInsertToDraft,
+  onImportOutlineAsGroups,
+  importedSections,
 }: {
   projectId: string;
   activeTab: "outline" | "snippets" | "draft";
@@ -35,6 +40,12 @@ export function MaterialsSidebar({
   snippets: { id: string; text: string; section: string | null }[];
   onAddSnippet: (text: string) => void;
   onInsertToDraft: (text: string) => void;
+  // #6 · 把大纲导入为片段分组 — a ONE-TIME explicit action (never automatic) that
+  // turns the outline's top-level headings into foldable 片段 board sections.
+  // importedSections is the current imported set, so the button can read
+  // "already imported" instead of always inviting a re-import.
+  onImportOutlineAsGroups: (headings: string[]) => void;
+  importedSections: string[];
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
   const [outline, setOutline] = useState<OutlineRow[]>([]);
@@ -119,6 +130,19 @@ export function MaterialsSidebar({
     if (md) onInsertToDraft(md);
     setPlaced("import-outline");
     window.setTimeout(() => setPlaced((k) => (k === "import-outline" ? null : k)), 1200);
+  }
+
+  // #6 · 把大纲导入为片段分组 — top-level headings become foldable 片段 board
+  // sections (a one-time opt-in; the live outline is never auto-rendered as
+  // snippet sections). Independent of which room tab is active — the target
+  // is always the 片段 board, not "wherever you're currently working".
+  const topHeadings = outline.filter((n) => n.depth === 0 && n.text.trim()).map((n) => n.text.trim());
+  const alreadyImported = topHeadings.length > 0 && topHeadings.every((h) => importedSections.includes(h));
+  function importOutlineGroups() {
+    if (topHeadings.length === 0) return;
+    onImportOutlineAsGroups(topHeadings);
+    setPlaced("import-outline-groups");
+    window.setTimeout(() => setPlaced((k) => (k === "import-outline-groups" ? null : k)), 1200);
   }
 
   if (!open) {
@@ -215,21 +239,40 @@ export function MaterialsSidebar({
             <Empty>大纲还是空的。去「大纲」里搭个骨架，这里就能把它搬进正文。</Empty>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {toDraft && !locked && (
-                <button
-                  type="button"
-                  onClick={importOutline}
-                  className="mb-1 rounded-mk border border-mk-primary/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
-                >
-                  {placed === "import-outline" ? "已导入 ✓" : "把大纲导入正文（作为标题）"}
-                </button>
+              {!locked && (
+                <div className="mb-1 flex flex-col gap-1.5">
+                  {toDraft && (
+                    <button
+                      type="button"
+                      onClick={importOutline}
+                      className="rounded-mk border border-mk-primary/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
+                    >
+                      {placed === "import-outline" ? "已导入 ✓" : "把大纲导入正文（作为标题）"}
+                    </button>
+                  )}
+                  {/* #6 · imports the outline's top-level headings as foldable 片段
+                      board sections — an explicit, one-shot action; the board
+                      never auto-renders the live outline. */}
+                  <button
+                    type="button"
+                    onClick={importOutlineGroups}
+                    className="rounded-mk border border-mk-primary/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
+                  >
+                    {alreadyImported || placed === "import-outline-groups" ? "已导入为片段分组 ✓" : "把大纲导入为片段分组"}
+                  </button>
+                </div>
               )}
+              {/* #6 · per-row 收进片段 was removed — dumping a heading's NAME as a
+                  flat snippet's text read like a stray outline entry, not a
+                  student thought. On 正文 a row can still insert its own heading
+                  at the caret (mirrors 材料/片段 rows); on 片段 use the import
+                  button above instead. */}
               {outline.filter((n) => n.text.trim()).map((n) => {
                 const key = `o:${n.id}`;
                 return (
                   <div key={key} className="rounded bg-mk-bg/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{n.text}</div>
-                    {!locked && <PlaceButton done={placed === key} label={actionLabel} onClick={() => place(n.text, key)} />}
+                    {toDraft && !locked && <PlaceButton done={placed === key} label="插入正文" onClick={() => place(n.text, key)} />}
                   </div>
                 );
               })}

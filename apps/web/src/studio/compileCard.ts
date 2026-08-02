@@ -22,19 +22,23 @@ function valueToText(v: unknown): string {
   return "";
 }
 
-// compileCardEnvelope walks the card's declared fields (label + the student's
-// value) into a titled markdown block. Custom-renderer cards whose field_values
-// keys don't line up with declared field keys fall back to a generic dump so no
-// answer is silently dropped. Returns "" when the student filled nothing.
+// compileCardEnvelope walks the card's declared fields (in field order) and
+// joins the student's own answers into ONE flowing paragraph — a 片段 that
+// reads like her own writing, not a "**label**\ntext" labeled dump (item C /
+// 铁律①: never authorship, only a projection of what she typed). The card's
+// name is kept only as a subtle provenance prefix line, never woven into the
+// paragraph itself. Custom-renderer cards whose field_values keys don't line
+// up with declared field keys still contribute (so no answer is silently
+// dropped). Returns "" when the student filled nothing.
 export function compileCardEnvelope(spec: CardSpec, fieldValues: Record<string, unknown>): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
   const seen = new Set<string>();
   for (const step of spec.steps) {
     for (const field of step.fields) {
       const text = valueToText(fieldValues[field.key]);
       if (!text) continue;
       seen.add(field.key);
-      lines.push(`**${field.label}**\n${text}`);
+      parts.push(text);
     }
   }
   // Fallback: surface any non-empty values a custom renderer stored under keys
@@ -42,10 +46,14 @@ export function compileCardEnvelope(spec: CardSpec, fieldValues: Record<string, 
   for (const [k, v] of Object.entries(fieldValues)) {
     if (seen.has(k)) continue;
     const text = valueToText(v);
-    if (text) lines.push(`**${k}**\n${text}`);
+    if (text) parts.push(text);
   }
-  if (lines.length === 0) return "";
-  return `【${spec.name}】\n\n${lines.join("\n\n")}`;
+  if (parts.length === 0) return "";
+  // Each answer is already a sentence/clause in her own words; just make sure
+  // it ends with terminal punctuation before running the next one on, so
+  // consecutive answers don't fuse mid-sentence. No reordering, no relabeling.
+  const prose = parts.map((p) => (/[。！？.!?…”】)）]$/.test(p) ? p : `${p}。`)).join("");
+  return `【${spec.name}】\n${prose}`;
 }
 
 // compileCardForCoach compiles a completed card into a short student-turn text

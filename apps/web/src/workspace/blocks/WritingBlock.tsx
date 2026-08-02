@@ -6,14 +6,14 @@ import { getExploration } from "../../api/exploration";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, persistProjectCard, dismissProposal } from "../api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, reflectProjectCard, dismissProposal } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
-import { compileCardEnvelope } from "../../studio/compileCard";
+import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 
 // One outline bullet in local edit shape — flat-with-depth, the same model the
@@ -114,6 +114,26 @@ export function WritingBlock({
   // #23: snippets state is lifted here so the materials sidebar (below) can
   // append a source's note as a new snippet regardless of the active tab.
   const snip = useSnippets(projectId);
+  // #6 · the outline headings the student has explicitly imported as snippet
+  // board sections (see importedSectionsMemo above) — lifted here so both the
+  // 片段 board (renders them as foldable groups) and the materials sidebar
+  // (the import button + its "already imported" state) share one source of
+  // truth, and it survives switching tabs (SnippetsPane unmounts on tab-away).
+  const [importedSections, setImportedSectionsState] = useState<string[]>(
+    () => importedSectionsMemo.get(projectId) ?? [],
+  );
+  function importOutlineAsGroups(headings: string[]) {
+    const merged = dedupe([...(importedSectionsMemo.get(projectId) ?? []), ...headings]);
+    importedSectionsMemo.set(projectId, merged);
+    setImportedSectionsState(merged);
+  }
+  // Section labels a card's compiled 片段 can be filed under (Item C's 收进片段
+  // offer): the imported outline groups plus any label already in live use on a
+  // snippet (e.g. an探索线索 the student filed one under).
+  const knownSectionLabels = useMemo(
+    () => dedupe([...importedSections, ...snip.snippets.map((s) => s.section).filter((x): x is string => !!x)]),
+    [importedSections, snip.snippets],
+  );
   return (
     <div className="flex h-full flex-col">
       {/* goal strip */}
@@ -139,7 +159,7 @@ export function WritingBlock({
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} projectId={projectId} />
+          <SnippetsPane snip={snip} projectId={projectId} importedSections={importedSections} />
         ) : (
           <DraftPane
             projectId={projectId}
@@ -149,7 +169,14 @@ export function WritingBlock({
             registerInsert={(fn) => { draftInsertRef.current = fn; }}
           />
         )}
-        <CoachRail projectId={projectId} focusPart={focusPart} onClearFocus={() => setFocusPart(null)} locked={locked} onCardArtifact={(text) => snip.add(text)} />
+        <CoachRail
+          projectId={projectId}
+          focusPart={focusPart}
+          onClearFocus={() => setFocusPart(null)}
+          locked={locked}
+          onCardArtifact={(text, section) => snip.add(text, section)}
+          sectionOptions={knownSectionLabels}
+        />
         {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
             fragment where you're working: into the draft at the caret on 正文,
             else appended as a new snippet. */}
@@ -160,6 +187,8 @@ export function WritingBlock({
           snippets={snip.snippets}
           onAddSnippet={(text) => snip.add(text)}
           onInsertToDraft={(text) => draftInsertRef.current?.(text)}
+          onImportOutlineAsGroups={importOutlineAsGroups}
+          importedSections={importedSections}
         />
       </div>
 
@@ -198,6 +227,14 @@ export function WritingBlock({
 
 /* ---------- #23 · snippets (片段) ---------- */
 
+// #6 · outline→snippet-groups is opt-in ONLY (imported once via an explicit
+// 「把大纲导入为片段分组」action in the materials sidebar) — the live outline is
+// never auto-rendered as snippet board sections (the student must choose to
+// bring it in). The imported heading set is a client-side per-project memory,
+// mirroring ReadingBlock's viewModeMemo: in-memory only (lost on a hard
+// refresh), no DB migration for this UI-only grouping.
+const importedSectionsMemo = new Map<string, string[]>();
+
 export type Snip = { id: string; text: string; section: string | null };
 
 // useSnippets owns the 片段 board's load + debounced whole-set save (mirrors
@@ -206,7 +243,10 @@ export type Snip = { id: string; text: string; section: string | null };
 // outline heading / 线索 label (null = 未归类).
 export type SnippetsHandle = {
   snippets: Snip[];
-  add: (text: string, section?: string | null) => void;
+  // Returns the new snippet's (temp, stable-until-save) id, so a caller that
+  // just created a blank row (「+ 在此加片段」) can immediately focus it into
+  // edit mode without guessing which row is new.
+  add: (text: string, section?: string | null) => string;
   update: (id: string, text: string) => void;
   remove: (id: string) => void;
   setSection: (id: string, section: string | null) => void;
@@ -265,7 +305,11 @@ function useSnippets(projectId: string): SnippetsHandle {
 
   return {
     snippets,
-    add: (text, section = null) => commit([...ref.current, { id: tempId(), text, section }]),
+    add: (text, section = null) => {
+      const id = tempId();
+      commit([...ref.current, { id, text, section }]);
+      return id;
+    },
     update: (id, text) => commit(ref.current.map((s) => (s.id === id ? { ...s, text } : s))),
     remove: (id) => commit(ref.current.filter((s) => s.id !== id)),
     setSection: (id, section) => commit(ref.current.map((s) => (s.id === id ? { ...s, section } : s))),
@@ -277,14 +321,16 @@ function useSnippets(projectId: string): SnippetsHandle {
 const UNFILED = "__unfiled__";
 const dedupe = (xs: string[]) => Array.from(new Set(xs));
 
-// #5 · the 片段 board, organized into foldable sections. A section is a top-level
-// outline heading or an open 线索 (both plain string labels); a snippet is filed
-// under one via drag (a ⠿ handle onto a section header) or the 归到 <select>.
-// The draft itself stays a plain textarea — this is organizing thinking material,
-// not a structured document editor (铁律②).
-function SnippetsPane({ snip, projectId }: { snip: SnippetsHandle; projectId: string }) {
-  // Section labels a snippet can be filed under: top-level outline headings + open 线索.
-  const [outlineHeads, setOutlineHeads] = useState<string[]>([]);
+// #5/#6 · the 片段 board, organized into foldable sections. A section is either
+// an outline heading the student explicitly IMPORTED (see importedSectionsMemo
+// — the live outline is never auto-rendered here) or an open 探索 线索 (both
+// plain string labels); a snippet is filed under one via drag (a ⠿ handle onto
+// a section header) or the 归到 <select>. The draft itself stays a plain
+// textarea — this is organizing thinking material, not a structured document
+// editor (铁律②).
+function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHandle; projectId: string; importedSections: string[] }) {
+  // 探索 线索 sections still auto-populate from the live exploration graph — only
+  // the OUTLINE side was the unwanted auto-render (item #6); leads are unaffected.
   const [leadLabels, setLeadLabels] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -292,20 +338,19 @@ function SnippetsPane({ snip, projectId }: { snip: SnippetsHandle; projectId: st
 
   useEffect(() => {
     let alive = true;
-    void (async () => {
-      const [outline, exploration] = await Promise.allSettled([getOutline(projectId), getExploration(projectId)]);
-      if (!alive) return;
-      if (outline.status === "fulfilled") setOutlineHeads(dedupe(outline.value.filter((n) => n.depth === 0 && n.text.trim()).map((n) => n.text.trim())));
-      if (exploration.status === "fulfilled") setLeadLabels(dedupe(exploration.value.leads.filter((l) => l.status !== "pruned" && l.text.trim()).map((l) => l.text.trim())));
-    })();
+    void getExploration(projectId)
+      .then((exploration) => {
+        if (alive) setLeadLabels(dedupe(exploration.leads.filter((l) => l.status !== "pruned" && l.text.trim()).map((l) => l.text.trim())));
+      })
+      .catch(() => { /* leave last-good */ });
     return () => { alive = false; };
   }, [projectId]);
 
-  const knownLabels = useMemo(() => dedupe([...outlineHeads, ...leadLabels]), [outlineHeads, leadLabels]);
+  const knownLabels = useMemo(() => dedupe([...importedSections, ...leadLabels]), [importedSections, leadLabels]);
 
-  // Build ordered groups: outline headings, then leads, then any orphaned
-  // section label still present on a snippet (renamed/deleted — never vanish),
-  // then 未归类 last.
+  // Build ordered groups: imported outline headings, then leads, then any
+  // orphaned section label still present on a snippet (renamed/deleted —
+  // never vanish), then 未归类 last.
   const { groups, unfiled } = useMemo(() => {
     const bySection = new Map<string, Snip[]>();
     const un: Snip[] = [];
@@ -314,11 +359,11 @@ function SnippetsPane({ snip, projectId }: { snip: SnippetsHandle; projectId: st
       else { const arr = bySection.get(s.section) ?? []; arr.push(s); bySection.set(s.section, arr); }
     }
     const ordered: { label: string; kind: "outline" | "lead" | "orphan"; snips: Snip[] }[] = [];
-    for (const l of outlineHeads) ordered.push({ label: l, kind: "outline", snips: bySection.get(l) ?? [] });
-    for (const l of leadLabels) if (!outlineHeads.includes(l)) ordered.push({ label: l, kind: "lead", snips: bySection.get(l) ?? [] });
+    for (const l of importedSections) ordered.push({ label: l, kind: "outline", snips: bySection.get(l) ?? [] });
+    for (const l of leadLabels) if (!importedSections.includes(l)) ordered.push({ label: l, kind: "lead", snips: bySection.get(l) ?? [] });
     for (const [label, snips] of bySection) if (!knownLabels.includes(label)) ordered.push({ label, kind: "orphan", snips });
     return { groups: ordered, unfiled: un };
-  }, [snip.snippets, outlineHeads, leadLabels, knownLabels]);
+  }, [snip.snippets, importedSections, leadLabels, knownLabels]);
 
   function dropOnto(label: string | null) {
     if (dragId) snip.setSection(dragId, label);
@@ -382,7 +427,10 @@ function SnippetSection({
   isDropTarget: boolean;
   sectionOptions: string[];
   onToggle: () => void;
-  onAdd: () => void;
+  // Returns the newly-created snippet's id so the caller can focus it into
+  // edit mode immediately (a student-initiated "+加片段" isn't the
+  // programmatic-artifact case #9 wants defaulted to read mode).
+  onAdd: () => string;
   onDragOverHead: () => void;
   onDropHead: () => void;
   snip: SnippetsHandle;
@@ -390,6 +438,17 @@ function SnippetSection({
 }) {
   const tag = kind === "outline" ? "章节" : kind === "lead" ? "线索" : kind === "orphan" ? "旧标签" : "";
   const tone = kind === "lead" ? "text-mk-green" : kind === "orphan" ? "text-mk-muted-2" : "text-mk-primary";
+  // #9 · a snippet defaults to a READ view; double-click enters edit mode (a
+  // taller textarea + a ✓ to leave it). Local to this section instance — a
+  // freshly-programmatic snippet (AI rail / card compile / materials) is never
+  // in this set, so it lands in READ mode as required.
+  const [editingIds, setEditingIds] = useState<Set<string>>(new Set());
+  function startEditing(id: string) {
+    setEditingIds((ids) => { const n = new Set(ids); n.add(id); return n; });
+  }
+  function stopEditing(id: string) {
+    setEditingIds((ids) => { if (!ids.has(id)) return ids; const n = new Set(ids); n.delete(id); return n; });
+  }
   return (
     <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-primary bg-mk-primary-tint/30" : "border-mk-border-2 bg-mk-bg/30"}`}>
       <div
@@ -406,7 +465,9 @@ function SnippetSection({
       </div>
       {!collapsed && (
         <div className="flex flex-col gap-2 px-3 pb-3">
-          {snips.map((s) => (
+          {snips.map((s) => {
+            const editing = editingIds.has(s.id);
+            return (
             <div
               key={s.id}
               className="group rounded-mk border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]"
@@ -421,13 +482,36 @@ function SnippetSection({
                 >
                   ⠿
                 </span>
-                <textarea
-                  value={s.text}
-                  onChange={(e) => snip.update(s.id, e.target.value)}
-                  rows={2}
-                  placeholder="写下或粘贴一个片段……"
-                  className="min-h-0 w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
-                />
+                {editing ? (
+                  <textarea
+                    autoFocus
+                    value={s.text}
+                    onChange={(e) => snip.update(s.id, e.target.value)}
+                    onBlur={() => stopEditing(s.id)}
+                    rows={6}
+                    placeholder="写下或粘贴一个片段……"
+                    className="min-h-[7rem] w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onDoubleClick={() => startEditing(s.id)}
+                    title="双击编辑"
+                    className="w-full flex-1 cursor-text whitespace-pre-wrap break-words text-left text-[13.5px] leading-relaxed text-mk-ink"
+                  >
+                    {s.text.trim() ? s.text : <span className="text-mk-muted-2">写下或粘贴一个片段……（双击编辑）</span>}
+                  </button>
+                )}
+                {editing && (
+                  <button
+                    type="button"
+                    title="完成编辑"
+                    onClick={() => stopEditing(s.id)}
+                    className="mt-0.5 flex-none rounded px-1 text-[14px] font-bold leading-none text-mk-primary hover:text-mk-primary-hover"
+                  >
+                    ✓
+                  </button>
+                )}
               </div>
               <div className="mt-1 flex items-center justify-end gap-2">
                 <label className="flex items-center gap-1 text-[11px] text-mk-muted-2">
@@ -447,10 +531,11 @@ function SnippetSection({
                 <button type="button" onClick={() => snip.remove(s.id)} className="text-[12px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除</button>
               </div>
             </div>
-          ))}
+            );
+          })}
           <button
             type="button"
-            onClick={onAdd}
+            onClick={() => startEditing(onAdd())}
             className="rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
           >
             + 在此加片段
@@ -1379,7 +1464,24 @@ const RAIL_GREETING: ChatMsg = {
 // 确定度光谱 (match hedging to certainty) and 事实/观点/价值判断 (sort a passage).
 const WRITING_DECK = ["toulmin", "argument-map", "pee", "concession", "fact-opinion-value"];
 
-function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact }: { projectId: string; focusPart: string | null; onClearFocus: () => void; locked: boolean; onCardArtifact: (text: string) => void }) {
+function CoachRail({
+  projectId,
+  focusPart,
+  onClearFocus,
+  locked,
+  onCardArtifact,
+  sectionOptions,
+}: {
+  projectId: string;
+  focusPart: string | null;
+  onClearFocus: () => void;
+  locked: boolean;
+  // #8 · adds the compiled card paragraph as a snippet filed under `section`
+  // (null = 未归类) — only called when the student explicitly taps 收进片段.
+  onCardArtifact: (text: string, section: string | null) => void;
+  // Known 片段 board section labels the student can file the artifact under.
+  sectionOptions: string[];
+}) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -1392,6 +1494,11 @@ function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact 
   // the student's tap (铁律).
   const [proposal, setProposal] = useState<CardProposalWire | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  // #8 · a finished card's compiled paragraph, offered (never auto-added) as a
+  // 片段 once the coach has responded to it. cardName is kept for the offer's
+  // copy; cleared once collected or dismissed.
+  const [pendingArtifact, setPendingArtifact] = useState<{ cardName: string; text: string } | null>(null);
+  const [artifactSection, setArtifactSection] = useState<string>(UNFILED);
 
   // S1 · one continuous session: load this room's slice of the project thread
   // once on open, appended after the greeting. Empty → greeting only.
@@ -1448,26 +1555,42 @@ function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact 
     setProposal(null);
     void dismissProposal(projectId, cardId).catch(() => {});
   }
+  // #8 · finishing a card now runs a coach turn that responds to what the
+  // student wrote FIRST (mirrors the forming flow's reflect path) — it no
+  // longer silently dumps a labeled-value block into 片段. Adding it as a
+  // snippet is then a separate, explicit 收进片段 offer below.
   async function submitProposedCard(fieldValues: Record<string, unknown>, eventTrace: unknown[]) {
     const cardId = openCardId;
     setOpenCardId(null);
     if (!cardId) return;
+    const spec = CARD_REGISTRY[cardId];
+    const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
     try {
-      await persistProjectCard(projectId, cardId, fieldValues, eventTrace);
-      // #7 · a finished card no longer vanishes: compile the student's own
-      // answers into a 片段 she can see, edit, and pull into the draft — and say
-      // so, naming the card, so the used card leaves a visible trace (#9).
-      const spec = CARD_REGISTRY[cardId];
+      const { reply } = await reflectProjectCard(projectId, cardId, fieldValues, eventTrace, "writing");
+      if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
+      if (reply) {
+        setChat((c) => [...c, { role: "ai", text: reply }]);
+      } else if (!studentText) {
+        setChat((c) => [...c, { role: "ai", text: "这张卡还没填内容，先留着，想清楚了再来。" }]);
+      }
+      // #7/#8 · offer (never silently add) the compiled paragraph as a 片段.
       const artifact = spec ? compileCardEnvelope(spec, fieldValues) : "";
       if (artifact) {
-        onCardArtifact(artifact);
-        setChat((c) => [...c, { role: "ai", text: `记下了——已把你在《${spec!.name}》里写的收进「片段」，去那儿看看、改改，随时能插进正文。` }]);
-      } else {
-        setChat((c) => [...c, { role: "ai", text: "记下了——你刚才的思考已经存进过程里。" }]);
+        setArtifactSection(UNFILED);
+        setPendingArtifact({ cardName: spec!.name, text: artifact });
       }
     } catch {
-      setChat((c) => [...c, { role: "ai", text: "刚才没存上，等下再试一次。" }]);
+      if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
+      setChat((c) => [...c, { role: "ai", text: "刚才没接住这张卡，等下再试一次。" }]);
     }
+  }
+
+  function collectArtifact() {
+    if (!pendingArtifact) return;
+    onCardArtifact(pendingArtifact.text, artifactSection === UNFILED ? null : artifactSection);
+    setChat((c) => [...c, { role: "ai", text: "收进了「片段」——去那儿看看、改改，随时能插进正文。" }]);
+    setPendingArtifact(null);
+    setArtifactSection(UNFILED);
   }
 
   return (
@@ -1488,6 +1611,31 @@ function CoachRail({ projectId, focusPart, onClearFocus, locked, onCardArtifact 
         {proposal && !openCardId ? (
           <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
         ) : null}
+        {/* #8 · 收进片段 is an explicit offer, never a silent add — the coach has
+            already responded to the card's content above; this just asks
+            whether the compiled paragraph should also become a 片段. */}
+        {pendingArtifact && !openCardId && (
+          <div className="rounded-mk-lg border border-mk-border-2 bg-mk-bg/60 p-3">
+            <p className="text-[12px] font-semibold text-mk-muted-2">要不要把《{pendingArtifact.cardName}》里写的收进「片段」？</p>
+            <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+              <label className="flex items-center gap-1 text-[11px] text-mk-muted-2">
+                归到
+                <select
+                  value={artifactSection}
+                  onChange={(e) => setArtifactSection(e.target.value)}
+                  aria-label="把片段归到"
+                  className="max-w-[9rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                >
+                  <option value={UNFILED}>未归类</option>
+                  {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </label>
+              <button type="button" onClick={() => setPendingArtifact(null)} className="text-[11px] font-semibold text-mk-muted-2 hover:text-mk-ink">先不收</button>
+              <button type="button" onClick={collectArtifact} className="rounded-full bg-mk-primary px-3 py-1 text-[11px] font-bold text-white hover:bg-mk-primary-hover">收进片段</button>
+            </div>
+          </div>
+        )}
         {sending && (
           <div className="flex justify-start">
             <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3.5 py-2.5 text-[13px] leading-relaxed text-mk-muted-2">印记在想……</div>

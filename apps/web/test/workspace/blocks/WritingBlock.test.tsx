@@ -13,7 +13,7 @@ vi.mock("@/workspace/api/workspace", () => ({
   getDraft: vi.fn(async () => "我的草稿第一段。中国在可再生能源上的贡献是实质性的。"),
   coach: vi.fn(async () => ({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null })),
   getCoachHistory: vi.fn(async () => []),
-  persistProjectCard: vi.fn(async () => "ci1"),
+  reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
   dismissProposal: vi.fn(async () => {}),
 }));
 vi.mock("@/api/writing", () => ({
@@ -24,7 +24,7 @@ vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads
 vi.mock("@/workspace/export", () => ({ exportDraftDocx: vi.fn(async () => new Blob()) }));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
-import { coach, getLibrary, getOutline, getSnippets, putSnippets } from "@/workspace/api/workspace";
+import { coach, getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
 
@@ -211,12 +211,43 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     });
   });
 
-  it("files a snippet under an outline section via 归到, persisting the section (#5)", async () => {
-    vi.mocked(getOutline).mockResolvedValue([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
-    vi.mocked(getSnippets).mockResolvedValue([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
+  // #6 · replaces the old assumption that the live outline auto-appears as a
+  // 片段 board section — it must NOT, until the student explicitly imports it.
+  it("片段 board: the live outline is not auto-rendered as a section (#6)", async () => {
+    vi.mocked(getOutline).mockResolvedValueOnce([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
+    vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
     render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
-    // the main 片段 tab (the sidebar also has a 片段 source tab) — the workspace tab comes first in DOM
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    await screen.findByText("我的片段");
+    expect(screen.queryByText("背景与主张")).toBeNull();
+  });
+
+  it("片段 board: importing the outline turns headings into foldable sections, and 归到 persists the section (#5/#6)", async () => {
+    // Queue TWO resolutions — OutlinePane fetches once on the default 大纲 tab's
+    // mount, and the materials sidebar fetches again lazily when its own 大纲
+    // source is opened — so both calls see the same heading (not a leaked
+    // permanent override that would bleed into later tests).
+    const OUTLINE_ROW = [{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never;
+    vi.mocked(getOutline).mockResolvedValueOnce(OUTLINE_ROW).mockResolvedValueOnce(OUTLINE_ROW);
+    vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
+    // A distinct projectId — the imported-section set is a per-project client
+    // memory (importedSectionsMemo) that outlives this render, so a shared
+    // "p1" would leak "背景与主张" into every later test using that id.
+    render(<WritingBlock projectId="p-outline-import" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    // the main 片段 tab (the sidebar also has a 片段 source tab) — the workspace tab comes first in DOM.
+    // Switching off 大纲 first also unmounts OutlinePane's own list/思维导图 toggle
+    // (which is ALSO labeled "大纲"), so the sidebar's "大纲" source tab becomes
+    // the only remaining match.
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    // only 2 "大纲" matches now (the main tab + the sidebar's source tab) — the
+    // sidebar's is last, since it renders after the main tab bar in the DOM.
+    const outlineButtons = screen.getAllByRole("button", { name: "大纲" });
+    await userEvent.click(outlineButtons[outlineButtons.length - 1]!);
+    await userEvent.click(await screen.findByRole("button", { name: "把大纲导入为片段分组" }));
+    // the section-toggle button's accessible name includes its label — a more
+    // specific match than plain text, since "背景与主张" ALSO appears as an
+    // <option> inside every snippet's 归到 <select>.
+    expect(await screen.findByRole("button", { name: /背景与主张/ })).toBeInTheDocument();
     const select = await screen.findByLabelText("把片段归到");
     await userEvent.selectOptions(select, "背景与主张");
     await waitFor(
@@ -238,5 +269,70 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // chosen voice — and the panel says it checked just this段.
     await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", "我的草稿第一段。", "sceptic"));
     expect(await screen.findByText(/体检了你选中的这一段/)).toBeInTheDocument();
+  });
+
+  // #9 · a snippet defaults to a read view; only double-click opens edit mode.
+  it("片段 board: a snippet defaults to a read view; double-click edits, ✓ leaves edit mode (item A)", async () => {
+    vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    const readView = await screen.findByText("我的片段");
+    // read mode: no textarea holds this value yet
+    expect(screen.queryByDisplayValue("我的片段")).toBeNull();
+    await userEvent.dblClick(readView);
+    const ta = await screen.findByDisplayValue("我的片段");
+    expect(ta.tagName).toBe("TEXTAREA");
+    await userEvent.click(screen.getByTitle("完成编辑"));
+    await waitFor(() => expect(screen.queryByDisplayValue("我的片段")).toBeNull());
+    expect(await screen.findByText("我的片段")).toBeInTheDocument();
+  });
+
+  it("片段 board: 「+ 在此加片段」opens the new blank row in edit mode immediately (item A)", async () => {
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    await userEvent.click(await screen.findByRole("button", { name: "+ 在此加片段" }));
+    const ta = await screen.findByPlaceholderText("写下或粘贴一个片段……");
+    expect(ta.tagName).toBe("TEXTAREA");
+  });
+
+  // #8 · finishing a writing card gets AI feedback FIRST (reflect turn), then
+  // offers 收进片段 as an explicit action — never a silent labeled-value dump.
+  it("finishing a writing card reflects to the coach first, then offers 收进片段 as a full paragraph (item C)", async () => {
+    vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "ci1", reply: "这个主张已经很清楚了。" });
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
+    await userEvent.click(toulmin);
+    const claimField = await screen.findByLabelText("你要论证的核心判断，用一句话说清。");
+    await userEvent.type(claimField, "中国的可持续贡献是实质性的");
+    await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
+
+    await waitFor(() =>
+      expect(reflectProjectCard).toHaveBeenCalledWith("p1", "toulmin", expect.any(Object), expect.any(Array), "writing"),
+    );
+    // the coach's reply shows in the thread, and the compiled student turn too
+    expect(await screen.findByText(/这个主张已经很清楚了/)).toBeInTheDocument();
+    expect(screen.getByText(/我刚填完《论证构建卡/)).toBeInTheDocument();
+
+    // 收进片段 is an explicit offer — not auto-added
+    expect(screen.getByText(/要不要把《论证构建卡/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "收进片段" }));
+    expect(await screen.findByText(/收进了「片段」/)).toBeInTheDocument();
+
+    // the 片段 board shows the compiled paragraph as the student's own words —
+    // not a "**label**\ntext" dump. Query by the snippet's read-view button
+    // role specifically — the coach rail's student-turn bubble (a plain div,
+    // not a button) also contains this text and stays mounted alongside.
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
+    expect(await screen.findByRole("button", { name: /中国的可持续贡献是实质性的/ })).toBeInTheDocument();
+  });
+
+  it("an empty writing card is a no-op: no chat turn, no 收进片段 offer (item C)", async () => {
+    vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "", reply: "" });
+    render(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" onOpenRoom={() => {}} />);
+    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
+    await userEvent.click(toulmin);
+    await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
+    await waitFor(() => expect(reflectProjectCard).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "收进片段" })).toBeNull();
   });
 });

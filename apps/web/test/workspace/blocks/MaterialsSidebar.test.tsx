@@ -35,6 +35,10 @@ const OUTLINE = [
   { id: "o2", text: "主张一", depth: 1, position: 1 },
 ];
 
+// #6 · onImportOutlineAsGroups/importedSections default to no-ops/empty so
+// each test only opts into them when it's exercising that behavior.
+const DEFAULTS = { onImportOutlineAsGroups: () => {}, importedSections: [] as string[] };
+
 describe("MaterialsSidebar", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -45,7 +49,7 @@ describe("MaterialsSidebar", () => {
   it("materials: unfolds notes and 收进片段 appends a snippet (snippets tab)", async () => {
     const onAddSnippet = vi.fn();
     render(
-      <MaterialsSidebar projectId="p1" activeTab="snippets" locked={false} snippets={[]} onAddSnippet={onAddSnippet} onInsertToDraft={() => {}} />,
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="snippets" locked={false} snippets={[]} onAddSnippet={onAddSnippet} onInsertToDraft={() => {}} />,
     );
     fireEvent.click(await screen.findByText("NASA 绿化报告"));
     await waitFor(() => expect(screen.getByText("我觉得变绿≠可持续")).toBeTruthy());
@@ -57,7 +61,7 @@ describe("MaterialsSidebar", () => {
   it("materials: on the 正文 tab, the action inserts into the draft instead (#9)", async () => {
     const onInsertToDraft = vi.fn();
     render(
-      <MaterialsSidebar projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
     );
     fireEvent.click(await screen.findByText("NASA 绿化报告"));
     const btns = await screen.findAllByRole("button", { name: /插入正文/ });
@@ -68,7 +72,7 @@ describe("MaterialsSidebar", () => {
   it("大纲 source: import lays outline titles into the draft as headings (#9)", async () => {
     const onInsertToDraft = vi.fn();
     render(
-      <MaterialsSidebar projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
     );
     // switch the browsed source to 大纲
     fireEvent.click(await screen.findByRole("button", { name: "大纲" }));
@@ -76,10 +80,52 @@ describe("MaterialsSidebar", () => {
     expect(onInsertToDraft).toHaveBeenCalledWith("# 引言\n\n## 主张一");
   });
 
+  // #6 · replaces the old per-row "收进片段" dump: a single explicit action turns
+  // the outline's TOP-LEVEL headings into 片段 board section labels — never the
+  // heading's text becoming a flat snippet's body.
+  it("大纲 source: 把大纲导入为片段分组 imports only the top-level headings as section labels (#6)", async () => {
+    const onImportOutlineAsGroups = vi.fn();
+    render(
+      <MaterialsSidebar
+        projectId="p1"
+        activeTab="snippets"
+        locked={false}
+        snippets={[]}
+        onAddSnippet={() => {}}
+        onInsertToDraft={() => {}}
+        onImportOutlineAsGroups={onImportOutlineAsGroups}
+        importedSections={[]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "大纲" }));
+    fireEvent.click(await screen.findByRole("button", { name: "把大纲导入为片段分组" }));
+    expect(onImportOutlineAsGroups).toHaveBeenCalledWith(["引言"]);
+    // no per-row 收进片段 button dumping a heading's name as a snippet
+    expect(screen.queryByRole("button", { name: /收进片段/ })).toBeNull();
+  });
+
+  it("大纲 source: an already-imported outline shows the done state (#6)", async () => {
+    render(
+      <MaterialsSidebar
+        projectId="p1"
+        activeTab="snippets"
+        locked={false}
+        snippets={[]}
+        onAddSnippet={() => {}}
+        onInsertToDraft={() => {}}
+        onImportOutlineAsGroups={() => {}}
+        importedSections={["引言"]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "大纲" }));
+    expect(await screen.findByRole("button", { name: /已导入为片段分组/ })).toBeInTheDocument();
+  });
+
   it("片段 source: on the 正文 tab, clicking a snippet inserts it into the draft (#9)", async () => {
     const onInsertToDraft = vi.fn();
     render(
       <MaterialsSidebar
+        {...DEFAULTS}
         projectId="p1"
         activeTab="draft"
         locked={false}
@@ -98,20 +144,21 @@ describe("MaterialsSidebar", () => {
   it("archived (locked): browse-only, no place buttons flash false success (review M1)", async () => {
     const onInsertToDraft = vi.fn();
     render(
-      <MaterialsSidebar projectId="p1" activeTab="draft" locked snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked snippets={[]} onAddSnippet={() => {}} onInsertToDraft={onInsertToDraft} />,
     );
     expect(await screen.findByText(/只读浏览/)).toBeInTheDocument();
     fireEvent.click(await screen.findByText("NASA 绿化报告"));
     await waitFor(() => expect(screen.getByText("我觉得变绿≠可持续")).toBeTruthy());
     expect(screen.queryByRole("button", { name: /插入正文/ })).toBeNull();
-    // 大纲 import is gone too
+    // 大纲 import is gone too (both actions)
     fireEvent.click(screen.getByRole("button", { name: "大纲" }));
     expect(screen.queryByRole("button", { name: /把大纲导入正文/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /把大纲导入为片段分组/ })).toBeNull();
   });
 
   it("collapses to a 材料 tab and reopens", async () => {
     render(
-      <MaterialsSidebar projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
     );
     fireEvent.click(screen.getByText("×"));
     const reopen = await screen.findByRole("button", { name: /材料/ });

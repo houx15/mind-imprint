@@ -23,4 +23,5 @@ Every card finish should: **AI feedback on the student's actual content → stud
 
 ## Progress ledger
 (append one line per slice when review is clean)
+- S2: complete (commit e048e87, contracts 292 / web 653 / go internal/api 470s green; self-reviewed — forming scope aligned, spend metered before bail)
 - S1: complete (commit 5e8530d, contracts 289 / go build+cards/agent/studio/skills / web 651 / internal/api 471s all green; self-reviewed — seeded-steelman degrades gracefully in projectEquipment)
