@@ -28,6 +28,15 @@ SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.com
 FROM course_progress p JOIN course c ON c.id = p.course_id
 WHERE p.user_id = $1 AND c.slug = $2;
 
+-- name: GetCourseProgressByCourseID :one
+-- Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
+-- courseUUID (not slug) — it already holds the course row's id from
+-- GetCoursePayload, and a slug round-trip would be a wasted join. Mirrors
+-- GetCourseProgressBySlug's column list/order exactly.
+SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+FROM course_progress
+WHERE user_id = $1 AND course_id = $2;
+
 -- name: UpsertCourseProgress :one
 INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
 VALUES ($1,$2,$3,$4, COALESCE($5, now()), $6, now())

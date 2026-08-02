@@ -83,6 +83,43 @@ func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProg
 	return i, err
 }
 
+const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
+SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+FROM course_progress
+WHERE user_id = $1 AND course_id = $2
+`
+
+type GetCourseProgressByCourseIDParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+type GetCourseProgressByCourseIDRow struct {
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+}
+
+// Task 4 addition (hand-edited, sqlc not run): SaveProgress's union step is
+// keyed by courseUUID, not slug — mirrors GetCourseProgressBySlug's Scan
+// order exactly, just without the course join.
+func (q *Queries) GetCourseProgressByCourseID(ctx context.Context, arg GetCourseProgressByCourseIDParams) (GetCourseProgressByCourseIDRow, error) {
+	row := q.db.QueryRow(ctx, getCourseProgressByCourseID, arg.UserID, arg.CourseID)
+	var i GetCourseProgressByCourseIDRow
+	err := row.Scan(
+		&i.CourseID,
+		&i.CurrentOrdinal,
+		&i.CompletedOrdinals,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listCourseRows = `-- name: ListCourseRows :many
 SELECT slug, branch, title, blurb, time_label, card_ids, step_count
 FROM course ORDER BY branch, title
