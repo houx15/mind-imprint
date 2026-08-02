@@ -342,6 +342,16 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	if surface == "find_sources" {
 		b.WriteString("（学生在找资料：主动帮他想几个检索关键词，提醒中文和英文期刊都值得查，可以先从中国知网、Google Scholar 入手；读过几篇后再从里面滚出新的关键词和关键学者。给方向和关键词，别替他去搜、别直接下可信与否的结论。）\n")
 	}
+	// Studio batch-5 followup: 回顾 is where the student fills in HER OWN
+	// reflection (AI 使用声明 + 学习报告/元认知/认知者视角 这类回顾卡). This is NOT a
+	// defense rehearsal where the coach interrogates her — it's supportive: help
+	// her find the words for whichever part she's stuck on (目标有没有达成、方法与
+	// 数据用得怎么样、过程中卡在哪、局限在哪、收获与接下来想怎么做不一样），一次只问一
+	// 个开放问题，帮她想起具体细节和例子。绝不替她下结论、绝不替她把话写出来——那些话必
+	// 须是她自己的（铁律①）。
+	if surface == "reflection" {
+		b.WriteString("（学生在写回顾：这不是答辩，别追问、别考她——是陪她把自己的思考和感受说清楚。她可能卡在目标有没有达成、方法和数据用得怎么样、过程中遇到的问题、局限在哪，或者收获与接下来想怎么不一样地做；也可能是在写和 AI 互动的使用声明。看她卡在哪一部分，就顺着那部分一次问一个具体的开放问题，帮她想起细节、举个例子、找到自己的措辞；如果她已经写得不错，明确认可她、再问下一处还没写的。绝不替她下结论、绝不替她把话写出来——那些话必须是她自己的。）\n")
+	}
 
 	// 计划 status.
 	if plan, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil {

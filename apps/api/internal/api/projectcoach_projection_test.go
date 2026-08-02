@@ -326,6 +326,33 @@ func TestProjection_FormingCoverageNudge(t *testing.T) {
 	}
 }
 
+// TestProjection_ReflectionSupportNudge — studio batch-5 followup: on the
+// reflection surface the projection steers the coach toward a SUPPORTIVE
+// posture (help her finish her own reflection) rather than the old
+// defense-rehearsal/追问 framing; off that surface it carries no such nudge.
+func TestProjection_ReflectionSupportNudge(t *testing.T) {
+	api, _, _, _ := projectionTestHandler(t)
+
+	proj, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "reflection")
+	if err != nil {
+		t.Fatalf("projection: %v", err)
+	}
+	if !strings.Contains(proj, "这不是答辩") {
+		t.Fatalf("reflection projection must carry the supportive nudge:\n%s", proj)
+	}
+	if strings.Contains(proj, "追问她") {
+		t.Fatalf("reflection projection must not steer the coach to interrogate her:\n%s", proj)
+	}
+
+	proj2, err := api.BuildSpineProjectionForTest(context.Background(), mustUUID(seedProjectID), "writing")
+	if err != nil {
+		t.Fatalf("projection (writing): %v", err)
+	}
+	if strings.Contains(proj2, "这不是答辩") {
+		t.Fatalf("non-reflection projection must NOT carry the reflection nudge:\n%s", proj2)
+	}
+}
+
 // #4: when a writing_language node exists, the projection tells the coach the
 // essay's target language so it can honor + remind (it's absent otherwise).
 func TestProjection_WritingLanguageLine(t *testing.T) {

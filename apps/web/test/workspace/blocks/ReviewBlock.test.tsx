@@ -78,11 +78,11 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
     });
   });
 
-  it("defense-readiness thread sends a reflection-scope coach turn", async () => {
+  it("supportive reflection-completion thread sends a reflection-scope coach turn", async () => {
     render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/); // wait for mount loads
 
-    await userEvent.type(screen.getByPlaceholderText(/想让印记追问哪一处/), "我的结论是不是太弱了");
+    await userEvent.type(screen.getByPlaceholderText(/卡在哪一题/), "我的结论是不是太弱了");
     fireEvent.click(screen.getByRole("button", { name: "问印记" }));
 
     await waitFor(() => {

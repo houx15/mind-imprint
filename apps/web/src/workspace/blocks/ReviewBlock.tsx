@@ -225,7 +225,7 @@ export function ReviewBlock({
               {/* S5 · 复盘我与 AI 的互动 — the objective record + the student's own statement */}
               <AIUsePanel projectId={projectId} done={done} />
 
-              {/* S5 · defense-readiness conversation + #21 reflection card shelf */}
+              {/* S5 · supportive reflection-completion conversation + #21 reflection card shelf */}
               <ReviewCoachThread projectId={projectId} locked={done} />
 
               <div className="mt-7 flex flex-wrap items-center gap-4">
@@ -449,7 +449,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
   );
 }
 
-/* ---------- S5 · defense-readiness conversation (scope=reflection) ---------- */
+/* ---------- S5 · supportive reflection-completion conversation (scope=reflection) ---------- */
 
 // `card`, when set, marks a card-turn: rendered as a content-first clickable
 // chip opening a read-only view of the student's answers (not raw text).
@@ -497,9 +497,9 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
 
   return (
     <section className="mt-6 rounded-mk-lg border border-mk-border bg-mk-surface p-5">
-      <h2 className="font-sans text-[15px] font-bold text-mk-ink">答辩预演 · 让印记追问你</h2>
+      <h2 className="font-sans text-[15px] font-bold text-mk-ink">印记陪你把回顾写完</h2>
       <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">
-        回顾不是润色，是「经不经得起老师追问」。让印记像老师一样一次问一个——但答案得你自己给。挑一张回顾卡想清楚，印记只陪你想、不替你写。
+        卡在哪一块不知道怎么写，都可以跟印记说说。它一次只问一个问题，帮你想起细节、找到词——但话得你自己写。挑一张回顾卡也能帮你想清楚。
       </p>
       {chat.length > 0 && (
         <div className="mt-3 flex flex-col gap-2">
@@ -556,7 +556,7 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void send()}
-            placeholder="想让印记追问哪一处？"
+            placeholder="卡在哪一题？说说你的初步想法，我陪你理清——但话得你自己写"
             className="flex-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary"
           />
           <button
