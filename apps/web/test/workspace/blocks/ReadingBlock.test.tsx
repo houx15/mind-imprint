@@ -43,7 +43,17 @@ vi.mock("@/workspace/api/workspace", () => ({
 }));
 vi.mock("@/api/reading", () => ({ putReadingBrief: vi.fn(async () => {}) }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
-vi.mock("@/workspace/blocks/exploration/ExplorationView", () => ({ ExplorationView: () => <div>graph-stub</div> }));
+// Followup fix 2 (2026-08): the stub also surfaces the openRabbitHoleRequested
+// prop ReadingBlock bridges from the sibling 找资料 coach's own ＋兔子洞 button,
+// so a test here can assert the bridge arms without needing the real graph.
+vi.mock("@/workspace/blocks/exploration/ExplorationView", () => ({
+  ExplorationView: (props: { openRabbitHoleRequested?: boolean }) => (
+    <div>
+      <div>graph-stub</div>
+      <div data-testid="rabbit-request-state">{props.openRabbitHoleRequested ? "open" : "idle"}</div>
+    </div>
+  ),
+}));
 vi.mock("@/workspace/export", () => ({ exportAnnotatedBib: vi.fn() }));
 
 import { ReadingBlock } from "@/workspace/blocks/ReadingBlock";
@@ -113,6 +123,37 @@ describe("ReadingBlock · Q3 docked coach in 探索图谱", () => {
     await userEvent.click(screen.getByRole("button", { name: "列表" }));
     // list view: the floating chip is the only way to open the coach
     expect(await screen.findByRole("button", { name: /问印记 · 找资料/ })).toBeInTheDocument();
+  });
+});
+
+// Followup fix 2 (2026-08): the 印记 · 找资料 coach ALSO gets a ＋兔子洞
+// affordance (previously only 探索图谱's header had one) — it opens the SAME
+// rabbit-hole sheet ExplorationView owns via a one-shot bridging flag, not a
+// second implementation. ExplorationView itself is stubbed here (see the
+// module mock above), so these assert the bridge arms correctly rather than
+// the sheet's own contents — ExplorationView.test.tsx covers the sheet.
+describe("ReadingBlock · followup2 兔子洞 in the 找资料 coach sidebar", () => {
+  it("docked coach (探索图谱 default view): ＋ 兔子洞 arms the shared open-request", async () => {
+    render(<ReadingBlock projectId="rh-graph" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("idle");
+
+    await userEvent.click(screen.getByRole("button", { name: "＋ 兔子洞" }));
+    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("open");
+  });
+
+  it("列表's floating coach: ＋ 兔子洞 hops to 探索图谱 and arms the same open-request", async () => {
+    render(<ReadingBlock projectId="rh-list" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    // open the floating chip first — its composer (with the rabbit-hole row)
+    // only renders once the panel is open.
+    await userEvent.click(screen.getByRole("button", { name: /问印记 · 找资料/ }));
+    await userEvent.click(screen.getByRole("button", { name: "＋ 兔子洞" }));
+
+    // hopped back to 探索图谱 (the stub remounts) with the request already armed.
+    await screen.findByText("graph-stub");
+    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("open");
   });
 });
 

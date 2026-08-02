@@ -542,11 +542,36 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
       // the backoff retry lands and succeeds — no student action needed.
       await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledTimes(2), { timeout: 5000 });
       expect(mockPutBuffer).toHaveBeenLastCalledWith("p1", expected);
-      expect(await screen.findByText("已保存")).toBeInTheDocument();
+      expect(await screen.findByText("已保存 ✓")).toBeInTheDocument();
       expect(ta.value).toBe(expected); // still untouched by any save round-trip
     },
     12000,
   );
+
+  // Q6 · the indicator is a STABLE, always-present slot — it never returns
+  // null/empty (which used to cause a flicker + a layout shift next to the
+  // 字数 counter), and a successful save's "已保存 ✓" is not faded back out to
+  // nothing after a couple seconds — it stays put until the next edit.
+  it("save indicator never disappears and 已保存 stays legible after a save (no fade/flicker)", async () => {
+    const ta = await openDraftTab();
+    // a freshly-loaded, untouched draft shows the calm resting state — not a
+    // blank/missing indicator.
+    expect(await screen.findByText("已保存 ✓")).toBeInTheDocument();
+
+    await userEvent.type(ta, "再补一句。");
+    // typing flips it to a visible "unsaved" label immediately — never null.
+    expect(await screen.findByText("未保存…")).toBeInTheDocument();
+
+    // the debounce fires the save ("保存中…" while in flight, then back to a
+    // steady "已保存 ✓") — at no point does the indicator vanish.
+    await waitFor(() => expect(mockPutBuffer).toHaveBeenCalled(), { timeout: 2500 });
+    expect(await screen.findByText("已保存 ✓")).toBeInTheDocument();
+
+    // unlike the old fade-to-idle behavior, "已保存 ✓" is still there well
+    // past the old 2s fade window — nothing timed out and hid it.
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(screen.getByText("已保存 ✓")).toBeInTheDocument();
+  }, 8000);
 
   // Q6 · switching away from 正文 (unmounting DraftPane) flushes any pending
   // dirty edit rather than silently dropping it.

@@ -122,6 +122,12 @@ export function ReadingBlock({
     reply: string;
     card?: CardTurnRef;
   } | null>(null);
+  // Followup fix 2 (2026-08): the 印记 · 找资料 coach (FloatingCoach) also gets a
+  // ＋兔子洞 affordance now, not just 探索图谱's header button — same sibling
+  // relationship as pendingCardReflection above, so the trigger is bridged up
+  // here as a one-shot flag ExplorationView consumes to open its ONE existing
+  // rabbit-hole sheet (no second implementation/card_instance path).
+  const [rabbitHoleOpenRequest, setRabbitHoleOpenRequest] = useState(false);
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -462,6 +468,8 @@ export function ReadingBlock({
               // thread every other card uses (and pops the panel open, since
               // this feedback is unprompted — she didn't have it open to ask).
               onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
+              openRabbitHoleRequested={rabbitHoleOpenRequest}
+              onRabbitHoleOpenConsumed={() => setRabbitHoleOpenRequest(false)}
             />
             <FloatingCoach
               docked
@@ -471,6 +479,7 @@ export function ReadingBlock({
               onLibraryChanged={reload}
               pendingCardReflection={pendingCardReflection}
               onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+              onOpenRabbitHole={() => setRabbitHoleOpenRequest(true)}
             />
           </div>
         )}
@@ -487,6 +496,10 @@ export function ReadingBlock({
           onLibraryChanged={reload}
           pendingCardReflection={pendingCardReflection}
           onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+          // From 列表 there's no 探索图谱 mounted yet to open the sheet on — hop
+          // over to 探索图谱 (same student-initiated tap, still 铁律2-compliant)
+          // and arm the same one-shot request so it opens as soon as it mounts.
+          onOpenRabbitHole={() => { chooseViewMode("graph"); setRabbitHoleOpenRequest(true); }}
         />
       )}
 
@@ -1306,6 +1319,7 @@ function FloatingCoach({
   pendingCardReflection,
   onPendingCardReflectionConsumed,
   docked = false,
+  onOpenRabbitHole,
 }: {
   projectId: string;
   defaultOpen?: boolean;
@@ -1323,6 +1337,12 @@ function FloatingCoach({
   // hide behind — i.e. inside 探索图谱. Same chat/coach behavior throughout;
   // only the outer chrome (docked aside vs floating chip+panel) differs.
   docked?: boolean;
+  // Followup fix 2 (2026-08): a ＋兔子洞 affordance alongside the composer —
+  // opens the SAME 探索图谱 rabbit-hole sheet the graph header's button opens
+  // (ReadingBlock owns the bridging flag). Omitted entirely when the caller
+  // doesn't wire a handler (there is always one today, but this keeps the
+  // button optional/defensive rather than assuming it).
+  onOpenRabbitHole?: () => void;
 }) {
   const [open, setOpen] = useState(docked || defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -1465,20 +1485,40 @@ function FloatingCoach({
     </>
   );
 
-  const inputBar = (
-    <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-        rows={1}
-        placeholder="问从哪找、可不可信……"
-        className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-      />
-      <button type="button" onClick={send} disabled={busy} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-60">
-        <Icon name="send" size={15} />
+  // Followup fix 2 (2026-08): sits right above the composer (not inside the
+  // scrollable chatBody) so it's always reachable without scrolling — a
+  // second place to reach the rabbit-hole card besides 探索图谱's header
+  // button. Opening it is still the student's own tap (铁律2 不操纵); the
+  // card sheet + submit path are the SAME ones ExplorationView already owns.
+  const rabbitHoleRow = onOpenRabbitHole ? (
+    <div className="flex items-center border-t border-mk-border px-2.5 pt-2">
+      <button
+        type="button"
+        onClick={onOpenRabbitHole}
+        className="flex-none rounded-lg border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-semibold text-mk-ink hover:bg-mk-bg"
+      >
+        ＋ 兔子洞
       </button>
     </div>
+  ) : null;
+
+  const inputBar = (
+    <>
+      {rabbitHoleRow}
+      <div className={`flex items-end gap-2 p-2.5 ${rabbitHoleRow ? "" : "border-t border-mk-border"}`}>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
+          rows={1}
+          placeholder="问从哪找、可不可信……"
+          className="max-h-20 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+        />
+        <button type="button" onClick={send} disabled={busy} className="flex h-8 w-8 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-60">
+          <Icon name="send" size={15} />
+        </button>
+      </div>
+    </>
   );
 
   // Q3 · docked column — no collapse chip, always visible (styled like the

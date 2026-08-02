@@ -59,6 +59,14 @@ export type ExplorationViewProps = {
   // chat thread of its own — the parent (ReadingBlock's 找资料 coach panel)
   // renders the student turn + reply, mirroring CoachCardPanel's onReflected.
   onCardReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
+  // Followup fix 2 (2026-08): the ONLY other place that can open the
+  // 兔子洞 card is the sibling FloatingCoach (印记 · 找资料) — it has no state
+  // of its own here, so ReadingBlock bridges the request the same way it
+  // bridges onCardReflected above: a one-shot boolean flag this view consumes
+  // (opens the SAME sheet the header's ＋兔子洞 button opens, then flips the
+  // flag back off) rather than forking a second rabbit-hole implementation.
+  openRabbitHoleRequested?: boolean;
+  onRabbitHoleOpenConsumed?: () => void;
 };
 
 function readingBadge(r: Reference): { label: string; cls: string } | null {
@@ -67,7 +75,15 @@ function readingBadge(r: Reference): { label: string; cls: string } | null {
   return null;
 }
 
-export function ExplorationView({ projectId, references, onEnterReading, onCreateReference, onCardReflected }: ExplorationViewProps) {
+export function ExplorationView({
+  projectId,
+  references,
+  onEnterReading,
+  onCreateReference,
+  onCardReflected,
+  openRabbitHoleRequested,
+  onRabbitHoleOpenConsumed,
+}: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -96,6 +112,19 @@ export function ExplorationView({ projectId, references, onEnterReading, onCreat
   // gentle notice when the card carried neither a chosen lead nor written text.
   const [rabbitLeadId, setRabbitLeadId] = useState<string | null>(null);
   const [rabbitNotice, setRabbitNotice] = useState<string | null>(null);
+
+  // Followup fix 2 (2026-08): the sibling 找资料 coach's own ＋兔子洞 affordance
+  // requests the SAME sheet via this one-shot flag — reset it right away so a
+  // later remount (or another true→true edge, which React wouldn't re-fire on
+  // its own anyway) can't reopen it unexpectedly.
+  useEffect(() => {
+    if (!openRabbitHoleRequested) return;
+    setRabbitOpen(true);
+    setRabbitLeadId(null);
+    setRabbitNotice(null);
+    onRabbitHoleOpenConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRabbitHoleRequested]);
 
   const refresh = useMemo(
     () => async () => {

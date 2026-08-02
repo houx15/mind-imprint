@@ -1080,11 +1080,15 @@ function DraftPane({
   // this just has to keep retrying until the same content lands.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savedFadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
   const retryAttempt = useRef(0);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "retrying">("idle");
+  // Q6 · "saved" is the steady resting state (also covers a freshly-loaded,
+  // untouched draft — its persisted content already counts as saved); "dirty"
+  // covers the gap between a keystroke and the debounce firing. No "idle"/null
+  // state — the indicator always occupies its slot so it never flickers or
+  // shifts the 字数 counter next to it.
+  const [saveStatus, setSaveStatus] = useState<"saved" | "dirty" | "saving" | "retrying">("saved");
   const words = text.replace(/\s+/g, "").length;
 
   // WA · 整稿体检: save a version + run the whole-draft review, render its advice
@@ -1171,14 +1175,11 @@ function DraftPane({
     };
   }, [projectId]);
 
-  // Q6 · briefly show "已保存" then fade back to the quiet idle (no badge) —
-  // a nag-free confirmation, not a persistent banner.
+  // Q6 · mark the draft as saved — a steady, persistent "已保存 ✓", not a
+  // toast that fades back out. It stays exactly as-is until the next edit
+  // flips it to "dirty" (see onChange), so it never appears/disappears.
   function flashSaved() {
     setSaveStatus("saved");
-    if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
-    savedFadeTimer.current = setTimeout(() => {
-      setSaveStatus((s) => (s === "saved" ? "idle" : s));
-    }, 2000);
   }
 
   // Q6 · the one place that actually calls putBuffer for the debounce/periodic
@@ -1201,7 +1202,7 @@ function DraftPane({
         flashSaved();
       } else {
         // more edits landed mid-save — still dirty, catch up shortly.
-        setSaveStatus("idle");
+        setSaveStatus("dirty");
         scheduleSave(600);
       }
     } catch {
@@ -1238,7 +1239,6 @@ function DraftPane({
     () => () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (retryTimer.current) clearTimeout(retryTimer.current);
-      if (savedFadeTimer.current) clearTimeout(savedFadeTimer.current);
       if (dirtyRef.current) {
         void putBuffer(projectId, textRef.current).catch(() => {/* best-effort; nothing left to retry against */});
       }
@@ -1255,6 +1255,9 @@ function DraftPane({
     // a previous failure had climbed to.
     retryAttempt.current = 0;
     if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
+    // reflect the edit immediately (unless a save is already in flight, whose
+    // "saving" label takes precedence) so "已保存" doesn't linger stale.
+    if (!savingRef.current) setSaveStatus("dirty");
     scheduleSave(1200);
   }
 
@@ -1681,12 +1684,20 @@ function DraftReviewPanel({
 }
 
 // Q6 · a small, quiet autosave indicator beside the 字数 counter — never a
-// nagging modal. "idle" renders nothing (nothing worth mentioning right now).
-function SaveStatusIndicator({ status }: { status: "idle" | "saving" | "saved" | "retrying" }) {
-  if (status === "idle") return null;
-  const label = status === "saving" ? "正在保存…" : status === "saved" ? "已保存" : "未保存 · 正在重试…";
+// nagging modal. Always renders SOMETHING in a fixed-width slot (never null)
+// so it can't appear/disappear or shift the 字数 counter next to it; "已保存"
+// is the calm resting state (also covers a freshly-loaded, untouched draft)
+// and stays put — it is never faded back out to nothing.
+function SaveStatusIndicator({ status }: { status: "saved" | "dirty" | "saving" | "retrying" }) {
+  const label =
+    status === "saving" ? "保存中…"
+    : status === "retrying" ? "未保存 · 正在重试…"
+    : status === "dirty" ? "未保存…"
+    : "已保存 ✓";
   return (
-    <span className={`text-[12px] font-semibold ${status === "retrying" ? "text-mk-accent" : "text-mk-muted-2"}`}>
+    <span
+      className={`inline-block min-w-[8.5em] text-[12px] font-semibold ${status === "retrying" ? "text-mk-accent" : "text-mk-muted-2"}`}
+    >
       {label}
     </span>
   );
