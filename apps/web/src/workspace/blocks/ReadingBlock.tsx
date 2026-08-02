@@ -156,14 +156,15 @@ export function ReadingBlock({
         setRefs(lib.references);
         setCollections(lib.collections);
         setSelId(lib.references[0]?.id ?? "");
-        // #4 · open on the exploration graph when there's already something to
-        // explore; the empty library stays on 列表. Auto-default runs ONCE per
-        // project (guarded by the memo) so a later manual toggle isn't overridden
-        // on the next mount (review M1). Set before loading clears → no flash.
+        // #18 · always open on the exploration graph, even for a brand-new
+        // empty library — 探索图谱 shows its own empty/线索 state and offers
+        // ＋添加来源 right there, so there's no need to force 列表 first. Auto-
+        // default runs ONCE per project (guarded by the memo) so a later manual
+        // toggle isn't overridden on the next mount (review M1). Set before
+        // loading clears → no flash.
         if (!viewModeMemo.has(projectId)) {
-          const m = lib.references.length > 0 ? "graph" : "list";
-          viewModeMemo.set(projectId, m);
-          setViewModeRaw(m);
+          viewModeMemo.set(projectId, "graph");
+          setViewModeRaw("graph");
         }
         void loadExplorationSignal();
       } catch {
@@ -284,6 +285,16 @@ export function ReadingBlock({
     }
   }
 
+  // Item A #2 (exploration graph) · register a brand-new untracked source
+  // without leaving 探索图谱 — reuses the SAME createReference call + updates
+  // the SAME refs state the 列表 add-source modal does, so the library never
+  // holds two divergent copies of "what references exist".
+  async function createUntrackedSource(input: { title: string; url?: string }): Promise<Reference> {
+    const created = await createReference(projectId, { title: input.title || undefined, url: input.url || undefined });
+    setRefs((xs) => [created, ...xs]);
+    return created;
+  }
+
   async function addCollection(name: string, parentId: string | null) {
     const n = name.trim();
     if (!n) return;
@@ -349,29 +360,17 @@ export function ReadingBlock({
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载中…</div>;
   }
 
-  // Empty library — a brand-new project with no sources yet.
-  if (refs.length === 0) {
-    // #3 · the coach already knows the project topic every turn — the empty
-    // greeting should ACKNOWLEDGE it, not ask for it. A static interpolated
-    // string (no model call); falls back to the old ask only when no topic is
-    // set yet.
-    const topic = title?.trim();
-    const opener = topic
-      ? `你的题目是「${topic}」。想找什么证据来支撑或检验它？我给你方向和关键词——但我不替你搜。`
-      : "你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。";
-    return (
-      <div className="relative h-full">
-        <EmptyLibrary onAdd={() => setAdding(true)} topic={topic} />
-        <FloatingCoach
-          projectId={projectId}
-          defaultOpen
-          opener={opener}
-          onLibraryChanged={reload}
-        />
-        {modal}
-      </div>
-    );
-  }
+  // #3 · the coach already knows the project topic every turn — the empty
+  // greeting should ACKNOWLEDGE it, not ask for it. A static interpolated
+  // string (no model call); falls back to the old ask only when no topic is
+  // set yet. #18 · this no longer gates on a special empty-library layout —
+  // 探索图谱 is now the default even when refs.length === 0 (its own view
+  // renders a graph-flavored empty state), so 列表's EmptyLibrary is just
+  // that view's empty content, reached via the toggle like any other view.
+  const topic = title?.trim();
+  const emptyOpener = topic
+    ? `你的题目是「${topic}」。想找什么证据来支撑或检验它？我给你方向和关键词——但我不替你搜。`
+    : "你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。";
 
   return (
     <div className="relative flex h-full flex-col">
@@ -381,58 +380,72 @@ export function ReadingBlock({
 
       <div className="min-h-0 flex-1">
         {viewMode === "list" ? (
-          <div className="grid h-full" style={{ gridTemplateColumns: `${railOpen ? "220px" : "48px"} 1fr 300px` }}>
-            <CollectionsRail
-              open={railOpen}
-              onToggle={() => setRailOpen((o) => !o)}
-              collections={collections}
-              collId={collId}
-              onPick={(id) => { setCollId(id); setActiveTag(null); }}
-              tags={allTags}
-              activeTag={activeTag}
-              onTag={setActiveTag}
-              total={refs.length}
-              countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => r.collectionId != null && new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
-              onDropRef={(collId2, refId) => patchNow(refId, { collectionId: collId2 })}
-              onCreateCollection={(name) => addCollection(name, null)}
-            />
-
-            <RefTable
-              rows={rows}
-              selId={selected?.id ?? ""}
-              onSelect={setSelId}
-              checked={checked}
-              onCheck={toggleCheck}
-              onClearChecks={() => setChecked(new Set())}
-              onExportBib={exportAnnotatedBib}
-              collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
-              activeTag={activeTag}
-              onAdd={() => setAdding(true)}
-              onSetPhase={setPhaseTag}
-            />
-
-            {selected ? (
-              <Preview
-                key={selected.id}
-                projectId={projectId}
-                item={selected}
-                allTags={allTags}
-                onAddTag={(t) => addTag(selected.id, t)}
-                onRemoveTag={(t) => removeTag(selected.id, t)}
-                onPatchNow={(p) => patchNow(selected.id, p)}
-                onPatchDebounced={(p) => patchDebounced(selected.id, p)}
-                onEnterReading={setReadingSource}
+          refs.length === 0 ? (
+            <EmptyLibrary onAdd={() => setAdding(true)} topic={topic} />
+          ) : (
+            <div className="grid h-full" style={{ gridTemplateColumns: `${railOpen ? "220px" : "48px"} 1fr 300px` }}>
+              <CollectionsRail
+                open={railOpen}
+                onToggle={() => setRailOpen((o) => !o)}
+                collections={collections}
+                collId={collId}
+                onPick={(id) => { setCollId(id); setActiveTag(null); }}
+                tags={allTags}
+                activeTag={activeTag}
+                onTag={setActiveTag}
+                total={refs.length}
+                countFor={(id) => (id === "all" ? refs.length : refs.filter((r) => r.collectionId != null && new Set([id, ...(descendants.get(id) ?? [])]).has(r.collectionId)).length)}
+                onDropRef={(collId2, refId) => patchNow(refId, { collectionId: collId2 })}
+                onCreateCollection={(name) => addCollection(name, null)}
               />
-            ) : (
-              <div className="border-l border-mk-border bg-mk-surface" />
-            )}
-          </div>
+
+              <RefTable
+                rows={rows}
+                selId={selected?.id ?? ""}
+                onSelect={setSelId}
+                checked={checked}
+                onCheck={toggleCheck}
+                onClearChecks={() => setChecked(new Set())}
+                onExportBib={exportAnnotatedBib}
+                collName={collId === "all" ? "全部文献" : collections.find((c) => c.id === collId)?.name ?? ""}
+                activeTag={activeTag}
+                onAdd={() => setAdding(true)}
+                onSetPhase={setPhaseTag}
+              />
+
+              {selected ? (
+                <Preview
+                  key={selected.id}
+                  projectId={projectId}
+                  item={selected}
+                  allTags={allTags}
+                  onAddTag={(t) => addTag(selected.id, t)}
+                  onRemoveTag={(t) => removeTag(selected.id, t)}
+                  onPatchNow={(p) => patchNow(selected.id, p)}
+                  onPatchDebounced={(p) => patchDebounced(selected.id, p)}
+                  onEnterReading={setReadingSource}
+                />
+              ) : (
+                <div className="border-l border-mk-border bg-mk-surface" />
+              )}
+            </div>
+          )
         ) : (
-          <ExplorationView projectId={projectId} references={refs} onEnterReading={setReadingSource} />
+          <ExplorationView
+            projectId={projectId}
+            references={refs}
+            onEnterReading={setReadingSource}
+            onCreateReference={createUntrackedSource}
+          />
         )}
       </div>
 
-      <FloatingCoach projectId={projectId} onLibraryChanged={reload} />
+      <FloatingCoach
+        projectId={projectId}
+        defaultOpen={refs.length === 0}
+        opener={refs.length === 0 ? emptyOpener : undefined}
+        onLibraryChanged={reload}
+      />
 
       {modal}
     </div>

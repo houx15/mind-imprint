@@ -23,6 +23,7 @@ Every card finish should: **AI feedback on the student's actual content → stud
 
 ## Progress ledger
 (append one line per slice when review is clean)
+- S4a: complete (commit e2863a6, db 0048; contracts 296 / web 672 / go incl internal/api testcontainers green; sqlc hand-edit reviewed — column/Scan order consistent across 8 queries)
 - S3b: complete (commit b12d7e2, web 668 / go agent green; #10 root cause = missing stripFences() in review.go; noted follow-up: paragraph-scope commitSnapshot flips word_budget gate)
 - S3a: complete (commit 2ad6019, contracts 294 / web 662 / go agent+cards green; card→paragraph reuses /cards/reflect surface=writing)
 - S2: complete (commit e048e87, contracts 292 / web 653 / go internal/api 470s green; self-reviewed — forming scope aligned, spend metered before bail)

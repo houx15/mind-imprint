@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MaterialsSidebar } from "@/workspace/blocks/MaterialsSidebar";
 import * as workspaceApi from "@/workspace/api/workspace";
+import * as explorationApi from "@/api/exploration";
 
 const REF = {
   id: "r1",
@@ -44,6 +45,7 @@ describe("MaterialsSidebar", () => {
     vi.restoreAllMocks();
     vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] as never });
     vi.spyOn(workspaceApi, "getOutline").mockResolvedValue(OUTLINE as never);
+    vi.spyOn(explorationApi, "getExploration").mockResolvedValue({ leads: [], danglingSourceIds: [] });
   });
 
   it("materials: unfolds notes and 收进片段 appends a snippet (snippets tab)", async () => {
@@ -154,6 +156,48 @@ describe("MaterialsSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "大纲" }));
     expect(screen.queryByRole("button", { name: /把大纲导入正文/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /把大纲导入为片段分组/ })).toBeNull();
+  });
+
+  // Batch5 Item C (#16): 线索 as a categorization tag on the 材料 tab — a
+  // reference is associated with a lead via sourceReferenceId/
+  // connectedReferenceId (no new persistence; reuses the exploration graph).
+  it("材料 tab: 线索 filter narrows references to the ones under a chosen 线索", async () => {
+    const REF2 = { ...REF, id: "r2", title: "另一篇未归类的来源" };
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF, REF2] as never });
+    vi.spyOn(explorationApi, "getExploration").mockResolvedValue({
+      leads: [
+        {
+          id: "lead1",
+          text: "碳排放反例线索",
+          status: "open",
+          origin: "manual",
+          sourceReferenceId: REF.id,
+          connectedReferenceId: null,
+          position: 0,
+          parentLeadId: null,
+        },
+      ],
+      danglingSourceIds: [],
+    } as never);
+
+    render(
+      <MaterialsSidebar {...DEFAULTS} projectId="p1" activeTab="draft" locked={false} snippets={[]} onAddSnippet={() => {}} onInsertToDraft={() => {}} />,
+    );
+    await screen.findByText("NASA 绿化报告");
+    expect(screen.getByText("另一篇未归类的来源")).toBeInTheDocument();
+
+    const picker = await screen.findByLabelText("按线索筛选材料");
+    fireEvent.change(picker, { target: { value: "lead1" } });
+    expect(screen.getByText("NASA 绿化报告")).toBeInTheDocument();
+    expect(screen.queryByText("另一篇未归类的来源")).not.toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: "__uncat__" } });
+    expect(screen.queryByText("NASA 绿化报告")).not.toBeInTheDocument();
+    expect(screen.getByText("另一篇未归类的来源")).toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: "__all__" } });
+    expect(screen.getByText("NASA 绿化报告")).toBeInTheDocument();
+    expect(screen.getByText("另一篇未归类的来源")).toBeInTheDocument();
   });
 
   it("collapses to a 材料 tab and reopens", async () => {

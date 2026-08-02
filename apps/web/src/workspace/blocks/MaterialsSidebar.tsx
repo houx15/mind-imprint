@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import type { Reference } from "@mind-imprint/contracts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ExplorationLead, Reference } from "@mind-imprint/contracts";
 import { getLibrary, getOutline } from "../api/workspace";
+import { getExploration } from "../../api/exploration";
 import { Icon } from "../Icon";
 
 // #23 / #9 · the writing room's materials sidebar: a floating, DRAGGABLE panel
@@ -59,6 +60,12 @@ export function MaterialsSidebar({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // #16 · filter the 片段 browse by category (章节/线索 label the snippet is filed under).
   const [snipFilter, setSnipFilter] = useState<string>("__all__");
+  // #16 (materials) · the exploration graph's leads, fetched read-only so the
+  // 材料 tab can categorize references by which 线索 they're under — no new
+  // persistence, the association already lives in the leads themselves
+  // (sourceReferenceId / connectedReferenceId, incl. child-branch sources).
+  const [leads, setLeads] = useState<ExplorationLead[]>([]);
+  const [matFilter, setMatFilter] = useState<string>("__all__");
   // Floating position within the writing room's relative container; defaults left.
   const [pos, setPos] = useState({ x: 16, y: 16 });
   const drag = useRef<{ dx: number; dy: number } | null>(null);
@@ -75,6 +82,61 @@ export function MaterialsSidebar({
       .catch(() => { /* leave empty — the sidebar just shows the empty state */ });
     return () => { alive = false; };
   }, [projectId]);
+
+  // #16 (materials) · fetched once on mount, same as refs above — read-only,
+  // no spend. A failed fetch just means no 线索 categorization is offered yet.
+  useEffect(() => {
+    let alive = true;
+    getExploration(projectId)
+      .then((v) => { if (alive) setLeads(v.leads); })
+      .catch(() => { /* the filter is a nicety; the tab stays usable without it */ });
+    return () => { alive = false; };
+  }, [projectId]);
+
+  // A reference is associated with a lead when it's that lead's
+  // sourceReferenceId (the source that spawned the thread) or
+  // connectedReferenceId (a resolved lead OR — Item A — a child branch
+  // created specifically to attach a source under a parent lead). Child
+  // associations roll up to their TOP-LEVEL ancestor for the category label,
+  // since a child created just to hold a source has no meaningful name of
+  // its own — the meaningful 线索 is the thread it hangs under.
+  const { refToLead, leadOptions } = useMemo(() => {
+    const byId = new Map(leads.map((l) => [l.id, l]));
+    function rootOf(l: ExplorationLead): ExplorationLead {
+      let cur = l;
+      const seen = new Set<string>();
+      while (cur.parentLeadId && byId.has(cur.parentLeadId) && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        cur = byId.get(cur.parentLeadId)!;
+      }
+      return cur;
+    }
+    const refToLead = new Map<string, { id: string; text: string }>();
+    for (const l of leads) {
+      const refIds = [l.sourceReferenceId, l.connectedReferenceId].filter((x): x is string => !!x);
+      if (refIds.length === 0) continue;
+      const root = rootOf(l);
+      for (const rid of refIds) {
+        if (!refToLead.has(rid)) refToLead.set(rid, { id: root.id, text: root.text });
+      }
+    }
+    const byRootId = new Map<string, string>();
+    for (const v of refToLead.values()) byRootId.set(v.id, v.text);
+    const leadOptions = Array.from(byRootId.entries()).map(([id, text]) => ({ id, text }));
+    return { refToLead, leadOptions };
+  }, [leads]);
+  // clamp a filter whose 线索 has since vanished back to 全部 (mirrors 片段's effFilter guard).
+  const effMatFilter =
+    matFilter === "__all__" || matFilter === "__uncat__" || leadOptions.some((o) => o.id === matFilter) ? matFilter : "__all__";
+  const filteredRefs = useMemo(
+    () =>
+      refs.filter((r) => {
+        if (effMatFilter === "__all__") return true;
+        if (effMatFilter === "__uncat__") return !refToLead.has(r.id);
+        return refToLead.get(r.id)?.id === effMatFilter;
+      }),
+    [refs, effMatFilter, refToLead],
+  );
 
   // Load the outline lazily (and refresh it) whenever the 大纲 source is shown,
   // so recent outline edits appear without lifting the outline's state.
@@ -195,7 +257,27 @@ export function MaterialsSidebar({
             <Empty>还没有文献。去阅读室加一些来源，读过的笔记会出现在这里。</Empty>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {refs.map((r) => {
+              {/* #16 · 线索 as a categorization tag for materials — filter to
+                  references under a chosen 线索 (only shown once at least one
+                  reference is actually associated with a lead). */}
+              {leadOptions.length > 0 && (
+                <select
+                  value={effMatFilter}
+                  onChange={(e) => setMatFilter(e.target.value)}
+                  aria-label="按线索筛选材料"
+                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                >
+                  <option value="__all__">全部线索</option>
+                  {leadOptions.map((o) => (
+                    <option key={o.id} value={o.id}>{o.text}</option>
+                  ))}
+                  <option value="__uncat__">未归入线索</option>
+                </select>
+              )}
+              {filteredRefs.length === 0 && (
+                <Empty>这条线索下还没有材料——换一个筛选，或者去阅读室归类。</Empty>
+              )}
+              {filteredRefs.map((r) => {
                 const isOpen = expanded === r.id;
                 const chunks = referenceChunks(r);
                 return (

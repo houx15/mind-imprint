@@ -64,6 +64,19 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
     expect(screen.queryByText("标题")).toBeNull();
   });
 
+  // #18: 探索图谱 is now the default even for a brand-new EMPTY library — the
+  // graph shows its own empty/线索 state (with ＋添加来源 right there), so
+  // there's no reason to force 列表 first just because nothing exists yet.
+  it("opens on the 探索图谱 even when the library is empty (#18)", async () => {
+    const { getLibrary } = await import("@/workspace/api/workspace");
+    vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
+    render(<ReadingBlock projectId="p2" title="T" setReadingSource={() => {}} />);
+    expect(await screen.findByText("graph-stub")).toBeInTheDocument();
+    // 列表 is still one click away, with its own empty-state affordance
+    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    expect(await screen.findByText(/先加一篇来源/)).toBeInTheDocument();
+  });
+
   it("stage picker persists via the reading brief, carrying reason/focus (#2)", async () => {
     render(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
@@ -95,13 +108,18 @@ describe("ReadingBlock · #3 topic-aware empty state", () => {
         setReadingSource={() => {}}
       />,
     );
-    // the coach greeting names the topic and keeps the 不替你搜 restraint
+    // the coach greeting names the topic and keeps the 不替你搜 restraint — this
+    // holds regardless of which view (#18: 探索图谱 is now the default even
+    // for an empty library) is showing, since FloatingCoach's opener is keyed
+    // off refs.length, not viewMode.
     expect(
       await screen.findByText(/你的题目是「中国是否让地球变得更可持续？」/),
     ).toBeInTheDocument();
     expect(screen.getByText(/但我不替你搜/)).toBeInTheDocument();
-    // the empty-state copy references the topic too
-    expect(screen.getByText(/围绕「中国是否让地球变得更可持续？」/)).toBeInTheDocument();
+    // the 列表 empty-state copy references the topic too — switch there since
+    // 探索图谱 (its own empty state) is the default now.
+    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    expect(await screen.findByText(/围绕「中国是否让地球变得更可持续？」/)).toBeInTheDocument();
   });
 
   it("falls back to the generic ask when no topic is set", async () => {
