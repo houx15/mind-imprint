@@ -9,7 +9,7 @@ vi.mock("@/api", async (orig) => {
 import { api } from "@/api";
 import { CoursesView } from "@/shell/courses/CoursesView";
 
-const course = { id: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", tasks_count: 3, tools_count: 4, time_label: "约 40 分钟", step_count: 4 };
+const course = { slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["craap", "concession", "toulmin", "sift"], step_count: 3 };
 
 describe("CoursesView", () => {
   beforeEach(() => {

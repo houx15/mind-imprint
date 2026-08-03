@@ -12,9 +12,9 @@ vi.mock("@/api", async (orig) => {
       ...real.api,
       listTasks: vi.fn(async () => []),
       listCourses: vi.fn(async () => [
-        { id: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", tasks_count: 3, tools_count: 4, time_label: "约 40 分钟", step_count: 4 },
+        { slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["craap", "concession", "toulmin", "sift"], step_count: 4 },
       ]),
-      getCourseProgress: vi.fn(async () => ({ course_id: "co1", current_ordinal: 0, completed_ordinals: [], updated_at: "" })),
+      getCourseProgress: vi.fn(async () => ({ course_slug: "co1", current_ordinal: 0, completed_ordinals: [], started_at: null, completed_at: null, updated_at: "" })),
     },
   };
 });

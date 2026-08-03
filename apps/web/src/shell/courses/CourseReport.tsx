@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Course, DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import type { CourseReport as CourseReportT, CardCatalogEntry } from "@mind-imprint/contracts";
 import { api } from "../../api";
-import { DualAxisReport } from "../report/DualAxisReport";
 
 function Stat({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
@@ -13,89 +11,68 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
   );
 }
 
+// mm:ss-ish humanization: under a minute reads in seconds, otherwise minutes
+// (+ leftover seconds when non-zero) — matches the brief's "X 分 Y 秒" / "约 X
+// 分钟" examples without inventing a third format.
+export function formatSpent(secondsSpent: number): string {
+  if (secondsSpent <= 0) return "0 分钟";
+  if (secondsSpent < 60) return `${secondsSpent} 秒`;
+  const m = Math.floor(secondsSpent / 60);
+  const s = secondsSpent % 60;
+  return s === 0 ? `约 ${m} 分钟` : `${m} 分 ${s} 秒`;
+}
+
+// A card chip's label comes from the catalog (student-facing 中文名), never
+// the raw card id — falls back to the id only if the catalog fetch failed or
+// somehow omitted this card, so the chip is never blank.
+function CardChip({ cardId, name }: { cardId: string; name?: string }) {
+  return (
+    <span
+      title={name ?? cardId}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
+      {name ?? cardId}
+    </span>
+  );
+}
+
+// courseId is really the course slug (CourseSummary/CoursePlayerPayload no
+// longer have a numeric/string `id` — the slug is the sole identifier). The
+// prop is named courseId to stay compatible with CoursesContainer's existing
+// call site (Task 11 keeps that wiring, only the internal data model
+// changes).
 export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void }) {
-  const [course, setCourse] = useState<Course | null>(null);
-  const [completed, setCompleted] = useState<number[]>([]);
-  const [assessment, setAssessment] = useState<DualAxisReportT | null>(null);
-  const [assessErr, setAssessErr] = useState(false);
-  const [collectedCardIds, setCollectedCardIds] = useState<string[]>([]);
-  const [coverByCard, setCoverByCard] = useState<Record<string, string>>({});
-  const [restarting, setRestarting] = useState(false);
+  const [report, setReport] = useState<CourseReportT | null>(null);
+  const [error, setError] = useState(false);
+  const [cardNames, setCardNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const c = await api.getCourse(courseId);
-      let comp: number[] = [];
-      try { comp = (await api.getCourseProgress(courseId)).completed_ordinals; } catch { /* none */ }
-      if (cancelled) return;
-      setCompleted(comp);
-      setCourse(c);
-
-      let hasCollected = false;
       try {
-        const session = await api.getCourseSession(courseId);
-        hasCollected = session.collectedCards.length > 0;
-        if (!cancelled) setCollectedCardIds(session.collectedCards.map((cc) => cc.cardId));
-      } catch { /* no session yet */ }
-
-      // Card covers for the "收集到的工具" block (good-to-have). Best-effort, and
-      // only when the session actually collected cards — otherwise the catalog
-      // (and its cover signing) is wasted work. The catalog carries a signed
-      // cover URL per card for the student's theme.
-      if (hasCollected) {
-        try {
-          const cat = await api.getCardsCatalog();
-          if (!cancelled) {
-            const m: Record<string, string> = {};
-            for (const c of cat.cards) if (c.coverUrl) m[c.cardId] = c.coverUrl;
-            setCoverByCard(m);
-          }
-        } catch { /* covers are optional; text pills still render */ }
-      }
-
-      // DEC-A1.4: auto-generate once, never a loop or a button — GET first,
-      // POST only when the session has no report yet.
-      try {
-        let a = await api.getCourseAssessment(courseId);
-        if (a == null) a = await api.generateCourseAssessment(courseId);
-        if (!cancelled) setAssessment(a);
+        const r = await api.getCourseReport(courseId);
+        if (cancelled) return;
+        setReport(r);
       } catch {
-        if (!cancelled) setAssessErr(true);
+        if (!cancelled) setError(true);
+        return;
       }
+      // Card chip labels are a best-effort lookup — the report itself must
+      // still render (id-fallback chips) if the catalog fetch fails.
+      try {
+        const cat = await api.getCardsCatalog();
+        if (cancelled) return;
+        const m: Record<string, string> = {};
+        for (const c of cat.cards as CardCatalogEntry[]) m[c.cardId] = c.name;
+        setCardNames(m);
+      } catch { /* chip labels fall back to the raw card id */ }
     })();
     return () => { cancelled = true; };
   }, [courseId]);
 
-  // 铁律 2: student-triggered, never pushed. Restart deletes-and-recreates the
-  // session server-side (Task 4) in one call, so by the time this resolves a
-  // fresh session already exists at the first phase — leaving this finished
-  // report back to the grid is enough to "reset to a fresh session": the next
-  // time the student opens this course, CoursePlayer's startCourseSession
-  // (get-or-create) simply hands back the fresh session restart just made.
-  async function handleRestart() {
-    if (restarting) return;
-    setRestarting(true);
-    try {
-      await api.restartCourseSession(courseId);
-      onBackToCourses();
-    } finally {
-      setRestarting(false);
-    }
-  }
-
-  if (!course) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在整理你的学习报告…</div>;
-
-  const challenges = course.steps.filter((s) => s.kind === "challenge");
-  const learnings = course.steps.filter((s) => s.kind === "teaching" && s.purpose).map((s) => s.purpose);
-  // DEC-A1.5: 通过 = reached, not graded — completed_ordinals is recorded
-  // server-side by the render handler, so this is not client-assertable.
-  const reachedChallenges = challenges.filter((c) => completed.includes(c.ordinal));
-  // Filtered (not raw) length gates the block — a session whose collected
-  // ids are all absent from CARD_REGISTRY must not render an empty card row.
-  const collectedCards = collectedCardIds
-    .map((cardId) => ({ cardId, spec: CARD_REGISTRY[cardId] }))
-    .filter((c): c is { cardId: string; spec: NonNullable<typeof c.spec> } => c.spec != null);
+  if (error) return <div style={{ padding: 40, color: "#B0432E" }}>学习报告暂时没能生成，稍后再看看。</div>;
+  if (!report) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在整理你的学习报告…</div>;
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "#F3F4F8" }}>
@@ -107,106 +84,58 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "#AEB8E4" }}>学习报告 · 课程完成</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginTop: 6, lineHeight: 1.3 }}>{course.title}</div>
-            <div style={{ fontSize: 13, color: "#C3CBEC", marginTop: 6 }}>{course.branch} · 恭喜你走完这一程，下面是你留下的印记。</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginTop: 6, lineHeight: 1.3 }}>{report.title}</div>
+            <div style={{ fontSize: 13, color: "#C3CBEC", marginTop: 6 }}>恭喜你走完这一程，下面是你留下的印记。</div>
           </div>
         </div>
 
         {/* stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 16 }}>
-          <Stat value={course.time_label} label="用时" />
-          <Stat value={`${completed.length} / ${course.steps.length}`} label="阶段完成" />
-          <Stat value={`${reachedChallenges.length}`} label="挑战通过" color="#D98263" />
-          {/* A1: was course.tools_count — the static authored catalogue number
-              (0011_courses.sql seed), same as the course card's "N 个工具".
-              collectedCards.length (CARD_REGISTRY-filtered, not raw
-              collectedCardIds) so this tile can never say N while the 收集到的
-              工具 block below it — gated on this exact same filtered list —
-              renders fewer than N pills or is omitted entirely. */}
-          <Stat value={`${collectedCards.length}`} label="工具收集" color="#4C9A82" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginTop: 16 }}>
+          <Stat value={formatSpent(report.secondsSpent)} label="用时" />
+          <Stat value={`${report.completedStepTitles.length}`} label="阶段完成" />
+          <Stat value={`${report.quiz.correct} / ${report.quiz.total}`} label="小测表现" color="#D98263" />
         </div>
 
-        {/* learned */}
+        {/* 学到了什么 */}
         <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>你学到了什么</div>
-          {learnings.map((l, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
-              <span style={{ fontSize: 14.5, color: "#2B3346", lineHeight: 1.6 }}>{l}</span>
+          <div style={{ fontSize: 14.5, color: "#2B3346", lineHeight: 1.7 }}>{report.goal}</div>
+          {report.teaching_thread && (
+            <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.7, marginTop: 10 }}>{report.teaching_thread}</div>
+          )}
+          {report.completedStepTitles.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              {report.completedStepTitles.map((title, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
+                  <span style={{ fontSize: 14, color: "#2B3346", lineHeight: 1.6 }}>{title}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* challenges */}
-        {challenges.length > 0 && (
-          <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>挑战回顾</div>
-            {challenges.map((c) => (
-              <div key={c.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid #F3F4F7" }}>
-                <div style={{ flex: "none", width: 30, height: 30, borderRadius: 9, background: "#FBEEE7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D98263" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z" /></svg>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{c.purpose || "挑战"}</div>
-                </div>
-                {completed.includes(c.ordinal) && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C9A82" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 5 }}><path d="M20 6L9 17l-5-5" /></svg>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* evaluation — dc.html:466-480. Diagnostic per-dimension only, never
-            a total/rank/aggregate (RL-5). */}
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 4 }}>能力评估</div>
-          <div style={{ fontSize: 12.5, color: "#8A92A3", marginBottom: 14 }}>按 SOLO 四级 · 来自这门课里你的表现</div>
-          {assessErr ? (
-            <div style={{ fontSize: 13.5, color: "#8A92A3" }}>能力评估暂时没能生成，稍后再看看。</div>
-          ) : assessment ? (
-            <DualAxisReport report={assessment} />
-          ) : (
-            <div style={{ fontSize: 13.5, color: "#9AA1B0" }}>正在整理你的学习报告…</div>
           )}
         </div>
 
-        {/* tools collected — dc.html:482-494. No empty state exists in the
-            design; an empty block would wrongly imply nothing was collected
-            when the student may simply not have reached a card. */}
-        {collectedCards.length > 0 && (
+        {/* 学到的工具卡 — no empty state: the design has none, and an empty
+            block would wrongly imply nothing was learned. Chips are
+            non-navigating: there is no existing hook to deep-link the card
+            gallery to a specific card (only course→card via CardCatalogEntry
+            .courseId, the opposite direction), so this renders the card's
+            catalog name as a plain label rather than inventing new routing. */}
+        {report.cardIds.length > 0 && (
           <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>收集到的工具</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>学到的工具卡</div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {collectedCards.map((c, i) => {
-                const cover = coverByCard[c.cardId];
-                if (cover) {
-                  // colored cover (the student collected it in this course) + name
-                  return (
-                    <div key={`${c.cardId}-${i}`} style={{ width: 96, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ width: 96, aspectRatio: "2 / 3", borderRadius: 11, overflow: "hidden", border: "1px solid #E3E6EF", boxShadow: "0 2px 8px rgba(15,20,45,.08)" }}>
-                        <img src={cover} alt={c.spec.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2A3B7A", lineHeight: 1.35 }}>{c.spec.name}</div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={`${c.cardId}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11, height: "fit-content" }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
-                    {c.spec.name}
-                  </div>
-                );
-              })}
+              {report.cardIds.map((cardId, i) => (
+                <CardChip key={`${cardId}-${i}`} cardId={cardId} name={cardNames[cardId]} />
+              ))}
             </div>
           </div>
         )}
 
-        {/* actions — a plain 重新开始 sits with the other two neutral/primary
-            controls; no celebration styling (铁律 2). */}
+        {/* actions — a plain 重新开始 is gone (no more sessions to restart in
+            the linear self-paced player, Task 10); just back + onward. */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 22 }}>
           <button type="button" onClick={onBackToCourses} style={{ flex: "none", background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", fontSize: 14, fontWeight: 700, padding: "13px 20px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>返回课程</button>
-          <button type="button" disabled={restarting} onClick={() => void handleRestart()} style={{ flex: "none", background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", fontSize: 14, fontWeight: 700, padding: "13px 20px", borderRadius: 12, cursor: restarting ? "default" : "pointer", fontFamily: "inherit", opacity: restarting ? 0.6 : 1 }}>重新开始</button>
           <button type="button" onClick={onGoPortal} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#4C9A82", color: "#fff", border: "none", fontSize: 14.5, fontWeight: 700, padding: 13, borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>
             去写作工作室，用起来
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>

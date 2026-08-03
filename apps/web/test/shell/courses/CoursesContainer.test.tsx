@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { Course } from "@mind-imprint/contracts";
+import type { CourseSummary, CoursePlayerPayload, CourseReport as CourseReportT } from "@mind-imprint/contracts";
 
 vi.mock("@/api", async (orig) => {
   const real = await orig<typeof import("@/api")>();
@@ -12,9 +12,10 @@ vi.mock("@/api", async (orig) => {
       getCourseProgress: vi.fn(),
       getCourse: vi.fn(),
       saveCourseProgress: vi.fn(),
-      renderCourseStep: vi.fn(),
-      startCourseSession: vi.fn(),
-      getCourseSession: vi.fn(),
+      answerCourseQuiz: vi.fn(),
+      courseAsk: vi.fn(),
+      getCourseReport: vi.fn(),
+      getCardsCatalog: vi.fn(),
     },
   };
 });
@@ -22,40 +23,68 @@ vi.mock("@/api", async (orig) => {
 import { api } from "@/api";
 import { CoursesContainer } from "@/shell/courses/CoursesContainer";
 
-const summary = { id: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "…", tasks_count: 3, tools_count: 4, time_label: "约 40 分钟", step_count: 1 };
-const course: Course = { ...summary, steps: [{ id: "s0", course_id: "co1", ordinal: 0, kind: "teaching", purpose: "", assets: [], challenge_type: null, authored_content: {} }] };
+const summary: CourseSummary = {
+  slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["concession"], step_count: 1,
+};
+
+const payload: CoursePlayerPayload = {
+  slug: "co1",
+  title: "一条网络信息，该不该信",
+  branch: "批判性思维",
+  cardIds: ["concession"],
+  structure: {
+    id: "co1", title: "一条网络信息，该不该信", course_goal: "", teaching_thread: "",
+    steps: [{ id: "s0", title: "第一步", materials: [] }],
+    asset_library: [],
+  },
+  renderCache: {
+    version: "1", courseId: "co1", courseTitle: "一条网络信息，该不该信",
+    steps: [{ stepId: "s0", content: { title: "开场", subtitle: "s", segments: [{ kind: "teaching", flow_block_id: "", text: "开场正文。", asset_ids: [], items: [] }], interactions: [], board: [] } }],
+  },
+};
+
+const report: CourseReportT = {
+  title: "一条网络信息，该不该信",
+  goal: "学会先追问信息的来源",
+  teaching_thread: "从接受说法转向追问来源。",
+  completedStepTitles: ["开场"],
+  cardIds: ["concession"],
+  secondsSpent: 120,
+  quiz: { total: 1, correct: 1 },
+};
+
+async function* gen(events: unknown[]) {
+  for (const e of events) yield e;
+}
 
 describe("CoursesContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (api.listCourses as any).mockResolvedValue([summary]);
-    (api.getCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 0, completed_ordinals: [], updated_at: "" });
-    (api.getCourse as any).mockResolvedValue(course);
-    (api.saveCourseProgress as any).mockResolvedValue({ course_id: "co1", current_ordinal: 0, completed_ordinals: [0], updated_at: "" });
-    (api.renderCourseStep as any).mockResolvedValue({ ordinal: 0, kind: "teaching", template: "teaching", source: "generated", content: { title: "开场", subtitle: "s", body: ["b"], foreground_asset_id: null } });
-    (api.startCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [] });
-    (api.getCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "demonstrate", phaseTitle: "演示", status: "active", messages: [] });
+    (api.getCourseProgress as any).mockRejectedValue(new Error("no progress yet"));
+    (api.getCourse as any).mockResolvedValue(payload);
+    (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "co1", current_ordinal: 0, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
+    (api.answerCourseQuiz as any).mockResolvedValue(undefined);
+    (api.courseAsk as any).mockImplementation(() => gen([]));
+    (api.getCourseReport as any).mockResolvedValue(report);
+    (api.getCardsCatalog as any).mockResolvedValue({ cards: [], theme: "light" });
   });
 
   it("opens the player when a course is clicked, and returns to the grid", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习"));
-    expect(await screen.findByText("开场")).toBeInTheDocument(); // player step
+    expect(await screen.findByText("开场正文。")).toBeInTheDocument(); // player step
     fireEvent.click(screen.getByText("课程")); // back
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // grid header
   });
 
-  it("shows the course report after finishing the last step", async () => {
-    // The Finish control is gated on the session's own status (Slice 12 —
-    // the linear phase chain means ordinal position alone can no longer
-    // decide "done"), so a session already in "finished" status renders it
-    // immediately.
-    (api.startCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "reflect", phaseTitle: "回看", status: "finished", messages: [] });
-    (api.getCourseSession as any).mockResolvedValue({ id: "sess1", courseId: "co1", phase: "reflect", phaseTitle: "回看", status: "finished", messages: [] });
+  it("shows the course report after finishing the last (only) step", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习"));
-    fireEvent.click(await screen.findByLabelText("完成课程"));
+    await screen.findByText("开场正文。");
+    fireEvent.click(screen.getByLabelText("完成课程"));
     expect(await screen.findByText("学习报告 · 课程完成")).toBeInTheDocument();
+    expect(await screen.findByText("学会先追问信息的来源")).toBeInTheDocument();
     fireEvent.click(screen.getByText("返回课程"));
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // back to grid
   });

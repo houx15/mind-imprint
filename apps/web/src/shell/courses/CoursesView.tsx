@@ -24,7 +24,7 @@ function CourseCard({ course, pct, onOpen }: { course: CourseSummary; pct: numbe
         <div style={{ fontSize: 18, fontWeight: 800, color: "#1C2333", lineHeight: 1.4 }}>{course.title}</div>
         <div style={{ fontSize: 13, color: "#6B7384", lineHeight: 1.66, marginTop: 8 }}>{course.blurb}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, fontSize: 12, color: "#8A92A3", fontWeight: 600 }}>
-          <span>{course.tasks_count} 个任务 · {course.tools_count} 个工具</span>
+          <span>{course.step_count} 个任务 · {course.card_ids.length} 个工具</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
             {course.time_label}
@@ -60,10 +60,10 @@ export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => v
       if (cancelled) return;
       setCourses(cs);
       cs.forEach((c) => {
-        void Promise.resolve(api.getCourseProgress(c.id)).then((p) => {
+        void Promise.resolve(api.getCourseProgress(c.slug)).then((p) => {
           if (cancelled || c.step_count === 0 || !p) return;
           const pct = Math.round((p.completed_ordinals.length / c.step_count) * 100);
-          setPctById((m) => ({ ...m, [c.id]: p.completed_ordinals.length > 0 ? pct : null }));
+          setPctById((m) => ({ ...m, [c.slug]: p.completed_ordinals.length > 0 ? pct : null }));
         }).catch(() => {});
       });
     }).catch(() => { if (!cancelled) setCourses([]); });
@@ -80,7 +80,7 @@ export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => v
           <div style={{ fontSize: 14, color: "#9AA1B0", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginTop: 28 }}>
-            {(courses ?? []).map((c) => <CourseCard key={c.id} course={c} pct={pctById[c.id] ?? null} onOpen={() => onOpenCourse?.(c.id)} />)}
+            {(courses ?? []).map((c) => <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} />)}
           </div>
         )}
       </div>
