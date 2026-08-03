@@ -336,36 +336,28 @@ function InteractionBlock({
   );
 }
 
+// Reveal-on-click is controlled by CoursePlayer (铁律 3 一次只问一个 in spirit —
+// the page paces itself rather than dumping the whole step at once). The reveal
+// click handler lives on CoursePlayer's whole reading pane so a click ANYWHERE
+// (not just on a small hint) advances; SegmentTimeline just renders the first
+// `revealedCount` items. `buildTimeline(content).length` is the item total the
+// parent needs to know how far to reveal.
 export function SegmentTimeline({
   content,
   assetsById,
   stepId,
+  revealedCount,
   onQuizAnswer,
 }: {
   content: RenderStepContent;
   assetsById: Record<string, CourseAsset>;
   stepId: string;
+  revealedCount: number;
   onQuizAnswer: (event: QuizAnswerEvent) => void;
 }) {
   const items = useMemo(() => buildTimeline(content), [content]);
-  // Reveal-on-click (铁律 3 一次只问一个 in spirit — the page paces itself
-  // rather than dumping the whole step at once): starts revealing just the
-  // first item, same as the reference's `revealedSegmentCount`.
-  const [revealedCount, setRevealedCount] = useState(1);
-
-  useEffect(() => {
-    setRevealedCount(1);
-  }, [content]);
-
   const visibleItems = items.slice(0, revealedCount);
   const hasMore = revealedCount < items.length;
-
-  function handleReveal(event: React.MouseEvent<HTMLDivElement>) {
-    if (!hasMore) return;
-    const target = event.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, select")) return;
-    setRevealedCount((value) => Math.min(value + 1, items.length));
-  }
 
   // De-duplicate assets across the whole step: an image referenced by many
   // segments (the render cache does this — e.g. doc_img_06 in 10 segments)
@@ -376,7 +368,7 @@ export function SegmentTimeline({
   const shown = new Set<string>();
 
   return (
-    <div data-testid="segment-timeline" onClick={handleReveal} style={{ cursor: hasMore ? "pointer" : "default" }}>
+    <div data-testid="segment-timeline">
       {visibleItems.map((item) => {
         if (item.type !== "segment") {
           return <InteractionBlock key={item.key} interaction={item.interaction} stepId={stepId} onQuizAnswer={onQuizAnswer} />;
@@ -393,7 +385,7 @@ export function SegmentTimeline({
       })}
       {hasMore && (
         <div aria-hidden="true" style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, color: "#AEB4C2", padding: "6px 0 18px" }}>
-          点击页面继续
+          点击页面任意处继续 ↓
         </div>
       )}
     </div>

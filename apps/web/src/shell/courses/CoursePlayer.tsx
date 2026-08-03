@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CourseAsset, CoursePlayerPayload } from "@mind-imprint/contracts";
 import { api } from "../../api";
-import { SegmentTimeline } from "./SegmentTimeline";
+import { SegmentTimeline, buildTimeline } from "./SegmentTimeline";
 import { AskPanel, type AskMessage } from "./AskPanel";
 
 let localAskIdSeq = 0;
@@ -22,6 +22,19 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const [askExpanded, setAskExpanded] = useState(true);
   const [askMessages, setAskMessages] = useState<AskMessage[]>([]);
   const [askPending, setAskPending] = useState(false);
+
+  // Reveal-on-click state lives here (not in SegmentTimeline) so the click
+  // target can be the WHOLE reading pane below — clicking anywhere advances,
+  // not just a small hint. Reset to 1 whenever the step changes.
+  const [revealed, setRevealed] = useState(1);
+  useEffect(() => {
+    setRevealed(1);
+  }, [ordinal]);
+  const timelineItems = useMemo(() => {
+    if (!payload) return [];
+    const step = payload.renderCache.steps[ordinal];
+    return step ? buildTimeline(step.content) : [];
+  }, [payload, ordinal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +80,16 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const total = steps.length;
   const currentStep = steps[ordinal]!;
   const isLast = ordinal === total - 1;
+  const hasMore = revealed < timelineItems.length;
+
+  // Advance the reveal when the student clicks anywhere in the reading pane,
+  // except on actual interactive controls (quiz buttons, links, inputs) — so a
+  // single tap anywhere continues, mirroring the reference's revealNextSegment.
+  function handleRevealClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!hasMore) return;
+    if ((event.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+    setRevealed((v) => Math.min(v + 1, timelineItems.length));
+  }
 
   function appendAskMessage(msg: AskMessage) {
     setAskMessages((prev) => [...prev, msg]);
@@ -141,15 +164,17 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
       {/* body: content + ask panel — dc.html 236-397 */}
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "#F3F4F8" }}>
-          {/* scroll area */}
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            <div style={{ padding: "36px 40px 40px" }}>
+          {/* scroll area — the whole pane is the reveal click target so a tap
+              anywhere continues (铁律 2: never gated) */}
+          <div onClick={handleRevealClick} style={{ flex: 1, minHeight: 0, overflowY: "auto", cursor: hasMore ? "pointer" : "default" }}>
+            <div style={{ padding: "36px 40px 40px", minHeight: "100%", boxSizing: "border-box" }}>
               <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
                 <SegmentTimeline
                   key={ordinal}
                   stepId={currentStep.stepId}
                   content={currentStep.content}
                   assetsById={assetsById}
+                  revealedCount={revealed}
                   onQuizAnswer={(event) => void api.answerCourseQuiz(courseId, event).catch(() => {})}
                 />
               </div>

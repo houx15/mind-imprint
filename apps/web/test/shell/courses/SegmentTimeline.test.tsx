@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -14,7 +15,7 @@ vi.mock("@/api", async (orig) => {
   };
 });
 
-import { SegmentTimeline, isInteractionCorrect, orderMatches } from "@/shell/courses/SegmentTimeline";
+import { SegmentTimeline, buildTimeline, isInteractionCorrect, orderMatches } from "@/shell/courses/SegmentTimeline";
 
 describe("isInteractionCorrect", () => {
   const singleChoice = {
@@ -100,10 +101,31 @@ describe("SegmentTimeline", () => {
     board: [],
   };
 
-  function renderTimeline(content: RenderStepContent, onQuizAnswer = vi.fn(), assetsById: Record<string, CourseAsset> = {}) {
-    render(
-      <SegmentTimeline content={content} assetsById={assetsById} stepId="step-1" onQuizAnswer={onQuizAnswer} />
+  // Harness mirrors CoursePlayer: reveal state lives in the parent and the
+  // click-to-advance handler is on the whole reading pane (a click anywhere
+  // that isn't an interactive control reveals the next item). SegmentTimeline
+  // is the controlled child. Clicks on the inner segment-timeline bubble up to
+  // this pane, so the existing tests' `click(root)` still advances the reveal.
+  function RevealHarness({ content, assetsById, onQuizAnswer }: { content: RenderStepContent; assetsById: Record<string, CourseAsset>; onQuizAnswer: (e: unknown) => void }) {
+    const items = buildTimeline(content);
+    const [revealed, setRevealed] = useState(1);
+    const hasMore = revealed < items.length;
+    return (
+      <div
+        data-testid="reveal-pane"
+        onClick={(e) => {
+          if (!hasMore) return;
+          if ((e.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+          setRevealed((v) => Math.min(v + 1, items.length));
+        }}
+      >
+        <SegmentTimeline content={content} assetsById={assetsById} stepId="step-1" revealedCount={revealed} onQuizAnswer={onQuizAnswer} />
+      </div>
     );
+  }
+
+  function renderTimeline(content: RenderStepContent, onQuizAnswer = vi.fn(), assetsById: Record<string, CourseAsset> = {}) {
+    render(<RevealHarness content={content} assetsById={assetsById} onQuizAnswer={onQuizAnswer} />);
     return { onQuizAnswer };
   }
 
@@ -116,7 +138,7 @@ describe("SegmentTimeline", () => {
 
   it("reveals more content on click and shows a continue hint while more remains", async () => {
     renderTimeline(singleChoiceContent);
-    expect(screen.getByText("点击页面继续")).toBeInTheDocument();
+    expect(screen.getByText("点击页面任意处继续 ↓")).toBeInTheDocument();
     const root = screen.getByTestId("segment-timeline");
     await userEvent.click(root);
     expect(screen.getByText("第二段教学文本，引出一个判断问题。")).toBeInTheDocument();

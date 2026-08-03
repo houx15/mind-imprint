@@ -13,6 +13,9 @@ export const CardCatalogEntry = z.object({
   nameEn: z.string(),
   category: z.string(),
   purpose: z.string(),
+  // whenToUse mirrors the card's trigger_condition — the situation that calls
+  // for it (何时使用). Optional/additive; empty when the card has none.
+  whenToUse: z.string().optional().default(""),
   stages: z.array(z.string()),
   example: z.string(),
   hasAsset: z.boolean(),

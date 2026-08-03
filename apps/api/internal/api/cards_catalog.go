@@ -20,9 +20,13 @@ type cardCatalogEntryDTO struct {
 	NameEN   string   `json:"nameEn"`
 	Category string   `json:"category"`
 	Purpose  string   `json:"purpose"`
-	Stages   []string `json:"stages"`
-	Example  string   `json:"example"`
-	HasAsset bool     `json:"hasAsset"`
+	// WhenToUse is the card's trigger_condition — the situation that calls for
+	// it. Surfaced so the gallery/report can answer "何时使用" even when a card
+	// has no authored stages/example.
+	WhenToUse string   `json:"whenToUse,omitempty"`
+	Stages    []string `json:"stages"`
+	Example   string   `json:"example"`
+	HasAsset  bool     `json:"hasAsset"`
 	CoverURL string   `json:"coverUrl,omitempty"`
 	CourseID string   `json:"courseId,omitempty"`
 
@@ -148,6 +152,7 @@ func (a *API) getCardsCatalog(w http.ResponseWriter, r *http.Request) {
 			NameEN:      s.NameEN,
 			Category:    s.Category,
 			Purpose:     s.Purpose,
+			WhenToUse:   s.TriggerCondition,
 			Stages:      stages,
 			Example:     s.Example,
 			HasAsset:    hasAsset,

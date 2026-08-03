@@ -32,9 +32,10 @@ const catalogCard: CardCatalogEntry = {
   name: "让步段 · 以退为进",
   nameEn: "Concession",
   category: "论证结构",
-  purpose: "…",
-  stages: [],
-  example: "",
+  purpose: "先承认对立观点合理的部分，再转回自己的立场，让论证更稳。",
+  whenToUse: "当你要回应一个强的反方观点时",
+  stages: ["写作"],
+  example: "诚然 X 有道理，但……",
   hasAsset: false,
   coverUrl: "",
   courseId: "",
@@ -66,9 +67,15 @@ describe("CourseReport", () => {
     expect(screen.getByText("建立停一下的习惯")).toBeInTheDocument();
     expect(screen.getByText("教横向溯源")).toBeInTheDocument();
 
-    // 学到的工具卡 — chip label comes from the catalog, not the raw card id
+    // 学到的工具卡 — now a full detail card: name + purpose + 何时使用
+    // (whenToUse/stages/example), all from the catalog, not the raw card id
     expect(screen.getByText("学到的工具卡")).toBeInTheDocument();
     expect(await screen.findByText("让步段 · 以退为进")).toBeInTheDocument();
+    expect(screen.getByText("先承认对立观点合理的部分，再转回自己的立场，让论证更稳。")).toBeInTheDocument();
+    expect(screen.getByText("何时使用")).toBeInTheDocument();
+    expect(screen.getByText("当你要回应一个强的反方观点时")).toBeInTheDocument();
+    expect(screen.getByText("写作")).toBeInTheDocument();
+    expect(screen.getByText("例：诚然 X 有道理，但……")).toBeInTheDocument();
     expect(screen.queryByText("concession")).toBeNull();
 
     // 用时

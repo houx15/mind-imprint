@@ -22,18 +22,64 @@ export function formatSpent(secondsSpent: number): string {
   return s === 0 ? `约 ${m} 分钟` : `${m} 分 ${s} 秒`;
 }
 
-// A card chip's label comes from the catalog (student-facing 中文名), never
-// the raw card id — falls back to the id only if the catalog fetch failed or
-// somehow omitted this card, so the chip is never blank.
-function CardChip({ cardId, name }: { cardId: string; name?: string }) {
+// CardCover renders the card's OSS cover art (signed coverUrl from the
+// catalog), falling back to a text face — a colored block with the card's
+// English name — when there's no art or the image fails to load.
+function CardCover({ info }: { info?: CardCatalogEntry }) {
+  const [failed, setFailed] = useState(false);
+  const showImg = Boolean(info?.coverUrl) && !failed;
   return (
-    <span
-      title={name ?? cardId}
-      style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#EDEFF9", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "9px 14px", borderRadius: 11 }}
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /></svg>
-      {name ?? cardId}
-    </span>
+    <div style={{ flex: "none", width: 74, height: 98, borderRadius: 11, overflow: "hidden", border: "1px solid #E7E9F0", background: "linear-gradient(150deg,#2A3B7A 0%,#4457A0 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {showImg ? (
+        <img src={info!.coverUrl} alt={info?.name ?? "工具卡"} onError={() => setFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      ) : (
+        <span style={{ padding: "0 6px", textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "#DDE3F6", lineHeight: 1.35, letterSpacing: ".02em" }}>{info?.nameEn || info?.name || "工具卡"}</span>
+      )}
+    </div>
+  );
+}
+
+// A tool card in the report now shows the full picture, not just a name:
+// cover art · 中文名 (+ English + category) · purpose (它做什么) · 何时使用
+// (阶段 chips + a concrete example). All fields come from the shared card
+// catalog (CardCatalogEntry); everything after the name degrades gracefully
+// when the catalog fetch failed (info undefined → name falls back to the id).
+function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEntry }) {
+  const name = info?.name ?? cardId;
+  return (
+    <div style={{ display: "flex", gap: 14, border: "1px solid #ECEEF3", borderRadius: 14, padding: 14, background: "#FBFBFD" }}>
+      <CardCover info={info} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 15.5, fontWeight: 800, color: "#1C2333" }}>{name}</span>
+          {info?.nameEn && <span style={{ fontSize: 12, color: "#9AA1B0", fontWeight: 600 }}>{info.nameEn}</span>}
+          {info?.category && (
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>{info.category}</span>
+          )}
+        </div>
+        {info?.purpose && (
+          <div style={{ fontSize: 13.5, color: "#2B3346", lineHeight: 1.65, marginTop: 8 }}>{info.purpose}</div>
+        )}
+        {(info?.whenToUse || (info?.stages && info.stages.length > 0) || info?.example) && (
+          <div style={{ marginTop: 10, borderTop: "1px dashed #E7E9F0", paddingTop: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#8A92A3", letterSpacing: ".04em", marginBottom: 6 }}>何时使用</div>
+            {info?.whenToUse && (
+              <div style={{ fontSize: 13, color: "#2B3346", lineHeight: 1.6, marginBottom: (info?.stages && info.stages.length > 0) || info?.example ? 7 : 0 }}>{info.whenToUse}</div>
+            )}
+            {info?.stages && info.stages.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: info?.example ? 7 : 0 }}>
+                {info.stages.map((stage, i) => (
+                  <span key={`${stage}-${i}`} style={{ fontSize: 12, fontWeight: 600, color: "#4C7A6A", background: "#E7F3EE", padding: "3px 10px", borderRadius: 8 }}>{stage}</span>
+                ))}
+              </div>
+            )}
+            {info?.example && (
+              <div style={{ fontSize: 12.5, color: "#6B7384", lineHeight: 1.6 }}>例：{info.example}</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -45,7 +91,7 @@ function CardChip({ cardId, name }: { cardId: string; name?: string }) {
 export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void }) {
   const [report, setReport] = useState<CourseReportT | null>(null);
   const [error, setError] = useState(false);
-  const [cardNames, setCardNames] = useState<Record<string, string>>({});
+  const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -58,15 +104,15 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         if (!cancelled) setError(true);
         return;
       }
-      // Card chip labels are a best-effort lookup — the report itself must
-      // still render (id-fallback chips) if the catalog fetch fails.
+      // Card details are a best-effort lookup — the report itself must still
+      // render (id-fallback names) if the catalog fetch fails.
       try {
         const cat = await api.getCardsCatalog();
         if (cancelled) return;
-        const m: Record<string, string> = {};
-        for (const c of cat.cards as CardCatalogEntry[]) m[c.cardId] = c.name;
-        setCardNames(m);
-      } catch { /* chip labels fall back to the raw card id */ }
+        const m: Record<string, CardCatalogEntry> = {};
+        for (const c of cat.cards as CardCatalogEntry[]) m[c.cardId] = c;
+        setCardInfo(m);
+      } catch { /* cards fall back to id-only name, no cover/purpose */ }
     })();
     return () => { cancelled = true; };
   }, [courseId]);
@@ -116,17 +162,16 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
         </div>
 
         {/* 学到的工具卡 — no empty state: the design has none, and an empty
-            block would wrongly imply nothing was learned. Chips are
-            non-navigating: there is no existing hook to deep-link the card
-            gallery to a specific card (only course→card via CardCatalogEntry
-            .courseId, the opposite direction), so this renders the card's
-            catalog name as a plain label rather than inventing new routing. */}
+            block would wrongly imply nothing was learned. Each card shows its
+            cover, name, purpose and 何时使用 (from the shared card catalog) so
+            the report is a real takeaway, not just a list of names. */}
         {report.cardIds.length > 0 && (
           <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 }}>学到的工具卡</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 4 }}>学到的工具卡</div>
+            <div style={{ fontSize: 12.5, color: "#8A92A3", marginBottom: 16 }}>这门课带你上手的思维工具——记住它们能在什么时候帮到你。</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {report.cardIds.map((cardId, i) => (
-                <CardChip key={`${cardId}-${i}`} cardId={cardId} name={cardNames[cardId]} />
+                <ToolCardDetail key={`${cardId}-${i}`} cardId={cardId} info={cardInfo[cardId]} />
               ))}
             </div>
           </div>
