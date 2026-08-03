@@ -82,6 +82,15 @@ func (a *API) postAdminUploadCourse(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "renderCache.courseId 与 course.id 不一致", nil))
 		return
 	}
+	// Completion (putCourseProgress) is computed server-side from
+	// len(structure.steps), but the player pages by len(renderCache.steps).
+	// A mismatch would let the player either dead-end before "完成课程" ever
+	// fires, or mark the course finished before the player has shown every
+	// step — reject at the border instead of letting the two counts drift.
+	if len(course.Steps) != len(renderCache.Steps) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "course.steps 与 renderCache.steps 数量不一致", nil))
+		return
+	}
 	for _, id := range body.CardIDs {
 		if _, ok := cards.ByID(id); !ok {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "未知的工具卡: "+id, nil))

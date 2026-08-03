@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CourseAsset, CoursePlayerPayload } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { SegmentTimeline } from "./SegmentTimeline";
@@ -46,16 +46,22 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     };
   }, [courseId]);
 
-  if (!payload) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在载入课程…</div>;
-
   // Later entries (a step's own `materials`) override the shared
   // asset_library on id collision — a step can point at a fresh/edited copy
-  // of an asset without touching the library.
-  const assetsById: Record<string, CourseAsset> = {};
-  for (const a of payload.structure.asset_library) assetsById[a.id] = a;
-  for (const step of payload.structure.steps) {
-    for (const a of step.materials) assetsById[a.id] = a;
-  }
+  // of an asset without touching the library. Memoized on payload so this
+  // rebuild only happens when a new course loads, not on every ordinal/ask
+  // re-render.
+  const assetsById: Record<string, CourseAsset> = useMemo(() => {
+    const map: Record<string, CourseAsset> = {};
+    if (!payload) return map;
+    for (const a of payload.structure.asset_library) map[a.id] = a;
+    for (const step of payload.structure.steps) {
+      for (const a of step.materials) map[a.id] = a;
+    }
+    return map;
+  }, [payload]);
+
+  if (!payload) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在载入课程…</div>;
 
   const steps = payload.renderCache.steps;
   const total = steps.length;
@@ -142,7 +148,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
                 stepId={currentStep.stepId}
                 content={currentStep.content}
                 assetsById={assetsById}
-                onQuizAnswer={(event) => void api.answerCourseQuiz(courseId, event)}
+                onQuizAnswer={(event) => void api.answerCourseQuiz(courseId, event).catch(() => {})}
               />
             </div>
           </div>

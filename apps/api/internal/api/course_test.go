@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -274,7 +275,7 @@ func TestCourseAskMissingInputBadRequest(t *testing.T) {
 // TestCourseAskStreamsReplyAndMeters — a free-Q&A ask turn streams the coach's
 // reply as an SSE text frame followed by done, records exactly one llm_call
 // row (surface=course, purpose=coach, project_id NULL — a course ask is never
-// project-scoped), and logs one course_asked event carrying the student's
+// project-scoped), and logs one course_message event carrying the student's
 // question. Mirrors chat_test.go's TestChatTurn_TextOnly assertion shape.
 func TestCourseAskStreamsReplyAndMeters(t *testing.T) {
 	pool := newAPITestPool(t)
@@ -323,15 +324,15 @@ func TestCourseAskStreamsReplyAndMeters(t *testing.T) {
 		t.Fatalf("llm_call surface=%q purpose=%q projectIDNull=%v, want course/coach/true", surface, purpose, projectIDNull)
 	}
 
-	// One course_asked event logged, carrying the student's question.
+	// One course_message event logged, carrying the student's question.
 	var payload []byte
 	if err := pool.QueryRow(context.Background(),
-		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_asked' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_message' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
 	).Scan(&payload); err != nil {
-		t.Fatalf("query course_asked event: %v", err)
+		t.Fatalf("query course_message event: %v", err)
 	}
 	if !bytes.Contains(payload, []byte("这一步在说什么？")) {
-		t.Fatalf("course_asked payload = %s, want to contain the student's question", payload)
+		t.Fatalf("course_message payload = %s, want to contain the student's question", payload)
 	}
 }
 
@@ -340,7 +341,7 @@ func TestCourseAskStreamsReplyAndMeters(t *testing.T) {
 // enforcement (or otherwise errors) — friction IS the signal in exactly this
 // case, not something to omit. Wires courseAskRejectedProvider() (a reply
 // that trips the banned-phrasing "rewritten-sentence-zh" rule) and asserts:
-// an SSE error frame (no text frame), AND a course_asked event still lands
+// an SSE error frame (no text frame), AND a course_message event still lands
 // carrying the student's question, AND the call is still metered (usage was
 // non-zero before the reject).
 func TestCourseAskLogsEventEvenWhenRejected(t *testing.T) {
@@ -381,14 +382,67 @@ func TestCourseAskLogsEventEvenWhenRejected(t *testing.T) {
 		t.Fatalf("llm_call surface=%q purpose=%q, want course/coach even on reject", surface, purpose)
 	}
 
-	// course_asked is STILL logged, despite the reject.
+	// course_message is STILL logged, despite the reject.
 	var payload []byte
 	if err := pool.QueryRow(context.Background(),
-		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_asked' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
+		`SELECT payload FROM event WHERE user_id = $1 AND type = 'course_message' ORDER BY created_at DESC LIMIT 1`, SeedUserID,
 	).Scan(&payload); err != nil {
-		t.Fatalf("query course_asked event: %v", err)
+		t.Fatalf("query course_message event: %v", err)
 	}
 	if !bytes.Contains(payload, []byte("帮我写个结论吧")) {
-		t.Fatalf("course_asked payload = %s, want to contain the student's question even on reject", payload)
+		t.Fatalf("course_message payload = %s, want to contain the student's question even on reject", payload)
+	}
+}
+
+// TestCourseProgressAndAskCountTowardWeekStats is the anti-drift regression
+// for the v2 course event vocabulary: putCourseProgress and postCourseAsk
+// must emit event types the analytics queries actually filter for
+// (GetStudentWeekStats/GetClassWeekStats: turns counts type IN
+// ('prompt_sent','course_message'), course_steps counts type='step_viewed' —
+// teacher_weekly.sql.go / teacher.sql.go). It drives BOTH counts through the
+// REAL HTTP handlers (not a direct AppendEvent insert, which would only prove
+// the query works, not that the emitter and the query agree) — so a future
+// rename on either side that doesn't touch the other fails this test instead
+// of silently making course engagement read 0 in the teacher/parent reports.
+func TestCourseProgressAndAskCountTowardWeekStats(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: fakeProvider(), ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// Real progress PUT — must land as an event whose type the course_steps
+	// filter recognizes.
+	body, _ := json.Marshal(map[string]any{"current_ordinal": 1})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", "/api/v1/courses/a-mid/progress", bytes.NewReader(body)), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put progress: %d %s", rec.Code, rec.Body)
+	}
+
+	// Real ask turn — must land as an event whose type the turns filter
+	// recognizes.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/courses/a-mid/ask",
+		strings.NewReader(`{"input":"这一步在说什么？","ordinal":0}`)), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ask: %d %s", rec.Code, rec.Body)
+	}
+
+	start, end := time.Now().AddDate(0, 0, -1), time.Now().AddDate(0, 0, 1)
+	stats, err := q.GetStudentWeekStats(context.Background(), sqlc.GetStudentWeekStatsParams{
+		UserID: SeedUserID, WeekStart: start, WeekEnd: end,
+	})
+	if err != nil {
+		t.Fatalf("get student week stats: %v", err)
+	}
+	if stats.CourseSteps < 1 {
+		t.Fatalf("course_steps = %d, want >= 1 — putCourseProgress's event type must match the query's step_viewed filter", stats.CourseSteps)
+	}
+	if stats.Turns < 1 {
+		t.Fatalf("turns = %d, want >= 1 — postCourseAsk's event type must match the query's course_message filter", stats.Turns)
 	}
 }

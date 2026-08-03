@@ -159,6 +159,22 @@ func TestAdminUploadCourseValidation(t *testing.T) {
 		}
 	})
 
+	// step-count mismatch: course.steps has 2 entries but renderCache.steps
+	// has only 1 — completion (len(structure.steps)) and paging
+	// (len(renderCache.steps)) would silently disagree if this were allowed
+	// through.
+	t.Run("step count mismatch", func(t *testing.T) {
+		twoStepCourse := `{"id":"admin-upload-stepmismatch","title":"Step Mismatch","steps":[{"id":"step_01","title":"Step One"},{"id":"step_02","title":"Step Two"}]}`
+		oneStepRC := `{"version":1,"courseId":"admin-upload-stepmismatch","steps":[{"stepId":"step_01","content":{"title":"Step One"}}]}`
+		rec := post(adminUploadBody(twoStepCourse, oneStepRC, []string{"craap"}))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("step count mismatch: want 400 got %d %s", rec.Code, rec.Body)
+		}
+		if !strings.Contains(rec.Body.String(), "validation_failed") {
+			t.Fatalf("step count mismatch: want validation_failed code, got %s", rec.Body)
+		}
+	})
+
 	// None of the rejected uploads should have written a course row.
 	var count int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM course WHERE slug LIKE 'admin-upload-%'`).Scan(&count); err != nil {

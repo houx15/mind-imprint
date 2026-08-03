@@ -100,9 +100,13 @@ func (a *API) putCourseProgress(w http.ResponseWriter, r *http.Request) {
 	// 铁律④: the step turn itself is evidence, logged even though paging never
 	// gates. A log failure must not fail the request — the progress write
 	// already succeeded.
+	// Event type is "step_viewed" (NOT "course_step_viewed") — the vocabulary
+	// GetClassWeekStats/GetStudentWeekStats already filter for (teacher_weekly.sql.go
+	// / teacher.sql.go's course_steps CTE). A mismatched literal here would make
+	// course engagement silently read 0 in every teacher/parent analytics view.
 	eventPayload, _ := json.Marshal(map[string]any{"ordinal": body.CurrentOrdinal})
-	if err := store.LogCourseEvent(r.Context(), user.ID, courseID, "course_step_viewed", eventPayload); err != nil {
-		slog.Warn("course progress: append course_step_viewed event failed", "err", err, "slug", slug)
+	if err := store.LogCourseEvent(r.Context(), user.ID, courseID, "step_viewed", eventPayload); err != nil {
+		slog.Warn("course progress: append step_viewed event failed", "err", err, "slug", slug)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": toCourseProgressDTO(slug, row)})
 }
@@ -305,12 +309,16 @@ func (a *API) postCourseAsk(w http.ResponseWriter, r *http.Request) {
 	// reject case, not something to omit). Mirrors chat.go's postChatTurn,
 	// which logs its own prompt_sent event before calling RunChatStep. A log
 	// failure must not fail the turn that hasn't happened yet.
+	// Event type is "course_message" (NOT "course_asked") — the vocabulary the
+	// `turns` filter already counts (GetClassWeekStats/GetStudentWeekStats:
+	// type IN ('prompt_sent','course_message')), so a course question counts
+	// as a course dialogue turn instead of silently reading 0.
 	eventPayload, perr := json.Marshal(map[string]any{"input": body.Input, "ordinal": body.Ordinal})
 	if perr != nil {
 		eventPayload = []byte(`{}`)
 	}
-	if err := store.LogCourseEvent(r.Context(), u.ID, courseID, "course_asked", eventPayload); err != nil {
-		slog.Warn("course ask: append course_asked event failed",
+	if err := store.LogCourseEvent(r.Context(), u.ID, courseID, "course_message", eventPayload); err != nil {
+		slog.Warn("course ask: append course_message event failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
