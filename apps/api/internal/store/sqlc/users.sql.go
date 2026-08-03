@@ -12,7 +12,7 @@ import (
 )
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at FROM users WHERE id = $1
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -28,6 +28,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.DisplayName,
 		&i.AvatarColor,
 		&i.CreatedAt,
+		&i.CardTheme,
 	)
 	return i, err
 }
@@ -40,23 +41,23 @@ SELECT card_theme FROM users WHERE id = $1
 // read, does not touch the full User row.
 func (q *Queries) GetUserCardTheme(ctx context.Context, userID uuid.UUID) (string, error) {
 	row := q.db.QueryRow(ctx, getUserCardTheme, userID)
-	var cardTheme string
-	err := row.Scan(&cardTheme)
-	return cardTheme, err
+	var card_theme string
+	err := row.Scan(&card_theme)
+	return card_theme, err
 }
 
 const setUserCardTheme = `-- name: SetUserCardTheme :exec
-UPDATE users SET card_theme = $2 WHERE id = $1
+UPDATE users SET card_theme = $1 WHERE id = $2
 `
 
 type SetUserCardThemeParams struct {
-	UserID    uuid.UUID `json:"user_id"`
 	CardTheme string    `json:"card_theme"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 // Set the student's cover colorway. The 4-value CHECK is enforced by the column;
 // the handler validates against cards.ValidTheme before calling.
 func (q *Queries) SetUserCardTheme(ctx context.Context, arg SetUserCardThemeParams) error {
-	_, err := q.db.Exec(ctx, setUserCardTheme, arg.UserID, arg.CardTheme)
+	_, err := q.db.Exec(ctx, setUserCardTheme, arg.CardTheme, arg.UserID)
 	return err
 }

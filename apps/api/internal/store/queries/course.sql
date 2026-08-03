@@ -39,7 +39,10 @@ WHERE user_id = $1 AND course_id = $2;
 
 -- name: UpsertCourseProgress :one
 INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
-VALUES ($1,$2,$3,$4, COALESCE($5, now()), $6, now())
+VALUES (
+  sqlc.arg(user_id), sqlc.arg(course_id), sqlc.arg(current_ordinal), sqlc.arg(completed_ordinals),
+  COALESCE(sqlc.narg(started_at)::timestamptz, now()), sqlc.arg(completed_at), now()
+)
 ON CONFLICT (user_id, course_id) DO UPDATE SET
   current_ordinal = EXCLUDED.current_ordinal,
   completed_ordinals = EXCLUDED.completed_ordinals,

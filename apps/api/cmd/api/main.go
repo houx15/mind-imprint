@@ -64,6 +64,15 @@ func main() {
 			os.Exit(1)
 		}
 		log.Println("migrations applied successfully")
+
+		seeded, err := store.SeedCourses(ctx, pool)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "seed courses: %v\n", err)
+			pool.Close()
+			os.Exit(1)
+		}
+		log.Printf("seeded %d course(s)", seeded)
+
 		pool.Close()
 		return
 	}

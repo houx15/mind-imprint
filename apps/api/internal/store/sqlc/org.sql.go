@@ -396,7 +396,7 @@ func (q *Queries) GetSchoolUsageByTier(ctx context.Context, schoolID uuid.UUID) 
 }
 
 const getUserByIDInSchool = `-- name: GetUserByIDInSchool :one
-SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at FROM users WHERE id = $1 AND school_id = $2
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme FROM users WHERE id = $1 AND school_id = $2
 `
 
 type GetUserByIDInSchoolParams struct {
@@ -417,6 +417,7 @@ func (q *Queries) GetUserByIDInSchool(ctx context.Context, arg GetUserByIDInScho
 		&i.DisplayName,
 		&i.AvatarColor,
 		&i.CreatedAt,
+		&i.CardTheme,
 	)
 	return i, err
 }

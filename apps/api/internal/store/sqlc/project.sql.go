@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearProjectWritingFinished = `-- name: ClearProjectWritingFinished :exec
+UPDATE project SET writing_finished_at = NULL, last_active_at = now() WHERE id = $1
+`
+
+// Slice 5 (#20 / 铁律②): 重新打开写作 — never trap a student who finished by
+// accident. Clears the milestone so the draft is editable again.
+func (q *Queries) ClearProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearProjectWritingFinished, id)
+	return err
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver)
 VALUES ($1, $2, $3, $4, $5)
@@ -120,28 +131,6 @@ func (q *Queries) SetProjectActive(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const clearProjectWritingFinished = `-- name: ClearProjectWritingFinished :exec
-UPDATE project SET writing_finished_at = NULL, last_active_at = now() WHERE id = $1
-`
-
-// Slice 5 (#20 / 铁律②): 重新打开写作 — never trap a student who finished by
-// accident. Clears the milestone so the draft is editable again.
-func (q *Queries) ClearProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, clearProjectWritingFinished, id)
-	return err
-}
-
-const setProjectWritingFinished = `-- name: SetProjectWritingFinished :exec
-UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id = $1
-`
-
-// Slice 5 (#20): the 完成写作 milestone — locks the draft read-only + unlocks 回顾.
-// A separate timestamp, not a status change (the lifecycle enum is untouched).
-func (q *Queries) SetProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setProjectWritingFinished, id)
-	return err
-}
-
 const setProjectEvaluating = `-- name: SetProjectEvaluating :exec
 UPDATE project SET status = 'evaluating', last_active_at = now() WHERE id = $1
 `
@@ -160,6 +149,17 @@ UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1
 // A3 terminal: the first and only writer of project.status='finished'.
 func (q *Queries) SetProjectFinished(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setProjectFinished, id)
+	return err
+}
+
+const setProjectWritingFinished = `-- name: SetProjectWritingFinished :exec
+UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id = $1
+`
+
+// Slice 5 (#20): the 完成写作 milestone — locks the draft read-only + unlocks 回顾.
+// A separate timestamp, not a status change (the lifecycle enum is untouched).
+func (q *Queries) SetProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setProjectWritingFinished, id)
 	return err
 }
 

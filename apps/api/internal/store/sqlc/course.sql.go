@@ -13,6 +13,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
+SELECT DISTINCT course_id FROM course_progress
+WHERE user_id = $1 AND completed_at IS NOT NULL
+`
+
+// Task 5 addition: cards_catalog.go's proficiency computation ("which
+// courses has this student finished") needs this and it was dropped by
+// Task 3 with no v2 replacement ("no v2 replacement asked for" — it used to
+// read course_session.status='finished', a table migration 0050 removed).
+// Ported to the v2 schema: a course is finished when course_progress.
+// completed_at is set (SaveProgress sets it exactly when the student's
+// current_ordinal reaches the last authored step — see coursestore.go).
+func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, finishedCourseIDsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var course_id uuid.UUID
+		if err := rows.Scan(&course_id); err != nil {
+			return nil, err
+		}
+		items = append(items, course_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCourseBySlug = `-- name: GetCourseBySlug :one
 SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache
 FROM course WHERE slug = $1
@@ -45,6 +77,44 @@ func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBy
 		&i.StepCount,
 		&i.Structure,
 		&i.RenderCache,
+	)
+	return i, err
+}
+
+const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
+SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+FROM course_progress
+WHERE user_id = $1 AND course_id = $2
+`
+
+type GetCourseProgressByCourseIDParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+type GetCourseProgressByCourseIDRow struct {
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+}
+
+// Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
+// courseUUID (not slug) — it already holds the course row's id from
+// GetCoursePayload, and a slug round-trip would be a wasted join. Mirrors
+// GetCourseProgressBySlug's column list/order exactly.
+func (q *Queries) GetCourseProgressByCourseID(ctx context.Context, arg GetCourseProgressByCourseIDParams) (GetCourseProgressByCourseIDRow, error) {
+	row := q.db.QueryRow(ctx, getCourseProgressByCourseID, arg.UserID, arg.CourseID)
+	var i GetCourseProgressByCourseIDRow
+	err := row.Scan(
+		&i.CourseID,
+		&i.CurrentOrdinal,
+		&i.CompletedOrdinals,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -83,44 +153,8 @@ func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProg
 	return i, err
 }
 
-const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
-SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
-FROM course_progress
-WHERE user_id = $1 AND course_id = $2
-`
-
-type GetCourseProgressByCourseIDParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	CourseID uuid.UUID `json:"course_id"`
-}
-
-type GetCourseProgressByCourseIDRow struct {
-	CourseID          uuid.UUID          `json:"course_id"`
-	CurrentOrdinal    int32              `json:"current_ordinal"`
-	CompletedOrdinals []int32            `json:"completed_ordinals"`
-	StartedAt         pgtype.Timestamptz `json:"started_at"`
-	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
-	UpdatedAt         time.Time          `json:"updated_at"`
-}
-
-// Task 4 addition (hand-edited, sqlc not run): SaveProgress's union step is
-// keyed by courseUUID, not slug — mirrors GetCourseProgressBySlug's Scan
-// order exactly, just without the course join.
-func (q *Queries) GetCourseProgressByCourseID(ctx context.Context, arg GetCourseProgressByCourseIDParams) (GetCourseProgressByCourseIDRow, error) {
-	row := q.db.QueryRow(ctx, getCourseProgressByCourseID, arg.UserID, arg.CourseID)
-	var i GetCourseProgressByCourseIDRow
-	err := row.Scan(
-		&i.CourseID,
-		&i.CurrentOrdinal,
-		&i.CompletedOrdinals,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const listCourseRows = `-- name: ListCourseRows :many
+
 SELECT slug, branch, title, blurb, time_label, card_ids, step_count
 FROM course ORDER BY branch, title
 `
@@ -135,6 +169,12 @@ type ListCourseRowsRow struct {
 	StepCount int32    `json:"step_count"`
 }
 
+// Course v2 (migration 0050): the phase-gated runtime (course_session/
+// course_message/course_step/course_step_render) is retired. `course` now
+// holds the externally-authored structure + published render cache verbatim
+// (+ attached tool card ids), addressed by a stable slug; course.id stays a
+// uuid so the pre-existing event.course_id FK (0031) survives. course_progress
+// stays the page-position unit, now with started_at/completed_at bookkeeping.
 func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, error) {
 	rows, err := q.db.Query(ctx, listCourseRows)
 	if err != nil {
@@ -210,7 +250,10 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 
 const upsertCourseProgress = `-- name: UpsertCourseProgress :one
 INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
-VALUES ($1,$2,$3,$4, COALESCE($5, now()), $6, now())
+VALUES (
+  $1, $2, $3, $4,
+  COALESCE($5::timestamptz, now()), $6, now()
+)
 ON CONFLICT (user_id, course_id) DO UPDATE SET
   current_ordinal = EXCLUDED.current_ordinal,
   completed_ordinals = EXCLUDED.completed_ordinals,
@@ -257,32 +300,4 @@ func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProg
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
-SELECT DISTINCT course_id FROM course_progress
-WHERE user_id = $1 AND completed_at IS NOT NULL
-`
-
-// Task 5 addition (hand-edited, sqlc not run): ports the pre-v2
-// FinishedCourseIDsByUser (course_session.status='finished') onto
-// course_progress.completed_at IS NOT NULL — see course.sql's comment.
-func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, finishedCourseIDsByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []uuid.UUID
-	for rows.Next() {
-		var courseID uuid.UUID
-		if err := rows.Scan(&courseID); err != nil {
-			return nil, err
-		}
-		items = append(items, courseID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

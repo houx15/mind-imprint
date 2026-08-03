@@ -206,8 +206,11 @@ type InsertSessionEvaluationParams struct {
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
 }
 
-// Course session scope (A1): mirrors the project-scoped pair above. A course
-// session's report is one evaluations row scoped by session_id alone.
+// Course session scope (A1, retained column): course v2 (migration 0050)
+// retires the course_session table itself, but evaluations.session_id stays
+// as a plain (now-orphaned) column — nothing currently writes it, but the
+// pair is left in place as the session-scoped sibling of the project/thread
+// pair above in case a future session-shaped scope reuses it.
 func (q *Queries) InsertSessionEvaluation(ctx context.Context, arg InsertSessionEvaluationParams) (Evaluation, error) {
 	row := q.db.QueryRow(ctx, insertSessionEvaluation,
 		arg.SessionID,

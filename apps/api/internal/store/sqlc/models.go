@@ -110,41 +110,29 @@ type ConversationDigest struct {
 }
 
 type Course struct {
-	ID         uuid.UUID `json:"id"`
-	Branch     string    `json:"branch"`
-	Title      string    `json:"title"`
-	Blurb      string    `json:"blurb"`
-	TasksCount int32     `json:"tasks_count"`
-	ToolsCount int32     `json:"tools_count"`
-	TimeLabel  string    `json:"time_label"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	Branch      string    `json:"branch"`
+	Title       string    `json:"title"`
+	Blurb       string    `json:"blurb"`
+	TimeLabel   string    `json:"time_label"`
+	CreatedAt   time.Time `json:"created_at"`
+	Slug        string    `json:"slug"`
+	CardIds     []string  `json:"card_ids"`
+	Structure   []byte    `json:"structure"`
+	RenderCache []byte    `json:"render_cache"`
+	StepCount   int32     `json:"step_count"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type CourseProgress struct {
-	ID                uuid.UUID `json:"id"`
-	UserID            uuid.UUID `json:"user_id"`
-	CourseID          uuid.UUID `json:"course_id"`
-	CurrentOrdinal    int32     `json:"current_ordinal"`
-	CompletedOrdinals []int32   `json:"completed_ordinals"`
-	UpdatedAt         time.Time `json:"updated_at"`
-}
-
-type CourseStep struct {
-	ID              uuid.UUID `json:"id"`
-	CourseID        uuid.UUID `json:"course_id"`
-	Ordinal         int32     `json:"ordinal"`
-	Kind            string    `json:"kind"`
-	Purpose         string    `json:"purpose"`
-	Assets          []byte    `json:"assets"`
-	ChallengeType   *string   `json:"challenge_type"`
-	AuthoredContent []byte    `json:"authored_content"`
-}
-
-type CourseStepRender struct {
-	CourseStepID uuid.UUID `json:"course_step_id"`
-	Content      []byte    `json:"content"`
-	Source       string    `json:"source"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                uuid.UUID          `json:"id"`
+	UserID            uuid.UUID          `json:"user_id"`
+	CourseID          uuid.UUID          `json:"course_id"`
+	CurrentOrdinal    int32              `json:"current_ordinal"`
+	CompletedOrdinals []int32            `json:"completed_ordinals"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 }
 
 type Disposition struct {
@@ -529,6 +517,7 @@ type User struct {
 	DisplayName     string             `json:"display_name"`
 	AvatarColor     string             `json:"avatar_color"`
 	CreatedAt       time.Time          `json:"created_at"`
+	CardTheme       string             `json:"card_theme"`
 }
 
 type VoiceTtsCache struct {

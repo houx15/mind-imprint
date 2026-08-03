@@ -318,7 +318,12 @@ type CreateSnippetParams struct {
 }
 
 func (q *Queries) CreateSnippet(ctx context.Context, arg CreateSnippetParams) (Snippet, error) {
-	row := q.db.QueryRow(ctx, createSnippet, arg.ProjectID, arg.Text, arg.Position, arg.Section)
+	row := q.db.QueryRow(ctx, createSnippet,
+		arg.ProjectID,
+		arg.Text,
+		arg.Position,
+		arg.Section,
+	)
 	var i Snippet
 	err := row.Scan(
 		&i.ID,
