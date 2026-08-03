@@ -18,7 +18,10 @@ export async function getCourseProgress(slug: string): Promise<CourseProgress> {
   const r = await apiFetch<{ progress: CourseProgress }>(`/api/v1/courses/${slug}/progress`);
   return r.progress;
 }
-export async function saveCourseProgress(slug: string, input: { current_ordinal: number }): Promise<CourseProgress> {
+export async function saveCourseProgress(
+  slug: string,
+  input: { current_ordinal: number; completed_ordinal?: number; active_seconds_delta?: number },
+): Promise<CourseProgress> {
   const r = await apiFetch<{ progress: CourseProgress }>(`/api/v1/courses/${slug}/progress`, { method: "PUT", body: JSON.stringify(input) });
   return r.progress;
 }

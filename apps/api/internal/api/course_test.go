@@ -139,17 +139,19 @@ func TestCourseV2EndToEnd(t *testing.T) {
 		t.Fatalf("progress default: %d %s", rec.Code, rec.Body)
 	}
 
-	// put progress: current_ordinal ONLY — a client-sent completed_ordinals
-	// must be ignored (铁律②: the floor is never a client assertion).
-	body, _ := json.Marshal(map[string]any{"current_ordinal": 1, "completed_ordinals": []int{0, 1, 2, 3}})
+	// put progress: current_ordinal (resume) + completed_ordinal:1 (the one
+	// step just finished). A client-sent completed_ordinalS array is still
+	// ignored (铁律②: the floor is never a bulk client assertion) — only the
+	// singular completed_ordinal is honored.
+	body, _ := json.Marshal(map[string]any{"current_ordinal": 1, "completed_ordinal": 1, "completed_ordinals": []int{0, 1, 2, 3}})
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", "/api/v1/courses/a-mid/progress", bytes.NewReader(body)), cookie))
 	if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte(`"current_ordinal":1`)) {
 		t.Fatalf("put progress: %d %s", rec.Code, rec.Body)
 	}
 
-	// progress read-back: 1 ∈ completed_ordinals (the union, not the client's
-	// asserted [0,1,2,3]), started_at non-null.
+	// progress read-back: completed_ordinals == [1] (the single honored
+	// completed_ordinal, NOT the client's asserted [0,1,2,3]), started_at set.
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/a-mid/progress", nil), cookie))
 	if rec.Code != http.StatusOK {

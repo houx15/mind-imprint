@@ -88,6 +88,7 @@ type CourseProgressRow struct {
 	StartedAt         *time.Time
 	CompletedAt       *time.Time
 	UpdatedAt         time.Time
+	ActiveSeconds     int
 }
 
 // CourseQuizTally is CourseReportData.Quiz: Total is the AUTHORED question
@@ -186,50 +187,66 @@ func (s *sqlcAgentStore) GetProgress(ctx context.Context, userID uuid.UUID, slug
 		StartedAt:         pgTimeToPtr(row.StartedAt),
 		CompletedAt:       pgTimeToPtr(row.CompletedAt),
 		UpdatedAt:         row.UpdatedAt,
+		ActiveSeconds:     int(row.ActiveSeconds),
 	}, nil
 }
 
-// SaveProgress records a step turn: current_ordinal moves to currentOrdinal,
-// and completed_ordinals becomes the EXISTING set ∪ {currentOrdinal} — the
-// union happens here, in Go, because UpsertCourseProgress's SQL only ever
-// SETs completed_ordinals to whatever it's given (no array-union operator in
-// that query); a caller that just re-sent [currentOrdinal] would silently
-// erase every earlier step's completed mark.
+// SaveProgress records a step turn. current_ordinal moves to currentOrdinal
+// (the RESUME position — a UX convenience, no longer a completion signal).
+// completed_ordinals grows by {*completedOrdinal} ONLY when completedOrdinal is
+// non-nil — the caller marks a step complete explicitly, when the student has
+// actually finished it (revealed everything + answered its quizzes, per the
+// per-step gate), not merely by visiting it. The union happens here, in Go,
+// because UpsertCourseProgress's SQL only ever SETs completed_ordinals to
+// whatever it's given (no array-union operator in that query); a caller that
+// re-sent just [completedOrdinal] would erase every earlier step's mark.
 //
-// startedAt is always passed as SQL NULL: UpsertCourseProgress's own
-// COALESCE($5, now()) sets it to now() on first insert, and its ON CONFLICT
-// arm (`COALESCE(course_progress.started_at, EXCLUDED.started_at)`) keeps
-// the ORIGINAL value on every later call — "sets started_at once" is the
-// query's guarantee, not something this method has to reimplement.
-// completedAt is set to now() only when markCompletedAt is true; the same ON
-// CONFLICT COALESCE (existing-completed-at wins over a NULL) means a later
-// call that does NOT pass markCompletedAt cannot un-finish an already
-// finished course.
-func (s *sqlcAgentStore) SaveProgress(ctx context.Context, userID, courseID uuid.UUID, currentOrdinal int, markCompletedAt bool) (CourseProgressRow, error) {
+// The course is finished (completed_at set to now()) exactly when the resulting
+// completed set covers every authored step (len(completed) >= stepCount) — so
+// "finished" means all steps done, not "reached the last page". The ON CONFLICT
+// COALESCE (existing-completed-at wins over a NULL) means a later call cannot
+// un-finish an already finished course.
+//
+// activeSecondsDelta is the active-focus seconds the client accrued since its
+// last flush; UpsertCourseProgress adds it to the stored total (additive,
+// across visits). startedAt is always SQL NULL: the query's COALESCE sets it to
+// now() on first insert and keeps the original on every later call.
+func (s *sqlcAgentStore) SaveProgress(ctx context.Context, userID, courseID uuid.UUID, currentOrdinal int, completedOrdinal *int, activeSecondsDelta, stepCount int) (CourseProgressRow, error) {
 	existing, err := s.q.GetCourseProgressByCourseID(ctx, sqlc.GetCourseProgressByCourseIDParams{UserID: userID, CourseID: courseID})
 	var completed []int32
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return CourseProgressRow{}, err
 		}
-		// no row yet: completed starts empty, this call's ordinal is the first.
+		// no row yet: completed starts empty.
 	} else {
 		completed = existing.CompletedOrdinals
 	}
-	completed = unionOrdinal(completed, int32(currentOrdinal))
+	if completedOrdinal != nil {
+		completed = unionOrdinal(completed, int32(*completedOrdinal))
+	}
+	if completed == nil {
+		// completed_ordinals is NOT NULL — a resume-only save (no completed_ordinal,
+		// no prior row) must still write an empty array, never NULL.
+		completed = []int32{}
+	}
 
 	var completedAt pgtype.Timestamptz
-	if markCompletedAt {
+	if stepCount > 0 && len(completed) >= stepCount {
 		completedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	}
+	if activeSecondsDelta < 0 {
+		activeSecondsDelta = 0
 	}
 
 	row, err := s.q.UpsertCourseProgress(ctx, sqlc.UpsertCourseProgressParams{
-		UserID:            userID,
-		CourseID:          courseID,
-		CurrentOrdinal:    int32(currentOrdinal),
-		CompletedOrdinals: completed,
-		StartedAt:         pgtype.Timestamptz{Valid: false},
-		CompletedAt:       completedAt,
+		UserID:             userID,
+		CourseID:           courseID,
+		CurrentOrdinal:     int32(currentOrdinal),
+		CompletedOrdinals:  completed,
+		StartedAt:          pgtype.Timestamptz{Valid: false},
+		CompletedAt:        completedAt,
+		ActiveSecondsDelta: int32(activeSecondsDelta),
 	})
 	if err != nil {
 		return CourseProgressRow{}, err
@@ -241,6 +258,7 @@ func (s *sqlcAgentStore) SaveProgress(ctx context.Context, userID, courseID uuid
 		StartedAt:         pgTimeToPtr(row.StartedAt),
 		CompletedAt:       pgTimeToPtr(row.CompletedAt),
 		UpdatedAt:         row.UpdatedAt,
+		ActiveSeconds:     int(row.ActiveSeconds),
 	}, nil
 }
 
@@ -336,7 +354,7 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 	}
 
 	var completedOrdinals []int32
-	var startedAt, completedAt pgtype.Timestamptz
+	activeSeconds := 0
 	progress, err := s.q.GetCourseProgressBySlug(ctx, sqlc.GetCourseProgressBySlugParams{UserID: userID, Slug: slug})
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -345,8 +363,7 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 		// no progress row: nothing completed, zero time spent — not an error.
 	} else {
 		completedOrdinals = progress.CompletedOrdinals
-		startedAt = progress.StartedAt
-		completedAt = progress.CompletedAt
+		activeSeconds = int(progress.ActiveSeconds)
 	}
 
 	var structure courseStructureForReport
@@ -394,19 +411,13 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 		}
 	}
 
-	secondsSpent := 0
-	if startedAt.Valid {
-		end := time.Now()
-		if completedAt.Valid {
-			end = completedAt.Time
-		}
-		secondsSpent = int(end.Sub(startedAt.Time).Seconds())
-	}
-
+	// secondsSpent is the accumulated ACTIVE-focus time (the client accrues it
+	// only while the course page is visible+focused, migration 0051), NOT the
+	// wall-clock started→completed span — idle/away time never counts.
 	return CourseReportData{
 		CompletedStepTitles: titles,
 		CardIDs:             course.CardIds,
-		SecondsSpent:        secondsSpent,
+		SecondsSpent:        activeSeconds,
 		Quiz:                CourseQuizTally{Total: quizTotal, Correct: quizCorrect},
 	}, nil
 }

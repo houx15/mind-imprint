@@ -61,19 +61,21 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": toCourseProgressDTO(slug, row)})
 }
 
-// putCourseProgress writes ONLY the resume position (current_ordinal) — a UX
-// convenience, not a floor input. Same rule the pre-v2 handler enforced: even
-// if a request body carried completed_ordinals, decodeJSON has no
-// DisallowUnknownFields, so it is silently dropped — never honored. Whether
-// this call finishes the course (markCompletedAt) is computed here, from the
-// course's own authored step count (parsed from structure.steps, the same
-// narrow field the render_cache/structure header always exposes), never from
-// anything the client asserts.
+// putCourseProgress writes the resume position (current_ordinal), optionally
+// marks ONE step complete (completed_ordinal — the step the student just
+// finished per the per-step gate), and accumulates active-focus time
+// (active_seconds_delta). A client-sent completed_ordinalS array is still
+// silently ignored (decodeJSON has no DisallowUnknownFields) — completion is
+// driven only by the singular completed_ordinal, and whether the WHOLE course
+// is finished is computed in the store from the authored step count (parsed
+// here from structure.steps), never asserted by the client.
 func (a *API) putCourseProgress(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
 	slug := r.PathValue("slug")
 	var body struct {
-		CurrentOrdinal int `json:"current_ordinal"`
+		CurrentOrdinal     int  `json:"current_ordinal"`
+		CompletedOrdinal   *int `json:"completed_ordinal"`
+		ActiveSecondsDelta int  `json:"active_seconds_delta"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -90,9 +92,8 @@ func (a *API) putCourseProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.Unmarshal(payload.Structure, &structure)
 	stepCount := len(structure.Steps)
-	markCompletedAt := stepCount > 0 && body.CurrentOrdinal == stepCount-1
 
-	row, err := store.SaveProgress(r.Context(), user.ID, courseID, body.CurrentOrdinal, markCompletedAt)
+	row, err := store.SaveProgress(r.Context(), user.ID, courseID, body.CurrentOrdinal, body.CompletedOrdinal, body.ActiveSecondsDelta, stepCount)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

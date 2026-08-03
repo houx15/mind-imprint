@@ -92,32 +92,47 @@ func TestCourseStoreV2(t *testing.T) {
 		t.Fatalf("GetCoursePayload structure/renderCache empty")
 	}
 
-	firstProgress, err := st.SaveProgress(ctx, userID, cu, 0, false)
+	// First step done: current=0 resume, mark step 0 complete, +10 active s.
+	// stepCount=2, so 1 of 2 done → NOT finished yet (completed_at nil).
+	ord0 := 0
+	firstProgress, err := st.SaveProgress(ctx, userID, cu, 0, &ord0, 10, 2)
 	if err != nil {
 		t.Fatalf("SaveProgress(0): %v", err)
 	}
 	if firstProgress.StartedAt == nil {
 		t.Fatalf("SaveProgress(0): started_at not set")
 	}
+	if firstProgress.CompletedAt != nil {
+		t.Fatalf("SaveProgress(0): completed_at set with only 1/2 steps done")
+	}
+	if firstProgress.ActiveSeconds != 10 {
+		t.Fatalf("ActiveSeconds = %d, want 10", firstProgress.ActiveSeconds)
+	}
 	firstStartedAt := *firstProgress.StartedAt
 
-	secondProgress, err := st.SaveProgress(ctx, userID, cu, 3, true)
+	// Second step done: current=1 resume, mark step 1 complete, +5 active s.
+	// Now 2 of 2 done → finished (completed_at set). active accumulates to 15.
+	ord1 := 1
+	secondProgress, err := st.SaveProgress(ctx, userID, cu, 1, &ord1, 5, 2)
 	if err != nil {
-		t.Fatalf("SaveProgress(3): %v", err)
+		t.Fatalf("SaveProgress(1): %v", err)
 	}
 	if secondProgress.StartedAt == nil || !secondProgress.StartedAt.Equal(firstStartedAt) {
 		t.Fatalf("started_at changed on second SaveProgress: first=%v second=%v", firstStartedAt, secondProgress.StartedAt)
 	}
 	if secondProgress.CompletedAt == nil {
-		t.Fatalf("SaveProgress(3, markCompletedAt=true): completed_at not set")
+		t.Fatalf("SaveProgress(1): completed_at not set when all steps done")
 	}
-	wantOrdinals := map[int]bool{0: true, 3: true}
+	if secondProgress.ActiveSeconds != 15 {
+		t.Fatalf("ActiveSeconds = %d, want 15 (10+5 accumulated)", secondProgress.ActiveSeconds)
+	}
+	wantOrdinals := map[int]bool{0: true, 1: true}
 	if len(secondProgress.CompletedOrdinals) != 2 {
-		t.Fatalf("CompletedOrdinals = %v, want union of {0,3}", secondProgress.CompletedOrdinals)
+		t.Fatalf("CompletedOrdinals = %v, want union of {0,1}", secondProgress.CompletedOrdinals)
 	}
 	for _, o := range secondProgress.CompletedOrdinals {
 		if !wantOrdinals[o] {
-			t.Fatalf("CompletedOrdinals = %v, want union of {0,3}", secondProgress.CompletedOrdinals)
+			t.Fatalf("CompletedOrdinals = %v, want union of {0,1}", secondProgress.CompletedOrdinals)
 		}
 	}
 

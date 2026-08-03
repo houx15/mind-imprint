@@ -82,7 +82,7 @@ func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBy
 }
 
 const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
-SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds
 FROM course_progress
 WHERE user_id = $1 AND course_id = $2
 `
@@ -99,6 +99,7 @@ type GetCourseProgressByCourseIDRow struct {
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	UpdatedAt         time.Time          `json:"updated_at"`
+	ActiveSeconds     int32              `json:"active_seconds"`
 }
 
 // Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
@@ -115,12 +116,13 @@ func (q *Queries) GetCourseProgressByCourseID(ctx context.Context, arg GetCourse
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }
 
 const getCourseProgressBySlug = `-- name: GetCourseProgressBySlug :one
-SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at
+SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at, p.active_seconds
 FROM course_progress p JOIN course c ON c.id = p.course_id
 WHERE p.user_id = $1 AND c.slug = $2
 `
@@ -137,6 +139,7 @@ type GetCourseProgressBySlugRow struct {
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	UpdatedAt         time.Time          `json:"updated_at"`
+	ActiveSeconds     int32              `json:"active_seconds"`
 }
 
 func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProgressBySlugParams) (GetCourseProgressBySlugRow, error) {
@@ -149,6 +152,7 @@ func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProg
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }
@@ -249,27 +253,29 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 }
 
 const upsertCourseProgress = `-- name: UpsertCourseProgress :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, active_seconds, updated_at)
 VALUES (
   $1, $2, $3, $4,
-  COALESCE($5::timestamptz, now()), $6, now()
+  COALESCE($5::timestamptz, now()), $6, $7, now()
 )
 ON CONFLICT (user_id, course_id) DO UPDATE SET
   current_ordinal = EXCLUDED.current_ordinal,
   completed_ordinals = EXCLUDED.completed_ordinals,
   started_at = COALESCE(course_progress.started_at, EXCLUDED.started_at),
   completed_at = COALESCE(EXCLUDED.completed_at, course_progress.completed_at),
+  active_seconds = course_progress.active_seconds + EXCLUDED.active_seconds,
   updated_at = now()
-RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds
 `
 
 type UpsertCourseProgressParams struct {
-	UserID            uuid.UUID          `json:"user_id"`
-	CourseID          uuid.UUID          `json:"course_id"`
-	CurrentOrdinal    int32              `json:"current_ordinal"`
-	CompletedOrdinals []int32            `json:"completed_ordinals"`
-	StartedAt         pgtype.Timestamptz `json:"started_at"`
-	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UserID             uuid.UUID          `json:"user_id"`
+	CourseID           uuid.UUID          `json:"course_id"`
+	CurrentOrdinal     int32              `json:"current_ordinal"`
+	CompletedOrdinals  []int32            `json:"completed_ordinals"`
+	StartedAt          pgtype.Timestamptz `json:"started_at"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+	ActiveSecondsDelta int32              `json:"active_seconds_delta"`
 }
 
 type UpsertCourseProgressRow struct {
@@ -279,6 +285,7 @@ type UpsertCourseProgressRow struct {
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	UpdatedAt         time.Time          `json:"updated_at"`
+	ActiveSeconds     int32              `json:"active_seconds"`
 }
 
 func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProgressParams) (UpsertCourseProgressRow, error) {
@@ -289,6 +296,7 @@ func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProg
 		arg.CompletedOrdinals,
 		arg.StartedAt,
 		arg.CompletedAt,
+		arg.ActiveSecondsDelta,
 	)
 	var i UpsertCourseProgressRow
 	err := row.Scan(
@@ -298,6 +306,7 @@ func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProg
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }

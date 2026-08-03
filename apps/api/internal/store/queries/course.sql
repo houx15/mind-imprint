@@ -24,7 +24,7 @@ ON CONFLICT (slug) DO UPDATE SET
 RETURNING id, slug;
 
 -- name: GetCourseProgressBySlug :one
-SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at
+SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at, p.active_seconds
 FROM course_progress p JOIN course c ON c.id = p.course_id
 WHERE p.user_id = $1 AND c.slug = $2;
 
@@ -33,23 +33,27 @@ WHERE p.user_id = $1 AND c.slug = $2;
 -- courseUUID (not slug) — it already holds the course row's id from
 -- GetCoursePayload, and a slug round-trip would be a wasted join. Mirrors
 -- GetCourseProgressBySlug's column list/order exactly.
-SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at
+SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds
 FROM course_progress
 WHERE user_id = $1 AND course_id = $2;
 
 -- name: UpsertCourseProgress :one
-INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at)
+-- active_seconds is ADDITIVE: the arg is a delta (the active-focus seconds the
+-- client accrued since its last flush), added to the stored total on conflict
+-- so time accumulates across visits. On first insert the delta IS the total.
+INSERT INTO course_progress (user_id, course_id, current_ordinal, completed_ordinals, started_at, completed_at, active_seconds, updated_at)
 VALUES (
   sqlc.arg(user_id), sqlc.arg(course_id), sqlc.arg(current_ordinal), sqlc.arg(completed_ordinals),
-  COALESCE(sqlc.narg(started_at)::timestamptz, now()), sqlc.arg(completed_at), now()
+  COALESCE(sqlc.narg(started_at)::timestamptz, now()), sqlc.arg(completed_at), sqlc.arg(active_seconds_delta), now()
 )
 ON CONFLICT (user_id, course_id) DO UPDATE SET
   current_ordinal = EXCLUDED.current_ordinal,
   completed_ordinals = EXCLUDED.completed_ordinals,
   started_at = COALESCE(course_progress.started_at, EXCLUDED.started_at),
   completed_at = COALESCE(EXCLUDED.completed_at, course_progress.completed_at),
+  active_seconds = course_progress.active_seconds + EXCLUDED.active_seconds,
   updated_at = now()
-RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at;
+RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds;
 
 -- name: FinishedCourseIDsByUser :many
 -- Task 5 addition: cards_catalog.go's proficiency computation ("which

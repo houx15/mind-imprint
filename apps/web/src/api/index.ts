@@ -53,7 +53,7 @@ export interface ApiClient {
   listCourses(): Promise<CourseSummary[]>;
   getCourse(slug: string): Promise<CoursePlayerPayload>;
   getCourseProgress(slug: string): Promise<CourseProgress>;
-  saveCourseProgress(slug: string, input: { current_ordinal: number }): Promise<CourseProgress>;
+  saveCourseProgress(slug: string, input: { current_ordinal: number; completed_ordinal?: number; active_seconds_delta?: number }): Promise<CourseProgress>;
   answerCourseQuiz(slug: string, body: { stepId: string; interactionId: string; selected: string[]; correct: boolean }): Promise<void>;
   getCourseReport(slug: string): Promise<CourseReport>;
   courseAsk(slug: string, input: string, ordinal: number): AsyncGenerator<CourseAskEvent>;
