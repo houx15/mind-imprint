@@ -40,32 +40,36 @@
   for each course, for each step, for each teaching segment seg (按 content.segments 顺序):
     text = seg.text
     if text 非空 且 Voice 可用:
-      pieceId = "<stepId>#<segIdx>"                       # segIdx = 该段在 content.segments 的下标
-      key = "course-audio/<slug>/<pieceId>-<hash8>.mp3"   # hash8 = sha256(voice|text)[:8]
-      if !oss.Exists(key): oss.PutObject(key, "audio/mpeg", Voice.Synthesize(text, 1.0))
+      pieceId = "<stepId>#<segIdx>"                       # JSON map key（segIdx=该段在 content.segments 的下标）
+      key = "courses/audio/<slug>/<stepId>_<segIdx>_<hash8>.mp3"   # URL 安全（无 #），在既有 courses/ 前缀下
+      if !oss.Exists(key): oss.PutObject(key, "audio/mpeg", Voice.Synthesize(text, 1.0))  # 服务端直传
       manifest[pieceId] = key
-  course.audio_manifest = manifest                        # 存 course 行的新 jsonb 列: pieceId→key
+  course.audio_manifest = manifest                        # 存 course 行的新 jsonb 列: pieceId→objectKey
 
-播放期:
+播放期（按 OSS 惯例：读 URL 短命(5min)、按需解析、不存 URL）:
   GET /courses/{slug}:
-    payload.audioUrls = { pieceId: oss.SignDownload(manifest[pieceId], ttl=6h) }  # 仅命中的块
-    # render_cache 仍逐字节 verbatim 返回；audioUrls 是 payload 顶层 pieceId→url 平行 map。
+    payload.audioKeys = manifest                          # pieceId→objectKey（原样透传；对象 key 非机密，
+                                                          # 读取由 /oss/resolve-url 的 session 门控）
+    # render_cache 仍逐字节 verbatim 返回；audioKeys 是 payload 顶层平行 map；getCourse 不碰 oss。
   前端 CoursePlayer:
     reveal 逻辑不变（逐块，点击/空格-兜底 展开）。每露出一块 teaching 段:
-      pieceId = `${stepId}#${segIdx}`；若 audioUrls[pieceId] 且未静音 → 播它的音频
-      （首块受 autoplay 策略限制，见下）。
+      pieceId = `${stepId}#${segIdx}`；若 audioKeys[pieceId] 且未静音:
+        url = await api.resolveUrl(audioKeys[pieceId])    # 现有客户端（图片同款），按需解析
+        <audio src=url> 播放（首块受 autoplay 策略限制，见下）。
     空格: 当前块音频 播放→暂停 / 暂停→继续；无音频可控时 → 兜底=前进（同点击）。
-    点击内容区任意处: 展开下一块 → 停当前音频、播下一块音频；本步块出完且小测答完 → 进入下一步。
+    点击内容区任意处: 展开下一块 → 停当前音频、resolve+播下一块；本步块出完且小测答完 → 进入下一步。
     静音开关（🔊/🔇）: 关掉全部音频（"stop audio mode"）——只剩点击展开体验。
-    预取: 展开某块时后台预取下一块音频。换块/换步/卸载: 停并释放当前音频。
+    预取: 展开某块时后台 resolve + `new Audio(url).load()` 预热**下一块**，把「解析+取音频」两跳藏在播放背后。
+    换块/换步/卸载: 停并释放当前音频。
 ```
 
 ## 数据模型
 
 - 迁移 **0052**：`ALTER TABLE course ADD COLUMN audio_manifest jsonb NOT NULL DEFAULT '{}'`。
   **pieceId → objectKey**，形如
-  `{"step_01#0":"course-audio/a-mid/step_01#0-ab12cd34.mp3", "step_01#1":"...", ...}`。
+  `{"step_01#0":"courses/audio/a-mid/step_01_0_ab12cd34.mp3", "step_01#1":"courses/audio/a-mid/step_01_1_....mp3", ...}`。
   - 放在 course 行的**独立列**（不塞进 `render_cache`，保持外部授权内容逐字段 verbatim 的信封原则）。
+  - object key 在既有 `courses/` 前缀下、无 `#`（URL 安全）；pieceId（含 `#`）只作 JSON map key。
 - sqlc 手改：`GetCourseBySlug` / `UpsertCourse` / seed upsert 带上 `audio_manifest`
   （新列放最后，Scan 顺序 == SELECT 顺序，pin sqlc@v1.27.0）。
 - `key` 含 narration 内容 hash：正文改动 → 新 key → CDN 不会发旧音频（旧对象成孤儿，量小，
@@ -99,27 +103,28 @@
 1. `oss.Service.PutObject(ctx, key, contentType string, data []byte) error` —— 包 `s.origin.PutObject`
    （SDK bucket 已在 Service 里）。`oss.Service.Exists(ctx, key) (bool, error)` —— 包 `IsObjectExist`，
    供 gen 跳过已存在对象。
-2. `oss.Service.SignDownload` —— 已存在，直接用（ttl 6h）。
+2. **读路径按 OSS 惯例（resolve-on-demand，不在 getCourse 里签）**：payload 只带 object keys；前端用
+   已有 `api.resolveUrl(key)`（`/oss/resolve-url`, session 门控, 5min）按需换读 URL。getCourse **不碰 oss**。
 3. `voice.Client.Synthesize` —— 已存在，直接用（不改；`enable_timestamp` 仍 false）。
 4. 新 `GenerateCourseAudio(ctx, voice, oss, slug, renderCache) (manifest map[string]string, err)`
    —— 遍历每步每个 teaching 段：算 pieceId + key；`oss.Exists(key)` 未命中才 Synthesize + PutObject；
    返 pieceId→key manifest。voice/oss 为 nil → 返空 manifest（不报错）。
 5. 迁移 0052 + sqlc 手改（audio_manifest 读写）。
-6. 课程 DTO（`course_dto.go` `toCoursePayloadDTO`）：新增顶层 `audioUrls map[string]string`
-   —— 对 manifest 命中的 stepId 用 `oss.SignDownload` 签 URL。render_cache 仍逐字节 verbatim 返回。
-   - handler `getCourse` 需能拿到 `oss.Service`（Deps）来签；oss 为 nil 时 audioUrls 省略/空。
-   - `GetCoursePayload` 需把 `course.audio_manifest` 一并带出（store 层加字段）。
+6. 课程 DTO（`course_dto.go` `toCoursePayloadDTO`）：新增顶层 `audioKeys map[string]string`
+   —— **原样透传** `payload.AudioManifest`（pieceId→objectKey）。render_cache 仍逐字节 verbatim 返回。
+   - **无需签名、无需 oss**：object key 非机密，读取由 `/oss/resolve-url` 的 session 门控。
+   - `GetCoursePayload` 需把 `course.audio_manifest` 一并带出（store 层加字段，Task 2）。
 7. `SeedCourses` / `postAdminUploadCourse` 调 `GenerateCourseAudio` 并存 manifest。
 
 ## 前端改动清单
 
-- `packages/contracts/src/course.ts`：`CoursePlayerPayload` 顶层加可选 `audioUrls?: Record<string, string>`
-  （stepId → 已签 URL）。**不**改 render_cache 内的 step 结构（它是 verbatim）。前端用
-  `payload.audioUrls?.[currentStep.stepId]`。
+- `packages/contracts/src/course.ts`：`CoursePlayerPayload` 顶层加可选
+  `audioKeys?: Record<string, string>`（pieceId → objectKey）。**不**改 render_cache 内的 step 结构（verbatim）。
+  前端用 `payload.audioKeys?.[`${stepId}#${segIdx}`]` 拿 key，再 `await api.resolveUrl(key)` 换读 URL。
 - `CoursePlayer.tsx` / `SegmentTimeline.tsx`：`NarrationController`（逐块）
   - reveal 不变（逐块，点击内容区任意处展开下一块）。`SegmentBlock` 渲染 teaching 段时需知道其 `segIdx`。
-  - **每露出一块 teaching 段**：若 `audioUrls[`${stepId}#${segIdx}`]` 存在且未静音 → 建/复用 `<audio>` 播它，
-    并**停掉上一块**的音频。▶/⏸ 按钮显式控当前块音频。
+  - **每露出一块 teaching 段**：若 `audioKeys[`${stepId}#${segIdx}`]` 存在且未静音 →
+    `await api.resolveUrl(key)` 换读 URL → 建/复用 `<audio>` 播它，并**停掉上一块**的音频。▶/⏸ 按钮显式控当前块音频。
   - **空格**（window `keydown`，`preventDefault()` 防滚动；焦点在 Q&A 输入框时不劫持；不重复激活聚焦按钮）：
     1. 当前块音频**正在播** → 暂停；
     2. **已暂停未播完** → 继续；
@@ -129,7 +134,7 @@
   - **静音开关（🔊/🔇）**：关 = "stop audio mode"，展开时不播音频；偏好存 `localStorage`。
   - **autoplay 策略**：浏览器在首个用户手势前禁止有声自动播放；开课**首块**通常需一次 空格/点击/▶ 启动，
     此后逐块可自动播。
-  - **预取**：露出某块时后台预取**下一块**的音频（`new Audio().load()`）。
+  - **预取**：露出某块时后台 `resolveUrl(下一块 key)` + `new Audio(url).load()` 预热**下一块**。
   - 换块 / 换步 / 卸载：停止并释放当前音频，移除监听。
 
 ## 与「逐步门槛 + 主动时长」的关系（复用上一期成果，基本不变）

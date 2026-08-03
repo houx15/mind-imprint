@@ -13,8 +13,9 @@
 - **密钥只在服务端**：OSS key / TTS key 绝不进 git、日志、错误、返回体。签名(`SignDownload`)是本地 HMAC，不网络调用 OSS。
 - **render_cache 逐字节 verbatim**：不解析、不注入 audioUrl；audioUrls 是 payload 顶层 `pieceId→url` map。
 - **优雅降级**：`Deps.Voice == nil` 或 `oss.Service == nil` → 跳过音频生成/签名，课程照常可用（静默）。gen 某块失败 → warn+跳过，不阻塞其余块与发布。**幂等**：`oss.Exists(key)` 命中则跳过合成。
-- **pieceId 格式**：`"<stepId>#<segIdx>"`，segIdx = 该 teaching 段在 `content.segments` 的下标（含非 teaching 段一起计的原始下标）。
-- **key 格式**：`course-audio/<slug>/<stepId>#<segIdx>-<hash8>.mp3`，`hash8 = hex(sha256(voiceName|"\n"|text))[:8]`。
+- **pieceId 格式**：`"<stepId>#<segIdx>"`（JSON map key），segIdx = 该 teaching 段在 `content.segments` 的原始下标（非 teaching 段一起计）。
+- **object key 格式**：`courses/audio/<slug>/<stepId>_<segIdx>_<hash8>.mp3`，`hash8 = hex(sha256(voiceName+"\n"+text))[:8]`。**URL 安全（无 `#`）**，在既有 `courses/` 前缀下。pieceId（含 `#`）只作 map key，不进 object 路径。
+- **读路径 = resolve-on-demand**（OSS 惯例：读 URL 5min、按需解析、不存 URL）：payload 带 object **keys**（`audioKeys`），前端用已有 `api.resolveUrl(key)` 按需换读 URL + 预取下一块。`getCourse` **不签名、不碰 oss**。object key 非机密（读取由 `/oss/resolve-url` 的 session 门控）。
 - **sqlc 手改**：改 `.sql` + `.sql.go` 两处；新列放 SELECT 末尾，Scan 顺序 == SELECT 顺序。若跑 sqlc 生成，先 pin `@v1.27.0`。
 - **v1 只朗读 teaching 段**（不含小测题干 / 板书 / subtitle）。
 - **不回归**：现有 706 web 测试 + 全部 Go 课程/迁移测试保持绿。
@@ -99,9 +100,9 @@ ALTER TABLE course DROP COLUMN audio_manifest;
 - `synth==nil || store==nil` → 返回 `map[string]string{}, nil`（降级）。
 - 解析 renderCache 为窄结构：`{steps:[{stepId, content:{segments:[{kind,text}]}}]}`。
 - 对每 step 每个 `segments[i]`，若 `kind=="teaching"` 且 `strings.TrimSpace(text)!=""`：
-  - `pieceId := stepId + "#" + strconv.Itoa(i)`
+  - `pieceId := stepId + "#" + strconv.Itoa(i)`  // JSON map key
   - `hash8 := hex(sha256(synth.Voice() + "\n" + text))[:8]`
-  - `key := "course-audio/" + slug + "/" + pieceId + "-" + hash8 + ".mp3"`
+  - `key := "courses/audio/" + slug + "/" + stepId + "_" + strconv.Itoa(i) + "_" + hash8 + ".mp3"`  // URL-safe, no '#'
   - `if ok,_ := store.Exists(ctx,key); !ok { audio,err := synth.Synthesize(ctx,text,1.0); if err!=nil { log warn; continue }; if err:=store.PutObject(ctx,key,"audio/mpeg",audio); err!=nil { log warn; continue } }`
   - `manifest[pieceId] = key`
 - 返回 manifest（累积成功的块；个别失败跳过不返错）。
@@ -137,27 +138,28 @@ ALTER TABLE course DROP COLUMN audio_manifest;
 
 ---
 
-### Task 5: 播放期 audioUrls（DTO 签名 + 契约）
+### Task 5: 播放期 audioKeys（DTO 透传 + 契约）
 
 **Files:**
-- Modify: `packages/contracts/src/course.ts`（`CoursePlayerPayload` 加 `audioUrls`）
+- Modify: `packages/contracts/src/course.ts`（`CoursePlayerPayload` 加 `audioKeys`）
 - Modify: `apps/api/internal/api/course_dto.go`（`coursePayloadDTO` + `toCoursePayloadDTO`）
-- Modify: `apps/api/internal/api/course.go`（`getCourse` 用 oss 签 URL）
 - Test: `apps/api/internal/api/course_test.go`
 
 **Interfaces:**
-- Produces（契约）：`CoursePlayerPayload.audioUrls?: Record<string,string>`（pieceId→signed URL）。前端 Task 6/7 用。
+- Produces（契约）：`CoursePlayerPayload.audioKeys?: Record<string,string>`（pieceId→objectKey）。前端 Task 6/7 用。
 
-**说明：**
-- 契约：`packages/contracts/src/course.ts` 的 `CoursePlayerPayload` 加 `audioUrls: z.record(z.string()).optional().default({})`。
-- DTO：`coursePayloadDTO` 加 `AudioURLs map[string]string \`json:"audioUrls"\``。`toCoursePayloadDTO` 无法自己签（需 oss + ttl），所以签名在 handler 做后注入：给 `toCoursePayloadDTO` 增参 `audioURLs map[string]string`，或 handler 构造 DTO 后赋值。
-- `getCourse`：拿 `a.d.OSS`（或等价 oss.Service 引用；确认 Deps 字段名）。若 oss 非 nil，对 `payload.AudioManifest` 每个 `pieceId→key` 调 `oss.SignDownload(key, 6*time.Hour)`，拼 `audioURLs`；oss 为 nil 或签名失败 → 跳过该条（audioUrls 省略该 pieceId）。把 audioURLs 注入 DTO。
-- 空 manifest → `audioUrls` 为空对象。
+**说明（读路径 = resolve-on-demand，getCourse 不碰 oss、不签名）：**
+- 契约：`packages/contracts/src/course.ts` 的 `CoursePlayerPayload` 加 `audioKeys: z.record(z.string()).optional().default({})`。
+- DTO：`coursePayloadDTO` 加 `AudioKeys map[string]string \`json:"audioKeys"\``。`toCoursePayloadDTO`
+  把 `p.AudioManifest`（Task 2 已带出，pieceId→objectKey）**原样透传**（nil → 空 map `{}`）。
+- `getCourse` **不改逻辑、不引入 oss**——object key 非机密，读取由 `/oss/resolve-url` 的 session 门控。
+- 空 manifest → `audioKeys` 为空对象。
 
-- [ ] **Step 1: 契约加 audioUrls + 跑 contracts 测试。**
-- [ ] **Step 2: DTO + handler 签名注入。**
-- [ ] **Step 3: 测试**：构造一门带 audio_manifest 的 course（可在测试里 UpsertCourse 带 manifest），`GET /courses/{slug}` 断言 `audioUrls` 含对应 pieceId 且值非空（用 stub/fake oss，或真实 oss 装配下断言存在）。无 manifest → audioUrls 为空对象。
-- [ ] **Step 4: 跑**：`go test ./internal/api/ -run TestCourse -count=1`（Docker）+ contracts `pnpm --filter @mind-imprint/contracts test` 或 `npx vitest`（packages/contracts）。
+- [ ] **Step 1: 契约加 audioKeys + 跑 contracts 测试。**
+- [ ] **Step 2: DTO 加 AudioKeys 字段并在 toCoursePayloadDTO 透传 p.AudioManifest。**
+- [ ] **Step 3: 测试**：测试里 UpsertCourse 带 `AudioManifest{"s0#0":"courses/audio/x/s0_0_ab12cd34.mp3"}`，
+  `GET /courses/{slug}` 断言 `audioKeys["s0#0"]` == 该 key。无 manifest → `audioKeys` 为空对象 `{}`。
+- [ ] **Step 4: 跑**：`go test ./internal/api/ -run TestCourse -count=1`（Docker）+ contracts 测试（`packages/contracts` 下 `npx vitest run`）。
 - [ ] **Step 5: Commit。**
 
 ---
@@ -170,20 +172,22 @@ ALTER TABLE course DROP COLUMN audio_manifest;
 - Test: `apps/web/test/shell/courses/CoursePlayer.test.tsx`
 
 **Interfaces:**
-- Consumes：`payload.audioUrls`（Task 5）。
+- Consumes：`payload.audioKeys`（Task 5）+ 已有 `api.resolveUrl(objectKey): Promise<string>`（`apps/web/src/api/oss.ts`，AssetView 同款）。
 - Produces：一个「当前播放块」+ `<audio>` 控制；静音状态。供 Task 7 的空格/点击接。
 
-**说明：**
-- 「当前块」判定：timeline 逐块 reveal（`revealed`）。当前块 = 最新露出的 item；若是 teaching 段，其 `segIdx` = 它在 `content.segments` 的下标（`buildTimeline` 的 segment key 已含该 index，需把 index 透出到 item 上，或在 CoursePlayer 重算）。
-- 播放：`revealed` 增加（露出新块）时，若新块是 teaching 且 `audioUrls[`${stepId}#${segIdx}`]` 存在且未静音 → 停旧 `<audio>`、建新 `<audio>` 播放。用一个 `audioRef`（HTMLAudioElement）复用。
-- 首块 autoplay：受浏览器策略限制——首次播放放在用户手势里（首个 空格/点击/▶）。用一个 `hasGesture` ref，首个手势后允许自动播新块。
-- 静音：`muted` state，默认 false，`localStorage['course-audio-muted']` 持久化。静音时不建/不播 audio；▶/⏸ 与 🔊/🔇 按钮放 header 或底栏。
-- 预取：露出某块后，若下一个 teaching 块有 URL，`new Audio(url).load()` 预热（或 `<link rel=prefetch>`）。
-- 卸载/换步：停并释放 audio。
+**说明（resolve-on-demand + 预取）：**
+- 「当前块」判定：timeline 逐块 reveal（`revealed`）。当前块 = 最新露出的 item；若是 teaching 段，其 `segIdx` = 它在 `content.segments` 的原始下标（`buildTimeline` 的 `segment-<index>` key 已含该 index；把 index 透出到 item 上，或在 CoursePlayer 重算）。`pieceIdFor(stepId, segIdx) = `${stepId}#${segIdx}``。
+- 播放：`revealed` 增加时，若新块是 teaching 且 `audioKeys[pieceId]` 存在且未静音 →
+  `const url = await api.resolveUrl(audioKeys[pieceId])` → 停旧 `<audio>`、建/复用 `audioRef` 播 url。
+  注意 resolve 是 async：入块时旧的 in-flight resolve 要能被后续块取消/忽略（用一个递增 token/ref 防竞态）。
+- 首块 autoplay：受浏览器策略限制——首次播放放在用户手势里（首个 空格/点击/▶）。`hasGesture` ref，首手势后允许自动播新块。
+- 静音：`muted` state，默认 `false`，`localStorage['course-audio-muted']` 持久化。静音时不 resolve/不播；▶/⏸ 与 🔊/🔇 按钮放 header 或底栏。
+- 预取：露出某块后，若下一个 teaching 块有 key，后台 `api.resolveUrl(nextKey)` + `new Audio(url).load()` 预热。
+- 卸载/换步：停并释放 audio，作废 in-flight resolve token。
 
-- [ ] **Step 1: 让「当前 teaching 块 + 其 segIdx」在 CoursePlayer 可得**（透出 buildTimeline item 的 segment index，或重算）。写一个小的 `pieceIdFor(stepId, segIdx)` helper。
-- [ ] **Step 2: 写测试**（先失败）：mock `HTMLMediaElement.prototype.play/pause`（vitest jsdom 不实现，需 spy）。payload 带 `audioUrls{"s0#0":"u0"}`；render → 首个手势后露出块0 → 断言 `play` 被调、audio.src 含 u0。静音开关点一下 → 断言不再 play + localStorage 写入。
-- [ ] **Step 3: 实现播放控制器 + 静音开关。**
+- [ ] **Step 1: 让「当前 teaching 块 + 其 segIdx」在 CoursePlayer 可得**（透出 buildTimeline item 的 segment index，或重算）。加 `pieceIdFor` helper。
+- [ ] **Step 2: 写测试**（先失败）：spy `HTMLMediaElement.prototype.play/pause`（jsdom 未实现，需 `vi.spyOn`/stub）；mock `api.resolveUrl` 返回固定 url。payload 带 `audioKeys{"s0#0":"courses/audio/x/s0_0_h.mp3"}`；render → 首个手势后露出块0 → 断言 `resolveUrl` 被调该 key、`play` 被调、audio.src 含返回 url。点静音开关 → 断言不再 resolve/play + `localStorage` 写入。
+- [ ] **Step 3: 实现播放控制器 + resolve 竞态防护 + 静音开关。**
 - [ ] **Step 4: 跑**：`npx vitest run test/shell/courses/CoursePlayer.test.tsx`。
 - [ ] **Step 5: Commit。**
 
