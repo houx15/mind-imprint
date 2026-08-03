@@ -1,6 +1,7 @@
 package oss_test
 
 import (
+	"context"
 	"net/url"
 	"strings"
 	"testing"
@@ -9,6 +10,17 @@ import (
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/oss"
 )
+
+// TestServerSideMethodsSignatures is a compile-time/reference assertion that
+// *oss.Service exposes PutObject and Exists with the signatures the
+// course-audio pipeline (later tasks) depends on. It never calls them: doing
+// so would hit the real Aliyun SDK over the network, which this package
+// intentionally does not fake (see live_test.go for the real round-trip,
+// gated behind the "live" build tag and real credentials).
+func TestServerSideMethodsSignatures(t *testing.T) {
+	var _ func(ctx context.Context, key, contentType string, data []byte) error = (*oss.Service)(nil).PutObject
+	var _ func(ctx context.Context, key string) (bool, error) = (*oss.Service)(nil).Exists
+}
 
 func testCfg() config.Config {
 	return config.Config{

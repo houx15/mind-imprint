@@ -7,6 +7,8 @@
 package oss
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -68,6 +70,41 @@ func (s *Service) SignUpload(objectKey, contentType string, ttl time.Duration) (
 // SignDownload returns a presigned GET URL on the CDN domain.
 func (s *Service) SignDownload(objectKey string, ttl time.Duration) (string, error) {
 	return s.cdn.SignURL(objectKey, alioss.HTTPGet, int64(ttl.Seconds()))
+}
+
+// PutObject uploads data to the OSS origin under objectKey. It is used by
+// server-side jobs (e.g. pre-generating course audio) that hold the data in
+// memory rather than asking a client to PUT via a presigned URL. ctx is
+// accepted for signature consistency with callers even though the underlying
+// SDK call is synchronous.
+func (s *Service) PutObject(ctx context.Context, key, contentType string, data []byte) error {
+	if err := s.origin.PutObject(key, bytes.NewReader(data), putObjectOptions(contentType)...); err != nil {
+		return fmt.Errorf("oss: put object %q: %w", key, err)
+	}
+	return nil
+}
+
+// putObjectOptions builds the alioss.Option slice for PutObject, omitting the
+// Content-Type option when contentType is empty. Factored out as a pure
+// helper so the branch is unit-testable without a network call.
+func putObjectOptions(contentType string) []alioss.Option {
+	if contentType == "" {
+		return nil
+	}
+	return []alioss.Option{alioss.ContentType(contentType)}
+}
+
+// Exists reports whether objectKey is already present in the bucket. It is
+// used to make audio generation idempotent — skip re-synthesizing/uploading
+// a piece whose object already exists. ctx is accepted for signature
+// consistency with callers even though the underlying SDK call is
+// synchronous.
+func (s *Service) Exists(ctx context.Context, key string) (bool, error) {
+	ok, err := s.origin.IsObjectExist(key)
+	if err != nil {
+		return false, fmt.Errorf("oss: exists %q: %w", key, err)
+	}
+	return ok, nil
 }
 
 // withScheme ensures the endpoint has an https:// scheme; the SDK accepts a
