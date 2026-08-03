@@ -51,31 +51,38 @@ type CourseSummaryRow struct {
 // CoursePlayerPayload is what the player needs to render one course:
 // structure (the authored script) and render_cache (the published per-step
 // content) travel as json.RawMessage — this store never parses them, only
-// CourseReport does, and only the two narrow fields it needs.
+// CourseReport does, and only the two narrow fields it needs. AudioManifest
+// maps pieceId ("<stepId>#<segIdx>") to the OSS object key holding that
+// teaching segment's narration (migration 0052); nil/empty column decodes
+// to an empty (non-nil) map, never nil, so callers can range over it freely.
 type CoursePlayerPayload struct {
-	Slug        string
-	Title       string
-	Branch      string
-	CardIDs     []string
-	Structure   json.RawMessage
-	RenderCache json.RawMessage
+	Slug          string
+	Title         string
+	Branch        string
+	CardIDs       []string
+	Structure     json.RawMessage
+	RenderCache   json.RawMessage
+	AudioManifest map[string]string
 }
 
 // UpsertCourseInput is UpsertCourse's argument — StepCount is caller-supplied
 // (the seed loader / admin publish path computes it once from Structure via
 // encoding/json, per the same rule CourseReport uses for its own tallies)
 // rather than recomputed here, so this store stays a pure adapter with no
-// opinion on how the caller derived it.
+// opinion on how the caller derived it. AudioManifest is the pieceId→object-key
+// map a later task's GenerateCourseAudio produces; nil is stored as the
+// column's own default ('{}'), never a SQL NULL.
 type UpsertCourseInput struct {
-	Slug        string
-	Branch      string
-	Title       string
-	Blurb       string
-	TimeLabel   string
-	CardIDs     []string
-	Structure   []byte
-	RenderCache []byte
-	StepCount   int
+	Slug          string
+	Branch        string
+	Title         string
+	Blurb         string
+	TimeLabel     string
+	CardIDs       []string
+	Structure     []byte
+	RenderCache   []byte
+	StepCount     int
+	AudioManifest map[string]string
 }
 
 // CourseProgressRow is one student's position in one course. StartedAt/
@@ -140,11 +147,18 @@ func (s *sqlcAgentStore) GetCoursePayload(ctx context.Context, slug string) (Cou
 	if err != nil {
 		return CoursePlayerPayload{}, uuid.Nil, err
 	}
+	audioManifest := map[string]string{}
+	if len(row.AudioManifest) > 0 {
+		if err := json.Unmarshal(row.AudioManifest, &audioManifest); err != nil {
+			return CoursePlayerPayload{}, uuid.Nil, fmt.Errorf("course payload: parse audio_manifest: %w", err)
+		}
+	}
 	payload := CoursePlayerPayload{
 		Slug: row.Slug, Title: row.Title, Branch: row.Branch,
-		CardIDs:     row.CardIds,
-		Structure:   json.RawMessage(row.Structure),
-		RenderCache: json.RawMessage(row.RenderCache),
+		CardIDs:       row.CardIds,
+		Structure:     json.RawMessage(row.Structure),
+		RenderCache:   json.RawMessage(row.RenderCache),
+		AudioManifest: audioManifest,
 	}
 	return payload, row.ID, nil
 }
@@ -153,13 +167,22 @@ func (s *sqlcAgentStore) GetCoursePayload(ctx context.Context, slug string) (Cou
 // by slug. structure/render_cache are stored verbatim — this store never
 // interprets them beyond the caller-supplied StepCount.
 func (s *sqlcAgentStore) UpsertCourse(ctx context.Context, in UpsertCourseInput) error {
-	_, err := s.q.UpsertCourse(ctx, sqlc.UpsertCourseParams{
+	audioManifest := in.AudioManifest
+	if audioManifest == nil {
+		audioManifest = map[string]string{}
+	}
+	audioManifestJSON, err := json.Marshal(audioManifest)
+	if err != nil {
+		return fmt.Errorf("upsert course: marshal audio_manifest: %w", err)
+	}
+	_, err = s.q.UpsertCourse(ctx, sqlc.UpsertCourseParams{
 		Slug: in.Slug, Branch: in.Branch, Title: in.Title, Blurb: in.Blurb,
-		TimeLabel:   in.TimeLabel,
-		CardIds:     in.CardIDs,
-		StepCount:   int32(in.StepCount),
-		Structure:   in.Structure,
-		RenderCache: in.RenderCache,
+		TimeLabel:     in.TimeLabel,
+		CardIds:       in.CardIDs,
+		StepCount:     int32(in.StepCount),
+		Structure:     in.Structure,
+		RenderCache:   in.RenderCache,
+		AudioManifest: audioManifestJSON,
 	})
 	return err
 }

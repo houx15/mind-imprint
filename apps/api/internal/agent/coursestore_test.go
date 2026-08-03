@@ -9,6 +9,7 @@ package agent_test
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -60,9 +61,11 @@ func TestCourseStoreV2(t *testing.T) {
 	}
 	wantTotal := amidAuthoredInteractionTotal(t, rc)
 
+	wantAudioManifest := map[string]string{"s0#0": "courses/audio/a-mid/s0_0_ab12cd34.mp3"}
 	if err := st.UpsertCourse(ctx, agent.UpsertCourseInput{
 		Slug: "a-mid", Branch: "A", Title: "CRRAAB 信源评估：从机构到亲历者到专家",
 		CardIDs: []string{"craap"}, Structure: raw, RenderCache: rc, StepCount: 4,
+		AudioManifest: wantAudioManifest,
 	}); err != nil {
 		t.Fatalf("UpsertCourse: %v", err)
 	}
@@ -90,6 +93,9 @@ func TestCourseStoreV2(t *testing.T) {
 	}
 	if len(payload.Structure) == 0 || len(payload.RenderCache) == 0 {
 		t.Fatalf("GetCoursePayload structure/renderCache empty")
+	}
+	if !reflect.DeepEqual(payload.AudioManifest, wantAudioManifest) {
+		t.Fatalf("GetCoursePayload AudioManifest = %v, want %v", payload.AudioManifest, wantAudioManifest)
 	}
 
 	// First step done: current=0 resume, mark step 0 complete, +10 active s.
@@ -197,9 +203,12 @@ func TestCourseStoreV2_LogCourseEventDedupesLastAttemptWins(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertCourse: %v", err)
 	}
-	_, cu, err := st.GetCoursePayload(ctx, "a-mid-dedup")
+	payload, cu, err := st.GetCoursePayload(ctx, "a-mid-dedup")
 	if err != nil {
 		t.Fatalf("GetCoursePayload: %v", err)
+	}
+	if payload.AudioManifest == nil || len(payload.AudioManifest) != 0 {
+		t.Fatalf("GetCoursePayload AudioManifest = %v, want empty non-nil map when not upserted", payload.AudioManifest)
 	}
 
 	if err := st.LogCourseEvent(ctx, userID, cu, "course_quiz_answered",

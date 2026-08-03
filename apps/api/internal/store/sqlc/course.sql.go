@@ -46,21 +46,22 @@ func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID)
 }
 
 const getCourseBySlug = `-- name: GetCourseBySlug :one
-SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest
 FROM course WHERE slug = $1
 `
 
 type GetCourseBySlugRow struct {
-	ID          uuid.UUID `json:"id"`
-	Slug        string    `json:"slug"`
-	Branch      string    `json:"branch"`
-	Title       string    `json:"title"`
-	Blurb       string    `json:"blurb"`
-	TimeLabel   string    `json:"time_label"`
-	CardIds     []string  `json:"card_ids"`
-	StepCount   int32     `json:"step_count"`
-	Structure   []byte    `json:"structure"`
-	RenderCache []byte    `json:"render_cache"`
+	ID            uuid.UUID `json:"id"`
+	Slug          string    `json:"slug"`
+	Branch        string    `json:"branch"`
+	Title         string    `json:"title"`
+	Blurb         string    `json:"blurb"`
+	TimeLabel     string    `json:"time_label"`
+	CardIds       []string  `json:"card_ids"`
+	StepCount     int32     `json:"step_count"`
+	Structure     []byte    `json:"structure"`
+	RenderCache   []byte    `json:"render_cache"`
+	AudioManifest []byte    `json:"audio_manifest"`
 }
 
 func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBySlugRow, error) {
@@ -77,6 +78,7 @@ func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBy
 		&i.StepCount,
 		&i.Structure,
 		&i.RenderCache,
+		&i.AudioManifest,
 	)
 	return i, err
 }
@@ -208,26 +210,27 @@ func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, erro
 }
 
 const upsertCourse = `-- name: UpsertCourse :one
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
   step_count = EXCLUDED.step_count, structure = EXCLUDED.structure,
-  render_cache = EXCLUDED.render_cache, updated_at = now()
+  render_cache = EXCLUDED.render_cache, audio_manifest = EXCLUDED.audio_manifest, updated_at = now()
 RETURNING id, slug
 `
 
 type UpsertCourseParams struct {
-	Slug        string   `json:"slug"`
-	Branch      string   `json:"branch"`
-	Title       string   `json:"title"`
-	Blurb       string   `json:"blurb"`
-	TimeLabel   string   `json:"time_label"`
-	CardIds     []string `json:"card_ids"`
-	StepCount   int32    `json:"step_count"`
-	Structure   []byte   `json:"structure"`
-	RenderCache []byte   `json:"render_cache"`
+	Slug          string   `json:"slug"`
+	Branch        string   `json:"branch"`
+	Title         string   `json:"title"`
+	Blurb         string   `json:"blurb"`
+	TimeLabel     string   `json:"time_label"`
+	CardIds       []string `json:"card_ids"`
+	StepCount     int32    `json:"step_count"`
+	Structure     []byte   `json:"structure"`
+	RenderCache   []byte   `json:"render_cache"`
+	AudioManifest []byte   `json:"audio_manifest"`
 }
 
 type UpsertCourseRow struct {
@@ -246,6 +249,7 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 		arg.StepCount,
 		arg.Structure,
 		arg.RenderCache,
+		arg.AudioManifest,
 	)
 	var i UpsertCourseRow
 	err := row.Scan(&i.ID, &i.Slug)

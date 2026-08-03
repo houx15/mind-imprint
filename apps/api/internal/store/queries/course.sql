@@ -10,17 +10,17 @@ SELECT slug, branch, title, blurb, time_label, card_ids, step_count
 FROM course ORDER BY branch, title;
 
 -- name: GetCourseBySlug :one
-SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest
 FROM course WHERE slug = $1;
 
 -- name: UpsertCourse :one
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
   step_count = EXCLUDED.step_count, structure = EXCLUDED.structure,
-  render_cache = EXCLUDED.render_cache, updated_at = now()
+  render_cache = EXCLUDED.render_cache, audio_manifest = EXCLUDED.audio_manifest, updated_at = now()
 RETURNING id, slug;
 
 -- name: GetCourseProgressBySlug :one
