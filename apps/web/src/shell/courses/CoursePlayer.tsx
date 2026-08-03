@@ -140,34 +140,59 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
 
       {/* body: content + ask panel — dc.html 236-397 */}
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", background: "#F3F4F8", overflowY: "auto" }}>
-          <div style={{ flex: 1, padding: "36px 40px 60px" }}>
-            <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
-              <SegmentTimeline
-                key={ordinal}
-                stepId={currentStep.stepId}
-                content={currentStep.content}
-                assetsById={assetsById}
-                onQuizAnswer={(event) => void api.answerCourseQuiz(courseId, event).catch(() => {})}
-              />
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "#F3F4F8" }}>
+          {/* scroll area */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <div style={{ padding: "36px 40px 40px" }}>
+              <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
+                <SegmentTimeline
+                  key={ordinal}
+                  stepId={currentStep.stepId}
+                  content={currentStep.content}
+                  assetsById={assetsById}
+                  onQuizAnswer={(event) => void api.answerCourseQuiz(courseId, event).catch(() => {})}
+                />
+              </div>
             </div>
           </div>
 
-          {/* nav */}
-          {ordinal > 0 && (
-            <div aria-label="上一步" onClick={() => setOrdinal(ordinal - 1)} style={{ position: "absolute", left: 14, top: "44%", width: 40, height: 40, borderRadius: "50%", background: "#fff", border: "1px solid #E7E9F0", boxShadow: "0 3px 12px rgba(20,30,60,.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6B7384" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          {/* nav — pinned to the page bottom so 下一步 is always reachable
+              regardless of scroll (铁律 2: never gated) */}
+          <div style={{ flex: "none", borderTop: "1px solid #EAECF2", background: "#fff", padding: "11px 40px" }}>
+            <div style={{ maxWidth: 700, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              {ordinal > 0 ? (
+                <button
+                  type="button"
+                  aria-label="上一步"
+                  onClick={() => setOrdinal(ordinal - 1)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", borderRadius: 10, padding: "9px 15px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                  上一步
+                </button>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                aria-label={isLast ? "完成课程" : "下一步"}
+                onClick={handleNext}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: isLast ? "#4C9A82" : "#2A3B7A", border: "none", color: "#fff", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: isLast ? "0 4px 14px rgba(76,154,130,.26)" : "0 4px 14px rgba(42,59,122,.24)" }}
+              >
+                {isLast ? (
+                  <>
+                    完成课程
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                  </>
+                ) : (
+                  <>
+                    下一步
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </>
+                )}
+              </button>
             </div>
-          )}
-          {!isLast ? (
-            <div aria-label="下一步" onClick={handleNext} style={{ position: "absolute", right: 14, top: "44%", width: 44, height: 44, borderRadius: "50%", background: "#2A3B7A", boxShadow: "0 5px 16px rgba(42,59,122,.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-            </div>
-          ) : (
-            <div aria-label="完成课程" onClick={handleNext} style={{ position: "absolute", right: 14, top: "44%", width: 44, height: 44, borderRadius: "50%", background: "#4C9A82", boxShadow: "0 5px 16px rgba(76,154,130,.30)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            </div>
-          )}
+          </div>
         </div>
 
         <AskPanel

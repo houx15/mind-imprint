@@ -91,7 +91,11 @@ export function isInteractionCorrect(interaction: Interaction, answerIds: string
   return expected.length === answerSet.size && expected.every((id: string) => answerSet.has(id));
 }
 
-function SegmentBlock({ segment, assetsById }: { segment: RenderSegment; assetsById: Record<string, CourseAsset> }) {
+// `assets` is resolved and de-duplicated by the parent SegmentTimeline (an
+// image referenced by many segments in a step is shown only on its first
+// occurrence — mirrors the reference's `displayedAssetIds` set in main.jsx),
+// so SegmentBlock just renders whatever it's handed.
+function SegmentBlock({ segment, assets }: { segment: RenderSegment; assets: CourseAsset[] }) {
   if (segment.kind === "structure") {
     const items = (segment.items || []).filter((item) => item.label || item.text);
     return (
@@ -126,7 +130,6 @@ function SegmentBlock({ segment, assetsById }: { segment: RenderSegment; assetsB
     );
   }
 
-  const assets = (segment.asset_ids || []).map((id) => assetsById[id]).filter((a): a is CourseAsset => Boolean(a));
   const { before, after } = splitTeachingTextAroundAssets(segment.text || "", assets.length > 0);
 
   return (
@@ -364,15 +367,30 @@ export function SegmentTimeline({
     setRevealedCount((value) => Math.min(value + 1, items.length));
   }
 
+  // De-duplicate assets across the whole step: an image referenced by many
+  // segments (the render cache does this — e.g. doc_img_06 in 10 segments)
+  // must render only on its first occurrence. `shown` is rebuilt each render
+  // and the map callback runs synchronously in order, so the first segment to
+  // reference an id wins deterministically (mirrors main.jsx's
+  // assetsForSegment/displayedAssetIds).
+  const shown = new Set<string>();
+
   return (
     <div data-testid="segment-timeline" onClick={handleReveal} style={{ cursor: hasMore ? "pointer" : "default" }}>
-      {visibleItems.map((item) =>
-        item.type === "segment" ? (
-          <SegmentBlock key={item.key} segment={item.segment} assetsById={assetsById} />
-        ) : (
-          <InteractionBlock key={item.key} interaction={item.interaction} stepId={stepId} onQuizAnswer={onQuizAnswer} />
-        )
-      )}
+      {visibleItems.map((item) => {
+        if (item.type !== "segment") {
+          return <InteractionBlock key={item.key} interaction={item.interaction} stepId={stepId} onQuizAnswer={onQuizAnswer} />;
+        }
+        const assets = (item.segment.asset_ids || [])
+          .map((id) => assetsById[id])
+          .filter((a): a is CourseAsset => Boolean(a))
+          .filter((a) => {
+            if (shown.has(a.id)) return false;
+            shown.add(a.id);
+            return true;
+          });
+        return <SegmentBlock key={item.key} segment={item.segment} assets={assets} />;
+      })}
       {hasMore && (
         <div aria-hidden="true" style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, color: "#AEB4C2", padding: "6px 0 18px" }}>
           点击页面继续
