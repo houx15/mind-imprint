@@ -28,4 +28,23 @@ describe("course v2 contracts", () => {
     CourseSummary.parse({ slug: "a-mid", branch: "A", title: "t", blurb: "b", time_label: "20 分钟", card_ids: ["craap"], step_count: 4 });
     CourseReport.parse({ title: "t", goal: "g", teaching_thread: "th", completedStepTitles: ["s1"], cardIds: ["craap"], secondsSpent: 600, quiz: { total: 4, correct: 3 } });
   });
+
+  const basePayload = {
+    slug: "a-mid", title: "t", branch: "A", cardIds: ["craap"],
+    structure: { id: "a-mid", title: "t", steps: [] },
+    renderCache: { courseId: "a-mid", steps: [] },
+  };
+
+  it("accepts audioKeys as a pieceId→objectKey record", () => {
+    const p = CoursePlayerPayload.parse({
+      ...basePayload,
+      audioKeys: { "s0#0": "courses/audio/a-mid/s0_0_ab12cd34.mp3" },
+    });
+    expect(p.audioKeys).toEqual({ "s0#0": "courses/audio/a-mid/s0_0_ab12cd34.mp3" });
+  });
+
+  it("defaults audioKeys to {} when omitted", () => {
+    const p = CoursePlayerPayload.parse(basePayload);
+    expect(p.audioKeys).toEqual({});
+  });
 });

@@ -82,6 +82,7 @@ export const CoursePlayerPayload = z.object({
   cardIds: z.array(z.string()),
   structure: CourseStructure,
   renderCache: RenderCache,
+  audioKeys: z.record(z.string()).optional().default({}),
 });
 
 export const CourseProgress = z.object({

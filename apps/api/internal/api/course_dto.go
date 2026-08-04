@@ -42,12 +42,13 @@ func toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 // are emitted verbatim as raw JSON — the store never parses them beyond its
 // own report-only needs, and neither does this DTO.
 type coursePayloadDTO struct {
-	Slug        string          `json:"slug"`
-	Title       string          `json:"title"`
-	Branch      string          `json:"branch"`
-	CardIDs     []string        `json:"cardIds"`
-	Structure   json.RawMessage `json:"structure"`
-	RenderCache json.RawMessage `json:"renderCache"`
+	Slug        string            `json:"slug"`
+	Title       string            `json:"title"`
+	Branch      string            `json:"branch"`
+	CardIDs     []string          `json:"cardIds"`
+	Structure   json.RawMessage   `json:"structure"`
+	RenderCache json.RawMessage   `json:"renderCache"`
+	AudioKeys   map[string]string `json:"audioKeys"`
 }
 
 func toCoursePayloadDTO(p agent.CoursePlayerPayload) coursePayloadDTO {
@@ -63,9 +64,17 @@ func toCoursePayloadDTO(p agent.CoursePlayerPayload) coursePayloadDTO {
 	if len(renderCache) == 0 {
 		renderCache = json.RawMessage("{}")
 	}
+	// AudioKeys rides along verbatim (pieceId→object key) — read-path resolves
+	// URLs on demand (api.resolveUrl), so getCourse never signs or touches OSS
+	// here; nil → {} so the JSON is always an object, never null.
+	audioKeys := p.AudioManifest
+	if audioKeys == nil {
+		audioKeys = map[string]string{}
+	}
 	return coursePayloadDTO{
 		Slug: p.Slug, Title: p.Title, Branch: p.Branch,
 		CardIDs: cardIDs, Structure: structure, RenderCache: renderCache,
+		AudioKeys: audioKeys,
 	}
 }
 

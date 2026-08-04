@@ -120,6 +120,7 @@ func TestCourseV2EndToEnd(t *testing.T) {
 			RenderCache struct {
 				Steps []json.RawMessage `json:"steps"`
 			} `json:"renderCache"`
+			AudioKeys map[string]string `json:"audioKeys"`
 		} `json:"course"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &courseResp); err != nil {
@@ -130,6 +131,13 @@ func TestCourseV2EndToEnd(t *testing.T) {
 	}
 	if len(courseResp.Course.RenderCache.Steps) == 0 {
 		t.Fatalf("course payload renderCache.steps is empty")
+	}
+	// seedAMidCourse carries no AudioManifest — the payload's audioKeys must
+	// still be an empty object, never null (json.Unmarshal into a non-nil map
+	// var would leave it nil if the wire value were `null`, so this also
+	// guards the DTO's nil→{} default).
+	if courseResp.Course.AudioKeys == nil || len(courseResp.Course.AudioKeys) != 0 {
+		t.Fatalf("course payload audioKeys = %v, want empty object", courseResp.Course.AudioKeys)
 	}
 
 	// progress default (no row yet) → current_ordinal 0
@@ -248,6 +256,54 @@ func TestCourseV2UnknownSlug404(t *testing.T) {
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/does-not-exist/report", nil), cookie))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown slug report: want 404 got %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestCourseAudioKeysExposed asserts a course upserted with a non-empty
+// AudioManifest (Task 2's plumbing) surfaces it verbatim as the payload's
+// audioKeys map (pieceId → OSS object key) — getCourse must pass the manifest
+// through without signing anything (no oss.Service wired into these Deps at
+// all, so a signing attempt here would panic/error, not just misbehave).
+func TestCourseAudioKeysExposed(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	q := sqlc.New(pool)
+	st := agent.NewSqlcAgentStore(q, pool)
+	raw, err := courses.FS.ReadFile("a-mid.json")
+	if err != nil {
+		t.Fatalf("read a-mid.json: %v", err)
+	}
+	rc, err := courses.FS.ReadFile("a-mid-render-cache.json")
+	if err != nil {
+		t.Fatalf("read a-mid-render-cache.json: %v", err)
+	}
+	if err := st.UpsertCourse(context.Background(), agent.UpsertCourseInput{
+		Slug: "a-mid", Branch: "A", Title: "CRRAAB 信源评估：从机构到亲历者到专家",
+		Blurb: "从机构到亲历者到专家的信源评估之旅", TimeLabel: "20 分钟",
+		CardIDs: []string{"craap"}, Structure: raw, RenderCache: rc, StepCount: 4,
+		AudioManifest: map[string]string{"s0#0": "courses/audio/a-mid/s0_0_ab12cd34.mp3"},
+	}); err != nil {
+		t.Fatalf("upsert a-mid with audio manifest: %v", err)
+	}
+
+	h := New(Deps{Queries: q, Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/a-mid", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get course: %d %s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Course struct {
+			AudioKeys map[string]string `json:"audioKeys"`
+		} `json:"course"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("get course decode: %v", err)
+	}
+	if got := resp.Course.AudioKeys["s0#0"]; got != "courses/audio/a-mid/s0_0_ab12cd34.mp3" {
+		t.Fatalf("audioKeys[s0#0] = %q, want courses/audio/a-mid/s0_0_ab12cd34.mp3", got)
 	}
 }
 
