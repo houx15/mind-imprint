@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CourseAsset, CoursePlayerPayload } from "@mind-imprint/contracts";
 import { api } from "../../api";
-import { SegmentTimeline, buildTimeline } from "./SegmentTimeline";
+import { SegmentTimeline, buildTimeline, pieceIdFor } from "./SegmentTimeline";
 import { AskPanel, type AskMessage } from "./AskPanel";
+
+const MUTED_STORAGE_KEY = "course-audio-muted";
 
 let localAskIdSeq = 0;
 function nextAskId(prefix: string) {
@@ -37,6 +39,159 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     const step = payload.renderCache.steps[ordinal];
     return step ? buildTimeline(step.content) : [];
   }, [payload, ordinal]);
+
+  // Narration (Task 6): "current piece" is the LATEST-revealed timeline item —
+  // `revealed` is a count, so index `revealed - 1`. Only teaching segments are
+  // narrated (v1; matches GenerateCourseAudio server-side). `pieceId` is the
+  // exact key into `payload.audioKeys` the server populated it under.
+  const currentTeachingPiece = useMemo(() => {
+    if (!payload) return null;
+    const step = payload.renderCache.steps[ordinal];
+    if (!step) return null;
+    const item = timelineItems[revealed - 1];
+    if (!item || item.type !== "segment" || item.segment.kind !== "teaching") return null;
+    return { pieceId: pieceIdFor(step.stepId, item.segIdx) };
+  }, [payload, ordinal, timelineItems, revealed]);
+
+  // The NEXT teaching piece (not yet revealed) — background-prefetched once
+  // the current one is revealed, so the following click has no audio latency.
+  const nextTeachingPieceId = useMemo(() => {
+    if (!payload) return null;
+    const step = payload.renderCache.steps[ordinal];
+    if (!step) return null;
+    const item = timelineItems[revealed];
+    if (!item || item.type !== "segment" || item.segment.kind !== "teaching") return null;
+    return pieceIdFor(step.stepId, item.segIdx);
+  }, [payload, ordinal, timelineItems, revealed]);
+
+  // --- Per-piece narration playback (Task 6) ---------------------------------
+  // One reused <audio> element (never mounted in the DOM — HTMLAudioElement
+  // plays fine headless). `resolveTokenRef` guards the resolve→play race: an
+  // in-flight `api.resolveUrl` whose token has since been superseded by a
+  // later reveal/step-change is discarded rather than played.
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const resolveTokenRef = useRef(0);
+  // Browsers block audio-with-sound before a user gesture. This starts false
+  // and flips true on the first reveal-click or ▶ press; once true, later
+  // reveals are allowed to auto-play (the gesture already unlocked audio).
+  const hasGestureRef = useRef(false);
+  const [muted, setMuted] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(MUTED_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  function ensureAudioEl(): HTMLAudioElement {
+    if (!audioElRef.current) {
+      const el = new Audio();
+      el.addEventListener("play", () => setIsPlaying(true));
+      el.addEventListener("pause", () => setIsPlaying(false));
+      el.addEventListener("ended", () => setIsPlaying(false));
+      audioElRef.current = el;
+    }
+    return audioElRef.current;
+  }
+
+  // Resolve an object key to a signed URL and play it, honoring the race
+  // token: if a later piece has superseded this resolve by the time it
+  // returns, do nothing (the stale audio must never start playing).
+  const playObjectKey = useCallback(async (key: string) => {
+    const token = ++resolveTokenRef.current;
+    let url: string;
+    try {
+      url = await api.resolveUrl(key);
+    } catch {
+      return;
+    }
+    if (resolveTokenRef.current !== token) return; // superseded — discard
+    const audio = ensureAudioEl();
+    audio.pause();
+    audio.src = url;
+    audio.currentTime = 0;
+    audio.play().catch(() => {
+      /* autoplay rejected (e.g. no gesture yet) — not fatal */
+    });
+  }, []);
+
+  // Auto-play the current teaching piece whenever it changes, but only after
+  // the student's first gesture (mount's initial reveal is not a gesture).
+  useEffect(() => {
+    if (!payload || !currentTeachingPiece || muted || !hasGestureRef.current) return;
+    const key = payload.audioKeys?.[currentTeachingPiece.pieceId];
+    if (!key) return;
+    void playObjectKey(key);
+  }, [payload, currentTeachingPiece, muted, playObjectKey]);
+
+  // Prefetch the next teaching piece's audio in the background (best-effort —
+  // a throwaway <audio> just primes the browser's cache, never played here).
+  useEffect(() => {
+    if (!payload || !nextTeachingPieceId) return;
+    const key = payload.audioKeys?.[nextTeachingPieceId];
+    if (!key) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const url = await api.resolveUrl(key);
+        if (cancelled) return;
+        const preload = new Audio(url);
+        preload.load();
+      } catch {
+        /* best-effort prefetch — ignore failures */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [payload, nextTeachingPieceId]);
+
+  // Stop + release audio and invalidate any in-flight resolve on step change
+  // (this cleanup also fires once on unmount, covering that case too).
+  useEffect(() => {
+    return () => {
+      resolveTokenRef.current += 1;
+      if (audioElRef.current) {
+        audioElRef.current.pause();
+        audioElRef.current.removeAttribute("src");
+      }
+    };
+  }, [ordinal]);
+
+  function toggleMuted() {
+    setMuted((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(MUTED_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* localStorage unavailable — mute still works for this session */
+      }
+      if (next) {
+        resolveTokenRef.current += 1; // discard any resolve still in flight
+        audioElRef.current?.pause();
+      }
+      return next;
+    });
+  }
+
+  // ▶/⏸ controls the current piece's audio. A press here is itself the first
+  // gesture if the student hasn't clicked/revealed anything yet.
+  function togglePlayPause() {
+    hasGestureRef.current = true;
+    const audio = audioElRef.current;
+    if (audio && !audio.paused) {
+      audio.pause();
+      return;
+    }
+    if (muted || !payload || !currentTeachingPiece) return;
+    if (audio && audio.src && !audio.ended) {
+      audio.play().catch(() => {});
+      return;
+    }
+    const key = payload.audioKeys?.[currentTeachingPiece.pieceId];
+    if (key) void playObjectKey(key);
+  }
 
   // Per-step gate (point 3): a step is "done" only when every timeline item is
   // revealed AND every quiz in it has been answered (any answer — never gated
@@ -169,6 +324,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   function handleRevealClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!hasMore) return;
     if ((event.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+    hasGestureRef.current = true; // this click is itself a user gesture — unlocks auto-play
     setRevealed((v) => Math.min(v + 1, timelineItems.length));
   }
 
@@ -248,6 +404,30 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
           <span style={{ flex: "none", width: 8, height: 8, borderRadius: 3, background: "#2A3B7A" }} />
           <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{payload.title}</span>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 9 }}>
+            <button
+              type="button"
+              aria-label={isPlaying ? "暂停" : "播放"}
+              onClick={togglePlayPause}
+              disabled={!currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId]}
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                opacity: !currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId] ? 0.4 : 1,
+              }}
+            >
+              {isPlaying ? "⏸" : "▶"}
+            </button>
+            <button
+              type="button"
+              aria-label={muted ? "取消静音" : "静音"}
+              onClick={toggleMuted}
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, fontSize: 13, cursor: "pointer",
+              }}
+            >
+              {muted ? "🔇" : "🔊"}
+            </button>
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "#AEB4C2", background: "#F2F3F8", padding: "2px 9px", borderRadius: 999 }}>{ordinal + 1} / {total}</span>
           </div>
         </div>

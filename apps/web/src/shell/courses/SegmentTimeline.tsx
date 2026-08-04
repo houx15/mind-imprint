@@ -14,9 +14,19 @@ function cleanId(value: string | undefined | null): string {
   return String(value || "").trim();
 }
 
-type TimelineItem =
-  | { type: "segment"; key: string; segment: RenderSegment }
+// `segIdx` on a segment item is its position in `content.segments` — the same
+// index the plan's pieceId format (`<stepId>#<segIdx>`) and the server's
+// audio_manifest key off of (see GenerateCourseAudio). Interaction items carry
+// no segIdx; they are never narrated (v1 only reads teaching segments).
+export type TimelineItem =
+  | { type: "segment"; key: string; segment: RenderSegment; segIdx: number }
   | { type: "interaction"; key: string; interaction: Interaction };
+
+// pieceIdFor mirrors the server's pieceId format exactly (Task 3/5's
+// `stepId + "#" + segIdx`) — the JSON key into `payload.audioKeys`.
+export function pieceIdFor(stepId: string, segIdx: number): string {
+  return `${stepId}#${segIdx}`;
+}
 
 // buildTimeline interleaves `content.interactions` into segment order by
 // matching each interaction's `id` against a segment's `flow_block_id`
@@ -32,7 +42,7 @@ export function buildTimeline(content: RenderStepContent): TimelineItem[] {
   const used = new Set<string>();
 
   segments.forEach((segment, index) => {
-    items.push({ type: "segment", key: `segment-${index}`, segment });
+    items.push({ type: "segment", key: `segment-${index}`, segment, segIdx: index });
     const blockId = cleanId(segment.flow_block_id);
     if (!blockId) return;
     const matched = interactions.find((interaction) => {

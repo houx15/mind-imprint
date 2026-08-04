@@ -41,6 +41,7 @@ const payload: CoursePlayerPayload = {
     version: "1", courseId: "co1", courseTitle: "一条网络信息，该不该信",
     steps: [{ stepId: "s0", content: { title: "开场", subtitle: "s", segments: [{ kind: "teaching", flow_block_id: "", text: "开场正文。", asset_ids: [], items: [] }], interactions: [], board: [] } }],
   },
+  audioKeys: {},
 };
 
 const report: CourseReportT = {

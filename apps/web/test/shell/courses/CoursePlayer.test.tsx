@@ -14,6 +14,7 @@ vi.mock("@/api", async (orig) => {
       saveCourseProgress: vi.fn(),
       answerCourseQuiz: vi.fn(),
       courseAsk: vi.fn(),
+      resolveUrl: vi.fn(),
     },
   };
 });
@@ -46,6 +47,7 @@ const payload: CoursePlayerPayload = {
       { stepId: "s1", content: { title: "第 1 步", subtitle: "", segments: [{ kind: "teaching", flow_block_id: "", text: "第 1 步的正文。", asset_ids: [], items: [] }], interactions: [], board: [] } },
     ],
   },
+  audioKeys: {},
 };
 
 // Every real courseAsk stream ends with a `done` frame unconditionally (see
@@ -58,11 +60,13 @@ async function* gen(events: unknown[]) {
 describe("CoursePlayer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     (api.getCourse as any).mockResolvedValue(payload);
     (api.getCourseProgress as any).mockRejectedValue(new Error("no progress yet"));
     (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "info-literacy", current_ordinal: 1, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
     (api.answerCourseQuiz as any).mockResolvedValue(undefined);
     (api.courseAsk as any).mockImplementation(() => gen([]));
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/audio.mp3");
   });
 
   it("renders the first step's content via SegmentTimeline", async () => {
@@ -194,5 +198,142 @@ describe("CoursePlayer", () => {
     await userEvent.click(screen.getByLabelText("发送"));
 
     expect(await screen.findByText("出错了，请重试")).toBeInTheDocument();
+  });
+});
+
+describe("CoursePlayer narration playback", () => {
+  // jsdom implements neither play/pause/load nor the paused/ended state
+  // transitions a real <audio> element would drive — spy on the prototype so
+  // the controller's calls are observable without crashing (real HTMLMedia
+  // methods throw "not implemented" in jsdom).
+  let lastPlaySrc: string | undefined;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    lastPlaySrc = undefined;
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (this: HTMLMediaElement) {
+      lastPlaySrc = this.src;
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    (api.getCourseProgress as any).mockRejectedValue(new Error("no progress yet"));
+    (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "info-literacy", current_ordinal: 1, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
+    (api.answerCourseQuiz as any).mockResolvedValue(undefined);
+    (api.courseAsk as any).mockImplementation(() => gen([]));
+  });
+
+  const payloadWithAudio: CoursePlayerPayload = {
+    ...payload,
+    audioKeys: {
+      "s0#0": "courses/audio/x/s0_0_abcd1234.mp3",
+      "s1#0": "courses/audio/x/s1_0_efgh5678.mp3",
+    },
+  };
+
+  it("resolves and plays the current piece's narration on the first gesture (▶)", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/piece0.mp3");
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    fireEvent.click(screen.getByLabelText("播放"));
+
+    await waitFor(() => expect(api.resolveUrl).toHaveBeenCalledWith("courses/audio/x/s0_0_abcd1234.mp3"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalled());
+    expect(lastPlaySrc).toContain("https://cdn.example.com/piece0.mp3");
+  });
+
+  it("does not resolve or play before any gesture (mount's initial reveal is not a gesture)", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    // Give any stray microtask a chance to run, then confirm nothing fired.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.resolveUrl).not.toHaveBeenCalled();
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+
+  it("mute stops further resolve/play and persists to localStorage", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/piece0.mp3");
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    fireEvent.click(screen.getByLabelText("播放"));
+    await waitFor(() => expect(api.resolveUrl).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByLabelText("静音"));
+    expect(window.localStorage.getItem("course-audio-muted")).toBe("1");
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+
+    // Pressing ▶ again while muted must not resolve/play again.
+    fireEvent.click(screen.getByLabelText("播放"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.resolveUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards a stale resolveUrl response superseded by a later piece (race protection)", async () => {
+    const twoSegPayload: CoursePlayerPayload = {
+      ...payload,
+      renderCache: {
+        ...payload.renderCache,
+        steps: [
+          {
+            stepId: "s0",
+            content: {
+              title: "第 0 步",
+              subtitle: "",
+              segments: [
+                { kind: "teaching", flow_block_id: "", text: "第一段。", asset_ids: [], items: [] },
+                { kind: "teaching", flow_block_id: "", text: "第二段。", asset_ids: [], items: [] },
+              ],
+              interactions: [],
+              board: [],
+            },
+          },
+          payload.renderCache.steps[1]!,
+        ],
+      },
+      audioKeys: {
+        "s0#0": "courses/audio/x/s0_0_first.mp3",
+        "s0#1": "courses/audio/x/s0_1_second.mp3",
+      },
+    };
+    (api.getCourse as any).mockResolvedValue(twoSegPayload);
+
+    // Keyed (not positional) so the piece-0 prefetch that fires unprompted at
+    // mount (background-priming piece 1, no gesture needed) can't shift which
+    // call gets which response — only piece 0's resolve is held pending.
+    let resolveFirst!: (url: string) => void;
+    const firstPending = new Promise<string>((resolve) => {
+      resolveFirst = resolve;
+    });
+    (api.resolveUrl as any).mockImplementation((key: string) => {
+      if (key === "courses/audio/x/s0_0_first.mp3") return firstPending;
+      if (key === "courses/audio/x/s0_1_second.mp3") return Promise.resolve("https://cdn.example.com/second.mp3");
+      return Promise.resolve("https://cdn.example.com/unused.mp3");
+    });
+
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第一段。");
+
+    // First gesture: play piece 0 — its resolve stays pending.
+    fireEvent.click(screen.getByLabelText("播放"));
+    await waitFor(() => expect(api.resolveUrl).toHaveBeenCalledWith("courses/audio/x/s0_0_first.mp3"));
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+
+    // Reveal piece 1 before the first resolve returns — this must supersede it.
+    fireEvent.click(screen.getByTestId("segment-timeline"));
+    await screen.findByText("第二段。");
+    await waitFor(() => expect(lastPlaySrc).toContain("second.mp3"));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+
+    // Now the stale first resolve finally returns — it must be discarded, not played.
+    resolveFirst("https://cdn.example.com/first.mp3");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(lastPlaySrc).toContain("second.mp3");
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
   });
 });
