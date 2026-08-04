@@ -11,6 +11,12 @@ package api
 // authors these owns the inner shape, and agent.UpsertCourse stores both
 // blobs verbatim as []byte (course.go's other handlers already treat
 // Structure/RenderCache this way; see coursestore.go's package doc).
+//
+// Course voice narration (Task 4): before the upsert, this handler calls
+// agent.GenerateCourseAudio using a.d.Voice/a.d.OSS (both nil-guarded — see
+// below) so a fresh admin upload gets its teaching segments narrated and
+// cached to OSS the same as a seeded course; either dependency being
+// unconfigured degrades to an empty audio_manifest, never a failed upload.
 
 import (
 	"encoding/json"
@@ -98,17 +104,38 @@ func (a *API) postAdminUploadCourse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Narration pre-generation (course voice narration, Task 4): a.d.Voice is
+	// already a nil-safe interface (Deps zero value), but a.d.OSS is a
+	// concrete *oss.Service — a nil *oss.Service assigned straight into the
+	// agent.CourseAudioStore interface parameter would NOT compare equal to
+	// nil inside GenerateCourseAudio (typed-nil-in-interface), so both are
+	// explicitly guarded here rather than passed through raw.
+	var audioSynth agent.CourseAudioSynth
+	if a.d.Voice != nil {
+		audioSynth = a.d.Voice
+	}
+	var audioStore agent.CourseAudioStore
+	if a.d.OSS != nil {
+		audioStore = a.d.OSS
+	}
+	audioManifest, err := agent.GenerateCourseAudio(r.Context(), audioSynth, audioStore, course.ID, body.RenderCache)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.UpsertCourse(r.Context(), agent.UpsertCourseInput{
-		Slug:        course.ID,
-		Branch:      body.Branch,
-		Title:       course.Title,
-		Blurb:       body.Blurb,
-		TimeLabel:   body.TimeLabel,
-		CardIDs:     body.CardIDs,
-		Structure:   body.Course,
-		RenderCache: body.RenderCache,
-		StepCount:   len(course.Steps),
+		Slug:          course.ID,
+		Branch:        body.Branch,
+		Title:         course.Title,
+		Blurb:         body.Blurb,
+		TimeLabel:     body.TimeLabel,
+		CardIDs:       body.CardIDs,
+		Structure:     body.Course,
+		RenderCache:   body.RenderCache,
+		StepCount:     len(course.Steps),
+		AudioManifest: audioManifest,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/config"
@@ -57,6 +58,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Hoisted above the --migrate-up branch (course voice narration, Task 4):
+	// SeedCourses now (re)generates each seeded course's narration manifest,
+	// so migrate-up needs the same Voice/OSS dependencies the server path
+	// builds below. Both are nil-safe when unconfigured (oss.New returns
+	// (nil, nil); buildVoice returns nil) — narration generation degrades to
+	// an empty manifest rather than failing migrate-up or server boot.
+	ossSvc, err := oss.New(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "oss: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+	voiceSvc := buildVoice(cfg)
+
 	if *migrateUp {
 		if err := store.RunMigrations(ctx, pool); err != nil {
 			fmt.Fprintf(os.Stderr, "migrations: %v\n", err)
@@ -65,7 +80,22 @@ func main() {
 		}
 		log.Println("migrations applied successfully")
 
-		seeded, err := store.SeedCourses(ctx, pool)
+		// Guarded the same way course_admin.go's postAdminUploadCourse guards
+		// a.d.Voice/a.d.OSS: voiceSvc is already a nil-safe interface, but
+		// ossSvc is a concrete *oss.Service — assigning a nil *oss.Service
+		// straight into the agent.CourseAudioStore interface parameter would
+		// NOT compare equal to nil inside GenerateCourseAudio (typed-nil-in-
+		// interface), so it's explicitly guarded here too.
+		var audioSynth agent.CourseAudioSynth
+		if voiceSvc != nil {
+			audioSynth = voiceSvc
+		}
+		var audioStore agent.CourseAudioStore
+		if ossSvc != nil {
+			audioStore = ossSvc
+		}
+
+		seeded, err := store.SeedCourses(ctx, pool, audioSynth, audioStore)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "seed courses: %v\n", err)
 			pool.Close()
@@ -91,12 +121,8 @@ func main() {
 	}
 	specByID := func(id string) (cards.Spec, bool) { s, ok := specIndex[id]; return s, ok }
 
-	ossSvc, err := oss.New(cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "oss: %v\n", err)
-		pool.Close()
-		os.Exit(1)
-	}
+	// ossSvc/voiceSvc already constructed above (hoisted for the --migrate-up
+	// path's SeedCourses call); reused here unchanged.
 
 	// No global timeout on the HTTP client: streaming is governed by request ctx.
 	httpClient := &http.Client{}
@@ -114,7 +140,7 @@ func main() {
 		SpecByID:     specByID,
 		Pool:         pool,
 		CookieSecure: cfg.CookieSecure,
-		Voice:        buildVoice(cfg),
+		Voice:        voiceSvc,
 		CORSOrigins:  cfg.CORSOrigins,
 		Fetcher:      materialize.NewFetcher(),
 		OSS:          ossSvc,

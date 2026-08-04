@@ -23,7 +23,10 @@ func TestSeedCourses(t *testing.T) {
 	ctx := context.Background()
 	pool := newStoreTestPool(t)
 
-	n, err := store.SeedCourses(ctx, pool)
+	// nil, nil: no voice/OSS configured — narration (Task 4) degrades to an
+	// empty manifest per course, exactly like an unconfigured production
+	// deploy; seeding itself must still succeed unchanged.
+	n, err := store.SeedCourses(ctx, pool, nil, nil)
 	if err != nil {
 		t.Fatalf("SeedCourses: %v", err)
 	}
@@ -63,6 +66,17 @@ func TestSeedCourses(t *testing.T) {
 		t.Fatalf("a-mid.StepCount = %d, want > 0", aMid.StepCount)
 	}
 
+	// synth/audioStore were nil above, so narration generation must have
+	// degraded to an empty manifest — the seed must not error or leave a
+	// non-empty manifest just because GenerateCourseAudio was skipped.
+	payload, _, err := agentStore.GetCoursePayload(ctx, "a-mid")
+	if err != nil {
+		t.Fatalf("GetCoursePayload(a-mid): %v", err)
+	}
+	if len(payload.AudioManifest) != 0 {
+		t.Fatalf("a-mid.AudioManifest = %v, want empty (nil voice/OSS)", payload.AudioManifest)
+	}
+
 	bMid, ok := bySlug["b-mid"]
 	if !ok {
 		t.Fatalf("b-mid not seeded; got slugs %v", bySlug)
@@ -88,7 +102,7 @@ func TestSeedCourses(t *testing.T) {
 
 	// Idempotent: calling SeedCourses again does not error and does not
 	// duplicate rows (upsert-by-slug).
-	n2, err := store.SeedCourses(ctx, pool)
+	n2, err := store.SeedCourses(ctx, pool, nil, nil)
 	if err != nil {
 		t.Fatalf("SeedCourses (second call): %v", err)
 	}
@@ -101,5 +115,85 @@ func TestSeedCourses(t *testing.T) {
 	}
 	if len(coursesAgain) != 2 {
 		t.Fatalf("ListCourses (second call) len = %d, want 2 (upsert should not duplicate)", len(coursesAgain))
+	}
+}
+
+// stubCourseAudioSynth/stubCourseAudioStore are minimal, fully in-memory
+// stand-ins for agent.CourseAudioSynth/CourseAudioStore — no real TTS call
+// or network I/O, per this task's own constraint against hitting real
+// services from tests. They let TestSeedCoursesGeneratesAudioManifest prove
+// SeedCourses actually calls agent.GenerateCourseAudio per course and stores
+// its result, something TestSeedCourses's nil/nil pass can't exercise.
+type stubCourseAudioSynth struct{ calls int }
+
+func (s *stubCourseAudioSynth) Synthesize(_ context.Context, _ string, _ float64) ([]byte, error) {
+	s.calls++
+	return []byte("fake-mp3-bytes"), nil
+}
+
+func (s *stubCourseAudioSynth) Voice() string { return "stub-voice" }
+
+type stubCourseAudioStore struct {
+	existing map[string]bool
+	puts     int
+}
+
+func (s *stubCourseAudioStore) Exists(_ context.Context, key string) (bool, error) {
+	return s.existing[key], nil
+}
+
+func (s *stubCourseAudioStore) PutObject(_ context.Context, key, _ string, _ []byte) error {
+	s.puts++
+	if s.existing == nil {
+		s.existing = map[string]bool{}
+	}
+	s.existing[key] = true
+	return nil
+}
+
+// TestSeedCoursesGeneratesAudioManifest asserts SeedCourses's Task-4 wiring:
+// given a non-nil synth/store, it calls agent.GenerateCourseAudio for each
+// seeded course's render_cache and persists the resulting manifest via
+// UpsertCourse — readable back through GetCoursePayload. a-mid's embedded
+// render cache has 21 non-empty "teaching" segments (verified by inspection),
+// so a non-empty manifest here is a real assertion, not a coincidence of an
+// empty course.
+func TestSeedCoursesGeneratesAudioManifest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newStoreTestPool(t)
+
+	synth := &stubCourseAudioSynth{}
+	audioStore := &stubCourseAudioStore{}
+
+	n, err := store.SeedCourses(ctx, pool, synth, audioStore)
+	if err != nil {
+		t.Fatalf("SeedCourses: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("SeedCourses returned %d, want 2", n)
+	}
+	if synth.calls == 0 {
+		t.Fatalf("stub synth was never called; SeedCourses did not invoke GenerateCourseAudio")
+	}
+	if audioStore.puts == 0 {
+		t.Fatalf("stub store never received a PutObject; SeedCourses did not invoke GenerateCourseAudio")
+	}
+
+	q := sqlc.New(pool)
+	agentStore := agent.NewSqlcAgentStore(q, pool)
+	payload, _, err := agentStore.GetCoursePayload(ctx, "a-mid")
+	if err != nil {
+		t.Fatalf("GetCoursePayload(a-mid): %v", err)
+	}
+	if len(payload.AudioManifest) == 0 {
+		t.Fatalf("a-mid.AudioManifest is empty, want a non-empty pieceId->objectKey manifest")
+	}
+	for pieceID, key := range payload.AudioManifest {
+		if key == "" {
+			t.Fatalf("a-mid.AudioManifest[%q] is empty", pieceID)
+		}
 	}
 }

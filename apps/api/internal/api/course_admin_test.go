@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -23,6 +24,14 @@ import (
 // non-empty with ≥1 step, render_cache.courseId matching, ≥1 rendered step.
 const validCourseJSON = `{"id":"admin-upload-test","title":"Admin Upload Test Course","steps":[{"id":"step_01","title":"Step One"}]}`
 const validRenderCacheJSON = `{"version":1,"courseId":"admin-upload-test","steps":[{"stepId":"step_01","content":{"title":"Step One"}}]}`
+
+// renderCacheWithTeachingJSON is validRenderCacheJSON's course-audio variant:
+// its one step has a non-empty "teaching" segment, so
+// agent.GenerateCourseAudio (course voice narration, Task 3) would produce a
+// manifest entry for it IF both a.d.Voice and a.d.OSS were configured — used
+// by TestAdminUploadCourseAudioManifestDegradesWithoutOSS to prove the OSS
+// half of the nil-guard on its own (Voice present, OSS absent).
+const renderCacheWithTeachingJSON = `{"version":1,"courseId":"admin-upload-audio-test","steps":[{"stepId":"step_01","content":{"title":"Step One","segments":[{"kind":"teaching","text":"这是一段讲解文本。"}]}}]}`
 
 func adminUploadBody(course, renderCache string, cardIDs []string) string {
 	cardIDsJSON, _ := json.Marshal(cardIDs)
@@ -77,6 +86,62 @@ func TestAdminUploadCourseValidUploadIsListable(t *testing.T) {
 	}
 	if len(getResp.Course.CardIDs) != 1 || getResp.Course.CardIDs[0] != "craap" {
 		t.Fatalf("uploaded course card_ids = %v, want [craap]", getResp.Course.CardIDs)
+	}
+
+	// Course voice narration (Task 4): this Deps has neither Voice nor OSS
+	// configured, so agent.GenerateCourseAudio must have degraded to an
+	// empty manifest — and, per the plan's Global Constraints, that must
+	// never have failed the upload above (it didn't: rec.Code was 200).
+	payload, _, err := agent.NewSqlcAgentStore(sqlc.New(pool), pool).GetCoursePayload(context.Background(), "admin-upload-test")
+	if err != nil {
+		t.Fatalf("GetCoursePayload: %v", err)
+	}
+	if len(payload.AudioManifest) != 0 {
+		t.Fatalf("AudioManifest = %v, want empty (no Voice/OSS configured)", payload.AudioManifest)
+	}
+}
+
+// TestAdminUploadCourseAudioManifestDegradesWithoutOSS asserts the other half
+// of Task 4's nil-guard: a.d.Voice configured but a.d.OSS absent (the common
+// case for an environment that has TTS but not object storage, or vice
+// versa) must still degrade to an empty manifest and a successful upload —
+// agent.GenerateCourseAudio requires BOTH dependencies non-nil before it
+// synthesizes anything, so the stub Voice's Synthesize must never even be
+// called. Deps.OSS is a concrete *oss.Service (not fakeable without a real
+// bucket — see internal/oss/oss_test.go's own network-avoidance note), so
+// the non-empty-manifest path is covered instead at the unit level in
+// course_audio_test.go (Task 3) and the wiring level in
+// seed_courses_test.go's TestSeedCoursesGeneratesAudioManifest (Task 4),
+// both of which stub agent.CourseAudioSynth/CourseAudioStore directly.
+func TestAdminUploadCourseAudioManifestDegradesWithoutOSS(t *testing.T) {
+	pool := newAPITestPool(t)
+	stub := &stubVoice{audio: []byte("MP3")}
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, OSSAdminKey: testAdminKey, Voice: stub}).Handler()
+
+	body := adminUploadBody(validCourseJSON, renderCacheWithTeachingJSON, []string{"craap"})
+	// Reuse validCourseJSON's id (course.ID) but the audio-flavored render
+	// cache, so the courseId fields must agree — swap validCourseJSON's id
+	// to match renderCacheWithTeachingJSON's courseId.
+	body = strings.Replace(body, `"id":"admin-upload-test"`, `"id":"admin-upload-audio-test"`, 1)
+
+	req := httptest.NewRequest("POST", "/api/v1/admin/courses", strings.NewReader(body))
+	bearer(req, testAdminKey)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload with Voice-but-no-OSS: want 200 got %d %s", rec.Code, rec.Body)
+	}
+
+	if stub.calls != 0 {
+		t.Fatalf("stub Voice.Synthesize was called %d times, want 0 (OSS absent must short-circuit before synthesis)", stub.calls)
+	}
+
+	payload, _, err := agent.NewSqlcAgentStore(sqlc.New(pool), pool).GetCoursePayload(context.Background(), "admin-upload-audio-test")
+	if err != nil {
+		t.Fatalf("GetCoursePayload: %v", err)
+	}
+	if len(payload.AudioManifest) != 0 {
+		t.Fatalf("AudioManifest = %v, want empty (OSS not configured)", payload.AudioManifest)
 	}
 }
 

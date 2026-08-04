@@ -82,7 +82,19 @@ type courseSeedStructure struct {
 // one doesn't — a typo'd card id here would otherwise silently ship a
 // course whose card summons never resolve). Returns the number of courses
 // seeded (len(courseSeeds) on success) for the caller to log.
-func SeedCourses(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+//
+// synth/audioStore (course voice narration, Task 4) are passed straight
+// through to agent.GenerateCourseAudio for each seeded course, so the same
+// deploy step (cmd/api/main.go's --migrate-up path) that (re)seeds a-mid/
+// b-mid also (re)generates their narration manifest. This package already
+// imports agent (agentStore below), and agent never imports store, so
+// widening this signature to agent's own narrow CourseAudioSynth/
+// CourseAudioStore interfaces (rather than a callback) introduces no import
+// cycle. Either argument may be nil (voice/OSS not configured, or a caller —
+// e.g. tests — that doesn't care about narration): GenerateCourseAudio
+// degrades to an empty manifest in that case, and seeding proceeds exactly
+// as before this task.
+func SeedCourses(ctx context.Context, pool *pgxpool.Pool, synth agent.CourseAudioSynth, audioStore agent.CourseAudioStore) (int, error) {
 	queries := sqlc.New(pool)
 	agentStore := agent.NewSqlcAgentStore(queries, pool)
 
@@ -110,16 +122,22 @@ func SeedCourses(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 			return 0, fmt.Errorf("seed course %s: structure has no title", seed.Slug)
 		}
 
+		audioManifest, err := agent.GenerateCourseAudio(ctx, synth, audioStore, seed.Slug, renderCache)
+		if err != nil {
+			return 0, fmt.Errorf("seed course %s: generate audio: %w", seed.Slug, err)
+		}
+
 		if err := agentStore.UpsertCourse(ctx, agent.UpsertCourseInput{
-			Slug:        seed.Slug,
-			Branch:      seed.Branch,
-			Title:       structure.Title,
-			Blurb:       seed.Blurb,
-			TimeLabel:   seed.TimeLabel,
-			CardIDs:     seed.CardIDs,
-			Structure:   raw,
-			RenderCache: renderCache,
-			StepCount:   len(structure.Steps),
+			Slug:          seed.Slug,
+			Branch:        seed.Branch,
+			Title:         structure.Title,
+			Blurb:         seed.Blurb,
+			TimeLabel:     seed.TimeLabel,
+			CardIDs:       seed.CardIDs,
+			Structure:     raw,
+			RenderCache:   renderCache,
+			StepCount:     len(structure.Steps),
+			AudioManifest: audioManifest,
 		}); err != nil {
 			return 0, fmt.Errorf("seed course %s: upsert: %w", seed.Slug, err)
 		}
