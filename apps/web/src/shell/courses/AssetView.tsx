@@ -109,7 +109,10 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
           <div
             role="dialog"
             aria-label={title}
-            onClick={() => setZoomed(false)}
+            // stopPropagation: React re-dispatches portal events through the
+            // component tree, so a backdrop click would otherwise bubble to the
+            // reading pane's click-to-continue and advance the lesson on close.
+            onClick={(e) => { e.stopPropagation(); setZoomed(false); }}
             style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(10,14,25,.86)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, cursor: "zoom-out" }}
           >
             <img src={resolvedUrl!} alt={title} style={{ maxWidth: "94vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,.55)" }} />
