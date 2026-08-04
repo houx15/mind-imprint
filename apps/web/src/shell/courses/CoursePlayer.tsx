@@ -71,6 +71,11 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // later reveal/step-change is discarded rather than played.
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const resolveTokenRef = useRef(0);
+  // Which pieceId is currently loaded into audioElRef (whatever its playing/
+  // paused/ended state) — lets the Task 7 fall-through guard distinguish "this
+  // piece hasn't started yet" (must play, not advance) from "already started"
+  // (fall through to pause/resume/continue as usual). Reset on step change.
+  const loadedPieceRef = useRef<string | null>(null);
   // Browsers block audio-with-sound before a user gesture. This starts false
   // and flips true on the first reveal-click or ▶ press; once true, later
   // reveals are allowed to auto-play (the gesture already unlocked audio).
@@ -91,6 +96,13 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // Refs sidestep the stale-closure trap: both are written on every render,
   // and the long-lived listener always reads `.current` at keypress time.
   const continueRef = useRef<() => void>(() => {});
+  // Task 7 bugfix: guard used by BOTH the Space fall-through and the
+  // content-pane click path — if the current teaching piece has audio that
+  // hasn't started yet, START it (and report true so the caller returns
+  // instead of advancing). Only when there's genuinely nothing to start
+  // (no key / muted / already started) does it return false, letting the
+  // caller fall through to continueCourse().
+  const tryStartAudioRef = useRef<() => boolean>(() => false);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
 
@@ -108,7 +120,8 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   // Resolve an object key to a signed URL and play it, honoring the race
   // token: if a later piece has superseded this resolve by the time it
   // returns, do nothing (the stale audio must never start playing).
-  const playObjectKey = useCallback(async (key: string) => {
+  const playObjectKey = useCallback(async (pieceId: string, key: string) => {
+    loadedPieceRef.current = pieceId; // mark "started" synchronously — before the await, so a rapid second gesture can't re-trigger a start for this same piece
     const token = ++resolveTokenRef.current;
     let url: string;
     try {
@@ -132,7 +145,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     if (!payload || !currentTeachingPiece || muted || !hasGestureRef.current) return;
     const key = payload.audioKeys?.[currentTeachingPiece.pieceId];
     if (!key) return;
-    void playObjectKey(key);
+    void playObjectKey(currentTeachingPiece.pieceId, key);
   }, [payload, currentTeachingPiece, muted, playObjectKey]);
 
   // Prefetch the next teaching piece's audio in the background (best-effort —
@@ -162,6 +175,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   useEffect(() => {
     return () => {
       resolveTokenRef.current += 1;
+      loadedPieceRef.current = null;
       if (audioElRef.current) {
         audioElRef.current.pause();
         audioElRef.current.removeAttribute("src");
@@ -200,14 +214,18 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
       return;
     }
     const key = payload.audioKeys?.[currentTeachingPiece.pieceId];
-    if (key) void playObjectKey(key);
+    if (key) void playObjectKey(currentTeachingPiece.pieceId, key);
   }
 
   // Space state machine (Task 7): 1) audio playing → pause; 2) audio paused
-  // (not ended) → resume; 3) otherwise (no audio / ended / muted) → fall
-  // through to `continueCourse()` (reveal next piece, or cross into the next
-  // step once the page is done). Registered once at mount — reads
-  // `continueRef.current` rather than closing over per-render state.
+  // (not ended) → resume; 3) current piece has audio that hasn't started yet
+  // → START it (bugfix: at mount `audioElRef.current` is null, so without
+  // this branch the very first Space/click fell straight through to
+  // continueCourse and the opening block's narration was skipped); 4)
+  // otherwise (no audio / ended / muted) → fall through to `continueCourse()`
+  // (reveal next piece, or cross into the next step once the page is done).
+  // Registered once at mount — reads `continueRef.current`/`tryStartAudioRef.current`
+  // rather than closing over per-render state.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.code !== "Space" && e.key !== " ") return;
@@ -226,6 +244,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         audio.play().catch(() => {});
         return;
       }
+      if (tryStartAudioRef.current()) return; // fresh block with audio → start it, don't advance
       continueRef.current();
     }
     window.addEventListener("keydown", onKeyDown);
@@ -357,12 +376,32 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const isLast = ordinal === total - 1;
   const hasMore = revealed < timelineItems.length;
 
+  // Task 7 bugfix guard: if the current teaching piece has audio and it
+  // hasn't started yet (never loaded into audioElRef), start it and report
+  // true so the caller returns instead of advancing. Shared by the Space
+  // fall-through and the content-pane click path — both must PLAY a fresh
+  // block's narration on the first gesture rather than reveal/cross past it.
+  // Already-started pieces (playing / paused-mid / ended) fall through
+  // (false) to the normal pause/resume/continue behavior.
+  function tryStartCurrentPieceAudio(): boolean {
+    if (mutedRef.current || !currentTeachingPiece) return false;
+    const pieceId = currentTeachingPiece.pieceId;
+    if (loadedPieceRef.current === pieceId) return false; // already started this piece
+    const key = payload!.audioKeys?.[pieceId]; // payload is non-null here (component returned above otherwise)
+    if (!key) return false;
+    hasGestureRef.current = true;
+    void playObjectKey(pieceId, key);
+    return true;
+  }
+  tryStartAudioRef.current = tryStartCurrentPieceAudio;
+
   // Handle a click anywhere in the reading pane, except on actual interactive
   // controls (quiz buttons, links, inputs) — a single tap anywhere continues,
   // mirroring the reference's revealNextSegment.
   function handleRevealClick(event: React.MouseEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest("button, a, input, textarea, select")) return;
     hasGestureRef.current = true; // this click is itself a user gesture — unlocks auto-play
+    if (tryStartCurrentPieceAudio()) return; // fresh block with audio → start it, don't advance
     continueCourse();
   }
 

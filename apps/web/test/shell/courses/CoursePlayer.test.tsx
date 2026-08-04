@@ -479,6 +479,51 @@ describe("CoursePlayer Space state machine + click-to-continue across steps (Tas
     expect(onFinish).toHaveBeenCalled();
   });
 
+  it("first Space press STARTS the current block's narration instead of advancing (bugfix); second pauses; after ended, next Space advances", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/piece0.mp3");
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    // Step 0 has a single teaching segment and no quiz — already `stepDone`
+    // at mount. Without the fix, this first Space would fall through to
+    // continueCourse and cross straight into step 1, skipping the narration.
+    pressSpace();
+    await waitFor(() => expect(api.resolveUrl).toHaveBeenCalledWith("courses/audio/x/s0_0_abcd1234.mp3"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("第 0 步的正文。")).toBeInTheDocument(); // did not advance
+    expect(api.saveCourseProgress).not.toHaveBeenCalledWith("info-literacy", expect.objectContaining({ current_ordinal: 1 }));
+
+    // Second Space while playing → pause, still no advance.
+    pressSpace();
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    expect(screen.getByText("第 0 步的正文。")).toBeInTheDocument();
+
+    // Simulate playback finishing — the next Space now falls through and
+    // crosses into step 1 (single segment, no quiz → nothing left to reveal).
+    mockEnded = true;
+    pressSpace();
+    expect(await screen.findByText("第 1 步的正文。")).toBeInTheDocument();
+  });
+
+  it("first content-pane click STARTS the current block's narration instead of advancing (bugfix); a second click then advances", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/piece0.mp3");
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    fireEvent.click(screen.getByTestId("segment-timeline"));
+    await waitFor(() => expect(api.resolveUrl).toHaveBeenCalledWith("courses/audio/x/s0_0_abcd1234.mp3"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("第 0 步的正文。")).toBeInTheDocument(); // did not advance
+    expect(api.saveCourseProgress).not.toHaveBeenCalledWith("info-literacy", expect.objectContaining({ current_ordinal: 1 }));
+
+    // The piece is now already loaded/playing — a second click falls through
+    // to the existing "click to show next piece" behavior and crosses steps.
+    fireEvent.click(screen.getByTestId("segment-timeline"));
+    expect(await screen.findByText("第 1 步的正文。")).toBeInTheDocument();
+  });
+
   it("Space is ignored while the 问印记 input is focused (does not advance or hijack)", async () => {
     render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByText("第 0 步的正文。");
