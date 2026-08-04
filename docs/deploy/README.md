@@ -58,6 +58,29 @@ bundle）。两者同属 `uni-robot.cn`（same-site），会话 Cookie 为 `Same
 - 仓库已在 `/home/deploy/mind-imprint`，`git pull` 可用
 - DNS：`mind-api` 与 `mind-web` 均已解析到 `47.93.151.131`
 
+## 标准化部署（一条命令，推荐）
+
+日常重复部署统一走 `deploy/remote-deploy.sh`（已提交，无密钥），由本地包装脚本
+`.deploy-local/deploy.sh`（git 忽略，仅存 host+key）通过部署密钥把它 pipe 到服务器执行：
+
+```bash
+./.deploy-local/deploy.sh web    # 仅前端：重建 web 容器（快，不动 DB）
+./.deploy-local/deploy.sh api    # 后端：pg_dump 备份 → 迁移+种子 → 重建 api
+./.deploy-local/deploy.sh full   # 先 api 再 web
+```
+
+脚本**内置正确 flags**并**自动校验**，专治历史踩坑：
+
+- 恒带 `--env-file deploy/.env.prod`——否则 `VITE_API_BASE_URL` 构建为空，bundle 走同源
+  相对 `/api`，被 web 静态 nginx 以 **405** 拒绝所有 POST（登录失败）。
+- 从仓库根运行、`-f deploy/docker-compose.prod.yml`，避免「no configuration file」。
+- **web 部署后**会拉取线上 bundle 并 grep `mind-api.uni-robot.cn`，缺失即 `DEPLOY FAILED`
+  （正是本次登录 405 的直接检测）；**api 部署后**校验 `/healthz` `/readyz` = 200。
+- api/full **迁移前先 pg_dump 备份**到服务器 `~/mind-imprint/backups/`，空备份则中止。
+
+先 `git commit && git push`（脚本会把服务器 reset 到 `origin/main`），再跑上面命令。
+下面各分册是底层手动步骤，供排障/首次搭建参考。
+
 ## 部署顺序（详见各分册）
 
 1. **API**（`docs/deploy/api.md`）：`git pull` → 写 `deploy/.env.prod` → 起 db → 迁移+种子 → 起 api → 校验 `/healthz` `/readyz`
