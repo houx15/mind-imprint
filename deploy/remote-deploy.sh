@@ -15,6 +15,11 @@
 # git-ref defaults to origin/main.
 set -uo pipefail
 
+# NOTE: this script is delivered to the server via `ssh 'bash -s' < this-file`,
+# so bash reads it from stdin. Every `docker compose exec/run` therefore MUST
+# carry `< /dev/null` — otherwise it consumes the rest of the piped script from
+# stdin and silently truncates the remaining deploy steps. Do not remove them.
+
 MODE="${1:-}"
 REF="${2:-origin/main}"
 case "$MODE" in web|api|full) ;; *) echo "usage: bash -s -- <web|api|full> [git-ref]"; exit 2;; esac
@@ -39,7 +44,7 @@ deploy_api() {
   step "backup DB (pg_dump) before migrating"
   mkdir -p backups
   local out="backups/backup-$(date +%F-%H%M%S).sql"
-  if "${COMPOSE[@]}" up -d db && "${COMPOSE[@]}" exec -T db pg_dump -U mindimprint mindimprint > "$out"; then
+  if "${COMPOSE[@]}" up -d db && "${COMPOSE[@]}" exec -T db pg_dump -U mindimprint mindimprint > "$out" < /dev/null; then
     echo "backup -> $out ($(wc -c < "$out") bytes)"
     [ -s "$out" ] || fail "backup is empty — aborting before migrate"
   else
@@ -47,7 +52,7 @@ deploy_api() {
   fi
 
   step "migrate + seed (goose, idempotent)"
-  "${COMPOSE[@]}" run --rm --build api -migrate-up || fail "migrate"
+  "${COMPOSE[@]}" run --rm --build api -migrate-up < /dev/null || fail "migrate"
 
   step "rebuild + restart api"
   "${COMPOSE[@]}" up -d --build api || fail "api up"
@@ -70,7 +75,7 @@ deploy_web() {
   # bundle mid-stream, missing the host string and failing a healthy deploy.
   # The container filesystem is authoritative and immune to that race.
   local hits
-  hits=$("${COMPOSE[@]}" exec -T web sh -c "grep -rl '$API_HOST' /usr/share/nginx/html/assets/ 2>/dev/null | head -3")
+  hits=$("${COMPOSE[@]}" exec -T web sh -c "grep -rl '$API_HOST' /usr/share/nginx/html/assets/ 2>/dev/null | head -3" < /dev/null)
   if [ -n "$hits" ]; then
     echo "OK bundle embeds $API_HOST (login will POST directly, no 405):"
     echo "$hits" | sed 's/^/    /'
