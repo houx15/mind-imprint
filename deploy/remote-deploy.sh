@@ -65,14 +65,30 @@ deploy_web() {
   "${COMPOSE[@]}" up -d --build web || fail "web up"
 
   step "verify live bundle points at the absolute API host"
-  local js
-  js=$(curl -s "$WEB_PUBLIC/" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
-  [ -n "$js" ] || fail "could not find bundle in served index.html"
+  # Poll until the freshly-restarted container is actually serving before
+  # asserting — checking once mid-restart yields an empty body and a false
+  # "missing host" failure. Condition-based wait, not a fixed sleep.
+  local js="" attempt
+  for attempt in $(seq 1 20); do
+    js=$(curl -s "$WEB_PUBLIC/" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+    [ -n "$js" ] && break
+    sleep 1
+  done
+  [ -n "$js" ] || fail "web not serving an index bundle after 20s"
   echo "bundle: $js"
-  if curl -s "$WEB_PUBLIC$js" | grep -q "$API_HOST"; then
+  local ok="" body
+  for attempt in $(seq 1 20); do
+    body=$(curl -s "$WEB_PUBLIC$js")
+    if printf '%s' "$body" | grep -q "$API_HOST"; then ok=1; break; fi
+    # A tiny/empty body means the fetch raced the restart — retry; a full
+    # bundle that genuinely lacks the host is the real failure.
+    [ "${#body}" -gt 100000 ] && break
+    sleep 1
+  done
+  if [ -n "$ok" ]; then
     echo "OK bundle embeds $API_HOST (login will POST directly, no 405)"
   else
-    fail "bundle does NOT embed $API_HOST — VITE_API_BASE_URL was empty (login would 405). Check deploy/.env.prod + --env-file."
+    fail "bundle ($((${#body})) bytes) does NOT embed $API_HOST — VITE_API_BASE_URL was empty (login would 405). Check deploy/.env.prod + --env-file."
   fi
 }
 
