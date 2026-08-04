@@ -84,6 +84,16 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   });
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Task 7: the Space-key listener is registered once (window-level, mount
+  // only) but must always act on THIS render's latest values — `muted` and
+  // `continueCourse` (the latter closes over `hasMore`/`stepDone`/`ordinal`
+  // etc., only available in scope after the `if (!payload) return` below).
+  // Refs sidestep the stale-closure trap: both are written on every render,
+  // and the long-lived listener always reads `.current` at keypress time.
+  const continueRef = useRef<() => void>(() => {});
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+
   function ensureAudioEl(): HTMLAudioElement {
     if (!audioElRef.current) {
       const el = new Audio();
@@ -192,6 +202,35 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     const key = payload.audioKeys?.[currentTeachingPiece.pieceId];
     if (key) void playObjectKey(key);
   }
+
+  // Space state machine (Task 7): 1) audio playing → pause; 2) audio paused
+  // (not ended) → resume; 3) otherwise (no audio / ended / muted) → fall
+  // through to `continueCourse()` (reveal next piece, or cross into the next
+  // step once the page is done). Registered once at mount — reads
+  // `continueRef.current` rather than closing over per-render state.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code !== "Space" && e.key !== " ") return;
+      const target = e.target as HTMLElement | null;
+      const tag = (target?.tagName || "").toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return; // 问印记 box
+      if (tag === "BUTTON") return; // let the browser activate the focused button once; don't also fire our own continue
+      e.preventDefault(); // stop page scroll
+      hasGestureRef.current = true;
+      const audio = mutedRef.current ? null : audioElRef.current; // muted → no audio to control, straight to fallback
+      if (audio && !audio.paused && !audio.ended) {
+        audio.pause();
+        return;
+      }
+      if (audio && audio.paused && !audio.ended && audio.src) {
+        audio.play().catch(() => {});
+        return;
+      }
+      continueRef.current();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Per-step gate (point 3): a step is "done" only when every timeline item is
   // revealed AND every quiz in it has been answered (any answer — never gated
@@ -318,14 +357,13 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const isLast = ordinal === total - 1;
   const hasMore = revealed < timelineItems.length;
 
-  // Advance the reveal when the student clicks anywhere in the reading pane,
-  // except on actual interactive controls (quiz buttons, links, inputs) — so a
-  // single tap anywhere continues, mirroring the reference's revealNextSegment.
+  // Handle a click anywhere in the reading pane, except on actual interactive
+  // controls (quiz buttons, links, inputs) — a single tap anywhere continues,
+  // mirroring the reference's revealNextSegment.
   function handleRevealClick(event: React.MouseEvent<HTMLDivElement>) {
-    if (!hasMore) return;
     if ((event.target as HTMLElement).closest("button, a, input, textarea, select")) return;
     hasGestureRef.current = true; // this click is itself a user gesture — unlocks auto-play
-    setRevealed((v) => Math.min(v + 1, timelineItems.length));
+    continueCourse();
   }
 
   function appendAskMessage(msg: AskMessage) {
@@ -362,6 +400,21 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     }
     go(ordinal + 1);
   }
+
+  // Single continue() action shared by Space's fall-through and content-pane
+  // clicks (Task 7): reveal the next piece while the step still has more, else
+  // cross into the next step (or finish) once it's done, else no-op (blocked
+  // by an unanswered quiz — the "先回答本页的问题" hint already covers that).
+  function continueCourse() {
+    if (hasMore) {
+      setRevealed((v) => Math.min(v + 1, timelineItems.length));
+      return;
+    }
+    if (stepDone) {
+      handleNext();
+    }
+  }
+  continueRef.current = continueCourse;
 
   async function handleAsk(text: string) {
     appendAskMessage({ id: nextAskId("student"), role: "student", text });
@@ -443,7 +496,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "#F3F4F8" }}>
           {/* scroll area — the whole pane is the reveal click target so a tap
               anywhere continues (铁律 2: never gated) */}
-          <div onClick={handleRevealClick} style={{ flex: 1, minHeight: 0, overflowY: "auto", cursor: hasMore ? "pointer" : "default" }}>
+          <div onClick={handleRevealClick} style={{ flex: 1, minHeight: 0, overflowY: "auto", cursor: hasMore || stepDone ? "pointer" : "default" }}>
             <div style={{ padding: "36px 40px 40px", minHeight: "100%", boxSizing: "border-box" }}>
               <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
                 <SegmentTimeline

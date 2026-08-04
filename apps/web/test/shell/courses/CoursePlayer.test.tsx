@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { CoursePlayerPayload } from "@mind-imprint/contracts";
 
@@ -335,5 +335,159 @@ describe("CoursePlayer narration playback", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(lastPlaySrc).toContain("second.mp3");
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CoursePlayer Space state machine + click-to-continue across steps (Task 7)", () => {
+  // jsdom's HTMLMediaElement never actually flips `paused`/`ended` when the
+  // (mocked) play()/pause() are called — the production code branches on
+  // those exact properties, so the test drives them explicitly: play() sets
+  // paused=false, pause() sets paused=true, and a test can flip `mockEnded`
+  // to simulate playback finishing.
+  let mockPaused = true;
+  let mockEnded = false;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    mockPaused = true;
+    mockEnded = false;
+    Object.defineProperty(HTMLMediaElement.prototype, "paused", { configurable: true, get: () => mockPaused });
+    Object.defineProperty(HTMLMediaElement.prototype, "ended", { configurable: true, get: () => mockEnded });
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (this: HTMLMediaElement) {
+      mockPaused = false;
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {
+      mockPaused = true;
+    });
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+    (api.getCourse as any).mockResolvedValue(payload);
+    (api.getCourseProgress as any).mockRejectedValue(new Error("no progress yet"));
+    (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "info-literacy", current_ordinal: 1, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
+    (api.answerCourseQuiz as any).mockResolvedValue(undefined);
+    (api.courseAsk as any).mockImplementation(() => gen([]));
+    (api.resolveUrl as any).mockResolvedValue("https://cdn.example.com/audio.mp3");
+  });
+
+  const payloadWithAudio: CoursePlayerPayload = {
+    ...payload,
+    audioKeys: {
+      "s0#0": "courses/audio/x/s0_0_abcd1234.mp3",
+      "s1#0": "courses/audio/x/s1_0_efgh5678.mp3",
+    },
+  };
+
+  // Dispatched directly (not via userEvent) so `code: "Space"` is exact and
+  // the target can be any node — a keydown bubbles to the window-level
+  // listener the player registers, exactly like a real keypress would.
+  function pressSpace(target: EventTarget = window) {
+    act(() => {
+      target.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true, cancelable: true }));
+    });
+  }
+
+  it("Space pauses audio that is playing, then resumes it on a second press", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    // First gesture (▶) starts piece 0 playing. playObjectKey itself calls
+    // pause() once defensively before assigning the new src, so clear call
+    // history afterwards — the assertions below care only about pause/play
+    // calls made BY the Space press, not that setup step.
+    fireEvent.click(screen.getByLabelText("播放"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1));
+    (HTMLMediaElement.prototype.pause as any).mockClear();
+    (HTMLMediaElement.prototype.play as any).mockClear();
+
+    pressSpace();
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+
+    pressSpace();
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("Space falls through to continue once audio has ended", async () => {
+    (api.getCourse as any).mockResolvedValue(payloadWithAudio);
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    fireEvent.click(screen.getByLabelText("播放"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1));
+    mockEnded = true; // simulate playback finishing
+
+    // Step 0 has a single teaching segment and no quiz — nothing left to
+    // reveal, so the fallback crosses straight into step 1.
+    pressSpace();
+    expect(await screen.findByText("第 1 步的正文。")).toBeInTheDocument();
+  });
+
+  it("Space fallback reveals the next piece when the step isn't fully shown yet", async () => {
+    const twoSegPayload: CoursePlayerPayload = {
+      ...payload,
+      renderCache: {
+        ...payload.renderCache,
+        steps: [
+          {
+            stepId: "s0",
+            content: {
+              title: "第 0 步",
+              subtitle: "",
+              segments: [
+                { kind: "teaching", flow_block_id: "", text: "第一段。", asset_ids: [], items: [] },
+                { kind: "teaching", flow_block_id: "", text: "第二段。", asset_ids: [], items: [] },
+              ],
+              interactions: [],
+              board: [],
+            },
+          },
+          payload.renderCache.steps[1]!,
+        ],
+      },
+    };
+    (api.getCourse as any).mockResolvedValue(twoSegPayload);
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第一段。");
+
+    pressSpace();
+    expect(await screen.findByText("第二段。")).toBeInTheDocument();
+    // Still on step 0 — only the reveal advanced, not the step.
+    expect(screen.getByText("第一段。")).toBeInTheDocument();
+  });
+
+  it("clicking the content pane crosses into the next step once the page is done, saving progress", async () => {
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    // Step 0 has one segment and no quiz, so it is already `stepDone` — a
+    // single content-pane click must cross straight into step 1.
+    fireEvent.click(screen.getByTestId("segment-timeline"));
+
+    expect(await screen.findByText("第 1 步的正文。")).toBeInTheDocument();
+    await waitFor(() => expect(api.saveCourseProgress).toHaveBeenCalledWith("info-literacy", expect.objectContaining({ current_ordinal: 1 })));
+  });
+
+  it("clicking the content pane on the last step's done page calls onFinish", async () => {
+    const onFinish = vi.fn();
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={onFinish} />);
+    await screen.findByText("第 0 步的正文。");
+    fireEvent.click(screen.getByTestId("segment-timeline")); // → step 1 (last, single segment, no quiz → already done)
+    await screen.findByText("第 1 步的正文。");
+
+    fireEvent.click(screen.getByTestId("segment-timeline"));
+    expect(onFinish).toHaveBeenCalled();
+  });
+
+  it("Space is ignored while the 问印记 input is focused (does not advance or hijack)", async () => {
+    render(<CoursePlayer courseId="info-literacy" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByText("第 0 步的正文。");
+
+    const input = screen.getByPlaceholderText("输入你的问题……");
+    input.focus();
+    pressSpace(input);
+
+    expect(screen.getByText("第 0 步的正文。")).toBeInTheDocument();
+    expect(screen.queryByText("第 1 步的正文。")).not.toBeInTheDocument();
   });
 });
