@@ -86,6 +86,11 @@ func seedStageStudent(t *testing.T, pool *pgxpool.Pool, h http.Handler, teacherE
 		Slug: "parent-stage-report-fixture", Branch: "A", Title: "t", Blurb: "b",
 		TimeLabel: "5 分钟", CardIds: []string{}, StepCount: 1,
 		Structure: []byte(`{}`), RenderCache: []byte(`{}`),
+		// audio_manifest is NOT NULL (migration 0052); a raw sqlc upsert must
+		// pass an explicit value ('{}' bypasses only for an OMITTED column, not
+		// a NULL param). Production callers go through agent.UpsertCourse, which
+		// coerces nil→'{}'; this raw fixture supplies it directly.
+		AudioManifest: []byte(`{}`),
 	}); err != nil {
 		t.Fatalf("upsert fixture course: %v", err)
 	}
