@@ -64,31 +64,18 @@ deploy_web() {
   step "rebuild + restart web (WITH --env-file so VITE_API_BASE_URL is baked in)"
   "${COMPOSE[@]}" up -d --build web || fail "web up"
 
-  step "verify live bundle points at the absolute API host"
-  # Poll until the freshly-restarted container is actually serving before
-  # asserting — checking once mid-restart yields an empty body and a false
-  # "missing host" failure. Condition-based wait, not a fixed sleep.
-  local js="" attempt
-  for attempt in $(seq 1 20); do
-    js=$(curl -s "$WEB_PUBLIC/" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
-    [ -n "$js" ] && break
-    sleep 1
-  done
-  [ -n "$js" ] || fail "web not serving an index bundle after 20s"
-  echo "bundle: $js"
-  local ok="" body
-  for attempt in $(seq 1 20); do
-    body=$(curl -s "$WEB_PUBLIC$js")
-    if printf '%s' "$body" | grep -q "$API_HOST"; then ok=1; break; fi
-    # A tiny/empty body means the fetch raced the restart — retry; a full
-    # bundle that genuinely lacks the host is the real failure.
-    [ "${#body}" -gt 100000 ] && break
-    sleep 1
-  done
-  if [ -n "$ok" ]; then
-    echo "OK bundle embeds $API_HOST (login will POST directly, no 405)"
+  step "verify built bundle embeds the absolute API host (in-container, deterministic)"
+  # Grep the ACTUAL built artifact inside the container — not over the network.
+  # A network fetch right after restart races nginx and can truncate the 1MB
+  # bundle mid-stream, missing the host string and failing a healthy deploy.
+  # The container filesystem is authoritative and immune to that race.
+  local hits
+  hits=$("${COMPOSE[@]}" exec -T web sh -c "grep -rl '$API_HOST' /usr/share/nginx/html/assets/ 2>/dev/null | head -3")
+  if [ -n "$hits" ]; then
+    echo "OK bundle embeds $API_HOST (login will POST directly, no 405):"
+    echo "$hits" | sed 's/^/    /'
   else
-    fail "bundle ($((${#body})) bytes) does NOT embed $API_HOST — VITE_API_BASE_URL was empty (login would 405). Check deploy/.env.prod + --env-file."
+    fail "built bundle does NOT embed $API_HOST — VITE_API_BASE_URL was empty (login would 405). Check deploy/.env.prod + --env-file."
   fi
 }
 
