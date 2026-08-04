@@ -503,11 +503,15 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
               disabled={!currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId]}
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
-                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, cursor: "pointer",
                 opacity: !currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId] ? 0.4 : 1,
               }}
             >
-              {isPlaying ? "⏸" : "▶"}
+              {isPlaying ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#2A3B7A" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#2A3B7A" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11.5-6.86a1 1 0 0 0 0-1.72L9.5 4.28A1 1 0 0 0 8 5.14z" /></svg>
+              )}
             </button>
             <button
               type="button"
@@ -515,10 +519,14 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
               onClick={toggleMuted}
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
-                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, cursor: "pointer",
               }}
             >
-              {muted ? "🔇" : "🔊"}
+              {muted ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><line x1="16" y1="9" x2="22" y2="15" /><line x1="22" y1="9" x2="16" y2="15" /></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
+              )}
             </button>
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "#AEB4C2", background: "#F2F3F8", padding: "2px 9px", borderRadius: 999 }}>{ordinal + 1} / {total}</span>
           </div>
