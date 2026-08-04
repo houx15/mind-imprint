@@ -11,6 +11,12 @@ import { Bean } from "../../studio/Bean";
 // course player is linear (SegmentTimeline pages through the render cache);
 // the coach here only ever answers questions, it never proposes a tool card.
 
+// v1: push-to-talk (ASR) is disabled in the course view — students already have
+// plenty of speech-to-text tools of their own, so we don't ship our own mic
+// here yet. The AsrStream/MicCapture wiring below is kept intact and referenced
+// so re-enabling for a later version is a one-line flip.
+const VOICE_INPUT_ENABLED = false;
+
 export type AskMessage = {
   id: string;
   role: "student" | "assistant";
@@ -249,7 +255,7 @@ export function AskPanel({
             <SendIcon />
           </button>
         </div>
-        {voiceError && !recording && (
+        {VOICE_INPUT_ENABLED && voiceError && !recording && (
           <div
             role="alert"
             onClick={() => setVoiceError(null)}
@@ -261,38 +267,41 @@ export function AskPanel({
         )}
         {/* Push-to-talk (reuses the AsrStream/MicCapture pattern from
             CoachRail): hold to transcribe, release to stop. The transcript
-            only ever fills the input above — the student sends it herself. */}
-        <button
-          type="button"
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onMouseLeave={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
-          disabled={pending}
-          aria-pressed={recording}
-          style={{
-            width: "100%",
-            marginTop: 10,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 9,
-            background: recording ? "#FBEEE7" : "#fff",
-            border: "1.5px solid #D98263",
-            color: "#D98263",
-            fontSize: 14,
-            fontWeight: 700,
-            padding: 11,
-            borderRadius: 12,
-            cursor: pending ? "not-allowed" : "pointer",
-            opacity: pending ? 0.5 : 1,
-            fontFamily: "inherit",
-          }}
-        >
-          <MicIcon />
-          按住说话，问老师
-        </button>
+            only ever fills the input above — the student sends it herself.
+            Disabled in v1 (see VOICE_INPUT_ENABLED above). */}
+        {VOICE_INPUT_ENABLED && (
+          <button
+            type="button"
+            onMouseDown={startRecording}
+            onMouseUp={stopRecording}
+            onMouseLeave={stopRecording}
+            onTouchStart={startRecording}
+            onTouchEnd={stopRecording}
+            disabled={pending}
+            aria-pressed={recording}
+            style={{
+              width: "100%",
+              marginTop: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 9,
+              background: recording ? "#FBEEE7" : "#fff",
+              border: "1.5px solid #D98263",
+              color: "#D98263",
+              fontSize: 14,
+              fontWeight: 700,
+              padding: 11,
+              borderRadius: 12,
+              cursor: pending ? "not-allowed" : "pointer",
+              opacity: pending ? 0.5 : 1,
+              fontFamily: "inherit",
+            }}
+          >
+            <MicIcon />
+            按住说话，问老师
+          </button>
+        )}
       </div>
     </div>
   );
