@@ -1061,7 +1061,17 @@ func (a *API) proposeQuestionEdges(w http.ResponseWriter, r *http.Request) {
 			// The table's UNIQUE(from_lead_id,to_lead_id) is the last line of
 			// defense against a race with another concurrent propose/create —
 			// the dedup above should already prevent this in practice, so a
-			// conflict here is skipped rather than turned into a 500.
+			// conflict here is EXPECTED and skipped silently. Any OTHER error
+			// (dropped connection, an unexpected FK violation from a concurrent
+			// lead delete, etc.) must not vanish silently — that would make a
+			// real DB problem indistinguishable from a normal dedup skip, with
+			// the endpoint just quietly returning fewer edges and no trace of
+			// why. Mirrors the metering-failure slog.Warn a few lines above.
+			if !isUniqueViolation(err) {
+				slog.Warn("edge propose: create edge", "err", err, "project_id", projectID,
+					"from_lead_id", roots[p.FromIndex-1].ID, "to_lead_id", roots[p.ToIndex-1].ID,
+					"request_id", httpx.RequestIDFromContext(r.Context()))
+			}
 			continue
 		}
 		existingPairs[key] = true
