@@ -134,3 +134,167 @@ export function buildWarrenEdges(edges: QuestionEdge[], rootIds: Set<string>): W
 // The closed relation vocabulary (kept in sync with contracts' QuestionEdgeLabel
 // enum) — the drag-connect + relabel pickers offer exactly these, no freeform.
 export const EDGE_LABELS: QuestionEdgeLabel[] = ["子问题", "支持", "反驳/张力", "细化", "依赖/前提"];
+
+// ============================================================================
+// GVb · Level-2 (inside one question) — a radial mindmap of that question's
+// subtree. Same pure-helper discipline as Level-1: layout + theming compute
+// here (unit-tested in plain jsdom); QuestionMindmap.tsx is the React Flow shell.
+// ============================================================================
+
+// Blend a hex color toward a target (used to LIGHTEN a root's theme for its
+// deeper descendants — so a question's whole subtree reads as one color family,
+// root strongest, papers lighter tints).
+function clamp255(n: number): number {
+  return Math.max(0, Math.min(255, Math.round(n)));
+}
+function parseHex(hex: string): [number, number, number] {
+  const s = hex.replace("#", "");
+  return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+}
+export function mixToward(hex: string, target: string, t: number): string {
+  const a = parseHex(hex);
+  const b = parseHex(target);
+  const out = a.map((c, i) => clamp255(c + (b[i]! - c) * t));
+  return "#" + out.map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+
+// A depth-tinted theme: depth 0 = the root's own (strongest) theme; deeper nodes
+// keep the same border/label hue but get a progressively lighter fill.
+export function depthTint(base: NodeTheme, depth: number): NodeTheme {
+  if (depth <= 0) return base;
+  const t = Math.min(0.5, 0.26 * depth);
+  return {
+    ...base,
+    fillFrom: mixToward(base.fillFrom, "#FFFFFF", t),
+    fillTo: mixToward(base.fillTo, "#FFFFFF", t),
+  };
+}
+
+// Live (non-pruned) children indexed by parent id — the backbone of the subtree.
+function indexLiveChildren(leads: ExplorationLead[]): Map<string, ExplorationLead[]> {
+  const m = new Map<string, ExplorationLead[]>();
+  for (const l of leads) {
+    if (l.status === "pruned") continue;
+    if (l.parentLeadId) {
+      const arr = m.get(l.parentLeadId) ?? [];
+      arr.push(l);
+      m.set(l.parentLeadId, arr);
+    }
+  }
+  return m;
+}
+
+export type PosD = { x: number; y: number; depth: number };
+
+// Radial tree layout for one question's subtree: the root at the origin, its
+// descendants on concentric rings by depth. Leaves get evenly-spread angular
+// slots; each internal node is centered over its children's angles, so siblings
+// fan out and a chain stays roughly collinear. Deterministic (no Math.random),
+// fitView re-centers. Cycle-guarded so malformed data can't loop forever.
+export function radialLayout(rootId: string, childrenByParent: Map<string, ExplorationLead[]>): Map<string, PosD> {
+  const depthOf = new Map<string, number>();
+  const order: string[] = [];
+  const leaves: string[] = [];
+  // Pre-order DFS (guarding cycles) to establish depth + leaf set.
+  const dfs = (id: string, depth: number) => {
+    if (depthOf.has(id)) return;
+    depthOf.set(id, depth);
+    order.push(id);
+    const kids = childrenByParent.get(id) ?? [];
+    if (kids.length === 0) leaves.push(id);
+    for (const k of kids) dfs(k.id, depth + 1);
+  };
+  dfs(rootId, 0);
+
+  const n = leaves.length;
+  const leafAngle = new Map<string, number>();
+  leaves.forEach((id, i) => leafAngle.set(id, n <= 1 ? -Math.PI / 2 : -Math.PI / 2 + (i * 2 * Math.PI) / n));
+
+  const angleOf = new Map<string, number>();
+  const computeAngle = (id: string): number => {
+    const kids = (childrenByParent.get(id) ?? []).filter((k) => depthOf.has(k.id));
+    if (kids.length === 0) {
+      const a = leafAngle.get(id) ?? -Math.PI / 2;
+      angleOf.set(id, a);
+      return a;
+    }
+    const a = kids.reduce((s, k) => s + computeAngle(k.id), 0) / kids.length;
+    angleOf.set(id, a);
+    return a;
+  };
+  computeAngle(rootId);
+
+  const ringStep = 260;
+  const out = new Map<string, PosD>();
+  for (const id of order) {
+    const depth = depthOf.get(id)!;
+    if (depth === 0) {
+      out.set(id, { x: 0, y: 0, depth });
+      continue;
+    }
+    const r = depth * ringStep;
+    const a = angleOf.get(id) ?? -Math.PI / 2;
+    out.set(id, { x: Math.round(r * Math.cos(a) * 1.25), y: Math.round(r * Math.sin(a)), depth });
+  }
+  return out;
+}
+
+export type MindmapNodeKind = "question" | "paper";
+
+export type MindmapNode = {
+  id: string;
+  kind: MindmapNodeKind;
+  text: string;
+  isRoot: boolean;
+  depth: number;
+  theme: NodeTheme;
+  connectedReferenceId: string | null;
+  position: { x: number; y: number };
+};
+
+// One question's subtree → mindmap node models. A lead carrying a
+// connectedReferenceId is a "paper"; everything else is a "question" (the root,
+// or a sub-question). `saved` (dragged positions) wins over the radial slot.
+export function buildMindmapNodes(
+  rootId: string,
+  leads: ExplorationLead[],
+  saved?: Record<string, { x: number; y: number }>,
+): MindmapNode[] {
+  const children = indexLiveChildren(leads);
+  const pos = radialLayout(rootId, children);
+  const base = themeForId(rootId);
+  const byId = new Map(leads.map((l) => [l.id, l]));
+  const nodes: MindmapNode[] = [];
+  for (const [id, p] of pos) {
+    const lead = byId.get(id);
+    if (!lead) continue;
+    nodes.push({
+      id,
+      kind: lead.connectedReferenceId ? "paper" : "question",
+      text: lead.text,
+      isRoot: id === rootId,
+      depth: p.depth,
+      theme: depthTint(base, p.depth),
+      connectedReferenceId: lead.connectedReferenceId,
+      position: saved?.[id] ?? { x: p.x, y: p.y },
+    });
+  }
+  return nodes;
+}
+
+export type MindmapEdge = { id: string; source: string; target: string };
+
+// Provenance edges (parentLeadId → child) within the focused subtree only.
+export function buildMindmapEdges(rootId: string, leads: ExplorationLead[]): MindmapEdge[] {
+  const children = indexLiveChildren(leads);
+  const ids = new Set(radialLayout(rootId, children).keys());
+  const byId = new Map(leads.map((l) => [l.id, l]));
+  const edges: MindmapEdge[] = [];
+  for (const id of ids) {
+    const lead = byId.get(id);
+    if (lead?.parentLeadId && ids.has(lead.parentLeadId)) {
+      edges.push({ id: `${lead.parentLeadId}->${id}`, source: lead.parentLeadId, target: id });
+    }
+  }
+  return edges;
+}

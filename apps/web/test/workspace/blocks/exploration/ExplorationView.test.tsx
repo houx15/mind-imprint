@@ -244,11 +244,12 @@ beforeEach(() => {
 let pid = 0;
 const nextPid = () => `p-${++pid}`;
 
-// From the map, zoom into a root question node → its "inside" (the A6 tree).
-// A map node is a <div> whose click delegates to onNodeClick; click its text.
+// From the map, zoom into a root question node → its "inside" (the Level-2
+// mindmap + sidebar). A map node is a <div> whose click delegates to onNodeClick;
+// click its text.
 async function zoomInto(user: ReturnType<typeof userEvent.setup>, text: string) {
   await user.click(await screen.findByText(text));
-  await screen.findByRole("button", { name: "← 返回地图" });
+  await screen.findByRole("button", { name: "← 返回兔子洞地图" });
 }
 
 describe("ExplorationView", () => {
@@ -339,42 +340,64 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(mockDeleteLead).toHaveBeenCalledWith(projectId, ROOT_LEAD.id));
   });
 
-  it("zooming into a node shows its subtree with nested paper children; 返回地图 zooms back out", async () => {
+  it("zooming into a question shows its mindmap (question + papers); clicking a paper shows its metadata in the sidebar; 返回 zooms back out", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
 
     await zoomInto(user, ROOT_LEAD.text);
 
-    // inside the hole: the root plus its nested child paper (with its title badge)
+    // the mindmap renders the adopted paper node (a paper is NEVER a root — it
+    // hangs inside the question)
     expect(screen.getByText(CHILD_PAPER.text)).toBeInTheDocument();
-    expect(screen.getByText(`论文 · ${NASA_REF.title}`)).toBeInTheDocument();
+    // before selecting the paper, the sidebar shows the auto-selected question,
+    // not the paper's journal metadata
+    expect(screen.queryByText("NASA · 2023 · Nature Sustainability")).toBeNull();
 
-    // back to the map: the node reappears, the subtree child is gone
-    await user.click(screen.getByRole("button", { name: "← 返回地图" }));
+    // click the paper node → the right sidebar shows ITS metadata
+    await user.click(screen.getByText(CHILD_PAPER.text));
+    expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
+    expect(screen.getByText("NASA · 2023 · Nature Sustainability")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开原文" })).toHaveAttribute("href", NASA_REF.url);
+
+    // back to the map: the question node reappears, the subtree paper is gone
+    await user.click(screen.getByRole("button", { name: "← 返回兔子洞地图" }));
     await screen.findByText(ROOT_LEAD.text);
     expect(screen.queryByText(CHILD_PAPER.text)).toBeNull();
   });
 
-  it("深挖 inside a hole calls digExploration({leadId}) and fills the tray", async () => {
+  it("找相似文献 in the sidebar digs from the selected node via digExploration({leadId}) and lists results", async () => {
     const projectId = nextPid();
     const user = userEvent.setup();
     render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
     await zoomInto(user, ROOT_LEAD.text);
 
-    // 克制: nothing dug just from zooming in
+    // 克制: nothing dug just from zooming in (the root is only selected)
     expect(mockDigExploration).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "深挖" }));
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
 
     await waitFor(() => {
       expect(mockDigExploration).toHaveBeenCalledWith(projectId, { leadId: ROOT_LEAD.id });
     });
 
-    // the tray opens with its plain heading and the candidate's bibliographic line
-    expect(await screen.findByText("刚挖到这些论文")).toBeInTheDocument();
-    expect(screen.getByText(CANDIDATE.title)).toBeInTheDocument();
+    // results render in the sidebar with the candidate's bibliographic line
+    expect(await screen.findByText(CANDIDATE.title)).toBeInTheDocument();
     expect(screen.getByText("Li 等 · 2023 · Nature Sustainability")).toBeInTheDocument();
+  });
+
+  it("the sidebar keyword box digs by keyword via digExploration({keyword})", async () => {
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
+    await zoomInto(user, ROOT_LEAD.text);
+
+    await user.type(screen.getByPlaceholderText("换个词找…"), "可再生能源");
+    await user.click(screen.getByRole("button", { name: "找" }));
+
+    await waitFor(() => {
+      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { keyword: "可再生能源" });
+    });
   });
 
   it("采纳 adopts the candidate UNDER the dug node (parentLeadId = that node's id) — papers never roots", async () => {
@@ -383,7 +406,7 @@ describe("ExplorationView", () => {
     render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
     await zoomInto(user, ROOT_LEAD.text);
 
-    await user.click(screen.getByRole("button", { name: "深挖" }));
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
     await screen.findByText(CANDIDATE.title);
 
     // 克制: still nothing persisted until she taps 采纳
@@ -399,12 +422,12 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
   });
 
-  it("丢弃 removes a candidate from the tray with no server call", async () => {
+  it("丢弃 removes a candidate from the sidebar list with no server call", async () => {
     const user = userEvent.setup();
     render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
     await zoomInto(user, ROOT_LEAD.text);
 
-    await user.click(screen.getByRole("button", { name: "深挖" }));
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
     await screen.findByText(CANDIDATE.title);
 
     await user.click(screen.getByRole("button", { name: "丢弃" }));
@@ -414,18 +437,23 @@ describe("ExplorationView", () => {
     expect(mockAdoptCandidate).not.toHaveBeenCalled();
   });
 
-  it("剪枝 (in the ⋯ menu, inside a hole) prunes a node via patchLead", async () => {
+  it("× on a node inside a question opens a confirm modal; confirming calls deleteLead (no 剪枝)", async () => {
     const projectId = nextPid();
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
     await zoomInto(user, ROOT_LEAD.text);
 
-    await user.click(screen.getByRole("button", { name: "更多" }));
-    await user.click(screen.getByRole("button", { name: "剪枝" }));
+    // nodes carry an × (root + paper); the paper node's × is the last one.
+    const deletes = screen.getAllByRole("button", { name: "删除这个节点" });
+    await user.click(deletes[deletes.length - 1]!);
 
-    await waitFor(() => {
-      expect(mockPatchLead).toHaveBeenCalledWith(projectId, ROOT_LEAD.id, { status: "pruned" });
-    });
+    // 克制: pressing × alone does not delete — it asks first
+    expect(await screen.findByText("删除这一项？")).toBeInTheDocument();
+    expect(mockDeleteLead).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "删除" }));
+    await waitFor(() => expect(mockDeleteLead).toHaveBeenCalledWith(projectId, CHILD_PAPER.id));
   });
 
   // ---- 印记-proposed labeled edges: propose / confirm / dismiss / relabel ----
