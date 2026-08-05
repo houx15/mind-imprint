@@ -9,7 +9,17 @@ import type {
   Reference,
 } from "@mind-imprint/contracts";
 import { enterReading, NoReadableContentError } from "../../api/workspace";
-import { adoptCandidate, createLead, digExploration, getExploration, patchLead } from "../../../api/exploration";
+import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
+import {
+  adoptCandidate,
+  createLead,
+  deleteEdge,
+  digExploration,
+  getExploration,
+  patchEdge,
+  patchLead,
+  proposeEdges,
+} from "../../../api/exploration";
 import { DigTray, trayKey } from "./DigTray";
 import { WarrenMap } from "./WarrenMap";
 
@@ -102,6 +112,13 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const [digging, setDigging] = useState(false);
   const [digError, setDigError] = useState(false);
   const [adopting, setAdopting] = useState<Set<string>>(new Set());
+
+  // B4b · 印记-proposed labeled edges. `proposing` gates the propose button while
+  // the LLM runs; `proposeNote` gently surfaces a zero-result run. `busyEdgeIds`
+  // disables an edge's controls mid-mutation. Nothing here auto-confirms (铁律②).
+  const [proposing, setProposing] = useState(false);
+  const [proposeNote, setProposeNote] = useState<string | null>(null);
+  const [busyEdgeIds, setBusyEdgeIds] = useState<Set<string>>(new Set());
 
   const refresh = useMemo(
     () => async () => {
@@ -222,6 +239,50 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     setTray([]);
     setDigError(false);
   }
+
+  // B4b · ask 印记 to propose labeled edges between root questions, then refetch
+  // so the new (dashed, status:"proposed") edges appear. A zero-result run gets a
+  // gentle inline note rather than an error. 印记 proposes; the student confirms.
+  async function proposeRelations() {
+    if (proposing) return;
+    setProposing(true);
+    setProposeNote(null);
+    setActionError(false);
+    try {
+      const proposed = await proposeEdges(projectId);
+      await refresh();
+      if (proposed.length === 0) setProposeNote("印记暂时没找到新的关系，先接着挖挖看。");
+    } catch {
+      setActionError(true);
+    } finally {
+      setProposing(false);
+    }
+  }
+
+  // B4b · a single edge mutation + refetch, guarded by busyEdgeIds so its chip's
+  // controls disable while the round-trip runs. Confirm/relabel go through
+  // patchEdge; dismiss/delete through deleteEdge. Always refetch → server truth.
+  async function withEdgeBusy(eid: string, fn: () => Promise<unknown>) {
+    setProposeNote(null);
+    setActionError(false);
+    setBusyEdgeIds((s) => new Set(s).add(eid));
+    try {
+      await fn();
+      await refresh();
+    } catch {
+      setActionError(true);
+    } finally {
+      setBusyEdgeIds((s) => {
+        const n = new Set(s);
+        n.delete(eid);
+        return n;
+      });
+    }
+  }
+  const confirmEdge = (eid: string) => void withEdgeBusy(eid, () => patchEdge(projectId, eid, { status: "confirmed" }));
+  const dismissEdge = (eid: string) => void withEdgeBusy(eid, () => deleteEdge(projectId, eid));
+  const relabelEdge = (eid: string, label: QuestionEdgeLabel) =>
+    void withEdgeBusy(eid, () => patchEdge(projectId, eid, { label }));
 
   async function enterSource(ref: Reference) {
     if (!onEnterReading || enteringRefId) return;
@@ -380,13 +441,34 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                 </p>
               </div>
             ) : (
-              <WarrenMap
-                roots={roots}
-                countByRoot={countByRoot}
-                edges={view.edges}
-                sameSourcePairs={sameSourcePairs}
-                onZoom={zoomInto}
-              />
+              <>
+                {/* B4b · let 印记 propose relationships between the questions. Only
+                    meaningful with ≥2 root questions (an edge needs two ends). */}
+                {roots.length >= 2 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={proposeRelations}
+                      disabled={proposing}
+                      className="rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-60"
+                    >
+                      {proposing ? "印记在找关系…" : "让印记找找问题之间的关系"}
+                    </button>
+                    {proposeNote && <span className="text-[12px] text-mk-muted-2">{proposeNote}</span>}
+                  </div>
+                )}
+                <WarrenMap
+                  roots={roots}
+                  countByRoot={countByRoot}
+                  edges={view.edges}
+                  sameSourcePairs={sameSourcePairs}
+                  onZoom={zoomInto}
+                  busyEdgeIds={busyEdgeIds}
+                  onConfirmEdge={confirmEdge}
+                  onDismissEdge={dismissEdge}
+                  onRelabelEdge={relabelEdge}
+                />
+              </>
             )}
           </>
         )}

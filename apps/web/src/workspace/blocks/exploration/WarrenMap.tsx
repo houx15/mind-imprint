@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { ExplorationLead, QuestionEdge } from "@mind-imprint/contracts";
+import { useMemo, useState } from "react";
+import type { ExplorationLead, QuestionEdge, QuestionEdgeLabel } from "@mind-imprint/contracts";
 
 // B4a · the top-level "map" — the overview graph of ROOT question nodes.
 // Each root question is a card; labeled question_edges connect them. Layout is
@@ -18,6 +18,10 @@ const EDGE_SOLID = "#2A3B7A"; // mk-primary
 const EDGE_DASHED = "#9AA1B0"; // mk-muted-2
 const HINT = "#C7CBD6"; // fainter than a real edge — the derived 同源 hint
 
+// The closed relation vocabulary (contracts' QuestionEdgeLabel) — the relabel
+// picker offers exactly these, no freeform. Kept in sync with the Zod enum.
+const EDGE_LABELS: QuestionEdgeLabel[] = ["子问题", "支持", "反驳/张力", "细化", "依赖/前提"];
+
 export type WarrenMapProps = {
   roots: ExplorationLead[];
   // Total descendants (papers + sub-questions) hanging under each root.
@@ -27,9 +31,27 @@ export type WarrenMapProps = {
   // paper — drawn as a faint dotted "同源" hint line.
   sameSourcePairs: Array<[string, string]>;
   onZoom: (rootId: string) => void;
+  // B4b · edge interactions (铁律②: AI proposes, student decides). Proposed
+  // (dashed) edges get 确认/忽略; confirmed edges relabel (closed set) or delete.
+  busyEdgeIds: Set<string>;
+  onConfirmEdge: (eid: string) => void;
+  onDismissEdge: (eid: string) => void;
+  onRelabelEdge: (eid: string, label: QuestionEdgeLabel) => void;
 };
 
-export function WarrenMap({ roots, countByRoot, edges, sameSourcePairs, onZoom }: WarrenMapProps) {
+export function WarrenMap({
+  roots,
+  countByRoot,
+  edges,
+  sameSourcePairs,
+  onZoom,
+  busyEdgeIds,
+  onConfirmEdge,
+  onDismissEdge,
+  onRelabelEdge,
+}: WarrenMapProps) {
+  // Which confirmed edge's relabel picker is open (map-local UI state).
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
   // Deterministic circle layout: stable across renders (position from index, no
   // Math.random). A single node sits dead-center; the rest ring around it.
   const positions = useMemo(() => {
@@ -119,21 +141,94 @@ export function WarrenMap({ roots, countByRoot, edges, sameSourcePairs, onZoom }
         ))}
       </svg>
 
-      {/* Edge labels — HTML chips at the line midpoints (crisp text, unaffected
-          by the SVG stretch). The label is the closed-vocabulary relation word. */}
-      {drawableEdges.map(({ edge, mid }) => (
-        <span
-          key={`lbl-${edge.id}`}
-          className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${
-            edge.status === "confirmed"
-              ? "border-mk-primary/30 bg-mk-surface text-mk-primary"
-              : "border-dashed border-mk-muted-2/50 bg-mk-surface text-mk-muted-2"
-          }`}
-          style={{ left: `${mid.x}%`, top: `${mid.y}%` }}
-        >
-          {edge.label}
-        </span>
-      ))}
+      {/* Edge labels — interactive HTML chips at the line midpoints (crisp text,
+          unaffected by the SVG stretch; the SVG <line> overlay stays
+          pointer-events-none). These chips/controls are the ONLY interactive
+          things over the graph besides the node cards; they sit at midpoints
+          (between nodes on the circle), clear of the node hit-areas. Proposed
+          (dashed) edges carry 确认/忽略; confirmed edges relabel or delete. */}
+      {drawableEdges.map(({ edge, mid }) => {
+        const busy = busyEdgeIds.has(edge.id);
+        if (edge.status === "proposed") {
+          return (
+            <div
+              key={`lbl-${edge.id}`}
+              className="pointer-events-auto absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+              style={{ left: `${mid.x}%`, top: `${mid.y}%` }}
+            >
+              <span className="whitespace-nowrap rounded-full border border-dashed border-mk-muted-2/50 bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold text-mk-muted-2">
+                {edge.label}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onConfirmEdge(edge.id)}
+                  disabled={busy}
+                  className="rounded-full bg-mk-green px-2 py-0.5 text-[10px] font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  确认
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDismissEdge(edge.id)}
+                  disabled={busy}
+                  className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[10px] font-bold text-mk-muted-2 shadow-sm hover:text-mk-accent disabled:opacity-50"
+                >
+                  忽略
+                </button>
+              </div>
+            </div>
+          );
+        }
+        // confirmed — the label chip is a button opening a small relabel picker.
+        const open = pickerFor === edge.id;
+        return (
+          <div
+            key={`lbl-${edge.id}`}
+            className="pointer-events-auto absolute z-10 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${mid.x}%`, top: `${mid.y}%` }}
+          >
+            <button
+              type="button"
+              onClick={() => setPickerFor(open ? null : edge.id)}
+              disabled={busy}
+              title="换一个关系词，或删除这条连线"
+              className="whitespace-nowrap rounded-full border border-mk-primary/30 bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold text-mk-primary shadow-sm hover:border-mk-primary disabled:opacity-50"
+            >
+              {edge.label}
+            </button>
+            {open && (
+              <div className="absolute left-1/2 top-full z-30 mt-1 w-28 -translate-x-1/2 rounded-mk border border-mk-border bg-mk-surface p-1 shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
+                {EDGE_LABELS.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => {
+                      setPickerFor(null);
+                      onRelabelEdge(edge.id, l);
+                    }}
+                    className={`block w-full rounded px-2 py-1 text-left text-[11.5px] font-semibold hover:bg-mk-primary-tint ${
+                      l === edge.label ? "text-mk-primary" : "text-mk-ink"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerFor(null);
+                    onDismissEdge(edge.id);
+                  }}
+                  className="mt-0.5 block w-full rounded border-t border-mk-border px-2 py-1 text-left text-[11.5px] font-semibold text-mk-muted hover:bg-mk-bg hover:text-mk-accent"
+                >
+                  删除
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Root question nodes — absolutely positioned cards, click to zoom in. */}
       {roots.map((r) => {

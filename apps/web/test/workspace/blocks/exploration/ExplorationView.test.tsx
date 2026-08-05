@@ -15,6 +15,10 @@ vi.mock("@/api/exploration", () => ({
   adoptCandidate: vi.fn(),
   patchLead: vi.fn(),
   deleteLead: vi.fn(),
+  // B4b · 印记-proposed labeled edges — confirm / relabel / dismiss.
+  proposeEdges: vi.fn(),
+  patchEdge: vi.fn(),
+  deleteEdge: vi.fn(),
 }));
 // The 进入阅读室 path (a paper node's ⋯ menu) goes through workspace.enterReading;
 // mocked so the component's import resolves and never hits the network in tests.
@@ -23,13 +27,25 @@ vi.mock("@/workspace/api/workspace", () => ({
   NoReadableContentError: class extends Error {},
 }));
 
-import { getExploration, createLead, digExploration, adoptCandidate, patchLead } from "@/api/exploration";
+import {
+  getExploration,
+  createLead,
+  digExploration,
+  adoptCandidate,
+  patchLead,
+  proposeEdges,
+  patchEdge,
+  deleteEdge,
+} from "@/api/exploration";
 
 const mockGetExploration = vi.mocked(getExploration);
 const mockCreateLead = vi.mocked(createLead);
 const mockDigExploration = vi.mocked(digExploration);
 const mockAdoptCandidate = vi.mocked(adoptCandidate);
 const mockPatchLead = vi.mocked(patchLead);
+const mockProposeEdges = vi.mocked(proposeEdges);
+const mockPatchEdge = vi.mocked(patchEdge);
+const mockDeleteEdge = vi.mocked(deleteEdge);
 
 // Reference fixture shape matches apps/web/test/api/workspaceLibrary.test.ts.
 function makeRef(overrides: Partial<Reference>): Reference {
@@ -110,6 +126,16 @@ const CONFIRMED_EDGE: QuestionEdge = {
   status: "confirmed",
 };
 
+// A 印记-proposed (dashed) edge between the two roots — status:"proposed" carries
+// the 确认/忽略 controls until the student decides (铁律②).
+const PROPOSED_EDGE: QuestionEdge = {
+  id: "edge2",
+  fromLeadId: ROOT_LEAD.id,
+  toLeadId: SECOND_ROOT.id,
+  label: "支持",
+  status: "proposed",
+};
+
 const CANDIDATE: DigCandidate = {
   doi: "10.1234/renew",
   title: "中国可再生能源装机增速研究",
@@ -130,6 +156,9 @@ beforeEach(() => {
     lead: { ...CHILD_PAPER, id: "lead9", connectedReferenceId: "r9" },
     reference: { ...NASA_REF, id: "r9" },
   });
+  mockProposeEdges.mockResolvedValue([]);
+  mockPatchEdge.mockResolvedValue({ ...CONFIRMED_EDGE });
+  mockDeleteEdge.mockResolvedValue(undefined);
 });
 
 // Each test uses a distinct projectId: the component persists map⇄hole zoom in
@@ -302,6 +331,85 @@ describe("ExplorationView", () => {
 
     await waitFor(() => {
       expect(mockPatchLead).toHaveBeenCalledWith(projectId, ROOT_LEAD.id, { status: "pruned" });
+    });
+  });
+
+  // ---- B4b · 印记-proposed labeled edges: propose / confirm / dismiss / relabel ----
+
+  it("the propose button calls proposeEdges; the returned proposed edge renders dashed with 确认/忽略", async () => {
+    // first load: two roots, no edges. After proposing, the refetch returns the
+    // new proposed (dashed) edge.
+    mockGetExploration
+      .mockResolvedValueOnce({ leads: [ROOT_LEAD, SECOND_ROOT], danglingSourceIds: [], edges: [] })
+      .mockResolvedValue({ leads: [ROOT_LEAD, SECOND_ROOT], danglingSourceIds: [], edges: [PROPOSED_EDGE] });
+    mockProposeEdges.mockResolvedValue([PROPOSED_EDGE]);
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    const { container } = render(<ExplorationView projectId={projectId} references={[]} />);
+    await screen.findByRole("button", { name: new RegExp(ROOT_LEAD.text.slice(0, 8)) });
+
+    await user.click(screen.getByRole("button", { name: "让印记找找问题之间的关系" }));
+
+    await waitFor(() => expect(mockProposeEdges).toHaveBeenCalledWith(projectId));
+    // the proposed edge draws dashed and carries the confirm/dismiss controls
+    expect(await screen.findByRole("button", { name: "确认" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "忽略" })).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="edge-proposed"]')).not.toBeNull();
+  });
+
+  it("确认 on a proposed edge calls patchEdge with {status:'confirmed'} then refetches", async () => {
+    mockGetExploration.mockResolvedValue({
+      leads: [ROOT_LEAD, SECOND_ROOT],
+      danglingSourceIds: [],
+      edges: [PROPOSED_EDGE],
+    });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} />);
+
+    await user.click(await screen.findByRole("button", { name: "确认" }));
+
+    await waitFor(() => {
+      expect(mockPatchEdge).toHaveBeenCalledWith(projectId, PROPOSED_EDGE.id, { status: "confirmed" });
+    });
+    // refetched so the map reflects the now-confirmed edge (铁律: server truth)
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
+  });
+
+  it("忽略 on a proposed edge calls deleteEdge", async () => {
+    mockGetExploration.mockResolvedValue({
+      leads: [ROOT_LEAD, SECOND_ROOT],
+      danglingSourceIds: [],
+      edges: [PROPOSED_EDGE],
+    });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} />);
+
+    await user.click(await screen.findByRole("button", { name: "忽略" }));
+
+    await waitFor(() => expect(mockDeleteEdge).toHaveBeenCalledWith(projectId, PROPOSED_EDGE.id));
+    // 忽略 never confirms
+    expect(mockPatchEdge).not.toHaveBeenCalled();
+  });
+
+  it("relabeling a confirmed edge calls patchEdge with the new {label} from the closed set", async () => {
+    mockGetExploration.mockResolvedValue({
+      leads: [ROOT_LEAD, SECOND_ROOT],
+      danglingSourceIds: [],
+      edges: [CONFIRMED_EDGE],
+    });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} />);
+
+    // the confirmed edge's label chip is itself a button → opens the relabel picker
+    await user.click(await screen.findByRole("button", { name: CONFIRMED_EDGE.label }));
+    // pick a different closed-vocabulary label
+    await user.click(screen.getByRole("button", { name: "支持" }));
+
+    await waitFor(() => {
+      expect(mockPatchEdge).toHaveBeenCalledWith(projectId, CONFIRMED_EDGE.id, { label: "支持" });
     });
   });
 });
