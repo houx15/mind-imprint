@@ -42,6 +42,7 @@ const REFERENCE = {
   searchHints: [] as string[],
   materialId: "m1",
   notes: [{ quote: "植被覆盖上升", finding: "支持正方" }],
+  readingStatus: "to_read" as const,
 };
 
 const MATERIAL_SOURCE = {
