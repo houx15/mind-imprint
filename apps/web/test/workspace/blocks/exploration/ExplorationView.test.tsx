@@ -225,53 +225,11 @@ describe("ExplorationView", () => {
     expect(await screen.findByText("兔子洞·兴趣雷达卡")).toBeInTheDocument();
   });
 
-  // Followup fix 2 (2026-08): the SIBLING 找资料 coach (FloatingCoach, docked
-  // in graph view) also has a ＋兔子洞 affordance now — it has no rabbit-hole
-  // state of its own, so it asks THIS view to open the same sheet via a
-  // one-shot `openRabbitHoleRequested` flag. Same sheet, same submit path —
-  // not a second card_instance implementation.
-  it("external open request (from the sibling 找资料 coach's own ＋兔子洞): opens the SAME sheet and consumes the flag", async () => {
-    const onConsumed = vi.fn();
-    render(
-      <ExplorationView
-        projectId="p1"
-        references={[NASA_REF, DANGLING_REF]}
-        openRabbitHoleRequested
-        onRabbitHoleOpenConsumed={onConsumed}
-      />,
-    );
-    // NOTE: don't also wait on LEAD_OPEN.text here — once leads load, its text
-    // appears BOTH as a lead node and (since the sheet is already open) as an
-    // option in the "从哪条线索挖" picker, which is an intentionally ambiguous
-    // match for a plain findByText. The card sheet's own heading is enough.
-    expect(await screen.findByText("兔子洞·兴趣雷达卡")).toBeInTheDocument();
-    expect(onConsumed).toHaveBeenCalledTimes(1);
-  });
-
-  it("external open request arriving AFTER mount (coach clicked while already in 探索图谱) also opens the sheet", async () => {
-    const onConsumed = vi.fn();
-    const { rerender } = render(
-      <ExplorationView
-        projectId="p1"
-        references={[NASA_REF, DANGLING_REF]}
-        openRabbitHoleRequested={false}
-        onRabbitHoleOpenConsumed={onConsumed}
-      />,
-    );
-    await screen.findByText("＋ 兔子洞");
-    expect(screen.queryByText("兔子洞·兴趣雷达卡")).not.toBeInTheDocument();
-
-    rerender(
-      <ExplorationView
-        projectId="p1"
-        references={[NASA_REF, DANGLING_REF]}
-        openRabbitHoleRequested
-        onRabbitHoleOpenConsumed={onConsumed}
-      />,
-    );
-    expect(await screen.findByText("兔子洞·兴趣雷达卡")).toBeInTheDocument();
-    expect(onConsumed).toHaveBeenCalledTimes(1);
-  });
+  // A7: the `openRabbitHoleRequested`/`onRabbitHoleOpenConsumed` bridge this
+  // pair of tests exercised was dead wiring left over from A6 (ReadingBlock's
+  // FloatingCoach ＋兔子洞 button never actually reached a live affordance in
+  // this gutted view) — A7 removed the button, the state, and these props
+  // from ExplorationViewProps. Removed with the wiring.
 
   // Batch5 Item A #1/#2: attach a source under an OPEN lead — modeled as a
   // CHILD branch (createLead+parentLeadId) that's immediately connected, so

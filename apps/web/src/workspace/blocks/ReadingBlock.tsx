@@ -49,6 +49,20 @@ const CRED_STYLE: Record<NonNullable<Reference["credibility"]>, string> = {
   weak: "bg-mk-bg text-mk-muted",
 };
 
+// A7 · 待读/在读/读完 shelf status — a single explicit field on every reference
+// (set automatically to "reading" when a paper is adopted from 探索; editable
+// by hand everywhere else) shown as a small badge/control in 图书馆.
+const READING_STATUS_LABEL: Record<Reference["readingStatus"], string> = {
+  to_read: "待读",
+  reading: "在读",
+  done: "读完",
+};
+const READING_STATUS_STYLE: Record<Reference["readingStatus"], string> = {
+  to_read: "bg-mk-bg text-mk-muted-2",
+  reading: "bg-mk-primary-tint text-mk-primary",
+  done: "bg-mk-green-tint text-mk-green",
+};
+
 // `card` (followup fix 2026-08): a rabbit-hole (or other exploration deck)
 // card submitted via the shared reflect turn renders as a content-first
 // clickable chip, mirroring PlanBlock/ReviewBlock/WritingBlock's card turns.
@@ -122,12 +136,6 @@ export function ReadingBlock({
     reply: string;
     card?: CardTurnRef;
   } | null>(null);
-  // Followup fix 2 (2026-08): the 印记 · 找资料 coach (FloatingCoach) also gets a
-  // ＋兔子洞 affordance now, not just 探索图谱's header button — same sibling
-  // relationship as pendingCardReflection above, so the trigger is bridged up
-  // here as a one-shot flag ExplorationView consumes to open its ONE existing
-  // rabbit-hole sheet (no second implementation/card_instance path).
-  const [rabbitHoleOpenRequest, setRabbitHoleOpenRequest] = useState(false);
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -392,7 +400,7 @@ export function ReadingBlock({
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex items-center justify-end border-b border-mk-border bg-mk-surface px-4 py-1.5">
+      <div className="flex items-center justify-start border-b border-mk-border bg-mk-surface px-4 py-1.5">
         <ViewModeToggle mode={viewMode} onChange={chooseViewMode} signal={explorationSignal} />
       </div>
 
@@ -429,6 +437,7 @@ export function ReadingBlock({
                 activeTag={activeTag}
                 onAdd={() => setAdding(true)}
                 onSetPhase={setPhaseTag}
+                onSetStatus={(id, status) => patchNow(id, { readingStatus: status })}
               />
 
               {selected ? (
@@ -468,8 +477,6 @@ export function ReadingBlock({
               // thread every other card uses (and pops the panel open, since
               // this feedback is unprompted — she didn't have it open to ask).
               onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
-              openRabbitHoleRequested={rabbitHoleOpenRequest}
-              onRabbitHoleOpenConsumed={() => setRabbitHoleOpenRequest(false)}
             />
             <FloatingCoach
               docked
@@ -479,7 +486,6 @@ export function ReadingBlock({
               onLibraryChanged={reload}
               pendingCardReflection={pendingCardReflection}
               onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
-              onOpenRabbitHole={() => setRabbitHoleOpenRequest(true)}
             />
           </div>
         )}
@@ -496,10 +502,6 @@ export function ReadingBlock({
           onLibraryChanged={reload}
           pendingCardReflection={pendingCardReflection}
           onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
-          // From 列表 there's no 探索图谱 mounted yet to open the sheet on — hop
-          // over to 探索图谱 (same student-initiated tap, still 铁律2-compliant)
-          // and arm the same one-shot request so it opens as soon as it mounts.
-          onOpenRabbitHole={() => { chooseViewMode("graph"); setRabbitHoleOpenRequest(true); }}
         />
       )}
 
@@ -508,8 +510,9 @@ export function ReadingBlock({
   );
 }
 
-// 列表 ⇄ 探索图谱 segmented toggle — Task 9. 列表 is the default; opening
-// 探索图谱 is always an explicit click (铁律 2 不操纵 applies to surfaces too).
+// 图书馆 ⇄ 探索 segmented toggle — Task 9 (renamed + iconed, A7). 图书馆 (list
+// keys unchanged) is the default; opening 探索 (graph keys unchanged) is always
+// an explicit click (铁律 2 不操纵 applies to surfaces too).
 export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "graph"; onChange: (m: "list" | "graph") => void; signal: number }) {
   return (
     <div className="flex rounded-mk border border-mk-border bg-mk-bg p-0.5 text-[12px] font-bold">
@@ -520,7 +523,8 @@ export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "gra
           onClick={() => onChange(m)}
           className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-primary shadow-sm" : "text-mk-muted-2 hover:text-mk-ink"}`}
         >
-          {m === "list" ? "列表" : "探索图谱"}
+          <Icon name={m === "list" ? "library" : "explore"} size={14} />
+          {m === "list" ? "图书馆" : "探索"}
           {/* EB · advertise pending leads/dangling so the graph is discoverable */}
           {m === "graph" && signal > 0 && (
             <span
@@ -718,8 +722,9 @@ function RefTable(props: {
   activeTag: string | null;
   onAdd: () => void;
   onSetPhase: (id: string, phase: PhaseTag | "") => void;
+  onSetStatus: (id: string, status: Reference["readingStatus"]) => void;
 }) {
-  const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd, onSetPhase } = props;
+  const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd, onSetPhase, onSetStatus } = props;
   const nChecked = checked.size;
   return (
     <div className="flex min-h-0 flex-col bg-mk-surface">
@@ -758,7 +763,7 @@ function RefTable(props: {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rows.map((r) => (
-          <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} onSetPhase={(p) => onSetPhase(r.id, p)} />
+          <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} onSetPhase={(p) => onSetPhase(r.id, p)} onSetStatus={(s) => onSetStatus(r.id, s)} />
         ))}
       </div>
     </div>
@@ -788,7 +793,30 @@ function PhaseTagPicker({ value, onChange }: { value: PhaseTag | null; onChange:
   );
 }
 
-function Row({ r, active, checked, onSelect, onCheck, onSetPhase }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void; onSetPhase: (phase: PhaseTag | "") => void }) {
+// A7 · the 待读/在读/读完 shelf-status control — always set (defaults to
+// to_read), so unlike PhaseTagPicker there's no empty option. Adopting a paper
+// from 探索 sets this to "reading" server-side; this select is how she can move
+// it along the shelf (or back) by hand from 图书馆 too.
+function ReadingStatusPicker({ value, onChange }: { value: Reference["readingStatus"]; onChange: (s: Reference["readingStatus"]) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as Reference["readingStatus"])}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      draggable={false}
+      aria-label="阅读状态"
+      title="标注：这条来源读到哪了"
+      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold outline-none ${READING_STATUS_STYLE[value]}`}
+    >
+      {(["to_read", "reading", "done"] as const).map((s) => (
+        <option key={s} value={s}>{READING_STATUS_LABEL[s]}</option>
+      ))}
+    </select>
+  );
+}
+
+function Row({ r, active, checked, onSelect, onCheck, onSetPhase, onSetStatus }: { r: Reference; active: boolean; checked: boolean; onSelect: () => void; onCheck: () => void; onSetPhase: (phase: PhaseTag | "") => void; onSetStatus: (status: Reference["readingStatus"]) => void }) {
   const hasRead = r.notes.length > 0;
   // 已归纳/在读/未读 badge — derived, never a separate flag: a finalized
   // takeaway means 已归纳; a linked material with no takeaway yet means she's
@@ -827,6 +855,9 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase }: { r: Referen
           )}
           {/* #2 · which argument-stage this source served — inline-editable */}
           <PhaseTagPicker value={r.phaseTag ?? null} onChange={onSetPhase} />
+          {/* A7 · 待读/在读/读完 shelf status — inline-editable, set to 在读
+              automatically when adopted from 探索 */}
+          <ReadingStatusPicker value={r.readingStatus} onChange={onSetStatus} />
         </div>
         <button type="button" onClick={onSelect} className="mt-0.5 flex gap-1 pl-3 text-left">
           {r.tags.map((t) => (<span key={t} className="text-[10.5px] text-mk-muted-2">#{t}</span>))}
@@ -961,6 +992,27 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
         <MetaEdit k="分类" v={r.classification} onChange={(v) => onPatchDebounced({ classification: v })} placeholder="期刊/报告/网页…" />
         <MetaEdit k="日期" v={r.year} onChange={(v) => onPatchDebounced({ year: v })} placeholder="年份" />
         <MetaEdit k="链接" v={r.url} onChange={(v) => onPatchDebounced({ url: v })} placeholder="https://…" />
+      </div>
+
+      {/* A7 · 待读/在读/读完 shelf status — adopting a paper from 探索 sets this
+          to 在读 automatically server-side; editable here too. */}
+      <div className="mt-3">
+        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">阅读状态</p>
+        <div className="flex gap-1.5">
+          {(["to_read", "reading", "done"] as const).map((s) => {
+            const on = r.readingStatus === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPatchNow({ readingStatus: s })}
+                className={`flex-1 rounded-mk border py-1.5 text-[12.5px] font-bold transition ${on ? `${READING_STATUS_STYLE[s]} border-transparent` : "border-mk-border bg-mk-surface text-mk-muted-2 hover:text-mk-ink"}`}
+              >
+                {READING_STATUS_LABEL[s]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* #5 · 打开原文: an honest external link to the source (readable extraction
@@ -1319,7 +1371,6 @@ function FloatingCoach({
   pendingCardReflection,
   onPendingCardReflectionConsumed,
   docked = false,
-  onOpenRabbitHole,
 }: {
   projectId: string;
   defaultOpen?: boolean;
@@ -1337,12 +1388,6 @@ function FloatingCoach({
   // hide behind — i.e. inside 探索图谱. Same chat/coach behavior throughout;
   // only the outer chrome (docked aside vs floating chip+panel) differs.
   docked?: boolean;
-  // Followup fix 2 (2026-08): a ＋兔子洞 affordance alongside the composer —
-  // opens the SAME 探索图谱 rabbit-hole sheet the graph header's button opens
-  // (ReadingBlock owns the bridging flag). Omitted entirely when the caller
-  // doesn't wire a handler (there is always one today, but this keeps the
-  // button optional/defensive rather than assuming it).
-  onOpenRabbitHole?: () => void;
 }) {
   const [open, setOpen] = useState(docked || defaultOpen);
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -1485,27 +1530,9 @@ function FloatingCoach({
     </>
   );
 
-  // Followup fix 2 (2026-08): sits right above the composer (not inside the
-  // scrollable chatBody) so it's always reachable without scrolling — a
-  // second place to reach the rabbit-hole card besides 探索图谱's header
-  // button. Opening it is still the student's own tap (铁律2 不操纵); the
-  // card sheet + submit path are the SAME ones ExplorationView already owns.
-  const rabbitHoleRow = onOpenRabbitHole ? (
-    <div className="flex items-center border-t border-mk-border px-2.5 pt-2">
-      <button
-        type="button"
-        onClick={onOpenRabbitHole}
-        className="flex-none rounded-lg border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-semibold text-mk-ink hover:bg-mk-bg"
-      >
-        ＋ 兔子洞
-      </button>
-    </div>
-  ) : null;
-
   const inputBar = (
     <>
-      {rabbitHoleRow}
-      <div className={`flex items-end gap-2 p-2.5 ${rabbitHoleRow ? "" : "border-t border-mk-border"}`}>
+      <div className="flex items-end gap-2 p-2.5 border-t border-mk-border">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

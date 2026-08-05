@@ -44,16 +44,8 @@ vi.mock("@/workspace/api/workspace", () => ({
 }));
 vi.mock("@/api/reading", () => ({ putReadingBrief: vi.fn(async () => {}) }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
-// Followup fix 2 (2026-08): the stub also surfaces the openRabbitHoleRequested
-// prop ReadingBlock bridges from the sibling 找资料 coach's own ＋兔子洞 button,
-// so a test here can assert the bridge arms without needing the real graph.
 vi.mock("@/workspace/blocks/exploration/ExplorationView", () => ({
-  ExplorationView: (props: { openRabbitHoleRequested?: boolean }) => (
-    <div>
-      <div>graph-stub</div>
-      <div data-testid="rabbit-request-state">{props.openRabbitHoleRequested ? "open" : "idle"}</div>
-    </div>
-  ),
+  ExplorationView: () => <div>graph-stub</div>,
 }));
 vi.mock("@/workspace/export", () => ({ exportAnnotatedBib: vi.fn() }));
 
@@ -84,7 +76,7 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
     render(<ReadingBlock projectId="p2" title="T" setReadingSource={() => {}} />);
     expect(await screen.findByText("graph-stub")).toBeInTheDocument();
     // 列表 is still one click away, with its own empty-state affordance
-    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
     expect(await screen.findByText(/先加一篇来源/)).toBeInTheDocument();
   });
 
@@ -92,7 +84,7 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
     render(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
     // switch to the list where the inline stage picker lives
-    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
     const picker = await screen.findByLabelText("用于哪个阶段");
     await userEvent.selectOptions(picker, "支持论点");
     await waitFor(() =>
@@ -121,42 +113,15 @@ describe("ReadingBlock · Q3 docked coach in 探索图谱", () => {
   it("keeps the coach as a floating chip in 列表 (reference-preview sidebar intact)", async () => {
     render(<ReadingBlock projectId="q3-list" title="T" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
-    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
     // list view: the floating chip is the only way to open the coach
     expect(await screen.findByRole("button", { name: /问印记 · 找资料/ })).toBeInTheDocument();
   });
 });
 
-// Followup fix 2 (2026-08): the 印记 · 找资料 coach ALSO gets a ＋兔子洞
-// affordance (previously only 探索图谱's header had one) — it opens the SAME
-// rabbit-hole sheet ExplorationView owns via a one-shot bridging flag, not a
-// second implementation. ExplorationView itself is stubbed here (see the
-// module mock above), so these assert the bridge arms correctly rather than
-// the sheet's own contents — ExplorationView.test.tsx covers the sheet.
-describe("ReadingBlock · followup2 兔子洞 in the 找资料 coach sidebar", () => {
-  it("docked coach (探索图谱 default view): ＋ 兔子洞 arms the shared open-request", async () => {
-    render(<ReadingBlock projectId="rh-graph" title="T" setReadingSource={() => {}} />);
-    await screen.findByText("graph-stub");
-    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("idle");
-
-    await userEvent.click(screen.getByRole("button", { name: "＋ 兔子洞" }));
-    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("open");
-  });
-
-  it("列表's floating coach: ＋ 兔子洞 hops to 探索图谱 and arms the same open-request", async () => {
-    render(<ReadingBlock projectId="rh-list" title="T" setReadingSource={() => {}} />);
-    await screen.findByText("graph-stub");
-    await userEvent.click(screen.getByRole("button", { name: "列表" }));
-    // open the floating chip first — its composer (with the rabbit-hole row)
-    // only renders once the panel is open.
-    await userEvent.click(screen.getByRole("button", { name: /问印记 · 找资料/ }));
-    await userEvent.click(screen.getByRole("button", { name: "＋ 兔子洞" }));
-
-    // hopped back to 探索图谱 (the stub remounts) with the request already armed.
-    await screen.findByText("graph-stub");
-    expect(screen.getByTestId("rabbit-request-state")).toHaveTextContent("open");
-  });
-});
+// A7: the ＋兔子洞 affordance the 印记 · 找资料 coach carried (and the matching
+// ExplorationView open-request bridge) was dead wiring left by A6 — both are
+// now removed, along with the tests that only exercised that bridge.
 
 // #3 · when the library is empty, the coach greeting ACKNOWLEDGES the known
 // project topic (a static interpolated string — no model call) instead of asking
@@ -182,7 +147,7 @@ describe("ReadingBlock · #3 topic-aware empty state", () => {
     expect(screen.getByText(/但我不替你搜/)).toBeInTheDocument();
     // the 列表 empty-state copy references the topic too — switch there since
     // 探索图谱 (its own empty state) is the default now.
-    await userEvent.click(screen.getByRole("button", { name: "列表" }));
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
     expect(await screen.findByText(/围绕「中国是否让地球变得更可持续？」/)).toBeInTheDocument();
   });
 

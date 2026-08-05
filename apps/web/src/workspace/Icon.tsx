@@ -67,6 +67,22 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
           <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18" />
         </svg>
       );
+    case "library":
+      return (
+        <svg {...common}>
+          <path d="M4 4h4v16H4zM10 4h4v16h-4z" />
+          <path d="M16.5 4.6l3.3 15.6-3.9.9L12.5 5.6z" />
+        </svg>
+      );
+    case "explore":
+      return (
+        <svg {...common}>
+          <circle cx="6" cy="7" r="2" />
+          <circle cx="18" cy="7" r="2" />
+          <circle cx="12" cy="18" r="2" />
+          <path d="M7.7 8.3L10.4 16.4M16.3 8.3L13.6 16.4M8 7h8" />
+        </svg>
+      );
     default:
       return null;
   }

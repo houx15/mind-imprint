@@ -53,8 +53,6 @@ export type ExplorationViewProps = {
   // reworks ReadingBlock). Unused here on purpose.
   onCreateReference?: (input: { title: string; url?: string }) => Promise<Reference>;
   onCardReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
-  openRabbitHoleRequested?: boolean;
-  onRabbitHoleOpenConsumed?: () => void;
 };
 
 function readingBadge(r: Reference): { label: string; cls: string } | null {
