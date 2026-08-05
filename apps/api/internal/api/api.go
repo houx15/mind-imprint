@@ -104,6 +104,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/exploration/edges", protected(a.createQuestionEdge))
 	mux.Handle("PATCH /api/v1/projects/{id}/exploration/edges/{eid}", protected(a.patchQuestionEdge))
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/edges/{eid}", protected(a.deleteQuestionEdge))
+	mux.Handle("POST /api/v1/projects/{id}/exploration/edges/propose", protected(a.proposeQuestionEdges))
 	mux.Handle("POST /api/v1/projects/{id}/cards/persist", protected(a.postPersistProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/reflect", protected(a.postReflectProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/dismiss-proposal", protected(a.postDismissProposal))

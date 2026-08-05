@@ -914,3 +914,159 @@ func (a *API) deleteQuestionEdge(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// -- B3 · POST /exploration/edges/propose (METERED — 印记 proposes, student
+// confirms) ------------------------------------------------------------
+//
+// 印记 reads the project's own root question nodes + existing edges and
+// proposes new labeled edges between them. Every surviving proposal is
+// persisted as status="proposed" — never "confirmed" straight from the
+// model, which would violate 铁律① (AI proposes, student confirms via the
+// existing PATCH .../edges/{eid}, same as any other proposed edge).
+//
+// CRITICAL robustness note: LLMs cannot reliably echo UUIDs, so the wire
+// protocol with agent.ProposeQuestionEdges is entirely INDEX-based (1-based,
+// into loadRootLeadsForProject's own stable order) — this handler is the
+// only place that ever maps an index back to a real lead id, and it does so
+// defensively (bounds-checked again here, not just trusting the agent's own
+// filtering) before ever calling CreateQuestionEdge.
+
+// loadRootLeadsForProject returns the project's top-level (parentLeadId
+// null) leads in ListExplorationLeads's own stable order (position,
+// created_at) — that order IS the 1-based index the proposer prompt and the
+// persist-back step both share.
+func (a *API) loadRootLeadsForProject(ctx context.Context, projectID uuid.UUID) ([]sqlc.ExplorationLead, error) {
+	leads, err := a.d.Queries.ListExplorationLeads(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	roots := make([]sqlc.ExplorationLead, 0, len(leads))
+	for _, l := range leads {
+		if !l.ParentLeadID.Valid {
+			roots = append(roots, l)
+		}
+	}
+	return roots, nil
+}
+
+// edgePairKey is an (fromIndex,toIndex) pair used to dedup against edges
+// that already exist on the graph — both the existing-edges-by-index list
+// handed to the model (so it's asked not to re-propose them) and the
+// defensive re-check right before each INSERT (the table's own
+// UNIQUE(from_lead_id,to_lead_id) is the last line of defense, but a 500 on
+// conflict would be a worse experience than silently skipping a duplicate).
+type edgePairKey struct{ from, to int }
+
+// proposeQuestionEdges wires POST /exploration/edges/propose. Order matters:
+// the root-count check (line of least privilege — knowing there's nothing
+// to connect costs nothing) comes BEFORE the entitlement gate, so a fresh
+// project with fewer than 2 root questions never even asks whether the
+// student is entitled to spend — there is nothing to spend on. Only once
+// there's real work to do does it gate on HasEntitlement and then run the
+// resolve→compose→meter block, mirroring postExplorationGuide's own
+// completed-call-only metering discipline (a resolver success with a
+// failed compose must not phantom-record a 0-token/$0 llm_call row).
+func (a *API) proposeQuestionEdges(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+
+	roots, err := a.loadRootLeadsForProject(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if len(roots) < 2 {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"edges": []questionEdgeDTO{}})
+		return
+	}
+
+	existingEdges, err := a.d.Queries.ListQuestionEdgesByProject(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	u, _ := UserFromContext(r.Context())
+	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	// index (1-based) <-> lead id, shared between the prompt below and the
+	// persist-back step at the end of this handler.
+	indexOf := make(map[uuid.UUID]int, len(roots))
+	in := agent.EdgeProposerInput{Questions: make([]agent.EdgeProposerQuestion, 0, len(roots))}
+	for i, l := range roots {
+		indexOf[l.ID] = i + 1
+		in.Questions = append(in.Questions, agent.EdgeProposerQuestion{Text: l.Text})
+	}
+	existingPairs := make(map[edgePairKey]bool, len(existingEdges))
+	for _, e := range existingEdges {
+		fi, fok := indexOf[e.FromLeadID]
+		ti, tok := indexOf[e.ToLeadID]
+		if !fok || !tok {
+			// An edge touching a non-root lead can't happen today (B2 enforces
+			// root-only endpoints), but this loop must never panic on a stale
+			// assumption — just leave it out of the model's context.
+			continue
+		}
+		existingPairs[edgePairKey{fi, ti}] = true
+		in.ExistingEdges = append(in.ExistingEdges, agent.EdgeProposerExistingEdge{FromIndex: fi, ToIndex: ti, Label: e.Label})
+	}
+
+	var proposals []agent.EdgeProposal
+	if a.d.ChatResolver != nil {
+		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil && resolved.Provider != "" {
+			ps, usage, cerr := agent.ProposeQuestionEdges(r.Context(), a.d.Provider, resolved, in)
+			if cerr == nil {
+				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "edge_propose",
+					Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+				}); e != nil {
+					slog.Warn("edge propose: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
+				proposals = ps
+			}
+		}
+	}
+
+	dtos := make([]questionEdgeDTO, 0, len(proposals))
+	for _, p := range proposals {
+		if p.FromIndex < 1 || p.FromIndex > len(roots) || p.ToIndex < 1 || p.ToIndex > len(roots) {
+			continue // defense in depth — agent.ProposeQuestionEdges already bounds-checks this
+		}
+		if p.FromIndex == p.ToIndex {
+			continue
+		}
+		key := edgePairKey{p.FromIndex, p.ToIndex}
+		if existingPairs[key] {
+			continue
+		}
+		row, err := a.d.Queries.CreateQuestionEdge(r.Context(), sqlc.CreateQuestionEdgeParams{
+			ProjectID:  projectID,
+			FromLeadID: roots[p.FromIndex-1].ID,
+			ToLeadID:   roots[p.ToIndex-1].ID,
+			Label:      p.Label,
+			// AI-proposed → "proposed", never "confirmed" (铁律①: the student
+			// confirms via the existing PATCH .../edges/{eid}).
+			Status: "proposed",
+		})
+		if err != nil {
+			// The table's UNIQUE(from_lead_id,to_lead_id) is the last line of
+			// defense against a race with another concurrent propose/create —
+			// the dedup above should already prevent this in practice, so a
+			// conflict here is skipped rather than turned into a 500.
+			continue
+		}
+		existingPairs[key] = true
+		dtos = append(dtos, toQuestionEdgeDTO(row))
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"edges": dtos})
+}

@@ -1030,3 +1030,155 @@ func TestExploration_IncludesEdges(t *testing.T) {
 		t.Fatalf("edge status = %q, want confirmed", got.Status)
 	}
 }
+
+// -- B3 · POST /exploration/edges/propose -----------------------------------
+
+// TestProposeEdges_PersistsProposed — B3's happy path: with a stub provider
+// returning one valid index-based proposal connecting the project's two root
+// questions, the endpoint persists it as a REAL question_edge with
+// status="proposed" (never "confirmed" straight from the model — 铁律①, the
+// student still confirms via the existing PATCH .../edges/{eid}) and records
+// exactly one "edge_propose" llm_call row.
+func TestProposeEdges_PersistsProposed(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool, SpecByID: cards.ByID,
+		Provider:     readingStubProvider(`{"proposals":[{"from":1,"to":2,"label":"反驳/张力","why":"中国碳排放总量全球第一，是反例"}]}`),
+		ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	recA := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"中国是否让地球更可持续？"}`)
+	if recA.Code != http.StatusCreated {
+		t.Fatalf("create lead A = %d: %s", recA.Code, recA.Body)
+	}
+	var leadA struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(recA.Body.Bytes(), &leadA); err != nil {
+		t.Fatalf("decode lead A: %v — %s", err, recA.Body)
+	}
+
+	recB := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"中国碳排放总量全球第一，是否推翻论点？"}`)
+	if recB.Code != http.StatusCreated {
+		t.Fatalf("create lead B = %d: %s", recB.Code, recB.Body)
+	}
+	var leadB struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(recB.Body.Bytes(), &leadB); err != nil {
+		t.Fatalf("decode lead B: %v — %s", err, recB.Body)
+	}
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/edges/propose", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("propose = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Edges []questionEdgeView `json:"edges"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode propose response: %v — %s", err, rec.Body)
+	}
+	if len(out.Edges) != 1 {
+		t.Fatalf("edges = %+v, want 1", out.Edges)
+	}
+	if out.Edges[0].FromLeadID != leadA.Lead.ID || out.Edges[0].ToLeadID != leadB.Lead.ID {
+		t.Fatalf("edge from/to = %q/%q, want %q/%q", out.Edges[0].FromLeadID, out.Edges[0].ToLeadID, leadA.Lead.ID, leadB.Lead.ID)
+	}
+	if out.Edges[0].Label != "反驳/张力" {
+		t.Fatalf("edge label = %q, want 反驳/张力", out.Edges[0].Label)
+	}
+	if out.Edges[0].Status != "proposed" {
+		t.Fatalf("edge status = %q, want proposed (AI-proposed edges await student confirmation)", out.Edges[0].Status)
+	}
+
+	// The edge must be a REAL persisted row, not just echoed in the response.
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	if len(view.Edges) != 1 || view.Edges[0].ID != out.Edges[0].ID {
+		t.Fatalf("proposed edge not persisted: view.Edges = %+v, want [%s]", view.Edges, out.Edges[0].ID)
+	}
+
+	if n := countLLMCallsByPurpose(t, pool, pid, "edge_propose"); n != 1 {
+		t.Fatalf("want 1 edge_propose llm_call, got %d", n)
+	}
+}
+
+// TestProposeEdges_FewerThanTwoRoots_NoSpend — with only one root question,
+// there's nothing to connect: the endpoint must return 200 with an empty
+// edges array WITHOUT ever resolving a provider or metering a call, even
+// though one IS configured — mirrors TestExplorationGuide_EmptyGraphNoSpend's
+// no-spend discipline.
+func TestProposeEdges_FewerThanTwoRoots_NoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool, SpecByID: cards.ByID,
+		Provider:     readingStubProvider(`{"proposals":[]}`),
+		ChatResolver: fakeResolver(),
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"唯一的问题"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead = %d: %s", rec.Code, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/edges/propose", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("propose = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Edges []questionEdgeView `json:"edges"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode propose response: %v — %s", err, rec.Body)
+	}
+	if len(out.Edges) != 0 {
+		t.Fatalf("edges = %+v, want empty with fewer than 2 root questions", out.Edges)
+	}
+	if n := countLLMCallsByPurpose(t, pool, pid, "edge_propose"); n != 0 {
+		t.Fatalf("want 0 edge_propose llm_call with fewer than 2 roots, got %d", n)
+	}
+}
+
+// TestProposeEdges_NoProviderNoSpend — with no ChatResolver configured at
+// all (libraryTestHandler's default), even a graph with 2 root questions
+// must return 200 with empty edges and record nothing — mirrors
+// TestExplorationDig_NoProviderFallsBackToRawQuery's no-provider guarantee.
+func TestProposeEdges_NoProviderNoSpend(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"问题一"}`)
+	doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"问题二"}`)
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/edges/propose", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("propose = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Edges []questionEdgeView `json:"edges"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode propose response: %v — %s", err, rec.Body)
+	}
+	if len(out.Edges) != 0 {
+		t.Fatalf("edges = %+v, want empty with no provider configured", out.Edges)
+	}
+	if n := countLLMCallsByPurpose(t, pool, pid, "edge_propose"); n != 0 {
+		t.Fatalf("want 0 edge_propose llm_call with no provider configured, got %d", n)
+	}
+}

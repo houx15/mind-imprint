@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { LeadStatus, Reference, QuestionEdgeLabel, QuestionEdgeStatus } from "@mind-imprint/contracts";
 import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate, QuestionEdge } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
@@ -92,4 +93,17 @@ export async function deleteEdge(projectId: string, eid: string): Promise<void> 
   await apiFetch<void>(`/api/v1/projects/${projectId}/exploration/edges/${eid}`, {
     method: "DELETE",
   });
+}
+
+// B3 · proposeEdges asks 印记 to propose labeled edges between the project's
+// own root question nodes. Every returned edge already has status:"proposed"
+// (铁律①: AI proposes, student confirms via patchEdge's existing
+// status:"confirmed" path) — this call never lands a confirmed edge itself.
+const ProposeEdgesResponse = z.object({ edges: z.array(QuestionEdge) });
+
+export async function proposeEdges(projectId: string): Promise<QuestionEdge[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/edges/propose`, {
+    method: "POST",
+  });
+  return ProposeEdgesResponse.parse(raw).edges;
 }
