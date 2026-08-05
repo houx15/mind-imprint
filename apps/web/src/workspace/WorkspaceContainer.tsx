@@ -24,6 +24,28 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
+  // Full-screen mode: hide the left room-rail so the active room (esp. the
+  // reading room's 兔子洞地图 and the wide library table) gets the whole width.
+  // Applies to the ENTIRE project workspace, not one room; persisted so it
+  // survives room swaps and reloads.
+  const [fullscreen, setFullscreen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("mk-workspace-fullscreen") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleFullscreen = useCallback(() => {
+    setFullscreen((f) => {
+      const next = !f;
+      try {
+        localStorage.setItem("mk-workspace-fullscreen", next ? "1" : "0");
+      } catch {
+        /* best-effort; a blocked storage must never break the toggle */
+      }
+      return next;
+    });
+  }, []);
   // The reading-room swap slot. When set, the focused ReadingRoom surface
   // replaces the rooms entirely (mirrors the shipped studio's own swap).
   const [readingSource, setReadingSourceState] = useState<MaterialSource | null>(null);
@@ -188,8 +210,21 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
 
   return (
     <div className="flex h-full w-full bg-mk-bg font-sans text-mk-ink">
-      <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} />
+      {!fullscreen && (
+        <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} onFullscreen={toggleFullscreen} />
+      )}
       <main className="relative min-w-0 flex-1 overflow-hidden">
+        {/* Full-screen mode · a small floating control to bring the rail back. */}
+        {fullscreen && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title="退出全屏"
+            className="absolute left-3 top-3 z-40 flex items-center gap-1.5 rounded-full border border-mk-border bg-mk-surface/95 px-3 py-1.5 text-[12px] font-bold text-mk-muted-2 shadow-sm backdrop-blur hover:border-mk-primary hover:text-mk-primary"
+          >
+            <Icon name="back" size={15} /> 退出全屏
+          </button>
+        )}
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
             {summary && !summaryDismissed && (
@@ -279,23 +314,46 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   );
 }
 
+// A small "expand to full screen" glyph (diagonal out-arrows). Local to the
+// rail — the shared Icon set has no full-screen name and this is its only use.
+function ExpandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+    </svg>
+  );
+}
+
 function Rail({
   room,
   onRoom,
   onBack,
   workspace,
+  onFullscreen,
 }: {
   room: BlockKey;
   onRoom: (b: BlockKey) => void;
   onBack: () => void;
   workspace: WorkspaceProjection | null;
+  onFullscreen: () => void;
 }) {
   return (
     <nav className="flex w-[236px] flex-none flex-col border-r border-mk-border bg-mk-surface">
       <div className="border-b border-mk-border px-5 py-5">
-        <button type="button" onClick={onBack} className="mb-3 flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
-          <Icon name="back" size={16} /> 全部项目
-        </button>
+        <div className="mb-3 flex items-center justify-between">
+          <button type="button" onClick={onBack} className="flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
+            <Icon name="back" size={16} /> 全部项目
+          </button>
+          <button
+            type="button"
+            onClick={onFullscreen}
+            title="全屏（收起侧栏）"
+            aria-label="全屏"
+            className="flex h-7 w-7 items-center justify-center rounded-mk text-mk-muted-2 hover:bg-mk-bg hover:text-mk-primary"
+          >
+            <ExpandIcon />
+          </button>
+        </div>
         <h1 className="font-sans text-[15.5px] font-bold leading-snug text-mk-ink">{workspace?.title || "未命名项目"}</h1>
         <span className="mt-2 inline-block rounded-full bg-mk-primary-tint px-2.5 py-1 text-[11px] font-bold text-mk-primary">{workspace?.qualification || "项目"}</span>
       </div>

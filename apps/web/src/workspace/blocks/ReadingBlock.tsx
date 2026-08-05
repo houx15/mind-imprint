@@ -756,19 +756,23 @@ function RefTable(props: {
         </div>
       )}
 
-      {/* column header */}
-      <div className="grid grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border-2 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">
-        <span />
-        <span>标题</span>
-        <span>来源 · 日期</span>
-        <span className="text-center">笔记</span>
-        <span>可信度</span>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {rows.map((r) => (
-          <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} onSetPhase={(p) => onSetPhase(r.id, p)} onSetStatus={(s) => onSetStatus(r.id, s)} />
-        ))}
+      {/* Body scrolls both ways: vertical for the list, and horizontal so a
+          narrow library never crushes the title column — the columns keep a
+          min width and a scrollbar appears instead. */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-w-[640px]">
+          {/* column header — sticky so it stays put while the list scrolls */}
+          <div className="sticky top-0 z-10 grid grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border-2 bg-mk-surface px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">
+            <span />
+            <span>标题</span>
+            <span>来源 · 日期</span>
+            <span className="text-center">笔记</span>
+            <span>可信度</span>
+          </div>
+          {rows.map((r) => (
+            <Row key={r.id} r={r} active={r.id === selId} checked={props.checked.has(r.id)} onSelect={() => onSelect(r.id)} onCheck={() => onCheck(r.id)} onSetPhase={(p) => onSetPhase(r.id, p)} onSetStatus={(s) => onSetStatus(r.id, s)} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -839,7 +843,7 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase, onSetStatus }:
       </button>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={onSelect} className="flex min-w-0 items-center gap-1.5 text-left">
+          <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-green" : "border border-mk-muted-2"}`} />
             <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{r.title}</span>
           </button>

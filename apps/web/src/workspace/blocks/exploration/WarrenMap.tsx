@@ -390,10 +390,10 @@ function WarrenMapInner({
   );
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       {/* Header · the explained title. 「兔子洞」is welcome ONLY here, as a title
           with a "?" that explains the metaphor in plain words. */}
-      <div className="relative mb-2 flex items-center gap-2">
+      <div className="relative mb-2 flex flex-none items-center gap-2">
         <h3 className="font-sans text-[14px] font-bold text-mk-ink">兔子洞地图</h3>
         <button
           type="button"
@@ -415,7 +415,7 @@ function WarrenMapInner({
         )}
       </div>
 
-      <div className="relative h-[460px] w-full overflow-hidden rounded-mk-lg border border-mk-border bg-mk-bg/50">
+      <div className="relative min-h-[320px] w-full flex-1 overflow-hidden rounded-mk-lg border border-mk-border bg-mk-bg/50">
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}

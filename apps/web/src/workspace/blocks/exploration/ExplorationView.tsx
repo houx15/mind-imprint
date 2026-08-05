@@ -456,7 +456,7 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
   if (inHole) {
     /* ---------- HOLE (Level-2) · one question's mindmap + right sidebar ---------- */
     return (
-      <div className="relative flex min-h-0 flex-1 bg-mk-bg/40">
+      <div className="relative flex h-full min-h-0 bg-mk-bg/40">
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-2.5">
             <button
@@ -491,13 +491,16 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
 
   /* ---------- MAP (Level-1) · the overview graph of root questions + sidebar (always 'ai') ---------- */
   return (
-    <div className="relative flex min-h-0 flex-1 bg-mk-bg/40">
+    <div className="relative flex h-full min-h-0 bg-mk-bg/40">
       <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      {/* Controls stay a fixed header; the map below fills the remaining height
+          (so it grows with the viewport / full-screen mode instead of sitting in
+          a short fixed box). */}
+      <div className="flex-none px-6 pt-5 pb-3">
         {/* Action 2 · the single root input — creates a top-level question node.
             The map's own title (兔子洞地图 + its ? explainer) lives inside WarrenMap,
             so no separate section heading here. */}
-        <div className="mb-5 flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
+        <div className="flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
           <input
             value={newQuestion}
             onChange={(e) => setNewQuestion(e.target.value)}
@@ -521,7 +524,7 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
             opens a small picker of the project's reading notes (references whose
             readingNote is set). Picking one promotes it into a root question,
             carrying its source via sourceReferenceId (origin becomes "note"). */}
-        <div className="relative mb-5 -mt-3">
+        <div className="relative mt-2.5">
           <button
             type="button"
             onClick={() => setNotePickerOpen((o) => !o)}
@@ -552,10 +555,31 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
           )}
         </div>
 
-        {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
+        {actionError && <p className="mt-2.5 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
 
+        {/* B4b · let 印记 propose relationships between the questions. Lives in the
+            fixed header so the map body below is pure canvas. Only meaningful with
+            ≥2 root questions (an edge needs two ends). */}
+        {roots.length >= 2 && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={proposeRelations}
+              disabled={proposing}
+              className="rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-60"
+            >
+              {proposing ? "印记在找关系…" : "让印记找找问题之间的关系"}
+            </button>
+            {proposeNote && <span className="text-[12px] text-mk-muted-2">{proposeNote}</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Map body — fills the remaining height so the graph grows with the room
+          (and with full-screen mode), instead of sitting in a short fixed box. */}
+      <div className="min-h-0 flex-1 px-6 pb-5">
         {roots.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
+          <div className="flex h-full flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
             <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
             <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
               在上面记下一个你想弄清楚的问题，点开它再「深挖」——印记就会顺着它给你几篇相关论文，采纳的会挂到这条线下面，慢慢长成一张图。
@@ -575,36 +599,19 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
             )}
           </div>
         ) : (
-          <>
-            {/* B4b · let 印记 propose relationships between the questions. Only
-                meaningful with ≥2 root questions (an edge needs two ends). */}
-            {roots.length >= 2 && (
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={proposeRelations}
-                  disabled={proposing}
-                  className="rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-60"
-                >
-                  {proposing ? "印记在找关系…" : "让印记找找问题之间的关系"}
-                </button>
-                {proposeNote && <span className="text-[12px] text-mk-muted-2">{proposeNote}</span>}
-              </div>
-            )}
-            <WarrenMap
-              projectId={projectId}
-              roots={roots}
-              countByRoot={countByRoot}
-              edges={view.edges}
-              onZoom={zoomInto}
-              busyEdgeIds={busyEdgeIds}
-              onConfirmEdge={confirmEdge}
-              onDismissEdge={dismissEdge}
-              onRelabelEdge={relabelEdge}
-              onCreateEdge={createRelation}
-              onDeleteLead={removeRoot}
-            />
-          </>
+          <WarrenMap
+            projectId={projectId}
+            roots={roots}
+            countByRoot={countByRoot}
+            edges={view.edges}
+            onZoom={zoomInto}
+            busyEdgeIds={busyEdgeIds}
+            onConfirmEdge={confirmEdge}
+            onDismissEdge={dismissEdge}
+            onRelabelEdge={relabelEdge}
+            onCreateEdge={createRelation}
+            onDeleteLead={removeRoot}
+          />
         )}
       </div>
       </div>
