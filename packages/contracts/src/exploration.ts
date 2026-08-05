@@ -8,7 +8,7 @@ import { z } from "zod";
 export const LeadStatus = z.enum(["open", "connected", "pruned"]);
 export type LeadStatus = z.infer<typeof LeadStatus>;
 
-export const LeadOrigin = z.enum(["takeaway", "manual", "guide"]);
+export const LeadOrigin = z.enum(["takeaway", "manual", "guide", "note"]);
 export type LeadOrigin = z.infer<typeof LeadOrigin>;
 
 export const ExplorationLead = z.object({

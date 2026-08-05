@@ -83,6 +83,83 @@ func TestExplorationLead_Branch(t *testing.T) {
 	}
 }
 
+// TestCreateLead_FromNoteSetsOrigin is Task C1: promoting a reading note into
+// a question. A lead created with a sourceReferenceId (a reference that
+// really belongs to this project) gets origin "note" and carries that
+// sourceReferenceId — distinct from the plain manual-add path which leaves
+// both origin "manual" and sourceReferenceId nil.
+func TestCreateLead_FromNoteSetsOrigin(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"NASA 卫星数据"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var refWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode reference: %v — %s", err, rec.Body)
+	}
+	rid := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/leads",
+		`{"text":"这条笔记里的说法站得住吗？","sourceReferenceId":"`+rid+`"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead from note = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var created struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created lead: %v — %s", err, rec.Body)
+	}
+	if created.Lead.Origin != "note" {
+		t.Fatalf("origin = %q, want note", created.Lead.Origin)
+	}
+	if created.Lead.SourceReferenceID == nil || *created.Lead.SourceReferenceID != rid {
+		t.Fatalf("sourceReferenceId = %v, want %q", created.Lead.SourceReferenceID, rid)
+	}
+}
+
+// TestCreateLead_ForeignSourceReference_400 pins the IDOR guard on the new
+// sourceReferenceId param: a reference id that's real, but lives in a
+// DIFFERENT project, must be rejected rather than silently attached (the same
+// convention parentLeadId already follows above).
+func TestCreateLead_ForeignSourceReference_400(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	otherPID := createProjectForTest(t, h, cookie)
+
+	rec := doJSON(t, h, cookie, "POST", "/api/v1/projects/"+otherPID+"/references", `{"title":"别处的来源"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create foreign reference = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var refWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode foreign reference: %v — %s", err, rec.Body)
+	}
+	foreignRid := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", "/api/v1/projects/"+pid+"/exploration/leads",
+		`{"text":"x","sourceReferenceId":"`+foreignRid+`"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("create lead with foreign sourceReferenceId = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
+
 type explorationViewBody struct {
 	Leads             []explorationLeadView `json:"leads"`
 	DanglingSourceIDs []string              `json:"danglingSourceIds"`

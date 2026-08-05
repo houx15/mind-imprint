@@ -195,16 +195,20 @@ func computeDanglingSourceIds(refs []sqlc.Reference, leads []sqlc.ExplorationLea
 
 // -- POST /exploration/leads ------------------------------------------------
 
-// createExplorationLead adds a manual lead: origin "manual", status "open",
-// appended after whatever already exists.
+// createExplorationLead adds a lead, status "open", appended after whatever
+// already exists. Plain add → origin "manual". C1 · when the caller names a
+// sourceReferenceId (promoting a reading note into a question), origin is
+// "note" instead and the lead carries that reference — IDOR-checked exactly
+// like parentLeadId below.
 func (a *API) createExplorationLead(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
 		return
 	}
 	var body struct {
-		Text         string  `json:"text"`
-		ParentLeadID *string `json:"parentLeadId"` // #12 · when set, this is a 分支 under that lead
+		Text              string  `json:"text"`
+		ParentLeadID      *string `json:"parentLeadId"`      // #12 · when set, this is a 分支 under that lead
+		SourceReferenceID *string `json:"sourceReferenceId"` // C1 · promoting a reading note into a question
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -229,18 +233,36 @@ func (a *API) createExplorationLead(w http.ResponseWriter, r *http.Request) {
 		}
 		parent = pgtype.UUID{Bytes: pid, Valid: true}
 	}
+	// C1 · optional sourceReferenceId: validate it's a reference in THIS
+	// project (IDOR) before attaching it and switching origin to "note".
+	origin := "manual"
+	var sourceRef pgtype.UUID
+	if body.SourceReferenceID != nil && strings.TrimSpace(*body.SourceReferenceID) != "" {
+		rid, rerr := uuid.Parse(*body.SourceReferenceID)
+		if rerr != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "sourceReferenceId 不是有效的 id", nil))
+			return
+		}
+		if _, err := a.d.Queries.GetReferenceForProject(r.Context(), sqlc.GetReferenceForProjectParams{ID: rid, ProjectID: projectID}); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "sourceReferenceId 不是这个项目里的来源", nil))
+			return
+		}
+		sourceRef = pgtype.UUID{Bytes: rid, Valid: true}
+		origin = "note"
+	}
 	existing, err := a.d.Queries.ListExplorationLeads(r.Context(), projectID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	row, err := a.d.Queries.CreateExplorationLead(r.Context(), sqlc.CreateExplorationLeadParams{
-		ProjectID:    projectID,
-		Text:         body.Text,
-		Status:       "open",
-		Origin:       "manual",
-		Position:     int32(len(existing)),
-		ParentLeadID: parent,
+		ProjectID:         projectID,
+		Text:              body.Text,
+		Status:            "open",
+		Origin:            origin,
+		Position:          int32(len(existing)),
+		ParentLeadID:      parent,
+		SourceReferenceID: sourceRef,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

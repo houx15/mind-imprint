@@ -13,11 +13,21 @@ export async function getExploration(projectId: string): Promise<ExplorationView
   return ExplorationView.parse(raw);
 }
 
-// createLead adds a manual lead — top-level, or a 分支 under parentLeadId (#12).
-export async function createLead(projectId: string, text: string, opts?: { parentLeadId?: string }): Promise<ExplorationLead> {
+// createLead adds a lead — top-level, or a 分支 under parentLeadId (#12). C1 ·
+// passing sourceReferenceId promotes a reading note into a question: the
+// server attaches that reference and sets origin "note" instead of "manual".
+export async function createLead(
+  projectId: string,
+  text: string,
+  opts?: { parentLeadId?: string; sourceReferenceId?: string },
+): Promise<ExplorationLead> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/leads`, {
     method: "POST",
-    body: JSON.stringify({ text, parentLeadId: opts?.parentLeadId ?? null }),
+    body: JSON.stringify({
+      text,
+      parentLeadId: opts?.parentLeadId ?? null,
+      sourceReferenceId: opts?.sourceReferenceId ?? null,
+    }),
   });
   return ExplorationLead.parse((raw as { lead: unknown }).lead);
 }
