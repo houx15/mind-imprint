@@ -618,6 +618,96 @@ func TestExplorationDig_NoProviderFallsBackToRawQuery(t *testing.T) {
 	}
 }
 
+// TestExplorationDig_CitationMode — GVe: mode:"citation" resolves the paper
+// lead's DOI (via connectedReferenceId -> reference.url, a doi.org link) and
+// routes to Fetcher.ReferencedWorks instead of the keyword/SearchWorks path —
+// no query refine, no LLM call at all (unlike "similar").
+func TestExplorationDig_CitationMode(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	var captured string
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID,
+		Fetcher: fakeFetcher{
+			works:     []materialize.WorkMeta{{DOI: "10.9/ref", Title: "Cited Source", Year: "2021"}},
+			lastQuery: &captured,
+		},
+	}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// Seed a reference with a doi.org URL + a lead connected to it — adopt is
+	// the one call that creates both rows atomically (mirrors
+	// TestExplorationAdopt_CreatesReferenceAndLead's seeding, reused here
+	// rather than re-deriving the same DB writes by hand).
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/adopt",
+		`{"candidate":{"doi":"10.1000/x","title":"论文源","authors":"","year":"2023","journal":"","abstract":"","url":""}}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("adopt = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var adopted adoptView
+	if err := json.Unmarshal(rec.Body.Bytes(), &adopted); err != nil {
+		t.Fatalf("decode adopt response: %v — %s", err, rec.Body)
+	}
+	if adopted.Reference.URL != "https://doi.org/10.1000/x" {
+		t.Fatalf("reference.url = %q, want the derived doi.org link", adopted.Reference.URL)
+	}
+	leadID := adopted.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/dig", `{"leadId":"`+leadID+`","mode":"citation"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dig citation = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	if captured != "10.1000/x" {
+		t.Fatalf("ReferencedWorks doi = %q, want the resolved doi 10.1000/x", captured)
+	}
+	var out digCandidatesView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode dig response: %v — %s", err, rec.Body)
+	}
+	if len(out.Candidates) != 1 || out.Candidates[0].Title != "Cited Source" {
+		t.Fatalf("unexpected candidates: %+v", out.Candidates)
+	}
+	// citation mode does no query refine — no LLM call, unlike "similar".
+	if n := countLLMCallsByPurpose(t, pool, pid, "dig_query"); n != 0 {
+		t.Fatalf("want 0 dig_query llm_call for citation mode, got %d", n)
+	}
+}
+
+// TestExplorationDig_CitationMode_NoDOIReturnsEmpty — citation/cited modes
+// are best-effort: a lead with no connected reference (or a reference whose
+// URL carries no DOI) degrades to an empty tray, never a 4xx.
+func TestExplorationDig_CitationMode_NoDOIReturnsEmpty(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID,
+		Fetcher: fakeFetcher{works: []materialize.WorkMeta{{DOI: "10.9/ref", Title: "Should not appear"}}},
+	}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"没有连来源的问题"}`)
+	var lead struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lead); err != nil {
+		t.Fatalf("decode lead: %v — %s", err, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/dig", `{"leadId":"`+lead.Lead.ID+`","mode":"cited"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dig cited (no doi) = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out digCandidatesView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode dig response: %v — %s", err, rec.Body)
+	}
+	if len(out.Candidates) != 0 {
+		t.Fatalf("candidates = %+v, want empty (no DOI to resolve)", out.Candidates)
+	}
+}
+
 // adoptView is the test's decode shape for POST .../exploration/adopt.
 type adoptView struct {
 	Lead      explorationLeadView `json:"lead"`

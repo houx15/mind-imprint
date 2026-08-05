@@ -6,7 +6,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -44,6 +46,7 @@ type explorationLeadDTO struct {
 	ConnectedReferenceID *string `json:"connectedReferenceId"`
 	Position             int32   `json:"position"`
 	ParentLeadID         *string `json:"parentLeadId"` // #12 · null = top-level thread
+	CreatedAt            string  `json:"createdAt"`    // GVe · RFC3339, for the question-node sidebar
 }
 
 func toExplorationLeadDTO(row sqlc.ExplorationLead) explorationLeadDTO {
@@ -56,6 +59,7 @@ func toExplorationLeadDTO(row sqlc.ExplorationLead) explorationLeadDTO {
 		ConnectedReferenceID: pgUUIDToStringPtr(row.ConnectedReferenceID),
 		Position:             row.Position,
 		ParentLeadID:         pgUUIDToStringPtr(row.ParentLeadID),
+		CreatedAt:            row.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -545,21 +549,55 @@ func toDigCandidateDTOs(works []materialize.WorkMeta) []digCandidateDTO {
 	return out
 }
 
-// digExploration runs an OpenAlex search from a free-text keyword, or from a
-// lead's own question text, and hands candidates straight to the client-side
-// tray — no persistence (adopting is a separate, explicit student action,
-// 铁律①). Before searching, 印记 refines the student's own question (often a
-// long Chinese sentence) into a short English keyword query — OpenAlex
-// relevance on raw natural-language Chinese text is poor, and this refine is
-// the whole value of dig (Task A8). That refine IS one real LLM call, so
-// (unlike the search itself) it IS metered — one llm_call per dig when a
-// provider is configured. On any refine error, empty result, or no provider
-// configured, this falls back to the raw query text and never 500s. A
-// keyword wins when both are supplied. reference has no DOI column today
-// (only a free-text url), so the RelatedWorks branch — widening around a
-// lead's already-connected paper instead of re-searching its question text —
-// is left for a follow-up once a DOI is actually resolvable off a reference;
-// SearchWorks covers both keyword and lead-text digs for now.
+// digResolvePaperDOI walks leadID -> connectedReferenceId -> reference.Url ->
+// extractDOI for the citation/cited dig modes, returning "" (never an error)
+// at any missing/unparseable step — best-effort, mirroring every other
+// OpenAlex-adjacent helper in this file.
+func (a *API) digResolvePaperDOI(ctx context.Context, projectID uuid.UUID, leadID *string) string {
+	if leadID == nil || strings.TrimSpace(*leadID) == "" {
+		return ""
+	}
+	lid, perr := uuid.Parse(*leadID)
+	if perr != nil {
+		return ""
+	}
+	lead, lerr := a.d.Queries.GetExplorationLeadForProject(ctx, sqlc.GetExplorationLeadForProjectParams{ID: lid, ProjectID: projectID})
+	if lerr != nil || !lead.ConnectedReferenceID.Valid {
+		return ""
+	}
+	ref, rerr := a.d.Queries.GetReferenceForProject(ctx, sqlc.GetReferenceForProjectParams{
+		ID: uuid.UUID(lead.ConnectedReferenceID.Bytes), ProjectID: projectID,
+	})
+	if rerr != nil {
+		return ""
+	}
+	u, uerr := url.Parse(ref.Url)
+	if uerr != nil {
+		return ""
+	}
+	doi, ok := materialize.ExtractDOI(u)
+	if !ok {
+		return ""
+	}
+	return doi
+}
+
+// digExploration hands OpenAlex candidates straight to the client-side tray —
+// no persistence (adopting is a separate, explicit student action, 铁律①).
+// Three modes (GVe), keyed off body.mode (default "similar"):
+//   - "similar": a free-text keyword, or a lead's own question text. Before
+//     searching, 印记 refines the student's own question (often a long
+//     Chinese sentence) into a short English keyword query — OpenAlex
+//     relevance on raw natural-language Chinese text is poor, and this
+//     refine is the whole value of this mode (Task A8). That refine IS one
+//     real LLM call, so (unlike the search itself) it IS metered — one
+//     llm_call per dig when a provider is configured. On any refine error,
+//     empty result, or no provider configured, this falls back to the raw
+//     query text and never 500s. A keyword wins when both are supplied.
+//   - "citation"/"cited": a paper node's DOI (resolved off its lead's
+//     connectedReferenceId, via digResolvePaperDOI) drives
+//     ReferencedWorks/CitingWorks directly — no query refine, no LLM call,
+//     no metering (OpenAlex isn't an LLM). No DOI degrades to an empty tray.
 func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -577,9 +615,38 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		LeadID  *string `json:"leadId"`
 		Keyword *string `json:"keyword"`
+		Mode    *string `json:"mode"` // GVe · "similar" (default) | "citation" | "cited"
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
+		return
+	}
+
+	mode := "similar"
+	if body.Mode != nil && strings.TrimSpace(*body.Mode) != "" {
+		mode = strings.TrimSpace(*body.Mode)
+	}
+
+	// citation ("找它引用的") / cited ("找引用它的") both need a paper node's DOI,
+	// resolved lead -> connectedReferenceId -> reference -> extractDOI(Url).
+	// Unlike similar, these do NO query refine and NO LLM call at all —
+	// OpenAlex's own referenced_works/cites graph needs no keyword. No DOI (no
+	// reference connected, or its url has none) degrades to an empty tray
+	// rather than a 4xx — dig is best-effort throughout (铁律①: it only ever
+	// surfaces a tray, never forces a resolution path on the student).
+	if mode == "citation" || mode == "cited" {
+		doi := a.digResolvePaperDOI(r.Context(), projectID, body.LeadID)
+		if doi == "" {
+			httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(nil)})
+			return
+		}
+		var works []materialize.WorkMeta
+		if mode == "citation" {
+			works = a.d.Fetcher.ReferencedWorks(r.Context(), doi, 8)
+		} else {
+			works = a.d.Fetcher.CitingWorks(r.Context(), doi, 8)
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(works)})
 		return
 	}
 

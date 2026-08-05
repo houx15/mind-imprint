@@ -163,6 +163,7 @@ const ROOT_LEAD: ExplorationLead = {
   connectedReferenceId: null,
   position: 0,
   parentLeadId: null,
+  createdAt: "2026-08-01T00:00:00Z",
 };
 
 // A paper node nested UNDER the question node (parentLeadId = ROOT_LEAD.id),
@@ -176,6 +177,7 @@ const CHILD_PAPER: ExplorationLead = {
   connectedReferenceId: NASA_REF.id,
   position: 1,
   parentLeadId: ROOT_LEAD.id,
+  createdAt: "2026-08-01T00:05:00Z",
 };
 
 // A SECOND top-level question node — two roots make the map graph non-trivial
@@ -189,6 +191,7 @@ const SECOND_ROOT: ExplorationLead = {
   connectedReferenceId: null,
   position: 2,
   parentLeadId: null,
+  createdAt: "2026-08-01T00:10:00Z",
 };
 
 // A confirmed labeled edge between the two roots — the map must render its label.

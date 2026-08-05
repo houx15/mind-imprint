@@ -40,6 +40,13 @@ func extractDOI(u *url.URL) (string, bool) {
 	return "", false
 }
 
+// ExtractDOI is extractDOI, exported for callers outside this package —
+// dig's citation/cited modes (api.digExploration) need a paper's DOI (pulled
+// off its reference.Url) before they can call ReferencedWorks/CitingWorks.
+func ExtractDOI(u *url.URL) (string, bool) {
+	return extractDOI(u)
+}
+
 // cleanDOI trims wrapping punctuation a DOI never ends in.
 func cleanDOI(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), ".,;)")

@@ -61,7 +61,12 @@ export async function digDeeper(projectId: string, opts?: { leadId?: string; tho
   return ExplorationGuide.parse(raw);
 }
 
-export async function digExploration(projectId: string, opts: { leadId?: string; keyword?: string }): Promise<DigResult> {
+// GVe · mode selects the OpenAlex lookup: "similar" (default, keyword/lead-text
+// search) | "citation" (works this paper cites) | "cited" (works that cite it).
+export async function digExploration(
+  projectId: string,
+  opts: { leadId?: string; keyword?: string; mode?: "similar" | "citation" | "cited" },
+): Promise<DigResult> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/dig`, { method: "POST", body: JSON.stringify(opts) });
   return DigResult.parse(raw);
 }

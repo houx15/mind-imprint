@@ -91,6 +91,20 @@ func (f fakeFetcher) RelatedWorks(ctx context.Context, doi string, limit int) []
 	return f.works
 }
 
+func (f fakeFetcher) ReferencedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	if f.lastQuery != nil {
+		*f.lastQuery = doi
+	}
+	return f.works
+}
+
+func (f fakeFetcher) CitingWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	if f.lastQuery != nil {
+		*f.lastQuery = doi
+	}
+	return f.works
+}
+
 // countRows returns the row count of table (test-only helper; table is always
 // a fixed string literal from this file, never request input).
 func countRows(t *testing.T, pool *pgxpool.Pool, table string) int {

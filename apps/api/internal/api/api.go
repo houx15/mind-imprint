@@ -22,6 +22,11 @@ type Fetcher interface {
 	// real *materialize.HTTPFetcher returns nil on any failure, never an error.
 	SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta
 	RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
+	// ReferencedWorks/CitingWorks back dig's "citation"/"cited" modes — the
+	// works a paper cites, and the works that cite it. Same best-effort
+	// contract: nil on any failure, never an error.
+	ReferencedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
+	CitingWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
 }
 
 // Deps are everything the handlers need, wired once at startup.

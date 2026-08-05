@@ -19,6 +19,7 @@ const lead = {
   sourceReferenceId: "r1",
   connectedReferenceId: null,
   position: 0,
+  createdAt: "2026-08-01T00:00:00Z",
 };
 
 const edge = {
@@ -78,6 +79,16 @@ describe("ExplorationLead", () => {
   });
   it("rejects an unknown origin", () => {
     expect(() => ExplorationLead.parse({ ...lead, origin: "ai" })).toThrow();
+  });
+  // GVe · createdAt drives the question-node sidebar's created date; a
+  // required field the server must always emit.
+  it("parses createdAt (RFC3339)", () => {
+    const parsed = ExplorationLead.parse(lead);
+    expect(parsed.createdAt).toBe("2026-08-01T00:00:00Z");
+  });
+  it("rejects a lead missing createdAt", () => {
+    const { createdAt: _omit, ...noCreatedAt } = lead;
+    expect(() => ExplorationLead.parse(noCreatedAt)).toThrow();
   });
 });
 

@@ -26,6 +26,7 @@ function lead(overrides: Partial<ExplorationLead> & { id: string }): Exploration
     connectedReferenceId: null,
     position: 0,
     parentLeadId: null,
+    createdAt: "2026-08-01T00:00:00Z",
     ...overrides,
   };
 }

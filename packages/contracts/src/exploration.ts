@@ -21,6 +21,8 @@ export const ExplorationLead = z.object({
   position: z.number(),
   // #12 · a 分支 hangs under a parent lead; null = a top-level thread.
   parentLeadId: z.string().nullable().default(null),
+  // GVe · RFC3339, for the question-node sidebar (created date + origin).
+  createdAt: z.string(),
 });
 export type ExplorationLead = z.infer<typeof ExplorationLead>;
 

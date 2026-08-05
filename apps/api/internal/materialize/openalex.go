@@ -50,6 +50,10 @@ type openAlexWork struct {
 		} `json:"author"`
 	} `json:"authorships"`
 	AbstractInvertedIndex map[string][]int `json:"abstract_inverted_index"`
+	// ReferencedWorks is the list of OpenAlex work ids (full URL form) THIS
+	// work cites — only present on the single-work DOI lookup, used by
+	// ReferencedWorks to fan out into a batched openalex_id filter query.
+	ReferencedWorks []string `json:"referenced_works"`
 }
 
 func toWorkMeta(w openAlexWork) WorkMeta {
@@ -165,8 +169,48 @@ func (f *HTTPFetcher) RelatedWorks(ctx context.Context, doi string, limit int) [
 	if id == "" {
 		return nil
 	}
+	return f.filterWorksMeta(ctx, "related_to:"+id, limit)
+}
+
+// ReferencedWorks resolves doi to its OpenAlex work object, then fetches the
+// metadata of up to limit works THIS paper cites — its own referenced_works
+// id list, batched into one openalex_id:<W1>|<W2>|... filter query (pipe =
+// OR). Best-effort: returns nil on any failure, including doi resolution or
+// an empty referenced_works list.
+func (f *HTTPFetcher) ReferencedWorks(ctx context.Context, doi string, limit int) []WorkMeta {
+	w, ok := f.resolveWork(ctx, doi)
+	if !ok || len(w.ReferencedWorks) == 0 {
+		return nil
+	}
+	ids := w.ReferencedWorks
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	bare := make([]string, 0, len(ids))
+	for _, id := range ids {
+		bare = append(bare, stripWorkID(id))
+	}
+	return f.filterWorksMeta(ctx, "openalex_id:"+strings.Join(bare, "|"), limit)
+}
+
+// CitingWorks resolves doi to its OpenAlex work id, then returns up to limit
+// works that CITE this paper (cites:<workid>). Best-effort: returns nil on
+// any failure, including the initial doi resolution.
+func (f *HTTPFetcher) CitingWorks(ctx context.Context, doi string, limit int) []WorkMeta {
+	id := f.resolveWorkID(ctx, doi)
+	if id == "" {
+		return nil
+	}
+	return f.filterWorksMeta(ctx, "cites:"+stripWorkID(id), limit)
+}
+
+// filterWorksMeta issues a filter query against openAlexBase (the shared
+// second step of every OpenAlex lookup that starts from a resolved work id —
+// RelatedWorks/ReferencedWorks/CitingWorks) and maps the results envelope to
+// WorkMeta. Best-effort: returns nil on any failure.
+func (f *HTTPFetcher) filterWorksMeta(ctx context.Context, filter string, limit int) []WorkMeta {
 	q := url.Values{}
-	q.Set("filter", "related_to:"+id)
+	q.Set("filter", filter)
 	q.Set("per-page", strconv.Itoa(limit))
 	q.Set("mailto", "hi@mind-imprint.uni-robot.cn")
 	works := f.fetchWorks(ctx, openAlexBase, q.Encode())
@@ -180,13 +224,30 @@ func (f *HTTPFetcher) RelatedWorks(ctx context.Context, doi string, limit int) [
 	return metas
 }
 
-// resolveWorkID looks up a single OpenAlex work by DOI and returns its id
-// (e.g. "https://openalex.org/W123"), or "" on any failure.
-func (f *HTTPFetcher) resolveWorkID(ctx context.Context, doi string) string {
+// stripWorkID trims OpenAlex's full URL id form ("https://openalex.org/W123")
+// down to the bare id ("W123") filter queries expect.
+func stripWorkID(id string) string {
+	return strings.TrimPrefix(id, "https://openalex.org/")
+}
+
+// resolveWork looks up a single OpenAlex work by DOI and returns the full
+// work object (id, referenced_works, ...), or a zero value + false on any
+// failure.
+func (f *HTTPFetcher) resolveWork(ctx context.Context, doi string) (openAlexWork, bool) {
 	var out openAlexWork
 	rawURL := openAlexBase + "/doi:" + url.PathEscape(doi) + "?mailto=hi@mind-imprint.uni-robot.cn"
 	if !f.openAlexGet(ctx, rawURL, &out) {
+		return openAlexWork{}, false
+	}
+	return out, true
+}
+
+// resolveWorkID looks up a single OpenAlex work by DOI and returns its id
+// (e.g. "https://openalex.org/W123"), or "" on any failure.
+func (f *HTTPFetcher) resolveWorkID(ctx context.Context, doi string) string {
+	w, ok := f.resolveWork(ctx, doi)
+	if !ok {
 		return ""
 	}
-	return out.ID
+	return w.ID
 }
