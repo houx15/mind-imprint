@@ -466,6 +466,115 @@ func TestExplorationDig_KeywordReturnsCandidates(t *testing.T) {
 	}
 }
 
+// adoptView is the test's decode shape for POST .../exploration/adopt.
+type adoptView struct {
+	Lead      explorationLeadView `json:"lead"`
+	Reference referenceView       `json:"reference"`
+}
+
+// TestExplorationAdopt_CreatesReferenceAndLead — Task A4: adopting a tray
+// candidate is the ONLY way a dig result becomes a node on the map (铁律①:
+// student confirms). One transaction must create BOTH the reference
+// (auto-shelved reading_status="reading") and the lead that connects to it
+// (origin="guide", connectedReferenceId=the new reference, parentLeadId=the
+// dug node) — the map should never show a floating half-created row.
+func TestExplorationAdopt_CreatesReferenceAndLead(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: fakeFetcher{}}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// A parent lead to dig from — mirrors the tray's "从这条线索深挖" origin.
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"中国的碳排放到底有多少"}`)
+	var parent struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &parent); err != nil {
+		t.Fatalf("decode parent: %v — %s", err, rec.Body)
+	}
+	parentID := parent.Lead.ID
+
+	body := `{"parentLeadId":"` + parentID + `","candidate":{"doi":"10.1/x","title":"Nature Sust 2023","authors":"Li","year":"2023","journal":"Nature Sustainability","abstract":"...","url":"https://n/x"}}`
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/adopt", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("adopt = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var out adoptView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode adopt response: %v — %s", err, rec.Body)
+	}
+	if out.Reference.ReadingStatus != "reading" {
+		t.Fatalf("reference.readingStatus = %q, want reading", out.Reference.ReadingStatus)
+	}
+	if out.Reference.Title != "Nature Sust 2023" {
+		t.Fatalf("reference.title = %q, want Nature Sust 2023", out.Reference.Title)
+	}
+	if out.Reference.Author != "Li" || out.Reference.Year != "2023" || out.Reference.Journal != "Nature Sustainability" {
+		t.Fatalf("reference meta not filled from candidate: %+v", out.Reference)
+	}
+	if out.Lead.Origin != "guide" {
+		t.Fatalf("lead.origin = %q, want guide", out.Lead.Origin)
+	}
+	if out.Lead.Status != "connected" {
+		t.Fatalf("lead.status = %q, want connected", out.Lead.Status)
+	}
+	if out.Lead.ConnectedReferenceID == nil || *out.Lead.ConnectedReferenceID != out.Reference.ID {
+		t.Fatalf("lead.connectedReferenceId = %v, want %s", out.Lead.ConnectedReferenceID, out.Reference.ID)
+	}
+	if out.Lead.ParentLeadID == nil || *out.Lead.ParentLeadID != parentID {
+		t.Fatalf("lead.parentLeadId = %v, want %s", out.Lead.ParentLeadID, parentID)
+	}
+
+	// GET /exploration reflects the newly connected lead — both rows really
+	// landed, not just echoed in the response.
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	found := false
+	for _, l := range view.Leads {
+		if l.ID == out.Lead.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("adopted lead not present in GET /exploration: %+v", view.Leads)
+	}
+}
+
+// An empty candidate title is rejected before any DB write (400) — the
+// tray must always carry at least a title from OpenAlex/materialize.
+func TestExplorationAdopt_RejectsEmptyTitle(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: fakeFetcher{}}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/adopt", `{"candidate":{"doi":"10.1/x"}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("adopt empty title = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
+
+// A parentLeadId that isn't a lead in this project is rejected (IDOR guard),
+// mirroring createExplorationLead's own parentLeadId check.
+func TestExplorationAdopt_RejectsForeignParentLead(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: fakeFetcher{}}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	body := `{"parentLeadId":"` + uuid.NewString() + `","candidate":{"title":"T"}}`
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/adopt", body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("adopt foreign parent = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
+
 func containsID(ids []string, id string) bool {
 	for _, x := range ids {
 		if x == id {

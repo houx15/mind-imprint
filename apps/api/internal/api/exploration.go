@@ -508,3 +508,136 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	works := a.d.Fetcher.SearchWorks(r.Context(), query, 8)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(works)})
 }
+
+// -- POST /exploration/adopt (no LLM, no metering) --------------------------
+
+// adoptExploration is the ONLY way a tray candidate (digExploration's output)
+// becomes a node on the map — 铁律①: the AI only ever surfaces a tray, the
+// student's explicit "adopt" is what commits it. One transaction creates BOTH
+// the reference (bibliographic fields from the candidate, auto-shelved
+// reading_status="reading" — a source the student just pulled off the dig
+// tray is, by construction, one she's about to read) AND the lead that
+// connects to it (origin="guide" — it was surfaced by a dig, not typed in
+// manually; status="connected" since it's born already answered;
+// connectedReferenceId=the new reference; parentLeadId=the dug node, or
+// absent for a fresh top-level thread) — both rows land together or neither
+// does, so the map never shows a floating half-created reference with no
+// lead, or a lead pointing at a reference that doesn't exist.
+func (a *API) adoptExploration(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ParentLeadID *string         `json:"parentLeadId"`
+		Candidate    digCandidateDTO `json:"candidate"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(body.Candidate.Title) == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "候选的标题不能是空的", nil))
+		return
+	}
+
+	// Optional parent: validate it's a lead in THIS project (IDOR), exactly as
+	// createExplorationLead does for a manual 分支.
+	var parent pgtype.UUID
+	if body.ParentLeadID != nil && strings.TrimSpace(*body.ParentLeadID) != "" {
+		pid, perr := uuid.Parse(*body.ParentLeadID)
+		if perr != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是有效的 id", nil))
+			return
+		}
+		if _, err := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: pid, ProjectID: projectID}); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是这个项目里的线索", nil))
+			return
+		}
+		parent = pgtype.UUID{Bytes: pid, Valid: true}
+	}
+
+	// position = count of existing children under the same parent (createExplorationLead's
+	// convention, scoped to this parent rather than the whole project).
+	existing, err := a.d.Queries.ListExplorationLeads(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var position int32
+	for _, l := range existing {
+		if l.ParentLeadID == parent {
+			position++
+		}
+	}
+
+	url := strings.TrimSpace(body.Candidate.URL)
+	if url == "" && strings.TrimSpace(body.Candidate.DOI) != "" {
+		url = "https://doi.org/" + strings.TrimSpace(body.Candidate.DOI)
+	}
+
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	ref, err := qtx.CreateReference(r.Context(), sqlc.CreateReferenceParams{
+		ProjectID:   projectID,
+		Title:       body.Candidate.Title,
+		Author:      body.Candidate.Authors,
+		Year:        body.Candidate.Year,
+		Url:         url,
+		Tags:        stringsToJSONB(nil),
+		Evaluation:  "",
+		SearchHints: stringsToJSONB(nil),
+		Abstract:    body.Candidate.Abstract,
+		Journal:     body.Candidate.Journal,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// CreateReference has no reading_status param — new rows take the column's
+	// DB default ("to_read"); UpdateReference (same query patchReference uses)
+	// is the only writer of reading_status, so auto-shelving to "reading" goes
+	// through it, still inside this transaction so both rows commit together.
+	ref, err = qtx.UpdateReference(r.Context(), sqlc.UpdateReferenceParams{
+		ID: ref.ID, ProjectID: projectID,
+		Title: ref.Title, Classification: ref.Classification, Author: ref.Author, Credentials: ref.Credentials,
+		Year: ref.Year, Url: ref.Url, Tags: ref.Tags, CollectionID: ref.CollectionID,
+		Credibility: ref.Credibility, Evaluation: ref.Evaluation, Decision: ref.Decision,
+		Pending: ref.Pending, SearchHints: ref.SearchHints, ReadingNote: ref.ReadingNote,
+		Abstract: ref.Abstract, Journal: ref.Journal, ReadingStatus: "reading",
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	lead, err := qtx.CreateExplorationLead(r.Context(), sqlc.CreateExplorationLeadParams{
+		ProjectID:            projectID,
+		Text:                 body.Candidate.Title,
+		Status:               "connected",
+		Origin:               "guide",
+		ConnectedReferenceID: pgtype.UUID{Bytes: ref.ID, Valid: true},
+		Position:             position,
+		ParentLeadID:         parent,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
+		"lead":      toExplorationLeadDTO(lead),
+		"reference": toReferenceDTO(ref, nil),
+	})
+}

@@ -100,6 +100,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.deleteExplorationLead))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/guide", protected(a.postExplorationGuide))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/dig", protected(a.digExploration))
+	mux.Handle("POST /api/v1/projects/{id}/exploration/adopt", protected(a.adoptExploration))
 	mux.Handle("POST /api/v1/projects/{id}/cards/persist", protected(a.postPersistProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/reflect", protected(a.postReflectProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/dismiss-proposal", protected(a.postDismissProposal))
