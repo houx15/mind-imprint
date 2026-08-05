@@ -11,6 +11,14 @@ import type {
 import { enterReading, NoReadableContentError } from "../../api/workspace";
 import { adoptCandidate, createLead, digExploration, getExploration, patchLead } from "../../../api/exploration";
 import { DigTray, trayKey } from "./DigTray";
+import { WarrenMap } from "./WarrenMap";
+
+// B4a · which zoom the student last left this project on. Persisted module-side
+// (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
+// question she was inside. "map" = the overview graph of root questions; "hole"
+// = one question's subtree (the A6 tree, scoped to focusRootId).
+type ZoomState = { mode: "map" | "hole"; focusRootId: string | null };
+const zoomMemo = new Map<string, ZoomState>();
 
 // A6 · "inside-a-hole" exploration view, decluttered to THREE actions:
 //   1. 看地图 — one question-rooted tree (top-level question/keyword nodes as
@@ -68,6 +76,20 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [enteringRefId, setEnteringRefId] = useState<string | null>(null);
   const [actionError, setActionError] = useState(false);
+
+  // B4a · two-level zoom. Restore where she was; default to the map overview.
+  const [zoom, setZoom] = useState<ZoomState>(() => zoomMemo.get(projectId) ?? { mode: "map", focusRootId: null });
+  function goZoom(next: ZoomState) {
+    zoomMemo.set(projectId, next);
+    setZoom(next);
+  }
+  const zoomInto = (rootId: string) => goZoom({ mode: "hole", focusRootId: rootId });
+  const backToMap = () => {
+    setDigTarget(null);
+    setTray([]);
+    setDigError(false);
+    goZoom({ mode: "map", focusRootId: null });
+  };
 
   // Action 2 · the single root input that creates a NEW top-level question node.
   const [newQuestion, setNewQuestion] = useState("");
@@ -232,6 +254,47 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   }, [view.leads]);
   const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
 
+  // B4a map data. countByRoot = total descendants under each root (papers +
+  // sub-questions); shown as the node's "挂了 N 项" tally.
+  const countByRoot = useMemo(() => {
+    const count = (id: string): number => {
+      const kids = childrenByParent.get(id) ?? [];
+      return kids.reduce((sum, k) => sum + 1 + count(k.id), 0);
+    };
+    return new Map(roots.map((r) => [r.id, count(r.id)]));
+  }, [roots, childrenByParent]);
+
+  // 同源 hint pairs: two roots whose subtrees adopted the SAME paper
+  // (connectedReferenceId). Derived client-side from the leads — NOT a
+  // question_edge — so the map can show a faint "same source" cross-link.
+  const sameSourcePairs = useMemo(() => {
+    const refsUnder = (rootId: string): Set<string> => {
+      const acc = new Set<string>();
+      const walk = (id: string) => {
+        const self = view.leads.find((l) => l.id === id);
+        if (self?.connectedReferenceId) acc.add(self.connectedReferenceId);
+        for (const k of childrenByParent.get(id) ?? []) walk(k.id);
+      };
+      walk(rootId);
+      return acc;
+    };
+    const rootRefs = roots.map((r) => [r.id, refsUnder(r.id)] as const);
+    const pairs: Array<[string, string]> = [];
+    for (let i = 0; i < rootRefs.length; i++) {
+      const [ai, aset] = rootRefs[i]!;
+      for (let j = i + 1; j < rootRefs.length; j++) {
+        const [bi, bset] = rootRefs[j]!;
+        if ([...aset].some((x) => bset.has(x))) pairs.push([ai, bi]);
+      }
+    }
+    return pairs;
+  }, [roots, childrenByParent, view.leads]);
+
+  // The root the student is currently zoomed into (hole mode). If it vanished
+  // (deleted elsewhere), fall back to the map rather than a blank subtree.
+  const focusRoot = zoom.mode === "hole" ? roots.find((r) => r.id === zoom.focusRootId) ?? null : null;
+  const inHole = zoom.mode === "hole" && focusRoot != null;
+
   if (loading) {
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载探索图谱中…</div>;
   }
@@ -239,49 +302,31 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-mk-bg/40">
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="mb-4">
-          <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
-          <p className="mt-0.5 text-[12px] text-mk-muted-2">
-            从一个你想弄清楚的问题出发，让印记帮你往下挖相关论文——一眼看全这条线怎么长出来的
-          </p>
-        </div>
+        {inHole ? (
+          /* ---------- HOLE · one question's subtree (the A6 tree) ---------- */
+          <>
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={backToMap}
+                className="mb-2 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+              >
+                ← 返回地图
+              </button>
+              <h2 className="font-sans text-[15px] font-bold text-mk-ink">{focusRoot!.text}</h2>
+              <p className="mt-0.5 text-[12px] text-mk-muted-2">
+                点「深挖」让印记顺着它给你几篇相关论文，采纳的会挂到这条线下面
+              </p>
+            </div>
 
-        {/* Action 2 · the single root input — creates a top-level question node. */}
-        <div className="mb-5 flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
-          <input
-            value={newQuestion}
-            onChange={(e) => setNewQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createQuestion();
-            }}
-            placeholder="记一个你想弄清楚的问题……（比如「中国碳排放全球第一，这跟可持续矛盾吗？」）"
-            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2"
-          />
-          <button
-            type="button"
-            onClick={createQuestion}
-            disabled={creatingQuestion || !newQuestion.trim()}
-            className="flex-none rounded-mk bg-mk-primary px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
-          >
-            {creatingQuestion ? "记录中…" : "记下问题"}
-          </button>
-        </div>
+            {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
 
-        {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
-
-        {roots.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
-            <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
-            <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
-              在上面记下一个你想弄清楚的问题，再点它的「深挖」——印记就会顺着它给你几篇相关论文，采纳的会挂到这条线下面，慢慢长成一张图。
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {roots.map((l) => (
+            {/* Only the focused root's subtree — scoped to focusRootId. Child
+                recursion (via childrenByParent) is unchanged, so adopted papers
+                still nest under their node; a paper is NEVER rendered as a root. */}
+            <div className="flex flex-col gap-2.5">
               <LeadNode
-                key={l.id}
-                lead={l}
+                lead={focusRoot!}
                 childrenByParent={childrenByParent}
                 references={references}
                 busyLeadIds={busyLeadIds}
@@ -292,8 +337,58 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                 onEnterReading={onEnterReading ? enterSource : undefined}
                 enteringRefId={enteringRefId}
               />
-            ))}
-          </div>
+            </div>
+          </>
+        ) : (
+          /* ---------- MAP · the overview graph of root questions ---------- */
+          <>
+            <div className="mb-4">
+              <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
+              <p className="mt-0.5 text-[12px] text-mk-muted-2">
+                每个卡片是一个你想弄清楚的问题——点开一个，就能顺着它往下挖相关论文
+              </p>
+            </div>
+
+            {/* Action 2 · the single root input — creates a top-level question node. */}
+            <div className="mb-5 flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
+              <input
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createQuestion();
+                }}
+                placeholder="记一个你想弄清楚的问题……（比如「中国碳排放全球第一，这跟可持续矛盾吗？」）"
+                className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+              />
+              <button
+                type="button"
+                onClick={createQuestion}
+                disabled={creatingQuestion || !newQuestion.trim()}
+                className="flex-none rounded-mk bg-mk-primary px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
+              >
+                {creatingQuestion ? "记录中…" : "记下问题"}
+              </button>
+            </div>
+
+            {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
+
+            {roots.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
+                <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
+                <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
+                  在上面记下一个你想弄清楚的问题，点开它再「深挖」——印记就会顺着它给你几篇相关论文，采纳的会挂到这条线下面，慢慢长成一张图。
+                </p>
+              </div>
+            ) : (
+              <WarrenMap
+                roots={roots}
+                countByRoot={countByRoot}
+                edges={view.edges}
+                sameSourcePairs={sameSourcePairs}
+                onZoom={zoomInto}
+              />
+            )}
+          </>
         )}
       </div>
 
