@@ -12,8 +12,10 @@ import { enterReading, NoReadableContentError } from "../../api/workspace";
 import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
+  createEdge,
   createLead,
   deleteEdge,
+  deleteLead,
   digExploration,
   getExploration,
   patchEdge,
@@ -22,6 +24,7 @@ import {
 } from "../../../api/exploration";
 import { DigTray, trayKey } from "./DigTray";
 import { WarrenMap } from "./WarrenMap";
+import { countPapersByRoot } from "./warrenLayout";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
 // (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
@@ -284,6 +287,22 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const relabelEdge = (eid: string, label: QuestionEdgeLabel) =>
     void withEdgeBusy(eid, () => patchEdge(projectId, eid, { label }));
 
+  // GVa · a student-drawn relation (dragged node-to-node on the map). createEdge
+  // lands confirmed server-side (it's the student's own action), then refetch so
+  // the new solid edge appears. A brand-new edge has no id yet → no busy guard.
+  async function createRelation(fromLeadId: string, toLeadId: string, label: QuestionEdgeLabel) {
+    setActionError(false);
+    try {
+      await createEdge(projectId, { fromLeadId, toLeadId, label });
+      await refresh();
+    } catch {
+      setActionError(true);
+    }
+  }
+  // GVa · × on a map node → deleteLead (children cascade server-side), then refetch.
+  const removeRoot = (leadId: string) =>
+    void withBusy(leadId, () => deleteLead(projectId, leadId)).catch(() => setActionError(true));
+
   async function enterSource(ref: Reference) {
     if (!onEnterReading || enteringRefId) return;
     setMenuFor(null);
@@ -315,41 +334,9 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   }, [view.leads]);
   const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
 
-  // B4a map data. countByRoot = total descendants under each root (papers +
-  // sub-questions); shown as the node's "挂了 N 项" tally.
-  const countByRoot = useMemo(() => {
-    const count = (id: string): number => {
-      const kids = childrenByParent.get(id) ?? [];
-      return kids.reduce((sum, k) => sum + 1 + count(k.id), 0);
-    };
-    return new Map(roots.map((r) => [r.id, count(r.id)]));
-  }, [roots, childrenByParent]);
-
-  // 同源 hint pairs: two roots whose subtrees adopted the SAME paper
-  // (connectedReferenceId). Derived client-side from the leads — NOT a
-  // question_edge — so the map can show a faint "same source" cross-link.
-  const sameSourcePairs = useMemo(() => {
-    const refsUnder = (rootId: string): Set<string> => {
-      const acc = new Set<string>();
-      const walk = (id: string) => {
-        const self = view.leads.find((l) => l.id === id);
-        if (self?.connectedReferenceId) acc.add(self.connectedReferenceId);
-        for (const k of childrenByParent.get(id) ?? []) walk(k.id);
-      };
-      walk(rootId);
-      return acc;
-    };
-    const rootRefs = roots.map((r) => [r.id, refsUnder(r.id)] as const);
-    const pairs: Array<[string, string]> = [];
-    for (let i = 0; i < rootRefs.length; i++) {
-      const [ai, aset] = rootRefs[i]!;
-      for (let j = i + 1; j < rootRefs.length; j++) {
-        const [bi, bset] = rootRefs[j]!;
-        if ([...aset].some((x) => bset.has(x))) pairs.push([ai, bi]);
-      }
-    }
-    return pairs;
-  }, [roots, childrenByParent, view.leads]);
+  // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
+  // carrying a connectedReferenceId) under each root, not raw descendant count.
+  const countByRoot = useMemo(() => countPapersByRoot(view.leads), [view.leads]);
 
   // The root the student is currently zoomed into (hole mode). If it vanished
   // (deleted elsewhere), fall back to the map rather than a blank subtree.
@@ -406,7 +393,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
             <div className="mb-4">
               <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
               <p className="mt-0.5 text-[12px] text-mk-muted-2">
-                每个卡片是一个你想弄清楚的问题——点开一个，就能顺着它往下挖相关论文
+                每个问题是一个节点——点开一个，就能顺着它往下挖相关论文
               </p>
             </div>
 
@@ -458,15 +445,17 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
                   </div>
                 )}
                 <WarrenMap
+                  projectId={projectId}
                   roots={roots}
                   countByRoot={countByRoot}
                   edges={view.edges}
-                  sameSourcePairs={sameSourcePairs}
                   onZoom={zoomInto}
                   busyEdgeIds={busyEdgeIds}
                   onConfirmEdge={confirmEdge}
                   onDismissEdge={dismissEdge}
                   onRelabelEdge={relabelEdge}
+                  onCreateEdge={createRelation}
+                  onDeleteLead={removeRoot}
                 />
               </>
             )}
