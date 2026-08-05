@@ -40,3 +40,20 @@ export type GuideDirection = z.infer<typeof GuideDirection>;
 
 export const ExplorationGuide = z.object({ directions: z.array(GuideDirection) });
 export type ExplorationGuide = z.infer<typeof ExplorationGuide>;
+
+// #A3 · one OpenAlex candidate surfaced by POST /exploration/dig — the
+// client-side tray, not the map. Adopting one into the map is a separate,
+// explicit student action; dig itself never persists anything.
+export const DigCandidate = z.object({
+  doi: z.string(),
+  title: z.string(),
+  authors: z.string(),
+  year: z.string(),
+  journal: z.string(),
+  abstract: z.string(),
+  url: z.string(),
+});
+export type DigCandidate = z.infer<typeof DigCandidate>;
+
+export const DigResult = z.object({ candidates: z.array(DigCandidate) });
+export type DigResult = z.infer<typeof DigResult>;

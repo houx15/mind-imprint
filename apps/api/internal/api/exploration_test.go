@@ -14,6 +14,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -419,6 +420,49 @@ func TestComputeDanglingSourceIds(t *testing.T) {
 	dangling = ComputeDanglingSourceIdsForTest(refs, spawnLeadsPruned)
 	if !containsID(dangling, spawner.ID.String()) {
 		t.Fatalf("dangling = %v, want spawner dangling again once its only spawned lead is pruned", dangling)
+	}
+}
+
+// digCandidatesView is the test's decode shape for POST .../exploration/dig.
+type digCandidatesView struct {
+	Candidates []struct {
+		DOI      string `json:"doi"`
+		Title    string `json:"title"`
+		Authors  string `json:"authors"`
+		Year     string `json:"year"`
+		Journal  string `json:"journal"`
+		Abstract string `json:"abstract"`
+		URL      string `json:"url"`
+	} `json:"candidates"`
+}
+
+// TestExplorationDig_KeywordReturnsCandidates — #A3: a free-text keyword digs
+// OpenAlex (via the Fetcher seam, faked here) and returns candidates straight
+// to the client tray. Not persisted (no DB row asserted), not metered (no LLM
+// call — OpenAlex isn't an LLM, so there is no llm_call assertion here at all).
+func TestExplorationDig_KeywordReturnsCandidates(t *testing.T) {
+	pool := newAPITestPool(t)
+	cookie := signInSeed(t, pool)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID,
+		Fetcher: fakeFetcher{works: []materialize.WorkMeta{{DOI: "10.1/x", Title: "T", Year: "2023"}}},
+	}).Handler()
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/dig", `{"keyword":"china carbon"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dig = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var out digCandidatesView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode dig response: %v — %s", err, rec.Body)
+	}
+	if len(out.Candidates) != 1 {
+		t.Fatalf("candidates = %+v, want 1", out.Candidates)
+	}
+	if out.Candidates[0].Title != "T" || out.Candidates[0].DOI != "10.1/x" || out.Candidates[0].Year != "2023" {
+		t.Fatalf("unexpected candidate: %+v", out.Candidates[0])
 	}
 }
 

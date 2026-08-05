@@ -17,6 +17,11 @@ import (
 // explicit POST /projects/{id}/materials reaches it (RL-2, spec §4).
 type Fetcher interface {
 	FetchReadable(ctx context.Context, rawURL string) (title, text string, meta *materialize.DOIMeta, err error)
+	// SearchWorks/RelatedWorks (#A2) back the exploration "深挖" tray: OpenAlex
+	// candidates for a keyword or a paper's related works. Best-effort — the
+	// real *materialize.HTTPFetcher returns nil on any failure, never an error.
+	SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta
+	RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
 }
 
 // Deps are everything the handlers need, wired once at startup.
@@ -94,6 +99,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.patchExplorationLead))
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.deleteExplorationLead))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/guide", protected(a.postExplorationGuide))
+	mux.Handle("POST /api/v1/projects/{id}/exploration/dig", protected(a.digExploration))
 	mux.Handle("POST /api/v1/projects/{id}/cards/persist", protected(a.postPersistProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/reflect", protected(a.postReflectProjectCard))
 	mux.Handle("POST /api/v1/projects/{id}/cards/dismiss-proposal", protected(a.postDismissProposal))

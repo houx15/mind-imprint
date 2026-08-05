@@ -35,7 +35,12 @@ const materialsTestProjectID = "00000000-0000-0000-0000-000000000101"
 // httptest server — and extracts <title>/<p> text with a couple of regexps.
 // This never touches, weakens, or bypasses the production
 // materialize.NewFetcher() SSRF guard, which is not used by this test at all.
-type fakeFetcher struct{}
+// works is a canned OpenAlex reply for tests exercising the exploration dig
+// endpoint (#A3) — SearchWorks/RelatedWorks just hand it back verbatim, since
+// this fake never actually calls OpenAlex.
+type fakeFetcher struct {
+	works []materialize.WorkMeta
+}
 
 var (
 	fakeTitleRe = regexp.MustCompile(`(?is)<title>(.*?)</title>`)
@@ -66,6 +71,16 @@ func (fakeFetcher) FetchReadable(ctx context.Context, rawURL string) (string, st
 		paras = append(paras, strings.TrimSpace(m[1]))
 	}
 	return title, strings.Join(paras, "\n\n"), nil, nil
+}
+
+// SearchWorks/RelatedWorks (#A3) just return the canned works — the fake
+// never calls OpenAlex, it only needs to satisfy the widened Fetcher seam.
+func (f fakeFetcher) SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta {
+	return f.works
+}
+
+func (f fakeFetcher) RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	return f.works
 }
 
 // countRows returns the row count of table (test-only helper; table is always

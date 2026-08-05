@@ -12,6 +12,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -428,4 +429,82 @@ func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"directions": toGuideDirectionDTOs(directions)})
+}
+
+// -- POST /exploration/dig (OpenAlex, NOT an LLM — no llm_call, no persist) -
+
+// digCandidateDTO mirrors contracts's DigCandidate — camelCase over
+// materialize.WorkMeta, straight to the client's tray. Adopting a candidate
+// into the map is a separate, explicit student action (铁律①); this endpoint
+// only surfaces options.
+type digCandidateDTO struct {
+	DOI      string `json:"doi"`
+	Title    string `json:"title"`
+	Authors  string `json:"authors"`
+	Year     string `json:"year"`
+	Journal  string `json:"journal"`
+	Abstract string `json:"abstract"`
+	URL      string `json:"url"`
+}
+
+func toDigCandidateDTOs(works []materialize.WorkMeta) []digCandidateDTO {
+	out := make([]digCandidateDTO, 0, len(works))
+	for _, w := range works {
+		out = append(out, digCandidateDTO{
+			DOI: w.DOI, Title: w.Title, Authors: w.Authors, Year: w.Year,
+			Journal: w.Journal, Abstract: w.Abstract, URL: w.URL,
+		})
+	}
+	return out
+}
+
+// digExploration runs an OpenAlex search from a free-text keyword, or from a
+// lead's own question text, and hands candidates straight to the client-side
+// tray — no persistence, no metering (OpenAlex is not an LLM; a fetch isn't a
+// spend). A keyword wins when both are supplied. reference has no DOI column
+// today (only a free-text url), so the RelatedWorks branch — widening around
+// a lead's already-connected paper instead of re-searching its question text
+// — is left for a follow-up once a DOI is actually resolvable off a
+// reference; SearchWorks covers both keyword and lead-text digs for now.
+func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	var body struct {
+		LeadID  *string `json:"leadId"`
+		Keyword *string `json:"keyword"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	query := ""
+	if body.Keyword != nil {
+		query = strings.TrimSpace(*body.Keyword)
+	}
+	if query == "" && body.LeadID != nil && strings.TrimSpace(*body.LeadID) != "" {
+		if lid, perr := uuid.Parse(*body.LeadID); perr == nil {
+			if lead, lerr := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: lid, ProjectID: projectID}); lerr == nil {
+				query = lead.Text
+			}
+		}
+	}
+	if query == "" {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(nil)})
+		return
+	}
+
+	works := a.d.Fetcher.SearchWorks(r.Context(), query, 8)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(works)})
 }

@@ -546,6 +546,14 @@ func (errFetcher) FetchReadable(ctx context.Context, rawURL string) (string, str
 	return "", "", nil, fmt.Errorf("simulated fetch failure")
 }
 
+func (errFetcher) SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta {
+	return nil
+}
+
+func (errFetcher) RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	return nil
+}
+
 // TestEnterReadingFetchFailed422 — a reference with a URL that can't be fetched
 // returns 422 with a standard {error:{code:"fetch_failed",message}} envelope so
 // the reading-room client can offer its paste-body fallback (BE1).
@@ -806,6 +814,14 @@ func (metaFetcher) FetchReadable(ctx context.Context, rawURL string) (string, st
 	}}
 }
 
+func (metaFetcher) SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta {
+	return nil
+}
+
+func (metaFetcher) RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	return nil
+}
+
 // #4 · opening a DOI whose full text can't be fetched fills the reference's empty
 // author/year from Crossref metadata, and the 422 carries it for the paste box.
 func TestEnterReading_DOIMetaFillsBib(t *testing.T) {
@@ -851,6 +867,14 @@ func (metaSuccessFetcher) FetchReadable(ctx context.Context, rawURL string) (str
 	return "论文标题", "正文第一段。\n\n正文第二段。", &materialize.DOIMeta{
 		Author: "E F; G H", Year: "2019", Journal: "自然可持续", Abstract: "这是持久化的摘要。",
 	}, nil
+}
+
+func (metaSuccessFetcher) SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta {
+	return nil
+}
+
+func (metaSuccessFetcher) RelatedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
+	return nil
 }
 
 // #4 · opening a DOI whose full text DOES fetch still persists the recovered
