@@ -210,21 +210,8 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
 
   return (
     <div className="flex h-full w-full bg-mk-bg font-sans text-mk-ink">
-      {!fullscreen && (
-        <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} onFullscreen={toggleFullscreen} />
-      )}
+      <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} collapsed={fullscreen} onToggleCollapsed={toggleFullscreen} />
       <main className="relative min-w-0 flex-1 overflow-hidden">
-        {/* Full-screen mode · a small floating control to bring the rail back. */}
-        {fullscreen && (
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            title="退出全屏"
-            className="absolute left-3 top-3 z-40 flex items-center gap-1.5 rounded-full border border-mk-border bg-mk-surface/95 px-3 py-1.5 text-[12px] font-bold text-mk-muted-2 shadow-sm backdrop-blur hover:border-mk-primary hover:text-mk-primary"
-          >
-            <Icon name="back" size={15} /> 退出全屏
-          </button>
-        )}
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
             {summary && !summaryDismissed && (
@@ -314,12 +301,20 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
   );
 }
 
-// A small "expand to full screen" glyph (diagonal out-arrows). Local to the
-// rail — the shared Icon set has no full-screen name and this is its only use.
+// Fold glyphs (diagonal arrows). Local to the rail — the shared Icon set has no
+// full-screen names and these are their only use. Out-arrows = expand to full
+// screen (fold the rail); in-arrows = restore the rail.
 function ExpandIcon() {
   return (
     <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+    </svg>
+  );
+}
+function CollapseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5" />
     </svg>
   );
 }
@@ -329,14 +324,54 @@ function Rail({
   onRoom,
   onBack,
   workspace,
-  onFullscreen,
+  collapsed,
+  onToggleCollapsed,
 }: {
   room: BlockKey;
   onRoom: (b: BlockKey) => void;
   onBack: () => void;
   workspace: WorkspaceProjection | null;
-  onFullscreen: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
+  // Folded (full-screen) · a slim icon strip: the active room gets the whole
+  // width, but room navigation and a one-tap way back stay reachable — no
+  // content-overlapping overlay.
+  if (collapsed) {
+    return (
+      <nav className="flex w-[52px] flex-none flex-col items-center border-r border-mk-border bg-mk-surface py-3">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title="退出全屏（展开侧栏）"
+          aria-label="退出全屏"
+          className="mb-4 flex h-8 w-8 items-center justify-center rounded-mk text-mk-muted-2 hover:bg-mk-bg hover:text-mk-primary"
+        >
+          <ExpandIcon />
+        </button>
+        <div className="flex flex-col gap-1.5">
+          {BLOCK_META.map((b) => {
+            const active = room === b.key;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => onRoom(b.key)}
+                title={b.label}
+                aria-label={b.label}
+                className={`flex h-9 w-9 items-center justify-center rounded-mk transition ${
+                  active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:bg-mk-bg hover:text-mk-muted"
+                }`}
+              >
+                <Icon name={b.key} size={19} />
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav className="flex w-[236px] flex-none flex-col border-r border-mk-border bg-mk-surface">
       <div className="border-b border-mk-border px-5 py-5">
@@ -346,12 +381,12 @@ function Rail({
           </button>
           <button
             type="button"
-            onClick={onFullscreen}
+            onClick={onToggleCollapsed}
             title="全屏（收起侧栏）"
             aria-label="全屏"
             className="flex h-7 w-7 items-center justify-center rounded-mk text-mk-muted-2 hover:bg-mk-bg hover:text-mk-primary"
           >
-            <ExpandIcon />
+            <CollapseIcon />
           </button>
         </div>
         <h1 className="font-sans text-[15.5px] font-bold leading-snug text-mk-ink">{workspace?.title || "未命名项目"}</h1>
