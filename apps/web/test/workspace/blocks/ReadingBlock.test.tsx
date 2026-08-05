@@ -28,6 +28,7 @@ const ref: Reference = {
   readingReason: "看它是否支持我的主张",
   readingFocus: "证据强度",
   takeaway: null,
+  readingStatus: "to_read",
 };
 
 vi.mock("@/workspace/api/workspace", () => ({

@@ -88,5 +88,10 @@ export const Reference = z.object({
   // them (defaulting to "") so at runtime they're present.
   abstract: z.string().optional(),
   journal: z.string().optional(),
+  // A1: one shelf, three states (待读/在读/读完) — replaces separate
+  // to-read/reading collections with a single status on every reference.
+  // NOT NULL with a DB default of "to_read"; defaulted here too so older
+  // fixtures/mocks without it still parse.
+  readingStatus: z.enum(["to_read", "reading", "done"]).default("to_read"),
 });
 export type Reference = z.infer<typeof Reference>;

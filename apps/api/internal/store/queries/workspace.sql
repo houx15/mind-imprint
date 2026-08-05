@@ -112,6 +112,9 @@ SELECT * FROM reference WHERE id = $1 AND project_id = $2;
 -- Sets ALL editable columns by id + project_id; the handler merges partial
 -- patches over the current row first (UpdatePlanItem's pattern). material_id is
 -- NOT set here — SetReferenceMaterial owns that link (enter-reading only).
+-- reading_status (A1: one shelf, three states) is NOT NULL with a DB default —
+-- CreateReference never sets it (the column DEFAULT 'to_read' handles new
+-- rows), only the patch path moves a reference between shelves.
 UPDATE reference SET
     title          = $3,
     classification = $4,
@@ -129,6 +132,7 @@ UPDATE reference SET
     reading_note   = $16,
     abstract       = $17,
     journal        = $18,
+    reading_status = $19,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
 RETURNING *;

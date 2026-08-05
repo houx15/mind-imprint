@@ -230,7 +230,7 @@ INSERT INTO reference (
     tags, collection_id, credibility, evaluation, decision, pending, search_hints,
     abstract, journal
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status
 `
 
 type CreateReferenceParams struct {
@@ -300,6 +300,7 @@ func (q *Queries) CreateReference(ctx context.Context, arg CreateReferenceParams
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
@@ -431,7 +432,7 @@ const finalizeReadingTakeaway = `-- name: FinalizeReadingTakeaway :one
 UPDATE reference
 SET takeaway = $3, takeaway_finalized_at = now(), updated_at = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status
 `
 
 type FinalizeReadingTakeawayParams struct {
@@ -474,6 +475,7 @@ func (q *Queries) FinalizeReadingTakeaway(ctx context.Context, arg FinalizeReadi
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
@@ -652,7 +654,7 @@ func (q *Queries) GetProjectSummaryProse(ctx context.Context, projectID uuid.UUI
 }
 
 const getReference = `-- name: GetReference :one
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference WHERE id = $1 AND project_id = $2
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status FROM reference WHERE id = $1 AND project_id = $2
 `
 
 type GetReferenceParams struct {
@@ -691,12 +693,13 @@ func (q *Queries) GetReference(ctx context.Context, arg GetReferenceParams) (Ref
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
 
 const getReferenceForProject = `-- name: GetReferenceForProject :one
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference WHERE id = $1 AND project_id = $2
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status FROM reference WHERE id = $1 AND project_id = $2
 `
 
 type GetReferenceForProjectParams struct {
@@ -737,6 +740,7 @@ func (q *Queries) GetReferenceForProject(ctx context.Context, arg GetReferenceFo
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
@@ -978,7 +982,7 @@ func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]Pla
 
 const listReferences = `-- name: ListReferences :many
 
-SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal FROM reference
+SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status FROM reference
 WHERE project_id = $1
 ORDER BY position, created_at
 `
@@ -1021,6 +1025,7 @@ func (q *Queries) ListReferences(ctx context.Context, projectID uuid.UUID) ([]Re
 			&i.ReadingNote,
 			&i.Abstract,
 			&i.Journal,
+			&i.ReadingStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -1072,7 +1077,7 @@ UPDATE reference SET
     material_id = $3,
     updated_at  = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status
 `
 
 type SetReferenceMaterialParams struct {
@@ -1113,6 +1118,7 @@ func (q *Queries) SetReferenceMaterial(ctx context.Context, arg SetReferenceMate
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
@@ -1270,7 +1276,7 @@ const updateReadingBrief = `-- name: UpdateReadingBrief :one
 UPDATE reference
 SET reading_reason = $3, reading_focus = $4, phase_tag = $5, updated_at = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status
 `
 
 type UpdateReadingBriefParams struct {
@@ -1320,6 +1326,7 @@ func (q *Queries) UpdateReadingBrief(ctx context.Context, arg UpdateReadingBrief
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }
@@ -1342,9 +1349,10 @@ UPDATE reference SET
     reading_note   = $16,
     abstract       = $17,
     journal        = $18,
+    reading_status = $19,
     updated_at     = now()
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal
+RETURNING id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status
 `
 
 type UpdateReferenceParams struct {
@@ -1366,11 +1374,15 @@ type UpdateReferenceParams struct {
 	ReadingNote    string      `json:"reading_note"`
 	Abstract       string      `json:"abstract"`
 	Journal        string      `json:"journal"`
+	ReadingStatus  string      `json:"reading_status"`
 }
 
 // Sets ALL editable columns by id + project_id; the handler merges partial
 // patches over the current row first (UpdatePlanItem's pattern). material_id is
 // NOT set here — SetReferenceMaterial owns that link (enter-reading only).
+// reading_status (A1: one shelf, three states) is NOT NULL with a DB default —
+// CreateReference never sets it (the column DEFAULT 'to_read' handles new
+// rows), only the patch path moves a reference between shelves.
 func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams) (Reference, error) {
 	row := q.db.QueryRow(ctx, updateReference,
 		arg.ID,
@@ -1391,6 +1403,7 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		arg.ReadingNote,
 		arg.Abstract,
 		arg.Journal,
+		arg.ReadingStatus,
 	)
 	var i Reference
 	err := row.Scan(
@@ -1421,6 +1434,7 @@ func (q *Queries) UpdateReference(ctx context.Context, arg UpdateReferenceParams
 		&i.ReadingNote,
 		&i.Abstract,
 		&i.Journal,
+		&i.ReadingStatus,
 	)
 	return i, err
 }

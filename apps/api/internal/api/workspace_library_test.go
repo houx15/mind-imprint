@@ -219,6 +219,71 @@ func TestLibraryReferencesCRUD(t *testing.T) {
 	}
 }
 
+// TestReference_ReadingStatusDefaultAndPatch — A1: the 图书馆 collapses to one
+// shelf with a status (待读/在读/读完 = to_read/reading/done). A fresh reference
+// defaults to to_read (the column DEFAULT, never overridden by create); PATCH
+// readingStatus moves it between shelves; an out-of-set value is rejected.
+func TestReference_ReadingStatusDefaultAndPatch(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/references", `{"title":"Global Greening","url":"https://example.com/g"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference = %d: %s", rec.Code, rec.Body)
+	}
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode: %v — %s", err, rec.Body)
+	}
+	if refWrap.Reference.ReadingStatus != "to_read" {
+		t.Fatalf("readingStatus on create = %q, want to_read", refWrap.Reference.ReadingStatus)
+	}
+
+	rec = doJSON(t, h, cookie, "GET", base+"/library", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get library = %d: %s", rec.Code, rec.Body)
+	}
+	var lib struct {
+		References []referenceView `json:"references"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+		t.Fatalf("decode library: %v — %s", err, rec.Body)
+	}
+	var fromLibrary *referenceView
+	for i := range lib.References {
+		if lib.References[i].ID == refWrap.Reference.ID {
+			fromLibrary = &lib.References[i]
+		}
+	}
+	if fromLibrary == nil {
+		t.Fatalf("reference not found in library")
+	}
+	if fromLibrary.ReadingStatus != "to_read" {
+		t.Fatalf("readingStatus in library = %q, want to_read", fromLibrary.ReadingStatus)
+	}
+
+	rec = doJSON(t, h, cookie, "PATCH", base+"/references/"+refWrap.Reference.ID, `{"readingStatus":"done"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch readingStatus = %d: %s", rec.Code, rec.Body)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode patch: %v — %s", err, rec.Body)
+	}
+	if refWrap.Reference.ReadingStatus != "done" {
+		t.Fatalf("readingStatus after patch = %q, want done", refWrap.Reference.ReadingStatus)
+	}
+
+	rec = doJSON(t, h, cookie, "PATCH", base+"/references/"+refWrap.Reference.ID, `{"readingStatus":"bogus"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid readingStatus = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
+
 func TestGetLibraryReturnsBoth(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := libraryTestHandler(pool)
@@ -616,6 +681,7 @@ type referenceView struct {
 	Takeaway      *referenceTakeawayView `json:"takeaway"`
 	Abstract      string                 `json:"abstract"`
 	Journal       string                 `json:"journal"`
+	ReadingStatus string                 `json:"readingStatus"`
 }
 
 type referenceTakeawayView struct {

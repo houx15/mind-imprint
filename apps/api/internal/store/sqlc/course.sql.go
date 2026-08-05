@@ -292,6 +292,9 @@ type UpsertCourseProgressRow struct {
 	ActiveSeconds     int32              `json:"active_seconds"`
 }
 
+// active_seconds is ADDITIVE: the arg is a delta (the active-focus seconds the
+// client accrued since its last flush), added to the stored total on conflict
+// so time accumulates across visits. On first insert the delta IS the total.
 func (q *Queries) UpsertCourseProgress(ctx context.Context, arg UpsertCourseProgressParams) (UpsertCourseProgressRow, error) {
 	row := q.db.QueryRow(ctx, upsertCourseProgress,
 		arg.UserID,

@@ -39,6 +39,7 @@ const refs: Reference[] = [
     searchHints: [],
     materialId: "m1",
     notes: [{ quote: "增量主要来自农业集约化与大规模植树", finding: "变绿≠生态系统整体改善。" }],
+    readingStatus: "done",
   },
   {
     id: "r2",
@@ -57,6 +58,7 @@ const refs: Reference[] = [
     searchHints: ["搜 China CO2 emissions"],
     materialId: null,
     notes: [],
+    readingStatus: "to_read",
   },
 ];
 

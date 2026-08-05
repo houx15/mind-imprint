@@ -98,6 +98,9 @@ type referenceDTO struct {
 	// annotated bib.
 	Abstract string `json:"abstract"`
 	Journal  string `json:"journal"`
+	// A1: one shelf, three states (待读/在读/读完). NOT NULL with a DB default —
+	// every reference always has a value, never null.
+	ReadingStatus string `json:"readingStatus"`
 }
 
 func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
@@ -147,11 +150,13 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		Takeaway:       takeaway,
 		Abstract:       row.Abstract,
 		Journal:        row.Journal,
+		ReadingStatus:  row.ReadingStatus,
 	}
 }
 
 var validCredibility = map[string]bool{"strong": true, "mixed": true, "weak": true}
 var validDecision = map[string]bool{"use": true, "maybe": true, "drop": true}
+var validReadingStatus = map[string]bool{"to_read": true, "reading": true, "done": true}
 
 // -- GET /library -----------------------------------------------------------
 
@@ -426,6 +431,7 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		Pending        *bool           `json:"pending"`
 		SearchHints    *[]string       `json:"searchHints"`
 		ReadingNote    *string         `json:"readingNote"`
+		ReadingStatus  *string         `json:"readingStatus"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -450,6 +456,7 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		ReadingNote:    cur.ReadingNote,
 		Abstract:       cur.Abstract,
 		Journal:        cur.Journal,
+		ReadingStatus:  cur.ReadingStatus,
 	}
 	if body.Title != nil {
 		next.Title = *body.Title
@@ -483,6 +490,13 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.SearchHints != nil {
 		next.SearchHints = stringsToJSONB(*body.SearchHints)
+	}
+	if body.ReadingStatus != nil {
+		if !validReadingStatus[*body.ReadingStatus] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "readingStatus 只能是 to_read/reading/done", nil))
+			return
+		}
+		next.ReadingStatus = *body.ReadingStatus
 	}
 	if body.Credibility != nil {
 		v, err := parseNullableEnum(body.Credibility, validCredibility)
@@ -699,7 +713,7 @@ func (a *API) patchReferenceMeta(ctx context.Context, projectID uuid.UUID, ref s
 		Year: year, Url: ref.Url, Tags: ref.Tags, CollectionID: ref.CollectionID,
 		Credibility: ref.Credibility, Evaluation: ref.Evaluation, Decision: ref.Decision,
 		Pending: ref.Pending, SearchHints: ref.SearchHints, ReadingNote: ref.ReadingNote,
-		Abstract: abstract, Journal: journal,
+		Abstract: abstract, Journal: journal, ReadingStatus: ref.ReadingStatus,
 	}); err != nil {
 		slog.Warn("patch reference meta failed", "err", err, "ref", ref.ID)
 	}

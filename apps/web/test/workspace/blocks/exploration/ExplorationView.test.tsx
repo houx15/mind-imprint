@@ -57,6 +57,7 @@ function makeRef(overrides: Partial<Reference>): Reference {
     searchHints: [],
     materialId: null,
     notes: [],
+    readingStatus: "to_read",
     ...overrides,
   };
 }

@@ -110,18 +110,19 @@ type ConversationDigest struct {
 }
 
 type Course struct {
-	ID          uuid.UUID `json:"id"`
-	Branch      string    `json:"branch"`
-	Title       string    `json:"title"`
-	Blurb       string    `json:"blurb"`
-	TimeLabel   string    `json:"time_label"`
-	CreatedAt   time.Time `json:"created_at"`
-	Slug        string    `json:"slug"`
-	CardIds     []string  `json:"card_ids"`
-	Structure   []byte    `json:"structure"`
-	RenderCache []byte    `json:"render_cache"`
-	StepCount   int32     `json:"step_count"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            uuid.UUID `json:"id"`
+	Branch        string    `json:"branch"`
+	Title         string    `json:"title"`
+	Blurb         string    `json:"blurb"`
+	TimeLabel     string    `json:"time_label"`
+	CreatedAt     time.Time `json:"created_at"`
+	Slug          string    `json:"slug"`
+	CardIds       []string  `json:"card_ids"`
+	Structure     []byte    `json:"structure"`
+	RenderCache   []byte    `json:"render_cache"`
+	StepCount     int32     `json:"step_count"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	AudioManifest []byte    `json:"audio_manifest"`
 }
 
 type CourseProgress struct {
@@ -133,6 +134,7 @@ type CourseProgress struct {
 	UpdatedAt         time.Time          `json:"updated_at"`
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	ActiveSeconds     int32              `json:"active_seconds"`
 }
 
 type Disposition struct {
@@ -436,6 +438,7 @@ type Reference struct {
 	ReadingNote         string             `json:"reading_note"`
 	Abstract            string             `json:"abstract"`
 	Journal             string             `json:"journal"`
+	ReadingStatus       string             `json:"reading_status"`
 }
 
 type School struct {
