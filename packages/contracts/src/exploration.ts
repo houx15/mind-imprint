@@ -24,12 +24,34 @@ export const ExplorationLead = z.object({
 });
 export type ExplorationLead = z.infer<typeof ExplorationLead>;
 
+// B1 · a labeled, directed edge between two top-level question leads — the
+// data foundation of the two-level exploration graph. label is a closed
+// vocabulary (no freeform jargon, 铁律②); status "proposed" means the AI
+// surfaced it and the student hasn't confirmed it onto the map yet (铁律①),
+// "confirmed" means it's a real edge (student-drawn, or an adopted proposal).
+export const QuestionEdgeLabel = z.enum(["子问题", "支持", "反驳/张力", "细化", "依赖/前提"]);
+export type QuestionEdgeLabel = z.infer<typeof QuestionEdgeLabel>;
+
+export const QuestionEdgeStatus = z.enum(["proposed", "confirmed"]);
+export type QuestionEdgeStatus = z.infer<typeof QuestionEdgeStatus>;
+
+export const QuestionEdge = z.object({
+  id: z.string(),
+  fromLeadId: z.string(),
+  toLeadId: z.string(),
+  label: QuestionEdgeLabel,
+  status: QuestionEdgeStatus,
+});
+export type QuestionEdge = z.infer<typeof QuestionEdge>;
+
 // The exploration view's full projection: every lead plus which read sources
 // have no leads hanging off them yet (danglingSourceIds), nudging the student
-// to connect or prune rather than leaving them orphaned.
+// to connect or prune rather than leaving them orphaned, plus the question_edge
+// graph over the top-level leads.
 export const ExplorationView = z.object({
   leads: z.array(ExplorationLead),
   danglingSourceIds: z.array(z.string()),
+  edges: z.array(QuestionEdge),
 });
 export type ExplorationView = z.infer<typeof ExplorationView>;
 

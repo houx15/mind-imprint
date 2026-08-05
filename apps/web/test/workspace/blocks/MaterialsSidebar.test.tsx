@@ -45,7 +45,7 @@ describe("MaterialsSidebar", () => {
     vi.restoreAllMocks();
     vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] as never });
     vi.spyOn(workspaceApi, "getOutline").mockResolvedValue(OUTLINE as never);
-    vi.spyOn(explorationApi, "getExploration").mockResolvedValue({ leads: [], danglingSourceIds: [] });
+    vi.spyOn(explorationApi, "getExploration").mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
   });
 
   it("materials: unfolds notes and 收进片段 appends a snippet (snippets tab)", async () => {

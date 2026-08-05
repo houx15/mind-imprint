@@ -5,6 +5,7 @@ package api_test
 // no LLM spend. Mirrors workspace_library_test.go's harness/seed conventions.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -85,6 +86,7 @@ func TestExplorationLead_Branch(t *testing.T) {
 type explorationViewBody struct {
 	Leads             []explorationLeadView `json:"leads"`
 	DanglingSourceIDs []string              `json:"danglingSourceIds"`
+	Edges             []questionEdgeView    `json:"edges"`
 }
 
 // TestExplorationLeadCRUD covers the manual-add → list-projects → connect →
@@ -788,5 +790,98 @@ func TestExplorationGuide_ComposeFailureNoSpend(t *testing.T) {
 	// must not phantom-record a 0-token/$0 llm_call row.
 	if n := countLLMCallsByPurpose(t, pool, pid, "exploration_guide"); n != 0 {
 		t.Fatalf("want 0 exploration_guide llm_call on compose failure, got %d", n)
+	}
+}
+
+// questionEdgeView is the test's decode shape for the question_edge wire DTO
+// (B1: the two-level exploration graph's edge foundation).
+type questionEdgeView struct {
+	ID         string `json:"id"`
+	FromLeadID string `json:"fromLeadId"`
+	ToLeadID   string `json:"toLeadId"`
+	Label      string `json:"label"`
+	Status     string `json:"status"`
+}
+
+// TestExploration_IncludesEdges seeds two top-level leads, inserts a
+// question_edge directly via the store (B2 adds the POST endpoint; this task
+// only needs the table + GET projection), then asserts GET /exploration
+// returns the edge in its `edges` array with the right label + endpoints.
+func TestExploration_IncludesEdges(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"中国的碳排放会不会推翻论点？"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead A = %d: %s", rec.Code, rec.Body)
+	}
+	var leadA struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &leadA); err != nil {
+		t.Fatalf("decode lead A: %v — %s", err, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"可再生能源占比是否足以抵消？"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead B = %d: %s", rec.Code, rec.Body)
+	}
+	var leadB struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &leadB); err != nil {
+		t.Fatalf("decode lead B: %v — %s", err, rec.Body)
+	}
+
+	q := sqlc.New(pool)
+	projectID, err := uuid.Parse(pid)
+	if err != nil {
+		t.Fatalf("parse project id: %v", err)
+	}
+	fromID, err := uuid.Parse(leadA.Lead.ID)
+	if err != nil {
+		t.Fatalf("parse lead A id: %v", err)
+	}
+	toID, err := uuid.Parse(leadB.Lead.ID)
+	if err != nil {
+		t.Fatalf("parse lead B id: %v", err)
+	}
+	edge, err := q.CreateQuestionEdge(context.Background(), sqlc.CreateQuestionEdgeParams{
+		ProjectID:  projectID,
+		FromLeadID: fromID,
+		ToLeadID:   toID,
+		Label:      "反驳/张力",
+		Status:     "confirmed",
+	})
+	if err != nil {
+		t.Fatalf("CreateQuestionEdge: %v", err)
+	}
+
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /exploration = %d: %s", rec.Code, rec.Body)
+	}
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	if len(view.Edges) != 1 {
+		t.Fatalf("want 1 edge, got %d: %+v", len(view.Edges), view.Edges)
+	}
+	got := view.Edges[0]
+	if got.ID != edge.ID.String() {
+		t.Fatalf("edge id = %q, want %q", got.ID, edge.ID.String())
+	}
+	if got.FromLeadID != leadA.Lead.ID || got.ToLeadID != leadB.Lead.ID {
+		t.Fatalf("edge from/to = %q/%q, want %q/%q", got.FromLeadID, got.ToLeadID, leadA.Lead.ID, leadB.Lead.ID)
+	}
+	if got.Label != "反驳/张力" {
+		t.Fatalf("edge label = %q, want 反驳/张力", got.Label)
+	}
+	if got.Status != "confirmed" {
+		t.Fatalf("edge status = %q, want confirmed", got.Status)
 	}
 }

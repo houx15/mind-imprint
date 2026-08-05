@@ -55,10 +55,35 @@ func toExplorationLeadDTO(row sqlc.ExplorationLead) explorationLeadDTO {
 
 var validLeadStatus = map[string]bool{"open": true, "connected": true, "pruned": true}
 
+// -- B1 · question_edge DTO ------------------------------------------------
+
+// questionEdgeDTO mirrors contracts's QuestionEdge (camelCase): a labeled,
+// directed edge between two top-level question leads — the data foundation
+// of the two-level exploration graph. B2 adds the endpoints that create/
+// relabel/confirm/delete these; this task only projects them into the view.
+type questionEdgeDTO struct {
+	ID         string `json:"id"`
+	FromLeadID string `json:"fromLeadId"`
+	ToLeadID   string `json:"toLeadId"`
+	Label      string `json:"label"`
+	Status     string `json:"status"`
+}
+
+func toQuestionEdgeDTO(row sqlc.QuestionEdge) questionEdgeDTO {
+	return questionEdgeDTO{
+		ID:         row.ID.String(),
+		FromLeadID: row.FromLeadID.String(),
+		ToLeadID:   row.ToLeadID.String(),
+		Label:      row.Label,
+		Status:     row.Status,
+	}
+}
+
 // -- GET /exploration -----------------------------------------------------
 
-// getExploration returns every lead for the project plus danglingSourceIds —
-// no spend, purely a projection over ListExplorationLeads + ListReferences.
+// getExploration returns every lead for the project plus danglingSourceIds
+// plus the question_edge graph — no spend, purely a projection over
+// ListExplorationLeads + ListReferences + ListQuestionEdgesByProject.
 func (a *API) getExploration(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -74,13 +99,23 @@ func (a *API) getExploration(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	edges, err := a.d.Queries.ListQuestionEdgesByProject(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	dtos := make([]explorationLeadDTO, 0, len(leads))
 	for _, l := range leads {
 		dtos = append(dtos, toExplorationLeadDTO(l))
 	}
+	edgeDTOs := make([]questionEdgeDTO, 0, len(edges))
+	for _, e := range edges {
+		edgeDTOs = append(edgeDTOs, toQuestionEdgeDTO(e))
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"leads":             dtos,
 		"danglingSourceIds": computeDanglingSourceIds(refs, leads),
+		"edges":             edgeDTOs,
 	})
 }
 

@@ -62,7 +62,7 @@ function readingBadge(r: Reference): { label: string; cls: string } | null {
 }
 
 export function ExplorationView({ projectId, references, onEnterReading }: ExplorationViewProps) {
-  const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [] });
+  const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
   const [menuFor, setMenuFor] = useState<string | null>(null);

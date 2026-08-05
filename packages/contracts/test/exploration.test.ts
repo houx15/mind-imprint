@@ -6,6 +6,9 @@ import {
   ExplorationView,
   GuideDirection,
   ExplorationGuide,
+  QuestionEdge,
+  QuestionEdgeLabel,
+  QuestionEdgeStatus,
 } from "../src/exploration";
 
 const lead = {
@@ -16,6 +19,14 @@ const lead = {
   sourceReferenceId: "r1",
   connectedReferenceId: null,
   position: 0,
+};
+
+const edge = {
+  id: "e1",
+  fromLeadId: "l1",
+  toLeadId: "l2",
+  label: "反驳/张力" as const,
+  status: "confirmed" as const,
 };
 
 describe("LeadStatus", () => {
@@ -70,22 +81,67 @@ describe("ExplorationLead", () => {
   });
 });
 
+describe("QuestionEdgeLabel / QuestionEdgeStatus", () => {
+  it("accepts the five closed-vocabulary labels", () => {
+    for (const l of ["子问题", "支持", "反驳/张力", "细化", "依赖/前提"]) {
+      expect(QuestionEdgeLabel.parse(l)).toBe(l);
+    }
+  });
+  it("rejects a freeform label", () => {
+    expect(() => QuestionEdgeLabel.parse("兔子洞")).toThrow();
+  });
+  it("accepts proposed/confirmed status", () => {
+    expect(QuestionEdgeStatus.parse("proposed")).toBe("proposed");
+    expect(QuestionEdgeStatus.parse("confirmed")).toBe("confirmed");
+  });
+  it("rejects an unknown status", () => {
+    expect(() => QuestionEdgeStatus.parse("drawn")).toThrow();
+  });
+});
+
+describe("QuestionEdge", () => {
+  it("parses a valid edge", () => {
+    const parsed = QuestionEdge.parse(edge);
+    expect(parsed.label).toBe("反驳/张力");
+    expect(parsed.status).toBe("confirmed");
+  });
+  it("rejects an empty-string label — must throw, not silently pass", () => {
+    expect(() => QuestionEdge.parse({ ...edge, label: "" })).toThrow();
+  });
+});
+
 describe("ExplorationView", () => {
   it("parses with empty arrays", () => {
-    const parsed = ExplorationView.parse({ leads: [], danglingSourceIds: [] });
+    const parsed = ExplorationView.parse({ leads: [], danglingSourceIds: [], edges: [] });
     expect(parsed.leads).toEqual([]);
     expect(parsed.danglingSourceIds).toEqual([]);
+    expect(parsed.edges).toEqual([]);
   });
-  it("parses with populated leads + dangling sources", () => {
-    const parsed = ExplorationView.parse({ leads: [lead], danglingSourceIds: ["r3"] });
+  it("parses with populated leads + dangling sources + edges", () => {
+    const parsed = ExplorationView.parse({
+      leads: [lead],
+      danglingSourceIds: ["r3"],
+      edges: [edge],
+    });
     expect(parsed.leads).toHaveLength(1);
     expect(parsed.danglingSourceIds).toEqual(["r3"]);
+    expect(parsed.edges).toHaveLength(1);
+    expect(parsed.edges[0]!.label).toBe("反驳/张力");
   });
   // Same guard, at the array level: one bad row must not silently slip through
   // an ExplorationView parse of the whole leads array.
   it("rejects a view whose leads array contains an empty-string status", () => {
     expect(() =>
-      ExplorationView.parse({ leads: [{ ...lead, status: "" }], danglingSourceIds: [] })
+      ExplorationView.parse({ leads: [{ ...lead, status: "" }], danglingSourceIds: [], edges: [] })
+    ).toThrow();
+  });
+  it("rejects a view whose edges array contains an unknown label", () => {
+    expect(() =>
+      ExplorationView.parse({
+        leads: [],
+        danglingSourceIds: [],
+        edges: [{ ...edge, label: "无关" }],
+      })
     ).toThrow();
   });
 });

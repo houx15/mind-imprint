@@ -292,3 +292,30 @@ DELETE FROM exploration_lead WHERE id = $1 AND project_id = $2;
 -- for that (project, source).
 SELECT count(*) FROM exploration_lead
 WHERE project_id = $1 AND source_reference_id = $2 AND text = $3;
+
+-- B1 · question_edge: labeled edges between top-level question leads, the
+-- data foundation of the two-level exploration graph. All project_id-scoped
+-- (IDOR guard, matches every other exploration_lead query above).
+
+-- name: CreateQuestionEdge :one
+INSERT INTO question_edge (
+    project_id, from_lead_id, to_lead_id, label, status
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListQuestionEdgesByProject :many
+SELECT * FROM question_edge
+WHERE project_id = $1
+ORDER BY created_at, id;
+
+-- name: UpdateQuestionEdge :one
+-- Relabel/reconfirm an edge (铁律④ · relabeling or discarding is a valid
+-- student action, never hard-blocked). Scoped by id + project_id (IDOR).
+UPDATE question_edge SET
+    label  = $3,
+    status = $4
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: DeleteQuestionEdge :exec
+DELETE FROM question_edge WHERE id = $1 AND project_id = $2;

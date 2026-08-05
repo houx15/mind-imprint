@@ -410,6 +410,16 @@ type ProjectSummaryProse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type QuestionEdge struct {
+	ID         uuid.UUID `json:"id"`
+	ProjectID  uuid.UUID `json:"project_id"`
+	FromLeadID uuid.UUID `json:"from_lead_id"`
+	ToLeadID   uuid.UUID `json:"to_lead_id"`
+	Label      string    `json:"label"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type Reference struct {
 	ID                  uuid.UUID          `json:"id"`
 	ProjectID           uuid.UUID          `json:"project_id"`

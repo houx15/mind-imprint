@@ -100,7 +100,7 @@ const CANDIDATE: DigCandidate = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [] });
+  mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
   mockCreateLead.mockResolvedValue({ ...ROOT_LEAD, id: "leadN", text: "new" });
   mockPatchLead.mockResolvedValue({ ...ROOT_LEAD, status: "pruned" });
   mockDigExploration.mockResolvedValue({ candidates: [CANDIDATE] });
@@ -112,7 +112,7 @@ beforeEach(() => {
 
 describe("ExplorationView", () => {
   it("renders the plain empty state when there are no roots", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [] });
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
     render(<ExplorationView projectId="p1" references={[]} />);
 
     expect(await screen.findByText("这里还是空的")).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("ExplorationView", () => {
   });
 
   it("the root free-text input CREATES a top-level question node via createLead (not a keyword dig)", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [] });
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     render(<ExplorationView projectId="p1" references={[]} />);
     await screen.findByText("这里还是空的");
@@ -140,7 +140,7 @@ describe("ExplorationView", () => {
   });
 
   it("renders top-level question nodes as roots with paper children nested beneath", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [] });
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     render(<ExplorationView projectId="p1" references={[NASA_REF]} />);
 
     // the root question renders

@@ -224,6 +224,46 @@ func (q *Queries) CreatePlanItem(ctx context.Context, arg CreatePlanItemParams) 
 	return i, err
 }
 
+const createQuestionEdge = `-- name: CreateQuestionEdge :one
+
+INSERT INTO question_edge (
+    project_id, from_lead_id, to_lead_id, label, status
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, from_lead_id, to_lead_id, label, status, created_at
+`
+
+type CreateQuestionEdgeParams struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	FromLeadID uuid.UUID `json:"from_lead_id"`
+	ToLeadID   uuid.UUID `json:"to_lead_id"`
+	Label      string    `json:"label"`
+	Status     string    `json:"status"`
+}
+
+// B1 · question_edge: labeled edges between top-level question leads, the
+// data foundation of the two-level exploration graph. All project_id-scoped
+// (IDOR guard, matches every other exploration_lead query above).
+func (q *Queries) CreateQuestionEdge(ctx context.Context, arg CreateQuestionEdgeParams) (QuestionEdge, error) {
+	row := q.db.QueryRow(ctx, createQuestionEdge,
+		arg.ProjectID,
+		arg.FromLeadID,
+		arg.ToLeadID,
+		arg.Label,
+		arg.Status,
+	)
+	var i QuestionEdge
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.FromLeadID,
+		&i.ToLeadID,
+		&i.Label,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createReference = `-- name: CreateReference :one
 INSERT INTO reference (
     project_id, title, classification, author, credentials, year, url,
@@ -411,6 +451,20 @@ DELETE FROM plan_item WHERE project_id = $1
 // before inserting the freshly generated tasks, in one transaction.
 func (q *Queries) DeletePlanItemsByProject(ctx context.Context, projectID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deletePlanItemsByProject, projectID)
+	return err
+}
+
+const deleteQuestionEdge = `-- name: DeleteQuestionEdge :exec
+DELETE FROM question_edge WHERE id = $1 AND project_id = $2
+`
+
+type DeleteQuestionEdgeParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+}
+
+func (q *Queries) DeleteQuestionEdge(ctx context.Context, arg DeleteQuestionEdgeParams) error {
+	_, err := q.db.Exec(ctx, deleteQuestionEdge, arg.ID, arg.ProjectID)
 	return err
 }
 
@@ -980,6 +1034,40 @@ func (q *Queries) ListPlanItems(ctx context.Context, projectID uuid.UUID) ([]Pla
 	return items, nil
 }
 
+const listQuestionEdgesByProject = `-- name: ListQuestionEdgesByProject :many
+SELECT id, project_id, from_lead_id, to_lead_id, label, status, created_at FROM question_edge
+WHERE project_id = $1
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListQuestionEdgesByProject(ctx context.Context, projectID uuid.UUID) ([]QuestionEdge, error) {
+	rows, err := q.db.Query(ctx, listQuestionEdgesByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QuestionEdge
+	for rows.Next() {
+		var i QuestionEdge
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.FromLeadID,
+			&i.ToLeadID,
+			&i.Label,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReferences = `-- name: ListReferences :many
 
 SELECT id, project_id, title, classification, author, credentials, year, url, tags, collection_id, credibility, evaluation, decision, pending, search_hints, material_id, position, created_at, updated_at, reading_reason, reading_focus, phase_tag, takeaway, takeaway_finalized_at, reading_note, abstract, journal, reading_status FROM reference
@@ -1268,6 +1356,43 @@ func (q *Queries) UpdatePlanItem(ctx context.Context, arg UpdatePlanItemParams) 
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateQuestionEdge = `-- name: UpdateQuestionEdge :one
+UPDATE question_edge SET
+    label  = $3,
+    status = $4
+WHERE id = $1 AND project_id = $2
+RETURNING id, project_id, from_lead_id, to_lead_id, label, status, created_at
+`
+
+type UpdateQuestionEdgeParams struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Label     string    `json:"label"`
+	Status    string    `json:"status"`
+}
+
+// Relabel/reconfirm an edge (铁律④ · relabeling or discarding is a valid
+// student action, never hard-blocked). Scoped by id + project_id (IDOR).
+func (q *Queries) UpdateQuestionEdge(ctx context.Context, arg UpdateQuestionEdgeParams) (QuestionEdge, error) {
+	row := q.db.QueryRow(ctx, updateQuestionEdge,
+		arg.ID,
+		arg.ProjectID,
+		arg.Label,
+		arg.Status,
+	)
+	var i QuestionEdge
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.FromLeadID,
+		&i.ToLeadID,
+		&i.Label,
+		&i.Status,
+		&i.CreatedAt,
 	)
 	return i, err
 }
