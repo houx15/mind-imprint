@@ -1,5 +1,5 @@
-import type { LeadStatus } from "@mind-imprint/contracts";
-import { ExplorationView, ExplorationLead, ExplorationGuide } from "@mind-imprint/contracts";
+import type { LeadStatus, Reference } from "@mind-imprint/contracts";
+import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 // S3 rabbit-hole exploration: thin API client mirroring reading.ts's
@@ -48,4 +48,14 @@ export async function digDeeper(projectId: string, opts?: { leadId?: string; tho
     body: JSON.stringify(opts ?? {}),
   });
   return ExplorationGuide.parse(raw);
+}
+
+export async function digExploration(projectId: string, opts: { leadId?: string; keyword?: string }): Promise<DigResult> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/dig`, { method: "POST", body: JSON.stringify(opts) });
+  return DigResult.parse(raw);
+}
+
+export async function adoptCandidate(projectId: string, candidate: DigCandidate, opts?: { parentLeadId?: string }): Promise<{ lead: ExplorationLead; reference: Reference }> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/adopt`, { method: "POST", body: JSON.stringify({ candidate, parentLeadId: opts?.parentLeadId ?? null }) });
+  return raw as { lead: ExplorationLead; reference: Reference };
 }
