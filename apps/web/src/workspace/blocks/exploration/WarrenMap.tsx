@@ -293,6 +293,8 @@ function WarrenMapInner({
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; text: string } | null>(null);
   // A pending drag-connect awaiting its relation label (closed set).
   const [connectPending, setConnectPending] = useState<{ from: string; to: string } | null>(null);
+  // A gentle note when a drag-connect is a no-op (the pair is already linked).
+  const [dupNote, setDupNote] = useState<string | null>(null);
 
   const requestDelete = useCallback((id: string) => {
     setDeleteTarget((cur) => cur ?? { id, text: "" });
@@ -349,11 +351,23 @@ function WarrenMapInner({
   );
 
   // Drag one question onto another → ask for the relation label (no auto-label).
-  const onConnect = useCallback((c: Connection) => {
-    if (c.source && c.target && c.source !== c.target) {
+  // Guards: no self-loops, and no DUPLICATE of an existing (from→to) edge — the
+  // question_edge table is UNIQUE(from_lead_id, to_lead_id) and the server does a
+  // plain insert, so a repeat would 500. On a duplicate we no-op with a gentle
+  // inline note instead of firing a request that can't succeed.
+  const onConnect = useCallback(
+    (c: Connection) => {
+      if (!c.source || !c.target || c.source === c.target) return;
+      const dup = edges.some((e) => e.fromLeadId === c.source && e.toLeadId === c.target);
+      if (dup) {
+        setDupNote("这两个问题已经连过了。");
+        return;
+      }
+      setDupNote(null);
       setConnectPending({ from: c.source, to: c.target });
-    }
-  }, []);
+    },
+    [edges],
+  );
 
   const rootIds = useMemo(() => new Set(roots.map((r) => r.id)), [roots]);
   const rfEdges = useMemo(
@@ -389,7 +403,11 @@ function WarrenMapInner({
         >
           ?
         </button>
-        <span className="ml-auto text-[11px] text-mk-muted-2">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
+        {dupNote ? (
+          <span className="ml-auto text-[11px] font-semibold text-mk-accent">{dupNote}</span>
+        ) : (
+          <span className="ml-auto text-[11px] text-mk-muted-2">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
+        )}
         {helpOpen && (
           <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-mk border border-mk-border bg-mk-surface p-3 text-[12px] leading-relaxed text-mk-ink shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
             「兔子洞」= 你顺着一个问题往下追的过程。每个问题就是一个洞口，钻进去能看到你为它挖到的文献。点开一个问题往下挖，这张图就会慢慢长出来。

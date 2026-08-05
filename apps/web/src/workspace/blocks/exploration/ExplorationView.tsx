@@ -390,14 +390,9 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
         ) : (
           /* ---------- MAP · the overview graph of root questions ---------- */
           <>
-            <div className="mb-4">
-              <h2 className="font-sans text-[16px] font-bold text-mk-ink">探索图谱</h2>
-              <p className="mt-0.5 text-[12px] text-mk-muted-2">
-                每个问题是一个节点——点开一个，就能顺着它往下挖相关论文
-              </p>
-            </div>
-
-            {/* Action 2 · the single root input — creates a top-level question node. */}
+            {/* Action 2 · the single root input — creates a top-level question node.
+                The map's own title (兔子洞地图 + its ? explainer) lives inside WarrenMap,
+                so no separate section heading here. */}
             <div className="mb-5 flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
               <input
                 value={newQuestion}

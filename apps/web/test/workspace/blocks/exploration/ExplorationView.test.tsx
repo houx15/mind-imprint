@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DigCandidate, ExplorationLead, QuestionEdge, Reference } from "@mind-imprint/contracts";
 import { ExplorationView } from "@/workspace/blocks/exploration/ExplorationView";
@@ -19,8 +19,11 @@ vi.mock("@xyflow/react", async () => {
   return {
     __esModule: true,
     Position,
-    ReactFlow: ({ nodes = [], edges = [], nodeTypes = {}, edgeTypes = {}, onNodeClick }: AnyProps) =>
-      React.createElement(
+    ReactFlow: ({ nodes = [], edges = [], nodeTypes = {}, edgeTypes = {}, onNodeClick, onConnect }: AnyProps) => {
+      // Expose the latest onConnect so a test can simulate a drag-to-connect
+      // (jsdom can't perform the real handle drag). See fireConnect() below.
+      (globalThis as any).__warrenOnConnect = onConnect;
+      return React.createElement(
         "div",
         { "data-testid": "rf-mock" },
         ...nodes.map((n: AnyProps) => {
@@ -49,7 +52,8 @@ vi.mock("@xyflow/react", async () => {
               })
             : null;
         }),
-      ),
+      );
+    },
     ReactFlowProvider: ({ children }: AnyProps) => React.createElement(React.Fragment, null, children),
     Background: () => null,
     Controls: () => null,
@@ -90,6 +94,7 @@ import {
   adoptCandidate,
   patchLead,
   proposeEdges,
+  createEdge,
   patchEdge,
   deleteEdge,
 } from "@/api/exploration";
@@ -101,8 +106,20 @@ const mockDigExploration = vi.mocked(digExploration);
 const mockAdoptCandidate = vi.mocked(adoptCandidate);
 const mockPatchLead = vi.mocked(patchLead);
 const mockProposeEdges = vi.mocked(proposeEdges);
+const mockCreateEdge = vi.mocked(createEdge);
 const mockPatchEdge = vi.mocked(patchEdge);
 const mockDeleteEdge = vi.mocked(deleteEdge);
+
+// Simulate a React Flow drag-to-connect (jsdom can't perform the real handle
+// drag): the @xyflow/react mock stashes the live onConnect prop; call it with a
+// {source, target} pair, wrapped in act() so the resulting state updates flush.
+async function fireConnect(source: string, target: string) {
+  const onConnect = (globalThis as any).__warrenOnConnect as ((c: { source: string; target: string }) => void) | undefined;
+  if (!onConnect) throw new Error("onConnect not captured — ReactFlow mock not mounted");
+  await act(async () => {
+    onConnect({ source, target });
+  });
+}
 
 // Reference fixture shape matches apps/web/test/api/workspaceLibrary.test.ts.
 function makeRef(overrides: Partial<Reference>): Reference {
@@ -215,8 +232,10 @@ beforeEach(() => {
     reference: { ...NASA_REF, id: "r9" },
   });
   mockProposeEdges.mockResolvedValue([]);
+  mockCreateEdge.mockResolvedValue({ ...CONFIRMED_EDGE });
   mockPatchEdge.mockResolvedValue({ ...CONFIRMED_EDGE });
   mockDeleteEdge.mockResolvedValue(undefined);
+  (globalThis as any).__warrenOnConnect = undefined;
 });
 
 // Each test uses a distinct projectId: the component persists map⇄hole zoom in
@@ -486,5 +505,52 @@ describe("ExplorationView", () => {
     await waitFor(() => {
       expect(mockPatchEdge).toHaveBeenCalledWith(projectId, CONFIRMED_EDGE.id, { label: "支持" });
     });
+  });
+
+  // ---- drag-to-connect (student-drawn relation) ----
+
+  it("drag-connecting two roots opens the label picker; picking a label calls createEdge and refetches", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, SECOND_ROOT], danglingSourceIds: [], edges: [] });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    // simulate the drag from ROOT_LEAD's handle onto SECOND_ROOT
+    await fireConnect(ROOT_LEAD.id, SECOND_ROOT.id);
+
+    // the closed-vocabulary label picker appears; nothing persisted yet (克制)
+    expect(await screen.findByText("这两个问题是什么关系？")).toBeInTheDocument();
+    expect(mockCreateEdge).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "支持" }));
+
+    // createEdge carries the dragged direction + chosen label, then refetch
+    await waitFor(() => {
+      expect(mockCreateEdge).toHaveBeenCalledWith(projectId, {
+        fromLeadId: ROOT_LEAD.id,
+        toLeadId: SECOND_ROOT.id,
+        label: "支持",
+      });
+    });
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
+  });
+
+  it("drag-connecting a pair that already has an edge is a no-op (never fires createEdge — would 500 on the UNIQUE constraint)", async () => {
+    // an edge ROOT_LEAD → SECOND_ROOT already exists in this direction
+    mockGetExploration.mockResolvedValue({
+      leads: [ROOT_LEAD, SECOND_ROOT],
+      danglingSourceIds: [],
+      edges: [CONFIRMED_EDGE],
+    });
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    await fireConnect(ROOT_LEAD.id, SECOND_ROOT.id);
+
+    // no picker, no request — the duplicate is guarded client-side with a note
+    expect(screen.queryByText("这两个问题是什么关系？")).toBeNull();
+    expect(mockCreateEdge).not.toHaveBeenCalled();
+    expect(screen.getByText("这两个问题已经连过了。")).toBeInTheDocument();
   });
 });
