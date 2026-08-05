@@ -650,6 +650,151 @@ func TestExplorationAdopt_RejectsForeignParentLead(t *testing.T) {
 	}
 }
 
+// TestQuestionEdge_CRUD — B2: the edge lifecycle endpoints (create/relabel/
+// confirm/dismiss). Two root leads, POST an edge (student-created →
+// confirmed), GET reflects it, PATCH relabels + (re)confirms, DELETE removes
+// it. Also pins the carry-forward IDOR guard (CreateQuestionEdge itself does
+// NOT check project ownership of from/to lead ids — the handler must) plus
+// the root-only and closed-label-set validations.
+func TestQuestionEdge_CRUD(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"中国的碳排放会不会推翻论点？"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead A = %d: %s", rec.Code, rec.Body)
+	}
+	var leadA struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &leadA); err != nil {
+		t.Fatalf("decode lead A: %v — %s", err, rec.Body)
+	}
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"可再生能源占比是否足以抵消？"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead B = %d: %s", rec.Code, rec.Body)
+	}
+	var leadB struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &leadB); err != nil {
+		t.Fatalf("decode lead B: %v — %s", err, rec.Body)
+	}
+
+	// POST an edge between the two roots → 201, student-created so confirmed
+	// (not proposed).
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/edges",
+		`{"fromLeadId":"`+leadA.Lead.ID+`","toLeadId":"`+leadB.Lead.ID+`","label":"支持"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create edge = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var created struct {
+		Edge questionEdgeView `json:"edge"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created edge: %v — %s", err, rec.Body)
+	}
+	if created.Edge.FromLeadID != leadA.Lead.ID || created.Edge.ToLeadID != leadB.Lead.ID {
+		t.Fatalf("edge from/to = %q/%q, want %q/%q", created.Edge.FromLeadID, created.Edge.ToLeadID, leadA.Lead.ID, leadB.Lead.ID)
+	}
+	if created.Edge.Label != "支持" {
+		t.Fatalf("edge label = %q, want 支持", created.Edge.Label)
+	}
+	if created.Edge.Status != "confirmed" {
+		t.Fatalf("student-created edge status = %q, want confirmed", created.Edge.Status)
+	}
+	eid := created.Edge.ID
+
+	// GET /exploration shows it.
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	if len(view.Edges) != 1 || view.Edges[0].ID != eid {
+		t.Fatalf("exploration edges = %+v, want [%s]", view.Edges, eid)
+	}
+
+	// PATCH relabels (and would re-confirm a proposed edge; here already
+	// confirmed, so this also pins that re-confirming is idempotent).
+	rec = doJSON(t, h, cookie, "PATCH", base+"/exploration/edges/"+eid, `{"label":"反驳/张力","status":"confirmed"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch edge = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	var patched struct {
+		Edge questionEdgeView `json:"edge"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatalf("decode patched edge: %v — %s", err, rec.Body)
+	}
+	if patched.Edge.Label != "反驳/张力" {
+		t.Fatalf("edge label after patch = %q, want 反驳/张力", patched.Edge.Label)
+	}
+	if patched.Edge.Status != "confirmed" {
+		t.Fatalf("edge status after patch = %q, want confirmed", patched.Edge.Status)
+	}
+
+	// DELETE dismisses it.
+	rec = doJSON(t, h, cookie, "DELETE", base+"/exploration/edges/"+eid, "")
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete edge = %d, want 204: %s", rec.Code, rec.Body)
+	}
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view after delete: %v — %s", err, rec.Body)
+	}
+	if len(view.Edges) != 0 {
+		t.Fatalf("edges after delete = %+v, want none", view.Edges)
+	}
+
+	// -- validation / IDOR cases --------------------------------------------
+
+	// A foreign-project lead as fromLeadId → 400 (closes the CreateQuestionEdge
+	// IDOR gap: the sqlc query itself doesn't check project ownership).
+	otherID := createStudent(t, pool, SeedSchoolID, "question-edge-idor@demo.local")
+	other := signInAs(t, pool, otherID)
+	pidOther := createProjectForTest(t, h, other)
+	recOtherLead := doJSON(t, h, other, "POST", "/api/v1/projects/"+pidOther+"/exploration/leads", `{"text":"别的项目的线索"}`)
+	var otherLead struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(recOtherLead.Body.Bytes(), &otherLead); err != nil {
+		t.Fatalf("decode other-project lead: %v — %s", err, recOtherLead.Body)
+	}
+	recForeign := doJSON(t, h, cookie, "POST", base+"/exploration/edges",
+		`{"fromLeadId":"`+otherLead.Lead.ID+`","toLeadId":"`+leadB.Lead.ID+`","label":"支持"}`)
+	if recForeign.Code != http.StatusBadRequest {
+		t.Fatalf("edge with foreign-project lead = %d, want 400: %s", recForeign.Code, recForeign.Body)
+	}
+
+	// A non-root (child) lead as toLeadId → 400 (edges connect top-level
+	// question nodes only).
+	recChild := doJSON(t, h, cookie, "POST", base+"/exploration/leads",
+		`{"text":"子分支","parentLeadId":"`+leadA.Lead.ID+`"}`)
+	var child struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(recChild.Body.Bytes(), &child); err != nil {
+		t.Fatalf("decode child lead: %v — %s", err, recChild.Body)
+	}
+	recNonRoot := doJSON(t, h, cookie, "POST", base+"/exploration/edges",
+		`{"fromLeadId":"`+leadA.Lead.ID+`","toLeadId":"`+child.Lead.ID+`","label":"支持"}`)
+	if recNonRoot.Code != http.StatusBadRequest {
+		t.Fatalf("edge with non-root lead = %d, want 400: %s", recNonRoot.Code, recNonRoot.Body)
+	}
+
+	// A label outside the closed 5-value set → 400.
+	recBadLabel := doJSON(t, h, cookie, "POST", base+"/exploration/edges",
+		`{"fromLeadId":"`+leadA.Lead.ID+`","toLeadId":"`+leadB.Lead.ID+`","label":"随便什么"}`)
+	if recBadLabel.Code != http.StatusBadRequest {
+		t.Fatalf("edge with bad label = %d, want 400: %s", recBadLabel.Code, recBadLabel.Body)
+	}
+}
+
 func containsID(ids []string, id string) bool {
 	for _, x := range ids {
 		if x == id {

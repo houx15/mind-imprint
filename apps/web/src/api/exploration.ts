@@ -1,5 +1,5 @@
-import type { LeadStatus, Reference } from "@mind-imprint/contracts";
-import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate } from "@mind-imprint/contracts";
+import type { LeadStatus, Reference, QuestionEdgeLabel, QuestionEdgeStatus } from "@mind-imprint/contracts";
+import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate, QuestionEdge } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 // S3 rabbit-hole exploration: thin API client mirroring reading.ts's
@@ -58,4 +58,38 @@ export async function digExploration(projectId: string, opts: { leadId?: string;
 export async function adoptCandidate(projectId: string, candidate: DigCandidate, opts?: { parentLeadId?: string }): Promise<{ lead: ExplorationLead; reference: Reference }> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/adopt`, { method: "POST", body: JSON.stringify({ candidate, parentLeadId: opts?.parentLeadId ?? null }) });
   return raw as { lead: ExplorationLead; reference: Reference };
+}
+
+// B2 · question_edge lifecycle (create/relabel/confirm/dismiss) — the labeled
+// edges between top-level question leads. createEdge is only reachable from
+// the student's own map action, so the server confirms it on arrival (铁律①:
+// an edge the student typed herself needs no separate confirm step).
+
+export async function createEdge(
+  projectId: string,
+  edge: { fromLeadId: string; toLeadId: string; label: QuestionEdgeLabel },
+): Promise<QuestionEdge> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/edges`, {
+    method: "POST",
+    body: JSON.stringify(edge),
+  });
+  return QuestionEdge.parse((raw as { edge: unknown }).edge);
+}
+
+export async function patchEdge(
+  projectId: string,
+  eid: string,
+  patch: { label?: QuestionEdgeLabel; status?: QuestionEdgeStatus },
+): Promise<QuestionEdge> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/edges/${eid}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  return QuestionEdge.parse((raw as { edge: unknown }).edge);
+}
+
+export async function deleteEdge(projectId: string, eid: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/exploration/edges/${eid}`, {
+    method: "DELETE",
+  });
 }

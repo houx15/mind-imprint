@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -15,6 +16,11 @@ import (
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// errNotRootLead is returned by getRootLeadForProject when a lead exists in
+// the project but has a parent — question_edge connects top-level question
+// nodes only (constraints.md), so a 分支 is not a valid endpoint.
+var errNotRootLead = errors.New("lead is not a root question node")
 
 // exploration.go — S3 rabbit-hole exploration surface, Task 4: the lead
 // lifecycle handlers (no LLM spend). A "lead" is a thread worth following —
@@ -77,6 +83,30 @@ func toQuestionEdgeDTO(row sqlc.QuestionEdge) questionEdgeDTO {
 		Label:      row.Label,
 		Status:     row.Status,
 	}
+}
+
+// validQuestionEdgeLabel is the closed 5-value vocabulary (constraints.md):
+// no freeform labels, ever.
+var validQuestionEdgeLabel = map[string]bool{
+	"子问题": true, "支持": true, "反驳/张力": true, "细化": true, "依赖/前提": true,
+}
+
+var validQuestionEdgeStatus = map[string]bool{"proposed": true, "confirmed": true}
+
+// getRootLeadForProject loads a lead scoped to this project (IDOR guard,
+// GetExplorationLeadForProject) AND asserts it's a ROOT question node
+// (parentLeadId absent) — question_edge connects top-level question nodes
+// only, never a 分支. Returns a descriptive error suitable for a 400 when the
+// lead doesn't exist in this project or isn't a root.
+func (a *API) getRootLeadForProject(ctx context.Context, projectID, leadID uuid.UUID) (sqlc.ExplorationLead, error) {
+	lead, err := a.d.Queries.GetExplorationLeadForProject(ctx, sqlc.GetExplorationLeadForProjectParams{ID: leadID, ProjectID: projectID})
+	if err != nil {
+		return sqlc.ExplorationLead{}, err
+	}
+	if lead.ParentLeadID.Valid {
+		return sqlc.ExplorationLead{}, errNotRootLead
+	}
+	return lead, nil
 }
 
 // -- GET /exploration -----------------------------------------------------
@@ -703,4 +733,184 @@ func (a *API) adoptExploration(w http.ResponseWriter, r *http.Request) {
 		"lead":      toExplorationLeadDTO(lead),
 		"reference": toReferenceDTO(ref, nil),
 	})
+}
+
+// -- B2 · question_edge lifecycle (POST/PATCH/DELETE) -----------------------
+//
+// create/relabel/confirm/dismiss for the labeled edges between top-level
+// question leads (B1 laid the table + GET projection; this wires the write
+// path). 铁律① (克制): AI-proposed edges — wherever a future caller creates
+// one — land status:"proposed" until the student confirms; a student-created
+// edge (this endpoint, called from the student's own UI action) is confirmed
+// on arrival, no separate confirm step needed for something she typed
+// herself. 铁律④ (过程即数据): relabeling/dismissing is a normal, never
+// hard-blocked student action — DELETE is a hard delete, not a soft
+// "declined" state, matching deleteExplorationLead's own discipline.
+//
+// CRITICAL IDOR note (carried forward from B1 review): CreateQuestionEdge
+// the sqlc query does NOT verify from_lead_id/to_lead_id belong to this
+// project — it only requires they exist somewhere in the table. Every write
+// handler below MUST resolve both endpoints through getRootLeadForProject
+// (which chains GetExplorationLeadForProject's own project_id-scoped WHERE)
+// before ever calling Create/UpdateQuestionEdge — that resolve is the IDOR
+// guard, not the INSERT/UPDATE statement itself.
+
+// createQuestionEdge wires POST /exploration/edges: both endpoints must be
+// leads inside THIS project (IDOR) and both must be root question nodes (no
+// 分支 endpoints), label must be one of the closed 5, and self-edges are
+// rejected as a degenerate case that can't mean anything on this graph.
+func (a *API) createQuestionEdge(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		FromLeadID string `json:"fromLeadId"`
+		ToLeadID   string `json:"toLeadId"`
+		Label      string `json:"label"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !validQuestionEdgeLabel[body.Label] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "label 必须是固定小词表里的一个", nil))
+		return
+	}
+	fromID, err := uuid.Parse(body.FromLeadID)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "fromLeadId 不是有效的 id", nil))
+		return
+	}
+	toID, err := uuid.Parse(body.ToLeadID)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "toLeadId 不是有效的 id", nil))
+		return
+	}
+	if fromID == toID {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "一个问题不能连到它自己", nil))
+		return
+	}
+	if _, err := a.getRootLeadForProject(r.Context(), projectID, fromID); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "fromLeadId 不是这个项目里的顶层问题", nil))
+		return
+	}
+	if _, err := a.getRootLeadForProject(r.Context(), projectID, toID); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "toLeadId 不是这个项目里的顶层问题", nil))
+		return
+	}
+
+	row, err := a.d.Queries.CreateQuestionEdge(r.Context(), sqlc.CreateQuestionEdgeParams{
+		ProjectID:  projectID,
+		FromLeadID: fromID,
+		ToLeadID:   toID,
+		Label:      body.Label,
+		// Student-created (this endpoint is only reachable from the student's
+		// own map action) → confirmed on arrival, unlike a future AI-proposed
+		// edge which would land "proposed".
+		Status: "confirmed",
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"edge": toQuestionEdgeDTO(row)})
+}
+
+// getQuestionEdgeForProject is the IDOR-guarded lookup PATCH/DELETE share —
+// question_edge has no per-id sqlc getter (only ListQuestionEdgesByProject),
+// so this scans the project's own edge list rather than trusting a bare id.
+func (a *API) getQuestionEdgeForProject(ctx context.Context, projectID, edgeID uuid.UUID) (sqlc.QuestionEdge, error) {
+	edges, err := a.d.Queries.ListQuestionEdgesByProject(ctx, projectID)
+	if err != nil {
+		return sqlc.QuestionEdge{}, err
+	}
+	for _, e := range edges {
+		if e.ID == edgeID {
+			return e, nil
+		}
+	}
+	return sqlc.QuestionEdge{}, sql404NotFound
+}
+
+// sql404NotFound is a sentinel for getQuestionEdgeForProject's not-found
+// case — no row means no row, distinct from a real query error.
+var sql404NotFound = errors.New("question_edge not found in project")
+
+// patchQuestionEdge wires PATCH /exploration/edges/{eid}: relabel and/or
+// proposed→confirmed, absent-means-keep over the current row (patchLead's
+// merge pattern). label/status are validated against their closed sets when
+// present; the underlying UPDATE is already project-scoped (belt & braces
+// alongside the 404 probe above).
+func (a *API) patchQuestionEdge(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	eid, err := uuid.Parse(r.PathValue("eid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	cur, err := a.getQuestionEdgeForProject(r.Context(), projectID, eid)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	var body struct {
+		Label  *string `json:"label"`
+		Status *string `json:"status"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	next := sqlc.UpdateQuestionEdgeParams{ID: eid, ProjectID: projectID, Label: cur.Label, Status: cur.Status}
+	if body.Label != nil {
+		if !validQuestionEdgeLabel[*body.Label] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "label 必须是固定小词表里的一个", nil))
+			return
+		}
+		next.Label = *body.Label
+	}
+	if body.Status != nil {
+		if !validQuestionEdgeStatus[*body.Status] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "status 只能是 proposed/confirmed", nil))
+			return
+		}
+		next.Status = *body.Status
+	}
+
+	row, err := a.d.Queries.UpdateQuestionEdge(r.Context(), next)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"edge": toQuestionEdgeDTO(row)})
+}
+
+// deleteQuestionEdge wires DELETE /exploration/edges/{eid}: dismiss (hard
+// delete, matching deleteExplorationLead's own discipline) — 铁律④ treats
+// this as a normal, always-available student action, never hard-blocked.
+func (a *API) deleteQuestionEdge(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	eid, err := uuid.Parse(r.PathValue("eid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if _, err := a.getQuestionEdgeForProject(r.Context(), projectID, eid); err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if err := a.d.Queries.DeleteQuestionEdge(r.Context(), sqlc.DeleteQuestionEdgeParams{ID: eid, ProjectID: projectID}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
