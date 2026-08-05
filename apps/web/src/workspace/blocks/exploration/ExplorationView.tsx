@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type {
   CardTurnRef,
   DigCandidate,
+  ExplorationLead,
   ExplorationView as ExplorationViewData,
   MaterialSource,
   PhaseTag,
@@ -20,7 +22,7 @@ import {
   patchEdge,
   proposeEdges,
 } from "../../../api/exploration";
-import { NodeSidebar, candidateKey } from "./NodeSidebar";
+import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
@@ -61,9 +63,14 @@ export type ExplorationViewProps = {
   // reworks ReadingBlock). Unused here on purpose.
   onCreateReference?: (input: { title: string; url?: string }) => Promise<Reference>;
   onCardReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
+  // GVd · the 印记·找资料 coach, rendered as the unified right sidebar's DEFAULT
+  // ('ai') state. Owned by ReadingBlock (it holds the coach's chat/link/card
+  // state); this view just docks it into the sidebar so there's ONE right panel,
+  // not a separate coach column beside a node sidebar.
+  coach?: ReactNode;
 };
 
-export function ExplorationView({ projectId, references, onEnterReading }: ExplorationViewProps) {
+export function ExplorationView({ projectId, references, onEnterReading, coach }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -97,10 +104,11 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     zoomMemo.set(projectId, next);
     setZoom(next);
   }
-  // Zoom into a question → select its root node so the sidebar opens on it.
+  // GVd · Zoom into a question → the sidebar stays on the coach ('ai') until she
+  // clicks a node inside (no auto-select). Level-1 → Level-2 both default to 'ai'.
   const zoomInto = (rootId: string) => {
     resetDig();
-    setSelectedId(rootId);
+    setSelectedId(null);
     goZoom({ mode: "hole", focusRootId: rootId });
   };
   const backToMap = () => {
@@ -108,11 +116,16 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
     setSelectedId(null);
     goZoom({ mode: "map", focusRootId: null });
   };
-  // Pick a node in the mindmap → its sidebar; a fresh selection clears the
-  // previous node's dig results.
+  // Pick a node in the mindmap → its sidebar ('node'); a fresh selection clears
+  // the previous node's dig results.
   const selectNode = (id: string) => {
     resetDig();
     setSelectedId(id);
+  };
+  // GVd · "← 印记" from 'node'/'results' → back to the coach: deselect + clear dig.
+  const deselect = () => {
+    resetDig();
+    setSelectedId(null);
   };
 
   // Action 2 · the single root input that creates a NEW top-level question node.
@@ -189,7 +202,7 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   // node's id ({leadId}); the keyword box digs by a fresh term ({keyword}).
   // Either way the results hang under the SELECTED node when adopted, so a paper
   // is never a root. Never persists — that's 采纳's job.
-  async function runDig(opts: { leadId?: string; keyword?: string }) {
+  async function runDig(opts: { leadId?: string; keyword?: string; mode?: DigMode }) {
     if (!selectedId) return;
     setDigFromId(selectedId);
     setTray([]);
@@ -205,8 +218,11 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
       setDigging(false);
     }
   }
-  const findSimilar = () => selectedId && runDig({ leadId: selectedId });
-  const keywordSearch = (keyword: string) => runDig({ keyword });
+  // GVd · a node's find-actions: dig by the selected node's id in one of the
+  // three OpenAlex modes (相似 / 它引用的 / 引用它的). Adopting lands the paper
+  // under this node (papers-never-roots).
+  const digFromNode = (mode: DigMode) => selectedId && runDig({ leadId: selectedId, mode });
+  const keywordSearch = (keyword: string) => runDig({ keyword, mode: "similar" });
 
   // GVb · adopt a candidate UNDER the dug node (parentLeadId = digFromId) so the
   // paper is never a root; then refetch + drop it from the sidebar list. Explicit
@@ -303,10 +319,8 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
   const removeNode = (leadId: string) =>
     void withBusy(leadId, () => deleteLead(projectId, leadId))
       .then(() => {
-        if (leadId === selectedId) {
-          resetDig();
-          setSelectedId(zoom.focusRootId);
-        }
+        // Deleting the selected node falls the sidebar back to the coach ('ai').
+        if (leadId === selectedId) deselect();
       })
       .catch(() => setActionError(true));
 
@@ -344,6 +358,58 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
       ? references.find((r) => r.id === selectedLead.connectedReferenceId) ?? null
       : null;
 
+  // GVd · a selected QUESTION node's 论文列表 — its descendant leads carrying a
+  // connectedReferenceId, projected to {id,title} (title from the joined
+  // reference, falling back to the lead's own text). Clicking one selects that
+  // paper node. Papers can nest (a paper's finds adopt under it), so walk the
+  // whole subtree, not just direct children.
+  const selectedQuestionPapers = useMemo<PaperInList[]>(() => {
+    if (!selectedLead || selectedLead.connectedReferenceId != null) return [];
+    const childrenOf = new Map<string, ExplorationLead[]>();
+    for (const l of view.leads) {
+      if (l.parentLeadId) childrenOf.set(l.parentLeadId, [...(childrenOf.get(l.parentLeadId) ?? []), l]);
+    }
+    const out: PaperInList[] = [];
+    const stack = [...(childrenOf.get(selectedLead.id) ?? [])];
+    while (stack.length) {
+      const l = stack.pop()!;
+      if (l.connectedReferenceId != null) {
+        const ref = references.find((r) => r.id === l.connectedReferenceId);
+        out.push({ id: l.id, title: ref?.title ?? l.text });
+      }
+      stack.push(...(childrenOf.get(l.id) ?? []));
+    }
+    return out;
+  }, [selectedLead, view.leads, references]);
+
+  // GVd · the unified sidebar's state. 'ai' whenever nothing is selected (Level-1
+  // always, Level-2 until a node is clicked); 'results' once a dig launched from
+  // the selected node (digFromId set); else 'node'.
+  const sidebarState: "ai" | "node" | "results" = selectedId == null ? "ai" : digFromId != null ? "results" : "node";
+
+  const sidebar = (
+    <ExplorationSidebar
+      state={sidebarState}
+      coach={coach}
+      node={selectedLead}
+      reference={selectedRef}
+      papers={selectedQuestionPapers}
+      onSelectPaper={selectNode}
+      digging={digging}
+      digError={digError}
+      candidates={tray}
+      adopting={adopting}
+      onDig={digFromNode}
+      onKeywordSearch={keywordSearch}
+      onAdopt={adopt}
+      onDiscard={discard}
+      onBackToAi={deselect}
+      onBackToNode={resetDig}
+      onEnterReading={onEnterReading && selectedRef ? () => enterSource(selectedRef) : undefined}
+      entering={enteringRefId != null && enteringRefId === selectedRef?.id}
+    />
+  );
+
   if (loading) {
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载探索图谱中…</div>;
   }
@@ -379,27 +445,15 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
             />
           </div>
         </div>
-        <NodeSidebar
-          node={selectedLead}
-          reference={selectedRef}
-          digging={digging}
-          digError={digError}
-          candidates={tray}
-          adopting={adopting}
-          onFindSimilar={findSimilar}
-          onKeywordSearch={keywordSearch}
-          onAdopt={adopt}
-          onDiscard={discard}
-          onEnterReading={onEnterReading && selectedRef ? () => enterSource(selectedRef) : undefined}
-          entering={enteringRefId != null && enteringRefId === selectedRef?.id}
-        />
+        {sidebar}
       </div>
     );
   }
 
-  /* ---------- MAP (Level-1) · the overview graph of root questions ---------- */
+  /* ---------- MAP (Level-1) · the overview graph of root questions + sidebar (always 'ai') ---------- */
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col bg-mk-bg/40">
+    <div className="relative flex min-h-0 flex-1 bg-mk-bg/40">
+      <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {/* Action 2 · the single root input — creates a top-level question node.
             The map's own title (兔子洞地图 + its ? explainer) lives inside WarrenMap,
@@ -466,6 +520,8 @@ export function ExplorationView({ projectId, references, onEnterReading }: Explo
           </>
         )}
       </div>
+      </div>
+      {sidebar}
     </div>
   );
 }

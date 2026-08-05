@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DigCandidate, ExplorationLead, QuestionEdge, Reference } from "@mind-imprint/contracts";
 import { ExplorationView } from "@/workspace/blocks/exploration/ExplorationView";
@@ -151,7 +151,13 @@ const NASA_REF = makeRef({
   author: "NASA",
   year: "2023",
   journal: "Nature Sustainability",
+  abstract: "这篇给出了 2001–2020 年间的全球植被覆盖变化，重点是中国的绿化趋势。",
 });
+
+// GVd · a recognizable stand-in for the 印记·找资料 coach (the sidebar's DEFAULT
+// 'ai' state). The real coach lives in ReadingBlock; ExplorationView just docks
+// whatever node it's handed, so a marker is enough to assert the state machine.
+const COACH_SLOT = <div data-testid="coach-slot">印记 · 找资料</div>;
 
 // A top-level question node — parentLeadId null makes it a root of the tree.
 const ROOT_LEAD: ExplorationLead = {
@@ -255,6 +261,22 @@ async function zoomInto(user: ReturnType<typeof userEvent.setup>, text: string) 
   await screen.findByRole("button", { name: "← 返回兔子洞地图" });
 }
 
+// Render with the coach slot wired (as ReadingBlock does), so the sidebar's
+// DEFAULT 'ai' state is assertable.
+function renderView(projectId: string, references: Reference[]) {
+  return render(<ExplorationView projectId={projectId} references={references} coach={COACH_SLOT} />);
+}
+
+// Click a node INSIDE the Level-2 mindmap by its text. The focused question's
+// text also appears in the hole header, so scope to the rf-node wrappers (the
+// mock renders each node as data-testid="rf-node") to click the real node.
+async function clickNode(user: ReturnType<typeof userEvent.setup>, text: string) {
+  const nodes = await screen.findAllByTestId("rf-node");
+  const target = nodes.find((n) => within(n).queryByText(text));
+  if (!target) throw new Error(`no mindmap node with text: ${text}`);
+  await user.click(target);
+}
+
 describe("ExplorationView", () => {
   it("renders the plain empty state when there are no roots", async () => {
     mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
@@ -343,71 +365,134 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(mockDeleteLead).toHaveBeenCalledWith(projectId, ROOT_LEAD.id));
   });
 
-  it("zooming into a question shows its mindmap (question + papers); clicking a paper shows its metadata in the sidebar; 返回 zooms back out", async () => {
+  // ---- GVd · ONE unified sidebar: 'ai' (coach) ⇄ 'node' ⇄ 'results' ----
+
+  it("the sidebar DEFAULTS to the coach ('ai') at Level-1, and stays on it at Level-2 until a node is clicked", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
-    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+    renderView(nextPid(), [NASA_REF]);
+
+    // Level-1 (map): the coach IS the right sidebar
+    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
+
+    // Level-2 (inside a question): still the coach — nothing is auto-selected
+    await zoomInto(user, ROOT_LEAD.text);
+    expect(screen.getByTestId("coach-slot")).toBeInTheDocument();
+    // no node metadata shown yet
+    expect(screen.queryByText(NASA_REF.title)).toBeNull();
+  });
+
+  it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the coach", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    renderView(nextPid(), [NASA_REF]);
 
     await zoomInto(user, ROOT_LEAD.text);
-
     // the mindmap renders the adopted paper node (a paper is NEVER a root — it
     // hangs inside the question)
     expect(screen.getByText(CHILD_PAPER.text)).toBeInTheDocument();
-    // before selecting the paper, the sidebar shows the auto-selected question,
-    // not the paper's journal metadata
-    expect(screen.queryByText("NASA · 2023 · Nature Sustainability")).toBeNull();
 
-    // click the paper node → the right sidebar shows ITS metadata
-    await user.click(screen.getByText(CHILD_PAPER.text));
+    // click the paper node → the sidebar becomes 'node' with ITS metadata
+    await clickNode(user, CHILD_PAPER.text);
     expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
     expect(screen.getByText("NASA · 2023 · Nature Sustainability")).toBeInTheDocument();
+    // the full abstract is shown
+    expect(screen.getByText(/全球植被覆盖变化/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开原文" })).toHaveAttribute("href", NASA_REF.url);
+    // the three find-actions a paper offers
+    expect(screen.getByRole("button", { name: "找相似文献" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "找它引用的文献" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "找引用它的文献" })).toBeInTheDocument();
+    // the coach is hidden while a node is selected
+    expect(screen.queryByTestId("coach-slot")).toBeNull();
 
-    // back to the map: the question node reappears, the subtree paper is gone
-    await user.click(screen.getByRole("button", { name: "← 返回兔子洞地图" }));
-    await screen.findByText(ROOT_LEAD.text);
-    expect(screen.queryByText(CHILD_PAPER.text)).toBeNull();
+    // ← 印记 returns to the coach
+    await user.click(screen.getByRole("button", { name: "← 印记" }));
+    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
+    expect(screen.queryByText(NASA_REF.title)).toBeNull();
   });
 
-  it("找相似文献 in the sidebar digs from the selected node via digExploration({leadId}) and lists results", async () => {
+  it("找它引用的文献 on a paper node digs via digExploration({leadId, mode:'citation'}) and lists results in 'results'", async () => {
+    const projectId = nextPid();
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    renderView(projectId, [NASA_REF]);
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, CHILD_PAPER.text);
+
+    // 克制: nothing dug just from selecting the node
+    expect(mockDigExploration).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "找它引用的文献" }));
+
+    await waitFor(() => {
+      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { leadId: CHILD_PAPER.id, mode: "citation" });
+    });
+    // results render with the candidate's bibliographic line
+    expect(await screen.findByText(CANDIDATE.title)).toBeInTheDocument();
+    expect(screen.getByText("Li 等 · 2023 · Nature Sustainability")).toBeInTheDocument();
+  });
+
+  it("a question node shows 来源 / 论文列表 / 记于; a paper in the list is clickable → selects that paper", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    renderView(nextPid(), [NASA_REF]);
+
+    await zoomInto(user, ROOT_LEAD.text);
+    // click the CENTER question node → its metadata
+    await clickNode(user, ROOT_LEAD.text);
+
+    // 来源 (manual → human-friendly), 记于 (createdAt → YYYY-MM-DD), 论文列表 header
+    expect(await screen.findByText("手动记下")).toBeInTheDocument();
+    expect(screen.getByText("2026-08-01")).toBeInTheDocument();
+    expect(screen.getByText("论文列表")).toBeInTheDocument();
+
+    // the descendant paper appears in the 论文列表 by its reference title, and is
+    // clickable → selects that paper (sidebar becomes the paper's 'node')
+    await user.click(screen.getByRole("button", { name: NASA_REF.title }));
+    expect(await screen.findByText("NASA · 2023 · Nature Sustainability")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "找引用它的文献" })).toBeInTheDocument();
+  });
+
+  it("找相似文献 on a question node digs via digExploration({leadId, mode:'similar'}) and lists results", async () => {
     const projectId = nextPid();
     const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
+    renderView(projectId, [NASA_REF]);
     await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
 
-    // 克制: nothing dug just from zooming in (the root is only selected)
+    // 克制: nothing dug just from selecting the question
     expect(mockDigExploration).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "找相似文献" }));
 
     await waitFor(() => {
-      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { leadId: ROOT_LEAD.id });
+      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { leadId: ROOT_LEAD.id, mode: "similar" });
     });
-
-    // results render in the sidebar with the candidate's bibliographic line
     expect(await screen.findByText(CANDIDATE.title)).toBeInTheDocument();
-    expect(screen.getByText("Li 等 · 2023 · Nature Sustainability")).toBeInTheDocument();
   });
 
-  it("the sidebar keyword box digs by keyword via digExploration({keyword})", async () => {
+  it("a question node's keyword box digs by keyword via digExploration({keyword, mode:'similar'})", async () => {
     const projectId = nextPid();
     const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
+    renderView(projectId, [NASA_REF]);
     await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
 
     await user.type(screen.getByPlaceholderText("换个词找…"), "可再生能源");
     await user.click(screen.getByRole("button", { name: "找" }));
 
     await waitFor(() => {
-      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { keyword: "可再生能源" });
+      expect(mockDigExploration).toHaveBeenCalledWith(projectId, { keyword: "可再生能源", mode: "similar" });
     });
   });
 
-  it("采纳 adopts the candidate UNDER the dug node (parentLeadId = that node's id) — papers never roots", async () => {
+  it("采纳 in 'results' adopts the candidate UNDER the dug node (parentLeadId = that node's id) — papers never roots", async () => {
     const projectId = nextPid();
     const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[NASA_REF]} />);
+    renderView(projectId, [NASA_REF]);
     await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
 
     await user.click(screen.getByRole("button", { name: "找相似文献" }));
     await screen.findByText(CANDIDATE.title);
@@ -425,10 +510,11 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
   });
 
-  it("丢弃 removes a candidate from the sidebar list with no server call", async () => {
+  it("丢弃 removes a candidate from 'results' with no server call", async () => {
     const user = userEvent.setup();
-    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+    renderView(nextPid(), [NASA_REF]);
     await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
 
     await user.click(screen.getByRole("button", { name: "找相似文献" }));
     await screen.findByText(CANDIDATE.title);
@@ -438,6 +524,27 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(screen.queryByText(CANDIDATE.title)).toBeNull());
     // discard is client-only — it never adopts
     expect(mockAdoptCandidate).not.toHaveBeenCalled();
+  });
+
+  it("'results' offers a ← 印记 back to the coach and a ← 返回 back to the node", async () => {
+    const user = userEvent.setup();
+    renderView(nextPid(), [NASA_REF]);
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
+
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
+    await screen.findByText(CANDIDATE.title);
+
+    // ← 返回 goes back to the node (its find-actions reappear, results gone)
+    await user.click(screen.getByRole("button", { name: "← 返回" }));
+    expect(await screen.findByRole("button", { name: "找相似文献" })).toBeInTheDocument();
+    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
+
+    // dig again, then ← 印记 returns all the way to the coach
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
+    await screen.findByText(CANDIDATE.title);
+    await user.click(screen.getByRole("button", { name: "← 印记" }));
+    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
   });
 
   it("× on a node inside a question opens a confirm modal; confirming calls deleteLead (no 剪枝)", async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import type { Reference } from "@mind-imprint/contracts";
 
 // A single already-read source with no stage tag yet, carrying a saved brief
@@ -45,7 +46,15 @@ vi.mock("@/workspace/api/workspace", () => ({
 vi.mock("@/api/reading", () => ({ putReadingBrief: vi.fn(async () => {}) }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
 vi.mock("@/workspace/blocks/exploration/ExplorationView", () => ({
-  ExplorationView: () => <div>graph-stub</div>,
+  // GVd · the 找资料 coach is now passed INTO ExplorationView as its sidebar's
+  // default ('ai') state — render the slot so the docked-coach assertions still
+  // exercise the real wiring (ReadingBlock owns the coach; the view docks it).
+  ExplorationView: ({ coach }: { coach?: ReactNode }) => (
+    <div>
+      graph-stub
+      {coach}
+    </div>
+  ),
 }));
 vi.mock("@/workspace/export", () => ({ exportAnnotatedBib: vi.fn() }));
 

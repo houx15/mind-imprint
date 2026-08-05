@@ -458,13 +458,11 @@ export function ReadingBlock({
             </div>
           )
         ) : (
-          // Q3 followup (2026-08): 探索图谱 has no reference-preview sidebar
-          // (unlike 列表, where the Preview column already occupies the right
-          // column), so the "找资料" coach has nowhere to sit except floating
-          // over the graph — instead it's docked as a permanent right column
-          // here, sized/styled like the writing room's CoachRail, and always
-          // visible (no collapse-behind-a-chip).
-          <div className="relative grid h-full min-h-0 grid-cols-[1fr,320px]">
+          // GVd · ONE right sidebar. The 找资料 coach is no longer a separate
+          // docked column beside a node sidebar — it's the unified sidebar's
+          // DEFAULT ('ai') state, passed into ExplorationView as a slot. The
+          // view swaps it for node-metadata / search-results and back (← 印记).
+          <div className="relative h-full min-h-0">
             <ExplorationView
               projectId={projectId}
               references={refs}
@@ -477,15 +475,17 @@ export function ReadingBlock({
               // thread every other card uses (and pops the panel open, since
               // this feedback is unprompted — she didn't have it open to ask).
               onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
-            />
-            <FloatingCoach
-              docked
-              projectId={projectId}
-              defaultOpen={refs.length === 0}
-              opener={refs.length === 0 ? emptyOpener : undefined}
-              onLibraryChanged={reload}
-              pendingCardReflection={pendingCardReflection}
-              onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+              coach={
+                <FloatingCoach
+                  docked
+                  projectId={projectId}
+                  defaultOpen={refs.length === 0}
+                  opener={refs.length === 0 ? emptyOpener : undefined}
+                  onLibraryChanged={reload}
+                  pendingCardReflection={pendingCardReflection}
+                  onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
+                />
+              }
             />
           </div>
         )}
@@ -1552,7 +1552,7 @@ function FloatingCoach({
   // writing room's CoachRail: bordered aside, header, scrollable body, input).
   if (docked) {
     return (
-      <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
+      <aside className="flex w-[340px] flex-none flex-col border-l border-mk-border bg-mk-surface">
         <header className="border-b border-mk-border px-4 py-3">
           <div className="flex items-center gap-2 text-mk-primary">
             <Icon name="spark" size={15} />
