@@ -38,8 +38,13 @@ const materialsTestProjectID = "00000000-0000-0000-0000-000000000101"
 // works is a canned OpenAlex reply for tests exercising the exploration dig
 // endpoint (#A3) — SearchWorks/RelatedWorks just hand it back verbatim, since
 // this fake never actually calls OpenAlex.
+// lastQuery, when non-nil, captures the query SearchWorks was actually
+// called with — used by TestExplorationDig_RefinesQueryBeforeSearch (Task
+// A8) to assert the LLM-refined query (not the raw question) reaches
+// OpenAlex.
 type fakeFetcher struct {
-	works []materialize.WorkMeta
+	works     []materialize.WorkMeta
+	lastQuery *string
 }
 
 var (
@@ -76,6 +81,9 @@ func (fakeFetcher) FetchReadable(ctx context.Context, rawURL string) (string, st
 // SearchWorks/RelatedWorks (#A3) just return the canned works — the fake
 // never calls OpenAlex, it only needs to satisfy the widened Fetcher seam.
 func (f fakeFetcher) SearchWorks(ctx context.Context, query string, limit int) []materialize.WorkMeta {
+	if f.lastQuery != nil {
+		*f.lastQuery = query
+	}
 	return f.works
 }
 

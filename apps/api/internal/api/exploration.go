@@ -460,12 +460,19 @@ func toDigCandidateDTOs(works []materialize.WorkMeta) []digCandidateDTO {
 
 // digExploration runs an OpenAlex search from a free-text keyword, or from a
 // lead's own question text, and hands candidates straight to the client-side
-// tray — no persistence, no metering (OpenAlex is not an LLM; a fetch isn't a
-// spend). A keyword wins when both are supplied. reference has no DOI column
-// today (only a free-text url), so the RelatedWorks branch — widening around
-// a lead's already-connected paper instead of re-searching its question text
-// — is left for a follow-up once a DOI is actually resolvable off a
-// reference; SearchWorks covers both keyword and lead-text digs for now.
+// tray — no persistence (adopting is a separate, explicit student action,
+// 铁律①). Before searching, 印记 refines the student's own question (often a
+// long Chinese sentence) into a short English keyword query — OpenAlex
+// relevance on raw natural-language Chinese text is poor, and this refine is
+// the whole value of dig (Task A8). That refine IS one real LLM call, so
+// (unlike the search itself) it IS metered — one llm_call per dig when a
+// provider is configured. On any refine error, empty result, or no provider
+// configured, this falls back to the raw query text and never 500s. A
+// keyword wins when both are supplied. reference has no DOI column today
+// (only a free-text url), so the RelatedWorks branch — widening around a
+// lead's already-connected paper instead of re-searching its question text —
+// is left for a follow-up once a DOI is actually resolvable off a reference;
+// SearchWorks covers both keyword and lead-text digs for now.
 func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -505,7 +512,28 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	works := a.d.Fetcher.SearchWorks(r.Context(), query, 8)
+	// 印记 refines the raw question into a short English keyword query before
+	// OpenAlex ever sees it. Gated so tests/deploys without a configured
+	// provider are unaffected, and any failure falls back to the raw text —
+	// dig must never 500 because the refine step didn't work out.
+	searchQuery := query
+	if a.d.ChatResolver != nil {
+		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil && resolved.Provider != "" {
+			refined, usage, cerr := agent.ComposeDigQuery(r.Context(), a.d.Provider, resolved, query)
+			if cerr == nil && strings.TrimSpace(refined) != "" {
+				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+				if e := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "dig_query",
+					Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+				}); e != nil {
+					slog.Warn("dig query: record llm", "err", e, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
+				searchQuery = refined
+			}
+		}
+	}
+
+	works := a.d.Fetcher.SearchWorks(r.Context(), searchQuery, 8)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(works)})
 }
 

@@ -466,6 +466,79 @@ func TestExplorationDig_KeywordReturnsCandidates(t *testing.T) {
 	}
 }
 
+// TestExplorationDig_RefinesQueryBeforeSearch — Task A8: with a provider
+// configured, 印记 refines the raw (Chinese, sentence-shaped) question into a
+// short English keyword query BEFORE it reaches OpenAlex, and that refine is
+// metered as one llm_call with purpose "dig_query" (a real LLM call, unlike
+// the OpenAlex fetch itself).
+func TestExplorationDig_RefinesQueryBeforeSearch(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	var captured string
+	h := New(Deps{
+		Queries: q, Pool: pool, SpecByID: cards.ByID,
+		Provider:     readingStubProvider("China greening carbon accounting attribution"),
+		ChatResolver: fakeResolver(),
+		Fetcher: fakeFetcher{
+			works:     []materialize.WorkMeta{{DOI: "10.1/y", Title: "T2", Year: "2024"}},
+			lastQuery: &captured,
+		},
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/dig", `{"keyword":"中国单独 vs 中印合计的口径差异"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dig = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	if captured != "China greening carbon accounting attribution" {
+		t.Fatalf("SearchWorks query = %q, want the refined English query", captured)
+	}
+	var out digCandidatesView
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode dig response: %v — %s", err, rec.Body)
+	}
+	if len(out.Candidates) != 1 || out.Candidates[0].Title != "T2" {
+		t.Fatalf("unexpected candidates: %+v", out.Candidates)
+	}
+	if n := countLLMCallsByPurpose(t, pool, pid, "dig_query"); n != 1 {
+		t.Fatalf("want 1 dig_query llm_call, got %d", n)
+	}
+}
+
+// TestExplorationDig_NoProviderFallsBackToRawQuery — the no-provider path
+// (mirrors TestExplorationDig_KeywordReturnsCandidates but pins the fallback
+// explicitly): with no ChatResolver configured, the refine block must be
+// skipped entirely — the raw keyword reaches SearchWorks unchanged, and
+// nothing is metered.
+func TestExplorationDig_NoProviderFallsBackToRawQuery(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	var captured string
+	h := New(Deps{
+		Queries: q, Pool: pool, SpecByID: cards.ByID,
+		Fetcher: fakeFetcher{
+			works:     []materialize.WorkMeta{{DOI: "10.1/x", Title: "T", Year: "2023"}},
+			lastQuery: &captured,
+		},
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/dig", `{"keyword":"china carbon"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dig = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	if captured != "china carbon" {
+		t.Fatalf("SearchWorks query = %q, want the raw keyword (no provider configured)", captured)
+	}
+	if n := countLLMCallsByPurpose(t, pool, pid, "dig_query"); n != 0 {
+		t.Fatalf("want 0 dig_query llm_call with no provider configured, got %d", n)
+	}
+}
+
 // adoptView is the test's decode shape for POST .../exploration/adopt.
 type adoptView struct {
 	Lead      explorationLeadView `json:"lead"`
