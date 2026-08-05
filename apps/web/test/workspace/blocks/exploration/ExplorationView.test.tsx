@@ -285,6 +285,91 @@ describe("ExplorationView", () => {
     expect(await screen.findByText("这里还是空的")).toBeInTheDocument();
     // no rabbit metaphor in the copy — plain guidance only
     expect(screen.getByText(/在上面记下一个你想弄清楚的问题/)).toBeInTheDocument();
+    // no projectTitle passed → no driving-question seed offered
+    expect(screen.queryByRole("button", { name: "用我的研究问题开始" })).toBeNull();
+  });
+
+  // ---- GVf · seed the driving question (empty state) ----
+
+  it("the empty state offers the driving question; clicking it fills the input, then 记下问题 creates it via createLead", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    const projectId = nextPid();
+    const question = "中国是否让地球变得更可持续？";
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} projectTitle={question} />);
+    await screen.findByText("这里还是空的");
+
+    const input = screen.getByPlaceholderText(/记一个你想弄清楚的问题/) as HTMLInputElement;
+    expect(input.value).toBe("");
+
+    // 铁律①: the pre-fill only fills the input — nothing is created yet
+    await user.click(screen.getByRole("button", { name: "用我的研究问题开始" }));
+    expect(input.value).toBe(question);
+    expect(mockCreateLead).not.toHaveBeenCalled();
+
+    // she still has to confirm/edit + click 记下问题 herself
+    await user.click(screen.getByRole("button", { name: "记下问题" }));
+
+    await waitFor(() => {
+      expect(mockCreateLead).toHaveBeenCalledWith(projectId, question);
+    });
+  });
+
+  it("the driving-question seed is editable before it's created", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[]} projectTitle="原始研究问题" />);
+    await screen.findByText("这里还是空的");
+
+    await user.click(screen.getByRole("button", { name: "用我的研究问题开始" }));
+    const input = screen.getByPlaceholderText(/记一个你想弄清楚的问题/);
+    await user.clear(input);
+    await user.type(input, "改过的问题");
+    await user.click(screen.getByRole("button", { name: "记下问题" }));
+
+    await waitFor(() => {
+      expect(mockCreateLead).toHaveBeenCalledWith(projectId, "改过的问题");
+    });
+  });
+
+  // ---- GVf · promote a reading note into a question ----
+
+  it("从笔记新建问题 lists references with a readingNote (note text + source title); selecting one calls createLead with sourceReferenceId", async () => {
+    const noteRef = makeRef({
+      id: "rNote",
+      title: "一篇留过笔记的来源",
+      readingNote: "碳排放和可持续发展之间似乎有矛盾，值得细挖。",
+    });
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={projectId} references={[NASA_REF, noteRef]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    await user.click(screen.getByRole("button", { name: "从笔记新建问题" }));
+    expect(await screen.findByText(noteRef.readingNote!)).toBeInTheDocument();
+    expect(screen.getByText(noteRef.title)).toBeInTheDocument();
+    // NASA_REF has no readingNote — it must not appear in the picker
+    expect(screen.queryByText(NASA_REF.title)).toBeNull();
+
+    await user.click(screen.getByText(noteRef.readingNote!));
+
+    await waitFor(() => {
+      expect(mockCreateLead).toHaveBeenCalledWith(projectId, noteRef.readingNote, { sourceReferenceId: noteRef.id });
+    });
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
+  });
+
+  it("从笔记新建问题 shows a gentle empty state when there are no reading notes", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    await user.click(screen.getByRole("button", { name: "从笔记新建问题" }));
+    expect(await screen.findByText("还没有阅读笔记")).toBeInTheDocument();
+    expect(mockCreateLead).not.toHaveBeenCalled();
   });
 
   it("the map root input CREATES a top-level question node via createLead (not a keyword dig)", async () => {

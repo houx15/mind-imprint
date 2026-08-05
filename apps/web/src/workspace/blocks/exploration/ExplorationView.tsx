@@ -47,6 +47,13 @@ const zoomMemo = new Map<string, ZoomState>();
 export type ExplorationViewProps = {
   projectId: string;
   references: Reference[];
+  // GVf · the project's title, threaded down from ReadingBlock/WorkspaceContainer
+  // (WorkspaceProjection.title). There is no dedicated "research question" field
+  // reachable from the client (the old S1 立题 studio framing is dead in the new
+  // four-room workspace), so the project title IS the driving-question fallback
+  // the brief calls for. Optional so existing callers/tests without it still
+  // render the plain empty state (current behavior).
+  projectTitle?: string;
   // Matches ReadingBlock's setReadingSource signature — passed straight through
   // so a paper node's 进入阅读室 reuses the same swap slot.
   onEnterReading?: (
@@ -70,7 +77,7 @@ export type ExplorationViewProps = {
   coach?: ReactNode;
 };
 
-export function ExplorationView({ projectId, references, onEnterReading, coach }: ExplorationViewProps) {
+export function ExplorationView({ projectId, references, projectTitle, onEnterReading, coach }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -131,6 +138,10 @@ export function ExplorationView({ projectId, references, onEnterReading, coach }
   // Action 2 · the single root input that creates a NEW top-level question node.
   const [newQuestion, setNewQuestion] = useState("");
   const [creatingQuestion, setCreatingQuestion] = useState(false);
+
+  // GVf · the note-promotion picker: a small dropdown near the create input
+  // listing reading notes the student can turn into a question.
+  const [notePickerOpen, setNotePickerOpen] = useState(false);
 
   // B4b · 印记-proposed labeled edges. `proposing` gates the propose button while
   // the LLM runs; `proposeNote` gently surfaces a zero-result run. `busyEdgeIds`
@@ -195,6 +206,23 @@ export function ExplorationView({ projectId, references, onEnterReading, coach }
       setActionError(true); // keep her draft so she can just retry
     } finally {
       setCreatingQuestion(false);
+    }
+  }
+
+  // GVf · promote a reading note into a root question. sourceReferenceId lets
+  // the server attach the note's reference + set origin "note" (C1) so the
+  // question carries its provenance. Student-confirmed: she picks the note from
+  // the list herself (铁律①) — nothing here runs without that click.
+  async function createFromNote(ref: Reference) {
+    const text = (ref.readingNote ?? "").trim();
+    if (!text) return;
+    setNotePickerOpen(false);
+    setActionError(false);
+    try {
+      await createLead(projectId, text, { sourceReferenceId: ref.id });
+      await refresh();
+    } catch {
+      setActionError(true);
     }
   }
 
@@ -341,6 +369,17 @@ export function ExplorationView({ projectId, references, onEnterReading, coach }
 
   const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
 
+  // GVf · the driving-question seed (empty state) — see projectTitle's doc
+  // comment above for why the project title is the fallback source.
+  const drivingQuestion = useMemo(() => (projectTitle ?? "").trim(), [projectTitle]);
+
+  // GVf · reading notes eligible for promotion into a question — references
+  // whose readingNote is a non-empty string.
+  const notesWithText = useMemo(
+    () => references.filter((r) => (r.readingNote ?? "").trim().length > 0),
+    [references],
+  );
+
   // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
   // carrying a connectedReferenceId) under each root, not raw descendant count.
   const countByRoot = useMemo(() => countPapersByRoot(view.leads), [view.leads]);
@@ -478,6 +517,41 @@ export function ExplorationView({ projectId, references, onEnterReading, coach }
           </button>
         </div>
 
+        {/* GVf · 从笔记新建问题 — a plain-copy affordance near the create input that
+            opens a small picker of the project's reading notes (references whose
+            readingNote is set). Picking one promotes it into a root question,
+            carrying its source via sourceReferenceId (origin becomes "note"). */}
+        <div className="relative mb-5 -mt-3">
+          <button
+            type="button"
+            onClick={() => setNotePickerOpen((o) => !o)}
+            className="rounded-full border border-mk-border bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+          >
+            从笔记新建问题
+          </button>
+          {notePickerOpen && (
+            <div className="absolute left-0 top-full z-30 mt-1 w-80 rounded-mk border border-mk-border bg-mk-surface p-2 shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
+              {notesWithText.length === 0 ? (
+                <p className="px-2 py-2 text-[12px] text-mk-muted-2">还没有阅读笔记</p>
+              ) : (
+                notesWithText.map((ref) => (
+                  <button
+                    key={ref.id}
+                    type="button"
+                    onClick={() => void createFromNote(ref)}
+                    className="block w-full rounded px-2 py-1.5 text-left hover:bg-mk-primary-tint"
+                  >
+                    <p className="line-clamp-2 text-[12px] font-semibold leading-snug text-mk-ink">
+                      {(ref.readingNote ?? "").trim()}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-mk-muted-2">{ref.title}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
         {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
 
         {roots.length === 0 ? (
@@ -486,6 +560,19 @@ export function ExplorationView({ projectId, references, onEnterReading, coach }
             <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
               在上面记下一个你想弄清楚的问题，点开它再「深挖」——印记就会顺着它给你几篇相关论文，采纳的会挂到这条线下面，慢慢长成一张图。
             </p>
+            {/* GVf · the driving-question seed: pre-fill (not auto-create) the
+                create input with the project's own research question so the
+                student's first question isn't a blank page. She still has to
+                confirm/edit and click 记下问题 herself (铁律①). */}
+            {drivingQuestion && (
+              <button
+                type="button"
+                onClick={() => setNewQuestion(drivingQuestion)}
+                className="mt-3 rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10"
+              >
+                用我的研究问题开始
+              </button>
+            )}
           </div>
         ) : (
           <>

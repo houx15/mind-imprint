@@ -466,6 +466,10 @@ export function ReadingBlock({
             <ExplorationView
               projectId={projectId}
               references={refs}
+              // GVf · no dedicated research-question field is reachable here —
+              // the project title (already threaded in as `title`/`topic`) is
+              // the driving-question seed's fallback source.
+              projectTitle={title}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // Followup fix (2026-08): ExplorationView and FloatingCoach are
