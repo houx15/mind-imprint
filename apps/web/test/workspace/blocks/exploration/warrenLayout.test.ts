@@ -7,12 +7,14 @@ import {
   buildWarrenNodes,
   circlePositions,
   countPapersByRoot,
+  dagreMindmapLayout,
   depthTint,
   mixToward,
   NODE_THEMES,
   radialLayout,
-  themeForId,
-  themeIndexForId,
+  rootOrdinal,
+  themeForOrdinal,
+  themeForRoot,
 } from "@/workspace/blocks/exploration/warrenLayout";
 
 function lead(overrides: Partial<ExplorationLead> & { id: string }): ExplorationLead {
@@ -49,20 +51,48 @@ describe("warrenLayout · countPapersByRoot", () => {
   });
 });
 
-describe("warrenLayout · theme assignment", () => {
-  it("is stable for a given id and always in range", () => {
-    expect(themeForId("lead-abc")).toBe(themeForId("lead-abc"));
-    for (const id of ["a", "lead-1", "中国碳排放", "zzzzzzzz"]) {
-      const idx = themeIndexForId(id);
-      expect(idx).toBeGreaterThanOrEqual(0);
-      expect(idx).toBeLessThan(NODE_THEMES.length);
-      expect(NODE_THEMES[idx]).toBe(themeForId(id));
+describe("warrenLayout · theme assignment (by ordinal)", () => {
+  it("maps every ordinal in-range and wraps modulo the palette (incl. negatives)", () => {
+    for (let i = 0; i < NODE_THEMES.length * 2; i++) {
+      expect(themeForOrdinal(i)).toBe(NODE_THEMES[i % NODE_THEMES.length]);
+    }
+    // wrap-around: ordinal 0 and ordinal palette-length share a theme
+    expect(themeForOrdinal(NODE_THEMES.length)).toBe(themeForOrdinal(0));
+    // defensive on a negative ordinal (e.g. a not-found root)
+    expect(NODE_THEMES).toContain(themeForOrdinal(-1));
+  });
+
+  it("gives ADJACENT roots visibly different themes (the anti-collision guarantee)", () => {
+    for (let i = 0; i + 1 < NODE_THEMES.length; i++) {
+      expect(themeForOrdinal(i).key).not.toBe(themeForOrdinal(i + 1).key);
     }
   });
 
-  it("spreads distinct ids across more than one theme", () => {
-    const used = new Set(["l0", "l1", "l2", "l3", "l4", "l5", "l6", "l7"].map((id) => themeForId(id).key));
-    expect(used.size).toBeGreaterThan(1);
+  it("rootOrdinal is the root's index among top-level leads; themeForRoot resolves it", () => {
+    const leads: ExplorationLead[] = [
+      lead({ id: "r0" }),
+      lead({ id: "child", parentLeadId: "r0" }), // not a root — must not shift ordinals
+      lead({ id: "r1" }),
+      lead({ id: "r2" }),
+    ];
+    expect(rootOrdinal("r0", leads)).toBe(0);
+    expect(rootOrdinal("r1", leads)).toBe(1);
+    expect(rootOrdinal("r2", leads)).toBe(2);
+    expect(themeForRoot("r0", leads)).toBe(themeForOrdinal(0));
+    expect(themeForRoot("r2", leads)).toBe(themeForOrdinal(2));
+    // an unknown id falls back to ordinal 0 (still in-range, never throws)
+    expect(rootOrdinal("nope", leads)).toBe(0);
+  });
+});
+
+describe("warrenLayout · buildWarrenNodes theme spread", () => {
+  it("themes roots by their array position so neighbours differ", () => {
+    const roots = [lead({ id: "a" }), lead({ id: "b" }), lead({ id: "c" })];
+    const nodes = buildWarrenNodes(roots, new Map());
+    expect(nodes[0]!.theme).toBe(themeForOrdinal(0));
+    expect(nodes[1]!.theme).toBe(themeForOrdinal(1));
+    expect(nodes[2]!.theme).toBe(themeForOrdinal(2));
+    expect(nodes[0]!.theme.key).not.toBe(nodes[1]!.theme.key);
   });
 });
 
@@ -160,6 +190,55 @@ describe("warrenLayout · radialLayout", () => {
   });
 });
 
+describe("warrenLayout · dagreMindmapLayout", () => {
+  // Node footprints must match the pure fn's constants / MindmapNodeView.
+  const sizeOf = (rootId: string, id: string) =>
+    id === rootId ? { w: 216, h: 108 } : { w: 176, h: 88 };
+  const overlaps = (
+    a: { x: number; y: number; w: number; h: number },
+    b: { x: number; y: number; w: number; h: number },
+  ) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  it("anchors the root at the origin and places every descendant", () => {
+    const children = new Map<string, ExplorationLead[]>([
+      ["r", [lead({ id: "a", parentLeadId: "r" }), lead({ id: "b", parentLeadId: "r" })]],
+      ["a", [lead({ id: "c", parentLeadId: "a" })]],
+    ]);
+    const pos = dagreMindmapLayout("r", children);
+    // root top-left anchored at (0,0)
+    expect(pos.get("r")).toMatchObject({ x: 0, y: 0, depth: 0 });
+    // all four nodes placed with the right depths
+    expect([...pos.keys()].sort()).toEqual(["a", "b", "c", "r"]);
+    expect(pos.get("a")!.depth).toBe(1);
+    expect(pos.get("b")!.depth).toBe(1);
+    expect(pos.get("c")!.depth).toBe(2);
+  });
+
+  it("is deterministic — same input yields identical positions", () => {
+    const mk = () =>
+      new Map<string, ExplorationLead[]>([
+        ["r", [lead({ id: "a", parentLeadId: "r" }), lead({ id: "b", parentLeadId: "r" }), lead({ id: "d", parentLeadId: "r" })]],
+      ]);
+    const first = dagreMindmapLayout("r", mk());
+    const second = dagreMindmapLayout("r", mk());
+    for (const id of ["r", "a", "b", "d"]) expect(first.get(id)).toEqual(second.get(id));
+  });
+
+  it("lays a left-to-right tree with NO overlapping node rectangles", () => {
+    const kids = Array.from({ length: 6 }, (_v, i) => lead({ id: `k${i}`, parentLeadId: "r" }));
+    const children = new Map<string, ExplorationLead[]>([["r", kids]]);
+    const pos = dagreMindmapLayout("r", children);
+    const rects = [...pos.entries()].map(([id, p]) => ({ id, x: p.x, y: p.y, ...sizeOf("r", id) }));
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        expect(overlaps(rects[i]!, rects[j]!)).toBe(false);
+      }
+    }
+    // LR: children sit to the RIGHT of the root (greater x)
+    for (const k of kids) expect(pos.get(k.id)!.x).toBeGreaterThan(pos.get("r")!.x);
+  });
+});
+
 describe("warrenLayout · buildMindmapNodes / buildMindmapEdges", () => {
   const leads: ExplorationLead[] = [
     lead({ id: "r", text: "根问题" }),
@@ -179,9 +258,23 @@ describe("warrenLayout · buildMindmapNodes / buildMindmapEdges", () => {
     expect(nodes.some((n) => n.id === "other")).toBe(false);
   });
 
-  it("prefers a saved (dragged) position over the radial slot", () => {
+  it("prefers a saved (dragged) position over the dagre slot", () => {
     const nodes = buildMindmapNodes("r", leads, { p: { x: 11, y: 22 } });
     expect(nodes.find((n) => n.id === "p")!.position).toEqual({ x: 11, y: 22 });
+  });
+
+  it("tints descendants in the ROOT's theme family — same border/label, lighter fill", () => {
+    // "r" is the first (and only) root here → ordinal 0 → themeForOrdinal(0).
+    const base = themeForOrdinal(0);
+    const nodes = buildMindmapNodes("r", leads);
+    const root = nodes.find((n) => n.id === "r")!;
+    const paper = nodes.find((n) => n.id === "p")!; // depth 1 descendant
+    expect(root.theme.border).toBe(base.border);
+    // descendant keeps the family's border + label hue…
+    expect(paper.theme.border).toBe(base.border);
+    expect(paper.theme.label).toBe(base.label);
+    // …but a lighter fill than the root (depth tint)
+    expect(paper.theme.fillFrom).not.toBe(base.fillFrom);
   });
 
   it("excludes pruned leads from the mindmap", () => {

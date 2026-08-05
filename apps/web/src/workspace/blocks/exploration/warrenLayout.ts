@@ -1,14 +1,18 @@
+import dagre from "@dagrejs/dagre";
 import type { ExplorationLead, LeadStatus, QuestionEdge, QuestionEdgeLabel, QuestionEdgeStatus } from "@mind-imprint/contracts";
 
-// GVa · pure layout + theming helpers for the Level-1 question graph. Kept free
-// of React / React Flow so they unit-test in plain jsdom (React Flow itself
-// can't render there). WarrenMap.tsx is the thin React Flow shell over these.
+// GVa/GVc · pure layout + theming helpers for the question graph. Kept free of
+// React / React Flow so they unit-test in plain jsdom (React Flow itself can't
+// render there). WarrenMap.tsx / QuestionMindmap.tsx are thin shells over these.
 
-// A node color theme: a soft two-stop fill + a stronger border/label so each
-// root question reads as its own tactile "bubble" — the fix for the old
-// all-white, flat look. Families are derived from the mk-* brand (indigo /
-// terracotta / teal-green / amber) plus complementary plum / slate / rose so
-// ~7 questions each get a distinct, cohesive color without clashing.
+// A node color theme: a gently-saturated soft two-stop fill + a deeper border
+// and dark, WCAG-legible label so each root question reads as its own calm,
+// tactile "bubble". GVc curated palette — six harmonious families spread evenly
+// around the hue wheel (indigo → teal → terracotta → amber → plum → sage). They
+// share a common lightness/chroma register (a soft gouache/editorial feel), so
+// adjacent questions read as clearly different hues yet belong to one system —
+// the fix for the old muted wash where several roots collapsed to near-identical
+// pale blue.
 export type NodeTheme = {
   key: string;
   fillFrom: string;
@@ -19,26 +23,35 @@ export type NodeTheme = {
 };
 
 export const NODE_THEMES: NodeTheme[] = [
-  { key: "indigo", fillFrom: "#EEF0FA", fillTo: "#DBE1F5", border: "#2A3B7A", label: "#2A3B7A", glow: "rgba(42,59,122,0.20)" },
-  { key: "terracotta", fillFrom: "#FBEEE7", fillTo: "#F6DBCB", border: "#C4643F", label: "#AC4E2C", glow: "rgba(196,100,63,0.20)" },
-  { key: "teal", fillFrom: "#E7F3EE", fillTo: "#CFE8DD", border: "#3B8168", label: "#2E6C56", glow: "rgba(76,154,130,0.20)" },
-  { key: "amber", fillFrom: "#FBF1DA", fillTo: "#F6E1B0", border: "#C9862A", label: "#A06B1D", glow: "rgba(232,163,61,0.22)" },
-  { key: "plum", fillFrom: "#F4E9F5", fillTo: "#E6D0EA", border: "#834E8C", label: "#6C3E74", glow: "rgba(131,78,140,0.20)" },
-  { key: "slate", fillFrom: "#EAEEF5", fillTo: "#D6E0EC", border: "#4A6079", label: "#3B4E64", glow: "rgba(74,96,121,0.20)" },
-  { key: "rose", fillFrom: "#FBE9EE", fillTo: "#F4D1DC", border: "#B8506A", label: "#9C3F57", glow: "rgba(184,80,106,0.20)" },
+  { key: "indigo", fillFrom: "#E4E8F8", fillTo: "#C6D0F1", border: "#3B4F9E", label: "#26356E", glow: "rgba(59,79,158,0.22)" },
+  { key: "teal", fillFrom: "#DCF0E8", fillTo: "#B7E1D2", border: "#2F8E72", label: "#1F6B54", glow: "rgba(47,142,114,0.22)" },
+  { key: "terracotta", fillFrom: "#FBE7DC", fillTo: "#F4C8B2", border: "#CD6A44", label: "#A64D2C", glow: "rgba(205,106,68,0.22)" },
+  { key: "amber", fillFrom: "#FBEFCC", fillTo: "#F3D896", border: "#C68A22", label: "#8F5D18", glow: "rgba(198,138,34,0.22)" },
+  { key: "plum", fillFrom: "#F1E3F3", fillTo: "#DEC1E6", border: "#8A4E96", label: "#67386F", glow: "rgba(138,78,150,0.22)" },
+  { key: "sage", fillFrom: "#E8EEDA", fillTo: "#CEDBB2", border: "#6E8B47", label: "#4E6731", glow: "rgba(110,139,71,0.22)" },
 ];
 
-// Stable per-question theme: a small string hash of the lead id → theme index.
-// Hashing the id (not the array index) keeps a question's color fixed even when
-// siblings are added/removed and the list reorders.
-export function themeIndexForId(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h % NODE_THEMES.length;
+// Theme by ORDINAL (a root's index in the project's stable root ordering),
+// modulo the palette length. Assigning by position — not an id hash — guarantees
+// adjacent roots always land on different, visibly-spread hues (the id hash used
+// before could collide neighbouring questions into the same family). Handles
+// negatives defensively so a not-found ordinal still maps in-range.
+export function themeForOrdinal(ordinal: number): NodeTheme {
+  const n = NODE_THEMES.length;
+  return NODE_THEMES[((ordinal % n) + n) % n]!;
 }
 
-export function themeForId(id: string): NodeTheme {
-  return NODE_THEMES[themeIndexForId(id)]!;
+// A root's ordinal = its index among the top-level (parentLeadId == null) leads,
+// in their given array order — the same ordering WarrenMap lays roots out in, so
+// a question keeps one consistent color across Level-1 and Level-2.
+export function rootOrdinal(rootId: string, leads: ExplorationLead[]): number {
+  const i = leads.filter((l) => l.parentLeadId == null).findIndex((r) => r.id === rootId);
+  return i < 0 ? 0 : i;
+}
+
+// The theme for a root question, resolved from its ordinal within `leads`.
+export function themeForRoot(rootId: string, leads: ExplorationLead[]): NodeTheme {
+  return themeForOrdinal(rootOrdinal(rootId, leads));
 }
 
 // "文献 x 篇" tally: how many paper descendants hang under each root — i.e.
@@ -105,11 +118,12 @@ export function buildWarrenNodes(
   saved?: Record<string, { x: number; y: number }>,
 ): WarrenNode[] {
   const circle = circlePositions(roots.map((r) => r.id));
-  return roots.map((r) => ({
+  return roots.map((r, i) => ({
     id: r.id,
     text: r.text,
     paperCount: paperCounts.get(r.id) ?? 0,
-    theme: themeForId(r.id),
+    // theme by ordinal (index) → adjacent roots always differ in hue
+    theme: themeForOrdinal(i),
     status: r.status,
     position: saved?.[r.id] ?? circle.get(r.id) ?? { x: 0, y: 0 },
   }));
@@ -239,6 +253,74 @@ export function radialLayout(rootId: string, childrenByParent: Map<string, Explo
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// GVc · dagre mindmap layout — the tidy, well-organized replacement for the
+// loose radial scatter. Lays a question's subtree out as a clean left-to-right
+// tree (root on the left, children flowing right) with even spacing and NO node
+// overlaps. Pure + deterministic (dagre is DOM-free), so it unit-tests without
+// React Flow. QuestionMindmap.tsx renders bezier edges + fitView over these.
+// ---------------------------------------------------------------------------
+
+// Rendered node footprints (must match MindmapNodeView in QuestionMindmap.tsx)
+// so dagre spaces nodes by their true size and nothing overlaps.
+const MM_ROOT_W = 216;
+const MM_ROOT_H = 108;
+const MM_NODE_W = 176;
+const MM_NODE_H = 88;
+const MM_RANK_GAP = 96; // horizontal gap between depth levels
+const MM_NODE_GAP = 30; // vertical gap between siblings
+
+// Subtree depth-by-id via a cycle-guarded DFS from the root — the shared notion
+// of "which leads belong to this question's map" (dagre + radial agree on it).
+function subtreeDepths(rootId: string, childrenByParent: Map<string, ExplorationLead[]>): Map<string, number> {
+  const depthOf = new Map<string, number>();
+  const dfs = (id: string, depth: number) => {
+    if (depthOf.has(id)) return;
+    depthOf.set(id, depth);
+    for (const k of childrenByParent.get(id) ?? []) dfs(k.id, depth + 1);
+  };
+  dfs(rootId, 0);
+  return depthOf;
+}
+
+// Tidy left-to-right tree layout for one question's subtree. Runs dagre with
+// rankdir "LR", then converts dagre's node CENTERS to React Flow top-left
+// positions and translates everything so the ROOT sits at the origin (0,0).
+// Deterministic: same input → same positions. Cycle-guarded upstream.
+export function dagreMindmapLayout(rootId: string, childrenByParent: Map<string, ExplorationLead[]>): Map<string, PosD> {
+  const depthOf = subtreeDepths(rootId, childrenByParent);
+
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "LR", nodesep: MM_NODE_GAP, ranksep: MM_RANK_GAP, marginx: 0, marginy: 0 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  const sizeOf = (id: string) =>
+    id === rootId ? { width: MM_ROOT_W, height: MM_ROOT_H } : { width: MM_NODE_W, height: MM_NODE_H };
+  for (const id of depthOf.keys()) g.setNode(id, sizeOf(id));
+  for (const id of depthOf.keys()) {
+    for (const k of childrenByParent.get(id) ?? []) {
+      if (depthOf.has(k.id)) g.setEdge(id, k.id);
+    }
+  }
+  dagre.layout(g);
+
+  // dagre reports node centers; React Flow positions are top-left. Convert, then
+  // anchor the root's top-left at (0,0) so the layout is translation-stable.
+  const topLeft = (id: string): { x: number; y: number } => {
+    const n = g.node(id) as { x?: number; y?: number } | undefined;
+    const s = sizeOf(id);
+    return { x: (n?.x ?? 0) - s.width / 2, y: (n?.y ?? 0) - s.height / 2 };
+  };
+  const rootTL = topLeft(rootId);
+
+  const out = new Map<string, PosD>();
+  for (const [id, depth] of depthOf) {
+    const p = topLeft(id);
+    out.set(id, { x: Math.round(p.x - rootTL.x), y: Math.round(p.y - rootTL.y), depth });
+  }
+  return out;
+}
+
 export type MindmapNodeKind = "question" | "paper";
 
 export type MindmapNode = {
@@ -254,15 +336,16 @@ export type MindmapNode = {
 
 // One question's subtree → mindmap node models. A lead carrying a
 // connectedReferenceId is a "paper"; everything else is a "question" (the root,
-// or a sub-question). `saved` (dragged positions) wins over the radial slot.
+// or a sub-question). Positions come from the tidy dagre left-to-right layout;
+// `saved` (dragged positions) wins over the dagre slot for that node.
 export function buildMindmapNodes(
   rootId: string,
   leads: ExplorationLead[],
   saved?: Record<string, { x: number; y: number }>,
 ): MindmapNode[] {
   const children = indexLiveChildren(leads);
-  const pos = radialLayout(rootId, children);
-  const base = themeForId(rootId);
+  const pos = dagreMindmapLayout(rootId, children);
+  const base = themeForRoot(rootId, leads);
   const byId = new Map(leads.map((l) => [l.id, l]));
   const nodes: MindmapNode[] = [];
   for (const [id, p] of pos) {
@@ -287,7 +370,7 @@ export type MindmapEdge = { id: string; source: string; target: string };
 // Provenance edges (parentLeadId → child) within the focused subtree only.
 export function buildMindmapEdges(rootId: string, leads: ExplorationLead[]): MindmapEdge[] {
   const children = indexLiveChildren(leads);
-  const ids = new Set(radialLayout(rootId, children).keys());
+  const ids = new Set(subtreeDepths(rootId, children).keys());
   const byId = new Map(leads.map((l) => [l.id, l]));
   const edges: MindmapEdge[] = [];
   for (const id of ids) {

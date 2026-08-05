@@ -20,7 +20,7 @@ import {
   buildMindmapEdges,
   buildMindmapNodes,
   mixToward,
-  themeForId,
+  themeForRoot,
   type MindmapNodeKind,
   type NodeTheme,
 } from "./warrenLayout";
@@ -168,7 +168,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
   const saved = useMemo(() => readSavedPositions(projectId, root.id), [projectId, root.id]);
   const nodeModels = useMemo(() => buildMindmapNodes(root.id, leads, saved), [root.id, leads, saved]);
   const edgeModels = useMemo(() => buildMindmapEdges(root.id, leads), [root.id, leads]);
-  const edgeStroke = useMemo(() => mixToward(themeForId(root.id).border, "#FFFFFF", 0.4), [root.id]);
+  const edgeStroke = useMemo(() => mixToward(themeForRoot(root.id, leads).border, "#FFFFFF", 0.4), [root.id, leads]);
 
   // React Flow node state, reconciled from the models on every data refresh:
   // surviving nodes keep their (possibly-dragged) position; new nodes take their
