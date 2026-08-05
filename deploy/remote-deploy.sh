@@ -58,10 +58,18 @@ deploy_api() {
   "${COMPOSE[@]}" up -d --build api || fail "api up"
 
   step "verify api health"
+  # Poll each endpoint — a fresh container needs a moment to bind its port, so a
+  # single immediate curl races the boot and returns 000 (false negative). Retry
+  # up to ~20s before giving up.
   for ep in healthz readyz; do
-    code=$(curl -s -o /dev/null -w '%{http_code}' "$API_LOCAL/$ep")
+    code=000
+    for _ in $(seq 1 10); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' "$API_LOCAL/$ep")
+      [ "$code" = "200" ] && break
+      sleep 2
+    done
     echo "$ep -> $code"
-    [ "$code" = "200" ] || fail "$ep returned $code (expected 200)"
+    [ "$code" = "200" ] || fail "$ep returned $code (expected 200 after retries)"
   done
 }
 
