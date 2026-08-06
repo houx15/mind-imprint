@@ -135,7 +135,7 @@ body,
 /* PebbleInlineSpinner: 豆豆 rolls in place. Reuses the `mk-pebble-spin`
    keyframe defined above (plain rotate(360deg)) at a slower, linear 1s
    cadence suited to standing alone as a button/inline spinner. */
-.mk-pebble-inline-spin { display:inline-block; transform-box:fill-box; transform-origin:center; animation:mk-pebble-spin 1s linear infinite; }
+.mk-pebble-inline-spin { display:inline-block; animation:mk-pebble-spin 1s linear infinite; }
 
 /* RabbitHoleLoader (spec §15). Verbatim from
    docs/design/design-system-mockups/pebble-rabbithole-v2.html — ground hole

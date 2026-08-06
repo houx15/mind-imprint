@@ -45,6 +45,17 @@ describe("PebbleProgress", () => {
     expect(path!.getAttribute("fill")).toBe("var(--mk-accent-500)");
   });
 
+  it("slim value=100 parks the rider at the SAME left offset as full-size (matches the shared mk-pebble-ride keyframe's end, no variant-specific jump)", () => {
+    const full = render(<PebbleProgress value={100} />);
+    const slimRender = render(<PebbleProgress value={100} slim />);
+    const fullLeft = (full.container.querySelector('[data-testid="pebble-progress-rider"]') as HTMLElement)
+      .style.left;
+    const slimLeft = (slimRender.container.querySelector('[data-testid="pebble-progress-rider"]') as HTMLElement)
+      .style.left;
+    expect(slimLeft).toBe(fullLeft);
+    expect(fullLeft).toBe("calc(100% - 30.00px)");
+  });
+
   it("slim renders without crashing and keeps the same test hooks", () => {
     const { getByTestId } = render(<PebbleProgress value={20} slim />);
     expect(getByTestId("pebble-progress-fill")).toHaveStyle({ width: "20%" });

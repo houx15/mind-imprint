@@ -61,7 +61,7 @@ export function Button({
       aria-busy={loading || undefined}
       {...rest}
     >
-      {loading ? <PebbleInlineSpinner size={16} /> : iconStart}
+      {loading ? <PebbleInlineSpinner size={20} /> : iconStart}
       {children}
       {!loading && iconEnd}
     </button>

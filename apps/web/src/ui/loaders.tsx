@@ -75,10 +75,13 @@ export function PebbleProgress({ value, slim = false }: PebbleProgressProps) {
   const indeterminate = value === undefined;
   const pct = indeterminate ? undefined : clampPercent(value);
   // Static rider position: interpolate between the mockup ride keyframe's
-  // settled endpoints (v=0 → left:-4px, v=100 → left:calc(100% - riderW - 2px)).
-  const riderWidth = slim ? 24 : 32;
+  // settled endpoints (v=0 → left:-4px, v=100 → left:calc(100% - 30px)). The
+  // shared `mk-pebble-ride` keyframe uses this SAME end offset for every
+  // variant (the mockup reuses one keyframe for slim, it does not scale the
+  // endpoint by rider width) — using a slim-specific offset here would make
+  // the rider jump when a slim bar flips from indeterminate to value=100.
   const offset0 = -4;
-  const offset100 = -(riderWidth - 2);
+  const offset100 = -30;
   const riderLeft =
     pct === undefined
       ? undefined
