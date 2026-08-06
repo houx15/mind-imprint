@@ -14,6 +14,7 @@
 
 export * from "./tokens";
 export * from "./accent";
+export * from "./cover";
 export type { LucideIcon } from "./Icon";
 export {
   Icon,
