@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ElementType, KeyboardEvent, ReactNode } from "react";
 
 /**
  * Surface / Card / CompactRow (design-system foundation, Part 1 Task 5).
@@ -9,7 +9,13 @@ import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
  * row flavor used for long lists (40px thumb + title/meta + trailing).
  */
 
+/** Join truthy class fragments with a single space; drops falsy/empty ones. */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
 export type SurfaceLevel = "hairline" | "sm" | "md" | "lg";
+export type SurfaceRadius = "sm" | "md";
 
 const LEVELS: Record<SurfaceLevel, string> = {
   hairline: "shadow-mk-xs border border-mk-border",
@@ -18,10 +24,21 @@ const LEVELS: Record<SurfaceLevel, string> = {
   lg: "shadow-mk-lg",
 };
 
-const SURFACE_BASE = "bg-mk-surface rounded-mk-sm";
+// Tailwind emits `rounded-mk-*` utilities in alphabetical class order in the
+// compiled stylesheet (lg, md, sm) — NOT theme-declaration order — so two
+// `rounded-mk-*` classes on the same element are NOT resolved by which one
+// appears later in `className`; `rounded-mk-sm` always wins the cascade tie.
+// Surface must therefore apply exactly ONE radius utility, ever.
+const RADII: Record<SurfaceRadius, string> = {
+  sm: "rounded-mk-sm",
+  md: "rounded-mk-md",
+};
+
+const SURFACE_BASE = "bg-mk-surface";
 
 export type SurfaceProps<T extends ElementType = "div"> = {
   level?: SurfaceLevel;
+  radius?: SurfaceRadius;
   as?: T;
   className?: string;
   children?: ReactNode;
@@ -29,6 +46,7 @@ export type SurfaceProps<T extends ElementType = "div"> = {
 
 export function Surface<T extends ElementType = "div">({
   level = "hairline",
+  radius = "sm",
   as,
   className,
   children,
@@ -36,10 +54,7 @@ export function Surface<T extends ElementType = "div">({
 }: SurfaceProps<T>) {
   const Tag = (as ?? "div") as ElementType;
   return (
-    <Tag
-      className={[SURFACE_BASE, LEVELS[level], className].filter(Boolean).join(" ")}
-      {...rest}
-    >
+    <Tag className={cx(SURFACE_BASE, RADII[radius], LEVELS[level], className)} {...rest}>
       {children}
     </Tag>
   );
@@ -53,7 +68,7 @@ export interface CardProps {
 /** Object card: `Surface level="md"` with the 10px card radius. */
 export function Card({ className, children }: CardProps) {
   return (
-    <Surface level="md" className={["rounded-mk-md", className].filter(Boolean).join(" ")}>
+    <Surface level="md" radius="md" className={className}>
       {children}
     </Surface>
   );
@@ -70,17 +85,24 @@ export interface CompactRowProps {
 
 /** Hairline row for long lists: optional 40px thumb + title/meta + trailing. */
 export function CompactRow({ thumb, title, meta, trailing, onClick, className }: CompactRowProps) {
+  const interactive = Boolean(onClick);
   return (
     <Surface
       level="hairline"
       onClick={onClick}
-      className={[
-        "flex w-full items-center gap-3 p-3 text-left",
-        onClick ? "cursor-pointer" : "",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e: KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={cx("flex w-full items-center gap-3 p-3 text-left", interactive && "cursor-pointer", className)}
     >
       {thumb && (
         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-mk-sm bg-mk-paper">
