@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MaterialSource, PhaseTag, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
+import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
+import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
+import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
+import { Badge, Segmented } from "@/ui/feedback";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
 import { getWorkspace, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
@@ -10,6 +14,13 @@ import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
+
+/** Join truthy class fragments with a single space; drops falsy/empty ones
+ * (copied from `ui/Card.tsx` — every `ui/`-adjacent file keeps its own local
+ * copy rather than sharing an export, per the design-system convention). */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
 
 // The top-level workspace: a project is a set of four rooms
 // (项目管理 · 阅读 · 写作 · 回顾) the student moves between freely. No open
@@ -45,27 +56,54 @@ export function WorkspaceContainer({
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
-  // Full-screen mode: hide the left room-rail so the active room (esp. the
-  // reading room's 兔子洞地图 and the wide library table) gets the whole width.
-  // Applies to the ENTIRE project workspace, not one room; persisted so it
-  // survives room swaps and reloads.
-  const [fullscreen, setFullscreen] = useState<boolean>(() => {
+  // The constant AI panel's side + collapsed state (spec §17) — persisted so
+  // it survives room swaps and reloads, same spirit as the old fullscreen
+  // toggle it replaces. Default side is "right" per the brief.
+  const [aiSide, setAiSide] = useState<AiPanelSide>(() => {
     try {
-      return localStorage.getItem("mk-workspace-fullscreen") === "1";
+      const v = localStorage.getItem("mk-studio-ai-side");
+      return v === "left" || v === "right" ? v : "right";
     } catch {
-      return false;
+      return "right";
     }
   });
-  const toggleFullscreen = useCallback(() => {
-    setFullscreen((f) => {
-      const next = !f;
+  const flipAiSide = useCallback(() => {
+    setAiSide((s) => {
+      const next: AiPanelSide = s === "left" ? "right" : "left";
       try {
-        localStorage.setItem("mk-workspace-fullscreen", next ? "1" : "0");
+        localStorage.setItem("mk-studio-ai-side", next);
       } catch {
         /* best-effort; a blocked storage must never break the toggle */
       }
       return next;
     });
+  }, []);
+  const [aiCollapsed, setAiCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("mk-studio-ai-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleAiCollapsed = useCallback(() => {
+    setAiCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem("mk-studio-ai-collapsed", next ? "1" : "0");
+      } catch {
+        /* best-effort; a blocked storage must never break the toggle */
+      }
+      return next;
+    });
+  }, []);
+  // The AiPanel's body DOM node, captured via a callback ref so rooms can
+  // portal their coach content into it (StudioAiSlotContext, Task 4). A
+  // callback ref (not a plain useRef) is required here: it must trigger a
+  // re-render — and so a context update — whenever the node mounts/unmounts
+  // (room switch, panel collapse, side flip), not just capture it once.
+  const [aiSlotEl, setAiSlotEl] = useState<HTMLDivElement | null>(null);
+  const aiSlotRef = useCallback((node: HTMLDivElement | null) => {
+    setAiSlotEl(node);
   }, []);
   // The reading-room swap slot. When set, the focused ReadingRoom surface
   // replaces the rooms entirely (mirrors the shipped studio's own swap).
@@ -251,10 +289,18 @@ export function WorkspaceContainer({
     );
   }
 
+  const aiPanel = (
+    <AiPanel side={aiSide} onFlip={flipAiSide} collapsed={aiCollapsed} onToggleCollapse={toggleAiCollapsed}>
+      <div ref={aiSlotRef} className="h-full" />
+    </AiPanel>
+  );
+
   return (
-    <div className="flex h-full w-full bg-mk-bg font-sans text-mk-ink">
-      <Rail room={room} onRoom={setRoom} onBack={backToAll} workspace={workspace} collapsed={fullscreen} onToggleCollapsed={toggleFullscreen} />
-      <main className="relative min-w-0 flex-1 overflow-hidden">
+    <div className="flex h-full w-full flex-col bg-mk-bg font-sans text-mk-ink">
+      <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={backToAll} />
+      <div className="flex min-h-0 flex-1">
+        {aiSide === "left" && aiPanel}
+        <main className="relative min-w-0 flex-1 overflow-hidden">
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
             {summary && !summaryDismissed && (
@@ -298,7 +344,13 @@ export function WorkspaceContainer({
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载中…</div>
         ) : (
-          <>
+          // StudioAiSlotContext (Task 4): the room→panel portal contract. A
+          // room reads `useStudioAiSlot()` and portals its coach content into
+          // the AiPanel's body via `createPortal` — the room itself renders
+          // its WORK directly here in <main>. Only the plan room does this
+          // today (the reference integration); reading/writing/reflection
+          // still render their own bespoke coach columns inline (T5–T8).
+          <StudioAiSlotContext.Provider value={aiSlotEl}>
             {room === "plan" && (
               <PlanBlock
                 key={projectId}
@@ -337,131 +389,55 @@ export function WorkspaceContainer({
                 onFinished={backToAll}
               />
             )}
-          </>
+          </StudioAiSlotContext.Provider>
         )}
-      </main>
+        </main>
+        {aiSide === "right" && aiPanel}
+      </div>
     </div>
   );
 }
 
-// Fold glyphs (diagonal arrows). Local to the rail — the shared Icon set has no
-// full-screen names and these are their only use. Out-arrows = expand to full
-// screen (fold the rail); in-arrows = restore the rail.
-function ExpandIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
-    </svg>
-  );
-}
-function CollapseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5" />
-    </svg>
-  );
-}
-
-function Rail({
+// The top bar (spec §17): a small 「← 主页」capsule back to the Directory,
+// the project's title + qualification, and the room switcher. Replaces the
+// old left `Rail` — there is no more in-project sidebar.
+function TopBar({
+  workspace,
   room,
   onRoom,
   onBack,
-  workspace,
-  collapsed,
-  onToggleCollapsed,
 }: {
+  workspace: WorkspaceProjection | null;
   room: BlockKey;
   onRoom: (b: BlockKey) => void;
   onBack: () => void;
-  workspace: WorkspaceProjection | null;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
 }) {
-  // Folded (full-screen) · a slim icon strip: the active room gets the whole
-  // width, but room navigation and a one-tap way back stay reachable — no
-  // content-overlapping overlay.
-  if (collapsed) {
-    return (
-      <nav className="flex w-[52px] flex-none flex-col items-center border-r border-mk-border bg-mk-surface py-3">
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          title="退出全屏（展开侧栏）"
-          aria-label="退出全屏"
-          className="mb-4 flex h-8 w-8 items-center justify-center rounded-mk text-mk-muted-2 hover:bg-mk-bg hover:text-mk-primary"
-        >
-          <ExpandIcon />
-        </button>
-        <div className="flex flex-col gap-1.5">
-          {BLOCK_META.map((b) => {
-            const active = room === b.key;
-            return (
-              <button
-                key={b.key}
-                type="button"
-                onClick={() => onRoom(b.key)}
-                title={b.label}
-                aria-label={b.label}
-                className={`flex h-9 w-9 items-center justify-center rounded-mk transition ${
-                  active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:bg-mk-bg hover:text-mk-muted"
-                }`}
-              >
-                <Icon name={b.key} size={19} />
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-    );
-  }
-
   return (
-    <nav className="flex w-[236px] flex-none flex-col border-r border-mk-border bg-mk-surface">
-      <div className="border-b border-mk-border px-5 py-5">
-        <div className="mb-3 flex items-center justify-between">
-          <button type="button" onClick={onBack} className="flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
-            <Icon name="back" size={16} /> 全部项目
-          </button>
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            title="全屏（收起侧栏）"
-            aria-label="全屏"
-            className="flex h-7 w-7 items-center justify-center rounded-mk text-mk-muted-2 hover:bg-mk-bg hover:text-mk-primary"
-          >
-            <CollapseIcon />
-          </button>
-        </div>
-        <h1 className="font-sans text-[15.5px] font-bold leading-snug text-mk-ink">{workspace?.title || "未命名项目"}</h1>
-        <span className="mt-2 inline-block rounded-full bg-mk-primary-tint px-2.5 py-1 text-[11px] font-bold text-mk-primary">{workspace?.qualification || "项目"}</span>
+    <header className={cx("flex shrink-0 items-center gap-4 border-b border-mk-border bg-mk-paper px-6 py-3")}>
+      <button
+        type="button"
+        onClick={onBack}
+        className={cx(
+          "inline-flex shrink-0 items-center gap-1 rounded-mk-full border border-mk-border bg-mk-surface",
+          "px-3 py-1.5 text-mk-small font-medium text-mk-muted transition-colors duration-[120ms] ease-mk",
+          "hover:bg-mk-paper hover:text-mk-ink",
+        )}
+      >
+        <UiIcon icon={ArrowLeft} size={14} />
+        主页
+      </button>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <h1 className="truncate text-mk-h2">{workspace?.title || "未命名项目"}</h1>
+        <Badge tone="progress" className="shrink-0">
+          {workspace?.qualification || "项目"}
+        </Badge>
       </div>
-
-      <div className="flex flex-1 flex-col gap-1 px-3 py-4">
-        {BLOCK_META.map((b, i) => {
-          const active = room === b.key;
-          return (
-            <button
-              key={b.key}
-              type="button"
-              onClick={() => onRoom(b.key)}
-              className={`group relative flex items-center gap-3 rounded-mk px-3 py-2.5 text-left transition ${
-                active ? "bg-mk-primary-tint" : "hover:bg-mk-bg"
-              }`}
-            >
-              {active && <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-mk-primary" />}
-              <span className={active ? "text-mk-primary" : "text-mk-muted-2 group-hover:text-mk-muted"}>
-                <Icon name={b.key} size={19} />
-              </span>
-              <span className="flex flex-col">
-                <span className={`text-[14px] font-bold ${active ? "text-mk-primary" : "text-mk-ink"}`}>{b.label}</span>
-                <span className="text-[11px] font-medium tracking-wide text-mk-muted-2">
-                  {String(i + 1).padStart(2, "0")} · {b.sub}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+      <Segmented
+        className="shrink-0"
+        options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
+        value={room}
+        onChange={(v) => onRoom(v as BlockKey)}
+      />
+    </header>
   );
 }

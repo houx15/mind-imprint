@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
+import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { Icon } from "../Icon";
 import {
   PROPOSAL_DIMS,
@@ -488,96 +490,30 @@ function FormingPhase(props: {
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
   const ready = covered >= 1;
+  // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
+  // proposal panel + its actions — renders directly below, in <main>; its
+  // COACH (the chat conversation) is portaled into the constant AiPanel via
+  // `useStudioAiSlot`. `slot` is null when the panel is collapsed or this
+  // component renders outside a studio shell (e.g. some tests) — in either
+  // case the coach content simply doesn't render, never crashes.
+  const slot = useStudioAiSlot();
   return (
-    <div className="relative mx-auto grid h-full w-full max-w-6xl grid-cols-[1fr,380px] gap-8 px-10 py-9">
-      {/* Chat column */}
-      <div className="flex min-h-0 flex-col">
-        <header className="mb-5 flex items-start justify-between">
-          <div>
-            {/* #1 · back to the plan board (only when one already exists — i.e. the
-                student opened the plan chat from a generated board). */}
-            {onBackToBoard && (
-              <button type="button" onClick={onBackToBoard} className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
-                <Icon name="back" size={15} /> 回到计划板
-              </button>
-            )}
-            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">先想清楚，再动手</p>
-            <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
-            <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
-          </div>
-          <button type="button" onClick={onToggleLang} className="mt-1 flex flex-none items-center gap-1 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="印记可用中文或英文引导">
-            <span className={lang === "zh" ? "text-mk-primary" : ""}>中</span>
-            <span className="text-mk-muted-2">/</span>
-            <span className={lang === "en" ? "text-mk-primary" : ""}>EN</span>
-          </button>
+    <>
+      {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
+      <div className="relative mx-auto flex h-full w-full max-w-2xl flex-col gap-5 overflow-y-auto px-10 py-9">
+        <header>
+          {/* #1 · back to the plan board (only when one already exists — i.e. the
+              student opened the plan chat from a generated board). */}
+          {onBackToBoard && (
+            <button type="button" onClick={onBackToBoard} className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
+              <Icon name="back" size={15} /> 回到计划板
+            </button>
+          )}
+          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">先想清楚，再动手</p>
+          <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
+          <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-          {chat.map((m, i) => (
-            <ChatBubble key={i} msg={m} />
-          ))}
-          {linkOffer && !sending && (
-            <CoachLinkOffer
-              url={linkOffer.url}
-              status={linkOffer.status}
-              onAdd={onAddLink}
-              onReadTogether={onReadTogether}
-              onDismiss={onDismissLink}
-            />
-          )}
-          {dimSuggestion && !sending && (
-            <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
-          )}
-          {!sending && (
-            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
-          )}
-          {showChips && !sending && (
-            <div className="flex flex-wrap gap-2 pl-1">
-              <button
-                type="button"
-                onClick={onGuideMe}
-                className="rounded-full border border-mk-primary bg-mk-primary-tint px-3.5 py-1.5 text-[13px] font-bold text-mk-primary transition hover:bg-mk-primary hover:text-white"
-              >
-                {lang === "en" ? "Walk me through it" : "带我一部分一部分想"}
-              </button>
-              <button
-                type="button"
-                onClick={onSelfFill}
-                className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-primary"
-              >
-                {lang === "en" ? "I'll fill it in myself" : "我自己填"}
-              </button>
-            </div>
-          )}
-          {sending && (
-            <div className="flex justify-start">
-              <div className="max-w-[82%] rounded-mk-lg bg-mk-surface px-4 py-2.5 text-[14px] leading-relaxed text-mk-muted-2 shadow-[0_1px_2px_rgba(28,35,51,0.05)]">
-                <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>
-                在想……
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            // Guard the IME: an Enter that commits a Chinese candidate has
-            // isComposing=true — don't send mid-composition. Shift+Enter = newline.
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend(); } }}
-            rows={2}
-            placeholder="说说你的想法……（Shift+Enter 换行）"
-            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
-          />
-          <button type="button" onClick={onSend} disabled={sending} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
-            <Icon name="send" size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Live 开题 panel — the proposal's four dimensions, coached not required */}
-      <aside className="flex min-h-0 flex-col">
         <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-[0_1px_3px_rgba(28,35,51,0.05)]">
           <div className="mb-1 flex items-center justify-between">
             <div className="flex items-center gap-2 text-mk-primary">
@@ -605,7 +541,7 @@ function FormingPhase(props: {
           type="button"
           disabled={!ready || generating}
           onClick={onGenerate}
-          className="mt-3 flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-hover disabled:cursor-not-allowed disabled:bg-mk-input disabled:text-mk-muted-2"
+          className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-hover disabled:cursor-not-allowed disabled:bg-mk-input disabled:text-mk-muted-2"
         >
           {generating ? (
             "印记正在排计划…"
@@ -616,18 +552,98 @@ function FormingPhase(props: {
             </>
           )}
         </button>
-        {genError && <p className="mt-1.5 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
+        {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
         <button
           type="button"
           onClick={() => setWriting(true)}
-          className="mt-2 flex items-center justify-center gap-2 rounded-mk border-2 border-mk-primary bg-mk-surface py-2.5 text-[14px] font-bold text-mk-primary transition hover:bg-mk-primary-tint"
+          className="flex items-center justify-center gap-2 rounded-mk border-2 border-mk-primary bg-mk-surface py-2.5 text-[14px] font-bold text-mk-primary transition hover:bg-mk-primary-tint"
         >
           <Icon name="writing" size={16} /> 写开题报告（可选）
         </button>
-      </aside>
+      </div>
+
+      {/* COACH — portaled into the constant AiPanel (Task 4). The bespoke
+          chat/composer here are unrestyled and will move to the shared
+          `ChatLog`/`Composer` in Task 5 — this task only wires the portal. */}
+      {slot &&
+        createPortal(
+          <div className="flex h-full flex-col p-4">
+            <div className="mb-2 flex flex-none items-center justify-end">
+              <button type="button" onClick={onToggleLang} className="flex items-center gap-1 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="印记可用中文或英文引导">
+                <span className={lang === "zh" ? "text-mk-primary" : ""}>中</span>
+                <span className="text-mk-muted-2">/</span>
+                <span className={lang === "en" ? "text-mk-primary" : ""}>EN</span>
+              </button>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
+              {chat.map((m, i) => (
+                <ChatBubble key={i} msg={m} />
+              ))}
+              {linkOffer && !sending && (
+                <CoachLinkOffer
+                  url={linkOffer.url}
+                  status={linkOffer.status}
+                  onAdd={onAddLink}
+                  onReadTogether={onReadTogether}
+                  onDismiss={onDismissLink}
+                />
+              )}
+              {dimSuggestion && !sending && (
+                <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
+              )}
+              {!sending && (
+                <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
+              )}
+              {showChips && !sending && (
+                <div className="flex flex-wrap gap-2 pl-1">
+                  <button
+                    type="button"
+                    onClick={onGuideMe}
+                    className="rounded-full border border-mk-primary bg-mk-primary-tint px-3.5 py-1.5 text-[13px] font-bold text-mk-primary transition hover:bg-mk-primary hover:text-white"
+                  >
+                    {lang === "en" ? "Walk me through it" : "带我一部分一部分想"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onSelfFill}
+                    className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-primary"
+                  >
+                    {lang === "en" ? "I'll fill it in myself" : "我自己填"}
+                  </button>
+                </div>
+              )}
+              {sending && (
+                <div className="flex justify-start">
+                  <div className="max-w-[82%] rounded-mk-lg bg-mk-surface px-4 py-2.5 text-[14px] leading-relaxed text-mk-muted-2 shadow-[0_1px_2px_rgba(28,35,51,0.05)]">
+                    <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>
+                    在想……
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-none items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                // Guard the IME: an Enter that commits a Chinese candidate has
+                // isComposing=true — don't send mid-composition. Shift+Enter = newline.
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend(); } }}
+                rows={2}
+                placeholder="说说你的想法……（Shift+Enter 换行）"
+                className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+              />
+              <button type="button" onClick={onSend} disabled={sending} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
+                <Icon name="send" size={17} />
+              </button>
+            </div>
+          </div>,
+          slot,
+        )}
 
       {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} qualification={qualification} onClose={() => setWriting(false)} />}
-    </div>
+    </>
   );
 }
 
