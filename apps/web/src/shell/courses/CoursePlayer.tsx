@@ -368,7 +368,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     };
   }, [courseId, takeActiveDelta]);
 
-  if (!payload) return <div style={{ padding: 40, color: "#9AA1B0" }}>正在载入课程…</div>;
+  if (!payload) return <div style={{ padding: 40, color: "var(--mk-muted)" }}>正在载入课程…</div>;
 
   const steps = payload.renderCache.steps;
   const total = steps.length;
@@ -486,15 +486,15 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
       {/* header */}
-      <div style={{ flex: "none", background: "#fff", borderBottom: "1px solid #EFF0F5" }}>
+      <div style={{ flex: "none", background: "var(--mk-surface)", borderBottom: "1px solid var(--mk-border)" }}>
         <div style={{ height: 50, display: "flex", alignItems: "center", padding: "0 20px", gap: 13 }}>
-          <div onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 6, color: "#6B7384", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
+          <div onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--mk-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             课程
           </div>
-          <div style={{ width: 1, height: 20, background: "#EAECF2" }} />
-          <span style={{ flex: "none", width: 8, height: 8, borderRadius: 3, background: "#2A3B7A" }} />
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{payload.title}</span>
+          <div style={{ width: 1, height: 20, background: "var(--mk-border)" }} />
+          <span style={{ flex: "none", width: 8, height: 8, borderRadius: 3, background: "var(--mk-accent-500)" }} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--mk-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{payload.title}</span>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 9 }}>
             <button
               type="button"
@@ -503,14 +503,14 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
               disabled={!currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId]}
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
-                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, cursor: "pointer",
+                border: "1px solid var(--mk-input-border)", background: "var(--mk-surface)", borderRadius: 8, cursor: "pointer",
                 opacity: !currentTeachingPiece || !payload.audioKeys?.[currentTeachingPiece.pieceId] ? 0.4 : 1,
               }}
             >
               {isPlaying ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#2A3B7A" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--mk-accent-500)" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
               ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#2A3B7A" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11.5-6.86a1 1 0 0 0 0-1.72L9.5 4.28A1 1 0 0 0 8 5.14z" /></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--mk-accent-500)" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11.5-6.86a1 1 0 0 0 0-1.72L9.5 4.28A1 1 0 0 0 8 5.14z" /></svg>
               )}
             </button>
             <button
@@ -519,28 +519,28 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
               onClick={toggleMuted}
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
-                border: "1px solid #E1E4ED", background: "#fff", borderRadius: 8, cursor: "pointer",
+                border: "1px solid var(--mk-input-border)", background: "var(--mk-surface)", borderRadius: 8, cursor: "pointer",
               }}
             >
               {muted ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><line x1="16" y1="9" x2="22" y2="15" /><line x1="22" y1="9" x2="16" y2="15" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mk-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><line x1="16" y1="9" x2="22" y2="15" /><line x1="22" y1="9" x2="16" y2="15" /></svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mk-accent-500)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
               )}
             </button>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: "#AEB4C2", background: "#F2F3F8", padding: "2px 9px", borderRadius: 999 }}>{ordinal + 1} / {total}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--mk-faint)", background: "var(--mk-paper)", padding: "2px 9px", borderRadius: 999 }}>{ordinal + 1} / {total}</span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 20px 11px" }}>
           {steps.map((s, i) => (
-            <div key={s.stepId} style={{ flex: 1, height: 4, borderRadius: 3, background: i < ordinal || completed.includes(i) ? "#4C9A82" : i === ordinal ? "#2A3B7A" : "#E7E9F0" }} />
+            <div key={s.stepId} style={{ flex: 1, height: 4, borderRadius: 3, background: i < ordinal || completed.includes(i) ? "var(--mk-success)" : i === ordinal ? "var(--mk-accent-500)" : "var(--mk-border)" }} />
           ))}
         </div>
       </div>
 
       {/* body: content + ask panel — dc.html 236-397 */}
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "#F3F4F8" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--mk-paper)" }}>
           {/* scroll area — the whole pane is the reveal click target so a tap
               anywhere continues (铁律 2: never gated) */}
           <div onClick={handleRevealClick} style={{ flex: 1, minHeight: 0, overflowY: "auto", cursor: hasMore || stepDone ? "pointer" : "default" }}>
@@ -561,10 +561,10 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
           {/* nav — pinned to the page bottom. 下一步/完成课程 gate per step:
               disabled until the page is fully revealed and its quizzes answered
               (point 3). Within a step, revealing is still free (tap anywhere). */}
-          <div style={{ flex: "none", borderTop: "1px solid #EAECF2", background: "#fff", padding: "11px 40px" }}>
+          <div style={{ flex: "none", borderTop: "1px solid var(--mk-border)", background: "var(--mk-surface)", padding: "11px 40px" }}>
             <div style={{ maxWidth: 700, margin: "0 auto", width: "100%" }}>
               {!stepDone && (
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#B08150", background: "#FBF3E9", border: "1px solid #F0E0C8", borderRadius: 8, padding: "6px 11px", marginBottom: 9, textAlign: "center" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--mk-warning)", background: "var(--mk-warning-bg)", border: "1px solid var(--mk-warning-bg)", borderRadius: 8, padding: "6px 11px", marginBottom: 9, textAlign: "center" }}>
                   {!allRevealed ? "先看完本页内容，再继续" : "先回答本页的问题，再继续"}
                 </div>
               )}
@@ -574,7 +574,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
                     type="button"
                     aria-label="上一步"
                     onClick={() => go(ordinal - 1)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #E1E4ED", color: "#6B7384", borderRadius: 10, padding: "9px 15px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--mk-surface)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", borderRadius: 10, padding: "9px 15px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
                     上一步
@@ -587,17 +587,17 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
                   aria-label={isLast ? "完成课程" : "下一步"}
                   onClick={handleNext}
                   disabled={!stepDone}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, background: !stepDone ? "#C7CCDA" : isLast ? "#4C9A82" : "#2A3B7A", border: "none", color: "#fff", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: stepDone ? "pointer" : "not-allowed", fontFamily: "inherit", boxShadow: !stepDone ? "none" : isLast ? "0 4px 14px rgba(76,154,130,.26)" : "0 4px 14px rgba(42,59,122,.24)" }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, background: !stepDone ? "var(--mk-faint)" : isLast ? "var(--mk-success)" : "var(--mk-accent-500)", border: "none", color: "var(--mk-surface)", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: stepDone ? "pointer" : "not-allowed", fontFamily: "inherit", boxShadow: !stepDone ? "none" : isLast ? "0 4px 14px rgba(95,169,126,.26)" : "0 4px 14px rgba(234,81,64,.24)" }}
                 >
                   {isLast ? (
                     <>
                       完成课程
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                     </>
                   ) : (
                     <>
                       下一步
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
                     </>
                   )}
                 </button>
@@ -609,7 +609,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         <AskPanel
           expanded={askExpanded}
           onToggle={() => setAskExpanded((e) => !e)}
-          branchColor="#2A3B7A"
+          branchColor="#EA5140"
           context={payload.title}
           chips={[]}
           messages={askMessages}

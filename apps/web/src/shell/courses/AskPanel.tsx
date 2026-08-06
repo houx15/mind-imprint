@@ -44,7 +44,7 @@ function ChevronRightIcon() {
 
 function ChevronLeftIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7384" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mk-secondary)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M15 18l-6-6 6-6" />
     </svg>
   );
@@ -52,7 +52,7 @@ function ChevronLeftIcon() {
 
 function SendIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
     </svg>
   );
@@ -60,7 +60,7 @@ function SendIcon() {
 
 function MicIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#D98263" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mk-peach)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 2a3 3 0 013 3v6a3 3 0 01-6 0V5a3 3 0 013-3z" />
       <path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4" />
     </svg>
@@ -149,36 +149,36 @@ export function AskPanel({
         onClick={onToggle}
         role="button"
         aria-label="展开问印记"
-        style={{ width: 46, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 16, gap: 14, cursor: "pointer" }}
+        style={{ width: 46, flex: "none", background: "var(--mk-surface)", borderLeft: "1px solid var(--mk-border)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 16, gap: 14, cursor: "pointer" }}
       >
         <ChevronLeftIcon />
         <Bean color={branchColor} size={26} />
-        <span style={{ writingMode: "vertical-rl", fontSize: 12.5, fontWeight: 700, color: "#6B7384", letterSpacing: ".08em" }}>问印记</span>
+        <span style={{ writingMode: "vertical-rl", fontSize: 12.5, fontWeight: 700, color: "var(--mk-secondary)", letterSpacing: ".08em" }}>问印记</span>
       </div>
     );
   }
 
   return (
-    <div style={{ width: 330, flex: "none", background: "#fff", borderLeft: "1px solid #EAECF2", display: "flex", flexDirection: "column" }}>
+    <div style={{ width: 330, flex: "none", background: "var(--mk-surface)", borderLeft: "1px solid var(--mk-border)", display: "flex", flexDirection: "column" }}>
       <style>{`@keyframes mkPulse { 0%,100% { opacity:.5;} 50% { opacity:1;} }`}</style>
-      <div style={{ flex: "none", padding: "16px 18px 14px", borderBottom: "1px solid #EFF0F5" }}>
+      <div style={{ flex: "none", padding: "16px 18px 14px", borderBottom: "1px solid var(--mk-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Bean color={branchColor} size={30} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 700, color: "#1C2333" }}>问印记</div>
-            <div style={{ fontSize: 11.5, color: "#9AA1B0", fontWeight: 500 }}>随时打断我，问任何问题</div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--mk-ink)" }}>问印记</div>
+            <div style={{ fontSize: 11.5, color: "var(--mk-muted)", fontWeight: 500 }}>随时打断我，问任何问题</div>
           </div>
           <div
             onClick={onToggle}
             role="button"
             aria-label="收起问印记"
-            style={{ flex: "none", width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9AA1B0" }}
+            style={{ flex: "none", width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--mk-muted)" }}
           >
             <ChevronRightIcon />
           </div>
         </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, fontSize: 11.5, fontWeight: 600, color: "#2A3B7A", background: "#EDEFF9", padding: "5px 11px", borderRadius: 999 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4C9A82", animation: "mkPulse 1.6s infinite" }} />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, fontSize: 11.5, fontWeight: 600, color: "var(--mk-accent-500)", background: "var(--mk-accent-50)", padding: "5px 11px", borderRadius: 999 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mk-success)", animation: "mkPulse 1.6s infinite" }} />
           正在看：{context}
         </div>
       </div>
@@ -196,8 +196,8 @@ export function AskPanel({
                     data-testid="ask-bubble"
                     style={
                       m.role === "assistant"
-                        ? { background: "#fff", border: "1px solid #E4E7F0", borderRadius: "4px 12px 12px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.65, color: "#1C2333", maxWidth: "92%" }
-                        : { background: "#2A3B7A", color: "#fff", borderRadius: "12px 12px 4px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.55, maxWidth: "92%" }
+                        ? { background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: "4px 12px 12px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.65, color: "var(--mk-ink)", maxWidth: "92%" }
+                        : { background: "var(--mk-accent-500)", color: "var(--mk-surface)", borderRadius: "12px 12px 4px 12px", padding: "10px 13px", fontSize: 13, lineHeight: 1.55, maxWidth: "92%" }
                     }
                   >
                     {m.text}
@@ -207,20 +207,20 @@ export function AskPanel({
             ))}
           </div>
         )}
-        <div style={{ fontSize: 12, color: "#9AA1B0", fontWeight: 600, marginBottom: 11 }}>你可能想问</div>
+        <div style={{ fontSize: 12, color: "var(--mk-muted)", fontWeight: 600, marginBottom: 11 }}>你可能想问</div>
         {chips.map((c, i) => (
           <div
             key={i}
             onClick={() => handleChip(c)}
-            style={{ border: "1px solid #EAECF2", borderRadius: 12, padding: "11px 14px", marginBottom: 9, fontSize: 13.5, color: "#3A4256", cursor: "pointer", lineHeight: 1.5 }}
+            style={{ border: "1px solid var(--mk-border)", borderRadius: 12, padding: "11px 14px", marginBottom: 9, fontSize: 13.5, color: "var(--mk-ink)", cursor: "pointer", lineHeight: 1.5 }}
           >
             {c}
           </div>
         ))}
       </div>
 
-      <div style={{ flex: "none", padding: "14px 18px 18px", borderTop: "1px solid #EFF0F5" }}>
-        <div style={{ background: "#F7F8FB", border: "1px solid #E2E5EE", borderRadius: 14, padding: "8px 8px 8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: "none", padding: "14px 18px 18px", borderTop: "1px solid var(--mk-border)" }}>
+        <div style={{ background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", borderRadius: 14, padding: "8px 8px 8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -232,7 +232,7 @@ export function AskPanel({
                 handleSend();
               }
             }}
-            style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "#1C2333" }}
+            style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--mk-ink)" }}
           />
           <button
             type="button"
@@ -244,7 +244,7 @@ export function AskPanel({
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: pending || text.trim().length === 0 ? "#C7CCDA" : "#2A3B7A",
+              background: pending || text.trim().length === 0 ? "var(--mk-faint)" : "var(--mk-accent-500)",
               border: "none",
               display: "flex",
               alignItems: "center",
@@ -260,7 +260,7 @@ export function AskPanel({
             role="alert"
             onClick={() => setVoiceError(null)}
             title="点击关闭"
-            style={{ fontSize: 12, fontWeight: 600, color: "#C0392B", background: "#FDEEEC", border: "1px solid #F3C9C0", borderRadius: 10, padding: "8px 12px", marginTop: 10, cursor: "pointer" }}
+            style={{ fontSize: 12, fontWeight: 600, color: "var(--mk-danger)", background: "var(--mk-danger-bg)", border: "1px solid var(--mk-danger-bg)", borderRadius: 10, padding: "8px 12px", marginTop: 10, cursor: "pointer" }}
           >
             {voiceError}
           </div>
@@ -286,9 +286,9 @@ export function AskPanel({
               alignItems: "center",
               justifyContent: "center",
               gap: 9,
-              background: recording ? "#FBEEE7" : "#fff",
-              border: "1.5px solid #D98263",
-              color: "#D98263",
+              background: recording ? "var(--mk-peach-bg)" : "var(--mk-surface)",
+              border: "1.5px solid var(--mk-peach)",
+              color: "var(--mk-peach)",
               fontSize: 14,
               fontWeight: 700,
               padding: 11,

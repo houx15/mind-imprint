@@ -67,7 +67,7 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
   if (asset.type === "image") {
     const canZoom = Boolean(resolvedUrl && !failed);
     return (
-      <figure style={{ margin: 0, borderRadius: 14, overflow: "hidden", border: "1px solid #EAECF2", background: "#F6F7FA" }}>
+      <figure style={{ margin: 0, borderRadius: 14, overflow: "hidden", border: "1px solid var(--mk-border)", background: "var(--mk-paper)" }}>
         {resolvedUrl && !failed ? (
           <div
             role="button"
@@ -90,17 +90,17 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
             {/* zoom affordance — SVG magnifier badge, not an emoji */}
             <span
               aria-hidden="true"
-              style={{ position: "absolute", right: 8, bottom: 8, width: 26, height: 26, borderRadius: 8, background: "rgba(20,26,42,.62)", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ position: "absolute", right: 8, bottom: 8, width: 26, height: 26, borderRadius: 8, background: "color-mix(in srgb, var(--mk-ink) 62%, transparent)", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M11 8v6M8 11h6" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M11 8v6M8 11h6" /></svg>
             </span>
           </div>
         ) : (
-          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "#9AA1B0", fontSize: 13, fontWeight: 600 }}>
+          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mk-muted)", fontSize: 13, fontWeight: 600 }}>
             {failed ? "图片加载失败" : "加载中…"}
           </div>
         )}
-        <figcaption style={{ padding: "8px 12px", fontSize: 12.5, color: "#6B7384", fontWeight: 600 }}>{title}</figcaption>
+        <figcaption style={{ padding: "8px 12px", fontSize: 12.5, color: "var(--mk-secondary)", fontWeight: 600 }}>{title}</figcaption>
 
         {/* Lightbox: full-size image over a dimmed backdrop, portaled to <body>
             so no scroll-pane overflow can clip it. Click anywhere or press Esc
@@ -113,9 +113,9 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
             // component tree, so a backdrop click would otherwise bubble to the
             // reading pane's click-to-continue and advance the lesson on close.
             onClick={(e) => { e.stopPropagation(); setZoomed(false); }}
-            style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(10,14,25,.86)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, cursor: "zoom-out" }}
+            style={{ position: "fixed", inset: 0, zIndex: 2000, background: "color-mix(in srgb, var(--mk-ink) 86%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, cursor: "zoom-out" }}
           >
-            <img src={resolvedUrl!} alt={title} style={{ maxWidth: "94vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,.55)" }} />
+            <img src={resolvedUrl!} alt={title} style={{ maxWidth: "94vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "var(--mk-shadow-lg)" }} />
           </div>,
           document.body,
         )}
@@ -130,23 +130,23 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
         target="_blank"
         rel="noreferrer noopener"
         title={title}
-        style={{ display: "block", border: "1px solid #EAECF2", borderRadius: 12, padding: "12px 14px", background: "#fff", textDecoration: "none" }}
+        style={{ display: "block", border: "1px solid var(--mk-border)", borderRadius: 12, padding: "12px 14px", background: "var(--mk-surface)", textDecoration: "none" }}
       >
-        <span style={{ display: "inline-flex", fontSize: 11, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 9px", borderRadius: 999 }}>
+        <span style={{ display: "inline-flex", fontSize: 11, fontWeight: 700, color: "var(--mk-accent-500)", background: "var(--mk-accent-50)", padding: "2px 9px", borderRadius: 999 }}>
           链接
         </span>
-        <div style={{ marginTop: 6, fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{title}</div>
-        {asset.note && <div style={{ marginTop: 4, fontSize: 12.5, color: "#6B7384" }}>{asset.note}</div>}
+        <div style={{ marginTop: 6, fontSize: 14, fontWeight: 700, color: "var(--mk-ink)" }}>{title}</div>
+        {asset.note && <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--mk-secondary)" }}>{asset.note}</div>}
       </a>
     );
   }
 
   // type === "text"
   return (
-    <div title={title} style={{ border: "1px solid #EAECF2", borderRadius: 12, padding: "12px 14px", background: "#fff" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2333" }}>{title}</div>
-      {asset.src && <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.7, color: "#2B3346" }}>{asset.src}</div>}
-      {asset.note && <div style={{ marginTop: 4, fontSize: 12.5, color: "#6B7384" }}>{asset.note}</div>}
+    <div title={title} style={{ border: "1px solid var(--mk-border)", borderRadius: 12, padding: "12px 14px", background: "var(--mk-surface)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--mk-ink)" }}>{title}</div>
+      {asset.src && <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.7, color: "var(--mk-ink)" }}>{asset.src}</div>}
+      {asset.note && <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--mk-secondary)" }}>{asset.note}</div>}
     </div>
   );
 }
