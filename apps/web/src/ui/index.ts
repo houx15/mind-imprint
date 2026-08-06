@@ -31,6 +31,7 @@ export {
   ArrowLeft,
   ArrowRight,
   Loader2,
+  MoreHorizontal,
   Menu as MenuIcon,
 } from "./Icon";
 export * from "./Button";

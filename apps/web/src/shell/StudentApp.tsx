@@ -50,6 +50,14 @@ export function StudentApp({
   // tab, so it survives (and is cleared by) nav navigation regardless of tab.
   const [courseFocus, setCourseFocus] = useState<string | null>(null);
   const [meSection, setMeSection] = useState<"growth" | "settings">("growth");
+  // Open-from-home deep-links into the 项目 tab (Task 6): a specific project
+  // (home's recent-project tiles) or the create drawer (home's "新建
+  // 项目"/新建 tiles). Each is a one-shot signal — WorkspaceContainer calls
+  // the matching `on...Consumed` callback right after acting on it, so
+  // revisiting 项目 via the nav rail afterwards just shows the plain
+  // directory rather than re-triggering the same open/create.
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [pendingCreate, setPendingCreate] = useState(false);
 
   function selectTab(t: Tab) {
     setCourseFocus(null);
@@ -61,6 +69,18 @@ export function StudentApp({
     setCourseFocus(slug);
   }
 
+  function openProjectFromHome(id: string) {
+    setPendingCreate(false);
+    setPendingProjectId(id);
+    selectTab("projects");
+  }
+
+  function openCreateFromHome() {
+    setPendingProjectId(null);
+    setPendingCreate(true);
+    selectTab("projects");
+  }
+
   let body;
   if (courseFocus) {
     body = <CoursesContainer initialCourseId={courseFocus} onGoPortal={() => setCourseFocus(null)} />;
@@ -68,9 +88,9 @@ export function StudentApp({
     body = (
       <HomePage
         user={user}
-        onOpenProject={() => selectTab("projects")}
+        onOpenProject={openProjectFromHome}
         onOpenCourse={openCourse}
-        onCreateProject={() => selectTab("projects")}
+        onCreateProject={openCreateFromHome}
         onGoProjects={() => selectTab("projects")}
         onGoGallery={() => selectTab("gallery")}
       />
@@ -83,6 +103,10 @@ export function StudentApp({
           setMeSection("growth");
           setTab("me");
         }}
+        initialProjectId={pendingProjectId}
+        onInitialProjectIdConsumed={() => setPendingProjectId(null)}
+        autoOpenCreate={pendingCreate}
+        onAutoOpenCreateConsumed={() => setPendingCreate(false)}
       />
     );
   } else if (tab === "gallery") {

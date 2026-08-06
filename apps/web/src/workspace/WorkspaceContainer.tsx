@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MaterialSource, PhaseTag, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
@@ -19,7 +19,28 @@ import type { BlockKey } from "./blocks/mockData";
 // Project Management (项目管理) is now fully API-backed (slice 2); the other
 // three rooms still run on local mock state (slices 3–5). The shell (identity,
 // qualification, the room swap) is live.
-export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: string) => void }) {
+export function WorkspaceContainer({
+  onFinished,
+  initialProjectId,
+  onInitialProjectIdConsumed,
+  autoOpenCreate,
+  onAutoOpenCreateConsumed,
+}: {
+  onFinished?: (projectId?: string) => void;
+  /** Open this project on mount (or whenever it changes to a new id) — the
+   * "open from home" deep-link (Task 6). Undefined/null leaves the
+   * directory showing, same as before this prop existed. */
+  initialProjectId?: string | null;
+  /** Fired once right after `initialProjectId` has been acted on, so the
+   * caller can clear its pending-id state (else a stale-but-unchanged prop
+   * would look "already handled" and never re-fire for a genuinely new
+   * open-request with the same id after an intervening navigation). */
+  onInitialProjectIdConsumed?: () => void;
+  /** Open the directory's create drawer as soon as it mounts (home's
+   * "新建" → 项目 tab deep-link, Task 6). Only read on Directory's mount. */
+  autoOpenCreate?: boolean;
+  onAutoOpenCreateConsumed?: () => void;
+}) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
   const [room, setRoom] = useState<BlockKey>("plan");
@@ -181,10 +202,32 @@ export function WorkspaceContainer({ onFinished }: { onFinished?: (projectId?: s
     [onFinished],
   );
 
+  // Open-from-home deep-link (Task 6): whenever `initialProjectId` changes to
+  // a new, truthy id, open it — mirrors clicking that card in the directory.
+  // A ref (not state) tracks the last id we acted on, so this only fires on
+  // an actual change, never re-triggers after the student navigates away
+  // (e.g. back to the directory) with the same prop value still passed down.
+  const lastInitialProjectId = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialProjectId && initialProjectId !== lastInitialProjectId.current) {
+      lastInitialProjectId.current = initialProjectId;
+      openProject(initialProjectId);
+      onInitialProjectIdConsumed?.();
+    }
+  }, [initialProjectId, onInitialProjectIdConsumed]);
+
   // No project open — the all-projects directory (its own create form carries
-  // the empty affordance).
+  // the empty affordance). `autoOpenCreate` (home's "新建" deep-link) is only
+  // relevant here, one level in from the four-room shell.
   if (projectId == null) {
-    return <Directory onOpen={openProject} onViewReport={onViewReport} />;
+    return (
+      <Directory
+        onOpen={openProject}
+        onViewReport={onViewReport}
+        autoOpenCreate={autoOpenCreate}
+        onAutoOpenCreateHandled={onAutoOpenCreateConsumed}
+      />
+    );
   }
 
   // A source open for reading replaces the whole workspace with the focused
