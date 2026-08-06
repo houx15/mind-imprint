@@ -75,3 +75,8 @@ body,
     transform: translateY(-3px);
   }
 }
+
+/* Skeleton loader shimmer (spec §15). The global reduced-motion block above
+   already zeroes animation-duration, so this auto-stops for those users. */
+.mk-skeleton { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:200px 100%; animation:mk-shim 1.3s linear infinite; }
+@keyframes mk-shim { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
