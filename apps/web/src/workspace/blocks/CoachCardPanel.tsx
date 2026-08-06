@@ -5,6 +5,22 @@ import { compileCardForCoach } from "../../studio/compileCard";
 import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { Icon } from "../Icon";
+import { coverGradient, type MacaronName } from "@/ui";
+
+// Each shelf chip is tinted with one of the 7 macarons (spec §10: "工具卡 ·
+// 描边级 radius 8，取一支马卡龙浅底"), deterministically by card id via the
+// same `coverGradient` hash used elsewhere (card gallery covers) — so a given
+// card always wears the same macaron across the product, no per-card color
+// authored by hand.
+const MACARON_CHIP: Record<MacaronName, string> = {
+  peach: "bg-mk-peach-bg text-mk-peach-fg",
+  butter: "bg-mk-butter-bg text-mk-butter-fg",
+  matcha: "bg-mk-matcha-bg text-mk-matcha-fg",
+  lake: "bg-mk-lake-bg text-mk-lake-fg",
+  mist: "bg-mk-mist-bg text-mk-mist-fg",
+  taro: "bg-mk-taro-bg text-mk-taro-fg",
+  berry: "bg-mk-berry-bg text-mk-berry-fg",
+};
 
 // #18: the tool-card surface shared by forming (立题) + the library (找资料),
 // mirroring the writing room's rail. Two paths, both 打开由学生确认:
@@ -110,22 +126,31 @@ export function CoachCardPanel({
           that students ignored). 触发自动、打开由学生确认 — showing the deck isn't
           opening a card; tapping one is her choice. */}
       {!openCardId && availableDeck.length > 0 && (
-        <div className="rounded-mk border border-mk-border-2 bg-mk-bg/50 p-2">
-          <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[11px] font-bold text-mk-muted-2">
+        <div className="rounded-mk-sm border border-mk-border bg-mk-paper/50 p-2">
+          <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[11px] font-bold text-mk-faint">
             <Icon name="spark" size={12} /> 工具卡 · 挑一张想清楚（你填，印记不替你写）
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {availableDeck.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => openCard(id)}
-                title={CARD_REGISTRY[id]!.purpose}
-                className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
-              >
-                {CARD_REGISTRY[id]!.name}
-              </button>
-            ))}
+            {availableDeck.map((id) => {
+              const spec = CARD_REGISTRY[id]!;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => openCard(id)}
+                  title={spec.purpose}
+                  aria-label={spec.name}
+                  className={`flex max-w-[210px] flex-col items-start gap-0.5 rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:brightness-95 ${MACARON_CHIP[coverGradient(id).macaron]}`}
+                >
+                  <span aria-hidden="true" className="flex items-center gap-1 text-[12px] font-bold">
+                    <Icon name="spark" size={11} /> {spec.name}
+                  </span>
+                  <span aria-hidden="true" className="truncate text-[11px] font-medium opacity-80">
+                    {spec.purpose}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
