@@ -1,11 +1,10 @@
 /**
- * ui/ barrel (design-system foundation, Part 3 Task 13).
+ * ui/ barrel (design-system foundation, Part 1 Task 13).
  *
  * Single import surface for the whole design-system library: tokens, accent
- * theming, icons, and every primitive component. `Card.tsx`'s `cx` is the
- * one re-exported helper — `forms.tsx`/`feedback.tsx`/`overlays.tsx`/
- * `Skeleton.tsx`/`Pebble.tsx`/`loaders.tsx` each declare their own *unexported*
- * local `cx`, so there is no name collision to resolve there.
+ * theming, icons, and every primitive component. Every module keeps its own
+ * *unexported* local `cx` class-merge helper, so there is no `cx` export here
+ * and no name collision to resolve across modules.
  *
  * ONE real collision: `Icon.tsx` re-exports lucide-react's `Menu` (hamburger
  * icon) while `overlays.tsx` exports the `Menu` popover component. The

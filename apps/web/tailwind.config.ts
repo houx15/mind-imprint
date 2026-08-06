@@ -31,7 +31,7 @@ export default {
           info:"var(--mk-info)","info-bg":"var(--mk-info-bg)",
           // LEGACY ALIASES (warm the 40 old-token files automatically; Parts 2/3 replace with intent)
           primary:"var(--mk-accent)","primary-hover":"var(--mk-accent-600)","primary-tint":"var(--mk-accent-50)",
-          "accent-hover":"var(--mk-peach-fg)","accent-tint":"var(--mk-peach-bg)",
+          "accent-hover":"var(--mk-accent-600)","accent-tint":"var(--mk-accent-50)",
           green:"var(--mk-success)","green-tint":"var(--mk-success-bg)",
           amber:"var(--mk-warning)",
           bg:"var(--mk-paper)","border-2":"var(--mk-border)",
