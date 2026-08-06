@@ -1,5 +1,6 @@
 import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
-import { signup, verifyEmail, signin, signout, getMe, type MeUser } from "./auth";
+import { signup, verifyEmail, signin, signout, getMe, setAccent, type MeUser } from "./auth";
+import type { AccentId } from "../ui/accent";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   type ClassSummary, type RosterStudent, type ClassDetail, type Teacher,
@@ -37,6 +38,7 @@ export interface ApiClient {
   signin(input: { email: string; password: string }): Promise<MeUser>;
   signout(): Promise<void>;
   getMe(): Promise<MeUser>;
+  setAccent(accent: AccentId): Promise<void>;
   listClasses(): Promise<ClassSummary[]>;
   createClass(input: { name: string; teacher_user_id?: string }): Promise<ClassSummary>;
   getClass(id: string): Promise<ClassDetail>;
@@ -123,7 +125,7 @@ export interface ApiClient {
 }
 
 export const api: ApiClient = {
-  signup, verifyEmail, signin, signout, getMe,
+  signup, verifyEmail, signin, signout, getMe, setAccent,
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk,

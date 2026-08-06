@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { AccentId } from "../ui/accent";
 
 export interface MeUser {
   id: string;
@@ -45,4 +46,12 @@ export async function signout(): Promise<void> {
 export async function getMe(): Promise<MeUser> {
   const r = await apiFetch<{ user: MeUser }>("/api/v1/auth/me");
   return r.user;
+}
+
+// Persist the student's chosen accent preset. Pure preference write.
+export async function setAccent(accent: AccentId): Promise<void> {
+  await apiFetch<Record<string, never>>("/api/v1/users/me/accent", {
+    method: "PUT",
+    body: JSON.stringify({ accent }),
+  });
 }

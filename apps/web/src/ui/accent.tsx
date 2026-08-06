@@ -195,19 +195,55 @@ const AccentContext = createContext<AccentContextValue>({
   setAccent() {},
 });
 
-export function AccentProvider({ children }: { children: ReactNode }) {
+function isAccentId(value: unknown): value is AccentId {
+  return typeof value === "string" && ACCENT_PRESETS.some((p) => p.id === value);
+}
+
+export interface AccentProviderProps {
+  children: ReactNode;
+  /**
+   * Server-known accent (e.g. `MeUser.avatar_color`) to seed on mount, taking
+   * priority over localStorage. When absent or not a valid preset id, falls
+   * back to the old localStorage → vermilion path (this is how the `?ds`
+   * gallery, which knows nothing about a signed-in user, keeps working).
+   */
+  initialAccent?: AccentId;
+  /**
+   * Called after a local `setAccent` with the new id, so a caller (e.g.
+   * StudentApp) can persist it server-side. Fire-and-forget: accent.tsx never
+   * awaits it and swallows any throw or rejection — the local change always
+   * sticks regardless of network outcome. Keeps this module free of any
+   * import from `api/`.
+   */
+  onPersist?: (id: AccentId) => void | Promise<void>;
+}
+
+export function AccentProvider({ children, initialAccent, onPersist }: AccentProviderProps) {
   const [id, setId] = useState<AccentId>("vermilion");
 
   useEffect(() => {
-    const saved = (localStorage.getItem(STORAGE_KEY) as AccentId | null) ?? "vermilion";
-    setId(saved);
-    applyAccent(document.documentElement, saved);
+    const seed = isAccentId(initialAccent)
+      ? initialAccent
+      : ((localStorage.getItem(STORAGE_KEY) as AccentId | null) ?? "vermilion");
+    setId(seed);
+    applyAccent(document.documentElement, seed);
+    // Only ever run on mount: initialAccent is a one-time seed, not a
+    // subscription — the provider owns `id` afterward via setAccent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setAccent = (next: AccentId) => {
     setId(next);
     applyAccent(document.documentElement, next);
     localStorage.setItem(STORAGE_KEY, next);
+    try {
+      // onPersist may be sync (throw) or async (rejected Promise); swallow
+      // either so the local change above always stands regardless of
+      // network outcome.
+      Promise.resolve(onPersist?.(next)).catch(() => {});
+    } catch {
+      // onPersist threw synchronously before returning a promise.
+    }
   };
 
   return <AccentContext.Provider value={{ id, setAccent }}>{children}</AccentContext.Provider>;
