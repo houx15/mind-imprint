@@ -80,3 +80,23 @@ body,
    already zeroes animation-duration, so this auto-stops for those users. */
 .mk-skeleton { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:200px 100%; animation:mk-shim 1.3s linear infinite; }
 @keyframes mk-shim { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+
+/* 豆豆 Pebble four states (spec §14). Keyframe values copied verbatim from
+   docs/design/design-system-mockups/pebble-states.html — do not re-derive.
+   Prefixed mk-pebble-* (rather than the mockup's bare .think/.gen/.proc/.done
+   class names) because `mk-pulse` already exists as a DIFFERENT keyframe in
+   ReadingRoom.css (thinking-dots bounce); @keyframes are global, so reusing
+   the bare name would silently reassign whichever definition loads last. The
+   global reduced-motion block above already neutralizes all of these. */
+.mk-pebble-eye, .mk-pebble-eyes { transform-box: fill-box; transform-origin: center; }
+.mk-pebble-eye { animation: mk-pebble-blink 3s infinite; }
+.mk-pebble-ring { transform-box: fill-box; transform-origin: center; animation: mk-pebble-pulse 1.8s ease-out infinite; }
+.mk-pebble-eyes { animation: mk-pebble-dart 1.4s ease-in-out infinite; }
+.mk-pebble-ring2 { transform-box: view-box; transform-origin: 20px 20px; animation: mk-pebble-spin .9s linear infinite; }
+.mk-pebble-done { animation: mk-pebble-pop 2.4s ease-in-out infinite; }
+
+@keyframes mk-pebble-blink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(.12)} }
+@keyframes mk-pebble-dart  { 0%,100%{transform:translateX(-1.3px)} 50%{transform:translateX(1.3px)} }
+@keyframes mk-pebble-pulse { 0%{transform:scale(.82);opacity:.5} 100%{transform:scale(1.32);opacity:0} }
+@keyframes mk-pebble-spin  { to{transform:rotate(360deg)} }
+@keyframes mk-pebble-pop   { 0%,100%{transform:scale(1)} 14%{transform:scale(1.09)} 30%{transform:scale(.99)} 44%{transform:scale(1)} }
