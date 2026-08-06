@@ -12,6 +12,11 @@ vi.mock("@/api", async (orig) => {
       createTask: vi.fn(),
       getMe: vi.fn(async () => { throw new Error("401"); }),
       signout: vi.fn(async () => {}),
+      // HomePage (the 首页 landing StudentApp renders on boot) fetches both
+      // of these on mount — stub them so the module-level api mock below
+      // doesn't 500 out from underneath the per-test `client` prop mocks.
+      listProjects: vi.fn(async () => []),
+      listCourses: vi.fn(async () => []),
     },
   };
 });
