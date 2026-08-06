@@ -102,6 +102,22 @@ describe("Radio", () => {
     await userEvent.click(screen.getByText("选项 B"));
     expect(onChange).toHaveBeenCalledWith("b");
   });
+
+  it("wires the visible marker to show a focus ring when the hidden native input is keyboard-focused (peer-focus-visible)", () => {
+    render(
+      <Radio
+        name="choice"
+        value="a"
+        onChange={() => {}}
+        options={[{ value: "a", label: "选项 A" }]}
+      />,
+    );
+    const input = screen.getByRole("radio");
+    expect(input.className).toContain("peer");
+    const marker = input.nextElementSibling as HTMLElement;
+    expect(marker.className).toContain("peer-focus-visible:ring-[3px]");
+    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent/15");
+  });
 });
 
 describe("Checkbox", () => {
@@ -117,6 +133,15 @@ describe("Checkbox", () => {
   it("renders checked=true", () => {
     render(<Checkbox checked onChange={() => {}} label="同意条款" />);
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("wires the visible marker to show a focus ring when the hidden native input is keyboard-focused (peer-focus-visible)", () => {
+    render(<Checkbox checked={false} onChange={() => {}} label="同意条款" />);
+    const input = screen.getByRole("checkbox");
+    expect(input.className).toContain("peer");
+    const marker = input.nextElementSibling as HTMLElement;
+    expect(marker.className).toContain("peer-focus-visible:ring-[3px]");
+    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent/15");
   });
 });
 

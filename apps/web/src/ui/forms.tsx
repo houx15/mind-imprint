@@ -223,12 +223,13 @@ export function Radio({ name, value, onChange, options, className }: RadioProps)
               value={opt.value}
               checked={selected}
               onChange={() => onChange(opt.value)}
-              className="sr-only"
+              className="peer sr-only"
             />
             <span
               aria-hidden="true"
               className={cx(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full border",
+                "peer-focus-visible:ring-[3px] peer-focus-visible:ring-mk-accent/15",
                 selected ? "border-mk-accent bg-mk-accent" : "border-mk-input-border bg-mk-surface",
               )}
             >
@@ -262,12 +263,13 @@ export function Checkbox({ checked, onChange, label, disabled, className }: Chec
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="sr-only"
+        className="peer sr-only"
       />
       <span
         aria-hidden="true"
         className={cx(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-xs border",
+          "peer-focus-visible:ring-[3px] peer-focus-visible:ring-mk-accent/15",
           checked ? "border-mk-accent bg-mk-accent" : "border-mk-input-border bg-mk-surface",
         )}
       >
