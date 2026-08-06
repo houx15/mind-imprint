@@ -16,8 +16,9 @@ import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
  *     switch (it lives in WorkspaceContainer, not any one room);
  *  2. the ACTIVE room's coach — and only the active room's — is what's
  *     portaled into the panel when expanded, and nothing is portaled when
- *     collapsed (阅读 has no coach portal at all: it's a materials-list room,
- *     the coach lives in the separate full-screen ReadingRoom surface);
+ *     collapsed. 阅读 is special: the shell's constant panel is HIDDEN for it
+ *     (reading is a distinct full-screen surface with its own coach column),
+ *     so there's no AiPanel chrome at all while 阅读 is active;
  *  3. switching rooms swaps the <main> work content independently of the
  *     panel's own side/collapsed state.
  *
@@ -55,9 +56,10 @@ function makeRoomBlock(key: string) {
 vi.mock("@/workspace/blocks/PlanBlock", () => ({ PlanBlock: makeRoomBlock("plan") }));
 vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: makeRoomBlock("writing") }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: makeRoomBlock("reflection") }));
-// ReadingBlock deliberately does NOT read useStudioAiSlot — matches the real
-// component (阅读 is a materials list; its coach only exists once a specific
-// source is opened into the separate full-screen ReadingRoom).
+// ReadingBlock does NOT portal into the shell panel — the real component owns
+// its OWN inline coach column, and the shell hides its constant AiPanel while
+// 阅读 is active (see WorkspaceContainer `showAiPanel`). The mock renders just
+// the work marker; the test asserts the shell panel chrome is absent for 阅读.
 vi.mock("@/workspace/blocks/ReadingBlock", () => ({
   ReadingBlock: ({ projectId }: { projectId: string }) => <div data-testid="reading-work">work:reading:{projectId}</div>,
 }));
@@ -108,14 +110,21 @@ describe("Studio integration smoke test (Task 11)", () => {
     expect(screen.getByTestId("plan-work")).toBeInTheDocument();
     expect(await screen.findByTestId("plan-coach")).toBeInTheDocument();
 
-    // 阅读: work swaps, and — unlike the other three rooms — no coach is
-    // portaled at all (materials-list room; its coach lives in the separate
-    // full-screen ReadingRoom once a source is opened).
+    // 阅读: work swaps, and — unlike the other three rooms — the shell's
+    // CONSTANT AiPanel is HIDDEN entirely. Reading is a distinct full-screen
+    // surface that owns its own coach column (印记 · 找资料); showing the shell
+    // panel too would leave it empty (list mode) or duplicate it as a second
+    // 印记 column (graph mode). So while 阅读 is active there is no AiPanel
+    // chrome at all (no flip/collapse controls).
     await switchRoom("阅读");
     expect(await screen.findByTestId("reading-work")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-work")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-coach")).not.toBeInTheDocument();
     expect(screen.queryByTestId("reading-coach")).not.toBeInTheDocument();
+    // The constant panel is gone for reading — its flip/collapse chrome absent.
+    expect(screen.queryByRole("button", { name: "切换 AI 面板左右" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "折叠 AI 面板" })).not.toBeInTheDocument();
+    // Switching AWAY from reading brings the panel back (to 写作 next).
 
     // 写作: both work and coach swap to the writing room's.
     await switchRoom("写作");

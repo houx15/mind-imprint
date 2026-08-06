@@ -294,18 +294,23 @@ export function WorkspaceContainer({
       <div ref={aiSlotRef} className="h-full" />
     </AiPanel>
   );
+  // The reading room is a distinct full-screen surface that owns its own coach
+  // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
+  // empty beside it (list mode) or duplicate it as a second 印记 column (graph
+  // mode). So the constant panel shows for every room EXCEPT reading.
+  const showAiPanel = room !== "reading";
 
   return (
-    <div className="flex h-full w-full flex-col bg-mk-bg font-sans text-mk-ink">
+    <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
       <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={backToAll} />
       <div className="flex min-h-0 flex-1">
-        {aiSide === "left" && aiPanel}
+        {aiSide === "left" && showAiPanel && aiPanel}
         <main className="relative min-w-0 flex-1 overflow-hidden">
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
             {summary && !summaryDismissed && (
-              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
-                <span className="mt-0.5 text-mk-primary">
+              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-mk-lg">
+                <span className="mt-0.5 text-mk-accent">
                   <Icon name="spark" size={16} />
                 </span>
                 <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
@@ -313,14 +318,14 @@ export function WorkspaceContainer({
                   type="button"
                   onClick={() => setSummaryDismissed(true)}
                   aria-label="收起"
-                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
+                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-faint hover:text-mk-ink"
                 >
                   ×
                 </button>
               </div>
             )}
             {carryForward && (
-              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/50 px-4 py-3 shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
+              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-50/50 px-4 py-3 shadow-mk-lg">
                 <span className="mt-0.5 text-mk-accent">
                   <Icon name="spark" size={16} />
                 </span>
@@ -331,7 +336,7 @@ export function WorkspaceContainer({
                   type="button"
                   onClick={() => setCarryForward(null)}
                   aria-label="收起"
-                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-muted-2 hover:text-mk-ink"
+                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-faint hover:text-mk-ink"
                 >
                   ×
                 </button>
@@ -342,14 +347,14 @@ export function WorkspaceContainer({
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
         ) : !workspace ? (
-          <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载中…</div>
+          <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
         ) : (
-          // StudioAiSlotContext (Task 4): the room→panel portal contract. A
-          // room reads `useStudioAiSlot()` and portals its coach content into
-          // the AiPanel's body via `createPortal` — the room itself renders
-          // its WORK directly here in <main>. Only the plan room does this
-          // today (the reference integration); reading/writing/reflection
-          // still render their own bespoke coach columns inline (T5–T8).
+          // StudioAiSlotContext: the room→panel portal contract. A room reads
+          // `useStudioAiSlot()` and portals its coach content into the AiPanel's
+          // body via `createPortal` — the room renders its WORK directly here in
+          // <main>. plan / writing / reflection all portal their coach into the
+          // constant panel. reading is the exception: it's a distinct
+          // full-screen surface with its own coach column (see showAiPanel).
           <StudioAiSlotContext.Provider value={aiSlotEl}>
             {room === "plan" && (
               <PlanBlock
@@ -392,7 +397,7 @@ export function WorkspaceContainer({
           </StudioAiSlotContext.Provider>
         )}
         </main>
-        {aiSide === "right" && aiPanel}
+        {aiSide === "right" && showAiPanel && aiPanel}
       </div>
     </div>
   );
