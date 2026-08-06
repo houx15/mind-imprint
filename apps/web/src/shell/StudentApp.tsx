@@ -58,6 +58,12 @@ export function StudentApp({
   // directory rather than re-triggering the same open/create.
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [pendingCreate, setPendingCreate] = useState(false);
+  // Immersive studio (spec §17, 外壳 B): while a project is OPEN inside the
+  // 项目 tab, the platform nav rail is hidden so the studio is full-bleed —
+  // the only way out is the studio top bar's 「← 主页」capsule. On the project
+  // directory (no project open) the nav returns.
+  const [inProject, setInProject] = useState(false);
+  const showNav = !(tab === "projects" && inProject);
 
   function selectTab(t: Tab) {
     setCourseFocus(null);
@@ -99,6 +105,7 @@ export function StudentApp({
     body = (
       <WorkspaceContainer
         onFinished={(projectId?: string) => {
+          setInProject(false);
           setGrowthFocus(projectId ?? null);
           setMeSection("growth");
           setTab("me");
@@ -107,6 +114,11 @@ export function StudentApp({
         onInitialProjectIdConsumed={() => setPendingProjectId(null)}
         autoOpenCreate={pendingCreate}
         onAutoOpenCreateConsumed={() => setPendingCreate(false)}
+        onInProjectChange={setInProject}
+        onExitToHome={() => {
+          setInProject(false);
+          setTab("home");
+        }}
       />
     );
   } else if (tab === "gallery") {
@@ -143,7 +155,7 @@ export function StudentApp({
       }}
     >
       <div className="flex h-full w-full overflow-hidden bg-mk-paper">
-        <Nav tab={tab} onTab={selectTab} user={user} />
+        {showNav && <Nav tab={tab} onTab={selectTab} user={user} />}
         <div className="relative flex-1 overflow-hidden">{body}</div>
       </div>
     </AccentProvider>

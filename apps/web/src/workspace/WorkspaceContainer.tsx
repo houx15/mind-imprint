@@ -36,8 +36,17 @@ export function WorkspaceContainer({
   onInitialProjectIdConsumed,
   autoOpenCreate,
   onAutoOpenCreateConsumed,
+  onInProjectChange,
+  onExitToHome,
 }: {
   onFinished?: (projectId?: string) => void;
+  /** Fired when a project opens (true) or closes (false) — the shell uses
+   * this to hide its platform nav for the immersive studio (spec §17). */
+  onInProjectChange?: (inProject: boolean) => void;
+  /** The studio top bar's 「← 主页」capsule — exits the immersive studio all
+   * the way back to the home page (spec §17). Falls back to the internal
+   * directory return when not supplied. */
+  onExitToHome?: () => void;
   /** Open this project on mount (or whenever it changes to a new id) — the
    * "open from home" deep-link (Task 6). Undefined/null leaves the
    * directory showing, same as before this prop existed. */
@@ -231,6 +240,13 @@ export function WorkspaceContainer({
     setError(null);
   }
 
+  // Tell the shell whether a project is open, so it can hide the platform nav
+  // for the immersive studio (spec §17). Fires on open/close and on unmount.
+  useEffect(() => {
+    onInProjectChange?.(projectId !== null);
+    return () => onInProjectChange?.(false);
+  }, [projectId, onInProjectChange]);
+
   // Open a finished project's process-evaluation report — routes up to the
   // 成长报告 tab, deep-linked to that project's entry (see StudentApp).
   const onViewReport = useCallback(
@@ -302,7 +318,7 @@ export function WorkspaceContainer({
 
   return (
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
-      <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={backToAll} />
+      <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={onExitToHome ?? backToAll} />
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
         <main className="relative min-w-0 flex-1 overflow-hidden">
