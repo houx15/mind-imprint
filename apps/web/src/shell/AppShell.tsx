@@ -71,7 +71,7 @@ export function AppShell({
   }, [client, session]);
 
   if (!booted) {
-    return <div style={{ width: "100%", height: "100%", background: "#F3F4F8" }} />;
+    return <div style={{ width: "100%", height: "100%", background: "var(--mk-paper)" }} />;
   }
   if (!sess.authed) {
     return <AuthScreen onAuthed={(u) => { session.setUser(u); session.setAuthed(true); }} />;

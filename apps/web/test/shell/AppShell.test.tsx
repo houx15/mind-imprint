@@ -24,11 +24,11 @@ const ME = { id: "u1", email: "p@d.local", display_name: "Phoebe", role: "studen
 const mem = () => { let s = "{}"; return { getItem: () => s, setItem: (_: string, v: string) => { s = v; } }; };
 
 describe("AppShell boot gate", () => {
-  it("shows the Studio when getMe succeeds", async () => {
+  it("shows the student shell (首页 landing) when getMe succeeds", async () => {
     const session = createSession({ storage: mem() });
     const client = { getMe: vi.fn(async () => ME), signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn() };
     render(<AppShell session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getByTestId("studio-container")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/你好，Phoebe/)).toBeInTheDocument());
   });
 
   it("shows AuthScreen when getMe rejects (401)", async () => {
@@ -80,7 +80,7 @@ describe("AppShell demo trial (?trial=1)", () => {
       signin, signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn(),
     };
     render(<AppShell session={session} client={client as never} />);
-    await waitFor(() => expect(screen.getByTestId("studio-container")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/你好，Phoebe/)).toBeInTheDocument());
     expect(signin).toHaveBeenCalledWith({ email: "phoebe@demo.mindimprint.local", password: "phoebe-dev-pass" });
   });
 

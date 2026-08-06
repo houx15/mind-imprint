@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createSession } from "@/shell/session";
 import { StudentApp } from "@/shell/StudentApp";
@@ -10,11 +10,7 @@ vi.mock("@/api", async (orig) => {
     ...real,
     api: {
       ...real.api,
-      listTasks: vi.fn(async () => []),
-      listCourses: vi.fn(async () => [
-        { slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["craap", "concession", "toulmin", "sift"], step_count: 4 },
-      ]),
-      getCourseProgress: vi.fn(async () => ({ course_slug: "co1", current_ordinal: 0, completed_ordinals: [], started_at: null, completed_at: null, updated_at: "" })),
+      setAccent: vi.fn(async () => {}),
     },
   };
 });
@@ -27,8 +23,8 @@ vi.mock("@/shell/growth/GrowthReport", () => ({
   GrowthReport: () => <div data-testid="growth-report" />,
 }));
 
-vi.mock("@/shell/chat/ChatContainer", () => ({
-  ChatContainer: () => <div data-testid="chat-container" />,
+vi.mock("@/shell/growth/ToolkitCards", () => ({
+  ToolkitCards: () => <div data-testid="gallery-cards" />,
 }));
 
 function makeSession() {
@@ -37,7 +33,7 @@ function makeSession() {
   const session = createSession({ storage });
   session.setUser({
     id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student",
-    avatar_color: "#2A3B7A", school: { id: "s1", name: "Demo" }, classes: [],
+    avatar_color: "vermilion", school: { id: "s1", name: "Demo" }, classes: [],
   });
   return session;
 }
@@ -47,26 +43,34 @@ const fakeSession = makeSession();
 describe("StudentApp", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("renders the Studio on the 工作室 tab (the default landing)", () => {
+  it("lands on 首页 by default and renders the HomePage greeting", () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    expect(screen.getByTestId("studio-container")).toBeTruthy();
-  });
-
-  it("renders the growth report on 成长报告", async () => {
-    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    await userEvent.click(screen.getByText("成长报告"));
-    expect(screen.getByTestId("growth-report")).toBeTruthy();
+    expect(screen.getByText("你好，Phoebe 👋")).toBeInTheDocument();
     expect(screen.queryByTestId("studio-container")).toBeNull();
   });
 
-  // 聊天 rail entry hidden 2026-07-31 for MVP focus — no nav path to the chat
-  // surface anymore, so the click-through test is retired. ChatContainer still
-  // exists and can be routed to programmatically.
-
-  it("switches to the Courses tab and renders the course grid", async () => {
+  it("switches to 项目 and renders the workspace/studio container", async () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    fireEvent.click(screen.getByText("课程"));
-    expect(screen.getByText("系统地学会一种思考方式")).toBeInTheDocument();
-    expect(await screen.findByText("一条网络信息，该不该信")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("项目"));
+    expect(screen.getByTestId("studio-container")).toBeTruthy();
+  });
+
+  it("switches to 图鉴 and renders the tool-card catalog", async () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    await userEvent.click(screen.getByText("图鉴"));
+    expect(screen.getByTestId("gallery-cards")).toBeTruthy();
+  });
+
+  it("switches to 我 and defaults to 成长报告", async () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    await userEvent.click(screen.getByText("P"));
+    expect(screen.getByTestId("growth-report")).toBeTruthy();
+  });
+
+  it("switches to 设置 within the 我 hub via the segmented control", async () => {
+    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
+    await userEvent.click(screen.getByText("P"));
+    await userEvent.click(screen.getByText("设置"));
+    expect(screen.queryByTestId("growth-report")).toBeNull();
   });
 });
