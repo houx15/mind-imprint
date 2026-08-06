@@ -263,8 +263,15 @@ async function zoomInto(user: ReturnType<typeof userEvent.setup>, text: string) 
 
 // Render with the coach slot wired (as ReadingBlock does), so the sidebar's
 // DEFAULT 'ai' state is assertable.
-function renderView(projectId: string, references: Reference[]) {
-  return render(<ExplorationView projectId={projectId} references={references} coach={COACH_SLOT} />);
+function renderView(projectId: string, references: Reference[], onLibraryChanged?: () => void) {
+  return render(
+    <ExplorationView
+      projectId={projectId}
+      references={references}
+      coach={COACH_SLOT}
+      onLibraryChanged={onLibraryChanged}
+    />,
+  );
 }
 
 // Click a node INSIDE the Level-2 mindmap by its text. The focused question's
@@ -581,10 +588,11 @@ describe("ExplorationView", () => {
     });
   });
 
-  it("采纳 in 'results' adopts the candidate UNDER the dug node (parentLeadId = that node's id) — papers never roots", async () => {
+  it("采纳 in 'results' adopts the candidate UNDER the dug node (parentLeadId = that node's id) — papers never roots, and reloads the library so the new paper's bib is available", async () => {
     const projectId = nextPid();
+    const onLibraryChanged = vi.fn();
     const user = userEvent.setup();
-    renderView(projectId, [NASA_REF]);
+    renderView(projectId, [NASA_REF], onLibraryChanged);
     await zoomInto(user, ROOT_LEAD.text);
     await clickNode(user, ROOT_LEAD.text);
 
@@ -602,6 +610,9 @@ describe("ExplorationView", () => {
     });
     // and the tree is refetched to show the freshly-nested paper
     await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
+    // the library is reloaded too — else the new reference's bib would be absent
+    // and the paper node's metadata would render every field as 「—」
+    await waitFor(() => expect(onLibraryChanged).toHaveBeenCalled());
   });
 
   it("丢弃 removes a candidate from 'results' with no server call", async () => {

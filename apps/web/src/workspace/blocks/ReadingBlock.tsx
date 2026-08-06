@@ -472,6 +472,9 @@ export function ReadingBlock({
               projectTitle={title}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
+              // 采纳 in 探索 creates a new library reference — reload so its bib
+              // shows on the new paper node (else every metadata field is 「—」).
+              onLibraryChanged={reload}
               // Followup fix (2026-08): ExplorationView and FloatingCoach are
               // SIBLINGS (not parent/child) — the rabbit-hole card's reflect
               // result is bridged up here and handed to FloatingCoach as a

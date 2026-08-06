@@ -69,6 +69,10 @@ export type ExplorationViewProps = {
   // and its coach bridge — but the parent still passes them; a later task
   // reworks ReadingBlock). Unused here on purpose.
   onCreateReference?: (input: { title: string; url?: string }) => Promise<Reference>;
+  // Reload the library (ReadingBlock's getLibrary). 采纳 creates a NEW reference
+  // server-side; without reloading, that reference isn't in `references`, so a
+  // freshly-adopted paper node has no bib to show (every field renders 「—」).
+  onLibraryChanged?: () => void;
   onCardReflected?: (studentText: string, reply: string, card?: CardTurnRef) => void;
   // GVd · the 印记·找资料 coach, rendered as the unified right sidebar's DEFAULT
   // ('ai') state. Owned by ReadingBlock (it holds the coach's chat/link/card
@@ -77,7 +81,7 @@ export type ExplorationViewProps = {
   coach?: ReactNode;
 };
 
-export function ExplorationView({ projectId, references, projectTitle, onEnterReading, coach }: ExplorationViewProps) {
+export function ExplorationView({ projectId, references, projectTitle, onEnterReading, onLibraryChanged, coach }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -265,6 +269,10 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
       await adoptCandidate(projectId, c, { parentLeadId: digFromId });
       setTray((t) => t.filter((x) => candidateKey(x) !== key));
       await refresh();
+      // Pull the freshly-created reference into `references` so its bib
+      // (author/year/journal/abstract/url) is there when the student opens the
+      // new paper node — otherwise every metadata field would read 「—」.
+      onLibraryChanged?.();
     } catch {
       setActionError(true);
     } finally {
