@@ -480,7 +480,13 @@ describe("ExplorationView", () => {
     // click the paper node → the sidebar becomes 'node' with ITS metadata
     await clickNode(user, CHILD_PAPER.text);
     expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
-    expect(screen.getByText("NASA · 2023 · Nature Sustainability")).toBeInTheDocument();
+    // metadata is shown as clear labeled fields (not one grey run-on line)
+    expect(screen.getByText("作者")).toBeInTheDocument();
+    expect(screen.getByText("NASA")).toBeInTheDocument();
+    expect(screen.getByText("年份")).toBeInTheDocument();
+    expect(screen.getByText("2023")).toBeInTheDocument();
+    expect(screen.getByText("期刊")).toBeInTheDocument();
+    expect(screen.getByText("Nature Sustainability")).toBeInTheDocument();
     // the full abstract is shown
     expect(screen.getByText(/全球植被覆盖变化/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开原文" })).toHaveAttribute("href", NASA_REF.url);
@@ -535,7 +541,10 @@ describe("ExplorationView", () => {
     // the descendant paper appears in the 论文列表 by its reference title, and is
     // clickable → selects that paper (sidebar becomes the paper's 'node')
     await user.click(screen.getByRole("button", { name: NASA_REF.title }));
-    expect(await screen.findByText("NASA · 2023 · Nature Sustainability")).toBeInTheDocument();
+    // the paper's metadata renders as clear labeled fields
+    expect(await screen.findByText("Nature Sustainability")).toBeInTheDocument();
+    expect(screen.getByText("NASA")).toBeInTheDocument();
+    expect(screen.getByText("2023")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "找引用它的文献" })).toBeInTheDocument();
   });
 

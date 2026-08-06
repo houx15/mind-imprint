@@ -201,7 +201,6 @@ function PaperMeta({
   const authors = reference?.author?.trim() || "";
   const year = reference?.year?.trim() || "";
   const journal = reference?.journal?.trim() || "";
-  const meta = [authors, year, journal].filter(Boolean).join(" · ");
   const statusLabel = reference ? READING_STATUS_LABEL[reference.readingStatus] : undefined;
   const link = reference?.url?.trim() || "";
   const abstract = reference?.abstract?.trim() || "";
@@ -215,16 +214,46 @@ function PaperMeta({
         )}
       </div>
       <h3 className="mt-2 text-[14.5px] font-bold leading-snug text-mk-ink">{title}</h3>
-      {meta && <p className="mt-1 text-[11.5px] text-mk-muted-2">{meta}</p>}
-      {abstract && (
-        <div className="mt-2.5">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">摘要</p>
+
+      {/* Labeled metadata — each field on its own row with a clear label, not one
+          run-on line of grey text. Empty fields still show their label + 「—」so
+          the structure reads clearly. */}
+      <dl className="mt-3 space-y-1.5 text-[12px]">
+        <MetaRow label="作者" value={authors} />
+        <MetaRow label="年份" value={year} />
+        <MetaRow label="期刊" value={journal} />
+        <div className="flex gap-2">
+          <dt className="w-9 flex-none font-bold text-mk-muted-2">链接</dt>
+          <dd className="min-w-0 flex-1">
+            {link ? (
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all font-semibold text-mk-primary underline-offset-2 hover:underline"
+              >
+                {link}
+              </a>
+            ) : (
+              <span className="text-mk-muted-2">—</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {/* 摘要 — labeled block, always present so its absence is explicit. */}
+      <div className="mt-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">摘要</p>
+        {abstract ? (
           <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line text-[12px] leading-relaxed text-mk-muted">
             {abstract}
           </p>
-        </div>
-      )}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        ) : (
+          <p className="mt-1 text-[12px] text-mk-muted-2">这篇还没有摘要。</p>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {link && (
           <a
             href={link}
@@ -246,6 +275,17 @@ function PaperMeta({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// A single labeled metadata row (作者/年份/期刊). Empty → 「—」so the label stays
+// visible and the panel reads as a clear structure, not a grey run-on line.
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-9 flex-none font-bold text-mk-muted-2">{label}</dt>
+      <dd className={`min-w-0 flex-1 ${value ? "text-mk-ink" : "text-mk-muted-2"}`}>{value || "—"}</dd>
     </div>
   );
 }
