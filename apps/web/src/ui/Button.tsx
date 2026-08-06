@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Icon, Loader2 } from "@/ui/Icon";
+import { Icon } from "@/ui/Icon";
 import type { LucideIcon } from "@/ui/Icon";
+import { PebbleInlineSpinner } from "@/ui/loaders";
 
 /**
  * Button (design-system foundation, Part 1 Task 4).
@@ -60,12 +61,7 @@ export function Button({
       aria-busy={loading || undefined}
       {...rest}
     >
-      {loading ? (
-        // TODO(Task 11): swap for PebbleInlineSpinner
-        <Icon icon={Loader2} size={16} className="animate-spin" />
-      ) : (
-        iconStart
-      )}
+      {loading ? <PebbleInlineSpinner size={16} /> : iconStart}
       {children}
       {!loading && iconEnd}
     </button>
