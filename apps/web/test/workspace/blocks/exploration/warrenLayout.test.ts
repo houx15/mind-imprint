@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ExplorationLead, QuestionEdge } from "@mind-imprint/contracts";
+import { MACARONS } from "@/ui/tokens";
 import {
   buildMindmapEdges,
   buildMindmapNodes,
@@ -67,6 +68,23 @@ describe("warrenLayout · theme assignment (by ordinal)", () => {
     for (let i = 0; i + 1 < NODE_THEMES.length; i++) {
       expect(themeForOrdinal(i).key).not.toBe(themeForOrdinal(i + 1).key);
     }
+  });
+
+  // GVe (design rebuild, spec §18): NODE_THEMES is derived from the 7 macaron
+  // design tokens (ui/tokens.ts MACARONS) — no more hand-rolled hex palette.
+  // Accent is reserved for selection; the ordinal theme is always a macaron.
+  it("every theme is sourced from a MACARONS token: key/border/label/fillFrom match one macaron exactly", () => {
+    const macaronKeys = Object.keys(MACARONS);
+    expect(NODE_THEMES.length).toBe(macaronKeys.length);
+    for (const theme of NODE_THEMES) {
+      expect(macaronKeys).toContain(theme.key);
+      const mac = MACARONS[theme.key as keyof typeof MACARONS];
+      expect(theme.border).toBe(mac.base);
+      expect(theme.label).toBe(mac.fg);
+      expect(theme.fillFrom).toBe(mac.bg);
+    }
+    // every macaron is used exactly once — a real ordinal spread, not a subset
+    expect(new Set(NODE_THEMES.map((t) => t.key)).size).toBe(macaronKeys.length);
   });
 
   it("rootOrdinal is the root's index among top-level leads; themeForRoot resolves it", () => {

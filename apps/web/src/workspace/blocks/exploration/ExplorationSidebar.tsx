@@ -162,13 +162,13 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
                   if (e.key === "Enter") submitKeyword();
                 }}
                 placeholder="换个词找…"
-                className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-bg/60 px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
+                className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-paper/60 px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
               />
               <button
                 type="button"
                 onClick={submitKeyword}
                 disabled={digging || !keyword.trim()}
-                className="flex-none rounded-mk border border-mk-primary/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-50"
+                className="flex-none rounded-mk border border-mk-accent/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent/10 disabled:opacity-50"
               >
                 找
               </button>
@@ -177,7 +177,7 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[12.5px] leading-relaxed text-mk-muted-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[12.5px] leading-relaxed text-mk-faint">
         {isPaper
           ? "顺着这篇论文找——相似的、它引用的、引用它的。挑有用的采纳，会挂到这条线下面。"
           : "点上面的「找相似文献」，或换个关键词，印记会顺着这个问题给你几篇论文。"}
@@ -208,9 +208,9 @@ function PaperMeta({
   return (
     <div className="flex-none border-b border-mk-border px-4 py-3">
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-mk-green-tint px-2 py-0.5 text-[10px] font-bold text-mk-green">论文</span>
+        <span className="rounded-full bg-mk-success-bg px-2 py-0.5 text-[10px] font-bold text-mk-success">论文</span>
         {statusLabel && (
-          <span className="rounded-full bg-mk-bg px-2 py-0.5 text-[10px] font-bold text-mk-muted-2">{statusLabel}</span>
+          <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[10px] font-bold text-mk-faint">{statusLabel}</span>
         )}
       </div>
       <h3 className="mt-2 text-[14.5px] font-bold leading-snug text-mk-ink">{title}</h3>
@@ -223,19 +223,19 @@ function PaperMeta({
         <MetaRow label="年份" value={year} />
         <MetaRow label="期刊" value={journal} />
         <div className="flex gap-2">
-          <dt className="w-9 flex-none font-bold text-mk-muted-2">链接</dt>
+          <dt className="w-9 flex-none font-bold text-mk-faint">链接</dt>
           <dd className="min-w-0 flex-1">
             {link ? (
               <a
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="break-all font-semibold text-mk-primary underline-offset-2 hover:underline"
+                className="break-all font-semibold text-mk-accent underline-offset-2 hover:underline"
               >
                 {link}
               </a>
             ) : (
-              <span className="text-mk-muted-2">—</span>
+              <span className="text-mk-faint">—</span>
             )}
           </dd>
         </div>
@@ -243,13 +243,13 @@ function PaperMeta({
 
       {/* 摘要 — labeled block, always present so its absence is explicit. */}
       <div className="mt-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">摘要</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-mk-faint">摘要</p>
         {abstract ? (
           <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line text-[12px] leading-relaxed text-mk-muted">
             {abstract}
           </p>
         ) : (
-          <p className="mt-1 text-[12px] text-mk-muted-2">这篇还没有摘要。</p>
+          <p className="mt-1 text-[12px] text-mk-faint">这篇还没有摘要。</p>
         )}
       </div>
 
@@ -259,7 +259,7 @@ function PaperMeta({
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
           >
             打开原文
           </a>
@@ -269,7 +269,7 @@ function PaperMeta({
             type="button"
             onClick={onEnterReading}
             disabled={entering}
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10 disabled:opacity-50"
+            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10 disabled:opacity-50"
           >
             {entering ? "打开中…" : "进入阅读室"}
           </button>
@@ -284,8 +284,8 @@ function PaperMeta({
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-9 flex-none font-bold text-mk-muted-2">{label}</dt>
-      <dd className={`min-w-0 flex-1 ${value ? "text-mk-ink" : "text-mk-muted-2"}`}>{value || "—"}</dd>
+      <dt className="w-9 flex-none font-bold text-mk-faint">{label}</dt>
+      <dd className={`min-w-0 flex-1 ${value ? "text-mk-ink" : "text-mk-faint"}`}>{value || "—"}</dd>
     </div>
   );
 }
@@ -301,24 +301,24 @@ function QuestionMeta({
 }) {
   return (
     <div className="flex-none border-b border-mk-border px-4 py-3">
-      <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10px] font-bold text-mk-primary">问题</span>
+      <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[10px] font-bold text-mk-accent">问题</span>
       <h3 className="mt-2 text-[14px] font-bold leading-snug text-mk-ink">{node.text}</h3>
 
       <dl className="mt-2.5 space-y-1 text-[11.5px]">
         <div className="flex gap-1.5">
-          <dt className="flex-none font-bold text-mk-muted-2">来源</dt>
+          <dt className="flex-none font-bold text-mk-faint">来源</dt>
           <dd className="text-mk-muted">{ORIGIN_LABEL[node.origin]}</dd>
         </div>
         <div className="flex gap-1.5">
-          <dt className="flex-none font-bold text-mk-muted-2">记于</dt>
+          <dt className="flex-none font-bold text-mk-faint">记于</dt>
           <dd className="text-mk-muted">{formatCreated(node.createdAt)}</dd>
         </div>
       </dl>
 
       <div className="mt-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-mk-muted-2">论文列表</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-mk-faint">论文列表</p>
         {papers.length === 0 ? (
-          <p className="mt-1 text-[12px] leading-relaxed text-mk-muted-2">还没有论文挂在这个问题下面，往下找几篇吧。</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-mk-faint">还没有论文挂在这个问题下面，往下找几篇吧。</p>
         ) : (
           <ul className="mt-1.5 flex flex-col gap-1">
             {papers.map((p) => (
@@ -326,7 +326,7 @@ function QuestionMeta({
                 <button
                   type="button"
                   onClick={() => onSelectPaper(p.id)}
-                  className="w-full rounded-mk border border-mk-border bg-mk-bg/50 px-2.5 py-1.5 text-left text-[12px] font-semibold leading-snug text-mk-ink hover:border-mk-primary hover:bg-mk-primary/5"
+                  className="w-full rounded-mk border border-mk-border bg-mk-paper/50 px-2.5 py-1.5 text-left text-[12px] font-semibold leading-snug text-mk-ink hover:border-mk-accent hover:bg-mk-accent/5"
                 >
                   {p.title}
                 </button>
@@ -349,14 +349,14 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
         <button
           type="button"
           onClick={onBackToAi}
-          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
         >
           ← 印记
         </button>
         <button
           type="button"
           onClick={onBackToNode}
-          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-muted hover:text-mk-primary"
+          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-muted hover:text-mk-accent"
         >
           ← 返回
         </button>
@@ -364,24 +364,24 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {digging ? (
-          <p className="py-2 text-[12.5px] text-mk-muted-2">印记在找相关论文……</p>
+          <p className="py-2 text-[12.5px] text-mk-faint">印记在找相关论文……</p>
         ) : digError ? (
           <p className="py-2 text-[12.5px] font-semibold text-mk-accent">刚才没接上，再试一次？</p>
         ) : candidates.length === 0 ? (
-          <p className="py-2 text-[12.5px] leading-relaxed text-mk-muted-2">
+          <p className="py-2 text-[12.5px] leading-relaxed text-mk-faint">
             没有更多论文了。挑有用的采纳了、其余丢弃就好，或者换个词再找。
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-[11.5px] font-bold text-mk-muted-2">挖到这些论文</p>
+            <p className="text-[11.5px] font-bold text-mk-faint">挖到这些论文</p>
             {candidates.map((c) => {
               const key = candidateKey(c);
               const cMeta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
               const busy = adopting.has(key);
               return (
-                <div key={key} className="rounded-mk border border-mk-border bg-mk-bg/50 p-2.5">
+                <div key={key} className="rounded-mk border border-mk-border bg-mk-paper/50 p-2.5">
                   <p className="text-[12.5px] font-semibold leading-snug text-mk-ink">{c.title}</p>
-                  {cMeta && <p className="mt-0.5 text-[11px] text-mk-muted-2">{cMeta}</p>}
+                  {cMeta && <p className="mt-0.5 text-[11px] text-mk-faint">{cMeta}</p>}
                   {c.abstract?.trim() && (
                     <p className="mt-1 max-h-20 overflow-y-auto text-[11.5px] leading-relaxed text-mk-muted">
                       {c.abstract}
@@ -392,7 +392,7 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
                       type="button"
                       onClick={() => onAdopt(c)}
                       disabled={busy}
-                      className="rounded-mk bg-mk-primary px-2.5 py-1 text-[11.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
+                      className="rounded-mk bg-mk-accent px-2.5 py-1 text-[11.5px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
                     >
                       {busy ? "采纳中…" : "采纳"}
                     </button>
@@ -423,7 +423,7 @@ function BackBar({ label, onClick }: { label: string; onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+        className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
       >
         {label}
       </button>
@@ -445,7 +445,7 @@ function FindButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full rounded-mk bg-mk-primary px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
+      className="w-full rounded-mk bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
     >
       {children}
     </button>
