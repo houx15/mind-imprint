@@ -1,0 +1,143 @@
+<h2>布局系统 · 图谱设计</h2>
+<p class="subtitle">最后两块。布局分两种外壳：平台（首页/项目，常规导航）与 studio（项目内，克制、agentic）。图谱把现有 React Flow 兔子洞对齐到新设计系统。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; }
+  .sheet .hint { font-size:12.5px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+  .lbl { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#B0A599; margin:16px 0 9px; }
+
+  /* breakpoints */
+  .bps { display:flex; gap:10px; flex-wrap:wrap; }
+  .bp { background:#fff; border:1px solid #EFE7DD; border-radius:8px; padding:9px 14px; font-size:12.5px; color:#5a5049; }
+  .bp b { color:#33302E; font-family:ui-monospace,monospace; }
+
+  /* wireframe */
+  .wire { display:flex; border:1px solid #E3D9CE; border-radius:10px; overflow:hidden; height:180px; background:#fff; }
+  .wnav { width:52px; background:#F1EBE3; border-right:1px solid #EFE7DD; display:flex; flex-direction:column; align-items:center; gap:12px; padding:12px 0; flex:none; }
+  .wnav i { width:24px; height:24px; border-radius:7px; background:#DDD2C6; }
+  .wnav i.on { background:#EA5140; }
+  .wmain { flex:1; padding:14px 16px; min-width:0; }
+  .wblock { background:#F4EEE6; border-radius:6px; }
+  .wai { width:230px; background:#FBF8F4; border-right:1px solid #EFE7DD; flex:none; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .wsurface { flex:1; padding:14px 16px; min-width:0; }
+  .wlabel { font-size:11px; color:#B0A599; margin-top:6px; text-align:center; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:820px){ .row3{ grid-template-columns:1fr; } }
+  .bub { background:#fff; border-radius:5px 10px 10px 10px; height:22px; box-shadow:0 1px 2px rgba(70,45,45,.06); }
+  .bub.me { background:#FDEBE7; align-self:flex-end; width:70%; border-radius:10px 5px 10px 10px; }
+
+  /* graph */
+  .canvas { position:relative; height:320px; border:1px solid #E3D9CE; border-radius:12px; overflow:hidden;
+            background:#FBF8F4;
+            background-image:radial-gradient(#E7DDD0 1.1px, transparent 1.1px); background-size:18px 18px; }
+  .qnode { position:absolute; width:190px; background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(70,45,45,.10); padding:11px 13px 11px 15px; }
+  .qnode::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:4px; border-radius:99px; }
+  .qnode .qt { font-size:13px; font-weight:600; color:#33302E; line-height:1.3; }
+  .qnode .qm { font-size:11px; color:#B0A599; margin-top:5px; }
+  .qnode.sel { box-shadow:0 0 0 2.5px #EA5140, 0 6px 18px rgba(70,45,45,.14); }
+  .elabel { position:absolute; font-size:10.5px; font-weight:600; padding:2px 9px; border-radius:99px; background:#fff; box-shadow:0 1px 3px rgba(70,45,45,.12); color:#5a5049; }
+  .elabel.prop { color:#8A827A; border:1px dashed #C9BCAD; box-shadow:none; background:#FBF8F4; }
+  .elabel .who { font-size:9px; color:#B49BD8; display:block; }
+
+  .legend { display:flex; gap:20px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:#5a5049; }
+  .legend .k { display:flex; align-items:center; gap:7px; }
+  .lswatch { width:26px; height:0; border-top:2.5px solid #33302E; }
+  .lswatch.dash { border-top:2px dashed #C9BCAD; }
+
+  /* level 2 inset */
+  .l2 { position:relative; height:230px; border:1px solid #EFE7DD; border-radius:10px; background:#fff; overflow:hidden; }
+  .l2center { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:170px; background:#EFEBF6; border-radius:10px; padding:11px 13px; box-shadow:0 3px 10px rgba(126,82,163,.18); }
+  .l2center .qt { font-size:12.5px; font-weight:600; color:#4A4658; line-height:1.3; }
+  .paper { position:absolute; width:150px; background:#fff; border:1px solid #EFE7DD; border-radius:8px; padding:8px 10px; display:flex; gap:8px; align-items:center; }
+  .paper .dot { width:22px; height:22px; border-radius:6px; flex:none; }
+  .paper .pt { font-size:11px; font-weight:600; color:#33302E; line-height:1.25; }
+</style>
+
+<!-- LAYOUT -->
+<div class="sheet">
+  <h3>布局系统</h3>
+  <div class="lbl">断点 · mobile-first</div>
+  <div class="bps">
+    <div class="bp"><b>sm 640</b> · 手机横 / 小平板</div>
+    <div class="bp"><b>md 768</b> · 平板</div>
+    <div class="bp"><b>lg 1024</b> · 笔记本</div>
+    <div class="bp"><b>xl 1280</b> · 桌面（内容最大宽 1200）</div>
+  </div>
+
+  <div class="lbl">外壳 A · 平台（首页 / 项目 / 图鉴）——常规导航</div>
+  <div class="wire">
+    <div class="wnav"><i class="on"></i><i></i><i></i><i></i></div>
+    <div class="wmain">
+      <div class="wblock" style="height:26px; width:55%;"></div>
+      <div class="wblock" style="height:70px; margin-top:12px;"></div>
+      <div class="wblock" style="height:14px; width:30%; margin-top:12px;"></div>
+    </div>
+  </div>
+  <div class="wlabel">左侧 52px 图标导航（首页/项目/图鉴/我）＋居中内容容器（max-w 1200）。这层不打扰。</div>
+
+  <div class="lbl" style="margin-top:18px;">外壳 B · Studio（项目内）——克制、agentic：AI 常驻 + 可变工作面</div>
+  <div class="wire">
+    <div class="wnav"><i></i><i class="on"></i></div>
+    <div class="wai">
+      <div class="bub" style="width:85%;"></div>
+      <div class="bub me"></div>
+      <div class="bub" style="width:80%;"></div>
+      <div style="margin-top:auto; height:30px; background:#fff; border:1.5px solid #EFE7DD; border-radius:8px;"></div>
+    </div>
+    <div class="wsurface">
+      <div class="wblock" style="height:20px; width:50%;"></div>
+      <div class="wblock" style="height:96px; margin-top:12px;"></div>
+    </div>
+  </div>
+  <div class="wlabel">房间脊（可折成图标）＋ AI 常驻区（~320px）＋ 工作面（flex）。全屏时脊折叠、导航收起 → 只剩 AI 与工作。</div>
+
+  <div class="lbl" style="margin-top:18px;">容器与断点行为</div>
+  <div style="font-size:12.5px; color:#5a5049; line-height:1.9;">
+    · 正文/写作面阅读宽度约 <b>68ch</b>，再宽不利阅读。<br>
+    · 页面栅格 12 列、栏距 24、页边随断点收放（桌面 32 / 平板 24 / 手机 16）。<br>
+    · <b>手机上 studio 堆叠</b>：工作面占满，AI 收成底部可拉起的对话条（一个按钮唤起），保持「一直都在」。
+  </div>
+</div>
+
+<!-- GRAPH -->
+<div class="sheet">
+  <h3>图谱设计 · React Flow 兔子洞</h3>
+  <p class="hint">画布暖纸底 + 细点阵。问题节点用马卡龙<strong>序数色</strong>（每个根一个主题色），accent 红只留给「选中 / 主操作」，所以选中一眼跳出。连线带标签：确认=实线墨色、提议=虚线灰 + 小字「印记提议」（铁律②）。</p>
+
+  <div class="lbl">Level 1 · 问题图</div>
+  <div class="canvas">
+    <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+      <path d="M250 130 C 300 110, 320 90, 360 82" fill="none" stroke="#33302E" stroke-width="2"/>
+      <path d="M250 150 C 300 175, 330 200, 372 214" fill="none" stroke="#C9BCAD" stroke-width="2" stroke-dasharray="5 5"/>
+    </svg>
+    <div class="qnode sel" style="left:40px; top:110px;"><span style="position:absolute;left:0;top:8px;bottom:8px;width:4px;border-radius:99px;background:#B49BD8;"></span><div class="qt">中国是否让地球更可持续？</div><div class="qm">根问题 · 5 个记于</div></div>
+    <div class="qnode" style="left:360px; top:52px;"><span style="position:absolute;left:0;top:8px;bottom:8px;width:4px;border-radius:99px;background:#6FBFB0;"></span><div class="qt">碳排放：总量 vs 人均口径</div><div class="qm">2 篇文献</div></div>
+    <div class="qnode" style="left:372px; top:196px;"><span style="position:absolute;left:0;top:8px;bottom:8px;width:4px;border-radius:99px;background:#F6B26B;"></span><div class="qt">新能源投资是否可持续</div><div class="qm">1 篇文献</div></div>
+    <div class="elabel" style="left:280px; top:82px;">子问题</div>
+    <div class="elabel prop" style="left:280px; top:182px;">张力·反驳<span class="who">印记提议 · 确认？</span></div>
+  </div>
+  <div class="legend">
+    <div class="k"><span class="lswatch"></span> 确认关系（学生确认）</div>
+    <div class="k"><span class="lswatch dash"></span> 印记提议（待确认）</div>
+    <div class="k"><span style="width:14px;height:14px;border-radius:4px;background:#B49BD8;display:inline-block;"></span> 序数主题色（每根一色）</div>
+    <div class="k"><span style="width:14px;height:14px;border-radius:4px;box-shadow:0 0 0 2px #EA5140;display:inline-block;"></span> 选中 = accent 环</div>
+  </div>
+
+  <div class="lbl" style="margin-top:20px;">Level 2 · 进入某个问题 → 思维导图（该问题 + 采纳的论文，dagre 布局）</div>
+  <div class="l2">
+    <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+      <path d="M50% 50%" fill="none"/>
+      <line x1="50%" y1="50%" x2="20%" y2="26%" stroke="#D9CFC4" stroke-width="1.8"/>
+      <line x1="50%" y1="50%" x2="82%" y2="30%" stroke="#D9CFC4" stroke-width="1.8"/>
+      <line x1="50%" y1="50%" x2="80%" y2="76%" stroke="#D9CFC4" stroke-width="1.8"/>
+    </svg>
+    <div class="l2center"><div class="qt">碳排放：总量 vs 人均口径</div></div>
+    <div class="paper" style="left:6%; top:16%;"><span class="dot" style="background:#C4D8E8;"></span><div class="pt">NASA Earth Observatory</div></div>
+    <div class="paper" style="right:4%; top:20%;"><span class="dot" style="background:#CFDEB4;"></span><div class="pt">Nature Sustainability</div></div>
+    <div class="paper" style="right:6%; bottom:12%;"><span class="dot" style="background:#F4D8B8;"></span><div class="pt">IEA World Energy 2023</div></div>
+  </div>
+  <div class="hint" style="margin:12px 0 0;">节点圆角 10、卡面白 + 序数色左条；论文节点是描边小卡（色点=来源封面色）。悬停浮出 ⋯（深挖 / 采纳 / 移除），选中给 accent 环——和现有 React Flow 实现对齐，只换视觉 token。</div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 布局与图谱 OK 吗？这两块定了，整套设计系统就<strong>全</strong>了。确认后我把所有模块写成正式 spec 锁进 <code>docs/</code>（含 Voice & Tone、插画清单、待办如 AI 头像重设计）。</p>

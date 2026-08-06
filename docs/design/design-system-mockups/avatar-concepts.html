@@ -1,0 +1,95 @@
+<h2>印记 · AI 头像方向</h2>
+<p class="subtitle">现在头像只是个纯色圆点。名字「印记」= 盖下的印/思考的痕迹——所以我倾向<strong>抽象的记号</strong>，而不是可爱吉祥物（吉祥物会为了留人而卖萌，违反铁律②）。四个方向，各配大图 + 聊天里 28px 的样子 + 一句理由。都用 accent 朱砂红（会跟随学生 accent 变色）。选一个方向，我再打磨并出四态。</p>
+
+<style>
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .grid{grid-template-columns:1fr;} }
+  .con { background:#fff; border:1px solid #EFE7DD; border-radius:12px; padding:20px; cursor:pointer; border:2px solid transparent; transition:transform .12s ease; }
+  .con:hover{ transform:translateY(-2px); }
+  .con.selected{ outline:3px solid #EA5140; outline-offset:3px; }
+  .top { display:flex; align-items:center; gap:20px; }
+  .big { width:64px; height:64px; flex:none; }
+  .chatctx { display:flex; align-items:center; gap:9px; }
+  .sm { width:28px; height:28px; flex:none; }
+  .bub { background:#FBF8F4; border-radius:5px 12px 12px 12px; padding:8px 12px; font-size:12.5px; color:#4a3f3d; }
+  .nm { font-size:15px; font-weight:600; color:#33302E; margin-top:16px; }
+  .rat { font-size:12.5px; color:#8A827A; line-height:1.55; margin-top:5px; }
+  .cn { font-family:ui-monospace,monospace; font-size:10.5px; color:#B0A599; margin-top:8px; }
+</style>
+
+<div class="grid">
+
+  <!-- A Seal -->
+  <div class="con" data-choice="seal" onclick="toggleSelect(this)">
+    <div class="top">
+      <svg class="big" viewBox="0 0 40 40">
+        <rect x="4" y="4" width="32" height="32" rx="11" fill="#EA5140"/>
+        <path d="M13 26 C 16 14, 23 13, 27 15.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="27" cy="15.5" r="2.3" fill="#fff"/>
+      </svg>
+      <div class="chatctx">
+        <svg class="sm" viewBox="0 0 40 40"><rect x="4" y="4" width="32" height="32" rx="11" fill="#EA5140"/><path d="M13 26 C 16 14, 23 13, 27 15.5" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="27" cy="15.5" r="2.4" fill="#fff"/></svg>
+        <div class="bub">先说说你的判断</div>
+      </div>
+    </div>
+    <div class="nm">A · 朱砂印 Seal</div>
+    <div class="rat">圆角方印里一道反白的笔痕——直译「印记」，有东方印章感、独特、和产品名同源。小尺寸也立得住。</div>
+    <div class="cn">squircle + 反白笔痕</div>
+  </div>
+
+  <!-- B Spark -->
+  <div class="con" data-choice="spark" onclick="toggleSelect(this)">
+    <div class="top">
+      <svg class="big" viewBox="0 0 40 40">
+        <path d="M19 4 L22.6 15.4 L34 19 L22.6 22.6 L19 34 L15.4 22.6 L4 19 L15.4 15.4 Z" fill="#EA5140"/>
+        <path d="M31 6 L32.5 10.5 L37 12 L32.5 13.5 L31 18 L29.5 13.5 L25 12 L29.5 10.5 Z" fill="#EA5140" opacity=".55"/>
+      </svg>
+      <div class="chatctx">
+        <svg class="sm" viewBox="0 0 40 40"><path d="M19 4 L22.6 15.4 L34 19 L22.6 22.6 L19 34 L15.4 22.6 L4 19 L15.4 15.4 Z" fill="#EA5140"/><path d="M31 6 L32.5 10.5 L37 12 L32.5 13.5 L31 18 L29.5 13.5 L25 12 L29.5 10.5 Z" fill="#EA5140" opacity=".55"/></svg>
+        <div class="bub">先说说你的判断</div>
+      </div>
+    </div>
+    <div class="nm">B · 灵光 Spark</div>
+    <div class="rat">四角星火 = 洞见、想法闪现。现代、友好、无实体轮廓，和我们图标里的 sparkles 一脉相承。极小也清楚。</div>
+    <div class="cn">standalone 四角星火</div>
+  </div>
+
+  <!-- C Imprint ripple -->
+  <div class="con" data-choice="ripple" onclick="toggleSelect(this)">
+    <div class="top">
+      <svg class="big" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="4.2" fill="#EA5140"/>
+        <circle cx="20" cy="20" r="10" stroke="#EA5140" stroke-width="2.6"/>
+        <circle cx="20" cy="20" r="15.5" stroke="#EA5140" stroke-width="2" opacity=".45"/>
+      </svg>
+      <div class="chatctx">
+        <svg class="sm" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="4.6" fill="#EA5140"/><circle cx="20" cy="20" r="10.5" stroke="#EA5140" stroke-width="3"/><circle cx="20" cy="20" r="16" stroke="#EA5140" stroke-width="2.2" opacity=".45"/></svg>
+        <div class="bub">先说说你的判断</div>
+      </div>
+    </div>
+    <div class="nm">C · 回响 Imprint</div>
+    <div class="rat">按下留痕、向外扩散的同心圈——「留下印记」的抽象。安静、克制，天生适合做「思考中」的脉冲动画。</div>
+    <div class="cn">同心圆 · 印痕/涟漪</div>
+  </div>
+
+  <!-- D Sprout -->
+  <div class="con" data-choice="sprout" onclick="toggleSelect(this)">
+    <div class="top">
+      <svg class="big" viewBox="0 0 40 40">
+        <path d="M20 35 V21" stroke="#EA5140" stroke-width="3" stroke-linecap="round"/>
+        <path d="M20 23 C 11 23, 8 15, 11 9 C 18 10.5, 21.5 16.5, 20 23 Z" fill="#EA5140"/>
+        <path d="M20.5 25 C 29 25, 32 18.5, 30 12.5 C 23.5 14, 20 19.5, 20.5 25 Z" fill="#EA5140" opacity=".65"/>
+      </svg>
+      <div class="chatctx">
+        <svg class="sm" viewBox="0 0 40 40"><path d="M20 35 V21" stroke="#EA5140" stroke-width="3.4" stroke-linecap="round"/><path d="M20 23 C 11 23, 8 15, 11 9 C 18 10.5, 21.5 16.5, 20 23 Z" fill="#EA5140"/><path d="M20.5 25 C 29 25, 32 18.5, 30 12.5 C 23.5 14, 20 19.5, 20.5 25 Z" fill="#EA5140" opacity=".65"/></svg>
+        <div class="bub">先说说你的判断</div>
+      </div>
+    </div>
+    <div class="nm">D · 新芽 Sprout</div>
+    <div class="rat">破土的嫩芽 = 思维生长。最暖、最有人情味，呼应「陪你把想法长出来」。稍偏可爱，但不卖萌。</div>
+    <div class="cn">嫩芽 · 成长</div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">👉 我个人倾向 <strong>A 朱砂印</strong>（和名字同源、最独特）或 <strong>C 回响</strong>（最克制、动画天成）。点一个方向，或说说感觉——选定后我打磨细节，并出「思考/生成/处理/完成」四态的头像动效。</p>

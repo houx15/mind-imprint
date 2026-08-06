@@ -1,0 +1,186 @@
+<h2>卡片系统：项目卡 · 列表布局 · 弹层</h2>
+<p class="subtitle">这一屏把卡片讲细：项目卡的构造与变体、它出现的几种列表布局、以及弹窗/抽屉/气泡菜单/toast 家族。演示用锁定的 accent 朱砂红与马卡龙辅助色。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:16px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; font-family:-apple-system,'PingFang SC',sans-serif; }
+  .sheet .hint { font-size:12px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+  .lbl { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#B0A599; margin:16px 0 8px; }
+
+  /* project card */
+  .pcard { background:#fff; border-radius:14px; overflow:hidden; width:200px; box-shadow:0 5px 16px rgba(80,50,50,.10); position:relative; }
+  .pcard .cover { height:84px; position:relative; }
+  .pcard .status { position:absolute; top:9px; left:9px; font-size:10.5px; font-weight:650; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,.9); color:#5a5049; }
+  .pcard .kebab { position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:7px; background:rgba(255,255,255,.85); color:#8A827A; display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .pcard .body { padding:12px 13px 13px; }
+  .pcard .title { font-size:14px; font-weight:650; color:#33302E; line-height:1.32; }
+  .pcard .meta { font-size:11px; color:#8A827A; margin-top:6px; }
+  .pcard .stages { display:flex; gap:4px; margin-top:11px; }
+  .pcard .stages i { height:4px; flex:1; border-radius:2px; background:#EFE7DD; }
+  .pcard .stages i.on { background:#EA5140; }
+  .addtile { width:200px; border:2px dashed #DDD2C6; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#A99E92; background:transparent; }
+  .addtile .plus { width:40px; height:40px; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1.5px #DDD2C6; display:flex; align-items:center; justify-content:center; font-size:22px; color:#EA5140; }
+
+  .anat { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .callouts { font-size:12px; color:#5a5049; line-height:2; }
+  .callouts b { color:#EA5140; }
+
+  /* layouts */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+  .mini { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(80,50,50,.09); }
+  .mini .mc { height:52px; }
+  .mini .mb { padding:9px 11px; }
+  .mini .mt { font-size:12.5px; font-weight:650; color:#33302E; line-height:1.3; }
+  .mini .mm { font-size:10px; color:#8A827A; margin-top:3px; }
+  .strip { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
+  .strip .mini, .strip .addmini { flex:none; width:150px; }
+  .addmini { border:2px dashed #DDD2C6; border-radius:12px; min-height:100%; display:flex; align-items:center; justify-content:center; color:#EA5140; font-size:24px; }
+  .rows { display:flex; flex-direction:column; gap:8px; }
+  .rowc { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:9px 12px; }
+  .rowc .thumb { width:40px; height:40px; border-radius:8px; flex:none; }
+  .rowc .rt { font-size:13px; font-weight:600; color:#33302E; }
+  .rowc .rm { font-size:11px; color:#8A827A; margin-top:2px; }
+  .rowc .rpill { margin-left:auto; font-size:10.5px; font-weight:650; padding:3px 10px; border-radius:999px; }
+
+  /* tool cards */
+  .shelf { display:flex; gap:10px; flex-wrap:wrap; }
+  .tool { width:130px; border-radius:10px; padding:12px; color:#4a3f2e; }
+  .tool .ti { font-size:13px; font-weight:700; }
+  .tool .td { font-size:10.5px; opacity:.7; margin-top:4px; line-height:1.4; }
+
+  /* modal */
+  .stagebox { background:#EFE7DD; border-radius:14px; padding:26px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; position:relative; }
+  .modal { background:#fff; border-radius:18px; width:280px; box-shadow:0 20px 50px rgba(50,30,30,.28); overflow:hidden; }
+  .modal .mh { padding:16px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #F0E9E1; }
+  .modal .mh .h { font-size:14.5px; font-weight:700; color:#33302E; }
+  .modal .mh .x { color:#B0A599; font-size:16px; }
+  .modal .mbd { padding:16px 18px; font-size:12.5px; color:#5a5049; line-height:1.6; }
+  .modal .mf { padding:12px 18px; display:flex; gap:10px; justify-content:flex-end; background:#FBF8F4; }
+  .mbtn { font-size:12.5px; font-weight:650; padding:8px 15px; border-radius:9px; }
+
+  .drawer { background:#fff; border-radius:14px 0 0 14px; width:210px; box-shadow:-14px 0 40px rgba(50,30,30,.16); padding:16px; align-self:stretch; }
+  .drawer .dh { font-size:13px; font-weight:700; color:#33302E; display:flex; justify-content:space-between; }
+  .drawer .dl { font-size:11px; color:#8A827A; margin-top:10px; line-height:1.6; }
+  .popover { background:#fff; border-radius:12px; width:150px; box-shadow:0 14px 34px rgba(50,30,30,.20); padding:6px; }
+  .popover div { font-size:12.5px; color:#4a3f3d; padding:8px 10px; border-radius:7px; }
+  .popover div.danger { color:#C4362B; }
+  .toast { background:#33302E; color:#fff; border-radius:11px; padding:10px 14px; font-size:12.5px; display:flex; align-items:center; gap:9px; box-shadow:0 10px 26px rgba(0,0,0,.22); }
+  .toast .ok { width:16px; height:16px; border-radius:50%; background:#5FA97E; flex:none; }
+
+  .sem { display:flex; gap:12px; flex-wrap:wrap; }
+  .semc { border-radius:10px; padding:10px 14px; font-size:12px; font-weight:650; }
+</style>
+
+<!-- PROJECT CARD ANATOMY -->
+<div class="sheet">
+  <h3>项目卡 · 构造与变体</h3>
+  <p class="hint">项目卡是方形、带封面的「对象卡」（抬起级）。封面可用马卡龙渐变，也可换成图片。悬停才浮出 ⋯ 菜单，铁律②——不打扰。</p>
+  <div class="anat">
+    <div class="pcard">
+      <div class="cover" style="background:linear-gradient(120deg,#F6B26B,#E896A6);">
+        <span class="status">进行中</span>
+        <span class="kebab">⋯</span>
+      </div>
+      <div class="body">
+        <div class="title">中国是否让地球更可持续？</div>
+        <div class="meta">阅读 · 3 篇文献 · 2 天前</div>
+        <div class="stages"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div class="callouts">
+      · <b>封面</b>：马卡龙渐变 / 上传图片（84px 高）<br>
+      · <b>状态药丸</b>：进行中 · 已完成 · 草稿（左上，半透明白底）<br>
+      · <b>⋯ 菜单</b>：仅悬停浮出（重命名 / 归档 / 删除）<br>
+      · <b>标题</b>：最多两行，14px 650<br>
+      · <b>元信息</b>：当前阶段 · 细节 · 时间<br>
+      · <b>阶段进度</b>：四格＝项目管理/阅读/写作/回顾，accent 填充
+    </div>
+    <div class="addtile" style="min-height:196px;">
+      <div class="plus">＋</div>
+      <div style="font-size:12.5px; font-weight:600;">新建项目</div>
+    </div>
+  </div>
+</div>
+
+<!-- LIST LAYOUTS -->
+<div class="sheet">
+  <h3>列表布局 · 同一张卡的三种排法</h3>
+  <p class="hint">卡片不是只有一种堆法。按场景选布局：网格用于项目页，横向快照用于首页，紧凑行用于长列表 / 搜索结果。</p>
+
+  <div class="lbl">① 网格 · 项目页（方卡自适应换列）</div>
+  <div class="grid">
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#F6B26B,#E896A6);"></div><div class="mb"><div class="mt">中国是否让地球更可持续？</div><div class="mm">阅读 · 3 篇文献</div></div></div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#A6C88F,#6FBFB0);"></div><div class="mb"><div class="mt">莎士比亚的时间意象</div><div class="mm">写作 · 草稿 2 段</div></div></div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#7FA8D8,#B49BD8);"></div><div class="mb"><div class="mt">基因编辑的伦理边界</div><div class="mm">回顾 · 已完成</div></div></div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#F2CE63,#F6B26B);"></div><div class="mb"><div class="mt">城市化与鸟类栖息</div><div class="mm">项目管理 · 刚建</div></div></div>
+  </div>
+
+  <div class="lbl">② 横向快照 · 首页（第一张是「新建」，可横滑）</div>
+  <div class="strip">
+    <div class="addmini">＋</div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#F6B26B,#E896A6);"></div><div class="mb"><div class="mt">中国是否让地球更可持续？</div><div class="mm">阅读 · 2 天前</div></div></div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#A6C88F,#6FBFB0);"></div><div class="mb"><div class="mt">莎士比亚的时间意象</div><div class="mm">写作 · 昨天</div></div></div>
+    <div class="mini"><div class="mc" style="background:linear-gradient(120deg,#7FA8D8,#B49BD8);"></div><div class="mb"><div class="mt">基因编辑的伦理边界</div><div class="mm">已完成</div></div></div>
+  </div>
+
+  <div class="lbl">③ 紧凑行 · 长列表 / 搜索结果（缩略图＋标题＋状态）</div>
+  <div class="rows">
+    <div class="rowc"><div class="thumb" style="background:linear-gradient(120deg,#F6B26B,#E896A6);"></div><div><div class="rt">中国是否让地球更可持续？</div><div class="rm">阅读 · 3 篇文献 · 2 天前</div></div><span class="rpill" style="background:#FDEBE7; color:#C4362B;">进行中</span></div>
+    <div class="rowc"><div class="thumb" style="background:linear-gradient(120deg,#7FA8D8,#B49BD8);"></div><div><div class="rt">基因编辑的伦理边界</div><div class="rm">回顾 · 上周</div></div><span class="rpill" style="background:#E7F1DD; color:#4d6b3a;">已完成</span></div>
+  </div>
+</div>
+
+<!-- TOOL CARDS -->
+<div class="sheet">
+  <h3>工具卡（思维工具卡）· 陈列</h3>
+  <p class="hint">工具卡是描边/小卡级，每张取一支马卡龙辅助色，横向陈列成「卡架」。它是被 AI 召唤、由学生确认打开的——所以静态陈列时低调。</p>
+  <div class="shelf">
+    <div class="tool" style="background:#FDE7D3;"><div class="ti">CRAAP 溯源</div><div class="td">给来源做可信度体检</div></div>
+    <div class="tool" style="background:#E7F1DD;"><div class="ti">让步段</div><div class="td">先承认对方，再反驳</div></div>
+    <div class="tool" style="background:#E6EEF9;"><div class="ti">反例检验</div><div class="td">主动去撞自己的论点</div></div>
+    <div class="tool" style="background:#F0EAF6;"><div class="ti">图尔敏论证</div><div class="td">拆出主张·依据·理由</div></div>
+  </div>
+</div>
+
+<!-- OVERLAYS -->
+<div class="sheet">
+  <h3>弹层家族 · 弹窗 / 抽屉 / 气泡菜单 / toast</h3>
+  <p class="hint">弹层都是浮起级（重阴影＋大圆角）＋半透明遮罩。按打扰程度选：气泡菜单最轻 → toast → 抽屉 → 居中弹窗（最重，只给真正需要打断的确认）。</p>
+  <div class="stagebox">
+    <div class="modal">
+      <div class="mh"><span class="h">删除这个项目？</span><span class="x">✕</span></div>
+      <div class="mbd">「中国是否让地球更可持续？」的过程记录会一并删除，无法恢复。</div>
+      <div class="mf">
+        <span class="mbtn" style="background:#fff; color:#5a5049; box-shadow:inset 0 0 0 1.5px #EFE7DD;">取消</span>
+        <span class="mbtn" style="background:#D64541; color:#fff;">删除</span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="popover">
+        <div>重命名</div>
+        <div>归档</div>
+        <div class="danger">删除</div>
+      </div>
+      <div class="toast"><span class="ok"></span>已保存到草稿</div>
+    </div>
+    <div class="drawer">
+      <div class="dh"><span>子探索 · 兔子洞</span><span style="color:#B0A599;">✕</span></div>
+      <div class="dl">右侧抽屉：用于子任务 / 独立上下文（如兔子洞深挖）。滑出＝进入隔离上下文，关闭＝回到主线。</div>
+    </div>
+  </div>
+  <div style="background:#FDEBE7; border-left:3px solid #EA5140; border-radius:8px; padding:8px 12px; font-size:12px; color:#9E3325; margin-top:14px;">铁律：居中弹窗只用于「不确认就会出事」的动作（删除等）。信息展示、临时任务优先用抽屉或气泡，别弹窗。</div>
+</div>
+
+<!-- SEMANTIC COLORS -->
+<div class="sheet">
+  <h3>语义色 · 独立于 accent</h3>
+  <p class="hint">成功/警告/危险必须是固定的语义色，<strong>不能借用 accent</strong>——因为学生可能把 accent 设成红色，那「删除」就没法用红了。这三支全站固定。</p>
+  <div class="sem">
+    <span class="semc" style="background:#E7F1DD; color:#3E6B45;">成功 · #5FA97E</span>
+    <span class="semc" style="background:#FBEFD6; color:#8A6320;">警告 · #E0A63A</span>
+    <span class="semc" style="background:#FBE3E1; color:#B23A34;">危险 · #D64541</span>
+    <span class="semc" style="background:#EAF0F6; color:#3E5A80;">信息 · #4C7AB0</span>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 卡片系统够细了吗？这里定了：项目卡构造＋新建卡、三种列表布局、工具卡陈列、弹层家族、语义色。看着对就说「好」，我把<strong>整套设计系统写成正式 spec 文档</strong>锁定；要加卡型（比如课程卡、评估结果卡）或改哪条，直接说。</p>

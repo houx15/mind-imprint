@@ -1,0 +1,131 @@
+<h2>布局系统 v2 · 图谱 v2</h2>
+<p class="subtitle">改了：studio 去掉左侧栏（只留「返回主页」）；AI 面板可左右翻转、可折叠；不考虑移动端。图谱论文节点显示<strong>标题</strong>、连线改<strong>曲线</strong>。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; }
+  .sheet .hint { font-size:12.5px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+  .lbl { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#B0A599; margin:16px 0 9px; }
+
+  .wire { border:1px solid #E3D9CE; border-radius:10px; overflow:hidden; height:190px; background:#fff; display:flex; position:relative; }
+  .backchip { position:absolute; top:10px; z-index:5; font-size:11px; font-weight:600; color:#8A827A; background:#fff; border:1px solid #EFE7DD; border-radius:99px; padding:4px 11px; }
+  .wai { width:230px; background:#FBF8F4; flex:none; padding:12px; display:flex; flex-direction:column; gap:8px; position:relative; }
+  .wai.left { border-right:1px solid #EFE7DD; }
+  .wai.right { border-left:1px solid #EFE7DD; order:2; }
+  .flip { position:absolute; top:10px; right:10px; width:22px; height:22px; border-radius:6px; background:#fff; border:1px solid #EFE7DD; color:#8A827A; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .wai.right .flip { right:auto; left:10px; }
+  .aihead { font-size:11px; font-weight:700; color:#EA5140; display:flex; align-items:center; gap:6px; }
+  .aihead .d { width:16px; height:16px; border-radius:50%; background:#EA5140; }
+  .bub { background:#fff; border-radius:5px 10px 10px 10px; height:20px; box-shadow:0 1px 2px rgba(70,45,45,.06); }
+  .bub.me { background:#FDEBE7; align-self:flex-end; width:70%; border-radius:10px 5px 10px 10px; }
+  .wsurface { flex:1; padding:14px 16px 14px; min-width:0; }
+  .wblock { background:#F4EEE6; border-radius:6px; }
+  .wlabel { font-size:11px; color:#B0A599; margin-top:7px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .two{grid-template-columns:1fr;} }
+
+  /* graph */
+  .gwrap { max-width:640px; }
+  .canvas { position:relative; height:300px; border:1px solid #E3D9CE; border-radius:12px; overflow:hidden;
+            background:#FBF8F4; background-image:radial-gradient(#E7DDD0 1.1px, transparent 1.1px); background-size:18px 18px; }
+  .qnode { position:absolute; width:186px; background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(70,45,45,.10); padding:11px 13px 11px 15px; }
+  .qnode span.bar { position:absolute; left:0; top:8px; bottom:8px; width:4px; border-radius:99px; }
+  .qnode .qt { font-size:13px; font-weight:600; color:#33302E; line-height:1.3; }
+  .qnode .qm { font-size:11px; color:#B0A599; margin-top:5px; }
+  .qnode.sel { box-shadow:0 0 0 2.5px #EA5140, 0 6px 18px rgba(70,45,45,.14); }
+  .elabel { position:absolute; font-size:10.5px; font-weight:600; padding:2px 9px; border-radius:99px; background:#fff; box-shadow:0 1px 3px rgba(70,45,45,.12); color:#5a5049; }
+  .elabel.prop { color:#8A827A; border:1px dashed #C9BCAD; box-shadow:none; background:#FBF8F4; }
+  .elabel .who { font-size:9px; color:#B49BD8; display:block; }
+
+  .l2 { position:relative; height:280px; border:1px solid #EFE7DD; border-radius:10px; background:#fff; overflow:hidden; max-width:640px; }
+  .l2c { position:absolute; width:184px; background:#EFEBF6; border-radius:10px; padding:11px 13px; box-shadow:0 3px 10px rgba(126,82,163,.18); }
+  .l2c .qt { font-size:12.5px; font-weight:600; color:#4A4658; line-height:1.3; }
+  .paper { position:absolute; width:176px; background:#fff; border:1px solid #EFE7DD; border-radius:8px; padding:9px 11px; box-shadow:0 2px 6px rgba(70,45,45,.07); }
+  .paper .pt { font-size:12px; font-weight:600; color:#33302E; line-height:1.32; }
+  .paper .ps { font-size:10.5px; color:#B0A599; margin-top:5px; display:flex; align-items:center; gap:6px; }
+  .paper .dot { width:12px; height:12px; border-radius:4px; flex:none; }
+</style>
+
+<!-- LAYOUT -->
+<div class="sheet">
+  <h3>Studio 外壳 · 无左侧栏 · AI 可翻转</h3>
+  <p class="hint">项目内不再有平台侧栏——只有一个「← 主页」小胶囊够回去了。AI 面板默认在左，点翻转图标可换到右；也能折叠成细条再唤起。（不做移动端。）</p>
+  <div class="two">
+    <div>
+      <div class="lbl">默认 · AI 在左</div>
+      <div class="wire">
+        <div class="wai left">
+          <div class="aihead"><span class="d"></span>印记</div>
+          <div class="flip">⇄</div>
+          <div class="bub" style="width:85%; margin-top:4px;"></div>
+          <div class="bub me"></div>
+          <div class="bub" style="width:80%;"></div>
+          <div style="margin-top:auto; height:28px; background:#fff; border:1.5px solid #EFE7DD; border-radius:8px;"></div>
+        </div>
+        <div class="wsurface">
+          <div class="backchip" style="left:14px;">← 主页</div>
+          <div class="wblock" style="height:18px; width:55%; margin-top:26px;"></div>
+          <div class="wblock" style="height:92px; margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="lbl">翻转 · AI 在右</div>
+      <div class="wire">
+        <div class="wsurface">
+          <div class="backchip" style="left:14px;">← 主页</div>
+          <div class="wblock" style="height:18px; width:55%; margin-top:26px;"></div>
+          <div class="wblock" style="height:92px; margin-top:12px;"></div>
+        </div>
+        <div class="wai right">
+          <div class="aihead"><span class="d"></span>印记</div>
+          <div class="flip">⇄</div>
+          <div class="bub" style="width:85%; margin-top:4px;"></div>
+          <div class="bub me"></div>
+          <div class="bub" style="width:80%;"></div>
+          <div style="margin-top:auto; height:28px; background:#fff; border:1.5px solid #EFE7DD; border-radius:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wlabel">回主页 = 一个小胶囊；AI 常驻区 ~320px，可 ⇄ 翻转、可折叠成细条。工作面占其余全部。平台外壳（首页/项目/图鉴）仍是常规导航，只有 studio 这样极简。</div>
+</div>
+
+<!-- GRAPH LEVEL 1 -->
+<div class="sheet">
+  <h3>图谱 · Level 1 问题图</h3>
+  <p class="hint">暖纸底 + 点阵；问题节点用马卡龙序数色，accent 只给选中。连线带标签：确认=实线墨、提议=虚线灰。</p>
+  <div class="gwrap">
+    <div class="canvas">
+      <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" viewBox="0 0 640 300" preserveAspectRatio="none">
+        <path d="M235 150 C 300 120, 340 95, 400 88" fill="none" stroke="#33302E" stroke-width="2"/>
+        <path d="M235 170 C 300 205, 350 235, 405 244" fill="none" stroke="#C9BCAD" stroke-width="2" stroke-dasharray="5 5"/>
+      </svg>
+      <div class="qnode sel" style="left:40px; top:120px;"><span class="bar" style="background:#B49BD8;"></span><div class="qt">中国是否让地球更可持续？</div><div class="qm">根问题 · 5 个记于</div></div>
+      <div class="qnode" style="left:400px; top:56px;"><span class="bar" style="background:#6FBFB0;"></span><div class="qt">碳排放：总量 vs 人均口径</div><div class="qm">2 篇文献</div></div>
+      <div class="qnode" style="left:405px; top:224px;"><span class="bar" style="background:#F6B26B;"></span><div class="qt">新能源投资是否可持续</div><div class="qm">1 篇文献</div></div>
+      <div class="elabel" style="left:300px; top:96px;">子问题</div>
+      <div class="elabel prop" style="left:300px; top:206px;">张力·反驳<span class="who">印记提议 · 确认？</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- GRAPH LEVEL 2 -->
+<div class="sheet">
+  <h3>图谱 · Level 2 思维导图（曲线连接 · 显示论文标题）</h3>
+  <p class="hint">进入某问题 → 该问题 + 采纳的论文。<strong>论文节点显示标题</strong>（作者/年份作次要一行），连接用<strong>曲线</strong>更像思维导图。悬停浮出 ⋯（深挖 / 采纳 / 移除）。</p>
+  <div class="l2">
+    <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" viewBox="0 0 640 280" preserveAspectRatio="none">
+      <path d="M320 140 C 250 120, 200 95, 150 82" fill="none" stroke="#D9CFC4" stroke-width="1.8"/>
+      <path d="M320 140 C 405 120, 460 95, 505 84" fill="none" stroke="#D9CFC4" stroke-width="1.8"/>
+      <path d="M320 140 C 410 165, 455 195, 495 214" fill="none" stroke="#D9CFC4" stroke-width="1.8"/>
+    </svg>
+    <div class="l2c" style="left:228px; top:112px;"><div class="qt">碳排放：总量 vs 人均口径</div></div>
+    <div class="paper" style="left:24px; top:44px;"><div class="pt">Household energy transition in India and China</div><div class="ps"><span class="dot" style="background:#C4D8E8;"></span>Pachauri & Jiang · 2008</div></div>
+    <div class="paper" style="right:24px; top:48px;"><div class="pt">Reconciling per-capita and total CO₂ emissions</div><div class="ps"><span class="dot" style="background:#CFDEB4;"></span>Nature Sustainability · 2021</div></div>
+    <div class="paper" style="right:32px; bottom:26px;"><div class="pt">China renewable capacity additions 2000–2023</div><div class="ps"><span class="dot" style="background:#F4D8B8;"></span>IEA · 2023</div></div>
+  </div>
+  <div class="hint" style="margin:12px 0 0;">节点圆角 10、白卡；标题最多两行（作者·年份小字次要）；色点=来源封面色。和现有 React Flow 对齐，换视觉 token + 曲线边 + 标题字段。</div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 这版对了吗？studio 无侧栏＋AI 可翻转、图谱显示标题＋曲线。确认后我把全部模块写成正式 spec 锁进 <code>docs/</code>。</p>

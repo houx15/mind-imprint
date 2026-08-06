@@ -1,0 +1,221 @@
+<h2>表单控件 · Tabs · 徽章 / 进度 / Tooltip</h2>
+<p class="subtitle">工具卡全靠这些原语拼：text / textarea / single_choice / multi_choice / rating / link_check——加渲染器不改代码。都用锁定风格（圆角 6–8、accent 聚焦环、语义色）。可点可填。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; }
+  .sheet .hint { font-size:12.5px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+  .prim { font-family:ui-monospace,monospace; font-size:10.5px; color:#EA5140; background:#FDEBE7; padding:1px 6px; border-radius:5px; }
+  .fl { font-size:13px; font-weight:600; color:#33302E; margin-bottom:7px; display:flex; align-items:center; gap:8px; }
+  .grp { margin-bottom:20px; }
+  .help { font-size:12px; color:#B0A599; margin-top:6px; }
+  .err { font-size:12px; color:#B23A34; margin-top:6px; }
+
+  .inp { width:100%; box-sizing:border-box; border:1.5px solid #E4DACF; border-radius:8px; padding:10px 12px; font-size:14px; color:#33302E; background:#fff; outline:none; font-family:inherit; }
+  .inp::placeholder { color:#B8ADA2; }
+  .inp:focus { border-color:#EA5140; box-shadow:0 0 0 3px rgba(234,81,64,.15); }
+  .inp.bad { border-color:#D64541; }
+  .inp.bad:focus { box-shadow:0 0 0 3px rgba(214,69,65,.15); }
+  textarea.inp { resize:vertical; min-height:70px; line-height:1.6; }
+
+  /* radio / checkbox */
+  .opts { display:flex; flex-direction:column; gap:9px; }
+  .opt { display:flex; align-items:center; gap:10px; font-size:14px; color:#33302E; cursor:pointer; }
+  .mark { width:20px; height:20px; border:1.5px solid #D6C9BB; background:#fff; flex:none; display:flex; align-items:center; justify-content:center; }
+  .mark.radio { border-radius:50%; }
+  .mark.check { border-radius:6px; }
+  .opt.on .mark { border-color:#EA5140; background:#EA5140; }
+  .opt.on .mark::after { content:""; }
+  .mark.radio .dot { width:8px; height:8px; border-radius:50%; background:#fff; opacity:0; }
+  .opt.on .mark.radio .dot { opacity:1; }
+  .mark.check .tick { color:#fff; font-size:13px; opacity:0; line-height:1; }
+  .opt.on .mark.check .tick { opacity:1; }
+
+  /* chips (multi_choice) */
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { font-size:13px; padding:7px 14px; border-radius:999px; border:1.5px solid #E4DACF; color:#5a5049; background:#fff; cursor:pointer; user-select:none; }
+  .chip.on { border-color:#EA5140; background:#FDEBE7; color:#C4362B; font-weight:600; }
+
+  /* rating */
+  .stars { display:flex; gap:5px; }
+  .stars svg { width:26px; height:26px; cursor:pointer; }
+  .stars .s { fill:#EDE3D6; transition:fill .1s; }
+  .stars .s.on { fill:#E0A63A; }
+
+  /* toggle */
+  .tog { width:44px; height:26px; border-radius:999px; background:#E0D6C9; position:relative; cursor:pointer; transition:background .18s; }
+  .tog.on { background:#EA5140; }
+  .tog i { position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:left .18s cubic-bezier(.2,0,0,1); }
+  .tog.on i { left:21px; }
+  .togrow { display:flex; align-items:center; gap:12px; font-size:14px; color:#33302E; }
+
+  /* select */
+  .sel { position:relative; }
+  .sel .chev { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#B0A599; pointer-events:none; }
+
+  /* link check */
+  .lc { display:flex; gap:9px; }
+  .lc .inp { flex:1; }
+  .lcbtn { font-size:13px; font-weight:600; padding:0 16px; border-radius:8px; background:#fff; color:#177368; box-shadow:inset 0 0 0 1.5px #8FCFC7; cursor:pointer; white-space:nowrap; display:flex; align-items:center; }
+  .lcok { font-size:12.5px; color:#3E6B45; margin-top:7px; display:flex; align-items:center; gap:6px; }
+
+  /* tabs */
+  .tabs { display:flex; gap:22px; border-bottom:1px solid #EFE7DD; }
+  .tab { font-size:14px; font-weight:600; color:#8A827A; padding:0 0 11px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab.on { color:#33302E; border-bottom-color:#EA5140; }
+
+  /* segmented */
+  .seg { display:inline-flex; background:#EFE7DD; border-radius:9px; padding:3px; }
+  .seg div { font-size:13px; font-weight:600; color:#8A827A; padding:7px 16px; border-radius:7px; cursor:pointer; }
+  .seg div.on { background:#fff; color:#33302E; box-shadow:0 1px 3px rgba(70,45,45,.12); }
+
+  /* badges */
+  .badges { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .badge { font-size:12px; font-weight:600; padding:4px 11px; border-radius:999px; }
+  .count { min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#EA5140; color:#fff; font-size:11px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+
+  /* progress */
+  .bar { height:8px; background:#EFE7DD; border-radius:999px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:#EA5140; border-radius:999px; }
+  .stepper { display:flex; align-items:center; gap:0; margin-top:18px; }
+  .step { display:flex; align-items:center; gap:9px; }
+  .sc { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex:none; }
+  .sc.done { background:#EA5140; color:#fff; }
+  .sc.cur { background:#fff; color:#EA5140; box-shadow:inset 0 0 0 2px #EA5140; }
+  .sc.todo { background:#EFE7DD; color:#B0A599; }
+  .sn { font-size:13px; font-weight:600; }
+  .connector { width:34px; height:2px; background:#EFE7DD; margin:0 8px; }
+  .connector.done { background:#EA5140; }
+
+  /* tooltip */
+  .tipwrap { position:relative; display:inline-flex; align-items:center; gap:6px; }
+  .tipwrap .tip { position:absolute; bottom:130%; left:0; background:#33302E; color:#fff; font-size:12px; padding:7px 10px; border-radius:8px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; transform:translateY(4px); box-shadow:0 6px 16px rgba(0,0,0,.2); }
+  .tipwrap:hover .tip { opacity:1; transform:translateY(0); }
+  .infoi { width:18px; height:18px; border-radius:50%; background:#EFE7DD; color:#8A827A; font-size:12px; display:inline-flex; align-items:center; justify-content:center; cursor:default; }
+
+  .twocol { display:grid; grid-template-columns:1fr 1fr; gap:22px 30px; }
+  @media (max-width:720px){ .twocol{grid-template-columns:1fr;} }
+</style>
+
+<!-- FORM CONTROLS -->
+<div class="sheet">
+  <h3>表单控件（工具卡原语）</h3>
+  <div class="twocol">
+    <div>
+      <div class="grp">
+        <div class="fl">这条来源的作者是谁？ <span class="prim">text</span></div>
+        <input class="inp" value="NASA Earth Observatory" />
+      </div>
+      <div class="grp">
+        <div class="fl">用一句话说说你的判断 <span class="prim">textarea</span></div>
+        <textarea class="inp" placeholder="先写你自己的看法…"></textarea>
+        <div class="help">一次只问一个，慢慢来。</div>
+      </div>
+      <div class="grp">
+        <div class="fl">来源链接 <span class="prim">link_check</span></div>
+        <div class="lc"><input class="inp" value="https://earthobservatory.nasa.gov/…" /><span class="lcbtn">校验</span></div>
+        <div class="lcok">✓ 链接有效 · 可访问 · 已识别为 NASA 官方</div>
+      </div>
+      <div class="grp">
+        <div class="fl">来源类型 <span class="prim">select</span></div>
+        <div class="sel"><input class="inp" value="政府/机构官网" readonly style="cursor:pointer;" /><span class="chev">▾</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="grp">
+        <div class="fl">这条来源的时效性？ <span class="prim">single_choice</span></div>
+        <div class="opts">
+          <div class="opt on" onclick="pickRadio(this)"><span class="mark radio"><span class="dot"></span></span> 很新（近 3 年）</div>
+          <div class="opt" onclick="pickRadio(this)"><span class="mark radio"><span class="dot"></span></span> 一般（3–10 年）</div>
+          <div class="opt" onclick="pickRadio(this)"><span class="mark radio"><span class="dot"></span></span> 偏旧（10 年以上）</div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="fl">它可信的理由 <span class="prim">multi_choice</span></div>
+        <div class="chips">
+          <span class="chip on" onclick="this.classList.toggle('on')">官方机构</span>
+          <span class="chip on" onclick="this.classList.toggle('on')">一手数据</span>
+          <span class="chip" onclick="this.classList.toggle('on')">同行评审</span>
+          <span class="chip" onclick="this.classList.toggle('on')">被广泛引用</span>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="fl">你对它的信任度 <span class="prim">rating</span></div>
+        <div class="stars" id="stars"></div>
+      </div>
+      <div class="grp">
+        <div class="togrow"><span class="tog on" onclick="this.classList.toggle('on')"><i></i></span> 把这条加入参考文献</div>
+      </div>
+      <div class="grp">
+        <div class="fl">必填校验（错误态）</div>
+        <input class="inp bad" placeholder="这一项不能为空" />
+        <div class="err">请先填写你的判断，再继续。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TABS / SEGMENTED -->
+<div class="sheet">
+  <h3>Tabs · 分段控件</h3>
+  <p class="hint">下划线 tab 用于内容分区（写作室：正文/大纲/参考文献）；分段控件用于二选一视图切换（阅读室：图书馆/探索）。</p>
+  <div class="tabs" style="margin-bottom:20px;">
+    <span class="tab on" onclick="pickTab(this)">正文</span>
+    <span class="tab" onclick="pickTab(this)">大纲</span>
+    <span class="tab" onclick="pickTab(this)">参考文献</span>
+  </div>
+  <div class="seg">
+    <div class="on" onclick="pickSeg(this)">图书馆</div>
+    <div onclick="pickSeg(this)">探索</div>
+  </div>
+</div>
+
+<!-- BADGES / PROGRESS / TOOLTIP -->
+<div class="sheet">
+  <h3>徽章 · 进度 · Tooltip</h3>
+  <div class="grp">
+    <div class="fl">状态徽章 / 计数</div>
+    <div class="badges">
+      <span class="badge" style="background:#FDEBE7; color:#C4362B;">进行中</span>
+      <span class="badge" style="background:#E7F1DD; color:#4d6b3a;">已完成</span>
+      <span class="badge" style="background:#EFE7DD; color:#8A827A;">草稿</span>
+      <span class="badge" style="background:#FBEFD6; color:#8A6320;">待处理</span>
+      <span style="font-size:13px;color:#5a5049;display:inline-flex;align-items:center;gap:7px;">未读消息 <span class="count">3</span></span>
+    </div>
+  </div>
+  <div class="grp">
+    <div class="fl">线性进度</div>
+    <div class="bar"><i style="width:62%;"></i></div>
+    <div class="help">写作 · 已完成 3 / 5 段</div>
+  </div>
+  <div class="grp">
+    <div class="fl">阶段进度（项目主线）</div>
+    <div class="stepper">
+      <div class="step"><span class="sc done">✓</span><span class="sn" style="color:#33302E;">立项</span></div>
+      <div class="connector done"></div>
+      <div class="step"><span class="sc done">✓</span><span class="sn" style="color:#33302E;">阅读</span></div>
+      <div class="connector done"></div>
+      <div class="step"><span class="sc cur">3</span><span class="sn" style="color:#EA5140;">写作</span></div>
+      <div class="connector"></div>
+      <div class="step"><span class="sc todo">4</span><span class="sn" style="color:#B0A599;">回顾</span></div>
+    </div>
+  </div>
+  <div class="grp" style="margin-bottom:0;">
+    <div class="fl">Tooltip（悬停）</div>
+    <div class="tipwrap"><span style="font-size:14px;color:#33302E;">来源可信度</span><span class="infoi">i</span><span class="tip">CRAAP：时效 · 相关 · 权威 · 准确 · 目的</span></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 控件都在这了（可以点、可以填试试）。对了就继续下一批：<strong>对话框/AI 聊天组件（气泡、召唤卡 chip、链接 chip、composer）· 加载/空态 · 布局系统</strong>。</p>
+
+<script>
+  window.pickRadio = function(el){ el.parentNode.querySelectorAll('.opt').forEach(function(o){o.classList.remove('on');}); el.classList.add('on'); };
+  window.pickTab = function(el){ el.parentNode.querySelectorAll('.tab').forEach(function(o){o.classList.remove('on');}); el.classList.add('on'); };
+  window.pickSeg = function(el){ el.parentNode.querySelectorAll('div').forEach(function(o){o.classList.remove('on');}); el.classList.add('on'); };
+  (function(){
+    var wrap = document.getElementById('stars'); var cur = 4;
+    var star = '<svg viewBox="0 0 24 24"><path class="s" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.9 6.7 19.5l1.2-6L3.4 9.3l6-.7z"/></svg>';
+    function render(n){ wrap.innerHTML=''; for(var i=1;i<=5;i++){ var d=document.createElement('div'); d.innerHTML=star; var p=d.firstChild.querySelector('.s'); if(i<=n)p.classList.add('on'); (function(idx){ d.firstChild.onclick=function(){cur=idx;render(cur);}; d.firstChild.onmouseenter=function(){render(idx);}; })(i); wrap.appendChild(d.firstChild); } }
+    wrap.onmouseleave=function(){render(cur);}; render(cur);
+  })();
+</script>

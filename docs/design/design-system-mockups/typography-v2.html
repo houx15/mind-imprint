@@ -1,0 +1,37 @@
+<h2>字体系统 · 放大版</h2>
+<p class="subtitle">把小号那几档整体抬高：元信息 12→13、Caption 11→12、Label 10.5→11。卡片标题 14→15，和正文拉开层级。最小只有大写 Label 用到 11。中文看着更舒服了。</p>
+
+<style>
+  .spec { display:flex; flex-direction:column; gap:2px; }
+  .line { display:flex; align-items:baseline; gap:16px; padding:13px 0; border-bottom:1px solid #F0E9E1; }
+  .line .meta { flex:none; width:170px; font-size:12px; color:#B0A599; font-family:ui-monospace,monospace; line-height:1.5; }
+  .line .meta b { color:#EA5140; font-weight:700; }
+  .line .samp { color:#33302E; }
+  .f { font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Segoe UI',system-ui,sans-serif; }
+  .mono { font-family:ui-monospace,'SF Mono',monospace; }
+
+  .d1 { font-size:28px; font-weight:700; line-height:1.2; }
+  .h1 { font-size:20px; font-weight:700; line-height:1.25; }
+  .h2 { font-size:17px; font-weight:650; line-height:1.3; }
+  .h3 { font-size:15px; font-weight:650; line-height:1.35; }
+  .body { font-size:14px; font-weight:400; line-height:1.6; }
+  .bodylg { font-size:16px; font-weight:400; line-height:1.75; }
+  .sm { font-size:13px; font-weight:400; line-height:1.5; color:#8A827A; }
+  .cap { font-size:12px; font-weight:500; line-height:1.45; color:#8A827A; }
+  .lab { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#B0A599; }
+</style>
+
+<div class="spec f">
+  <div class="line"><div class="meta">Display · 28/700</div><div class="samp d1">下午好，Phoebe 👋</div></div>
+  <div class="line"><div class="meta">H1 · 20/700</div><div class="samp h1">最近的项目</div></div>
+  <div class="line"><div class="meta">H2 · 17/650</div><div class="samp h2">中国是否让地球更可持续？</div></div>
+  <div class="line"><div class="meta">H3 卡片标题 · <b>15/650</b><br>↑ 原 14</div><div class="samp h3">CRAAP 溯源</div></div>
+  <div class="line"><div class="meta">Body · 14/400 · 行距 1.6</div><div class="samp body">这篇来源你追到 NASA 了——它可信在哪一点？先说一句你自己的判断，再看要不要用工具卡拆开。</div></div>
+  <div class="line"><div class="meta">Body-LG · 16/400<br>阅读/写作正文</div><div class="samp bodylg">中国在可再生能源装机上全球领先，但碳排放总量同样全球第一——这两件事怎么同时成立？</div></div>
+  <div class="line"><div class="meta">Small / 元信息 · <b>13/400</b><br>↑ 原 12</div><div class="samp sm">阅读 · 3 篇文献 · 2 天前</div></div>
+  <div class="line"><div class="meta">Caption · <b>12/500</b><br>↑ 原 11</div><div class="samp cap">悬停查看来源可信度评级</div></div>
+  <div class="line"><div class="meta">Label · <b>11/700</b> · 大写<br>↑ 原 10.5</div><div class="samp lab">共享马卡龙色系</div></div>
+</div>
+
+<p class="subtitle" style="margin-top:16px;">👉 这样舒服多了吗？如果你想<strong>整体再大一档</strong>（正文 14→15、阅读正文 16→17），我也可以一并抬——说一声。</p>
+<p class="subtitle" style="margin-top:6px;">另外上一条我还等你定：剩下 11 个模块，要<strong>一屏一确认</strong>，还是我<strong>一次做 2–3 屏</strong>你批量看？（11 个模块，批量会快很多。）</p>

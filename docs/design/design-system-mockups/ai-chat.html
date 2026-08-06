@@ -1,0 +1,168 @@
+<h2>对话框 / AI 聊天 · 加载 · 空态 & 插画</h2>
+<p class="subtitle">印记的对话面：气泡、召唤卡 chip（AI 提议、学生确认打开 · 铁律②）、链接 chip（含未读诚实徽章）、composer 三态。再加加载骨架与空态插画风格。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; }
+  .sheet .hint { font-size:12.5px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+
+  .thread { max-width:440px; display:flex; flex-direction:column; gap:11px; }
+  .meta { font-size:12px; color:#B0A599; text-align:center; }
+  .msg { display:flex; gap:9px; align-items:flex-start; }
+  .av { width:28px; height:28px; border-radius:50%; background:#EA5140; flex:none; }
+  .bub { border-radius:4px 13px 13px 13px; padding:10px 13px; font-size:14px; line-height:1.55; color:#3E3B44; background:#fff; box-shadow:0 1px 3px rgba(70,45,45,.07); }
+  .msg.me { justify-content:flex-end; }
+  .msg.me .bub { background:#FDEBE7; border-radius:13px 4px 13px 13px; color:#4a3f3d; }
+
+  /* summon-card chip */
+  .cardoffer { background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:12px 13px; box-shadow:0 2px 8px rgba(70,45,45,.07); max-width:300px; }
+  .cardoffer .co-h { display:flex; align-items:center; gap:9px; }
+  .cardoffer .co-ic { width:30px; height:30px; border-radius:8px; background:#FDE7D3; color:#9a5a22; display:flex; align-items:center; justify-content:center; flex:none; }
+  .cardoffer .co-t { font-size:14px; font-weight:600; color:#33302E; }
+  .cardoffer .co-n { font-size:12.5px; color:#8A827A; margin:8px 0 12px; line-height:1.45; }
+  .cardoffer .co-btns { display:flex; gap:8px; }
+  .co-open { font-size:13px; font-weight:600; padding:7px 15px; border-radius:8px; background:#EA5140; color:#fff; cursor:pointer; }
+  .co-later { font-size:13px; font-weight:600; padding:7px 13px; border-radius:8px; color:#8A827A; cursor:pointer; }
+
+  /* link chip */
+  .linkchip { display:inline-flex; align-items:center; gap:9px; background:#fff; border:1px solid #EFE7DD; border-radius:8px; padding:8px 11px; max-width:300px; cursor:pointer; }
+  .linkchip .li { width:26px; height:26px; border-radius:6px; background:#E6EEF9; color:#3c5a86; display:flex; align-items:center; justify-content:center; flex:none; }
+  .linkchip .lt { font-size:13px; font-weight:600; color:#33302E; line-height:1.2; }
+  .linkchip .ld { font-size:11.5px; color:#B0A599; margin-top:2px; }
+  .unread { margin-left:auto; font-size:10.5px; font-weight:700; color:#fff; background:#EA5140; border-radius:999px; padding:2px 7px; }
+
+  /* composer */
+  .composer { border:1.5px solid #E4DACF; border-radius:10px; padding:10px 12px; background:#fff; display:flex; align-items:flex-end; gap:10px; max-width:440px; }
+  .composer.focus { border-color:#EA5140; box-shadow:0 0 0 3px rgba(234,81,64,.13); }
+  .composer .ta { flex:1; font-size:14px; color:#33302E; line-height:1.5; min-height:20px; }
+  .composer .ta.ph { color:#B8ADA2; }
+  .snd { width:32px; height:32px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; }
+  .snd.off { background:#E7DDD0; color:#B8ADA2; }
+  .snd.on { background:#EA5140; }
+  .snd.stop { background:#33302E; }
+  .cmpcap { font-size:12px; color:#B0A599; margin-bottom:6px; }
+
+  /* skeleton */
+  .sk { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:400px 100%; border-radius:6px; animation:shimmer 1.3s infinite; }
+  @keyframes shimmer { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+  .skcard { width:170px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(70,45,45,.08); }
+  .skrow { display:flex; gap:11px; align-items:center; background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:11px 13px; }
+  .loadingrow { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+  .btnload { font-size:13px; font-weight:600; padding:9px 16px; border-radius:8px; background:#EA5140; color:#fff; display:inline-flex; align-items:center; gap:8px; }
+  .spin { width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; animation:spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .dots span { display:inline-block; width:6px; height:6px; border-radius:50%; background:#C9BCAD; margin-right:4px; animation:blink 1.2s infinite; }
+  .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
+
+  /* empty + illustration */
+  .empties { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .empties{grid-template-columns:1fr;} }
+  .empty { background:#fff; border:1px dashed #E3D9CE; border-radius:12px; padding:26px 20px; text-align:center; }
+  .empty .et { font-size:16px; font-weight:600; color:#33302E; margin-top:12px; }
+  .empty .es { font-size:13px; color:#8A827A; margin-top:6px; line-height:1.5; }
+  .empty .eb { display:inline-block; margin-top:14px; font-size:13px; font-weight:600; padding:8px 16px; border-radius:8px; background:#EA5140; color:#fff; }
+  .illo { display:flex; justify-content:center; }
+  .illnote { font-size:12.5px; color:#8A827A; line-height:1.7; }
+  .illnote b { color:#33302E; }
+</style>
+
+<!-- AI CHAT -->
+<div class="sheet">
+  <h3>对话组件</h3>
+  <p class="hint">气泡分印记 / 学生；系统事件用居中细行。召唤卡 chip 带 nudge 一句话＋「打开 / 暂不」——触发自动、打开由学生确认。链接 chip 带未读徽章（诚实提示，不强推）。</p>
+  <div class="thread">
+    <div class="meta">印记 · 陪练</div>
+    <div class="msg"><div class="av"></div><div class="bub">这篇来源你追到 NASA 了——它可信在哪一点？</div></div>
+    <div class="msg me"><div class="bub">我觉得可信，因为是官方机构</div></div>
+    <div class="msg"><div class="av"></div><div class="bub">「官方」是个好起点。要不要用一张卡把它拆细一点？</div></div>
+    <div class="msg"><div class="av" style="visibility:hidden;"></div>
+      <div class="cardoffer">
+        <div class="co-h"><div class="co-ic">🃏</div><div class="co-t">CRAAP 溯源</div></div>
+        <div class="co-n">来源可信度值得做次体检：时效 · 相关 · 权威 · 准确 · 目的。</div>
+        <div class="co-btns"><span class="co-open">打开</span><span class="co-later">暂不</span></div>
+      </div>
+    </div>
+    <div class="msg"><div class="av"></div><div class="bub" style="padding-bottom:8px;">这是它的原文，你可以自己核对 →
+      <div class="linkchip" style="margin-top:9px;"><div class="li">🔗</div><div><div class="lt">NASA Earth Observatory</div><div class="ld">earthobservatory.nasa.gov</div></div><span class="unread">未读</span></div>
+    </div></div>
+    <div class="msg"><div class="av"></div><div class="bub"><span class="dots"><span></span><span></span><span></span></span></div></div>
+  </div>
+</div>
+
+<!-- COMPOSER -->
+<div class="sheet">
+  <h3>Composer 三态</h3>
+  <div class="cmpcap">① 空 · 发送禁用</div>
+  <div class="composer" style="margin-bottom:16px;"><div class="ta ph">说说你的想法…</div><div class="snd off">↑</div></div>
+  <div class="cmpcap">② 输入中 · 发送激活（accent）</div>
+  <div class="composer focus" style="margin-bottom:16px;"><div class="ta">因为它有卫星一手观测数据</div><div class="snd on">↑</div></div>
+  <div class="cmpcap">③ 印记回复中 · 可中断</div>
+  <div class="composer"><div class="ta ph">印记正在回复…</div><div class="snd stop">■</div></div>
+</div>
+
+<!-- LOADING -->
+<div class="sheet">
+  <h3>加载 / 骨架</h3>
+  <p class="hint">用骨架屏而不是空白转圈——保持布局稳定，减少跳动。（顶部进度条见上一屏转场。）</p>
+  <div class="loadingrow">
+    <div>
+      <div class="sk" style="height:14px;width:180px;"></div>
+      <div class="sk" style="height:12px;width:230px;margin-top:9px;"></div>
+      <div class="sk" style="height:12px;width:200px;margin-top:7px;"></div>
+      <div style="font-size:11px;color:#B0A599;margin-top:8px;">文本骨架</div>
+    </div>
+    <div>
+      <div class="skcard"><div class="sk" style="height:56px;border-radius:0;"></div><div style="padding:11px 13px;"><div class="sk" style="height:13px;width:80%;"></div><div class="sk" style="height:10px;width:50%;margin-top:8px;"></div></div></div>
+      <div style="font-size:11px;color:#B0A599;margin-top:8px;">项目卡骨架</div>
+    </div>
+    <div>
+      <div class="skrow"><div class="sk" style="width:38px;height:38px;border-radius:8px;"></div><div style="flex:1;"><div class="sk" style="height:12px;width:70%;"></div><div class="sk" style="height:10px;width:40%;margin-top:7px;"></div></div></div>
+      <div style="font-size:11px;color:#B0A599;margin-top:8px;">列表行骨架</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <span class="btnload"><span class="spin"></span> 保存中…</span>
+      <div style="font-size:13px;color:#8A827A;"><span class="dots"><span></span><span></span><span></span></span> 印记正在打字</div>
+    </div>
+  </div>
+</div>
+
+<!-- EMPTY + ILLUSTRATION -->
+<div class="sheet">
+  <h3>空态 & 插画风格</h3>
+  <p class="hint">插画风格：<b>几何线条 + 马卡龙柔色块</b>，描边和图标同源（1.75–2px 圆头），配色只取调色板，暖、克制、不用 3D / 不用库存小人。空态 = 插画 + 标题 + 一句话 + 一个主动作。</p>
+  <div class="empties">
+    <div class="empty">
+      <div class="illo">
+        <svg width="96" height="72" viewBox="0 0 96 72" fill="none">
+          <rect x="18" y="20" width="60" height="42" rx="6" fill="#FDE7D3"/>
+          <rect x="18" y="20" width="60" height="42" rx="6" stroke="#EA5140" stroke-width="2"/>
+          <path d="M48 30v22M37 41h22" stroke="#EA5140" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="30" cy="16" r="5" fill="#BEDDD0"/>
+          <circle cx="66" cy="14" r="4" fill="#C4D8E8"/>
+        </svg>
+      </div>
+      <div class="et">还没有项目</div>
+      <div class="es">带一个你真实的任务进来，印记陪你想。</div>
+      <div class="eb">＋ 新建项目</div>
+    </div>
+    <div class="empty">
+      <div class="illo">
+        <svg width="96" height="72" viewBox="0 0 96 72" fill="none">
+          <path d="M20 22c8-3 18-3 26 2 8-5 18-5 26-2v34c-8-3-18-3-26 2-8-5-18-5-26-2z" fill="#E6F1EC"/>
+          <path d="M20 22c8-3 18-3 26 2 8-5 18-5 26-2v34c-8-3-18-3-26 2-8-5-18-5-26-2zM46 24v36" stroke="#177368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="70" cy="50" r="10" fill="#fff" stroke="#EA5140" stroke-width="2"/>
+          <line x1="77" y1="57" x2="83" y2="63" stroke="#EA5140" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="et">图书馆还是空的</div>
+      <div class="es">粘一个文献链接，印记帮你溯源体检。</div>
+      <div class="eb">粘贴链接</div>
+    </div>
+  </div>
+  <div class="illnote" style="margin-top:16px;">
+    <b>动机取自产品世界</b>：书 / 来源 / 线索路径（兔子洞）/ 放大镜（溯源）/ 嫩芽（思维生长）。同一套画法复用到封面与 spot 插画，保证系统一致。
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 对话组件、composer、加载、空态插画——这批 OK 吗？确认后剩最后两块：<strong>布局系统（app 外壳 / 栅格 / 断点）</strong> 和 <strong>图谱设计（React Flow 兔子洞节点/连线）</strong>，然后就整体锁进 spec。</p>
