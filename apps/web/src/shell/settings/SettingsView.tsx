@@ -1,18 +1,42 @@
-import { useState } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import { LogOut } from "lucide-react";
 import type { SessionStore } from "../session";
-import { useSession } from "../session";
 import type { MeUser } from "../../api";
+import { useAccent, ACCENT_PRESETS } from "../../ui/accent";
+import { Card, Toggle, Pebble, Icon, Check } from "../../ui";
 
-const avatarOptions = ["#2A3B7A", "#D98263", "#4C9A82", "#E8A33D"];
+/**
+ * SettingsView — restyle + server-persisted accent picker (platform shell
+ * rebuild, Task 9).
+ *
+ * Replaces the old local-only "AI 形象" 4-hex swatch picker (which wrote to
+ * `session.aiAvatar`/`setAvatar` in localStorage only) with the real 8-preset
+ * accent picker from `ui/accent`: selection lives in `useAccent()`, which is
+ * provided above this view by `StudentApp`'s `<AccentProvider>` — clicking a
+ * swatch there both retints the whole app live and fires `onPersist` (wired
+ * to `api.setAccent`) so the choice survives a reload on another device.
+ *
+ * The 个人 section now shows the real signed-in `MeUser` (display name,
+ * email, school, classes) instead of the hardcoded "Phoebe Chen" demo copy;
+ * with no user it shows a plain placeholder rather than fake data.
+ */
 
-const togglesDefault = [
+const TOGGLES_DEFAULT = [
   { label: "自动触发工具卡", desc: "分析你输入的内容，在合适时机弹出对应工具卡。", on: true },
   { label: "过程记录", desc: "将每次工具卡填写和对话节点保存到过程树。", on: true },
   { label: "使用统计", desc: "帮助改进工具推荐与陪练策略（数据不出设备）。", on: false },
 ];
 
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <div className="mb-3 mt-8 text-mk-label text-mk-faint first:mt-0">{children}</div>;
+}
+
 export function SettingsView({
-  session,
+  session: _session,
   onLogout,
   user = null,
 }: {
@@ -20,161 +44,130 @@ export function SettingsView({
   onLogout: () => void;
   user?: MeUser | null;
 }) {
-  const { aiAvatar } = useSession(session);
-
-  const [toggles, setToggles] = useState(togglesDefault);
+  const { id: accentId, setAccent } = useAccent();
+  const [toggles, setToggles] = useState(TOGGLES_DEFAULT);
 
   function flipToggle(index: number) {
-    setToggles((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, on: !t.on } : t))
-    );
+    setToggles((prev) => prev.map((t, i) => (i === index ? { ...t, on: !t.on } : t)));
   }
 
-  return (
-    <div style={{ flex: 1, minHeight: 0, height: "100%", overflowY: "auto" }}>
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "40px 40px 60px" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>
-          设置
-        </div>
+  const orgLabel = user
+    ? [user.school.name, user.classes.map((c) => c.name).join(" · ") || null].filter(Boolean).join(" · ")
+    : null;
 
-        {/* === 个人 profile === */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#8A92A3", letterSpacing: ".04em", margin: "28px 0 12px" }}>
-          个人
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#E8A33D", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700 }}>
-              P
+  return (
+    <div className="h-full w-full overflow-y-auto bg-mk-paper">
+      <div className="mx-auto max-w-[680px] px-10 py-10 pb-16">
+        <h1 className="text-mk-h1 text-mk-ink">设置</h1>
+
+        {/* === 个人 === */}
+        <SectionLabel>个人</SectionLabel>
+        <Card className="p-6">
+          <div className="mb-5 flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-mk-md bg-mk-accent text-mk-h2 font-semibold text-white">
+              {user ? user.display_name.slice(0, 1) : "?"}
             </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2333" }}>{user?.display_name ?? "Phoebe Chen"}</div>
-              <div style={{ fontSize: 13, color: "#8A92A3", marginTop: 2 }}>IB DP1 · A 班 · TOK</div>
+            <div className="min-w-0">
+              <div className="truncate text-mk-h3 text-mk-ink">{user?.display_name ?? "未登录"}</div>
+              <div className="mt-0.5 truncate text-mk-small text-mk-muted">
+                {orgLabel ?? "登录后在这里看到你的学校与班级"}
+              </div>
             </div>
           </div>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#3A4256", marginBottom: 6 }}>姓名</div>
-          <input
-            value={user?.display_name ?? "Phoebe Chen"}
-            readOnly
-            style={{ width: "100%", border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", background: "#FCFCFD", outline: "none", marginBottom: 14, boxSizing: "border-box" }}
-          />
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#3A4256", marginBottom: 6 }}>邮箱</div>
-          <input
-            value={user?.email ?? "phoebe@ibschool.edu"}
-            readOnly
-            style={{ width: "100%", border: "1px solid #E1E4ED", borderRadius: 11, padding: "11px 13px", fontSize: 14, color: "#1C2333", background: "#FCFCFD", outline: "none", boxSizing: "border-box" }}
-          />
-        </div>
 
-        {/* === AI 形象 === */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#8A92A3", letterSpacing: ".04em", margin: "28px 0 12px" }}>
-          AI 形象
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* Preview avatar (lines 775–784) */}
-            <svg viewBox="0 0 48 48" width={58} height={58} style={{ display: "block", flex: "none" }}>
-              <rect x="5" y="6" width="38" height="36" rx="13" fill={aiAvatar} />
-              <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12" />
-              <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff" />
-              <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff" />
-              <circle cx="19.3" cy="25" r="1.5" fill="#1C2333" />
-              <circle cx="30.3" cy="25" r="1.5" fill="#1C2333" />
-              <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-              <circle cx="39" cy="9" r="4.5" fill="#E8A33D" />
-            </svg>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>你的陪练 · 印记</div>
-              <div style={{ fontSize: 13, color: "#8A92A3", lineHeight: 1.6, marginTop: 4 }}>
+          <div className="mb-1.5 text-mk-caption text-mk-secondary">姓名</div>
+          <input
+            value={user?.display_name ?? ""}
+            placeholder="—"
+            readOnly
+            className="mb-3.5 w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3.5 py-2.5 text-mk-body text-mk-ink outline-none"
+          />
+          <div className="mb-1.5 text-mk-caption text-mk-secondary">邮箱</div>
+          <input
+            value={user?.email ?? ""}
+            placeholder="—"
+            readOnly
+            className="w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3.5 py-2.5 text-mk-body text-mk-ink outline-none"
+          />
+        </Card>
+
+        {/* === 主题色 (accent picker, replaces the old local-only AI 形象 4-hex swatches) === */}
+        <SectionLabel>主题色</SectionLabel>
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <Pebble size={56} />
+            <div className="min-w-0 flex-1">
+              <div className="text-mk-h3 text-mk-ink">你的陪练 · 印记</div>
+              <div className="mt-1 text-mk-body text-mk-muted">
                 它克制、安静，一次只问你一个问题。选一个你看着舒服的颜色。
               </div>
             </div>
           </div>
-          {/* Avatar options (lines 790–804) */}
-          <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
-            {avatarOptions.map((color) => {
-              const selected = color === aiAvatar;
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            {ACCENT_PRESETS.map((preset) => {
+              const selected = preset.id === accentId;
               return (
-                <div
-                  key={color}
-                  data-testid="avatar-option"
-                  onClick={() => session.setAvatar(color)}
-                  style={{
-                    cursor: "pointer",
-                    borderRadius: 14,
-                    padding: 3,
-                    border: selected ? "2.5px solid #3B5BDB" : "2.5px solid transparent",
-                    boxSizing: "border-box",
-                  }}
+                <button
+                  key={preset.id}
+                  type="button"
+                  data-testid="accent-swatch"
+                  aria-pressed={selected}
+                  aria-label={preset.name}
+                  onClick={() => setAccent(preset.id)}
+                  className={cx(
+                    "flex flex-col items-center gap-1.5 rounded-mk-sm p-2 transition-colors duration-[120ms] ease-mk",
+                    "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+                    selected ? "bg-mk-accent-50" : "bg-transparent",
+                  )}
                 >
-                  <svg viewBox="0 0 48 48" width={40} height={40} style={{ display: "block" }}>
-                    <rect x="5" y="6" width="38" height="36" rx="13" fill={color} />
-                    <rect x="5" y="6" width="38" height="17" rx="13" fill="#ffffff" opacity="0.12" />
-                    <ellipse cx="18.5" cy="24" rx="3.4" ry="3.9" fill="#fff" />
-                    <ellipse cx="29.5" cy="24" rx="3.4" ry="3.9" fill="#fff" />
-                    <circle cx="19.3" cy="25" r="1.5" fill="#1C2333" />
-                    <circle cx="30.3" cy="25" r="1.5" fill="#1C2333" />
-                    <path d="M19 31.5 Q24 35 29 31.5" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-                  </svg>
-                </div>
+                  <span
+                    className="relative flex h-11 w-11 items-center justify-center"
+                    style={{ "--mk-accent-500": preset.scale[500] } as CSSProperties}
+                  >
+                    <Pebble size={40} />
+                    {selected && (
+                      <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-mk-full bg-mk-ink text-white">
+                        <Icon icon={Check} size={11} />
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-mk-small text-mk-muted">{preset.name}</span>
+                </button>
               );
             })}
           </div>
-        </div>
+        </Card>
 
-        {/* === 其他 toggles === */}
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#8A92A3", letterSpacing: ".04em", margin: "28px 0 12px" }}>
-          其他
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
-          {toggles.map((t, i) => {
-            const trackStyle: React.CSSProperties = {
-              width: 44,
-              height: 24,
-              borderRadius: 12,
-              background: t.on ? "#3B5BDB" : "#D1D5E0",
-              position: "relative",
-              cursor: "pointer",
-              transition: "background .2s",
-              flexShrink: 0,
-            };
-            const knobStyle: React.CSSProperties = {
-              position: "absolute",
-              top: 3,
-              left: t.on ? 23 : 3,
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              background: "#fff",
-              boxShadow: "0 1px 3px rgba(0,0,0,.18)",
-              transition: "left .2s",
-            };
-            return (
-              <div
-                key={t.label}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "16px 20px", borderBottom: "1px solid #F2F3F7" }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1C2333" }}>{t.label}</div>
-                  <div style={{ fontSize: 12.5, color: "#9AA1B0", lineHeight: 1.5, marginTop: 3 }}>{t.desc}</div>
-                </div>
-                <div onClick={() => flipToggle(i)} style={trackStyle}>
-                  <div style={knobStyle} />
-                </div>
+        {/* === 其他 === */}
+        <SectionLabel>其他</SectionLabel>
+        <Card className="overflow-hidden">
+          {toggles.map((t, i) => (
+            <div
+              key={t.label}
+              className={cx(
+                "flex items-center justify-between gap-4 px-5 py-4",
+                i < toggles.length - 1 && "border-b border-mk-border",
+              )}
+            >
+              <div className="min-w-0">
+                <div className="text-mk-body font-medium text-mk-ink">{t.label}</div>
+                <div className="mt-0.5 text-mk-small text-mk-faint">{t.desc}</div>
               </div>
-            );
-          })}
+              <Toggle checked={t.on} onChange={() => flipToggle(i)} label={t.label} />
+            </div>
+          ))}
+        </Card>
 
-          {/* 退出登录 (lines 821–824) */}
-          <div
-            onClick={onLogout}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 20px", cursor: "pointer", color: "#C76B6B", fontSize: 14, fontWeight: 600 }}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C76B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-            </svg>
-            退出登录
-          </div>
-        </div>
+        {/* === 退出登录 === */}
+        <button
+          type="button"
+          onClick={onLogout}
+          className="mt-8 inline-flex items-center gap-2 rounded-mk-sm px-3 py-2 text-mk-body font-medium text-mk-danger hover:bg-mk-danger-bg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15"
+        >
+          <Icon icon={LogOut} size={17} />
+          退出登录
+        </button>
       </div>
     </div>
   );
