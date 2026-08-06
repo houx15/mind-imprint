@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Modal, Menu, toast, ToastHost } from "@/ui/overlays";
+import { Modal, Drawer, Menu, toast, ToastHost } from "@/ui/overlays";
 
 describe("Modal", () => {
   it("renders nothing when open=false", () => {
@@ -76,6 +76,62 @@ describe("Modal", () => {
   });
 });
 
+describe("Drawer", () => {
+  it("renders nothing when open=false", () => {
+    const { container } = render(
+      <Drawer open={false} onClose={() => {}}>
+        面板内容
+      </Drawer>,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText("面板内容")).not.toBeInTheDocument();
+  });
+
+  it("carries an off-canvas translate + transition class for the right side (default)", () => {
+    render(
+      <Drawer open onClose={() => {}}>
+        面板内容
+      </Drawer>,
+    );
+    const panel = screen.getByRole("dialog");
+    // Rendered synchronously before the enter-transition rAF fires, so the
+    // panel is still in its off-canvas resting position.
+    expect(panel.className).toContain("translate-x-full");
+    expect(panel.className).toContain("motion-safe:transition-transform");
+    expect(panel.className).toContain("right-0");
+  });
+
+  it("carries the mirrored off-canvas translate class for the left side", () => {
+    render(
+      <Drawer open onClose={() => {}} side="left">
+        面板内容
+      </Drawer>,
+    );
+    const panel = screen.getByRole("dialog");
+    expect(panel.className).toContain("-translate-x-full");
+    expect(panel.className).toContain("left-0");
+  });
+
+  it("calls onClose on Escape and on scrim click but not on panel click", () => {
+    const onClose = vi.fn();
+    render(
+      <Drawer open onClose={onClose}>
+        <p>面板内容</p>
+      </Drawer>,
+    );
+
+    fireEvent.click(screen.getByText("面板内容"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    const scrim = document.querySelector('[aria-hidden="true"]') as HTMLElement;
+    fireEvent.click(scrim);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("Menu", () => {
   const items = [
     { key: "rename", label: "重命名", onSelect: vi.fn() },
@@ -92,6 +148,28 @@ describe("Menu", () => {
     await userEvent.click(screen.getByText("操作"));
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "重命名" })).toBeInTheDocument();
+  });
+
+  it("renders the popover into document.body (portaled), not inside the local render container", async () => {
+    const { container } = render(<Menu trigger={<button type="button">操作</button>} items={items} />);
+    await userEvent.click(screen.getByText("操作"));
+    const popover = screen.getByRole("menu");
+    expect(document.body.contains(popover)).toBe(true);
+    expect(container.contains(popover)).toBe(false);
+  });
+
+  it("closes when clicking outside both the trigger and the (portaled) popover", async () => {
+    render(
+      <div>
+        <Menu trigger={<button type="button">操作</button>} items={items} />
+        <button type="button">外部按钮</button>
+      </div>,
+    );
+    await userEvent.click(screen.getByText("操作"));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("外部按钮"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("calls onSelect and closes when an item is clicked", async () => {
