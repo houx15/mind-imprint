@@ -79,6 +79,12 @@ function ProjectCard({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => {
+        // Only act when the card itself is the focused/keydown target, not a
+        // descendant (the ⋯ menu's own trigger button, an <input> inside a
+        // future field, etc.) — otherwise Enter/Space on the menu trigger
+        // both bubbles up into "open the project" AND has its own native
+        // button activation suppressed by this handler's preventDefault.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpen();
@@ -97,6 +103,7 @@ function ProjectCard({
           <div
             className="absolute right-2 top-2 opacity-0 transition-opacity duration-[120ms] ease-mk group-hover:opacity-100 group-focus-within:opacity-100"
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           >
             <Menu
               trigger={<IconButton icon={MoreHorizontal} label="更多操作" size="sm" variant="secondary" />}

@@ -82,6 +82,46 @@ describe("Directory", () => {
     expect(onViewReport).toHaveBeenCalledWith("p2");
   });
 
+  it("Enter on the focused ⋯ trigger opens the menu, not the project (keyboard bubbling guard)", async () => {
+    (api.listProjects as any).mockResolvedValue(projects);
+    const onOpen = vi.fn();
+
+    render(<Directory onOpen={onOpen} onViewReport={vi.fn()} />);
+    await screen.findByText(projects[1]!.title);
+
+    const menuTrigger = screen.getByRole("button", { name: "更多操作" });
+    menuTrigger.focus();
+    await userEvent.keyboard("{Enter}");
+
+    // The menu opened (not swallowed by the card's own Enter handler)...
+    expect(await screen.findByText("查看评估报告")).toBeInTheDocument();
+    // ...and the card itself never treated that Enter as "open the project".
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("auto-opens the create drawer on mount when autoOpenCreate is set, and reports it consumed", async () => {
+    (api.listProjects as any).mockResolvedValue(projects);
+    const onAutoOpenCreateHandled = vi.fn();
+
+    render(
+      <Directory onOpen={vi.fn()} onViewReport={vi.fn()} autoOpenCreate onAutoOpenCreateHandled={onAutoOpenCreateHandled} />,
+    );
+
+    // The home "新建" → 项目 tab deep-link: the drawer should already be open,
+    // no click on the 新建 tile needed.
+    expect(await screen.findByText("作业题目 / 提示")).toBeInTheDocument();
+    expect(onAutoOpenCreateHandled).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-open the create drawer when autoOpenCreate is absent", async () => {
+    (api.listProjects as any).mockResolvedValue(projects);
+
+    render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} />);
+    await screen.findByText(projects[0]!.title);
+
+    expect(screen.queryByText("作业题目 / 提示")).not.toBeInTheDocument();
+  });
+
   it("polls while a project is evaluating and stops once it resolves", async () => {
     vi.useFakeTimers();
     const evaluating = [{ id: "p3", title: "评估中的项目", qualLabel: "IA", activeStation: "review", status: "evaluating" as const }];

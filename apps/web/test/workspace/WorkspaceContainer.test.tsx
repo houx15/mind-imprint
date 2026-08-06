@@ -6,10 +6,27 @@ import userEvent from "@testing-library/user-event";
 // (Task 6) — everything below the shell's own room-swap logic is mocked out
 // so the test doesn't drag in every room's own data-fetching.
 vi.mock("@/workspace/Directory", () => ({
-  Directory: ({ onOpen }: { onOpen: (id: string) => void }) => (
+  Directory: ({
+    onOpen,
+    autoOpenCreate,
+    onAutoOpenCreateHandled,
+  }: {
+    onOpen: (id: string) => void;
+    autoOpenCreate?: boolean;
+    onAutoOpenCreateHandled?: () => void;
+  }) => (
     <div data-testid="directory">
       <button type="button" onClick={() => onOpen("clicked-id")}>
         open clicked-id
+      </button>
+      {/* Surfaces exactly what Directory itself does on mount, so this test
+          can verify WorkspaceContainer forwards the create-drawer deep-link
+          (autoOpenCreate + its consumed-callback) down correctly, without
+          re-testing Directory's own drawer-opening behavior (covered in
+          Directory.test.tsx). */}
+      {autoOpenCreate && <div data-testid="auto-open-create" />}
+      <button type="button" onClick={onAutoOpenCreateHandled}>
+        consume auto-open-create
       </button>
     </div>
   ),
@@ -80,5 +97,21 @@ describe("WorkspaceContainer", () => {
 
     await userEvent.click(screen.getByText("open clicked-id"));
     expect(await screen.findByTestId("plan-block")).toHaveTextContent("clicked-id:");
+  });
+
+  it("forwards autoOpenCreate to the directory, and onAutoOpenCreateConsumed back up once it fires", async () => {
+    const onAutoOpenCreateConsumed = vi.fn();
+    render(<WorkspaceContainer autoOpenCreate onAutoOpenCreateConsumed={onAutoOpenCreateConsumed} />);
+
+    expect(screen.getByTestId("auto-open-create")).toBeInTheDocument();
+    expect(onAutoOpenCreateConsumed).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByText("consume auto-open-create"));
+    expect(onAutoOpenCreateConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not flag autoOpenCreate on the directory when it isn't set", () => {
+    render(<WorkspaceContainer />);
+    expect(screen.queryByTestId("auto-open-create")).not.toBeInTheDocument();
   });
 });
