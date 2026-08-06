@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Composer } from "@/studio/ai/Composer";
 
@@ -37,6 +37,14 @@ describe("Composer", () => {
     const onSend = vi.fn();
     render(<Composer value="给我一个反例" onChange={() => {}} onSend={onSend} />);
     await userEvent.type(screen.getByRole("textbox"), "{Shift>}{Enter}{/Shift}");
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("typing state: Enter during IME composition does NOT send (commits the candidate)", () => {
+    const onSend = vi.fn();
+    render(<Composer value="给我一个反例" onChange={() => {}} onSend={onSend} />);
+    // React reads event.nativeEvent.isComposing; fireEvent lets us set it.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter", isComposing: true });
     expect(onSend).not.toHaveBeenCalled();
   });
 

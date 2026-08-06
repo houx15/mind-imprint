@@ -71,6 +71,9 @@ export function Composer({
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== "Enter" || event.shiftKey) return;
+    // Don't send while an IME composition is active (Chinese/Japanese/Korean
+    // input): pressing Enter to accept a candidate must commit text, not send.
+    if (event.nativeEvent.isComposing) return;
     event.preventDefault();
     if (resolvedState === "typing") {
       onSend();
