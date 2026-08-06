@@ -645,26 +645,34 @@ export function ReadingRoom({
                   }}
                 />
                 {onSaveNote && (
-                  <div style={{ marginTop: 20, borderTop: "1px solid #E9E4F2", paddingTop: 14 }}>
+                  // A personal-note surface (never fed to evaluation) — taro-tinted
+                  // to read as her own reflective space, distinct from the room's
+                  // primary accent chrome (composer/CTAs) and from the article body.
+                  <div className="mt-5 border-t border-mk-taro-bg pt-[14px]">
                     <button
                       type="button"
                       onClick={() => setNoteOpen((o) => !o)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "#5C4A8A" }}
+                      className="flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 font-sans text-[13px] font-bold text-mk-taro-fg"
                     >
-                      <span style={{ transform: noteOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
+                      <span
+                        className="transition-transform duration-150 ease-mk"
+                        style={{ transform: noteOpen ? "rotate(90deg)" : "none" }}
+                      >
+                        ▸
+                      </span>
                       我的笔记{!noteOpen && note.trim() ? " ·  已记" : ""}
                     </button>
                     {noteOpen && (
-                      <div style={{ marginTop: 8 }}>
+                      <div className="mt-2">
                         <textarea
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
                           onBlur={() => void saveNote()}
                           placeholder="随手记下你自己的想法、疑问、要引用的点——只属于你，不喂给评估。"
                           rows={4}
-                          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", border: "1px solid #E3DCF2", borderRadius: 10, background: "#FBFAFE", padding: "10px 12px", fontSize: 13.5, lineHeight: 1.7, color: "#2B3346", outline: "none", fontFamily: "inherit" }}
+                          className="box-border w-full resize-y rounded-mk-sm border border-mk-taro-bg bg-mk-surface px-3 py-[10px] font-sans text-[13.5px] leading-[1.7] text-mk-ink outline-none"
                         />
-                        <div style={{ marginTop: 4, fontSize: 11.5, color: "#9AA1B0", height: 14 }}>
+                        <div className="mt-1 h-[14px] font-sans text-[11.5px] text-mk-muted">
                           {noteSaving ? "保存中…" : noteSavedAt ? "已保存" : "失焦自动保存"}
                         </div>
                       </div>

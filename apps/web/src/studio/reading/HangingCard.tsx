@@ -23,6 +23,11 @@ export type HangingCardProps = {
   hasExample?: boolean;
 };
 
+/** Join truthy class fragments with a single space; drops falsy/empty ones. */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
 // The signature move (demo app.js:422-424): the card hangs under the AI's
 // example block while `proposed` (she hasn't picked yet), and MOVES to hang
 // under her own chosen sentence the moment she has one AND is past
@@ -35,16 +40,19 @@ export function anchorBlockId(exampleBlockId: string, studentBlockId: string | n
   return exampleBlockId;
 }
 
+// Verdict/check tones read straight off the shared semantic tokens (never a
+// local hex table) — strong/pass reads as success, partial as a heads-up
+// (warning), rethink/miss as the thing needing another look (danger).
 const VERDICT_TONE: Record<SelectionEval["verdict"], { fg: string; bg: string }> = {
-  strong: { fg: "#4C9A82", bg: "#EAF6F0" },
-  partial: { fg: "#B5872F", bg: "#FBF3E3" },
-  rethink: { fg: "#C2557A", bg: "#FBEAF0" },
+  strong: { fg: "text-mk-success", bg: "bg-mk-success-bg" },
+  partial: { fg: "text-mk-warning", bg: "bg-mk-warning-bg" },
+  rethink: { fg: "text-mk-danger", bg: "bg-mk-danger-bg" },
 };
 
 const CHECK_TONE: Record<SelectionEval["checks"][number]["status"], { fg: string; bg: string; label: string }> = {
-  pass: { fg: "#4C9A82", bg: "#EAF6F0", label: "✓" },
-  partial: { fg: "#B5872F", bg: "#FBF3E3", label: "~" },
-  miss: { fg: "#C2557A", bg: "#FBEAF0", label: "✕" },
+  pass: { fg: "text-mk-success", bg: "bg-mk-success-bg", label: "✓" },
+  partial: { fg: "text-mk-warning", bg: "bg-mk-warning-bg", label: "~" },
+  miss: { fg: "text-mk-danger", bg: "bg-mk-danger-bg", label: "✕" },
 };
 
 function PrimaryButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
@@ -52,20 +60,7 @@ function PrimaryButton({ onClick, children }: { onClick: () => void; children: R
     <button
       type="button"
       onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        fontSize: 13,
-        fontWeight: 700,
-        cursor: "pointer",
-        padding: "9px 15px",
-        borderRadius: 10,
-        color: "#fff",
-        background: "#5C4A8A",
-        border: "1px solid #5C4A8A",
-        fontFamily: "inherit",
-      }}
+      className="inline-flex items-center gap-[7px] rounded-mk-sm border border-mk-taro-fg bg-mk-taro-fg px-[15px] py-[9px] font-sans text-[13px] font-bold text-white"
     >
       {children}
     </button>
@@ -81,48 +76,32 @@ function SkipLink({ onSkip }: { onSkip: () => void }) {
     <button
       type="button"
       onClick={onSkip}
-      style={{
-        display: "block",
-        marginTop: 10,
-        background: "none",
-        border: "none",
-        color: "#8A92A3",
-        fontSize: 12,
-        fontWeight: 600,
-        cursor: "pointer",
-        padding: 0,
-        textDecoration: "underline",
-        fontFamily: "inherit",
-      }}
+      className="mt-[10px] block border-0 bg-transparent p-0 font-sans text-[12px] font-semibold text-mk-muted underline"
     >
       跳过这副透镜
     </button>
   );
 }
 
+// HangingCard is macaron-tinted (taro) rather than solid-accent — a
+// deliberate second hue so the summoned-lens card reads as its own distinct
+// "practice space" beside the room's primary (accent-colored) chrome
+// composer/CTAs/tabs, mirroring the note block's taro treatment below it in
+// ReadingRoom.tsx. `radius-sm` (8px) matches the design system's default
+// card radius.
 export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip, hasExample = true }: HangingCardProps) {
   return (
-    <div
-      style={{
-        position: "relative",
-        margin: "4px 0 22px 18px",
-        border: "1px solid #E3DCF2",
-        borderRadius: 14,
-        background: "#fff",
-        boxShadow: "0 3px 14px rgba(92,74,138,.10)",
-        overflow: "hidden",
-      }}
-    >
+    <div className="relative mt-1 mb-[22px] ml-[18px] overflow-hidden rounded-mk-sm border border-mk-taro-bg bg-mk-surface shadow-mk-sm">
       <div className="lens-connector" aria-hidden="true" />
-      <div style={{ height: 4, background: "#5C4A8A" }} />
-      <div style={{ padding: "12px 15px 14px" }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: "#5C4A8A", marginBottom: 8 }}>{cardName}</div>
+      <div className="h-1 bg-mk-taro-fg" />
+      <div className="px-[15px] pb-[14px] pt-[12px]">
+        <div className="mb-2 font-sans text-[10.5px] font-bold text-mk-taro-fg">{cardName}</div>
 
         {status === "proposed" && hasExample && (
           <>
-            <details style={{ marginBottom: 10 }}>
-              <summary style={{ fontSize: 12, fontWeight: 600, color: "#8A92A3", cursor: "pointer" }}>为什么是这句（方法说明）</summary>
-              <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginTop: 6 }}>{exampleWhy}</div>
+            <details className="mb-[10px]">
+              <summary className="cursor-pointer font-sans text-[12px] font-semibold text-mk-muted">为什么是这句（方法说明）</summary>
+              <div className="mt-[6px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
             </details>
             <PrimaryButton onClick={onStartPick}>看懂示范，开始选句</PrimaryButton>
             {onSkip && <SkipLink onSkip={onSkip} />}
@@ -131,7 +110,7 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
 
         {status === "proposed" && !hasExample && (
           <>
-            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginBottom: 10 }}>{exampleWhy}</div>
+            <div className="mb-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
             <PrimaryButton onClick={onStartPick}>开始选句</PrimaryButton>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
@@ -139,69 +118,53 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
 
         {status === "active" && (
           <>
-            <div style={{ fontSize: 13, lineHeight: 1.6, color: "#2B3346" }}>在文章里点出你自己的证据句</div>
+            <div className="font-sans text-[13px] leading-[1.6] text-mk-ink">在文章里点出你自己的证据句</div>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
         )}
 
         {status === "evaluating" && (
-          <div style={{ fontSize: 13, lineHeight: 1.6, color: "#8A92A3" }}>印记正在看你的选择…</div>
+          <div className="font-sans text-[13px] leading-[1.6] text-mk-muted">印记正在看你的选择…</div>
         )}
 
         {status === "feedback" && selectionEval && (
           <>
             <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 999,
-                color: VERDICT_TONE[selectionEval.verdict].fg,
-                background: VERDICT_TONE[selectionEval.verdict].bg,
-                marginBottom: 8,
-              }}
+              className={cx(
+                "mb-2 inline-flex items-center gap-[6px] rounded-mk-full px-[10px] py-[3px] font-sans text-[12px] font-bold",
+                VERDICT_TONE[selectionEval.verdict].fg,
+                VERDICT_TONE[selectionEval.verdict].bg,
+              )}
             >
               {selectionEval.verdictLabel}
             </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#3A4256", marginBottom: 10 }}>{selectionEval.verdictReason}</div>
+            <div className="mb-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{selectionEval.verdictReason}</div>
 
             {selectionEval.checks.map((check) => (
-              <div key={check.key} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
+              <div key={check.key} className="mb-[6px] flex items-start gap-2">
                 <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 16,
-                    height: 16,
-                    borderRadius: 999,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: CHECK_TONE[check.status].fg,
-                    background: CHECK_TONE[check.status].bg,
-                    flexShrink: 0,
-                    marginTop: 1,
-                  }}
+                  className={cx(
+                    "mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full font-sans text-[10px] font-bold",
+                    CHECK_TONE[check.status].fg,
+                    CHECK_TONE[check.status].bg,
+                  )}
                 >
                   {CHECK_TONE[check.status].label}
                 </span>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1C2333" }}>{check.label}</div>
-                  <div style={{ fontSize: 12, lineHeight: 1.55, color: "#5A6072" }}>{check.explanation}</div>
+                  <div className="font-sans text-[12px] font-bold text-mk-ink">{check.label}</div>
+                  <div className="font-sans text-[12px] leading-[1.55] text-mk-secondary">{check.explanation}</div>
                 </div>
               </div>
             ))}
 
-            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "#2B3346", marginTop: 10, marginBottom: 12 }}>{selectionEval.nextStep}</div>
+            <div className="mb-3 mt-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-ink">{selectionEval.nextStep}</div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={onRepick}
-                style={{ background: "none", border: "none", color: "#5C4A8A", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "inherit" }}
+                className="border-0 bg-transparent p-0 font-sans text-[12px] font-semibold text-mk-taro-fg underline"
               >
                 重新选一句
               </button>
