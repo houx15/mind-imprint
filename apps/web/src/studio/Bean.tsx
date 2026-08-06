@@ -4,8 +4,8 @@ type BeanProps = { color?: string; size?: number };
 // blinking eyes; eye color contrasts with the fill (light eyes on dark beans).
 //
 // `color` defaults to the design system's default accent (--mk-accent-500,
-// vermilion #EA5140) instead of the old-blue #2A3B7A — a literal hex, not
-// `var(--mk-accent-500)`, because the luminance contrast math right below
+// vermilion #EA5140) instead of the old palette's brand-blue accent — a
+// literal hex, not `var(--mk-accent-500)`, because the luminance contrast math right below
 // needs a concrete color to sample; a CSS var string wouldn't parse and
 // would silently fall through to the dark-eye fallback. Callers who want the
 // bean to follow a different theme (e.g. a resolved per-branch color) pass

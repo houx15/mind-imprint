@@ -73,8 +73,8 @@ export function anchorToSpan(anchor: Anchor): AnnotateSpan | null {
 function LockIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4" y="11" width="16" height="9" rx="2" stroke="#8A93A6" strokeWidth="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="#8A93A6" strokeWidth="2" />
+      <rect x="4" y="11" width="16" height="9" rx="2" stroke="var(--mk-muted)" strokeWidth="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="var(--mk-muted)" strokeWidth="2" />
     </svg>
   );
 }
@@ -133,8 +133,8 @@ export function SourceDossier({ sources, onAddSource, addSourceError, onOpenRead
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
       <div>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>信源档案 · 已收集 {sources.length} 篇</div>
-            <div style={{ fontSize: 12.5, color: "#7A8296", marginTop: 2 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)" }}>信源档案 · 已收集 {sources.length} 篇</div>
+            <div style={{ fontSize: 12.5, color: "var(--mk-muted)", marginTop: 2 }}>
               已锁定 {lockedCount}/{sources.length}
             </div>
           </div>
@@ -155,8 +155,8 @@ export function SourceDossier({ sources, onAddSource, addSourceError, onOpenRead
                 style={{
                   display: "block",
                   textAlign: "left",
-                  background: "#fff",
-                  border: "1px solid #E4E6EE",
+                  background: "var(--mk-surface)",
+                  border: "1px solid var(--mk-border)",
                   borderRadius: 12,
                   padding: "11px 13px",
                   cursor: "pointer",
@@ -164,7 +164,7 @@ export function SourceDossier({ sources, onAddSource, addSourceError, onOpenRead
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {source.locked && <LockIcon />}
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{source.title}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--mk-ink)" }}>{source.title}</span>
                   {/* Chip is derived purely from `locked` (a minted evaluated-as
                       edge) — there is no verdict field (可信/存疑) on
                       MaterialSource, and this never fabricates one. */}
@@ -174,7 +174,9 @@ export function SourceDossier({ sources, onAddSource, addSourceError, onOpenRead
                       fontWeight: 700,
                       padding: "2px 9px",
                       borderRadius: 999,
-                      ...(source.locked ? { background: "#E7F3EE", color: "#4C9A82" } : { background: "#F1F2F6", color: "#5A6178" }),
+                      ...(source.locked
+                        ? { background: "var(--mk-success-bg)", color: "var(--mk-success)" }
+                        : { background: "var(--mk-paper)", color: "var(--mk-secondary)" }),
                     }}
                   >
                     {source.locked ? "✓ 已锁定" : "待评估"}
@@ -186,19 +188,19 @@ export function SourceDossier({ sources, onAddSource, addSourceError, onOpenRead
                         fontWeight: 700,
                         padding: "3px 10px",
                         borderRadius: 999,
-                        color: "#C96F4F",
-                        background: "#FBEEE7",
+                        color: "var(--mk-peach-fg)",
+                        background: "var(--mk-peach-bg)",
                       }}
                     >
                       正在核对 · 需横向阅读
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "var(--mk-muted)", marginTop: 4 }}>
                   {source.origin === "fetched" ? "网页" : "粘贴"}
                   {source.tier !== "" && ` · ${source.tier}`}
                 </div>
-                <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 12.5, color: "var(--mk-secondary)", marginTop: 6, lineHeight: 1.5 }}>
                   作用与风险：{source.role || "尚未写「作用与风险」"}
                 </div>
               </button>

@@ -19,27 +19,27 @@ function tabStyle(active: boolean): React.CSSProperties {
     cursor: "pointer",
     border: "none",
     fontFamily: "inherit",
-    background: active ? "#fff" : "transparent",
-    color: active ? "#2A3B7A" : "#8A92A3",
+    background: active ? "var(--mk-surface)" : "transparent",
+    color: active ? "var(--mk-accent-700)" : "var(--mk-muted)",
     boxShadow: active ? "0 1px 3px rgba(20,30,60,.10)" : "none",
   };
 }
 
 const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
-  border: "1px solid #E1E4ED",
+  border: "1px solid var(--mk-input-border)",
   borderRadius: 10,
   fontSize: 13.5,
   padding: "8px 11px",
   fontFamily: "inherit",
-  color: "#1C2333",
+  color: "var(--mk-ink)",
   boxSizing: "border-box",
 };
 
 function PlusIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="#2A3B7A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 5v14M5 12h14" stroke="var(--mk-accent-700)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -96,14 +96,14 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
             display: "flex",
             alignItems: "flex-start",
             gap: 9,
-            background: "#FBEEE7",
-            border: "1px solid #F1D6C8",
+            background: "var(--mk-danger-bg)",
+            border: "1px solid var(--mk-danger)",
             borderRadius: 12,
             padding: "10px 13px",
             marginBottom: 10,
             fontSize: 12.5,
             lineHeight: 1.6,
-            color: "#C96F4F",
+            color: "var(--mk-danger)",
           }}
         >
           {error}
@@ -120,7 +120,7 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
             gap: 7,
             fontSize: 13,
             fontWeight: 700,
-            color: "#2A3B7A",
+            color: "var(--mk-accent-700)",
             cursor: "pointer",
             background: "transparent",
             border: "none",
@@ -136,8 +136,8 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
       {expanded && (
         <div
           style={{
-            background: "#fff",
-            border: "1px solid #E4E6EE",
+            background: "var(--mk-surface)",
+            border: "1px solid var(--mk-border)",
             borderRadius: 12,
             padding: "13px 15px",
             display: "flex",
@@ -145,7 +145,7 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
             gap: 10,
           }}
         >
-          <div style={{ display: "flex", gap: 3, background: "#EBEDF2", borderRadius: 9, padding: 3, alignSelf: "flex-start" }}>
+          <div style={{ display: "flex", gap: 3, background: "var(--mk-border)", borderRadius: 9, padding: 3, alignSelf: "flex-start" }}>
             <button type="button" onClick={() => setTab("link")} style={tabStyle(tab === "link")}>
               链接
             </button>
@@ -188,12 +188,12 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
           />
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#8A93A6", marginBottom: 6 }}>层级</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-muted)", marginBottom: 6 }}>层级</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px" }}>
               {TIERS.map((t) => (
                 <label
                   key={t}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#3A4256", cursor: "pointer" }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--mk-secondary)", cursor: "pointer" }}
                 >
                   <input type="radio" name="tier" value={t} checked={tier === t} onChange={() => setTier(t)} />
                   {t}
@@ -209,8 +209,8 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
             style={{
               alignSelf: "flex-start",
               marginTop: 4,
-              background: !canSubmit || submitting ? "#C7CBDA" : "#2A3B7A",
-              color: "#fff",
+              background: !canSubmit || submitting ? "#F0E9E1" : "var(--mk-accent)",
+              color: !canSubmit || submitting ? "#B8ADA2" : "var(--mk-surface)",
               border: "none",
               borderRadius: 10,
               fontSize: 13,
