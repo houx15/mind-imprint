@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* neutrals (fixed) */
+  --mk-paper:#FBF8F4; --mk-surface:#FFFFFF; --mk-border:#EFE7DD;
+  --mk-muted:#8A827A; --mk-secondary:#5A5049; --mk-faint:#B0A599;
+  --mk-ink:#33302E; --mk-input-border:#E4DACF;
+  /* accent scale (default 朱砂红; AccentProvider overrides these 9) */
+  --mk-accent-50:#FEF0ED; --mk-accent-100:#FBDAD3; --mk-accent-200:#F6A99D;
+  --mk-accent-300:#F2897A; --mk-accent-400:#EE6B58; --mk-accent-500:#EA5140;
+  --mk-accent-600:#CE3A2B; --mk-accent-700:#A72E22; --mk-accent-800:#7E231A;
+  --mk-accent:var(--mk-accent-500);
+  /* macaron (fixed) */
+  --mk-peach:#F6B26B;  --mk-peach-bg:#FDE7D3;  --mk-peach-fg:#9A5A22;
+  --mk-butter:#F2CE63; --mk-butter-bg:#FAF3DE; --mk-butter-fg:#8A6320;
+  --mk-matcha:#A6C88F; --mk-matcha-bg:#E7F1DD; --mk-matcha-fg:#4D6B3A;
+  --mk-lake:#6FBFB0;   --mk-lake-bg:#E0F0EC;   --mk-lake-fg:#177368;
+  --mk-mist:#7FA8D8;   --mk-mist-bg:#E6EEF9;   --mk-mist-fg:#3C5A86;
+  --mk-taro:#B49BD8;   --mk-taro-bg:#F0EAF6;   --mk-taro-fg:#5B4A80;
+  --mk-berry:#E896A6;  --mk-berry-bg:#FCE7EB;  --mk-berry-fg:#A63A50;
+  /* semantic (fixed) */
+  --mk-success:#5FA97E; --mk-success-bg:#E7F1DD;
+  --mk-warning:#E0A63A; --mk-warning-bg:#FBEFD6;
+  --mk-danger:#D64541;  --mk-danger-bg:#FBE3E1;
+  --mk-info:#4C7AB0;    --mk-info-bg:#EAF0F6;
+  /* radius / shadow / motion */
+  --mk-radius-xs:6px; --mk-radius-sm:8px; --mk-radius-md:10px; --mk-radius-lg:12px; --mk-radius-full:999px;
+  --mk-shadow-xs:0 1px 2px rgba(70,45,45,.06);
+  --mk-shadow-sm:0 2px 8px rgba(70,45,45,.08);
+  --mk-shadow-md:0 6px 18px rgba(70,45,45,.11);
+  --mk-shadow-lg:0 16px 40px rgba(45,28,28,.18);
+  --mk-ease:cubic-bezier(.2,0,0,1);
+  --mk-fast:120ms; --mk-base:200ms; --mk-slow:320ms;
+}
+body { background: var(--mk-paper); color: var(--mk-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",system-ui,sans-serif; }
+
+/* scrollbar: hidden until .scrolling on a scroll container (spec §6) */
+.mk-scroll { scrollbar-width: none; }
+.mk-scroll::-webkit-scrollbar { width:8px; height:8px; }
+.mk-scroll::-webkit-scrollbar-thumb { background:transparent; border-radius:999px; }
+.mk-scroll.scrolling::-webkit-scrollbar-thumb { background: var(--mk-accent-200); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
 /* The app shell sizes itself with height:100%, which only works if the full
    html→body→#root chain establishes a height. Without this, #root collapses to
    its content and pages (the directory, the workspace) render at half-height. */
