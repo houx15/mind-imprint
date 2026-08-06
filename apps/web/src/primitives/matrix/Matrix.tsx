@@ -25,7 +25,7 @@ function isComplete(row: MatrixRow, cols: Col[]): boolean {
 
 function RemoveIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mk-faint)" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
@@ -34,7 +34,7 @@ function RemoveIcon() {
 function PlusIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="#2A3B7A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 5v14M5 12h14" stroke="var(--mk-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -107,8 +107,8 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
         <div
           key={row.id}
           style={{
-            background: "#fff",
-            border: "1px solid #EAECF2",
+            background: "var(--mk-surface)",
+            border: "1px solid var(--mk-border)",
             borderRadius: 14,
             padding: "13px 14px",
             marginBottom: 11,
@@ -122,13 +122,13 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
               placeholder={rowPrompt}
               style={{
                 flex: 1,
-                border: "1px solid #E1E4ED",
+                border: "1px solid var(--mk-input-border)",
                 borderRadius: 10,
                 padding: "8px 10px",
                 fontSize: 13.5,
                 fontWeight: 700,
-                color: "#1C2333",
-                background: "#F9FAFC",
+                color: "var(--mk-ink)",
+                background: "var(--mk-paper)",
                 outline: "none",
                 fontFamily: "inherit",
               }}
@@ -152,7 +152,7 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
 
           {cols.map((col) => (
             <div key={col.id} style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7384", marginBottom: 4 }}>{col.label}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--mk-secondary)", marginBottom: 4 }}>{col.label}</div>
               <textarea
                 value={row.cells[col.id] ?? ""}
                 onChange={(e) => handleCellChange(row.id, col.id, e.target.value)}
@@ -160,13 +160,13 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
                 placeholder={col.q}
                 style={{
                   width: "100%",
-                  border: "1px solid #E1E4ED",
+                  border: "1px solid var(--mk-input-border)",
                   borderRadius: 10,
                   padding: "8px 10px",
                   fontSize: 13,
                   lineHeight: 1.55,
-                  color: "#1C2333",
-                  background: "#fff",
+                  color: "var(--mk-ink)",
+                  background: "var(--mk-surface)",
                   outline: "none",
                   resize: "vertical",
                   fontFamily: "inherit",
@@ -185,8 +185,8 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
           alignItems: "center",
           gap: 6,
           background: "none",
-          border: "1px dashed #C4CCE8",
-          color: "#2A3B7A",
+          border: "1px dashed var(--mk-accent-200)",
+          color: "var(--mk-accent)",
           borderRadius: 10,
           fontSize: 12.5,
           fontWeight: 700,
@@ -200,7 +200,7 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
         {`添加一个${rowNoun}`}
       </button>
 
-      <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "var(--mk-muted)", marginBottom: 12 }}>
         {`已完成 ${completeCount} 个${rowNoun} · 还差 ${remaining} 个`}
       </div>
 
@@ -208,7 +208,7 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
         <button
           type="button"
           onClick={onSkip}
-          style={{ background: "none", border: "none", color: "#C2557A", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
+          style={{ background: "none", border: "none", color: "var(--mk-faint)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
         >
           跳过这张卡
         </button>
@@ -223,9 +223,9 @@ export function Matrix({ cols, state, minItems, rowPrompt, rowNoun, onChange, on
             opacity: canLock ? 1 : 0.5,
             padding: "9px 15px",
             borderRadius: 10,
-            color: "#fff",
-            background: "#2A3B7A",
-            border: "1px solid #2A3B7A",
+            color: "var(--mk-surface)",
+            background: "var(--mk-accent)",
+            border: "1px solid var(--mk-accent)",
             fontFamily: "inherit",
           }}
         >

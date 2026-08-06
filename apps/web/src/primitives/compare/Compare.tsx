@@ -20,7 +20,7 @@ export type CompareProps = {
 function PlusIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="#2A3B7A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 5v14M5 12h14" stroke="var(--mk-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -28,9 +28,9 @@ function PlusIcon() {
 function LateralSearchIcon() {
   return (
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="6.5" stroke="#B7ABDB" strokeWidth="2" />
-      <path d="M14.8 14.8L20 20" stroke="#B7ABDB" strokeWidth="2" strokeLinecap="round" />
-      <path d="M17 5l1.6 4.4L23 11l-4.4 1.6L17 17l-1.6-4.4L11 11l4.4-1.6L17 5z" fill="#D8CFF0" />
+      <circle cx="10" cy="10" r="6.5" stroke="var(--mk-taro)" strokeWidth="2" />
+      <path d="M14.8 14.8L20 20" stroke="var(--mk-taro)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 5l1.6 4.4L23 11l-4.4 1.6L17 17l-1.6-4.4L11 11l4.4-1.6L17 5z" fill="var(--mk-taro-bg)" />
     </svg>
   );
 }
@@ -49,16 +49,16 @@ function LateralSourceAssignment({ onAddLateralSource }: { onAddLateralSource: (
         justifyContent: "center",
         textAlign: "center",
         gap: 10,
-        background: "#FAF8FE",
-        border: "1px dashed #D8CFF0",
+        background: "var(--mk-taro-bg)",
+        border: "1px dashed var(--mk-taro)",
         borderRadius: 14,
         padding: "36px 22px",
         minHeight: 220,
       }}
     >
       <LateralSearchIcon />
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333" }}>去找一个独立的来源</div>
-      <div style={{ fontSize: 12.5, color: "#7A8296", lineHeight: 1.6, maxWidth: 240 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)" }}>去找一个独立的来源</div>
+      <div style={{ fontSize: 12.5, color: "var(--mk-muted)", lineHeight: 1.6, maxWidth: 240 }}>
         别在这一页上死磕——打开新的标签页，看看其他独立信源怎么说这件事。
       </div>
       <button
@@ -69,8 +69,8 @@ function LateralSourceAssignment({ onAddLateralSource }: { onAddLateralSource: (
           alignItems: "center",
           gap: 6,
           marginTop: 4,
-          background: "#2A3B7A",
-          color: "#fff",
+          background: "var(--mk-accent)",
+          color: "var(--mk-surface)",
           border: "none",
           borderRadius: 10,
           fontSize: 13,
@@ -95,16 +95,16 @@ export function Compare({ state, onAddLateralSource, leftBlocks = [], rightBlock
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#8A93A6", marginBottom: 8 }}>待查的来源</div>
-          <div data-testid="compare-pane" style={{ background: "#fff", border: "1px solid #E4E6EE", borderRadius: 14, padding: "14px 16px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-muted)", marginBottom: 8 }}>待查的来源</div>
+          <div data-testid="compare-pane" style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 14, padding: "14px 16px" }}>
             <Annotate blocks={leftBlocks} state={state.left} activeSpanId={leftActiveSpanId} onSelectSpan={setLeftActiveSpanId} />
           </div>
         </div>
 
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#8A93A6", marginBottom: 8 }}>独立信源</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-muted)", marginBottom: 8 }}>独立信源</div>
           {state.right ? (
-            <div data-testid="compare-pane" style={{ background: "#fff", border: "1px solid #E4E6EE", borderRadius: 14, padding: "14px 16px" }}>
+            <div data-testid="compare-pane" style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 14, padding: "14px 16px" }}>
               <Annotate blocks={rightBlocks} state={state.right} activeSpanId={rightActiveSpanId} onSelectSpan={setRightActiveSpanId} />
             </div>
           ) : (

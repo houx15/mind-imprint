@@ -2,7 +2,20 @@ type BeanProps = { color?: string; size?: number };
 
 // Ported from the Claude Design Bean.dc.html: a rounded "bean" body with two
 // blinking eyes; eye color contrasts with the fill (light eyes on dark beans).
-export function Bean({ color = "#2A3B7A", size = 38 }: BeanProps) {
+//
+// `color` defaults to the design system's default accent (--mk-accent-500,
+// vermilion #EA5140) instead of the old-blue #2A3B7A — a literal hex, not
+// `var(--mk-accent-500)`, because the luminance contrast math right below
+// needs a concrete color to sample; a CSS var string wouldn't parse and
+// would silently fall through to the dark-eye fallback. Callers who want the
+// bean to follow a different theme (e.g. a resolved per-branch color) pass
+// their own hex via `color`.
+//
+// `eye`'s two contrast outcomes ("#FFFFFF" / "#17223B") stay plain hex
+// literals rather than `var(--mk-surface)`/`var(--mk-ink)` — same call as
+// `ui/Pebble.tsx`'s `EYE_FILL`: these are computed contrast values, not
+// theme colors, and Bean.test.tsx asserts the exact fill string.
+export function Bean({ color = "#EA5140", size = 38 }: BeanProps) {
   const m = /^#?([0-9a-f]{6})$/i.exec(color.trim());
   let eye = "#17223B";
   if (m) {

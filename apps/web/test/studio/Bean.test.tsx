@@ -10,4 +10,9 @@ describe("Bean", () => {
     const { container: light } = render(<Bean color="#E8A33D" />);
     expect(light.querySelectorAll("ellipse")[0]!.getAttribute("fill")).toBe("#17223B");
   });
+
+  it("defaults to the design system's vermilion accent, not the old blue", () => {
+    const { container } = render(<Bean />);
+    expect(container.querySelector("path")!.getAttribute("fill")).toBe("#EA5140");
+  });
 });

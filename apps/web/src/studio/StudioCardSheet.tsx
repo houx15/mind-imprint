@@ -42,51 +42,38 @@ export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps
   }
 
   return (
-    <div style={{ border: "1px solid #F0DACF", borderRadius: 14, overflow: "hidden", boxShadow: "0 3px 14px rgba(217,130,99,.10)" }}>
-      <div style={{ height: 4, background: "#D98263" }} />
-      <div style={{ padding: "12px 15px 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#D98263" }}>工具卡</span>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>
+    <div className="overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-sm">
+      <div className="h-1 bg-mk-accent" />
+      <div className="px-[15px] pb-2 pt-3">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-[10.5px] font-bold text-mk-accent">工具卡</span>
+          <span className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-[10.5px] font-bold text-mk-accent">
             {spec.category}
           </span>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#1C2333" }}>{spec.name}</div>
-        <div style={{ fontSize: 11.5, color: "#8A92A3", lineHeight: 1.6, marginTop: 3 }}>{spec.purpose}</div>
+        <div className="text-[14px] font-extrabold text-mk-ink">{spec.name}</div>
+        <div className="mt-[3px] text-[11.5px] leading-relaxed text-mk-faint">{spec.purpose}</div>
       </div>
 
-      <div style={{ padding: "4px 15px 12px", maxHeight: 360, overflowY: "auto" }}>
+      <div className="mk-scroll max-h-[360px] overflow-y-auto px-[15px] pb-3 pt-1">
         <Body card={spec} values={env.field_values} onField={handleField} onExpandStep={handleExpandStep} onNote={handleNote} />
       </div>
 
-      <div style={{ padding: "10px 15px 14px", borderTop: "1px solid #F3ECE6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="flex items-center justify-between border-t border-mk-border px-[15px] pb-3.5 pt-2.5">
         <button
           type="button"
           onClick={handleSkip}
-          style={{ background: "none", border: "none", color: "#C2557A", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
+          className="cursor-pointer border-0 bg-transparent px-0 py-1.5 font-sans text-[12px] font-semibold text-mk-faint transition hover:text-mk-muted"
         >
           跳过这张卡
         </button>
         <button
           type="button"
           onClick={handleSubmit}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            background: "#2A3B7A",
-            color: "#fff",
-            border: "none",
-            padding: "9px 16px",
-            borderRadius: 10,
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
+          className="inline-flex items-center gap-1.5 rounded-mk-md bg-mk-accent px-4 py-2.5 font-sans text-[12.5px] font-bold text-white transition hover:bg-mk-accent-600"
         >
           提交并钉到过程树
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         </button>

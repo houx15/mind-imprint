@@ -28,7 +28,7 @@ function isComplete(item: ScaleItem): boolean {
 
 function RemoveIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mk-faint)" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
@@ -37,7 +37,7 @@ function RemoveIcon() {
 function PlusIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="#2A3B7A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 5v14M5 12h14" stroke="var(--mk-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -114,12 +114,12 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
           rendered as a compact chip row (a wrapped/compact row of labels,
           not a drag interaction). */}
       <div style={{ position: "relative", padding: "4px 2px 14px", marginBottom: 4 }}>
-        <div style={{ position: "absolute", left: 6, right: 6, top: 13, height: 1, background: "#DEE1EA" }} aria-hidden="true" />
+        <div style={{ position: "absolute", left: 6, right: 6, top: 13, height: 1, background: "var(--mk-border)" }} aria-hidden="true" />
         <div style={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
           {stops.map((s) => (
             <div key={s.id} title={s.hint} style={{ position: "relative", zIndex: 1, textAlign: "center", flex: 1, minWidth: 0 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#C4CCE8", margin: "0 auto 4px" }} aria-hidden="true" />
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: "#6B7384", lineHeight: 1.25 }}>{s.label}</div>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mk-accent-200)", margin: "0 auto 4px" }} aria-hidden="true" />
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--mk-secondary)", lineHeight: 1.25 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -129,8 +129,8 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
         <div
           key={item.id}
           style={{
-            background: "#fff",
-            border: "1px solid #EAECF2",
+            background: "var(--mk-surface)",
+            border: "1px solid var(--mk-border)",
             borderRadius: 14,
             padding: "13px 14px",
             marginBottom: 11,
@@ -144,13 +144,13 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
               placeholder={itemPrompt}
               style={{
                 flex: 1,
-                border: "1px solid #E1E4ED",
+                border: "1px solid var(--mk-input-border)",
                 borderRadius: 10,
                 padding: "8px 10px",
                 fontSize: 13.5,
                 lineHeight: 1.55,
-                color: "#1C2333",
-                background: "#fff",
+                color: "var(--mk-ink)",
+                background: "var(--mk-surface)",
                 outline: "none",
                 resize: "vertical",
                 fontFamily: "inherit",
@@ -188,9 +188,9 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
                     cursor: "pointer",
                     padding: "5px 9px",
                     borderRadius: 9,
-                    color: on ? "#2A3B7A" : "#6B7384",
-                    background: on ? "#EDEFF9" : "#F4F5F8",
-                    border: "1px solid " + (on ? "#C4CCE8" : "#E7E9F0"),
+                    color: on ? "var(--mk-accent)" : "var(--mk-secondary)",
+                    background: on ? "var(--mk-accent-50)" : "var(--mk-paper)",
+                    border: "1px solid " + (on ? "var(--mk-accent-200)" : "var(--mk-border)"),
                     fontFamily: "inherit",
                   }}
                 >
@@ -207,13 +207,13 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
             placeholder={reasonPrompt}
             style={{
               width: "100%",
-              border: "1px solid #E1E4ED",
+              border: "1px solid var(--mk-input-border)",
               borderRadius: 10,
               padding: "8px 10px",
               fontSize: 13,
               lineHeight: 1.55,
-              color: "#1C2333",
-              background: "#fff",
+              color: "var(--mk-ink)",
+              background: "var(--mk-surface)",
               outline: "none",
               resize: "vertical",
               fontFamily: "inherit",
@@ -230,8 +230,8 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
           alignItems: "center",
           gap: 6,
           background: "none",
-          border: "1px dashed #C4CCE8",
-          color: "#2A3B7A",
+          border: "1px dashed var(--mk-accent-200)",
+          color: "var(--mk-accent)",
           borderRadius: 10,
           fontSize: 12.5,
           fontWeight: 700,
@@ -254,13 +254,13 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
             placeholder={rewritePrompt}
             style={{
               width: "100%",
-              border: "1px solid #E1E4ED",
+              border: "1px solid var(--mk-input-border)",
               borderRadius: 10,
               padding: "8px 10px",
               fontSize: 13,
               lineHeight: 1.55,
-              color: "#1C2333",
-              background: "#fff",
+              color: "var(--mk-ink)",
+              background: "var(--mk-surface)",
               outline: "none",
               resize: "vertical",
               fontFamily: "inherit",
@@ -269,7 +269,7 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: "#8A93A6", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "var(--mk-muted)", marginBottom: 12 }}>
         已放置并写下理由 {completeCount} 句 · 还差 {remaining} 句
         {remaining === 0 && !rewriteOk ? " · 还需完成上面的改写" : ""}
       </div>
@@ -278,7 +278,7 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
         <button
           type="button"
           onClick={onSkip}
-          style={{ background: "none", border: "none", color: "#C2557A", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
+          style={{ background: "none", border: "none", color: "var(--mk-faint)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
         >
           跳过这张卡
         </button>
@@ -293,9 +293,9 @@ export function Scale({ stops, state, minItems, itemPrompt, reasonPrompt, rewrit
             opacity: canLock ? 1 : 0.5,
             padding: "9px 15px",
             borderRadius: 10,
-            color: "#fff",
-            background: "#2A3B7A",
-            border: "1px solid #2A3B7A",
+            color: "var(--mk-surface)",
+            background: "var(--mk-accent)",
+            border: "1px solid var(--mk-accent)",
             fontFamily: "inherit",
           }}
         >
