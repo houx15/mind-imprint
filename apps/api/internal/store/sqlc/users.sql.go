@@ -46,6 +46,23 @@ func (q *Queries) GetUserCardTheme(ctx context.Context, userID uuid.UUID) (strin
 	return card_theme, err
 }
 
+const setUserAvatarColor = `-- name: SetUserAvatarColor :exec
+UPDATE users SET avatar_color = $1 WHERE id = $2
+`
+
+type SetUserAvatarColorParams struct {
+	AvatarColor string    `json:"avatar_color"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+// Persists the student's chosen accent preset id into the existing
+// avatar_color column. The handler validates against the 8-preset allowlist
+// before calling; no CHECK constraint on this column.
+func (q *Queries) SetUserAvatarColor(ctx context.Context, arg SetUserAvatarColorParams) error {
+	_, err := q.db.Exec(ctx, setUserAvatarColor, arg.AvatarColor, arg.UserID)
+	return err
+}
+
 const setUserCardTheme = `-- name: SetUserCardTheme :exec
 UPDATE users SET card_theme = $1 WHERE id = $2
 `

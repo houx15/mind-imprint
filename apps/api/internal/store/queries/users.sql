@@ -10,3 +10,9 @@ SELECT card_theme FROM users WHERE id = @user_id;
 -- Set the student's cover colorway. The 4-value CHECK is enforced by the column;
 -- the handler validates against cards.ValidTheme before calling.
 UPDATE users SET card_theme = @card_theme WHERE id = @user_id;
+
+-- name: SetUserAvatarColor :exec
+-- Persists the student's chosen accent preset id into the existing
+-- avatar_color column. The handler validates against the 8-preset allowlist
+-- before calling; no CHECK constraint on this column.
+UPDATE users SET avatar_color = @avatar_color WHERE id = @user_id;
