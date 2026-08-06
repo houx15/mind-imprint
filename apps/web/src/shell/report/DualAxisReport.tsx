@@ -1,51 +1,80 @@
+import { Check } from "lucide-react";
 import type { DualAxisReport as DualAxisReportT } from "@mind-imprint/contracts";
+import { Badge, Card, Icon } from "@/ui";
 
-// Shared visual language: white card / #EAECF2 border / 16px radius / 22-24px
-// padding, matching apps/web/src/shell/courses/CourseReport.tsx. This
-// component renders the canonical assessment object (Spec B): D6 depth axis
-// (L1–L4|NA, no subtotal) + A6 autonomy axis (0–5 behavior-count band,
+// Shared visual language: `Card` (design-system object card — bg-mk-surface /
+// shadow-mk-md / 10px radius) stacked with a 16px top gap, matching every
+// other restyled shell surface (HomePage/ToolkitCards). This component
+// renders the canonical assessment object (Spec B): D6 depth axis (L1–L4|NA,
+// no subtotal) + A6 autonomy axis (0–5 behavior-count band,
 // opportunity-gated) + 6-lens prompt telemetry + interaction evidence +
 // guidance, with an optional project-surface superset (officialProjection +
 // workAndProcess). RL-5: the two axes never compose into a total score —
 // the only percentage anywhere is officialProjection.readiness.score, and its
 // note always disclaims composition. 证据地图 is deferred (Spec D).
+//
+// COLOR ENCODING (data, not chrome — see `Chip` below): the two axes get two
+// distinct macarons so they're never confusable at a glance — depth = peach,
+// autonomy = mist (also reused for the AI-interaction prompt-lens telemetry,
+// which reads as a process/autonomy-adjacent signal, not a third axis).
+// Missed-opportunity is warning (amber); the generic cross-axis "signal" tag
+// on interaction evidence is info (blue); the round-number marker is accent
+// (vermilion) as the one "current/emphasis" highlight. Everything else
+// (surfaces, borders, body text) is neutral chrome tokens.
 
-const CARD_STYLE: React.CSSProperties = { background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "22px 24px", marginTop: 16 };
-const SECTION_TITLE_STYLE: React.CSSProperties = { fontSize: 15, fontWeight: 800, color: "#1C2333", marginBottom: 14 };
-const SUB_TITLE_STYLE: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: "#1C2333", margin: "14px 0 10px" };
+/** Join truthy class fragments with a single space; drops falsy/empty ones. */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
 
-function CheckIcon({ color }: { color: string }) {
+type ChipTone = "depth" | "autonomy" | "warning" | "info" | "neutral";
+
+const CHIP_TONES: Record<ChipTone, string> = {
+  depth: "bg-mk-peach-bg text-mk-peach-fg",
+  autonomy: "bg-mk-mist-bg text-mk-mist-fg",
+  warning: "bg-mk-warning-bg text-mk-warning",
+  info: "bg-mk-info-bg text-mk-info",
+  neutral: "bg-mk-paper text-mk-muted",
+};
+
+function Chip({ tone, italic, children }: { tone: ChipTone; italic?: boolean; children: React.ReactNode }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+    <span className={cx("rounded-mk-full px-2.5 py-0.5 text-mk-small font-bold", CHIP_TONES[tone], italic && "italic")}>
+      {children}
+    </span>
   );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <div className="mb-3.5 text-mk-h3 text-mk-ink">{children}</div>;
+}
+
+function SubTitle({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2.5 mt-3.5 text-mk-small font-bold text-mk-ink">{children}</div>;
 }
 
 function DepthLevelBadge({ level, levelRange }: { level: DualAxisReportT["depthAxis"][number]["level"]; levelRange?: string }) {
   if (level === "NA") {
-    return (
-      <span style={{ fontSize: 12, fontWeight: 700, color: "#8A92A3", background: "#F1F2F6", padding: "2px 10px", borderRadius: 999, fontStyle: "italic" }}>
-        暂无可计入的证据
-      </span>
-    );
+    return <Chip tone="neutral" italic>暂无可计入的证据</Chip>;
   }
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "#D98263", background: "#FBEEE7", padding: "2px 10px", borderRadius: 999 }}>{level}</span>
-      {levelRange ? <span style={{ fontSize: 11.5, color: "#8A92A3" }}>区间 {levelRange}</span> : null}
+    <span className="inline-flex items-center gap-1.5">
+      <Chip tone="depth">{level}</Chip>
+      {levelRange ? <span className="text-mk-caption text-mk-muted">区间 {levelRange}</span> : null}
     </span>
   );
 }
 
 function DepthDimCard({ d }: { d: DualAxisReportT["depthAxis"][number] }) {
   return (
-    <article style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{d.name}</span>
+    <article className="border-b border-mk-border py-2.5">
+      <header className="mb-1.5 flex flex-wrap items-center justify-between gap-2.5">
+        <span className="text-mk-body font-bold text-mk-ink">{d.name}</span>
         <DepthLevelBadge level={d.level} levelRange={d.levelRange} />
       </header>
-      <p style={{ fontSize: 12.5, color: "#8A92A3", margin: 0 }}>{d.evidence}</p>
+      <p className="m-0 text-mk-small text-mk-muted">{d.evidence}</p>
       {d.promptEvidence ? (
-        <p style={{ fontSize: 12, color: "#6B7384", margin: "4px 0 0" }}>提示词证据：{d.promptEvidence}</p>
+        <p className="m-0 mt-1 text-mk-small text-mk-secondary">提示词证据：{d.promptEvidence}</p>
       ) : null}
     </article>
   );
@@ -55,25 +84,21 @@ function AutonomySignalCard({ a }: { a: DualAxisReportT["autonomyAxis"][number] 
   const notSupplied = a.opportunity === "not_supplied";
   const missed = a.opportunity === "given_not_taken";
   return (
-    <article style={{ padding: "11px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2333" }}>{a.name}</span>
+    <article className="border-b border-mk-border py-2.5">
+      <header className="mb-1.5 flex flex-wrap items-center justify-between gap-2.5">
+        <span className="text-mk-body font-bold text-mk-ink">{a.name}</span>
         {notSupplied ? (
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#8A92A3", background: "#F1F2F6", padding: "2px 10px", borderRadius: 999, fontStyle: "italic" }}>
-            暂无·机会未提供
-          </span>
+          <Chip tone="neutral" italic>暂无·机会未提供</Chip>
         ) : (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 10px", borderRadius: 999 }}>Lv {a.level}</span>
-            {missed ? (
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#B0682A", background: "#F7ECDD", padding: "2px 10px", borderRadius: 999 }}>机会已给·未接住</span>
-            ) : null}
+          <span className="inline-flex items-center gap-1.5">
+            <Chip tone="autonomy">Lv {a.level}</Chip>
+            {missed ? <Chip tone="warning">机会已给·未接住</Chip> : null}
           </span>
         )}
       </header>
-      <p style={{ fontSize: 12.5, color: "#8A92A3", margin: 0 }}>{a.evidence}</p>
+      <p className="m-0 text-mk-small text-mk-muted">{a.evidence}</p>
       {a.promptEvidence ? (
-        <p style={{ fontSize: 12, color: "#6B7384", margin: "4px 0 0" }}>提示词证据：{a.promptEvidence}</p>
+        <p className="m-0 mt-1 text-mk-small text-mk-secondary">提示词证据：{a.promptEvidence}</p>
       ) : null}
     </article>
   );
@@ -81,21 +106,21 @@ function AutonomySignalCard({ a }: { a: DualAxisReportT["autonomyAxis"][number] 
 
 function LensStatCard({ s }: { s: DualAxisReportT["promptLens"]["stats"][number] }) {
   return (
-    <div data-testid="lens-stat-card" style={{ fontSize: 12.5, color: "#2B3346", background: "#F3F4F7", padding: "10px 14px", borderRadius: 12, flex: "1 1 160px" }}>
-      <div style={{ fontSize: 11.5, color: "#8A92A3", fontWeight: 700 }}>{s.label}</div>
-      <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2 }}>{s.value}</div>
+    <div data-testid="lens-stat-card" className="flex-[1_1_160px] rounded-mk-md bg-mk-paper px-3.5 py-2.5 text-mk-small text-mk-ink">
+      <div className="text-mk-caption text-mk-muted">{s.label}</div>
+      <div className="mt-0.5 text-mk-h3 text-mk-ink">{s.value}</div>
     </div>
   );
 }
 
 function LensCard({ l }: { l: DualAxisReportT["promptLens"]["lenses"][number] }) {
   return (
-    <article data-testid="lens-card" style={{ padding: "10px 0", borderBottom: "1px solid #F3F4F7" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 10 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{l.name}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 10px", borderRadius: 999 }}>Lv {l.level}</span>
+    <article data-testid="lens-card" className="border-b border-mk-border py-2.5">
+      <header className="mb-1 flex items-center justify-between gap-2.5">
+        <span className="text-mk-body font-bold text-mk-ink">{l.name}</span>
+        <Chip tone="autonomy">Lv {l.level}</Chip>
       </header>
-      <p style={{ fontSize: 12.5, color: "#8A92A3", margin: 0 }}>{l.evidence}</p>
+      <p className="m-0 text-mk-small text-mk-muted">{l.evidence}</p>
     </article>
   );
 }
@@ -104,121 +129,121 @@ export function DualAxisReport({ report }: { report: DualAxisReportT }) {
   const { depthAxis, autonomyAxis, promptLens, interactionEvidence, guidance, narrative, axiom, officialProjection, workAndProcess } = report;
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
+    <div className="mx-auto max-w-[760px]">
       {/* 总览 */}
-      <div style={{ background: "linear-gradient(135deg,#2A3B7A 0%,#34468C 100%)", borderRadius: 20, padding: "28px 30px", boxShadow: "0 10px 30px rgba(42,59,122,.20)" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "#AEB8E4" }}>思维印记 · 双轴成长报告</div>
-        <p style={{ fontSize: 13.5, color: "#DCE1F5", marginTop: 14, lineHeight: 1.6 }}>{narrative}</p>
-        <p style={{ fontSize: 12, color: "#AEB8E4", marginTop: 10, lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,.16)", paddingTop: 10 }}>{axiom}</p>
+      <div className="rounded-mk-md bg-mk-ink px-7 py-7 shadow-mk-md">
+        <div className="text-mk-label text-white/70">思维印记 · 双轴成长报告</div>
+        <p className="mt-3.5 text-mk-small leading-relaxed text-white/85">{narrative}</p>
+        <p className="mt-2.5 border-t border-white/15 pt-2.5 text-mk-caption leading-relaxed text-white/70">{axiom}</p>
       </div>
 
       {/* D 轴 · 认知深度 */}
-      <div style={CARD_STYLE}>
-        <div style={SECTION_TITLE_STYLE}>认知深度</div>
+      <Card className="mt-4 p-6">
+        <SectionTitle>认知深度</SectionTitle>
         {depthAxis.map((d) => <DepthDimCard key={d.code} d={d} />)}
-      </div>
+      </Card>
 
       {/* A 轴 · 智识自主 */}
-      <div style={CARD_STYLE}>
-        <div style={SECTION_TITLE_STYLE}>智识自主</div>
+      <Card className="mt-4 p-6">
+        <SectionTitle>智识自主</SectionTitle>
         {autonomyAxis.map((a) => <AutonomySignalCard key={a.code} a={a} />)}
-      </div>
+      </Card>
 
       {/* 提示词透镜 */}
-      <div style={CARD_STYLE}>
-        <div style={SECTION_TITLE_STYLE}>提示词透镜</div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+      <Card className="mt-4 p-6">
+        <SectionTitle>提示词透镜</SectionTitle>
+        <div className="mb-3.5 flex flex-wrap gap-2.5">
           {promptLens.stats.map((s, i) => <LensStatCard key={i} s={s} />)}
         </div>
         {promptLens.lenses.map((l) => <LensCard key={l.code} l={l} />)}
-        <p style={{ fontSize: 12, color: "#8A92A3", margin: "12px 0 0", lineHeight: 1.6 }}>{promptLens.note}</p>
-      </div>
+        <p className="m-0 mt-3 text-mk-caption leading-relaxed text-mk-muted">{promptLens.note}</p>
+      </Card>
 
       {/* 交互证据 */}
-      <div style={CARD_STYLE}>
-        <div style={SECTION_TITLE_STYLE}>交互证据</div>
+      <Card className="mt-4 p-6">
+        <SectionTitle>交互证据</SectionTitle>
         {interactionEvidence.map((row) => (
-          <article key={row.round} style={{ padding: "10px 0", borderBottom: "1px solid #F3F4F7" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#D98263", marginBottom: 4 }}>R{row.round}</div>
-            <blockquote style={{ fontSize: 13, color: "#2B3346", margin: "0 0 6px", padding: "8px 12px", background: "#F8F9FC", borderLeft: "3px solid #E1E4ED" }}>{row.student}</blockquote>
-            <p style={{ fontSize: 12.5, color: "#6B7384", margin: "0 0 4px" }}>{row.aiSummary}</p>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#2A3B7A", background: "#EDEFF9", padding: "2px 8px", borderRadius: 999 }}>{row.signal}</span>
+          <article key={row.round} className="border-b border-mk-border py-2.5">
+            <Badge tone="progress" className="mb-1">R{row.round}</Badge>
+            <blockquote className="m-0 mb-1.5 border-l-2 border-mk-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink">{row.student}</blockquote>
+            <p className="m-0 mb-1 text-mk-small text-mk-secondary">{row.aiSummary}</p>
+            <Chip tone="info">{row.signal}</Chip>
           </article>
         ))}
-      </div>
+      </Card>
 
       {/* 下一步 */}
-      <div style={CARD_STYLE}>
-        <div style={SECTION_TITLE_STYLE}>下一步</div>
+      <Card className="mt-4 p-6">
+        <SectionTitle>下一步</SectionTitle>
         {guidance.nextSteps.map((n, i) => (
-          <article key={i} style={{ padding: "8px 0", borderTop: i > 0 ? "1px solid #F3F4F7" : undefined }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2333" }}>{n.title}</div>
-            <p style={{ fontSize: 13, color: "#2B3346", margin: "4px 0 0" }}>{n.task}</p>
+          <article key={i} className={cx("py-2", i > 0 && "border-t border-mk-border")}>
+            <div className="text-mk-body font-bold text-mk-ink">{n.title}</div>
+            <p className="m-0 mt-1 text-mk-body text-mk-secondary">{n.task}</p>
           </article>
         ))}
-      </div>
+      </Card>
 
       {/* 官方投影 — project surface only */}
       {officialProjection ? (
-        <div style={CARD_STYLE}>
-          <div style={SECTION_TITLE_STYLE}>官方投影</div>
-          <div style={{ fontSize: 12.5, color: "#8A92A3", marginBottom: 10 }}>对标 {officialProjection.standard.name}</div>
+        <Card className="mt-4 p-6">
+          <SectionTitle>官方投影</SectionTitle>
+          <div className="mb-2.5 text-mk-small text-mk-muted">对标 {officialProjection.standard.name}</div>
 
-          <div style={SUB_TITLE_STYLE}>档位判定</div>
+          <SubTitle>档位判定</SubTitle>
           {officialProjection.components.map((c, i) => (
-            <article key={i} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F7" }}>
-              <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{c.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#D98263", background: "#FBEEE7", padding: "2px 10px", borderRadius: 999 }}>{c.judgement}</span>
+            <article key={i} className="border-b border-mk-border py-2">
+              <header className="flex flex-wrap items-center justify-between gap-2.5">
+                <span className="text-mk-body font-bold text-mk-ink">{c.name}</span>
+                <Chip tone="depth">{c.judgement}</Chip>
               </header>
-              <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "4px 0 0" }}>{c.reason}</p>
+              <p className="m-0 mt-1 text-mk-small text-mk-muted">{c.reason}</p>
             </article>
           ))}
 
-          <div style={SUB_TITLE_STYLE}>对齐情况</div>
+          <SubTitle>对齐情况</SubTitle>
           {officialProjection.alignment.map((row, i) => (
-            <article key={i} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F7" }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{row.item}</div>
-              <p style={{ fontSize: 12.5, color: "#6B7384", margin: "3px 0 0" }}>要求：{row.standard}</p>
-              <p style={{ fontSize: 12.5, color: "#2B3346", margin: "3px 0 0" }}>表现：{row.performance}</p>
-              <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "3px 0 0" }}>影响：{row.impact}</p>
+            <article key={i} className="border-b border-mk-border py-2">
+              <div className="text-mk-body font-bold text-mk-ink">{row.item}</div>
+              <p className="m-0 mt-0.5 text-mk-small text-mk-secondary">要求：{row.standard}</p>
+              <p className="m-0 mt-0.5 text-mk-small text-mk-ink">表现：{row.performance}</p>
+              <p className="m-0 mt-0.5 text-mk-small text-mk-muted">影响：{row.impact}</p>
             </article>
           ))}
 
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F3F4F7", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#1C2333" }}>{officialProjection.readiness.score} / 100</div>
-            <p style={{ fontSize: 12.5, color: "#8A92A3", margin: 0, flex: "1 1 240px" }}>{officialProjection.readiness.note}</p>
+          <div className="mt-3.5 flex flex-wrap items-center gap-4 border-t border-mk-border pt-3.5">
+            <div className="text-mk-h1 text-mk-ink">{officialProjection.readiness.score} / 100</div>
+            <p className="m-0 flex-[1_1_240px] text-mk-small text-mk-muted">{officialProjection.readiness.note}</p>
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {/* 作品与过程 — project surface only. 证据地图 is deferred (Spec D). */}
       {workAndProcess ? (
-        <div style={CARD_STYLE}>
-          <div style={SECTION_TITLE_STYLE}>作品与过程</div>
+        <Card className="mt-4 p-6">
+          <SectionTitle>作品与过程</SectionTitle>
 
-          <div style={SUB_TITLE_STYLE}>作品片段</div>
+          <SubTitle>作品片段</SubTitle>
           {workAndProcess.workSamples.map((w, i) => (
-            <article key={i} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F7" }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{w.title}</div>
-              <p style={{ fontSize: 13, color: "#2B3346", margin: "4px 0 0", lineHeight: 1.6 }}>{w.text}</p>
+            <article key={i} className="border-b border-mk-border py-2">
+              <div className="text-mk-body font-bold text-mk-ink">{w.title}</div>
+              <p className="m-0 mt-1 text-mk-body leading-relaxed text-mk-secondary">{w.text}</p>
             </article>
           ))}
 
-          <div style={SUB_TITLE_STYLE}>过程材料</div>
+          <SubTitle>过程材料</SubTitle>
           {workAndProcess.processMaterials.map((m, i) => (
-            <article key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderBottom: "1px solid #F3F4F7" }}>
-              {m.status === "完成" ? <CheckIcon color="#4C9A82" /> : <span style={{ width: 14 }} />}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>{m.name}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#6B7384", background: "#F1F2F6", padding: "1px 8px", borderRadius: 999 }}>{m.status}</span>
+            <article key={i} className="flex items-start gap-2.5 border-b border-mk-border py-2">
+              {m.status === "完成" ? <Icon icon={Check} size={14} className="mt-0.5 shrink-0 text-mk-success" /> : <span className="w-3.5 shrink-0" />}
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-mk-body font-bold text-mk-ink">{m.name}</span>
+                  <Chip tone="neutral">{m.status}</Chip>
                 </div>
-                <p style={{ fontSize: 12.5, color: "#8A92A3", margin: "3px 0 0" }}>{m.diagnosis}</p>
+                <p className="m-0 mt-0.5 text-mk-small text-mk-muted">{m.diagnosis}</p>
               </div>
             </article>
           ))}
-        </div>
+        </Card>
       ) : null}
     </div>
   );
