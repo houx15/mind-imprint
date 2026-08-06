@@ -29,8 +29,8 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 const RECENT_LIMIT = 6;
-const TILE_W = "w-[152px]";
-const TILE_H = "h-[176px]";
+const TILE_W = "w-[260px]";
+const TILE_H = "h-[264px]";
 
 // Mirrors workspace/Directory.tsx's STATUS_META labels (the one other place
 // project lifecycle status is shown to a student) so the wording never drifts
@@ -84,8 +84,8 @@ function ProjectTile({ project, onClick }: { project: ProjectListItem; onClick: 
       }}
       className={cx(TILE_W, TILE_H, "shrink-0 cursor-pointer")}
     >
-      <Card className="flex h-full w-full flex-col gap-2 p-3">
-        <div className="h-[84px] w-full shrink-0 rounded-mk-sm" style={coverGradientStyle(project.title || project.id)} />
+      <Card className="flex h-full w-full flex-col gap-2 p-4">
+        <div className="h-[120px] w-full shrink-0 rounded-mk-sm" style={coverGradientStyle(project.title || project.id)} />
         <div className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink">{project.title || "未命名项目"}</div>
         <Badge tone={STATUS_TONE[project.status]} className="self-start">
           {STATUS_LABEL[project.status]}
