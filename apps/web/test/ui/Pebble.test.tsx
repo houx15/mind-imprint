@@ -34,6 +34,12 @@ describe("Pebble", () => {
     expect(container.querySelector(".mk-pebble-ring2")).toBeInTheDocument();
   });
 
+  it("state='processing' never renders catchlights, even above 28px (matches mockup's proc block)", () => {
+    const { container } = render(<Pebble state="processing" size={56} />);
+    expect(container.querySelector(".mk-pebble-ring2")).toBeInTheDocument();
+    expect(container.querySelectorAll("circle[fill='#fff']").length).toBe(0);
+  });
+
   it("state='thinking' renders the pulse ring and blinking eyes", () => {
     const { container } = render(<Pebble state="thinking" />);
     expect(container.querySelector(".mk-pebble-ring")).toBeInTheDocument();

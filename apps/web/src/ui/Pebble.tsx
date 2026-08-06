@@ -101,6 +101,13 @@ export function Pebble({ state = "idle", size = 28 }: PebbleProps) {
           <ellipse cx="25" cy="20.4" rx={rx} ry={ry} fill={EYE_FILL} />
           {withCatchlights && <circle cx="24.4" cy="19.4" r=".75" fill="#fff" />}
         </g>
+      ) : state === "processing" ? (
+        <>
+          {/* Mockup's proc block omits catchlights at every size (unlike
+              idle/thinking/generating, which keep them above 28px). */}
+          <ellipse cx="16" cy="21" rx={rx} ry={ry} fill={EYE_FILL} />
+          <ellipse cx="25" cy="20.4" rx={rx} ry={ry} fill={EYE_FILL} />
+        </>
       ) : state === "thinking" ? (
         <>
           <ellipse className="mk-pebble-eye" cx="16" cy="19" rx={rx} ry={ry} fill={EYE_FILL} />
