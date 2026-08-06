@@ -39,7 +39,7 @@ function hasSource(state: GraphState, slotId: string): boolean {
 
 function CheckIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A3B7A" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mk-accent)" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M20 6L9 17l-5-5" />
     </svg>
   );
@@ -92,16 +92,19 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
         const text = textOf(state, slot.id);
         const done = hasText(state, slot.id) && (!slot.needSrc || hasSource(state, slot.id));
         const statusLabel = done ? "✓ 已写" : slot.needSrc ? "待写 · 需素材" : "待写";
-        const statusColor = done ? "#4C9A82" : "#B8892F";
-        const statusBg = done ? "#E7F3EE" : "#FBF4E2";
+        // done/pending is a genuine 2-state semantic distinction (done vs.
+        // still-needed), not an arbitrary category — success/warning tokens,
+        // not macarons.
+        const statusColor = done ? "var(--mk-success)" : "var(--mk-warning)";
+        const statusBg = done ? "var(--mk-success-bg)" : "var(--mk-warning-bg)";
         const selectedSources = sourcesOf(state, slot.id);
 
         return (
           <div
             key={slot.id}
             style={{
-              background: "#fff",
-              border: "1px solid " + (active ? "#C4CCE8" : done ? "#DDEAE3" : "#EAECF2"),
+              background: "var(--mk-surface)",
+              border: "1px solid " + (active ? "var(--mk-accent-200)" : done ? "var(--mk-success-bg)" : "var(--mk-border)"),
               borderRadius: 14,
               padding: active ? "16px 18px" : "13px 16px",
               marginBottom: 11,
@@ -116,39 +119,39 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
               }}
               style={{ display: "flex", alignItems: "center", gap: 8, cursor: active ? "default" : "pointer" }}
             >
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#5B6373", background: "#F3F4F7", padding: "3px 10px", borderRadius: 999 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-secondary)", background: "var(--mk-paper)", padding: "3px 10px", borderRadius: 999 }}>
                 {slot.role}
               </span>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: statusColor, background: statusBg, padding: "3px 10px", borderRadius: 999 }}>
                 {statusLabel}
               </span>
               {slot.needSrc && (
-                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#5B6BB5" }}>{selectedSources.length} 条素材</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "var(--mk-info)" }}>{selectedSources.length} 条素材</span>
               )}
             </div>
 
             {!active && (
-              <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: text.trim() ? "#2B3346" : "#AEB4C2" }}>
+              <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: text.trim() ? "var(--mk-ink)" : "var(--mk-faint)" }}>
                 {text.trim() || "轻点展开，选素材、写这一步"}
               </div>
             )}
 
             {active && (
               <>
-                <div style={{ marginTop: 13, marginBottom: 14, fontSize: 13, lineHeight: 1.6, color: "#5B6373", background: "#F7F8FB", border: "1px solid #EEF0F5", borderRadius: 10, padding: "9px 12px" }}>
+                <div style={{ marginTop: 13, marginBottom: 14, fontSize: 13, lineHeight: 1.6, color: "var(--mk-secondary)", background: "var(--mk-paper)", border: "1px solid var(--mk-border)", borderRadius: 10, padding: "9px 12px" }}>
                   {slot.q}
                 </div>
 
                 {slot.needSrc && (
                   <>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0", marginBottom: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--mk-muted)", marginBottom: 8 }}>
                       ① 选择相关素材（信源评估里已锁定的）
                     </div>
                     {lockedSources.length === 0 ? (
                       // A slot with no offered sources at all can never satisfy needSrc
                       // (StudioAnnotateCard's dead-button-explanation pattern) — say why
                       // instead of leaving an empty picker unexplained.
-                      <div style={{ marginBottom: 14, fontSize: 12, lineHeight: 1.6, color: "#C96F4F" }}>
+                      <div style={{ marginBottom: 14, fontSize: 12, lineHeight: 1.6, color: "var(--mk-warning)" }}>
                         还没有锁定的素材可选——先去信源评估锁一条，再回来接上这一步。
                       </div>
                     ) : (
@@ -169,9 +172,9 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
                                 cursor: "pointer",
                                 padding: "7px 11px",
                                 borderRadius: 9,
-                                color: on ? "#2A3B7A" : "#6B7384",
-                                background: on ? "#EDEFF9" : "#F4F5F8",
-                                border: "1px solid " + (on ? "#C4CCE8" : "#E7E9F0"),
+                                color: on ? "var(--mk-accent)" : "var(--mk-secondary)",
+                                background: on ? "var(--mk-accent-50)" : "var(--mk-paper)",
+                                border: "1px solid " + (on ? "var(--mk-accent-200)" : "var(--mk-border)"),
                                 fontFamily: "inherit",
                               }}
                             >
@@ -185,7 +188,7 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
                   </>
                 )}
 
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA1B0", margin: "6px 0 6px" }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--mk-muted)", margin: "6px 0 6px" }}>
                   {slot.needSrc && "② "}基于素材，把这一步写成句子
                 </div>
                 <textarea
@@ -195,13 +198,13 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
                   placeholder="用你自己的话写……"
                   style={{
                     width: "100%",
-                    border: "1px solid #E1E4ED",
+                    border: "1px solid var(--mk-input-border)",
                     borderRadius: 10,
                     padding: "10px 12px",
                     fontSize: 13.5,
                     lineHeight: 1.65,
-                    color: "#1C2333",
-                    background: "#fff",
+                    color: "var(--mk-ink)",
+                    background: "var(--mk-surface)",
                     outline: "none",
                     resize: "vertical",
                     fontFamily: "inherit",
@@ -217,7 +220,7 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
         <button
           type="button"
           onClick={onSkip}
-          style={{ background: "none", border: "none", color: "#C2557A", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
+          style={{ background: "none", border: "none", color: "var(--mk-faint)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}
         >
           跳过这张卡
         </button>
@@ -235,9 +238,9 @@ export function Graph({ slots, state, lockedSources, onChange, onLock, onSkip }:
             opacity: canLock ? 1 : 0.5,
             padding: "9px 15px",
             borderRadius: 10,
-            color: "#fff",
-            background: "#2A3B7A",
-            border: "1px solid #2A3B7A",
+            color: "var(--mk-surface)",
+            background: "var(--mk-accent)",
+            border: "1px solid var(--mk-accent)",
             fontFamily: "inherit",
           }}
         >

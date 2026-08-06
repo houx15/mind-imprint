@@ -238,7 +238,7 @@ export function MaterialsSidebar({
         type="button"
         onClick={() => setOpen(true)}
         style={{ left: pos.x, top: pos.y }}
-        className="absolute z-30 flex items-center gap-1.5 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[12.5px] font-bold text-mk-primary shadow-[0_4px_16px_rgba(28,35,51,0.12)] hover:bg-mk-primary-tint"
+        className="absolute z-30 flex items-center gap-1.5 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[12.5px] font-bold text-mk-accent shadow-mk-md hover:bg-mk-accent-50"
       >
         <Icon name="reading" size={14} /> 材料
       </button>
@@ -248,20 +248,20 @@ export function MaterialsSidebar({
   return (
     <div
       style={{ left: pos.x, top: pos.y }}
-      className="absolute z-30 flex max-h-[80%] w-[300px] flex-col overflow-hidden rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_8px_32px_rgba(28,35,51,0.18)]"
+      className="absolute z-30 flex max-h-[80%] w-[300px] flex-col overflow-hidden rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg"
     >
       <header
         onPointerDown={onHeaderPointerDown}
         onPointerMove={onHeaderPointerMove}
         onPointerUp={onHeaderPointerUp}
-        className="flex flex-none cursor-grab items-center justify-between border-b border-mk-border bg-mk-bg/60 px-3 py-2 active:cursor-grabbing"
+        className="flex flex-none cursor-grab items-center justify-between border-b border-mk-border bg-mk-paper/60 px-3 py-2 active:cursor-grabbing"
       >
-        <div className="flex items-center gap-1.5 text-mk-primary">
+        <div className="flex items-center gap-1.5 text-mk-accent">
           <Icon name="reading" size={14} />
           <span className="text-[13px] font-bold">材料</span>
-          <span className="text-[11px] font-semibold text-mk-muted-2">拖动可移动</span>
+          <span className="text-[11px] font-semibold text-mk-faint">拖动可移动</span>
         </div>
-        <button type="button" onClick={() => setOpen(false)} className="text-[15px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
+        <button type="button" onClick={() => setOpen(false)} className="text-[15px] leading-none text-mk-faint hover:text-mk-ink">×</button>
       </header>
 
       {/* #9 · source switcher — browse materials, the outline, or your snippets.
@@ -275,7 +275,7 @@ export function MaterialsSidebar({
       {locked && (
         // review M1 · archived project — browse-only, so no place buttons flash a
         // false "已插入" on a draft that can't change.
-        <p className="flex-none border-b border-mk-border bg-mk-bg/60 px-3 py-1.5 text-[11.5px] font-semibold text-mk-muted-2">已归档 · 只读浏览</p>
+        <p className="flex-none border-b border-mk-border bg-mk-paper/60 px-3 py-1.5 text-[11.5px] font-semibold text-mk-faint">已归档 · 只读浏览</p>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
@@ -292,7 +292,7 @@ export function MaterialsSidebar({
                   value={effMatFilter}
                   onChange={(e) => setMatFilter(e.target.value)}
                   aria-label="按线索筛选材料"
-                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
                 >
                   <option value="__all__">全部线索</option>
                   {leadOptions.map((o) => (
@@ -308,27 +308,27 @@ export function MaterialsSidebar({
                 const isOpen = expanded === r.id;
                 const chunks = referenceChunks(r);
                 return (
-                  <div key={r.id} className="rounded-mk border border-mk-border">
+                  <div key={r.id} className="rounded-mk-md border border-mk-border">
                     <button
                       type="button"
                       onClick={() => setExpanded((e) => (e === r.id ? null : r.id))}
                       className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left"
                     >
-                      <span className={`transition ${isOpen ? "rotate-90" : ""} text-mk-muted-2`}>▸</span>
+                      <span className={`transition ${isOpen ? "rotate-90" : ""} text-mk-faint`}>▸</span>
                       <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-mk-ink">{r.title || "未命名来源"}</span>
-                      {r.credibility && <span className="flex-none rounded bg-mk-bg px-1.5 py-0.5 text-[10px] font-bold text-mk-muted-2">{CRED_LABEL[r.credibility]}</span>}
+                      {r.credibility && <span className="flex-none rounded bg-mk-paper px-1.5 py-0.5 text-[10px] font-bold text-mk-faint">{CRED_LABEL[r.credibility]}</span>}
                     </button>
                     {isOpen && (
                       <div className="border-t border-mk-border px-2.5 py-2">
                         {chunks.length === 0 ? (
-                          <p className="text-[12px] text-mk-muted-2">这篇还没有笔记或归纳——去阅读室读一读。</p>
+                          <p className="text-[12px] text-mk-faint">这篇还没有笔记或归纳——去阅读室读一读。</p>
                         ) : (
                           <div className="flex flex-col gap-2">
                             {chunks.map((c, i) => {
                               const key = `${r.id}:${i}`;
                               return (
-                                <div key={key} className="rounded bg-mk-bg/50 p-2">
-                                  <div className="text-[10px] font-bold uppercase tracking-wide text-mk-muted-2">{c.label}</div>
+                                <div key={key} className="rounded bg-mk-paper/50 p-2">
+                                  <div className="text-[10px] font-bold uppercase tracking-wide text-mk-faint">{c.label}</div>
                                   <div className="mt-0.5 text-[12.5px] leading-relaxed text-mk-ink">{c.text}</div>
                                   {!locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label={actionLabel} onClick={() => place(c.text, key)} />}
                                 </div>
@@ -354,7 +354,7 @@ export function MaterialsSidebar({
                     <button
                       type="button"
                       onClick={importOutline}
-                      className="rounded-mk border border-mk-primary/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
+                      className="rounded-mk-md border border-mk-accent/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
                     >
                       {placed === "import-outline" ? "已导入 ✓" : "把大纲导入正文（作为标题）"}
                     </button>
@@ -365,7 +365,7 @@ export function MaterialsSidebar({
                   <button
                     type="button"
                     onClick={importOutlineGroups}
-                    className="rounded-mk border border-mk-primary/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint"
+                    className="rounded-mk-md border border-mk-accent/40 px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
                   >
                     {alreadyImported || placed === "import-outline-groups" ? "已导入为片段分组 ✓" : "把大纲导入为片段分组"}
                   </button>
@@ -379,7 +379,7 @@ export function MaterialsSidebar({
               {outline.filter((n) => n.text.trim()).map((n) => {
                 const key = `o:${n.id}`;
                 return (
-                  <div key={key} className="rounded bg-mk-bg/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
+                  <div key={key} className="rounded bg-mk-paper/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{n.text}</div>
                     {toDraft && !locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label="插入正文" onClick={() => place(n.text, key)} />}
                   </div>
@@ -405,7 +405,7 @@ export function MaterialsSidebar({
                   value={effFilter}
                   onChange={(e) => setSnipFilter(e.target.value)}
                   aria-label="按分类筛选片段"
-                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                  className="mb-1 rounded border border-mk-border bg-mk-surface px-2 py-1 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
                 >
                   <option value="__all__">全部分类</option>
                   {cats.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -415,8 +415,8 @@ export function MaterialsSidebar({
               {filtered.map((s) => {
                 const key = `s:${s.id}`;
                 return (
-                  <div key={key} className="rounded bg-mk-bg/50 p-2">
-                    {s.section && <div className="mb-0.5 truncate text-[10px] font-bold text-mk-primary">{s.section}</div>}
+                  <div key={key} className="rounded bg-mk-paper/50 p-2">
+                    {s.section && <div className="mb-0.5 truncate text-[10px] font-bold text-mk-accent">{s.section}</div>}
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{s.text}</div>
                     {/* in 片段 tab inserting a snippet into snippets is a no-op path;
                         only offer placing when it goes somewhere new (正文). */}
@@ -429,7 +429,7 @@ export function MaterialsSidebar({
         })()}
       </div>
       {toast && (
-        <div className="flex-none border-t border-mk-border bg-mk-primary-tint px-3 py-2 text-[11.5px] font-semibold text-mk-primary">{toast}</div>
+        <div className="flex-none border-t border-mk-border bg-mk-accent-50 px-3 py-2 text-[11.5px] font-semibold text-mk-accent">{toast}</div>
       )}
     </div>
   );
@@ -440,7 +440,7 @@ function SourceTab({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-mk px-2 py-1 text-[12px] font-bold transition ${active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:text-mk-ink"}`}
+      className={`flex-1 rounded-mk-md px-2 py-1 text-[12px] font-bold transition ${active ? "bg-mk-accent-50 text-mk-accent" : "text-mk-faint hover:text-mk-ink"}`}
     >
       {children}
     </button>
@@ -454,12 +454,12 @@ function PlaceButton({ done, inserted, label, onClick }: { done: boolean; insert
   return (
     <div className="mt-1 flex items-center justify-end gap-1.5">
       {inserted && !done && (
-        <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10px] font-bold text-mk-primary">已插入正文</span>
+        <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[10px] font-bold text-mk-accent">已插入正文</span>
       )}
       <button
         type="button"
         onClick={onClick}
-        className="rounded-full bg-mk-primary px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-mk-primary-hover"
+        className="rounded-full bg-mk-accent px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-mk-accent-600"
       >
         {done ? `已${label} ✓` : label}
       </button>
@@ -468,7 +468,7 @@ function PlaceButton({ done, inserted, label, onClick }: { done: boolean; insert
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-1 py-6 text-center text-[12.5px] text-mk-muted-2">{children}</p>;
+  return <p className="px-1 py-6 text-center text-[12.5px] text-mk-faint">{children}</p>;
 }
 
 // outlineToHeadings turns the flat depth list into Markdown headings the draft's

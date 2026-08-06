@@ -2,17 +2,16 @@ import { describe, it, expect } from "vitest";
 import { createSession, makeMemoryStorage, SESSION_KEY } from "@/shell/session";
 
 describe("createSession", () => {
-  it("defaults to logged-out with the default avatar", () => {
+  it("defaults to logged-out", () => {
     const s = createSession({ storage: makeMemoryStorage() });
-    expect(s.getSnapshot()).toEqual({ authed: false, aiAvatar: "#2A3B7A" });
+    expect(s.getSnapshot()).toEqual({ authed: false });
   });
-  it("persists authed + avatar across instances", () => {
+  it("persists authed across instances", () => {
     const storage = makeMemoryStorage();
     const a = createSession({ storage });
     a.setAuthed(true);
-    a.setAvatar("#D98263");
     const b = createSession({ storage });
-    expect(b.getSnapshot()).toEqual({ authed: true, aiAvatar: "#D98263" });
+    expect(b.getSnapshot()).toEqual({ authed: true });
   });
   it("returns a stable snapshot ref when nothing changes", () => {
     const s = createSession({ storage: makeMemoryStorage() });
@@ -32,7 +31,7 @@ describe("createSession", () => {
     const storage = makeMemoryStorage();
     storage.setItem(SESSION_KEY, "{not json");
     const s = createSession({ storage });
-    expect(s.getSnapshot()).toEqual({ authed: false, aiAvatar: "#2A3B7A" });
+    expect(s.getSnapshot()).toEqual({ authed: false });
   });
   it("setUser/getUser round-trips a MeUser and notifies subscribers", () => {
     const s = createSession({ storage: makeMemoryStorage() });

@@ -26,8 +26,9 @@ import {
 } from "./warrenLayout";
 
 // GVa · the Level-1 "兔子洞地图": a real, interactive React Flow graph of the
-// project's ROOT question nodes. Each root is a color-themed ELLIPSE (per-root
-// theme via warrenLayout), draggable, with zoom/pan and a fit-view. Clicking a
+// project's ROOT question nodes. Each root is a white card with a macaron
+// ordinal left bar (per-root theme via warrenLayout), draggable, with zoom/pan
+// and a fit-view. Clicking a
 // node zooms into that question's Level-2 view (the caller's job). Relations are
 // labeled edges — dragged node-to-node by the student, or proposed by 印记 and
 // confirmed by the student (铁律②: nothing auto-confirms).
@@ -38,8 +39,14 @@ import {
 // edge views only lean on trivially-mockable primitives (Handle, BaseEdge,
 // EdgeLabelRenderer, getBezierPath) and keep all real DOM in plain JSX.
 
-const EDGE_SOLID = "#2A3B7A"; // mk-primary — a confirmed relation
-const EDGE_DASHED = "#9AA1B0"; // mk-muted-2 — an as-yet-unconfirmed proposal
+// 铁律②: confirmed relations draw ink-solid; proposed (印记-suggested, not yet
+// confirmed) draw muted-dashed (spec §18). React Flow's edge `style` prop is
+// applied as a real inline `style` attribute (not an SVG presentation attr), so
+// `var(--mk-ink)` resolves fine at runtime — EDGE_DASHED is spec's own literal
+// `#C9BCAD` (no existing named token matches it exactly), kept as a documented
+// literal per the "restyle only, minimize hex" rule.
+const EDGE_SOLID = "var(--mk-ink)"; // confirmed relation
+const EDGE_DASHED = "#C9BCAD"; // proposed / unconfirmed — spec §18 literal
 
 // ---------- data threaded onto each React Flow node / edge ----------
 
@@ -59,38 +66,45 @@ type QuestionEdgeData = {
   onRelabel: (id: string, label: QuestionEdgeLabel) => void;
 };
 
-// ---------- custom ellipse node ----------
+// ---------- custom card node ----------
 
-function WarrenNodeView({ id, data }: NodeProps) {
+// selected comes straight off React Flow's NodeProps — it is the sole place a
+// question node reads accent (spec §18: accent is reserved for selection; the
+// per-root color is the macaron ordinal theme, never accent).
+function WarrenNodeView({ id, data, selected }: NodeProps) {
   const d = data as unknown as WarrenNodeData;
   const { text, paperCount, theme, onRequestDelete } = d;
   return (
     <div
-      className="group relative flex flex-col items-center justify-center text-center"
+      data-theme={theme.key}
+      data-selected={selected ? "true" : "false"}
+      className="group relative flex flex-col justify-center overflow-hidden border border-mk-border bg-mk-surface py-3 pl-5 pr-3"
       style={{
         width: 208,
         height: 104,
-        padding: "0 30px",
-        borderRadius: "50%",
-        border: `2px solid ${theme.border}`,
-        background: `linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
-        boxShadow: `0 8px 22px ${theme.glow}, inset 0 1px 0 rgba(255,255,255,0.65)`,
+        borderRadius: "var(--mk-radius-md)", // spec §18 L1 card radius 10
+        boxShadow: selected
+          ? "0 0 0 3px var(--mk-accent), var(--mk-shadow-sm)" // selection ring — accent, reserved for this
+          : "var(--mk-shadow-xs)",
         cursor: "pointer",
       }}
     >
+      {/* Macaron ordinal left bar — the only per-root color on the card. */}
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: theme.border }} />
+
       {/* Drag-connect handles: near-invisible until you hover the node, then a
           small colored dot you can grab and pull to another node. */}
       <Handle
         type="target"
         position={Position.Left}
         className="nodrag"
-        style={{ width: 9, height: 9, background: theme.border, border: "2px solid #fff", opacity: 0.35 }}
+        style={{ width: 9, height: 9, background: theme.border, border: "2px solid var(--mk-surface)", opacity: 0.35 }}
       />
       <Handle
         type="source"
         position={Position.Right}
         className="nodrag"
-        style={{ width: 9, height: 9, background: theme.border, border: "2px solid #fff", opacity: 0.35 }}
+        style={{ width: 9, height: 9, background: theme.border, border: "2px solid var(--mk-surface)", opacity: 0.35 }}
       />
 
       {/* × delete → confirm modal. nodrag + stopPropagation so it neither starts
@@ -99,7 +113,7 @@ function WarrenNodeView({ id, data }: NodeProps) {
         type="button"
         aria-label="删除这个问题"
         title="删除这个问题"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white/70 text-[13px] font-bold leading-none opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-white"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper/85 text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -110,7 +124,7 @@ function WarrenNodeView({ id, data }: NodeProps) {
       </button>
 
       <span
-        className="text-[12.5px] font-bold leading-snug"
+        className="text-[13px] font-semibold leading-snug"
         style={{
           color: theme.label,
           display: "-webkit-box",
@@ -121,9 +135,7 @@ function WarrenNodeView({ id, data }: NodeProps) {
       >
         {text}
       </span>
-      <span className="mt-1 text-[10.5px] font-bold" style={{ color: theme.label, opacity: 0.72 }}>
-        文献 {paperCount} 篇
-      </span>
+      <span className="mt-1 text-[10.5px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
     </div>
   );
 }
@@ -170,7 +182,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                 onClick={() => setPickerOpen((o) => !o)}
                 disabled={busy}
                 title="换一个关系词，或删除这条连线"
-                className="whitespace-nowrap rounded-full border border-mk-primary/40 bg-mk-surface px-2 py-0.5 text-[10.5px] font-bold text-mk-primary shadow-sm hover:border-mk-primary disabled:opacity-50"
+                className="whitespace-nowrap rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[10.5px] font-bold text-mk-accent shadow-sm hover:border-mk-accent disabled:opacity-50"
               >
                 {label}
               </button>
@@ -184,8 +196,8 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                         setPickerOpen(false);
                         onRelabel(id, l);
                       }}
-                      className={`block w-full rounded px-2 py-1 text-left text-[11.5px] font-semibold hover:bg-mk-primary-tint ${
-                        l === label ? "text-mk-primary" : "text-mk-ink"
+                      className={`block w-full rounded px-2 py-1 text-left text-[11.5px] font-semibold hover:bg-mk-accent-50 ${
+                        l === label ? "text-mk-accent" : "text-mk-ink"
                       }`}
                     >
                       {l}
@@ -197,7 +209,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                       setPickerOpen(false);
                       onDismiss(id);
                     }}
-                    className="mt-0.5 block w-full rounded border-t border-mk-border px-2 py-1 text-left text-[11.5px] font-semibold text-mk-muted hover:bg-mk-bg hover:text-mk-accent"
+                    className="mt-0.5 block w-full rounded border-t border-mk-border px-2 py-1 text-left text-[11.5px] font-semibold text-mk-muted hover:bg-mk-paper hover:text-mk-accent"
                   >
                     删除
                   </button>
@@ -206,8 +218,10 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
             </div>
           ) : (
             // Proposed (dashed): the label chip + 确认 / 忽略 (铁律②: student decides).
+            // Taro-colored (spec §18) — visually marks "印记提议" without a
+            // separate copy string, distinct from a confirmed relation's chip.
             <div className="flex flex-col items-center gap-1">
-              <span className="whitespace-nowrap rounded-full border border-dashed border-mk-muted-2/60 bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold text-mk-muted-2">
+              <span className="whitespace-nowrap rounded-full border border-dashed border-mk-taro/50 bg-mk-taro-bg px-1.5 py-0.5 text-[10px] font-bold text-mk-taro-fg">
                 {label}
               </span>
               <div className="flex items-center gap-1">
@@ -215,7 +229,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                   type="button"
                   onClick={() => onConfirm(id)}
                   disabled={busy}
-                  className="rounded-full bg-mk-green px-2 py-0.5 text-[10px] font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                  className="rounded-full bg-mk-success px-2 py-0.5 text-[10px] font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
                   确认
                 </button>
@@ -223,7 +237,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                   type="button"
                   onClick={() => onDismiss(id)}
                   disabled={busy}
-                  className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[10px] font-bold text-mk-muted-2 shadow-sm hover:text-mk-accent disabled:opacity-50"
+                  className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[10px] font-bold text-mk-faint shadow-sm hover:text-mk-accent disabled:opacity-50"
                 >
                   忽略
                 </button>
@@ -399,14 +413,14 @@ function WarrenMapInner({
           type="button"
           aria-label="这是什么"
           onClick={() => setHelpOpen((o) => !o)}
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[11px] font-bold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[11px] font-bold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
         >
           ?
         </button>
         {dupNote ? (
           <span className="ml-auto text-[11px] font-semibold text-mk-accent">{dupNote}</span>
         ) : (
-          <span className="ml-auto text-[11px] text-mk-muted-2">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
+          <span className="ml-auto text-[11px] text-mk-faint">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
         )}
         {helpOpen && (
           <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-mk border border-mk-border bg-mk-surface p-3 text-[12px] leading-relaxed text-mk-ink shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
@@ -415,7 +429,7 @@ function WarrenMapInner({
         )}
       </div>
 
-      <div className="relative min-h-[320px] w-full flex-1 overflow-hidden rounded-mk-lg border border-mk-border bg-mk-bg/50">
+      <div className="relative min-h-[320px] w-full flex-1 overflow-hidden rounded-mk-lg border border-mk-border bg-mk-paper">
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -432,7 +446,9 @@ function WarrenMapInner({
           proOptions={{ hideAttribution: true }}
           nodesConnectable
         >
-          <Background gap={22} size={1.4} color="#D8DCE8" />
+          {/* Warm paper dot grid (spec §18). React Flow's Background `color` prop
+              takes a literal, not a CSS var — #E7DDD0 is the spec's own value. */}
+          <Background gap={18} size={1.4} color="#E7DDD0" />
           <Controls showInteractive={false} />
         </ReactFlow>
 
@@ -453,7 +469,7 @@ function WarrenMapInner({
                       onCreateEdge(connectPending.from, connectPending.to, l);
                       setConnectPending(null);
                     }}
-                    className="rounded-mk px-2.5 py-1.5 text-left text-[12.5px] font-semibold text-mk-ink hover:bg-mk-primary-tint hover:text-mk-primary"
+                    className="rounded-mk px-2.5 py-1.5 text-left text-[12.5px] font-semibold text-mk-ink hover:bg-mk-accent-50 hover:text-mk-accent"
                   >
                     {l}
                   </button>
@@ -462,7 +478,7 @@ function WarrenMapInner({
               <button
                 type="button"
                 onClick={() => setConnectPending(null)}
-                className="mt-2 w-full rounded-mk border border-mk-border px-2.5 py-1.5 text-[12px] font-bold text-mk-muted-2 hover:text-mk-ink"
+                className="mt-2 w-full rounded-mk border border-mk-border px-2.5 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-ink"
               >
                 取消
               </button>
@@ -480,12 +496,12 @@ function WarrenMapInner({
           >
             <p className="text-[13.5px] font-bold text-mk-ink">删除这个问题？</p>
             {deleteText && <p className="mt-1 text-[12.5px] text-mk-muted line-clamp-2">「{deleteText}」</p>}
-            <p className="mt-1.5 text-[12px] leading-relaxed text-mk-muted-2">下面挖到的文献也会一起移除，这一步不能撤销。</p>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-mk-faint">下面挖到的文献也会一起移除，这一步不能撤销。</p>
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-muted-2 hover:text-mk-ink"
+                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-ink"
               >
                 取消
               </button>
@@ -495,7 +511,7 @@ function WarrenMapInner({
                   onDeleteLead(deleteTarget.id);
                   setDeleteTarget(null);
                 }}
-                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-hover"
+                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600"
               >
                 删除
               </button>

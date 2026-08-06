@@ -1,0 +1,63 @@
+<h2>圆角尺度 · 收紧版（工具感）</h2>
+<p class="subtitle">对齐 Notion 8–12 / Linear 8 / Figma 8 / Arc 12——工作台就该更「方正」一点。8px 是主力，最大 12。下面是新尺度＋几个组件按新圆角重绘的样子。</p>
+
+<style>
+  .radrow { display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end; margin:6px 0 10px; }
+  .rad { text-align:center; }
+  .rad .box { width:64px; height:52px; background:#F6B26B; }
+  .rad .rl { font-size:12.5px; font-weight:700; color:#33302E; margin-top:8px; }
+  .rad .rt { font-size:11px; color:#8A827A; margin-top:1px; }
+  .rad .rk { font-size:10px; color:#B0A599; margin-top:2px; font-family:ui-monospace,monospace; }
+
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-top:18px; }
+  .sheet h3 { margin:0 0 14px; font-size:15px; color:#33302E; }
+  .demo { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+
+  .pcard { background:#fff; border-radius:10px; overflow:hidden; width:190px; box-shadow:0 5px 16px rgba(80,50,50,.10); }
+  .pcard .cover { height:80px; background:linear-gradient(120deg,#F6B26B,#E896A6); }
+  .pcard .body { padding:12px 13px; }
+  .pcard .title { font-size:13.5px; font-weight:650; color:#33302E; line-height:1.3; }
+  .pcard .meta { font-size:11px; color:#8A827A; margin-top:5px; }
+
+  .b { font-size:13px; font-weight:650; border-radius:8px; padding:9px 16px; display:inline-block; }
+  .tool { width:120px; border-radius:8px; padding:11px; background:#E7F1DD; color:#4d6b3a; }
+  .tool .ti { font-size:12.5px; font-weight:700; }
+  .tool .td { font-size:10px; opacity:.7; margin-top:3px; }
+  .field { border:1.5px solid #EFE7DD; border-radius:6px; padding:9px 12px; font-size:12px; color:#9a908a; width:150px; }
+  .modal { background:#fff; border-radius:12px; width:230px; box-shadow:0 18px 44px rgba(50,30,30,.24); overflow:hidden; }
+  .modal .mh { padding:13px 16px; font-size:13.5px; font-weight:700; color:#33302E; border-bottom:1px solid #F0E9E1; }
+  .modal .mbd { padding:14px 16px; font-size:12px; color:#5a5049; line-height:1.55; }
+  .modal .mf { padding:11px 16px; display:flex; gap:9px; justify-content:flex-end; background:#FBF8F4; }
+  .mbtn { font-size:12px; font-weight:650; padding:7px 14px; border-radius:8px; }
+  .tag { font-size:11px; font-weight:600; padding:4px 11px; border-radius:999px; background:#FDEBE7; color:#C4362B; }
+</style>
+
+<div class="radrow">
+  <div class="rad"><div class="box" style="border-radius:6px;"></div><div class="rl">6px</div><div class="rt">输入框 / 小标签</div><div class="rk">radius-xs</div></div>
+  <div class="rad"><div class="box" style="border-radius:8px;"></div><div class="rl">8px ●</div><div class="rt">按钮 / 工具卡 / 描边卡</div><div class="rk">radius-sm</div></div>
+  <div class="rad"><div class="box" style="border-radius:10px;"></div><div class="rl">10px</div><div class="rt">项目卡 / 面板 / 气泡菜单</div><div class="rk">radius-md</div></div>
+  <div class="rad"><div class="box" style="border-radius:12px;"></div><div class="rl">12px</div><div class="rt">弹窗 / 抽屉 / 大容器</div><div class="rk">radius-lg</div></div>
+  <div class="rad"><div class="box" style="border-radius:999px; width:52px;"></div><div class="rl">full</div><div class="rt">药丸 / 头像</div><div class="rk">radius-full</div></div>
+</div>
+<p class="subtitle" style="margin:0;">● 8px 是主力。比之前更方正、更像 Linear/Figma 那类工具。</p>
+
+<div class="sheet">
+  <h3>按新圆角重绘</h3>
+  <div class="demo">
+    <div class="pcard"><div class="cover"></div><div class="body"><div class="title">中国是否让地球更可持续？</div><div class="meta">阅读 · 3 篇文献 · 2 天前</div></div></div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <span class="b" style="background:#EA5140; color:#fff;">开始写作</span>
+      <span class="b" style="background:#fff; color:#CE3A2B; box-shadow:inset 0 0 0 1.5px #F1A99E;">回顾过程</span>
+      <div class="field">说说你的想法…</div>
+    </div>
+    <div class="tool"><div class="ti">CRAAP 溯源</div><div class="td">给来源做可信度体检</div></div>
+    <div class="modal">
+      <div class="mh">删除这个项目？</div>
+      <div class="mbd">过程记录会一并删除，无法恢复。</div>
+      <div class="mf"><span class="mbtn" style="background:#fff; color:#5a5049; box-shadow:inset 0 0 0 1.5px #EFE7DD;">取消</span><span class="mbtn" style="background:#D64541; color:#fff;">删除</span></div>
+    </div>
+    <span class="tag">进行中</span>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:14px;">👉 这个收紧后的尺度对了吗？（想更方还能整体再 −2。）确认后，我把整套设计系统——配色 / accent 个性化 / 字体 / 按钮 / 表面四级 / <strong>这版圆角</strong> / 间距 / 卡片 / 列表布局 / 弹层 / 语义色——写成正式 spec 锁进 docs。</p>

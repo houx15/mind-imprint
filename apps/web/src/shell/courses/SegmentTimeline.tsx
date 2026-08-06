@@ -113,12 +113,12 @@ function SegmentBlock({ segment, assets }: { segment: RenderSegment; assets: Cou
         aria-label="板书"
         style={{
           marginBottom: 20,
-          background: "linear-gradient(135deg,#1C2333 0%,#2A3B7A 100%)",
+          background: "linear-gradient(135deg,var(--mk-ink) 0%,var(--mk-accent-600) 100%)",
           borderRadius: 16,
           padding: "20px 22px",
         }}
       >
-        {segment.text && <p style={{ margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.7, color: "#D8DCEE" }}>{segment.text}</p>}
+        {segment.text && <p style={{ margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.7, color: "rgba(255,255,255,.75)" }}>{segment.text}</p>}
         {items.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`, gap: 12 }}>
             {items.map((item, index) => (
@@ -127,11 +127,11 @@ function SegmentBlock({ segment, assets }: { segment: RenderSegment; assets: Cou
                 style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 14px" }}
               >
                 {item.label && (
-                  <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "#B7C1E8", letterSpacing: ".03em", marginBottom: 6 }}>
+                  <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.62)", letterSpacing: ".03em", marginBottom: 6 }}>
                     {item.label}
                   </span>
                 )}
-                {item.text && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: "#fff" }}>{item.text}</p>}
+                {item.text && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: "var(--mk-surface)" }}>{item.text}</p>}
               </div>
             ))}
           </div>
@@ -144,7 +144,7 @@ function SegmentBlock({ segment, assets }: { segment: RenderSegment; assets: Cou
 
   return (
     <section style={{ marginBottom: 20 }}>
-      {before && <p style={{ margin: "0 0 12px", fontSize: 15.5, lineHeight: 1.85, color: "#2B3346" }}>{before}</p>}
+      {before && <p style={{ margin: "0 0 12px", fontSize: 15.5, lineHeight: 1.85, color: "var(--mk-ink)" }}>{before}</p>}
       {assets.length > 0 && (
         <div style={{ display: "flex", flexDirection: assets.length > 1 ? "row" : "column", gap: 12, margin: "0 0 12px", flexWrap: "wrap" }}>
           {assets.map((asset) => (
@@ -154,7 +154,7 @@ function SegmentBlock({ segment, assets }: { segment: RenderSegment; assets: Cou
           ))}
         </div>
       )}
-      {after && <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.85, color: "#2B3346" }}>{after}</p>}
+      {after && <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.85, color: "var(--mk-ink)" }}>{after}</p>}
     </section>
   );
 }
@@ -230,9 +230,9 @@ function InteractionBlock({
 
   return (
     <section
-      style={{ marginBottom: 20, background: "#fff", border: "1px solid #ECEEF3", borderRadius: 14, padding: "16px 18px" }}
+      style={{ marginBottom: 20, background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 14, padding: "16px 18px" }}
     >
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333", marginBottom: 12 }}>{interaction.prompt}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)", marginBottom: 12 }}>{interaction.prompt}</div>
 
       {isOrdering ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -240,19 +240,19 @@ function InteractionBlock({
             <div
               key={optionId}
               style={{
-                display: "flex", alignItems: "center", gap: 10, border: "1px solid #E1E4ED", borderRadius: 10,
-                padding: "9px 12px", background: submitted ? "#F6F7FA" : "#fff",
+                display: "flex", alignItems: "center", gap: 10, border: "1px solid var(--mk-input-border)", borderRadius: 10,
+                padding: "9px 12px", background: submitted ? "var(--mk-paper)" : "var(--mk-surface)",
               }}
             >
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: "#6B7384", width: 18 }}>{index + 1}.</span>
-              <span style={{ flex: 1, fontSize: 14, color: "#1C2333" }}>{optionById.get(optionId) || optionId}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mk-secondary)", width: 18 }}>{index + 1}.</span>
+              <span style={{ flex: 1, fontSize: 14, color: "var(--mk-ink)" }}>{optionById.get(optionId) || optionId}</span>
               <button
                 type="button"
                 aria-label="上移"
                 disabled={submitted || index === 0}
                 onClick={() => moveOption(index, -1)}
                 style={{
-                  border: "1px solid #E1E4ED", background: "#fff", borderRadius: 6, width: 26, height: 26,
+                  border: "1px solid var(--mk-input-border)", background: "var(--mk-surface)", borderRadius: 6, width: 26, height: 26,
                   cursor: submitted || index === 0 ? "default" : "pointer", opacity: submitted || index === 0 ? 0.4 : 1,
                 }}
               >
@@ -264,7 +264,7 @@ function InteractionBlock({
                 disabled={submitted || index === order.length - 1}
                 onClick={() => moveOption(index, 1)}
                 style={{
-                  border: "1px solid #E1E4ED", background: "#fff", borderRadius: 6, width: 26, height: 26,
+                  border: "1px solid var(--mk-input-border)", background: "var(--mk-surface)", borderRadius: 6, width: 26, height: 26,
                   cursor: submitted || index === order.length - 1 ? "default" : "pointer",
                   opacity: submitted || index === order.length - 1 ? 0.4 : 1,
                 }}
@@ -280,24 +280,24 @@ function InteractionBlock({
             const isSelected = selected.includes(option.id);
             const isCorrectOption = correctAnswer.includes(option.id);
             let indicator = "";
-            let color = "#1C2333";
-            let border = "#E1E4ED";
-            let background = "#fff";
+            let color = "var(--mk-ink)";
+            let border = "var(--mk-input-border)";
+            let background = "var(--mk-surface)";
             if (submitted) {
               if (isCorrectOption) {
                 indicator = " ✓";
-                color = "#2B4A3E";
-                border = "#D3E9DF";
-                background = "#E7F3EE";
+                color = "var(--mk-matcha-fg)";
+                border = "var(--mk-success-bg)";
+                background = "var(--mk-success-bg)";
               } else if (isSelected) {
                 indicator = " ✗";
-                color = "#7A3B2E";
-                border = "#F3D9CE";
-                background = "#FBEEE7";
+                color = "var(--mk-danger)";
+                border = "var(--mk-danger-bg)";
+                background = "var(--mk-danger-bg)";
               }
             } else if (isSelected) {
-              border = "#2A3B7A";
-              background = "#EDEFF9";
+              border = "var(--mk-accent-500)";
+              background = "var(--mk-accent-50)";
             }
             return (
               <button
@@ -324,7 +324,7 @@ function InteractionBlock({
           disabled={!canSubmit}
           onClick={handleSubmit}
           style={{
-            marginTop: 12, background: canSubmit ? "#2A3B7A" : "#C7CBDA", color: "#fff", border: "none",
+            marginTop: 12, background: canSubmit ? "var(--mk-accent-500)" : "var(--mk-faint)", color: "var(--mk-surface)", border: "none",
             padding: "9px 16px", borderRadius: 9, fontSize: 13.5, fontWeight: 700,
             cursor: canSubmit ? "pointer" : "default", fontFamily: "inherit",
           }}
@@ -334,8 +334,8 @@ function InteractionBlock({
       ) : (
         <div
           style={{
-            marginTop: 12, background: correct ? "#E7F3EE" : "#FBEEE7", border: `1px solid ${correct ? "#D3E9DF" : "#F3D9CE"}`,
-            borderRadius: 10, padding: "11px 14px", fontSize: 13.5, lineHeight: 1.7, color: correct ? "#2B4A3E" : "#7A3B2E",
+            marginTop: 12, background: correct ? "var(--mk-success-bg)" : "var(--mk-danger-bg)", border: `1px solid ${correct ? "var(--mk-success-bg)" : "var(--mk-danger-bg)"}`,
+            borderRadius: 10, padding: "11px 14px", fontSize: 13.5, lineHeight: 1.7, color: correct ? "var(--mk-matcha-fg)" : "var(--mk-danger)",
           }}
         >
           <div style={{ fontWeight: 700, marginBottom: interaction.explanation ? 4 : 0 }}>{correct ? "✓ 回答正确" : "✗ 再想想"}</div>
@@ -394,7 +394,7 @@ export function SegmentTimeline({
         return <SegmentBlock key={item.key} segment={item.segment} assets={assets} />;
       })}
       {hasMore && (
-        <div aria-hidden="true" style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, color: "#AEB4C2", padding: "6px 0 18px" }}>
+        <div aria-hidden="true" style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, color: "var(--mk-faint)", padding: "6px 0 18px" }}>
           点击页面任意处继续 ↓
         </div>
       )}

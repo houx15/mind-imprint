@@ -24,10 +24,10 @@ export function SourceLog({ sources }: SourceLogProps) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1C2333" }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mk-ink)" }}>
         检索日志 · 已记录 {logged.length} 条
       </div>
-      <div style={{ fontSize: 12, color: "#8A93A6", marginTop: 2, marginBottom: 10 }}>
+      <div style={{ fontSize: 12, color: "var(--mk-muted)", marginTop: 2, marginBottom: 10 }}>
         每一条你打开过的来源都在这里——引用只能从这里来。
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -35,8 +35,8 @@ export function SourceLog({ sources }: SourceLogProps) {
           <div
             key={source.id}
             style={{
-              background: "#fff",
-              border: "1px solid #E4E6EE",
+              background: "var(--mk-surface)",
+              border: "1px solid var(--mk-border)",
               borderRadius: 12,
               padding: "10px 13px",
             }}
@@ -47,12 +47,12 @@ export function SourceLog({ sources }: SourceLogProps) {
                   href={source.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: 13, fontWeight: 700, color: "#1C2333", textDecoration: "none" }}
+                  style={{ fontSize: 13, fontWeight: 700, color: "var(--mk-ink)", textDecoration: "none" }}
                 >
                   {source.title}
                 </a>
               ) : (
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#1C2333" }}>{source.title}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mk-ink)" }}>{source.title}</span>
               )}
               {source.tier !== "" && (
                 <span
@@ -61,15 +61,15 @@ export function SourceLog({ sources }: SourceLogProps) {
                     fontWeight: 700,
                     padding: "2px 9px",
                     borderRadius: 999,
-                    background: "#F1F2F6",
-                    color: "#5A6178",
+                    background: "var(--mk-paper)",
+                    color: "var(--mk-secondary)",
                   }}
                 >
                   {source.tier}
                 </span>
               )}
               {readingMinutesLabel(source.timeSpentS) && (
-                <span style={{ fontSize: 11.5, color: "#8A93A6" }}>{readingMinutesLabel(source.timeSpentS)}</span>
+                <span style={{ fontSize: 11.5, color: "var(--mk-muted)" }}>{readingMinutesLabel(source.timeSpentS)}</span>
               )}
               {/* A fact about what happened (a cross_check mint flipped this
                   source's own log entry), never a credibility verdict. */}
@@ -80,8 +80,8 @@ export function SourceLog({ sources }: SourceLogProps) {
                     fontWeight: 700,
                     padding: "2px 9px",
                     borderRadius: 999,
-                    background: "#EAE4F7",
-                    color: "#5C4A8A",
+                    background: "var(--mk-taro-bg)",
+                    color: "var(--mk-taro-fg)",
                   }}
                 >
                   已横向核查
@@ -89,7 +89,7 @@ export function SourceLog({ sources }: SourceLogProps) {
               )}
             </div>
             {source.takeaway !== "" && (
-              <div style={{ fontSize: 12.5, color: "#5A6178", marginTop: 6, lineHeight: 1.5 }}>{source.takeaway}</div>
+              <div style={{ fontSize: 12.5, color: "var(--mk-secondary)", marginTop: 6, lineHeight: 1.5 }}>{source.takeaway}</div>
             )}
           </div>
         ))}

@@ -37,10 +37,15 @@ export type AnnotateProps = {
   referencedBlockIds?: string[];
 };
 
+// Three distinct macarons for a genuine 3-way category (who authored this
+// span), not one accent collapsed across all of them (色彩纪律): AI-authored
+// → taro (matches the app's other reading-annotation chrome, e.g.
+// HangingCard's taro treatment), student-authored → matcha, imported →
+// butter.
 const AUTHOR_MARK_STYLE: Record<"ai" | "student" | "imported", { background: string; border: string }> = {
-  ai: { background: "#F0ECF8", border: "#7C6BB5" },
-  student: { background: "#EAF3EE", border: "#4E9A6F" },
-  imported: { background: "#F3F0E8", border: "#B79A4C" },
+  ai: { background: "var(--mk-taro-bg)", border: "var(--mk-taro)" },
+  student: { background: "var(--mk-matcha-bg)", border: "var(--mk-matcha)" },
+  imported: { background: "var(--mk-butter-bg)", border: "var(--mk-butter)" },
 };
 
 export function Annotate({
@@ -109,13 +114,13 @@ export function Annotate({
             justifyContent: "space-between",
             gap: 10,
             marginBottom: 12,
-            background: "#F7F5FB",
-            border: "1px solid #E3DCF2",
+            background: "var(--mk-accent-50)",
+            border: "1px solid var(--mk-accent-200)",
             borderRadius: 10,
             padding: "9px 13px",
           }}
         >
-          <span style={{ fontSize: 13, color: "#5C4A8A" }}>
+          <span style={{ fontSize: 13, color: "var(--mk-accent-700)" }}>
             在文章里选出你要用来回答「{selectMode.dimension}」的那句话
           </span>
           <button
@@ -123,7 +128,7 @@ export function Annotate({
             onClick={selectMode.onCancel}
             style={{
               fontSize: 12.5,
-              color: "#8A90A3",
+              color: "var(--mk-faint)",
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -152,11 +157,11 @@ export function Annotate({
                 style={{
                   fontSize: 15,
                   lineHeight: 2.1,
-                  color: "#2B3346",
+                  color: "var(--mk-ink)",
                   margin: "0 0 14px",
                   padding: referenced ? "2px 10px" : "2px 0",
-                  borderLeft: referenced ? "3px solid #5C4A8A" : "3px solid transparent",
-                  background: referenced ? "#F7F5FB" : "transparent",
+                  borderLeft: referenced ? "3px solid var(--mk-accent)" : "3px solid transparent",
+                  background: referenced ? "var(--mk-accent-50)" : "transparent",
                   borderRadius: referenced ? 4 : 0,
                   cursor: selectMode || referenceEnabled ? "pointer" : "default",
                   transition: "background 0.14s ease, border-color 0.14s ease",
@@ -189,7 +194,7 @@ export function Annotate({
                       }}
                       style={{
                         background: tone.background,
-                        color: "#1C2333",
+                        color: "var(--mk-ink)",
                         borderBottom: `2px solid ${tone.border}`,
                         borderRadius: 3,
                         padding: "1px 2px",
@@ -210,9 +215,9 @@ export function Annotate({
       </div>
 
       {activeSpan && (
-        <div style={{ marginTop: 14, background: "#F7F5FB", border: "1px solid #E3DCF2", borderRadius: 12, padding: "13px 15px" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#5C4A8A", marginBottom: 6 }}>{activeSpan.tag}</div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#3A4256" }}>{activeSpan.note}</div>
+        <div style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
         </div>
       )}
     </div>

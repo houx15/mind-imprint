@@ -2,50 +2,167 @@ import { useEffect, useRef, useState } from "react";
 import type { ProjectStatus } from "@mind-imprint/contracts";
 import { api } from "../api";
 import type { ProjectListItem } from "../api/projects";
-import { Icon } from "./Icon";
+import { CreateProjectDrawer } from "./CreateProjectDrawer";
+import {
+  Card,
+  Badge,
+  type BadgeTone,
+  Menu,
+  IconButton,
+  Icon,
+  Plus,
+  MoreHorizontal,
+  SkeletonCard,
+  EmptyState,
+  coverGradientStyle,
+} from "../ui";
 
-// The status pill shown on each project row. The lifecycle is derived server-
-// side (forming → working → evaluating → done); the tints read at a glance.
-const STATUS_META: Record<ProjectStatus, { label: string; cls: string }> = {
-  forming: { label: "立题中", cls: "bg-mk-bg text-mk-muted" },
-  working: { label: "进行中", cls: "bg-mk-primary-tint text-mk-primary" },
-  evaluating: { label: "评估中", cls: "bg-mk-amber/15 text-mk-amber animate-pulse" },
-  done: { label: "已完成", cls: "bg-mk-green-tint text-mk-green" },
-};
-
-// #1: the project TYPE is picked from a selector (not typed). The value is a
-// display label shown as the project pill; it does not change the board.
-const PROJECT_TYPES = ["拓展论文 EE", "TOK 论文", "内部评估 IA", "EPQ", "个人项目", "其他"];
-
-// #4: the essay's target writing language. Students on the international track
-// ultimately write in English, so it leads and is the default.
-const WRITING_LANGS: { value: "en" | "zh" | "bilingual"; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "zh", label: "中文" },
-  { value: "bilingual", label: "双语" },
-];
-
-// Derive a readable project title from the first line of the assignment prompt
-// — the refined research question is sharpened later, in forming.
-function titleFromPrompt(prompt: string): string {
-  const firstLine = prompt.split("\n").map((s) => s.trim()).find((s) => s.length > 0) ?? "";
-  return [...firstLine].slice(0, 60).join("");
+/** Join truthy class fragments with a single space; drops falsy/empty ones. */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
 }
 
-// The all-projects home: the student's list of workspaces + a create form.
-// Opening a row (or a fresh create) hands the id up to WorkspaceContainer,
-// which swaps the directory for the four-room shell. Each row shows its
-// lifecycle status; while any project is "评估中" the list polls so it flips to
-// "已完成 · 查看评估报告" without a manual refresh.
-export function Directory({ onOpen, onViewReport }: { onOpen: (id: string) => void; onViewReport?: (id: string) => void }) {
+// The status badge shown on each project card. The lifecycle is derived
+// server-side (forming → working → evaluating → done); labels mirror
+// shell/home/HomePage.tsx's STATUS_LABEL/STATUS_TONE so the wording and tint
+// never drift between the home snapshot and this full list.
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  forming: "立题中",
+  working: "进行中",
+  evaluating: "评估中",
+  done: "已完成",
+};
+
+const STATUS_TONE: Record<ProjectStatus, BadgeTone> = {
+  forming: "draft",
+  working: "progress",
+  evaluating: "pending",
+  done: "done",
+};
+
+function NewProjectTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-mk-md border border-dashed border-mk-border text-mk-muted",
+        "transition-colors duration-[120ms] ease-mk hover:border-mk-accent hover:text-mk-accent-600",
+        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+      )}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-mk-full bg-mk-accent-50 text-mk-accent-600">
+        <Icon icon={Plus} size={18} />
+      </span>
+      <span className="text-mk-body font-medium">新建项目</span>
+    </button>
+  );
+}
+
+function ProjectCard({
+  project,
+  onOpen,
+  onViewReport,
+}: {
+  project: ProjectListItem;
+  onOpen: () => void;
+  onViewReport?: (id: string) => void;
+}) {
+  // The only action that exists today on a project card is the done-status
+  // "查看评估报告" deep-link — no rename/archive/delete backend exists yet,
+  // so the overflow menu simply doesn't render for any other status rather
+  // than offering actions that would silently do nothing.
+  const showMenu = project.status === "done" && Boolean(onViewReport);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        // Only act when the card itself is the focused/keydown target, not a
+        // descendant (the ⋯ menu's own trigger button, an <input> inside a
+        // future field, etc.) — otherwise Enter/Space on the menu trigger
+        // both bubbles up into "open the project" AND has its own native
+        // button activation suppressed by this handler's preventDefault.
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group h-full cursor-pointer"
+    >
+      <Card className="relative flex h-full flex-col gap-2 p-3">
+        <div className="relative h-[84px] w-full shrink-0 overflow-hidden rounded-mk-sm" style={coverGradientStyle(project.title || project.id)}>
+          <Badge tone={STATUS_TONE[project.status]} className="absolute left-2 top-2">
+            {STATUS_LABEL[project.status]}
+          </Badge>
+        </div>
+
+        {showMenu && (
+          <div
+            className="absolute right-2 top-2 opacity-0 transition-opacity duration-[120ms] ease-mk group-hover:opacity-100 group-focus-within:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <Menu
+              trigger={<IconButton icon={MoreHorizontal} label="更多操作" size="sm" variant="secondary" />}
+              items={[
+                {
+                  key: "report",
+                  label: "查看评估报告",
+                  onSelect: () => onViewReport?.(project.id),
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        <div className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink">{project.title || "未命名项目"}</div>
+        <div className="truncate text-mk-small text-mk-muted">
+          {project.qualLabel || "项目"}
+          {project.activeStation ? ` · ${project.activeStation}` : ""}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// The all-projects home: a gradient-cover card grid of the student's
+// workspaces, led by a dashed "新建" tile that opens the create drawer.
+// Opening a card (or a fresh create) hands the id up to WorkspaceContainer,
+// which swaps the directory for the four-room shell. While any project is
+// "评估中" the list polls so it flips to "已完成" (查看评估报告 in the
+// card's overflow menu) without a manual refresh.
+export function Directory({
+  onOpen,
+  onViewReport,
+  autoOpenCreate,
+  onAutoOpenCreateHandled,
+}: {
+  onOpen: (id: string) => void;
+  onViewReport?: (id: string) => void;
+  /** Open the create drawer as soon as this mounts (home's "新建" deep-link,
+   * Task 6) — read once, on mount, not tracked as a live toggle. */
+  autoOpenCreate?: boolean;
+  onAutoOpenCreateHandled?: () => void;
+}) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [projectType, setProjectType] = useState(PROJECT_TYPES[0]);
-  const [writingLang, setWritingLang] = useState<"en" | "zh" | "bilingual">("en");
-  const [creating, setCreating] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Mount-only: Directory itself unmounts/remounts each time the workspace
+  // swaps between the directory and an open project, so "on mount" already
+  // means "this specific open-request", with no live-toggle re-trigger risk.
+  useEffect(() => {
+    if (autoOpenCreate) {
+      setDrawerOpen(true);
+      onAutoOpenCreateHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,144 +195,46 @@ export function Directory({ onOpen, onViewReport }: { onOpen: (id: string) => vo
     };
   }, []);
 
-  async function handleCreate() {
-    const p = prompt.trim();
-    if (!p || creating) return;
-    setCreating(true);
-    setError(null);
-    try {
-      // Primary captured field is the assignment prompt (#1); the title is
-      // derived from it for the list, and the research question is sharpened
-      // later in forming. Type + writing language travel too (#1, #4).
-      const { id } = await api.createProject({
-        title: titleFromPrompt(p),
-        prompt: p,
-        projectType,
-        writingLanguage: writingLang,
-      });
-      onOpen(id);
-    } catch {
-      setError("创建失败，请重试");
-      setCreating(false);
-    }
+  function handleCreated(id: string) {
+    setDrawerOpen(false);
+    onOpen(id);
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 py-10 font-sans text-mk-ink">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-8 py-10 font-sans text-mk-ink">
       <header className="mb-6">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">你的项目</p>
-        <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">全部项目</h1>
-        <p className="mt-1.5 text-[14px] text-mk-muted">选一个继续，或开一个新项目——带着你真实的任务进来。</p>
+        <p className="text-mk-small font-semibold uppercase tracking-[0.18em] text-mk-faint">你的项目</p>
+        <h1 className="mt-1 text-mk-h1 text-mk-ink">全部项目</h1>
+        <p className="mt-1.5 text-mk-body text-mk-muted">选一个继续，或开一个新项目——带着你真实的任务进来。</p>
       </header>
 
-      {/* create form */}
-      <div className="mb-7 rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-[0_1px_3px_rgba(28,35,51,0.05)]">
-        <div className="mb-3 flex items-center gap-2 text-mk-primary">
-          <Icon name="spark" size={16} />
-          <span className="text-[13px] font-bold tracking-wide">新建项目</span>
-        </div>
-        <div className="flex flex-col gap-3">
-          {/* Row 1: project type + writing language selectors */}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex flex-1 flex-col gap-1">
-              <span className="text-[12px] font-semibold text-mk-muted-2">项目类型</span>
-              <select
-                value={projectType}
-                onChange={(e) => setProjectType(e.target.value)}
-                className="rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2.5 text-[14px] text-mk-ink outline-none focus:border-mk-primary"
-              >
-                {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-1 flex-col gap-1">
-              <span className="text-[12px] font-semibold text-mk-muted-2">写作语言</span>
-              <select
-                value={writingLang}
-                onChange={(e) => setWritingLang(e.target.value as "en" | "zh" | "bilingual")}
-                className="rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2.5 text-[14px] text-mk-ink outline-none focus:border-mk-primary"
-              >
-                {WRITING_LANGS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-            </label>
-          </div>
-          {/* Row 2: the assignment prompt — the primary field (#1) */}
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-semibold text-mk-muted-2">作业题目 / 提示</span>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              // Enter+Cmd/Ctrl submits; plain Enter is a newline so long, multi-
-              // line prompts paste cleanly. IME-safe.
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); handleCreate(); } }}
-              rows={3}
-              placeholder="贴上你的作业题目或提示，比如「Can we only understand something to the extent that we understand its context? Discuss with reference to two areas of knowledge.」"
-              className="min-h-[76px] resize-y rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-            />
-          </label>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[12px] text-mk-muted-2">研究问题不用现在就想好——进立题房间我陪你一部分一部分磨。</span>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={!prompt.trim() || creating}
-              className="flex flex-none items-center justify-center gap-2 rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition enabled:hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:bg-mk-input disabled:text-mk-muted-2"
-            >
-              {creating ? "创建中…" : "开始"}
-              {!creating && <Icon name="arrow" size={16} />}
-            </button>
-          </div>
-        </div>
-      </div>
+      {error && <div className="mb-4 rounded-mk-sm border border-mk-danger bg-mk-danger-bg px-4 py-2.5 text-mk-small font-semibold text-mk-danger">{error}</div>}
 
-      {error && <div className="mb-4 rounded-mk border border-mk-border bg-mk-accent-tint/40 px-4 py-2.5 text-[13px] font-semibold text-mk-accent">{error}</div>}
-
-      {/* list */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
-          <p className="py-10 text-center text-[13px] text-mk-muted-2">正在加载…</p>
-        ) : projects.length === 0 ? (
-          <div className="rounded-mk-lg border border-dashed border-mk-border px-6 py-12 text-center">
-            <p className="text-[14px] font-bold text-mk-ink">还没有项目</p>
-            <p className="mt-1.5 text-[13px] text-mk-muted-2">在上面贴上作业题目，开始你的第一个项目。</p>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
+        ) : projects.length === 0 ? (
+          <EmptyState
+            illustration="emptyProjects"
+            title="还没有项目"
+            body="在下面新建一个，贴上作业题目，开始你的第一个项目。"
+            action={{ label: "新建项目", onClick: () => setDrawerOpen(true) }}
+          />
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {projects.map((p) => {
-              const status = STATUS_META[p.status] ?? STATUS_META.working;
-              return (
-                <div
-                  key={p.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onOpen(p.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(p.id); } }}
-                  className="group flex cursor-pointer items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-4 text-left shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-bold text-mk-ink group-hover:text-mk-primary">{p.title || "未命名项目"}</p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span className="inline-block rounded-full bg-mk-primary-tint px-2.5 py-0.5 text-[11px] font-bold text-mk-primary">{p.qualLabel || "项目"}</span>
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.cls}`}>{status.label}</span>
-                    </div>
-                  </div>
-                  {p.status === "done" && onViewReport && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onViewReport(p.id); }}
-                      className="flex-none rounded-mk border border-mk-green/40 bg-mk-green-tint px-3 py-1.5 text-[12.5px] font-bold text-mk-green transition hover:bg-mk-green/20"
-                    >
-                      查看评估报告 →
-                    </button>
-                  )}
-                  <span className="flex-none text-mk-muted-2 transition group-hover:text-mk-primary">
-                    <Icon name="arrow" size={18} />
-                  </span>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+            <NewProjectTile onClick={() => setDrawerOpen(true)} />
+            {projects.map((p) => (
+              <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} />
+            ))}
           </div>
         )}
       </div>
+
+      <CreateProjectDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={handleCreated} />
     </div>
   );
 }

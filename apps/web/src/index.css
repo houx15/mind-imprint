@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* neutrals (fixed) */
+  --mk-paper:#FBF8F4; --mk-surface:#FFFFFF; --mk-border:#EFE7DD;
+  --mk-muted:#8A827A; --mk-secondary:#5A5049; --mk-faint:#B0A599;
+  --mk-ink:#33302E; --mk-input-border:#E4DACF;
+  /* accent scale (default 朱砂红; AccentProvider overrides these 9) */
+  --mk-accent-50:#FEF0ED; --mk-accent-100:#FBDAD3; --mk-accent-200:#F6A99D;
+  --mk-accent-300:#F2897A; --mk-accent-400:#EE6B58; --mk-accent-500:#EA5140;
+  --mk-accent-600:#CE3A2B; --mk-accent-700:#A72E22; --mk-accent-800:#7E231A;
+  --mk-accent:var(--mk-accent-500);
+  /* macaron (fixed) */
+  --mk-peach:#F6B26B;  --mk-peach-bg:#FDE7D3;  --mk-peach-fg:#9A5A22;
+  --mk-butter:#F2CE63; --mk-butter-bg:#FAF3DE; --mk-butter-fg:#8A6320;
+  --mk-matcha:#A6C88F; --mk-matcha-bg:#E7F1DD; --mk-matcha-fg:#4D6B3A;
+  --mk-lake:#6FBFB0;   --mk-lake-bg:#E0F0EC;   --mk-lake-fg:#177368;
+  --mk-mist:#7FA8D8;   --mk-mist-bg:#E6EEF9;   --mk-mist-fg:#3C5A86;
+  --mk-taro:#B49BD8;   --mk-taro-bg:#F0EAF6;   --mk-taro-fg:#5B4A80;
+  --mk-berry:#E896A6;  --mk-berry-bg:#FCE7EB;  --mk-berry-fg:#A63A50;
+  /* semantic (fixed) */
+  --mk-success:#5FA97E; --mk-success-bg:#E7F1DD;
+  --mk-warning:#E0A63A; --mk-warning-bg:#FBEFD6;
+  --mk-danger:#D64541;  --mk-danger-bg:#FBE3E1;
+  --mk-info:#4C7AB0;    --mk-info-bg:#EAF0F6;
+  /* radius / shadow / motion */
+  --mk-radius-xs:6px; --mk-radius-sm:8px; --mk-radius-md:10px; --mk-radius-lg:12px; --mk-radius-full:999px;
+  --mk-shadow-xs:0 1px 2px rgba(70,45,45,.06);
+  --mk-shadow-sm:0 2px 8px rgba(70,45,45,.08);
+  --mk-shadow-md:0 6px 18px rgba(70,45,45,.11);
+  --mk-shadow-lg:0 16px 40px rgba(45,28,28,.18);
+  --mk-ease:cubic-bezier(.2,0,0,1);
+  --mk-fast:120ms; --mk-base:200ms; --mk-slow:320ms;
+}
+body { background: var(--mk-paper); color: var(--mk-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",system-ui,sans-serif; }
+
+/* scrollbar: hidden until .scrolling on a scroll container (spec §6) */
+.mk-scroll { scrollbar-width: none; }
+.mk-scroll::-webkit-scrollbar { width:8px; height:8px; }
+.mk-scroll::-webkit-scrollbar-thumb { background:transparent; border-radius:999px; }
+.mk-scroll.scrolling::-webkit-scrollbar-thumb { background: var(--mk-accent-200); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
 /* The app shell sizes itself with height:100%, which only works if the full
    html→body→#root chain establishes a height. Without this, #root collapses to
    its content and pages (the directory, the workspace) render at half-height. */
@@ -29,4 +74,95 @@ body,
     opacity: 1;
     transform: translateY(-3px);
   }
+}
+
+/* Skeleton loader shimmer (spec §15). The global reduced-motion block above
+   already zeroes animation-duration, so this auto-stops for those users. */
+.mk-skeleton { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:200px 100%; animation:mk-shim 1.3s linear infinite; }
+@keyframes mk-shim { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+
+/* 豆豆 Pebble four states (spec §14). Keyframe values copied verbatim from
+   docs/design/design-system-mockups/pebble-states.html — do not re-derive.
+   Prefixed mk-pebble-* (rather than the mockup's bare .think/.gen/.proc/.done
+   class names) because `mk-pulse` already exists as a DIFFERENT keyframe in
+   ReadingRoom.css (thinking-dots bounce); @keyframes are global, so reusing
+   the bare name would silently reassign whichever definition loads last. The
+   global reduced-motion block above already neutralizes all of these. */
+.mk-pebble-eye, .mk-pebble-eyes { transform-box: fill-box; transform-origin: center; }
+.mk-pebble-eye { animation: mk-pebble-blink 3s infinite; }
+.mk-pebble-ring { transform-box: fill-box; transform-origin: center; animation: mk-pebble-pulse 1.8s ease-out infinite; }
+.mk-pebble-eyes { animation: mk-pebble-dart 1.4s ease-in-out infinite; }
+.mk-pebble-ring2 { transform-box: view-box; transform-origin: 20px 20px; animation: mk-pebble-spin .9s linear infinite; }
+.mk-pebble-done { animation: mk-pebble-pop 2.4s ease-in-out infinite; }
+
+@keyframes mk-pebble-blink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(.12)} }
+@keyframes mk-pebble-dart  { 0%,100%{transform:translateX(-1.3px)} 50%{transform:translateX(1.3px)} }
+@keyframes mk-pebble-pulse { 0%{transform:scale(.82);opacity:.5} 100%{transform:scale(1.32);opacity:0} }
+@keyframes mk-pebble-spin  { to{transform:rotate(360deg)} }
+@keyframes mk-pebble-pop   { 0%,100%{transform:scale(1)} 14%{transform:scale(1.09)} 30%{transform:scale(.99)} 44%{transform:scale(1)} }
+
+/* PebbleProgress (spec §15). Verbatim geometry/timing from
+   docs/design/design-system-mockups/pebble-progress-v2.html — 豆豆 rides ON
+   TOP of the accent fill bar. Rail/fill use the accent tokens (not the
+   mockup's literal red hexes) so the rider follows the student's chosen
+   accent, same as Pebble's body. Indeterminate (no `value`) loops
+   `mk-pebble-fill` + `mk-pebble-ride`; a known `value` is rendered as a
+   static width/left with no `mk-pebble-indeterminate` class applied. */
+.mk-pebble-progress { position:relative; height:52px; }
+.mk-pebble-progress-rail { position:absolute; left:0; right:0; bottom:0; height:12px; background:var(--mk-accent-100); border-radius:999px; }
+.mk-pebble-progress-fill { position:absolute; left:0; bottom:0; height:12px; background:var(--mk-accent-500); border-radius:999px; width:2%; }
+.mk-pebble-progress-rider { position:absolute; bottom:9px; left:-4px; width:32px; height:32px; }
+.mk-pebble-progress-rider-shadow { position:absolute; left:5px; right:5px; bottom:-2px; height:5px; background:rgba(150,40,30,.18); border-radius:50%; filter:blur(1px); }
+.mk-pebble-progress-fill.mk-pebble-indeterminate { animation:mk-pebble-fill 3.6s ease-out infinite; }
+.mk-pebble-progress-rider.mk-pebble-indeterminate { animation:mk-pebble-ride 3.6s ease-out infinite; }
+
+/* slim = thinner page-top variant (smaller bar + smaller 豆豆) */
+.mk-pebble-progress.mk-pebble-progress-slim { height:40px; }
+.mk-pebble-progress.mk-pebble-progress-slim .mk-pebble-progress-rail,
+.mk-pebble-progress.mk-pebble-progress-slim .mk-pebble-progress-fill { height:8px; }
+.mk-pebble-progress.mk-pebble-progress-slim .mk-pebble-progress-rider { width:24px; height:24px; bottom:6px; }
+
+@keyframes mk-pebble-fill {
+  0%{ width:2%; opacity:1; } 88%{ width:96%; } 96%{ width:100%; opacity:1; } 100%{ width:100%; opacity:0; }
+}
+@keyframes mk-pebble-ride {
+  0%   { left:-4px; transform:rotate(0deg); opacity:1; }
+  88%  { left:calc(96% - 28px); transform:rotate(600deg); }
+  96%  { left:calc(100% - 30px); transform:rotate(660deg); opacity:1; }
+  100% { left:calc(100% - 30px); transform:rotate(660deg); opacity:0; }
+}
+
+/* PebbleInlineSpinner: 豆豆 rolls in place. Reuses the `mk-pebble-spin`
+   keyframe defined above (plain rotate(360deg)) at a slower, linear 1s
+   cadence suited to standing alone as a button/inline spinner. */
+.mk-pebble-inline-spin { display:inline-block; animation:mk-pebble-spin 1s linear infinite; }
+
+/* RabbitHoleLoader (spec §15). Verbatim from
+   docs/design/design-system-mockups/pebble-rabbithole-v2.html — ground hole
+   (rim/dark/豆豆/lip z-order 1/2/3/4) + carrot; 豆豆 hops in and is occluded
+   by the front lip as it dives. */
+.mk-pebble-hole-scene { position:relative; width:230px; height:96px; margin:0 auto; }
+.mk-pebble-hole-ground { position:absolute; left:0; right:0; bottom:20px; height:2px; background:#E7DDD0; border-radius:2px; }
+.mk-pebble-hole-grass { position:absolute; bottom:20px; }
+.mk-pebble-hole-grass::before, .mk-pebble-hole-grass::after { content:""; position:absolute; bottom:0; width:3px; height:9px; background:#A6C88F; border-radius:999px; }
+.mk-pebble-hole-grass::before { left:-3px; transform:rotate(-16deg); }
+.mk-pebble-hole-grass::after { left:1px; transform:rotate(14deg); }
+.mk-pebble-hole-g1 { left:52px; }
+.mk-pebble-hole-g2 { left:96px; }
+.mk-pebble-hole-carrot { position:absolute; right:82px; bottom:16px; width:22px; height:38px; z-index:1; transform:rotate(-8deg); }
+.mk-pebble-hole-rim { position:absolute; right:18px; bottom:12px; width:64px; height:24px; background:radial-gradient(ellipse at 50% 35%, #E4C79E, #CBA877); border-radius:50%; z-index:1; }
+.mk-pebble-hole-dark { position:absolute; right:23px; bottom:16px; width:54px; height:18px; background:radial-gradient(ellipse at 50% 30%, #423a34, #17130f); border-radius:50%; z-index:2; }
+.mk-pebble-hole-lip { position:absolute; right:21px; bottom:10px; width:58px; height:13px; background:linear-gradient(#E8CDA0,#D3B184); border-radius:50%; z-index:4; }
+.mk-pebble-hole-dou { position:absolute; left:4px; bottom:22px; width:30px; height:30px; z-index:3; animation:mk-pebble-hop 2.9s ease-in-out infinite; transform-origin:center bottom; }
+.mk-pebble-hole-caption { font-size:13px; color:var(--mk-muted); margin-top:16px; text-align:center; }
+
+@keyframes mk-pebble-hop {
+  0%   { transform:translate(0,0) rotate(0deg); }
+  20%  { transform:translate(40px,-32px) rotate(70deg); }
+  38%  { transform:translate(80px,0) rotate(140deg); }
+  42%  { transform:translate(84px,2px) scaleY(.82) rotate(144deg); }
+  60%  { transform:translate(126px,-28px) rotate(215deg); }
+  80%  { transform:translate(160px,-2px) scale(.95) rotate(285deg); }
+  90%  { transform:translate(165px,9px) scale(.55) rotate(320deg); opacity:1; }
+  100% { transform:translate(167px,17px) scale(.24) rotate(340deg); opacity:0; }
 }

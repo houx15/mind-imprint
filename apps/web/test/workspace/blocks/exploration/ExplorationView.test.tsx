@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DigCandidate, ExplorationLead, QuestionEdge, Reference } from "@mind-imprint/contracts";
+import { MACARONS } from "@/ui/tokens";
 import { ExplorationView } from "@/workspace/blocks/exploration/ExplorationView";
 
 // GVa · the Level-1 map is now a React Flow graph. React Flow can't render in
@@ -399,14 +400,14 @@ describe("ExplorationView", () => {
     expect(mockDigExploration).not.toHaveBeenCalled();
   });
 
-  it("the MAP renders an ellipse node per root with its 文献 x 篇 paper tally", async () => {
+  it("the MAP renders a card node per root with its 文献 x 篇 paper tally", async () => {
     // ROOT_LEAD has one adopted paper (CHILD_PAPER); SECOND_ROOT has none.
     mockGetExploration.mockResolvedValue({
       leads: [ROOT_LEAD, CHILD_PAPER, SECOND_ROOT],
       danglingSourceIds: [],
       edges: [],
     });
-    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+    const { container } = render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
 
     // both roots show as map nodes; the child paper is NOT a root on the map
     expect(await screen.findByText(ROOT_LEAD.text)).toBeInTheDocument();
@@ -415,6 +416,15 @@ describe("ExplorationView", () => {
     // the paper tally: ROOT_LEAD → 文献 1 篇, SECOND_ROOT → 文献 0 篇
     expect(screen.getByText("文献 1 篇")).toBeInTheDocument();
     expect(screen.getByText("文献 0 篇")).toBeInTheDocument();
+
+    // GVe (design rebuild, spec §18): each root node carries a macaron ordinal
+    // theme — a real token from ui/tokens.ts MACARONS, and adjacent roots get
+    // DIFFERENT macarons (the anti-collision guarantee, at the DOM level).
+    const themedNodes = container.querySelectorAll<HTMLElement>("[data-theme]");
+    expect(themedNodes.length).toBe(2);
+    const themeKeys = Array.from(themedNodes).map((el) => el.dataset.theme);
+    for (const key of themeKeys) expect(Object.keys(MACARONS)).toContain(key);
+    expect(new Set(themeKeys).size).toBe(2);
   });
 
   it("the graph title 兔子洞地图 has a ? that explains the metaphor in plain words", async () => {
@@ -477,7 +487,7 @@ describe("ExplorationView", () => {
   it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the coach", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
-    renderView(nextPid(), [NASA_REF]);
+    const { container } = renderView(nextPid(), [NASA_REF]);
 
     await zoomInto(user, ROOT_LEAD.text);
     // the mindmap renders the adopted paper node (a paper is NEVER a root — it
@@ -487,6 +497,12 @@ describe("ExplorationView", () => {
     // click the paper node → the sidebar becomes 'node' with ITS metadata
     await clickNode(user, CHILD_PAPER.text);
     expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
+
+    // GVe (design rebuild, spec §18): selecting a node rings it in ACCENT, never
+    // a macaron theme color — accent is reserved for selection.
+    const selectedNode = container.querySelector<HTMLElement>('[data-selected="true"]');
+    expect(selectedNode).not.toBeNull();
+    expect(selectedNode!.getAttribute("style") ?? "").toContain("--mk-accent");
     // metadata is shown as clear labeled fields (not one grey run-on line)
     expect(screen.getByText("作者")).toBeInTheDocument();
     expect(screen.getByText("NASA")).toBeInTheDocument();

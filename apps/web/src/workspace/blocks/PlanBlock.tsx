@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
+import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { Composer } from "@/studio/ai/Composer";
+import { Segmented } from "@/ui";
 import { Icon } from "../Icon";
 import {
   PROPOSAL_DIMS,
@@ -36,22 +41,29 @@ import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
 // through them one part at a time, or fill the panel directly. **bold** markers
-// are rendered by ChatBubble.
+// are rendered by renderRich (via toChatMessages, into the shared ChatLog).
 const INTRO_ZH =
   "要做好一个研究项目，先想清楚四件事：**目标**（想回答什么）、**缘由**（为什么做）、**活动与时间**（打算怎么做）、**资源**（需要什么）。想让我一部分一部分带你想，还是你已经有想法、想直接填右边？";
 const INTRO_EN =
   "To set up a research project well, get four things clear first: **objective** (what you want to answer), **reason** (why do it), **activities & timeline** (how you'll do it), and **resources** (what you'll need). Want me to walk you through them one part at a time, or do you already have ideas and want to fill in the panel on the right?";
 const introChat = (l: "zh" | "en"): ChatMsg[] => [{ role: "ai", text: l === "en" ? INTRO_EN : INTRO_ZH }];
 
+// The legacy "primary" family and "accent" family were two distinct hues in
+// the old two-tone design; the 2026-08-06 redesign aliases both to the same
+// single accent (tailwind.config.ts LEGACY ALIASES), so a straight mechanical
+// token rename would have collapsed 读/写 into one indistinguishable color.
+// Reassigned onto two of the 7 macarons (spec §10) instead — the same palette
+// the summon shelf (CoachCardPanel) already draws from — keeping 省 on the
+// semantic success tone (review ≈ done).
 const TAG_STYLE: Record<PlanTag, string> = {
-  read: "bg-mk-primary-tint text-mk-primary",
-  write: "bg-mk-accent-tint text-mk-accent",
-  review: "bg-mk-green-tint text-mk-green",
+  read: "bg-mk-lake-bg text-mk-lake-fg",
+  write: "bg-mk-peach-bg text-mk-peach-fg",
+  review: "bg-mk-success-bg text-mk-success",
 };
 const TAG_BAR: Record<PlanTag, string> = {
-  read: "bg-mk-primary",
-  write: "bg-mk-accent",
-  review: "bg-mk-green",
+  read: "bg-mk-lake",
+  write: "bg-mk-peach",
+  review: "bg-mk-success",
 };
 
 // A plan card's tag is a doorway: it routes to the room that owns that kind of
@@ -397,17 +409,17 @@ function dayIndexFromAnchor(anchor: Date, target: Date): number {
 // #15: the overwrite guard shown before a regenerate replaces an existing plan.
 function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-[0_8px_32px_rgba(28,35,51,0.18)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-6" role="dialog" aria-modal="true">
+      <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg">
         <h3 className="text-[16px] font-bold text-mk-ink">重新生成计划？</h3>
         <p className="mt-2.5 text-[13.5px] leading-relaxed text-mk-muted">
           这会按你最新的开题决定重排整个项目，并<span className="font-bold text-mk-ink">覆盖你现在的计划</span>——已经挪动、拆分或标记完成的卡片都会被替换。确定吗？
         </p>
         <div className="mt-5 flex justify-end gap-2.5">
-          <button type="button" onClick={onCancel} className="rounded-mk border border-mk-border bg-mk-surface px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink">
+          <button type="button" onClick={onCancel} className="rounded-mk-md border border-mk-border bg-mk-surface px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink">
             取消
           </button>
-          <button type="button" onClick={onConfirm} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">
+          <button type="button" onClick={onConfirm} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">
             确定重排
           </button>
         </div>
@@ -429,14 +441,14 @@ const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
 function DimConfirmChip({ suggestion, onConfirm, onDismiss }: { suggestion: DimSuggestionWire; onConfirm: () => void; onDismiss: () => void }) {
   const label = DIM_LABEL[suggestion.dim];
   return (
-    <div className="rounded-mk-lg border border-mk-green/40 bg-mk-green-tint/50 px-3.5 py-3 text-[13px] text-mk-ink">
-      <p className="font-semibold leading-snug text-mk-green">要不要把这点记进「{label}」？</p>
+    <div className="rounded-mk-lg border border-mk-success/40 bg-mk-success-bg/50 px-3.5 py-3 text-[13px] text-mk-ink">
+      <p className="font-semibold leading-snug text-mk-success">要不要把这点记进「{label}」？</p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{suggestion.value}</p>
       <div className="mt-2.5 flex items-center gap-2">
-        <button type="button" onClick={onConfirm} className="rounded-full bg-mk-green px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
+        <button type="button" onClick={onConfirm} className="rounded-full bg-mk-success px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
           记进「{label}」
         </button>
-        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">
+        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
           跳过
         </button>
       </div>
@@ -488,105 +500,39 @@ function FormingPhase(props: {
   const [writing, setWriting] = useState(false);
   const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
   const ready = covered >= 1;
+  // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
+  // proposal panel + its actions — renders directly below, in <main>; its
+  // COACH (the chat conversation) is portaled into the constant AiPanel via
+  // `useStudioAiSlot`. `slot` is null when the panel is collapsed or this
+  // component renders outside a studio shell (e.g. some tests) — in either
+  // case the coach content simply doesn't render, never crashes.
+  const slot = useStudioAiSlot();
   return (
-    <div className="relative mx-auto grid h-full w-full max-w-6xl grid-cols-[1fr,380px] gap-8 px-10 py-9">
-      {/* Chat column */}
-      <div className="flex min-h-0 flex-col">
-        <header className="mb-5 flex items-start justify-between">
-          <div>
-            {/* #1 · back to the plan board (only when one already exists — i.e. the
-                student opened the plan chat from a generated board). */}
-            {onBackToBoard && (
-              <button type="button" onClick={onBackToBoard} className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-mk-muted-2 hover:text-mk-primary">
-                <Icon name="back" size={15} /> 回到计划板
-              </button>
-            )}
-            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">先想清楚，再动手</p>
-            <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
-            <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
-          </div>
-          <button type="button" onClick={onToggleLang} className="mt-1 flex flex-none items-center gap-1 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="印记可用中文或英文引导">
-            <span className={lang === "zh" ? "text-mk-primary" : ""}>中</span>
-            <span className="text-mk-muted-2">/</span>
-            <span className={lang === "en" ? "text-mk-primary" : ""}>EN</span>
-          </button>
+    <>
+      {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
+      <div className="relative mx-auto flex h-full w-full max-w-2xl flex-col gap-5 overflow-y-auto px-10 py-9">
+        <header>
+          {/* #1 · back to the plan board (only when one already exists — i.e. the
+              student opened the plan chat from a generated board). */}
+          {onBackToBoard && (
+            <button type="button" onClick={onBackToBoard} className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-mk-faint hover:text-mk-accent">
+              <Icon name="back" size={15} /> 回到计划板
+            </button>
+          )}
+          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">先想清楚，再动手</p>
+          <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
+          <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-          {chat.map((m, i) => (
-            <ChatBubble key={i} msg={m} />
-          ))}
-          {linkOffer && !sending && (
-            <CoachLinkOffer
-              url={linkOffer.url}
-              status={linkOffer.status}
-              onAdd={onAddLink}
-              onReadTogether={onReadTogether}
-              onDismiss={onDismissLink}
-            />
-          )}
-          {dimSuggestion && !sending && (
-            <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
-          )}
-          {!sending && (
-            <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
-          )}
-          {showChips && !sending && (
-            <div className="flex flex-wrap gap-2 pl-1">
-              <button
-                type="button"
-                onClick={onGuideMe}
-                className="rounded-full border border-mk-primary bg-mk-primary-tint px-3.5 py-1.5 text-[13px] font-bold text-mk-primary transition hover:bg-mk-primary hover:text-white"
-              >
-                {lang === "en" ? "Walk me through it" : "带我一部分一部分想"}
-              </button>
-              <button
-                type="button"
-                onClick={onSelfFill}
-                className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-primary"
-              >
-                {lang === "en" ? "I'll fill it in myself" : "我自己填"}
-              </button>
-            </div>
-          )}
-          {sending && (
-            <div className="flex justify-start">
-              <div className="max-w-[82%] rounded-mk-lg bg-mk-surface px-4 py-2.5 text-[14px] leading-relaxed text-mk-muted-2 shadow-[0_1px_2px_rgba(28,35,51,0.05)]">
-                <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>
-                在想……
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            // Guard the IME: an Enter that commits a Chinese candidate has
-            // isComposing=true — don't send mid-composition. Shift+Enter = newline.
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend(); } }}
-            rows={2}
-            placeholder="说说你的想法……（Shift+Enter 换行）"
-            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
-          />
-          <button type="button" onClick={onSend} disabled={sending} className="flex h-9 w-9 items-center justify-center rounded-mk bg-mk-primary text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-50">
-            <Icon name="send" size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Live 开题 panel — the proposal's four dimensions, coached not required */}
-      <aside className="flex min-h-0 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-[0_1px_3px_rgba(28,35,51,0.05)]">
+        <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
           <div className="mb-1 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-mk-primary">
+            <div className="flex items-center gap-2 text-mk-accent">
               <Icon name="spark" size={16} />
               <span className="text-[13px] font-bold tracking-wide">开题 · 想清楚这几件事</span>
             </div>
-            <span className="text-[11px] font-bold text-mk-muted-2">{covered}/4 已聊到</span>
+            <span className="text-[11px] font-bold text-mk-faint">{covered}/4 已聊到</span>
           </div>
-          <p className="mb-4 text-[11.5px] text-mk-muted-2">不用写正式开题报告——把这几件事聊清楚就行。</p>
+          <p className="mb-4 text-[11.5px] text-mk-faint">不用写正式开题报告——把这几件事聊清楚就行。</p>
           <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto">
             {PROPOSAL_DIMS.map((d) => (
               <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
@@ -596,7 +542,7 @@ function FormingPhase(props: {
             type="button"
             disabled={!ready || sending}
             onClick={onReview}
-            className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk border border-mk-primary/50 bg-mk-primary-tint py-2 text-[12.5px] font-bold text-mk-primary transition enabled:hover:bg-mk-primary enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[12.5px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> 让印记看看我的开题
           </button>
@@ -605,7 +551,7 @@ function FormingPhase(props: {
           type="button"
           disabled={!ready || generating}
           onClick={onGenerate}
-          className="mt-3 flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-hover disabled:cursor-not-allowed disabled:bg-mk-input disabled:text-mk-muted-2"
+          className="flex items-center justify-center gap-2 rounded-mk-md bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:bg-mk-input-border disabled:text-mk-faint"
         >
           {generating ? (
             "印记正在排计划…"
@@ -616,18 +562,89 @@ function FormingPhase(props: {
             </>
           )}
         </button>
-        {genError && <p className="mt-1.5 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
+        {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
         <button
           type="button"
           onClick={() => setWriting(true)}
-          className="mt-2 flex items-center justify-center gap-2 rounded-mk border-2 border-mk-primary bg-mk-surface py-2.5 text-[14px] font-bold text-mk-primary transition hover:bg-mk-primary-tint"
+          className="flex items-center justify-center gap-2 rounded-mk-md border-2 border-mk-accent bg-mk-surface py-2.5 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent-50"
         >
           <Icon name="writing" size={16} /> 写开题报告（可选）
         </button>
-      </aside>
+      </div>
+
+      {/* COACH — portaled into the constant AiPanel (Task 4), now on the
+          shared `ChatLog`/`Composer` (Task 5) instead of a bespoke chat log +
+          textarea. A card-turn message maps to a "system"-role ChatMessage
+          carrying only `node` — ChatLog's system row has no bubble chrome
+          (no bg/padding/radius), so `CardTurnChip` supplies its own chip
+          styling untouched instead of nesting inside a second bubble. */}
+      {slot &&
+        createPortal(
+          <div className="flex h-full flex-col gap-3 p-4">
+            <div className="flex flex-none items-center justify-end">
+              <Segmented
+                options={[
+                  { value: "zh", label: "中" },
+                  { value: "en", label: "EN" },
+                ]}
+                value={lang}
+                onChange={(v) => {
+                  if (v !== lang) onToggleLang();
+                }}
+              />
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
+              <ChatLog messages={toChatMessages(chat)} thinking={sending} />
+              {linkOffer && !sending && (
+                <CoachLinkOffer
+                  url={linkOffer.url}
+                  status={linkOffer.status}
+                  onAdd={onAddLink}
+                  onReadTogether={onReadTogether}
+                  onDismiss={onDismissLink}
+                />
+              )}
+              {dimSuggestion && !sending && (
+                <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
+              )}
+              {!sending && (
+                <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
+              )}
+              {showChips && !sending && (
+                <div className="flex flex-wrap gap-2 pl-1">
+                  <button
+                    type="button"
+                    onClick={onGuideMe}
+                    className="rounded-full border border-mk-accent bg-mk-accent-50 px-3.5 py-1.5 text-[13px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white"
+                  >
+                    {lang === "en" ? "Walk me through it" : "带我一部分一部分想"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onSelfFill}
+                    className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-accent"
+                  >
+                    {lang === "en" ? "I'll fill it in myself" : "我自己填"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <Composer
+              value={draft}
+              onChange={setDraft}
+              onSend={onSend}
+              state={sending ? "replying" : undefined}
+              placeholder="说说你的想法……（Shift+Enter 换行）"
+              className="flex-none"
+            />
+          </div>,
+          slot,
+        )}
 
       {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} qualification={qualification} onClose={() => setWriting(false)} />}
-    </div>
+    </>
   );
 }
 
@@ -656,13 +673,13 @@ function ProposalWriter({ proposal, setDim, title, qualification, onClose }: { p
   }
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
-      <div className="flex max-h-[86%] w-[640px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_20px_60px_rgba(28,35,51,0.25)]" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-[86%] w-[640px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-mk-border px-6 py-4">
           <div>
             <h3 className="font-sans text-[18px] font-bold text-mk-ink">开题报告</h3>
-            <p className="mt-0.5 text-[12px] text-mk-muted-2">你自己写——印记只在一旁陪你想，不替你写。</p>
+            <p className="mt-0.5 text-[12px] text-mk-faint">你自己写——印记只在一旁陪你想，不替你写。</p>
           </div>
-          <button type="button" onClick={onClose} className="text-[20px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
+          <button type="button" onClick={onClose} className="text-[20px] leading-none text-mk-faint hover:text-mk-ink">×</button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
           {SECTIONS.map((s) => (
@@ -671,22 +688,22 @@ function ProposalWriter({ proposal, setDim, title, qualification, onClose }: { p
                 <span className="text-[12px] font-bold text-mk-accent">{s.n}</span>
                 <span className="text-[14px] font-bold text-mk-ink">{s.title}</span>
               </span>
-              <span className="mt-0.5 block text-[11.5px] text-mk-muted-2">{s.hint}</span>
+              <span className="mt-0.5 block text-[11.5px] text-mk-faint">{s.hint}</span>
               <textarea
                 value={proposal[s.key]}
                 onChange={(e) => setDim(s.key, e.target.value)}
                 rows={4}
                 placeholder="在这里写……"
-                className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2.5 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-primary"
+                className="mt-2 w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent"
               />
             </label>
           ))}
         </div>
         <div className="flex items-center justify-between border-t border-mk-border px-6 py-3.5">
-          <span className="text-[12px] text-mk-muted-2">随时保存 · 你写的每一段都算数</span>
+          <span className="text-[12px] text-mk-faint">随时保存 · 你写的每一段都算数</span>
           <div className="flex gap-2">
-            <button type="button" onClick={exportReport} disabled={exporting} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-60">{exporting ? "导出中…" : "导出"}</button>
-            <button type="button" onClick={onClose} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">完成</button>
+            <button type="button" onClick={exportReport} disabled={exporting} className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">{exporting ? "导出中…" : "导出"}</button>
+            <button type="button" onClick={onClose} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">完成</button>
           </div>
         </div>
       </div>
@@ -698,16 +715,16 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
   return (
     <label className="block">
       <span className="mb-1 flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${filled ? "bg-mk-green" : "border border-mk-muted-2"}`} />
+        <span className={`h-1.5 w-1.5 rounded-full ${filled ? "bg-mk-success" : "border border-mk-faint"}`} />
         <span className="text-[11.5px] font-bold text-mk-ink">{label}</span>
-        <span className="text-[10.5px] font-normal text-mk-muted-2">· {hint}</span>
+        <span className="text-[10.5px] font-normal text-mk-faint">· {hint}</span>
       </span>
       <textarea
         value={value}
         placeholder="跟印记聊几句，这里会慢慢填上"
         onChange={(e) => onChange(e.target.value)}
         rows={2}
-        className="w-full resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-muted-2 focus:border-mk-primary"
+        className="w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-faint focus:border-mk-accent"
       />
     </label>
   );
@@ -724,18 +741,22 @@ function renderRich(text: string) {
   );
 }
 
-function ChatBubble({ msg }: { msg: ChatMsg }) {
-  const isAi = msg.role === "ai";
-  // A card-turn renders as a content-first clickable chip (opens the read-only
-  // record), never as raw compiled text.
-  if (msg.card) return <CardTurnChip card={msg.card} />;
-  return (
-    <div className={`flex ${isAi ? "justify-start" : "justify-end"}`}>
-      <div className={`max-w-[82%] whitespace-pre-wrap rounded-mk-lg px-4 py-2.5 text-[14px] leading-relaxed ${isAi ? "bg-mk-surface text-mk-ink shadow-[0_1px_2px_rgba(28,35,51,0.05)]" : "bg-mk-primary text-white"}`}>
-        {isAi && <span className="mb-0.5 block text-[11px] font-bold text-mk-primary">印记</span>}
-        {renderRich(msg.text)}
-      </div>
-    </div>
+// PlanBlock's own ChatMsg[] history → the shared ChatLog's ChatMessage[]. A
+// card-turn (msg.card set) maps to a "system"-role message carrying only
+// `node` — ChatLog's system row has no bubble background/padding, letting
+// `CardTurnChip` be the whole message (its own content-first accent chip,
+// never raw compiled text) instead of nesting inside a second bubble. Every
+// other turn keeps **bold** rendering (renderRich) via `node`, since ChatLog
+// only prints `text` literally.
+function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
+  return chat.map((m, i) =>
+    m.card
+      ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
+      : {
+          id: String(i),
+          role: m.role === "ai" ? "assistant" : "student",
+          node: <span className="whitespace-pre-wrap">{renderRich(m.text)}</span>,
+        },
   );
 }
 
@@ -853,19 +874,19 @@ function WorkingPhase(props: {
   return (
     <div className="relative flex h-full flex-col px-10 py-8">
       {/* Slim goal header */}
-      <div className="mb-6 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]">
+      <div className="mb-6 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-mk-primary-tint px-2.5 py-1 text-[11px] font-bold text-mk-primary">{qualification}</span>
+            <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[11px] font-bold text-mk-accent">{qualification}</span>
             <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
           </div>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
+          <button type="button" onClick={() => setOpen((o) => !o)} className="text-[13px] font-semibold text-mk-muted hover:text-mk-accent">
             {open ? "收起" : "查看我的题目"}
           </button>
         </div>
         {open && (
           <div className="mt-3 grid grid-cols-3 gap-4 border-t border-mk-border pt-3 text-[13px] leading-relaxed text-mk-muted">
-            <div><span className="font-bold text-mk-muted-2">缘由 · </span>{proposal.reason || "—"}</div>
+            <div><span className="font-bold text-mk-faint">缘由 · </span>{proposal.reason || "—"}</div>
             <div className="col-span-2"><span className="font-bold text-mk-accent">目标 · </span>{proposal.objective || "—"}</div>
           </div>
         )}
@@ -878,15 +899,19 @@ function WorkingPhase(props: {
           <p className="mt-0.5 text-[13px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改，点「进入 →」去对应房间。"}</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-            <ViewTab active={view === "kanban"} onClick={() => setView("kanban")}>看板</ViewTab>
-            <ViewTab active={view === "gantt"} onClick={() => setView("gantt")}>甘特图</ViewTab>
-            <ViewTab active={view === "log"} onClick={() => setView("log")}>活动日志</ViewTab>
-          </div>
-          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-60">
+          <Segmented
+            options={[
+              { value: "kanban", label: "看板" },
+              { value: "gantt", label: "甘特图" },
+              { value: "log", label: "活动日志" },
+            ]}
+            value={view}
+            onChange={(v) => setView(v as PlanView)}
+          />
+          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
             {exporting ? "导出中…" : "导出"}
           </button>
-          <button type="button" onClick={onReopen} className="flex items-center gap-1.5 rounded-mk border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">
+          <button type="button" onClick={onReopen} className="flex items-center gap-1.5 rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">
             <Icon name="spark" size={15} /> 聊聊计划
           </button>
         </div>
@@ -909,14 +934,6 @@ function WorkingPhase(props: {
   );
 }
 
-function ViewTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-[10px] px-3 py-1.5 text-[13px] font-bold transition ${active ? "bg-mk-primary text-white" : "text-mk-muted-2 hover:text-mk-muted"}`}>
-      {children}
-    </button>
-  );
-}
-
 /* ----- Kanban (HTML5 drag between columns) ----- */
 
 function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; loading: boolean; anchor: Date; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
@@ -933,24 +950,24 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJ
             onDragOver={(e) => { e.preventDefault(); setOver(col); }}
             onDragLeave={() => setOver((o) => (o === col ? null : o))}
             onDrop={() => { if (dragId) onMove(dragId, col); setDragId(null); setOver(null); }}
-            className={`flex min-h-0 flex-col rounded-mk-lg border-2 p-3 transition ${isOver ? "border-mk-primary/50 bg-mk-primary-tint/40" : "border-transparent bg-mk-surface/60"}`}
+            className={`flex min-h-0 flex-col rounded-mk-lg border-2 p-3 transition ${isOver ? "border-mk-accent/50 bg-mk-accent-50/40" : "border-transparent bg-mk-surface/60"}`}
           >
             <header className="mb-3 flex items-center justify-between px-1">
               <span className="text-[13px] font-bold text-mk-ink">{COLUMN_LABEL[col]}</span>
-              <span className="rounded-full bg-mk-bg px-2 py-0.5 text-[11px] font-semibold text-mk-muted-2">{colItems.length}</span>
+              <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[11px] font-semibold text-mk-faint">{colItems.length}</span>
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
               {colItems.map((item) => (
                 <PlanCard key={item.id} item={item} anchor={anchor} dragging={dragId === item.id} onEdit={() => onEditItem(item)} onJump={() => onJumpItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
               ))}
               {colItems.length === 0 && (
-                <div className="rounded-mk border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-muted-2">
+                <div className="rounded-mk-md border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-faint">
                   {loading ? "加载中…" : "拖到这里"}
                 </div>
               )}
             </div>
             {col === "todo" && (
-              <button type="button" onClick={() => onAddTask(STAGE_1)} className="mt-2 rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">+ 添加任务</button>
+              <button type="button" onClick={() => onAddTask(STAGE_1)} className="mt-2 rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">+ 添加任务</button>
             )}
           </section>
         );
@@ -970,15 +987,15 @@ function PlanCard({ item, anchor, dragging, onEdit, onJump, onDragStart, onDragE
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group relative cursor-grab rounded-mk border border-mk-border bg-mk-surface p-3 shadow-[0_1px_2px_rgba(28,35,51,0.04)] transition active:cursor-grabbing hover:border-mk-primary/40 hover:shadow-[0_2px_8px_rgba(28,35,51,0.07)] ${dragging ? "opacity-40" : ""}`}
+      className={`group relative cursor-grab rounded-mk-md border border-mk-border bg-mk-surface p-3 shadow-mk-xs transition active:cursor-grabbing hover:border-mk-accent/40 hover:shadow-mk-sm ${dragging ? "opacity-40" : ""}`}
     >
       <button type="button" onClick={onEdit} title="查看 / 修改任务" className="mb-2 flex w-full items-center gap-1.5 text-left">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
-        <span className="ml-auto truncate text-[10.5px] text-mk-muted-2">{item.stage.split(" · ")[0]}</span>
+        <span className="ml-auto truncate text-[10.5px] text-mk-faint">{item.stage.split(" · ")[0]}</span>
       </button>
-      <button type="button" onClick={onEdit} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-primary">{item.title}</button>
-      <div className="mt-1.5 text-[11px] font-medium text-mk-muted-2">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
-      <button type="button" onClick={onJump} className="mt-2 flex items-center gap-0.5 text-[12px] font-semibold text-mk-primary opacity-0 transition hover:underline group-hover:opacity-100">进入 →</button>
+      <button type="button" onClick={onEdit} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-accent">{item.title}</button>
+      <div className="mt-1.5 text-[11px] font-medium text-mk-faint">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
+      <button type="button" onClick={onJump} className="mt-2 flex items-center gap-0.5 text-[12px] font-semibold text-mk-accent opacity-0 transition hover:underline group-hover:opacity-100">进入 →</button>
     </div>
   );
 }
@@ -1003,9 +1020,9 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
       <div className="min-w-[820px]">
         {/* Day header */}
         <div className="sticky top-0 z-10 grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-surface">
-          <div className="flex flex-col justify-center px-4 py-1.5 text-[12px] font-bold text-mk-muted-2">
+          <div className="flex flex-col justify-center px-4 py-1.5 text-[12px] font-bold text-mk-faint">
             任务
-            <span className="text-[10px] font-medium text-mk-muted-2/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
+            <span className="text-[10px] font-medium text-mk-faint/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
           </div>
           <div className="grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
             {days.map((d) => {
@@ -1015,9 +1032,9 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
               const isToday = d === todayIdx;
               const showMonth = d === 0 || date.getDate() === 1;
               return (
-                <div key={d} className={`border-l border-mk-border-2 py-1.5 text-center ${isWeekend ? "text-mk-muted-2" : "text-mk-muted"} ${isToday ? "bg-mk-primary-tint" : ""}`}>
+                <div key={d} className={`border-l border-mk-border py-1.5 text-center ${isWeekend ? "text-mk-faint" : "text-mk-muted"} ${isToday ? "bg-mk-accent-50" : ""}`}>
                   <div className="text-[9px] leading-tight opacity-70">{WEEKDAY_ZH[dow]}</div>
-                  <div className={`text-[11px] font-semibold leading-tight ${isToday ? "text-mk-primary" : ""}`}>{showMonth ? fmtMD(date) : date.getDate()}</div>
+                  <div className={`text-[11px] font-semibold leading-tight ${isToday ? "text-mk-accent" : ""}`}>{showMonth ? fmtMD(date) : date.getDate()}</div>
                 </div>
               );
             })}
@@ -1029,19 +1046,19 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
           if (items.length === 0) return null;
           return (
             <div key={stage}>
-              <div className="grid grid-cols-[240px,1fr] border-b border-mk-border-2 bg-mk-bg/50">
+              <div className="grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-paper/50">
                 <div className="px-4 py-1.5 text-[11.5px] font-bold uppercase tracking-wider text-mk-muted">{stage}</div>
                 <div />
               </div>
               {items.map((item) => (
-                <div key={item.id} className="group grid grid-cols-[240px,1fr] items-center border-b border-mk-border-2 hover:bg-mk-bg/40">
+                <div key={item.id} className="group grid grid-cols-[240px,1fr] items-center border-b border-mk-border hover:bg-mk-paper/40">
                   <div className="flex items-center gap-1 px-4 py-3">
                     {/* label click = view/edit; the small arrow = doorway jump (#4) */}
                     <button type="button" onClick={() => onEditItem(item)} title="查看 / 修改任务" className="flex min-w-0 flex-1 items-center gap-2 text-left">
                       <span className={`flex-none rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
-                      <span className="truncate text-[13px] font-medium text-mk-ink hover:text-mk-primary">{item.title.replace(/^[读写省]：/, "")}</span>
+                      <span className="truncate text-[13px] font-medium text-mk-ink hover:text-mk-accent">{item.title.replace(/^[读写省]：/, "")}</span>
                     </button>
-                    <button type="button" onClick={() => onJumpItem(item)} title="进入对应房间" className="flex-none rounded px-1 text-[13px] font-bold text-mk-primary opacity-0 transition hover:underline group-hover:opacity-100">→</button>
+                    <button type="button" onClick={() => onJumpItem(item)} title="进入对应房间" className="flex-none rounded px-1 text-[13px] font-bold text-mk-accent opacity-0 transition hover:underline group-hover:opacity-100">→</button>
                   </div>
                   <div data-track className="relative h-11">
                     <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
@@ -1052,7 +1069,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
                         return (
                           <div
                             key={d}
-                            className={`${isToday ? "border-l-2 border-l-mk-primary/60 bg-mk-primary-tint/25" : `border-l border-mk-border-2 ${isWeekend ? "bg-mk-bg/60" : ""}`}`}
+                            className={`${isToday ? "border-l-2 border-l-mk-accent/60 bg-mk-accent-50/25" : `border-l border-mk-border ${isWeekend ? "bg-mk-paper/60" : ""}`}`}
                           />
                         );
                       })}
@@ -1065,8 +1082,8 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
           );
         })}
         {/* #3 — add a task straight from the Gantt (Kanban already has one) */}
-        <div className="grid grid-cols-[240px,1fr] border-b border-mk-border-2">
-          <button type="button" onClick={onAddTask} className="px-4 py-2.5 text-left text-[12.5px] font-semibold text-mk-muted-2 hover:text-mk-primary">+ 添加任务</button>
+        <div className="grid grid-cols-[240px,1fr] border-b border-mk-border">
+          <button type="button" onClick={onAddTask} className="px-4 py-2.5 text-left text-[12.5px] font-semibold text-mk-faint hover:text-mk-accent">+ 添加任务</button>
           <div />
         </div>
       </div>
@@ -1156,23 +1173,23 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
     <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface">
         {log === null ? (
-          <div className="flex h-full items-center justify-center py-16 text-[13px] text-mk-muted-2">加载中…</div>
+          <div className="flex h-full items-center justify-center py-16 text-[13px] text-mk-faint">加载中…</div>
         ) : rows.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
             <p className="text-[14px] font-semibold text-mk-ink">还没有记录</p>
-            <p className="text-[12.5px] text-mk-muted-2">你在项目里做的事会自动记下——也可以现在补一笔。</p>
+            <p className="text-[12.5px] text-mk-faint">你在项目里做的事会自动记下——也可以现在补一笔。</p>
           </div>
         ) : (
           // #5 — one box per date; each date's lines keep their 自动/我记的 tag.
           <div className="flex flex-col gap-4 p-4">
             {groupByDate(rows).map((g) => (
-              <div key={g.date} className="rounded-mk border border-mk-border-2 bg-mk-bg/40">
-                <div className="border-b border-mk-border-2 px-4 py-2 text-[12px] font-bold text-mk-muted-2">{g.date}</div>
+              <div key={g.date} className="rounded-mk-md border border-mk-border bg-mk-paper/40">
+                <div className="border-b border-mk-border px-4 py-2 text-[12px] font-bold text-mk-faint">{g.date}</div>
                 <div className="flex flex-col">
                   {g.entries.map((e, i) => (
-                    <div key={e.id} className={`flex items-start gap-3 px-4 py-2.5 ${i < g.entries.length - 1 ? "border-b border-mk-border-2/60" : ""}`}>
+                    <div key={e.id} className={`flex items-start gap-3 px-4 py-2.5 ${i < g.entries.length - 1 ? "border-b border-mk-border/60" : ""}`}>
                       <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{e.text}</p>
-                      <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[10.5px] font-bold ${e.source === "auto" ? "bg-mk-primary-tint text-mk-primary" : "bg-mk-green-tint text-mk-green"}`}>
+                      <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[10.5px] font-bold ${e.source === "auto" ? "bg-mk-accent-50 text-mk-accent" : "bg-mk-success-bg text-mk-success"}`}>
                         {e.source === "auto" ? "自动" : "我记的"}
                       </span>
                     </div>
@@ -1184,11 +1201,11 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
         )}
       </div>
       <div className="mt-3 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5">
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-muted-2" />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-faint" />
         <button
           type="button"
           onClick={submit}
-          className="rounded-mk bg-mk-primary px-3.5 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover"
+          className="rounded-mk-md bg-mk-accent px-3.5 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600"
         >
           记一笔
         </button>
@@ -1237,38 +1254,38 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
   const tags: PlanTag[] = ["read", "write", "review"];
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
-      <div className="flex w-[460px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_20px_60px_rgba(28,35,51,0.25)]" onClick={(e) => e.stopPropagation()}>
+      <div className="flex w-[460px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-mk-border px-5 py-3.5">
           <h3 className="font-sans text-[16px] font-bold text-mk-ink">任务详情</h3>
-          <button type="button" onClick={onClose} className="text-[20px] leading-none text-mk-muted-2 hover:text-mk-ink">×</button>
+          <button type="button" onClick={onClose} className="text-[20px] leading-none text-mk-faint hover:text-mk-ink">×</button>
         </div>
         <div className="flex flex-col gap-4 px-5 py-4">
           <label className="block">
-            <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">任务</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary" />
+            <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">任务</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
           </label>
 
           <div>
-            <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">类别</span>
+            <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">类别</span>
             <div className="flex gap-2">
               {tags.map((t) => (
-                <button key={t} type="button" onClick={() => setTag(t)} className={`rounded-mk px-3 py-1.5 text-[12.5px] font-bold transition ${tag === t ? TAG_STYLE[t] + " ring-2 ring-mk-primary/40" : "bg-mk-bg text-mk-muted-2 hover:text-mk-muted"}`}>{TAG_LABEL[t]}</button>
+                <button key={t} type="button" onClick={() => setTag(t)} className={`rounded-mk-md px-3 py-1.5 text-[12.5px] font-bold transition ${tag === t ? TAG_STYLE[t] + " ring-2 ring-mk-accent/40" : "bg-mk-paper text-mk-faint hover:text-mk-muted"}`}>{TAG_LABEL[t]}</button>
               ))}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">阶段</span>
-              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-primary">
+              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">阶段</span>
+              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-accent">
                 {(stageOptions.includes(stage) ? stageOptions : [stage, ...stageOptions]).map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">状态</span>
-              <select value={column} onChange={(e) => setColumn(e.target.value as PlanColumn)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-primary">
+              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">状态</span>
+              <select value={column} onChange={(e) => setColumn(e.target.value as PlanColumn)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-accent">
                 {COLUMNS.map((c) => (<option key={c} value={c}>{COLUMN_LABEL[c]}</option>))}
               </select>
             </label>
@@ -1276,20 +1293,20 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">开始（第几天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary" />
+              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">开始（第几天）</span>
+              <input type="number" min={1} max={TIMELINE_DAYS} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-muted-2">持续（天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-primary" />
+              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">持续（天）</span>
+              <input type="number" min={1} max={TIMELINE_DAYS} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
           </div>
         </div>
         <div className="flex items-center justify-between border-t border-mk-border px-5 py-3.5">
-          <button type="button" onClick={onDelete} className="rounded-mk px-3 py-2 text-[13px] font-semibold text-mk-accent hover:bg-mk-accent-tint">删除任务</button>
+          <button type="button" onClick={onDelete} className="rounded-mk-md px-3 py-2 text-[13px] font-semibold text-mk-accent hover:bg-mk-accent-50">删除任务</button>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-primary">取消</button>
-            <button type="button" onClick={save} className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">保存</button>
+            <button type="button" onClick={onClose} className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
+            <button type="button" onClick={save} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">保存</button>
           </div>
         </div>
       </div>

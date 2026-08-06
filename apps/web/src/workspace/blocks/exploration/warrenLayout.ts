@@ -1,18 +1,15 @@
 import dagre from "@dagrejs/dagre";
 import type { ExplorationLead, LeadStatus, QuestionEdge, QuestionEdgeLabel, QuestionEdgeStatus } from "@mind-imprint/contracts";
+import { MACARONS, NEUTRAL, type MacaronName } from "@/ui/tokens";
 
 // GVa/GVc · pure layout + theming helpers for the question graph. Kept free of
 // React / React Flow so they unit-test in plain jsdom (React Flow itself can't
 // render there). WarrenMap.tsx / QuestionMindmap.tsx are thin shells over these.
 
-// A node color theme: a gently-saturated soft two-stop fill + a deeper border
-// and dark, WCAG-legible label so each root question reads as its own calm,
-// tactile "bubble". GVc curated palette — six harmonious families spread evenly
-// around the hue wheel (indigo → teal → terracotta → amber → plum → sage). They
-// share a common lightness/chroma register (a soft gouache/editorial feel), so
-// adjacent questions read as clearly different hues yet belong to one system —
-// the fix for the old muted wash where several roots collapsed to near-identical
-// pale blue.
+// A node color theme: a per-root accent (border/left-bar), a WCAG-legible label
+// color, and a pale wash (fillFrom/fillTo) for chips/badges — so each root
+// question reads as its own calm, tactile family without ever touching the
+// product's accent color (accent is reserved for selection, spec §18).
 export type NodeTheme = {
   key: string;
   fillFrom: string;
@@ -22,14 +19,19 @@ export type NodeTheme = {
   glow: string; // shadow rgba
 };
 
-export const NODE_THEMES: NodeTheme[] = [
-  { key: "indigo", fillFrom: "#E4E8F8", fillTo: "#C6D0F1", border: "#3B4F9E", label: "#26356E", glow: "rgba(59,79,158,0.22)" },
-  { key: "teal", fillFrom: "#DCF0E8", fillTo: "#B7E1D2", border: "#2F8E72", label: "#1F6B54", glow: "rgba(47,142,114,0.22)" },
-  { key: "terracotta", fillFrom: "#FBE7DC", fillTo: "#F4C8B2", border: "#CD6A44", label: "#A64D2C", glow: "rgba(205,106,68,0.22)" },
-  { key: "amber", fillFrom: "#FBEFCC", fillTo: "#F3D896", border: "#C68A22", label: "#8F5D18", glow: "rgba(198,138,34,0.22)" },
-  { key: "plum", fillFrom: "#F1E3F3", fillTo: "#DEC1E6", border: "#8A4E96", label: "#67386F", glow: "rgba(138,78,150,0.22)" },
-  { key: "sage", fillFrom: "#E8EEDA", fillTo: "#CEDBB2", border: "#6E8B47", label: "#4E6731", glow: "rgba(110,139,71,0.22)" },
-];
+// Design-system §18: L1 question nodes get MACARON ordinal colors — the same 7
+// macaron tokens used everywhere else (ui/tokens.ts MACARONS), walked in one
+// fixed hue order so adjacent roots always read as clearly different families.
+// (This replaces the old hand-rolled 6-hue palette that lived only here.)
+const MACARON_ORDER: MacaronName[] = ["peach", "butter", "matcha", "lake", "mist", "taro", "berry"];
+
+function macaronTheme(name: MacaronName): NodeTheme {
+  const m = MACARONS[name];
+  const [r, g, b] = parseHex(m.base);
+  return { key: name, fillFrom: m.bg, fillTo: m.bg, border: m.base, label: m.fg, glow: `rgba(${r},${g},${b},0.22)` };
+}
+
+export const NODE_THEMES: NodeTheme[] = MACARON_ORDER.map(macaronTheme);
 
 // Theme by ORDINAL (a root's index in the project's stable root ordering),
 // modulo the palette length. Assigning by position — not an id hash — guarantees
@@ -179,8 +181,8 @@ export function depthTint(base: NodeTheme, depth: number): NodeTheme {
   const t = Math.min(0.5, 0.26 * depth);
   return {
     ...base,
-    fillFrom: mixToward(base.fillFrom, "#FFFFFF", t),
-    fillTo: mixToward(base.fillTo, "#FFFFFF", t),
+    fillFrom: mixToward(base.fillFrom, NEUTRAL.surface, t),
+    fillTo: mixToward(base.fillTo, NEUTRAL.surface, t),
   };
 }
 

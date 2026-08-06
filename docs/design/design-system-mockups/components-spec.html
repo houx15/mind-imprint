@@ -1,0 +1,110 @@
+<h2>组件规范：按钮 · 表面 · 圆角 · 间距</h2>
+<p class="subtitle">这套规范专治你说的两个病：「太多圆角矩形、什么都长一样」和「按钮全是竖着堆的一排」。核心两条：① 表面分四级（平铺 → 描边 → 抬起 → 浮起），别什么都加阴影加大圆角；② 按钮分层级，一个视图<strong>只有一个主按钮</strong>，其余都更安静。用锁定的 accent 朱砂红 #EA5140 演示。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:16px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; font-family:-apple-system,'PingFang SC',sans-serif; }
+  .sheet .hint { font-size:12px; color:#8A827A; margin:0 0 16px; line-height:1.5; }
+  .rulebox { background:#FDEBE7; border-left:3px solid #EA5140; border-radius:8px; padding:8px 12px; font-size:12px; color:#9E3325; margin-top:14px; }
+
+  /* buttons */
+  .brow { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  .b { font-size:13.5px; font-weight:650; border-radius:10px; padding:10px 18px; cursor:default; }
+  .b-primary { background:#EA5140; color:#fff; }
+  .b-secondary { background:#fff; color:#CE3A2B; box-shadow:inset 0 0 0 1.5px #F1A99E; }
+  .b-ghost { background:transparent; color:#33302E; }
+  .b-text { background:transparent; color:#CE3A2B; padding:6px 2px; }
+  .b-icon { width:38px; height:38px; border-radius:10px; background:#fff; box-shadow:inset 0 0 0 1.5px #EFE7DD; display:inline-flex; align-items:center; justify-content:center; color:#8A827A; }
+  .b-sm { font-size:12px; padding:6px 12px; border-radius:8px; }
+  .b-disabled { background:#F0E9E1; color:#B8ADA2; }
+  .cap { font-size:11px; color:#8A827A; margin-top:2px; }
+
+  /* surfaces */
+  .surfrow { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media (max-width:820px){ .surfrow{ grid-template-columns:1fr 1fr; } }
+  .surf { padding:16px; min-height:96px; display:flex; flex-direction:column; justify-content:space-between; }
+  .s-flat { background:transparent; }
+  .s-hair { background:#fff; border:1px solid #EFE7DD; border-radius:10px; }
+  .s-lift { background:#fff; border-radius:14px; box-shadow:0 5px 16px rgba(80,50,50,.10); }
+  .s-float { background:#fff; border-radius:16px; box-shadow:0 16px 40px rgba(50,30,30,.20); }
+  .surf .st { font-size:13px; font-weight:700; color:#33302E; }
+  .surf .sd { font-size:11px; color:#8A827A; line-height:1.45; margin-top:4px; }
+  .surf .use { font-size:10.5px; color:#EA5140; font-weight:600; margin-top:8px; }
+
+  /* radius */
+  .radrow { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+  .rad { text-align:center; }
+  .rad .box { width:64px; height:52px; background:#F6B26B; }
+  .rad .rl { font-size:12px; font-weight:650; color:#33302E; margin-top:8px; }
+  .rad .ru { font-size:10.5px; color:#8A827A; }
+
+  /* spacing */
+  .spacerow { display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; }
+  .sp { text-align:center; }
+  .sp .bar { background:#A6C88F; width:26px; border-radius:3px; }
+  .sp .sl { font-size:11px; color:#8A827A; margin-top:6px; }
+</style>
+
+<!-- BUTTONS -->
+<div class="sheet">
+  <h3>按钮层级</h3>
+  <p class="hint">一排按钮不该长一样。主 → 次 → 幽灵 → 文字链接，视觉重量层层递减，读者一眼知道该点哪个。它们是横向并排、有主次的，不是竖着堆的一排等价按钮。</p>
+  <div class="brow">
+    <span class="b b-primary">开始写作</span>
+    <span class="b b-secondary">回顾过程</span>
+    <span class="b b-ghost">稍后再说</span>
+    <span class="b b-text">召唤工具卡 →</span>
+    <span class="b-icon">⋯</span>
+  </div>
+  <div class="cap">主 · 实心 accent　｜　次 · 描边　｜　幽灵 · 悬停才显底　｜　文字链接　｜　图标按钮</div>
+  <div class="brow" style="margin-top:14px;">
+    <span class="b b-primary b-sm">小号主</span>
+    <span class="b b-secondary b-sm">小号次</span>
+    <span class="b b-primary b-disabled">不可用</span>
+  </div>
+  <div class="cap">小号用于卡片内 / 工具栏；禁用态去饱和。</div>
+  <div class="rulebox">铁律：一个视图只允许一个主按钮。多个「都很重要」= 没有重点。</div>
+</div>
+
+<!-- SURFACES -->
+<div class="sheet">
+  <h3>表面 / 抬升四级</h3>
+  <p class="hint">默认用平铺和描边，别动不动就阴影＋大圆角。只有「真正是一个对象」的东西（项目、卡片）才抬起；浮起只给弹层。这条一执行，界面立刻不糊。</p>
+  <div class="surfrow">
+    <div class="surf s-flat"><div><div class="st">① 平铺</div><div class="sd">只靠间距分组，无边框无阴影。</div></div><div class="use">分区 / 留白</div></div>
+    <div class="surf s-hair"><div><div class="st">② 描边</div><div class="sd">1px 边框，小圆角，不抬起。</div></div><div class="use">列表 / 工具卡 / 信息块</div></div>
+    <div class="surf s-lift"><div><div class="st">③ 抬起</div><div class="sd">柔和阴影，中圆角。</div></div><div class="use">项目卡 / 主要对象</div></div>
+    <div class="surf s-float"><div><div class="st">④ 浮起</div><div class="sd">重阴影，大圆角。</div></div><div class="use">弹窗 / 气泡菜单</div></div>
+  </div>
+  <div class="rulebox">铁律：同一屏里抬起级（③）的卡片越少越好——它是用来「指方向」的，不是默认样式。</div>
+</div>
+
+<!-- RADIUS -->
+<div class="sheet">
+  <h3>圆角尺度</h3>
+  <p class="hint">圆角是有节奏的，不是所有东西都 16。小元件小圆角，大对象大圆角，标签才用全圆。</p>
+  <div class="radrow">
+    <div class="rad"><div class="box" style="border-radius:6px;"></div><div class="rl">6px</div><div class="ru">按钮 / 输入 / 描边卡</div></div>
+    <div class="rad"><div class="box" style="border-radius:10px;"></div><div class="rl">10px</div><div class="ru">工具卡 / 小卡</div></div>
+    <div class="rad"><div class="box" style="border-radius:14px;"></div><div class="rl">14px</div><div class="ru">项目卡 / 面板</div></div>
+    <div class="rad"><div class="box" style="border-radius:18px;"></div><div class="rl">18px</div><div class="ru">大容器 / 弹层</div></div>
+    <div class="rad"><div class="box" style="border-radius:999px; width:52px;"></div><div class="rl">full</div><div class="ru">标签 / 头像 / 药丸</div></div>
+  </div>
+</div>
+
+<!-- SPACING -->
+<div class="sheet">
+  <h3>间距尺度 · 4 的倍数</h3>
+  <p class="hint">全站间距都从这条尺度取，界面才有呼吸和秩序。</p>
+  <div class="spacerow">
+    <div class="sp"><div class="bar" style="height:4px;"></div><div class="sl">4</div></div>
+    <div class="sp"><div class="bar" style="height:8px;"></div><div class="sl">8</div></div>
+    <div class="sp"><div class="bar" style="height:12px;"></div><div class="sl">12</div></div>
+    <div class="sp"><div class="bar" style="height:16px;"></div><div class="sl">16</div></div>
+    <div class="sp"><div class="bar" style="height:24px;"></div><div class="sl">24</div></div>
+    <div class="sp"><div class="bar" style="height:32px;"></div><div class="sl">32</div></div>
+    <div class="sp"><div class="bar" style="height:48px;"></div><div class="sl">48</div></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 这四张规范定了，「圆角矩形太多、按钮堆一排」的病根就断了。看着顺就说「好」，我们把整套设计系统写成正式 spec 落文档；哪条想改（比如圆角想更方一点、主按钮想更大）直接说。</p>

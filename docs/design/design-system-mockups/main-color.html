@@ -1,0 +1,103 @@
+<h2>主色：印记红 + 辅助色板</h2>
+<p class="subtitle">主色是一支更深、更有精神的暖珊瑚红（你给的 <strong>#F75961</strong>）——它管品牌、按钮、链接、AI 的声音。下面一整排辅助色更柔，用在项目封面、工具卡、标签上，让界面有变化但不抢戏。文字用暖墨色保证清晰。看看红色当主色、真正跑起来是什么感觉。</p>
+
+<style>
+  .scale { display:grid; grid-template-columns:repeat(9,1fr); gap:0; border-radius:12px; overflow:hidden; margin:4px 0 8px; }
+  .scale div { height:56px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:5px; font-size:10px; font-weight:600; }
+  .scale .lo { color:#8a5; } /* unused */
+  .row { display:flex; flex-wrap:wrap; gap:9px; margin:4px 0 24px; }
+  .sc { border-radius:11px; width:92px; padding-bottom:9px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.05); overflow:hidden; }
+  .sc .bar { height:44px; }
+  .sc .cn { font-size:12px; font-weight:650; color:#3a3733; text-align:center; margin-top:8px; }
+  .sc .hx { font-size:10px; color:#3a3733; opacity:.5; text-align:center; }
+
+  .studio { border-radius:18px; overflow:hidden; margin-top:6px; background:#FBF8F4; box-shadow:0 10px 30px rgba(120,60,60,.08); }
+  .studio-inner { display:grid; grid-template-columns:1fr 300px; min-height:280px; }
+  @media (max-width:820px){ .studio-inner{ grid-template-columns:1fr; } }
+  .canvas { padding:26px; display:flex; flex-direction:column; gap:16px; }
+  .pcards { display:flex; gap:12px; flex-wrap:wrap; }
+  .pcard { border-radius:14px; overflow:hidden; width:150px; background:#fff; box-shadow:0 5px 16px rgba(80,50,50,.09); }
+  .pcover { height:56px; }
+  .pbody { padding:10px 12px; }
+  .ptitle { font-size:13px; font-weight:650; line-height:1.3; color:#33302E; }
+  .pmeta { font-size:10.5px; margin-top:4px; color:#33302E; opacity:.5; }
+  .tags { display:flex; gap:7px; flex-wrap:wrap; }
+  .tag { font-size:11px; font-weight:600; padding:4px 11px; border-radius:20px; }
+  .btnrow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .b { font-size:13.5px; padding:10px 18px; font-weight:650; border-radius:10px; }
+  .b-text { font-weight:650; font-size:13px; color:#E63E48; }
+
+  .rail { background:#fff; border-left:1px solid #EFE7DD; padding:22px 20px; display:flex; flex-direction:column; gap:14px; }
+  .rail .who { display:flex; gap:10px; align-items:center; }
+  .rail .av { width:30px; height:30px; border-radius:50%; background:#F75961; flex:none; }
+  .rail .nm { font-size:13px; font-weight:700; color:#33302E; }
+  .bub { background:#FEF1F2; border-radius:5px 14px 14px 14px; padding:11px 13px; font-size:12.5px; line-height:1.55; color:#4a3f3d; }
+  .field { margin-top:auto; border:1.5px solid #EFE7DD; border-radius:12px; padding:10px 12px; font-size:12px; color:#9a908a; display:flex; justify-content:space-between; align-items:center; }
+  .send { width:26px; height:26px; border-radius:8px; background:#F75961; }
+</style>
+
+<div class="label">主色 · 印记红 scale（悬停/按下/浅底都从这条来）</div>
+<div class="scale">
+  <div style="background:#FEF1F2; color:#c33;">50</div>
+  <div style="background:#FDDDDF; color:#c33;">100</div>
+  <div style="background:#FBBABF; color:#a33;">200</div>
+  <div style="background:#F98F97; color:#fff;">300</div>
+  <div style="background:#F86E76; color:#fff;">400</div>
+  <div style="background:#F75961; color:#fff;">500 ●</div>
+  <div style="background:#E63E48; color:#fff;">600</div>
+  <div style="background:#C22B35; color:#fff;">700</div>
+  <div style="background:#991F28; color:#fff;">800</div>
+</div>
+<p class="subtitle" style="margin:0 0 22px;">● 500 = #F75961 主色 · 600/700 用于悬停与按下、以及浅底上的红字。</p>
+
+<div class="label">辅助色板 · 7 色（封面 / 工具卡 / 标签）</div>
+<div class="row">
+  <div class="sc"><div class="bar" style="background:#F6B26B;"></div><div class="cn">蜜桃橙</div><div class="hx">#F6B26B</div></div>
+  <div class="sc"><div class="bar" style="background:#F2CE63;"></div><div class="cn">奶油黄</div><div class="hx">#F2CE63</div></div>
+  <div class="sc"><div class="bar" style="background:#A6C88F;"></div><div class="cn">抹茶绿</div><div class="hx">#A6C88F</div></div>
+  <div class="sc"><div class="bar" style="background:#6FBFB0;"></div><div class="cn">湖水青</div><div class="hx">#6FBFB0</div></div>
+  <div class="sc"><div class="bar" style="background:#7FA8D8;"></div><div class="cn">雾蓝</div><div class="hx">#7FA8D8</div></div>
+  <div class="sc"><div class="bar" style="background:#B49BD8;"></div><div class="cn">香芋紫</div><div class="hx">#B49BD8</div></div>
+  <div class="sc"><div class="bar" style="background:#E896A6;"></div><div class="cn">莓粉</div><div class="hx">#E896A6</div></div>
+</div>
+
+<div class="label">中性色 · 纸与墨</div>
+<div class="row">
+  <div class="sc"><div class="bar" style="background:#FBF8F4;"></div><div class="cn">暖纸底</div><div class="hx">#FBF8F4</div></div>
+  <div class="sc"><div class="bar" style="background:#FFFFFF; box-shadow:inset 0 0 0 1px #eee;"></div><div class="cn">卡面白</div><div class="hx">#FFFFFF</div></div>
+  <div class="sc"><div class="bar" style="background:#EFE7DD;"></div><div class="cn">分隔线</div><div class="hx">#EFE7DD</div></div>
+  <div class="sc"><div class="bar" style="background:#8A827A;"></div><div class="cn">次要文字</div><div class="hx">#8A827A</div></div>
+  <div class="sc"><div class="bar" style="background:#33302E;"></div><div class="cn">墨字</div><div class="hx">#33302E</div></div>
+</div>
+
+<div class="label">跑起来是什么感觉</div>
+<div class="studio">
+  <div class="studio-inner">
+    <div class="canvas">
+      <div class="pcards">
+        <div class="pcard"><div class="pcover" style="background:linear-gradient(120deg,#F6B26B,#E896A6);"></div><div class="pbody"><div class="ptitle">中国是否让地球更可持续？</div><div class="pmeta">阅读 · 3 篇文献</div></div></div>
+        <div class="pcard"><div class="pcover" style="background:linear-gradient(120deg,#A6C88F,#6FBFB0);"></div><div class="pbody"><div class="ptitle">莎士比亚十四行诗的时间意象</div><div class="pmeta">写作 · 草稿 2 段</div></div></div>
+        <div class="pcard"><div class="pcover" style="background:linear-gradient(120deg,#7FA8D8,#B49BD8);"></div><div class="pbody"><div class="ptitle">基因编辑的伦理边界</div><div class="pmeta">回顾 · 已完成</div></div></div>
+      </div>
+      <div class="tags">
+        <span class="tag" style="background:#FDE7D3; color:#9a5a22;">CRAAP 溯源</span>
+        <span class="tag" style="background:#E7F1DD; color:#4d6b3a;">让步段</span>
+        <span class="tag" style="background:#E6EEF9; color:#3c5a86;">反例检验</span>
+      </div>
+      <div class="btnrow">
+        <span class="b" style="background:#F75961; color:#fff;">开始写作</span>
+        <span class="b" style="background:#fff; color:#C22B35; box-shadow:inset 0 0 0 1.5px #F98F97;">回顾过程</span>
+        <span class="b-text">召唤工具卡 →</span>
+      </div>
+    </div>
+    <div class="rail">
+      <div class="who"><div class="av"></div><div class="nm">印记</div></div>
+      <div class="bub">这篇来源你追到 NASA 了——它可信在哪一点？先说一句你的判断。</div>
+      <div class="bub" style="background:#F4F1EC; border-radius:14px 5px 14px 14px; align-self:flex-end; max-width:80%;">因为它是官方机构，数据一手。</div>
+      <div class="bub">好——那「一手数据」具体指哪个观测项？</div>
+      <div class="field"><span>说说你的想法…</span><span class="send"></span></div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:14px;">👉 这是 #F75961 当主色、辅助色板托底的完整样子（右边就是那个「一直都在」的印记 AI）。告诉我：① 红色深浅对不对（要更深我可以往 600 走）；② 辅助 7 色够不够、要不要加；③ 整体这个暖红气质，是你想要的吗？</p>

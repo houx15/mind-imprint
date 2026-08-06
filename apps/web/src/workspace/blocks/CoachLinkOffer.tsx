@@ -31,9 +31,9 @@ export function CoachLinkOffer({
     /* keep the raw url */
   }
   return (
-    <div className="rounded-mk-lg border border-mk-primary/30 bg-mk-primary-tint px-3.5 py-3 text-[13px] text-mk-ink">
+    <div className="rounded-mk-lg border border-mk-accent/30 bg-mk-accent-50 px-3.5 py-3 text-[13px] text-mk-ink">
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex-none text-mk-primary">
+        <span className="mt-0.5 flex-none text-mk-accent">
           <Icon name="reading" size={15} />
         </span>
         <div className="min-w-0">
@@ -45,7 +45,7 @@ export function CoachLinkOffer({
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {added ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-mk-primary/10 px-3 py-1.5 text-[12px] font-bold text-mk-primary">
+          <span className="inline-flex items-center gap-1 rounded-mk-full bg-mk-accent/10 px-3 py-1.5 text-[12px] font-bold text-mk-accent">
             已加入文献库 ✓
           </span>
         ) : (
@@ -53,7 +53,7 @@ export function CoachLinkOffer({
             type="button"
             onClick={onAdd}
             disabled={busy}
-            className="inline-flex items-center gap-1 rounded-full border border-mk-primary bg-mk-surface px-3.5 py-1.5 text-[12px] font-bold text-mk-primary transition hover:bg-mk-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-mk-full border border-mk-accent bg-mk-surface px-3.5 py-1.5 text-[12px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Icon name="plan" size={13} /> {busy ? "加入中…" : "加入文献库"}
           </button>
@@ -62,14 +62,14 @@ export function CoachLinkOffer({
           type="button"
           onClick={onReadTogether}
           disabled={busy}
-          className="inline-flex items-center gap-1 rounded-full bg-mk-primary px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:bg-mk-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-mk-full bg-mk-accent px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           一起读这篇 <Icon name="arrow" size={13} />
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-muted-2 transition hover:text-mk-muted"
+          className="rounded-mk-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint transition hover:text-mk-muted"
         >
           跳过
         </button>

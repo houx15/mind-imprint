@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
+import { ChevronDown, Lightbulb } from "lucide-react";
 import type { GrowthHistoryEntry } from "@mind-imprint/contracts";
-import { api } from "../../api";
-import { DualAxisReport } from "../report/DualAxisReport";
+import { api } from "@/api";
+import { Card, EmptyState, Icon, SkeletonRow } from "@/ui";
+import { DualAxisReport } from "@/shell/report/DualAxisReport";
 // AbilityModel (能力素养) hidden 2026-07-31 for MVP focus — import removed to
 // avoid an unused-symbol error; the component file stays for later restore.
-import { ToolkitCards } from "./ToolkitCards";
+// ToolkitCards (工具卡) moved to the top-level 图鉴 gallery tab (Task 7) —
+// GrowthReport no longer renders an internal 工具卡 tab, only 学习记录.
+
+/** Join truthy class fragments with a single space; drops falsy/empty ones. */
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
 
 const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
   project: "项目", course: "课程", chat: "聊天",
@@ -13,30 +21,33 @@ const SURFACE_LABEL: Record<GrowthHistoryEntry["surface"], string> = {
 function HistoryRow({ entry, open, onToggle }: { entry: GrowthHistoryEntry; open: boolean; onToggle: () => void }) {
   const date = entry.createdAt.slice(0, 10);
   return (
-    <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, marginTop: 12, overflow: "hidden" }}>
+    <Card className="mt-3 overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+        className="flex w-full items-center gap-3 px-5 py-4 text-left font-sans"
       >
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#5B6474", background: "#F1F2F6", borderRadius: 8, padding: "3px 9px", flex: "none" }}>
+        <span className="shrink-0 rounded-mk-sm bg-mk-paper px-2.5 py-0.5 text-mk-small font-extrabold text-mk-secondary">
           {SURFACE_LABEL[entry.surface]}
         </span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, color: "#1C2333" }}>
-          {entry.label}{entry.sublabel ? <span style={{ color: "#8A92A3", fontWeight: 600 }}> · {entry.sublabel}</span> : null}
+        <span className="min-w-0 flex-1 text-mk-h3 text-mk-ink">
+          {entry.label}
+          {entry.sublabel ? <span className="font-semibold text-mk-muted"> · {entry.sublabel}</span> : null}
         </span>
-        <span style={{ fontSize: 12.5, color: "#9AA1B0", flex: "none" }}>{date}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA1B0" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <span className="shrink-0 text-mk-small text-mk-faint">{date}</span>
+        <Icon
+          icon={ChevronDown}
+          size={16}
+          className={cx("shrink-0 text-mk-faint transition-transform duration-150 ease-mk", open && "rotate-180")}
+        />
       </button>
       {open && (
-        <div style={{ padding: "0 20px 20px" }}>
+        <div className="px-5 pb-5">
           <DualAxisReport report={entry.report} />
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -64,32 +75,41 @@ function LearningRecord({ initialScopeId }: { initialScopeId?: string | null }) 
     return () => { cancelled = true; };
   }, [initialScopeId]);
 
-  if (entries === undefined) {
-    return <div style={{ padding: 40, color: "#9AA1B0" }}>正在整理你的成长报告…</div>;
-  }
-
   return (
     <>
-      <div style={{ background: "linear-gradient(135deg,#2A3B7A 0%,#34468C 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(42,59,122,.20)" }}>
-        <div style={{ flex: "none", width: 60, height: 60, borderRadius: 18, background: "rgba(255,255,255,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a5 5 0 0 0-5 5c0 2 1 3 1 5v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c0-2 1-3 1-5a5 5 0 0 0-5-5z" /><path d="M9 21h6" /></svg>
+      <header className="flex items-center gap-4">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-mk-full bg-mk-accent-50 text-mk-accent-600">
+          <Icon icon={Lightbulb} size={26} />
+        </span>
+        <div className="min-w-0">
+          <div className="text-mk-label text-mk-muted">成长报告</div>
+          <h1 className="mt-0.5 text-mk-h1 text-mk-ink">你的思维印记</h1>
+          <p className="mt-1 text-mk-body text-mk-muted">
+            每完成一个任务、一节课，或在聊天里留下一次思维印记，都会汇集到这里——按真实过程给出的诊断，不是分数。
+          </p>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "#AEB8E4" }}>成长报告</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 6, lineHeight: 1.3 }}>你的思维印记</div>
-          <div style={{ fontSize: 13, color: "#C3CBEC", marginTop: 6 }}>每完成一个任务、一节课，或在聊天里留下一次思维印记，都会汇集到这里——按真实过程给出的诊断，不是分数。</div>
-        </div>
-      </div>
+      </header>
 
       {error && (
-        <div style={{ marginTop: 14, fontSize: 13, color: "#B0432E", background: "#FBEDEA", borderRadius: 10, padding: "10px 14px" }}>{error}</div>
+        <div className="mt-4 rounded-mk-sm bg-mk-danger-bg px-3.5 py-2.5 text-mk-body text-mk-danger">{error}</div>
       )}
 
-      {entries.length === 0 ? (
-        <div style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "34px 24px", marginTop: 16, textAlign: "center" }}>
-          <div style={{ fontSize: 14.5, color: "#3A4256", fontWeight: 700 }}>还没有报告</div>
-          <div style={{ fontSize: 13.5, color: "#6B7384", lineHeight: 1.7, maxWidth: 420, margin: "8px auto 0" }}>完成一个任务、一节课，或在聊天里留下一次思维印记，报告会在这里汇集。</div>
+      {entries === undefined ? (
+        <div className="mt-4 flex flex-col gap-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Card key={i} className="p-5">
+              <SkeletonRow />
+            </Card>
+          ))}
         </div>
+      ) : entries.length === 0 ? (
+        <Card className="mt-4 p-6">
+          <EmptyState
+            illustration="completed"
+            title="还没有报告"
+            body="完成一个任务、一节课，或在聊天里留下一次思维印记，报告会在这里汇集。"
+          />
+        </Card>
       ) : (
         entries.map((e) => {
           const id = `${e.surface}:${e.scopeId}`;
@@ -101,22 +121,15 @@ function LearningRecord({ initialScopeId }: { initialScopeId?: string | null }) 
 }
 
 export function GrowthReport({ initialScopeId, onOpenCourse }: { initialScopeId?: string | null; onOpenCourse?: (courseId: string) => void } = {}) {
-  const [tab, setTab] = useState<"learning" | "cards">("learning");
-  const tabStyle = (active: boolean) => ({
-    padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
-    fontSize: 13.5, fontWeight: 700,
-    background: active ? "#2A3B7A" : "transparent", color: active ? "#fff" : "#6B7384",
-  });
+  // onOpenCourse is kept in the prop signature for call-site compatibility
+  // with StudentApp (which still threads it through) but has no consumer
+  // here now that 工具卡 (ToolkitCards) lives at the top-level 图鉴 tab
+  // (Task 7) rather than as an internal tab of this component.
+  void onOpenCourse;
   return (
-    <div style={{ flex: 1, minHeight: 0, height: "100%", overflowY: "auto", background: "#F3F4F8" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-          <button type="button" style={tabStyle(tab === "learning")} onClick={() => setTab("learning")}>学习记录</button>
-          <button type="button" style={tabStyle(tab === "cards")} onClick={() => setTab("cards")}>工具卡</button>
-          {/* 能力素养 tab hidden 2026-07-31 for MVP focus. AbilityModel + its
-              api/ability endpoint remain; re-add the button to restore. */}
-        </div>
-        {tab === "cards" ? <ToolkitCards onOpenCourse={onOpenCourse} /> : <LearningRecord initialScopeId={initialScopeId} />}
+    <div className="h-full min-h-0 flex-1 overflow-y-auto bg-mk-paper">
+      <div className="mx-auto max-w-[760px] px-10 py-9">
+        <LearningRecord initialScopeId={initialScopeId} />
       </div>
     </div>
   );

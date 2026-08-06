@@ -1,0 +1,63 @@
+<h2>豆豆滚动 · 加载动画</h2>
+<p class="subtitle">不确定时长的加载（房间加载、AI 处理）就让豆豆<strong>滚过去</strong>——比进度条可爱。来回滚（去时顺时针、回时逆时针，不生硬跳回）。已知进度（如写作 3/5 段）仍用 accent 填充条。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 12px; font-size:15px; color:#33302E; }
+
+  /* rolling track */
+  .track { position:relative; height:48px; border-bottom:2px dashed #E7DDD0; margin:4px 8px 0; }
+  .roller { position:absolute; bottom:-2px; width:38px; height:38px; animation:roll 3.2s cubic-bezier(.45,0,.55,1) infinite alternate; }
+  @keyframes roll { from{ left:0; transform:rotate(-8deg); } to{ left:calc(100% - 38px); transform:rotate(540deg); } }
+  .cap { font-size:12.5px; color:#8A827A; text-align:center; margin-top:12px; }
+
+  /* inline small */
+  .inline { display:flex; align-items:center; gap:10px; font-size:13.5px; color:#5a5049; }
+  .spin { width:26px; height:26px; animation:spin 1s linear infinite; }
+  @keyframes spin { to{ transform:rotate(360deg); } }
+
+  /* determinate for contrast */
+  .bar { height:8px; background:#EFE7DD; border-radius:99px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:62%; background:#EA5140; border-radius:99px; }
+
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:720px){ .row{grid-template-columns:1fr;} }
+</style>
+
+<div class="sheet">
+  <h3>房间加载 / AI 处理 · 豆豆滚过去（时长未知）</h3>
+  <div class="track">
+    <svg class="roller" viewBox="0 0 40 40">
+      <path d="M20 6 C 30 5 36.5 11 35.5 21 C 34.5 30 27 35.5 18.5 34.5 C 9.5 33.5 4.5 27 5.5 18 C 6.5 10 12 7 20 6 Z" fill="#EA5140"/>
+      <ellipse cx="16" cy="21" rx="1.9" ry="2.5" fill="#2A2724"/><circle cx="15.4" cy="20" r=".75" fill="#fff"/>
+      <ellipse cx="25" cy="20.4" rx="1.9" ry="2.5" fill="#2A2724"/><circle cx="24.4" cy="19.4" r=".75" fill="#fff"/>
+    </svg>
+  </div>
+  <div class="cap">阅读室加载中…</div>
+</div>
+
+<div class="row">
+  <div class="sheet">
+    <h3>行内小加载 · 原地滚</h3>
+    <div class="inline">
+      <svg class="spin" viewBox="0 0 40 40">
+        <path d="M20 6 C 30 5 36.5 11 35.5 21 C 34.5 30 27 35.5 18.5 34.5 C 9.5 33.5 4.5 27 5.5 18 C 6.5 10 12 7 20 6 Z" fill="#EA5140"/>
+        <ellipse cx="16" cy="21" rx="2" ry="2.6" fill="#2A2724"/>
+        <ellipse cx="25" cy="20.4" rx="2" ry="2.6" fill="#2A2724"/>
+      </svg>
+      豆豆正在忙…
+    </div>
+    <div class="inline" style="margin-top:14px;">
+      <svg class="spin" style="width:20px;height:20px;" viewBox="0 0 40 40"><path d="M20 6 C 30 5 36.5 11 35.5 21 C 34.5 30 27 35.5 18.5 34.5 C 9.5 33.5 4.5 27 5.5 18 C 6.5 10 12 7 20 6 Z" fill="#EA5140"/><ellipse cx="16" cy="21" rx="2.1" ry="2.7" fill="#2A2724"/><ellipse cx="25" cy="20.4" rx="2.1" ry="2.7" fill="#2A2724"/></svg>
+      <span style="font-size:12px;">按钮/小尺寸也行</span>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <h3>已知进度 · 仍用填充条</h3>
+    <div class="bar"><i></i></div>
+    <div class="cap" style="text-align:left; margin-top:8px;">写作 · 已完成 3 / 5 段（有确定进度时不用滚动豆豆）</div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:14px;">👉 滚动豆豆当加载对味吗？速度/幅度/要不要加顶部那条细进度条（豆豆骑在进度上滚）都能调。确认后 AI 头像＋加载就齐了，可以开始<strong>实现设计</strong >。</p>

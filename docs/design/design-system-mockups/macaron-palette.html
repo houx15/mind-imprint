@@ -1,0 +1,136 @@
+<h2>马卡龙 · 低饱和柔和方向</h2>
+<p class="subtitle">柔和、低饱和的马卡龙气质。下面第一排是这套系统共享的「马卡龙色系」——卡片封面、工具卡、标签都从这里取色。下面三个是不同的<strong>主色</strong>方案（主色决定按钮、链接、AI 的气质）。文字始终用柔和的墨灰色保证清晰，主色只在需要强调时出现。选一个主色，或告诉我你想混。</p>
+
+<style>
+  .strip { display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 26px; }
+  .chip { border-radius:12px; padding:14px 10px 10px; width:104px; text-align:center;
+          box-shadow:inset 0 0 0 1px rgba(0,0,0,.04); }
+  .chip .dot { width:34px; height:34px; border-radius:9px; margin:0 auto 8px;
+               box-shadow:inset 0 0 0 1px rgba(0,0,0,.05); }
+  .chip .cn { font-size:12.5px; font-weight:650; color:#4A4750; }
+  .chip .hx { font-size:10.5px; color:#4A4750; opacity:.5; letter-spacing:.02em; }
+
+  .lead { border-radius:16px; margin-bottom:20px; cursor:pointer; overflow:hidden;
+          border:2px solid transparent; transition:transform .12s ease; }
+  .lead:hover { transform:translateY(-2px); }
+  .lead.selected { outline:3px solid #8B7BB8; outline-offset:3px; }
+  .lead-inner { display:grid; grid-template-columns:170px 1fr 250px; min-height:200px; }
+  @media (max-width:860px){ .lead-inner{ grid-template-columns:1fr; } }
+  .lead-id { padding:20px; display:flex; flex-direction:column; gap:7px; }
+  .lead-id .k { font-size:11px; letter-spacing:.14em; text-transform:uppercase; opacity:.55; }
+  .lead-id .n { font-size:19px; font-weight:750; line-height:1.2; font-family:-apple-system,'PingFang SC',sans-serif; }
+  .lead-id .t { font-size:12px; line-height:1.5; opacity:.72; }
+  .lead-id .sw { display:flex; gap:6px; margin-top:6px; }
+  .lead-id .sw span { width:24px; height:24px; border-radius:7px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+
+  .demo { padding:22px; display:flex; flex-direction:column; justify-content:center; gap:12px; }
+  .pcard { border-radius:13px; overflow:hidden; max-width:250px; background:#fff; }
+  .pcover { height:48px; }
+  .pbody { padding:10px 13px; }
+  .ptitle { font-size:14px; font-weight:650; line-height:1.3; color:#3E3B44; }
+  .pmeta { font-size:11px; margin-top:4px; color:#3E3B44; opacity:.55; }
+  .ai { display:flex; gap:9px; align-items:flex-start; max-width:250px; }
+  .ai .av { width:26px; height:26px; border-radius:50%; flex:none; }
+  .ai .bub { border-radius:4px 13px 13px 13px; padding:9px 12px; font-size:12.5px; line-height:1.5; color:#3E3B44; }
+
+  .col { padding:22px; display:flex; flex-direction:column; gap:11px; justify-content:center; }
+  .b { text-align:center; font-size:13px; padding:9px 16px; font-weight:650; border-radius:11px; }
+  .btag { font-size:11px; font-weight:600; padding:4px 10px; border-radius:20px; align-self:flex-start; }
+</style>
+
+<div class="label">共享马卡龙色系 · Shared macaron set</div>
+<div class="strip">
+  <div class="chip" style="background:#FBEFEE;"><div class="dot" style="background:#F0CDCB;"></div><div class="cn">莓粉</div><div class="hx">#F0CDCB</div></div>
+  <div class="chip" style="background:#FBF0E4;"><div class="dot" style="background:#F4D8B8;"></div><div class="cn">蜜桃</div><div class="hx">#F4D8B8</div></div>
+  <div class="chip" style="background:#FAF5DF;"><div class="dot" style="background:#EFE3B0;"></div><div class="cn">奶油黄</div><div class="hx">#EFE3B0</div></div>
+  <div class="chip" style="background:#EEF3E2;"><div class="dot" style="background:#CFDEB4;"></div><div class="cn">抹茶</div><div class="hx">#CFDEB4</div></div>
+  <div class="chip" style="background:#E6F1EC;"><div class="dot" style="background:#BEDDD0;"></div><div class="cn">薄荷</div><div class="hx">#BEDDD0</div></div>
+  <div class="chip" style="background:#E9F0F6;"><div class="dot" style="background:#C4D8E8;"></div><div class="cn">雾蓝</div><div class="hx">#C4D8E8</div></div>
+  <div class="chip" style="background:#EFEBF6;"><div class="dot" style="background:#D6CBE8;"></div><div class="cn">香芋紫</div><div class="hx">#D6CBE8</div></div>
+</div>
+
+<div class="label">主色方案 · Pick the lead</div>
+<div style="height:8px;"></div>
+
+<!-- A · Taro Lavender -->
+<div class="lead" data-choice="a" onclick="toggleSelect(this)" style="background:#F7F4FB;">
+  <div class="lead-inner">
+    <div class="lead-id" style="background:#EFEBF6; color:#4A4658;">
+      <span class="k">A · 主色</span>
+      <span class="n">香芋紫 Taro</span>
+      <span class="t">最柔、最治愈，安静又有点高级感。</span>
+      <div class="sw"><span style="background:#8B7BB8;"></span><span style="background:#D6CBE8;"></span><span style="background:#EFEBF6;"></span><span style="background:#4A4658;"></span></div>
+    </div>
+    <div class="demo">
+      <div class="pcard" style="box-shadow:0 6px 18px rgba(139,123,184,.14);">
+        <div class="pcover" style="background:linear-gradient(120deg,#D6CBE8,#BEDDD0);"></div>
+        <div class="pbody"><div class="ptitle">中国是否让地球更可持续？</div><div class="pmeta">阅读 · 3 篇文献 · 2 天前</div></div>
+      </div>
+      <div class="ai">
+        <div class="av" style="background:#8B7BB8;"></div>
+        <div class="bub" style="background:#EFEBF6;">这篇来源你追到 NASA 了——它可信在哪一点？</div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="b" style="background:#8B7BB8; color:#fff;">开始写作</span>
+      <span class="b" style="background:#fff; color:#7A6BA6; box-shadow:inset 0 0 0 1.5px #D6CBE8;">回顾过程</span>
+      <span class="btag" style="background:#D6CBE8; color:#4A4658;">CRAAP 溯源</span>
+    </div>
+  </div>
+</div>
+
+<!-- B · Matcha -->
+<div class="lead" data-choice="b" onclick="toggleSelect(this)" style="background:#F4F8ED;">
+  <div class="lead-inner">
+    <div class="lead-id" style="background:#EEF3E2; color:#45493E;">
+      <span class="k">B · 主色</span>
+      <span class="n">抹茶 Matcha</span>
+      <span class="t">清新、自然、专注，学术里带点松弛。</span>
+      <div class="sw"><span style="background:#7E9B6B;"></span><span style="background:#CFDEB4;"></span><span style="background:#EEF3E2;"></span><span style="background:#45493E;"></span></div>
+    </div>
+    <div class="demo">
+      <div class="pcard" style="box-shadow:0 6px 18px rgba(126,155,107,.14);">
+        <div class="pcover" style="background:linear-gradient(120deg,#CFDEB4,#C4D8E8);"></div>
+        <div class="pbody"><div class="ptitle">中国是否让地球更可持续？</div><div class="pmeta">阅读 · 3 篇文献 · 2 天前</div></div>
+      </div>
+      <div class="ai">
+        <div class="av" style="background:#7E9B6B;"></div>
+        <div class="bub" style="background:#EEF3E2;">这篇来源你追到 NASA 了——它可信在哪一点？</div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="b" style="background:#7E9B6B; color:#fff;">开始写作</span>
+      <span class="b" style="background:#fff; color:#6E8B5E; box-shadow:inset 0 0 0 1.5px #CFDEB4;">回顾过程</span>
+      <span class="btag" style="background:#CFDEB4; color:#45493E;">CRAAP 溯源</span>
+    </div>
+  </div>
+</div>
+
+<!-- C · Powder Blue -->
+<div class="lead" data-choice="c" onclick="toggleSelect(this)" style="background:#F2F7FB;">
+  <div class="lead-inner">
+    <div class="lead-id" style="background:#E9F0F6; color:#3E4A57;">
+      <span class="k">C · 主色</span>
+      <span class="n">雾蓝 Powder</span>
+      <span class="t">干净、可信、冷静，最像一个不打扰的工具。</span>
+      <div class="sw"><span style="background:#7FA8C9;"></span><span style="background:#C4D8E8;"></span><span style="background:#E9F0F6;"></span><span style="background:#3E4A57;"></span></div>
+    </div>
+    <div class="demo">
+      <div class="pcard" style="box-shadow:0 6px 18px rgba(127,168,201,.16);">
+        <div class="pcover" style="background:linear-gradient(120deg,#C4D8E8,#D6CBE8);"></div>
+        <div class="pbody"><div class="ptitle">中国是否让地球更可持续？</div><div class="pmeta">阅读 · 3 篇文献 · 2 天前</div></div>
+      </div>
+      <div class="ai">
+        <div class="av" style="background:#7FA8C9;"></div>
+        <div class="bub" style="background:#E9F0F6;">这篇来源你追到 NASA 了——它可信在哪一点？</div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="b" style="background:#7FA8C9; color:#fff;">开始写作</span>
+      <span class="b" style="background:#fff; color:#5E86A6; box-shadow:inset 0 0 0 1.5px #C4D8E8;">回顾过程</span>
+      <span class="btag" style="background:#C4D8E8; color:#3E4A57;">CRAAP 溯源</span>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 三个主色都活在同一套马卡龙色系里，只是「谁当家」不同。点一个，或告诉我感觉（例如「香芋紫太梦幻，抹茶刚好」）。多色封面用的是共享色系里的两色渐变。</p>

@@ -47,6 +47,49 @@ describe("ReadingRoom", () => {
   });
 });
 
+// #8: 我的笔记 — a personal-note surface, never fed to evaluation. Only
+// rendered when the caller supplies onSaveNote; opens expanded when a
+// persisted note already exists; edits save on blur.
+describe("ReadingRoom — 我的笔记 (#8)", () => {
+  it("does not render the note block when onSaveNote is absent", () => {
+    render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={NOOP_API} />);
+    expect(screen.queryByText("我的笔记")).toBeNull();
+  });
+
+  it("toggles open, opens pre-expanded with a persisted note, and saves an edit on blur", async () => {
+    const onSaveNote = vi.fn(async () => {});
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        readingNote="已有一条旧笔记。"
+        onSaveNote={onSaveNote}
+        onBack={() => {}}
+        api={NOOP_API}
+      />,
+    );
+
+    // A persisted note opens the block expanded — she sees it on re-entry.
+    const textarea = screen.getByPlaceholderText(/随手记下你自己的想法/) as HTMLTextAreaElement;
+    expect(textarea).toHaveValue("已有一条旧笔记。");
+
+    // Collapsing hides the textarea and shows the "已记" hint.
+    fireEvent.click(screen.getByText(/我的笔记/));
+    expect(screen.queryByPlaceholderText(/随手记下你自己的想法/)).toBeNull();
+    expect(screen.getByText(/我的笔记.*已记/)).toBeInTheDocument();
+
+    // Reopen, edit, and blur — the edit persists via onSaveNote.
+    fireEvent.click(screen.getByText(/我的笔记/));
+    const reopened = screen.getByPlaceholderText(/随手记下你自己的想法/) as HTMLTextAreaElement;
+    fireEvent.change(reopened, { target: { value: "更新后的笔记。" } });
+    fireEvent.blur(reopened);
+
+    await screen.findByText("已保存");
+    expect(onSaveNote).toHaveBeenCalledWith("更新后的笔记。");
+  });
+});
+
 // #4/#5: the reference's persisted bib (abstract/journal/author/year/url) shows
 // in the article header — abstract as a collapsible 摘要 block, a metadata line,
 // and a 打开原文 external link.

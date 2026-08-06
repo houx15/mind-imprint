@@ -88,8 +88,14 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
   }
 }
 
+// `label` is the single source of truth for the room's short name — the
+// studio top-bar room switcher (WorkspaceContainer's `TopBar`, spec §17)
+// renders these labels directly, so there's no second hardcoded copy to
+// drift. "立项" (not the room's own longer internal heading "项目管理",
+// still used inside PlanBlock's board view) matches the compact 2-char
+// rhythm of 阅读/写作/回顾 in the switcher.
 export const BLOCK_META: { key: BlockKey; label: string; sub: string }[] = [
-  { key: "plan", label: "项目管理", sub: "Project Management" },
+  { key: "plan", label: "立项", sub: "Project Management" },
   { key: "reading", label: "阅读", sub: "Read" },
   { key: "writing", label: "写作", sub: "Write" },
   { key: "reflection", label: "回顾", sub: "Review" },

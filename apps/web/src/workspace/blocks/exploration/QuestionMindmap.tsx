@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { ExplorationLead } from "@mind-imprint/contracts";
+import { NEUTRAL } from "@/ui/tokens";
 import {
   buildMindmapEdges,
   buildMindmapNodes,
@@ -47,28 +48,34 @@ type MindmapNodeData = {
   onRequestDelete: (id: string) => void;
 };
 
-// ---------- custom ellipse node ----------
+// ---------- custom card node ----------
 
+// `selected` is a manual per-node flag threaded through `data` (not React
+// Flow's built-in NodeProps.selected) — the map already drives it from the
+// sidebar's selectedId, so clicking a paper/question node persists a real
+// selection (unlike Level-1, where a click immediately zooms away).
 function MindmapNodeView({ id, data }: NodeProps) {
   const d = data as unknown as MindmapNodeData;
   const w = d.isRoot ? 216 : 176;
   const h = d.isRoot ? 108 : 88;
   return (
     <div
-      className="group relative flex flex-col items-center justify-center text-center"
+      data-theme={d.theme.key}
+      data-selected={d.selected ? "true" : "false"}
+      className="group relative flex flex-col justify-center overflow-hidden border border-mk-border bg-mk-surface py-2.5 pl-4 pr-3"
       style={{
         width: w,
         height: h,
-        padding: "0 26px",
-        borderRadius: "50%",
-        border: `2px solid ${d.theme.border}`,
-        background: `linear-gradient(160deg, ${d.theme.fillFrom} 0%, ${d.theme.fillTo} 100%)`,
+        borderRadius: "var(--mk-radius-sm)", // spec §18 L2 card radius 8
         boxShadow: d.selected
-          ? `0 0 0 3px ${d.theme.border}, 0 10px 26px ${d.theme.glow}`
-          : `0 8px 22px ${d.theme.glow}, inset 0 1px 0 rgba(255,255,255,0.65)`,
+          ? "0 0 0 3px var(--mk-accent), var(--mk-shadow-sm)" // selection ring — accent, reserved for this
+          : "var(--mk-shadow-xs)",
         cursor: "pointer",
       }}
     >
+      {/* Depth-tinted family color left bar — root strongest, deeper nodes lighter. */}
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: d.theme.border }} />
+
       {/* Edges attach to these; connecting is disabled on Level-2 (provenance is
           server-defined), so the handles are invisible + non-connectable. */}
       <Handle type="target" position={Position.Left} className="nodrag" style={{ opacity: 0, width: 1, height: 1 }} isConnectable={false} />
@@ -80,7 +87,7 @@ function MindmapNodeView({ id, data }: NodeProps) {
         type="button"
         aria-label="删除这个节点"
         title="删除"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white/70 text-[13px] font-bold leading-none opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-white"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper/85 text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: d.theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -92,7 +99,7 @@ function MindmapNodeView({ id, data }: NodeProps) {
 
       {d.kind === "paper" && (
         <span
-          className="mb-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white"
+          className="mb-0.5 w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white"
           style={{ background: d.theme.border }}
         >
           论文
@@ -119,7 +126,7 @@ function MindmapNodeView({ id, data }: NodeProps) {
 
 function MindmapEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }: EdgeProps) {
   const [edgePath] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
-  const stroke = (data as { stroke?: string } | undefined)?.stroke ?? "#B8BED0";
+  const stroke = (data as { stroke?: string } | undefined)?.stroke ?? "var(--mk-faint)";
   return <BaseEdge id={id} path={edgePath} style={{ stroke, strokeWidth: 2 }} />;
 }
 
@@ -168,7 +175,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
   const saved = useMemo(() => readSavedPositions(projectId, root.id), [projectId, root.id]);
   const nodeModels = useMemo(() => buildMindmapNodes(root.id, leads, saved), [root.id, leads, saved]);
   const edgeModels = useMemo(() => buildMindmapEdges(root.id, leads), [root.id, leads]);
-  const edgeStroke = useMemo(() => mixToward(themeForRoot(root.id, leads).border, "#FFFFFF", 0.4), [root.id, leads]);
+  const edgeStroke = useMemo(() => mixToward(themeForRoot(root.id, leads).border, NEUTRAL.surface, 0.4), [root.id, leads]);
 
   // React Flow node state, reconciled from the models on every data refresh:
   // surviving nodes keep their (possibly-dragged) position; new nodes take their
@@ -229,7 +236,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
   const deletingRoot = deleteTarget?.id === root.id;
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full bg-mk-paper">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -245,7 +252,9 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
       >
-        <Background gap={22} size={1.4} color="#D8DCE8" />
+        {/* Warm paper dot grid (spec §18). React Flow's Background `color` prop
+            takes a literal, not a CSS var — #E7DDD0 is the spec's own value. */}
+        <Background gap={18} size={1.4} color="#E7DDD0" />
         <Controls showInteractive={false} />
       </ReactFlow>
 
@@ -260,7 +269,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
           >
             <p className="text-[13.5px] font-bold text-mk-ink">{deletingRoot ? "删除这个问题？" : "删除这一项？"}</p>
             {deleteTarget.text && <p className="mt-1 text-[12.5px] text-mk-muted line-clamp-2">「{deleteTarget.text}」</p>}
-            <p className="mt-1.5 text-[12px] leading-relaxed text-mk-muted-2">
+            <p className="mt-1.5 text-[12px] leading-relaxed text-mk-faint">
               {deletingRoot
                 ? "下面挖到的论文也会一起移除，这一步不能撤销。"
                 : "挂在它下面的项也会一起移除，这一步不能撤销。"}
@@ -269,7 +278,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-muted-2 hover:text-mk-ink"
+                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-ink"
               >
                 取消
               </button>
@@ -279,7 +288,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
                   onDeleteLead(deleteTarget.id);
                   setDeleteTarget(null);
                 }}
-                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-hover"
+                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600"
               >
                 删除
               </button>

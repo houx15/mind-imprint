@@ -1,0 +1,72 @@
+<h2>进度条 · 豆豆骑在色条头上滚</h2>
+<p class="subtitle">这才是你要的：一条 accent 进度条向右填充，豆豆<strong>骑在填充的头部</strong>一边前进一边滚。既是真进度条，又可爱。下面在阅读室加载的语境里演示。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 14px; font-size:15px; color:#33302E; }
+
+  .frame { border:1px solid #E3D9CE; border-radius:10px; overflow:hidden; background:#fff; }
+  .fhead { position:relative; height:56px; border-bottom:1px solid #F0E9E1; }
+  .ptrack { position:absolute; left:0; right:0; top:26px; height:4px; background:#FBE0DC; }
+  .pfill  { position:absolute; left:0; top:26px; height:4px; background:#EA5140; border-radius:0 99px 99px 0; width:6px; animation:fill 3.2s ease-out infinite; }
+  .phead  { position:absolute; top:15px; left:0; width:26px; height:26px; animation:roll 3.2s ease-out infinite; }
+  @keyframes fill { 0%{width:6px;opacity:1} 80%{width:88%} 95%{width:100%;opacity:1} 100%{width:100%;opacity:0} }
+  @keyframes roll {
+    0%   { left:0; transform:rotate(0deg); opacity:1; }
+    80%  { left:calc(88% - 24px); transform:rotate(540deg); }
+    95%  { left:calc(100% - 26px); transform:rotate(620deg); opacity:1; }
+    100% { left:calc(100% - 26px); transform:rotate(620deg); opacity:0; }
+  }
+  .fbody { padding:16px 18px; }
+  .sk { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:400px 100%; border-radius:6px; animation:shim 1.3s infinite; }
+  @keyframes shim { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+  .rtitle { font-size:14px; font-weight:600; color:#B0A599; }
+
+  .note { font-size:12.5px; color:#8A827A; margin-top:12px; line-height:1.6; }
+
+  /* slim standalone (nprogress style) */
+  .slim { position:relative; height:30px; background:#fff; border:1px solid #EFE7DD; border-radius:8px; overflow:hidden; }
+  .slim .ptrack { top:13px; } .slim .pfill { top:13px; } .slim .phead { top:2px; width:24px; height:24px; }
+</style>
+
+<div class="sheet">
+  <h3>房间顶部加载条（豆豆骑在头部）</h3>
+  <div class="frame">
+    <div class="fhead">
+      <div class="ptrack"></div>
+      <div class="pfill"></div>
+      <div class="phead">
+        <svg viewBox="0 0 40 40" style="width:100%;height:100%;">
+          <path d="M20 6 C 30 5 36.5 11 35.5 21 C 34.5 30 27 35.5 18.5 34.5 C 9.5 33.5 4.5 27 5.5 18 C 6.5 10 12 7 20 6 Z" fill="#EA5140"/>
+          <ellipse cx="16" cy="21" rx="2" ry="2.6" fill="#2A2724"/><circle cx="15.4" cy="20" r=".8" fill="#fff"/>
+          <ellipse cx="25" cy="20.4" rx="2" ry="2.6" fill="#2A2724"/><circle cx="24.4" cy="19.4" r=".8" fill="#fff"/>
+        </svg>
+      </div>
+    </div>
+    <div class="fbody">
+      <div class="sk" style="height:16px;width:55%;"></div>
+      <div class="sk" style="height:12px;width:100%;margin-top:12px;"></div>
+      <div class="sk" style="height:12px;width:92%;margin-top:8px;"></div>
+      <div class="sk" style="height:12px;width:60%;margin-top:8px;"></div>
+    </div>
+  </div>
+  <div class="note">豆豆的位置 = 填充头部；填满淡出后重来。真进度时（已知 %）豆豆就停在对应位置。用于房间加载、导航、AI 长任务。</div>
+</div>
+
+<div class="sheet">
+  <h3>纤细独立条（页面顶 · nprogress 式）</h3>
+  <div class="slim">
+    <div class="ptrack"></div>
+    <div class="pfill"></div>
+    <div class="phead">
+      <svg viewBox="0 0 40 40" style="width:100%;height:100%;">
+        <path d="M20 6 C 30 5 36.5 11 35.5 21 C 34.5 30 27 35.5 18.5 34.5 C 9.5 33.5 4.5 27 5.5 18 C 6.5 10 12 7 20 6 Z" fill="#EA5140"/>
+        <ellipse cx="16" cy="21" rx="2.1" ry="2.7" fill="#2A2724"/>
+        <ellipse cx="25" cy="20.4" rx="2.1" ry="2.7" fill="#2A2724"/>
+      </svg>
+    </div>
+  </div>
+  <div class="note">同一套，做成页面最顶的细进度条也行——豆豆更小，骑在头部滚。</div>
+</div>
+
+<p class="subtitle" style="margin-top:14px;">👉 就是这个吧？速度我已调慢些（3.2s 走一趟）。要更慢/更快、豆豆更大更小都能改。确认后 AI 头像＋进度加载全齐，<strong>可以开始实现设计了</strong>。</p>

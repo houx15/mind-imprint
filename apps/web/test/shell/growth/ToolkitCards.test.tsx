@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { ToolkitCards } from "@/shell/growth/ToolkitCards";
 import { api } from "@/api";
 
@@ -37,6 +37,22 @@ describe("ToolkitCards gallery", () => {
     for (const label of ["浅色", "青绿", "石板", "暖调"]) {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }
+  });
+
+  it("distinguishes encountered (colored, star rating shown) from not-yet-encountered (greyscale, no stars)", async () => {
+    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+    render(<ToolkitCards />);
+    await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
+
+    const encountered = screen.getByTitle("让步段 · 以退为进");
+    const notEncountered = screen.getByTitle("论证构建卡（图尔敏）");
+
+    expect(encountered.querySelector(".grayscale")).toBeNull();
+    expect(within(encountered).getByLabelText("熟练度 4 星")).toBeInTheDocument();
+
+    expect(notEncountered.querySelector(".grayscale")).not.toBeNull();
+    expect(within(notEncountered).getByText("还没遇到")).toBeInTheDocument();
+    expect(within(notEncountered).queryByLabelText(/熟练度/)).toBeNull();
   });
 
   it("opens a detail modal with methodology + usage record for an encountered card", async () => {

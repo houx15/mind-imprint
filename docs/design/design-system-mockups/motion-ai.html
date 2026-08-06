@@ -1,0 +1,157 @@
+<h2>动效原则 · AI 状态 · 房间转场</h2>
+<p class="subtitle">动效不是装饰，是让「AI 在做事」和「界面在变」被看懂。下面有原则、AI 四态、以及那个关键的「全屏对话 → 收进侧栏、房间展开」转场（可点）。</p>
+
+<style>
+  .sheet { background:#FBF8F4; border-radius:12px; padding:22px 24px; margin-bottom:18px; }
+  .sheet h3 { margin:0 0 4px; font-size:16px; color:#33302E; }
+  .sheet .hint { font-size:13px; color:#8A827A; margin:0 0 16px; line-height:1.55; }
+  .mono { font-family:ui-monospace,'SF Mono',monospace; font-size:11.5px; }
+
+  .princ { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:720px){ .princ{grid-template-columns:1fr;} }
+  .pr { background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:13px 15px; }
+  .pr .t { font-size:14px; font-weight:600; color:#33302E; }
+  .pr .d { font-size:12.5px; color:#8A827A; margin-top:4px; line-height:1.5; }
+
+  /* AI states */
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .st { background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:15px; }
+  .st .row { display:flex; align-items:center; gap:10px; }
+  .av { width:30px; height:30px; border-radius:50%; background:#EA5140; flex:none; position:relative; }
+  .av.ring::after { content:""; position:absolute; inset:-4px; border-radius:50%; border:2px solid #EA5140; opacity:.4; animation:pulse 1.4s ease-out infinite; }
+  @keyframes pulse { 0%{transform:scale(.9);opacity:.5} 100%{transform:scale(1.35);opacity:0} }
+  .stlabel { font-size:13px; font-weight:600; color:#33302E; }
+  .sthint { font-size:11.5px; color:#B0A599; margin-top:2px; }
+  .dots span { display:inline-block; width:6px; height:6px; border-radius:50%; background:#C9BCAD; margin-right:4px; animation:blink 1.2s infinite; }
+  .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes blink { 0%,60%,100%{opacity:.25; transform:translateY(0)} 30%{opacity:1; transform:translateY(-3px)} }
+  .genline { font-size:13px; color:#4a3f3d; line-height:1.5; }
+  .caret { display:inline-block; width:2px; height:15px; background:#EA5140; vertical-align:-2px; animation:caret .9s steps(1) infinite; }
+  @keyframes caret { 50%{opacity:0} }
+  .proc { display:flex; align-items:center; gap:9px; font-size:12.5px; color:#5a5049; }
+  .spin { width:18px; height:18px; border-radius:50%; border:2.5px solid #F0E1DE; border-top-color:#EA5140; animation:spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .done { width:22px; height:22px; border-radius:50%; background:#E7F1DD; color:#4d6b3a; display:flex; align-items:center; justify-content:center; animation:pop .35s cubic-bezier(.2,0,0,1); }
+  @keyframes pop { 0%{transform:scale(.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+  /* studio transition */
+  .device { border:1px solid #E3D9CE; border-radius:12px; overflow:hidden; background:#fff; position:relative; }
+  .topbar { height:3px; background:#F3E4E1; overflow:hidden; }
+  .topbar i { display:block; height:100%; background:#EA5140; width:0; }
+  .device.loading .topbar i { animation:load 1.8s cubic-bezier(.2,0,0,1) infinite; }
+  @keyframes load { 0%{width:6%;opacity:1} 65%{width:72%} 92%{width:95%;opacity:1} 100%{width:100%;opacity:0} }
+  .stagewrap { display:flex; height:300px; }
+  .chatcol { width:100%; flex:none; background:#FBF8F4; display:flex; flex-direction:column; transition:width .32s cubic-bezier(.2,0,0,1); border-right:1px solid transparent; }
+  .device.docked .chatcol { width:230px; border-right-color:#EFE7DD; }
+  .chat-head { padding:12px 16px; display:flex; align-items:center; gap:9px; }
+  .chat-head .nm { font-size:13px; font-weight:700; color:#33302E; }
+  .chatbody { padding:0 16px; display:flex; flex-direction:column; gap:9px; overflow:hidden; }
+  .bub { border-radius:4px 12px 12px 12px; padding:9px 12px; font-size:12.5px; line-height:1.5; color:#4a3f3d; background:#fff; box-shadow:0 1px 3px rgba(70,45,45,.06); max-width:90%; }
+  .bub.me { align-self:flex-end; background:#FDEBE7; border-radius:12px 4px 12px 12px; }
+  .composer { margin-top:auto; margin:auto 16px 16px; border:1.5px solid #EFE7DD; border-radius:8px; padding:9px 11px; font-size:12px; color:#9a908a; background:#fff; display:flex; justify-content:space-between; }
+  .composer .snd { width:22px; height:22px; border-radius:6px; background:#EA5140; }
+  .room { flex:1; min-width:0; background:#fff; opacity:0; transform:translateX(16px); transition:opacity .32s ease .08s, transform .32s cubic-bezier(.2,0,0,1) .08s; overflow:hidden; }
+  .device.docked .room { opacity:1; transform:none; }
+  .room-head { padding:12px 18px; border-bottom:1px solid #F0E9E1; font-size:14px; font-weight:600; color:#33302E; display:flex; align-items:center; gap:8px; }
+  .room-body { padding:18px; }
+  .sk { background:linear-gradient(90deg,#F1EBE3 25%,#F8F4EE 50%,#F1EBE3 75%); background-size:400px 100%; border-radius:6px; animation:shimmer 1.3s infinite; }
+  @keyframes shimmer { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+  .ctrls { display:flex; gap:10px; margin-top:14px; align-items:center; flex-wrap:wrap; }
+  .cbtn { font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:8px; cursor:pointer; }
+
+  /* scrollbar v2 */
+  .sb2 { max-height:110px; overflow-y:auto; background:#fff; border:1px solid #EFE7DD; border-radius:10px; padding:14px 16px; font-size:13px; line-height:1.9; color:#5a5049; }
+  .sb2::-webkit-scrollbar { width:8px; }
+  .sb2::-webkit-scrollbar-track { background:transparent; }
+  .sb2::-webkit-scrollbar-thumb { background:transparent; border-radius:99px; transition:background .25s; }
+  .sb2.scrolling::-webkit-scrollbar-thumb { background:#F3C2BC; }
+</style>
+
+<!-- PRINCIPLES -->
+<div class="sheet">
+  <h3>动效四原则</h3>
+  <p class="hint">呼应铁律：克制、不操纵、一次一个。</p>
+  <div class="princ">
+    <div class="pr"><div class="t">有因才动</div><div class="d">每个动效都在解释一次「变化」——AI 收进侧栏、房间展开、卡片入场。没有纯装饰动画。</div></div>
+    <div class="pr"><div class="t">快而不闹</div><div class="d">短时长 + ease-out，绝不弹跳/回弹/夸张 spring（那是老虎机的把戏，违反不操纵）。</div></div>
+    <div class="pr"><div class="t">保持方位感</div><div class="d">东西从它该在的地方来、去它该在的地方——AI 缩到左边你就知道它「在那儿」，从不失踪。</div></div>
+    <div class="pr"><div class="t">一次一个焦点</div><div class="d">动效一次只把注意力引向一处，和「一次只问一个」一致。可被 reduced-motion 降级为瞬时。</div></div>
+  </div>
+</div>
+
+<!-- AI STATES -->
+<div class="sheet">
+  <h3>AI 四态：想 · 生成 · 处理 · 完成</h3>
+  <p class="hint">状态都挂在印记头像上，让「AI 在做什么」一眼可见。想=脉冲圈+跳点；生成=流式文字+光标；处理=转圈+具体动作名；完成=打勾落定。</p>
+  <div class="states">
+    <div class="st">
+      <div class="row"><div class="av ring"></div><div><div class="stlabel">思考中</div><div class="sthint">印记在想…</div></div></div>
+      <div class="dots" style="margin-top:12px;"><span></span><span></span><span></span></div>
+    </div>
+    <div class="st">
+      <div class="row"><div class="av"></div><div><div class="stlabel">生成中</div><div class="sthint">流式输出</div></div></div>
+      <div class="genline" style="margin-top:12px;">它可信在哪一点？先说你的判断<span class="caret"></span></div>
+    </div>
+    <div class="st">
+      <div class="row"><div class="av"></div><div><div class="stlabel">处理中</div><div class="sthint">调用工具/检索</div></div></div>
+      <div class="proc" style="margin-top:12px;"><span class="spin"></span> 正在追溯来源到 NASA…</div>
+    </div>
+    <div class="st">
+      <div class="row"><div class="av"></div><div><div class="stlabel">完成</div><div class="sthint">落定</div></div></div>
+      <div class="proc" style="margin-top:12px;"><span class="done">✓</span> 已找到 3 篇相关文献</div>
+    </div>
+  </div>
+</div>
+
+<!-- STUDIO TRANSITION -->
+<div class="sheet">
+  <h3>关键转场：对话 → 侧栏，房间展开</h3>
+  <p class="hint">studio 的 agentic 核心动作。学生说「帮我读这篇文献」，印记从<strong>全屏对话</strong>平滑收进<strong>左侧栏</strong>（保持方位感，它没消失），右侧房间同时展开——顶部还有加载进度条 + 房间骨架屏。点按钮试试。</p>
+  <div class="device" id="dev">
+    <div class="topbar"><i></i></div>
+    <div class="stagewrap">
+      <div class="chatcol">
+        <div class="chat-head"><div class="av" style="width:26px;height:26px;"></div><div class="nm">印记</div></div>
+        <div class="chatbody">
+          <div class="bub">这篇来源你追到 NASA 了——它可信在哪一点？</div>
+          <div class="bub me">我想先读一下原文再判断</div>
+          <div class="bub">好，我这就把阅读室打开在右边 →</div>
+        </div>
+        <div class="composer"><span>说说你的想法…</span><span class="snd"></span></div>
+      </div>
+      <div class="room">
+        <div class="room-head">📖 阅读室 · 中国是否让地球更可持续？</div>
+        <div class="room-body">
+          <div class="sk" style="height:16px; width:60%;"></div>
+          <div class="sk" style="height:12px; width:100%; margin-top:12px;"></div>
+          <div class="sk" style="height:12px; width:92%; margin-top:8px;"></div>
+          <div class="sk" style="height:12px; width:96%; margin-top:8px;"></div>
+          <div class="sk" style="height:12px; width:40%; margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ctrls">
+    <span class="cbtn" style="background:#EA5140; color:#fff;" onclick="dockRoom()">▶ 学生说「帮我读这篇」</span>
+    <span class="cbtn" style="background:#fff; color:#5a5049; box-shadow:inset 0 0 0 1.5px #EFE7DD;" onclick="undock()">← 回到全屏对话</span>
+    <span style="font-size:12px;color:#B0A599;">全屏对话时房间宽度=0；docked 时侧栏 230px。</span>
+  </div>
+</div>
+
+<!-- SCROLLBAR v2 -->
+<div class="sheet">
+  <h3>滚动条 · 只在滚动时出现（浅主色）</h3>
+  <p class="hint">默认完全隐身，<strong>滚动时</strong>才淡出一条浅主色 thumb（accent-200，很淡），停下 0.7s 后消失。滚一下试试。</p>
+  <div class="sb2">
+    中国在可再生能源装机上全球领先，但碳排放总量同样全球第一。<br>· NASA 卫星观测：新增绿化面积全球居前<br>· Nature Sustainability：新能源投资领跑<br>· 反例：人均 vs 总量口径差异<br>· 让步：领先 ≠ 已可持续<br>· 结论需要限定语<br>· 继续滚还有更多<br>· 演示只在滚动时出现的浅色滚动条
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:8px;">👉 这批（动效原则 / AI 四态 / 对话↔侧栏转场 / 进度条 / 骨架屏 / 滚动条）对不对？转场的节奏、AI 四态的表现方式，想调就说。确认后继续：<strong>表单控件 · tabs · 徽章/进度/tooltip</strong>。</p>
+
+<script>
+  var dev = document.getElementById('dev');
+  window.dockRoom = function(){ dev.classList.add('loading'); setTimeout(function(){ dev.classList.add('docked'); }, 40); setTimeout(function(){ dev.classList.remove('loading'); }, 1600); };
+  window.undock = function(){ dev.classList.remove('docked'); dev.classList.remove('loading'); };
+  document.querySelectorAll('.sb2').forEach(function(el){ var t; el.addEventListener('scroll', function(){ el.classList.add('scrolling'); clearTimeout(t); t=setTimeout(function(){ el.classList.remove('scrolling'); },700); }); });
+</script>

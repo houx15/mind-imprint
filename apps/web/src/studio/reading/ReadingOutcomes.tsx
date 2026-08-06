@@ -8,16 +8,20 @@ import type { ReadingOutcome } from "./readingLoop";
 // review, with a 回到原文 button that re-focuses the source sentence. This is
 // the fix for the crux complaint — confirmed findings used to vanish.
 
+// Tones read off the shared design-system semantic tokens (--mk-success/
+// --mk-warning/--mk-danger, apps/web/src/index.css) rather than a local hex
+// table — same mapping HangingCard.tsx uses for the identical verdict/check
+// shape.
 const VERDICT_TONE: Record<SelectionEval["verdict"], { fg: string; bg: string }> = {
-  strong: { fg: "#4C9A82", bg: "#EAF6F0" },
-  partial: { fg: "#B5872F", bg: "#FBF3E3" },
-  rethink: { fg: "#C2557A", bg: "#FBEAF0" },
+  strong: { fg: "var(--mk-success)", bg: "var(--mk-success-bg)" },
+  partial: { fg: "var(--mk-warning)", bg: "var(--mk-warning-bg)" },
+  rethink: { fg: "var(--mk-danger)", bg: "var(--mk-danger-bg)" },
 };
 
 const CHECK_TONE: Record<SelectionEval["checks"][number]["status"], { fg: string; bg: string; mark: string; label: string }> = {
-  pass: { fg: "#4C9A82", bg: "#EAF6F0", mark: "✓", label: "通过" },
-  partial: { fg: "#B5872F", bg: "#FBF3E3", mark: "~", label: "待补足" },
-  miss: { fg: "#C2557A", bg: "#FBEAF0", mark: "✕", label: "未通过" },
+  pass: { fg: "var(--mk-success)", bg: "var(--mk-success-bg)", mark: "✓", label: "通过" },
+  partial: { fg: "var(--mk-warning)", bg: "var(--mk-warning-bg)", mark: "~", label: "待补足" },
+  miss: { fg: "var(--mk-danger)", bg: "var(--mk-danger-bg)", mark: "✕", label: "未通过" },
 };
 
 function OutcomeCard({ outcome, index, onLocate }: { outcome: ReadingOutcome; index: number; onLocate: () => void }) {
