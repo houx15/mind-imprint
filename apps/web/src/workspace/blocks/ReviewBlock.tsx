@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Mirror, Proposal, ProjectStatus } from "@mind-imprint/contracts";
+import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { Composer } from "@/studio/ai/Composer";
 import { ApiError } from "../../api/client";
 import { finishProject } from "../../api/projects";
 import { Icon } from "../Icon";
@@ -27,9 +31,11 @@ import { CardTurnChip } from "./CardTurnChip";
 const REFLECTION_DECK = ["learning-report", "metacognition", "knower-perspective"];
 
 // The Review block: a mirror, not a report card. The student's own reflection
-// leads (left); the AI-assembled "你的思维印记" narrative sits alongside as
-// support (right). The rubric/assessment runs quietly on 定稿并评估 and feeds the
-// teacher/parent reports — it is NOT shown here as a grade.
+// leads (left, in <main>); the AI-assembled "你的思维印记" narrative sits
+// alongside as support — portaled into the constant AiPanel (Task 4/6),
+// same slot the active coach uses before she's done. The rubric/assessment
+// runs quietly on 定稿并评估 and feeds the teacher/parent reports — it is NOT
+// shown here as a grade.
 //
 // #20 · view-only lock: the room only unlocks once writing is finished
 // (完成写作 in the writing room). Before that the prompts show as a read-only
@@ -165,27 +171,37 @@ export function ReviewBlock({
     }
   }
 
+  // The room→panel contract (Task 4/6, spec §17): this room's WORK — the
+  // reflection prompts + AI-use retrospective + finish actions — renders
+  // directly below, in <main>; its COACH (chat, before she's done) and its
+  // MIRROR (read-only "你的思维印记", after) both portal into the constant
+  // AiPanel via `useStudioAiSlot`. `slot` is null when the panel is
+  // collapsed or this component renders outside a studio shell (e.g. some
+  // tests) — in either case the panel content simply doesn't render, never
+  // crashes.
+  const slot = useStudioAiSlot();
+
   return (
-    <div className="grid h-full grid-cols-[1fr,380px]">
-      {/* main · the student's reflection */}
-      <div className="min-h-0 overflow-y-auto px-10 py-9">
+    <>
+      {/* WORK — the student's own reflection + AI-use retrospective. */}
+      <div className="h-full overflow-y-auto px-10 py-9">
         <div className="mx-auto max-w-2xl">
           <header className="mb-6">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">项目收尾</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">项目收尾</p>
             <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">回过头看看这一程</h1>
             <p className="mt-1.5 text-[14px] text-mk-muted">用你自己的话回答几个问题。右边是印记帮你整理的过程，卡壳时可以看看——但话得你自己说。</p>
           </header>
 
           {/* #20 · view-only lock — the room only unlocks once writing is finished. */}
           {!writingFinished && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-bg/60 px-4 py-3">
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper/60 px-4 py-3">
               <Icon name="writing" size={16} />
               <p className="flex-1 text-[13px] font-semibold text-mk-muted">先在写作房间点「完成写作」，回顾才会解锁。</p>
               {onOpenRoom && (
                 <button
                   type="button"
                   onClick={() => onOpenRoom("writing")}
-                  className="flex-none rounded-mk bg-mk-primary px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover"
+                  className="flex-none rounded-mk-md bg-mk-accent px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600"
                 >
                   去写作房间 →
                 </button>
@@ -197,13 +213,13 @@ export function ReviewBlock({
             {reflectionPrompts.map((p, i) => (
               <div key={i}>
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-mk-primary-tint text-[12px] font-bold text-mk-primary">{i + 1}</span>
-                  <span className="rounded-full bg-mk-bg px-2 py-0.5 text-[11px] font-bold text-mk-muted">{p.label}</span>
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-mk-accent-50 text-[12px] font-bold text-mk-accent">{i + 1}</span>
+                  <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[11px] font-bold text-mk-muted">{p.label}</span>
                 </div>
                 <p className="mt-1.5 text-[14.5px] font-bold leading-snug text-mk-ink">{p.q}</p>
                 {p.anchor === "goal" && proposal.objective && (
-                  <p className="mt-1.5 rounded-mk border-l-2 border-mk-accent bg-mk-accent-tint/40 px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
-                    <span className="font-bold text-mk-accent">开题时你写的目标 · </span>{proposal.objective}
+                  <p className="mt-1.5 rounded-mk-md border-l-2 border-mk-butter bg-mk-butter-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
+                    <span className="font-bold text-mk-butter-fg">开题时你写的目标 · </span>{proposal.objective}
                   </p>
                 )}
                 <textarea
@@ -212,7 +228,7 @@ export function ReviewBlock({
                   disabled={!writingFinished || done}
                   rows={4}
                   placeholder={writingFinished ? "写下你的想法……" : "完成写作后在这里回顾"}
-                  className="mt-2 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary disabled:opacity-60"
+                  className="mt-2 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent disabled:opacity-60"
                 />
               </div>
             ))}
@@ -226,18 +242,18 @@ export function ReviewBlock({
               <AIUsePanel projectId={projectId} done={done} />
 
               {/* Q4 followup (2026-08): 「印记陪你把回顾写完」moved OUT of this bottom
-                  spot and INTO the right sidebar (see the aside below) — it's the
+                  spot and INTO the AI panel (see the portal below) — it's the
                   ACTIVE coach while she's filling the form, not a buried footnote. */}
 
               <div className="mt-7 flex flex-wrap items-center gap-4">
                 {archived ? (
                   <>
-                    <span className="text-[13px] font-semibold text-mk-green">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
+                    <span className="text-[13px] font-semibold text-mk-success">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
                     {onFinished && (
                       <button
                         type="button"
                         onClick={onFinished}
-                        className="rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-primary-hover"
+                        className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
                       >
                         回到全部项目 →
                       </button>
@@ -251,18 +267,18 @@ export function ReviewBlock({
                       type="button"
                       onClick={() => void finishReflection()}
                       disabled={markingDone}
-                      className="rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-primary-hover disabled:opacity-50"
+                      className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
                     >
                       {markingDone ? "记录中……" : "我写完了我的反思"}
                     </button>
                     {markDoneError ? (
-                      <span className="text-[12.5px] font-semibold text-mk-accent">{markDoneError}</span>
+                      <span className="text-[12.5px] font-semibold text-mk-danger">{markDoneError}</span>
                     ) : (
-                      <span className="text-[12.5px] text-mk-muted-2">写完后，印记才会照着你的全过程给你一面镜子——然后你再定稿评估。</span>
+                      <span className="text-[12.5px] text-mk-faint">写完后，印记才会照着你的全过程给你一面镜子——然后你再定稿评估。</span>
                     )}
                   </>
                 ) : !mirrorReady ? (
-                  <span className="text-[13px] font-semibold text-mk-primary">印记正在照镜子……看看右侧的思维印记，然后就可以定稿评估。</span>
+                  <span className="text-[13px] font-semibold text-mk-accent">印记正在照镜子……看看右侧的思维印记，然后就可以定稿评估。</span>
                 ) : (
                   // #21 · step (b): the mirror is on screen → finalize & assess.
                   <>
@@ -270,14 +286,14 @@ export function ReviewBlock({
                       type="button"
                       onClick={() => setConfirmFinish(true)}
                       disabled={finishing}
-                      className="rounded-mk bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-hover disabled:opacity-50"
+                      className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
                     >
                       {finishing ? "定稿中……" : "定稿并开始评估"}
                     </button>
                     {finishError ? (
-                      <span className="text-[12.5px] font-semibold text-mk-accent">{finishError}</span>
+                      <span className="text-[12.5px] font-semibold text-mk-danger">{finishError}</span>
                     ) : (
-                      <span className="text-[12.5px] text-mk-muted-2">定稿后会生成过程评估，记入成长报告（老师 / 家长可见），这里不打分。</span>
+                      <span className="text-[12.5px] text-mk-faint">定稿后会生成过程评估，记入成长报告（老师 / 家长可见），这里不打分。</span>
                     )}
                   </>
                 )}
@@ -287,29 +303,34 @@ export function ReviewBlock({
         </div>
       </div>
 
-      {/* aside · Q4 followup (2026-08): the right sidebar is the ACTIVE coach
-          WHILE she's editing (「印记陪你把回顾写完」+ the reflection card shelf +
-          问印记 chat), so help is visible the whole time instead of buried at
-          the bottom of the left column. Once she marks her OWN reflection done
-          (#21 mutual-reflection order — unchanged), the sidebar becomes the
-          mirror ("你的思维印记"), which composes only then. Before 完成写作
+      {/* AI PANEL — Q4 followup (2026-08) + Task 6: portaled into the constant
+          AiPanel (Task 4), on the shared `ChatLog`/`Composer` (Task 5's
+          pattern). While she's editing, the panel is the ACTIVE coach
+          (「印记陪你把回顾写完」+ the reflection card shelf + 问印记 chat), so
+          help is visible the whole time. Once she marks her OWN reflection
+          done (#21 mutual-reflection order — unchanged), the panel becomes
+          the mirror ("你的思维印记"), which composes only then. Before 完成写作
           unlocks the room, the mirror's own locked placeholder shows instead
           (nothing to coach yet). */}
-      {writingFinished && !done && !archived ? (
-        <ReviewCoachThread projectId={projectId} locked={done} />
-      ) : (
-        <MirrorPane
-          projectId={projectId}
-          canCompose={writingFinished && (done || archived)}
-          onReady={setMirrorReady}
-        />
-      )}
+      {slot &&
+        createPortal(
+          writingFinished && !done && !archived ? (
+            <ReviewCoachThread projectId={projectId} locked={done} />
+          ) : (
+            <MirrorPane
+              projectId={projectId}
+              canCompose={writingFinished && (done || archived)}
+              onReady={setMirrorReady}
+            />
+          ),
+          slot,
+        )}
 
       {/* #5 · 定稿并评估 confirm — the point of no return. Archiving locks 正文与回顾
           and generates the process assessment. */}
       {confirmFinish && !archived && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
-          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">定稿并开始评估？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
               定稿后，<span className="font-bold text-mk-ink">正文与回顾都会锁定、无法再修改</span>，印记会据此生成过程评估（记入成长报告，这里不打分）。确定定稿吗？
@@ -318,14 +339,14 @@ export function ReviewBlock({
               <button
                 type="button"
                 onClick={() => setConfirmFinish(false)}
-                className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
+                className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
               >
                 再看看
               </button>
               <button
                 type="button"
                 onClick={() => { setConfirmFinish(false); void finalizeAndEvaluate(); }}
-                className="rounded-mk bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-hover"
+                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600"
               >
                 定稿并评估
               </button>
@@ -339,8 +360,8 @@ export function ReviewBlock({
           "评估中" and later "已完成 · 查看评估报告". */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
-          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
-            <div className="flex items-center gap-2 text-mk-primary">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
+            <div className="flex items-center gap-2 text-mk-accent">
               <Icon name="spark" size={18} />
               <h2 className="font-sans text-[18px] font-bold text-mk-ink">评估报告生成中</h2>
             </div>
@@ -354,7 +375,7 @@ export function ReviewBlock({
                   setShowModal(false);
                   onFinished?.();
                 }}
-                className="rounded-mk bg-mk-primary px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-primary-hover"
+                className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
               >
                 回到全部项目
               </button>
@@ -362,7 +383,7 @@ export function ReviewBlock({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -416,7 +437,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
         印记根据记录整理了你和 AI 的真实互动。下面两段是你的 AI 使用声明——初稿是印记帮你起的，话得你自己改，这部分不能让 AI 代写。
       </p>
       {record && (
-        <p className="mt-3 rounded-mk border-l-2 border-mk-primary/40 bg-mk-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
+        <p className="mt-3 rounded-mk-md border-l-2 border-mk-accent/40 bg-mk-paper px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
           {recordLine(record)}
         </p>
       )}
@@ -429,7 +450,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
             disabled={done}
             rows={3}
             placeholder="例如：澄清检索词、核对来源功能、追问论证、检查过度概括……"
-            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-primary disabled:opacity-70"
+            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
           />
         </label>
         <label className="text-[13px] font-bold text-mk-ink">
@@ -440,7 +461,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
             disabled={done}
             rows={3}
             placeholder="例如：代写正文、编造材料细节、预测分数、替我写反思……"
-            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-primary disabled:opacity-70"
+            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
           />
         </label>
       </div>
@@ -449,11 +470,11 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
           <button
             type="button"
             onClick={() => void save()}
-            className="rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white transition hover:bg-mk-primary-hover"
+            className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600"
           >
             保存声明
           </button>
-          {saved && <span className="text-[12px] font-semibold text-mk-green">已保存</span>}
+          {saved && <span className="text-[12px] font-semibold text-mk-success">已保存</span>}
         </div>
       )}
     </section>
@@ -465,6 +486,21 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
 // `card`, when set, marks a card-turn: rendered as a content-first clickable
 // chip opening a read-only view of the student's answers (not raw text).
 type RevMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null };
+
+// ReviewCoachThread's own `RevMsg[]` history → the shared ChatLog's
+// `ChatMessage[]`. A card-turn (msg.card set) maps to a "system"-role message
+// carrying only `node` — ChatLog's system row has no bubble
+// background/padding, letting `CardTurnChip` be the whole message (its own
+// content-first accent chip, never raw compiled text) instead of nesting
+// inside a second bubble. Plain turns keep their text as-is (no **bold**
+// markup in this thread, unlike PlanBlock's forming chat).
+function toChatMessages(chat: RevMsg[]): ChatMessage[] {
+  return chat.map((m, i) =>
+    m.card
+      ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
+      : { id: String(i), role: m.role === "ai" ? "assistant" : "student", text: m.text },
+  );
+}
 
 function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: boolean }) {
   const [chat, setChat] = useState<RevMsg[]>([]);
@@ -506,97 +542,63 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
     }
   }
 
-  // Q4 followup (2026-08): rendered as a docked right-sidebar aside (styled
-  // like MirrorPane, which occupies the same slot once she's done) instead of
-  // a bordered card buried at the bottom of the left column — same coach
-  // content/behavior throughout, only the chrome moved.
   return (
-    <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
-      <header className="border-b border-mk-border px-5 py-4">
-        <div className="flex items-center gap-2 text-mk-primary">
+    <div className="flex h-full flex-col gap-3 p-4">
+      <header className="flex-none">
+        <div className="flex items-center gap-2 text-mk-accent">
           <Icon name="spark" size={16} />
           <h2 className="font-sans text-[15px] font-bold">印记陪你把回顾写完</h2>
         </div>
-        <p className="mt-1 text-[11.5px] text-mk-muted-2">
+        <p className="mt-1 text-[11.5px] text-mk-faint">
           卡在哪一块不知道怎么写，都可以跟印记说说。它一次只问一个问题，帮你想起细节、找到词——但话得你自己写。挑一张回顾卡也能帮你想清楚。
         </p>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        {chat.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {chat.map((m, i) =>
-              // A card-turn renders as a content-first clickable chip (opens the
-              // read-only record), never as raw compiled text.
-              m.card ? (
-                <CardTurnChip key={i} card={m.card} />
-              ) : (
-                <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-                  <div
-                    className={`max-w-[88%] rounded-mk-lg px-3 py-2 text-[13px] leading-relaxed ${
-                      m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        )}
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
+        <ChatLog messages={toChatMessages(chat)} thinking={sending} />
         {/* #21 · the reflection card shelf + any AI-proposed chip. Reflecting on a
             card runs a coach turn (reflectProjectCard, surface="reflection") whose
             student turn + AI reply drop into this same thread. Hidden once the
             student marks her reflection done (locked). */}
         {!locked && !sending && (
-          <div className="mt-3">
-            <CoachCardPanel
-              projectId={projectId}
-              proposal={cardProposal}
-              onProposalConsumed={() => setCardProposal(null)}
-              onReflected={(studentText, reply, card) =>
-                setChat((c) => [
-                  ...c,
-                  // Card turn → content-first chip; fall back to raw text if the
-                  // server didn't echo a card.
-                  ...(card
-                    ? [{ role: "student" as const, text: studentText, card }]
-                    : studentText
-                      ? [{ role: "student" as const, text: studentText }]
-                      : []),
-                  ...(reply ? [{ role: "ai" as const, text: reply }] : []),
-                ])
-              }
-              surface="reflection"
-              deck={REFLECTION_DECK}
-            />
-          </div>
+          <CoachCardPanel
+            projectId={projectId}
+            proposal={cardProposal}
+            onProposalConsumed={() => setCardProposal(null)}
+            onReflected={(studentText, reply, card) =>
+              setChat((c) => [
+                ...c,
+                // Card turn → content-first chip; fall back to raw text if the
+                // server didn't echo a card.
+                ...(card
+                  ? [{ role: "student" as const, text: studentText, card }]
+                  : studentText
+                    ? [{ role: "student" as const, text: studentText }]
+                    : []),
+                ...(reply ? [{ role: "ai" as const, text: reply }] : []),
+              ])
+            }
+            surface="reflection"
+            deck={REFLECTION_DECK}
+          />
         )}
       </div>
+
       {!locked && (
-        <div className="flex items-end gap-2 border-t border-mk-border p-2.5">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void send()}
-            placeholder="卡在哪一题？说说你的初步想法，我陪你理清——但话得你自己写"
-            className="flex-1 rounded-mk border border-mk-border bg-mk-input-bg px-2.5 py-1.5 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-          />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={sending}
-            className="flex-none rounded-mk bg-mk-primary px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-50"
-          >
-            问印记
-          </button>
-        </div>
+        <Composer
+          value={draft}
+          onChange={setDraft}
+          onSend={() => void send()}
+          state={sending ? "replying" : undefined}
+          placeholder="卡在哪一题？说说你的初步想法，我陪你理清——但话得你自己写"
+          className="flex-none"
+        />
       )}
-    </aside>
+    </div>
   );
 }
 
-/* ---------- right · the "你的思维印记" mirror ---------- */
+/* ---------- AI panel · the "你的思维印记" mirror ---------- */
 
 function MirrorPane({
   projectId,
@@ -647,38 +649,38 @@ function MirrorPane({
   }, [projectId, canCompose]);
 
   return (
-    <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
-      <header className="border-b border-mk-border px-5 py-4">
-        <div className="flex items-center gap-2 text-mk-primary">
+    <div className="flex h-full flex-col gap-3 p-4">
+      <header className="flex-none">
+        <div className="flex items-center gap-2 text-mk-accent">
           <Icon name="spark" size={16} />
           <h2 className="font-sans text-[15px] font-bold">你的思维印记</h2>
         </div>
-        <p className="mt-1 text-[11.5px] text-mk-muted-2">印记根据你的全过程整理，供你参考——不是评分。</p>
+        <p className="mt-1 text-[11.5px] text-mk-faint">印记根据你的全过程整理，供你参考——不是评分。</p>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {!canCompose ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-muted-2">先写下你自己的反思，点「我写完了我的反思」，印记才会照着你的全过程给你一面镜子——你先说，AI 后照。</p>
+          <p className="text-[12.5px] leading-relaxed text-mk-faint">先写下你自己的反思，点「我写完了我的反思」，印记才会照着你的全过程给你一面镜子——你先说，AI 后照。</p>
         ) : composing && !mirror ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-muted-2">印记正在回看你的全过程，整理这份思维印记……</p>
+          <p className="text-[12.5px] leading-relaxed text-mk-faint">印记正在回看你的全过程，整理这份思维印记……</p>
         ) : !mirror ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-muted-2">
+          <p className="text-[12.5px] leading-relaxed text-mk-faint">
             这份印记还没能整理出来——稍后重新打开回顾再看看。
           </p>
         ) : (
           <>
             <div className="flex flex-col gap-4">
               {mirror.sections.map((s, i) => (
-                <div key={i} className="border-l-2 border-mk-primary/30 pl-3">
-                  <p className="text-[12px] font-bold text-mk-primary">{s.title}</p>
+                <div key={i} className="border-l-2 border-mk-accent/30 pl-3">
+                  <p className="text-[12px] font-bold text-mk-accent">{s.title}</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-mk-ink">{s.body}</p>
                 </div>
               ))}
             </div>
 
             {mirror.carryForwards.length > 0 && (
-              <div className="mt-6 rounded-mk-lg border border-mk-accent/30 bg-mk-accent-tint/50 p-4">
-                <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-mk-accent">
+              <div className="mt-6 rounded-mk-lg border border-mk-butter/40 bg-mk-butter-bg p-4">
+                <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-mk-butter-fg">
                   <Icon name="arrow" size={14} /> 带走这两点
                 </p>
                 <ul className="flex flex-col gap-2">
@@ -691,6 +693,6 @@ function MirrorPane({
           </>
         )}
       </div>
-    </aside>
+    </div>
   );
 }

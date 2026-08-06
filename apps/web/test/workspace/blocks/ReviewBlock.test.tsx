@@ -1,10 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
 
 // S5 · the review room's AI-use retrospective panel + defense-readiness coach
 // thread + (S5·#20/#21) the two-stage 写作→回顾 flow: view-only lock until writing
 // is finished, and the mirror only after the student finishes her own reflection.
+//
+// Task 6 (studio agentic rebuild): the coach thread + mirror now portal into
+// the constant AiPanel via `useStudioAiSlot`/`createPortal` (same contract
+// PlanBlock exercises in Task 5), on the shared `ChatLog`/`Composer` instead
+// of a bespoke inline chat + textarea — so every render below stands up a
+// real DOM node via `StudioAiSlotContext.Provider`, matching the AiPanel
+// body in the real shell.
 vi.mock("@/workspace/api/workspace", () => ({
   getReflection: vi.fn(async () => ({ answers: [], done: false })),
   putReflection: vi.fn(async () => ({ answers: [], done: false })),
@@ -40,6 +48,16 @@ const MIRROR = {
   carryForwards: ["下次先找反例", "把结论接回原题"],
 };
 
+// The AiPanel body is a real DOM node the panel hands down via context; the
+// portal contract (Task 4) needs a genuine element to portal into (jsdom
+// createPortal requires it), and RTL's `screen` queries document.body — where
+// this node lives — so portaled content is found the same as any other.
+function renderWithAiSlot(ui: React.ReactElement) {
+  const slot = document.createElement("div");
+  document.body.appendChild(slot);
+  return render(<StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockDraft.mockResolvedValue({
@@ -60,7 +78,7 @@ beforeEach(() => {
 
 describe("ReviewBlock · AI-use retrospective (S5)", () => {
   it("renders the objective record + seeded statement and saves the student's edit", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
 
     // objective record line (the absences included)
     expect(await screen.findByText(/12 轮对话/)).toBeInTheDocument();
@@ -78,23 +96,28 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
     });
   });
 
-  it("supportive reflection-completion thread sends a reflection-scope coach turn", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+  it("supportive reflection-completion thread sends a reflection-scope coach turn through the shared Composer", async () => {
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/); // wait for mount loads
 
+    // The coach column is portaled into the AiPanel slot, rendered on the
+    // shared Composer (Task 5's pattern) — send is the aria-labelled "发送"
+    // button, not the old bespoke "问印记" button.
     await userEvent.type(screen.getByPlaceholderText(/卡在哪一题/), "我的结论是不是太弱了");
-    fireEvent.click(screen.getByRole("button", { name: "问印记" }));
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
     await waitFor(() => {
       expect(mockCoach).toHaveBeenCalledWith("p1", "reflection", "我的结论是不是太弱了");
     });
+    // Both the student's own turn and the AI reply land via the shared ChatLog.
+    expect(screen.getByText("我的结论是不是太弱了")).toBeInTheDocument();
     expect(await screen.findByText(/你先自己答/)).toBeInTheDocument();
   });
 });
 
 describe("ReviewBlock · view-only lock before 完成写作 (#20)", () => {
   it("locks the room until writing is finished — no AI-use seed, no mirror, no finish", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={false} onOpenRoom={() => {}} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={false} onOpenRoom={() => {}} />);
 
     // the lock notice + a route to the writing room
     expect(await screen.findByText(/先在写作房间点「完成写作」/)).toBeInTheDocument();
@@ -111,7 +134,8 @@ describe("ReviewBlock · view-only lock before 完成写作 (#20)", () => {
     expect(mockDraft).not.toHaveBeenCalled(); // AI-use draft not seeded
     expect(screen.queryByRole("button", { name: /我写完了我的反思/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /定稿并开始评估/ })).toBeNull();
-    // the mirror pane shows the "you first, AI after" note (no compose)
+    // the mirror pane (portaled into the AI slot) shows the "you first, AI
+    // after" note (no compose)
     expect(screen.getByText(/你先说，AI 后照/)).toBeInTheDocument();
   });
 });
@@ -121,7 +145,7 @@ describe("ReviewBlock · mutual reflection ordering (#21)", () => {
     mockGetMirror.mockResolvedValue(null);
     mockPostMirror.mockResolvedValue(MIRROR);
 
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/);
 
     // BEFORE marking her reflection done: no mirror compose, no 定稿 button
@@ -145,7 +169,7 @@ describe("ReviewBlock · mutual reflection ordering (#21)", () => {
   });
 
   it("renders the reflection card shelf once unlocked (#21)", async () => {
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/);
     // REFLECTION_DECK cards are summonable by the student
     expect(await screen.findByRole("button", { name: /学习报告/ })).toBeInTheDocument();
@@ -153,16 +177,16 @@ describe("ReviewBlock · mutual reflection ordering (#21)", () => {
   });
 });
 
-// Q4 followup (2026-08): the right sidebar is the ACTIVE coach while she's
+// Q4 followup (2026-08): the AI panel is the ACTIVE coach while she's
 // editing — "印记陪你把回顾写完" + the reflection cards + 问印记 chat all live
 // there (not buried at the bottom of the left column) — and it becomes the
 // mirror ("你的思维印记") only once she's marked her own reflection done.
-describe("ReviewBlock · Q4 coach-then-mirror right sidebar", () => {
-  it("shows the coach (not the mirror) in the sidebar while editing, then swaps to the mirror after 我写完了我的反思", async () => {
+describe("ReviewBlock · Q4 coach-then-mirror AI panel", () => {
+  it("shows the coach (not the mirror) in the AI panel while editing, then swaps to the mirror after 我写完了我的反思", async () => {
     mockGetMirror.mockResolvedValue(null);
     mockPostMirror.mockResolvedValue(MIRROR);
 
-    render(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={true} />);
     await screen.findByText(/12 轮对话/);
 
     // during editing: the coach heading + chat input are visible, the mirror
@@ -176,7 +200,7 @@ describe("ReviewBlock · Q4 coach-then-mirror right sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: /我写完了我的反思/ }));
     await waitFor(() => expect(mockPutReflection).toHaveBeenCalledWith("p1", { answers: expect.any(Array), done: true }));
 
-    // now the sidebar swaps: mirror shows, coach thread is gone
+    // now the AI panel swaps: mirror shows, coach thread is gone
     expect(await screen.findByText("你的思维印记")).toBeInTheDocument();
     expect(screen.queryByText("印记陪你把回顾写完")).toBeNull();
     await waitFor(() => expect(mockPostMirror).toHaveBeenCalledWith("p1"));
