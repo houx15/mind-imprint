@@ -28,8 +28,12 @@ function sanitizeHtml(html: string): string {
 
 // Scoped typography for the rendered draft — kept local to this component (no
 // global CSS touched) and namespaced under `.mi-md-preview` so it can't leak.
+// Colors reference the design-system CSS custom properties (index.css :root)
+// rather than hardcoded hex — this is a raw <style> string, not Tailwind
+// classes, so `var(--mk-*)` is the token mechanism here (same vars the
+// Tailwind `mk-*` color utilities resolve to elsewhere in the app).
 const PREVIEW_CSS = `
-.mi-md-preview { color: #1C2333; font-size: 14.5px; line-height: 1.75; }
+.mi-md-preview { color: var(--mk-ink); font-size: 14.5px; line-height: 1.75; }
 .mi-md-preview > :first-child { margin-top: 0; }
 .mi-md-preview h1 { font-size: 22px; font-weight: 700; margin: 1.2em 0 0.5em; }
 .mi-md-preview h2 { font-size: 18px; font-weight: 700; margin: 1.1em 0 0.5em; }
@@ -38,17 +42,17 @@ const PREVIEW_CSS = `
 .mi-md-preview ul { margin: 0 0 0.85em; padding-left: 1.4em; list-style: disc; }
 .mi-md-preview ol { margin: 0 0 0.85em; padding-left: 1.4em; list-style: decimal; }
 .mi-md-preview li { margin: 0.2em 0; }
-.mi-md-preview a { color: #2A3B7A; text-decoration: underline; }
+.mi-md-preview a { color: var(--mk-accent); text-decoration: underline; }
 .mi-md-preview strong { font-weight: 700; }
 .mi-md-preview em { font-style: italic; }
-.mi-md-preview blockquote { margin: 0 0 0.85em; padding: 0.1em 0 0.1em 0.9em; border-left: 3px solid #D6DBEA; color: #5B6373; }
-.mi-md-preview code { background: #F0F1F5; border-radius: 4px; padding: 1px 5px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.mi-md-preview pre { background: #F0F1F5; border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 0.85em; }
+.mi-md-preview blockquote { margin: 0 0 0.85em; padding: 0.1em 0 0.1em 0.9em; border-left: 3px solid var(--mk-border); color: var(--mk-muted); }
+.mi-md-preview code { background: var(--mk-paper); border-radius: 4px; padding: 1px 5px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mi-md-preview pre { background: var(--mk-paper); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 0.85em; }
 .mi-md-preview pre code { background: none; padding: 0; }
-.mi-md-preview hr { border: none; border-top: 1px solid #E4E7F0; margin: 1.4em 0; }
+.mi-md-preview hr { border: none; border-top: 1px solid var(--mk-border); margin: 1.4em 0; }
 .mi-md-preview table { border-collapse: collapse; margin: 0 0 0.85em; font-size: 13.5px; }
-.mi-md-preview th, .mi-md-preview td { border: 1px solid #E4E7F0; padding: 5px 9px; text-align: left; }
-.mi-md-preview th { background: #F6F7FA; font-weight: 700; }
+.mi-md-preview th, .mi-md-preview td { border: 1px solid var(--mk-border); padding: 5px 9px; text-align: left; }
+.mi-md-preview th { background: var(--mk-paper); font-weight: 700; }
 .mi-md-preview img { max-width: 100%; }
 `;
 
@@ -70,7 +74,7 @@ export function MarkdownPreview({ text }: { text: string }) {
   if (!text.trim()) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-5">
-        <p className="text-[13.5px] text-mk-muted-2">还没有内容——切回「写」开始你的草稿，这里会实时渲染。</p>
+        <p className="text-[13.5px] text-mk-faint">还没有内容——切回「写」开始你的草稿，这里会实时渲染。</p>
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
@@ -6,6 +7,10 @@ import { finishWriting, reopenWriting } from "../../api/projects";
 import { ApiError } from "../../api/client";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
+import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { Composer } from "@/studio/ai/Composer";
+import { Segmented } from "@/ui";
 import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, reflectProjectCard, dismissProposal } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
@@ -199,19 +204,19 @@ export function WritingBlock({
     <div className="flex h-full flex-col">
       {/* goal strip */}
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <span className="flex-none rounded-full bg-mk-accent-tint px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
+        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
         <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
-        <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-primary">看开题 →</button>
+        <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-accent">看开题 →</button>
         {archived ? (
-          <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary">已归档 · 看回顾 →</button>
+          <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent">已归档 · 看回顾 →</button>
         ) : writingFinished ? (
           <>
             {/* #20 · reversible — 重新打开写作 unlocks the draft again (铁律②). */}
-            <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="重新打开写作，继续修改初稿">重新打开写作</button>
-            <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover">去回顾 →</button>
+            <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title="重新打开写作，继续修改初稿">重新打开写作</button>
+            <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600">去回顾 →</button>
           </>
         ) : (
-          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk bg-mk-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-primary-hover" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
+          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
         )}
       </div>
 
@@ -222,7 +227,7 @@ export function WritingBlock({
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
       </div>
 
-      <div className="relative grid min-h-0 flex-1 grid-cols-[1fr,320px]">
+      <div className="relative min-h-0 flex-1">
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
@@ -238,16 +243,6 @@ export function WritingBlock({
             onPendingReviewHandled={() => setPendingReview(null)}
           />
         )}
-        <CoachRail
-          projectId={projectId}
-          focusPart={focusPart}
-          onClearFocus={() => setFocusPart(null)}
-          locked={locked}
-          onCardArtifact={(text, section) => snip.add(text, section)}
-          sectionOptions={knownSectionLabels}
-          onRunReview={requestReview}
-          activePanel={tab}
-        />
         {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
             fragment where you're working: into the draft at the caret on 正文,
             else appended as a new snippet. */}
@@ -263,24 +258,37 @@ export function WritingBlock({
         />
       </div>
 
+      {/* COACH — portals into the constant AiPanel (Task 4/5's pattern); renders
+          nothing at this position itself except its own fixed-overlay card modal. */}
+      <CoachRail
+        projectId={projectId}
+        focusPart={focusPart}
+        onClearFocus={() => setFocusPart(null)}
+        locked={locked}
+        onCardArtifact={(text, section) => snip.add(text, section)}
+        sectionOptions={knownSectionLabels}
+        onRunReview={requestReview}
+        activePanel={tab}
+      />
+
       {/* #5/#20 · 完成写作 confirm — the first guarded moment. Confirming LOCKS the
           draft read-only and unlocks 回顾. Reversible via 重新打开写作 until you 归档
           there, at which point 正文与回顾都会锁定、不能再改，并生成过程评估。 */}
       {showFinishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
-          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-[0_20px_60px_rgba(28,35,51,0.25)]">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
               点「完成写作」会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
             </p>
             {finishWritingError && (
-              <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{finishWritingError}</p>
+              <p className="mt-3 text-[12.5px] font-semibold text-mk-danger">{finishWritingError}</p>
             )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowFinishModal(false)}
-                className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
+                className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
               >
                 再改改
               </button>
@@ -288,7 +296,7 @@ export function WritingBlock({
                 type="button"
                 disabled={finishingWriting}
                 onClick={() => { setShowFinishModal(false); void doFinishWriting(); }}
-                className="rounded-mk bg-mk-primary px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-primary-hover disabled:opacity-50"
+                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
               >
                 {finishingWriting ? "锁定中……" : "完成写作，去回顾 →"}
               </button>
@@ -502,7 +510,7 @@ function SnippetSection({
   onDragStart: (id: string | null) => void;
 }) {
   const tag = kind === "outline" ? "章节" : kind === "orphan" ? "旧标签" : "";
-  const tone = kind === "orphan" ? "text-mk-muted-2" : "text-mk-primary";
+  const tone = kind === "orphan" ? "text-mk-faint" : "text-mk-accent";
   // #9 · a snippet defaults to a READ view; double-click enters edit mode (a
   // taller textarea + a ✓ to leave it). Local to this section instance — a
   // freshly-programmatic snippet (AI rail / card compile / materials) is never
@@ -515,17 +523,17 @@ function SnippetSection({
     setEditingIds((ids) => { if (!ids.has(id)) return ids; const n = new Set(ids); n.delete(id); return n; });
   }
   return (
-    <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-primary bg-mk-primary-tint/30" : "border-mk-border-2 bg-mk-bg/30"}`}>
+    <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-accent bg-mk-accent-50/30" : "border-mk-border bg-mk-paper/30"}`}>
       <div
         onDragOver={(e) => { e.preventDefault(); onDragOverHead(); }}
         onDrop={(e) => { e.preventDefault(); onDropHead(); }}
         className="flex items-center gap-2 px-3 py-2"
       >
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-          <span className={`text-mk-muted-2 transition ${collapsed ? "" : "rotate-90"}`}>▸</span>
+          <span className={`text-mk-faint transition ${collapsed ? "" : "rotate-90"}`}>▸</span>
           {tag && <span className={`flex-none rounded-full bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold ${tone}`}>{tag}</span>}
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-mk-ink">{label}</span>
-          <span className="flex-none text-[11.5px] font-semibold text-mk-muted-2">{snips.length}</span>
+          <span className="flex-none text-[11.5px] font-semibold text-mk-faint">{snips.length}</span>
         </button>
       </div>
       {!collapsed && (
@@ -535,7 +543,7 @@ function SnippetSection({
             return (
             <div
               key={s.id}
-              className="group rounded-mk border border-mk-border bg-mk-surface p-2.5 shadow-[0_1px_2px_rgba(28,35,51,0.04)]"
+              className="group rounded-mk-md border border-mk-border bg-mk-surface p-2.5 shadow-mk-xs"
             >
               <div className="flex items-start gap-1.5">
                 <span
@@ -543,7 +551,7 @@ function SnippetSection({
                   onDragStart={() => onDragStart(s.id)}
                   onDragEnd={() => onDragStart(null)}
                   title="拖到某个章节/线索下"
-                  className="mt-1 flex-none cursor-grab text-[13px] leading-none text-mk-muted-2 active:cursor-grabbing"
+                  className="mt-1 flex-none cursor-grab text-[13px] leading-none text-mk-faint active:cursor-grabbing"
                 >
                   ⠿
                 </span>
@@ -555,7 +563,7 @@ function SnippetSection({
                     onBlur={() => stopEditing(s.id)}
                     rows={6}
                     placeholder="写下或粘贴一个片段……"
-                    className="min-h-[7rem] w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+                    className="min-h-[7rem] w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint"
                   />
                 ) : (
                   <button
@@ -564,7 +572,7 @@ function SnippetSection({
                     title="双击编辑"
                     className="w-full flex-1 cursor-text whitespace-pre-wrap break-words text-left text-[13.5px] leading-relaxed text-mk-ink"
                   >
-                    {s.text.trim() ? s.text : <span className="text-mk-muted-2">写下或粘贴一个片段……（双击编辑）</span>}
+                    {s.text.trim() ? s.text : <span className="text-mk-faint">写下或粘贴一个片段……（双击编辑）</span>}
                   </button>
                 )}
                 {editing && (
@@ -572,20 +580,20 @@ function SnippetSection({
                     type="button"
                     title="完成编辑"
                     onClick={() => stopEditing(s.id)}
-                    className="mt-0.5 flex-none rounded px-1 text-[14px] font-bold leading-none text-mk-primary hover:text-mk-primary-hover"
+                    className="mt-0.5 flex-none rounded px-1 text-[14px] font-bold leading-none text-mk-accent hover:text-mk-accent-600"
                   >
                     ✓
                   </button>
                 )}
               </div>
               <div className="mt-1 flex items-center justify-end gap-2">
-                <label className="flex items-center gap-1 text-[11px] text-mk-muted-2">
+                <label className="flex items-center gap-1 text-[11px] text-mk-faint">
                   归到
                   <select
                     value={s.section ?? UNFILED}
                     onChange={(e) => snip.setSection(s.id, e.target.value === UNFILED ? null : e.target.value)}
                     aria-label="把片段归到"
-                    className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
+                    className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
                   >
                     <option value={UNFILED}>未归类</option>
                     {/* keep a stale/orphan section selectable so its value shows */}
@@ -593,7 +601,7 @@ function SnippetSection({
                     {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </label>
-                <button type="button" onClick={() => snip.remove(s.id)} className="text-[12px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除</button>
+                <button type="button" onClick={() => snip.remove(s.id)} className="text-[12px] font-semibold text-mk-faint opacity-0 transition hover:text-mk-danger group-hover:opacity-100">删除</button>
               </div>
             </div>
             );
@@ -601,7 +609,7 @@ function SnippetSection({
           <button
             type="button"
             onClick={() => startEditing(onAdd())}
-            className="rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary"
+            className="rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
           >
             + 在此加片段
           </button>
@@ -616,7 +624,7 @@ function Tab({ active, onClick, icon, children }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-mk px-3.5 py-1.5 text-[13.5px] font-bold transition ${active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:text-mk-ink"}`}
+      className={`flex items-center gap-1.5 rounded-mk-md px-3.5 py-1.5 text-[13.5px] font-bold transition ${active ? "bg-mk-accent-50 text-mk-accent" : "text-mk-faint hover:text-mk-ink"}`}
     >
       <Icon name={icon} size={15} /> {children}
     </button>
@@ -799,10 +807,14 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
           <h2 className="font-sans text-[19px] font-bold text-mk-ink">提纲</h2>
           <p className="mt-0.5 text-[13px] text-mk-muted">先把骨架搭出来。和印记聊聊哪里还站不住。</p>
         </div>
-        <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-          <ModeTab active={view === "list"} onClick={() => setView("list")}>大纲</ModeTab>
-          <ModeTab active={view === "map"} onClick={() => setView("map")}>思维导图</ModeTab>
-        </div>
+        <Segmented
+          options={[
+            { value: "list", label: "大纲" },
+            { value: "map", label: "思维导图" },
+          ]}
+          value={view}
+          onChange={(v) => setView(v as "list" | "map")}
+        />
       </div>
 
       {view === "list" ? (
@@ -823,7 +835,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
                 />
               ))}
             </div>
-            <button type="button" onClick={() => addAfter(nodes[nodes.length - 1]?.id ?? "")} className="mt-2 rounded-mk border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">
+            <button type="button" onClick={() => addAfter(nodes[nodes.length - 1]?.id ?? "")} className="mt-2 rounded-mk-md border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">
               + 新增一条
             </button>
           </div>
@@ -874,11 +886,18 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
   const width = (maxDepth + 2) * COL + 40;
   const height = slot * ROW + 60;
 
+  // #11 · nesting depth needs genuinely distinguishable hues (root/0/1/2+ all
+  // render simultaneously on screen) — a blind mk-primary→mk-accent /
+  // mk-accent→mk-accent rename would have collapsed root+depth0 (was
+  // mk-primary family) with depth1 (was mk-accent) into the SAME color, since
+  // the redesign's tailwind.config aliases both legacy families onto the one
+  // --mk-accent var. depth1 is reassigned onto the taro macaron instead —
+  // keeping four visually distinct levels, mirroring PlanTag's 3-way split.
   const tone = (d: number) =>
-    d < 0 ? "bg-mk-primary text-white border-mk-primary"
-      : d === 0 ? "bg-mk-primary-tint text-mk-primary border-mk-primary/30"
-        : d === 1 ? "bg-mk-accent-tint text-mk-accent border-mk-accent/30"
-          : "bg-mk-green-tint text-mk-green border-mk-green/30";
+    d < 0 ? "bg-mk-accent text-white border-mk-accent"
+      : d === 0 ? "bg-mk-accent-50 text-mk-accent border-mk-accent/30"
+        : d === 1 ? "bg-mk-taro-bg text-mk-taro-fg border-mk-taro/30"
+          : "bg-mk-success-bg text-mk-success border-mk-success/30";
 
   return (
     <div className="min-h-0 flex-1 overflow-auto px-8 pb-8">
@@ -887,14 +906,14 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
           {flat.flatMap((p) =>
             p.children.map((c) => {
               const x1 = p.cx + NODE_W, y1 = p.cy, x2 = c.cx, y2 = c.cy;
-              return <path key={`${p.id}-${c.id}`} d={`M ${x1} ${y1} C ${x1 + 46} ${y1}, ${x2 - 46} ${y2}, ${x2} ${y2}`} fill="none" stroke="#D4D9E6" strokeWidth={1.6} />;
+              return <path key={`${p.id}-${c.id}`} d={`M ${x1} ${y1} C ${x1 + 46} ${y1}, ${x2 - 46} ${y2}, ${x2} ${y2}`} className="stroke-mk-border" fill="none" strokeWidth={1.6} />;
             }),
           )}
         </svg>
         {flat.map((n) => (
           <div
             key={n.id}
-            className={`group absolute flex items-center rounded-mk border px-3 shadow-[0_1px_3px_rgba(28,35,51,0.06)] ${tone(n.depth)}`}
+            className={`group absolute flex items-center rounded-mk-md border px-3 shadow-mk-xs ${tone(n.depth)}`}
             style={{ left: n.cx, top: n.cy - 18, width: NODE_W, height: 36 }}
           >
             {n.depth < 0 ? (
@@ -916,7 +935,7 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
                 type="button"
                 title="加一个子节点"
                 onClick={() => onAddChild(n.id)}
-                className="absolute -right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[15px] font-bold leading-none text-mk-muted-2 opacity-0 shadow-sm transition hover:border-mk-primary hover:text-mk-primary group-hover:opacity-100"
+                className="absolute -right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[15px] font-bold leading-none text-mk-faint opacity-0 shadow-mk-xs transition hover:border-mk-accent hover:text-mk-accent group-hover:opacity-100"
               >
                 +
               </button>
@@ -929,9 +948,12 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
 }
 
 function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, onAdd, onRemove }: { node: Row; registerInput: (el: HTMLInputElement | null) => void; onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void; onEdit: (t: string) => void; onIndent: () => void; onOutdent: () => void; onAdd: () => void; onRemove: () => void }) {
-  const dot = node.depth === 0 ? "bg-mk-primary" : node.depth === 1 ? "bg-mk-accent" : "bg-mk-green";
+  // #11 · mirrors MindMap's tone() — depth1 sits on the taro macaron (not
+  // mk-accent) so it stays visually distinct from depth0, which shares the
+  // mk-accent family root/0 uses above.
+  const dot = node.depth === 0 ? "bg-mk-accent" : node.depth === 1 ? "bg-mk-taro" : "bg-mk-success";
   return (
-    <div className="group flex items-center gap-2 rounded-mk py-1 hover:bg-mk-bg/60" style={{ paddingLeft: node.depth * 26 }}>
+    <div className="group flex items-center gap-2 rounded-mk-md py-1 hover:bg-mk-paper/60" style={{ paddingLeft: node.depth * 26 }}>
       <span className={`h-1.5 w-1.5 flex-none rounded-full ${dot}`} />
       <input
         ref={registerInput}
@@ -939,7 +961,7 @@ function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, o
         onChange={(e) => onEdit(e.target.value)}
         onKeyDown={onKey}
         placeholder="写一条……（回车换行、Tab 缩进）"
-        className={`min-w-0 flex-1 rounded bg-transparent px-1.5 py-1 text-mk-ink outline-none transition placeholder:text-mk-muted-2 focus:bg-mk-input-bg ${node.depth === 0 ? "text-[14.5px] font-bold" : "text-[13.5px]"}`}
+        className={`min-w-0 flex-1 rounded bg-transparent px-1.5 py-1 text-mk-ink outline-none transition placeholder:text-mk-faint focus:bg-mk-surface ${node.depth === 0 ? "text-[14.5px] font-bold" : "text-[13.5px]"}`}
       />
       <div className="flex flex-none items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
         <IconBtn onClick={onOutdent} title="升级">←</IconBtn>
@@ -953,7 +975,7 @@ function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, o
 
 function IconBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} title={title} className="flex h-6 w-6 items-center justify-center rounded text-[13px] font-bold text-mk-muted-2 hover:bg-mk-surface hover:text-mk-primary">
+    <button type="button" onClick={onClick} title={title} className="flex h-6 w-6 items-center justify-center rounded text-[13px] font-bold text-mk-faint hover:bg-mk-surface hover:text-mk-accent">
       {children}
     </button>
   );
@@ -1339,40 +1361,52 @@ function DraftPane({
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {!locked && (
-              <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-                <ModeTab active={mode === "write"} onClick={() => setMode("write")}>写在这里</ModeTab>
-                <ModeTab active={mode === "upload"} onClick={() => setMode("upload")}>我在别处写了</ModeTab>
-              </div>
+              <Segmented
+                options={[
+                  { value: "write", label: "写在这里" },
+                  { value: "upload", label: "我在别处写了" },
+                ]}
+                value={mode}
+                onChange={(v) => setMode(v as "write" | "upload")}
+              />
             )}
             {mode === "write" && (
-              <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-                <SubTab active={pane === "edit"} onClick={() => setPane("edit")}>写</SubTab>
-                <SubTab active={pane === "preview"} onClick={() => { setSelPop(null); setPane("preview"); }}>预览</SubTab>
-              </div>
+              <Segmented
+                options={[
+                  { value: "edit", label: "写" },
+                  { value: "preview", label: "预览" },
+                ]}
+                value={pane}
+                onChange={(v) => { if (v === "preview") setSelPop(null); setPane(v as "edit" | "preview"); }}
+              />
             )}
             {mode === "write" && pane === "edit" && (
-              <div className="flex rounded-mk border border-mk-border bg-mk-surface p-0.5">
-                <SubTab active={layout === "free"} onClick={() => setLayout("free")}>自由</SubTab>
-                <SubTab active={layout === "sections"} onClick={() => setLayout("sections")}>分节</SubTab>
-              </div>
+              <Segmented
+                options={[
+                  { value: "free", label: "自由" },
+                  { value: "sections", label: "分节" },
+                ]}
+                value={layout}
+                onChange={(v) => setLayout(v as "free" | "sections")}
+              />
             )}
           </div>
           {mode === "write" && (
             <div className="flex items-center gap-2">
-              <span className="text-[12px] font-semibold text-mk-muted-2">{words} 字</span>
+              <span className="text-[12px] font-semibold text-mk-faint">{words} 字</span>
               {!locked && <SaveStatusIndicator status={saveStatus} />}
               {!locked && (
                 <>
                   {/* #6 · 体检视角: each option carries a plain-language description so
                       the lens is legible before picking; the closed control shows the
                       chosen lens + what it does. */}
-                  <span className="text-[12px] font-semibold text-mk-muted-2">视角</span>
+                  <span className="text-[12px] font-semibold text-mk-faint">视角</span>
                   <select
                     value={voice}
                     onChange={(e) => setVoice(e.target.value as ReviewVoice)}
                     aria-label="体检视角"
                     title="换个视角，印记体检整稿的侧重就不同"
-                    className="max-w-[13rem] rounded-mk border border-mk-border bg-mk-surface px-2 py-1 text-[12px] text-mk-ink outline-none focus:border-mk-primary"
+                    className="max-w-[13rem] rounded-mk-md border border-mk-border bg-mk-surface px-2 py-1 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
                   >
                     {VOICE_ORDER.map((v) => (
                       <option key={v} value={v}>{VOICE_META[v].label} · {VOICE_META[v].desc}</option>
@@ -1382,7 +1416,7 @@ function DraftPane({
                     type="button"
                     onClick={() => void runReview()}
                     disabled={reviewing || text.trim() === ""}
-                    className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-mk-accent-hover disabled:opacity-50"
+                    className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
                   >
                     {reviewing ? "体检中…" : "让印记体检整稿"}
                   </button>
@@ -1392,7 +1426,7 @@ function DraftPane({
                 type="button"
                 onClick={() => { void exportDraftDocx(text, { title }).catch(() => {/* never crash the room */}); }}
                 disabled={text.trim() === ""}
-                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12.5px] font-semibold text-mk-muted hover:text-mk-primary disabled:opacity-50"
+                className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[12.5px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
               >
                 导出成品 .docx
               </button>
@@ -1400,7 +1434,7 @@ function DraftPane({
           )}
         </div>
         {locked && (
-          <p className="mb-3 rounded-mk border border-mk-border bg-mk-bg px-3 py-2 text-[12.5px] font-semibold text-mk-muted-2">这篇已归档，正文只读——你仍可预览与导出。</p>
+          <p className="mb-3 rounded-mk-md border border-mk-border bg-mk-paper px-3 py-2 text-[12.5px] font-semibold text-mk-faint">这篇已归档，正文只读——你仍可预览与导出。</p>
         )}
 
         {/* Q2 · left/right split once a 体检 result (or an in-flight/errored
@@ -1429,7 +1463,7 @@ function DraftPane({
                     onScroll={() => setSelPop(null)}
                     readOnly={locked}
                     placeholder="在这里写你的草稿……（支持 Markdown）"
-                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2 ${locked ? "bg-mk-bg/60 cursor-default" : "bg-mk-surface focus:border-mk-primary"}`}
+                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper/60 cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
                   />
                 )
               ) : (
@@ -1437,7 +1471,7 @@ function DraftPane({
               )
             ) : (
               <div
-                className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input bg-mk-input-bg/50 px-6 text-center"
+                className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input-border bg-mk-surface/50 px-6 text-center"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -1445,9 +1479,9 @@ function DraftPane({
                   if (f) void handleFile(f);
                 }}
               >
-                <span className="text-mk-primary"><Icon name="writing" size={28} /></span>
+                <span className="text-mk-accent"><Icon name="writing" size={28} /></span>
                 <p className="mt-3 text-[15px] font-bold text-mk-ink">把你写好的文档拖进来</p>
-                <p className="mt-1 text-[13px] text-mk-muted-2">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
+                <p className="mt-1 text-[13px] text-mk-faint">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
                 <input
                   ref={fileInput}
                   type="file"
@@ -1459,8 +1493,8 @@ function DraftPane({
                     e.target.value = "";
                   }}
                 />
-                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk bg-mk-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-primary-hover">选择文件</button>
-                {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-accent">{uploadNote}</p>}
+                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">选择文件</button>
+                {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-warning">{uploadNote}</p>}
               </div>
             )}
             {/* #7 · floating "问印记" chip — appears next to a text selection; clicking
@@ -1474,7 +1508,7 @@ function DraftPane({
                 // sit above the pointer, but flip below when the selection is near the
                 // pane top so the chip never clips over the toolbar (review L3).
                 style={{ left: selPop.x, top: selPop.y, transform: selPop.y < 44 ? "translate(-50%, 45%)" : "translate(-50%, -130%)" }}
-                className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-primary p-1 shadow-[0_4px_14px_rgba(28,35,51,0.25)]"
+                className="absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-full bg-mk-accent p-1 shadow-mk-md"
                 onMouseDown={(e) => e.preventDefault()}
               >
                 {/* #7 · chat about this part */}
@@ -1503,7 +1537,7 @@ function DraftPane({
             </div>
           )}
         </div>
-        <p className="mt-2 text-center text-[11.5px] text-mk-muted-2">你写，印记只在一旁陪你想——它不替你写正文。</p>
+        <p className="mt-2 text-center text-[11.5px] text-mk-faint">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
     </div>
   );
@@ -1575,20 +1609,20 @@ function SectionedDraft({
       {!locked && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {outlineHeads.length > 0 && (
-            <button type="button" onClick={generate} className="rounded-mk border border-mk-primary/40 px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:bg-mk-primary-tint">＋ 从大纲生成章节</button>
+            <button type="button" onClick={generate} className="rounded-mk-md border border-mk-accent/40 px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50">＋ 从大纲生成章节</button>
           )}
-          <span className="text-[11.5px] text-mk-muted-2">在小标题下写；从右侧「材料」插入会落到你正在写的这一节。</span>
+          <span className="text-[11.5px] text-mk-faint">在小标题下写；从右侧「材料」插入会落到你正在写的这一节。</span>
         </div>
       )}
       {sections.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-center">
-          <p className="text-[13px] text-mk-muted-2">还没有章节。{outlineHeads.length > 0 ? "用大纲生成，或" : ""}加一节，在标题下写。</p>
-          {!locked && <button type="button" onClick={addSection} className="rounded-mk bg-mk-primary px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-primary-hover">＋ 加一节</button>}
+          <p className="text-[13px] text-mk-faint">还没有章节。{outlineHeads.length > 0 ? "用大纲生成，或" : ""}加一节，在标题下写。</p>
+          {!locked && <button type="button" onClick={addSection} className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600">＋ 加一节</button>}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           {sections.map((s) => (
-            <section key={s.id} className="group rounded-mk-lg border border-mk-border-2 bg-mk-bg/20 p-3">
+            <section key={s.id} className="group rounded-mk-lg border border-mk-border bg-mk-paper/20 p-3">
               {s.level > 0 ? (
                 <input
                   value={s.heading}
@@ -1596,10 +1630,10 @@ function SectionedDraft({
                   onFocus={() => setFocusId(s.id)}
                   readOnly={locked}
                   placeholder="小标题……"
-                  className={`w-full bg-transparent font-sans font-bold text-mk-ink outline-none placeholder:text-mk-muted-2 ${s.level === 1 ? "text-[16px]" : "text-[14px]"}`}
+                  className={`w-full bg-transparent font-sans font-bold text-mk-ink outline-none placeholder:text-mk-faint ${s.level === 1 ? "text-[16px]" : "text-[14px]"}`}
                 />
               ) : (
-                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-mk-muted-2">开头（无标题）</div>
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-mk-faint">开头（无标题）</div>
               )}
               <textarea
                 value={s.body}
@@ -1608,17 +1642,17 @@ function SectionedDraft({
                 readOnly={locked}
                 rows={4}
                 placeholder="在这一节写……"
-                className="mt-1.5 w-full resize-y bg-transparent font-sans text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted-2"
+                className="mt-1.5 w-full resize-y bg-transparent font-sans text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint"
               />
               {!locked && (
                 <div className="mt-1 flex justify-end">
-                  <button type="button" onClick={() => removeSection(s.id)} className="text-[11.5px] font-semibold text-mk-muted-2 opacity-0 transition hover:text-mk-accent group-hover:opacity-100">删除本节</button>
+                  <button type="button" onClick={() => removeSection(s.id)} className="text-[11.5px] font-semibold text-mk-faint opacity-0 transition hover:text-mk-danger group-hover:opacity-100">删除本节</button>
                 </div>
               )}
             </section>
           ))}
           {!locked && (
-            <button type="button" onClick={addSection} className="rounded-mk border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-muted-2 hover:border-mk-primary hover:text-mk-primary">＋ 加一节</button>
+            <button type="button" onClick={addSection} className="rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">＋ 加一节</button>
           )}
         </div>
       )}
@@ -1645,33 +1679,39 @@ function DraftReviewPanel({
   // Q2 · this now sits BESIDE the draft (not below it), so it fills its
   // column's height and scrolls its own content instead of capping at a fixed
   // max-height — the header (title + 收起) stays put while the list scrolls.
+  //
+  // #11 · reassigned off the (collapsed) mk-accent onto the peach macaron —
+  // this "AI is highlighting/reviewing your text" family (this panel, the
+  // quoted-part callout, 就这一段 pin, 体检这段 chip) needs to stay visually
+  // distinct from mk-accent's everyday-chrome role (buttons, tabs) once both
+  // legacy families alias onto the same var.
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-accent/40 bg-mk-accent-tint/30 p-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-peach/40 bg-mk-peach-bg/40 p-4">
       <div className="mb-2 flex flex-none items-center justify-between">
         <p className="text-[13px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
-        <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">收起</button>
+        <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-faint hover:text-mk-muted">收起</button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {reviewing ? (
-          <p className="text-[12.5px] text-mk-muted-2">印记正在逐段体检你的论证与结构……</p>
+          <p className="text-[12.5px] text-mk-faint">印记正在逐段体检你的论证与结构……</p>
         ) : error ? (
-          <p className="text-[12.5px] font-semibold text-mk-accent">{error}</p>
+          <p className="text-[12.5px] font-semibold text-mk-danger">{error}</p>
         ) : review ? (
           review.items.length === 0 ? (
-            <p className="text-[12.5px] text-mk-muted-2">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
+            <p className="text-[12.5px] text-mk-faint">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
           ) : (
             <>
-              <p className="mb-2 text-[11.5px] text-mk-muted-2">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
+              <p className="mb-2 text-[11.5px] text-mk-faint">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
               <ul className="flex flex-col gap-2">
                 {review.items.map((it: ReviewItem, i: number) => (
-                  <li key={i} className="rounded-mk border border-mk-border bg-mk-surface p-3">
+                  <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[12.5px] font-bold text-mk-primary">{it.criterion_name || it.criterion_code}</span>
-                      {it.band && <span className="rounded-full bg-mk-primary-tint px-2 py-0.5 text-[10.5px] font-bold text-mk-primary">{it.band}</span>}
+                      <span className="text-[12.5px] font-bold text-mk-accent">{it.criterion_name || it.criterion_code}</span>
+                      {it.band && <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[10.5px] font-bold text-mk-accent">{it.band}</span>}
                     </div>
                     {it.evidence && <p className="mt-1 text-[12.5px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
                     {it.missing && <p className="mt-1 text-[12.5px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
-                    {it.fix && <p className="mt-1 text-[12.5px] text-mk-accent"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
+                    {it.fix && <p className="mt-1 text-[12.5px] text-mk-peach-fg"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
                   </li>
                 ))}
               </ul>
@@ -1696,28 +1736,12 @@ function SaveStatusIndicator({ status }: { status: "saved" | "dirty" | "saving" 
     : "已保存 ✓";
   return (
     <span
-      className={`inline-block min-w-[8.5em] text-[12px] font-semibold ${status === "retrying" ? "text-mk-accent" : "text-mk-muted-2"}`}
+      // #11 · retrying is a genuine "still trying, having trouble" state — a
+      // real semantic upgrade onto mk-warning rather than the old reused accent hue.
+      className={`inline-block min-w-[8.5em] text-[12px] font-semibold ${status === "retrying" ? "text-mk-warning" : "text-mk-faint"}`}
     >
       {label}
     </span>
-  );
-}
-
-function ModeTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-[10px] px-3 py-1.5 text-[12.5px] font-bold transition ${active ? "bg-mk-primary text-white" : "text-mk-muted-2 hover:text-mk-muted"}`}>
-      {children}
-    </button>
-  );
-}
-
-// A lighter segmented control for the 写/预览 switch — a tinted active state so
-// it reads as secondary to the write/upload tabs beside it.
-function SubTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-[10px] px-3 py-1.5 text-[12.5px] font-bold transition ${active ? "bg-mk-primary-tint text-mk-primary" : "text-mk-muted-2 hover:text-mk-muted"}`}>
-      {children}
-    </button>
   );
 }
 
@@ -1745,6 +1769,36 @@ const PANEL_LABEL: Record<"outline" | "snippets" | "draft", string> = {
   snippets: "片段",
   draft: "正文",
 };
+
+// CoachRail's own ChatMsg[] history → the shared ChatLog's ChatMessage[]. A
+// card-turn (msg.card set) maps to a "system"-role message carrying only
+// `node` — ChatLog's system row has no bubble chrome, letting `CardTurnChip`
+// be the whole message instead of nesting inside a second bubble (mirrors
+// PlanBlock/ReviewBlock's mapper). A quoted part (#9-second, 就这一段) rides
+// as its own callout ABOVE the turn's text, inside the same `node` — ChatLog
+// has no separate above-bubble slot, so the callout renders inside the
+// bubble; peach (not mk-accent) keeps it visually distinct from the
+// surrounding accent-tinted student bubble.
+function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
+  return chat.map((m, i) =>
+    m.card
+      ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
+      : {
+          id: String(i),
+          role: m.role === "ai" ? "assistant" : "student",
+          node: (
+            <>
+              {m.quotedPart && (
+                <blockquote className="mb-1 rounded-mk-sm border-l-[3px] border-mk-peach bg-mk-peach-bg/60 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
+                  {m.quotedPart}
+                </blockquote>
+              )}
+              <span className="whitespace-pre-wrap">{m.text}</span>
+            </>
+          ),
+        },
+  );
+}
 
 function CoachRail({
   projectId,
@@ -1884,167 +1938,154 @@ function CoachRail({
     setArtifactSection(UNFILED);
   }
 
+  // The room→panel contract (Task 4/5/6, spec §17): this room's WORK — the
+  // 大纲/片段/正文 tabs + editor — renders in <main> (see WritingBlock above);
+  // this COACH portals into the constant AiPanel via `useStudioAiSlot`. `slot`
+  // is null when the panel is collapsed or this component renders outside a
+  // studio shell (e.g. some tests) — in either case the coach content simply
+  // doesn't render, never crashes.
+  const slot = useStudioAiSlot();
+
   return (
-    <aside className="flex min-h-0 flex-col border-l border-mk-border bg-mk-surface">
-      <header className="border-b border-mk-border px-4 py-3">
-        <div className="flex items-center gap-2 text-mk-primary">
-          <Icon name="spark" size={16} />
-          <h2 className="font-sans text-[14px] font-bold">印记 · 陪你写</h2>
-        </div>
-        <p className="mt-1 text-[11.5px] text-mk-muted-2">聊提纲、挑逻辑、撞反例——但不替你写正文。</p>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {chat.map((m, i) =>
-          // A card-turn renders as a content-first clickable chip (opens the
-          // read-only record), never as raw compiled text.
-          m.card ? (
-            <CardTurnChip key={i} card={m.card} />
-          ) : (
-            <div key={i} className={`flex ${m.role === "ai" ? "justify-start" : "justify-end"}`}>
-              <div className="max-w-[88%]">
-                {/* #9-second · the referenced paragraph is a styled quote callout
-                    above the question — never a 【就这一段】 token baked into the
-                    bubble text. */}
-                {m.quotedPart && (
-                  <blockquote className="mb-1 rounded-mk border-l-[3px] border-mk-accent bg-mk-accent-tint/40 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
-                    {m.quotedPart}
-                  </blockquote>
-                )}
-                <div className={`rounded-mk-lg px-3.5 py-2.5 text-[13px] leading-relaxed ${m.role === "ai" ? "bg-mk-bg text-mk-ink" : "bg-mk-primary text-white"}`}>{m.text}</div>
+    <>
+      {slot &&
+        createPortal(
+          <div className="flex h-full flex-col gap-3 p-4">
+            <header className="flex-none">
+              <div className="flex items-center gap-2 text-mk-accent">
+                <Icon name="spark" size={16} />
+                <h2 className="font-sans text-[15px] font-bold">印记 · 陪你写</h2>
               </div>
-            </div>
-          ),
-        )}
-        {proposal && !openCardId ? (
-          <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
-        ) : null}
-        {/* #8 · 收进片段 is an explicit offer, never a silent add — the coach has
-            already responded to the card's content above; this just asks
-            whether the compiled paragraph should also become a 片段. */}
-        {pendingArtifact && !openCardId && (
-          <div className="rounded-mk-lg border border-mk-border-2 bg-mk-bg/60 p-3">
-            <p className="text-[12px] font-semibold text-mk-muted-2">要不要把《{pendingArtifact.cardName}》里写的收进「片段」？</p>
-            <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
-            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-              <label className="flex items-center gap-1 text-[11px] text-mk-muted-2">
-                归到
-                <select
-                  value={artifactSection}
-                  onChange={(e) => setArtifactSection(e.target.value)}
-                  aria-label="把片段归到"
-                  className="max-w-[9rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-primary"
-                >
-                  <option value={UNFILED}>未归类</option>
-                  {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </label>
-              <button type="button" onClick={() => setPendingArtifact(null)} className="text-[11px] font-semibold text-mk-muted-2 hover:text-mk-ink">先不收</button>
-              <button type="button" onClick={collectArtifact} className="rounded-full bg-mk-primary px-3 py-1 text-[11px] font-bold text-white hover:bg-mk-primary-hover">收进片段</button>
-            </div>
-          </div>
-        )}
-        {sending && (
-          <div className="flex justify-start">
-            <div className="max-w-[88%] rounded-mk-lg bg-mk-bg px-3.5 py-2.5 text-[13px] leading-relaxed text-mk-muted-2">印记在想……</div>
-          </div>
-        )}
-      </div>
-      {/* #8-second · the persistent tool shelf — always visible (no ＋ to hide
-          it), grouped by what it targets: 正文 (the writing thinking-cards,
-          summoned onto a paragraph) and 正文·检查 (the four examiner voices,
-          each choosable against the WHOLE draft or — once a paragraph is
-          pinned via 问印记 — just 这段). Triggering a card/voice is automatic
-          UI; OPENING the card sheet or SEEING the check result still needs her
-          tap/click (铁律 · 不操纵). */}
-      {!locked && (
-        <div className="border-t border-mk-border bg-mk-bg px-3 py-2">
-          <p className="mb-1.5 text-[11px] font-bold text-mk-muted-2">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
-          <div className="flex flex-wrap gap-1.5">
-            {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
-              <button
-                key={id}
-                type="button"
-                onClick={() => openProposedCard(id)}
-                title={CARD_REGISTRY[id]!.purpose}
-                className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
-              >
-                {CARD_REGISTRY[id]!.name}
-              </button>
-            ))}
-          </div>
-          {/* 正文·检查 (the four examiner voices) only makes sense once there's
-              prose to check — scoped to the 正文 panel, unlike the card shelf
-              above which spans all three. */}
-          {activePanel === "draft" && (
-            <>
-              <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-muted-2">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
-              <div className="flex flex-col gap-1">
-                {VOICE_ORDER.map((v) => (
-                  <div key={v} className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onRunReview(undefined, v)}
-                      title={`${VOICE_META[v].desc} · 体检整稿`}
-                      className="rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-primary hover:text-mk-primary"
-                    >
-                      {VOICE_META[v].label}
-                    </button>
-                    {focusPart && (
-                      <button
-                        type="button"
-                        onClick={() => onRunReview(focusPart, v)}
-                        title="只体检你目前选中的这一段"
-                        className="rounded-full border border-mk-accent/40 px-2 py-0.5 text-[11px] font-semibold text-mk-accent hover:bg-mk-accent-tint"
+              <p className="mt-1 text-[11.5px] text-mk-faint">聊提纲、挑逻辑、撞反例——但不替你写正文。</p>
+            </header>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
+              <ChatLog messages={toChatMessages(chat)} thinking={sending} />
+              {proposal && !openCardId && !sending ? (
+                <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
+              ) : null}
+              {/* #8 · 收进片段 is an explicit offer, never a silent add — the coach has
+                  already responded to the card's content above; this just asks
+                  whether the compiled paragraph should also become a 片段. */}
+              {pendingArtifact && !openCardId && (
+                <div className="rounded-mk-md border border-mk-border bg-mk-paper/60 p-3">
+                  <p className="text-[12px] font-semibold text-mk-faint">要不要把《{pendingArtifact.cardName}》里写的收进「片段」？</p>
+                  <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
+                  <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                    <label className="flex items-center gap-1 text-[11px] text-mk-faint">
+                      归到
+                      <select
+                        value={artifactSection}
+                        onChange={(e) => setArtifactSection(e.target.value)}
+                        aria-label="把片段归到"
+                        className="max-w-[9rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
                       >
-                        这段
-                      </button>
-                    )}
+                        <option value={UNFILED}>未归类</option>
+                        {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </label>
+                    <button type="button" onClick={() => setPendingArtifact(null)} className="text-[11px] font-semibold text-mk-faint hover:text-mk-ink">先不收</button>
+                    <button type="button" onClick={collectArtifact} className="rounded-full bg-mk-accent px-3 py-1 text-[11px] font-bold text-white hover:bg-mk-accent-600">收进片段</button>
                   </div>
-                ))}
+                </div>
+              )}
+            </div>
+
+            {/* #8-second · the persistent tool shelf — always visible (no ＋ to
+                hide it), sitting between the scrollable chat and the composer so
+                it never needs scrolling to find. Grouped by what it targets:
+                the active panel's writing thinking-cards (summoned onto a
+                paragraph) and 正文·检查 (the four examiner voices, each
+                choosable against the WHOLE draft or — once a paragraph is
+                pinned via 问印记 — just 这段). Triggering a card/voice is
+                automatic UI; OPENING the card sheet or SEEING the check result
+                still needs her tap/click (铁律 · 不操纵). */}
+            {!locked && (
+              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper/50 p-2.5">
+                <p className="mb-1.5 text-[11px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => openProposedCard(id)}
+                      title={CARD_REGISTRY[id]!.purpose}
+                      className="rounded-mk-sm border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-accent hover:text-mk-accent"
+                    >
+                      {CARD_REGISTRY[id]!.name}
+                    </button>
+                  ))}
+                </div>
+                {/* 正文·检查 (the four examiner voices) only makes sense once there's
+                    prose to check — scoped to the 正文 panel, unlike the card shelf
+                    above which spans all three. Peach (not mk-accent) so this
+                    "AI is checking your writing" affordance stays visually
+                    distinct from the shelf's mk-accent hover above (#11). */}
+                {activePanel === "draft" && (
+                  <>
+                    <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-faint">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
+                    <div className="flex flex-col gap-1">
+                      {VOICE_ORDER.map((v) => (
+                        <div key={v} className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onRunReview(undefined, v)}
+                            title={`${VOICE_META[v].desc} · 体检整稿`}
+                            className="rounded-mk-sm border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-peach hover:text-mk-peach-fg"
+                          >
+                            {VOICE_META[v].label}
+                          </button>
+                          {focusPart && (
+                            <button
+                              type="button"
+                              onClick={() => onRunReview(focusPart, v)}
+                              title="只体检你目前选中的这一段"
+                              className="rounded-full border border-mk-peach/50 px-2 py-0.5 text-[11px] font-semibold text-mk-peach-fg hover:bg-mk-peach-bg"
+                            >
+                              这段
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
-        </div>
-      )}
-      {focusPart && (
-        <div className="flex items-center gap-2 border-t border-mk-accent/30 bg-mk-accent-tint/30 px-3 py-2">
-          <span className="flex-none text-[11px] font-bold text-mk-accent">就这一段</span>
-          <span className="min-w-0 flex-1 truncate text-[12px] text-mk-muted">{focusPart}</span>
-          <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-muted-2 hover:text-mk-muted">✕</button>
-        </div>
-      )}
-      {locked ? (
-        // #5 (review L2) · an archived project's process is sealed — the writing
-        // coach takes no new turns/cards so 过程即数据 stays true to the record.
-        <div className="border-t border-mk-border p-3 text-center text-[12px] font-semibold text-mk-muted-2">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
-      ) : (
-        <div className="flex items-end gap-2 border-t border-mk-border p-3">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-            rows={1}
-            placeholder={focusPart ? "就这一段，你想问什么？" : "问问这段逻辑、这个结构……"}
-            className="max-h-24 flex-1 resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-muted-2 focus:border-mk-primary"
-          />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={sending}
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-mk bg-mk-primary text-white hover:bg-mk-primary-hover disabled:opacity-50"
-          >
-            <Icon name="send" size={16} />
-          </button>
-        </div>
-      )}
+            )}
+            {focusPart && (
+              <div className="flex flex-none items-center gap-2 rounded-mk-md border border-mk-peach/40 bg-mk-peach-bg/50 px-3 py-2">
+                <span className="flex-none text-[11px] font-bold text-mk-peach-fg">就这一段</span>
+                <span className="min-w-0 flex-1 truncate text-[12px] text-mk-muted">{focusPart}</span>
+                <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-muted">✕</button>
+              </div>
+            )}
+
+            {locked ? (
+              // #5 (review L2) · an archived project's process is sealed — the
+              // writing coach takes no new turns/cards so 过程即数据 stays true
+              // to the record.
+              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper/40 p-3 text-center text-[12px] font-semibold text-mk-faint">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
+            ) : (
+              <Composer
+                value={draft}
+                onChange={setDraft}
+                onSend={() => void send()}
+                state={sending ? "replying" : undefined}
+                placeholder={focusPart ? "就这一段，你想问什么？" : "问问这段逻辑、这个结构……"}
+                className="flex-none"
+              />
+            )}
+          </div>,
+          slot,
+        )}
 
       {/* #3 · the opened tool card is a centered modal over the whole room, not a
-          card buried in the right rail. Triggering stays automatic (the proposal
+          card buried in the coach panel. Triggering stays automatic (the proposal
           chip / deck); OPENING is the student's tap, and the sheet then fills the
           modal. Backdrop / 收起 closes it. */}
       {openCardId && CARD_REGISTRY[openCardId] && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 p-4" onClick={() => setOpenCardId(null)}>
-          <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-[0_20px_60px_rgba(28,35,51,0.3)]" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
             <StudioCardSheet
               spec={CARD_REGISTRY[openCardId]}
               onSubmit={(env) => submitProposedCard(env.field_values, env.event_trace)}
@@ -2053,6 +2094,6 @@ function CoachRail({
           </div>
         </div>
       )}
-    </aside>
+    </>
   );
 }
