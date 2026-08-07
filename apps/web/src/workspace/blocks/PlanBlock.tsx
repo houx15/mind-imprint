@@ -114,7 +114,11 @@ export function PlanBlock({
   // room swaps, loaded once per project). This room reads/appends the shared
   // store instead of holding its own chat state; the scripted intro is now a
   // display-only fallback (see FormingPhase's `displayChat`), never stored.
-  const { messages, setMessages, sending, setSending } = useStudioChat();
+  const { messages, setMessages, sending, setSending, activeProjectIdRef } = useStudioChat();
+  // A turn resolves seconds later; if the student switched PROJECTS meanwhile,
+  // don't append its reply into (or clear the busy flag of) the now-different
+  // project's shared store. A plain room switch within the same project passes.
+  const isActiveProject = () => activeProjectIdRef.current === projectId;
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const [draft, setDraft] = useState("");
   // The two quick-reply chips live only under the scripted intro; any turn
@@ -206,14 +210,15 @@ export function PlanBlock({
     setSending(true);
     try {
       const { reply, linkOffer: offer, dimSuggestion: dim, proposal: card } = await coach(projectId, scope, userInput);
+      if (!isActiveProject()) return; // student left this project — drop the late reply from the display
       setMessages((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
       if (dim) setDimSuggestion(dim);
       if (card) setCardProposal(card);
     } catch {
-      setMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
+      if (isActiveProject()) setMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
-      setSending(false);
+      if (isActiveProject()) setSending(false);
     }
   }
 
@@ -338,7 +343,8 @@ export function PlanBlock({
           projectId={projectId}
           cardProposal={cardProposal}
           onCardConsumed={() => setCardProposal(null)}
-          onCardReflected={(studentText, reply, card) =>
+          onCardReflected={(studentText, reply, card) => {
+            if (!isActiveProject()) return; // student switched projects mid-reflect
             setMessages((c) => [
               ...c,
               // A card turn renders as a content-first chip (card set), falling
@@ -353,8 +359,8 @@ export function PlanBlock({
                 : card || studentText
                   ? []
                   : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-            ])
-          }
+            ]);
+          }}
         />
         {confirmRegen && (
           <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />

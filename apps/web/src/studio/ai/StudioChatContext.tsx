@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { CardTurnRef } from "@mind-imprint/contracts";
 
 /**
@@ -34,6 +34,13 @@ export type StudioChatValue = {
   setMessages: Dispatch<SetStateAction<StudioChatMsg[]>>;
   sending: boolean;
   setSending: (b: boolean) => void;
+  // The LIVE opened-project id (a ref, so an async turn closure reads the
+  // current value, not a stale capture). A room guards its post-await appends
+  // with `activeProjectIdRef.current === <its own projectId>`: a reply that
+  // resolves after the student switched PROJECTS is dropped from the display
+  // (it's still persisted server-side), while a plain room switch within the
+  // same project still lands its reply. See useStudioChat consumers.
+  activeProjectIdRef: MutableRefObject<string | null>;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

@@ -1839,7 +1839,11 @@ function CoachRail({
   // room swaps, loaded once per project). This rail reads/appends the shared
   // store instead of holding its own chat state; the greeting is now a
   // display-only fallback (see `displayChat`), never stored.
-  const { messages, setMessages, sending, setSending } = useStudioChat();
+  const { messages, setMessages, sending, setSending, activeProjectIdRef } = useStudioChat();
+  // Guard shared-store writes after an await: if the student switched PROJECTS
+  // while a turn was in flight, don't append its reply into (or clear the busy
+  // flag of) the now-different project. A plain room switch (same project) passes.
+  const isActiveProject = () => activeProjectIdRef.current === projectId;
   const [draft, setDraft] = useState("");
   // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
   // dismissable chip); `openCardId` is the card the student CHOSE to open — the
@@ -1867,15 +1871,16 @@ function CoachRail({
     setSending(true);
     try {
       const { reply, proposal: p } = await coach(projectId, "writing", turnText);
+      if (!isActiveProject()) return; // student left this project — drop the late reply
       onClearFocus(); // clear the pinned part only on success — a failed turn keeps it so she needn't re-pin
       setMessages((c) => [...c, { role: "ai", text: reply }]);
       // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
       // dismissable chip; opening it (below) is the student's tap, never auto.
       setProposal(p);
     } catch {
-      setMessages((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
+      if (isActiveProject()) setMessages((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
     } finally {
-      setSending(false);
+      if (isActiveProject()) setSending(false);
     }
   }
 
@@ -1904,6 +1909,7 @@ function CoachRail({
     const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
     try {
       const { reply, card } = await reflectProjectCard(projectId, cardId, fieldValues, eventTrace, "writing");
+      if (!isActiveProject()) return; // student switched projects mid-reflect
       // A card turn renders as a content-first chip (card set); fall back to raw
       // compiled text only if the server didn't echo a card.
       if (card) setMessages((c) => [...c, { role: "student", text: studentText, card }]);
@@ -1920,6 +1926,7 @@ function CoachRail({
         setPendingArtifact({ cardName: spec!.name, text: artifact });
       }
     } catch {
+      if (!isActiveProject()) return; // student switched projects mid-reflect
       if (studentText) setMessages((c) => [...c, { role: "student", text: studentText }]);
       setMessages((c) => [...c, { role: "ai", text: "刚才没接住这张卡，等下再试一次。" }]);
     }

@@ -194,6 +194,11 @@ export function WorkspaceContainer({
   // still shows its busy state on whichever room is now mounted.
   const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
   const [studioSending, setStudioSending] = useState(false);
+  // Live opened-project id for the rooms' cross-project append guard (see
+  // StudioChatContext). Kept current every render so a late turn closure never
+  // reads a stale value.
+  const activeProjectIdRef = useRef<string | null>(null);
+  activeProjectIdRef.current = projectId;
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -223,6 +228,10 @@ export function WorkspaceContainer({
     setError(null);
     setSummary(null);
     setStudioMessages([]);
+    // Reset the in-flight flag too — else a project opened while a PREVIOUS
+    // project's turn is still in flight inherits sending=true and its composer
+    // stays disabled until that unrelated reply resolves.
+    setStudioSending(false);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
     // than firing a redundant duplicate on every project switch.
@@ -239,9 +248,12 @@ export function WorkspaceContainer({
     // room falls back to its own display-only intro/greeting locally.
     getCoachHistory(projectId, "studio")
       .then((msgs) => {
-        if (!cancelled) {
-          setStudioMessages(msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })));
-        }
+        if (cancelled) return;
+        // Don't clobber a turn the student optimistically sent in the small
+        // window before this fetch resolved — only seed when still empty.
+        setStudioMessages((prev) =>
+          prev.length ? prev : msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+        );
       })
       .catch(() => {
         /* keep the empty store; each room shows its intro and the next turn persists */
@@ -458,6 +470,7 @@ export function WorkspaceContainer({
               setMessages: setStudioMessages,
               sending: studioSending,
               setSending: setStudioSending,
+              activeProjectIdRef,
             }}
           >
           <StudioAiSlotContext.Provider value={aiSlotEl}>

@@ -18,7 +18,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
   const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
   const [sending, setSending] = useState(false);
   return (
-    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending }}>
+    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending, activeProjectIdRef: { current: "p1" } }}>
       {children}
     </StudioChatContext.Provider>
   );
