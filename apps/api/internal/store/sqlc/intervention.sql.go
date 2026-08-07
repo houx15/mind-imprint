@@ -92,3 +92,40 @@ func (q *Queries) ListInterventionsByProject(ctx context.Context, projectID uuid
 	}
 	return items, nil
 }
+
+const listReviewItemsByProject = `-- name: ListReviewItemsByProject :many
+SELECT id, project_id, card_instance_id, type, anchor, criterion, body, level, output_check_verdict, created_at FROM intervention
+WHERE project_id = $1 AND type = 'review_item'
+ORDER BY created_at
+`
+
+func (q *Queries) ListReviewItemsByProject(ctx context.Context, projectID uuid.UUID) ([]Intervention, error) {
+	rows, err := q.db.Query(ctx, listReviewItemsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Intervention
+	for rows.Next() {
+		var i Intervention
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.CardInstanceID,
+			&i.Type,
+			&i.Anchor,
+			&i.Criterion,
+			&i.Body,
+			&i.Level,
+			&i.OutputCheckVerdict,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -7,3 +7,8 @@ RETURNING *;
 SELECT * FROM intervention
 WHERE project_id = $1
 ORDER BY created_at, id;
+
+-- name: ListReviewItemsByProject :many
+SELECT * FROM intervention
+WHERE project_id = $1 AND type = 'review_item'
+ORDER BY created_at;
