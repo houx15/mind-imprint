@@ -6,12 +6,14 @@ import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
 import { Badge, Segmented } from "@/ui/feedback";
+import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
 import { getWorkspace, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
+import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
 
@@ -65,15 +67,15 @@ export function WorkspaceContainer({
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
-  // The constant AI panel's side + collapsed state (spec §17) — persisted so
-  // it survives room swaps and reloads, same spirit as the old fullscreen
-  // toggle it replaces. Default side is "right" per the brief.
+  // The constant AI panel's side + collapsed state — persisted so it survives
+  // room swaps and reloads. Default side is "left" (agentic studio: 印记 is the
+  // constant left companion; the student can flip it right).
   const [aiSide, setAiSide] = useState<AiPanelSide>(() => {
     try {
       const v = localStorage.getItem("mk-studio-ai-side");
-      return v === "left" || v === "right" ? v : "right";
+      return v === "left" || v === "right" ? v : "left";
     } catch {
-      return "right";
+      return "left";
     }
   });
   const flipAiSide = useCallback(() => {
@@ -318,10 +320,22 @@ export function WorkspaceContainer({
 
   return (
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
-      <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={onExitToHome ?? backToAll} />
+      <TopBar workspace={workspace} onBack={onExitToHome ?? backToAll} />
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
-        <main className="relative min-w-0 flex-1 overflow-hidden">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* The persistent stage switcher lives at the top-left of the
+            interactive area (spec §2) — beside the 印记 chat, not spanning it.
+            AI-driven view changes flip `room`; this is the always-available
+            manual override so the student is never lost. */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-mk-border bg-mk-paper px-4 py-2">
+          <Segmented
+            options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
+            value={room}
+            onChange={(v) => setRoom(v as BlockKey)}
+          />
+        </div>
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
             {summary && !summaryDismissed && (
@@ -388,15 +402,26 @@ export function WorkspaceContainer({
               <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={openReadingSource} />
             )}
             {room === "writing" && (
-              <WritingBlock
-                key={projectId}
-                projectId={projectId}
-                title={workspace.title}
-                proposal={workspace.proposal}
-                status={workspace.status}
-                writingFinished={workspace.writingFinished ?? false}
-                onOpenRoom={setRoom}
-                refreshWorkspace={refreshWorkspace}
+              // Writing stage (spec §2/§6): the interactive area splits into a
+              // read-only reference sub-pane (提案要点/阅读笔记/批注) and the
+              // writing area, with a draggable divider. The coach still portals
+              // to the constant AiPanel, independent of this split.
+              <SplitPane
+                storageKey="mk-studio-write-split"
+                defaultRatio={0.34}
+                left={<WritingReferencePanel key={projectId} projectId={projectId} proposal={workspace.proposal} />}
+                right={
+                  <WritingBlock
+                    key={projectId}
+                    projectId={projectId}
+                    title={workspace.title}
+                    proposal={workspace.proposal}
+                    status={workspace.status}
+                    writingFinished={workspace.writingFinished ?? false}
+                    onOpenRoom={setRoom}
+                    refreshWorkspace={refreshWorkspace}
+                  />
+                }
               />
             )}
             {room === "reflection" && (
@@ -412,6 +437,7 @@ export function WorkspaceContainer({
             )}
           </StudioAiSlotContext.Provider>
         )}
+        </div>
         </main>
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
@@ -419,18 +445,14 @@ export function WorkspaceContainer({
   );
 }
 
-// The top bar (spec §17): a small 「← 主页」capsule back to the Directory,
-// the project's title + qualification, and the room switcher. Replaces the
-// old left `Rail` — there is no more in-project sidebar.
+// The top bar (spec §17): a small 「← 主页」capsule back to the Directory and
+// the project's title + qualification. The stage switcher no longer lives here
+// — it moved into the interactive area's top-left (spec §2), beside the chat.
 function TopBar({
   workspace,
-  room,
-  onRoom,
   onBack,
 }: {
   workspace: WorkspaceProjection | null;
-  room: BlockKey;
-  onRoom: (b: BlockKey) => void;
   onBack: () => void;
 }) {
   return (
@@ -453,12 +475,6 @@ function TopBar({
           {workspace?.qualification || "项目"}
         </Badge>
       </div>
-      <Segmented
-        className="shrink-0"
-        options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
-        value={room}
-        onChange={(v) => onRoom(v as BlockKey)}
-      />
     </header>
   );
 }

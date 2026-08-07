@@ -145,22 +145,22 @@ describe("Studio integration smoke test (Task 11)", () => {
 
     const main = screen.getByRole("main");
     const row = main.parentElement as HTMLElement;
-    // Default: side "right" (<main> first), expanded (no persisted keys yet).
-    expect(row.firstElementChild).toBe(main);
+    // Default: side "left" (<main> last), expanded (no persisted keys yet).
+    expect(row.lastElementChild).toBe(main);
     expect(localStorage.getItem("mk-studio-ai-side")).toBeNull();
     expect(localStorage.getItem("mk-studio-ai-collapsed")).toBeNull();
 
-    // Flip while on the plan room.
+    // Flip while on the plan room → side "right" (<main> first).
     await userEvent.click(screen.getByRole("button", { name: "切换 AI 面板左右" }));
-    expect(row.firstElementChild).not.toBe(main);
-    expect(localStorage.getItem("mk-studio-ai-side")).toBe("left");
+    expect(row.firstElementChild).toBe(main);
+    expect(localStorage.getItem("mk-studio-ai-side")).toBe("right");
 
     // Switching rooms must not reset the flip — it lives in the container,
     // not in any one room.
     await switchRoom("写作");
     await screen.findByTestId("writing-work");
-    expect(row.firstElementChild).not.toBe(main);
-    expect(localStorage.getItem("mk-studio-ai-side")).toBe("left");
+    expect(row.firstElementChild).toBe(main);
+    expect(localStorage.getItem("mk-studio-ai-side")).toBe("right");
 
     // Collapse while on the writing room.
     await userEvent.click(screen.getByRole("button", { name: "折叠 AI 面板" }));

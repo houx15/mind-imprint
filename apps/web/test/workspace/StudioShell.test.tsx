@@ -117,13 +117,15 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
 
     const main = screen.getByRole("main");
     const row = main.parentElement as HTMLElement;
-    // Default side is "right" (spec) → <main> comes first in DOM order.
-    expect(row.firstElementChild).toBe(main);
+    // Default side is "left" (agentic studio: 印记 is the constant left
+    // companion) → the AiPanel comes first, <main> last in DOM order.
+    expect(row.lastElementChild).toBe(main);
 
     await userEvent.click(screen.getByRole("button", { name: "切换 AI 面板左右" }));
 
-    expect(row.firstElementChild).not.toBe(main);
-    expect(row.lastElementChild).toBe(main);
+    // Flipped to "right" → <main> now comes first, panel last.
+    expect(row.firstElementChild).toBe(main);
+    expect(row.lastElementChild).not.toBe(main);
   });
 
   it("collapse hides the panel body (coach content unmounts) and shows an expand control", async () => {
