@@ -41,7 +41,7 @@ vi.mock("@/workspace/blocks/PlanBlock", () => ({
 }));
 vi.mock("@/workspace/blocks/ReadingBlock", () => ({ ReadingBlock: () => <div data-testid="reading-block" /> }));
 vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: () => <div data-testid="writing-block" /> }));
-vi.mock("@/workspace/blocks/WritingReferencePanel", () => ({ WritingReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
+vi.mock("@/workspace/blocks/ReferencePanel", () => ({ ReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: () => <div data-testid="review-block" /> }));
 vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-testid="reading-room" /> }));
 

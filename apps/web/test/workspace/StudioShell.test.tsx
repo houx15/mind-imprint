@@ -59,6 +59,11 @@ vi.mock("@/workspace/api/workspace", () => ({
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
+  // ReferencePanel (writing room's left sub-pane) fetches these eagerly on
+  // mount — stubbed empty since these shell tests drive the room switcher,
+  // not the writing reference content.
+  getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
+  getSnippets: vi.fn(async () => []),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";

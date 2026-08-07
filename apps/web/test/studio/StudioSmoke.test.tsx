@@ -87,6 +87,11 @@ vi.mock("@/workspace/api/workspace", () => ({
   putProposal: vi.fn(async (_id: string, p: unknown) => p),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
   dismissProposal: vi.fn(async () => {}),
+  // ReferencePanel (writing room's left sub-pane) fetches these eagerly on
+  // mount — stubbed empty since this smoke test drives the room switcher,
+  // not the writing reference content.
+  getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
+  getSnippets: vi.fn(async () => []),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";

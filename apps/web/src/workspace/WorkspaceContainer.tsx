@@ -44,7 +44,7 @@ import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
-import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
+import { ReferencePanel } from "./blocks/ReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
 
@@ -796,7 +796,15 @@ export function WorkspaceContainer({
               <SplitPane
                 storageKey="mk-studio-write-split"
                 defaultRatio={0.34}
-                left={<WritingReferencePanel key={projectId} projectId={projectId} proposal={workspace.proposal} />}
+                left={
+                  <ReferencePanel
+                    key={projectId}
+                    projectId={projectId}
+                    reference={studioState?.reference ?? []}
+                    stage={studioState?.stage ?? "body_writing"}
+                    proposal={workspace.proposal}
+                  />
+                }
                 right={
                   <WritingBlock
                     key={projectId}
