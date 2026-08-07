@@ -92,3 +92,18 @@ func TestOpenToolArgs(t *testing.T) {
 		t.Fatalf("OpenToolArgs wrong: %+v err=%v", args, err)
 	}
 }
+
+func TestParseOrchestratorOutput_NewTools(t *testing.T) {
+	raw := `{"narrate":"我来生成计划","tools":[{"name":"generate_plan","args":{}},{"name":"propose_question","args":{"text":"人均碳排放呢？"}}]}`
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dec.Tools) != 2 {
+		t.Fatalf("want 2 tools, got %d", len(dec.Tools))
+	}
+	q, err := ProposeQuestionArgs(dec.Tools[1])
+	if err != nil || q.Text == "" {
+		t.Fatalf("propose_question args: %v %q", err, q.Text)
+	}
+}

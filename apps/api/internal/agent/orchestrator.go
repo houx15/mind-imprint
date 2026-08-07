@@ -26,8 +26,10 @@ const orchestratorSystemPrompt = `你是「印记」，一个带着学生把研�
 - propose_note: {"section": 分区, "value": 内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区 ∈ objective(研究问题/目标)/reason(动机与意义)/activities(活动计划)/resources(资源与文献)/counterpoints(可能的反例/张力)。
 - summon_card: {"card_id":..., "reason":..., "nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生。
 - request_review: {} —— 学生写完、该做整稿体检时。
+- generate_plan: {} —— 四项必填提案要点都齐了、该把计划落出来时，由你生成项目计划（不再有按钮）。要重排已有计划前，先在 narrate 里征得学生同意。
+- propose_question: {"text": 问题} —— 在阅读/探索时，向学生提议一个值得追的研究问题（学生确认后才加入探索图谱；一次一个）。
 
-原则：一次只问一个问题（narrate 里不要连问）；只有当四项必填提案要点(objective/reason/activities/resources)都有内容后，才 set_status 到 plan_generation 或更后；不确定就少配工具、多陪聊。只输出那个 JSON，不要多余文字。`
+原则：一次只问一个问题（narrate 里不要连问）；只有当四项必填提案要点(objective/reason/activities/resources)都有内容后，才 set_status 到 plan_generation 或更后；proposal_forming 阶段用 open_tool 打开 forming(提案)，生成计划后打开 plan(管理)；不确定就少配工具、多陪聊。只输出那个 JSON，不要多余文字。`
 
 // OrchestratorToolCall is one raw tool call the model emitted; Args stays raw
 // until a typed accessor validates it.
@@ -53,6 +55,7 @@ var errOrchestratorParse = errors.New("orchestrator: output not parseable")
 var knownOrchestratorTools = map[string]bool{
 	"set_status": true, "open_tool": true, "curate_reference": true,
 	"propose_note": true, "summon_card": true, "request_review": true,
+	"generate_plan": true, "propose_question": true,
 }
 
 // ParseOrchestratorOutput parses the model output, dropping unknown tools and
@@ -101,6 +104,11 @@ func validToolArgs(tc OrchestratorToolCall) bool {
 		return err == nil && a.CardID != ""
 	case "request_review":
 		return true
+	case "generate_plan":
+		return true
+	case "propose_question":
+		a, err := ProposeQuestionArgs(tc)
+		return err == nil && a.Text != ""
 	}
 	return false
 }
@@ -174,6 +182,9 @@ type SummonCardToolArgsT struct {
 	Reason    string `json:"reason"`
 	NudgeText string `json:"nudge_text"`
 }
+type ProposeQuestionArgsT struct {
+	Text string `json:"text"`
+}
 
 func SetStatusArgs(tc OrchestratorToolCall) (SetStatusArgsT, error) {
 	var a SetStatusArgsT
@@ -197,6 +208,11 @@ func ProposeNoteArgs(tc OrchestratorToolCall) (ProposeNoteArgsT, error) {
 }
 func SummonCardToolArgs(tc OrchestratorToolCall) (SummonCardToolArgsT, error) {
 	var a SummonCardToolArgsT
+	err := json.Unmarshal(tc.Args, &a)
+	return a, err
+}
+func ProposeQuestionArgs(tc OrchestratorToolCall) (ProposeQuestionArgsT, error) {
+	var a ProposeQuestionArgsT
 	err := json.Unmarshal(tc.Args, &a)
 	return a, err
 }
