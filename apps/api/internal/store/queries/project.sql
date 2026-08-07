@@ -37,3 +37,9 @@ UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id 
 -- Slice 5 (#20 / 铁律②): 重新打开写作 — never trap a student who finished by
 -- accident. Clears the milestone so the draft is editable again.
 UPDATE project SET writing_finished_at = NULL, last_active_at = now() WHERE id = $1;
+
+-- name: GetStudioState :one
+SELECT studio_state FROM project WHERE id = $1;
+
+-- name: SetStudioState :exec
+UPDATE project SET studio_state = $2, last_active_at = now() WHERE id = $1;

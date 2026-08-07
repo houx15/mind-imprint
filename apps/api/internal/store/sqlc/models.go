@@ -368,6 +368,7 @@ type Project struct {
 	CreatedAt         time.Time          `json:"created_at"`
 	LastActiveAt      time.Time          `json:"last_active_at"`
 	WritingFinishedAt pgtype.Timestamptz `json:"writing_finished_at"`
+	StudioState       []byte             `json:"studio_state"`
 }
 
 type ProjectAiUse struct {
