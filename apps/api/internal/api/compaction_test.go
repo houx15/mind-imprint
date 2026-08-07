@@ -79,8 +79,9 @@ func TestMaybeCompactBackstop_FoldsOldestIntoDigest(t *testing.T) {
 	if got := countLLMCallsByPurpose(t, pool, seedProjectID, "coach_compact"); got == 0 {
 		t.Fatalf("expected coach_compact to be metered, got 0")
 	}
-	// The newest turns stay live (keepLastN): not everything folded.
-	if got := countCoachMsgs(t, pool, seedProjectID, "writing", true); got == 0 {
+	// The newest turns stay live (keepLastN): not everything folded. /coach turns
+	// are stored on the single continuous `studio` surface now.
+	if got := countCoachMsgs(t, pool, seedProjectID, "studio", true); got == 0 {
 		t.Fatalf("expected some active (non-folded) turns to remain, got 0")
 	}
 }

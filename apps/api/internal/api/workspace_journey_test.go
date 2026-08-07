@@ -87,18 +87,18 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 		t.Fatalf("proposal not reflected after PUT: %+v", proj.Proposal)
 	}
 
-	// -- 3. POST /coach {forming} → reply + a coach_turn event ---------------
+	// -- 3. POST /coach → orchestrator narration + a coach_turn event --------
 	rec = doJSON(t, hCore, cookie, "POST", base+"/coach",
-		`{"scope":"forming","user_input":"我想聊聊这个题目从哪儿下手"}`)
+		`{"user_input":"我想聊聊这个题目从哪儿下手"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST coach = %d: %s", rec.Code, rec.Body)
 	}
 	var coachResp struct {
-		Reply string `json:"reply"`
+		Narrate string `json:"narrate"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &coachResp)
-	if strings.TrimSpace(coachResp.Reply) == "" {
-		t.Fatalf("coach reply empty: %s", rec.Body)
+	if strings.TrimSpace(coachResp.Narrate) == "" {
+		t.Fatalf("coach narrate empty: %s", rec.Body)
 	}
 	if n := countEvents(t, pool, pid, "coach_turn"); n != 1 {
 		t.Fatalf("coach_turn events = %d, want 1", n)

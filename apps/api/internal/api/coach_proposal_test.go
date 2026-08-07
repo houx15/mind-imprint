@@ -7,7 +7,6 @@ package api_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,57 +51,26 @@ func coachProposalHandler(t *testing.T, id string) (http.Handler, *http.Cookie, 
 	return h, signInSeed(t, pool), pool
 }
 
-func TestPostCoach_ReturnsProposalAndRecordsEvent(t *testing.T) {
+// TestPostCoach_NonJSONModelYieldsNoCard — when the model output is not a valid
+// orchestrator JSON turn (here a bare classifier token), ParseOrchestratorOutput
+// fails, narrate falls back, and NO card proposal / coach_proposed event / extra
+// classify spend is produced. (Cross-phase card offers now flow only through the
+// orchestrator's summon_card tool — see coach_orchestrator_test.go.)
+func TestPostCoach_NonJSONModelYieldsNoCard(t *testing.T) {
 	h, cookie, pool := coachProposalHandler(t, "fact_opinion")
 	base := "/api/v1/projects/" + seedProjectID
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"writing","user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
+		strings.NewReader(`{"user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
-	}
-	var resp struct {
-		Reply    string `json:"reply"`
-		Proposal *struct {
-			CardID    string `json:"cardId"`
-			NudgeText string `json:"nudgeText"`
-		} `json:"proposal"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v — %s", err, rr.Body)
-	}
-	if resp.Proposal == nil || resp.Proposal.CardID != "fact-opinion-value" {
-		t.Fatalf("want fact-opinion-value proposal, got %+v — %s", resp.Proposal, rr.Body)
-	}
-	if resp.Proposal.NudgeText == "" {
-		t.Fatalf("proposal must carry a student-facing nudge")
-	}
-	if got := countCoachProposedEvents(t, pool, seedProjectID); got != 1 {
-		t.Fatalf("coach_proposed events = %d, want 1", got)
-	}
-}
-
-func TestPostCoach_NoProposalOnReadingSurface(t *testing.T) {
-	// The reading surface has its own summon ladder — the coach must not also
-	// offer argument cards there (surface gate → no classify, no proposal).
-	h, cookie, pool := coachProposalHandler(t, "fact_opinion")
-	base := "/api/v1/projects/" + seedProjectID
-
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"reading","user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
-	if rr.Code != http.StatusOK {
-		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
-	}
-	if strings.Contains(rr.Body.String(), `"proposal"`) {
-		t.Fatalf("reading surface must not carry a proposal: %s", rr.Body)
 	}
 	if got := countCoachProposedEvents(t, pool, seedProjectID); got != 0 {
-		t.Fatalf("coach_proposed events on reading = %d, want 0", got)
+		t.Fatalf("coach_proposed events = %d, want 0", got)
 	}
-	// The surface gate fires BEFORE the classifier: no classify spend either.
+	// The orchestrator never runs a separate classify call.
 	if got := countLLMCallsByPurpose(t, pool, seedProjectID, "classify"); got != 0 {
-		t.Fatalf("reading surface must not classify, got %d classify calls", got)
+		t.Fatalf("must not classify, got %d classify calls", got)
 	}
 }
