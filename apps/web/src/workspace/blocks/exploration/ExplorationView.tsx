@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyState } from "@/ui/Illustration";
 import type {
   CardTurnRef,
   DigCandidate,
@@ -14,7 +15,6 @@ import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
   createEdge,
-  createLead,
   deleteEdge,
   deleteLead,
   digExploration,
@@ -80,9 +80,24 @@ export type ExplorationViewProps = {
   // state); this view just docks it into the sidebar so there's ONE right panel,
   // not a separate coach column beside a node sidebar.
   coach?: ReactNode;
+  // Task 8 (P2b) · bumped by WorkspaceContainer's `explorationRefreshNonce`
+  // whenever 印记 proposes a question and the student confirms it into an
+  // exploration lead (createLead now lives in the container's confirmQuestion,
+  // not here — the manual question boxes this view used to own are gone). A
+  // bump re-fetches the graph so the new root question appears without a
+  // manual reload. Starts at 0; the mount effect above already fetches once,
+  // so only a BUMP (not the initial render) should trigger another fetch.
+  refreshNonce?: number;
 };
 
-export function ExplorationView({ projectId, references, projectTitle, onEnterReading, onLibraryChanged, coach }: ExplorationViewProps) {
+export function ExplorationView({
+  projectId,
+  references,
+  onEnterReading,
+  onLibraryChanged,
+  coach,
+  refreshNonce,
+}: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
@@ -147,14 +162,6 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
     setSelectedId(null);
   };
 
-  // Action 2 · the single root input that creates a NEW top-level question node.
-  const [newQuestion, setNewQuestion] = useState("");
-  const [creatingQuestion, setCreatingQuestion] = useState(false);
-
-  // GVf · the note-promotion picker: a small dropdown near the create input
-  // listing reading notes the student can turn into a question.
-  const [notePickerOpen, setNotePickerOpen] = useState(false);
-
   // B4b · 印记-proposed labeled edges. `proposing` gates the propose button while
   // the LLM runs; `proposeNote` gently surfaces a zero-result run. `busyEdgeIds`
   // disables an edge's controls mid-mutation. Nothing here auto-confirms (铁律②).
@@ -189,6 +196,20 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
     };
   }, [projectId]);
 
+  // Task 8 (P2b) · re-fetch when the container bumps `explorationRefreshNonce`
+  // (a 印记-proposed question just got confirmed into a lead elsewhere — the
+  // chat chip, not this view). Skips the initial render: the mount effect
+  // above already fetches once for nonce=0, so only a genuine BUMP should
+  // trigger another round-trip (mirrors WorkspaceContainer's `didMountRoom`).
+  const didMountRefreshNonce = useRef(false);
+  useEffect(() => {
+    if (!didMountRefreshNonce.current) {
+      didMountRefreshNonce.current = true;
+      return;
+    }
+    void refresh();
+  }, [refreshNonce, refresh]);
+
   async function withBusy(lid: string, fn: () => Promise<unknown>) {
     setBusyLeadIds((s) => new Set(s).add(lid));
     try {
@@ -200,41 +221,6 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
         n.delete(lid);
         return n;
       });
-    }
-  }
-
-  // Action 2 · root input → a brand-new top-level question node (parentLeadId
-  // null). NOT a dig: digging always targets an existing node's id.
-  async function createQuestion() {
-    const text = newQuestion.trim();
-    if (!text || creatingQuestion) return;
-    setCreatingQuestion(true);
-    setActionError(false);
-    try {
-      await createLead(projectId, text);
-      setNewQuestion("");
-      await refresh();
-    } catch {
-      setActionError(true); // keep her draft so she can just retry
-    } finally {
-      setCreatingQuestion(false);
-    }
-  }
-
-  // GVf · promote a reading note into a root question. sourceReferenceId lets
-  // the server attach the note's reference + set origin "note" (C1) so the
-  // question carries its provenance. Student-confirmed: she picks the note from
-  // the list herself (铁律①) — nothing here runs without that click.
-  async function createFromNote(ref: Reference) {
-    const text = (ref.readingNote ?? "").trim();
-    if (!text) return;
-    setNotePickerOpen(false);
-    setActionError(false);
-    try {
-      await createLead(projectId, text, { sourceReferenceId: ref.id });
-      await refresh();
-    } catch {
-      setActionError(true);
     }
   }
 
@@ -408,17 +394,6 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
 
   const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
 
-  // GVf · the driving-question seed (empty state) — see projectTitle's doc
-  // comment above for why the project title is the fallback source.
-  const drivingQuestion = useMemo(() => (projectTitle ?? "").trim(), [projectTitle]);
-
-  // GVf · reading notes eligible for promotion into a question — references
-  // whose readingNote is a non-empty string.
-  const notesWithText = useMemo(
-    () => references.filter((r) => (r.readingNote ?? "").trim().length > 0),
-    [references],
-  );
-
   // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
   // carrying a connectedReferenceId) under each root, not raw descendant count.
   const countByRoot = useMemo(() => countPapersByRoot(view.leads), [view.leads]);
@@ -543,65 +518,12 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
           (so it grows with the viewport / full-screen mode instead of sitting in
           a short fixed box). */}
       <div className="flex-none px-6 pt-5 pb-3">
-        {/* Action 2 · the single root input — creates a top-level question node.
-            The map's own title (兔子洞地图 + its ? explainer) lives inside WarrenMap,
-            so no separate section heading here. */}
-        <div className="flex items-center gap-2 rounded-mk border border-mk-border bg-mk-surface px-3 py-2">
-          <input
-            value={newQuestion}
-            onChange={(e) => setNewQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createQuestion();
-            }}
-            placeholder="记一个你想弄清楚的问题……（比如「中国碳排放全球第一，这跟可持续矛盾吗？」）"
-            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-faint"
-          />
-          <button
-            type="button"
-            onClick={createQuestion}
-            disabled={creatingQuestion || !newQuestion.trim()}
-            className="flex-none rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-          >
-            {creatingQuestion ? "记录中…" : "记下问题"}
-          </button>
-        </div>
-
-        {/* GVf · 从笔记新建问题 — a plain-copy affordance near the create input that
-            opens a small picker of the project's reading notes (references whose
-            readingNote is set). Picking one promotes it into a root question,
-            carrying its source via sourceReferenceId (origin becomes "note"). */}
-        <div className="relative mt-2.5">
-          <button
-            type="button"
-            onClick={() => setNotePickerOpen((o) => !o)}
-            className="rounded-full border border-mk-border bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
-          >
-            从笔记新建问题
-          </button>
-          {notePickerOpen && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-80 rounded-mk border border-mk-border bg-mk-surface p-2 shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
-              {notesWithText.length === 0 ? (
-                <p className="px-2 py-2 text-[12px] text-mk-faint">还没有阅读笔记</p>
-              ) : (
-                notesWithText.map((ref) => (
-                  <button
-                    key={ref.id}
-                    type="button"
-                    onClick={() => void createFromNote(ref)}
-                    className="block w-full rounded px-2 py-1.5 text-left hover:bg-mk-accent-50"
-                  >
-                    <p className="line-clamp-2 text-[12px] font-semibold leading-snug text-mk-ink">
-                      {(ref.readingNote ?? "").trim()}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-mk-faint">{ref.title}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {actionError && <p className="mt-2.5 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
+        {/* Task 8 (P2b) · the manual root-question input + 从笔记新建问题 picker
+            are gone — 印记 now proposes questions in the chat (a confirm chip,
+            Task 7), and confirming lands the lead here via the refresh nonce
+            below. The map's own title (兔子洞地图 + its ? explainer) lives
+            inside WarrenMap, so no separate section heading here. */}
+        {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
 
         {/* B4b · let 印记 propose relationships between the questions. Lives in the
             fixed header so the map body below is pure canvas. Only meaningful with
@@ -625,24 +547,15 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
           (and with full-screen mode), instead of sitting in a short fixed box. */}
       <div className="min-h-0 flex-1 px-6 pb-5">
         {roots.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
-            <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
-            <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
-              在上面记下一个你想弄清楚的问题，点开它再「深挖」——印记就会顺着它给你几篇相关论文，采纳的会挂到这条线下面，慢慢长成一张图。
-            </p>
-            {/* GVf · the driving-question seed: pre-fill (not auto-create) the
-                create input with the project's own research question so the
-                student's first question isn't a blank page. She still has to
-                confirm/edit and click 记下问题 herself (铁律①). */}
-            {drivingQuestion && (
-              <button
-                type="button"
-                onClick={() => setNewQuestion(drivingQuestion)}
-                className="mt-3 rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
-              >
-                用我的研究问题开始
-              </button>
-            )}
+          // Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
+          // (no imperative to type one herself; 铁律①: she still confirms).
+          // Centered illustration + ≥14px copy (design system §16).
+          <div className="flex h-full items-center justify-center">
+            <EmptyState
+              illustration="warren"
+              title="这里还是空的"
+              body="聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+            />
           </div>
         ) : (
           <WarrenMap

@@ -51,7 +51,7 @@ function EnergyChapter() {
           style={{ accentColor: isLow ? "#C2557A" : "#C9743C" }}
           aria-label={`情绪电量：${level} / 5 格`}
         />
-        <div className="flex justify-between text-[10px] text-[#9AA1B0] mt-1">
+        <div className="flex justify-between text-[12px] text-[#9AA1B0] mt-1">
           {[1, 2, 3, 4, 5].map((n) => (
             <span key={n}>{n}</span>
           ))}

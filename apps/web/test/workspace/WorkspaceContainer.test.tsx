@@ -41,7 +41,7 @@ vi.mock("@/workspace/blocks/PlanBlock", () => ({
 }));
 vi.mock("@/workspace/blocks/ReadingBlock", () => ({ ReadingBlock: () => <div data-testid="reading-block" /> }));
 vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: () => <div data-testid="writing-block" /> }));
-vi.mock("@/workspace/blocks/WritingReferencePanel", () => ({ WritingReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
+vi.mock("@/workspace/blocks/ReferencePanel", () => ({ ReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: () => <div data-testid="review-block" /> }));
 vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-testid="reading-room" /> }));
 
@@ -49,17 +49,23 @@ const getWorkspace = vi.fn();
 const getStudioState = vi.fn();
 const coach = vi.fn();
 const putProposal = vi.fn();
+const getPlan = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getStudioState: (...args: unknown[]) => getStudioState(...args),
   coach: (...args: unknown[]) => coach(...args),
   putProposal: (...args: unknown[]) => putProposal(...args),
-  getPlan: vi.fn(async () => []),
+  getPlan: (...args: unknown[]) => getPlan(...args),
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
   dismissProposal: vi.fn(async () => {}),
+}));
+
+const createLead = vi.fn();
+vi.mock("@/api/exploration", () => ({
+  createLead: (...args: unknown[]) => createLead(...args),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
@@ -77,11 +83,23 @@ function fakeWorkspace(id: string) {
 }
 
 type OpenTool = "chat" | "plan" | "reading" | "writing" | "reflection";
-function fakeStudioState(openTool: OpenTool) {
+type Stage =
+  | "topic_discussion"
+  | "proposal_forming"
+  | "plan_generation"
+  | "proposal_writing"
+  | "proposal_review"
+  | "body_writing"
+  | "retrospective";
+type WidthTier = "chat" | "half" | "wide";
+// `widthTier` follows `openTool` by default (chat → the full-width chat surface;
+// any real room → the split, defaulting to `half`) — override it explicitly to
+// exercise the morphing-width tiers (P2a).
+function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", widthTier?: WidthTier) {
   return {
-    stage: "plan_generation" as const,
+    stage,
     openTool,
-    widthTier: "half" as const,
+    widthTier: widthTier ?? (openTool === "chat" ? "chat" : "half"),
     reference: [] as never[],
     updatedAtTurn: 0,
   };
@@ -91,13 +109,14 @@ function fakeStudioState(openTool: OpenTool) {
 function fakeReply(
   narrate: string,
   openTool: OpenTool,
-  extra: { note?: unknown; card?: unknown } = {},
+  extra: { note?: unknown; card?: unknown; question?: unknown } = {},
 ) {
   return {
     narrate,
     directive: fakeStudioState(openTool),
     note: extra.note ?? null,
     card: extra.card ?? null,
+    question: extra.question ?? null,
     reviewRequested: false,
   };
 }
@@ -112,6 +131,8 @@ describe("WorkspaceContainer", () => {
     getStudioState.mockImplementation(async () => fakeStudioState("plan"));
     coach.mockResolvedValue(fakeReply("好的。", "chat"));
     putProposal.mockImplementation(async (_id: string, p: unknown) => p);
+    getPlan.mockResolvedValue([]);
+    createLead.mockResolvedValue({ id: "lead-1" });
   });
 
   it("shows the directory when no project is open", () => {
@@ -199,10 +220,24 @@ describe("WorkspaceContainer", () => {
     expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
 
     // The switcher is not a dead escape hatch: a click still mounts the room.
-    await userEvent.click(screen.getByRole("button", { name: "立项" }));
+    await userEvent.click(screen.getByRole("button", { name: "管理" }));
 
     expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
+
+  // P2a: 立项 split into 提案(forming)/管理(board), both sharing PlanBlock.
+  // `roomForResume` picks forming vs board from the STAGE when 印记's openTool
+  // is "plan" (it doesn't yet emit an explicit "forming" openTool — that's
+  // P2b). A proposal_forming-stage project must resume into 提案, not 管理.
+  it("resumes into 提案 (forming) when studio_state.stage is proposal_forming", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("plan", "proposal_forming"));
+    render(<WorkspaceContainer initialProjectId="pf" />);
+
+    expect(await screen.findByTestId("plan-block")).toHaveTextContent("pf:项目 pf");
+    expect(getStudioState).toHaveBeenCalledWith("pf");
+    const resolved = await getStudioState.mock.results[0]!.value;
+    expect(resolved).toEqual(expect.objectContaining({ stage: "proposal_forming" }));
   });
 
   // Task 9b · the container-owned 印记 chat: in chat-first the constant AiPanel
@@ -216,6 +251,9 @@ describe("WorkspaceContainer", () => {
 
     // The panel shows the real chat composer (not just the calm landing).
     const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    // Mount already fetched the plan once (the load effect) — clear that call
+    // so the assertion below is specifically about the post-turn refresh.
+    getPlan.mockClear();
     await userEvent.type(composer, "我想研究中国的可持续");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
@@ -224,6 +262,10 @@ describe("WorkspaceContainer", () => {
     // Directive applied: the writing room mounts, chat-first is gone.
     expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    // P2b: the plan can no longer be regenerated via a button — 印记 triggers
+    // it server-side via `generate_plan`, so every turn best-effort refreshes
+    // the plan spine (getPlan) instead of waiting for a room remount.
+    await waitFor(() => expect(getPlan).toHaveBeenCalledWith("pc"));
   });
 
   // Whole-branch review Fix 1: `room` used to be left stale across a project
@@ -253,6 +295,103 @@ describe("WorkspaceContainer", () => {
     expect(await screen.findByPlaceholderText(/和印记说说你的项目/)).toBeInTheDocument();
   });
 
+  // P2a · Morphing width (spec §3). In the `chat` tier the 印记 chat IS the
+  // surface: it fills the content width, with NO interactive room and NO side
+  // AiPanel rail — the chat is not a narrow companion beside an empty landing.
+  it("chat tier: the 印记 chat fills the width — no room and no side panel", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    render(<WorkspaceContainer initialProjectId="pchatwide" />);
+
+    // The full-width chat surface (composer present).
+    expect(await screen.findByPlaceholderText(/和印记说说你的项目/)).toBeInTheDocument();
+    expect(screen.getByTestId("chat-first")).toBeInTheDocument();
+    // No interactive room is mounted…
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("writing-block")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("reading-block")).not.toBeInTheDocument();
+    // …and no side AiPanel rail (the chat owns the whole width).
+    expect(screen.queryByRole("button", { name: "切换 AI 面板左右" })).not.toBeInTheDocument();
+  });
+
+  // `half` tier: a room mounts in the interactive area AND the 印记 chat rides
+  // alongside as the AiPanel rail (its coach content is portaled by the room —
+  // mocked away here — but the constant panel chrome is present).
+  it("half tier: mounts the room AND keeps the 印记 rail (no full-width chat)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "half"));
+    render(<WorkspaceContainer initialProjectId="phalf" />);
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    // The chat is a rail beside the room, not the full-width chat surface.
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // `wide` tier: same invariant — the interactive area is the surface, the 印记
+  // rail persists (the student can still collapse it to the slim rail).
+  it("wide tier: mounts the room AND keeps the 印记 rail", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "wide"));
+    render(<WorkspaceContainer initialProjectId="pwide" />);
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // Task 3 (P2a): reading used to be excluded from the constant panel (it owned
+  // its own FloatingCoach column) — that room-owned coach is gone, so reading
+  // now joins the ONE constant 印记 rail exactly like plan/writing/reflection.
+  it("reading room joins the constant 印记 rail (no more FloatingCoach exception)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("reading", "topic_discussion", "half"));
+    render(<WorkspaceContainer initialProjectId="pread" />);
+
+    expect(await screen.findByTestId("reading-block")).toBeInTheDocument();
+    // The constant rail's chrome is present — reading is no longer the
+    // exception that hid it (the old `room !== "reading"` guard).
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+    // No separate floating-chip coach affordance — 印记 is the one rail now.
+    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("印记 · 找资料")).not.toBeInTheDocument();
+  });
+
+  // A manual takeover forces at least `wide` (a room is always showing) even
+  // when 印记's status is chat — the chat-only surface yields to the room.
+  it("manual takeover from chat forces a room (tookOver ⇒ wide)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    render(<WorkspaceContainer initialProjectId="ptake" />);
+
+    expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // P4 · 「继续印记」(spec §6): once a manual takeover has swapped the room,
+  // the control appears; clicking it re-fetches 印记's status and returns the
+  // view there, clearing the takeover flag (the control disappears again).
+  it("「继续印记」returns from a manual takeover to 印记's status room", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("plan"));
+    render(<WorkspaceContainer initialProjectId="pcontinue" />);
+
+    // 印记 opens the 管理 board by default (openTool "plan").
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /继续印记/ })).not.toBeInTheDocument();
+
+    // Manual takeover via the switcher, into 写作.
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+
+    const continueBtn = await screen.findByRole("button", { name: /继续印记/ });
+    await userEvent.click(continueBtn);
+
+    // Back to 印记's status room; the control is gone (tookOver cleared).
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("writing-block")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /继续印记/ })).not.toBeInTheDocument();
+    expect(getStudioState).toHaveBeenCalledTimes(2);
+  });
+
   // Task 9b · a reply carrying a note OFFER renders a confirm chip; confirming
   // read-modify-writes the proposal board (getWorkspace → putProposal merged).
   it("a reply with a note renders a confirm chip; confirming persists the merged proposal", async () => {
@@ -277,5 +416,60 @@ describe("WorkspaceContainer", () => {
         expect.objectContaining({ objective: "以中国为例回答可持续问题" }),
       ),
     );
+  });
+
+  // Task 9b · when the target section ALREADY has content, confirming appends
+  // with a newline join (never clobbers her own words) — the other branch of
+  // confirmNote's read-modify-write merge.
+  it("confirming a note appends with a newline when the section already has content", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    // This project's objective is already written — the merge must preserve it.
+    getWorkspace.mockImplementation(async (id: string) => ({
+      ...fakeWorkspace(id),
+      proposal: { objective: "先前写好的目标。", reason: "", activities: "", resources: "" },
+    }));
+    coach.mockResolvedValue(
+      fakeReply("记下来吧。", "chat", { note: { section: "objective", value: "再补一句想法" } }),
+    );
+    render(<WorkspaceContainer initialProjectId="pm" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "帮我补充目标");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const confirm = await screen.findByRole("button", { name: "记进「目标」" });
+    await userEvent.click(confirm);
+
+    // Existing content + "\n" + the note's value — not a clobber.
+    await waitFor(() =>
+      expect(putProposal).toHaveBeenCalledWith(
+        "pm",
+        expect.objectContaining({ objective: "先前写好的目标。\n再补一句想法" }),
+      ),
+    );
+  });
+
+  // Task 7 (P2b) · a reply carrying a `propose_question` OFFER renders a
+  // confirm chip; confirming creates an exploration lead (createLead) and
+  // clears the chip — mirrors the note confirm-chip test above.
+  it("a reply with a question renders a confirm chip; confirming creates an exploration lead", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(
+      fakeReply("这个问题值得深挖。", "chat", { question: { text: "中国的碳排放增长会抵消其可持续举措吗？" } }),
+    );
+    render(<WorkspaceContainer initialProjectId="pq" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "这里有个问题");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const confirm = await screen.findByRole("button", { name: "加入探索图谱" });
+    await userEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(createLead).toHaveBeenCalledWith("pq", "中国的碳排放增长会抵消其可持续举措吗？"),
+    );
+    // The chip clears once confirmed.
+    expect(screen.queryByRole("button", { name: "加入探索图谱" })).not.toBeInTheDocument();
   });
 });

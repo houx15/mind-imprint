@@ -11,7 +11,7 @@ export const StudioStage = z.enum([
 ]);
 export type StudioStage = z.infer<typeof StudioStage>;
 
-export const OpenTool = z.enum(["chat", "plan", "reading", "writing", "reflection"]);
+export const OpenTool = z.enum(["chat", "forming", "plan", "reading", "writing", "reflection"]);
 export type OpenTool = z.infer<typeof OpenTool>;
 
 export const WidthTier = z.enum(["chat", "half", "wide"]);
@@ -45,12 +45,18 @@ export const OrchestratorTool = z.discriminatedUnion("name", [
   z.object({ name: z.literal("propose_note"), args: z.object({ section: ProposalSection, value: z.string() }) }),
   z.object({ name: z.literal("summon_card"), args: z.object({ card_id: z.string(), reason: z.string(), nudge_text: z.string() }) }),
   z.object({ name: z.literal("request_review"), args: z.object({}) }),
+  z.object({ name: z.literal("generate_plan"), args: z.object({}) }),
+  z.object({ name: z.literal("propose_question"), args: z.object({ text: z.string() }) }),
 ]);
 export type OrchestratorTool = z.infer<typeof OrchestratorTool>;
 
 // A note the student confirms before it lands (铁律①). Producer: propose_note.
 export const NoteProposal = z.object({ section: ProposalSection, value: z.string() });
 export type NoteProposal = z.infer<typeof NoteProposal>;
+
+// A candidate inquiry question the student confirms before it lands. Producer: propose_question.
+export const QuestionProposal = z.object({ text: z.string() });
+export type QuestionProposal = z.infer<typeof QuestionProposal>;
 
 // The card chip surfaced this turn. Producer: summon_card. Mirrors the existing
 // coachProposalDTO (cardId/reason/nudgeText).
@@ -67,6 +73,7 @@ export const OrchestratorReply = z.object({
   directive: StudioState,
   note: NoteProposal.nullable(),
   card: CardProposalWire.nullable(),
+  question: QuestionProposal.nullable(),
   reviewRequested: z.boolean(),
 });
 export type OrchestratorReply = z.infer<typeof OrchestratorReply>;

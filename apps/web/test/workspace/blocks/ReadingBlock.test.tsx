@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import type { Reference } from "@mind-imprint/contracts";
+import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 
 // A single already-read source with no stage tag yet, carrying a saved brief
 // (readingReason/readingFocus) so we can assert the inline stage picker persists
@@ -39,28 +42,31 @@ vi.mock("@/workspace/api/workspace", () => ({
   patchReference: vi.fn(async () => {}),
   enterReading: vi.fn(),
   pasteContent: vi.fn(),
-  // Task 9a: find_sources is a context-isolated sub-agent coach (retained
-  // legacy path) — the reply is shaped as OrchestratorReply (narrate/
-  // directive/note/card/reviewRequested); linkOffer/proposal are retired here.
-  coach: vi.fn(async () => ({
-    narrate: "",
-    directive: { stage: "topic_discussion", openTool: "chat", widthTier: "chat", reference: [], updatedAtTurn: 0 },
-    note: null,
-    card: null,
-    reviewRequested: false,
-  })),
-  getCoachHistory: vi.fn(async () => []),
   NoReadableContentError: class extends Error {},
 }));
 vi.mock("@/api/reading", () => ({ putReadingBrief: vi.fn(async () => {}) }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));
+// Task 3 (P2a): ExplorationView no longer receives a `coach` slot at all (the
+// room's own docked coach is gone) — the stub renders whatever it's handed so
+// a test can assert nothing coach-shaped comes through. The stub also exposes
+// a button to simulate a rabbit-hole card's `onCardReflected` callback, so a
+// test can assert the reflect result now bridges into the shared studio
+// thread instead of a local FloatingCoach buffer.
 vi.mock("@/workspace/blocks/exploration/ExplorationView", () => ({
-  // GVd · the 找资料 coach is now passed INTO ExplorationView as its sidebar's
-  // default ('ai') state — render the slot so the docked-coach assertions still
-  // exercise the real wiring (ReadingBlock owns the coach; the view docks it).
-  ExplorationView: ({ coach }: { coach?: ReactNode }) => (
+  ExplorationView: ({
+    coach,
+    onCardReflected,
+  }: {
+    coach?: ReactNode;
+    onCardReflected?: (studentText: string, reply: string, card?: unknown) => void;
+  }) => (
     <div>
       graph-stub
+      {onCardReflected && (
+        <button type="button" onClick={() => onCardReflected("挖了一层", "不错的发现", undefined)}>
+          simulate reflect
+        </button>
+      )}
       {coach}
     </div>
   ),
@@ -72,13 +78,63 @@ import { putReadingBrief } from "@/api/reading";
 
 const mockBrief = vi.mocked(putReadingBrief);
 
+// Task 3 (P2a): ReadingBlock now portals its coach into the constant AiPanel
+// via `useStudioAiSlot()` / reads the shared thread via `useStudioChat()` —
+// same room→panel contract as PlanBlock/WritingBlock/ReviewBlock. Tests stand
+// in the same provider pair the real shell provides.
+function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
+  const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
+  const [sending, setSending] = useState(false);
+  const sendStudioTurn = async (userInput: string) => {
+    setMessages((c) => [...c, { role: "student", text: userInput }]);
+    return true;
+  };
+  return (
+    <StudioChatContext.Provider
+      value={{
+        messages,
+        setMessages,
+        sending,
+        setSending,
+        activeProjectIdRef: { current: "p1" },
+        sendStudioTurn,
+        projectId: "p1",
+        pendingNote: null,
+        pendingCard: null,
+        confirmNote: () => {},
+        dismissNote: () => {},
+        openCard: () => {},
+        dismissCard: () => {},
+        pendingQuestion: null,
+        confirmQuestion: () => {},
+        dismissQuestion: () => {},
+      }}
+    >
+      {children}
+    </StudioChatContext.Provider>
+  );
+}
+
+// A real DOM node the portal contract needs (jsdom createPortal requires it);
+// RTL's `screen` queries document.body — where this node lives — so portaled
+// content is found the same as any other.
+function renderReadingBlock(ui: React.ReactElement, initialMessages: StudioChatMsg[] = []) {
+  const slot = document.createElement("div");
+  document.body.appendChild(slot);
+  return render(
+    <ChatProvider initial={initialMessages}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </ChatProvider>,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
   it("opens on the 探索图谱 when the project already has sources (#4)", async () => {
-    render(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
+    renderReadingBlock(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
     // graph is the default view once there are references
     expect(await screen.findByText("graph-stub")).toBeInTheDocument();
     // the list grid header is not shown until the student switches to 列表
@@ -91,7 +147,7 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
   it("opens on the 探索图谱 even when the library is empty (#18)", async () => {
     const { getLibrary } = await import("@/workspace/api/workspace");
     vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
-    render(<ReadingBlock projectId="p2" title="T" setReadingSource={() => {}} />);
+    renderReadingBlock(<ReadingBlock projectId="p2" title="T" setReadingSource={() => {}} />);
     expect(await screen.findByText("graph-stub")).toBeInTheDocument();
     // 列表 is still one click away, with its own empty-state affordance
     await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
@@ -99,7 +155,7 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
   });
 
   it("stage picker persists via the reading brief, carrying reason/focus (#2)", async () => {
-    render(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
+    renderReadingBlock(<ReadingBlock projectId="p1" title="T" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
     // switch to the list where the inline stage picker lives
     await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
@@ -115,98 +171,78 @@ describe("ReadingBlock · #4 graph-default + #2 stage tag", () => {
   });
 });
 
-// Q3 followup (2026-08): 探索图谱 has no reference-preview sidebar (unlike
-// 列表), so the "找资料" coach docks as a permanent, always-visible right
-// column there instead of hiding behind a floating chip. 列表 keeps the old
-// floating-chip behavior since its Preview column already occupies that space.
-describe("ReadingBlock · Q3 docked coach in 探索图谱", () => {
-  it("docks the 找资料 coach as a visible right column in 探索图谱 (not a floating chip)", async () => {
-    render(<ReadingBlock projectId="q3-graph" title="T" setReadingSource={() => {}} />);
+// Task 3 (P2a): the room's own coach (docked in 探索图谱, a floating chip in
+// 列表 — both a context-isolated "find_sources" thread) is deleted. 印记 is
+// now the ONE constant rail, portaled via `useStudioAiSlot()` — present in
+// BOTH view modes, reading the SAME shared studio thread every other room
+// does. No 探索图谱-vs-列表 asymmetry any more.
+describe("ReadingBlock · joins the constant 印记 rail (Task 3, P2a)", () => {
+  it("portals the shared StudioCoachChat into the constant AiPanel slot, in both view modes", async () => {
+    renderReadingBlock(
+      <ReadingBlock projectId="q3-graph" title="T" setReadingSource={() => {}} />,
+      [{ role: "ai", text: "一段既有的对话" }],
+    );
     await screen.findByText("graph-stub");
-    // docked: visible by default — no floating chip is needed to open it
-    expect(await screen.findByText("印记 · 找资料")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).toBeNull();
+    // The shared thread's content shows via the portaled StudioCoachChat.
+    expect(await screen.findByText("一段既有的对话")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
+    // Same portaled coach persists across the view-mode toggle — ReadingBlock
+    // no longer mounts a per-view coach of its own.
+    expect(screen.getByText("一段既有的对话")).toBeInTheDocument();
   });
 
-  it("keeps the coach as a floating chip in 列表 (reference-preview sidebar intact)", async () => {
-    render(<ReadingBlock projectId="q3-list" title="T" setReadingSource={() => {}} />);
+  it("no longer renders the deleted FloatingCoach (no floating chip, no docked header, no ExplorationView coach slot)", async () => {
+    renderReadingBlock(<ReadingBlock projectId="q3-nofloat" title="T" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
+    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).toBeNull();
+    expect(screen.queryByText("印记 · 找资料")).toBeNull();
+
     await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
-    // list view: the floating chip is the only way to open the coach
-    expect(await screen.findByRole("button", { name: /问印记 · 找资料/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).toBeNull();
+    expect(screen.queryByText("印记 · 找资料")).toBeNull();
+  });
+
+  it("bridges a rabbit-hole reflect result from ExplorationView into the shared studio thread", async () => {
+    renderReadingBlock(<ReadingBlock projectId="q3-bridge" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    await userEvent.click(screen.getByRole("button", { name: "simulate reflect" }));
+    // Both the student turn and 印记's reply land in the ONE shared thread —
+    // rendered by the portaled StudioCoachChat, no local FloatingCoach buffer.
+    expect(await screen.findByText("挖了一层")).toBeInTheDocument();
+    expect(await screen.findByText("不错的发现")).toBeInTheDocument();
   });
 });
 
-// A7: the ＋兔子洞 affordance the 印记 · 找资料 coach carried (and the matching
-// ExplorationView open-request bridge) was dead wiring left by A6 — both are
-// now removed, along with the tests that only exercised that bridge.
-
-// #3 · when the library is empty, the coach greeting ACKNOWLEDGES the known
-// project topic (a static interpolated string — no model call) instead of asking
-// for it, and the empty-state copy names the topic too.
+// #3 · when the library is empty, the 列表 empty-state copy names the known
+// project topic (a static interpolated string — no model call) instead of a
+// generic prompt. Each test uses its own fresh projectId — ReadingBlock's
+// viewModeMemo is a module-level Map keyed by projectId that outlives any
+// single test, so reusing an id another test already toggled to 列表 would
+// leave the next test starting on the wrong view.
 describe("ReadingBlock · #3 topic-aware empty state", () => {
-  it("interpolates the project topic into the coach opener and empty copy", async () => {
+  it("interpolates the project topic into the 列表 empty-state copy", async () => {
     const { getLibrary } = await import("@/workspace/api/workspace");
     vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
-    render(
+    renderReadingBlock(
       <ReadingBlock
-        projectId="p1"
+        projectId="p3-topic"
         title="中国是否让地球变得更可持续？"
         setReadingSource={() => {}}
       />,
     );
-    // the coach greeting names the topic and keeps the 不替你搜 restraint — this
-    // holds regardless of which view (#18: 探索图谱 is now the default even
-    // for an empty library) is showing, since FloatingCoach's opener is keyed
-    // off refs.length, not viewMode.
-    expect(
-      await screen.findByText(/你的题目是「中国是否让地球变得更可持续？」/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/但我不替你搜/)).toBeInTheDocument();
-    // the 列表 empty-state copy references the topic too — switch there since
-    // 探索图谱 (its own empty state) is the default now.
+    // 探索图谱 (its own empty state) is the default now — switch to 列表.
+    await screen.findByText("graph-stub");
     await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
     expect(await screen.findByText(/围绕「中国是否让地球变得更可持续？」/)).toBeInTheDocument();
   });
 
-  it("falls back to the generic ask when no topic is set", async () => {
+  it("falls back to the generic empty-state copy when no topic is set", async () => {
     const { getLibrary } = await import("@/workspace/api/workspace");
     vi.mocked(getLibrary).mockResolvedValueOnce({ collections: [], references: [] });
-    render(<ReadingBlock projectId="p1" title="" setReadingSource={() => {}} />);
-    expect(await screen.findByText(/跟我说说你的题目/)).toBeInTheDocument();
-  });
-});
-
-// Job 2 (studio agentic restyle 2026-08): FloatingCoach's message log is now the
-// shared ChatLog/Composer (mirrors PlanBlock's Task 5 migration) instead of a
-// hand-rolled bubble list + textarea. ChatLog stamps each bubble with
-// `data-role="assistant"|"student"` — a hand-rolled log never did — so its
-// presence proves the swap, not just that some text renders somewhere.
-describe("ReadingBlock · FloatingCoach uses the shared ChatLog/Composer", () => {
-  // A fresh, never-before-used projectId — ReadingBlock's viewModeMemo is a
-  // module-level Map keyed by projectId that outlives any single test, so
-  // reusing an id another test already toggled to 列表 would leave the coach
-  // collapsed behind a floating chip instead of docked-open in 探索图谱.
-  it("renders the greeting as a ChatLog assistant bubble", async () => {
-    const { container } = render(<ReadingBlock projectId="chatlog-greeting" title="T" setReadingSource={() => {}} />);
+    renderReadingBlock(<ReadingBlock projectId="p3-empty" title="" setReadingSource={() => {}} />);
     await screen.findByText("graph-stub");
-    const bubble = container.querySelector('[data-role="assistant"]');
-    expect(bubble).not.toBeNull();
-    expect(bubble!.textContent).toMatch(/找资料卡住了|你的题目是/);
-  });
-
-  it("sending through the shared Composer posts a student ChatLog bubble and the coach's reply", async () => {
-    const user = userEvent.setup();
-    const { container } = render(<ReadingBlock projectId="chatlog-compose" title="T" setReadingSource={() => {}} />);
-    await screen.findByText("graph-stub");
-
-    const textarea = await screen.findByPlaceholderText("问从哪找、可不可信……");
-    await user.type(textarea, "碳排放的数据去哪找？");
-    await user.click(screen.getByRole("button", { name: "发送" }));
-
-    await waitFor(() => {
-      const studentBubble = container.querySelector('[data-role="student"]');
-      expect(studentBubble?.textContent).toBe("碳排放的数据去哪找？");
-    });
+    await userEvent.click(screen.getByRole("button", { name: "图书馆" }));
+    expect(await screen.findByText(/先加一篇来源/)).toBeInTheDocument();
   });
 });

@@ -169,8 +169,12 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 				state.WidthTier = agent.WidthForTool(args.Tool)
 			}
 		case "curate_reference":
+			// id-validation (P3): filterCurateReferenceCall already dropped bad
+			// `kind`s; this drops items whose id isn't a real material/snippet id
+			// for THIS project, so a hallucinated id never reaches studio_state
+			// (the panel a later task renders from these ids).
 			if args, aerr := agent.CurateReferenceArgs(tc); aerr == nil {
-				state.Reference = args.Items
+				state.Reference = a.filterKnownReferences(r.Context(), projectID, args.Items)
 			}
 		case "propose_note":
 			// Last one wins; NO db write — the student confirms via putProposal.
@@ -195,6 +199,25 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 			state.OpenTool = agent.ToolWriting
 			state.WidthTier = agent.WidthWide
 			reply.ReviewRequested = true
+		case "generate_plan":
+			// 印记 triggers plan generation itself (the 生成计划 button is gone). Best-
+			// effort: a proposal-empty project just doesn't generate — the narration
+			// still lands, 印记 will have nudged for the dims. Open 管理 on success.
+			if _, gerr := a.regeneratePlan(r.Context(), projectID); gerr == nil {
+				state.OpenTool = agent.ToolPlan
+				state.WidthTier = agent.WidthForTool(agent.ToolPlan)
+				// Advance the stage off the proposal side too. The frontend's
+				// roomForResume routes openTool=plan by STAGE, so a still-
+				// proposal_forming stage would snap the view back to 提案 even
+				// though the plan just generated — bump it so 管理 opens.
+				if state.Stage == agent.StageTopicDiscussion || state.Stage == agent.StageProposalForming {
+					state.Stage = agent.StagePlanGeneration
+				}
+			}
+		case "propose_question":
+			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
+				reply.Question = &questionProposalDTO{Text: args.Text}
+			}
 		}
 	}
 
@@ -356,6 +379,7 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{
 		Narrate:   narrate,
 		Directive: state,
+		Question:  nil,
 	})
 }
 
@@ -383,6 +407,7 @@ type orchestratorReplyDTO struct {
 	Narrate         string               `json:"narrate"`
 	Directive       agent.StudioState    `json:"directive"`
 	Note            *noteProposalDTO     `json:"note"`
+	Question        *questionProposalDTO `json:"question"`
 	Card            *cardProposalWireDTO `json:"card"`
 	ReviewRequested bool                 `json:"reviewRequested"`
 }
@@ -391,6 +416,13 @@ type orchestratorReplyDTO struct {
 type noteProposalDTO struct {
 	Section string `json:"section"`
 	Value   string `json:"value"`
+}
+
+// questionProposalDTO mirrors the contract's QuestionProposal {text} — a
+// research question 印记 proposes while reading/exploring; the student
+// confirms before it joins the exploration graph (mirrors noteProposalDTO).
+type questionProposalDTO struct {
+	Text string `json:"text"`
 }
 
 // cardProposalWireDTO mirrors the contract's CardProposalWire {cardId, reason,

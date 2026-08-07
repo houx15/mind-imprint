@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { CardTurnRef, NoteProposal, CardProposalWire } from "@mind-imprint/contracts";
+import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal } from "@mind-imprint/contracts";
 
 /**
  * StudioChatContext (coach-persistence hoist).
@@ -66,6 +66,13 @@ export type StudioChatValue = {
   // submit); or decline it (records the decline so 印记 stops offering it).
   openCard: (cardId: string) => void;
   dismissCard: (cardId: string) => void;
+  // Task 7 (P2b) · 印记's per-turn `propose_question` OFFER (铁律②: proposed,
+  // never auto-applied). Confirming turns it into an exploration lead
+  // (`createLead`); cleared at the start of the next turn and on project switch,
+  // mirroring `pendingNote`.
+  pendingQuestion: QuestionProposal | null;
+  confirmQuestion: () => void;
+  dismissQuestion: () => void;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

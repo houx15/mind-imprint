@@ -59,6 +59,11 @@ vi.mock("@/workspace/api/workspace", () => ({
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
+  // ReferencePanel (writing room's left sub-pane) fetches these eagerly on
+  // mount — stubbed empty since these shell tests drive the room switcher,
+  // not the writing reference content.
+  getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
+  getSnippets: vi.fn(async () => []),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
@@ -92,7 +97,7 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
     await openProject();
 
     expect(screen.getByRole("button", { name: /主页/ })).toBeInTheDocument();
-    for (const label of ["立项", "阅读", "写作", "回顾"]) {
+    for (const label of ["提案", "管理", "阅读", "写作", "回顾"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
     // The AiPanel chrome (Task 2) is always present alongside the room, not

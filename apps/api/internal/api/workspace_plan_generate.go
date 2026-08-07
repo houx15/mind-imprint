@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,13 @@ import (
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// errProposalEmpty is regeneratePlan's sentinel for an empty kick-off (no
+// proposal row, or a proposal with none of the four dims filled). Its two
+// callers each handle it differently — postPlanGenerate writes the 422
+// proposal_empty response, the coach's generate_plan tool just no-ops (the
+// narration lands regardless).
+var errProposalEmpty = errors.New("proposal_empty")
 
 // workspace_plan_generate.go — BE3: POST /projects/{id}/plan/generate. Unlike
 // the plain plan CRUD (workspace_plan.go), this one SPENDS: it resolves the
@@ -56,45 +64,57 @@ func (a *API) postPlanGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prop, perr := a.d.Queries.GetProjectProposal(r.Context(), projectID)
-	if perr == nil && !anyProposalDim(prop) {
-		httpx.WriteError(w, r, &httpx.APIError{
-			Status: http.StatusUnprocessableEntity, Code: "proposal_empty",
-			Message: "先聊清楚开题，再生成计划",
-		})
+	out, gerr := a.regeneratePlan(r.Context(), projectID)
+	if gerr != nil {
+		if errors.Is(gerr, errProposalEmpty) {
+			httpx.WriteError(w, r, &httpx.APIError{
+				Status: http.StatusUnprocessableEntity, Code: "proposal_empty",
+				Message: "先聊清楚开题，再生成计划",
+			})
+			return
+		}
+		httpx.WriteError(w, r, gerr)
 		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
+}
+
+// regeneratePlan does the actual work: read the proposal (422-worthy empty
+// kick-off → errProposalEmpty), one-shot-generate + persist the tasks
+// (delete+recreate wholesale, #15), auto-log, and fold the shaping dialogue
+// out of the coach's active window. Shared by postPlanGenerate AND the coach's
+// generate_plan tool (coach.go) — the button is gone, 印记 triggers this
+// itself once the four proposal dims are filled.
+func (a *API) regeneratePlan(ctx context.Context, projectID uuid.UUID) ([]planItemDTO, error) {
+	prop, perr := a.d.Queries.GetProjectProposal(ctx, projectID)
+	if perr == nil && !anyProposalDim(prop) {
+		return nil, errProposalEmpty
 	}
 	if perr != nil {
 		// No proposal row at all is also an empty kick-off.
-		httpx.WriteError(w, r, &httpx.APIError{
-			Status: http.StatusUnprocessableEntity, Code: "proposal_empty",
-			Message: "先聊清楚开题，再生成计划",
-		})
-		return
+		return nil, errProposalEmpty
 	}
 
-	items := a.generatePlanItems(r.Context(), projectID, prop)
+	items := a.generatePlanItems(ctx, projectID, prop)
 
 	// Persist all produced items in one tx (column="todo", position by index).
-	tx, err := a.d.Pool.Begin(r.Context())
+	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return nil, err
 	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
+	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
 	// #15: regenerating replaces the plan wholesale. Clear the existing board
 	// first so re-generating (after 聊聊计划) reschedules the project instead of
 	// stacking a second plan on top of the first. No-op on the first generate.
-	if err := qtx.DeletePlanItemsByProject(r.Context(), projectID); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+	if err := qtx.DeletePlanItemsByProject(ctx, projectID); err != nil {
+		return nil, err
 	}
 
 	out := make([]planItemDTO, 0, len(items))
 	for i, it := range items {
-		row, cerr := qtx.CreatePlanItem(r.Context(), sqlc.CreatePlanItemParams{
+		row, cerr := qtx.CreatePlanItem(ctx, sqlc.CreatePlanItemParams{
 			ProjectID: projectID,
 			Title:     it.Title,
 			Tag:       it.Tag,
@@ -105,29 +125,27 @@ func (a *API) postPlanGenerate(w http.ResponseWriter, r *http.Request) {
 			Position:  int32(i),
 		})
 		if cerr != nil {
-			httpx.WriteError(w, r, cerr)
-			return
+			return nil, cerr
 		}
 		out = append(out, toPlanItemDTO(row))
 	}
-	if err := tx.Commit(r.Context()); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 
-	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "印记根据开题生成了项目计划"); err != nil {
+	if err := a.appendAutoLog(ctx, a.d.Queries, projectID, "印记根据开题生成了项目计划"); err != nil {
 		slog.Warn("plan generate: append auto-log failed",
-			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+			"err", err, "request_id", httpx.RequestIDFromContext(ctx))
 	}
 	// S1 · lever 1 (compaction): the plan has solidified — fold the shaping
 	// dialogue (which reuses the forming/proposal_review scopes) out of the
 	// coach's active window. Idempotent (only non-folded rows), best-effort.
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if err := store.FoldCoachSurfaces(r.Context(), projectID, solidifyFoldSurfaces); err != nil {
+	if err := store.FoldCoachSurfaces(ctx, projectID, solidifyFoldSurfaces); err != nil {
 		slog.Warn("plan generate: fold shaping turns failed",
-			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+			"err", err, "request_id", httpx.RequestIDFromContext(ctx))
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
+	return out, nil
 }
 
 // generatePlanItems makes the one-shot mid-tier completion, meters it (purpose=

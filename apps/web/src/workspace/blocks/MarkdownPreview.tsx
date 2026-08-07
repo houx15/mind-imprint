@@ -74,7 +74,7 @@ export function MarkdownPreview({ text }: { text: string }) {
   if (!text.trim()) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-5">
-        <p className="text-[13.5px] text-mk-faint">还没有内容——切回「写」开始你的草稿，这里会实时渲染。</p>
+        <p className="text-[14px] text-mk-faint">还没有内容——切回「写」开始你的草稿，这里会实时渲染。</p>
       </div>
     );
   }

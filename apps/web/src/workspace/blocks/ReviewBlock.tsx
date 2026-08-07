@@ -7,7 +7,6 @@ import { Composer } from "@/studio/ai/Composer";
 import { ApiError } from "../../api/client";
 import { finishProject } from "../../api/projects";
 import { Icon } from "../Icon";
-import type { BlockKey } from "./mockData";
 import { reflectionPrompts } from "./mockData";
 import {
   getReflection,
@@ -51,7 +50,6 @@ export function ReviewBlock({
   proposal,
   status,
   writingFinished,
-  onOpenRoom,
   onFinished,
 }: {
   projectId: string;
@@ -59,7 +57,6 @@ export function ReviewBlock({
   status: ProjectStatus;
   // #20 · gates the whole room. False → view-only outline; nothing composes.
   writingFinished: boolean;
-  onOpenRoom?: (room: BlockKey) => void;
   onFinished?: () => void;
 }) {
   const [answers, setAnswers] = useState<string[]>(reflectionPrompts.map(() => ""));
@@ -191,20 +188,12 @@ export function ReviewBlock({
             <p className="mt-1.5 text-[14px] text-mk-muted">用你自己的话回答几个问题。右边是印记帮你整理的过程，卡壳时可以看看——但话得你自己说。</p>
           </header>
 
-          {/* #20 · view-only lock — the room only unlocks once writing is finished. */}
+          {/* #20 · view-only lock — the room only unlocks once writing is finished.
+              A calm state label, no nav: 印记 cues 完成写作 in the chat. */}
           {!writingFinished && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper px-4 py-3">
+            <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper px-4 py-3">
               <Icon name="writing" size={16} />
-              <p className="flex-1 text-[13px] font-semibold text-mk-muted">先在写作房间点「完成写作」，回顾才会解锁。</p>
-              {onOpenRoom && (
-                <button
-                  type="button"
-                  onClick={() => onOpenRoom("writing")}
-                  className="flex-none rounded-mk-md bg-mk-accent px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600"
-                >
-                  去写作房间 →
-                </button>
-              )}
+              <p className="flex-1 text-[14px] font-semibold text-mk-muted">写完初稿后，这里会解锁回顾。</p>
             </div>
           )}
 
@@ -213,11 +202,11 @@ export function ReviewBlock({
               <div key={i}>
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-mk-accent-50 text-[12px] font-bold text-mk-accent">{i + 1}</span>
-                  <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[11px] font-bold text-mk-muted">{p.label}</span>
+                  <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[12px] font-bold text-mk-muted">{p.label}</span>
                 </div>
                 <p className="mt-1.5 text-[14.5px] font-bold leading-snug text-mk-ink">{p.q}</p>
                 {p.anchor === "goal" && proposal.objective && (
-                  <p className="mt-1.5 rounded-mk-md border-l-2 border-mk-butter bg-mk-butter-bg px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
+                  <p className="mt-1.5 rounded-mk-md border-l-2 border-mk-butter bg-mk-butter-bg px-3 py-2 text-[14px] leading-relaxed text-mk-muted">
                     <span className="font-bold text-mk-butter-fg">开题时你写的目标 · </span>{proposal.objective}
                   </p>
                 )}
@@ -247,7 +236,7 @@ export function ReviewBlock({
               <div className="mt-7 flex flex-wrap items-center gap-4">
                 {archived ? (
                   <>
-                    <span className="text-[13px] font-semibold text-mk-success">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
+                    <span className="text-[14px] font-semibold text-mk-success">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
                     {onFinished && (
                       <button
                         type="button"
@@ -271,13 +260,13 @@ export function ReviewBlock({
                       {markingDone ? "记录中……" : "我写完了我的反思"}
                     </button>
                     {markDoneError ? (
-                      <span className="text-[12.5px] font-semibold text-mk-danger">{markDoneError}</span>
+                      <span className="text-[14px] font-semibold text-mk-danger">{markDoneError}</span>
                     ) : (
-                      <span className="text-[12.5px] text-mk-faint">写完后，印记才会照着你的全过程给你一面镜子——然后你再定稿评估。</span>
+                      <span className="text-[14px] text-mk-faint">写完后，印记才会照着你的全过程给你一面镜子——然后你再定稿评估。</span>
                     )}
                   </>
                 ) : !mirrorReady ? (
-                  <span className="text-[13px] font-semibold text-mk-accent">印记正在照镜子……看看右侧的思维印记，然后就可以定稿评估。</span>
+                  <span className="text-[14px] font-semibold text-mk-accent">印记正在照镜子……看看右侧的思维印记，然后就可以定稿评估。</span>
                 ) : (
                   // #21 · step (b): the mirror is on screen → finalize & assess.
                   <>
@@ -290,9 +279,9 @@ export function ReviewBlock({
                       {finishing ? "定稿中……" : "定稿并开始评估"}
                     </button>
                     {finishError ? (
-                      <span className="text-[12.5px] font-semibold text-mk-danger">{finishError}</span>
+                      <span className="text-[14px] font-semibold text-mk-danger">{finishError}</span>
                     ) : (
-                      <span className="text-[12.5px] text-mk-faint">定稿后会生成过程评估，记入成长报告（老师 / 家长可见），这里不打分。</span>
+                      <span className="text-[14px] text-mk-faint">定稿后会生成过程评估，记入成长报告（老师 / 家长可见），这里不打分。</span>
                     )}
                   </>
                 )}
@@ -338,14 +327,14 @@ export function ReviewBlock({
               <button
                 type="button"
                 onClick={() => setConfirmFinish(false)}
-                className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
+                className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
               >
                 再看看
               </button>
               <button
                 type="button"
                 onClick={() => { setConfirmFinish(false); void finalizeAndEvaluate(); }}
-                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600"
+                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
               >
                 定稿并评估
               </button>
@@ -432,16 +421,16 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
   return (
     <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-5">
       <h2 className="font-sans text-[15px] font-bold text-mk-ink">复盘我与 AI 的互动</h2>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">
+      <p className="mt-1 text-[14px] leading-relaxed text-mk-muted">
         印记根据记录整理了你和 AI 的真实互动。下面两段是你的 AI 使用声明——初稿是印记帮你起的，话得你自己改，这部分不能让 AI 代写。
       </p>
       {record && (
-        <p className="mt-3 rounded-mk-md border-l-2 border-mk-accent/40 bg-mk-paper px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
+        <p className="mt-3 rounded-mk-md border-l-2 border-mk-accent/40 bg-mk-paper px-3 py-2 text-[14px] leading-relaxed text-mk-muted">
           {recordLine(record)}
         </p>
       )}
       <div className="mt-4 flex flex-col gap-3">
-        <label className="text-[13px] font-bold text-mk-ink">
+        <label className="text-[14px] font-bold text-mk-ink">
           我用 AI 做了什么
           <textarea
             value={usedFor}
@@ -449,10 +438,10 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
             disabled={done}
             rows={3}
             placeholder="例如：澄清检索词、核对来源功能、追问论证、检查过度概括……"
-            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
+            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
           />
         </label>
-        <label className="text-[13px] font-bold text-mk-ink">
+        <label className="text-[14px] font-bold text-mk-ink">
           我明确没有用 AI 做什么
           <textarea
             value={notUsedFor}
@@ -460,7 +449,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
             disabled={done}
             rows={3}
             placeholder="例如：代写正文、编造材料细节、预测分数、替我写反思……"
-            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
+            className="mt-1.5 w-full resize-none rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent disabled:opacity-70"
           />
         </label>
       </div>
@@ -469,7 +458,7 @@ function AIUsePanel({ projectId, done }: { projectId: string; done: boolean }) {
           <button
             type="button"
             onClick={() => void save()}
-            className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600"
+            className="rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
           >
             保存声明
           </button>
@@ -544,7 +533,7 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
           <Icon name="spark" size={16} />
           <h2 className="font-sans text-[15px] font-bold">印记陪你把回顾写完</h2>
         </div>
-        <p className="mt-1 text-[11.5px] text-mk-faint">
+        <p className="mt-1 text-[12px] text-mk-faint">
           卡在哪一块不知道怎么写，都可以跟印记说说。它一次只问一个问题，帮你想起细节、找到词——但话得你自己写。挑一张回顾卡也能帮你想清楚。
         </p>
       </header>
@@ -654,16 +643,16 @@ function MirrorPane({
           <Icon name="spark" size={16} />
           <h2 className="font-sans text-[15px] font-bold">你的思维印记</h2>
         </div>
-        <p className="mt-1 text-[11.5px] text-mk-faint">印记根据你的全过程整理，供你参考——不是评分。</p>
+        <p className="mt-1 text-[12px] text-mk-faint">印记根据你的全过程整理，供你参考——不是评分。</p>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {!canCompose ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-faint">先写下你自己的反思，点「我写完了我的反思」，印记才会照着你的全过程给你一面镜子——你先说，AI 后照。</p>
+          <p className="text-[14px] leading-relaxed text-mk-faint">先写下你自己的反思，点「我写完了我的反思」，印记才会照着你的全过程给你一面镜子——你先说，AI 后照。</p>
         ) : composing && !mirror ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-faint">印记正在回看你的全过程，整理这份思维印记……</p>
+          <p className="text-[14px] leading-relaxed text-mk-faint">印记正在回看你的全过程，整理这份思维印记……</p>
         ) : !mirror ? (
-          <p className="text-[12.5px] leading-relaxed text-mk-faint">
+          <p className="text-[14px] leading-relaxed text-mk-faint">
             这份印记还没能整理出来——稍后重新打开回顾再看看。
           </p>
         ) : (
@@ -672,7 +661,7 @@ function MirrorPane({
               {mirror.sections.map((s, i) => (
                 <div key={i} className="border-l-2 border-mk-accent/30 pl-3">
                   <p className="text-[12px] font-bold text-mk-accent">{s.title}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-mk-ink">{s.body}</p>
+                  <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{s.body}</p>
                 </div>
               ))}
             </div>
@@ -684,7 +673,7 @@ function MirrorPane({
                 </p>
                 <ul className="flex flex-col gap-2">
                   {mirror.carryForwards.map((c, i) => (
-                    <li key={i} className="text-[13px] leading-relaxed text-mk-ink">· {c}</li>
+                    <li key={i} className="text-[14px] leading-relaxed text-mk-ink">· {c}</li>
                   ))}
                 </ul>
               </div>

@@ -65,7 +65,7 @@ export function Nav({
       key: "me",
       label: "我",
       render: () => (
-        <span className="flex h-6 w-6 items-center justify-center rounded-mk-full bg-mk-accent text-[11px] font-bold text-white">
+        <span className="flex h-6 w-6 items-center justify-center rounded-mk-full bg-mk-accent text-[12px] font-bold text-white">
           {initial}
         </span>
       ),
@@ -97,7 +97,7 @@ export function Nav({
             {render(active)}
             <span
               className={cx(
-                "text-[11px] leading-none",
+                "text-[12px] leading-none",
                 active ? "font-semibold text-mk-accent-600" : "text-mk-muted",
               )}
             >

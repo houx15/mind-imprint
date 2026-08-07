@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type {
   CardProposalWire,
   MaterialSource,
@@ -7,11 +6,14 @@ import type {
   PhaseTag,
   PlanItem,
   Proposal,
+  QuestionProposal,
   StudioState,
+  WidthTier,
   WorkspaceProjection,
 } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { api } from "../api";
+import { createLead } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
@@ -37,14 +39,12 @@ import {
   dismissProposal,
   type ReferenceBib,
 } from "./api/workspace";
-import { openToolToRoom } from "./studioResume";
-import { ChatFirstLanding } from "./blocks/ChatFirstLanding";
+import { roomForResume } from "./studioResume";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
-import { NextStepGuide } from "./blocks/NextStepGuide";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
-import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
+import { ReferencePanel } from "./blocks/ReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
 
@@ -241,6 +241,13 @@ export function WorkspaceContainer({
   // can open. Both cleared at the start of the next turn and on project switch.
   const [pendingNote, setPendingNote] = useState<NoteProposal | null>(null);
   const [pendingCard, setPendingCard] = useState<CardProposalWire | null>(null);
+  // Task 7 (P2b) · 印记's per-turn `propose_question` OFFER — mirrors
+  // `pendingNote` exactly, but confirming creates an exploration lead instead of
+  // writing a proposal section.
+  const [pendingQuestion, setPendingQuestion] = useState<QuestionProposal | null>(null);
+  // Bumped after a confirmed question lands as an exploration lead, so the
+  // exploration surface knows to re-fetch (threaded to ExplorationView in T8).
+  const [explorationRefreshNonce, setExplorationRefreshNonce] = useState(0);
   // The AI-proposed card the student CHOSE to open — the only path to the shared
   // card sheet (triggering is automatic, opening is her tap · 铁律).
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -249,6 +256,15 @@ export function WorkspaceContainer({
   // reads a stale value.
   const activeProjectIdRef = useRef<string | null>(null);
   activeProjectIdRef.current = projectId;
+  // P3 · shared "insert a fragment into the draft at the caret" ref. The writing
+  // room's DraftPane registers its inserter here on mount; the (sibling) left
+  // ReferencePanel's 材料 fragments call it — the fold of the old floating
+  // 材料 box, hoisted one level so the two SplitPane siblings share one path.
+  const draftInsertRef = useRef<((t: string) => void) | null>(null);
+  // Whether the writing draft (DraftPane, 正文 tab) is mounted + has registered
+  // its inserter — gates the ReferencePanel 材料「插入」action so it is never a
+  // dead no-op on the 大纲/片段 tabs (P3 review).
+  const [insertReady, setInsertReady] = useState(false);
 
   // Apply a fresh directive from 印记: store it, and (unless it's chat-first)
   // swap the interactive area to the room it names. The load effect calls this
@@ -260,10 +276,10 @@ export function WorkspaceContainer({
     // 印记 reasserting the view ends any manual takeover — the "继续印记
     // returns to status" seam (spec §6; Task 9/P4 build on this).
     setTookOver(false);
-    if (state.openTool !== "chat") setRoom(openToolToRoom(state.openTool));
+    if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
-  // The switcher's manual override (Segmented / PlanSpine / NextStepGuide):
+  // The switcher's manual override (the Segmented stage switcher):
   // swap the room AND flag the takeover so the chosen room mounts even while
   // 印记 is keeping chat primary (or its status hasn't loaded / failed). Does
   // not change `studioState` — manual browsing never changes 印记's status.
@@ -271,6 +287,22 @@ export function WorkspaceContainer({
     setRoom(r);
     setTookOver(true);
   }, []);
+
+  // 「继续印记」(P4, spec §6): while the student has manually taken over the
+  // switcher, this re-asserts 印记's own view — re-fetch the current status
+  // for freshness, then apply it (applyStudioState resets `tookOver` + opens
+  // the status room). Falls back to the already-loaded studioState if the
+  // refetch fails, so the control never dead-ends.
+  const continueYinji = useCallback(async () => {
+    const pid = activeProjectIdRef.current;
+    if (!pid) return;
+    try {
+      const fresh = await getStudioState(pid);
+      if (activeProjectIdRef.current === pid) applyStudioState(fresh);
+    } catch {
+      if (studioState) applyStudioState(studioState);
+    }
+  }, [applyStudioState, studioState]);
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -307,14 +339,23 @@ export function WorkspaceContainer({
       // A fresh turn clears any stale offer before the reply's own offers land.
       setPendingNote(null);
       setPendingCard(null);
+      setPendingQuestion(null);
       try {
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
         setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
+        // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call
+        // this turn needs to show on the PlanSpine without waiting for a remount.
+        getPlan(pid)
+          .then((items) => {
+            if (isActive()) setPlanItems(items);
+          })
+          .catch(() => {});
         setPendingNote(reply.note);
         setPendingCard(reply.card);
+        setPendingQuestion(reply.question);
         return true;
       } catch {
         if (isActive()) {
@@ -346,11 +387,32 @@ export function WorkspaceContainer({
       await putProposal(pid, merged);
       if (activeProjectIdRef.current === pid) await refreshWorkspace();
     } catch {
-      /* keep it dismissed; a later turn can re-offer, and the board reloads */
+      // The write failed — restore the chip so her tap isn't silently lost and
+      // she can retry, UNLESS a newer offer already took the slot (don't clobber
+      // a fresher note the next turn surfaced while this write was in flight).
+      setPendingNote((cur) => cur ?? note);
     }
   }, [pendingNote, refreshWorkspace]);
 
   const dismissNote = useCallback(() => setPendingNote(null), []);
+
+  // Confirm a proposed question into an exploration lead (铁律②: her tap
+  // creates it). Mirrors `confirmNote`'s resilience: clear the chip optimistically,
+  // and on failure restore it UNLESS a newer offer already took the slot.
+  const confirmQuestion = useCallback(async () => {
+    const pid = activeProjectIdRef.current;
+    const question = pendingQuestion;
+    if (!pid || !question) return;
+    setPendingQuestion(null);
+    try {
+      await createLead(pid, question.text);
+      if (activeProjectIdRef.current === pid) setExplorationRefreshNonce((n) => n + 1);
+    } catch {
+      setPendingQuestion((cur) => cur ?? question);
+    }
+  }, [pendingQuestion]);
+
+  const dismissQuestion = useCallback(() => setPendingQuestion(null), []);
 
   // Opening a proposed card is the student's explicit choice (铁律). The sheet
   // (rendered at the container root) then records a coach turn on submit.
@@ -410,12 +472,10 @@ export function WorkspaceContainer({
     // project's studio_state resolves.
     setStudioState(null);
     // Reset the room too — else a project resumed into e.g. the reading room
-    // leaves `room==="reading"` stuck when the NEXT project resolves
-    // chat-first: showAiPanel's old `room !== "reading"` check would then hide
-    // the constant AiPanel entirely while chat-first has nothing else to show
-    // in it, producing an empty 印记 panel. applyStudioState below re-derives
-    // the real room once this project's status resolves; "plan" is just the
-    // safe interim default (mirrors the pre-load fallback).
+    // leaves `room==="reading"` stuck while the NEXT project's real status is
+    // still loading. applyStudioState below re-derives the real room once this
+    // project's status resolves; "plan" is just the safe interim default
+    // (mirrors the pre-load fallback).
     setRoom("plan");
     // Clear any manual takeover from the previous project — the new project
     // resumes at its own 印记 status.
@@ -428,6 +488,7 @@ export function WorkspaceContainer({
     // Clear any stale per-turn offers / open card from the previous project.
     setPendingNote(null);
     setPendingCard(null);
+    setPendingQuestion(null);
     setOpenCardId(null);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
@@ -598,27 +659,42 @@ export function WorkspaceContainer({
     );
   }
 
+  // Morphing width (spec §3, P2a): 印记's `widthTier` drives the split between
+  // the 印记 chat and the interactive area. `chat` → the chat IS the surface
+  // (full width, no room); `half` → the chat as a prominent column beside a
+  // ~half interactive area; `wide` → the interactive area fills, the chat
+  // collapses toward a sidebar (and the student can collapse it further to the
+  // slim rail). A manual takeover always shows a room, so it implies at least
+  // `wide`. Null status
+  // (still loading) = chat — we never flash a board before 印记's status lands.
+  const widthTier: WidthTier = tookOver ? "wide" : (studioState?.widthTier ?? "chat");
+  // The chat-only surface: no interactive area at all. `chatOnly` ⇒ the
+  // full-width 印记 chat fills <main> INSTEAD of a room + side panel. Any
+  // other tier ⇒ a room is mounted and the chat rides in the AiPanel.
+  const chatOnly = widthTier === "chat" && !tookOver;
+  // The expanded AiPanel's width follows the tier: a prominent 42% column in
+  // `half`, the default sidebar in `wide` (collapsed always wins → slim rail).
+  const aiPanelWidthClass = widthTier === "half" ? "w-[42%]" : "w-[320px]";
   const aiPanel = (
-    <AiPanel side={aiSide} onFlip={flipAiSide} collapsed={aiCollapsed} onToggleCollapse={toggleAiCollapsed}>
+    <AiPanel
+      side={aiSide}
+      onFlip={flipAiSide}
+      collapsed={aiCollapsed}
+      onToggleCollapse={toggleAiCollapsed}
+      widthClass={aiPanelWidthClass}
+    >
       <div ref={aiSlotRef} className="h-full" />
     </AiPanel>
   );
-  // Chat-first (Task 8): the interactive area shows the calm landing (not a
-  // room board) while 印记's status is still loading (studioState === null, so
-  // we never flash the plan board) OR when 印记 is keeping chat primary
-  // (openTool === "chat"). Any other openTool means a real room is mounted.
-  // A manual takeover (spec §6) overrides this so the switcher-chosen room
-  // mounts even in chat-first / null / errored status.
-  const showChatFirst = !tookOver && (studioState == null || studioState.openTool === "chat");
-  // The reading room is a distinct full-screen surface that owns its own coach
-  // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
-  // empty beside it (list mode) or duplicate it as a second 印记 column (graph
-  // mode). So the constant panel shows for every room EXCEPT reading — EXCEPT
-  // while chat-first, where it must always show regardless of `room`: `room`
-  // can be stale (e.g. still "reading" from the just-left project) during the
-  // transient window before this project's own status resolves and re-derives
-  // it, and chat-first has nowhere else to render its portal target.
-  const showAiPanel = showChatFirst ? true : room !== "reading";
+  // Task 3 (P2a): reading used to be the one exception — it owned its own
+  // coach column (印记 · 找资料, a context-isolated "find_sources" thread) so
+  // the constant panel would either sit empty beside it (list mode) or
+  // duplicate it (graph mode). That room-owned coach is gone (ReadingBlock now
+  // portals into the constant rail, same as every other room), so the
+  // exception is gone too — the constant panel shows for every room. In
+  // `chatOnly` there is no room and the chat fills <main> directly, so no side
+  // panel renders at all.
+  const showAiPanel = !chatOnly;
 
   // The ONE hoisted 印记 store — the continuous thread + the container-owned
   // send loop + note/card offers — shared by chat-first AND both working rooms
@@ -637,6 +713,9 @@ export function WorkspaceContainer({
     dismissNote,
     openCard,
     dismissCard,
+    pendingQuestion,
+    confirmQuestion,
+    dismissQuestion,
   };
 
   return (
@@ -656,16 +735,23 @@ export function WorkspaceContainer({
             value={room}
             onChange={(v) => handleManualRoom(v as BlockKey)}
           />
-          {/* The plan spine (spec §3): where you are along the generated plan.
-              Renders only once a plan exists; tapping jumps to 立项's board. */}
-          <PlanSpine items={planItems} onOpenPlan={() => handleManualRoom("plan")} />
-          {/* 印记's next-step offer (spec §5): AI drives, the switcher overrides. */}
-          <NextStepGuide
-            hasPlan={planItems.length > 0}
-            writingFinished={workspace?.writingFinished ?? false}
-            room={room}
-            onGoRoom={handleManualRoom}
-          />
+          {/* The plan spine (spec §3): a read-only "你在这一步" indicator, shown
+              once a plan exists. 印记 drives navigation; the switcher is the
+              manual override — no next-step nudge chrome here (印记 cues it). */}
+          <PlanSpine items={planItems} />
+          {/* 「继续印记」(P4, spec §6): shown only while the student has
+              manually taken over the switcher — returns the view to 印记's
+              own status step. Trailing end of the row so it reads as "back
+              to the guided flow", not another switcher option. */}
+          {tookOver && workspace && (
+            <button
+              type="button"
+              onClick={continueYinji}
+              className="ml-auto flex shrink-0 items-center gap-1 rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3 py-1.5 text-mk-body font-medium text-mk-accent"
+            >
+              继续印记 <span aria-hidden="true">→</span>
+            </button>
+          )}
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The re-entry recap now lives INSIDE the continuous chat (passed as
@@ -678,7 +764,7 @@ export function WorkspaceContainer({
                 <span className="mt-0.5 text-mk-accent">
                   <Icon name="spark" size={16} />
                 </span>
-                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">
+                <p className="flex-1 text-[14px] leading-relaxed text-mk-ink">
                   刚读完《{carryForward}》——你确认的发现和判断已经带进来了，写作时印记都记得。
                 </p>
                 <button
@@ -695,22 +781,30 @@ export function WorkspaceContainer({
         )}
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
-        ) : showChatFirst ? (
-          // Chat is primary (or status still loading): fill <main> with the
-          // calm landing, never a room board. The 印记 chat panel stays mounted
-          // alongside (the constant AiPanel), so the thread is uninterrupted.
-          <ChatFirstLanding />
+        ) : chatOnly ? (
+          // Morphing width (spec §3): in the `chat` tier the 印记 chat IS the
+          // surface — it fills the full content width, comfortably max-width-
+          // centered, with NO interactive area and NO side rail. This renders
+          // the ONE hoisted thread directly (no portal); the working rooms
+          // instead portal their own coach into the AiPanel. `data-testid`
+          // keeps the chat-first surface addressable in tests.
+          <div
+            data-testid="chat-first"
+            className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden"
+          >
+            <StudioCoachChat recap={summary} />
+          </div>
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
         ) : (
           // StudioAiSlotContext: the room→panel portal contract. A room reads
           // `useStudioAiSlot()` and portals its coach content into the AiPanel's
           // body via `createPortal` — the room renders its WORK directly here in
-          // <main>. plan / writing / reflection all portal their coach into the
-          // constant panel. reading is the exception: it's a distinct
-          // full-screen surface with its own coach column (see showAiPanel).
+          // <main>. plan / writing / reading / reflection ALL portal their
+          // coach into the constant panel now (Task 3, P2a) — 印记 is the one
+          // constant rail, no room owns its own coach column.
           <StudioAiSlotContext.Provider value={aiSlotEl}>
-            {room === "plan" && (
+            {(room === "forming" || room === "plan") && (
               <PlanBlock
                 key={projectId}
                 projectId={projectId}
@@ -718,13 +812,19 @@ export function WorkspaceContainer({
                 qualification={workspace.qualification}
                 proposal={workspace.proposal}
                 createdAt={workspace.createdAt}
-                onOpenRoom={setRoom}
+                phase={room === "forming" ? "forming" : "working"}
                 refreshWorkspace={refreshWorkspace}
                 recap={summary}
               />
             )}
             {room === "reading" && (
-              <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={openReadingSource} />
+              <ReadingBlock
+                key={projectId}
+                projectId={projectId}
+                title={workspace.title}
+                setReadingSource={openReadingSource}
+                refreshNonce={explorationRefreshNonce}
+              />
             )}
             {room === "writing" && (
               // Writing stage (spec §2/§6): the interactive area splits into a
@@ -734,7 +834,17 @@ export function WorkspaceContainer({
               <SplitPane
                 storageKey="mk-studio-write-split"
                 defaultRatio={0.34}
-                left={<WritingReferencePanel key={projectId} projectId={projectId} proposal={workspace.proposal} />}
+                left={
+                  <ReferencePanel
+                    key={projectId}
+                    projectId={projectId}
+                    reference={studioState?.reference ?? []}
+                    stage={studioState?.stage ?? "body_writing"}
+                    proposal={workspace.proposal}
+                    onInsert={(t) => draftInsertRef.current?.(t)}
+                    canInsert={insertReady}
+                  />
+                }
                 right={
                   <WritingBlock
                     key={projectId}
@@ -743,7 +853,8 @@ export function WorkspaceContainer({
                     proposal={workspace.proposal}
                     status={workspace.status}
                     writingFinished={workspace.writingFinished ?? false}
-                    onOpenRoom={setRoom}
+                    draftInsertRef={draftInsertRef}
+                    onInsertReady={setInsertReady}
                     refreshWorkspace={refreshWorkspace}
                     recap={summary}
                   />
@@ -757,7 +868,6 @@ export function WorkspaceContainer({
                 proposal={workspace.proposal}
                 status={workspace.status}
                 writingFinished={workspace.writingFinished ?? false}
-                onOpenRoom={setRoom}
                 onFinished={backToAll}
               />
             )}
@@ -768,11 +878,6 @@ export function WorkspaceContainer({
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
     </div>
-    {/* Chat-first (spec §2): 印记 keeps the chat primary — the calm landing fills
-        <main>, and the REAL continuous chat portals into the constant AiPanel.
-        When a room is open the room portals its own coach instead, so exactly
-        one thing occupies the slot at a time. */}
-    {showChatFirst && showAiPanel && aiSlotEl && createPortal(<StudioCoachChat recap={summary} />, aiSlotEl)}
     {/* The shared card sheet for an AI-proposed card (openCard). Triggering is
         automatic; opening is the student's tap, and the sheet then fills the
         modal. Submit records a coach turn into the one continuous thread. */}

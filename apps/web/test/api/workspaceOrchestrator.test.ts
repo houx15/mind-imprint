@@ -20,6 +20,7 @@ const REPLY: OrchestratorReply = {
   narrate: "先说说你想研究什么？",
   directive: DIRECTIVE,
   note: null,
+  question: null,
   card: null,
   reviewRequested: false,
 };

@@ -25,13 +25,25 @@ func TestDefaultStudioStateRoundTrips(t *testing.T) {
 
 func TestWidthForTool(t *testing.T) {
 	cases := map[OpenTool]WidthTier{
-		ToolChat: WidthChat, ToolPlan: WidthHalf,
+		ToolChat: WidthChat, ToolForming: WidthHalf, ToolPlan: WidthWide,
 		ToolReading: WidthWide, ToolWriting: WidthWide, ToolReflection: WidthWide,
 	}
 	for tool, want := range cases {
 		if got := WidthForTool(tool); got != want {
 			t.Errorf("WidthForTool(%q)=%q want %q", tool, got, want)
 		}
+	}
+}
+
+func TestWidthForTool_FormingAndPlan(t *testing.T) {
+	if WidthForTool(ToolForming) != WidthHalf {
+		t.Errorf("forming → %s, want half", WidthForTool(ToolForming))
+	}
+	if WidthForTool(ToolPlan) != WidthWide {
+		t.Errorf("plan → %s, want wide", WidthForTool(ToolPlan))
+	}
+	if !ToolForming.IsValid() {
+		t.Error("forming must be valid")
 	}
 }
 

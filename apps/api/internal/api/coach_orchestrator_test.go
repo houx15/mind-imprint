@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -319,5 +320,65 @@ func TestPostCoach_SubagentScopeUsesLegacyPath(t *testing.T) {
 	}
 	if def := agent.DefaultStudioState(); st.Stage != def.Stage || st.UpdatedAtTurn != def.UpdatedAtTurn {
 		t.Fatalf("studio_state was mutated by a sub-agent turn: %+v (default %+v)", st, def)
+	}
+}
+
+// TestPostCoach_CurateReferenceDropsUnknownIDKeepsRealID — P3 Task 1: the
+// orchestrator's filterCurateReferenceCall only validates `kind`; the model
+// can still hallucinate an `id` that was never in the projection. coach.go's
+// curate_reference apply case (filterKnownReferences) must query the
+// project's real reference ids and drop any curated item whose id isn't one
+// of them — a hallucinated id must never reach studio_state.reference, which
+// a later task's frontend resolves into rich content.
+func TestPostCoach_CurateReferenceDropsUnknownIDKeepsRealID(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	projectID := mustUUID(seedProjectID)
+
+	ref, err := q.CreateReference(context.Background(), sqlc.CreateReferenceParams{
+		ProjectID: projectID, Title: "NASA 气候数据", Tags: []byte("[]"), SearchHints: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("CreateReference: %v", err)
+	}
+	bogusID := uuid.New().String()
+
+	out := `{"narrate":"把这条来源摆到侧栏了。","tools":[` +
+		`{"name":"curate_reference","args":{"items":[` +
+		`{"kind":"material","id":"` + ref.ID.String() + `","label":"NASA 气候数据"},` +
+		`{"kind":"material","id":"` + bogusID + `","label":"编造的来源"}` +
+		`]}}]}`
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: orchestratorStubProvider(out), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"这条来源很关键"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+
+	raw, gerr := q.GetStudioState(context.Background(), projectID)
+	if gerr != nil {
+		t.Fatalf("GetStudioState: %v", gerr)
+	}
+	var st agent.StudioState
+	if err := json.Unmarshal(raw, &st); err != nil {
+		t.Fatalf("unmarshal studio_state: %v — %s", err, raw)
+	}
+	if len(st.Reference) != 1 {
+		t.Fatalf("studio_state.reference = %+v, want exactly 1 (the real id)", st.Reference)
+	}
+	if st.Reference[0].ID != ref.ID.String() {
+		t.Fatalf("studio_state.reference[0].ID = %q, want %q", st.Reference[0].ID, ref.ID.String())
+	}
+	for _, item := range st.Reference {
+		if item.ID == bogusID {
+			t.Fatalf("hallucinated id %q leaked into studio_state.reference: %+v", bogusID, st.Reference)
+		}
 	}
 }

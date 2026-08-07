@@ -7,7 +7,7 @@ type F = z.infer<typeof Schema>;
 export function TextAreaField({ field, value, onChange }: FieldProps<F>) {
   return (
     <label className="block">
-      <span className="block text-[13px] font-semibold text-[#3A4256]">{field.label}</span>
+      <span className="block text-[14px] font-semibold text-[#3A4256]">{field.label}</span>
       <textarea
         aria-label={field.label}
         rows={field.rows ?? 2}

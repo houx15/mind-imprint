@@ -1,9 +1,9 @@
 package api
 
 // writing_finish_wiring_test.go — Slice 5 (#20/#21) · PURE unit tests for the
-// static wiring the two-stage 写作→回顾 flow depends on. No DB / no docker: these
-// assert the package-level allowlists so a future edit can't silently break the
-// reflection card shelf or the coach-propose gate. The DB-coupled handler guards
+// static wiring the two-stage 写作→回顾 flow depends on. No DB / no docker: this
+// asserts the package-level persistable-card allowlist so a future edit can't
+// silently break the reflection card shelf. The DB-coupled handler guards
 // (finish-writing empty-draft 422, finishProject writing-not-finished 422) live
 // in the docker-based api_test suite.
 

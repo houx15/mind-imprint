@@ -28,15 +28,15 @@ export function CardTurnChip({ card }: { card: CardTurnRef }) {
         className="max-w-[88%] cursor-pointer rounded-mk-lg border border-white/30 bg-mk-accent px-3.5 py-2.5 text-left text-white transition hover:brightness-105"
         title="点开看你填的这张卡"
       >
-        <span className="mb-1 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white/75">
+        <span className="mb-1 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-white/75">
           <Icon name="spark" size={11} /> 工具卡 · {name}
         </span>
         {previewText ? (
-          <span className="block whitespace-pre-wrap text-[13px] font-medium leading-relaxed">{previewText}</span>
+          <span className="block whitespace-pre-wrap text-[14px] font-medium leading-relaxed">{previewText}</span>
         ) : (
-          <span className="block text-[13px] italic leading-relaxed text-white/85">（这张卡还没填内容）</span>
+          <span className="block text-[14px] italic leading-relaxed text-white/85">（这张卡还没填内容）</span>
         )}
-        <span className="mt-1.5 block text-[11px] font-semibold text-white/80">点开看你填的 →</span>
+        <span className="mt-1.5 block text-[12px] font-semibold text-white/80">点开看你填的 →</span>
       </button>
       {open && spec && <CardTurnViewer card={card} onClose={() => setOpen(false)} />}
     </div>
@@ -55,11 +55,11 @@ function CardTurnViewer({ card, onClose }: { card: CardTurnRef; onClose: () => v
         <div className="flex items-start justify-between border-b border-mk-border px-6 py-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10.5px] font-bold uppercase tracking-wide text-mk-accent">工具卡 · 你填的记录</span>
-              <span className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-[10.5px] font-bold text-mk-accent">{spec.category}</span>
+              <span className="text-[12px] font-bold uppercase tracking-wide text-mk-accent">工具卡 · 你填的记录</span>
+              <span className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{spec.category}</span>
             </div>
             <h3 className="mt-1 font-sans text-[17px] font-bold text-mk-ink">{spec.name}</h3>
-            <p className="mt-0.5 text-[11.5px] text-mk-faint">这是你当时填的内容——只读，改不动（这是你的思维记录）。</p>
+            <p className="mt-0.5 text-[12px] text-mk-faint">这是你当时填的内容——只读，改不动（这是你的思维记录）。</p>
           </div>
           <button type="button" onClick={onClose} aria-label="关闭" className="text-[20px] leading-none text-mk-faint hover:text-mk-ink">×</button>
         </div>
@@ -67,7 +67,7 @@ function CardTurnViewer({ card, onClose }: { card: CardTurnRef; onClose: () => v
           <CardRenderer card={spec} values={card.fieldValues} onField={() => {}} onExpandStep={() => {}} readOnly />
         </div>
         <div className="flex justify-end border-t border-mk-border px-6 py-3.5">
-          <button type="button" onClick={onClose} className="rounded-mk-sm bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">
+          <button type="button" onClick={onClose} className="rounded-mk-sm bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600">
             知道了
           </button>
         </div>

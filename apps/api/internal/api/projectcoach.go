@@ -68,6 +68,36 @@ func (a *API) cardEligibleForSummon(ctx context.Context, projectID uuid.UUID, ca
 	return true
 }
 
+// filterKnownReferences (P3) drops curate_reference items whose id does not
+// match a real reference (material) or snippet id for this project.
+// filterCurateReferenceCall (orchestrator.go) already validates `kind` against
+// the closed enum, but the model can still HALLUCINATE an id that was never in
+// the projection — a made-up id would reach studio_state.reference, where a
+// later task's frontend resolves ids into rich content, so it must be real.
+// Best-effort: a query failure degrades to an empty allowed set (drop every
+// item) rather than letting an unchecked id through. `kind` and `label` are
+// left as-is for surviving items — this only filters on `id`.
+func (a *API) filterKnownReferences(ctx context.Context, projectID uuid.UUID, items []agent.ReferenceRef) []agent.ReferenceRef {
+	allowed := make(map[string]bool)
+	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil {
+		for _, ref := range refs {
+			allowed[ref.ID.String()] = true
+		}
+	}
+	if snippets, err := a.d.Queries.ListSnippets(ctx, projectID); err == nil {
+		for _, s := range snippets {
+			allowed[s.ID.String()] = true
+		}
+	}
+	kept := make([]agent.ReferenceRef, 0, len(items))
+	for _, it := range items {
+		if allowed[it.ID] {
+			kept = append(kept, it)
+		}
+	}
+	return kept
+}
+
 // digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds.
 // digestKeepLastN is aligned to coachHistoryWindow (the coach's verbatim
 // context window): we never fold a turn the coach still shows, and — the audit
@@ -275,7 +305,13 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	// blocks), 未读/pending is marked "尚未读取正文" so the coach never implies it
 	// read a source whose body was never fetched (honesty 铁律).
 	if refs, err := a.d.Queries.ListReferences(ctx, projectID); err == nil && len(refs) > 0 {
-		b.WriteString("文献库：\n")
+		// P3: each line carries the reference's REAL id in `[id]` — the orchestrator
+		// may pass it back verbatim to curate_reference (kind="material") to put
+		// that source in the left panel. Ids not present in this projection are
+		// hallucinated and get dropped server-side (coach.go's curate_reference
+		// apply case validates against the actual DB rows), so the model must
+		// copy one it sees here rather than invent one.
+		b.WriteString("文献库（[id] 可原样传给 curate_reference 把来源摆进侧栏，别编造不存在的 id）：\n")
 		// Cards are fetched AT MOST ONCE for the whole loop (lazily, only if a
 		// 在读 ref actually needs them) — readingOutcomesByMaterialCtx would
 		// otherwise re-run a full ListCardInstancesByProject scan per 在读 ref
@@ -306,14 +342,14 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				if v := strings.TrimSpace(tk.Credibility.Verdict); v != "" {
 					line += " · 可信度：" + v
 				}
-				fmt.Fprintf(&b, "- %s%s｜%s\n", truncateRunes(ref.Title, 32), phase, line)
+				fmt.Fprintf(&b, "- [%s] %s%s｜%s\n", ref.ID, truncateRunes(ref.Title, 32), phase, line)
 			case ref.MaterialID.Valid:
 				if !cardsLoaded {
 					cards, _ = a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
 					cardsLoaded = true
 				}
 				n := len(readingOutcomesFromCards(cards, uuid.UUID(ref.MaterialID.Bytes)).Findings)
-				fmt.Fprintf(&b, "- %s%s｜在读·已确认 %d 条发现\n", truncateRunes(ref.Title, 32), phase, n)
+				fmt.Fprintf(&b, "- [%s] %s%s｜在读·已确认 %d 条发现\n", ref.ID, truncateRunes(ref.Title, 32), phase, n)
 			default:
 				// 未读: URL saved (or a lead) but the body was never fetched —
 				// material_id is null, so the coach has NO content for this source.
@@ -330,7 +366,7 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				if ref.Credibility != nil && *ref.Credibility != "" {
 					meta += "｜可信度 " + *ref.Credibility
 				}
-				fmt.Fprintf(&b, "- %s%s%s\n", truncateRunes(ref.Title, 40), phase, meta)
+				fmt.Fprintf(&b, "- [%s] %s%s%s\n", ref.ID, truncateRunes(ref.Title, 40), phase, meta)
 			}
 		}
 
@@ -350,6 +386,26 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 			if open > 0 || dangling > 0 {
 				fmt.Fprintf(&b, "探索：待追 %d 条线索 · %d 个悬空来源\n", open, dangling)
 			}
+		}
+	}
+
+	// 片段 (P3): saved excerpts weren't in the projection before — 印记 had no
+	// real id to cite for curate_reference kind="note". Same [id]-tag posture as
+	// 文献库 above: token-lean, capped, ids are the real snippet ids so a curated
+	// item survives coach.go's id-validation.
+	if snippets, err := a.d.Queries.ListSnippets(ctx, projectID); err == nil && len(snippets) > 0 {
+		b.WriteString("片段（[id] 同样可传给 curate_reference，kind=\"note\"）：\n")
+		const snippetCap = 6
+		for i, s := range snippets {
+			if i >= snippetCap {
+				fmt.Fprintf(&b, "- …另有 %d 条\n", len(snippets)-snippetCap)
+				break
+			}
+			section := ""
+			if s.Section != nil && strings.TrimSpace(*s.Section) != "" {
+				section = "｜" + *s.Section
+			}
+			fmt.Fprintf(&b, "- [%s] %s%s\n", s.ID, truncateRunes(s.Text, 30), section)
 		}
 	}
 

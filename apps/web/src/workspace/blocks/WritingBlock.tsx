@@ -14,9 +14,7 @@ import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
-import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
-import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
@@ -104,7 +102,8 @@ export function WritingBlock({
   proposal,
   status,
   writingFinished,
-  onOpenRoom,
+  draftInsertRef,
+  onInsertReady,
   refreshWorkspace,
   recap,
 }: {
@@ -115,7 +114,14 @@ export function WritingBlock({
   // #20 · the 完成写作 milestone — draft is read-only once true. Separate from
   // status (evaluating/done terminally lock too).
   writingFinished: boolean;
-  onOpenRoom: (room: BlockKey) => void;
+  /** Shared insert-at-caret ref (P3): DraftPane registers its inserter here on
+   * mount; the sibling left ReferencePanel's 材料 fragments call it (the fold
+   * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
+   * isolated unit render falls back to a local ref. */
+  draftInsertRef?: { current: ((t: string) => void) | null };
+  /** Notified when DraftPane registers (正文 mounted) / unregisters its inserter,
+   * so the container can gate the ReferencePanel 「插入」 action (P3 review). */
+  onInsertReady?: (ready: boolean) => void;
   // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
   // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
   refreshWorkspace: () => Promise<void> | void;
@@ -149,8 +155,8 @@ export function WritingBlock({
   const archived = status === "evaluating" || status === "done";
   const locked = archived || writingFinished;
 
-  // #20 · confirm → lock the draft → go to 回顾. finishWriting is idempotent;
-  // 422 draft_empty when there's nothing written yet.
+  // #20 · confirm → lock the draft (印记 cues 回顾 in chat). finishWriting is
+  // idempotent; 422 draft_empty when there's nothing written yet.
   async function doFinishWriting() {
     if (finishingWriting) return;
     setFinishingWriting(true);
@@ -158,7 +164,6 @@ export function WritingBlock({
     try {
       await finishWriting(projectId);
       await refreshWorkspace();
-      onOpenRoom("reflection");
     } catch (e) {
       setFinishWritingError(
         e instanceof ApiError ? e.message || "还不能完成写作，请稍后再试。" : "刚才没接上，稍等再试一次。",
@@ -177,26 +182,21 @@ export function WritingBlock({
       /* best-effort; the affordance stays and can be retried */
     }
   }
-  // #9 · the materials sidebar (any tab) places a fragment into the draft at the
-  // caret. DraftPane registers its inserter here on mount; the sidebar calls it
-  // only when 正文 is active (so DraftPane is mounted and the ref is set).
-  const draftInsertRef = useRef<((t: string) => void) | null>(null);
-  // #23: snippets state is lifted here so the materials sidebar (below) can
-  // append a source's note as a new snippet regardless of the active tab.
+  // #9 · DraftPane registers its insert-at-caret fn into the shared
+  // `draftInsertRef` (a prop, hoisted to WorkspaceContainer) on mount; the left
+  // ReferencePanel's 材料 fragments call it when 正文 is active. Falls back to a
+  // local ref when the prop is absent (isolated unit tests).
+  const localDraftInsertRef = useRef<((t: string) => void) | null>(null);
+  const insertTarget = draftInsertRef ?? localDraftInsertRef;
   const snip = useSnippets(projectId);
   // #6 · the outline headings the student has explicitly imported as snippet
   // board sections (see importedSectionsMemo above) — lifted here so both the
   // 片段 board (renders them as foldable groups) and the materials sidebar
   // (the import button + its "already imported" state) share one source of
   // truth, and it survives switching tabs (SnippetsPane unmounts on tab-away).
-  const [importedSections, setImportedSectionsState] = useState<string[]>(
+  const [importedSections] = useState<string[]>(
     () => importedSectionsMemo.get(projectId) ?? [],
   );
-  function importOutlineAsGroups(headings: string[]) {
-    const merged = dedupe([...(importedSectionsMemo.get(projectId) ?? []), ...headings]);
-    importedSectionsMemo.set(projectId, merged);
-    setImportedSectionsState(merged);
-  }
   // Section labels a card's compiled 片段 can be filed under (Item C's 收进片段
   // offer): the imported outline groups plus any label already in live use on a
   // snippet (e.g. an探索线索 the student filed one under).
@@ -208,20 +208,15 @@ export function WritingBlock({
     <div className="flex h-full flex-col">
       {/* goal strip */}
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
-        <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
-        <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-accent">看开题 →</button>
-        {archived ? (
-          <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent">已归档 · 看回顾 →</button>
-        ) : writingFinished ? (
-          <>
-            {/* #20 · reversible — 重新打开写作 unlocks the draft again (铁律②). */}
+        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">论点</span>
+        <p className="min-w-0 flex-1 truncate text-[14px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
+        {!archived &&
+          (writingFinished ? (
+            // #20 · reversible — 重新打开写作 unlocks the draft again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title="重新打开写作，继续修改初稿">重新打开写作</button>
-            <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600">去回顾 →</button>
-          </>
-        ) : (
-          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
-        )}
+          ) : (
+            <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
+          ))}
       </div>
 
       {/* tabs */}
@@ -242,24 +237,11 @@ export function WritingBlock({
             title={title}
             locked={locked}
             onFocusPart={setFocusPart}
-            registerInsert={(fn) => { draftInsertRef.current = fn; }}
+            registerInsert={(fn) => { insertTarget.current = fn; onInsertReady?.(!!fn); }}
             pendingReview={pendingReview}
             onPendingReviewHandled={() => setPendingReview(null)}
           />
         )}
-        {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
-            fragment where you're working: into the draft at the caret on 正文,
-            else appended as a new snippet. */}
-        <MaterialsSidebar
-          projectId={projectId}
-          activeTab={tab}
-          locked={locked}
-          snippets={snip.snippets}
-          onAddSnippet={(text) => snip.add(text)}
-          onInsertToDraft={(text) => draftInsertRef.current?.(text)}
-          onImportOutlineAsGroups={importOutlineAsGroups}
-          importedSections={importedSections}
-        />
       </div>
 
       {/* COACH — portals into the constant AiPanel (Task 4/5's pattern); renders
@@ -284,16 +266,16 @@ export function WritingBlock({
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-              点「完成写作」会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
+              确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
             </p>
             {finishWritingError && (
-              <p className="mt-3 text-[12.5px] font-semibold text-mk-danger">{finishWritingError}</p>
+              <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
             )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowFinishModal(false)}
-                className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink"
+                className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
               >
                 再改改
               </button>
@@ -301,9 +283,9 @@ export function WritingBlock({
                 type="button"
                 disabled={finishingWriting}
                 onClick={() => { setShowFinishModal(false); void doFinishWriting(); }}
-                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
               >
-                {finishingWriting ? "锁定中……" : "完成写作，去回顾 →"}
+                {finishingWriting ? "锁定中……" : "锁定初稿"}
               </button>
             </div>
           </div>
@@ -454,7 +436,7 @@ function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; import
       <div className="mx-auto max-w-2xl">
         <div className="mb-4">
           <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
-          <p className="mt-1 text-[13px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
+          <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
         </div>
         <div className="flex flex-col gap-4">
           {groups.map((g) => (
@@ -536,9 +518,9 @@ function SnippetSection({
       >
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
           <span className={`text-mk-faint transition ${collapsed ? "" : "rotate-90"}`}>▸</span>
-          {tag && <span className={`flex-none rounded-full bg-mk-surface px-1.5 py-0.5 text-[10px] font-bold ${tone}`}>{tag}</span>}
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-mk-ink">{label}</span>
-          <span className="flex-none text-[11.5px] font-semibold text-mk-faint">{snips.length}</span>
+          {tag && <span className={`flex-none rounded-full bg-mk-surface px-1.5 py-0.5 text-[12px] font-bold ${tone}`}>{tag}</span>}
+          <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-mk-ink">{label}</span>
+          <span className="flex-none text-[12px] font-semibold text-mk-faint">{snips.length}</span>
         </button>
       </div>
       {!collapsed && (
@@ -556,7 +538,7 @@ function SnippetSection({
                   onDragStart={() => onDragStart(s.id)}
                   onDragEnd={() => onDragStart(null)}
                   title="拖到某个章节/线索下"
-                  className="mt-1 flex-none cursor-grab text-[13px] leading-none text-mk-faint active:cursor-grabbing"
+                  className="mt-1 flex-none cursor-grab text-[14px] leading-none text-mk-faint active:cursor-grabbing"
                 >
                   ⠿
                 </span>
@@ -568,14 +550,14 @@ function SnippetSection({
                     onBlur={() => stopEditing(s.id)}
                     rows={6}
                     placeholder="写下或粘贴一个片段……"
-                    className="min-h-[7rem] w-full resize-y bg-transparent text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint"
+                    className="min-h-[7rem] w-full resize-y bg-transparent text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint"
                   />
                 ) : (
                   <button
                     type="button"
                     onDoubleClick={() => startEditing(s.id)}
                     title="双击编辑"
-                    className="w-full flex-1 cursor-text whitespace-pre-wrap break-words text-left text-[13.5px] leading-relaxed text-mk-ink"
+                    className="w-full flex-1 cursor-text whitespace-pre-wrap break-words text-left text-[14px] leading-relaxed text-mk-ink"
                   >
                     {s.text.trim() ? s.text : <span className="text-mk-faint">写下或粘贴一个片段……（双击编辑）</span>}
                   </button>
@@ -592,13 +574,13 @@ function SnippetSection({
                 )}
               </div>
               <div className="mt-1 flex items-center justify-end gap-2">
-                <label className="flex items-center gap-1 text-[11px] text-mk-faint">
+                <label className="flex items-center gap-1 text-[12px] text-mk-faint">
                   归到
                   <select
                     value={s.section ?? UNFILED}
                     onChange={(e) => snip.setSection(s.id, e.target.value === UNFILED ? null : e.target.value)}
                     aria-label="把片段归到"
-                    className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
+                    className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
                   >
                     <option value={UNFILED}>未归类</option>
                     {/* keep a stale/orphan section selectable so its value shows */}
@@ -614,7 +596,7 @@ function SnippetSection({
           <button
             type="button"
             onClick={() => startEditing(onAdd())}
-            className="rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
+            className="rounded-mk-md border border-dashed border-mk-border py-2 text-[14px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
           >
             + 在此加片段
           </button>
@@ -629,7 +611,7 @@ function Tab({ active, onClick, icon, children }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-mk-md px-3.5 py-1.5 text-[13.5px] font-bold transition ${active ? "bg-mk-accent-50 text-mk-accent" : "text-mk-faint hover:text-mk-ink"}`}
+      className={`flex items-center gap-1.5 rounded-mk-md px-3.5 py-1.5 text-[14px] font-bold transition ${active ? "bg-mk-accent-50 text-mk-accent" : "text-mk-faint hover:text-mk-ink"}`}
     >
       <Icon name={icon} size={15} /> {children}
     </button>
@@ -810,7 +792,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
       <div className="flex items-center justify-between px-8 pt-6 pb-3">
         <div>
           <h2 className="font-sans text-[19px] font-bold text-mk-ink">提纲</h2>
-          <p className="mt-0.5 text-[13px] text-mk-muted">先把骨架搭出来。和印记聊聊哪里还站不住。</p>
+          <p className="mt-0.5 text-[14px] text-mk-muted">先把骨架搭出来。</p>
         </div>
         <Segmented
           options={[
@@ -840,7 +822,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
                 />
               ))}
             </div>
-            <button type="button" onClick={() => addAfter(nodes[nodes.length - 1]?.id ?? "")} className="mt-2 rounded-mk-md border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">
+            <button type="button" onClick={() => addAfter(nodes[nodes.length - 1]?.id ?? "")} className="mt-2 rounded-mk-md border border-dashed border-mk-border px-3 py-2 text-[14px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">
               + 新增一条
             </button>
           </div>
@@ -922,7 +904,7 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
             style={{ left: n.cx, top: n.cy - 18, width: NODE_W, height: 36 }}
           >
             {n.depth < 0 ? (
-              <span className="truncate text-[13px] font-bold">{n.text}</span>
+              <span className="truncate text-[14px] font-bold">{n.text}</span>
             ) : (
               <input
                 ref={(el) => registerInput(n.id, el)}
@@ -930,7 +912,7 @@ function MindMap({ nodes, title, onEdit, onAddChild, registerInput, onNodeKey }:
                 onChange={(e) => onEdit(n.id, e.target.value)}
                 onKeyDown={(e) => onNodeKey(n.id, e)}
                 placeholder="写一条……（回车加同级、Tab 加子节点）"
-                className={`w-full truncate bg-transparent text-[12.5px] outline-none placeholder:opacity-60 ${n.depth === 0 ? "font-bold" : "font-semibold"}`}
+                className={`w-full truncate bg-transparent text-[14px] outline-none placeholder:opacity-60 ${n.depth === 0 ? "font-bold" : "font-semibold"}`}
               />
             )}
             {/* Add a child under this node (depth clamps ≤ MAX_DEPTH). Hidden
@@ -966,7 +948,7 @@ function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, o
         onChange={(e) => onEdit(e.target.value)}
         onKeyDown={onKey}
         placeholder="写一条……（回车换行、Tab 缩进）"
-        className={`min-w-0 flex-1 rounded bg-transparent px-1.5 py-1 text-mk-ink outline-none transition placeholder:text-mk-faint focus:bg-mk-surface ${node.depth === 0 ? "text-[14.5px] font-bold" : "text-[13.5px]"}`}
+        className={`min-w-0 flex-1 rounded bg-transparent px-1.5 py-1 text-mk-ink outline-none transition placeholder:text-mk-faint focus:bg-mk-surface ${node.depth === 0 ? "text-[14.5px] font-bold" : "text-[14px]"}`}
       />
       <div className="flex flex-none items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
         <IconBtn onClick={onOutdent} title="升级">←</IconBtn>
@@ -980,7 +962,7 @@ function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, o
 
 function IconBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} title={title} className="flex h-6 w-6 items-center justify-center rounded text-[13px] font-bold text-mk-faint hover:bg-mk-surface hover:text-mk-accent">
+    <button type="button" onClick={onClick} title={title} className="flex h-6 w-6 items-center justify-center rounded text-[14px] font-bold text-mk-faint hover:bg-mk-surface hover:text-mk-accent">
       {children}
     </button>
   );
@@ -1421,7 +1403,7 @@ function DraftPane({
                     type="button"
                     onClick={() => void runReview()}
                     disabled={reviewing || text.trim() === ""}
-                    className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                    className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
                   >
                     {reviewing ? "体检中…" : "让印记体检整稿"}
                   </button>
@@ -1431,7 +1413,7 @@ function DraftPane({
                 type="button"
                 onClick={() => { void exportDraftDocx(text, { title }).catch(() => {/* never crash the room */}); }}
                 disabled={text.trim() === ""}
-                className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[12.5px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
+                className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
               >
                 导出成品 .docx
               </button>
@@ -1439,7 +1421,7 @@ function DraftPane({
           )}
         </div>
         {locked && (
-          <p className="mb-3 rounded-mk-md border border-mk-border bg-mk-paper px-3 py-2 text-[12.5px] font-semibold text-mk-faint">这篇已归档，正文只读——你仍可预览与导出。</p>
+          <p className="mb-3 rounded-mk-md border border-mk-border bg-mk-paper px-3 py-2 text-[14px] font-semibold text-mk-faint">这篇已归档，正文只读——你仍可预览与导出。</p>
         )}
 
         {/* Q2 · left/right split once a 体检 result (or an in-flight/errored
@@ -1486,7 +1468,7 @@ function DraftPane({
               >
                 <span className="text-mk-accent"><Icon name="writing" size={28} /></span>
                 <p className="mt-3 text-[15px] font-bold text-mk-ink">把你写好的文档拖进来</p>
-                <p className="mt-1 text-[13px] text-mk-faint">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
+                <p className="mt-1 text-[14px] text-mk-faint">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
                 <input
                   ref={fileInput}
                   type="file"
@@ -1498,8 +1480,8 @@ function DraftPane({
                     e.target.value = "";
                   }}
                 />
-                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">选择文件</button>
-                {uploadNote && <p className="mt-3 text-[12.5px] font-semibold text-mk-warning">{uploadNote}</p>}
+                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600">选择文件</button>
+                {uploadNote && <p className="mt-3 text-[14px] font-semibold text-mk-warning">{uploadNote}</p>}
               </div>
             )}
             {/* #7 · floating "问印记" chip — appears next to a text selection; clicking
@@ -1542,7 +1524,7 @@ function DraftPane({
             </div>
           )}
         </div>
-        <p className="mt-2 text-center text-[11.5px] text-mk-faint">你写，印记只在一旁陪你想——它不替你写正文。</p>
+        <p className="mt-2 text-center text-[12px] text-mk-faint">你写，印记只在一旁陪你想——它不替你写正文。</p>
       </div>
     </div>
   );
@@ -1616,13 +1598,13 @@ function SectionedDraft({
           {outlineHeads.length > 0 && (
             <button type="button" onClick={generate} className="rounded-mk-md border border-mk-accent/40 px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50">＋ 从大纲生成章节</button>
           )}
-          <span className="text-[11.5px] text-mk-faint">在小标题下写；从右侧「材料」插入会落到你正在写的这一节。</span>
+          <span className="text-[12px] text-mk-faint">在小标题下写；从右侧「材料」插入会落到你正在写的这一节。</span>
         </div>
       )}
       {sections.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-center">
-          <p className="text-[13px] text-mk-faint">还没有章节。{outlineHeads.length > 0 ? "用大纲生成，或" : ""}加一节，在标题下写。</p>
-          {!locked && <button type="button" onClick={addSection} className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600">＋ 加一节</button>}
+          <p className="text-[14px] text-mk-faint">还没有章节。{outlineHeads.length > 0 ? "用大纲生成，或" : ""}加一节，在标题下写。</p>
+          {!locked && <button type="button" onClick={addSection} className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">＋ 加一节</button>}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -1638,7 +1620,7 @@ function SectionedDraft({
                   className={`w-full bg-transparent font-sans font-bold text-mk-ink outline-none placeholder:text-mk-faint ${s.level === 1 ? "text-[16px]" : "text-[14px]"}`}
                 />
               ) : (
-                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-mk-faint">开头（无标题）</div>
+                <div className="mb-1 text-[12px] font-bold uppercase tracking-wide text-mk-faint">开头（无标题）</div>
               )}
               <textarea
                 value={s.body}
@@ -1651,13 +1633,13 @@ function SectionedDraft({
               />
               {!locked && (
                 <div className="mt-1 flex justify-end">
-                  <button type="button" onClick={() => removeSection(s.id)} className="text-[11.5px] font-semibold text-mk-faint opacity-0 transition hover:text-mk-danger group-hover:opacity-100">删除本节</button>
+                  <button type="button" onClick={() => removeSection(s.id)} className="text-[12px] font-semibold text-mk-faint opacity-0 transition hover:text-mk-danger group-hover:opacity-100">删除本节</button>
                 </div>
               )}
             </section>
           ))}
           {!locked && (
-            <button type="button" onClick={addSection} className="rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">＋ 加一节</button>
+            <button type="button" onClick={addSection} className="rounded-mk-md border border-dashed border-mk-border py-2 text-[14px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">＋ 加一节</button>
           )}
         </div>
       )}
@@ -1693,30 +1675,30 @@ function DraftReviewPanel({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-peach/40 bg-mk-peach-bg p-4">
       <div className="mb-2 flex flex-none items-center justify-between">
-        <p className="text-[13px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
+        <p className="text-[14px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
         <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-faint hover:text-mk-muted">收起</button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {reviewing ? (
-          <p className="text-[12.5px] text-mk-faint">印记正在逐段体检你的论证与结构……</p>
+          <p className="text-[14px] text-mk-faint">印记正在逐段体检你的论证与结构……</p>
         ) : error ? (
-          <p className="text-[12.5px] font-semibold text-mk-danger">{error}</p>
+          <p className="text-[14px] font-semibold text-mk-danger">{error}</p>
         ) : review ? (
           review.items.length === 0 ? (
-            <p className="text-[12.5px] text-mk-faint">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
+            <p className="text-[14px] text-mk-faint">这一稿没跑出具体条目——可能正文还太短，先多写一点再体检。</p>
           ) : (
             <>
-              <p className="mb-2 text-[11.5px] text-mk-faint">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
+              <p className="mb-2 text-[12px] text-mk-faint">已存一版（{review.wordCount} 字{review.inBand ? " · 在字数区间内" : " · 字数偏离区间"}）。</p>
               <ul className="flex flex-col gap-2">
                 {review.items.map((it: ReviewItem, i: number) => (
                   <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[12.5px] font-bold text-mk-accent">{it.criterion_name || it.criterion_code}</span>
-                      {it.band && <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[10.5px] font-bold text-mk-accent">{it.band}</span>}
+                      <span className="text-[14px] font-bold text-mk-accent">{it.criterion_name || it.criterion_code}</span>
+                      {it.band && <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{it.band}</span>}
                     </div>
-                    {it.evidence && <p className="mt-1 text-[12.5px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
-                    {it.missing && <p className="mt-1 text-[12.5px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
-                    {it.fix && <p className="mt-1 text-[12.5px] text-mk-peach-fg"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
+                    {it.evidence && <p className="mt-1 text-[14px] text-mk-ink"><span className="font-semibold">现在做到：</span>{it.evidence}</p>}
+                    {it.missing && <p className="mt-1 text-[14px] text-mk-muted"><span className="font-semibold">还差：</span>{it.missing}</p>}
+                    {it.fix && <p className="mt-1 text-[14px] text-mk-peach-fg"><span className="font-semibold">可以往哪想：</span>{it.fix}</p>}
                   </li>
                 ))}
               </ul>
@@ -1941,7 +1923,7 @@ function CoachRail({
                 <Icon name="spark" size={16} />
                 <h2 className="font-sans text-[15px] font-bold">印记 · 陪你写</h2>
               </div>
-              <p className="mt-1 text-[11.5px] text-mk-faint">聊提纲、挑逻辑、撞反例——但不替你写正文。</p>
+              <p className="mt-1 text-[12px] text-mk-faint">聊提纲、挑逻辑、撞反例——但不替你写正文。</p>
             </header>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
@@ -1956,22 +1938,22 @@ function CoachRail({
               {pendingArtifact && !openCardId && (
                 <div className="rounded-mk-md border border-mk-border bg-mk-paper p-3">
                   <p className="text-[12px] font-semibold text-mk-faint">要不要把《{pendingArtifact.cardName}》里写的收进「片段」？</p>
-                  <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
+                  <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[14px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-                    <label className="flex items-center gap-1 text-[11px] text-mk-faint">
+                    <label className="flex items-center gap-1 text-[12px] text-mk-faint">
                       归到
                       <select
                         value={artifactSection}
                         onChange={(e) => setArtifactSection(e.target.value)}
                         aria-label="把片段归到"
-                        className="max-w-[9rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[11.5px] text-mk-ink outline-none focus:border-mk-accent"
+                        className="max-w-[9rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
                       >
                         <option value={UNFILED}>未归类</option>
                         {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>
                     </label>
-                    <button type="button" onClick={() => setPendingArtifact(null)} className="text-[11px] font-semibold text-mk-faint hover:text-mk-ink">先不收</button>
-                    <button type="button" onClick={collectArtifact} className="rounded-full bg-mk-accent px-3 py-1 text-[11px] font-bold text-white hover:bg-mk-accent-600">收进片段</button>
+                    <button type="button" onClick={() => setPendingArtifact(null)} className="text-[12px] font-semibold text-mk-faint hover:text-mk-ink">先不收</button>
+                    <button type="button" onClick={collectArtifact} className="rounded-full bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600">收进片段</button>
                   </div>
                 </div>
               )}
@@ -1988,7 +1970,7 @@ function CoachRail({
                 still needs her tap/click (铁律 · 不操纵). */}
             {!locked && (
               <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper p-2.5">
-                <p className="mb-1.5 text-[11px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
+                <p className="mb-1.5 text-[12px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
                 <div className="flex flex-wrap gap-1.5">
                   {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
                     <button
@@ -2009,7 +1991,7 @@ function CoachRail({
                     distinct from the shelf's mk-accent hover above (#11). */}
                 {activePanel === "draft" && (
                   <>
-                    <p className="mb-1.5 mt-2.5 text-[11px] font-bold text-mk-faint">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
+                    <p className="mb-1.5 mt-2.5 text-[12px] font-bold text-mk-faint">正文·检查 · 换个视角体检{focusPart ? "（整稿，或只查你选中的这段）" : "（整稿）"}</p>
                     <div className="flex flex-col gap-1">
                       {VOICE_ORDER.map((v) => (
                         <div key={v} className="flex items-center gap-1.5">
@@ -2026,7 +2008,7 @@ function CoachRail({
                               type="button"
                               onClick={() => onRunReview(focusPart, v)}
                               title="只体检你目前选中的这一段"
-                              className="rounded-full border border-mk-peach/50 px-2 py-0.5 text-[11px] font-semibold text-mk-peach-fg hover:bg-mk-peach-bg"
+                              className="rounded-full border border-mk-peach/50 px-2 py-0.5 text-[12px] font-semibold text-mk-peach-fg hover:bg-mk-peach-bg"
                             >
                               这段
                             </button>
@@ -2040,7 +2022,7 @@ function CoachRail({
             )}
             {focusPart && (
               <div className="flex flex-none items-center gap-2 rounded-mk-md border border-mk-peach/40 bg-mk-peach-bg px-3 py-2">
-                <span className="flex-none text-[11px] font-bold text-mk-peach-fg">就这一段</span>
+                <span className="flex-none text-[12px] font-bold text-mk-peach-fg">就这一段</span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-mk-muted">{focusPart}</span>
                 <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-muted">✕</button>
               </div>

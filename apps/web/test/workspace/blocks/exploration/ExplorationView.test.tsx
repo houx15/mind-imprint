@@ -293,118 +293,55 @@ async function clickNode(user: ReturnType<typeof userEvent.setup>, text: string)
 }
 
 describe("ExplorationView", () => {
-  it("renders the plain empty state when there are no roots", async () => {
+  it("renders a neutral empty state when there are no roots — no manual question affordances", async () => {
     mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
-    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    render(<ExplorationView projectId={nextPid()} references={[]} projectTitle="中国是否让地球变得更可持续？" />);
 
     expect(await screen.findByText("这里还是空的")).toBeInTheDocument();
-    // no rabbit metaphor in the copy — plain guidance only
-    expect(screen.getByText(/在上面记下一个你想弄清楚的问题/)).toBeInTheDocument();
-    // no projectTitle passed → no driving-question seed offered
+    // Task 8 (P2b): 印记 proposes questions via a chat chip now — the manual
+    // create-a-question boxes and the driving-question seed button are gone,
+    // even when references/projectTitle would once have populated them.
+    expect(screen.queryByRole("button", { name: "记下问题" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "从笔记新建问题" })).toBeNull();
     expect(screen.queryByRole("button", { name: "用我的研究问题开始" })).toBeNull();
+    expect(screen.queryByPlaceholderText(/记一个你想弄清楚的问题/)).toBeNull();
   });
 
-  // ---- GVf · seed the driving question (empty state) ----
-
-  it("the empty state offers the driving question; clicking it fills the input, then 记下问题 creates it via createLead", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
-    const projectId = nextPid();
-    const question = "中国是否让地球变得更可持续？";
-    const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[]} projectTitle={question} />);
-    await screen.findByText("这里还是空的");
-
-    const input = screen.getByPlaceholderText(/记一个你想弄清楚的问题/) as HTMLInputElement;
-    expect(input.value).toBe("");
-
-    // 铁律①: the pre-fill only fills the input — nothing is created yet
-    await user.click(screen.getByRole("button", { name: "用我的研究问题开始" }));
-    expect(input.value).toBe(question);
-    expect(mockCreateLead).not.toHaveBeenCalled();
-
-    // she still has to confirm/edit + click 记下问题 herself
-    await user.click(screen.getByRole("button", { name: "记下问题" }));
-
-    await waitFor(() => {
-      expect(mockCreateLead).toHaveBeenCalledWith(projectId, question);
-    });
-  });
-
-  it("the driving-question seed is editable before it's created", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
-    const projectId = nextPid();
-    const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[]} projectTitle="原始研究问题" />);
-    await screen.findByText("这里还是空的");
-
-    await user.click(screen.getByRole("button", { name: "用我的研究问题开始" }));
-    const input = screen.getByPlaceholderText(/记一个你想弄清楚的问题/);
-    await user.clear(input);
-    await user.type(input, "改过的问题");
-    await user.click(screen.getByRole("button", { name: "记下问题" }));
-
-    await waitFor(() => {
-      expect(mockCreateLead).toHaveBeenCalledWith(projectId, "改过的问题");
-    });
-  });
-
-  // ---- GVf · promote a reading note into a question ----
-
-  it("从笔记新建问题 lists references with a readingNote (note text + source title); selecting one calls createLead with sourceReferenceId", async () => {
+  it("the manual question affordances stay gone once roots exist, even with note-bearing references", async () => {
     const noteRef = makeRef({
       id: "rNote",
       title: "一篇留过笔记的来源",
       readingNote: "碳排放和可持续发展之间似乎有矛盾，值得细挖。",
     });
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
-    const projectId = nextPid();
-    const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[NASA_REF, noteRef]} />);
+    render(<ExplorationView projectId={nextPid()} references={[NASA_REF, noteRef]} />);
     await screen.findByText(ROOT_LEAD.text);
 
-    await user.click(screen.getByRole("button", { name: "从笔记新建问题" }));
-    expect(await screen.findByText(noteRef.readingNote!)).toBeInTheDocument();
-    expect(screen.getByText(noteRef.title)).toBeInTheDocument();
-    // NASA_REF has no readingNote — it must not appear in the picker
-    expect(screen.queryByText(NASA_REF.title)).toBeNull();
-
-    await user.click(screen.getByText(noteRef.readingNote!));
-
-    await waitFor(() => {
-      expect(mockCreateLead).toHaveBeenCalledWith(projectId, noteRef.readingNote, { sourceReferenceId: noteRef.id });
-    });
-    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
-  });
-
-  it("从笔记新建问题 shows a gentle empty state when there are no reading notes", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
-    const user = userEvent.setup();
-    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
-    await screen.findByText(ROOT_LEAD.text);
-
-    await user.click(screen.getByRole("button", { name: "从笔记新建问题" }));
-    expect(await screen.findByText("还没有阅读笔记")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "记下问题" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "从笔记新建问题" })).toBeNull();
     expect(mockCreateLead).not.toHaveBeenCalled();
   });
 
-  it("the map root input CREATES a top-level question node via createLead (not a keyword dig)", async () => {
-    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+  // ---- Task 8 (P2b) · refreshNonce re-fetches the graph on a bump ----
+
+  it("a refreshNonce bump re-fetches the exploration graph; the initial render (nonce=0) does not double-fetch", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
     const projectId = nextPid();
-    const user = userEvent.setup();
-    render(<ExplorationView projectId={projectId} references={[]} />);
-    await screen.findByText("这里还是空的");
+    const { rerender } = render(<ExplorationView projectId={projectId} references={[]} refreshNonce={0} />);
+    await screen.findByText(ROOT_LEAD.text);
+    expect(mockGetExploration).toHaveBeenCalledTimes(1);
 
-    await user.type(
-      screen.getByPlaceholderText(/记一个你想弄清楚的问题/),
-      "中国碳排放全球第一，这跟可持续矛盾吗？",
-    );
-    await user.click(screen.getByRole("button", { name: "记下问题" }));
+    // Re-rendering with the SAME nonce must not trigger another fetch.
+    rerender(<ExplorationView projectId={projectId} references={[]} refreshNonce={0} />);
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(1));
 
-    await waitFor(() => {
-      expect(mockCreateLead).toHaveBeenCalledWith(projectId, "中国碳排放全球第一，这跟可持续矛盾吗？");
-    });
-    // creating a question is NOT a dig — no paper search fired
-    expect(mockDigExploration).not.toHaveBeenCalled();
+    // A genuine bump (a 印记-confirmed question landed elsewhere) re-fetches.
+    rerender(<ExplorationView projectId={projectId} references={[]} refreshNonce={1} />);
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(2));
+
+    // A second bump fetches again.
+    rerender(<ExplorationView projectId={projectId} references={[]} refreshNonce={2} />);
+    await waitFor(() => expect(mockGetExploration).toHaveBeenCalledTimes(3));
   });
 
   it("the MAP renders a card node per root with its 文献 x 篇 paper tally", async () => {
@@ -489,6 +426,29 @@ describe("ExplorationView", () => {
     expect(screen.getByTestId("coach-slot")).toBeInTheDocument();
     // no node metadata shown yet
     expect(screen.queryByText(NASA_REF.title)).toBeNull();
+  });
+
+  it("with no coach slot (it now lives in the constant 印记 rail), the 'ai' default sidebar collapses to nothing — no dead empty column — and clicking a node still opens it", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    const { container } = render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+
+    // Level-1 (map): no coach passed → no empty bordered aside column
+    await screen.findByText(ROOT_LEAD.text);
+    expect(container.querySelector("aside")).toBeNull();
+
+    // Level-2 (inside a question), still nothing selected: still collapsed
+    await zoomInto(user, ROOT_LEAD.text);
+    expect(container.querySelector("aside")).toBeNull();
+
+    // clicking a node still opens the 'node' sidebar normally
+    await clickNode(user, CHILD_PAPER.text);
+    expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
+    expect(container.querySelector("aside")).not.toBeNull();
+
+    // ← 印记 back to the (still coach-less) default collapses again, no crash
+    await user.click(screen.getByRole("button", { name: "← 印记" }));
+    await waitFor(() => expect(container.querySelector("aside")).toBeNull());
   });
 
   it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the coach", async () => {
