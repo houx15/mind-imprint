@@ -8,12 +8,13 @@ import { ApiError } from "../../api/client";
 import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { Segmented } from "@/ui";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, getCoachHistory, reflectProjectCard, dismissProposal } from "../api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, reflectProjectCard, dismissProposal } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import type { CardProposalWire } from "../api/workspace";
@@ -1784,7 +1785,7 @@ const PANEL_LABEL: Record<"outline" | "snippets" | "draft", string> = {
 // has no separate above-bubble slot, so the callout renders inside the
 // bubble; peach (not mk-accent) keeps it visually distinct from the
 // surrounding accent-tinted student bubble.
-function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
+function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
       ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
@@ -1834,9 +1835,12 @@ function CoachRail({
   activePanel: "outline" | "snippets" | "draft";
   recap?: string | null;
 }) {
-  const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
+  // The coach thread is HOISTED to WorkspaceContainer (persists across 写作↔立项
+  // room swaps, loaded once per project). This rail reads/appends the shared
+  // store instead of holding its own chat state; the greeting is now a
+  // display-only fallback (see `displayChat`), never stored.
+  const { messages, setMessages, sending, setSending } = useStudioChat();
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
   // dismissable chip); `openCardId` is the card the student CHOSE to open — the
   // only path to a card sheet, so triggering stays automatic while opening is
@@ -1849,23 +1853,6 @@ function CoachRail({
   const [pendingArtifact, setPendingArtifact] = useState<{ cardName: string; text: string } | null>(null);
   const [artifactSection, setArtifactSection] = useState<string>(UNFILED);
 
-  // Continuous coach: load the ONE working thread (立项 + 写作, surface="studio")
-  // so 写作 shows the whole conversation carried from 立项, not a fresh
-  // writing-only slice. A real conversation REPLACES the greeting; empty → greeting.
-  useEffect(() => {
-    let alive = true;
-    getCoachHistory(projectId, "studio")
-      .then((msgs) => {
-        if (alive && msgs.length) setChat(msgs);
-      })
-      .catch(() => {
-        /* keep greeting-only; the next turn still persists */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [projectId]);
-
   async function send() {
     const text = draft.trim();
     if (!text || sending || locked) return;
@@ -1875,18 +1862,18 @@ function CoachRail({
     // #9-second · the referenced paragraph rides as its own field (quotedPart),
     // rendered as a styled quote block above the bubble — never baked into the
     // message string as a literal 【就这一段】 token.
-    setChat((c) => [...c, { role: "student", text, quotedPart: focusPart ?? undefined }]);
+    setMessages((c) => [...c, { role: "student", text, quotedPart: focusPart ?? undefined }]);
     setDraft("");
     setSending(true);
     try {
       const { reply, proposal: p } = await coach(projectId, "writing", turnText);
       onClearFocus(); // clear the pinned part only on success — a failed turn keeps it so she needn't re-pin
-      setChat((c) => [...c, { role: "ai", text: reply }]);
+      setMessages((c) => [...c, { role: "ai", text: reply }]);
       // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
       // dismissable chip; opening it (below) is the student's tap, never auto.
       setProposal(p);
     } catch {
-      setChat((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
+      setMessages((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
     } finally {
       setSending(false);
     }
@@ -1919,12 +1906,12 @@ function CoachRail({
       const { reply, card } = await reflectProjectCard(projectId, cardId, fieldValues, eventTrace, "writing");
       // A card turn renders as a content-first chip (card set); fall back to raw
       // compiled text only if the server didn't echo a card.
-      if (card) setChat((c) => [...c, { role: "student", text: studentText, card }]);
-      else if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
+      if (card) setMessages((c) => [...c, { role: "student", text: studentText, card }]);
+      else if (studentText) setMessages((c) => [...c, { role: "student", text: studentText }]);
       if (reply) {
-        setChat((c) => [...c, { role: "ai", text: reply }]);
+        setMessages((c) => [...c, { role: "ai", text: reply }]);
       } else if (!card && !studentText) {
-        setChat((c) => [...c, { role: "ai", text: "这张卡还没填内容，先留着，想清楚了再来。" }]);
+        setMessages((c) => [...c, { role: "ai", text: "这张卡还没填内容，先留着，想清楚了再来。" }]);
       }
       // #7/#8 · offer (never silently add) the compiled paragraph as a 片段.
       const artifact = spec ? compileCardEnvelope(spec, fieldValues) : "";
@@ -1933,15 +1920,15 @@ function CoachRail({
         setPendingArtifact({ cardName: spec!.name, text: artifact });
       }
     } catch {
-      if (studentText) setChat((c) => [...c, { role: "student", text: studentText }]);
-      setChat((c) => [...c, { role: "ai", text: "刚才没接住这张卡，等下再试一次。" }]);
+      if (studentText) setMessages((c) => [...c, { role: "student", text: studentText }]);
+      setMessages((c) => [...c, { role: "ai", text: "刚才没接住这张卡，等下再试一次。" }]);
     }
   }
 
   function collectArtifact() {
     if (!pendingArtifact) return;
     onCardArtifact(pendingArtifact.text, artifactSection === UNFILED ? null : artifactSection);
-    setChat((c) => [...c, { role: "ai", text: "收进了「片段」——去那儿看看、改改，随时能插进正文。" }]);
+    setMessages((c) => [...c, { role: "ai", text: "收进了「片段」——去那儿看看、改改，随时能插进正文。" }]);
     setPendingArtifact(null);
     setArtifactSection(UNFILED);
   }
@@ -1953,6 +1940,10 @@ function CoachRail({
   // studio shell (e.g. some tests) — in either case the coach content simply
   // doesn't render, never crashes.
   const slot = useStudioAiSlot();
+  // The greeting is DISPLAY-ONLY now (never stored): an empty hoisted store (a
+  // project with no coach turns yet) falls back to it for rendering. Once any
+  // turn lands the store is non-empty and IT is what shows.
+  const displayChat: StudioChatMsg[] = messages.length ? messages : [RAIL_GREETING];
 
   return (
     <>
@@ -1968,7 +1959,7 @@ function CoachRail({
             </header>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-              <ChatLog messages={withRecap(recap, toChatMessages(chat))} thinking={sending} />
+              <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
               {proposal && !openCardId && !sending ? (
                 <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
               ) : null}

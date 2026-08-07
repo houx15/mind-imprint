@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
@@ -26,7 +27,6 @@ import {
   getLog,
   addLog,
   coach,
-  getCoachHistory,
   generatePlan,
   createReference,
   type PlanItemPatch,
@@ -110,10 +110,13 @@ export function PlanBlock({
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
   const [prop, setProp] = useState<Proposal>(proposal);
-  const [chat, setChat] = useState<ChatMsg[]>(() => introChat("zh"));
+  // The coach thread is HOISTED to WorkspaceContainer (persists across 立项↔写作
+  // room swaps, loaded once per project). This room reads/appends the shared
+  // store instead of holding its own chat state; the scripted intro is now a
+  // display-only fallback (see FormingPhase's `displayChat`), never stored.
+  const { messages, setMessages, sending, setSending } = useStudioChat();
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   // The two quick-reply chips live only under the scripted intro; any turn
   // (chip, typed message, or a language reset) dismisses them.
   const [chipsDismissed, setChipsDismissed] = useState(false);
@@ -148,26 +151,6 @@ export function PlanBlock({
     saveTimer.current = setTimeout(() => persistProposal(next), 600);
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
-
-  // Continuous coach: load the ONE working thread (立项 + 写作, surface="studio")
-  // so re-entry shows the whole conversation, not just this room's slice. Once a
-  // real conversation exists it REPLACES the scripted intro (so both working
-  // rooms show the same thread); a fresh project keeps the intro only.
-  useEffect(() => {
-    let alive = true;
-    getCoachHistory(projectId, "studio")
-      .then((msgs) => {
-        if (!alive || msgs.length === 0) return;
-        setChat(msgs);
-        setChipsDismissed(true);
-      })
-      .catch(() => {
-        /* keep the intro-only view; the next turn still persists */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [projectId]);
 
   // #15: generating replaces the whole board server-side. If a plan already
   // exists, confirm before overwriting so a regenerate never silently wipes the
@@ -216,19 +199,19 @@ export function PlanBlock({
   // reply; it clears at the start of each turn so a stale offer never lingers.
   async function runCoachTurn(scope: "forming" | "proposal_review", userInput: string, studentEcho: string) {
     if (sending) return;
-    setChat((c) => [...c, { role: "student", text: studentEcho }]);
+    setMessages((c) => [...c, { role: "student", text: studentEcho }]);
     setLinkOffer(null);
     setDimSuggestion(null);
     setCardProposal(null);
     setSending(true);
     try {
       const { reply, linkOffer: offer, dimSuggestion: dim, proposal: card } = await coach(projectId, scope, userInput);
-      setChat((c) => [...c, { role: "ai", text: reply }]);
+      setMessages((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
       if (dim) setDimSuggestion(dim);
       if (card) setCardProposal(card);
     } catch {
-      setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
+      setMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
       setSending(false);
     }
@@ -324,7 +307,7 @@ export function PlanBlock({
           proposal={prop}
           onBackToBoard={hasBoard ? () => setPhase("working") : undefined}
           setDim={setDim}
-          chat={chat}
+          messages={messages}
           recap={recap}
           lang={lang}
           onToggleLang={() => {
@@ -338,7 +321,7 @@ export function PlanBlock({
           setDraft={setDraft}
           sending={sending}
           onSend={onSend}
-          showChips={!chipsDismissed && chat.length === 1}
+          showChips={!chipsDismissed && messages.length === 0}
           onGuideMe={onGuideMe}
           onSelfFill={() => setChipsDismissed(true)}
           onReview={onReview}
@@ -356,7 +339,7 @@ export function PlanBlock({
           cardProposal={cardProposal}
           onCardConsumed={() => setCardProposal(null)}
           onCardReflected={(studentText, reply, card) =>
-            setChat((c) => [
+            setMessages((c) => [
               ...c,
               // A card turn renders as a content-first chip (card set), falling
               // back to raw compiled text only if the server didn't echo a card.
@@ -474,7 +457,7 @@ function FormingPhase(props: {
   proposal: Proposal;
   onBackToBoard?: () => void;
   setDim: (key: keyof Proposal, v: string) => void;
-  chat: ChatMsg[];
+  messages: StudioChatMsg[];
   recap?: string | null;
   lang: "zh" | "en";
   onToggleLang: () => void;
@@ -502,7 +485,7 @@ function FormingPhase(props: {
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
-    title, qualification, proposal, onBackToBoard, setDim, chat, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
+    title, qualification, proposal, onBackToBoard, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
     dimSuggestion, onConfirmDim, onDismissDim,
@@ -522,6 +505,10 @@ function FormingPhase(props: {
   // component renders outside a studio shell (e.g. some tests) — in either
   // case the coach content simply doesn't render, never crashes.
   const slot = useStudioAiSlot();
+  // The scripted intro is DISPLAY-ONLY now (never stored): a fresh project has
+  // an empty hoisted store, so fall back to the localized intro for rendering.
+  // Once any turn lands the store is non-empty and IT is what shows.
+  const displayChat: StudioChatMsg[] = messages.length ? messages : introChat(lang);
   return (
     <>
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
@@ -615,7 +602,7 @@ function FormingPhase(props: {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-              <ChatLog messages={withRecap(recap, toChatMessages(chat))} thinking={sending} />
+              <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
               {linkOffer && !sending && (
                 <CoachLinkOffer
                   url={linkOffer.url}
@@ -768,7 +755,7 @@ function renderRich(text: string) {
 // never raw compiled text) instead of nesting inside a second bubble. Every
 // other turn keeps **bold** rendering (renderRich) via `node`, since ChatLog
 // only prints `text` literally.
-function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
+function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
       ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }

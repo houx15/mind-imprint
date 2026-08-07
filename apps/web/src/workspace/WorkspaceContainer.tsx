@@ -4,12 +4,13 @@ import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "../studio/ai/StudioChatContext";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
 import { Badge, Segmented } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, getPlan, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import { getWorkspace, getPlan, getCoachHistory, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
 import { NextStepGuide } from "./blocks/NextStepGuide";
@@ -185,6 +186,14 @@ export function WorkspaceContainer({
   // for in-progress projects (a non-empty proposal) — a brand-new project has
   // nothing to summarise.
   const [summary, setSummary] = useState<string | null>(null);
+  // The ONE continuous 印记 coach thread (立项 + 写作, surface="studio"), hoisted
+  // here so it PERSISTS across room switches: each working room reads/appends to
+  // this one store via `useStudioChat()` instead of holding its own local chat
+  // state (which a room-swap unmount would throw away, forcing a re-fetch). The
+  // in-flight `sending` flag rides up too so a reply landing after a room switch
+  // still shows its busy state on whichever room is now mounted.
+  const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
+  const [studioSending, setStudioSending] = useState(false);
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -213,6 +222,7 @@ export function WorkspaceContainer({
     setPlanItems([]);
     setError(null);
     setSummary(null);
+    setStudioMessages([]);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
     // than firing a redundant duplicate on every project switch.
@@ -223,6 +233,18 @@ export function WorkspaceContainer({
       })
       .catch(() => {
         /* no plan yet (or fetch failed) → the spine simply doesn't render */
+      });
+    // Load the ONE continuous coach thread ONCE per opened project (立项 + 写作,
+    // surface="studio"), into the hoisted store both rooms read. Empty → each
+    // room falls back to its own display-only intro/greeting locally.
+    getCoachHistory(projectId, "studio")
+      .then((msgs) => {
+        if (!cancelled) {
+          setStudioMessages(msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })));
+        }
+      })
+      .catch(() => {
+        /* keep the empty store; each room shows its intro and the next turn persists */
       });
     (async () => {
       try {
@@ -430,6 +452,14 @@ export function WorkspaceContainer({
           // <main>. plan / writing / reflection all portal their coach into the
           // constant panel. reading is the exception: it's a distinct
           // full-screen surface with its own coach column (see showAiPanel).
+          <StudioChatContext.Provider
+            value={{
+              messages: studioMessages,
+              setMessages: setStudioMessages,
+              sending: studioSending,
+              setSending: setStudioSending,
+            }}
+          >
           <StudioAiSlotContext.Provider value={aiSlotEl}>
             {room === "plan" && (
               <PlanBlock
@@ -483,6 +513,7 @@ export function WorkspaceContainer({
               />
             )}
           </StudioAiSlotContext.Provider>
+          </StudioChatContext.Provider>
         )}
         </div>
         </main>

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 
 /**
  * PlanBlock (studio agentic rebuild, Task 5): the forming coach now portals
@@ -43,14 +45,32 @@ const FILLED_PROPOSAL = {
   counterpoints: "",
 };
 
+// The coach thread now lives in the hoisted StudioChatContext store (owned by
+// WorkspaceContainer in the real shell); FormingPhase reads/appends it via
+// `useStudioChat()`. Tests stand in a stateful provider the same way the shell
+// does, seeded with any initial thread the test needs.
+function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
+  const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
+  const [sending, setSending] = useState(false);
+  return (
+    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending }}>
+      {children}
+    </StudioChatContext.Provider>
+  );
+}
+
 // The AiPanel body is a real DOM node the panel hands down via context; the
 // portal contract (Task 4) needs a genuine element to portal into (jsdom
 // createPortal requires it), and RTL's `screen` queries document.body — where
 // this node lives — so portaled content is found the same as any other.
-function renderWithAiSlot(ui: React.ReactElement) {
+function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg[] = []) {
   const slot = document.createElement("div");
   document.body.appendChild(slot);
-  return render(<StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>);
+  return render(
+    <ChatProvider initial={initialMessages}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </ChatProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -115,7 +135,10 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
   });
 
-  it("loads the CONTINUOUS working thread (surface=studio), not just this room's slice, and shows the recap in-chat", async () => {
+  it("renders the CONTINUOUS thread from the hoisted store (not just this room's slice), and shows the recap in-chat", async () => {
+    // The thread is loaded ONCE by WorkspaceContainer into the hoisted store and
+    // handed down; this room reads it via the provider (no per-room re-fetch).
+    // Seeding the provider stands in for that container load.
     renderWithAiSlot(
       <PlanBlock
         projectId="p1"
@@ -126,10 +149,10 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
         refreshWorkspace={() => {}}
         recap="欢迎回来——你上次聊到了判断尺度。"
       />,
+      [{ role: "ai", text: "我们上次聊到判断尺度。", card: null }],
     );
-    await screen.findByText(/先想清楚四件事/);
-    // The one continuous 印记 conversation across 立项/写作 — never the "forming" slice.
-    expect(mockGetCoachHistory).toHaveBeenCalledWith("p1", "studio");
+    // The one continuous 印记 conversation across 立项/写作 renders from the store.
+    expect(await screen.findByText("我们上次聊到判断尺度。")).toBeInTheDocument();
     // The recap is 印记's opening line inside the chat (not a separate banner).
     expect(screen.getByText("欢迎回来——你上次聊到了判断尺度。")).toBeInTheDocument();
   });
