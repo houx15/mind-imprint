@@ -13,6 +13,8 @@ import type { BlockKey } from "./blocks/mockData";
  */
 export function openToolToRoom(tool: OpenTool): BlockKey {
   switch (tool) {
+    case "forming":
+      return "forming";
     case "reading":
       return "reading";
     case "writing":
@@ -27,10 +29,10 @@ export function openToolToRoom(tool: OpenTool): BlockKey {
 }
 
 /**
- * Resume mapping (P2a): 印记 only emits `plan`/`chat` for the proposal side
- * (the explicit `forming` openTool is P2b). So when the directive names the plan
- * tool, choose 提案(forming) vs 管理(board) from the STAGE — a real signal, not a
- * heuristic. Any non-plan room openTool wins directly.
+ * Resume mapping. 印记 now emits `forming`(提案) vs `plan`(管理) explicitly (P2b),
+ * so any real room openTool — including `forming` — wins directly. The stage
+ * heuristic remains ONLY for `plan`/`chat`: an older/ambiguous `plan` directive
+ * during proposal_forming still lands on 提案 rather than a bare board.
  */
 export function roomForResume(state: StudioState): BlockKey {
   if (state.openTool !== "plan" && state.openTool !== "chat") {

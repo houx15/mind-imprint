@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { roomForResume } from "@/workspace/studioResume";
+import { roomForResume, openToolToRoom } from "@/workspace/studioResume";
 
 const base = { openTool: "plan", widthTier: "half", reference: [], updatedAtTurn: 0 } as const;
 
@@ -16,5 +16,9 @@ describe("roomForResume", () => {
   });
   it("reading/writing/reflection openTools win regardless of stage", () => {
     expect(roomForResume({ ...base, stage: "proposal_forming", openTool: "reading" } as any)).toBe("reading");
+  });
+  it("explicit forming openTool (P2b) maps to 提案 and wins regardless of stage", () => {
+    expect(openToolToRoom("forming")).toBe("forming");
+    expect(roomForResume({ ...base, stage: "plan_generation", openTool: "forming" } as any)).toBe("forming");
   });
 });

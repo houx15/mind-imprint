@@ -81,6 +81,7 @@ vi.mock("@/workspace/api/workspace", () => ({
     directive: { stage: "plan_generation", openTool: "plan", widthTier: "half", reference: [], updatedAtTurn: 0 },
     note: null,
     card: null,
+    question: null,
     reviewRequested: false,
   })),
   putProposal: vi.fn(async (_id: string, p: unknown) => p),

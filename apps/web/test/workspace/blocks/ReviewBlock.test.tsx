@@ -80,6 +80,7 @@ beforeEach(() => {
     narrate: "你先自己答——你的结论回答了原题吗？",
     directive: { stage: "topic_discussion", openTool: "chat", widthTier: "chat", reference: [], updatedAtTurn: 0 },
     note: null,
+    question: null,
     card: null,
     reviewRequested: false,
   });

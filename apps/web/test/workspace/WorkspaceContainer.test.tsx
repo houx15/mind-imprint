@@ -103,13 +103,14 @@ function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", w
 function fakeReply(
   narrate: string,
   openTool: OpenTool,
-  extra: { note?: unknown; card?: unknown } = {},
+  extra: { note?: unknown; card?: unknown; question?: unknown } = {},
 ) {
   return {
     narrate,
     directive: fakeStudioState(openTool),
     note: extra.note ?? null,
     card: extra.card ?? null,
+    question: extra.question ?? null,
     reviewRequested: false,
   };
 }
