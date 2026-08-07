@@ -284,6 +284,22 @@ export function WorkspaceContainer({
     setTookOver(true);
   }, []);
 
+  // 「继续印记」(P4, spec §6): while the student has manually taken over the
+  // switcher, this re-asserts 印记's own view — re-fetch the current status
+  // for freshness, then apply it (applyStudioState resets `tookOver` + opens
+  // the status room). Falls back to the already-loaded studioState if the
+  // refetch fails, so the control never dead-ends.
+  const continueYinji = useCallback(async () => {
+    const pid = activeProjectIdRef.current;
+    if (!pid) return;
+    try {
+      const fresh = await getStudioState(pid);
+      if (activeProjectIdRef.current === pid) applyStudioState(fresh);
+    } catch {
+      if (studioState) applyStudioState(studioState);
+    }
+  }, [applyStudioState, studioState]);
+
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
   const refreshWorkspace = useCallback(async () => {
@@ -719,6 +735,19 @@ export function WorkspaceContainer({
               once a plan exists. 印记 drives navigation; the switcher is the
               manual override — no next-step nudge chrome here (印记 cues it). */}
           <PlanSpine items={planItems} />
+          {/* 「继续印记」(P4, spec §6): shown only while the student has
+              manually taken over the switcher — returns the view to 印记's
+              own status step. Trailing end of the row so it reads as "back
+              to the guided flow", not another switcher option. */}
+          {tookOver && workspace && (
+            <button
+              type="button"
+              onClick={continueYinji}
+              className="ml-auto flex shrink-0 items-center gap-1 rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3 py-1.5 text-mk-body font-medium text-mk-accent"
+            >
+              继续印记 <span aria-hidden="true">→</span>
+            </button>
+          )}
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The re-entry recap now lives INSIDE the continuous chat (passed as

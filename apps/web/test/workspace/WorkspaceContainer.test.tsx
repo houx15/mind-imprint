@@ -367,6 +367,31 @@ describe("WorkspaceContainer", () => {
     expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
   });
 
+  // P4 · 「继续印记」(spec §6): once a manual takeover has swapped the room,
+  // the control appears; clicking it re-fetches 印记's status and returns the
+  // view there, clearing the takeover flag (the control disappears again).
+  it("「继续印记」returns from a manual takeover to 印记's status room", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("plan"));
+    render(<WorkspaceContainer initialProjectId="pcontinue" />);
+
+    // 印记 opens the 管理 board by default (openTool "plan").
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /继续印记/ })).not.toBeInTheDocument();
+
+    // Manual takeover via the switcher, into 写作.
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+
+    const continueBtn = await screen.findByRole("button", { name: /继续印记/ });
+    await userEvent.click(continueBtn);
+
+    // Back to 印记's status room; the control is gone (tookOver cleared).
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("writing-block")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /继续印记/ })).not.toBeInTheDocument();
+    expect(getStudioState).toHaveBeenCalledTimes(2);
+  });
+
   // Task 9b · a reply carrying a note OFFER renders a confirm chip; confirming
   // read-modify-writes the proposal board (getWorkspace → putProposal merged).
   it("a reply with a note renders a confirm chip; confirming persists the merged proposal", async () => {
