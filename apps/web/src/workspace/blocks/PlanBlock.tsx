@@ -299,11 +299,11 @@ function FormingPhase(props: {
           <div className="mb-1 flex items-center justify-between">
             <div className="flex items-center gap-2 text-mk-accent">
               <Icon name="spark" size={16} />
-              <span className="text-[13px] font-bold tracking-wide">开题 · 想清楚这几件事</span>
+              <span className="text-[14px] font-bold tracking-wide">开题 · 想清楚这几件事</span>
             </div>
-            <span className="text-[11px] font-bold text-mk-faint">{covered}/4 已聊到</span>
+            <span className="text-[12px] font-bold text-mk-faint">{covered}/4 已聊到</span>
           </div>
-          <p className="mb-4 text-[11.5px] text-mk-faint">不用写正式开题报告——把这几件事聊清楚就行。</p>
+          <p className="mb-4 text-[12px] text-mk-faint">不用写正式开题报告——把这几件事聊清楚就行。</p>
           <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto">
             {PROPOSAL_DIMS.map((d) => (
               <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
@@ -313,7 +313,7 @@ function FormingPhase(props: {
             type="button"
             disabled={!reviewReady || sending}
             onClick={onReview}
-            className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[12.5px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[14px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> 让印记看看我的开题
           </button>
@@ -355,14 +355,14 @@ function FormingPhase(props: {
                   <button
                     type="button"
                     onClick={onGuideMe}
-                    className="rounded-full border border-mk-accent bg-mk-accent-50 px-3.5 py-1.5 text-[13px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white"
+                    className="rounded-full border border-mk-accent bg-mk-accent-50 px-3.5 py-1.5 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white"
                   >
                     带我一部分一部分想
                   </button>
                   <button
                     type="button"
                     onClick={onSelfFill}
-                    className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-accent"
+                    className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[14px] font-semibold text-mk-muted transition hover:text-mk-accent"
                   >
                     我自己填
                   </button>
@@ -390,15 +390,15 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
     <label className="block">
       <span className="mb-1 flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 rounded-full ${filled ? "bg-mk-success" : "border border-mk-faint"}`} />
-        <span className="text-[11.5px] font-bold text-mk-ink">{label}</span>
-        <span className="text-[10.5px] font-normal text-mk-faint">· {hint}</span>
+        <span className="text-[12px] font-bold text-mk-ink">{label}</span>
+        <span className="text-[12px] font-normal text-mk-faint">· {hint}</span>
       </span>
       <textarea
         value={value}
         placeholder="跟印记聊几句，这里会慢慢填上"
         onChange={(e) => onChange(e.target.value)}
         rows={2}
-        className="w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-faint focus:border-mk-accent"
+        className="w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-faint focus:border-mk-accent"
       />
     </label>
   );
@@ -545,7 +545,7 @@ function WorkingPhase(props: {
     <div className="relative flex h-full flex-col px-10 py-8">
       {/* Slim goal header */}
       <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
-        <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[11px] font-bold text-mk-accent">{qualification}</span>
+        <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">{qualification}</span>
         <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
       </div>
 
@@ -553,7 +553,7 @@ function WorkingPhase(props: {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-sans text-[20px] font-bold text-mk-ink">项目管理</h2>
-          <p className="mt-0.5 text-[13px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
+          <p className="mt-0.5 text-[14px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <Segmented
@@ -565,7 +565,7 @@ function WorkingPhase(props: {
             value={view}
             onChange={(v) => setView(v as PlanView)}
           />
-          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
+          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
             {exporting ? "导出中…" : "导出"}
           </button>
         </div>
@@ -607,8 +607,8 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem }: {
             className={`flex min-h-0 flex-col rounded-mk-lg border-2 p-3 transition ${isOver ? "border-mk-accent/50 bg-mk-accent-50" : "border-transparent bg-mk-surface"}`}
           >
             <header className="mb-3 flex items-center justify-between px-1">
-              <span className="text-[13px] font-bold text-mk-ink">{COLUMN_LABEL[col]}</span>
-              <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[11px] font-semibold text-mk-faint">{colItems.length}</span>
+              <span className="text-[14px] font-bold text-mk-ink">{COLUMN_LABEL[col]}</span>
+              <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[12px] font-semibold text-mk-faint">{colItems.length}</span>
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
               {colItems.map((item) => (
@@ -621,7 +621,7 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem }: {
               )}
             </div>
             {col === "todo" && (
-              <button type="button" onClick={() => onAddTask(STAGE_1)} className="mt-2 rounded-mk-md border border-dashed border-mk-border py-2 text-[12.5px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">+ 添加任务</button>
+              <button type="button" onClick={() => onAddTask(STAGE_1)} className="mt-2 rounded-mk-md border border-dashed border-mk-border py-2 text-[14px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">+ 添加任务</button>
             )}
           </section>
         );
@@ -643,11 +643,11 @@ function PlanCard({ item, anchor, dragging, onEdit, onDragStart, onDragEnd }: { 
       className={`group relative cursor-grab rounded-mk-md border border-mk-border bg-mk-surface p-3 shadow-mk-xs transition active:cursor-grabbing hover:border-mk-accent/40 hover:shadow-mk-sm ${dragging ? "opacity-40" : ""}`}
     >
       <button type="button" onClick={onEdit} title="查看 / 修改任务" className="mb-2 flex w-full items-center gap-1.5 text-left">
-        <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
-        <span className="ml-auto truncate text-[10.5px] text-mk-faint">{item.stage.split(" · ")[0]}</span>
+        <span className={`rounded px-1.5 py-0.5 text-[12px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
+        <span className="ml-auto truncate text-[12px] text-mk-faint">{item.stage.split(" · ")[0]}</span>
       </button>
-      <button type="button" onClick={onEdit} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-accent">{item.title}</button>
-      <div className="mt-1.5 text-[11px] font-medium text-mk-faint">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
+      <button type="button" onClick={onEdit} className="block w-full text-left text-[14px] font-medium leading-snug text-mk-ink hover:text-mk-accent">{item.title}</button>
+      <div className="mt-1.5 text-[12px] font-medium text-mk-faint">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
     </div>
   );
 }
@@ -674,7 +674,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
         <div className="sticky top-0 z-10 grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-surface">
           <div className="flex flex-col justify-center px-4 py-1.5 text-[12px] font-bold text-mk-faint">
             任务
-            <span className="text-[10px] font-medium text-mk-faint/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
+            <span className="text-[12px] font-medium text-mk-faint/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
           </div>
           <div className="grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
             {days.map((d) => {
@@ -686,7 +686,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
               return (
                 <div key={d} className={`border-l border-mk-border py-1.5 text-center ${isWeekend ? "text-mk-faint" : "text-mk-muted"} ${isToday ? "bg-mk-accent-50" : ""}`}>
                   <div className="text-[9px] leading-tight opacity-70">{WEEKDAY_ZH[dow]}</div>
-                  <div className={`text-[11px] font-semibold leading-tight ${isToday ? "text-mk-accent" : ""}`}>{showMonth ? fmtMD(date) : date.getDate()}</div>
+                  <div className={`text-[12px] font-semibold leading-tight ${isToday ? "text-mk-accent" : ""}`}>{showMonth ? fmtMD(date) : date.getDate()}</div>
                 </div>
               );
             })}
@@ -699,7 +699,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
           return (
             <div key={stage}>
               <div className="grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-paper">
-                <div className="px-4 py-1.5 text-[11.5px] font-bold uppercase tracking-wider text-mk-muted">{stage}</div>
+                <div className="px-4 py-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-muted">{stage}</div>
                 <div />
               </div>
               {items.map((item) => (
@@ -707,8 +707,8 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
                   <div className="flex items-center gap-1 px-4 py-3">
                     {/* label click = view/edit */}
                     <button type="button" onClick={() => onEditItem(item)} title="查看 / 修改任务" className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                      <span className={`flex-none rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
-                      <span className="truncate text-[13px] font-medium text-mk-ink hover:text-mk-accent">{item.title.replace(/^[读写省]：/, "")}</span>
+                      <span className={`flex-none rounded px-1.5 py-0.5 text-[12px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
+                      <span className="truncate text-[14px] font-medium text-mk-ink hover:text-mk-accent">{item.title.replace(/^[读写省]：/, "")}</span>
                     </button>
                   </div>
                   <div data-track className="relative h-11">
@@ -734,7 +734,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
         })}
         {/* #3 — add a task straight from the Gantt (Kanban already has one) */}
         <div className="grid grid-cols-[240px,1fr] border-b border-mk-border">
-          <button type="button" onClick={onAddTask} className="px-4 py-2.5 text-left text-[12.5px] font-semibold text-mk-faint hover:text-mk-accent">+ 添加任务</button>
+          <button type="button" onClick={onAddTask} className="px-4 py-2.5 text-left text-[14px] font-semibold text-mk-faint hover:text-mk-accent">+ 添加任务</button>
           <div />
         </div>
       </div>
@@ -776,7 +776,7 @@ function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedu
       className={`absolute top-1/2 flex h-6 -translate-y-1/2 cursor-grab items-center rounded-md ${TAG_BAR[item.tag]} ${dim} select-none active:cursor-grabbing`}
       style={{ left: `calc(${(item.start / TIMELINE_DAYS) * 100}% + 3px)`, width: `calc(${(item.days / TIMELINE_DAYS) * 100}% - 6px)` }}
     >
-      <span className="pointer-events-none flex-1 truncate px-2 text-[11px] font-bold leading-6 text-white">
+      <span className="pointer-events-none flex-1 truncate px-2 text-[12px] font-bold leading-6 text-white">
         {item.column === "done" ? "✓ " : ""}{item.days}天
       </span>
       {/* resize handle */}
@@ -824,11 +824,11 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
     <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface">
         {log === null ? (
-          <div className="flex h-full items-center justify-center py-16 text-[13px] text-mk-faint">加载中…</div>
+          <div className="flex h-full items-center justify-center py-16 text-[14px] text-mk-faint">加载中…</div>
         ) : rows.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
             <p className="text-[14px] font-semibold text-mk-ink">还没有记录</p>
-            <p className="text-[12.5px] text-mk-faint">你在项目里做的事会自动记下——也可以现在补一笔。</p>
+            <p className="text-[14px] text-mk-faint">你在项目里做的事会自动记下——也可以现在补一笔。</p>
           </div>
         ) : (
           // #5 — one box per date; each date's lines keep their 自动/我记的 tag.
@@ -839,8 +839,8 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
                 <div className="flex flex-col">
                   {g.entries.map((e, i) => (
                     <div key={e.id} className={`flex items-start gap-3 px-4 py-2.5 ${i < g.entries.length - 1 ? "border-b border-mk-border/60" : ""}`}>
-                      <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{e.text}</p>
-                      <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[10.5px] font-bold ${e.source === "auto" ? "bg-mk-accent-50 text-mk-accent" : "bg-mk-success-bg text-mk-success"}`}>
+                      <p className="flex-1 text-[14px] leading-relaxed text-mk-ink">{e.text}</p>
+                      <span className={`flex-none self-start rounded-full px-2 py-0.5 text-[12px] font-bold ${e.source === "auto" ? "bg-mk-accent-50 text-mk-accent" : "bg-mk-success-bg text-mk-success"}`}>
                         {e.source === "auto" ? "自动" : "我记的"}
                       </span>
                     </div>
@@ -852,11 +852,11 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
         )}
       </div>
       <div className="mt-3 flex items-end gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-2.5">
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-faint" />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }} placeholder="补一笔：今天做了什么、想到什么……" className="flex-1 bg-transparent px-2 py-1.5 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint" />
         <button
           type="button"
           onClick={submit}
-          className="rounded-mk-md bg-mk-accent px-3.5 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600"
+          className="rounded-mk-md bg-mk-accent px-3.5 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600"
         >
           记一笔
         </button>
@@ -912,31 +912,31 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
         </div>
         <div className="flex flex-col gap-4 px-5 py-4">
           <label className="block">
-            <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">任务</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
+            <span className="mb-1 block text-[12px] font-bold text-mk-faint">任务</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
           </label>
 
           <div>
-            <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">类别</span>
+            <span className="mb-1 block text-[12px] font-bold text-mk-faint">类别</span>
             <div className="flex gap-2">
               {tags.map((t) => (
-                <button key={t} type="button" onClick={() => setTag(t)} className={`rounded-mk-md px-3 py-1.5 text-[12.5px] font-bold transition ${tag === t ? TAG_STYLE[t] + " ring-2 ring-mk-accent/40" : "bg-mk-paper text-mk-faint hover:text-mk-muted"}`}>{TAG_LABEL[t]}</button>
+                <button key={t} type="button" onClick={() => setTag(t)} className={`rounded-mk-md px-3 py-1.5 text-[14px] font-bold transition ${tag === t ? TAG_STYLE[t] + " ring-2 ring-mk-accent/40" : "bg-mk-paper text-mk-faint hover:text-mk-muted"}`}>{TAG_LABEL[t]}</button>
               ))}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">阶段</span>
-              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-accent">
+              <span className="mb-1 block text-[12px] font-bold text-mk-faint">阶段</span>
+              <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent">
                 {(stageOptions.includes(stage) ? stageOptions : [stage, ...stageOptions]).map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">状态</span>
-              <select value={column} onChange={(e) => setColumn(e.target.value as PlanColumn)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[13px] text-mk-ink outline-none focus:border-mk-accent">
+              <span className="mb-1 block text-[12px] font-bold text-mk-faint">状态</span>
+              <select value={column} onChange={(e) => setColumn(e.target.value as PlanColumn)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-2 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent">
                 {COLUMNS.map((c) => (<option key={c} value={c}>{COLUMN_LABEL[c]}</option>))}
               </select>
             </label>
@@ -944,20 +944,20 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">开始（第几天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
+              <span className="mb-1 block text-[12px] font-bold text-mk-faint">开始（第几天）</span>
+              <input type="number" min={1} max={TIMELINE_DAYS} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11.5px] font-bold text-mk-faint">持续（天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent" />
+              <span className="mb-1 block text-[12px] font-bold text-mk-faint">持续（天）</span>
+              <input type="number" min={1} max={TIMELINE_DAYS} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
           </div>
         </div>
         <div className="flex items-center justify-between border-t border-mk-border px-5 py-3.5">
-          <button type="button" onClick={onDelete} className="rounded-mk-md px-3 py-2 text-[13px] font-semibold text-mk-accent hover:bg-mk-accent-50">删除任务</button>
+          <button type="button" onClick={onDelete} className="rounded-mk-md px-3 py-2 text-[14px] font-semibold text-mk-accent hover:bg-mk-accent-50">删除任务</button>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
-            <button type="button" onClick={save} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">保存</button>
+            <button type="button" onClick={onClose} className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
+            <button type="button" onClick={save} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600">保存</button>
           </div>
         </div>
       </div>

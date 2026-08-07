@@ -48,7 +48,7 @@ export function PlanSpine({ items }: { items: PlanItem[] }) {
   return (
     <div
       title="你在计划的这一步"
-      className="flex min-w-0 items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px]"
+      className="flex min-w-0 items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px]"
     >
       <span className="shrink-0 font-bold text-mk-faint">计划</span>
       <span className="flex min-w-0 items-center gap-1">

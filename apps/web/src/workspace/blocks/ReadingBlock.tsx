@@ -526,7 +526,7 @@ export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "gra
           {m === "graph" && signal > 0 && (
             <span
               title={`${signal} 条线索待追 / 悬空来源`}
-              className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-mk-accent px-1 text-[10px] font-bold leading-4 text-white"
+              className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-mk-accent px-1 text-[12px] font-bold leading-4 text-white"
             >
               {signal}
             </span>
@@ -596,7 +596,7 @@ function CollectionsRail(props: {
   return (
     <aside className="flex min-h-0 flex-col border-r border-mk-border bg-mk-surface">
       <div className="flex items-center justify-between px-3 pt-3">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-mk-faint">文献库</span>
+        <span className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">文献库</span>
         <button type="button" onClick={onToggle} title="收起合集" className="flex h-6 w-6 items-center justify-center rounded text-mk-faint hover:bg-mk-paper hover:text-mk-accent">
           <Chevron dir="left" />
         </button>
@@ -604,7 +604,7 @@ function CollectionsRail(props: {
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
         <CollRow label="全部文献" count={total} active={collId === "all"} onClick={() => onPick("all")} icon="reading" {...dropProps("all")} />
         <div className="mt-3 mb-1.5 flex items-center justify-between px-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-mk-faint">我的合集</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">我的合集</span>
           <button type="button" onClick={() => setCreating(true)} className="text-[15px] leading-none text-mk-faint hover:text-mk-accent">+</button>
         </div>
         {creating && (
@@ -616,7 +616,7 @@ function CollectionsRail(props: {
               onKeyDown={(e) => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") { setNewName(""); setCreating(false); } }}
               onBlur={commitNew}
               placeholder="合集名称"
-              className="w-full rounded-mk border border-mk-accent/40 bg-mk-surface px-2 py-1 text-[12.5px] text-mk-ink outline-none placeholder:text-mk-faint"
+              className="w-full rounded-mk border border-mk-accent/40 bg-mk-surface px-2 py-1 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint"
             />
           </div>
         )}
@@ -642,21 +642,21 @@ function CollectionsRail(props: {
           );
         })}
 
-        <div className="mt-4 mb-1.5 px-2 text-[11px] font-bold uppercase tracking-wider text-mk-faint">标签</div>
+        <div className="mt-4 mb-1.5 px-2 text-[12px] font-bold uppercase tracking-wider text-mk-faint">标签</div>
         <div className="flex flex-wrap gap-1.5 px-1.5">
           {tags.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => onTag(activeTag === t ? null : t)}
-              className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold transition ${activeTag === t ? "bg-mk-accent text-white" : "bg-mk-paper text-mk-muted hover:text-mk-accent"}`}
+              className={`rounded-full px-2 py-0.5 text-[12px] font-semibold transition ${activeTag === t ? "bg-mk-accent text-white" : "bg-mk-paper text-mk-muted hover:text-mk-accent"}`}
             >
               {t}
             </button>
           ))}
         </div>
       </div>
-      <div className="border-t border-mk-border px-4 py-2.5 text-[11px] text-mk-faint">把文献拖到合集上归类</div>
+      <div className="border-t border-mk-border px-4 py-2.5 text-[12px] text-mk-faint">把文献拖到合集上归类</div>
     </aside>
   );
 }
@@ -682,8 +682,8 @@ function CollRow({ label, count, active, onClick, folder, indent, icon, caret, o
       )}
       <button type="button" onClick={onClick} className="flex flex-1 items-center gap-2 py-1.5 text-left">
         <span className={active ? "text-mk-accent" : "text-mk-faint"}>{icon ? <Icon name={icon} size={15} /> : <FolderGlyph />}</span>
-        <span className={`flex-1 truncate text-[13px] font-semibold ${active ? "text-mk-accent" : "text-mk-ink"}`}>{label}</span>
-        <span className="text-[11px] font-semibold text-mk-faint">{count}</span>
+        <span className={`flex-1 truncate text-[14px] font-semibold ${active ? "text-mk-accent" : "text-mk-ink"}`}>{label}</span>
+        <span className="text-[12px] font-semibold text-mk-faint">{count}</span>
       </button>
     </div>
   );
@@ -730,22 +730,22 @@ function RefTable(props: {
         <div className="flex items-baseline gap-2">
           <h2 className="font-sans text-[16px] font-bold text-mk-ink">{collName}</h2>
           <span className="text-[12px] font-semibold text-mk-faint">{rows.length} 篇</span>
-          {activeTag && <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[11px] font-bold text-mk-accent">#{activeTag}</span>}
+          {activeTag && <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">#{activeTag}</span>}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => onExportBib()} className="rounded-full border border-mk-border px-3 py-1.5 text-[12.5px] font-bold text-mk-muted hover:text-mk-accent">导出注释书目</button>
-          <button type="button" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
+          <button type="button" onClick={() => onExportBib()} className="rounded-full border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-muted hover:text-mk-accent">导出注释书目</button>
+          <button type="button" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
         </div>
       </header>
 
       {/* batch bar */}
       {nChecked > 0 && (
         <div className="flex items-center gap-3 border-b border-mk-border bg-mk-accent-50 px-5 py-2">
-          <span className="text-[13px] font-bold text-mk-accent">已选 {nChecked} 篇</span>
-          <button type="button" onClick={() => onExportBib(checked)} className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12.5px] font-bold text-white">导出注释书目</button>
-          <button type="button" className="rounded-mk border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12.5px] font-bold text-mk-accent">导出参考文献</button>
-          <button type="button" className="rounded-mk border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12.5px] font-bold text-mk-accent">加入合集</button>
-          <button type="button" onClick={onClearChecks} className="ml-auto text-[12.5px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
+          <span className="text-[14px] font-bold text-mk-accent">已选 {nChecked} 篇</span>
+          <button type="button" onClick={() => onExportBib(checked)} className="rounded-mk bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white">导出注释书目</button>
+          <button type="button" className="rounded-mk border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[14px] font-bold text-mk-accent">导出参考文献</button>
+          <button type="button" className="rounded-mk border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[14px] font-bold text-mk-accent">加入合集</button>
+          <button type="button" onClick={onClearChecks} className="ml-auto text-[14px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
         </div>
       )}
 
@@ -755,7 +755,7 @@ function RefTable(props: {
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="min-w-[640px]">
           {/* column header — sticky so it stays put while the list scrolls */}
-          <div className="sticky top-0 z-10 grid grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border bg-mk-surface px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-mk-faint">
+          <div className="sticky top-0 z-10 grid grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border bg-mk-surface px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-mk-faint">
             <span />
             <span>标题</span>
             <span>来源 · 日期</span>
@@ -786,7 +786,7 @@ function PhaseTagPicker({ value, onChange }: { value: PhaseTag | null; onChange:
       draggable={false}
       aria-label="用于哪个阶段"
       title="标注：这条来源用在哪个阶段"
-      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold outline-none ${value ? "bg-mk-accent-50 text-mk-accent" : "bg-mk-paper text-mk-faint"}`}
+      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[12px] font-bold outline-none ${value ? "bg-mk-accent-50 text-mk-accent" : "bg-mk-paper text-mk-faint"}`}
     >
       <option value="">＋阶段</option>
       {PHASE_OPTIONS.map((p) => (<option key={p} value={p}>{p}</option>))}
@@ -808,7 +808,7 @@ function ReadingStatusPicker({ value, onChange }: { value: Reference["readingSta
       draggable={false}
       aria-label="阅读状态"
       title="标注：这条来源读到哪了"
-      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-bold outline-none ${READING_STATUS_STYLE[value]}`}
+      className={`flex-none cursor-pointer rounded px-1.5 py-0.5 text-[12px] font-bold outline-none ${READING_STATUS_STYLE[value]}`}
     >
       {(["to_read", "reading", "done"] as const).map((s) => (
         <option key={s} value={s}>{READING_STATUS_LABEL[s]}</option>
@@ -832,18 +832,18 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase, onSetStatus }:
       className={`grid cursor-grab grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border px-5 py-2.5 transition active:cursor-grabbing ${active ? "bg-mk-accent-50" : "hover:bg-mk-paper"}`}
     >
       <button type="button" onClick={onCheck} className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? "border-mk-accent bg-mk-accent text-white" : "border-mk-input-border bg-mk-surface"}`}>
-        {checked && <span className="text-[10px] leading-none">✓</span>}
+        {checked && <span className="text-[12px] leading-none">✓</span>}
       </button>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${r.pending ? "bg-mk-accent" : hasRead ? "bg-mk-success" : "border border-mk-faint"}`} />
-            <span className={`truncate text-[13.5px] font-semibold ${active ? "text-mk-accent" : "text-mk-ink"}`}>{r.title}</span>
+            <span className={`truncate text-[14px] font-semibold ${active ? "text-mk-accent" : "text-mk-ink"}`}>{r.title}</span>
           </button>
-          {r.pending && <span className="flex-none rounded bg-mk-accent-50 px-1.5 py-0.5 text-[10px] font-bold text-mk-accent">待找</span>}
+          {r.pending && <span className="flex-none rounded bg-mk-accent-50 px-1.5 py-0.5 text-[12px] font-bold text-mk-accent">待找</span>}
           {readingBadge && (
             <span
-              className={`flex-none rounded px-1.5 py-0.5 text-[10px] font-bold ${
+              className={`flex-none rounded px-1.5 py-0.5 text-[12px] font-bold ${
                 readingBadge === "已归纳"
                   ? "bg-mk-success-bg text-mk-success"
                   : readingBadge === "在读"
@@ -861,13 +861,13 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase, onSetStatus }:
           <ReadingStatusPicker value={r.readingStatus} onChange={onSetStatus} />
         </div>
         <button type="button" onClick={onSelect} className="mt-0.5 flex gap-1 pl-3 text-left">
-          {r.tags.map((t) => (<span key={t} className="text-[10.5px] text-mk-faint">#{t}</span>))}
+          {r.tags.map((t) => (<span key={t} className="text-[12px] text-mk-faint">#{t}</span>))}
         </button>
       </div>
       <button type="button" onClick={onSelect} className="truncate text-left text-[12px] text-mk-muted">{r.classification || "—"}{r.year ? ` · ${r.year}` : ""}</button>
       <button type="button" onClick={onSelect} className="text-center text-[12px] font-semibold text-mk-faint">{r.notes.length > 0 ? `✎ ${r.notes.length}` : "—"}</button>
       <button type="button" onClick={onSelect} className="text-left">
-        {r.credibility ? <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-bold ${CRED_STYLE[r.credibility]}`}>{CRED_LABEL[r.credibility]}</span> : <span className="text-[11px] text-mk-faint">—</span>}
+        {r.credibility ? <span className={`rounded px-1.5 py-0.5 text-[12px] font-bold ${CRED_STYLE[r.credibility]}`}>{CRED_LABEL[r.credibility]}</span> : <span className="text-[12px] text-mk-faint">—</span>}
       </button>
     </div>
   );
@@ -953,13 +953,13 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
   if (r.pending) {
     return (
       <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
-        <span className="w-fit rounded-full bg-mk-accent-50 px-2.5 py-1 text-[11px] font-bold text-mk-accent">还没找到 · 待补充</span>
+        <span className="w-fit rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">还没找到 · 待补充</span>
         <h1 className="mt-3 font-sans text-[16px] font-bold leading-snug text-mk-ink">{r.title}</h1>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-mk-muted">印记不替你搜，但能帮你搜得更准：</p>
+        <p className="mt-2 text-[14px] leading-relaxed text-mk-muted">印记不替你搜，但能帮你搜得更准：</p>
         <ul className="mt-3 flex flex-col gap-2">
           {r.searchHints?.map((h, i) => (
-            <li key={i} className="flex gap-2 text-[12.5px] leading-relaxed text-mk-ink">
-              <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-mk-accent-50 text-[10px] font-bold text-mk-accent">{i + 1}</span>
+            <li key={i} className="flex gap-2 text-[14px] leading-relaxed text-mk-ink">
+              <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-mk-accent-50 text-[12px] font-bold text-mk-accent">{i + 1}</span>
               {h}
             </li>
           ))}
@@ -970,9 +970,9 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
             onChange={(e) => setPendingUrl(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && pendingUrl.trim()) { onPatchNow({ url: pendingUrl.trim(), pending: false }); setPendingUrl(""); } }}
             placeholder="找到了？粘链接……"
-            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-faint"
+            className="flex-1 bg-transparent text-[14px] text-mk-ink outline-none placeholder:text-mk-faint"
           />
-          <button type="button" onClick={() => { if (pendingUrl.trim()) { onPatchNow({ url: pendingUrl.trim(), pending: false }); setPendingUrl(""); } }} className="rounded bg-mk-accent px-2.5 py-1 text-[11.5px] font-bold text-white">添加</button>
+          <button type="button" onClick={() => { if (pendingUrl.trim()) { onPatchNow({ url: pendingUrl.trim(), pending: false }); setPendingUrl(""); } }} className="rounded bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white">添加</button>
         </div>
       </aside>
     );
@@ -998,7 +998,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       {/* A7 · 待读/在读/读完 shelf status — adopting a paper from 探索 sets this
           to 在读 automatically server-side; editable here too. */}
       <div className="mt-3">
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-faint">阅读状态</p>
+        <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-faint">阅读状态</p>
         <div className="flex gap-1.5">
           {(["to_read", "reading", "done"] as const).map((s) => {
             const on = r.readingStatus === s;
@@ -1007,7 +1007,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
                 key={s}
                 type="button"
                 onClick={() => onPatchNow({ readingStatus: s })}
-                className={`flex-1 rounded-mk border py-1.5 text-[12.5px] font-bold transition ${on ? `${READING_STATUS_STYLE[s]} border-transparent` : "border-mk-border bg-mk-surface text-mk-faint hover:text-mk-ink"}`}
+                className={`flex-1 rounded-mk border py-1.5 text-[14px] font-bold transition ${on ? `${READING_STATUS_STYLE[s]} border-transparent` : "border-mk-border bg-mk-surface text-mk-faint hover:text-mk-ink"}`}
               >
                 {READING_STATUS_LABEL[s]}
               </button>
@@ -1032,20 +1032,20 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       {/* #4 · recovered abstract (from a DOI via Crossref) — collapsible context. */}
       {r.abstract?.trim() && (
         <details className="mt-3 rounded-mk border border-mk-border bg-mk-paper p-3">
-          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-mk-faint">摘要</summary>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-mk-ink">{r.abstract}</p>
+          <summary className="cursor-pointer text-[12px] font-bold uppercase tracking-wider text-mk-faint">摘要</summary>
+          <p className="mt-2 text-[14px] leading-relaxed text-mk-ink">{r.abstract}</p>
         </details>
       )}
 
       {/* Author credentials — annotated-bib field */}
       <div className="mt-3">
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-mk-faint">作者资历</p>
+        <p className="mb-1 text-[12px] font-bold uppercase tracking-wider text-mk-faint">作者资历</p>
         <textarea
           value={r.credentials}
           onChange={(e) => onPatchDebounced({ credentials: e.target.value })}
           rows={2}
           placeholder="作者是谁、有什么资历？（注释书目要用）"
-          className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1.5 text-[12.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+          className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1.5 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
         />
       </div>
 
@@ -1053,13 +1053,13 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
 
       {/* Should I use this resource? — annotated-bib verdict */}
       <div className="mt-4">
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-faint">是否采用</p>
+        <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-faint">是否采用</p>
         <div className="flex gap-1.5">
           {(["use", "maybe", "drop"] as const).map((d) => {
             const on = r.decision === d;
             const tone = d === "use" ? "bg-mk-success text-white border-mk-success" : d === "maybe" ? "bg-mk-accent text-white border-mk-accent" : "bg-mk-muted text-white border-mk-muted";
             return (
-              <button key={d} type="button" onClick={() => onPatchNow({ decision: on ? null : d })} className={`flex-1 rounded-mk border py-1.5 text-[12.5px] font-bold transition ${on ? tone : "border-mk-border bg-mk-surface text-mk-faint hover:text-mk-ink"}`}>
+              <button key={d} type="button" onClick={() => onPatchNow({ decision: on ? null : d })} className={`flex-1 rounded-mk border py-1.5 text-[14px] font-bold transition ${on ? tone : "border-mk-border bg-mk-surface text-mk-faint hover:text-mk-ink"}`}>
                 {DECISION_LABEL[d]}
               </button>
             );
@@ -1069,12 +1069,12 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
 
       {/* Reliability evaluation — credibility selector + editable notes */}
       <div className="mt-4 rounded-mk border border-mk-border bg-mk-paper p-3">
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-faint">可信度评估</p>
+        <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-faint">可信度评估</p>
         <div className="mb-2 flex gap-1.5">
           {(["strong", "mixed", "weak"] as const).map((c) => {
             const on = r.credibility === c;
             return (
-              <button key={c} type="button" onClick={() => onPatchNow({ credibility: on ? null : c })} className={`flex-1 rounded px-1.5 py-1 text-[11px] font-bold transition ${on ? CRED_STYLE[c] : "bg-mk-surface text-mk-faint hover:text-mk-ink"}`}>
+              <button key={c} type="button" onClick={() => onPatchNow({ credibility: on ? null : c })} className={`flex-1 rounded px-1.5 py-1 text-[12px] font-bold transition ${on ? CRED_STYLE[c] : "bg-mk-surface text-mk-faint hover:text-mk-ink"}`}>
                 {CRED_LABEL[c]}
               </button>
             );
@@ -1095,7 +1095,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
           work, newLeads/proposalImpact are her authored synthesis. */}
       {r.takeaway ? (
         <div className="mt-4 rounded-mk border border-mk-success/40 bg-mk-success-bg p-3">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-success">已归纳 · 阅读成果</p>
+          <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-success">已归纳 · 阅读成果</p>
           {r.takeaway.findings.length > 0 && (
             <ul className="mb-2 list-disc space-y-1 pl-4 text-[12px] leading-relaxed text-mk-ink">
               {r.takeaway.findings.map((f, i) => (<li key={i}>{f}</li>))}
@@ -1124,7 +1124,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       ) : (
         r.notes.length > 0 && (
           <div className="mt-4">
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-faint">阅读笔记 · {r.notes.length}</p>
+            <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-faint">阅读笔记 · {r.notes.length}</p>
             <div className="flex flex-col gap-2">
               {r.notes.map((n, i) => (
                 <p key={i} className="border-l-2 border-mk-accent pl-2 text-[12px] leading-relaxed text-mk-ink">{n.finding}</p>
@@ -1135,37 +1135,37 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       )}
 
       <div className="mt-5 flex flex-col gap-2">
-        <button type="button" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[13.5px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
+        <button type="button" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
           {entering ? "打开中…" : <>进入阅读室 <Icon name="arrow" size={15} /></>}
         </button>
         {enterNote ? (
-          <p className="text-center text-[11px] font-semibold text-mk-accent">{enterNote}</p>
+          <p className="text-center text-[12px] font-semibold text-mk-accent">{enterNote}</p>
         ) : (
-          <p className="text-center text-[11px] text-mk-faint">和印记逐句共读（已上线的阅读室）</p>
+          <p className="text-center text-[12px] text-mk-faint">和印记逐句共读（已上线的阅读室）</p>
         )}
 
         {showPaste && (
           <div className="mt-1 rounded-mk border border-mk-border bg-mk-paper p-3">
-            <p className="text-[12.5px] font-bold text-mk-ink">取不到正文？把文章正文粘进来</p>
+            <p className="text-[14px] font-bold text-mk-ink">取不到正文？把文章正文粘进来</p>
             {/* #4 · what Crossref recovered for a DOI, even without the full text */}
             {pasteMeta && (pasteMeta.title || pasteMeta.author || pasteMeta.abstract) ? (
               <div className="mt-2 rounded-mk border border-mk-accent/25 bg-mk-accent-50 p-2.5">
-                <p className="text-[11px] font-bold text-mk-accent">已从 DOI 取到这篇的信息（正文仍需你粘贴）</p>
-                {pasteMeta.title && <p className="mt-1 text-[12.5px] font-semibold leading-relaxed text-mk-ink">{pasteMeta.title}</p>}
+                <p className="text-[12px] font-bold text-mk-accent">已从 DOI 取到这篇的信息（正文仍需你粘贴）</p>
+                {pasteMeta.title && <p className="mt-1 text-[14px] font-semibold leading-relaxed text-mk-ink">{pasteMeta.title}</p>}
                 {(pasteMeta.author || pasteMeta.year || pasteMeta.journal) && (
-                  <p className="mt-0.5 text-[11.5px] text-mk-faint">
+                  <p className="mt-0.5 text-[12px] text-mk-faint">
                     {[pasteMeta.author, pasteMeta.year, pasteMeta.journal].filter(Boolean).join(" · ")}
                   </p>
                 )}
                 {pasteMeta.abstract && (
                   <details className="mt-1.5">
-                    <summary className="cursor-pointer text-[11.5px] font-semibold text-mk-accent">摘要</summary>
+                    <summary className="cursor-pointer text-[12px] font-semibold text-mk-accent">摘要</summary>
                     <p className="mt-1 max-h-40 overflow-y-auto text-[12px] leading-relaxed text-mk-ink">{pasteMeta.abstract}</p>
                   </details>
                 )}
               </div>
             ) : (
-              <p className="mt-1 text-[11.5px] leading-relaxed text-mk-faint">有些链接抓不到正文（网站限制 / 网络问题）。把正文复制粘进来，就能和印记逐句共读。</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-mk-faint">有些链接抓不到正文（网站限制 / 网络问题）。把正文复制粘进来，就能和印记逐句共读。</p>
             )}
             <textarea
               value={pasteText}
@@ -1178,11 +1178,11 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
               type="button"
               onClick={startPaste}
               disabled={pasteBusy || !pasteText.trim()}
-              className="mt-2 w-full rounded-mk bg-mk-accent py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+              className="mt-2 w-full rounded-mk bg-mk-accent py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
             >
               {pasteBusy ? "开始中…" : "开始共读"}
             </button>
-            {pasteError && <p className="mt-1.5 text-center text-[11px] font-semibold text-mk-accent">{pasteError}</p>}
+            {pasteError && <p className="mt-1.5 text-center text-[12px] font-semibold text-mk-accent">{pasteError}</p>}
           </div>
         )}
       </div>
@@ -1198,10 +1198,10 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
   const suggestions = allTags.filter((t) => !tags.includes(t) && t.includes(val)).slice(0, 6);
   return (
     <div className="mt-3">
-      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-mk-faint">标签</p>
+      <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wider text-mk-faint">标签</p>
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((t) => (
-          <span key={t} className="group flex items-center gap-1 rounded-full bg-mk-accent-50 px-2 py-0.5 text-[11px] font-semibold text-mk-accent">
+          <span key={t} className="group flex items-center gap-1 rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-semibold text-mk-accent">
             #{t}
             <button type="button" onClick={() => onRemove(t)} className="text-mk-accent/50 hover:text-mk-accent">×</button>
           </span>
@@ -1215,7 +1215,7 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
               onKeyDown={(e) => { if (e.key === "Enter" && val.trim()) { onAdd(val); setVal(""); } if (e.key === "Escape") { setEditing(false); setVal(""); } }}
               onBlur={() => { if (val.trim()) onAdd(val); setEditing(false); setVal(""); }}
               placeholder="输入后回车"
-              className="w-24 rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[11px] text-mk-ink outline-none"
+              className="w-24 rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[12px] text-mk-ink outline-none"
             />
             {val && suggestions.length > 0 && (
               <div className="absolute left-0 top-7 z-10 w-40 rounded-mk border border-mk-border bg-mk-surface p-1 shadow-lg">
@@ -1226,7 +1226,7 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
             )}
           </span>
         ) : (
-          <button type="button" onClick={() => setEditing(true)} className="rounded-full border border-dashed border-mk-input-border px-2 py-0.5 text-[11px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">+ 标签</button>
+          <button type="button" onClick={() => setEditing(true)} className="rounded-full border border-dashed border-mk-input-border px-2 py-0.5 text-[12px] font-semibold text-mk-faint hover:border-mk-accent hover:text-mk-accent">+ 标签</button>
         )}
       </div>
     </div>
@@ -1279,14 +1279,14 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onP
 
         {tab === "link" && (
           <div>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…  或  10.1038/s41893-…" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…  或  10.1038/s41893-…" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2.5 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
             <p className="mt-1.5 text-[12px] text-mk-faint">印记会抓取标题、作者、日期——你可以再改。</p>
           </div>
         )}
         {tab === "paste" && (
           <div className="space-y-2">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="来源标题（可留空）" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[13px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
-            <textarea value={pasteBody} onChange={(e) => setPasteBody(e.target.value)} rows={6} placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……" className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[12.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="来源标题（可留空）" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
+            <textarea value={pasteBody} onChange={(e) => setPasteBody(e.target.value)} rows={6} placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……" className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
             <p className="text-[12px] text-mk-faint">链接抓不到正文时用这个——粘完就打开阅读室。</p>
           </div>
         )}
@@ -1295,26 +1295,26 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onP
             <input ref={fileInput} type="file" className="hidden" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
             <button type="button" onClick={() => fileInput.current?.click()} className="flex w-full flex-col items-center gap-1.5 rounded-mk border border-dashed border-mk-input-border bg-mk-surface px-4 py-8 text-center hover:border-mk-accent">
               <span className="text-mk-accent"><Icon name="reading" size={22} /></span>
-              <span className="text-[13px] font-bold text-mk-ink">{fileName || "把 PDF / 文档拖到这里"}</span>
+              <span className="text-[14px] font-bold text-mk-ink">{fileName || "把 PDF / 文档拖到这里"}</span>
               <span className="text-[12px] text-mk-faint">{fileName ? "点击重新选择" : "或点击选择文件"}</span>
             </button>
           </div>
         )}
         {tab === "manual" && (
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="来源标题" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2.5 text-[13.5px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="来源标题" className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2.5 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent" />
         )}
 
         <div className="mt-4">
-          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-mk-faint">放进合集</label>
-          <select value={coll} onChange={(e) => setColl(e.target.value)} className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] text-mk-ink outline-none focus:border-mk-accent">
+          <label className="mb-1.5 block text-[12px] font-bold uppercase tracking-wider text-mk-faint">放进合集</label>
+          <select value={coll} onChange={(e) => setColl(e.target.value)} className="w-full rounded-mk border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent">
             <option value="">未归类</option>
             {collections.map((c) => (<option key={c.id} value={c.id}>{c.parentId ? "— " : ""}{c.name}</option>))}
           </select>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
-          <button type="button" onClick={submit} disabled={tab === "paste" && (pasting || !pasteBody.trim())} className="rounded-mk bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">{tab === "paste" ? (pasting ? "打开中…" : "开始共读") : "添加"}</button>
+          <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
+          <button type="button" onClick={submit} disabled={tab === "paste" && (pasting || !pasteBody.trim())} className="rounded-mk bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">{tab === "paste" ? (pasting ? "打开中…" : "开始共读") : "添加"}</button>
         </div>
       </div>
     </div>
@@ -1324,7 +1324,7 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onP
 // An inline-editable metadata row — reads as text until you focus it.
 function MetaEdit({ k, v, onChange, placeholder }: { k: string; v: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div className="flex items-center gap-2 text-[12.5px]">
+    <div className="flex items-center gap-2 text-[14px]">
       <span className="w-10 flex-none font-semibold text-mk-faint">{k}</span>
       <input
         value={v === "—" ? "" : v}
@@ -1356,7 +1356,7 @@ function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
       </p>
       <div className="mt-6 flex items-center gap-3">
         <button type="button" onClick={onAdd} className="rounded-mk bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加第一篇来源</button>
-        <span className="text-[13px] text-mk-faint">或从「项目管理」里点一个「读」任务进来</span>
+        <span className="text-[14px] text-mk-faint">或从「项目管理」里点一个「读」任务进来</span>
       </div>
     </div>
   );

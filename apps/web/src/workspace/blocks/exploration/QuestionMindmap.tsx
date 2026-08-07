@@ -87,7 +87,7 @@ function MindmapNodeView({ id, data }: NodeProps) {
         type="button"
         aria-label="删除这个节点"
         title="删除"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[14px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: d.theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -267,8 +267,8 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
             className="w-80 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-[13.5px] font-bold text-mk-ink">{deletingRoot ? "删除这个问题？" : "删除这一项？"}</p>
-            {deleteTarget.text && <p className="mt-1 text-[12.5px] text-mk-muted line-clamp-2">「{deleteTarget.text}」</p>}
+            <p className="text-[14px] font-bold text-mk-ink">{deletingRoot ? "删除这个问题？" : "删除这一项？"}</p>
+            {deleteTarget.text && <p className="mt-1 text-[14px] text-mk-muted line-clamp-2">「{deleteTarget.text}」</p>}
             <p className="mt-1.5 text-[12px] leading-relaxed text-mk-faint">
               {deletingRoot
                 ? "下面挖到的论文也会一起移除，这一步不能撤销。"

@@ -23,7 +23,7 @@ export function RecapHint({ text }: { text: string }) {
       <span className="mt-0.5 shrink-0 text-mk-accent">
         <Icon icon={Sparkles} size={14} />
       </span>
-      <p className="text-[12.5px] leading-relaxed text-mk-muted">{text}</p>
+      <p className="text-[14px] leading-relaxed text-mk-muted">{text}</p>
     </div>
   );
 }

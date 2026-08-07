@@ -60,7 +60,7 @@ function PrimaryButton({ onClick, children }: { onClick: () => void; children: R
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-[7px] rounded-mk-sm border border-mk-taro-fg bg-mk-taro-fg px-[15px] py-[9px] font-sans text-[13px] font-bold text-white"
+      className="inline-flex items-center gap-[7px] rounded-mk-sm border border-mk-taro-fg bg-mk-taro-fg px-[15px] py-[9px] font-sans text-[14px] font-bold text-white"
     >
       {children}
     </button>
@@ -95,13 +95,13 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
       <div className="lens-connector" aria-hidden="true" />
       <div className="h-1 bg-mk-taro-fg" />
       <div className="px-[15px] pb-[14px] pt-[12px]">
-        <div className="mb-2 font-sans text-[10.5px] font-bold text-mk-taro-fg">{cardName}</div>
+        <div className="mb-2 font-sans text-[12px] font-bold text-mk-taro-fg">{cardName}</div>
 
         {status === "proposed" && hasExample && (
           <>
             <details className="mb-[10px]">
               <summary className="cursor-pointer font-sans text-[12px] font-semibold text-mk-muted">为什么是这句（方法说明）</summary>
-              <div className="mt-[6px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
+              <div className="mt-[6px] font-sans text-[14px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
             </details>
             <PrimaryButton onClick={onStartPick}>看懂示范，开始选句</PrimaryButton>
             {onSkip && <SkipLink onSkip={onSkip} />}
@@ -110,7 +110,7 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
 
         {status === "proposed" && !hasExample && (
           <>
-            <div className="mb-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
+            <div className="mb-[10px] font-sans text-[14px] leading-[1.6] text-mk-secondary">{exampleWhy}</div>
             <PrimaryButton onClick={onStartPick}>开始选句</PrimaryButton>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
@@ -118,13 +118,13 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
 
         {status === "active" && (
           <>
-            <div className="font-sans text-[13px] leading-[1.6] text-mk-ink">在文章里点出你自己的证据句</div>
+            <div className="font-sans text-[14px] leading-[1.6] text-mk-ink">在文章里点出你自己的证据句</div>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
         )}
 
         {status === "evaluating" && (
-          <div className="font-sans text-[13px] leading-[1.6] text-mk-muted">印记正在看你的选择…</div>
+          <div className="font-sans text-[14px] leading-[1.6] text-mk-muted">印记正在看你的选择…</div>
         )}
 
         {status === "feedback" && selectionEval && (
@@ -138,13 +138,13 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
             >
               {selectionEval.verdictLabel}
             </div>
-            <div className="mb-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-secondary">{selectionEval.verdictReason}</div>
+            <div className="mb-[10px] font-sans text-[14px] leading-[1.6] text-mk-secondary">{selectionEval.verdictReason}</div>
 
             {selectionEval.checks.map((check) => (
               <div key={check.key} className="mb-[6px] flex items-start gap-2">
                 <span
                   className={cx(
-                    "mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full font-sans text-[10px] font-bold",
+                    "mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full font-sans text-[12px] font-bold",
                     CHECK_TONE[check.status].fg,
                     CHECK_TONE[check.status].bg,
                   )}
@@ -158,7 +158,7 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
               </div>
             ))}
 
-            <div className="mb-3 mt-[10px] font-sans text-[12.5px] leading-[1.6] text-mk-ink">{selectionEval.nextStep}</div>
+            <div className="mb-3 mt-[10px] font-sans text-[14px] leading-[1.6] text-mk-ink">{selectionEval.nextStep}</div>
 
             <div className="flex items-center justify-between">
               <button

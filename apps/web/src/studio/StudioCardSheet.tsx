@@ -46,13 +46,13 @@ export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps
       <div className="h-1 bg-mk-accent" />
       <div className="px-[15px] pb-2 pt-3">
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-[10.5px] font-bold text-mk-accent">工具卡</span>
-          <span className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-[10.5px] font-bold text-mk-accent">
+          <span className="text-[12px] font-bold text-mk-accent">工具卡</span>
+          <span className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">
             {spec.category}
           </span>
         </div>
         <div className="text-[14px] font-extrabold text-mk-ink">{spec.name}</div>
-        <div className="mt-[3px] text-[11.5px] leading-relaxed text-mk-faint">{spec.purpose}</div>
+        <div className="mt-[3px] text-[12px] leading-relaxed text-mk-faint">{spec.purpose}</div>
       </div>
 
       <div className="mk-scroll max-h-[360px] overflow-y-auto px-[15px] pb-3 pt-1">
@@ -70,7 +70,7 @@ export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps
         <button
           type="button"
           onClick={handleSubmit}
-          className="inline-flex items-center gap-1.5 rounded-mk-md bg-mk-accent px-4 py-2.5 font-sans text-[12.5px] font-bold text-white transition hover:bg-mk-accent-600"
+          className="inline-flex items-center gap-1.5 rounded-mk-md bg-mk-accent px-4 py-2.5 font-sans text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
         >
           提交并钉到过程树
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

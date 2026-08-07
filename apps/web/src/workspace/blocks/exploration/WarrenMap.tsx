@@ -113,7 +113,7 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
         type="button"
         aria-label="删除这个问题"
         title="删除这个问题"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[14px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -124,7 +124,7 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
       </button>
 
       <span
-        className="text-[13px] font-semibold leading-snug"
+        className="text-[14px] font-semibold leading-snug"
         style={{
           color: theme.label,
           display: "-webkit-box",
@@ -135,7 +135,7 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
       >
         {text}
       </span>
-      <span className="mt-1 text-[10.5px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
+      <span className="mt-1 text-[12px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
     </div>
   );
 }
@@ -182,7 +182,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                 onClick={() => setPickerOpen((o) => !o)}
                 disabled={busy}
                 title="换一个关系词，或删除这条连线"
-                className="whitespace-nowrap rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[10.5px] font-bold text-mk-accent shadow-sm hover:border-mk-accent disabled:opacity-50"
+                className="whitespace-nowrap rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[12px] font-bold text-mk-accent shadow-sm hover:border-mk-accent disabled:opacity-50"
               >
                 {label}
               </button>
@@ -196,7 +196,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                         setPickerOpen(false);
                         onRelabel(id, l);
                       }}
-                      className={`block w-full rounded px-2 py-1 text-left text-[11.5px] font-semibold hover:bg-mk-accent-50 ${
+                      className={`block w-full rounded px-2 py-1 text-left text-[12px] font-semibold hover:bg-mk-accent-50 ${
                         l === label ? "text-mk-accent" : "text-mk-ink"
                       }`}
                     >
@@ -209,7 +209,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                       setPickerOpen(false);
                       onDismiss(id);
                     }}
-                    className="mt-0.5 block w-full rounded border-t border-mk-border px-2 py-1 text-left text-[11.5px] font-semibold text-mk-muted hover:bg-mk-paper hover:text-mk-accent"
+                    className="mt-0.5 block w-full rounded border-t border-mk-border px-2 py-1 text-left text-[12px] font-semibold text-mk-muted hover:bg-mk-paper hover:text-mk-accent"
                   >
                     删除
                   </button>
@@ -221,7 +221,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
             // Taro-colored (spec §18) — visually marks "印记提议" without a
             // separate copy string, distinct from a confirmed relation's chip.
             <div className="flex flex-col items-center gap-1">
-              <span className="whitespace-nowrap rounded-full border border-dashed border-mk-taro/50 bg-mk-taro-bg px-1.5 py-0.5 text-[10px] font-bold text-mk-taro-fg">
+              <span className="whitespace-nowrap rounded-full border border-dashed border-mk-taro/50 bg-mk-taro-bg px-1.5 py-0.5 text-[12px] font-bold text-mk-taro-fg">
                 {label}
               </span>
               <div className="flex items-center gap-1">
@@ -229,7 +229,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                   type="button"
                   onClick={() => onConfirm(id)}
                   disabled={busy}
-                  className="rounded-full bg-mk-success px-2 py-0.5 text-[10px] font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                  className="rounded-full bg-mk-success px-2 py-0.5 text-[12px] font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
                   确认
                 </button>
@@ -237,7 +237,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
                   type="button"
                   onClick={() => onDismiss(id)}
                   disabled={busy}
-                  className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[10px] font-bold text-mk-faint shadow-sm hover:text-mk-accent disabled:opacity-50"
+                  className="rounded-full border border-mk-border bg-mk-surface px-2 py-0.5 text-[12px] font-bold text-mk-faint shadow-sm hover:text-mk-accent disabled:opacity-50"
                 >
                   忽略
                 </button>
@@ -413,14 +413,14 @@ function WarrenMapInner({
           type="button"
           aria-label="这是什么"
           onClick={() => setHelpOpen((o) => !o)}
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[11px] font-bold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-mk-border bg-mk-surface text-[12px] font-bold text-mk-faint hover:border-mk-accent hover:text-mk-accent"
         >
           ?
         </button>
         {dupNote ? (
-          <span className="ml-auto text-[11px] font-semibold text-mk-accent">{dupNote}</span>
+          <span className="ml-auto text-[12px] font-semibold text-mk-accent">{dupNote}</span>
         ) : (
-          <span className="ml-auto text-[11px] text-mk-faint">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
+          <span className="ml-auto text-[12px] text-mk-faint">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
         )}
         {helpOpen && (
           <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-mk border border-mk-border bg-mk-surface p-3 text-[12px] leading-relaxed text-mk-ink shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
@@ -459,7 +459,7 @@ function WarrenMapInner({
               className="w-64 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="mb-2 text-[12.5px] font-bold text-mk-ink">这两个问题是什么关系？</p>
+              <p className="mb-2 text-[14px] font-bold text-mk-ink">这两个问题是什么关系？</p>
               <div className="flex flex-col gap-1">
                 {EDGE_LABELS.map((l) => (
                   <button
@@ -469,7 +469,7 @@ function WarrenMapInner({
                       onCreateEdge(connectPending.from, connectPending.to, l);
                       setConnectPending(null);
                     }}
-                    className="rounded-mk px-2.5 py-1.5 text-left text-[12.5px] font-semibold text-mk-ink hover:bg-mk-accent-50 hover:text-mk-accent"
+                    className="rounded-mk px-2.5 py-1.5 text-left text-[14px] font-semibold text-mk-ink hover:bg-mk-accent-50 hover:text-mk-accent"
                   >
                     {l}
                   </button>
@@ -494,8 +494,8 @@ function WarrenMapInner({
             className="w-80 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-[13.5px] font-bold text-mk-ink">删除这个问题？</p>
-            {deleteText && <p className="mt-1 text-[12.5px] text-mk-muted line-clamp-2">「{deleteText}」</p>}
+            <p className="text-[14px] font-bold text-mk-ink">删除这个问题？</p>
+            {deleteText && <p className="mt-1 text-[14px] text-mk-muted line-clamp-2">「{deleteText}」</p>}
             <p className="mt-1.5 text-[12px] leading-relaxed text-mk-faint">下面挖到的文献也会一起移除，这一步不能撤销。</p>
             <div className="mt-3 flex justify-end gap-2">
               <button

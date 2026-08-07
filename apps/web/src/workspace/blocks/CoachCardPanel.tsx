@@ -127,7 +127,7 @@ export function CoachCardPanel({
           opening a card; tapping one is her choice. */}
       {!openCardId && availableDeck.length > 0 && (
         <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-2">
-          <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[11px] font-bold text-mk-faint">
+          <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[12px] font-bold text-mk-faint">
             <Icon name="spark" size={12} /> 工具卡 · 挑一张想清楚（你填，印记不替你写）
           </p>
           <div className="flex flex-col gap-1.5">
@@ -145,7 +145,7 @@ export function CoachCardPanel({
                   <span aria-hidden="true" className="flex w-full min-w-0 items-center gap-1 text-[12px] font-bold">
                     <span className="shrink-0"><Icon name="spark" size={11} /></span> <span className="truncate">{spec.name}</span>
                   </span>
-                  <span aria-hidden="true" className="w-full truncate text-[11px] font-medium opacity-80">
+                  <span aria-hidden="true" className="w-full truncate text-[12px] font-medium opacity-80">
                     {spec.purpose}
                   </span>
                 </button>

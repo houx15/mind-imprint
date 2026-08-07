@@ -652,7 +652,7 @@ export function ReadingRoom({
                     <button
                       type="button"
                       onClick={() => setNoteOpen((o) => !o)}
-                      className="flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 font-sans text-[13px] font-bold text-mk-taro-fg"
+                      className="flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 font-sans text-[14px] font-bold text-mk-taro-fg"
                     >
                       <span
                         className="transition-transform duration-150 ease-mk"
@@ -670,9 +670,9 @@ export function ReadingRoom({
                           onBlur={() => void saveNote()}
                           placeholder="随手记下你自己的想法、疑问、要引用的点——只属于你，不喂给评估。"
                           rows={4}
-                          className="box-border w-full resize-y rounded-mk-sm border border-mk-taro-bg bg-mk-surface px-3 py-[10px] font-sans text-[13.5px] leading-[1.7] text-mk-ink outline-none"
+                          className="box-border w-full resize-y rounded-mk-sm border border-mk-taro-bg bg-mk-surface px-3 py-[10px] font-sans text-[14px] leading-[1.7] text-mk-ink outline-none"
                         />
-                        <div className="mt-1 h-[14px] font-sans text-[11.5px] text-mk-muted">
+                        <div className="mt-1 h-[14px] font-sans text-[12px] text-mk-muted">
                           {noteSaving ? "保存中…" : noteSavedAt ? "已保存" : "失焦自动保存"}
                         </div>
                       </div>

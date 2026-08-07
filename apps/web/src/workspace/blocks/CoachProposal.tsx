@@ -21,7 +21,7 @@ export function CoachProposal({
   const spec = CARD_REGISTRY[proposal.cardId];
   return (
     <div className="mt-2 rounded-mk-sm border border-mk-accent-200 bg-mk-accent-50 px-3 py-2 text-mk-body text-mk-ink">
-      <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-mk-accent-700">
+      <p className="flex items-center gap-1.5 text-[14px] font-bold text-mk-accent-700">
         <Icon name="spark" size={13} /> {spec?.name ?? proposal.cardId}
       </p>
       <p className="mt-1 leading-relaxed">{proposal.nudgeText}</p>

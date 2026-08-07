@@ -764,7 +764,7 @@ export function WorkspaceContainer({
                 <span className="mt-0.5 text-mk-accent">
                   <Icon name="spark" size={16} />
                 </span>
-                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">
+                <p className="flex-1 text-[14px] leading-relaxed text-mk-ink">
                   刚读完《{carryForward}》——你确认的发现和判断已经带进来了，写作时印记都记得。
                 </p>
                 <button

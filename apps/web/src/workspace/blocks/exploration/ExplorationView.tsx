@@ -547,10 +547,10 @@ export function ExplorationView({
       <div className="min-h-0 flex-1 px-6 pb-5">
         {roots.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
-            <p className="text-[13.5px] font-bold text-mk-ink">这里还是空的</p>
+            <p className="text-[14px] font-bold text-mk-ink">这里还是空的</p>
             {/* Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
                 (no imperative to type one herself; 铁律①: she still confirms). */}
-            <p className="mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-mk-muted">
+            <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-mk-muted">
               聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。
             </p>
           </div>

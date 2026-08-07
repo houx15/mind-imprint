@@ -103,9 +103,9 @@ const SECTION_LABEL: Record<ProposalSection, string> = {
 function NoteConfirmChip({ note, onConfirm, onDismiss }: { note: NoteProposal; onConfirm: () => void; onDismiss: () => void }) {
   const label = SECTION_LABEL[note.section];
   return (
-    <div className="rounded-mk-lg border border-mk-success bg-mk-success-bg px-3.5 py-3 text-[13px] text-mk-ink">
+    <div className="rounded-mk-lg border border-mk-success bg-mk-success-bg px-3.5 py-3 text-[14px] text-mk-ink">
       <p className="font-semibold leading-snug text-mk-success">要不要把这点记进「{label}」？</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{note.value}</p>
+      <p className="mt-1 text-[14px] leading-relaxed text-mk-muted">{note.value}</p>
       <div className="mt-2.5 flex items-center gap-2">
         <button type="button" onClick={onConfirm} className="rounded-full bg-mk-success px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
           记进「{label}」
@@ -132,9 +132,9 @@ function QuestionConfirmChip({
   onDismiss: () => void;
 }) {
   return (
-    <div className="rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3.5 py-3 text-[13px] text-mk-ink">
+    <div className="rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3.5 py-3 text-[14px] text-mk-ink">
       <p className="font-semibold leading-snug text-mk-accent-700">要不要把这个问题加进探索图谱？</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{question.text}</p>
+      <p className="mt-1 text-[14px] leading-relaxed text-mk-muted">{question.text}</p>
       <div className="mt-2.5 flex items-center gap-2">
         <button type="button" onClick={onConfirm} className="rounded-full bg-mk-accent px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
           加入探索图谱
