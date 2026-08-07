@@ -68,6 +68,7 @@ vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-te
 const getWorkspace = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
+  getPlan: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
 }));

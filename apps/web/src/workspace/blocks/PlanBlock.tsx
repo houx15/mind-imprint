@@ -191,6 +191,9 @@ export function PlanBlock({
       setSeedBoard(items);
       setHasBoard(true);
       setPhase("working");
+      // The plan now exists → let the shell refresh so the PlanSpine indicator
+      // (spec §3) appears with the freshly generated stages.
+      refreshWorkspace();
     } catch (e) {
       // 422 proposal_empty → nudge; anything else → a gentle retry hint.
       if (e instanceof ApiError && e.code === "proposal_empty") {

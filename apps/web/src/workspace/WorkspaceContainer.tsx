@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MaterialSource, PhaseTag, WorkspaceProjection } from "@mind-imprint/contracts";
+import type { MaterialSource, PhaseTag, PlanItem, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
@@ -9,8 +9,9 @@ import { Badge, Segmented } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import { getWorkspace, getPlan, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
+import { PlanSpine } from "./blocks/PlanSpine";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
@@ -65,6 +66,9 @@ export function WorkspaceContainer({
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
+  // The project plan's items → the PlanSpine "你在这一步" indicator (spec §3).
+  // Empty until a plan is generated; refreshed alongside the workspace.
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
   // The constant AI panel's side + collapsed state — persisted so it survives
@@ -189,6 +193,12 @@ export function WorkspaceContainer({
     } catch {
       /* keep the last-good projection; the room surfaces its own errors */
     }
+    // Keep the plan spine in sync after a room mutates the plan (generate/edit).
+    getPlan(projectId)
+      .then(setPlanItems)
+      .catch(() => {
+        /* spine is a nicety; a failed refresh keeps the last-good stages */
+      });
   }, [projectId]);
 
   // Load the opened project's lean projection whenever the opened id changes.
@@ -197,9 +207,17 @@ export function WorkspaceContainer({
     if (!projectId) return;
     let cancelled = false;
     setWorkspace(null);
+    setPlanItems([]);
     setError(null);
     setSummary(null);
     setSummaryDismissed(false);
+    getPlan(projectId)
+      .then((items) => {
+        if (!cancelled) setPlanItems(items);
+      })
+      .catch(() => {
+        /* no plan yet (or fetch failed) → the spine simply doesn't render */
+      });
     (async () => {
       try {
         const w = await getWorkspace(projectId);
@@ -241,6 +259,30 @@ export function WorkspaceContainer({
     closeReadingSource();
     setError(null);
   }
+
+  // Refresh the plan spine when the student switches rooms — the plan is edited
+  // in 立项, so navigating away is the natural moment to re-read its stages
+  // (generation itself refreshes eagerly via refreshWorkspace). Skips the very
+  // first render (the load effect already fetched).
+  const didMountRoom = useRef(false);
+  useEffect(() => {
+    if (!projectId) return;
+    if (!didMountRoom.current) {
+      didMountRoom.current = true;
+      return;
+    }
+    let cancelled = false;
+    getPlan(projectId)
+      .then((items) => {
+        if (!cancelled) setPlanItems(items);
+      })
+      .catch(() => {
+        /* keep last-good stages */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [room, projectId]);
 
   // Tell the shell whether a project is open, so it can hide the platform nav
   // for the immersive studio (spec §17). Fires on open/close and on unmount.
@@ -328,12 +370,15 @@ export function WorkspaceContainer({
             interactive area (spec §2) — beside the 印记 chat, not spanning it.
             AI-driven view changes flip `room`; this is the always-available
             manual override so the student is never lost. */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-mk-border bg-mk-paper px-4 py-2">
+        <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
           <Segmented
             options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
             value={room}
             onChange={(v) => setRoom(v as BlockKey)}
           />
+          {/* The plan spine (spec §3): where you are along the generated plan.
+              Renders only once a plan exists; tapping jumps to 立项's board. */}
+          <PlanSpine items={planItems} onOpenPlan={() => setRoom("plan")} />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
