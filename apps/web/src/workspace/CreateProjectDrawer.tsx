@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Drawer, Button, Select, Radio, Textarea, IconButton, Icon, X, ArrowRight } from "../ui";
+import { Drawer, Button, Select, Radio, Textarea, IconButton, Icon, X, ArrowRight, MACARONS, coverGradientStyle, type MacaronName } from "../ui";
 
 /**
  * CreateProjectDrawer — the "新建项目" flow, extracted from Directory's old
@@ -21,6 +21,11 @@ const WRITING_LANGS: { value: "en" | "zh" | "bilingual"; label: string }[] = [
   { value: "zh", label: "中文" },
   { value: "bilingual", label: "双语" },
 ];
+
+// Task 3: the 7 gradient swatch options, alongside the 15 fetched photo
+// covers — same macaron palette `coverGradientStyle` deterministically hashes
+// project ids to elsewhere (Directory/HomePage cards, Task 4).
+const MACARON_NAMES = Object.keys(MACARONS) as MacaronName[];
 
 // Derive a readable project title from the first line of the assignment
 // prompt — the refined research question is sharpened later, in forming.
@@ -43,10 +48,31 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Task 3: the cover picker. Covers are fetched fresh each time the drawer
+  // opens; once they land, a random photo cover is preselected so the
+  // default project card never looks unstyled — but the student can still
+  // pick any of the 15 photos or 7 gradients before creating.
+  const [covers, setCovers] = useState<{ key: string; url: string }[]>([]);
+  const [selectedCover, setSelectedCover] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api.getProjectCovers().then((list) => {
+      if (cancelled) return;
+      setCovers(list);
+      if (list.length > 0) {
+        setSelectedCover(list[Math.floor(Math.random() * list.length)]!.key);
+      }
+    }).catch(() => { /* picker is optional polish; creation still works without it */ });
+    return () => { cancelled = true; };
+  }, [open]);
+
   function reset() {
     setPrompt("");
     setProjectType(PROJECT_TYPES[0] ?? "");
     setWritingLang("en");
+    setSelectedCover("");
     setError(null);
     setCreating(false);
   }
@@ -72,6 +98,7 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
         prompt: p,
         projectType,
         writingLanguage: writingLang,
+        cover: selectedCover || undefined,
       });
       reset();
       onCreated(id);
@@ -123,6 +150,39 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
             placeholder="贴上你的作业题目或提示，比如「Can we only understand something to the extent that we understand its context? Discuss with reference to two areas of knowledge.」"
           />
           <p className="mt-1 text-mk-small text-mk-muted">研究问题不用现在就想好——进立题房间我陪你一部分一部分磨。</p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-mk-body text-mk-muted">封面</label>
+          <div className="grid max-h-48 grid-cols-4 gap-2 overflow-y-auto">
+            {covers.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setSelectedCover(c.key)}
+                className={
+                  selectedCover === c.key
+                    ? "h-16 w-full overflow-hidden rounded-mk-sm ring-2 ring-mk-accent"
+                    : "h-16 w-full overflow-hidden rounded-mk-sm"
+                }
+              >
+                <img src={c.url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+            {MACARON_NAMES.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setSelectedCover(`grad:${name}`)}
+                style={coverGradientStyle(name)}
+                className={
+                  selectedCover === `grad:${name}`
+                    ? "h-16 w-full rounded-mk-sm ring-2 ring-mk-accent"
+                    : "h-16 w-full rounded-mk-sm"
+                }
+              />
+            ))}
+          </div>
         </div>
 
         {error && <p className="text-mk-small text-mk-danger">{error}</p>}
