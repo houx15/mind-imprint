@@ -30,6 +30,7 @@ type OpenTool string
 
 const (
 	ToolChat       OpenTool = "chat"
+	ToolForming    OpenTool = "forming"
 	ToolPlan       OpenTool = "plan"
 	ToolReading    OpenTool = "reading"
 	ToolWriting    OpenTool = "writing"
@@ -38,7 +39,7 @@ const (
 
 func (t OpenTool) IsValid() bool {
 	switch t {
-	case ToolChat, ToolPlan, ToolReading, ToolWriting, ToolReflection:
+	case ToolChat, ToolForming, ToolPlan, ToolReading, ToolWriting, ToolReflection:
 		return true
 	}
 	return false
@@ -58,9 +59,9 @@ func WidthForTool(t OpenTool) WidthTier {
 	switch t {
 	case ToolChat:
 		return WidthChat
-	case ToolPlan:
+	case ToolForming:
 		return WidthHalf
-	default:
+	default: // plan, reading, writing, reflection
 		return WidthWide
 	}
 }
