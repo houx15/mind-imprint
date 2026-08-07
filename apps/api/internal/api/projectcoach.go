@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
-	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -47,39 +46,6 @@ func coachSurfaceLabel(scope string) string {
 // event just catches any turns added since the first.
 var solidifyFoldSurfaces = []string{"forming", "proposal_review"}
 
-// coachProposalDTO is the /coach response's optional proposal (camelCase,
-// matching packages/contracts's CardProposal). Present only on the summon rung.
-type coachProposalDTO struct {
-	CardID    string `json:"cardId"`
-	Reason    string `json:"reason"`
-	NudgeText string `json:"nudgeText"`
-}
-
-// coachProposeSurfaces are the room scopes where the coach may OFFER an
-// argument-moment card. The gate MUST equal the set of surfaces whose CLIENT
-// renders the proposal chip — otherwise the server spends a classify call and
-// records a coach_proposed event for an offer no student ever sees (whole-branch
-// review IMPORTANT 1). Today only WritingBlock renders it, so the gate is
-// writing-only; forming/proposal_review/reflection can be added the moment their
-// rooms render CoachProposal + wire persist. The classifier's vocabulary
-// (fact-opinion-value / concession) is writing-native anyway.
-// #18: forming, proposal_review and 文献库(find_sources) join writing — the
-// coach may offer a thinking-card in those rooms too. The gate MUST stay equal
-// to the set of surfaces whose CLIENT renders the CoachProposal chip (PlanBlock
-// forming + ReadingBlock library + WritingBlock), else the server would spend a
-// classify call + record a coach_proposed event for an offer no student sees.
-// Slice 5 (#21): reflection joins the set — while the student fills her OWN
-// reflection, the coach may offer a review/reflection card (ReviewBlock now
-// renders the CoachProposal chip + a REFLECTION_DECK shelf, keeping the gate
-// equal to the client-renders-chip set).
-var coachProposeSurfaces = map[string]bool{
-	"writing":         true,
-	"forming":         true,
-	"proposal_review": true,
-	"find_sources":    true,
-	"reflection":      true,
-}
-
 // cardEligibleForSummon is the in-flight guard for the orchestrator's summon_card
 // tool: the model already chose the card, so we only decide whether re-offering
 // it is allowed. It mirrors the retired EligibleMoments rule EXACTLY (moment.go:
@@ -100,106 +66,6 @@ func (a *API) cardEligibleForSummon(ctx context.Context, projectID uuid.UUID, ca
 		}
 	}
 	return true
-}
-
-// coachCardProposal decides whether to OFFER a student card on this coach turn.
-// Mirrors semanticCardCandidate's discipline (loop.go): surface gate → in-flight
-// guard (never offer over a card already proposed/active) → rune floor + eligible
-// set → shared classifier cap → one metered classify call. Returns nil (and, on
-// the gated paths, spends nothing) unless a still-eligible moment fires. The
-// classify call is metered as Purpose="classify" so it shares the per-project
-// MaxClassifyCallsPerProject backstop with the studio loop; the coach-propose
-// semantic is recorded separately as a coach_proposed event by the caller.
-func (a *API) coachCardProposal(ctx context.Context, projectID uuid.UUID, scope, studentText string, resolved gateway.Resolved) *agent.CardProposal {
-	if !coachProposeSurfaces[scope] {
-		return nil
-	}
-	rows, err := a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
-	if err != nil {
-		return nil
-	}
-	views := make([]agent.CardInstanceView, 0, len(rows))
-	for _, ci := range rows {
-		if ci.Status == "proposed" || ci.Status == "active" {
-			return nil // never offer over an in-flight card (no pile-up; no spend)
-		}
-		views = append(views, agent.CardInstanceView{ID: ci.ID.String(), CardID: ci.CardID, Status: ci.Status})
-	}
-	eligible := agent.EligibleMoments(views)
-	if len(eligible) == 0 {
-		return nil
-	}
-	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if n, cerr := store.CountClassifierCalls(ctx, projectID); cerr == nil && n >= agent.MaxClassifyCallsPerProject {
-		return nil // shared classifier spend backstop reached
-	}
-	proposal, usage, perr := agent.ProposeCoachCard(ctx, a.d.Provider, resolved, studentText, eligible)
-	// Meter only a completed classify call (perr == nil): ProposeCoachCard zeroes
-	// usage on error today, but guard explicitly so a future partial-usage error
-	// contract can't record a phantom row (parity with maybeCompactBackstop).
-	if perr == nil && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
-		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
-			ProjectID: projectID, Surface: "studio", Purpose: "classify",
-			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
-		}); rerr != nil {
-			slog.Warn("coach propose: record classify call failed", "err", rerr)
-		}
-	}
-	if perr != nil {
-		return nil
-	}
-	return proposal
-}
-
-// formingDimProposal (#13) offers a 克制 confirm chip to record a still-empty
-// kick-off dimension the student just articulated — so the 开题四问 panel fills
-// as they talk, WITHOUT the AI writing her proposal (she taps to confirm; 打开
-// 由学生确认). Forming surfaces only; gated (uncovered dims + rune floor inside
-// ProposeFormingDim) + metered like coachCardProposal, sharing its classify cap.
-func (a *API) formingDimProposal(ctx context.Context, projectID uuid.UUID, scope, studentText string, resolved gateway.Resolved) *agent.FormingDimSuggestion {
-	if scope != "forming" && scope != "proposal_review" {
-		return nil
-	}
-	var uncovered []string
-	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
-		if strings.TrimSpace(prop.Objective) == "" {
-			uncovered = append(uncovered, "objective")
-		}
-		if strings.TrimSpace(prop.Reason) == "" {
-			uncovered = append(uncovered, "reason")
-		}
-		if strings.TrimSpace(prop.Activities) == "" {
-			uncovered = append(uncovered, "activities")
-		}
-		if strings.TrimSpace(prop.Resources) == "" {
-			uncovered = append(uncovered, "resources")
-		}
-		if strings.TrimSpace(prop.Counterpoints) == "" {
-			uncovered = append(uncovered, "counterpoints")
-		}
-	} else {
-		uncovered = []string{"objective", "reason", "activities", "resources", "counterpoints"} // no row → all empty
-	}
-	if len(uncovered) == 0 {
-		return nil
-	}
-	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if n, cerr := store.CountClassifierCalls(ctx, projectID); cerr == nil && n >= agent.MaxClassifyCallsPerProject {
-		return nil // shared classifier spend backstop reached
-	}
-	sug, usage, perr := agent.ProposeFormingDim(ctx, a.d.Provider, resolved, studentText, uncovered)
-	if perr == nil && (usage.InputTokens > 0 || usage.OutputTokens > 0) {
-		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
-			ProjectID: projectID, Surface: "studio", Purpose: "classify",
-			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
-		}); rerr != nil {
-			slog.Warn("forming dim propose: record classify call failed", "err", rerr)
-		}
-	}
-	if perr != nil {
-		return nil
-	}
-	return sug
 }
 
 // digestRuneBudget / digestKeepLastN — S4 compaction backstop thresholds.

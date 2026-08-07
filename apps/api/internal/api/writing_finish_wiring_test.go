@@ -22,11 +22,3 @@ func TestPersistableCard_AcceptsReflectionDeck(t *testing.T) {
 		t.Errorf("persistableCard(craap) = true, want false (not in any deck)")
 	}
 }
-
-// #21 · the coach may offer a card on the reflection surface — the gate MUST
-// include reflection now that ReviewBlock renders the CoachProposal chip.
-func TestCoachProposeSurfaces_IncludesReflection(t *testing.T) {
-	if !coachProposeSurfaces["reflection"] {
-		t.Errorf("coachProposeSurfaces[reflection] = false, want true")
-	}
-}
