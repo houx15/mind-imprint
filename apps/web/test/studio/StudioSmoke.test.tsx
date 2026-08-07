@@ -92,6 +92,7 @@ vi.mock("@/workspace/api/workspace", () => ({
   // not the writing reference content.
   getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
   getSnippets: vi.fn(async () => []),
+  getAnnotations: vi.fn(async () => []),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";

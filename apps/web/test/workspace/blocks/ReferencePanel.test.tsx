@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { ReferencePanel } from "@/workspace/blocks/ReferencePanel";
 import * as workspaceApi from "@/workspace/api/workspace";
-import type { Proposal, Reference } from "@mind-imprint/contracts";
+import type { Annotation, Proposal, Reference } from "@mind-imprint/contracts";
 
 const REF: Reference = {
   id: "ref-1",
@@ -38,6 +38,7 @@ describe("ReferencePanel", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(workspaceApi, "getSnippets").mockResolvedValue([]);
+    vi.spyOn(workspaceApi, "getAnnotations").mockResolvedValue([]);
   });
 
   it("renders the 材料 group with a curated material ref's title", async () => {
@@ -119,6 +120,31 @@ describe("ReferencePanel", () => {
 
     expect(await screen.findByText("批注")).toBeInTheDocument();
     expect(await screen.findByText("批注会在印记体检你的写作后出现。")).toBeInTheDocument();
+  });
+
+  it("renders a curated annotation's criterion·band + text instead of the placeholder", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [] });
+    const annotation: Annotation = {
+      id: "a1",
+      criterion: "分析与论证",
+      band: "中段",
+      text: "反例没接回主张 → 把反例接回你的核心主张",
+    };
+    vi.spyOn(workspaceApi, "getAnnotations").mockResolvedValue([annotation]);
+
+    render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "annotation", id: "a1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+      />,
+    );
+
+    expect(await screen.findByText("批注")).toBeInTheDocument();
+    expect(await screen.findByText("反例没接回主张 → 把反例接回你的核心主张")).toBeInTheDocument();
+    expect(await screen.findByText("分析与论证·中段")).toBeInTheDocument();
+    expect(screen.queryByText("批注会在印记体检你的写作后出现。")).not.toBeInTheDocument();
   });
 
   it("folds the collected materials into 你的材料 and inserts a fragment on click (retired floating box)", async () => {

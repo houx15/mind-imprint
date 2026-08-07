@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
+import type { Annotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
 import { EmptyState } from "@/ui/Illustration";
-import { getLibrary, getSnippets } from "../api/workspace";
+import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
 import { resolveReferences, type ResolvedRef } from "./referenceResolve";
 
 /**
@@ -13,8 +13,9 @@ import { resolveReferences, type ResolvedRef } from "./referenceResolve";
  * by kind:
  *   材料      — curated Reference rows (title + note fragments)
  *   阅读笔记  — curated snippet/reading-note entries (quote → finding)
- *   批注      — always a calm "coming later" line; no annotation entity
- *              exists yet (deferred), so this NEVER fakes content
+ *   批注      — curated 整稿体检 review items (criterion·band + combined
+ *              missing/fix text); the calm "coming later" line only shows
+ *              while nothing has been curated yet — never faked content
  *   提案要点  — the four-dim proposal, but ONLY while the proposal is still
  *              live work (proposal_writing/proposal_review). Once the
  *              student has moved on to 写正文, forcing 提案要点 back into
@@ -43,6 +44,7 @@ const PROPOSAL_VISIBLE_STAGES: StudioStage[] = ["proposal_writing", "proposal_re
 
 type MaterialRef = Extract<ResolvedRef, { kind: "material" }>;
 type NoteRef = Extract<ResolvedRef, { kind: "note" }>;
+type AnnotationRef = Extract<ResolvedRef, { kind: "annotation" }>;
 
 export function ReferencePanel({
   projectId,
@@ -65,32 +67,37 @@ export function ReferencePanel({
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
+  const [annotations, setAnnotations] = useState<Annotation[] | null>(null);
 
-  // Lazily fetch library + snippets once — the panel is context, not the
-  // main event, but it needs both to resolve 印记's curated ids at all, so
-  // (unlike the old tab-per-fetch panel) both load together up front.
+  // Lazily fetch library + snippets + annotations once — the panel is
+  // context, not the main event, but it needs all three to resolve 印记's
+  // curated ids at all, so (unlike the old tab-per-fetch panel) they load
+  // together up front.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getLibrary(projectId), getSnippets(projectId)])
-      .then(([libRes, snips]) => {
+    Promise.all([getLibrary(projectId), getSnippets(projectId), getAnnotations(projectId)])
+      .then(([libRes, snips, annos]) => {
         if (cancelled) return;
         setLib(libRes.references);
         setSnippets(snips);
+        setAnnotations(annos);
       })
       .catch(() => {
         if (cancelled) return;
         setLib([]);
         setSnippets([]);
+        setAnnotations([]);
       });
     return () => {
       cancelled = true;
     };
   }, [projectId]);
 
-  const loading = lib == null || snippets == null;
-  const resolved = loading ? [] : resolveReferences(reference, lib, snippets);
+  const loading = lib == null || snippets == null || annotations == null;
+  const resolved = loading ? [] : resolveReferences(reference, lib, snippets, annotations);
   const materials = resolved.filter((r): r is MaterialRef => r.kind === "material" && !r.missing);
   const notes = resolved.filter((r): r is NoteRef => r.kind === "note" && !r.missing);
+  const annotationItems = resolved.filter((r): r is AnnotationRef => r.kind === "annotation" && !r.missing);
   const showProposal = PROPOSAL_VISIBLE_STAGES.includes(stage);
   // 你的材料 = everything collected MINUS what 印记 already surfaced in the curated
   // 材料 group, so a source never shows twice (spec §5: the floating 材料 box,
@@ -101,7 +108,12 @@ export function ReferencePanel({
   const collectedSnips = loading ? [] : (snippets ?? []).filter((s) => !curatedNoteIds.has(s.id));
   const hasCollected = !loading && (collectedLib.length > 0 || collectedSnips.length > 0);
   const isEmpty =
-    !loading && !showProposal && materials.length === 0 && notes.length === 0 && !hasCollected;
+    !loading &&
+    !showProposal &&
+    materials.length === 0 &&
+    notes.length === 0 &&
+    annotationItems.length === 0 &&
+    !hasCollected;
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-mk-border bg-mk-surface">
@@ -124,7 +136,7 @@ export function ReferencePanel({
             {hasCollected && (
               <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} canInsert={canInsert} />
             )}
-            <AnnotationGroup />
+            <AnnotationGroup items={annotationItems} />
           </div>
         )}
       </div>
@@ -203,11 +215,24 @@ function NoteGroup({ items }: { items: NoteRef[] }) {
   );
 }
 
-function AnnotationGroup() {
+function AnnotationGroup({ items }: { items: AnnotationRef[] }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[14px] font-semibold text-mk-ink">批注</p>
-      <p className="text-[14px] leading-relaxed text-mk-faint">批注会在印记体检你的写作后出现。</p>
+      {items.length === 0 ? (
+        <p className="text-[14px] leading-relaxed text-mk-faint">批注会在印记体检你的写作后出现。</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {items.map((item) => (
+            <div key={item.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">
+                {item.criterion}·{item.band}
+              </p>
+              <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{item.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

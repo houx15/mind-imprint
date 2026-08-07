@@ -11,6 +11,7 @@ import {
   MaterialSource,
   OutlineNode,
   Snippet,
+  Annotation,
   ReflectionDoc,
   Mirror,
   AIUseDraft as AIUseDraftSchema,
@@ -387,6 +388,15 @@ export async function putSnippets(id: string, snippets: { text: string; section?
     body: JSON.stringify({ snippets }),
   });
   return z.array(Snippet).parse((raw as { snippets: unknown }).snippets);
+}
+
+// GET /annotations — the persisted 整稿体检 review items (批注), projected to
+// {id,criterion,band,text}. 印记 curates these into the writing stage's
+// reference panel via curate_reference kind:"annotation"; resolveReferences
+// looks the curated ids up against this list. Mirrors getSnippets.
+export async function getAnnotations(id: string): Promise<Annotation[]> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/annotations`);
+  return z.array(Annotation).parse((raw as { annotations: unknown }).annotations);
 }
 
 // GET /draft — the current edit_buffer content ("" when there's no row yet).
