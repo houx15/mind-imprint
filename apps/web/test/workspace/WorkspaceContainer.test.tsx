@@ -77,9 +77,17 @@ function fakeWorkspace(id: string) {
 }
 
 type OpenTool = "chat" | "plan" | "reading" | "writing" | "reflection";
-function fakeStudioState(openTool: OpenTool) {
+type Stage =
+  | "topic_discussion"
+  | "proposal_forming"
+  | "plan_generation"
+  | "proposal_writing"
+  | "proposal_review"
+  | "body_writing"
+  | "retrospective";
+function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation") {
   return {
-    stage: "plan_generation" as const,
+    stage,
     openTool,
     widthTier: "half" as const,
     reference: [] as never[],
@@ -199,10 +207,24 @@ describe("WorkspaceContainer", () => {
     expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
 
     // The switcher is not a dead escape hatch: a click still mounts the room.
-    await userEvent.click(screen.getByRole("button", { name: "立项" }));
+    await userEvent.click(screen.getByRole("button", { name: "管理" }));
 
     expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
+
+  // P2a: 立项 split into 提案(forming)/管理(board), both sharing PlanBlock.
+  // `roomForResume` picks forming vs board from the STAGE when 印记's openTool
+  // is "plan" (it doesn't yet emit an explicit "forming" openTool — that's
+  // P2b). A proposal_forming-stage project must resume into 提案, not 管理.
+  it("resumes into 提案 (forming) when studio_state.stage is proposal_forming", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("plan", "proposal_forming"));
+    render(<WorkspaceContainer initialProjectId="pf" />);
+
+    expect(await screen.findByTestId("plan-block")).toHaveTextContent("pf:项目 pf");
+    expect(getStudioState).toHaveBeenCalledWith("pf");
+    const resolved = await getStudioState.mock.results[0]!.value;
+    expect(resolved).toEqual(expect.objectContaining({ stage: "proposal_forming" }));
   });
 
   // Task 9b · the container-owned 印记 chat: in chat-first the constant AiPanel

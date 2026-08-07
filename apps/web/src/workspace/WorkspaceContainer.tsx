@@ -37,7 +37,7 @@ import {
   dismissProposal,
   type ReferenceBib,
 } from "./api/workspace";
-import { openToolToRoom } from "./studioResume";
+import { roomForResume } from "./studioResume";
 import { ChatFirstLanding } from "./blocks/ChatFirstLanding";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
@@ -260,7 +260,7 @@ export function WorkspaceContainer({
     // 印记 reasserting the view ends any manual takeover — the "继续印记
     // returns to status" seam (spec §6; Task 9/P4 build on this).
     setTookOver(false);
-    if (state.openTool !== "chat") setRoom(openToolToRoom(state.openTool));
+    if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
   // The switcher's manual override (Segmented / PlanSpine / NextStepGuide):
@@ -713,7 +713,7 @@ export function WorkspaceContainer({
           // constant panel. reading is the exception: it's a distinct
           // full-screen surface with its own coach column (see showAiPanel).
           <StudioAiSlotContext.Provider value={aiSlotEl}>
-            {room === "plan" && (
+            {(room === "forming" || room === "plan") && (
               <PlanBlock
                 key={projectId}
                 projectId={projectId}
@@ -721,6 +721,8 @@ export function WorkspaceContainer({
                 qualification={workspace.qualification}
                 proposal={workspace.proposal}
                 createdAt={workspace.createdAt}
+                phase={room === "forming" ? "forming" : "working"}
+                onPlanGenerated={() => handleManualRoom("plan")}
                 onOpenRoom={handleManualRoom}
                 refreshWorkspace={refreshWorkspace}
                 recap={summary}

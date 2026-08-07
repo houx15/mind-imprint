@@ -92,7 +92,7 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
     await openProject();
 
     expect(screen.getByRole("button", { name: /主页/ })).toBeInTheDocument();
-    for (const label of ["立项", "阅读", "写作", "回顾"]) {
+    for (const label of ["提案", "管理", "阅读", "写作", "回顾"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
     // The AiPanel chrome (Task 2) is always present alongside the room, not

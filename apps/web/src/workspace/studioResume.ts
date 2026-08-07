@@ -1,4 +1,4 @@
-import type { OpenTool } from "@mind-imprint/contracts";
+import type { OpenTool, StudioState } from "@mind-imprint/contracts";
 import type { BlockKey } from "./blocks/mockData";
 
 /**
@@ -24,4 +24,19 @@ export function openToolToRoom(tool: OpenTool): BlockKey {
     default:
       return "plan";
   }
+}
+
+/**
+ * Resume mapping (P2a): 印记 only emits `plan`/`chat` for the proposal side
+ * (the explicit `forming` openTool is P2b). So when the directive names the plan
+ * tool, choose 提案(forming) vs 管理(board) from the STAGE — a real signal, not a
+ * heuristic. Any non-plan room openTool wins directly.
+ */
+export function roomForResume(state: StudioState): BlockKey {
+  if (state.openTool !== "plan" && state.openTool !== "chat") {
+    return openToolToRoom(state.openTool);
+  }
+  return state.stage === "topic_discussion" || state.stage === "proposal_forming"
+    ? "forming"
+    : "plan";
 }

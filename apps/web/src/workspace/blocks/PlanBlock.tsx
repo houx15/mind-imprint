@@ -81,6 +81,8 @@ export function PlanBlock({
   qualification,
   proposal,
   createdAt,
+  phase,
+  onPlanGenerated,
   onOpenRoom,
   refreshWorkspace,
   recap,
@@ -90,19 +92,22 @@ export function PlanBlock({
   qualification: string;
   proposal: Proposal;
   createdAt?: string;
+  /** Which segment mounted this room (P2a: 提案/管理 share this component —
+   * WorkspaceContainer now decides via `room`, not a self-decided local
+   * state). */
+  phase: "forming" | "working";
+  /** The generate→board flip (P2a): a successful 生成项目计划 tells the
+   * container to switch the switcher to 管理; this component no longer
+   * flips its own phase. */
+  onPlanGenerated: () => void;
+  /** Still used for the board's doorway jump (进入 →) into 阅读/写作/回顾 — the
+   * only surviving `onOpenRoom` use after P2a's generate→board flip moved to
+   * `onPlanGenerated`. */
   onOpenRoom: (room: BlockKey) => void;
   refreshWorkspace: () => void;
   /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
   recap?: string | null;
 }) {
-  // #11 — a brand-new project (all four dims blank) opens in the calm forming
-  // coach; anything already thought through opens straight on the working board.
-  const proposalEmpty = PROPOSAL_DIMS.every((d) => proposal[d.key].trim().length === 0);
-  const [phase, setPhase] = useState<"forming" | "working">(proposalEmpty ? "forming" : "working");
-  // #1: whether a plan board exists (so the forming/plan-chat view can offer a
-  // back button to return to it). True once a plan is generated, or if the
-  // project already had a proposal on open.
-  const [hasBoard, setHasBoard] = useState(!proposalEmpty);
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
   const [prop, setProp] = useState<Proposal>(proposal);
@@ -169,8 +174,7 @@ export function PlanBlock({
     try {
       const items = await generatePlan(projectId);
       setSeedBoard(items);
-      setHasBoard(true);
-      setPhase("working");
+      onPlanGenerated();
       // The plan now exists → let the shell refresh so the PlanSpine indicator
       // (spec §3) appears with the freshly generated stages.
       refreshWorkspace();
@@ -234,7 +238,6 @@ export function PlanBlock({
           title={title}
           qualification={qualification}
           proposal={prop}
-          onBackToBoard={hasBoard ? () => setPhase("working") : undefined}
           setDim={setDim}
           messages={messages}
           recap={recap}
@@ -292,7 +295,7 @@ export function PlanBlock({
       proposal={prop}
       seedBoard={seedBoard}
       createdAt={createdAt}
-      onReopen={() => setPhase("forming")}
+      onReopen={() => onOpenRoom("forming")}
       onOpenItem={(item) => onOpenRoom(roomForTag(item.tag))}
     />
   );
@@ -347,7 +350,6 @@ function FormingPhase(props: {
   title: string;
   qualification: string;
   proposal: Proposal;
-  onBackToBoard?: () => void;
   setDim: (key: keyof Proposal, v: string) => void;
   messages: StudioChatMsg[];
   recap?: string | null;
@@ -368,7 +370,7 @@ function FormingPhase(props: {
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
-    title, qualification, proposal, onBackToBoard, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
+    title, qualification, proposal, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     projectId, onCardReflected,
   } = props;
@@ -395,13 +397,6 @@ function FormingPhase(props: {
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
       <div className="relative mx-auto flex h-full w-full max-w-2xl flex-col gap-5 overflow-y-auto px-10 py-9">
         <header>
-          {/* #1 · back to the plan board (only when one already exists — i.e. the
-              student opened the plan chat from a generated board). */}
-          {onBackToBoard && (
-            <button type="button" onClick={onBackToBoard} className="mb-2 flex items-center gap-1 text-[13px] font-semibold text-mk-faint hover:text-mk-accent">
-              <Icon name="back" size={15} /> 回到计划板
-            </button>
-          )}
           <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">先想清楚，再动手</p>
           <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
           <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>

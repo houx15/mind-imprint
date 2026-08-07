@@ -111,7 +111,7 @@ beforeEach(() => {
 describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
   it("renders the scripted intro in the shared ChatLog and the summon shelf, portaled into the AI slot", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
     );
 
     // The scripted intro (not an LLM call) renders via the shared ChatLog.
@@ -122,7 +122,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
 
   it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
@@ -138,7 +138,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
 
   it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
@@ -167,6 +167,8 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
         title="T"
         qualification="拓展论文 EE"
         proposal={EMPTY_PROPOSAL}
+        phase="forming"
+        onPlanGenerated={() => {}}
         onOpenRoom={() => {}}
         refreshWorkspace={() => {}}
         recap="欢迎回来——你上次聊到了判断尺度。"
@@ -192,6 +194,8 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
         qualification="拓展论文 EE"
         proposal={FILLED_PROPOSAL}
         createdAt="2026-08-01T00:00:00Z"
+        phase="working"
+        onPlanGenerated={() => {}}
         onOpenRoom={() => {}}
         refreshWorkspace={() => {}}
       />,

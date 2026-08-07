@@ -15,6 +15,13 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     strokeLinejoin: "round" as const,
   };
   switch (name) {
+    case "forming":
+      return (
+        <svg {...common}>
+          <path d="M6 3h9l4 4v14H6z" />
+          <path d="M14 3v5h5M9 13h6M9 17h4" />
+        </svg>
+      );
     case "plan":
       return (
         <svg {...common}>
@@ -91,11 +98,12 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
 // `label` is the single source of truth for the room's short name — the
 // studio top-bar room switcher (WorkspaceContainer's `TopBar`, spec §17)
 // renders these labels directly, so there's no second hardcoded copy to
-// drift. "立项" (not the room's own longer internal heading "项目管理",
-// still used inside PlanBlock's board view) matches the compact 2-char
-// rhythm of 阅读/写作/回顾 in the switcher.
+// drift. 立项 (P2a) splits into two segments sharing one component
+// (PlanBlock): 提案 is the forming coach chat, 管理 is the persisted board
+// (still internally headed "项目管理" inside PlanBlock's board view).
 export const BLOCK_META: { key: BlockKey; label: string; sub: string }[] = [
-  { key: "plan", label: "立项", sub: "Project Management" },
+  { key: "forming", label: "提案", sub: "Proposal" },
+  { key: "plan", label: "管理", sub: "Plan" },
   { key: "reading", label: "阅读", sub: "Read" },
   { key: "writing", label: "写作", sub: "Write" },
   { key: "reflection", label: "回顾", sub: "Review" },

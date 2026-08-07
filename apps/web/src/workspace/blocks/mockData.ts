@@ -4,7 +4,7 @@
 
 import type { CardTurnRef } from "@mind-imprint/contracts";
 
-export type BlockKey = "plan" | "reading" | "writing" | "reflection";
+export type BlockKey = "forming" | "plan" | "reading" | "writing" | "reflection";
 
 export type PlanTag = "read" | "write" | "review";
 export type PlanColumn = "todo" | "doing" | "done";
