@@ -19,7 +19,7 @@ export function SpectrumField({ field, value, onChange }: FieldProps<F>) {
 
   return (
     <div>
-      <span className="block text-[13px] font-semibold text-[#3A4256]">{field.label}</span>
+      <span className="block text-[14px] font-semibold text-[#3A4256]">{field.label}</span>
       <div
         role="radiogroup"
         aria-label={field.label}
@@ -41,7 +41,7 @@ export function SpectrumField({ field, value, onChange }: FieldProps<F>) {
             className="relative z-[1] flex flex-1 flex-col items-center gap-1.5 bg-transparent"
           >
             <span className={`h-3.5 w-3.5 rounded-full ${index === i ? "bg-mk-primary" : "bg-[#D9DDE7]"}`} />
-            <span className={`text-center text-[11.5px] leading-tight ${index === i ? "font-semibold text-mk-ink" : "text-[#9AA1B0]"}`}>{stop}</span>
+            <span className={`text-center text-[12px] leading-tight ${index === i ? "font-semibold text-mk-ink" : "text-[#9AA1B0]"}`}>{stop}</span>
           </button>
         ))}
       </div>

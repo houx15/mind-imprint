@@ -44,7 +44,7 @@ function EnergyBatteryControl({
       ))}
       {/* decorative battery preview at current level */}
       {value > 0 && (
-        <span className="ml-2 text-[13px] font-semibold text-mk-muted-2">
+        <span className="ml-2 text-[14px] font-semibold text-mk-muted-2">
           {value} / 5
         </span>
       )}
@@ -79,7 +79,7 @@ function OnDemandSection({
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <span className="text-[15px] font-bold text-mk-ink">{title}</span>
-        <span className="text-[11.5px] font-medium text-mk-muted-2">
+        <span className="text-[12px] font-medium text-mk-muted-2">
           按需展开
         </span>
       </button>
@@ -138,7 +138,7 @@ export function InnerPartsRenderer({
           <MethodologyPanel step={energyStep} onNote={onNote} />
         )}
         <div className="space-y-3">
-          <p className="text-[13px] text-mk-muted-2">{energyField?.label}</p>
+          <p className="text-[14px] text-mk-muted-2">{energyField?.label}</p>
           <EnergyBatteryControl
             value={energyValue}
             onField={onField}
@@ -158,7 +158,7 @@ export function InnerPartsRenderer({
         {!hideMethodology && (
           <MethodologyPanel step={innerPartStep} onNote={onNote} />
         )}
-        <p className="mb-4 text-[13px] text-mk-muted-2">
+        <p className="mb-4 text-[14px] text-mk-muted-2">
           {innerPartField?.label}
         </p>
         {/* Character cards — one per inner part */}
@@ -181,10 +181,10 @@ export function InnerPartsRenderer({
                 }`}
               >
                 <part.Avatar size={48} />
-                <span className="text-[13px] font-bold text-mk-ink">
+                <span className="text-[14px] font-bold text-mk-ink">
                   {part.name}
                 </span>
-                <span className="text-[11px] leading-snug text-mk-muted-2">
+                <span className="text-[12px] leading-snug text-mk-muted-2">
                   「{part.quote}」
                 </span>
               </button>
@@ -217,7 +217,7 @@ export function InnerPartsRenderer({
         {!hideMethodology && (
           <MethodologyPanel step={microActionStep} onNote={onNote} />
         )}
-        <p className="mb-3 text-[13px] text-mk-muted-2">
+        <p className="mb-3 text-[14px] text-mk-muted-2">
           {microActionField?.label}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -227,7 +227,7 @@ export function InnerPartsRenderer({
               type="button"
               aria-pressed={values.micro_action_choice === opt}
               onClick={() => onField("micro_action_choice", opt)}
-              className={`flex-1 rounded-[12px] border-2 px-4 py-3 text-[13px] font-semibold transition-colors ${
+              className={`flex-1 rounded-[12px] border-2 px-4 py-3 text-[14px] font-semibold transition-colors ${
                 values.micro_action_choice === opt
                   ? "border-mk-primary bg-mk-primary text-white"
                   : "border-mk-border-2 bg-white text-mk-ink hover:border-mk-primary/40"

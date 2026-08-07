@@ -15,11 +15,11 @@ export function CriteriaCheckField({ field, value, onChange }: FieldProps<F>) {
 
   return (
     <div>
-      <span className="block text-[13px] font-semibold text-[#3A4256]">{field.label}</span>
+      <span className="block text-[14px] font-semibold text-[#3A4256]">{field.label}</span>
       <div className="mt-3 space-y-2">
         {field.criteria.map((crit, ci) => (
           <div key={ci} className="flex items-center justify-between gap-3 rounded-[10px] border border-mk-border-2 px-3 py-2">
-            <span className="text-[13px] text-mk-ink">{crit}</span>
+            <span className="text-[14px] text-mk-ink">{crit}</span>
             <div role="radiogroup" aria-label={crit} className="flex gap-1.5">
               {field.levels.map((lv, li) => (
                 <button

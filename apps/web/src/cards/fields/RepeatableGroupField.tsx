@@ -27,7 +27,7 @@ export function RepeatableGroupField({ field, value, onChange }: FieldProps<F>) 
 
   return (
     <div>
-      <span className="block text-[13px] font-semibold text-[#3A4256]">{field.label}</span>
+      <span className="block text-[14px] font-semibold text-[#3A4256]">{field.label}</span>
       <div className="mt-2 space-y-2.5">
         {rows.map((row, i) => (
           <div key={i} className="space-y-3 rounded-[11px] border border-mk-border-2 bg-white p-3">
@@ -41,7 +41,7 @@ export function RepeatableGroupField({ field, value, onChange }: FieldProps<F>) 
       <button
         type="button"
         onClick={() => update([...rows, {}])}
-        className="mt-2.5 w-full rounded-[10px] border border-dashed border-[#CFD4E0] py-2.5 text-[13px] font-semibold text-[#6B7384]"
+        className="mt-2.5 w-full rounded-[10px] border border-dashed border-[#CFD4E0] py-2.5 text-[14px] font-semibold text-[#6B7384]"
       >
         + 添加来源
       </button>

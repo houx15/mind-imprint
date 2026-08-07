@@ -21,11 +21,11 @@ export function ActiveSheet({ card, values, onField, onExpandStep, onNoteOpen, o
         <div className="flex flex-none items-start gap-3.5 border-b border-[#F0F1F5] px-6 py-4">
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex items-center gap-2.5">
-              <span className="text-[11px] font-bold tracking-wide text-mk-accent">现在轮到你想</span>
-              <span className="rounded-full bg-mk-primary-tint px-2.5 py-0.5 text-[11px] font-semibold text-mk-primary">{card.category}</span>
+              <span className="text-[12px] font-bold tracking-wide text-mk-accent">现在轮到你想</span>
+              <span className="rounded-full bg-mk-primary-tint px-2.5 py-0.5 text-[12px] font-semibold text-mk-primary">{card.category}</span>
             </div>
             <div className="text-lg font-bold text-mk-ink">{card.name}</div>
-            <div className="mt-1 text-[13px] text-mk-muted-2">{card.purpose}</div>
+            <div className="mt-1 text-[14px] text-mk-muted-2">{card.purpose}</div>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" aria-label="关闭" onClick={onClose} className="h-8 w-8 rounded-[9px] text-mk-muted-2">✕</button>

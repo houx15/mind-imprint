@@ -17,7 +17,7 @@ function StopHeader({ stops }: { stops: string[] }) {
       <span className="w-16 shrink-0" aria-hidden />
       <div className="flex flex-1">
         {stops.map((stop, i) => (
-          <span key={i} className="flex-1 text-center text-[11px] text-mk-muted-2">{stop}</span>
+          <span key={i} className="flex-1 text-center text-[12px] text-mk-muted-2">{stop}</span>
         ))}
       </div>
     </div>
@@ -135,7 +135,7 @@ export function BeliefSpectrumRenderer({ card, values, onField, onNote }: CardBo
           </div>
         ))}
 
-        <button type="button" onClick={addStance} className="text-[13px] font-semibold text-mk-primary">+ 添加一方</button>
+        <button type="button" onClick={addStance} className="text-[14px] font-semibold text-mk-primary">+ 添加一方</button>
 
         <TextAreaField field={reasonF} value={values.self_reason} onChange={(v) => onField("self_reason", v)} />
       </section>

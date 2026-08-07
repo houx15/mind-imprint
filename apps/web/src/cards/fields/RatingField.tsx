@@ -8,7 +8,7 @@ export function RatingField({ field, value, onChange }: FieldProps<F>) {
   const current = typeof value === "number" ? value : 0;
   return (
     <div>
-      <span className="block text-[13px] font-semibold text-[#3A4256]">{field.label}</span>
+      <span className="block text-[14px] font-semibold text-[#3A4256]">{field.label}</span>
       <div className="mt-2 flex gap-1.5" role="radiogroup" aria-label={field.label}>
         {Array.from({ length: field.scale }, (_, i) => i + 1).map((n) => (
           <button

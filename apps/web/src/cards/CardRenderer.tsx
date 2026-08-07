@@ -51,7 +51,7 @@ export function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepK
           if (!open) onNote?.(step.key);
           setOpen((v) => !v);
         }}
-        className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-mk-primary"
+        className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-mk-primary"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <circle cx="12" cy="12" r="9.5" />
@@ -60,7 +60,7 @@ export function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepK
         方法
       </button>
       {open && (
-        <div className="mt-2 space-y-3 rounded-mk border border-mk-primary-tint bg-mk-accent-50 p-4 text-[13px] leading-relaxed text-[#3A4256]">
+        <div className="mt-2 space-y-3 rounded-mk border border-mk-primary-tint bg-mk-accent-50 p-4 text-[14px] leading-relaxed text-[#3A4256]">
           <div><div className="mb-1 font-bold text-mk-ink">为什么</div><Markdown text={m.why} /></div>
           <div><div className="mb-1 font-bold text-mk-ink">怎么做</div><Markdown text={m.how} /></div>
           <div><div className="mb-1 font-bold text-mk-ink">什么时候用</div><Markdown text={m.when} /></div>
@@ -83,7 +83,7 @@ function SentenceFrames({ step }: { step: Step }) {
       <div className="mb-1.5 text-[12px] font-bold text-mk-accent">参考句式 · 换成你自己的话</div>
       <ul className="space-y-1">
         {frames.map((f, i) => (
-          <li key={i} className="text-[12.5px] leading-relaxed text-[#3A4256]">{f}</li>
+          <li key={i} className="text-[14px] leading-relaxed text-[#3A4256]">{f}</li>
         ))}
       </ul>
     </div>
@@ -119,11 +119,11 @@ function ReadOnlyField({ label, value }: { label: string; value: unknown }) {
   const text = valueToText(value);
   return (
     <div>
-      <div className="mb-1 text-[12.5px] font-semibold text-mk-ink">{label}</div>
+      <div className="mb-1 text-[14px] font-semibold text-mk-ink">{label}</div>
       {text ? (
-        <p className="whitespace-pre-wrap rounded-mk border border-mk-border-2 bg-mk-paper px-3 py-2 text-[13px] leading-relaxed text-[#3A4256]">{text}</p>
+        <p className="whitespace-pre-wrap rounded-mk border border-mk-border-2 bg-mk-paper px-3 py-2 text-[14px] leading-relaxed text-[#3A4256]">{text}</p>
       ) : (
-        <p className="text-[12.5px] italic text-mk-muted-2">未填</p>
+        <p className="text-[14px] italic text-mk-muted-2">未填</p>
       )}
     </div>
   );
@@ -167,7 +167,7 @@ function OnDemandStep({ step, values, onField, onExpandStep, onNote, hideMethodo
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <span className="text-[15px] font-bold text-mk-ink">{step.title}</span>
-        <span className="text-[11.5px] font-medium text-mk-muted-2">按需展开</span>
+        <span className="text-[12px] font-medium text-mk-muted-2">按需展开</span>
       </button>
       {open && (
         <div className="px-5 pb-5">
