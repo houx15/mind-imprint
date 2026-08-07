@@ -76,6 +76,26 @@ describe("HomePage", () => {
     expect(onGoProjects).toHaveBeenCalledTimes(1);
   });
 
+  it("renders a recent project's img: cover as a full-bleed <img> flush to the tile edges", async () => {
+    const withCover = [{ ...projects[0]!, cover: "img:5", coverUrl: "https://cdn.example.com/covers/5.webp" }, projects[1]!];
+    (api.listProjects as any).mockResolvedValue(withCover);
+    (api.listCourses as any).mockResolvedValue(courses);
+
+    const { container } = render(
+      <HomePage user={user} onOpenProject={noop} onOpenCourse={noop} onCreateProject={noop} onGoProjects={noop} onGoGallery={noop} />,
+    );
+
+    await screen.findByText(withCover[0]!.title);
+    // Scope to the cover image itself — the page header also renders an
+    // <img> (the bookLover illustration), so filter by its cdn src.
+    const covers = Array.from(container.querySelectorAll("img")).filter((el) => el.getAttribute("src")?.includes("cdn.example.com"));
+    expect(covers).toHaveLength(1);
+    const img = covers[0]!;
+    expect(img).toHaveAttribute("src", "https://cdn.example.com/covers/5.webp");
+    expect(img.parentElement?.className).toContain("-mx-4");
+    expect(img.parentElement?.className).toContain("-mt-4");
+  });
+
   it("renders the empty-projects state and wires its create action, when there are zero projects", async () => {
     (api.listProjects as any).mockResolvedValue([]);
     (api.listCourses as any).mockResolvedValue(courses);

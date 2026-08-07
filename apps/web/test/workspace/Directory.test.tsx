@@ -44,6 +44,27 @@ describe("Directory", () => {
     expect(screen.getByText("新建项目")).toBeInTheDocument();
   });
 
+  it("renders a project's img: cover as a full-bleed <img> flush to the card edges, and a grad:/unset cover as the gradient div", async () => {
+    const withCovers = [
+      { ...projects[0]!, cover: "img:3", coverUrl: "https://cdn.example.com/covers/3.webp" },
+      { ...projects[1]!, cover: "grad:matcha", coverUrl: "" },
+    ];
+    (api.listProjects as any).mockResolvedValue(withCovers);
+
+    const { container } = render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} />);
+    await screen.findByText(withCovers[0]!.title);
+
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img).toHaveAttribute("src", "https://cdn.example.com/covers/3.webp");
+    // Flush to the card edges: negative-margin bleed classes on the cover's
+    // wrapper, not an inset p-4 box.
+    expect(img?.parentElement?.className).toContain("-mx-4");
+    expect(img?.parentElement?.className).toContain("-mt-4");
+    // The 已完成 card has no coverUrl (grad: cover) → no <img>, only one total.
+    expect(container.querySelectorAll("img").length).toBe(1);
+  });
+
   it("opens the create drawer from the 新建 tile", async () => {
     (api.listProjects as any).mockResolvedValue(projects);
 
