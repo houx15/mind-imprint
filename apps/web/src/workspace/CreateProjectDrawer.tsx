@@ -166,7 +166,11 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
                     : "h-16 w-full overflow-hidden rounded-mk-sm"
                 }
               >
-                <img src={c.url} alt="" className="h-full w-full object-cover" />
+                {c.url ? (
+                  <img src={c.url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="block h-full w-full" style={coverGradientStyle(c.key)} />
+                )}
               </button>
             ))}
             {MACARON_NAMES.map((name) => (
