@@ -46,7 +46,7 @@ function NewProjectTile({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className={cx(
-        "flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-mk-md border border-dashed border-mk-border text-mk-muted",
+        "flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-mk-md border border-dashed border-mk-border text-mk-muted",
         "transition-colors duration-[120ms] ease-mk hover:border-mk-accent hover:text-mk-accent-600",
         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
       )}
@@ -92,8 +92,8 @@ function ProjectCard({
       }}
       className="group h-full cursor-pointer"
     >
-      <Card className="relative flex h-full flex-col gap-2 p-3">
-        <div className="relative h-[84px] w-full shrink-0 overflow-hidden rounded-mk-sm" style={coverGradientStyle(project.title || project.id)}>
+      <Card className="relative flex h-full flex-col gap-2 p-4">
+        <div className="relative h-[120px] w-full shrink-0 overflow-hidden rounded-mk-sm" style={coverGradientStyle(project.title || project.id)}>
           <Badge tone={STATUS_TONE[project.status]} className="absolute left-2 top-2">
             {STATUS_LABEL[project.status]}
           </Badge>
@@ -212,7 +212,7 @@ export function Directory({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
             {Array.from({ length: 4 }, (_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -225,7 +225,7 @@ export function Directory({
             action={{ label: "新建项目", onClick: () => setDrawerOpen(true) }}
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
             <NewProjectTile onClick={() => setDrawerOpen(true)} />
             {projects.map((p) => (
               <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} />

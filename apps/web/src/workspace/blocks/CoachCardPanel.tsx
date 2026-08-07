@@ -126,11 +126,11 @@ export function CoachCardPanel({
           that students ignored). 触发自动、打开由学生确认 — showing the deck isn't
           opening a card; tapping one is her choice. */}
       {!openCardId && availableDeck.length > 0 && (
-        <div className="rounded-mk-sm border border-mk-border bg-mk-paper/50 p-2">
+        <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-2">
           <p className="mb-1.5 flex items-center gap-1 px-0.5 text-[11px] font-bold text-mk-faint">
             <Icon name="spark" size={12} /> 工具卡 · 挑一张想清楚（你填，印记不替你写）
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {availableDeck.map((id) => {
               const spec = CARD_REGISTRY[id]!;
               return (
@@ -140,12 +140,12 @@ export function CoachCardPanel({
                   onClick={() => openCard(id)}
                   title={spec.purpose}
                   aria-label={spec.name}
-                  className={`flex max-w-[210px] flex-col items-start gap-0.5 rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:brightness-95 ${MACARON_CHIP[coverGradient(id).macaron]}`}
+                  className={`flex w-full flex-col items-start gap-0.5 overflow-hidden rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:brightness-95 ${MACARON_CHIP[coverGradient(id).macaron]}`}
                 >
-                  <span aria-hidden="true" className="flex items-center gap-1 text-[12px] font-bold">
-                    <Icon name="spark" size={11} /> {spec.name}
+                  <span aria-hidden="true" className="flex w-full min-w-0 items-center gap-1 text-[12px] font-bold">
+                    <span className="shrink-0"><Icon name="spark" size={11} /></span> <span className="truncate">{spec.name}</span>
                   </span>
-                  <span aria-hidden="true" className="truncate text-[11px] font-medium opacity-80">
+                  <span aria-hidden="true" className="w-full truncate text-[11px] font-medium opacity-80">
                     {spec.purpose}
                   </span>
                 </button>

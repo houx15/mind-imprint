@@ -227,7 +227,7 @@ export function WritingBlock({
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
@@ -1353,7 +1353,7 @@ function DraftPane({
   const showReview = mode === "write" && !!(reviewError || reviewing || review);
 
   return (
-    <div className="flex min-h-0 flex-col px-8 py-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-8 py-6">
       <div
         ref={paneRef}
         className={`relative mx-auto flex min-h-0 w-full flex-1 flex-col ${showReview ? "max-w-6xl" : "max-w-2xl"}`}

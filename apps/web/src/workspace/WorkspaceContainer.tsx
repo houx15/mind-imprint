@@ -341,7 +341,7 @@ export function WorkspaceContainer({
               </div>
             )}
             {carryForward && (
-              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-50/50 px-4 py-3 shadow-mk-lg">
+              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-50 px-4 py-3 shadow-mk-lg">
                 <span className="mt-0.5 text-mk-accent">
                   <Icon name="spark" size={16} />
                 </span>

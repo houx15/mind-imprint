@@ -66,7 +66,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-mk-ink/40" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"
@@ -169,7 +169,7 @@ export function Drawer({ open, onClose, side = "right", children, className }: D
     <div className="fixed inset-0 z-50">
       <div
         className={cx(
-          "absolute inset-0 bg-mk-ink/40 motion-safe:transition-opacity duration-[var(--mk-base)] ease-mk",
+          "absolute inset-0 bg-black/40 motion-safe:transition-opacity duration-[var(--mk-base)] ease-mk",
           visible ? "opacity-100" : "opacity-0",
         )}
         onClick={onClose}

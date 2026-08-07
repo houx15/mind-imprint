@@ -80,7 +80,10 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         data-role={message.role}
         className={cx(
           BUBBLE_BASE,
-          isStudent ? "bg-mk-accent-50" : "bg-mk-surface",
+          // 印记 bubble is white (spec §13); a hairline keeps it a visible
+          // 对话框 even against the panel's own light surface. Student bubble
+          // is accent-tinted and needs no border.
+          isStudent ? "bg-mk-accent-50" : "bg-mk-surface shadow-mk-xs",
           isStudent ? STUDENT_RADIUS : ASSISTANT_RADIUS,
         )}
       >

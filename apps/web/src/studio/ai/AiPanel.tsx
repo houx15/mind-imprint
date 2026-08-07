@@ -69,7 +69,7 @@ export function AiPanel({ side, onFlip, collapsed, onToggleCollapse, title = "Âç
           <Icon icon={CollapseIcon} size={16} />
         </button>
       </div>
-      <div className="mk-scroll min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="mk-scroll min-h-0 flex-1 overflow-y-auto bg-mk-paper">{children}</div>
     </div>
   );
 }

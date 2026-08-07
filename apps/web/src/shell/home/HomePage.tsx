@@ -28,7 +28,7 @@ function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-const RECENT_LIMIT = 6;
+const RECENT_LIMIT = 3;
 const TILE_W = "w-[260px]";
 const TILE_H = "h-[264px]";
 

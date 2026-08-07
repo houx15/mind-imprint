@@ -254,7 +254,7 @@ export function MaterialsSidebar({
         onPointerDown={onHeaderPointerDown}
         onPointerMove={onHeaderPointerMove}
         onPointerUp={onHeaderPointerUp}
-        className="flex flex-none cursor-grab items-center justify-between border-b border-mk-border bg-mk-paper/60 px-3 py-2 active:cursor-grabbing"
+        className="flex flex-none cursor-grab items-center justify-between border-b border-mk-border bg-mk-paper px-3 py-2 active:cursor-grabbing"
       >
         <div className="flex items-center gap-1.5 text-mk-accent">
           <Icon name="reading" size={14} />
@@ -275,7 +275,7 @@ export function MaterialsSidebar({
       {locked && (
         // review M1 · archived project — browse-only, so no place buttons flash a
         // false "已插入" on a draft that can't change.
-        <p className="flex-none border-b border-mk-border bg-mk-paper/60 px-3 py-1.5 text-[11.5px] font-semibold text-mk-faint">已归档 · 只读浏览</p>
+        <p className="flex-none border-b border-mk-border bg-mk-paper px-3 py-1.5 text-[11.5px] font-semibold text-mk-faint">已归档 · 只读浏览</p>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
@@ -327,7 +327,7 @@ export function MaterialsSidebar({
                             {chunks.map((c, i) => {
                               const key = `${r.id}:${i}`;
                               return (
-                                <div key={key} className="rounded bg-mk-paper/50 p-2">
+                                <div key={key} className="rounded bg-mk-paper p-2">
                                   <div className="text-[10px] font-bold uppercase tracking-wide text-mk-faint">{c.label}</div>
                                   <div className="mt-0.5 text-[12.5px] leading-relaxed text-mk-ink">{c.text}</div>
                                   {!locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label={actionLabel} onClick={() => place(c.text, key)} />}
@@ -379,7 +379,7 @@ export function MaterialsSidebar({
               {outline.filter((n) => n.text.trim()).map((n) => {
                 const key = `o:${n.id}`;
                 return (
-                  <div key={key} className="rounded bg-mk-paper/50 p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
+                  <div key={key} className="rounded bg-mk-paper p-2" style={{ marginLeft: Math.max(0, n.depth) * 12 }}>
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{n.text}</div>
                     {toDraft && !locked && <PlaceButton done={placed === key} inserted={insertedKeys.has(key)} label="插入正文" onClick={() => place(n.text, key)} />}
                   </div>
@@ -415,7 +415,7 @@ export function MaterialsSidebar({
               {filtered.map((s) => {
                 const key = `s:${s.id}`;
                 return (
-                  <div key={key} className="rounded bg-mk-paper/50 p-2">
+                  <div key={key} className="rounded bg-mk-paper p-2">
                     {s.section && <div className="mb-0.5 truncate text-[10px] font-bold text-mk-accent">{s.section}</div>}
                     <div className="text-[12.5px] leading-relaxed text-mk-ink">{s.text}</div>
                     {/* in 片段 tab inserting a snippet into snippets is a no-op path;

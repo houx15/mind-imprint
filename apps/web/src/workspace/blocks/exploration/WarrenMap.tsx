@@ -113,7 +113,7 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
         type="button"
         aria-label="删除这个问题"
         title="删除这个问题"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper/85 text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -454,7 +454,7 @@ function WarrenMapInner({
 
         {/* Drag-connect → relation label picker (closed vocabulary, no freeform). */}
         {connectPending && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-mk-ink/25" onClick={() => setConnectPending(null)}>
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/30" onClick={() => setConnectPending(null)}>
             <div
               className="w-64 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
               onClick={(e) => e.stopPropagation()}
@@ -489,7 +489,7 @@ function WarrenMapInner({
 
       {/* × on a node → confirm before removing the question (and its papers). */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-4" onClick={() => setDeleteTarget(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setDeleteTarget(null)}>
           <div
             className="w-80 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
             onClick={(e) => e.stopPropagation()}

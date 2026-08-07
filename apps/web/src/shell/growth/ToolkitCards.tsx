@@ -119,7 +119,7 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
       {/* hover translucent description */}
       <div
         className={cx(
-          "absolute inset-0 flex flex-col justify-center bg-mk-ink/85 p-3.5 text-white transition-opacity duration-[160ms] ease-mk",
+          "absolute inset-0 flex flex-col justify-center bg-mk-ink p-3.5 text-white transition-opacity duration-[160ms] ease-mk",
           hover ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
@@ -282,7 +282,7 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
   const selectedCard = selected ? cards.find((c) => c.cardId === selected) : undefined;
 
   return (
-    <div className="p-6">
+    <div className="mk-scroll h-full overflow-y-auto p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-mk-body leading-relaxed text-mk-secondary">
           全部 {cards.length} 张思维工具卡 · 你已遇到 <b className="text-mk-ink">{learnt}</b> 张。彩色是练过的，灰色是还没遇到的。
