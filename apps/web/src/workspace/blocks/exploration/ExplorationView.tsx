@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { EmptyState } from "@/ui/Illustration";
 import type {
   CardTurnRef,
   DigCandidate,
@@ -546,13 +547,15 @@ export function ExplorationView({
           (and with full-screen mode), instead of sitting in a short fixed box. */}
       <div className="min-h-0 flex-1 px-6 pb-5">
         {roots.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center rounded-mk-lg border border-dashed border-mk-border bg-mk-surface px-6 py-10 text-center">
-            <p className="text-[14px] font-bold text-mk-ink">这里还是空的</p>
-            {/* Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
-                (no imperative to type one herself; 铁律①: she still confirms). */}
-            <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-mk-muted">
-              聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。
-            </p>
+          // Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
+          // (no imperative to type one herself; 铁律①: she still confirms).
+          // Centered illustration + ≥14px copy (design system §16).
+          <div className="flex h-full items-center justify-center">
+            <EmptyState
+              illustration="warren"
+              title="这里还是空的"
+              body="聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+            />
           </div>
         ) : (
           <WarrenMap

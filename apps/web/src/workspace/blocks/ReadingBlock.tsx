@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
+import { Illustration } from "@/ui/Illustration";
 import {
   getLibrary,
   createCollection,
@@ -1341,9 +1342,7 @@ function MetaEdit({ k, v, onChange, placeholder }: { k: string; v: string; onCha
 function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-mk-accent-50 text-mk-accent">
-        <Icon name="reading" size={30} />
-      </div>
+      <Illustration name="reading" className="mb-5 h-[160px] w-[160px]" />
       <h2 className="font-sans text-[22px] font-bold text-mk-ink">你的文献库还是空的</h2>
       {/* #3 · when the topic is known, acknowledge it here too instead of the
           generic prompt — the platform already has it, no need to re-ask. */}
