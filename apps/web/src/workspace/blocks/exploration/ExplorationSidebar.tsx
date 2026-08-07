@@ -88,16 +88,17 @@ const SHELL = "flex w-[340px] flex-none flex-col border-l border-mk-border bg-mk
 export function ExplorationSidebar(props: ExplorationSidebarProps) {
   const { state, coach, node } = props;
 
-  // 'ai' → the coach slot IS the sidebar (its own fixed-width aside). A missing
-  // slot (never in the app, only bare unit renders) degrades to an empty column.
+  // 'ai' → the coach slot IS the sidebar (its own fixed-width aside). The coach
+  // now lives in the constant 印记 rail, not here — with no slot passed in,
+  // collapse entirely so the graph canvas gets the full width (no dead column).
   if (state === "ai") {
-    return coach ? <>{coach}</> : <aside className={SHELL} />;
+    return coach ? <>{coach}</> : null;
   }
 
-  // Guard: node/results always ride a selected node; if it vanished, fall back
-  // to the coach rather than a blank panel.
+  // Guard: node/results always ride a selected node; if it vanished, collapse
+  // back to nothing (same as the 'ai' default) rather than a blank panel.
   if (!node) {
-    return coach ? <>{coach}</> : <aside className={SHELL} />;
+    return coach ? <>{coach}</> : null;
   }
 
   if (state === "results") {

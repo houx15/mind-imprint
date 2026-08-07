@@ -491,6 +491,29 @@ describe("ExplorationView", () => {
     expect(screen.queryByText(NASA_REF.title)).toBeNull();
   });
 
+  it("with no coach slot (it now lives in the constant 印记 rail), the 'ai' default sidebar collapses to nothing — no dead empty column — and clicking a node still opens it", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    const { container } = render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+
+    // Level-1 (map): no coach passed → no empty bordered aside column
+    await screen.findByText(ROOT_LEAD.text);
+    expect(container.querySelector("aside")).toBeNull();
+
+    // Level-2 (inside a question), still nothing selected: still collapsed
+    await zoomInto(user, ROOT_LEAD.text);
+    expect(container.querySelector("aside")).toBeNull();
+
+    // clicking a node still opens the 'node' sidebar normally
+    await clickNode(user, CHILD_PAPER.text);
+    expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
+    expect(container.querySelector("aside")).not.toBeNull();
+
+    // ← 印记 back to the (still coach-less) default collapses again, no crash
+    await user.click(screen.getByRole("button", { name: "← 印记" }));
+    await waitFor(() => expect(container.querySelector("aside")).toBeNull());
+  });
+
   it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the coach", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
