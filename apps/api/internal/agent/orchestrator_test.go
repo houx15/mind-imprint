@@ -1,6 +1,9 @@
 package agent
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseOrchestratorOutput_FencedMultiTool(t *testing.T) {
 	raw := "```json\n{\"narrate\":\"写作面板开好了。\",\"tools\":[" +
@@ -105,5 +108,17 @@ func TestParseOrchestratorOutput_NewTools(t *testing.T) {
 	q, err := ProposeQuestionArgs(dec.Tools[1])
 	if err != nil || q.Text == "" {
 		t.Fatalf("propose_question args: %v %q", err, q.Text)
+	}
+}
+
+// P4 · the narration-of-configuration rule (spec §8: 印记 states what it set up
+// + asks one next-step question) must stay in the prompt, and the open_tool
+// bullet must list the forming(提案) room (P2b split). Guards a silent drop.
+func TestOrchestratorPrompt_NarrationAndForming(t *testing.T) {
+	if !strings.Contains(orchestratorSystemPrompt, "叙述规则") {
+		t.Error("prompt lost the narration-of-configuration rule (P4)")
+	}
+	if !strings.Contains(orchestratorSystemPrompt, "forming(提案要点)") {
+		t.Error("open_tool bullet must list forming(提案要点)")
 	}
 }
