@@ -80,8 +80,14 @@ category later means adding one entry, not a new endpoint or handler (mirrors
 | scope | key prefix | write gate | content-type allowlist | max size |
 |---|---|---|---|---|
 | `web_resource` | `web/` | admin key | `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` | 10 MB |
-| `course_material` | `courses/` | admin key | `image/png`, `image/jpeg`, `image/webp`, `application/pdf` | 50 MB |
+| `course_material` | `courses/` | admin key | `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `video/mp4`, `video/webm`, `video/quicktime` | 500 MB |
 | `user_image` | `users/{uid}/images/` | logged-in session (own uid only) | `image/png`, `image/jpeg`, `image/webp` | 10 MB |
+
+`course_material` carries course **video** (`mp4`/`webm`/`mov`) alongside
+images/PDF; its 500 MB cap is the scope ceiling (not per-type). Video is
+admin-key-only and never permitted in `web_resource`/`user_image`. The presign
+request body itself is capped at 4 KB (`http.MaxBytesReader`), independent of
+the soft `size` check on the eventual `PUT`.
 
 **Write gates are two distinct mechanisms:**
 - **admin key** — a static bearer secret (`OSS_ADMIN_KEY`) sent as

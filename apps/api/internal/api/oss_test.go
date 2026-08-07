@@ -140,6 +140,66 @@ func TestOSSAdminAndDisabled(t *testing.T) {
 	})
 }
 
+// TestOSSVideoAndBodyLimit covers video resources in the course_material scope
+// and the presign request-body cap — neither needs a database session.
+func TestOSSVideoAndBodyLimit(t *testing.T) {
+	enabled := New(Deps{OSS: testOSS(t), OSSAdminKey: testAdminKey}).Handler()
+
+	post := func(path, body, key string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		if key != "" {
+			bearer(req, key)
+		}
+		rec := httptest.NewRecorder()
+		enabled.ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("course_material accepts video with the right extension", func(t *testing.T) {
+		cases := []struct{ ct, ext string }{
+			{"video/mp4", ".mp4"},
+			{"video/webm", ".webm"},
+			{"video/quicktime", ".mov"},
+		}
+		for _, c := range cases {
+			body := `{"scope":"course_material","contentType":"` + c.ct + `","size":209715200}` // 200 MB
+			rec := post("/api/v1/oss/admin/upload-url", body, testAdminKey)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: want 200 got %d %s", c.ct, rec.Code, rec.Body)
+			}
+			var resp struct{ ObjectKey string }
+			_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+			if !strings.HasPrefix(resp.ObjectKey, "courses/") || !strings.HasSuffix(resp.ObjectKey, c.ext) {
+				t.Fatalf("%s: objectKey %q want courses/*%s", c.ct, resp.ObjectKey, c.ext)
+			}
+		}
+	})
+
+	t.Run("video is rejected outside course_material", func(t *testing.T) {
+		body := `{"scope":"web_resource","contentType":"video/mp4","size":1000}`
+		rec := post("/api/v1/oss/admin/upload-url", body, testAdminKey)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "unsupported_type") {
+			t.Fatalf("video in web_resource: want 400 unsupported_type got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("course video over the 500 MB cap is rejected", func(t *testing.T) {
+		body := `{"scope":"course_material","contentType":"video/mp4","size":629145600}` // 600 MB
+		rec := post("/api/v1/oss/admin/upload-url", body, testAdminKey)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "file_too_large") {
+			t.Fatalf("600 MB video: want 400 file_too_large got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("an oversized presign body is rejected", func(t *testing.T) {
+		body := `{"scope":"course_material","contentType":"video/mp4","size":1000,"filename":"` + strings.Repeat("a", 8<<10) + `"}`
+		rec := post("/api/v1/oss/admin/upload-url", body, testAdminKey)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("8 KB body: want 400 got %d %s", rec.Code, rec.Body)
+		}
+	})
+}
+
 // TestOSSUserUpload covers the session-gated user route and session resolve,
 // which need a real signed-in user (testcontainers DB).
 func TestOSSUserUpload(t *testing.T) {
