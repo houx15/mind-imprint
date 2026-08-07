@@ -82,10 +82,16 @@ the size cap. Adding a new category = one entry in `ossScopes`
 | scope | prefix | who uploads | allowed types | max |
 |---|---|---|---|---|
 | `web_resource` | `web/` | admin key | png, jpeg, webp, svg | 10 MB |
-| `course_material` | `courses/` | admin key | png, jpeg, webp, pdf | 50 MB |
+| `course_material` | `courses/` | admin key | png, jpeg, webp, pdf, **mp4, webm, mov** | 500 MB |
 | `user_image` | `users/{uid}/images/` | logged-in user (own uid) | png, jpeg, webp | 10 MB |
 
 **All reads are login-gated** (a session or the admin key), regardless of scope.
+
+**Video** lives only in `course_material` — `video/mp4`, `video/webm`,
+`video/quicktime` (`.mov`), uploaded by admin scripts. The 500 MB cap is the
+scope ceiling for everything in `courses/` (images/pdf keep working under it);
+it is not a per-type limit. Video is deliberately absent from `web_resource`
+and `user_image` — students never upload video.
 
 ---
 
@@ -172,12 +178,17 @@ Full config var list: `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_CDN_DOMAIN`,
 
 - **Content-Type must match.** The `PUT` must send exactly the
   `requiredContentType` the server returned — it's bound into the signature.
-  Send the wrong type and OSS rejects it.
+  Send the wrong type and OSS rejects it. This applies to video too: sign for
+  `video/mp4` and `PUT` with `Content-Type: video/mp4`.
 - **URLs are short-lived.** Upload URLs expire in **10 min**, read URLs in
   **5 min**. Resolve read URLs on demand; don't store them.
 - **Size cap is a soft check.** `size` is validated before signing, but a plain
   presigned `PUT` can't hard-enforce byte count. Don't rely on it for untrusted
-  clients beyond the login gate.
+  clients beyond the login gate. This matters more for **video** — the
+  `course_material` cap is a large 500 MB, and only the admin key can reach that
+  scope, so keep video uploads to trusted scripts. The presign *request* body is
+  separately capped at 4 KB (`http.MaxBytesReader`) — that guards the endpoint,
+  not the OSS `PUT`.
 - **`%2F` in signed URLs is normal.** The signer percent-encodes `/` in keys;
   OSS decodes it. Round-trips fine — don't "fix" it.
 - **Reads aren't owned.** Any logged-in user can resolve any key (uniform
@@ -189,5 +200,5 @@ Full config var list: `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_CDN_DOMAIN`,
 
 Course definition JSON (~100–200 lines) lives in **Postgres**, not OSS — it's
 small, queryable, and permissioned. OSS holds the **media a course references**
-(images/diagrams/PDF) under `courses/…`; the course JSON carries the object keys,
-resolved via `/oss/resolve-url`.
+(images/diagrams/PDF/**video**) under `courses/…`; the course JSON carries the
+object keys, resolved via `/oss/resolve-url`.
