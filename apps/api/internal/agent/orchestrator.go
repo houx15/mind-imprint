@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+
+	"mindimprint/api/internal/gateway"
 )
 
 // orchestratorSystemPrompt is the ONE posture for 印记-as-orchestrator. It
@@ -147,4 +150,53 @@ func SummonCardToolArgs(tc OrchestratorToolCall) (SummonCardToolArgsT, error) {
 	var a SummonCardToolArgsT
 	err := json.Unmarshal(tc.Args, &a)
 	return a, err
+}
+
+// buildOrchestratorRequest assembles the ONE LLM call's request: the
+// orchestrator posture as the system message, the continuous history mapped
+// straight through, and a final user turn carrying the spine projection plus
+// the current AI-managed state (stage/openTool) — the same shape as
+// BuildProjectCoachContext, but tool-aware.
+func buildOrchestratorRequest(spineProjection string, state StudioState, history []ChatTurn) gateway.ChatRequest {
+	messages := make([]gateway.ChatMessage, 0, len(history)+2)
+	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: orchestratorSystemPrompt})
+	for _, t := range history {
+		role := gateway.RoleUser
+		if t.Role == "assistant" {
+			role = gateway.RoleAssistant
+		}
+		messages = append(messages, gateway.ChatMessage{Role: role, Content: t.Content})
+	}
+	messages = append(messages, gateway.ChatMessage{
+		Role:    gateway.RoleUser,
+		Content: spineProjection + "\n\n当前阶段：" + string(state.Stage) + "，当前打开：" + string(state.OpenTool),
+	})
+	return gateway.ChatRequest{Messages: messages}
+}
+
+// ProposeOrchestratorTurn makes ONE LLM call for a student turn and returns the
+// parsed decision. Retries once on a parse failure; the caller falls back to a
+// plain narration on a second failure.
+func ProposeOrchestratorTurn(
+	ctx context.Context,
+	prov gateway.Provider,
+	r gateway.Resolved,
+	spineProjection string,
+	state StudioState,
+	history []ChatTurn,
+) (OrchestratorDecision, gateway.ChatUsage, error) {
+	req := buildOrchestratorRequest(spineProjection, state, history)
+	var lastUsage gateway.ChatUsage
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := gateway.Collect(ctx, prov, r, req)
+		if err != nil {
+			return OrchestratorDecision{}, lastUsage, err
+		}
+		lastUsage = res.Usage
+		dec, perr := ParseOrchestratorOutput(res.Text)
+		if perr == nil {
+			return dec, lastUsage, nil
+		}
+	}
+	return OrchestratorDecision{}, lastUsage, errOrchestratorParse
 }
