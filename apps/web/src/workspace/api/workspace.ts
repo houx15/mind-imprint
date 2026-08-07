@@ -17,6 +17,8 @@ import {
   AIUseStatement as AIUseStatementSchema,
   CardReflectReply,
   CardTurnRef,
+  OrchestratorReply,
+  StudioState,
 } from "@mind-imprint/contracts";
 import type { AIUseDraft, AIUseStatement } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
@@ -99,9 +101,21 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
   return LogEntry.parse((raw as { entry: unknown }).entry);
 }
 
-// POST /coach — one restrained coaching turn (JSON, not SSE). The only spend
-// endpoint of the room. Returns the AI reply, plus (S4) an OPTIONAL cross-phase
-// card proposal — an OFFER the student may open or dismiss; never auto-opens.
+// POST /coach — one restrained agentic turn (JSON, not SSE) through the studio
+// orchestrator (2026-08-07 orchestrator redesign). The only spend endpoint of
+// the room. `scope` is GONE — 印记 owns ONE continuous per-project thread now
+// (server always persists surface="studio"); the caller just sends what the
+// student typed. Returns the full OrchestratorReply: narrate (what to say) +
+// directive (the fresh StudioState — stage/openTool/widthTier/reference/
+// updatedAtTurn, to be applied by the caller) + an optional note/card OFFER
+// (student confirms, never auto-applied — 铁律②) + reviewRequested.
+//
+// CoachScope / CardProposalWire / DimSuggestionWire stay exported here even
+// though coach() no longer produces them: getCoachHistory still takes a
+// CoachScope surface (reading/reflection sub-agents), and CardProposalWire /
+// DimSuggestionWire are still imported by ReadingBlock/CoachCardPanel/
+// CoachProposal/WritingBlock/ReviewBlock and PlanBlock respectively — Task 9
+// retires those call sites, not this task (see task-7 brief's scope boundary).
 export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review" | "reflection";
 export const CardProposalWire = z.object({
   cardId: z.string(),
@@ -109,11 +123,6 @@ export const CardProposalWire = z.object({
   nudgeText: z.string(),
 });
 export type CardProposalWire = z.infer<typeof CardProposalWire>;
-// linkOffer — the link-in-coach → resource bridge (2026-07-30). When the student
-// drops a URL into a coach turn, the reply carries an OPTIONAL offer to add it to
-// the library / read it together; the chip is confirmed by a tap, never auto-acts.
-export const LinkOfferWire = z.object({ url: z.string() });
-export type LinkOfferWire = z.infer<typeof LinkOfferWire>;
 // dimSuggestion — #13 forming confirm-chip. When the student articulates a
 // still-empty kick-off dimension, the reply carries an offer to record a
 // faithful one-line summary of HER words into that dim; she taps to confirm.
@@ -122,31 +131,21 @@ export const DimSuggestionWire = z.object({
   value: z.string(),
 });
 export type DimSuggestionWire = z.infer<typeof DimSuggestionWire>;
-export interface CoachResult {
-  reply: string;
-  proposal: CardProposalWire | null;
-  linkOffer: LinkOfferWire | null;
-  dimSuggestion: DimSuggestionWire | null;
-}
-export async function coach(id: string, scope: CoachScope, userInput: string): Promise<CoachResult> {
+export async function coach(id: string, userInput: string): Promise<OrchestratorReply> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
     method: "POST",
-    body: JSON.stringify({ scope, user_input: userInput }),
+    body: JSON.stringify({ user_input: userInput }),
   });
-  const parsed = z
-    .object({
-      reply: z.string(),
-      proposal: CardProposalWire.nullish(),
-      linkOffer: LinkOfferWire.nullish(),
-      dimSuggestion: DimSuggestionWire.nullish(),
-    })
-    .parse(raw);
-  return {
-    reply: parsed.reply,
-    proposal: parsed.proposal ?? null,
-    linkOffer: parsed.linkOffer ?? null,
-    dimSuggestion: parsed.dimSuggestion ?? null,
-  };
+  return OrchestratorReply.parse(raw);
+}
+
+// GET /studio-state — 印记's current directive (stage/openTool/widthTier/
+// reference/updatedAtTurn) independent of any coach turn. Used to resume a
+// project at its AI-managed status (e.g. on load) without replaying the whole
+// thread. No spend.
+export async function getStudioState(id: string): Promise<StudioState> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/studio-state`);
+  return StudioState.parse(raw);
 }
 
 // POST /cards/persist — persist a completed envelope for a card the coach
