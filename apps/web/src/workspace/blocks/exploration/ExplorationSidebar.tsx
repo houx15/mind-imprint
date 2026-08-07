@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { DigCandidate, ExplorationLead, LeadOrigin, Reference } from "@mind-imprint/contracts";
+import { RabbitHoleLoader } from "@/ui";
 
 // GVd · ONE stateful right sidebar for the 探索 view — the ONLY right panel here
 // (the separately-docked 印记·找资料 coach is gone; it now IS this sidebar's
@@ -162,13 +163,13 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
                   if (e.key === "Enter") submitKeyword();
                 }}
                 placeholder="换个词找…"
-                className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-paper/60 px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+                className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
               />
               <button
                 type="button"
                 onClick={submitKeyword}
                 disabled={digging || !keyword.trim()}
-                className="flex-none rounded-mk border border-mk-accent/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent/10 disabled:opacity-50"
+                className="flex-none rounded-mk border border-mk-accent/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
               >
                 找
               </button>
@@ -259,7 +260,7 @@ function PaperMeta({
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
+            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
           >
             打开原文
           </a>
@@ -269,7 +270,7 @@ function PaperMeta({
             type="button"
             onClick={onEnterReading}
             disabled={entering}
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10 disabled:opacity-50"
+            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
           >
             {entering ? "打开中…" : "进入阅读室"}
           </button>
@@ -326,7 +327,7 @@ function QuestionMeta({
                 <button
                   type="button"
                   onClick={() => onSelectPaper(p.id)}
-                  className="w-full rounded-mk border border-mk-border bg-mk-paper/50 px-2.5 py-1.5 text-left text-[12px] font-semibold leading-snug text-mk-ink hover:border-mk-accent hover:bg-mk-accent/5"
+                  className="w-full rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5 text-left text-[12px] font-semibold leading-snug text-mk-ink hover:border-mk-accent hover:bg-mk-accent-50"
                 >
                   {p.title}
                 </button>
@@ -349,7 +350,7 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
         <button
           type="button"
           onClick={onBackToAi}
-          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
+          className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
         >
           ← 印记
         </button>
@@ -364,7 +365,9 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {digging ? (
-          <p className="py-2 text-[12.5px] text-mk-faint">印记在找相关论文……</p>
+          <div className="flex justify-center py-4">
+            <RabbitHoleLoader caption="印记在找相关论文……" />
+          </div>
         ) : digError ? (
           <p className="py-2 text-[12.5px] font-semibold text-mk-accent">刚才没接上，再试一次？</p>
         ) : candidates.length === 0 ? (
@@ -379,7 +382,7 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
               const cMeta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
               const busy = adopting.has(key);
               return (
-                <div key={key} className="rounded-mk border border-mk-border bg-mk-paper/50 p-2.5">
+                <div key={key} className="rounded-mk border border-mk-border bg-mk-paper p-2.5">
                   <p className="text-[12.5px] font-semibold leading-snug text-mk-ink">{c.title}</p>
                   {cMeta && <p className="mt-0.5 text-[11px] text-mk-faint">{cMeta}</p>}
                   {c.abstract?.trim() && (
@@ -423,7 +426,7 @@ function BackBar({ label, onClick }: { label: string; onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent/10"
+        className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
       >
         {label}
       </button>

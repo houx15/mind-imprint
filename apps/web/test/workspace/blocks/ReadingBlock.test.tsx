@@ -167,3 +167,37 @@ describe("ReadingBlock · #3 topic-aware empty state", () => {
     expect(await screen.findByText(/跟我说说你的题目/)).toBeInTheDocument();
   });
 });
+
+// Job 2 (studio agentic restyle 2026-08): FloatingCoach's message log is now the
+// shared ChatLog/Composer (mirrors PlanBlock's Task 5 migration) instead of a
+// hand-rolled bubble list + textarea. ChatLog stamps each bubble with
+// `data-role="assistant"|"student"` — a hand-rolled log never did — so its
+// presence proves the swap, not just that some text renders somewhere.
+describe("ReadingBlock · FloatingCoach uses the shared ChatLog/Composer", () => {
+  // A fresh, never-before-used projectId — ReadingBlock's viewModeMemo is a
+  // module-level Map keyed by projectId that outlives any single test, so
+  // reusing an id another test already toggled to 列表 would leave the coach
+  // collapsed behind a floating chip instead of docked-open in 探索图谱.
+  it("renders the greeting as a ChatLog assistant bubble", async () => {
+    const { container } = render(<ReadingBlock projectId="chatlog-greeting" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+    const bubble = container.querySelector('[data-role="assistant"]');
+    expect(bubble).not.toBeNull();
+    expect(bubble!.textContent).toMatch(/找资料卡住了|你的题目是/);
+  });
+
+  it("sending through the shared Composer posts a student ChatLog bubble and the coach's reply", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ReadingBlock projectId="chatlog-compose" title="T" setReadingSource={() => {}} />);
+    await screen.findByText("graph-stub");
+
+    const textarea = await screen.findByPlaceholderText("问从哪找、可不可信……");
+    await user.type(textarea, "碳排放的数据去哪找？");
+    await user.click(screen.getByRole("button", { name: "发送" }));
+
+    await waitFor(() => {
+      const studentBubble = container.querySelector('[data-role="student"]');
+      expect(studentBubble?.textContent).toBe("碳排放的数据去哪找？");
+    });
+  });
+});

@@ -26,6 +26,7 @@ import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
+import { RabbitHoleLoader } from "@/ui";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
 // (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
@@ -458,19 +459,23 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
   );
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-[14px] text-mk-muted-2">加载探索图谱中…</div>;
+    return (
+      <div className="flex h-full items-center justify-center">
+        <RabbitHoleLoader caption="加载探索图谱中…" />
+      </div>
+    );
   }
 
   if (inHole) {
     /* ---------- HOLE (Level-2) · one question's mindmap + right sidebar ---------- */
     return (
-      <div className="relative flex h-full min-h-0 bg-mk-bg/40">
+      <div className="relative flex h-full min-h-0 bg-mk-paper">
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-2.5">
             <button
               type="button"
               onClick={backToMap}
-              className="flex-none rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+              className="flex-none rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
             >
               ← 返回兔子洞地图
             </button>
@@ -499,7 +504,7 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
 
   /* ---------- MAP (Level-1) · the overview graph of root questions + sidebar (always 'ai') ---------- */
   return (
-    <div className="relative flex h-full min-h-0 bg-mk-bg/40">
+    <div className="relative flex h-full min-h-0 bg-mk-paper">
       <div className="relative flex min-h-0 flex-1 flex-col">
       {/* Controls stay a fixed header; the map below fills the remaining height
           (so it grows with the viewport / full-screen mode instead of sitting in
@@ -516,13 +521,13 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
               if (e.key === "Enter") createQuestion();
             }}
             placeholder="记一个你想弄清楚的问题……（比如「中国碳排放全球第一，这跟可持续矛盾吗？」）"
-            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-muted-2"
+            className="flex-1 bg-transparent text-[12.5px] text-mk-ink outline-none placeholder:text-mk-faint"
           />
           <button
             type="button"
             onClick={createQuestion}
             disabled={creatingQuestion || !newQuestion.trim()}
-            className="flex-none rounded-mk bg-mk-primary px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-primary-hover disabled:opacity-60"
+            className="flex-none rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
           >
             {creatingQuestion ? "记录中…" : "记下问题"}
           </button>
@@ -536,26 +541,26 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
           <button
             type="button"
             onClick={() => setNotePickerOpen((o) => !o)}
-            className="rounded-full border border-mk-border bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:border-mk-primary hover:bg-mk-primary/10"
+            className="rounded-full border border-mk-border bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
           >
             从笔记新建问题
           </button>
           {notePickerOpen && (
             <div className="absolute left-0 top-full z-30 mt-1 w-80 rounded-mk border border-mk-border bg-mk-surface p-2 shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
               {notesWithText.length === 0 ? (
-                <p className="px-2 py-2 text-[12px] text-mk-muted-2">还没有阅读笔记</p>
+                <p className="px-2 py-2 text-[12px] text-mk-faint">还没有阅读笔记</p>
               ) : (
                 notesWithText.map((ref) => (
                   <button
                     key={ref.id}
                     type="button"
                     onClick={() => void createFromNote(ref)}
-                    className="block w-full rounded px-2 py-1.5 text-left hover:bg-mk-primary-tint"
+                    className="block w-full rounded px-2 py-1.5 text-left hover:bg-mk-accent-50"
                   >
                     <p className="line-clamp-2 text-[12px] font-semibold leading-snug text-mk-ink">
                       {(ref.readingNote ?? "").trim()}
                     </p>
-                    <p className="mt-0.5 truncate text-[11px] text-mk-muted-2">{ref.title}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-mk-faint">{ref.title}</p>
                   </button>
                 ))
               )}
@@ -574,11 +579,11 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
               type="button"
               onClick={proposeRelations}
               disabled={proposing}
-              className="rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10 disabled:opacity-60"
+              className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
             >
               {proposing ? "印记在找关系…" : "让印记找找问题之间的关系"}
             </button>
-            {proposeNote && <span className="text-[12px] text-mk-muted-2">{proposeNote}</span>}
+            {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
           </div>
         )}
       </div>
@@ -600,7 +605,7 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
               <button
                 type="button"
                 onClick={() => setNewQuestion(drivingQuestion)}
-                className="mt-3 rounded-full border border-mk-primary/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-primary hover:bg-mk-primary/10"
+                className="mt-3 rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
               >
                 用我的研究问题开始
               </button>
