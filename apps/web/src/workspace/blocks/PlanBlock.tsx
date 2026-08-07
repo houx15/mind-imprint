@@ -26,12 +26,10 @@ import {
   deletePlanItem,
   getLog,
   addLog,
-  generatePlan,
   type PlanItemPatch,
 } from "../api/workspace";
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
-import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
@@ -74,7 +72,6 @@ export function PlanBlock({
   proposal,
   createdAt,
   phase,
-  onPlanGenerated,
   refreshWorkspace,
   recap,
 }: {
@@ -87,10 +84,6 @@ export function PlanBlock({
    * WorkspaceContainer now decides via `room`, not a self-decided local
    * state). */
   phase: "forming" | "working";
-  /** The generate→board flip (P2a): a successful 生成项目计划 tells the
-   * container to switch the switcher to 管理; this component no longer
-   * flips its own phase. */
-  onPlanGenerated: () => void;
   refreshWorkspace: () => void;
   /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
   recap?: string | null;
@@ -111,12 +104,6 @@ export function PlanBlock({
   // The two quick-reply chips live only under the scripted intro; any turn
   // (chip, typed message, or a language reset) dismisses them.
   const [chipsDismissed, setChipsDismissed] = useState(false);
-  // 生成项目计划 round-trip state + the items it returns (seeded into the board).
-  const [generating, setGenerating] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-  const [seedBoard, setSeedBoard] = useState<PlanItem[] | undefined>(undefined);
-  // #15: shown before a regenerate overwrites an existing plan.
-  const [confirmRegen, setConfirmRegen] = useState(false);
 
   // Debounced persistence of proposal edits (~600ms after the last keystroke).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,47 +121,6 @@ export function PlanBlock({
     saveTimer.current = setTimeout(() => persistProposal(next), 600);
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
-
-  // #15: generating replaces the whole board server-side. If a plan already
-  // exists, confirm before overwriting so a regenerate never silently wipes the
-  // student's arranged/moved cards. onGenerate is the guard; doGenerate is the work.
-  async function onGenerate() {
-    if (generating) return;
-    const existing = await getPlan(projectId).catch(() => [] as PlanItem[]);
-    if (existing.length > 0) {
-      setConfirmRegen(true);
-      return;
-    }
-    void doGenerate();
-  }
-
-  async function doGenerate() {
-    setConfirmRegen(false);
-    if (generating) return;
-    // Flush any pending debounced save so the plan is generated from the stored
-    // proposal (persist nothing destructive — just the dims as typed).
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    persistProposal(prop);
-    setGenerating(true);
-    setGenError(null);
-    try {
-      const items = await generatePlan(projectId);
-      setSeedBoard(items);
-      onPlanGenerated();
-      // The plan now exists → let the shell refresh so the PlanSpine indicator
-      // (spec §3) appears with the freshly generated stages.
-      refreshWorkspace();
-    } catch (e) {
-      // 422 proposal_empty → nudge; anything else → a gentle retry hint.
-      if (e instanceof ApiError && e.code === "proposal_empty") {
-        setGenError("先聊几句开题再生成");
-      } else {
-        setGenError("生成没成功，稍后再试一次");
-      }
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   // The coach send is now the ONE container-owned loop (`sendStudioTurn`): it
   // appends the turn, calls the orchestrator, applies the returned directive,
@@ -213,49 +159,41 @@ export function PlanBlock({
 
   if (phase === "forming") {
     return (
-      <>
-        <FormingPhase
-          proposal={prop}
-          setDim={setDim}
-          messages={messages}
-          recap={recap}
-          draft={draft}
-          setDraft={setDraft}
-          sending={sending}
-          onSend={onSend}
-          showChips={!chipsDismissed && messages.length === 0}
-          onGuideMe={onGuideMe}
-          onSelfFill={() => setChipsDismissed(true)}
-          onReview={onReview}
-          onGenerate={onGenerate}
-          generating={generating}
-          genError={genError}
-          title={title}
-          qualification={qualification}
-          projectId={projectId}
-          onCardReflected={(studentText, reply, card) => {
-            if (!isActiveProject()) return; // student switched projects mid-reflect
-            setMessages((c) => [
-              ...c,
-              // A card turn renders as a content-first chip (card set), falling
-              // back to raw compiled text only if the server didn't echo a card.
-              ...(card
-                ? [{ role: "student" as const, text: studentText, card }]
-                : studentText
-                  ? [{ role: "student" as const, text: studentText }]
-                  : []),
-              ...(reply
-                ? [{ role: "ai" as const, text: reply }]
-                : card || studentText
-                  ? []
-                  : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-            ]);
-          }}
-        />
-        {confirmRegen && (
-          <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
-        )}
-      </>
+      <FormingPhase
+        proposal={prop}
+        setDim={setDim}
+        messages={messages}
+        recap={recap}
+        draft={draft}
+        setDraft={setDraft}
+        sending={sending}
+        onSend={onSend}
+        showChips={!chipsDismissed && messages.length === 0}
+        onGuideMe={onGuideMe}
+        onSelfFill={() => setChipsDismissed(true)}
+        onReview={onReview}
+        title={title}
+        qualification={qualification}
+        projectId={projectId}
+        onCardReflected={(studentText, reply, card) => {
+          if (!isActiveProject()) return; // student switched projects mid-reflect
+          setMessages((c) => [
+            ...c,
+            // A card turn renders as a content-first chip (card set), falling
+            // back to raw compiled text only if the server didn't echo a card.
+            ...(card
+              ? [{ role: "student" as const, text: studentText, card }]
+              : studentText
+                ? [{ role: "student" as const, text: studentText }]
+                : []),
+            ...(reply
+              ? [{ role: "ai" as const, text: reply }]
+              : card || studentText
+                ? []
+                : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
+          ]);
+        }}
+      />
     );
   }
 
@@ -264,7 +202,6 @@ export function PlanBlock({
       projectId={projectId}
       title={title}
       qualification={qualification}
-      seedBoard={seedBoard}
       createdAt={createdAt}
     />
   );
@@ -291,28 +228,6 @@ function dayIndexFromAnchor(anchor: Date, target: Date): number {
   return Math.round((t.getTime() - a.getTime()) / DAY_MS);
 }
 
-// #15: the overwrite guard shown before a regenerate replaces an existing plan.
-function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg">
-        <h3 className="text-[16px] font-bold text-mk-ink">重新生成计划？</h3>
-        <p className="mt-2.5 text-[13.5px] leading-relaxed text-mk-muted">
-          这会按你最新的开题决定重排整个项目，并<span className="font-bold text-mk-ink">覆盖你现在的计划</span>——已经挪动、拆分或标记完成的卡片都会被替换。确定吗？
-        </p>
-        <div className="mt-5 flex justify-end gap-2.5">
-          <button type="button" onClick={onCancel} className="rounded-mk-md border border-mk-border bg-mk-surface px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-ink">
-            取消
-          </button>
-          <button type="button" onClick={onConfirm} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">
-            确定重排
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Phase A · forming ---------- */
 
 function FormingPhase(props: {
@@ -328,9 +243,6 @@ function FormingPhase(props: {
   onGuideMe: () => void;
   onSelfFill: () => void;
   onReview: () => void;
-  onGenerate: () => void;
-  generating: boolean;
-  genError: string | null;
   title: string;
   qualification: string;
   projectId: string;
@@ -338,7 +250,7 @@ function FormingPhase(props: {
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
+    showChips, onGuideMe, onSelfFill, onReview,
     title, qualification, projectId, onCardReflected,
   } = props;
   // 导出开题报告 .docx — a direct "take your work with you" action (成品可导出带走),
@@ -362,7 +274,6 @@ function FormingPhase(props: {
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
   const covered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
   const reviewReady = covered >= 1; // can ask 印记 for feedback as soon as there's something
-  const planReady = covered === requiredDims.length; // all four required finished
   // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
   // proposal panel + its actions — renders directly below, in <main>; its
   // COACH (the chat conversation) is portaled into the constant AiPanel via
@@ -416,27 +327,6 @@ function FormingPhase(props: {
             {exportingProposal ? "导出中…" : "导出开题报告 .docx"}
           </button>
         </div>
-        <button
-          type="button"
-          disabled={!planReady || generating}
-          onClick={onGenerate}
-          className="flex items-center justify-center gap-2 rounded-mk-md bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:bg-mk-input-border disabled:text-mk-faint"
-        >
-          {generating ? (
-            "印记正在排计划…"
-          ) : (
-            <>
-              生成项目计划
-              <Icon name="arrow" size={16} />
-            </>
-          )}
-        </button>
-        {!planReady && (
-          <p className="-mt-2 text-center text-[11.5px] text-mk-faint">
-            把「目标 / 缘由 / 活动 / 资源」四项都聊清楚，就能生成项目计划（反例可选）。
-          </p>
-        )}
-        {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
       </div>
 
       {/* COACH — portaled into the constant AiPanel (Task 4), now on the

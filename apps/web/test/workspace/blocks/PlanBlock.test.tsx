@@ -24,7 +24,6 @@ vi.mock("@/workspace/api/workspace", () => ({
   getLog: vi.fn(async () => []),
   addLog: vi.fn(async () => ({})),
   getCoachHistory: vi.fn(async () => []),
-  generatePlan: vi.fn(async () => []),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
 }));
 
@@ -111,7 +110,7 @@ beforeEach(() => {
 describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
   it("renders the scripted intro in the shared ChatLog and the summon shelf, portaled into the AI slot", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
 
     // The scripted intro (not an LLM call) renders via the shared ChatLog.
@@ -122,7 +121,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
 
   it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
@@ -136,35 +135,27 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(await screen.findByText("我想研究中国的碳排放")).toBeInTheDocument();
   });
 
-  it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {
+  it("P2b: the 生成项目计划 button is GONE — 印记 triggers generation via the generate_plan tool now, not a button", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={FILLED_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
-    const gen = screen.getByRole("button", { name: /生成项目计划/ });
-    expect(gen).toBeDisabled();
-
-    // Fill three of the four required — still gated.
-    await userEvent.type(screen.getByRole("textbox", { name: /^目标/ }), "以中国为例的研究问题");
-    await userEvent.type(screen.getByRole("textbox", { name: /^缘由/ }), "关心气候矛盾");
-    await userEvent.type(screen.getByRole("textbox", { name: /^活动与时间/ }), "溯源→读→写");
-    expect(gen).toBeDisabled();
-
-    // The 4th REQUIRED dim opens the gate — even though 反例/张力 is left empty.
-    await userEvent.type(screen.getByRole("textbox", { name: /^资源/ }), "NASA、学校数据库");
-    expect(gen).toBeEnabled();
-    expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
+    expect(screen.queryByRole("button", { name: /生成项目计划/ })).toBeNull();
+    // DimFields, the review action and the export still work — this is chrome
+    // removal, not a forming-room gutting.
+    expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /导出开题报告/ })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /^目标/ })).toBeInTheDocument();
   });
 
-  it("P2a Tier-1 strip: keeps 生成项目计划/让印记看看我的开题, drops the redundant 聊聊计划/写开题报告/中EN chrome", async () => {
+  it("P2a Tier-1 strip: keeps 让印记看看我的开题, drops the redundant 聊聊计划/写开题报告/中EN chrome", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
-    // Kept (Tier-2, or a direct review request — both stay working).
-    expect(screen.getByRole("button", { name: /生成项目计划/ })).toBeInTheDocument();
+    // Kept (a direct review request stays working).
     expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
     // The optional 开题报告 export stays reachable as a direct action (成品可导出
     // 带走) — killing 写开题报告 dropped only the transition-nudge, not the export.
@@ -188,7 +179,6 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
         qualification="拓展论文 EE"
         proposal={EMPTY_PROPOSAL}
         phase="forming"
-        onPlanGenerated={() => {}}
         refreshWorkspace={() => {}}
         recap="欢迎回来——你上次聊到了判断尺度。"
       />,
@@ -214,7 +204,6 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
         proposal={FILLED_PROPOSAL}
         createdAt="2026-08-01T00:00:00Z"
         phase="working"
-        onPlanGenerated={() => {}}
         refreshWorkspace={() => {}}
       />,
     );
@@ -238,7 +227,6 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
         proposal={FILLED_PROPOSAL}
         createdAt="2026-08-01T00:00:00Z"
         phase="working"
-        onPlanGenerated={() => {}}
         refreshWorkspace={() => {}}
       />,
     );

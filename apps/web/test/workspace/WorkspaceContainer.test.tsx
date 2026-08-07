@@ -49,12 +49,13 @@ const getWorkspace = vi.fn();
 const getStudioState = vi.fn();
 const coach = vi.fn();
 const putProposal = vi.fn();
+const getPlan = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getStudioState: (...args: unknown[]) => getStudioState(...args),
   coach: (...args: unknown[]) => coach(...args),
   putProposal: (...args: unknown[]) => putProposal(...args),
-  getPlan: vi.fn(async () => []),
+  getPlan: (...args: unknown[]) => getPlan(...args),
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
@@ -125,6 +126,7 @@ describe("WorkspaceContainer", () => {
     getStudioState.mockImplementation(async () => fakeStudioState("plan"));
     coach.mockResolvedValue(fakeReply("好的。", "chat"));
     putProposal.mockImplementation(async (_id: string, p: unknown) => p);
+    getPlan.mockResolvedValue([]);
   });
 
   it("shows the directory when no project is open", () => {
@@ -243,6 +245,9 @@ describe("WorkspaceContainer", () => {
 
     // The panel shows the real chat composer (not just the calm landing).
     const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    // Mount already fetched the plan once (the load effect) — clear that call
+    // so the assertion below is specifically about the post-turn refresh.
+    getPlan.mockClear();
     await userEvent.type(composer, "我想研究中国的可持续");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
@@ -251,6 +256,10 @@ describe("WorkspaceContainer", () => {
     // Directive applied: the writing room mounts, chat-first is gone.
     expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    // P2b: the plan can no longer be regenerated via a button — 印记 triggers
+    // it server-side via `generate_plan`, so every turn best-effort refreshes
+    // the plan spine (getPlan) instead of waiting for a room remount.
+    await waitFor(() => expect(getPlan).toHaveBeenCalledWith("pc"));
   });
 
   // Whole-branch review Fix 1: `room` used to be left stale across a project

@@ -311,6 +311,13 @@ export function WorkspaceContainer({
         setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
+        // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call
+        // this turn needs to show on the PlanSpine without waiting for a remount.
+        getPlan(pid)
+          .then((items) => {
+            if (isActive()) setPlanItems(items);
+          })
+          .catch(() => {});
         setPendingNote(reply.note);
         setPendingCard(reply.card);
         return true;
@@ -735,7 +742,6 @@ export function WorkspaceContainer({
                 proposal={workspace.proposal}
                 createdAt={workspace.createdAt}
                 phase={room === "forming" ? "forming" : "working"}
-                onPlanGenerated={() => handleManualRoom("plan")}
                 refreshWorkspace={refreshWorkspace}
                 recap={summary}
               />
