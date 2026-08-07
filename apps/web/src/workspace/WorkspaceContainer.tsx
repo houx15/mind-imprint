@@ -346,7 +346,10 @@ export function WorkspaceContainer({
       await putProposal(pid, merged);
       if (activeProjectIdRef.current === pid) await refreshWorkspace();
     } catch {
-      /* keep it dismissed; a later turn can re-offer, and the board reloads */
+      // The write failed — restore the chip so her tap isn't silently lost and
+      // she can retry, UNLESS a newer offer already took the slot (don't clobber
+      // a fresher note the next turn surfaced while this write was in flight).
+      setPendingNote((cur) => cur ?? note);
     }
   }, [pendingNote, refreshWorkspace]);
 
@@ -718,7 +721,7 @@ export function WorkspaceContainer({
                 qualification={workspace.qualification}
                 proposal={workspace.proposal}
                 createdAt={workspace.createdAt}
-                onOpenRoom={setRoom}
+                onOpenRoom={handleManualRoom}
                 refreshWorkspace={refreshWorkspace}
                 recap={summary}
               />
@@ -743,7 +746,7 @@ export function WorkspaceContainer({
                     proposal={workspace.proposal}
                     status={workspace.status}
                     writingFinished={workspace.writingFinished ?? false}
-                    onOpenRoom={setRoom}
+                    onOpenRoom={handleManualRoom}
                     refreshWorkspace={refreshWorkspace}
                     recap={summary}
                   />
@@ -757,7 +760,7 @@ export function WorkspaceContainer({
                 proposal={workspace.proposal}
                 status={workspace.status}
                 writingFinished={workspace.writingFinished ?? false}
-                onOpenRoom={setRoom}
+                onOpenRoom={handleManualRoom}
                 onFinished={backToAll}
               />
             )}

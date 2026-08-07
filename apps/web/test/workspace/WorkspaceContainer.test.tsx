@@ -278,4 +278,35 @@ describe("WorkspaceContainer", () => {
       ),
     );
   });
+
+  // Task 9b · when the target section ALREADY has content, confirming appends
+  // with a newline join (never clobbers her own words) — the other branch of
+  // confirmNote's read-modify-write merge.
+  it("confirming a note appends with a newline when the section already has content", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    // This project's objective is already written — the merge must preserve it.
+    getWorkspace.mockImplementation(async (id: string) => ({
+      ...fakeWorkspace(id),
+      proposal: { objective: "先前写好的目标。", reason: "", activities: "", resources: "" },
+    }));
+    coach.mockResolvedValue(
+      fakeReply("记下来吧。", "chat", { note: { section: "objective", value: "再补一句想法" } }),
+    );
+    render(<WorkspaceContainer initialProjectId="pm" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "帮我补充目标");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const confirm = await screen.findByRole("button", { name: "记进「目标」" });
+    await userEvent.click(confirm);
+
+    // Existing content + "\n" + the note's value — not a clobber.
+    await waitFor(() =>
+      expect(putProposal).toHaveBeenCalledWith(
+        "pm",
+        expect.objectContaining({ objective: "先前写好的目标。\n再补一句想法" }),
+      ),
+    );
+  });
 });
