@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getOutline, putOutline, getSnippets, putSnippets, getDraft } from "@/workspace/api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft, getAnnotations } from "@/workspace/api/workspace";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -57,6 +57,26 @@ describe("putSnippets", () => {
     expect(url).toContain("/api/v1/projects/p1/snippets");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ snippets: [{ text: "碳排放全球第一（反例）" }, { text: "NASA 绿化数据" }] });
+  });
+});
+
+const ANNOTATIONS = [
+  { id: "a1", criterion: "分析与论证", band: "中段", text: "反例没接回主张 → 把反例接回你的核心主张" },
+];
+
+describe("getAnnotations", () => {
+  it("GETs /annotations and Zod-parses the annotations array", async () => {
+    const spy = vi.fn(async () => json({ annotations: ANNOTATIONS }));
+    vi.stubGlobal("fetch", spy);
+    const got = await getAnnotations("p1");
+    expect(got).toEqual(ANNOTATIONS);
+    const [url] = spy.mock.calls[0] as unknown as [string];
+    expect(url).toContain("/api/v1/projects/p1/annotations");
+  });
+
+  it("throws on schema drift", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ annotations: [{ id: "a1" }] })));
+    await expect(getAnnotations("p1")).rejects.toThrow();
   });
 });
 
