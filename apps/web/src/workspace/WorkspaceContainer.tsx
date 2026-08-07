@@ -412,12 +412,10 @@ export function WorkspaceContainer({
     // project's studio_state resolves.
     setStudioState(null);
     // Reset the room too — else a project resumed into e.g. the reading room
-    // leaves `room==="reading"` stuck when the NEXT project resolves
-    // chat-first: showAiPanel's old `room !== "reading"` check would then hide
-    // the constant AiPanel entirely while chat-first has nothing else to show
-    // in it, producing an empty 印记 panel. applyStudioState below re-derives
-    // the real room once this project's status resolves; "plan" is just the
-    // safe interim default (mirrors the pre-load fallback).
+    // leaves `room==="reading"` stuck while the NEXT project's real status is
+    // still loading. applyStudioState below re-derives the real room once this
+    // project's status resolves; "plan" is just the safe interim default
+    // (mirrors the pre-load fallback).
     setRoom("plan");
     // Clear any manual takeover from the previous project — the new project
     // resumes at its own 印记 status.
@@ -627,14 +625,15 @@ export function WorkspaceContainer({
       <div ref={aiSlotRef} className="h-full" />
     </AiPanel>
   );
-  // The reading room is a distinct full-screen surface that owns its own coach
-  // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
-  // empty beside it (list mode) or duplicate it as a second 印记 column (graph
-  // mode). So the constant panel shows for every room EXCEPT reading. In
+  // Task 3 (P2a): reading used to be the one exception — it owned its own
+  // coach column (印记 · 找资料, a context-isolated "find_sources" thread) so
+  // the constant panel would either sit empty beside it (list mode) or
+  // duplicate it (graph mode). That room-owned coach is gone (ReadingBlock now
+  // portals into the constant rail, same as every other room), so the
+  // exception is gone too — the constant panel shows for every room. In
   // `chatOnly` there is no room and the chat fills <main> directly, so no side
-  // panel renders at all (`room` may be stale here — e.g. still "reading" from
-  // the just-left project — but chatOnly doesn't depend on it).
-  const showAiPanel = !chatOnly && room !== "reading";
+  // panel renders at all.
+  const showAiPanel = !chatOnly;
 
   // The ONE hoisted 印记 store — the continuous thread + the container-owned
   // send loop + note/card offers — shared by chat-first AND both working rooms
@@ -730,9 +729,9 @@ export function WorkspaceContainer({
           // StudioAiSlotContext: the room→panel portal contract. A room reads
           // `useStudioAiSlot()` and portals its coach content into the AiPanel's
           // body via `createPortal` — the room renders its WORK directly here in
-          // <main>. plan / writing / reflection all portal their coach into the
-          // constant panel. reading is the exception: it's a distinct
-          // full-screen surface with its own coach column (see showAiPanel).
+          // <main>. plan / writing / reading / reflection ALL portal their
+          // coach into the constant panel now (Task 3, P2a) — 印记 is the one
+          // constant rail, no room owns its own coach column.
           <StudioAiSlotContext.Provider value={aiSlotEl}>
             {(room === "forming" || room === "plan") && (
               <PlanBlock

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CardTurnRef, Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
+import { createPortal } from "react-dom";
+import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import {
   getLibrary,
@@ -8,8 +9,6 @@ import {
   patchReference,
   enterReading,
   pasteContent,
-  coach,
-  getCoachHistory,
   NoReadableContentError,
   type ReferencePatch,
   type SourceMeta,
@@ -19,10 +18,9 @@ import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
-import { CoachCardPanel, READING_DECK } from "./CoachCardPanel";
-import { CardTurnChip } from "./CardTurnChip";
-import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
-import { Composer } from "@/studio/ai/Composer";
+import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { useStudioChat } from "@/studio/ai/StudioChatContext";
+import { StudioCoachChat } from "@/studio/ai/StudioCoachChat";
 
 // #4 (review M1) · remembers the chosen 列表/探索图谱 view per project for the
 // life of the session, so a manual toggle survives the room unmounting (switching
@@ -63,16 +61,13 @@ const READING_STATUS_STYLE: Record<Reference["readingStatus"], string> = {
   done: "bg-mk-success-bg text-mk-success",
 };
 
-// `card` (followup fix 2026-08): a rabbit-hole (or other exploration deck)
-// card submitted via the shared reflect turn renders as a content-first
-// clickable chip, mirroring PlanBlock/ReviewBlock/WritingBlock's card turns.
-type ChatMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null };
-
 // The Reading block = a Zotero-shaped Library: collections + tags (left) for
 // categorization, a reference table (center) that scales to many sources with
-// multi-select batch export, a thin preview (right), and a floating 印记 for
-// coach-the-hunt help. The deep read-together AI lives in the shipped Reading
-// Room, so the Library keeps AI on-tap rather than in a permanent column.
+// multi-select batch export, and a thin preview (right). Task 3 (P2a): the
+// room used to carry its own floating/docked 印记 coach (context-isolated
+// "find_sources" thread); it now portals nothing of its own — the ONE
+// constant 印记 rail (shared studio thread) shows beside it, same as
+// plan/writing/reflection.
 //
 // All state is now persisted through the workspace API (slice 3): the library
 // loads on mount; edits patch optimistically; 进入阅读室 mints/loads a real
@@ -128,14 +123,18 @@ export function ReadingBlock({
     viewModeMemo.set(projectId, m);
     setViewModeRaw(m);
   };
-  // Followup fix (2026-08): bridges a rabbit-hole reflect result from
-  // ExplorationView (探索图谱, a sibling of FloatingCoach) into the 找资料 coach
-  // thread FloatingCoach owns — see the prop comment at each end.
-  const [pendingCardReflection, setPendingCardReflection] = useState<{
-    studentText: string;
-    reply: string;
-    card?: CardTurnRef;
-  } | null>(null);
+  // Task 3 (P2a): the room→panel contract (spec §17) — this room's WORK
+  // renders directly below, in <main>; its COACH portals into the constant
+  // AiPanel via `useStudioAiSlot`, same as plan/writing/reflection. `slot` is
+  // null when the panel is collapsed or this component renders outside a
+  // studio shell (e.g. some tests) — in either case the coach content simply
+  // doesn't render, never crashes. A rabbit-hole (or other exploration deck)
+  // card reflected inside ExplorationView used to bridge into a
+  // FloatingCoach-owned local thread; it now appends straight to the ONE
+  // shared studio thread via `useStudioChat().setMessages`, so it shows up in
+  // the SAME 印记 rail every other card's feedback uses.
+  const slot = useStudioAiSlot();
+  const { setMessages: setStudioMessages } = useStudioChat();
 
   // Debounce timers for free-text metadata edits, keyed by ref+field so each
   // field coalesces independently.
@@ -386,17 +385,12 @@ export function ReadingBlock({
     return <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>;
   }
 
-  // #3 · the coach already knows the project topic every turn — the empty
-  // greeting should ACKNOWLEDGE it, not ask for it. A static interpolated
-  // string (no model call); falls back to the old ask only when no topic is
-  // set yet. #18 · this no longer gates on a special empty-library layout —
-  // 探索图谱 is now the default even when refs.length === 0 (its own view
-  // renders a graph-flavored empty state), so 列表's EmptyLibrary is just
-  // that view's empty content, reached via the toggle like any other view.
+  // #3 · the 列表 empty state names the project topic (no model call). #18 ·
+  // this no longer gates on a special empty-library layout — 探索图谱 is now
+  // the default even when refs.length === 0 (its own view renders a
+  // graph-flavored empty state), so 列表's EmptyLibrary is just that view's
+  // empty content, reached via the toggle like any other view.
   const topic = title?.trim();
-  const emptyOpener = topic
-    ? `你的题目是「${topic}」。想找什么证据来支撑或检验它？我给你方向和关键词——但我不替你搜。`
-    : "你的文献库还空着。跟我说说你的题目、你想找什么证据，我给你方向和关键词——但我不替你搜。";
 
   return (
     <div className="relative flex h-full flex-col">
@@ -458,10 +452,11 @@ export function ReadingBlock({
             </div>
           )
         ) : (
-          // GVd · ONE right sidebar. The 找资料 coach is no longer a separate
-          // docked column beside a node sidebar — it's the unified sidebar's
-          // DEFAULT ('ai') state, passed into ExplorationView as a slot. The
-          // view swaps it for node-metadata / search-results and back (← 印记).
+          // Task 3 (P2a): the unified right sidebar's DEFAULT ('ai') state used
+          // to dock the room's own FloatingCoach; that coach is gone, so no
+          // `coach` slot is passed — ExplorationSidebar's existing fallback
+          // (coach ? … : blank aside) renders instead, and the ONE 印记 lives
+          // in the constant rail beside this room (portaled below).
           <div className="relative h-full min-h-0">
             <ExplorationView
               projectId={projectId}
@@ -475,42 +470,31 @@ export function ReadingBlock({
               // 采纳 in 探索 creates a new library reference — reload so its bib
               // shows on the new paper node (else every metadata field is 「—」).
               onLibraryChanged={reload}
-              // Followup fix (2026-08): ExplorationView and FloatingCoach are
-              // SIBLINGS (not parent/child) — the rabbit-hole card's reflect
-              // result is bridged up here and handed to FloatingCoach as a
-              // pending turn, so the feedback lands in the SAME 找资料 coach
-              // thread every other card uses (and pops the panel open, since
-              // this feedback is unprompted — she didn't have it open to ask).
-              onCardReflected={(studentText, reply, card) => setPendingCardReflection({ studentText, reply, card })}
-              coach={
-                <FloatingCoach
-                  docked
-                  projectId={projectId}
-                  defaultOpen={refs.length === 0}
-                  opener={refs.length === 0 ? emptyOpener : undefined}
-                  onLibraryChanged={reload}
-                  pendingCardReflection={pendingCardReflection}
-                  onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
-                />
+              // Task 3 (P2a): a rabbit-hole (or other exploration deck) card's
+              // reflect result used to bridge into the room-owned FloatingCoach;
+              // it now appends straight to the ONE shared studio thread, so the
+              // feedback lands in the same constant 印记 rail every other card
+              // uses.
+              onCardReflected={(studentText, reply, card) =>
+                setStudioMessages((c) => [
+                  ...c,
+                  ...(card
+                    ? [{ role: "student" as const, text: studentText, card }]
+                    : studentText
+                      ? [{ role: "student" as const, text: studentText }]
+                      : []),
+                  ...(reply ? [{ role: "ai" as const, text: reply }] : []),
+                ])
               }
             />
           </div>
         )}
       </div>
 
-      {/* 列表 keeps the reference-preview sidebar, so the coach stays a
-          floating chip there (opening it is still the student's tap — 铁律
-          2 不操纵). 探索图谱 renders its OWN docked coach column above instead. */}
-      {viewMode === "list" && (
-        <FloatingCoach
-          projectId={projectId}
-          defaultOpen={refs.length === 0}
-          opener={refs.length === 0 ? emptyOpener : undefined}
-          onLibraryChanged={reload}
-          pendingCardReflection={pendingCardReflection}
-          onPendingCardReflectionConsumed={() => setPendingCardReflection(null)}
-        />
-      )}
+      {/* COACH — portaled into the constant AiPanel (Task 3, P2a), same
+          contract as plan/writing/reflection. Reading has no room-specific
+          chrome to add, so it reuses the shared `StudioCoachChat` body as-is. */}
+      {slot && createPortal(<StudioCoachChat />, slot)}
 
       {modal}
     </div>
@@ -1362,7 +1346,7 @@ function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
           ? `围绕「${topic}」，先加一篇来源——一个链接、一份 PDF，或手动填写都行。`
           : "先加一篇来源——一个链接、一份 PDF，或手动填写都行。"}
         <br />
-        印记不替你搜，但你不知道去哪找、找到了不确定可不可信，随时右下角问它。
+        印记不替你搜，但你不知道去哪找、找到了不确定可不可信，随时问问旁边的印记。
       </p>
       <div className="mt-6 flex items-center gap-3">
         <button type="button" onClick={onAdd} className="rounded-mk bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加第一篇来源</button>
@@ -1372,205 +1356,6 @@ function EmptyLibrary({ onAdd, topic }: { onAdd: () => void; topic?: string }) {
   );
 }
 
-/* ---------- floating coach ---------- */
-
-// FloatingCoach's own ChatMsg[] history → the shared ChatLog's ChatMessage[].
-// A card-turn (m.card set) maps to a "system"-role message carrying only
-// `node` — ChatLog's system row has no bubble background/padding, letting
-// `CardTurnChip` be the whole message (its own content-first accent chip,
-// never raw compiled text) instead of nesting inside a second bubble. Mirrors
-// PlanBlock's toChatMessages (Task 5 shared-chat-log migration).
-function toFloatingChatMessages(chat: ChatMsg[]): ChatMessage[] {
-  return chat.map((m, i) =>
-    m.card
-      ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
-      : { id: String(i), role: m.role === "ai" ? "assistant" : "student", text: m.text },
-  );
-}
-
-function FloatingCoach({
-  projectId,
-  defaultOpen = false,
-  opener,
-  onLibraryChanged,
-  pendingCardReflection,
-  onPendingCardReflectionConsumed,
-  docked = false,
-}: {
-  projectId: string;
-  defaultOpen?: boolean;
-  opener?: string;
-  onLibraryChanged?: () => void;
-  // Followup fix (2026-08): a rabbit-hole (or other exploration deck) card
-  // submitted from the SIBLING ExplorationView already ran the shared reflect
-  // turn and persisted to this same "find_sources" surface — this prop hands
-  // the live result down so it renders here immediately (and pops the panel
-  // open) instead of waiting for a remount to reload history.
-  pendingCardReflection?: { studentText: string; reply: string; card?: CardTurnRef } | null;
-  onPendingCardReflectionConsumed?: () => void;
-  // Q3 followup (2026-08): renders as a permanent right-hand column (no
-  // floating chip, no collapse) when this coach has no competing sidebar to
-  // hide behind — i.e. inside 探索图谱. Same chat/coach behavior throughout;
-  // only the outer chrome (docked aside vs floating chip+panel) differs.
-  docked?: boolean;
-}) {
-  const [open, setOpen] = useState(docked || defaultOpen);
-  const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "ai", text: opener ?? "找资料卡住了？告诉我你想证明什么，我帮你想从哪找、怎么判断可不可信。" },
-  ]);
-  const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  // S1 · one continuous session: load this room's slice of the project thread
-  // once on open, appended after the greeting. Empty → greeting only.
-  useEffect(() => {
-    let alive = true;
-    getCoachHistory(projectId, "find_sources")
-      .then((msgs) => {
-        if (alive && msgs.length) setChat((c) => [...c, ...msgs]);
-      })
-      .catch(() => {
-        /* keep greeting-only; the next turn still persists */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [projectId]);
-
-  // Followup fix (2026-08): a pending rabbit-hole reflect result arrives from
-  // the sibling ExplorationView — render it (content-first chip when a card is
-  // present, else raw text) and surface the panel, since this feedback is
-  // unprompted (she was in 探索图谱, not this chat).
-  useEffect(() => {
-    if (!pendingCardReflection) return;
-    const { studentText, reply, card } = pendingCardReflection;
-    setChat((c) => [
-      ...c,
-      ...(card
-        ? [{ role: "student" as const, text: studentText, card }]
-        : studentText
-          ? [{ role: "student" as const, text: studentText }]
-          : []),
-      ...(reply ? [{ role: "ai" as const, text: reply }] : []),
-    ]);
-    setOpen(true);
-    onPendingCardReflectionConsumed?.();
-  }, [pendingCardReflection, onPendingCardReflectionConsumed]);
-
-  async function send() {
-    const text = draft.trim();
-    if (!text || busy) return;
-    setChat((c) => [...c, { role: "student", text }]);
-    setDraft("");
-    setBusy(true);
-    try {
-      const result = await coach(projectId, text, "find_sources");
-      setChat((c) => [...c, { role: "ai", text: result.narrate }]);
-    } catch {
-      setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Shared between the docked-column and floating-chip chrome — same coach
-  // content/behavior either way, only the surrounding chrome differs. The
-  // message log itself is now the shared `ChatLog` (studio agentic rebuild,
-  // mirrors PlanBlock's Task 5 migration) so 印记·找资料 gets the same 对话框
-  // bubbles as every other room instead of a hand-rolled log.
-  //
-  // Task 9a (2026-08-07): this coach is now context-isolated from the studio
-  // orchestrator, so its coach() reply no longer carries a linkOffer/proposal
-  // — the link-bridge chip (CoachLinkOffer) and the AI-proposed card chip are
-  // retired on this path for P1 (note: link-in-coach was #19; the coach can no
-  // longer surface a dropped URL as an add-to-library offer here). The 工具卡
-  // self-summon shelf (CoachCardPanel, proposal always null) stays — that flow
-  // runs through reflectProjectCard, independent of coach().
-  const chatBody = (
-    <>
-      <ChatLog messages={toFloatingChatMessages(chat)} thinking={busy} />
-      {!busy && (
-        <CoachCardPanel
-          projectId={projectId}
-          proposal={null}
-          onProposalConsumed={() => {}}
-          // Followup fix (2026-08): READING_DECK cards (e.g. 事实/观点/价值,
-          // 视角对照矩阵) used to persist-only with a canned "记下了…" line;
-          // now they run the shared reflect turn like every other deck, so
-          // the coach responds to what the student actually wrote.
-          onReflected={(studentText, reply, card) =>
-            setChat((c) => [
-              ...c,
-              ...(card
-                ? [{ role: "student" as const, text: studentText, card }]
-                : studentText
-                  ? [{ role: "student" as const, text: studentText }]
-                  : []),
-              ...(reply
-                ? [{ role: "ai" as const, text: reply }]
-                : card || studentText
-                  ? []
-                  : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-            ])
-          }
-          surface="find_sources"
-          deck={READING_DECK}
-        />
-      )}
-    </>
-  );
-
-  const inputBar = (
-    <div className="border-t border-mk-border p-2.5">
-      <Composer
-        value={draft}
-        onChange={setDraft}
-        onSend={send}
-        state={busy ? "replying" : undefined}
-        placeholder="问从哪找、可不可信……"
-      />
-    </div>
-  );
-
-  // Q3 · docked column — no collapse chip, always visible (styled like the
-  // writing room's CoachRail: bordered aside, header, scrollable body, input).
-  if (docked) {
-    return (
-      <aside className="flex w-[340px] flex-none flex-col border-l border-mk-border bg-mk-surface">
-        <header className="border-b border-mk-border px-4 py-3">
-          <div className="flex items-center gap-2 text-mk-accent">
-            <Icon name="spark" size={15} />
-            <span className="text-[13.5px] font-bold">印记 · 找资料</span>
-          </div>
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">{chatBody}</div>
-        {inputBar}
-      </aside>
-    );
-  }
-
-  return (
-    <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end">
-      {open && (
-        <div className="mb-3 flex h-[440px] w-[350px] flex-col overflow-hidden rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_12px_40px_rgba(28,35,51,0.18)]">
-          <header className="flex items-center justify-between border-b border-mk-border px-4 py-3">
-            <div className="flex items-center gap-2 text-mk-accent">
-              <Icon name="spark" size={15} />
-              <span className="text-[13.5px] font-bold">印记 · 找资料</span>
-            </div>
-            <button type="button" onClick={() => setOpen(false)} className="text-[16px] leading-none text-mk-faint hover:text-mk-ink">×</button>
-          </header>
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3.5">{chatBody}</div>
-          {inputBar}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full bg-mk-accent py-3 pl-4 pr-5 text-[13.5px] font-bold text-white shadow-[0_6px_20px_rgba(42,59,122,0.35)] transition hover:bg-mk-accent-600"
-      >
-        <Icon name="spark" size={17} /> 问印记 · 找资料
-      </button>
-    </div>
-  );
-}
+// Task 3 (P2a): the room's own FloatingCoach (a context-isolated "find_sources"
+// thread, docked in 探索图谱 or a floating chip in 列表) is deleted — 印记 is now
+// the ONE constant rail, portaled from the return above like every other room.

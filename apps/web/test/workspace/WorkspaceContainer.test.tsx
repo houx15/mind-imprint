@@ -321,6 +321,22 @@ describe("WorkspaceContainer", () => {
     expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
   });
 
+  // Task 3 (P2a): reading used to be excluded from the constant panel (it owned
+  // its own FloatingCoach column) — that room-owned coach is gone, so reading
+  // now joins the ONE constant 印记 rail exactly like plan/writing/reflection.
+  it("reading room joins the constant 印记 rail (no more FloatingCoach exception)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("reading", "topic_discussion", "half"));
+    render(<WorkspaceContainer initialProjectId="pread" />);
+
+    expect(await screen.findByTestId("reading-block")).toBeInTheDocument();
+    // The constant rail's chrome is present — reading is no longer the
+    // exception that hid it (the old `room !== "reading"` guard).
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+    // No separate floating-chip coach affordance — 印记 is the one rail now.
+    expect(screen.queryByRole("button", { name: /问印记 · 找资料/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("印记 · 找资料")).not.toBeInTheDocument();
+  });
+
   // A manual takeover forces at least `wide` (a room is always showing) even
   // when 印记's status is chat — the chat-only surface yields to the room.
   it("manual takeover from chat forces a room (tookOver ⇒ wide)", async () => {
