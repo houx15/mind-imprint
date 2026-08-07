@@ -185,6 +185,9 @@ describe("WorkspaceContainer", () => {
 
     expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    // Live-journey fix: while chat-first, NO switcher segment is highlighted —
+    // `room`'s stale interim default must not falsely mark a segment.
+    expect(screen.queryByRole("button", { pressed: true })).toBeNull();
   });
 
   it("resumes at the writing room when studio_state.openTool is writing", async () => {

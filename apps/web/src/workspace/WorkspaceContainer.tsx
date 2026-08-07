@@ -732,7 +732,11 @@ export function WorkspaceContainer({
         <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
           <Segmented
             options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
-            value={room}
+            // While chat-only (印记 keeps the chat primary), `room` is the stale
+            // interim default — highlighting it would falsely mark a segment the
+            // student isn't on. Pass a non-matching value so NO segment lights up
+            // until a real room opens (live-journey finding).
+            value={chatOnly ? "" : room}
             onChange={(v) => handleManualRoom(v as BlockKey)}
           />
           {/* The plan spine (spec §3): a read-only "你在这一步" indicator, shown
