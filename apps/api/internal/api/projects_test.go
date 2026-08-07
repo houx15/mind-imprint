@@ -44,7 +44,7 @@ func TestProjectsEndpoints(t *testing.T) {
 		`"id":"00000000-0000-0000-0000-000000000101"`,
 		`"title":"To what extent is China making the world more environmentally sustainable?"`,
 		`"qualification":"0457 个人报告"`,
-		`"proposal":{"objective":"","reason":"","activities":"","resources":""}`,
+		`"proposal":{"objective":"","reason":"","activities":"","resources":"","counterpoints":""}`,
 		`"status":"forming"`,
 	} {
 		if !strings.Contains(rr.Body.String(), want) {
