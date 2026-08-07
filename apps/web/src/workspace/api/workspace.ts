@@ -117,13 +117,15 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
 // orchestrator's thread, turns stored under `scope`, and directive echoes the
 // project's CURRENT studio_state unchanged (a sub-agent never drives status).
 //
-// CoachScope / CardProposalWire / DimSuggestionWire stay exported here even
-// though coach() no longer produces a card/dim proposal on the studio path:
-// getCoachHistory still takes a CoachScope surface (incl. the two sub-agents
-// above), and CardProposalWire / DimSuggestionWire are still imported by
-// CoachCardPanel/CoachProposal/WritingBlock/PlanBlock (their own AI-proposed
-// card chips, sourced from reflectProjectCard / the orchestrator's summon_card
-// — unrelated to coach()'s retired proposal field).
+// CoachScope / CardProposalWire stay exported here even though coach() no
+// longer produces a card/dim proposal on the studio path: getCoachHistory
+// still takes a CoachScope surface (incl. the two sub-agents above), and
+// CardProposalWire is still imported by CoachCardPanel/CoachProposal (its own
+// AI-proposed card chip, sourced from reflectProjectCard / the orchestrator's
+// summon_card — unrelated to coach()'s retired proposal field). Task 10
+// (2026-08-07) retired the sibling DimSuggestionWire — the forming
+// confirm-chip producer it backed (#13) was orphaned by the P1 orchestrator
+// redesign and had no remaining importer.
 export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review" | "reflection";
 export const CardProposalWire = z.object({
   cardId: z.string(),
@@ -131,14 +133,6 @@ export const CardProposalWire = z.object({
   nudgeText: z.string(),
 });
 export type CardProposalWire = z.infer<typeof CardProposalWire>;
-// dimSuggestion — #13 forming confirm-chip. When the student articulates a
-// still-empty kick-off dimension, the reply carries an offer to record a
-// faithful one-line summary of HER words into that dim; she taps to confirm.
-export const DimSuggestionWire = z.object({
-  dim: z.enum(["objective", "reason", "activities", "resources", "counterpoints"]),
-  value: z.string(),
-});
-export type DimSuggestionWire = z.infer<typeof DimSuggestionWire>;
 // Task 9a (2026-08-07): `scope` is OPTIONAL — omit it for the studio callers
 // (计划/写作, driven by the orchestrator; server persists surface="studio").
 // Pass it ONLY for the two context-isolated SUB-AGENT coaches that must stay

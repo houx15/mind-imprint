@@ -6,8 +6,7 @@ import { useEffect, useRef, type ReactNode } from "react";
  * Shared chat-log renderer for the four studio rooms (Plan / Reading /
  * Writing / Review) — replaces four near-duplicate chat implementations.
  * A message with `node` lets a room inject a rich inline element
- * (CardTurnChip / CoachProposal / CoachLinkOffer) alongside or instead of
- * plain text.
+ * (CardTurnChip / CoachProposal) alongside or instead of plain text.
  *
  * GOTCHA (learned building Card/forms): Tailwind emits same-CSS-property
  * utility classes in alphabetical order in the compiled stylesheet, not
