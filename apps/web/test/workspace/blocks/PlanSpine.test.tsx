@@ -45,20 +45,17 @@ describe("PlanSpine", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the stage heads and marks the current stage, and jumps to the plan on click", async () => {
-    const onOpenPlan = vi.fn();
+  it("renders the stage heads and marks the current stage — read-only, no tap-to-jump", () => {
     render(
-      <PlanSpine
-        items={[item("阶段一 · 研究与写作", "done", "a"), item("阶段二 · 展示与答辩", "todo", "b")]}
-        onOpenPlan={onOpenPlan}
-      />,
+      <PlanSpine items={[item("阶段一 · 研究与写作", "done", "a"), item("阶段二 · 展示与答辩", "todo", "b")]} />,
     );
     // Short "阶段X" heads render (label before the ·).
     expect(screen.getByText("阶段一")).toBeInTheDocument();
     const current = screen.getByText("阶段二");
     expect(current).toHaveAttribute("data-state", "current");
 
-    await userEvent.click(screen.getByRole("button", { name: /计划/ }));
-    expect(onOpenPlan).toHaveBeenCalledOnce();
+    // It's a read-only indicator now — 印记 drives navigation, the switcher is
+    // the manual override. No button, no tap-to-jump.
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

@@ -5,8 +5,8 @@ import type { PlanItem } from "@mind-imprint/contracts";
  * PlanSpine — the project plan's sequenced stages as a compact "你在这一步"
  * indicator (agentic studio, spec §3). The plan is the project's spine; this
  * surfaces WHERE the student is along it, always visible beside the stage
- * switcher once a plan exists. Tapping it jumps to 立项 (where the full plan
- * board lives) — the plan is revisitable, per the journey.
+ * switcher once a plan exists. Read-only — it only shows WHERE you are; 印记
+ * opens the 管理 board when it's time, and the switcher is the manual way there.
  *
  * "Current stage" = the first stage (in plan order) that still has an unfinished
  * item; if every item is done, the last stage. Derived from real plan_items —
@@ -41,16 +41,14 @@ export function derivePlanStages(items: PlanItem[]): { stages: string[]; current
   return { stages, currentIndex };
 }
 
-export function PlanSpine({ items, onOpenPlan }: { items: PlanItem[]; onOpenPlan?: () => void }) {
+export function PlanSpine({ items }: { items: PlanItem[] }) {
   const { stages, currentIndex } = useMemo(() => derivePlanStages(items), [items]);
   if (stages.length === 0) return null;
 
   return (
-    <button
-      type="button"
-      onClick={onOpenPlan}
-      title="查看项目计划"
-      className="flex min-w-0 items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px] transition-colors duration-[120ms] ease-mk hover:border-mk-accent"
+    <div
+      title="你在计划的这一步"
+      className="flex min-w-0 items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[11.5px]"
     >
       <span className="shrink-0 font-bold text-mk-faint">计划</span>
       <span className="flex min-w-0 items-center gap-1">
@@ -77,6 +75,6 @@ export function PlanSpine({ items, onOpenPlan }: { items: PlanItem[]; onOpenPlan
           );
         })}
       </span>
-    </button>
+    </div>
   );
 }

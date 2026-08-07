@@ -40,7 +40,6 @@ import {
 import { roomForResume } from "./studioResume";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
-import { NextStepGuide } from "./blocks/NextStepGuide";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
@@ -262,7 +261,7 @@ export function WorkspaceContainer({
     if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
-  // The switcher's manual override (Segmented / PlanSpine / NextStepGuide):
+  // The switcher's manual override (the Segmented stage switcher):
   // swap the room AND flag the takeover so the chosen room mounts even while
   // 印记 is keeping chat primary (or its status hasn't loaded / failed). Does
   // not change `studioState` — manual browsing never changes 印记's status.
@@ -671,16 +670,10 @@ export function WorkspaceContainer({
             value={room}
             onChange={(v) => handleManualRoom(v as BlockKey)}
           />
-          {/* The plan spine (spec §3): where you are along the generated plan.
-              Renders only once a plan exists; tapping jumps to 立项's board. */}
-          <PlanSpine items={planItems} onOpenPlan={() => handleManualRoom("plan")} />
-          {/* 印记's next-step offer (spec §5): AI drives, the switcher overrides. */}
-          <NextStepGuide
-            hasPlan={planItems.length > 0}
-            writingFinished={workspace?.writingFinished ?? false}
-            room={room}
-            onGoRoom={handleManualRoom}
-          />
+          {/* The plan spine (spec §3): a read-only "你在这一步" indicator, shown
+              once a plan exists. 印记 drives navigation; the switcher is the
+              manual override — no next-step nudge chrome here (印记 cues it). */}
+          <PlanSpine items={planItems} />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The re-entry recap now lives INSIDE the continuous chat (passed as
@@ -719,7 +712,7 @@ export function WorkspaceContainer({
           // keeps the chat-first surface addressable in tests.
           <div
             data-testid="chat-first"
-            className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden transition-[max-width] duration-[240ms] ease-mk motion-reduce:transition-none"
+            className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden"
           >
             <StudioCoachChat recap={summary} />
           </div>
