@@ -18,6 +18,11 @@ import (
 const (
 	ossUploadTTL   = 10 * time.Minute
 	ossDownloadTTL = 5 * time.Minute
+	// ossPresignBodyLimit caps the presign JSON request body. The body is a
+	// handful of short fields (scope/contentType/size/filename); this guards
+	// the endpoint against oversized bodies — it does NOT bound the eventual
+	// OSS PUT, which stays a soft, client-declared size check.
+	ossPresignBodyLimit = 4 << 10 // 4 KB
 )
 
 // ossWriteGate names the two write-authorization mechanisms.
@@ -55,8 +60,8 @@ var ossScopes = map[string]ossScope{
 	},
 	"course_material": {
 		gate:         gateAdminKey,
-		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf"),
-		maxBytes:     50 << 20, // 50 MB
+		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/quicktime"),
+		maxBytes:     500 << 20, // 500 MB (carries course video)
 		prefix:       func(string) string { return "courses/" },
 	},
 	"user_image": {
@@ -77,6 +82,9 @@ var extByContentType = map[string]string{
 	"image/webp":      ".webp",
 	"image/svg+xml":   ".svg",
 	"application/pdf": ".pdf",
+	"video/mp4":       ".mp4",
+	"video/webm":      ".webm",
+	"video/quicktime": ".mov",
 }
 
 var safeExtRe = regexp.MustCompile(`^\.[a-z0-9]{1,8}$`)
@@ -143,6 +151,7 @@ func (a *API) ossAdminUploadURL(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("需要有效的管理密钥"))
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, ossPresignBodyLimit)
 	var req ossUploadReq
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
@@ -167,6 +176,7 @@ func (a *API) ossUserUploadURL(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("需要登录"))
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, ossPresignBodyLimit)
 	var req ossUploadReq
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
