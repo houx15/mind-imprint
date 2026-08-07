@@ -136,3 +136,46 @@ func TestPostCoach_SummonCardOffersCardAndRecordsEvent(t *testing.T) {
 		t.Fatalf("coach_proposed events = %d, want 1", got)
 	}
 }
+
+// TestPostCoach_SummonCardSkippedCardNotReoffered — 铁律 2 · 不操纵: once the
+// student has dismissed a card (a `skipped` instance exists), the orchestrator's
+// summon_card must NOT re-offer it. The card chip is suppressed and no new
+// coach_proposed event is recorded. This restores the dismiss-suppression
+// coverage the deleted classify test used to provide.
+func TestPostCoach_SummonCardSkippedCardNotReoffered(t *testing.T) {
+	out := `{"narrate":"这里适合停一下。","tools":[` +
+		`{"name":"summon_card","args":{"card_id":"fact-opinion-value","reason":"事实与观点混在一起","nudge_text":"要不要用这张卡分一分？"}}]}`
+	h, cookie, pool := orchestratorHandler(t, out)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// The student dismissed this card earlier → a `skipped` instance exists.
+	rrD := httptest.NewRecorder()
+	h.ServeHTTP(rrD, withCookie(httptest.NewRequest("POST", base+"/cards/dismiss-proposal",
+		strings.NewReader(`{"card_id":"fact-opinion-value"}`)), cookie))
+	if rrD.Code != http.StatusNoContent {
+		t.Fatalf("dismiss = %d, want 204 — %s", rrD.Code, rrD.Body)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+	var resp struct {
+		Card *struct {
+			CardID string `json:"cardId"`
+		} `json:"card"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if resp.Card != nil {
+		t.Fatalf("dismissed card must NOT be re-offered, got %+v — %s", resp.Card, rr.Body)
+	}
+	// dismiss records a coach_proposal_skipped event, but the suppressed summon
+	// must record NO coach_proposed event.
+	if got := countCoachProposedEvents(t, pool, seedProjectID); got != 0 {
+		t.Fatalf("coach_proposed events = %d, want 0 (suppressed)", got)
+	}
+}

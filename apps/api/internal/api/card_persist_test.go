@@ -82,10 +82,11 @@ func countSkippedCard(t *testing.T, pool *pgxpool.Pool, projectID, cardID string
 
 // TestPostDismissProposal_RecordsSkip — dismissing a coach card offer marks the
 // card skipped (铁律 · 不操纵 — once she says no, we don't ask again), and records
-// a coach_proposal_skipped event. cardEligibleForSummon then treats a card with a
-// skipped instance as in-flight, so the orchestrator's summon_card won't re-offer
-// it. (The classify-driven re-offer path was retired with the orchestrator
-// rewrite; this exercises the still-live dismiss endpoint directly.)
+// a coach_proposal_skipped event. cardEligibleForSummon treats a card_id with a
+// skipped instance as ineligible, so the orchestrator's summon_card won't re-offer
+// it — enforced in TestPostCoach_SummonCardSkippedCardNotReoffered. (The classify-
+// driven re-offer path was retired with the orchestrator rewrite; this exercises
+// the still-live dismiss endpoint directly.)
 func TestPostDismissProposal_RecordsSkip(t *testing.T) {
 	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID

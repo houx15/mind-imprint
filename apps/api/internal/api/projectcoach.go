@@ -80,21 +80,23 @@ var coachProposeSurfaces = map[string]bool{
 	"reflection":      true,
 }
 
-// cardEligibleForSummon is the P1 minimal in-flight guard for the orchestrator's
-// summon_card tool: the model already chose the card, so we only refuse to offer
-// over a card already proposed/active for THIS card_id in the project (no
-// pile-up, no re-offer of a live card). A list error fails closed (no offer).
-// This is the "minimal existing-instance check" the Task 5 brief permitted in
-// lieu of extracting coachCardProposal's fuller EligibleMoments guard — the
-// orchestrator's own posture (not a classifier) decides card CHOICE.
+// cardEligibleForSummon is the in-flight guard for the orchestrator's summon_card
+// tool: the model already chose the card, so we only decide whether re-offering
+// it is allowed. It mirrors the retired EligibleMoments rule EXACTLY (moment.go:
+// "ineligible as soon as its target card has a card_instance in ANY status —
+// including skipped"): a card_id with ANY existing instance is ineligible. That
+// covers proposed/active (no pile-up over a live offer), skipped (once she has
+// dismissed it we do not ask again — 铁律 2 · 不操纵), and completed (already done).
+// A list error fails closed (no offer). Card CHOICE is the orchestrator's own
+// posture, not a classifier.
 func (a *API) cardEligibleForSummon(ctx context.Context, projectID uuid.UUID, cardID string) bool {
 	rows, err := a.d.Queries.ListCardInstancesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
 	if err != nil {
 		return false
 	}
 	for _, ci := range rows {
-		if ci.CardID == cardID && (ci.Status == "proposed" || ci.Status == "active") {
-			return false
+		if ci.CardID == cardID {
+			return false // any existing instance (proposed/active/skipped/completed) ⇒ do not re-offer
 		}
 	}
 	return true
