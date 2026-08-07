@@ -275,7 +275,7 @@ export function WritingBlock({
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-              点「完成写作」会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
+              确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
             </p>
             {finishWritingError && (
               <p className="mt-3 text-[12.5px] font-semibold text-mk-danger">{finishWritingError}</p>

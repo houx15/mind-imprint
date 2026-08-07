@@ -32,7 +32,7 @@ import {
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { ApiError } from "../../api/client";
-import { exportTimescale, exportActivityLog, exportProposalDocx, saveBlob } from "../export";
+import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
@@ -348,8 +348,9 @@ function FormingPhase(props: {
     if (exportingProposal) return;
     setExportingProposal(true);
     try {
-      const blob = await exportProposalDocx(proposal, { title, qualification });
-      saveBlob(`${title || "开题报告"}.docx`, blob);
+      // exportProposalDocx self-saves the .docx (same as the other export fns);
+      // the caller must NOT saveBlob again or it double-downloads.
+      await exportProposalDocx(proposal, { title, qualification });
     } catch {
       /* a failed export must never crash the room */
     } finally {
