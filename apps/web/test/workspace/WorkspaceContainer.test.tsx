@@ -63,6 +63,11 @@ vi.mock("@/workspace/api/workspace", () => ({
   dismissProposal: vi.fn(async () => {}),
 }));
 
+const createLead = vi.fn();
+vi.mock("@/api/exploration", () => ({
+  createLead: (...args: unknown[]) => createLead(...args),
+}));
+
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 
 function fakeWorkspace(id: string) {
@@ -127,6 +132,7 @@ describe("WorkspaceContainer", () => {
     coach.mockResolvedValue(fakeReply("好的。", "chat"));
     putProposal.mockImplementation(async (_id: string, p: unknown) => p);
     getPlan.mockResolvedValue([]);
+    createLead.mockResolvedValue({ id: "lead-1" });
   });
 
   it("shows the directory when no project is open", () => {
@@ -416,5 +422,29 @@ describe("WorkspaceContainer", () => {
         expect.objectContaining({ objective: "先前写好的目标。\n再补一句想法" }),
       ),
     );
+  });
+
+  // Task 7 (P2b) · a reply carrying a `propose_question` OFFER renders a
+  // confirm chip; confirming creates an exploration lead (createLead) and
+  // clears the chip — mirrors the note confirm-chip test above.
+  it("a reply with a question renders a confirm chip; confirming creates an exploration lead", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(
+      fakeReply("这个问题值得深挖。", "chat", { question: { text: "中国的碳排放增长会抵消其可持续举措吗？" } }),
+    );
+    render(<WorkspaceContainer initialProjectId="pq" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "这里有个问题");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const confirm = await screen.findByRole("button", { name: "加入探索图谱" });
+    await userEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(createLead).toHaveBeenCalledWith("pq", "中国的碳排放增长会抵消其可持续举措吗？"),
+    );
+    // The chip clears once confirmed.
+    expect(screen.queryByRole("button", { name: "加入探索图谱" })).not.toBeInTheDocument();
   });
 });

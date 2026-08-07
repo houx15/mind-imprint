@@ -6,12 +6,14 @@ import type {
   PhaseTag,
   PlanItem,
   Proposal,
+  QuestionProposal,
   StudioState,
   WidthTier,
   WorkspaceProjection,
 } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { api } from "../api";
+import { createLead } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
@@ -239,6 +241,13 @@ export function WorkspaceContainer({
   // can open. Both cleared at the start of the next turn and on project switch.
   const [pendingNote, setPendingNote] = useState<NoteProposal | null>(null);
   const [pendingCard, setPendingCard] = useState<CardProposalWire | null>(null);
+  // Task 7 (P2b) · 印记's per-turn `propose_question` OFFER — mirrors
+  // `pendingNote` exactly, but confirming creates an exploration lead instead of
+  // writing a proposal section.
+  const [pendingQuestion, setPendingQuestion] = useState<QuestionProposal | null>(null);
+  // Bumped after a confirmed question lands as an exploration lead, so the
+  // exploration surface knows to re-fetch (threaded to ExplorationView in T8).
+  const [explorationRefreshNonce, setExplorationRefreshNonce] = useState(0);
   // The AI-proposed card the student CHOSE to open — the only path to the shared
   // card sheet (triggering is automatic, opening is her tap · 铁律).
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -305,6 +314,7 @@ export function WorkspaceContainer({
       // A fresh turn clears any stale offer before the reply's own offers land.
       setPendingNote(null);
       setPendingCard(null);
+      setPendingQuestion(null);
       try {
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
@@ -320,6 +330,7 @@ export function WorkspaceContainer({
           .catch(() => {});
         setPendingNote(reply.note);
         setPendingCard(reply.card);
+        setPendingQuestion(reply.question);
         return true;
       } catch {
         if (isActive()) {
@@ -359,6 +370,24 @@ export function WorkspaceContainer({
   }, [pendingNote, refreshWorkspace]);
 
   const dismissNote = useCallback(() => setPendingNote(null), []);
+
+  // Confirm a proposed question into an exploration lead (铁律②: her tap
+  // creates it). Mirrors `confirmNote`'s resilience: clear the chip optimistically,
+  // and on failure restore it UNLESS a newer offer already took the slot.
+  const confirmQuestion = useCallback(async () => {
+    const pid = activeProjectIdRef.current;
+    const question = pendingQuestion;
+    if (!pid || !question) return;
+    setPendingQuestion(null);
+    try {
+      await createLead(pid, question.text);
+      if (activeProjectIdRef.current === pid) setExplorationRefreshNonce((n) => n + 1);
+    } catch {
+      setPendingQuestion((cur) => cur ?? question);
+    }
+  }, [pendingQuestion]);
+
+  const dismissQuestion = useCallback(() => setPendingQuestion(null), []);
 
   // Opening a proposed card is the student's explicit choice (铁律). The sheet
   // (rendered at the container root) then records a coach turn on submit.
@@ -434,6 +463,7 @@ export function WorkspaceContainer({
     // Clear any stale per-turn offers / open card from the previous project.
     setPendingNote(null);
     setPendingCard(null);
+    setPendingQuestion(null);
     setOpenCardId(null);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
@@ -658,6 +688,9 @@ export function WorkspaceContainer({
     dismissNote,
     openCard,
     dismissCard,
+    pendingQuestion,
+    confirmQuestion,
+    dismissQuestion,
   };
 
   return (

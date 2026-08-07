@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { NoteProposal, ProposalSection } from "@mind-imprint/contracts";
+import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
 import { ChatLog, type ChatMessage } from "./ChatLog";
 import { Composer } from "./Composer";
 import { withRecap } from "./RecapHint";
@@ -63,13 +63,27 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
  * chips wherever the thread is shown. Nothing renders while a turn is in flight.
  */
 export function StudioTurnChips() {
-  const { pendingNote, confirmNote, dismissNote, pendingCard, openCard, dismissCard, sending } = useStudioChat();
+  const {
+    pendingNote,
+    confirmNote,
+    dismissNote,
+    pendingCard,
+    openCard,
+    dismissCard,
+    pendingQuestion,
+    confirmQuestion,
+    dismissQuestion,
+    sending,
+  } = useStudioChat();
   if (sending) return null;
   return (
     <>
       {pendingNote && <NoteConfirmChip note={pendingNote} onConfirm={confirmNote} onDismiss={dismissNote} />}
       {pendingCard && (
         <CoachProposal proposal={pendingCard} onOpen={openCard} onDismiss={() => dismissCard(pendingCard.cardId)} />
+      )}
+      {pendingQuestion && (
+        <QuestionConfirmChip question={pendingQuestion} onConfirm={confirmQuestion} onDismiss={dismissQuestion} />
       )}
     </>
   );
@@ -95,6 +109,35 @@ function NoteConfirmChip({ note, onConfirm, onDismiss }: { note: NoteProposal; o
       <div className="mt-2.5 flex items-center gap-2">
         <button type="button" onClick={onConfirm} className="rounded-full bg-mk-success px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
           记进「{label}」
+        </button>
+        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
+          跳过
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Task 7 (P2b) · the 克制 confirm chip for 印记's `propose_question` OFFER:
+// mirrors NoteConfirmChip's markup but confirming creates an exploration lead
+// instead of writing a proposal section. DESIGN GOTCHA: a SOLID border token
+// (`border-mk-accent`) — never `border-mk-<token>/<NN>` (renders transparent).
+function QuestionConfirmChip({
+  question,
+  onConfirm,
+  onDismiss,
+}: {
+  question: QuestionProposal;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3.5 py-3 text-[13px] text-mk-ink">
+      <p className="font-semibold leading-snug text-mk-accent-700">要不要把这个问题加进探索图谱？</p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{question.text}</p>
+      <div className="mt-2.5 flex items-center gap-2">
+        <button type="button" onClick={onConfirm} className="rounded-full bg-mk-accent px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
+          加入探索图谱
         </button>
         <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
           跳过
