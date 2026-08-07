@@ -151,4 +151,34 @@ describe("WorkspaceContainer", () => {
     expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
   });
+
+  it("lets the manual switcher take over from the chat-first landing (spec §6)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    render(<WorkspaceContainer initialProjectId="pchat" />);
+
+    // Lands chat-first (印记 keeps chat primary), switcher available.
+    expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
+
+    // The student manually navigates to 写作 — the room must mount even though
+    // 印记's status is still chat.
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
+
+  it("keeps the switcher live even when getStudioState fails (no stuck-forever chat-first)", async () => {
+    getStudioState.mockRejectedValue(new Error("boom"));
+    render(<WorkspaceContainer initialProjectId="perr" />);
+
+    // Fetch failed → studioState stays null → chat-first (never a plan flash).
+    expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+
+    // The switcher is not a dead escape hatch: a click still mounts the room.
+    await userEvent.click(screen.getByRole("button", { name: "立项" }));
+
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
 });

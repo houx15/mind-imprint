@@ -84,6 +84,13 @@ export function WorkspaceContainer({
   // chat-first landing, never a forced plan board. Task 9 re-applies this
   // after every turn (morphing status).
   const [studioState, setStudioState] = useState<StudioState | null>(null);
+  // Manual-takeover flag (spec §6): while true, the switcher-chosen `room`
+  // mounts even in chat-first / null / errored status — the student is never
+  // trapped in the chat landing with a dead switcher. Taking over does NOT
+  // touch `studioState` (manual browsing doesn't change 印记's status); the
+  // flag only affects what <main> renders. 印记 reasserting the view
+  // (applyStudioState) clears it.
+  const [tookOver, setTookOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The constant AI panel's side + collapsed state — persisted so it survives
   // room swaps and reloads. Default side is "left" (agentic studio: 印记 is the
@@ -216,7 +223,19 @@ export function WorkspaceContainer({
   // so we don't touch `room` for it.
   const applyStudioState = useCallback((state: StudioState) => {
     setStudioState(state);
+    // 印记 reasserting the view ends any manual takeover — the "继续印记
+    // returns to status" seam (spec §6; Task 9/P4 build on this).
+    setTookOver(false);
     if (state.openTool !== "chat") setRoom(openToolToRoom(state.openTool));
+  }, []);
+
+  // The switcher's manual override (Segmented / PlanSpine / NextStepGuide):
+  // swap the room AND flag the takeover so the chosen room mounts even while
+  // 印记 is keeping chat primary (or its status hasn't loaded / failed). Does
+  // not change `studioState` — manual browsing never changes 印记's status.
+  const handleManualRoom = useCallback((r: BlockKey) => {
+    setRoom(r);
+    setTookOver(true);
   }, []);
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
@@ -250,6 +269,9 @@ export function WorkspaceContainer({
     // chat-first landing (never the previous project's board) until this
     // project's studio_state resolves.
     setStudioState(null);
+    // Clear any manual takeover from the previous project — the new project
+    // resumes at its own 印记 status.
+    setTookOver(false);
     setStudioMessages([]);
     // Reset the in-flight flag too — else a project opened while a PREVIOUS
     // project's turn is still in flight inherits sending=true and its composer
@@ -438,7 +460,9 @@ export function WorkspaceContainer({
   // room board) while 印记's status is still loading (studioState === null, so
   // we never flash the plan board) OR when 印记 is keeping chat primary
   // (openTool === "chat"). Any other openTool means a real room is mounted.
-  const showChatFirst = studioState == null || studioState.openTool === "chat";
+  // A manual takeover (spec §6) overrides this so the switcher-chosen room
+  // mounts even in chat-first / null / errored status.
+  const showChatFirst = !tookOver && (studioState == null || studioState.openTool === "chat");
 
   return (
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
@@ -454,17 +478,17 @@ export function WorkspaceContainer({
           <Segmented
             options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
             value={room}
-            onChange={(v) => setRoom(v as BlockKey)}
+            onChange={(v) => handleManualRoom(v as BlockKey)}
           />
           {/* The plan spine (spec §3): where you are along the generated plan.
               Renders only once a plan exists; tapping jumps to 立项's board. */}
-          <PlanSpine items={planItems} onOpenPlan={() => setRoom("plan")} />
+          <PlanSpine items={planItems} onOpenPlan={() => handleManualRoom("plan")} />
           {/* 印记's next-step offer (spec §5): AI drives, the switcher overrides. */}
           <NextStepGuide
             hasPlan={planItems.length > 0}
             writingFinished={workspace?.writingFinished ?? false}
             room={room}
-            onGoRoom={setRoom}
+            onGoRoom={handleManualRoom}
           />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
