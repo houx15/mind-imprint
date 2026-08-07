@@ -195,6 +195,18 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 			state.OpenTool = agent.ToolWriting
 			state.WidthTier = agent.WidthWide
 			reply.ReviewRequested = true
+		case "generate_plan":
+			// 印记 triggers plan generation itself (the 生成计划 button is gone). Best-
+			// effort: a proposal-empty project just doesn't generate — the narration
+			// still lands, 印记 will have nudged for the dims. Open 管理 on success.
+			if _, gerr := a.regeneratePlan(r.Context(), projectID); gerr == nil {
+				state.OpenTool = agent.ToolPlan
+				state.WidthTier = agent.WidthForTool(agent.ToolPlan)
+			}
+		case "propose_question":
+			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
+				reply.Question = &questionProposalDTO{Text: args.Text}
+			}
 		}
 	}
 
@@ -356,6 +368,7 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{
 		Narrate:   narrate,
 		Directive: state,
+		Question:  nil,
 	})
 }
 
@@ -383,6 +396,7 @@ type orchestratorReplyDTO struct {
 	Narrate         string               `json:"narrate"`
 	Directive       agent.StudioState    `json:"directive"`
 	Note            *noteProposalDTO     `json:"note"`
+	Question        *questionProposalDTO `json:"question"`
 	Card            *cardProposalWireDTO `json:"card"`
 	ReviewRequested bool                 `json:"reviewRequested"`
 }
@@ -391,6 +405,13 @@ type orchestratorReplyDTO struct {
 type noteProposalDTO struct {
 	Section string `json:"section"`
 	Value   string `json:"value"`
+}
+
+// questionProposalDTO mirrors the contract's QuestionProposal {text} — a
+// research question 印记 proposes while reading/exploring; the student
+// confirms before it joins the exploration graph (mirrors noteProposalDTO).
+type questionProposalDTO struct {
+	Text string `json:"text"`
 }
 
 // cardProposalWireDTO mirrors the contract's CardProposalWire {cardId, reason,
