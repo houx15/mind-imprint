@@ -267,25 +267,9 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(await screen.findByText("工具卡")).toBeInTheDocument();
   });
 
-  it("materials sidebar inserts a fragment into the draft at the caret (#9)", async () => {
-    vi.mocked(getLibrary).mockResolvedValueOnce({
-      collections: [],
-      references: [
-        {
-          id: "rx", title: "来源X", classification: "", author: "", credentials: "", year: "", url: "",
-          tags: [], collectionId: null, credibility: null, evaluation: "", readingNote: "我的笔记X",
-          decision: null, pending: false, searchHints: [], materialId: "m", notes: [], takeaway: null,
-        },
-      ] as never,
-    });
-    const ta = await openDraftTab();
-    const before = ta.value;
-    // expand the material in the sidebar, then place it into the draft
-    fireEvent.click(await screen.findByText("来源X"));
-    fireEvent.click((await screen.findAllByRole("button", { name: /插入正文/ }))[0]!);
-    await waitFor(() => expect(ta.value).toContain("我的笔记X"));
-    expect(ta.value).toContain(before.slice(0, 6)); // original draft preserved
-  });
+  // (P3) The materials-sidebar insert-into-draft moved to the left
+  // ReferencePanel (the floating box was folded in + retired); its insert is
+  // covered in ReferencePanel.test.tsx now.
 
   it("mind map grows from the keyboard: Enter adds a sibling, Tab adds a child (#11)", async () => {
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
@@ -373,42 +357,10 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(screen.queryByText("线索")).toBeNull(); // no 线索-tagged section header anywhere
   });
 
-  it("片段 board: importing the outline turns headings into foldable sections, and 归到 persists the section (#5/#6)", async () => {
-    // Queue TWO resolutions — OutlinePane fetches once on the default 大纲 tab's
-    // mount, and the materials sidebar fetches again lazily when its own 大纲
-    // source is opened — so both calls see the same heading (not a leaked
-    // permanent override that would bleed into later tests).
-    const OUTLINE_ROW = [{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never;
-    vi.mocked(getOutline).mockResolvedValueOnce(OUTLINE_ROW).mockResolvedValueOnce(OUTLINE_ROW);
-    vi.mocked(getSnippets).mockResolvedValueOnce([{ id: "s1", text: "我的片段", position: 0, section: null }] as never);
-    // A distinct projectId — the imported-section set is a per-project client
-    // memory (importedSectionsMemo) that outlives this render, so a shared
-    // "p1" would leak "背景与主张" into every later test using that id.
-    renderWithAiSlot(<WritingBlock projectId="p-outline-import" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
-    // the main 片段 tab (the sidebar also has a 片段 source tab) — the workspace tab comes first in DOM.
-    // Switching off 大纲 first also unmounts OutlinePane's own list/思维导图 toggle
-    // (which is ALSO labeled "大纲"), so the sidebar's "大纲" source tab becomes
-    // the only remaining match.
-    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
-    // only 2 "大纲" matches now (the main tab + the sidebar's source tab) — the
-    // sidebar's is last, since it renders after the main tab bar in the DOM.
-    const outlineButtons = screen.getAllByRole("button", { name: "大纲" });
-    await userEvent.click(outlineButtons[outlineButtons.length - 1]!);
-    await userEvent.click(await screen.findByRole("button", { name: "把大纲导入为片段分组" }));
-    // the section-toggle button's accessible name includes its label — a more
-    // specific match than plain text, since "背景与主张" ALSO appears as an
-    // <option> inside every snippet's 归到 <select>.
-    expect(await screen.findByRole("button", { name: /背景与主张/ })).toBeInTheDocument();
-    const select = await screen.findByLabelText("把片段归到");
-    await userEvent.selectOptions(select, "背景与主张");
-    await waitFor(
-      () => {
-        const last = vi.mocked(putSnippets).mock.calls.at(-1);
-        expect(last?.[1]).toEqual([{ text: "我的片段", section: "背景与主张" }]);
-      },
-      { timeout: 2000 },
-    );
-  });
+  // (P3) The "把大纲导入为片段分组" affordance lived in the retired floating
+  // 材料 box and was dropped when it was folded into the left ReferencePanel
+  // (a niche import; snippets are still creatable + 归到-assignable in the 片段
+  // tab). The live-outline-not-auto-rendered guard (#6) above still holds.
 
   it("selection chip can run the chosen voice's 体检 on just that paragraph (#8)", async () => {
     const ta = await openDraftTab();

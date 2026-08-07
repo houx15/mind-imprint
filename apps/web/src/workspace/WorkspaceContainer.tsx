@@ -256,6 +256,11 @@ export function WorkspaceContainer({
   // reads a stale value.
   const activeProjectIdRef = useRef<string | null>(null);
   activeProjectIdRef.current = projectId;
+  // P3 · shared "insert a fragment into the draft at the caret" ref. The writing
+  // room's DraftPane registers its inserter here on mount; the (sibling) left
+  // ReferencePanel's 材料 fragments call it — the fold of the old floating
+  // 材料 box, hoisted one level so the two SplitPane siblings share one path.
+  const draftInsertRef = useRef<((t: string) => void) | null>(null);
 
   // Apply a fresh directive from 印记: store it, and (unless it's chat-first)
   // swap the interactive area to the room it names. The load effect calls this
@@ -803,6 +808,7 @@ export function WorkspaceContainer({
                     reference={studioState?.reference ?? []}
                     stage={studioState?.stage ?? "body_writing"}
                     proposal={workspace.proposal}
+                    onInsert={(t) => draftInsertRef.current?.(t)}
                   />
                 }
                 right={
@@ -813,6 +819,7 @@ export function WorkspaceContainer({
                     proposal={workspace.proposal}
                     status={workspace.status}
                     writingFinished={workspace.writingFinished ?? false}
+                    draftInsertRef={draftInsertRef}
                     refreshWorkspace={refreshWorkspace}
                     recap={summary}
                   />

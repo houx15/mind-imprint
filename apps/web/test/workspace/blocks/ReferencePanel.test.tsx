@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { ReferencePanel } from "@/workspace/blocks/ReferencePanel";
 import * as workspaceApi from "@/workspace/api/workspace";
 import type { Proposal, Reference } from "@mind-imprint/contracts";
@@ -119,5 +119,21 @@ describe("ReferencePanel", () => {
 
     expect(await screen.findByText("批注")).toBeInTheDocument();
     expect(await screen.findByText("批注会在印记体检你的写作后出现。")).toBeInTheDocument();
+  });
+
+  it("folds the collected materials into 你的材料 and inserts a fragment on click (retired floating box)", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+    const onInsert = vi.fn();
+
+    render(
+      // reference=[] → REF is NOT curated, so it appears in the 你的材料 browse
+      // (the fold of the old floating 材料 box), with an insert action.
+      <ReferencePanel projectId="p1" reference={[]} stage="body_writing" proposal={EMPTY_PROPOSAL} onInsert={onInsert} />,
+    );
+
+    expect(await screen.findByText("你的材料")).toBeInTheDocument();
+    expect(await screen.findByText(REF.title)).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole("button", { name: "插入" }))[0]!);
+    expect(onInsert).toHaveBeenCalledWith("关注可再生能源投资规模。");
   });
 });

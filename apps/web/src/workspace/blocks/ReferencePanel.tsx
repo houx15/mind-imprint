@@ -49,11 +49,16 @@ export function ReferencePanel({
   reference,
   stage,
   proposal,
+  onInsert,
 }: {
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
   proposal: Proposal;
+  /** P3 · insert a fragment into the draft at the caret (the fold of the old
+   * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer;
+   * a no-op when the 正文 tab isn't open (DraftPane hasn't registered). */
+  onInsert?: (text: string) => void;
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
@@ -84,7 +89,15 @@ export function ReferencePanel({
   const materials = resolved.filter((r): r is MaterialRef => r.kind === "material" && !r.missing);
   const notes = resolved.filter((r): r is NoteRef => r.kind === "note" && !r.missing);
   const showProposal = PROPOSAL_VISIBLE_STAGES.includes(stage);
-  const isEmpty = !loading && !showProposal && materials.length === 0 && notes.length === 0;
+  // 你的材料 = everything collected MINUS what 印记 already surfaced in the curated
+  // 材料 group, so a source never shows twice (spec §5: the floating 材料 box,
+  // folded into the left panel).
+  const curatedIds = new Set(materials.map((m) => m.id));
+  const collectedLib = loading ? [] : (lib ?? []).filter((r) => !curatedIds.has(r.id));
+  const collectedSnips = snippets ?? [];
+  const hasCollected = !loading && (collectedLib.length > 0 || collectedSnips.length > 0);
+  const isEmpty =
+    !loading && !showProposal && materials.length === 0 && notes.length === 0 && !hasCollected;
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-mk-border bg-mk-surface">
@@ -104,6 +117,7 @@ export function ReferencePanel({
             {showProposal && <ProposalGroup proposal={proposal} />}
             {materials.length > 0 && <MaterialGroup items={materials} />}
             {notes.length > 0 && <NoteGroup items={notes} />}
+            {hasCollected && <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} />}
             <AnnotationGroup />
           </div>
         )}
@@ -188,6 +202,90 @@ function AnnotationGroup() {
     <div className="flex flex-col gap-3">
       <p className="text-[14px] font-semibold text-mk-ink">批注</p>
       <p className="text-[14px] leading-relaxed text-mk-faint">批注会在印记体检你的写作后出现。</p>
+    </div>
+  );
+}
+
+/** Flatten one collected reference into its insertable fragments (same fields
+ * as resolveReferences' material flatten): my note, each quote→finding, and the
+ * takeaway's proposal impact. */
+function fragmentsOf(ref: Reference): string[] {
+  const out: string[] = [];
+  if (ref.readingNote?.trim()) out.push(ref.readingNote.trim());
+  for (const n of ref.notes ?? []) {
+    const q = n.quote?.trim() ? `「${n.quote.trim()}」` : "";
+    const f = [q, n.finding?.trim()].filter(Boolean).join(" → ");
+    if (f) out.push(f);
+  }
+  if (ref.takeaway?.proposalImpact?.trim()) out.push(ref.takeaway.proposalImpact.trim());
+  return out;
+}
+
+/** 你的材料 — the browse of everything the student collected (library materials
+ * + saved snippets), folded in from the retired floating 材料 box (spec §5).
+ * Read-only reference; each fragment can be inserted into the draft at the caret
+ * (`onInsert`) when the 正文 tab is open. */
+function CollectedSection({
+  lib,
+  snippets,
+  onInsert,
+}: {
+  lib: Reference[];
+  snippets: Snippet[];
+  onInsert?: (text: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[14px] font-semibold text-mk-ink">你的材料</p>
+      <div className="flex flex-col gap-3">
+        {lib.map((ref) => {
+          const frags = fragmentsOf(ref);
+          return (
+            <div key={ref.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+              <p className="text-[14px] font-semibold leading-snug text-mk-ink">{ref.title}</p>
+              {frags.length > 0 && (
+                <ul className="mt-1.5 flex flex-col gap-2">
+                  {frags.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-mk-muted">{f}</p>
+                      {onInsert && (
+                        <button
+                          type="button"
+                          onClick={() => onInsert(f)}
+                          title="插入到正文光标处"
+                          className="mt-0.5 flex-none rounded-mk-sm border border-mk-border px-2 py-0.5 text-[14px] font-semibold text-mk-muted transition hover:text-mk-accent"
+                        >
+                          插入
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+        {snippets.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">片段</p>
+            {snippets.map((s) => (
+              <div key={s.id} className="flex items-start gap-2 rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+                <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-mk-muted">{s.text}</p>
+                {onInsert && s.text.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => onInsert(s.text)}
+                    title="插入到正文光标处"
+                    className="mt-0.5 flex-none rounded-mk-sm border border-mk-border px-2 py-0.5 text-[14px] font-semibold text-mk-muted transition hover:text-mk-accent"
+                  >
+                    插入
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

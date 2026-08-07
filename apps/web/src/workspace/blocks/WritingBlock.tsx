@@ -15,7 +15,6 @@ import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
-import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
@@ -103,6 +102,7 @@ export function WritingBlock({
   proposal,
   status,
   writingFinished,
+  draftInsertRef,
   refreshWorkspace,
   recap,
 }: {
@@ -113,6 +113,11 @@ export function WritingBlock({
   // #20 · the 完成写作 milestone — draft is read-only once true. Separate from
   // status (evaluating/done terminally lock too).
   writingFinished: boolean;
+  /** Shared insert-at-caret ref (P3): DraftPane registers its inserter here on
+   * mount; the sibling left ReferencePanel's 材料 fragments call it (the fold
+   * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
+   * isolated unit render falls back to a local ref. */
+  draftInsertRef?: { current: ((t: string) => void) | null };
   // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
   // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
   refreshWorkspace: () => Promise<void> | void;
@@ -173,26 +178,21 @@ export function WritingBlock({
       /* best-effort; the affordance stays and can be retried */
     }
   }
-  // #9 · the materials sidebar (any tab) places a fragment into the draft at the
-  // caret. DraftPane registers its inserter here on mount; the sidebar calls it
-  // only when 正文 is active (so DraftPane is mounted and the ref is set).
-  const draftInsertRef = useRef<((t: string) => void) | null>(null);
-  // #23: snippets state is lifted here so the materials sidebar (below) can
-  // append a source's note as a new snippet regardless of the active tab.
+  // #9 · DraftPane registers its insert-at-caret fn into the shared
+  // `draftInsertRef` (a prop, hoisted to WorkspaceContainer) on mount; the left
+  // ReferencePanel's 材料 fragments call it when 正文 is active. Falls back to a
+  // local ref when the prop is absent (isolated unit tests).
+  const localDraftInsertRef = useRef<((t: string) => void) | null>(null);
+  const insertTarget = draftInsertRef ?? localDraftInsertRef;
   const snip = useSnippets(projectId);
   // #6 · the outline headings the student has explicitly imported as snippet
   // board sections (see importedSectionsMemo above) — lifted here so both the
   // 片段 board (renders them as foldable groups) and the materials sidebar
   // (the import button + its "already imported" state) share one source of
   // truth, and it survives switching tabs (SnippetsPane unmounts on tab-away).
-  const [importedSections, setImportedSectionsState] = useState<string[]>(
+  const [importedSections] = useState<string[]>(
     () => importedSectionsMemo.get(projectId) ?? [],
   );
-  function importOutlineAsGroups(headings: string[]) {
-    const merged = dedupe([...(importedSectionsMemo.get(projectId) ?? []), ...headings]);
-    importedSectionsMemo.set(projectId, merged);
-    setImportedSectionsState(merged);
-  }
   // Section labels a card's compiled 片段 can be filed under (Item C's 收进片段
   // offer): the imported outline groups plus any label already in live use on a
   // snippet (e.g. an探索线索 the student filed one under).
@@ -233,24 +233,11 @@ export function WritingBlock({
             title={title}
             locked={locked}
             onFocusPart={setFocusPart}
-            registerInsert={(fn) => { draftInsertRef.current = fn; }}
+            registerInsert={(fn) => { insertTarget.current = fn; }}
             pendingReview={pendingReview}
             onPendingReviewHandled={() => setPendingReview(null)}
           />
         )}
-        {/* #23/#9 · draggable materials sidebar — browses 材料/大纲/片段 and places a
-            fragment where you're working: into the draft at the caret on 正文,
-            else appended as a new snippet. */}
-        <MaterialsSidebar
-          projectId={projectId}
-          activeTab={tab}
-          locked={locked}
-          snippets={snip.snippets}
-          onAddSnippet={(text) => snip.add(text)}
-          onInsertToDraft={(text) => draftInsertRef.current?.(text)}
-          onImportOutlineAsGroups={importOutlineAsGroups}
-          importedSections={importedSections}
-        />
       </div>
 
       {/* COACH — portals into the constant AiPanel (Task 4/5's pattern); renders
