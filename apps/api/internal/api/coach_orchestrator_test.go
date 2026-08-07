@@ -183,8 +183,11 @@ func TestPostCoach_SummonCardSkippedCardNotReoffered(t *testing.T) {
 
 // plainReplyStubProvider replays a plain conversational reply (NOT orchestrator
 // JSON) — what the legacy ProposeProjectCoachReply producer expects, since it
-// just takes the model's raw text.
-func plainReplyStubProvider(reply string) gateway.Provider {
+// just takes the model's raw text. Returns the concrete *gateway.StubProvider
+// (not wrapped in the gateway.Provider interface) so a test can inspect
+// .LastRequest after the call — e.g. to assert the built prompt does NOT
+// duplicate the student's current turn (fix round 1).
+func plainReplyStubProvider(reply string) *gateway.StubProvider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
 		{Kind: gateway.EventTextDelta, TextDelta: reply},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 20, OutputTokens: 8}},
@@ -201,19 +204,41 @@ func plainReplyStubProvider(reply string) gateway.Provider {
 // sub-agent's own surface, and studio_state is left untouched.
 func TestPostCoach_SubagentScopeUsesLegacyPath(t *testing.T) {
 	const reply = "先说说你觉得这个来源可信在哪？"
+	const studentText = "这篇文章看起来靠谱吗"
 	pool := newAPITestPool(t)
+	stub := plainReplyStubProvider(reply)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: plainReplyStubProvider(reply), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+		Provider: stub, ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	base := "/api/v1/projects/" + seedProjectID
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"user_input":"这篇文章看起来靠谱吗","scope":"find_sources"}`)), cookie))
+		strings.NewReader(`{"user_input":"`+studentText+`","scope":"find_sources"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+
+	// (fix round 1) the built prompt must carry the student's current turn
+	// EXACTLY ONCE. The bug this regressed: persisting the student turn to
+	// Postgres BEFORE loading history meant LoadActiveCoachHistory read the
+	// just-committed row back, and the handler then appended the SAME turn a
+	// second time in memory — so the model saw it twice back-to-back. Inspect
+	// the captured provider request (ProposeProjectCoachReply's user message
+	// embeds the whole history as "- 学生：<text>" lines via
+	// BuildProjectCoachContext) rather than the reply text, since the stub's
+	// reply is fixed regardless of prompt content.
+	if got := len(stub.LastRequest.Messages); got != 2 {
+		t.Fatalf("provider request messages = %d, want 2 (system+user) — %+v", got, stub.LastRequest.Messages)
+	}
+	userMsg := stub.LastRequest.Messages[1]
+	if userMsg.Role != gateway.RoleUser {
+		t.Fatalf("messages[1].role = %q, want %q — %+v", userMsg.Role, gateway.RoleUser, stub.LastRequest.Messages)
+	}
+	if n := strings.Count(userMsg.Content, studentText); n != 1 {
+		t.Fatalf("student turn %q appears %d times in the built prompt, want exactly 1 — prompt:\n%s", studentText, n, userMsg.Content)
 	}
 
 	var resp struct {

@@ -256,23 +256,26 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	ctx := r.Context()
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
-	// Persist the student turn to THIS sub-agent's own surface. Best-effort —
-	// the reply does not depend on it, since the current turn is appended to
-	// `history` below regardless.
-	if err := store.AppendProjectCoachMessage(ctx, projectID, "user", userInput, scope); err != nil {
-		slog.Warn("coach: persist student turn failed", "err", err, "scope", scope, "request_id", httpx.RequestIDFromContext(ctx))
-	}
-
-	// Sub-agents are context-isolated: LoadActiveCoachHistory reads the whole
-	// thread, but since these turns are the only ones ever stored under `scope`
-	// (the orchestrator never writes here), this naturally stays scoped to this
-	// sub-agent's own conversation.
+	// Load the PRIOR active window FIRST, then append the current turn ourselves
+	// so the producer's context always ends with what the student just said —
+	// independent of whether the persist below succeeds. Mirrors the orchestrator
+	// path (and the legacy code this restores) EXACTLY: load-then-append-then-
+	// persist. Persisting first would commit the row before this read, so
+	// LoadActiveCoachHistory would read it back — duplicating the student's turn
+	// in the model's context (fix round 1).
 	history, herr := store.LoadActiveCoachHistory(ctx, projectID, coachHistoryWindow)
 	if herr != nil {
 		slog.Warn("coach: load history failed; proceeding on current turn only", "err", herr, "request_id", httpx.RequestIDFromContext(ctx))
 		history = nil
 	}
 	history = append(history, agent.ChatTurn{Role: "user", Content: userInput})
+
+	// Persist the student turn to THIS sub-agent's own surface (durability for
+	// the NEXT turn's context). Best-effort — this turn's reply does not depend
+	// on it, since the current turn is already in `history` above.
+	if err := store.AppendProjectCoachMessage(ctx, projectID, "user", userInput, scope); err != nil {
+		slog.Warn("coach: persist student turn failed", "err", err, "scope", scope, "request_id", httpx.RequestIDFromContext(ctx))
+	}
 
 	projection, perr := a.buildSpineProjection(ctx, projectID, scope)
 	if perr != nil {
