@@ -12,6 +12,7 @@ import { Directory } from "./Directory";
 import { getWorkspace, getPlan, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
+import { NextStepGuide } from "./blocks/NextStepGuide";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
@@ -379,6 +380,13 @@ export function WorkspaceContainer({
           {/* The plan spine (spec §3): where you are along the generated plan.
               Renders only once a plan exists; tapping jumps to 立项's board. */}
           <PlanSpine items={planItems} onOpenPlan={() => setRoom("plan")} />
+          {/* 印记's next-step offer (spec §5): AI drives, the switcher overrides. */}
+          <NextStepGuide
+            hasPlan={planItems.length > 0}
+            writingFinished={workspace?.writingFinished ?? false}
+            room={room}
+            onGoRoom={setRoom}
+          />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {workspace && ((summary && !summaryDismissed) || carryForward) && (
