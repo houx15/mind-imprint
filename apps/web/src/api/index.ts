@@ -10,7 +10,7 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk, type CourseAskEvent } from "./courses";
-import { listProjects, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
+import { listProjects, finishProject, createProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
 import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
@@ -61,7 +61,9 @@ export interface ApiClient {
   courseAsk(slug: string, input: string, ordinal: number): AsyncGenerator<CourseAskEvent>;
   listProjects(): Promise<ProjectListItem[]>;
   finishProject(id: string): Promise<{ status: ProjectStatus }>;
-  createProject(body: { title?: string; prompt: string; projectType?: string; writingLanguage?: "en" | "zh" | "bilingual" }): Promise<{ id: string }>;
+  createProject(body: { title?: string; prompt: string; projectType?: string; writingLanguage?: "en" | "zh" | "bilingual"; cover?: string }): Promise<{ id: string }>;
+  // Task 3: cover picker options for the create-project drawer.
+  getProjectCovers(): Promise<{ key: string; url: string }[]>;
   submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
   submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void>;
   submitReflection(projectId: string, body: { text: string }): Promise<void>;
@@ -129,7 +131,7 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk,
-  listProjects, finishProject, createProject, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
+  listProjects, finishProject, createProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
   readTurn, summonCard, evaluateCardSelection, getOpenCard,

@@ -14,7 +14,7 @@ import {
   MoreHorizontal,
   SkeletonCard,
   EmptyState,
-  coverGradientStyle,
+  ProjectCover,
 } from "../ui";
 
 /** Join truthy class fragments with a single space; drops falsy/empty ones. */
@@ -93,7 +93,8 @@ function ProjectCard({
       className="group h-full cursor-pointer"
     >
       <Card className="relative flex h-full flex-col gap-2 p-4">
-        <div className="relative h-[120px] w-full shrink-0 overflow-hidden rounded-mk-sm" style={coverGradientStyle(project.title || project.id)}>
+        <div className="relative -mx-4 -mt-4 h-[120px] w-[calc(100%+2rem)] shrink-0 overflow-hidden rounded-t-mk-sm">
+          <ProjectCover project={project} />
           <Badge tone={STATUS_TONE[project.status]} className="absolute left-2 top-2">
             {STATUS_LABEL[project.status]}
           </Badge>

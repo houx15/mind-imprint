@@ -7,6 +7,10 @@ export type ProjectListItem = {
   qualLabel: string;
   activeStation: string;
   status: ProjectStatus;
+  /** Raw stored cover value ("img:<n>" / "grad:<name>" / ""). */
+  cover: string;
+  /** Signed CDN URL for an "img:" cover; "" for "grad:"/unset covers. */
+  coverUrl: string;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {
@@ -40,9 +44,18 @@ export async function createProject(body: {
   prompt: string;
   projectType?: string;
   writingLanguage?: "en" | "zh" | "bilingual";
+  cover?: string;
 }): Promise<{ id: string }> {
   const raw = await apiFetch<unknown>(`/api/v1/projects`, { method: "POST", body: JSON.stringify(body) });
   return CreateProjectResult.parse(raw);
+}
+
+// Task 3: the create-drawer's cover picker — every pre-uploaded photo cover
+// ("img:<n>") with a signed CDN URL. Resilient like listProjects: trust the
+// shape, fall back to an empty list rather than throw on a missing field.
+export async function getProjectCovers(): Promise<{ key: string; url: string }[]> {
+  const raw = await apiFetch<{ covers?: { key: string; url: string }[] }>(`/api/v1/project-covers`);
+  return raw.covers ?? [];
 }
 
 export async function submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void> {

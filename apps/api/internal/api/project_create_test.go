@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -227,6 +228,110 @@ func TestCreateProject_DefaultsWhenTypeAndLangAbsent(t *testing.T) {
 	}
 	if !strings.Contains(string(wlBody), `"en"`) {
 		t.Errorf("writing_language body = %s, want en fallback", wlBody)
+	}
+}
+
+// project covers (Task 1): an explicit valid cover is stored verbatim.
+func TestCreateProject_StoresExplicitCover(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body := strings.NewReader(`{"title":"我的论文","prompt":"讨论语境与理解","cover":"img:3"}`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /projects = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" {
+		t.Fatalf("decode id: %v — body=%s", err, rec.Body)
+	}
+	pid := uuid.MustParse(out.ID)
+
+	var cover string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT cover FROM project WHERE id=$1`, pid).Scan(&cover); err != nil {
+		t.Fatalf("project row missing: %v", err)
+	}
+	if cover != "img:3" {
+		t.Errorf("cover = %q, want img:3", cover)
+	}
+}
+
+// project covers (Task 1): an absent/invalid cover falls back to a random
+// valid photo cover — every project always has one.
+func TestCreateProject_DefaultsRandomCoverWhenAbsent(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+
+	body := strings.NewReader(`{"title":"我的论文","prompt":"讨论语境与理解"}`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/projects", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /projects = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" {
+		t.Fatalf("decode id: %v — body=%s", err, rec.Body)
+	}
+	pid := uuid.MustParse(out.ID)
+
+	var cover string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT cover FROM project WHERE id=$1`, pid).Scan(&cover); err != nil {
+		t.Fatalf("project row missing: %v", err)
+	}
+	if !strings.HasPrefix(cover, "img:") {
+		t.Fatalf("cover = %q, want img:<N> default", cover)
+	}
+	idx, err := strconv.Atoi(strings.TrimPrefix(cover, "img:"))
+	if err != nil || idx < 1 || idx > 15 {
+		t.Errorf("cover index = %q, want 1..15", cover)
+	}
+}
+
+// GET /project-covers (Task 1): lists every pre-uploaded photo cover by key,
+// regardless of whether OSS is wired (tests run with a.d.OSS == nil, so urls
+// may legitimately be empty — assert the keys, which never depend on OSS).
+func TestGetProjectCovers_ListsAllKeys(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/project-covers", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /project-covers = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Covers []struct {
+			Key string `json:"key"`
+			URL string `json:"url"`
+		} `json:"covers"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(out.Covers) != 15 {
+		t.Fatalf("covers count = %d, want 15", len(out.Covers))
+	}
+	for i, c := range out.Covers {
+		want := "img:" + strconv.Itoa(i+1)
+		if c.Key != want {
+			t.Errorf("covers[%d].key = %q, want %q", i, c.Key, want)
+		}
 	}
 }
 

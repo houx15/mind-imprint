@@ -71,6 +71,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/growth/ability", protected(a.getAbilityModel))
 	mux.Handle("GET /api/v1/growth/cards", protected(a.getGrowthCards))
 	mux.Handle("GET /api/v1/cards/catalog", protected(a.getCardsCatalog))
+	mux.Handle("GET /api/v1/project-covers", protected(a.getProjectCovers))
 	mux.Handle("PUT /api/v1/cards/theme", protected(a.putCardTheme))
 	mux.Handle("PUT /api/v1/users/me/accent", protected(a.putUserAccent))
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))

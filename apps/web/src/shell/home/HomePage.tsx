@@ -12,6 +12,7 @@ import {
   EmptyState,
   Illustration,
   coverGradientStyle,
+  ProjectCover,
 } from "@/ui";
 
 /**
@@ -85,7 +86,9 @@ function ProjectTile({ project, onClick }: { project: ProjectListItem; onClick: 
       className={cx(TILE_W, TILE_H, "shrink-0 cursor-pointer")}
     >
       <Card className="flex h-full w-full flex-col gap-2 p-4">
-        <div className="h-[120px] w-full shrink-0 rounded-mk-sm" style={coverGradientStyle(project.title || project.id)} />
+        <div className="-mx-4 -mt-4 h-[120px] w-[calc(100%+2rem)] shrink-0 overflow-hidden rounded-t-mk-sm">
+          <ProjectCover project={project} />
+        </div>
         <div className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink">{project.title || "未命名项目"}</div>
         <Badge tone={STATUS_TONE[project.status]} className="self-start">
           {STATUS_LABEL[project.status]}
