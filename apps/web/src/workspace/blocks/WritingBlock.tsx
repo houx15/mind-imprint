@@ -9,6 +9,7 @@ import { exportDraftDocx } from "../export";
 import { Icon } from "../Icon";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { Segmented } from "@/ui";
 import type { BlockKey } from "./mockData";
@@ -105,6 +106,7 @@ export function WritingBlock({
   writingFinished,
   onOpenRoom,
   refreshWorkspace,
+  recap,
 }: {
   projectId: string;
   title: string;
@@ -117,6 +119,8 @@ export function WritingBlock({
   // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
   // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
   refreshWorkspace: () => Promise<void> | void;
+  /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
+  recap?: string | null;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -269,6 +273,7 @@ export function WritingBlock({
         sectionOptions={knownSectionLabels}
         onRunReview={requestReview}
         activePanel={tab}
+        recap={recap}
       />
 
       {/* #5/#20 · 完成写作 confirm — the first guarded moment. Confirming LOCKS the
@@ -1809,6 +1814,7 @@ function CoachRail({
   sectionOptions,
   onRunReview,
   activePanel,
+  recap,
 }: {
   projectId: string;
   focusPart: string | null;
@@ -1826,6 +1832,7 @@ function CoachRail({
   // shelf's card group (PANEL_DECK) and gates 正文·检查 (examiner voices only
   // make sense once there's prose to check).
   activePanel: "outline" | "snippets" | "draft";
+  recap?: string | null;
 }) {
   const [chat, setChat] = useState<ChatMsg[]>([RAIL_GREETING]);
   const [draft, setDraft] = useState("");
@@ -1842,13 +1849,14 @@ function CoachRail({
   const [pendingArtifact, setPendingArtifact] = useState<{ cardName: string; text: string } | null>(null);
   const [artifactSection, setArtifactSection] = useState<string>(UNFILED);
 
-  // S1 · one continuous session: load this room's slice of the project thread
-  // once on open, appended after the greeting. Empty → greeting only.
+  // Continuous coach: load the ONE working thread (立项 + 写作, surface="studio")
+  // so 写作 shows the whole conversation carried from 立项, not a fresh
+  // writing-only slice. A real conversation REPLACES the greeting; empty → greeting.
   useEffect(() => {
     let alive = true;
-    getCoachHistory(projectId, "writing")
+    getCoachHistory(projectId, "studio")
       .then((msgs) => {
-        if (alive && msgs.length) setChat((c) => [...c, ...msgs]);
+        if (alive && msgs.length) setChat(msgs);
       })
       .catch(() => {
         /* keep greeting-only; the next turn still persists */
@@ -1960,7 +1968,7 @@ function CoachRail({
             </header>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-              <ChatLog messages={toChatMessages(chat)} thinking={sending} />
+              <ChatLog messages={withRecap(recap, toChatMessages(chat))} thinking={sending} />
               {proposal && !openCardId && !sending ? (
                 <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
               ) : null}

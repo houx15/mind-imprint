@@ -51,6 +51,16 @@ JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1 AND cm.surface = $2
 ORDER BY cm.created_at, cm.id;
 
+-- name: ListChatMessagesByProjectSurfaces :many
+-- The CONTINUOUS working-thread display: every turn across a set of working
+-- surfaces (立项/写作 etc.), folded included, oldest→newest. This backs the one
+-- persistent 印记 conversation that spans the working rooms — reading/reflection
+-- are context-isolated sub-agents and are simply left out of the surface set.
+SELECT cm.* FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = ANY($2::text[])
+ORDER BY cm.created_at, cm.id;
+
 -- name: FoldChatSurface :exec
 -- Lever 1 (compaction): fold every live turn on the named surfaces into the
 -- spine the moment an artifact solidifies (proposal finalized / plan generated).

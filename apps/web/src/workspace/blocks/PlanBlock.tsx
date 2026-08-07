@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { Segmented } from "@/ui";
 import { Icon } from "../Icon";
@@ -86,6 +87,7 @@ export function PlanBlock({
   createdAt,
   onOpenRoom,
   refreshWorkspace,
+  recap,
 }: {
   projectId: string;
   title: string;
@@ -94,6 +96,8 @@ export function PlanBlock({
   createdAt?: string;
   onOpenRoom: (room: BlockKey) => void;
   refreshWorkspace: () => void;
+  /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
+  recap?: string | null;
 }) {
   // #11 — a brand-new project (all four dims blank) opens in the calm forming
   // coach; anything already thought through opens straight on the working board.
@@ -145,15 +149,16 @@ export function PlanBlock({
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
-  // S1 · one continuous session: load THIS room's slice of the project's thread
-  // once on open, appended after the scripted intro so re-entry shows the
-  // conversation so far. Empty (a fresh project) → intro only, unchanged.
+  // Continuous coach: load the ONE working thread (立项 + 写作, surface="studio")
+  // so re-entry shows the whole conversation, not just this room's slice. Once a
+  // real conversation exists it REPLACES the scripted intro (so both working
+  // rooms show the same thread); a fresh project keeps the intro only.
   useEffect(() => {
     let alive = true;
-    getCoachHistory(projectId, "forming")
+    getCoachHistory(projectId, "studio")
       .then((msgs) => {
         if (!alive || msgs.length === 0) return;
-        setChat((c) => [...c, ...msgs]);
+        setChat(msgs);
         setChipsDismissed(true);
       })
       .catch(() => {
@@ -320,6 +325,7 @@ export function PlanBlock({
           onBackToBoard={hasBoard ? () => setPhase("working") : undefined}
           setDim={setDim}
           chat={chat}
+          recap={recap}
           lang={lang}
           onToggleLang={() => {
             // Switch the coach's reply language WITHOUT discarding the
@@ -469,6 +475,7 @@ function FormingPhase(props: {
   onBackToBoard?: () => void;
   setDim: (key: keyof Proposal, v: string) => void;
   chat: ChatMsg[];
+  recap?: string | null;
   lang: "zh" | "en";
   onToggleLang: () => void;
   draft: string;
@@ -495,7 +502,7 @@ function FormingPhase(props: {
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
-    title, qualification, proposal, onBackToBoard, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
+    title, qualification, proposal, onBackToBoard, setDim, chat, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
     dimSuggestion, onConfirmDim, onDismissDim,
@@ -608,7 +615,7 @@ function FormingPhase(props: {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-              <ChatLog messages={toChatMessages(chat)} thinking={sending} />
+              <ChatLog messages={withRecap(recap, toChatMessages(chat))} thinking={sending} />
               {linkOffer && !sending && (
                 <CoachLinkOffer
                   url={linkOffer.url}

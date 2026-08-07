@@ -353,6 +353,53 @@ func (q *Queries) ListChatMessagesByProjectSurface(ctx context.Context, arg List
 	return items, nil
 }
 
+const listChatMessagesByProjectSurfaces = `-- name: ListChatMessagesByProjectSurfaces :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = ANY($2::text[])
+ORDER BY cm.created_at, cm.id
+`
+
+type ListChatMessagesByProjectSurfacesParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Column2         []string    `json:"column_2"`
+}
+
+// The CONTINUOUS working-thread display: every turn across a set of working
+// surfaces (立项/写作 etc.), folded included, oldest→newest. This backs the one
+// persistent 印记 conversation that spans the working rooms — reading/reflection
+// are context-isolated sub-agents and are simply left out of the surface set.
+func (q *Queries) ListChatMessagesByProjectSurfaces(ctx context.Context, arg ListChatMessagesByProjectSurfacesParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesByProjectSurfaces, arg.SeededProjectID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessagesByThread = `-- name: ListMessagesByThread :many
 SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
 `

@@ -222,7 +222,10 @@ const CoachHistoryMsg = z.object({
   card: CardTurnRef.nullish(),
 });
 export type CoachHistoryMsg = z.infer<typeof CoachHistoryMsg>;
-export async function getCoachHistory(id: string, surface: CoachScope): Promise<CoachHistoryMsg[]> {
+// `surface` is a real turn scope for a single room's slice, OR the special
+// "studio" — the ONE continuous working thread across 立项/写作 (server unions
+// forming+proposal_review+writing; reading/reflection sub-agents stay out).
+export async function getCoachHistory(id: string, surface: CoachScope | "studio"): Promise<CoachHistoryMsg[]> {
   const raw = await apiFetch<unknown>(
     `/api/v1/projects/${id}/coach/history?surface=${encodeURIComponent(surface)}`,
   );

@@ -114,6 +114,25 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(gen).toBeEnabled();
     expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
   });
+
+  it("loads the CONTINUOUS working thread (surface=studio), not just this room's slice, and shows the recap in-chat", async () => {
+    renderWithAiSlot(
+      <PlanBlock
+        projectId="p1"
+        title="T"
+        qualification="拓展论文 EE"
+        proposal={EMPTY_PROPOSAL}
+        onOpenRoom={() => {}}
+        refreshWorkspace={() => {}}
+        recap="欢迎回来——你上次聊到了判断尺度。"
+      />,
+    );
+    await screen.findByText(/先想清楚四件事/);
+    // The one continuous 印记 conversation across 立项/写作 — never the "forming" slice.
+    expect(mockGetCoachHistory).toHaveBeenCalledWith("p1", "studio");
+    // The recap is 印记's opening line inside the chat (not a separate banner).
+    expect(screen.getByText("欢迎回来——你上次聊到了判断尺度。")).toBeInTheDocument();
+  });
 });
 
 describe("PlanBlock · working phase (plan board) is unaffected by the coach restyle", () => {

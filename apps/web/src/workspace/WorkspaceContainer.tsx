@@ -70,6 +70,9 @@ export function WorkspaceContainer({
   // The project plan's items → the PlanSpine "你在这一步" indicator (spec §3).
   // Empty until a plan is generated; refreshed alongside the workspace.
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  // First-run guard for the room-change plan refetch (declared here so the load
+  // effect can reset it on project change). See the room-change effect below.
+  const didMountRoom = useRef(false);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
   // The constant AI panel's side + collapsed state — persisted so it survives
@@ -182,7 +185,6 @@ export function WorkspaceContainer({
   // for in-progress projects (a non-empty proposal) — a brand-new project has
   // nothing to summarise.
   const [summary, setSummary] = useState<string | null>(null);
-  const [summaryDismissed, setSummaryDismissed] = useState(false);
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -211,7 +213,10 @@ export function WorkspaceContainer({
     setPlanItems([]);
     setError(null);
     setSummary(null);
-    setSummaryDismissed(false);
+    // Reset the room-effect's first-run guard for this new project, so its
+    // getPlan fetch is skipped once here (this effect already fetches) rather
+    // than firing a redundant duplicate on every project switch.
+    didMountRoom.current = false;
     getPlan(projectId)
       .then((items) => {
         if (!cancelled) setPlanItems(items);
@@ -264,8 +269,8 @@ export function WorkspaceContainer({
   // Refresh the plan spine when the student switches rooms — the plan is edited
   // in 立项, so navigating away is the natural moment to re-read its stages
   // (generation itself refreshes eagerly via refreshWorkspace). Skips the very
-  // first render (the load effect already fetched).
-  const didMountRoom = useRef(false);
+  // first render for each project (the load effect already fetched; it resets
+  // this guard on project change).
   useEffect(() => {
     if (!projectId) return;
     if (!didMountRoom.current) {
@@ -389,24 +394,11 @@ export function WorkspaceContainer({
           />
         </div>
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {workspace && ((summary && !summaryDismissed) || carryForward) && (
+        {/* The re-entry recap now lives INSIDE the continuous chat (passed as
+            `recap` to the working rooms), not as a banner here — the chat is the
+            primary surface. Only the reading carry-forward stays a toast. */}
+        {workspace && carryForward && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
-            {summary && !summaryDismissed && (
-              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-mk-lg">
-                <span className="mt-0.5 text-mk-accent">
-                  <Icon name="spark" size={16} />
-                </span>
-                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
-                <button
-                  type="button"
-                  onClick={() => setSummaryDismissed(true)}
-                  aria-label="收起"
-                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-faint hover:text-mk-ink"
-                >
-                  ×
-                </button>
-              </div>
-            )}
             {carryForward && (
               <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-50 px-4 py-3 shadow-mk-lg">
                 <span className="mt-0.5 text-mk-accent">
@@ -449,6 +441,7 @@ export function WorkspaceContainer({
                 createdAt={workspace.createdAt}
                 onOpenRoom={setRoom}
                 refreshWorkspace={refreshWorkspace}
+                recap={summary}
               />
             )}
             {room === "reading" && (
@@ -473,6 +466,7 @@ export function WorkspaceContainer({
                     writingFinished={workspace.writingFinished ?? false}
                     onOpenRoom={setRoom}
                     refreshWorkspace={refreshWorkspace}
+                    recap={summary}
                   />
                 }
               />
