@@ -111,7 +111,7 @@ beforeEach(() => {
 describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
   it("renders the scripted intro in the shared ChatLog and the summon shelf, portaled into the AI slot", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
     );
 
     // The scripted intro (not an LLM call) renders via the shared ChatLog.
@@ -122,7 +122,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
 
   it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
@@ -138,7 +138,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
 
   it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {
     renderWithAiSlot(
-      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
     );
     await screen.findByText(/先想清楚四件事/);
 
@@ -157,6 +157,23 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
   });
 
+  it("P2a Tier-1 strip: keeps 生成项目计划/让印记看看我的开题, drops the redundant 聊聊计划/写开题报告/中EN chrome", async () => {
+    renderWithAiSlot(
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" onPlanGenerated={() => {}} refreshWorkspace={() => {}} />,
+    );
+    await screen.findByText(/先想清楚四件事/);
+
+    // Kept (Tier-2, or a direct review request — both stay working).
+    expect(screen.getByRole("button", { name: /生成项目计划/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
+
+    // Killed Tier-1 chrome — 印记 cues these instead.
+    expect(screen.queryByRole("button", { name: "聊聊计划" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /写开题报告/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "中" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "EN" })).toBeNull();
+  });
+
   it("renders the CONTINUOUS thread from the hoisted store (not just this room's slice), and shows the recap in-chat", async () => {
     // The thread is loaded ONCE by WorkspaceContainer into the hoisted store and
     // handed down; this room reads it via the provider (no per-room re-fetch).
@@ -169,7 +186,6 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
         proposal={EMPTY_PROPOSAL}
         phase="forming"
         onPlanGenerated={() => {}}
-        onOpenRoom={() => {}}
         refreshWorkspace={() => {}}
         recap="欢迎回来——你上次聊到了判断尺度。"
       />,
@@ -196,7 +212,6 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
         createdAt="2026-08-01T00:00:00Z"
         phase="working"
         onPlanGenerated={() => {}}
-        onOpenRoom={() => {}}
         refreshWorkspace={() => {}}
       />,
     );
@@ -206,5 +221,28 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
 
     await userEvent.click(screen.getByRole("button", { name: "活动日志" }));
     await waitFor(() => expect(screen.getByText("还没有记录")).toBeInTheDocument());
+  });
+
+  it("P2a Tier-1 strip: the board drops the 查看我的题目/收起 toggle and the 进入 → per-card doorway", async () => {
+    mockGetPlan.mockResolvedValue([
+      { id: "i1", title: "读：找反例", tag: "read", column: "todo", stage: "阶段一", refMaterialId: null, start: 0, days: 2, position: 0 },
+    ]);
+    renderWithAiSlot(
+      <PlanBlock
+        projectId="p1"
+        title="中国是否让地球更可持续？"
+        qualification="拓展论文 EE"
+        proposal={FILLED_PROPOSAL}
+        createdAt="2026-08-01T00:00:00Z"
+        phase="working"
+        onPlanGenerated={() => {}}
+        refreshWorkspace={() => {}}
+      />,
+    );
+
+    expect(await screen.findByText("读：找反例")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看我的题目" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "收起" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "进入 →" })).toBeNull();
   });
 });

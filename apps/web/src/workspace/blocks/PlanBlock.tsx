@@ -16,7 +16,6 @@ import {
   TIMELINE_DAYS,
   STAGES,
   STAGE_1,
-  type BlockKey,
   type ChatMsg,
 } from "./mockData";
 import {
@@ -33,7 +32,7 @@ import {
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { ApiError } from "../../api/client";
-import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
+import { exportTimescale, exportActivityLog } from "../export";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
@@ -41,9 +40,7 @@ import { exportTimescale, exportActivityLog, exportProposalDocx } from "../expor
 // are rendered by renderRich (via toChatMessages, into the shared ChatLog).
 const INTRO_ZH =
   "要做好一个研究项目，先想清楚四件事：**目标**（想回答什么）、**缘由**（为什么做）、**活动与时间**（打算怎么做）、**资源**（需要什么）。想让我一部分一部分带你想，还是你已经有想法、想直接填右边？";
-const INTRO_EN =
-  "To set up a research project well, get four things clear first: **objective** (what you want to answer), **reason** (why do it), **activities & timeline** (how you'll do it), and **resources** (what you'll need). Want me to walk you through them one part at a time, or do you already have ideas and want to fill in the panel on the right?";
-const introChat = (l: "zh" | "en"): ChatMsg[] => [{ role: "ai", text: l === "en" ? INTRO_EN : INTRO_ZH }];
+const introChat = (): ChatMsg[] => [{ role: "ai", text: INTRO_ZH }];
 
 // The legacy "primary" family and "accent" family were two distinct hues in
 // the old two-tone design; the 2026-08-06 redesign aliases both to the same
@@ -63,11 +60,6 @@ const TAG_BAR: Record<PlanTag, string> = {
   review: "bg-mk-success",
 };
 
-// A plan card's tag is a doorway: it routes to the room that owns that kind of
-// work (读→阅读, 写→写作, 省→回顾).
-const roomForTag = (tag: PlanTag): BlockKey =>
-  tag === "read" ? "reading" : tag === "write" ? "writing" : "reflection";
-
 // The Plan block is two phases sharing one home. Phase A ("forming") is a calm
 // coach chat that turns talk into the four proposal dimensions; hitting 生成计划
 // flips to Phase B ("working"), a persisted project board you return to every
@@ -83,7 +75,6 @@ export function PlanBlock({
   createdAt,
   phase,
   onPlanGenerated,
-  onOpenRoom,
   refreshWorkspace,
   recap,
 }: {
@@ -100,10 +91,6 @@ export function PlanBlock({
    * container to switch the switcher to 管理; this component no longer
    * flips its own phase. */
   onPlanGenerated: () => void;
-  /** Still used for the board's doorway jump (进入 →) into 阅读/写作/回顾 — the
-   * only surviving `onOpenRoom` use after P2a's generate→board flip moved to
-   * `onPlanGenerated`. */
-  onOpenRoom: (room: BlockKey) => void;
   refreshWorkspace: () => void;
   /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
   recap?: string | null;
@@ -120,7 +107,6 @@ export function PlanBlock({
   // don't append its reply into (or clear the busy flag of) the now-different
   // project's shared store. A plain room switch within the same project passes.
   const isActiveProject = () => activeProjectIdRef.current === projectId;
-  const [lang, setLang] = useState<"zh" | "en">("zh");
   const [draft, setDraft] = useState("");
   // The two quick-reply chips live only under the scripted intro; any turn
   // (chip, typed message, or a language reset) dismisses them.
@@ -208,18 +194,13 @@ export function PlanBlock({
       saveTimer.current = null;
       await putProposal(projectId, prop).catch(() => {/* the turn still proceeds */});
     }
-    // In EN mode nudge the model to reply in English.
-    const userInput = lang === "en" ? `${text}\n\n(reply in English)` : text;
-    await sendStudioTurn(userInput);
+    await sendStudioTurn(text);
   }
 
   // Chip 1 — kick off the guided walk-through, starting with 目标.
   async function onGuideMe() {
     setChipsDismissed(true);
-    const prompt =
-      lang === "en"
-        ? "Walk me through it one part at a time. Start with the first thing — my objective: help me get clear on what question I'm actually trying to answer.\n\n(reply in English)"
-        : "请一部分一部分带我想。先从第一件事「目标」开始：帮我想清楚我到底想回答什么问题。";
+    const prompt = "请一部分一部分带我想。先从第一件事「目标」开始：帮我想清楚我到底想回答什么问题。";
     await sendStudioTurn(prompt);
   }
 
@@ -227,28 +208,17 @@ export function PlanBlock({
   // writes into the dim fields (the student still types).
   async function onReview() {
     const labelled = PROPOSAL_DIMS.map((d) => `${d.label}：${prop[d.key].trim() || "（空）"}`).join("\n");
-    const userInput = lang === "en" ? `${labelled}\n\n(reply in English)` : labelled;
-    await sendStudioTurn(userInput);
+    await sendStudioTurn(labelled);
   }
 
   if (phase === "forming") {
     return (
       <>
         <FormingPhase
-          title={title}
-          qualification={qualification}
           proposal={prop}
           setDim={setDim}
           messages={messages}
           recap={recap}
-          lang={lang}
-          onToggleLang={() => {
-            // Switch the coach's reply language WITHOUT discarding the
-            // conversation. Previously this reset chat to the intro-only array,
-            // which wiped the whole history (worst if toggled mid-reply). The
-            // localized intro stays as-is; only subsequent replies switch language.
-            setLang(lang === "zh" ? "en" : "zh");
-          }}
           draft={draft}
           setDraft={setDraft}
           sending={sending}
@@ -292,11 +262,8 @@ export function PlanBlock({
       projectId={projectId}
       title={title}
       qualification={qualification}
-      proposal={prop}
       seedBoard={seedBoard}
       createdAt={createdAt}
-      onReopen={() => onOpenRoom("forming")}
-      onOpenItem={(item) => onOpenRoom(roomForTag(item.tag))}
     />
   );
 }
@@ -347,14 +314,10 @@ function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
 /* ---------- Phase A · forming ---------- */
 
 function FormingPhase(props: {
-  title: string;
-  qualification: string;
   proposal: Proposal;
   setDim: (key: keyof Proposal, v: string) => void;
   messages: StudioChatMsg[];
   recap?: string | null;
-  lang: "zh" | "en";
-  onToggleLang: () => void;
   draft: string;
   setDraft: (s: string) => void;
   sending: boolean;
@@ -370,11 +333,10 @@ function FormingPhase(props: {
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
-    title, qualification, proposal, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
+    proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     projectId, onCardReflected,
   } = props;
-  const [writing, setWriting] = useState(false);
   // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
   // 四项必填 section 全部完成). 反例/张力 is optional and never gates.
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
@@ -391,7 +353,7 @@ function FormingPhase(props: {
   // The scripted intro is DISPLAY-ONLY now (never stored): a fresh project has
   // an empty hoisted store, so fall back to the localized intro for rendering.
   // Once any turn lands the store is non-empty and IT is what shows.
-  const displayChat: StudioChatMsg[] = messages.length ? messages : introChat(lang);
+  const displayChat: StudioChatMsg[] = messages.length ? messages : introChat();
   return (
     <>
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
@@ -446,13 +408,6 @@ function FormingPhase(props: {
           </p>
         )}
         {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
-        <button
-          type="button"
-          onClick={() => setWriting(true)}
-          className="flex items-center justify-center gap-2 rounded-mk-md border-2 border-mk-accent bg-mk-surface py-2.5 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent-50"
-        >
-          <Icon name="writing" size={16} /> 写开题报告（可选）
-        </button>
       </div>
 
       {/* COACH — portaled into the constant AiPanel (Task 4), now on the
@@ -464,19 +419,6 @@ function FormingPhase(props: {
       {slot &&
         createPortal(
           <div className="flex h-full flex-col gap-3 p-4">
-            <div className="flex flex-none items-center justify-end">
-              <Segmented
-                options={[
-                  { value: "zh", label: "中" },
-                  { value: "en", label: "EN" },
-                ]}
-                value={lang}
-                onChange={(v) => {
-                  if (v !== lang) onToggleLang();
-                }}
-              />
-            </div>
-
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
               <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
               {/* 印记's per-turn note/card OFFERS come from the ONE container store
@@ -496,14 +438,14 @@ function FormingPhase(props: {
                     onClick={onGuideMe}
                     className="rounded-full border border-mk-accent bg-mk-accent-50 px-3.5 py-1.5 text-[13px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white"
                   >
-                    {lang === "en" ? "Walk me through it" : "带我一部分一部分想"}
+                    带我一部分一部分想
                   </button>
                   <button
                     type="button"
                     onClick={onSelfFill}
                     className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-accent"
                   >
-                    {lang === "en" ? "I'll fill it in myself" : "我自己填"}
+                    我自己填
                   </button>
                 </div>
               )}
@@ -520,72 +462,7 @@ function FormingPhase(props: {
           </div>,
           slot,
         )}
-
-      {writing && <ProposalWriter proposal={proposal} setDim={setDim} title={title} qualification={qualification} onClose={() => setWriting(false)} />}
     </>
-  );
-}
-
-// The formal proposal is WRITTEN by the student (not generated). This is a
-// larger writing surface over the same four (persisted) dimensions, headed as
-// EPQ §1–§4, with a structured export (real .docx lands in slice 6). Optional —
-// the dimensions are already valued from the chat.
-function ProposalWriter({ proposal, setDim, title, qualification, onClose }: { proposal: Proposal; setDim: (k: keyof Proposal, v: string) => void; title: string; qualification: string; onClose: () => void }) {
-  const SECTIONS: { key: keyof Proposal; n: string; title: string; hint: string }[] = [
-    { key: "objective", n: "§1", title: "题目、目标与职责", hint: "你想回答什么问题？想学会做什么？想发现什么？" },
-    { key: "reason", n: "§2", title: "选题理由", hint: "与你所学学科的关联、个人兴趣、未来规划、想提升的知识/技能、为什么这个题目重要" },
-    { key: "activities", n: "§3", title: "活动与时间安排", hint: "研究、想法的发展与分析、写作、数据收集、排练、成果产出、评估、准备展示等" },
-    { key: "resources", n: "§4", title: "资源", hint: "图书馆、书籍、期刊、设备、场地、技术、经费等" },
-  ];
-  const [exporting, setExporting] = useState(false);
-  async function exportReport() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      await exportProposalDocx(proposal, { title, qualification });
-    } catch {
-      /* a failed export must never crash the room */
-    } finally {
-      setExporting(false);
-    }
-  }
-  return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 px-8" onClick={onClose}>
-      <div className="flex max-h-[86%] w-[640px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-mk-border px-6 py-4">
-          <div>
-            <h3 className="font-sans text-[18px] font-bold text-mk-ink">开题报告</h3>
-            <p className="mt-0.5 text-[12px] text-mk-faint">你自己写——印记只在一旁陪你想，不替你写。</p>
-          </div>
-          <button type="button" onClick={onClose} className="text-[20px] leading-none text-mk-faint hover:text-mk-ink">×</button>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-          {SECTIONS.map((s) => (
-            <label key={s.key} className="block">
-              <span className="flex items-baseline gap-2">
-                <span className="text-[12px] font-bold text-mk-accent">{s.n}</span>
-                <span className="text-[14px] font-bold text-mk-ink">{s.title}</span>
-              </span>
-              <span className="mt-0.5 block text-[11.5px] text-mk-faint">{s.hint}</span>
-              <textarea
-                value={proposal[s.key]}
-                onChange={(e) => setDim(s.key, e.target.value)}
-                rows={4}
-                placeholder="在这里写……"
-                className="mt-2 w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent"
-              />
-            </label>
-          ))}
-        </div>
-        <div className="flex items-center justify-between border-t border-mk-border px-6 py-3.5">
-          <span className="text-[12px] text-mk-faint">随时保存 · 你写的每一段都算数</span>
-          <div className="flex gap-2">
-            <button type="button" onClick={exportReport} disabled={exporting} className="rounded-mk-md border border-mk-border px-4 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">{exporting ? "导出中…" : "导出"}</button>
-            <button type="button" onClick={onClose} className="rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600">完成</button>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -647,18 +524,14 @@ function WorkingPhase(props: {
   projectId: string;
   title: string;
   qualification: string;
-  proposal: Proposal;
   seedBoard?: PlanItem[];
   createdAt?: string;
-  onReopen: () => void;
-  onOpenItem: (item: PlanItem) => void;
 }) {
-  const { projectId, title, qualification, proposal, seedBoard, createdAt, onReopen, onOpenItem } = props;
+  const { projectId, title, qualification, seedBoard, createdAt } = props;
   // #14: anchor the plan timeline to real calendar dates. Fall back to today
   // when the project has no creation timestamp (older mocks).
   const anchor = useMemo(() => (createdAt ? new Date(createdAt) : new Date()), [createdAt]);
   const [view, setView] = useState<PlanView>("kanban");
-  const [open, setOpen] = useState(false);
 
   // The board — seeded from a fresh 生成计划 when we arrive that way, otherwise
   // loaded on enter; mutated optimistically then reconciled.
@@ -752,29 +625,16 @@ function WorkingPhase(props: {
   return (
     <div className="relative flex h-full flex-col px-10 py-8">
       {/* Slim goal header */}
-      <div className="mb-6 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[11px] font-bold text-mk-accent">{qualification}</span>
-            <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
-          </div>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="text-[13px] font-semibold text-mk-muted hover:text-mk-accent">
-            {open ? "收起" : "查看我的题目"}
-          </button>
-        </div>
-        {open && (
-          <div className="mt-3 grid grid-cols-3 gap-4 border-t border-mk-border pt-3 text-[13px] leading-relaxed text-mk-muted">
-            <div><span className="font-bold text-mk-faint">缘由 · </span>{proposal.reason || "—"}</div>
-            <div className="col-span-2"><span className="font-bold text-mk-accent">目标 · </span>{proposal.objective || "—"}</div>
-          </div>
-        )}
+      <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
+        <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[11px] font-bold text-mk-accent">{qualification}</span>
+        <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
       </div>
 
       {/* Toolbar: title + view toggle + export */}
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-sans text-[20px] font-bold text-mk-ink">项目管理</h2>
-          <p className="mt-0.5 text-[13px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改，点「进入 →」去对应房间。"}</p>
+          <p className="mt-0.5 text-[13px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <Segmented
@@ -789,14 +649,11 @@ function WorkingPhase(props: {
           <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
             {exporting ? "导出中…" : "导出"}
           </button>
-          <button type="button" onClick={onReopen} className="flex items-center gap-1.5 rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">
-            <Icon name="spark" size={15} /> 聊聊计划
-          </button>
         </div>
       </div>
 
-      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
-      {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} onJumpItem={onOpenItem} />}
+      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} />}
+      {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} />}
       {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
 
       {editing && (
@@ -814,7 +671,7 @@ function WorkingPhase(props: {
 
 /* ----- Kanban (HTML5 drag between columns) ----- */
 
-function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; loading: boolean; anchor: Date; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
+function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem }: { board: PlanItem[]; loading: boolean; anchor: Date; onMove: (id: string, c: PlanColumn) => void; onAddTask: (stage: string) => void; onEditItem: (i: PlanItem) => void }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<PlanColumn | null>(null);
   return (
@@ -836,7 +693,7 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJ
             </header>
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
               {colItems.map((item) => (
-                <PlanCard key={item.id} item={item} anchor={anchor} dragging={dragId === item.id} onEdit={() => onEditItem(item)} onJump={() => onJumpItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
+                <PlanCard key={item.id} item={item} anchor={anchor} dragging={dragId === item.id} onEdit={() => onEditItem(item)} onDragStart={() => setDragId(item.id)} onDragEnd={() => { setDragId(null); setOver(null); }} />
               ))}
               {colItems.length === 0 && (
                 <div className="rounded-mk-md border border-dashed border-mk-border px-3 py-6 text-center text-[12px] text-mk-faint">
@@ -854,9 +711,8 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJ
   );
 }
 
-// A plan card: the body (tag row + title) opens the edit popover; the single
-// dedicated "进入 →" button is the doorway jump to the room. #4.
-function PlanCard({ item, anchor, dragging, onEdit, onJump, onDragStart, onDragEnd }: { item: PlanItem; anchor: Date; dragging: boolean; onEdit: () => void; onJump: () => void; onDragStart: () => void; onDragEnd: () => void }) {
+// A plan card: the body (tag row + title) opens the edit popover.
+function PlanCard({ item, anchor, dragging, onEdit, onDragStart, onDragEnd }: { item: PlanItem; anchor: Date; dragging: boolean; onEdit: () => void; onDragStart: () => void; onDragEnd: () => void }) {
   // #14: the card's scheduled window as calendar dates.
   const startDate = addDays(anchor, item.start);
   const endDate = addDays(anchor, item.start + Math.max(1, item.days) - 1);
@@ -873,14 +729,13 @@ function PlanCard({ item, anchor, dragging, onEdit, onJump, onDragStart, onDragE
       </button>
       <button type="button" onClick={onEdit} className="block w-full text-left text-[13.5px] font-medium leading-snug text-mk-ink hover:text-mk-accent">{item.title}</button>
       <div className="mt-1.5 text-[11px] font-medium text-mk-faint">📅 {fmtMD(startDate)} – {fmtMD(endDate)}</div>
-      <button type="button" onClick={onJump} className="mt-2 flex items-center gap-0.5 text-[12px] font-semibold text-mk-accent opacity-0 transition hover:underline group-hover:opacity-100">进入 →</button>
     </div>
   );
 }
 
 /* ----- Gantt (drag to move, resize handle to change duration), by stage ----- */
 
-function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditItem, onJumpItem }: { board: PlanItem[]; anchor: Date; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void; onJumpItem: (i: PlanItem) => void }) {
+function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditItem }: { board: PlanItem[]; anchor: Date; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void }) {
   const days = Array.from({ length: TIMELINE_DAYS }, (_, i) => i);
   // #14: today's day-index from the anchor drives the today-line. When it
   // falls outside [0, TIMELINE_DAYS) no column matches, so nothing highlights.
@@ -931,12 +786,11 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
               {items.map((item) => (
                 <div key={item.id} className="group grid grid-cols-[240px,1fr] items-center border-b border-mk-border hover:bg-mk-paper">
                   <div className="flex items-center gap-1 px-4 py-3">
-                    {/* label click = view/edit; the small arrow = doorway jump (#4) */}
+                    {/* label click = view/edit */}
                     <button type="button" onClick={() => onEditItem(item)} title="查看 / 修改任务" className="flex min-w-0 flex-1 items-center gap-2 text-left">
                       <span className={`flex-none rounded px-1.5 py-0.5 text-[11px] font-bold ${TAG_STYLE[item.tag]}`}>{TAG_LABEL[item.tag]}</span>
                       <span className="truncate text-[13px] font-medium text-mk-ink hover:text-mk-accent">{item.title.replace(/^[读写省]：/, "")}</span>
                     </button>
-                    <button type="button" onClick={() => onJumpItem(item)} title="进入对应房间" className="flex-none rounded px-1 text-[13px] font-bold text-mk-accent opacity-0 transition hover:underline group-hover:opacity-100">→</button>
                   </div>
                   <div data-track className="relative h-11">
                     <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>

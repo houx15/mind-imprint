@@ -743,7 +743,6 @@ export function WorkspaceContainer({
                 createdAt={workspace.createdAt}
                 phase={room === "forming" ? "forming" : "working"}
                 onPlanGenerated={() => handleManualRoom("plan")}
-                onOpenRoom={handleManualRoom}
                 refreshWorkspace={refreshWorkspace}
                 recap={summary}
               />
