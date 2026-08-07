@@ -101,21 +101,29 @@ export async function addLog(id: string, text: string): Promise<LogEntry> {
   return LogEntry.parse((raw as { entry: unknown }).entry);
 }
 
-// POST /coach — one restrained agentic turn (JSON, not SSE) through the studio
-// orchestrator (2026-08-07 orchestrator redesign). The only spend endpoint of
-// the room. `scope` is GONE — 印记 owns ONE continuous per-project thread now
-// (server always persists surface="studio"); the caller just sends what the
-// student typed. Returns the full OrchestratorReply: narrate (what to say) +
-// directive (the fresh StudioState — stage/openTool/widthTier/reference/
-// updatedAtTurn, to be applied by the caller) + an optional note/card OFFER
-// (student confirms, never auto-applied — 铁律②) + reviewRequested.
+// POST /coach — one restrained agentic turn (JSON, not SSE). The only spend
+// endpoint of the room. Returns the full OrchestratorReply: narrate (what to
+// say) + directive (the fresh/current StudioState — stage/openTool/widthTier/
+// reference/updatedAtTurn) + an optional note/card OFFER (student confirms,
+// never auto-applied — 铁律②) + reviewRequested.
+//
+// `scope` is OPTIONAL (Task 9a, 2026-08-07 orchestrator redesign follow-up):
+// the studio callers (计划/写作) omit it — 印记 owns ONE continuous per-project
+// thread there, driven by the studio orchestrator (server persists
+// surface="studio", directive reflects the orchestrator's fresh decision).
+// The two context-isolated SUB-AGENT coaches — reading-library find_sources
+// (ReadingBlock) and reflection (ReviewBlock) — pass `scope` so the server
+// takes the RETAINED legacy per-surface path instead: isolated from the
+// orchestrator's thread, turns stored under `scope`, and directive echoes the
+// project's CURRENT studio_state unchanged (a sub-agent never drives status).
 //
 // CoachScope / CardProposalWire / DimSuggestionWire stay exported here even
-// though coach() no longer produces them: getCoachHistory still takes a
-// CoachScope surface (reading/reflection sub-agents), and CardProposalWire /
-// DimSuggestionWire are still imported by ReadingBlock/CoachCardPanel/
-// CoachProposal/WritingBlock/ReviewBlock and PlanBlock respectively — Task 9
-// retires those call sites, not this task (see task-7 brief's scope boundary).
+// though coach() no longer produces a card/dim proposal on the studio path:
+// getCoachHistory still takes a CoachScope surface (incl. the two sub-agents
+// above), and CardProposalWire / DimSuggestionWire are still imported by
+// CoachCardPanel/CoachProposal/WritingBlock/PlanBlock (their own AI-proposed
+// card chips, sourced from reflectProjectCard / the orchestrator's summon_card
+// — unrelated to coach()'s retired proposal field).
 export type CoachScope = "forming" | "find_sources" | "writing" | "proposal_review" | "reflection";
 export const CardProposalWire = z.object({
   cardId: z.string(),
@@ -131,10 +139,18 @@ export const DimSuggestionWire = z.object({
   value: z.string(),
 });
 export type DimSuggestionWire = z.infer<typeof DimSuggestionWire>;
-export async function coach(id: string, userInput: string): Promise<OrchestratorReply> {
+// Task 9a (2026-08-07): `scope` is OPTIONAL — omit it for the studio callers
+// (计划/写作, driven by the orchestrator; server persists surface="studio").
+// Pass it ONLY for the two context-isolated SUB-AGENT coaches that must stay
+// OUTSIDE the orchestrator's one continuous thread — reading-library
+// find_sources (ReadingBlock) and reflection (ReviewBlock) — which take the
+// server's retained legacy per-surface path instead (turns stored under
+// `scope`, studio_state left untouched). Response shape is the same
+// OrchestratorReply either way.
+export async function coach(id: string, userInput: string, scope?: string): Promise<OrchestratorReply> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach`, {
     method: "POST",
-    body: JSON.stringify({ user_input: userInput }),
+    body: JSON.stringify(scope ? { user_input: userInput, scope } : { user_input: userInput }),
   });
   return OrchestratorReply.parse(raw);
 }

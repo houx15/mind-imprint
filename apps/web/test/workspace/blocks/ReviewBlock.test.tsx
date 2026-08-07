@@ -73,7 +73,16 @@ beforeEach(() => {
     },
     draft: { usedFor: "溯源提问", notUsedFor: "代写正文" },
   });
-  mockCoach.mockResolvedValue({ reply: "你先自己答——你的结论回答了原题吗？", proposal: null, linkOffer: null, dimSuggestion: null });
+  // Task 9a: reflection is a context-isolated sub-agent coach (retained legacy
+  // path) — the reply is shaped as OrchestratorReply (narrate/directive/note/
+  // card/reviewRequested), never note/card/reviewRequested on this path.
+  mockCoach.mockResolvedValue({
+    narrate: "你先自己答——你的结论回答了原题吗？",
+    directive: { stage: "topic_discussion", openTool: "chat", widthTier: "chat", reference: [], updatedAtTurn: 0 },
+    note: null,
+    card: null,
+    reviewRequested: false,
+  });
 });
 
 describe("ReviewBlock · AI-use retrospective (S5)", () => {
@@ -107,7 +116,7 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
     await waitFor(() => {
-      expect(mockCoach).toHaveBeenCalledWith("p1", "reflection", "我的结论是不是太弱了");
+      expect(mockCoach).toHaveBeenCalledWith("p1", "我的结论是不是太弱了", "reflection");
     });
     // Both the student's own turn and the AI reply land via the shared ChatLog.
     expect(screen.getByText("我的结论是不是太弱了")).toBeInTheDocument();

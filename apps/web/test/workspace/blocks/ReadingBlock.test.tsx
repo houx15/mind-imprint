@@ -39,7 +39,16 @@ vi.mock("@/workspace/api/workspace", () => ({
   patchReference: vi.fn(async () => {}),
   enterReading: vi.fn(),
   pasteContent: vi.fn(),
-  coach: vi.fn(async () => ({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null })),
+  // Task 9a: find_sources is a context-isolated sub-agent coach (retained
+  // legacy path) — the reply is shaped as OrchestratorReply (narrate/
+  // directive/note/card/reviewRequested); linkOffer/proposal are retired here.
+  coach: vi.fn(async () => ({
+    narrate: "",
+    directive: { stage: "topic_discussion", openTool: "chat", widthTier: "chat", reference: [], updatedAtTurn: 0 },
+    note: null,
+    card: null,
+    reviewRequested: false,
+  })),
   getCoachHistory: vi.fn(async () => []),
   NoReadableContentError: class extends Error {},
 }));

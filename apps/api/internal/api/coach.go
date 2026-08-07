@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -55,6 +57,13 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		UserInput string `json:"user_input"`
+		// Scope is OPTIONAL. Empty (the studio callers — 计划/写作) drives the
+		// orchestrator below. The two context-isolated SUB-AGENTS — reading-library
+		// find_sources (ReadingBlock) and reflection (ReviewBlock) — set it so
+		// their turns take the retained legacy per-surface path instead (Task 9a):
+		// they must NOT be driven by the studio orchestrator (different thread,
+		// different posture, never touches studio_state).
+		Scope string `json:"scope"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -69,6 +78,11 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	resolved, err := a.d.ChatResolver(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+
+	if scope := strings.TrimSpace(body.Scope); isSubagentCoachScope(scope) {
+		a.postCoachSubagentTurn(w, r, resolved, projectID, scope, userInput)
 		return
 	}
 
@@ -216,6 +230,120 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	a.maybeCompactBackstop(r.Context(), projectID)
 
 	httpx.WriteJSON(w, http.StatusOK, reply)
+}
+
+// isSubagentCoachScope reports whether scope names one of the two
+// context-isolated SUB-AGENT coaches (Task 9a) that must stay OUTSIDE the
+// studio orchestrator's one continuous thread: reading-library find_sources
+// (ReadingBlock, spawned while checking a source) and reflection (ReviewBlock,
+// spawned while writing the retrospective). Both keep their own retained
+// legacy per-surface conversation and their own posture — the orchestrator
+// never sees or drives them.
+func isSubagentCoachScope(scope string) bool {
+	return scope == "find_sources" || scope == "reflection"
+}
+
+// postCoachSubagentTurn runs one turn of a context-isolated sub-agent coach
+// (find_sources / reflection) — the RETAINED legacy per-surface path, isolated
+// from the studio orchestrator's one continuous thread. Turns are stored under
+// `scope` (never "studio"), the reply comes from the always-reply conversational
+// producer ProposeProjectCoachReply (no tools, no studio_state mutation — a
+// sub-agent never drives project status), and the response is still shaped as
+// an OrchestratorReply so the frontend contract parses uniformly: `directive`
+// carries the project's CURRENT studio_state UNCHANGED, and note/card/
+// reviewRequested are always the zero value (nil/nil/false).
+func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, resolved gateway.Resolved, projectID uuid.UUID, scope, userInput string) {
+	ctx := r.Context()
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	// Persist the student turn to THIS sub-agent's own surface. Best-effort —
+	// the reply does not depend on it, since the current turn is appended to
+	// `history` below regardless.
+	if err := store.AppendProjectCoachMessage(ctx, projectID, "user", userInput, scope); err != nil {
+		slog.Warn("coach: persist student turn failed", "err", err, "scope", scope, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+
+	// Sub-agents are context-isolated: LoadActiveCoachHistory reads the whole
+	// thread, but since these turns are the only ones ever stored under `scope`
+	// (the orchestrator never writes here), this naturally stays scoped to this
+	// sub-agent's own conversation.
+	history, herr := store.LoadActiveCoachHistory(ctx, projectID, coachHistoryWindow)
+	if herr != nil {
+		slog.Warn("coach: load history failed; proceeding on current turn only", "err", herr, "request_id", httpx.RequestIDFromContext(ctx))
+		history = nil
+	}
+	history = append(history, agent.ChatTurn{Role: "user", Content: userInput})
+
+	projection, perr := a.buildSpineProjection(ctx, projectID, scope)
+	if perr != nil {
+		slog.Warn("coach: build spine projection failed; proceeding without it", "err", perr, "request_id", httpx.RequestIDFromContext(ctx))
+		projection = ""
+	}
+
+	out, usage, cerr := agent.ProposeProjectCoachReply(ctx, a.d.Provider, resolved, history, projection, coachSurfaceLabel(scope))
+
+	// Meter BEFORE any bail — a call that yields nothing (or was enforcement-
+	// rejected) still cost money. Only when a real call happened (usage > 0).
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: scope, Purpose: "coach",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("coach: record llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(ctx))
+		}
+	}
+
+	narrate := strings.TrimSpace(out.Body)
+	if cerr != nil || narrate == "" {
+		if cerr != nil {
+			slog.Warn("coach: subagent reply not produced", "err", cerr, "scope", scope, "request_id", httpx.RequestIDFromContext(ctx))
+		}
+		narrate = coachFallbackReply
+	}
+
+	// Persist the assistant narration to the same sub-agent surface. Best-effort.
+	if err := store.AppendProjectCoachMessage(ctx, projectID, "assistant", narrate, scope); err != nil {
+		slog.Warn("coach: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+
+	// Record the exchange as a coach_turn event so the process tree carries it.
+	// event.surface carries a DB CHECK constraint (migration 0016) admitting only
+	// 'studio'|'course'|'chat' — find_sources/reflection are NOT valid values
+	// there (unlike chat_message.surface, which is unconstrained), so — mirroring
+	// the pre-orchestrator legacy code this path restores (card_reflect.go /
+	// e052f95^:coach.go) — the event keeps Surface: "studio" and carries the
+	// sub-agent's room scope in the payload instead. Best-effort.
+	if err := store.AppendEvent(ctx, agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "coach_turn",
+		Payload: mustJSON(map[string]any{"scope": scope, "student": userInput, "ai": narrate}),
+	}); err != nil {
+		slog.Warn("coach: append coach_turn event failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+
+	// A turn is activity — the roster's 最近活跃 depends on it. Best-effort.
+	if err := a.d.Queries.TouchProject(ctx, projectID); err != nil {
+		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+
+	// S4 · size-threshold compaction backstop, same as the orchestrator path.
+	// Best-effort; never disturbs the reply.
+	a.maybeCompactBackstop(ctx, projectID)
+
+	// The directive mirrors the project's CURRENT studio_state, UNCHANGED — a
+	// sub-agent turn never advances or mutates project status. Loaded exactly
+	// as the orchestrator path does: any error/empty → fresh default.
+	state := agent.DefaultStudioState()
+	if raw, gerr := a.d.Queries.GetStudioState(ctx, projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			state = loaded
+		}
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{
+		Narrate:   narrate,
+		Directive: state,
+	})
 }
 
 // spineScopeForTool maps the AI-managed open tool to the room scope the spine
