@@ -169,8 +169,12 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 				state.WidthTier = agent.WidthForTool(args.Tool)
 			}
 		case "curate_reference":
+			// id-validation (P3): filterCurateReferenceCall already dropped bad
+			// `kind`s; this drops items whose id isn't a real material/snippet id
+			// for THIS project, so a hallucinated id never reaches studio_state
+			// (the panel a later task renders from these ids).
 			if args, aerr := agent.CurateReferenceArgs(tc); aerr == nil {
-				state.Reference = args.Items
+				state.Reference = a.filterKnownReferences(r.Context(), projectID, args.Items)
 			}
 		case "propose_note":
 			// Last one wins; NO db write — the student confirms via putProposal.
