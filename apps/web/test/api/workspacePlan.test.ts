@@ -7,7 +7,6 @@ import {
   deletePlanItem,
   getLog,
   addLog,
-  coach,
 } from "@/workspace/api/workspace";
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -131,18 +130,5 @@ describe("getLog / addLog", () => {
   });
 });
 
-describe("coach", () => {
-  it("POSTs {scope,user_input} and returns the reply + optional proposal (S4)", async () => {
-    const spy = vi.fn(async () => json({ reply: "那你更偏向哪一边？" }));
-    vi.stubGlobal("fetch", spy);
-
-    const { reply, proposal } = await coach("p1", "forming", "我不确定用什么尺度");
-    expect(reply).toBe("那你更偏向哪一边？");
-    expect(proposal).toBeNull();
-
-    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
-    expect(url).toContain("/api/v1/projects/p1/coach");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ scope: "forming", user_input: "我不确定用什么尺度" });
-  });
-});
+// coach() moved to the orchestrator shape (2026-08-07 redesign) — its
+// coverage now lives in test/api/workspaceOrchestrator.test.ts.

@@ -14,11 +14,40 @@ import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatCon
 // The coach thread now lives in the hoisted StudioChatContext store (owned by
 // WorkspaceContainer in the shell); the rail reads/appends it via
 // `useStudioChat()`, so tests stand in a stateful provider around it.
+// The coach send is now the ONE container-owned loop, handed to the rail via
+// StudioChatContext (`sendStudioTurn`). The rail's send() builds the 就这一段
+// turnText and drives this spy — so tests assert on it (the shared-send shape),
+// not on a direct coach() call the rail no longer makes. The stub mirrors the
+// container: it appends the student turn (with any quotedPart callout) so the
+// rail still renders what was sent.
+const mockSend = vi.fn();
+
 function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
   const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
   const [sending, setSending] = useState(false);
+  const sendStudioTurn = async (userInput: string, opts?: { quotedPart?: string }) => {
+    mockSend(userInput, opts);
+    setMessages((c) => [...c, { role: "student", text: userInput, quotedPart: opts?.quotedPart }]);
+    return true;
+  };
   return (
-    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending, activeProjectIdRef: { current: "p1" } }}>
+    <StudioChatContext.Provider
+      value={{
+        messages,
+        setMessages,
+        sending,
+        setSending,
+        activeProjectIdRef: { current: "p1" },
+        sendStudioTurn,
+        projectId: "p1",
+        pendingNote: null,
+        pendingCard: null,
+        confirmNote: () => {},
+        dismissNote: () => {},
+        openCard: () => {},
+        dismissCard: () => {},
+      }}
+    >
       {children}
     </StudioChatContext.Provider>
   );
@@ -43,7 +72,6 @@ vi.mock("@/workspace/api/workspace", () => ({
   putSnippets: vi.fn(async () => []),
   getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
   getDraft: vi.fn(async () => "我的草稿第一段。中国在可再生能源上的贡献是实质性的。"),
-  coach: vi.fn(async () => ({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null })),
   getCoachHistory: vi.fn(async () => []),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
   dismissProposal: vi.fn(async () => {}),
@@ -61,7 +89,7 @@ vi.mock("@/api/projects", () => ({
 
 import { runDraftReview, putBuffer } from "@/api/writing";
 import { ApiError } from "@/api/client";
-import { coach, getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
+import { getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
 import { finishWriting, reopenWriting } from "@/api/projects";
 import { getExploration } from "@/api/exploration";
 import { exportDraftDocx } from "@/workspace/export";
@@ -90,11 +118,11 @@ describe("paragraphAtCaret (WC · M1)", () => {
 const mockReview = vi.mocked(runDraftReview);
 const mockPutBuffer = vi.mocked(putBuffer);
 const mockExport = vi.mocked(exportDraftDocx);
-const mockCoach = vi.mocked(coach);
 const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res", counterpoints: "" };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSend.mockClear();
   mockReview.mockResolvedValue({
     items: [
       { criterion_code: "AO2", criterion_name: "分析与论证", band: "中段", evidence: "给出了一个反例", missing: "反例没有接回主张", fix: "把反例接回你的核心主张" },
@@ -114,17 +142,16 @@ async function openDraftTab() {
 }
 
 describe("WritingBlock · coach on the shared AiPanel (Task 7)", () => {
-  it("sends a message through the shared Composer and appends the coach's reply via ChatLog", async () => {
-    mockCoach.mockResolvedValueOnce({ reply: "先说说你想让读者信什么？", proposal: null, linkOffer: null, dimSuggestion: null });
+  it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} onOpenRoom={() => {}} />);
 
     const composer = await screen.findByPlaceholderText("问问这段逻辑、这个结构……");
     await userEvent.type(composer, "我的反例够有力吗？");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    expect(mockCoach).toHaveBeenCalledWith("p1", "writing", "我的反例够有力吗？");
-    expect(await screen.findByText("先说说你想让读者信什么？")).toBeInTheDocument();
-    // the student's own turn also lands in the shared log.
+    // No focusPart pinned → the turnText is just the text; no quotedPart.
+    expect(mockSend).toHaveBeenCalledWith("我的反例够有力吗？", { quotedPart: undefined });
+    // the student's own turn lands in the shared log (mirrors the container).
     expect(screen.getByText("我的反例够有力吗？")).toBeInTheDocument();
   });
 });
@@ -284,11 +311,13 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     const composer = screen.getByPlaceholderText("就这一段，你想问什么？");
     await userEvent.type(composer, "这段够有力吗{Enter}");
     await waitFor(() => {
-      const [, scope, turn] = mockCoach.mock.calls.at(-1)!;
-      expect(scope).toBe("writing");
+      // The rail drives the ONE shared send with the scoped turnText + the
+      // pinned paragraph as `quotedPart`.
+      const [turn, opts] = mockSend.mock.calls.at(-1)!;
       expect(turn).toContain("就这一段想");
       expect(turn).toContain("我的草稿第一段");
       expect(turn).toContain("这段够有力吗");
+      expect(opts?.quotedPart).toContain("我的草稿第一段");
     });
   });
 
@@ -527,11 +556,15 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     await userEvent.click(await screen.findByRole("button", { name: /问印记/ }));
     const composer = screen.getByPlaceholderText("就这一段，你想问什么？");
     await userEvent.type(composer, "这段够有力吗{Enter}");
-    await waitFor(() => expect(mockCoach).toHaveBeenCalled());
+    await waitFor(() => expect(mockSend).toHaveBeenCalled());
+    // The pinned paragraph rides as `quotedPart`, rendered as a styled callout —
+    // never a literal 【就这一段】 token baked into the message string.
     expect(screen.queryByText(/【就这一段】/)).toBeNull();
-    expect(await screen.findByText("这段够有力吗")).toBeInTheDocument();
     const quote = document.querySelector("blockquote");
     expect(quote?.textContent).toBe("我的草稿第一段。");
+    // the typed question rode along in the turnText sent to 印记.
+    const [turn] = mockSend.mock.calls.at(-1)!;
+    expect(turn).toContain("这段够有力吗");
   });
 
   // Q2 · once a 整稿体检 result exists, the draft and the review panel share a

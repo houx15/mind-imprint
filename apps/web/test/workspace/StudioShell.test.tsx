@@ -46,6 +46,15 @@ vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-te
 const getWorkspace = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
+  // 印记's resume directive (Task 8): the shell lands on the room it names.
+  // These shell tests exercise the plan room, so return openTool "plan".
+  getStudioState: vi.fn(async () => ({
+    stage: "plan_generation" as const,
+    openTool: "plan" as const,
+    widthTier: "half" as const,
+    reference: [] as never[],
+    updatedAtTurn: 0,
+  })),
   getPlan: vi.fn(async () => []),
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),

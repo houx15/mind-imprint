@@ -19,10 +19,8 @@ import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { getExploration } from "../../api/exploration";
-import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 import { CoachCardPanel, READING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
-import type { CardProposalWire } from "../api/workspace";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 
@@ -1422,24 +1420,6 @@ function FloatingCoach({
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  // #18: the coach's thinking-card offer in 文献库 (克制 chip); opening is a tap.
-  const [cardProposal, setCardProposal] = useState<CardProposalWire | null>(null);
-  // #19: a URL the student drops in the find-资料 coach surfaces as a link-bridge
-  // offer (克制 chip) so she can add it to the library right here — previously
-  // this coach dropped the linkOffer, so pasting a link never added the paper.
-  const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
-
-  async function addOfferedLink() {
-    if (!linkOffer) return;
-    setLinkOffer({ ...linkOffer, status: "adding" });
-    try {
-      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url });
-      setLinkOffer((o) => (o ? { ...o, status: "added" } : o));
-      onLibraryChanged?.();
-    } catch {
-      setLinkOffer((o) => (o ? { ...o, status: "idle" } : o)); // let her retry
-    }
-  }
 
   // S1 · one continuous session: load this room's slice of the project thread
   // once on open, appended after the greeting. Empty → greeting only.
@@ -1482,14 +1462,10 @@ function FloatingCoach({
     if (!text || busy) return;
     setChat((c) => [...c, { role: "student", text }]);
     setDraft("");
-    setLinkOffer(null);
-    setCardProposal(null);
     setBusy(true);
     try {
-      const { reply, linkOffer: offer, proposal: card } = await coach(projectId, "find_sources", text);
-      setChat((c) => [...c, { role: "ai", text: reply }]);
-      if (offer) setLinkOffer({ url: offer.url, status: "idle" });
-      if (card) setCardProposal(card);
+      const result = await coach(projectId, text, "find_sources");
+      setChat((c) => [...c, { role: "ai", text: result.narrate }]);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
     } finally {
@@ -1502,23 +1478,22 @@ function FloatingCoach({
   // message log itself is now the shared `ChatLog` (studio agentic rebuild,
   // mirrors PlanBlock's Task 5 migration) so 印记·找资料 gets the same 对话框
   // bubbles as every other room instead of a hand-rolled log.
+  //
+  // Task 9a (2026-08-07): this coach is now context-isolated from the studio
+  // orchestrator, so its coach() reply no longer carries a linkOffer/proposal
+  // — the link-bridge chip (CoachLinkOffer) and the AI-proposed card chip are
+  // retired on this path for P1 (note: link-in-coach was #19; the coach can no
+  // longer surface a dropped URL as an add-to-library offer here). The 工具卡
+  // self-summon shelf (CoachCardPanel, proposal always null) stays — that flow
+  // runs through reflectProjectCard, independent of coach().
   const chatBody = (
     <>
       <ChatLog messages={toFloatingChatMessages(chat)} thinking={busy} />
-      {linkOffer && (
-        <CoachLinkOffer
-          url={linkOffer.url}
-          status={linkOffer.status}
-          onAdd={() => void addOfferedLink()}
-          onReadTogether={() => void addOfferedLink()}
-          onDismiss={() => setLinkOffer(null)}
-        />
-      )}
       {!busy && (
         <CoachCardPanel
           projectId={projectId}
-          proposal={cardProposal}
-          onProposalConsumed={() => setCardProposal(null)}
+          proposal={null}
+          onProposalConsumed={() => {}}
           // Followup fix (2026-08): READING_DECK cards (e.g. 事实/观点/价值,
           // 视角对照矩阵) used to persist-only with a canned "记下了…" line;
           // now they run the shared reflect turn like every other deck, so

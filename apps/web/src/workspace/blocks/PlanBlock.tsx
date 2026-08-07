@@ -6,6 +6,7 @@ import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
+import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
 import { Icon } from "../Icon";
 import {
@@ -26,18 +27,13 @@ import {
   deletePlanItem,
   getLog,
   addLog,
-  coach,
   generatePlan,
-  createReference,
   type PlanItemPatch,
-  type DimSuggestionWire,
-  type CardProposalWire,
 } from "../api/workspace";
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { ApiError } from "../../api/client";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
-import { CoachLinkOffer, type LinkOfferStatus } from "./CoachLinkOffer";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
@@ -114,7 +110,7 @@ export function PlanBlock({
   // room swaps, loaded once per project). This room reads/appends the shared
   // store instead of holding its own chat state; the scripted intro is now a
   // display-only fallback (see FormingPhase's `displayChat`), never stored.
-  const { messages, setMessages, sending, setSending, activeProjectIdRef } = useStudioChat();
+  const { messages, setMessages, sending, activeProjectIdRef, sendStudioTurn } = useStudioChat();
   // A turn resolves seconds later; if the student switched PROJECTS meanwhile,
   // don't append its reply into (or clear the busy flag of) the now-different
   // project's shared store. A plain room switch within the same project passes.
@@ -130,14 +126,6 @@ export function PlanBlock({
   const [seedBoard, setSeedBoard] = useState<PlanItem[] | undefined>(undefined);
   // #15: shown before a regenerate overwrites an existing plan.
   const [confirmRegen, setConfirmRegen] = useState(false);
-  // #13: the coach's offer to record a kick-off dimension the student just
-  // articulated — she confirms with a tap (the AI never writes it on its own).
-  const [dimSuggestion, setDimSuggestion] = useState<DimSuggestionWire | null>(null);
-  // #18: the coach's cross-phase thinking-card offer (克制 chip); opening is the
-  // student's tap. Mutually exclusive with dimSuggestion server-side.
-  const [cardProposal, setCardProposal] = useState<CardProposalWire | null>(null);
-  // Link-bridge offer for the most recent coach turn (克制 chip under the reply).
-  const [linkOffer, setLinkOffer] = useState<{ url: string; status: LinkOfferStatus } | null>(null);
 
   // Debounced persistence of proposal edits (~600ms after the last keystroke).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,77 +186,17 @@ export function PlanBlock({
     }
   }
 
-  // One restrained coaching turn appended to the chat, with a busy state. A URL
-  // the student dropped surfaces as a link-bridge offer (克制 chip) under the
-  // reply; it clears at the start of each turn so a stale offer never lingers.
-  async function runCoachTurn(scope: "forming" | "proposal_review", userInput: string, studentEcho: string) {
-    if (sending) return;
-    setMessages((c) => [...c, { role: "student", text: studentEcho }]);
-    setLinkOffer(null);
-    setDimSuggestion(null);
-    setCardProposal(null);
-    setSending(true);
-    try {
-      const { reply, linkOffer: offer, dimSuggestion: dim, proposal: card } = await coach(projectId, scope, userInput);
-      if (!isActiveProject()) return; // student left this project — drop the late reply from the display
-      setMessages((c) => [...c, { role: "ai", text: reply }]);
-      if (offer) setLinkOffer({ url: offer.url, status: "idle" });
-      if (dim) setDimSuggestion(dim);
-      if (card) setCardProposal(card);
-    } catch {
-      if (isActiveProject()) setMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
-    } finally {
-      if (isActiveProject()) setSending(false);
-    }
-  }
-
-  // Link-bridge chip handlers. 加入文献库 promotes the pasted link to a
-  // first-class reference; 一起读这篇 does the same then opens the Reading Room,
-  // where the existing 进入阅读室 flow fetches the body. Neither fetches here.
-  async function onAddLink() {
-    if (!linkOffer || linkOffer.status !== "idle") return;
-    setLinkOffer({ ...linkOffer, status: "adding" });
-    try {
-      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url });
-      setLinkOffer((o) => (o ? { ...o, status: "added" } : o));
-    } catch {
-      setLinkOffer((o) => (o ? { ...o, status: "idle" } : o)); // let them retry
-    }
-  }
-  async function onReadTogether() {
-    if (!linkOffer || linkOffer.status === "adding") return;
-    if (linkOffer.status !== "added") {
-      // Mark adding so the chip's buttons disable — a fast double-tap can't
-      // create the reference twice. Best-effort create; still navigate even if
-      // it fails (the library may already hold it).
-      setLinkOffer({ ...linkOffer, status: "adding" });
-      await createReference(projectId, { url: linkOffer.url, title: linkOffer.url }).catch(() => {});
-    }
-    setLinkOffer(null);
-    onOpenRoom("reading");
-  }
-
-  // #13: record the confirmed dimension into the 开题四问 panel + persist now, so
-  // the right bar fills as they talk. Appends when the field already has content
-  // (she may have typed meanwhile) so a tap never clobbers her own words.
-  function confirmDim() {
-    if (!dimSuggestion) return;
-    const key = dimSuggestion.dim as keyof Proposal;
-    const existing = prop[key].trim();
-    const value = existing ? `${existing}\n${dimSuggestion.value}` : dimSuggestion.value;
-    const next = { ...prop, [key]: value };
-    setProp(next);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    persistProposal(next);
-    setDimSuggestion(null);
-  }
+  // The coach send is now the ONE container-owned loop (`sendStudioTurn`): it
+  // appends the turn, calls the orchestrator, applies the returned directive,
+  // and surfaces the note/card OFFERS (rendered by `StudioTurnChips` below).
+  // The three entry points here just compose the right `userInput`.
 
   async function onSend() {
     const text = draft.trim();
     if (!text || sending) return;
     setChipsDismissed(true);
     setDraft("");
-    // EC · flush a pending dim autosave BEFORE the turn so the coach's spine read
+    // EC · flush a pending dim autosave BEFORE the turn so 印记's spine read
     // (GetProjectProposal) sees the latest dimensions — otherwise a dim typed
     // within the 600ms debounce is invisible to this turn (race).
     if (saveTimer.current) {
@@ -276,9 +204,9 @@ export function PlanBlock({
       saveTimer.current = null;
       await putProposal(projectId, prop).catch(() => {/* the turn still proceeds */});
     }
-    // In EN mode nudge the model to reply in English; the scope stays the same.
+    // In EN mode nudge the model to reply in English.
     const userInput = lang === "en" ? `${text}\n\n(reply in English)` : text;
-    await runCoachTurn("forming", userInput, text);
+    await sendStudioTurn(userInput);
   }
 
   // Chip 1 — kick off the guided walk-through, starting with 目标.
@@ -288,19 +216,15 @@ export function PlanBlock({
       lang === "en"
         ? "Walk me through it one part at a time. Start with the first thing — my objective: help me get clear on what question I'm actually trying to answer.\n\n(reply in English)"
         : "请一部分一部分带我想。先从第一件事「目标」开始：帮我想清楚我到底想回答什么问题。";
-    await runCoachTurn("forming", prompt, lang === "en" ? "Walk me through it, part by part." : "带我一部分一部分想");
+    await sendStudioTurn(prompt);
   }
 
-  // #2 — 让印记看看我的开题：hand the four dims to a review-scoped turn. The AI
-  // critiques; it never writes into the dim fields (the student still types).
+  // #2 — 让印记看看我的开题：hand the four dims to 印记. It critiques; it never
+  // writes into the dim fields (the student still types).
   async function onReview() {
     const labelled = PROPOSAL_DIMS.map((d) => `${d.label}：${prop[d.key].trim() || "（空）"}`).join("\n");
     const userInput = lang === "en" ? `${labelled}\n\n(reply in English)` : labelled;
-    await runCoachTurn(
-      "proposal_review",
-      userInput,
-      lang === "en" ? "Take a look at my kickoff — what still needs thinking through?" : "帮我看看我的开题——哪里还要再想清楚？",
-    );
+    await sendStudioTurn(userInput);
   }
 
   if (phase === "forming") {
@@ -333,16 +257,7 @@ export function PlanBlock({
           onGenerate={onGenerate}
           generating={generating}
           genError={genError}
-          linkOffer={linkOffer}
-          onAddLink={onAddLink}
-          onReadTogether={onReadTogether}
-          onDismissLink={() => setLinkOffer(null)}
-          dimSuggestion={dimSuggestion}
-          onConfirmDim={confirmDim}
-          onDismissDim={() => setDimSuggestion(null)}
           projectId={projectId}
-          cardProposal={cardProposal}
-          onCardConsumed={() => setCardProposal(null)}
           onCardReflected={(studentText, reply, card) => {
             if (!isActiveProject()) return; // student switched projects mid-reflect
             setMessages((c) => [
@@ -426,35 +341,6 @@ function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm
   );
 }
 
-const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
-  objective: "目标",
-  reason: "缘由",
-  activities: "活动",
-  resources: "资源",
-  counterpoints: "可能的反例 / 张力",
-};
-
-// #13: the 克制 confirm chip — offers to record a kick-off dimension the student
-// just articulated (a faithful one-line summary of HER words) into the right-
-// side 开题四问 panel. Nothing is written until she taps 记进 (打开由学生确认).
-function DimConfirmChip({ suggestion, onConfirm, onDismiss }: { suggestion: DimSuggestionWire; onConfirm: () => void; onDismiss: () => void }) {
-  const label = DIM_LABEL[suggestion.dim];
-  return (
-    <div className="rounded-mk-lg border border-mk-success/40 bg-mk-success-bg px-3.5 py-3 text-[13px] text-mk-ink">
-      <p className="font-semibold leading-snug text-mk-success">要不要把这点记进「{label}」？</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{suggestion.value}</p>
-      <div className="mt-2.5 flex items-center gap-2">
-        <button type="button" onClick={onConfirm} className="rounded-full bg-mk-success px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
-          记进「{label}」
-        </button>
-        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
-          跳过
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Phase A · forming ---------- */
 
 function FormingPhase(props: {
@@ -478,24 +364,13 @@ function FormingPhase(props: {
   onGenerate: () => void;
   generating: boolean;
   genError: string | null;
-  linkOffer: { url: string; status: LinkOfferStatus } | null;
-  onAddLink: () => void;
-  onReadTogether: () => void;
-  onDismissLink: () => void;
-  dimSuggestion: DimSuggestionWire | null;
-  onConfirmDim: () => void;
-  onDismissDim: () => void;
   projectId: string;
-  cardProposal: CardProposalWire | null;
-  onCardConsumed: () => void;
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
     title, qualification, proposal, onBackToBoard, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
-    linkOffer, onAddLink, onReadTogether, onDismissLink,
-    dimSuggestion, onConfirmDim, onDismissDim,
-    projectId, cardProposal, onCardConsumed, onCardReflected,
+    projectId, onCardReflected,
   } = props;
   const [writing, setWriting] = useState(false);
   // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
@@ -609,20 +484,15 @@ function FormingPhase(props: {
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
               <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
-              {linkOffer && !sending && (
-                <CoachLinkOffer
-                  url={linkOffer.url}
-                  status={linkOffer.status}
-                  onAdd={onAddLink}
-                  onReadTogether={onReadTogether}
-                  onDismiss={onDismissLink}
-                />
-              )}
-              {dimSuggestion && !sending && (
-                <DimConfirmChip suggestion={dimSuggestion} onConfirm={onConfirmDim} onDismiss={onDismissDim} />
-              )}
+              {/* 印记's per-turn note/card OFFERS come from the ONE container store
+                  (StudioTurnChips) — the same chips render in chat-first and 写作. */}
+              <StudioTurnChips />
+              {/* The self-summon 工具卡 shelf: the student picks a forming card
+                  herself (separate from 印记's proposal above). No AI proposal is
+                  threaded here anymore — that path is StudioTurnChips → the shared
+                  card sheet. */}
               {!sending && (
-                <CoachCardPanel projectId={projectId} proposal={cardProposal} onProposalConsumed={onCardConsumed} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
+                <CoachCardPanel projectId={projectId} proposal={null} onProposalConsumed={() => {}} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
               )}
               {showChips && !sending && (
                 <div className="flex flex-wrap gap-2 pl-1">

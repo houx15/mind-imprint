@@ -72,15 +72,15 @@ func TestCoach_ProposalReviewScope(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"proposal_review","user_input":"目标：看中国是否让地球更可持续；缘由：我关心气候；活动：读NASA/Nature；资源：Zotero"}`)), cookie))
+		strings.NewReader(`{"user_input":"目标：看中国是否让地球更可持续；缘由：我关心气候；活动：读NASA/Nature；资源：Zotero"}`)), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("coach proposal_review = %d — %s", rr.Code, rr.Body)
 	}
 	var resp struct {
-		Reply string `json:"reply"`
+		Narrate string `json:"narrate"`
 	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil || strings.TrimSpace(resp.Reply) == "" {
-		t.Fatalf("coach proposal_review reply empty (err=%v): %s", err, rr.Body)
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil || strings.TrimSpace(resp.Narrate) == "" {
+		t.Fatalf("coach proposal_review narrate empty (err=%v): %s", err, rr.Body)
 	}
 }
 
@@ -408,19 +408,20 @@ func TestCoach_HappyPath(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+seedProjectID+"/coach",
-		strings.NewReader(`{"scope":"forming","user_input":"我想研究中国的可持续发展但不知道从哪开始"}`)), cookie))
+		strings.NewReader(`{"user_input":"我想研究中国的可持续发展但不知道从哪开始"}`)), cookie))
 	if rr.Code != 200 {
 		t.Fatalf("coach: %d — %s", rr.Code, rr.Body.String())
 	}
 	var out struct {
-		Reply string `json:"reply"`
+		Narrate string `json:"narrate"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode coach: %v — %s", err, rr.Body.String())
 	}
-	// The fake provider scripts a non-empty reply — the fallback must NOT fire.
-	if out.Reply == "" {
-		t.Fatalf("empty reply")
+	// The stub provider yields non-orchestrator text, so ParseOrchestratorOutput
+	// fails and narrate falls back to the restrained nudge — never empty.
+	if out.Narrate == "" {
+		t.Fatalf("empty narrate")
 	}
 
 	// The call must be metered as surface=studio purpose=coach.

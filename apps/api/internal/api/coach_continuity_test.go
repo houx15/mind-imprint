@@ -54,8 +54,10 @@ func TestCoach_ContinuityAndHistory(t *testing.T) {
 		}
 	}
 
+	// The continuous 印记 thread is stored under one `studio` surface now, so the
+	// working-room history reads that surface (Task 5 write + read).
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/coach/history?surface=forming", nil), cookie))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/coach/history?surface=studio", nil), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("history = %d — %s", rr.Code, rr.Body)
 	}
@@ -93,10 +95,12 @@ func TestCoach_ContinuityAndHistory(t *testing.T) {
 	}
 }
 
-// TestCoach_FoldOnProposalSolidify — the first proposal save folds the 立题
-// shaping turns out of the active window; they stay in the thread (display
-// slice still shows them) but leave the coach's context.
-func TestCoach_FoldOnProposalSolidify(t *testing.T) {
+// TestCoach_ProposalSolidifyLeavesStudioThreadActive — Task 5 redesign: /coach
+// turns live on the single continuous `studio` surface, so the legacy
+// fold-on-solidify (which folds only forming/proposal_review) is intentionally
+// INERT for the studio thread — the size-threshold compaction backstop is the
+// sole folder now. A proposal save must therefore leave the studio turns active.
+func TestCoach_ProposalSolidifyLeavesStudioThreadActive(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
@@ -105,18 +109,18 @@ func TestCoach_FoldOnProposalSolidify(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	base := "/api/v1/projects/" + seedProjectID
 
-	// A forming coach turn → one student + one assistant chat_message.
+	// A coach turn → one student + one assistant chat_message on the studio thread.
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"forming","user_input":"这个题目我从哪儿下手"}`)), cookie))
+		strings.NewReader(`{"user_input":"这个题目我从哪儿下手"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
 	}
-	if got := countCoachMsgs(t, pool, seedProjectID, "forming", true); got != 2 {
-		t.Fatalf("active forming msgs before fold = %d, want 2", got)
+	if got := countCoachMsgs(t, pool, seedProjectID, "studio", true); got != 2 {
+		t.Fatalf("active studio msgs before proposal = %d, want 2", got)
 	}
 
-	// First proposal save = solidify → fold forming/proposal_review.
+	// First proposal save = solidify → folds forming/proposal_review, NOT studio.
 	rrP := httptest.NewRecorder()
 	h.ServeHTTP(rrP, withCookie(httptest.NewRequest("PUT", base+"/proposal",
 		strings.NewReader(`{"objective":"论证中国是否让地球更可持续","reason":"我关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
@@ -124,12 +128,9 @@ func TestCoach_FoldOnProposalSolidify(t *testing.T) {
 		t.Fatalf("put proposal = %d — %s", rrP.Code, rrP.Body)
 	}
 
-	if got := countCoachMsgs(t, pool, seedProjectID, "forming", true); got != 0 {
-		t.Fatalf("active forming msgs after fold = %d, want 0 (folded)", got)
-	}
-	// The turns are still in the thread (display slice includes folded).
-	if got := countCoachMsgs(t, pool, seedProjectID, "forming", false); got != 2 {
-		t.Fatalf("total forming msgs after fold = %d, want 2 (folded, not deleted)", got)
+	// The studio thread stays active — solidify-fold does not touch it.
+	if got := countCoachMsgs(t, pool, seedProjectID, "studio", true); got != 2 {
+		t.Fatalf("active studio msgs after proposal = %d, want 2 (not folded by solidify)", got)
 	}
 }
 

@@ -20,7 +20,6 @@ import {
   getCoachHistory,
 } from "../api/workspace";
 import type { AIUseRecord, CardTurnRef } from "@mind-imprint/contracts";
-import type { CardProposalWire } from "../api/workspace";
 import { CoachCardPanel } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 
@@ -506,8 +505,6 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
   const [chat, setChat] = useState<RevMsg[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  // #21 · a review/reflection card the coach PROPOSED this turn (克制 chip).
-  const [cardProposal, setCardProposal] = useState<CardProposalWire | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -530,11 +527,9 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
     setChat((c) => [...c, { role: "student", text }]);
     setDraft("");
     setSending(true);
-    setCardProposal(null);
     try {
-      const { reply, proposal } = await coach(projectId, "reflection", text);
-      setChat((c) => [...c, { role: "ai", text: reply }]);
-      if (proposal) setCardProposal(proposal);
+      const result = await coach(projectId, text, "reflection");
+      setChat((c) => [...c, { role: "ai", text: result.narrate }]);
     } catch {
       setChat((c) => [...c, { role: "ai", text: "刚才没接上，再问我一次？" }]);
     } finally {
@@ -556,15 +551,19 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
 
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
         <ChatLog messages={toChatMessages(chat)} thinking={sending} />
-        {/* #21 · the reflection card shelf + any AI-proposed chip. Reflecting on a
-            card runs a coach turn (reflectProjectCard, surface="reflection") whose
-            student turn + AI reply drop into this same thread. Hidden once the
-            student marks her reflection done (locked). */}
+        {/* #21 · the reflection card shelf. Reflecting on a card runs a coach turn
+            (reflectProjectCard, surface="reflection") whose student turn + AI
+            reply drop into this same thread. Hidden once the student marks her
+            reflection done (locked).
+            Task 9a (2026-08-07): this coach is now context-isolated from the
+            studio orchestrator, so its coach() reply no longer carries a
+            proposal — the AI-proposed card chip is retired on this path for P1;
+            proposal stays null and only the self-summon shelf renders. */}
         {!locked && !sending && (
           <CoachCardPanel
             projectId={projectId}
-            proposal={cardProposal}
-            onProposalConsumed={() => setCardProposal(null)}
+            proposal={null}
+            onProposalConsumed={() => {}}
             onReflected={(studentText, reply, card) =>
               setChat((c) => [
                 ...c,

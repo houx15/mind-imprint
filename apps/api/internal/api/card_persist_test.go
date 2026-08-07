@@ -80,27 +80,17 @@ func countSkippedCard(t *testing.T, pool *pgxpool.Pool, projectID, cardID string
 	return n
 }
 
-// TestPostDismissProposal_RecordsSkipAndStopsReoffer — dismissing a proposal
-// marks the card skipped, so a subsequent qualifying coach turn no longer offers
-// it (铁律 · 不操纵 — once she says no, we don't ask again).
-func TestPostDismissProposal_RecordsSkipAndStopsReoffer(t *testing.T) {
-	pool := newAPITestPool(t)
-	h := New(Deps{
-		Queries: sqlc.New(pool), Pool: pool,
-		Provider: momentReplyProvider("fact_opinion"), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
-	}).Handler()
-	cookie := signInSeed(t, pool)
+// TestPostDismissProposal_RecordsSkip — dismissing a coach card offer marks the
+// card skipped (铁律 · 不操纵 — once she says no, we don't ask again), and records
+// a coach_proposal_skipped event. cardEligibleForSummon treats a card_id with a
+// skipped instance as ineligible, so the orchestrator's summon_card won't re-offer
+// it — enforced in TestPostCoach_SummonCardSkippedCardNotReoffered. (The classify-
+// driven re-offer path was retired with the orchestrator rewrite; this exercises
+// the still-live dismiss endpoint directly.)
+func TestPostDismissProposal_RecordsSkip(t *testing.T) {
+	h, cookie, pool := persistHandler(t)
 	base := "/api/v1/projects/" + seedProjectID
 
-	// First writing turn → a fact-opinion-value proposal.
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"writing","user_input":"我觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
-	if !strings.Contains(rr.Body.String(), "fact-opinion-value") {
-		t.Fatalf("expected first turn to propose fact-opinion-value: %s", rr.Body)
-	}
-
-	// Dismiss it.
 	rrD := httptest.NewRecorder()
 	h.ServeHTTP(rrD, withCookie(httptest.NewRequest("POST", base+"/cards/dismiss-proposal",
 		strings.NewReader(`{"card_id":"fact-opinion-value"}`)), cookie))
@@ -110,13 +100,8 @@ func TestPostDismissProposal_RecordsSkipAndStopsReoffer(t *testing.T) {
 	if got := countSkippedCard(t, pool, seedProjectID, "fact-opinion-value"); got != 1 {
 		t.Fatalf("skipped fact-opinion-value = %d, want 1", got)
 	}
-
-	// A second qualifying writing turn must NOT re-offer fact-opinion-value.
-	rr2 := httptest.NewRecorder()
-	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"scope":"writing","user_input":"我还是觉得中国显然让地球更可持续了，这就是事实"}`)), cookie))
-	if strings.Contains(rr2.Body.String(), "fact-opinion-value") {
-		t.Fatalf("dismissed card must not be re-offered: %s", rr2.Body)
+	if got := countEventsByType(t, pool, seedProjectID, "coach_proposal_skipped"); got != 1 {
+		t.Fatalf("coach_proposal_skipped events = %d, want 1", got)
 	}
 }
 

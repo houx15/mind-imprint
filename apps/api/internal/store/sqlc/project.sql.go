@@ -26,7 +26,7 @@ func (q *Queries) ClearProjectWritingFinished(ctx context.Context, id uuid.UUID)
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state
 `
 
 type CreateProjectParams struct {
@@ -57,12 +57,13 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.CreatedAt,
 		&i.LastActiveAt,
 		&i.WritingFinishedAt,
+		&i.StudioState,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -79,12 +80,24 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.CreatedAt,
 		&i.LastActiveAt,
 		&i.WritingFinishedAt,
+		&i.StudioState,
 	)
 	return i, err
 }
 
+const getStudioState = `-- name: GetStudioState :one
+SELECT studio_state FROM project WHERE id = $1
+`
+
+func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getStudioState, id)
+	var studio_state []byte
+	err := row.Scan(&studio_state)
+	return studio_state, err
+}
+
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at FROM project
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
@@ -109,6 +122,7 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.CreatedAt,
 			&i.LastActiveAt,
 			&i.WritingFinishedAt,
+			&i.StudioState,
 		); err != nil {
 			return nil, err
 		}
@@ -160,6 +174,20 @@ UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id 
 // A separate timestamp, not a status change (the lifecycle enum is untouched).
 func (q *Queries) SetProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setProjectWritingFinished, id)
+	return err
+}
+
+const setStudioState = `-- name: SetStudioState :exec
+UPDATE project SET studio_state = $2, last_active_at = now() WHERE id = $1
+`
+
+type SetStudioStateParams struct {
+	ID          uuid.UUID `json:"id"`
+	StudioState []byte    `json:"studio_state"`
+}
+
+func (q *Queries) SetStudioState(ctx context.Context, arg SetStudioStateParams) error {
+	_, err := q.db.Exec(ctx, setStudioState, arg.ID, arg.StudioState)
 	return err
 }
 
