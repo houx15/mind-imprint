@@ -77,6 +77,7 @@ func TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan(t *testing.T) {
 	}
 	var resp struct {
 		Directive struct {
+			Stage     string `json:"stage"`
 			OpenTool  string `json:"openTool"`
 			WidthTier string `json:"widthTier"`
 		} `json:"directive"`
@@ -86,6 +87,12 @@ func TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan(t *testing.T) {
 	}
 	if resp.Directive.OpenTool != "plan" || resp.Directive.WidthTier != "wide" {
 		t.Fatalf("directive not applied: %+v — %s", resp.Directive, rr.Body)
+	}
+	// The stage must advance off the proposal side even though the model emitted
+	// ONLY generate_plan (no set_status) — else roomForResume would route the
+	// plan-tool directive back to 提案 and the 管理 board wouldn't open.
+	if resp.Directive.Stage != "plan_generation" {
+		t.Fatalf("stage not advanced on generate_plan: got %q, want plan_generation — %s", resp.Directive.Stage, rr.Body)
 	}
 
 	// The plan items must actually exist now — regeneratePlan really ran.

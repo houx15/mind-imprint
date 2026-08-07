@@ -202,6 +202,13 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 			if _, gerr := a.regeneratePlan(r.Context(), projectID); gerr == nil {
 				state.OpenTool = agent.ToolPlan
 				state.WidthTier = agent.WidthForTool(agent.ToolPlan)
+				// Advance the stage off the proposal side too. The frontend's
+				// roomForResume routes openTool=plan by STAGE, so a still-
+				// proposal_forming stage would snap the view back to 提案 even
+				// though the plan just generated — bump it so 管理 opens.
+				if state.Stage == agent.StageTopicDiscussion || state.Stage == agent.StageProposalForming {
+					state.Stage = agent.StagePlanGeneration
+				}
 			}
 		case "propose_question":
 			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
