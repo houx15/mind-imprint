@@ -7,6 +7,10 @@ export type ProjectListItem = {
   qualLabel: string;
   activeStation: string;
   status: ProjectStatus;
+  /** Raw stored cover value ("img:<n>" / "grad:<name>" / ""). */
+  cover: string;
+  /** Signed CDN URL for an "img:" cover; "" for "grad:"/unset covers. */
+  coverUrl: string;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {

@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -33,6 +34,11 @@ func TestProjectsEndpoints(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), `"status":"forming"`) {
 		t.Fatalf("list missing derived status=forming — %s", rr.Body.String())
 	}
+	// Task 2: list items carry cover + coverUrl. The seeded project has no
+	// cover set (nil column) → both surface as "" (OSS is also nil in tests).
+	if !strings.Contains(rr.Body.String(), `"cover":""`) || !strings.Contains(rr.Body.String(), `"coverUrl":""`) {
+		t.Fatalf("list missing cover/coverUrl fields — %s", rr.Body.String())
+	}
 
 	// detail returns the lean workspace projection {id,title,qualification,proposal}.
 	rr = httptest.NewRecorder()
@@ -57,6 +63,33 @@ func TestProjectsEndpoints(t *testing.T) {
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/00000000-0000-0000-0000-0000000009ff", nil), cookie))
 	if rr.Code != 404 {
 		t.Fatalf("foreign project: want 404, got %d", rr.Code)
+	}
+}
+
+// TestProjectsList_CoverSurfacesInList — an "img:" cover set on a project row
+// surfaces as-is in the list DTO's cover field. coverUrl stays "" here since
+// the test Deps carry no OSS client (resolveCoverURL's nil-OSS guard) — the
+// live-signed-URL path is exercised by resolveCoverURL's own unit coverage.
+func TestProjectsList_CoverSurfacesInList(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE project SET cover = 'img:1' WHERE id = '00000000-0000-0000-0000-000000000101'`); err != nil {
+		t.Fatalf("seed cover: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), cookie))
+	if rr.Code != 200 {
+		t.Fatalf("list: %d — %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"cover":"img:1"`) {
+		t.Fatalf("list missing cover=img:1 — %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"coverUrl":""`) {
+		t.Fatalf("list coverUrl should be empty with no OSS configured — %s", rr.Body.String())
 	}
 }
 

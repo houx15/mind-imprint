@@ -23,6 +23,11 @@ type projectListItem struct {
 	QualLabel     string `json:"qualLabel"`
 	ActiveStation string `json:"activeStation"`
 	Status        string `json:"status"`
+	// Cover is the raw stored value ("img:<n>" / "grad:<name>" / "" when
+	// unset); CoverURL is its signed CDN URL for "img:" covers, "" otherwise
+	// (gradients render client-side from the name, see resolveCoverURL).
+	Cover    string `json:"cover"`
+	CoverURL string `json:"coverUrl"`
 }
 
 // anyProposalDim reports whether any of the four kick-off dimensions carries
@@ -86,12 +91,15 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+		cover := derefOr(p.Cover, "")
 		out = append(out, projectListItem{
 			ID:            p.ID.String(),
 			Title:         p.Title,
 			QualLabel:     p.Qualification,
 			ActiveStation: proj.ActiveStation,
 			Status:        a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+			Cover:         cover,
+			CoverURL:      a.resolveCoverURL(cover),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})
