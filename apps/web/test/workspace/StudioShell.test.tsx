@@ -58,7 +58,7 @@ function fakeWorkspace(id: string) {
     title: `项目 ${id}`,
     qualification: "拓展论文 EE",
     status: "working" as const,
-    proposal: { objective: "", reason: "", activities: "", resources: "" },
+    proposal: { objective: "", reason: "", activities: "", resources: "", counterpoints: "" },
     createdAt: "2026-08-01T00:00:00Z",
     writingFinished: false,
   };

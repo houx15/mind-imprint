@@ -433,6 +433,7 @@ const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
   reason: "缘由",
   activities: "活动",
   resources: "资源",
+  counterpoints: "可能的反例 / 张力",
 };
 
 // #13: the 克制 confirm chip — offers to record a kick-off dimension the student
@@ -498,8 +499,12 @@ function FormingPhase(props: {
     projectId, cardProposal, onCardConsumed, onCardReflected,
   } = props;
   const [writing, setWriting] = useState(false);
-  const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
-  const ready = covered >= 1;
+  // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
+  // 四项必填 section 全部完成). 反例/张力 is optional and never gates.
+  const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
+  const covered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
+  const reviewReady = covered >= 1; // can ask 印记 for feedback as soon as there's something
+  const planReady = covered === requiredDims.length; // all four required finished
   // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
   // proposal panel + its actions — renders directly below, in <main>; its
   // COACH (the chat conversation) is portaled into the constant AiPanel via
@@ -540,7 +545,7 @@ function FormingPhase(props: {
           </div>
           <button
             type="button"
-            disabled={!ready || sending}
+            disabled={!reviewReady || sending}
             onClick={onReview}
             className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[12.5px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -549,7 +554,7 @@ function FormingPhase(props: {
         </div>
         <button
           type="button"
-          disabled={!ready || generating}
+          disabled={!planReady || generating}
           onClick={onGenerate}
           className="flex items-center justify-center gap-2 rounded-mk-md bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:bg-mk-input-border disabled:text-mk-faint"
         >
@@ -562,6 +567,11 @@ function FormingPhase(props: {
             </>
           )}
         </button>
+        {!planReady && (
+          <p className="-mt-2 text-center text-[11.5px] text-mk-faint">
+            把「目标 / 缘由 / 活动 / 资源」四项都聊清楚，就能生成项目计划（反例可选）。
+          </p>
+        )}
         {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
         <button
           type="button"

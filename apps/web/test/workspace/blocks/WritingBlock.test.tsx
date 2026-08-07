@@ -72,7 +72,7 @@ const mockReview = vi.mocked(runDraftReview);
 const mockPutBuffer = vi.mocked(putBuffer);
 const mockExport = vi.mocked(exportDraftDocx);
 const mockCoach = vi.mocked(coach);
-const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res" };
+const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res", counterpoints: "" };
 
 beforeEach(() => {
   vi.clearAllMocks();

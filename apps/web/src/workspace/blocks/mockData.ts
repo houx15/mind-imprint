@@ -85,6 +85,7 @@ export type Proposal = {
   reason: string; // §2 缘由：为什么做这个项目
   activities: string; // §3 活动与时间：打算怎么做（→ 计划）
   resources: string; // §4 资源：需要哪些书/期刊/工具（→ 阅读清单）
+  counterpoints: string; // §5（可选）可能的反例/张力：论点可能撞上的反例（→ 写作/让步段）
 };
 
 export type ProtoProject = {
@@ -93,7 +94,7 @@ export type ProtoProject = {
   proposal: Proposal;
 };
 
-export const emptyProposal: Proposal = { objective: "", reason: "", activities: "", resources: "" };
+export const emptyProposal: Proposal = { objective: "", reason: "", activities: "", resources: "", counterpoints: "" };
 
 export const project: ProtoProject = {
   title: "中国的发展让地球更可持续了吗？",
@@ -105,14 +106,19 @@ export const project: ProtoProject = {
       "新闻里中国既大规模植树造林、光伏领先，又是全球碳排放第一。这个矛盾让我想弄清楚——发展到底让地球更可持续，还是更不可持续。",
     activities: "溯源关键数据 → 读正反两方文献 → 搭论证、撞反例 → 处理让步段 → 成稿与反思。",
     resources: "NASA / Nature 卫星数据、IEA 能源报告、Our World in Data 排放数据；学校数据库与 Google Scholar。",
+    counterpoints: "中国碳排放全球第一——这条最硬的反例，我的论点必须正面回应（让步段）。",
   },
 };
 
-export const PROPOSAL_DIMS: { key: keyof Proposal; label: string; hint: string }[] = [
-  { key: "objective", label: "目标", hint: "想回答什么问题？想学会做什么？" },
-  { key: "reason", label: "缘由", hint: "为什么是这个题？关联的学科、兴趣、未来" },
-  { key: "activities", label: "活动与时间", hint: "打算怎么做——之后会长成你的计划" },
-  { key: "resources", label: "资源", hint: "需要哪些书 / 期刊 / 数据 / 工具" },
+// The four REQUIRED dims plus the optional 5th (counterpoints). `required`
+// distinguishes the gate: only the four required dims must be filled before
+// 生成项目计划; 反例/张力 is invited, never required.
+export const PROPOSAL_DIMS: { key: keyof Proposal; label: string; hint: string; required: boolean }[] = [
+  { key: "objective", label: "目标", hint: "想回答什么问题？想学会做什么？", required: true },
+  { key: "reason", label: "缘由", hint: "为什么是这个题？关联的学科、兴趣、未来", required: true },
+  { key: "activities", label: "活动与时间", hint: "打算怎么做——之后会长成你的计划", required: true },
+  { key: "resources", label: "资源", hint: "需要哪些书 / 期刊 / 数据 / 工具", required: true },
+  { key: "counterpoints", label: "可能的反例 / 张力", hint: "你的论点最可能撞上什么反例？（可选，写作时会用到）", required: false },
 ];
 
 // The forming-phase conversation, pre-seeded mid-flow so the page reads real.

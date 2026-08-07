@@ -34,12 +34,13 @@ const mockCoach = vi.mocked(coach);
 const mockGetCoachHistory = vi.mocked(getCoachHistory);
 const mockGetPlan = vi.mocked(getPlan);
 
-const EMPTY_PROPOSAL = { objective: "", reason: "", activities: "", resources: "" };
+const EMPTY_PROPOSAL = { objective: "", reason: "", activities: "", resources: "", counterpoints: "" };
 const FILLED_PROPOSAL = {
   objective: "论证中国是否让地球更可持续",
   reason: "关心气候变化",
   activities: "读 NASA/Nature Sustainability",
   resources: "Zotero、图书馆数据库",
+  counterpoints: "",
 };
 
 // The AiPanel body is a real DOM node the panel hands down via context; the
@@ -91,6 +92,27 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(await screen.findByText("你想回答的到底是什么问题？")).toBeInTheDocument();
     // The student's own turn also lands in the shared log.
     expect(screen.getByText("我想研究中国的碳排放")).toBeInTheDocument();
+  });
+
+  it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {
+    renderWithAiSlot(
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+    );
+    await screen.findByText(/先想清楚四件事/);
+
+    const gen = screen.getByRole("button", { name: /生成项目计划/ });
+    expect(gen).toBeDisabled();
+
+    // Fill three of the four required — still gated.
+    await userEvent.type(screen.getByRole("textbox", { name: /^目标/ }), "以中国为例的研究问题");
+    await userEvent.type(screen.getByRole("textbox", { name: /^缘由/ }), "关心气候矛盾");
+    await userEvent.type(screen.getByRole("textbox", { name: /^活动与时间/ }), "溯源→读→写");
+    expect(gen).toBeDisabled();
+
+    // The 4th REQUIRED dim opens the gate — even though 反例/张力 is left empty.
+    await userEvent.type(screen.getByRole("textbox", { name: /^资源/ }), "NASA、学校数据库");
+    expect(gen).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
   });
 });
 

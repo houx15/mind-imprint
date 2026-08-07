@@ -119,12 +119,14 @@ func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUI
 	return id, true
 }
 
-// workspaceProposal is the four kick-off dimensions, zero-valued when absent.
+// workspaceProposal is the four required kick-off dimensions plus the optional
+// 5th section (counterpoints/反例), zero-valued when absent.
 type workspaceProposal struct {
-	Objective  string `json:"objective"`
-	Reason     string `json:"reason"`
-	Activities string `json:"activities"`
-	Resources  string `json:"resources"`
+	Objective     string `json:"objective"`
+	Reason        string `json:"reason"`
+	Activities    string `json:"activities"`
+	Resources     string `json:"resources"`
+	Counterpoints string `json:"counterpoints"`
 }
 
 // workspaceProjection is the lean shape returned by GET /projects/{id}. The four
@@ -162,10 +164,11 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == nil:
 		prop = workspaceProposal{
-			Objective:  row.Objective,
-			Reason:     row.Reason,
-			Activities: row.Activities,
-			Resources:  row.Resources,
+			Objective:     row.Objective,
+			Reason:        row.Reason,
+			Activities:    row.Activities,
+			Resources:     row.Resources,
+			Counterpoints: row.Counterpoints,
 		}
 		hasProposal = anyProposalDim(row)
 	case errors.Is(err, pgx.ErrNoRows):

@@ -34,6 +34,7 @@ const PROPOSAL_SECTIONS: { key: keyof Proposal; label: string }[] = [
   { key: "reason", label: "动机与意义" },
   { key: "activities", label: "活动计划" },
   { key: "resources", label: "资源与文献" },
+  { key: "counterpoints", label: "可能的反例 / 张力" },
 ];
 
 export function WritingReferencePanel({ projectId, proposal }: { projectId: string; proposal: Proposal }) {
@@ -72,7 +73,9 @@ export function WritingReferencePanel({ projectId, proposal }: { projectId: stri
 }
 
 function ProposalTab({ proposal }: { proposal: Proposal }) {
-  const allEmpty = PROPOSAL_SECTIONS.every((s) => !proposal[s.key].trim());
+  // Defensive `?? ""`: a proposal object may predate the counterpoints field
+  // (stale payload / test mock) — never crash on a missing section.
+  const allEmpty = PROPOSAL_SECTIONS.every((s) => !(proposal[s.key] ?? "").trim());
   if (allEmpty) {
     return (
       <p className="text-[12.5px] leading-relaxed text-mk-faint">
@@ -83,7 +86,7 @@ function ProposalTab({ proposal }: { proposal: Proposal }) {
   return (
     <div className="flex flex-col gap-4">
       {PROPOSAL_SECTIONS.map((s) => {
-        const value = proposal[s.key].trim();
+        const value = (proposal[s.key] ?? "").trim();
         return (
           <div key={s.key}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-mk-faint">{s.label}</p>

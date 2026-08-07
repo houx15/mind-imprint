@@ -118,7 +118,7 @@ export type LinkOfferWire = z.infer<typeof LinkOfferWire>;
 // still-empty kick-off dimension, the reply carries an offer to record a
 // faithful one-line summary of HER words into that dim; she taps to confirm.
 export const DimSuggestionWire = z.object({
-  dim: z.enum(["objective", "reason", "activities", "resources"]),
+  dim: z.enum(["objective", "reason", "activities", "resources", "counterpoints"]),
   value: z.string(),
 });
 export type DimSuggestionWire = z.infer<typeof DimSuggestionWire>;
