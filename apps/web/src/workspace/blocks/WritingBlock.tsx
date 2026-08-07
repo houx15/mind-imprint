@@ -14,7 +14,6 @@ import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
-import type { BlockKey } from "./mockData";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
@@ -104,7 +103,6 @@ export function WritingBlock({
   proposal,
   status,
   writingFinished,
-  onOpenRoom,
   refreshWorkspace,
   recap,
 }: {
@@ -115,7 +113,6 @@ export function WritingBlock({
   // #20 · the 完成写作 milestone — draft is read-only once true. Separate from
   // status (evaluating/done terminally lock too).
   writingFinished: boolean;
-  onOpenRoom: (room: BlockKey) => void;
   // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
   // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
   refreshWorkspace: () => Promise<void> | void;
@@ -149,8 +146,8 @@ export function WritingBlock({
   const archived = status === "evaluating" || status === "done";
   const locked = archived || writingFinished;
 
-  // #20 · confirm → lock the draft → go to 回顾. finishWriting is idempotent;
-  // 422 draft_empty when there's nothing written yet.
+  // #20 · confirm → lock the draft (印记 cues 回顾 in chat). finishWriting is
+  // idempotent; 422 draft_empty when there's nothing written yet.
   async function doFinishWriting() {
     if (finishingWriting) return;
     setFinishingWriting(true);
@@ -158,7 +155,6 @@ export function WritingBlock({
     try {
       await finishWriting(projectId);
       await refreshWorkspace();
-      onOpenRoom("reflection");
     } catch (e) {
       setFinishWritingError(
         e instanceof ApiError ? e.message || "还不能完成写作，请稍后再试。" : "刚才没接上，稍等再试一次。",
@@ -210,18 +206,13 @@ export function WritingBlock({
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
         <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[11px] font-bold text-mk-accent">论点</span>
         <p className="min-w-0 flex-1 truncate text-[13px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
-        <button type="button" onClick={() => onOpenRoom("plan")} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-accent">看开题 →</button>
-        {archived ? (
-          <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent">已归档 · 看回顾 →</button>
-        ) : writingFinished ? (
-          <>
-            {/* #20 · reversible — 重新打开写作 unlocks the draft again (铁律②). */}
+        {!archived &&
+          (writingFinished ? (
+            // #20 · reversible — 重新打开写作 unlocks the draft again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title="重新打开写作，继续修改初稿">重新打开写作</button>
-            <button type="button" onClick={() => onOpenRoom("reflection")} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600">去回顾 →</button>
-          </>
-        ) : (
-          <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
-        )}
+          ) : (
+            <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
+          ))}
       </div>
 
       {/* tabs */}
@@ -303,7 +294,7 @@ export function WritingBlock({
                 onClick={() => { setShowFinishModal(false); void doFinishWriting(); }}
                 className="rounded-mk-md bg-mk-accent px-5 py-2 text-[13px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
               >
-                {finishingWriting ? "锁定中……" : "完成写作，去回顾 →"}
+                {finishingWriting ? "锁定中……" : "锁定初稿"}
               </button>
             </div>
           </div>
@@ -810,7 +801,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
       <div className="flex items-center justify-between px-8 pt-6 pb-3">
         <div>
           <h2 className="font-sans text-[19px] font-bold text-mk-ink">提纲</h2>
-          <p className="mt-0.5 text-[13px] text-mk-muted">先把骨架搭出来。和印记聊聊哪里还站不住。</p>
+          <p className="mt-0.5 text-[13px] text-mk-muted">先把骨架搭出来。</p>
         </div>
         <Segmented
           options={[

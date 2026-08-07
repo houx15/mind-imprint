@@ -767,7 +767,6 @@ export function WorkspaceContainer({
                     proposal={workspace.proposal}
                     status={workspace.status}
                     writingFinished={workspace.writingFinished ?? false}
-                    onOpenRoom={handleManualRoom}
                     refreshWorkspace={refreshWorkspace}
                     recap={summary}
                   />
@@ -781,7 +780,6 @@ export function WorkspaceContainer({
                 proposal={workspace.proposal}
                 status={workspace.status}
                 writingFinished={workspace.writingFinished ?? false}
-                onOpenRoom={handleManualRoom}
                 onFinished={backToAll}
               />
             )}

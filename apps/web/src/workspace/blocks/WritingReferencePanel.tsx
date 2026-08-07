@@ -79,7 +79,7 @@ function ProposalTab({ proposal }: { proposal: Proposal }) {
   if (allEmpty) {
     return (
       <p className="text-[12.5px] leading-relaxed text-mk-faint">
-        提案要点还没成形。回到「立项」和印记聊聊你的目标、动机、计划与资源，这里就会长出你的要点。
+        提案要点还没成形。
       </p>
     );
   }

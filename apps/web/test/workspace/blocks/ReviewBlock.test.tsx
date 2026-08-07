@@ -126,11 +126,11 @@ describe("ReviewBlock · AI-use retrospective (S5)", () => {
 
 describe("ReviewBlock · view-only lock before 完成写作 (#20)", () => {
   it("locks the room until writing is finished — no AI-use seed, no mirror, no finish", async () => {
-    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={false} onOpenRoom={() => {}} />);
+    renderWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="working" writingFinished={false} />);
 
-    // the lock notice + a route to the writing room
-    expect(await screen.findByText(/先在写作房间点「完成写作」/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /去写作房间/ })).toBeInTheDocument();
+    // a calm lock notice — no nav button (印记 cues 完成写作 in the chat)
+    expect(await screen.findByText(/写完初稿后，这里会解锁回顾/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /去写作房间/ })).toBeNull();
 
     // reflection textareas are read-only outline
     const areas = screen.getAllByPlaceholderText(/完成写作后在这里回顾/) as HTMLTextAreaElement[];

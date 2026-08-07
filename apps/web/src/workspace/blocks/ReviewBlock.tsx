@@ -7,7 +7,6 @@ import { Composer } from "@/studio/ai/Composer";
 import { ApiError } from "../../api/client";
 import { finishProject } from "../../api/projects";
 import { Icon } from "../Icon";
-import type { BlockKey } from "./mockData";
 import { reflectionPrompts } from "./mockData";
 import {
   getReflection,
@@ -51,7 +50,6 @@ export function ReviewBlock({
   proposal,
   status,
   writingFinished,
-  onOpenRoom,
   onFinished,
 }: {
   projectId: string;
@@ -59,7 +57,6 @@ export function ReviewBlock({
   status: ProjectStatus;
   // #20 · gates the whole room. False → view-only outline; nothing composes.
   writingFinished: boolean;
-  onOpenRoom?: (room: BlockKey) => void;
   onFinished?: () => void;
 }) {
   const [answers, setAnswers] = useState<string[]>(reflectionPrompts.map(() => ""));
@@ -191,20 +188,12 @@ export function ReviewBlock({
             <p className="mt-1.5 text-[14px] text-mk-muted">用你自己的话回答几个问题。右边是印记帮你整理的过程，卡壳时可以看看——但话得你自己说。</p>
           </header>
 
-          {/* #20 · view-only lock — the room only unlocks once writing is finished. */}
+          {/* #20 · view-only lock — the room only unlocks once writing is finished.
+              A calm state label, no nav: 印记 cues 完成写作 in the chat. */}
           {!writingFinished && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper px-4 py-3">
+            <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper px-4 py-3">
               <Icon name="writing" size={16} />
-              <p className="flex-1 text-[13px] font-semibold text-mk-muted">先在写作房间点「完成写作」，回顾才会解锁。</p>
-              {onOpenRoom && (
-                <button
-                  type="button"
-                  onClick={() => onOpenRoom("writing")}
-                  className="flex-none rounded-mk-md bg-mk-accent px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-mk-accent-600"
-                >
-                  去写作房间 →
-                </button>
-              )}
+              <p className="flex-1 text-[13px] font-semibold text-mk-muted">写完初稿后，这里会解锁回顾。</p>
             </div>
           )}
 
