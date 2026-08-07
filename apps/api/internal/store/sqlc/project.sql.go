@@ -24,9 +24,9 @@ func (q *Queries) ClearProjectWritingFinished(ctx context.Context, id uuid.UUID)
 }
 
 const createProject = `-- name: CreateProject :one
-INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state
+INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover
 `
 
 type CreateProjectParams struct {
@@ -35,6 +35,7 @@ type CreateProjectParams struct {
 	Title         string             `json:"title"`
 	Deadline      pgtype.Timestamptz `json:"deadline"`
 	BoardCfgVer   int32              `json:"board_cfg_ver"`
+	Cover         *string            `json:"cover"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
@@ -44,6 +45,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		arg.Title,
 		arg.Deadline,
 		arg.BoardCfgVer,
+		arg.Cover,
 	)
 	var i Project
 	err := row.Scan(
@@ -58,12 +60,13 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.LastActiveAt,
 		&i.WritingFinishedAt,
 		&i.StudioState,
+		&i.Cover,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -81,6 +84,7 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.LastActiveAt,
 		&i.WritingFinishedAt,
 		&i.StudioState,
+		&i.Cover,
 	)
 	return i, err
 }
@@ -97,7 +101,7 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 }
 
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state FROM project
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
@@ -123,6 +127,7 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.LastActiveAt,
 			&i.WritingFinishedAt,
 			&i.StudioState,
+			&i.Cover,
 		); err != nil {
 			return nil, err
 		}

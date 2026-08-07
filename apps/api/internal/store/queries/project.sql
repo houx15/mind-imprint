@@ -1,6 +1,6 @@
 -- name: CreateProject :one
-INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetProject :one

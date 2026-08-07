@@ -36,6 +36,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		Prompt          string `json:"prompt"`
 		ProjectType     string `json:"projectType"`
 		WritingLanguage string `json:"writingLanguage"`
+		Cover           string `json:"cover"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
@@ -72,6 +73,13 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	default:
 		writingLang = "en"
 	}
+	// cover (project covers #1) — a student-picked photo/gradient face for the
+	// project card. An empty or malformed value gets a random photo cover, so
+	// every project always has one (never a client-side default to drift).
+	cover := strings.TrimSpace(req.Cover)
+	if !validProjectCover(cover) {
+		cover = randomProjectCover()
+	}
 
 	const fixtureCode = "0457"
 	fx, ok := onboarding.Load(fixtureCode)
@@ -99,6 +107,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	proj, err := qtx.CreateProject(r.Context(), sqlc.CreateProjectParams{
 		UserID: u.ID, Qualification: qualification, Title: title,
 		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1,
+		Cover: &cover,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
