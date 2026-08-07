@@ -166,6 +166,9 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     // Kept (Tier-2, or a direct review request — both stay working).
     expect(screen.getByRole("button", { name: /生成项目计划/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
+    // The optional 开题报告 export stays reachable as a direct action (成品可导出
+    // 带走) — killing 写开题报告 dropped only the transition-nudge, not the export.
+    expect(screen.getByRole("button", { name: /导出开题报告/ })).toBeInTheDocument();
 
     // Killed Tier-1 chrome — 印记 cues these instead.
     expect(screen.queryByRole("button", { name: "聊聊计划" })).toBeNull();

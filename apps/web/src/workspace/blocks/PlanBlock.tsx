@@ -32,7 +32,7 @@ import {
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { ApiError } from "../../api/client";
-import { exportTimescale, exportActivityLog } from "../export";
+import { exportTimescale, exportActivityLog, exportProposalDocx, saveBlob } from "../export";
 
 // The forming chat opens with a scripted guiding intro (NOT an LLM call). It
 // names the four things worth thinking through and offers a fork: be walked
@@ -230,6 +230,8 @@ export function PlanBlock({
           onGenerate={onGenerate}
           generating={generating}
           genError={genError}
+          title={title}
+          qualification={qualification}
           projectId={projectId}
           onCardReflected={(studentText, reply, card) => {
             if (!isActiveProject()) return; // student switched projects mid-reflect
@@ -329,14 +331,31 @@ function FormingPhase(props: {
   onGenerate: () => void;
   generating: boolean;
   genError: string | null;
+  title: string;
+  qualification: string;
   projectId: string;
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
-    projectId, onCardReflected,
+    title, qualification, projectId, onCardReflected,
   } = props;
+  // 导出开题报告 .docx — a direct "take your work with you" action (成品可导出带走),
+  // NOT a stage transition. Disabled until there's something to export.
+  const [exportingProposal, setExportingProposal] = useState(false);
+  async function onExportProposal() {
+    if (exportingProposal) return;
+    setExportingProposal(true);
+    try {
+      const blob = await exportProposalDocx(proposal, { title, qualification });
+      saveBlob(`${title || "开题报告"}.docx`, blob);
+    } catch {
+      /* a failed export must never crash the room */
+    } finally {
+      setExportingProposal(false);
+    }
+  }
   // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
   // 四项必填 section 全部完成). 反例/张力 is optional and never gates.
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
@@ -385,6 +404,15 @@ function FormingPhase(props: {
             className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[12.5px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> 让印记看看我的开题
+          </button>
+          <button
+            type="button"
+            disabled={!reviewReady || exportingProposal}
+            onClick={onExportProposal}
+            title="把开题报告导出成 .docx 带走（可选）"
+            className="mt-2 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-border py-1.5 text-[12px] font-semibold text-mk-muted transition enabled:hover:text-mk-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exportingProposal ? "导出中…" : "导出开题报告 .docx"}
           </button>
         </div>
         <button
