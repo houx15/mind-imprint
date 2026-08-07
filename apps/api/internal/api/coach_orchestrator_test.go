@@ -382,3 +382,100 @@ func TestPostCoach_CurateReferenceDropsUnknownIDKeepsRealID(t *testing.T) {
 		}
 	}
 }
+
+// TestPostCoach_CurateReferenceAnnotationKeepsRealReviewItemID — Task 2
+// (annotation entity): filterKnownReferences must also accept the third
+// curate_reference kind, "annotation" — its allowed-set now includes real
+// review_item intervention ids (整稿体检 results), so a curated annotation id
+// that matches one survives while a hallucinated one is still dropped, same
+// as TestPostCoach_CurateReferenceDropsUnknownIDKeepsRealID above for
+// kind="material".
+func TestPostCoach_CurateReferenceAnnotationKeepsRealReviewItemID(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	projectID := mustUUID(seedProjectID)
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// Seed a real review_item intervention — same commit-snapshot +
+	// order-review flow as annotations_test.go's
+	// TestAnnotationsEndpoint_ListsPersistedReviewItems.
+	reviewReply := `[{"criterion_code":"表E","band":"5–6 段","evidence":"第2段接住反方","missing":"跳步没补","fix":"补上定义"}]`
+	reviewH := New(Deps{
+		Queries:      q,
+		Pool:         pool,
+		Provider:     reviewStubProvider(reviewReply),
+		ChatResolver: fakeResolver(),
+	}).Handler()
+
+	content := strings.Repeat("字", 1600)
+	recSnap := httptest.NewRecorder()
+	reviewH.ServeHTTP(recSnap, withCookie(httptest.NewRequest("POST", base+"/snapshots",
+		strings.NewReader(`{"content":"`+content+`"}`)), cookie))
+	if recSnap.Code != http.StatusCreated {
+		t.Fatalf("commit snapshot = %d, want 201; body=%s", recSnap.Code, recSnap.Body)
+	}
+	var snap struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(recSnap.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+
+	recReview := httptest.NewRecorder()
+	reviewH.ServeHTTP(recReview, withCookie(httptest.NewRequest("POST", base+"/snapshots/"+snap.ID+"/review",
+		strings.NewReader("")), cookie))
+	if recReview.Code != http.StatusOK {
+		t.Fatalf("order review = %d, want 200; body=%s", recReview.Code, recReview.Body)
+	}
+
+	items, err := q.ListReviewItemsByProject(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("ListReviewItemsByProject: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatal("ListReviewItemsByProject returned 0 rows after ordering a review")
+	}
+	realID := items[0].ID.String()
+	bogusID := uuid.New().String()
+
+	out := `{"narrate":"把这条批注记下了。","tools":[` +
+		`{"name":"curate_reference","args":{"items":[` +
+		`{"kind":"annotation","id":"` + realID + `","label":"表E 反方跳步"},` +
+		`{"kind":"annotation","id":"` + bogusID + `","label":"编造的批注"}` +
+		`]}}]}`
+	coachH := New(Deps{
+		Queries: q, Pool: pool,
+		Provider: orchestratorStubProvider(out), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+
+	rr := httptest.NewRecorder()
+	coachH.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"这条批注要记下来"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+
+	raw, gerr := q.GetStudioState(context.Background(), projectID)
+	if gerr != nil {
+		t.Fatalf("GetStudioState: %v", gerr)
+	}
+	var st agent.StudioState
+	if err := json.Unmarshal(raw, &st); err != nil {
+		t.Fatalf("unmarshal studio_state: %v — %s", err, raw)
+	}
+	if len(st.Reference) != 1 {
+		t.Fatalf("studio_state.reference = %+v, want exactly 1 (the real annotation id)", st.Reference)
+	}
+	if st.Reference[0].ID != realID {
+		t.Fatalf("studio_state.reference[0].ID = %q, want %q", st.Reference[0].ID, realID)
+	}
+	if st.Reference[0].Kind != "annotation" {
+		t.Fatalf("studio_state.reference[0].Kind = %q, want %q", st.Reference[0].Kind, "annotation")
+	}
+	for _, item := range st.Reference {
+		if item.ID == bogusID {
+			t.Fatalf("hallucinated annotation id %q leaked into studio_state.reference: %+v", bogusID, st.Reference)
+		}
+	}
+}

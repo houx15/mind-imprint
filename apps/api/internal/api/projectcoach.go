@@ -89,6 +89,14 @@ func (a *API) filterKnownReferences(ctx context.Context, projectID uuid.UUID, it
 			allowed[s.ID.String()] = true
 		}
 	}
+	// Task 2 (annotation entity): review_item interventions (整稿体检 results)
+	// are the third curate_reference kind ("annotation") — same allow-by-real-id
+	// posture, degrade-to-skip on a query error like the two calls above.
+	if reviewItems, err := a.d.Queries.ListReviewItemsByProject(ctx, projectID); err == nil {
+		for _, row := range reviewItems {
+			allowed[row.ID.String()] = true
+		}
+	}
 	kept := make([]agent.ReferenceRef, 0, len(items))
 	for _, it := range items {
 		if allowed[it.ID] {
@@ -406,6 +414,40 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				section = "｜" + *s.Section
 			}
 			fmt.Fprintf(&b, "- [%s] %s%s\n", s.ID, truncateRunes(s.Text, 30), section)
+		}
+	}
+
+	// 批注 (Task 2, annotation entity): persisted review_item interventions —
+	// the results of an 整稿体检 (whole-draft review) — become addressable once
+	// a student has actually ordered one. Same [id]-tag posture as 文献库/片段
+	// above: ids are real intervention ids so a curated kind="annotation" item
+	// survives filterKnownReferences' id-validation. Only shown when review
+	// items exist, so the block never implies a 体检 that hasn't happened.
+	if reviewItems, err := a.d.Queries.ListReviewItemsByProject(ctx, projectID); err == nil && len(reviewItems) > 0 {
+		var lines []string
+		const annotationCap = 6
+		for i, row := range reviewItems {
+			if i >= annotationCap {
+				lines = append(lines, fmt.Sprintf("- …另有 %d 条", len(reviewItems)-annotationCap))
+				break
+			}
+			var item agent.ReviewItem
+			if err := json.Unmarshal([]byte(row.Body), &item); err != nil {
+				continue
+			}
+			detail := strings.TrimSpace(item.Fix)
+			if detail == "" {
+				detail = strings.TrimSpace(item.Missing)
+			}
+			if detail == "" {
+				continue // nothing actionable to cite
+			}
+			lines = append(lines, fmt.Sprintf("- [%s] %s·%s｜%s", row.ID, item.CriterionName, item.Band, truncateRunes(detail, 40)))
+		}
+		if len(lines) > 0 {
+			b.WriteString("批注（[id] 可传给 curate_reference，kind=\"annotation\"；只有体检过才有）：\n")
+			b.WriteString(strings.Join(lines, "\n"))
+			b.WriteString("\n")
 		}
 	}
 

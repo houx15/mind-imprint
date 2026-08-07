@@ -22,7 +22,7 @@ const orchestratorSystemPrompt = `你是「印记」，一个带着学生把研�
 可用工具（tools 数组里的每一项是 {"name":..., "args":{...}}）：
 - set_status: {"stage": 阶段码} —— 推进/回退项目阶段。阶段码 ∈ topic_discussion(立题讨论)/proposal_forming(提案要点成形)/plan_generation(生成计划)/proposal_writing(写提案)/proposal_review(提案体检)/body_writing(写正文)/retrospective(复盘)。
 - open_tool: {"tool": 房间, "reason": 理由} —— 为这一步打开对的房间。房间 ∈ chat(只聊,无面板)/forming(提案要点)/plan(项目管理·计划)/reading(阅读室)/writing(写作台)/reflection(复盘)。
-- curate_reference: {"items": [{"kind":"material|note|annotation","id":...,"label":...}]} —— 把学生此刻会去查的材料/片段摆到左侧；id 必须是投影里「文献库」「片段」给出的真实 [id]，绝不编造。写提案阶段(proposal_writing/proposal_review)优先摆提案要点相关的来源；写正文阶段(body_writing)摆她此刻在用的来源/片段，不必凑齐提案要点。
+- curate_reference: {"items": [{"kind":"material|note|annotation","id":...,"label":...}]} —— 把学生此刻会去查的材料/片段/批注摆到左侧；id 必须是投影里「文献库」「片段」「批注」给出的真实 [id]，绝不编造。写提案阶段(proposal_writing/proposal_review)优先摆提案要点相关的来源；写正文阶段(body_writing)摆她此刻在用的来源/片段，体检后可摆相关批注(kind="annotation")，不必凑齐提案要点。
 - propose_note: {"section": 分区, "value": 内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区 ∈ objective(研究问题/目标)/reason(动机与意义)/activities(活动计划)/resources(资源与文献)/counterpoints(可能的反例/张力)。
 - summon_card: {"card_id":..., "reason":..., "nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生。
 - request_review: {} —— 学生写完、该做整稿体检时。
