@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MaterialSource, PhaseTag, PlanItem, WorkspaceProjection } from "@mind-imprint/contracts";
+import type { MaterialSource, PhaseTag, PlanItem, StudioState, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
@@ -10,7 +10,9 @@ import { Badge, Segmented } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, getPlan, getCoachHistory, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import { getWorkspace, getPlan, getCoachHistory, getStudioState, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import { openToolToRoom } from "./studioResume";
+import { ChatFirstLanding } from "./blocks/ChatFirstLanding";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
 import { NextStepGuide } from "./blocks/NextStepGuide";
@@ -75,6 +77,13 @@ export function WorkspaceContainer({
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
   const [room, setRoom] = useState<BlockKey>("plan");
+  // 印记's AI-managed status directive (stage/openTool/widthTier/reference),
+  // loaded once per project (Task 8). Drives resume-at-stage: which room the
+  // shell lands on, and whether the interactive area is chat-first (openTool
+  // === "chat") instead of a board. `null` = not yet loaded → render the
+  // chat-first landing, never a forced plan board. Task 9 re-applies this
+  // after every turn (morphing status).
+  const [studioState, setStudioState] = useState<StudioState | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The constant AI panel's side + collapsed state — persisted so it survives
   // room swaps and reloads. Default side is "left" (agentic studio: 印记 is the
@@ -200,6 +209,16 @@ export function WorkspaceContainer({
   const activeProjectIdRef = useRef<string | null>(null);
   activeProjectIdRef.current = projectId;
 
+  // Apply a fresh directive from 印记: store it, and (unless it's chat-first)
+  // swap the interactive area to the room it names. The load effect calls this
+  // once on open (resume-at-stage); Task 9 calls it after every turn so the
+  // status morphs live. chat is handled by the chat-first render, not a room,
+  // so we don't touch `room` for it.
+  const applyStudioState = useCallback((state: StudioState) => {
+    setStudioState(state);
+    if (state.openTool !== "chat") setRoom(openToolToRoom(state.openTool));
+  }, []);
+
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
   const refreshWorkspace = useCallback(async () => {
@@ -227,6 +246,10 @@ export function WorkspaceContainer({
     setPlanItems([]);
     setError(null);
     setSummary(null);
+    // Reset the AI status back to "not yet loaded" so the shell shows the
+    // chat-first landing (never the previous project's board) until this
+    // project's studio_state resolves.
+    setStudioState(null);
     setStudioMessages([]);
     // Reset the in-flight flag too — else a project opened while a PREVIOUS
     // project's turn is still in flight inherits sending=true and its composer
@@ -242,6 +265,17 @@ export function WorkspaceContainer({
       })
       .catch(() => {
         /* no plan yet (or fetch failed) → the spine simply doesn't render */
+      });
+    // Resume-at-stage (Task 8): land wherever 印记's AI-managed status says,
+    // not on a forced plan board. `cancelled` guards a late response for a
+    // project the student already switched away from. On error we simply stay
+    // chat-first (studioState null) — chat is the safe primary surface.
+    getStudioState(projectId)
+      .then((state) => {
+        if (!cancelled) applyStudioState(state);
+      })
+      .catch(() => {
+        /* no studio_state yet (or fetch failed) → stay on the chat-first landing */
       });
     // Load the ONE continuous coach thread ONCE per opened project (立项 + 写作,
     // surface="studio"), into the hoisted store both rooms read. Empty → each
@@ -285,11 +319,12 @@ export function WorkspaceContainer({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, applyStudioState]);
 
   function openProject(id: string) {
     setProjectId(id);
-    setRoom("plan");
+    // No forced landing room: the load effect resumes at 印记's status
+    // (studio_state), so a proposal-stage project lands in chat, not a board.
     closeReadingSource();
   }
 
@@ -399,6 +434,11 @@ export function WorkspaceContainer({
   // empty beside it (list mode) or duplicate it as a second 印记 column (graph
   // mode). So the constant panel shows for every room EXCEPT reading.
   const showAiPanel = room !== "reading";
+  // Chat-first (Task 8): the interactive area shows the calm landing (not a
+  // room board) while 印记's status is still loading (studioState === null, so
+  // we never flash the plan board) OR when 印记 is keeping chat primary
+  // (openTool === "chat"). Any other openTool means a real room is mounted.
+  const showChatFirst = studioState == null || studioState.openTool === "chat";
 
   return (
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
@@ -455,6 +495,11 @@ export function WorkspaceContainer({
         )}
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
+        ) : showChatFirst ? (
+          // Chat is primary (or status still loading): fill <main> with the
+          // calm landing, never a room board. The 印记 chat panel stays mounted
+          // alongside (the constant AiPanel), so the thread is uninterrupted.
+          <ChatFirstLanding />
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
         ) : (
