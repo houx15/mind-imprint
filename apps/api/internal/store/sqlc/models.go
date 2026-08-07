@@ -387,12 +387,13 @@ type ProjectMirrorProse struct {
 }
 
 type ProjectProposal struct {
-	ProjectID  uuid.UUID `json:"project_id"`
-	Objective  string    `json:"objective"`
-	Reason     string    `json:"reason"`
-	Activities string    `json:"activities"`
-	Resources  string    `json:"resources"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ProjectID     uuid.UUID `json:"project_id"`
+	Objective     string    `json:"objective"`
+	Reason        string    `json:"reason"`
+	Activities    string    `json:"activities"`
+	Resources     string    `json:"resources"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	Counterpoints string    `json:"counterpoints"`
 }
 
 type ProjectReflection struct {

@@ -152,8 +152,11 @@ func (a *API) formingDimProposal(ctx context.Context, projectID uuid.UUID, scope
 		if strings.TrimSpace(prop.Resources) == "" {
 			uncovered = append(uncovered, "resources")
 		}
+		if strings.TrimSpace(prop.Counterpoints) == "" {
+			uncovered = append(uncovered, "counterpoints")
+		}
 	} else {
-		uncovered = []string{"objective", "reason", "activities", "resources"} // no row → all empty
+		uncovered = []string{"objective", "reason", "activities", "resources", "counterpoints"} // no row → all empty
 	}
 	if len(uncovered) == 0 {
 		return nil
@@ -328,13 +331,19 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 		fmt.Fprintf(&b, "- 缘由：%s\n", proposalDimOrBlank(prop.Reason))
 		fmt.Fprintf(&b, "- 活动：%s\n", proposalDimOrBlank(prop.Activities))
 		fmt.Fprintf(&b, "- 资源：%s\n", proposalDimOrBlank(prop.Resources))
+		// The 5th section (可能的反例/张力) is optional — only surface it once she's
+		// noted something, so an empty one never reads as "still missing" (it does
+		// not gate plan generation).
+		if strings.TrimSpace(prop.Counterpoints) != "" {
+			fmt.Fprintf(&b, "- 可能的反例/张力：%s\n", prop.Counterpoints)
+		}
 	}
 	// EC · on the forming surfaces, steer the coach toward the kick-off
 	// dimensions the student hasn't touched yet — so 立题 actually drives
 	// coverage instead of only passively seeing （未填）markers. Guides one at a
 	// time, never fills the panel (克制 · AI 绝不替学生写开题).
 	if surface == "forming" || surface == "proposal_review" {
-		b.WriteString(formingCoverageNudge(prop.Objective, prop.Reason, prop.Activities, prop.Resources))
+		b.WriteString(formingCoverageNudge(prop.Objective, prop.Reason, prop.Activities, prop.Resources, prop.Counterpoints))
 	}
 	// #17 · in 文献库 the coach should proactively help the student generate
 	// search keywords and point at databases — but never search for her or hand
@@ -518,7 +527,7 @@ func writingLangLabel(code string) string {
 // student just wrote, judged against that dimension's standard (the old "先认可它"
 // was too thin). When all four are covered it emits a FINISH signal (#13) so the
 // coach stops re-asking and tells the student the kick-off has taken shape.
-func formingCoverageNudge(objective, reason, activities, resources string) string {
+func formingCoverageNudge(objective, reason, activities, resources, counterpoints string) string {
 	dims := []struct{ name, val string }{
 		{"目标", objective}, {"缘由", reason}, {"活动", activities}, {"资源", resources},
 	}
@@ -529,8 +538,13 @@ func formingCoverageNudge(objective, reason, activities, resources string) strin
 		}
 	}
 	if len(missing) == 0 {
-		// #13 · finish signal: don't keep interrogating a completed kick-off.
-		return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』，不要再反复追问同一件事。）\n"
+		// #13 · finish signal: don't keep interrogating a completed kick-off. The
+		// four REQUIRED sections gate plan generation; 反例/张力 is optional, so if
+		// she hasn't noted one yet, invite it lightly — never require it.
+		if strings.TrimSpace(counterpoints) == "" {
+			return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』。可以顺带（一次、不强求）邀请她想想：这个论点最可能撞上的反例或张力是什么？愿意的话记进「可能的反例/张力」。别反复追问同一件事。）\n"
+		}
+		return "（开题四问都落定了，反例/张力也记了——明确告诉学生开题已经成形，随时可以点『生成项目计划』，不要再反复追问同一件事。）\n"
 	}
 	var b strings.Builder
 	b.WriteString("（开题还没落定：" + strings.Join(missing, "、") +

@@ -655,7 +655,7 @@ func (q *Queries) GetProjectMirror(ctx context.Context, projectID uuid.UUID) (Pr
 }
 
 const getProjectProposal = `-- name: GetProjectProposal :one
-SELECT project_id, objective, reason, activities, resources, updated_at FROM project_proposal WHERE project_id = $1
+SELECT project_id, objective, reason, activities, resources, updated_at, counterpoints FROM project_proposal WHERE project_id = $1
 `
 
 func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (ProjectProposal, error) {
@@ -668,6 +668,7 @@ func (q *Queries) GetProjectProposal(ctx context.Context, projectID uuid.UUID) (
 		&i.Activities,
 		&i.Resources,
 		&i.UpdatedAt,
+		&i.Counterpoints,
 	)
 	return i, err
 }
@@ -1585,23 +1586,25 @@ func (q *Queries) UpsertProjectAIUse(ctx context.Context, arg UpsertProjectAIUse
 }
 
 const upsertProjectProposal = `-- name: UpsertProjectProposal :one
-INSERT INTO project_proposal (project_id, objective, reason, activities, resources, updated_at)
-VALUES ($1, $2, $3, $4, $5, now())
+INSERT INTO project_proposal (project_id, objective, reason, activities, resources, counterpoints, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, now())
 ON CONFLICT (project_id) DO UPDATE SET
-    objective  = EXCLUDED.objective,
-    reason     = EXCLUDED.reason,
-    activities = EXCLUDED.activities,
-    resources  = EXCLUDED.resources,
-    updated_at = now()
-RETURNING project_id, objective, reason, activities, resources, updated_at
+    objective     = EXCLUDED.objective,
+    reason        = EXCLUDED.reason,
+    activities    = EXCLUDED.activities,
+    resources     = EXCLUDED.resources,
+    counterpoints = EXCLUDED.counterpoints,
+    updated_at    = now()
+RETURNING project_id, objective, reason, activities, resources, updated_at, counterpoints
 `
 
 type UpsertProjectProposalParams struct {
-	ProjectID  uuid.UUID `json:"project_id"`
-	Objective  string    `json:"objective"`
-	Reason     string    `json:"reason"`
-	Activities string    `json:"activities"`
-	Resources  string    `json:"resources"`
+	ProjectID     uuid.UUID `json:"project_id"`
+	Objective     string    `json:"objective"`
+	Reason        string    `json:"reason"`
+	Activities    string    `json:"activities"`
+	Resources     string    `json:"resources"`
+	Counterpoints string    `json:"counterpoints"`
 }
 
 func (q *Queries) UpsertProjectProposal(ctx context.Context, arg UpsertProjectProposalParams) (ProjectProposal, error) {
@@ -1611,6 +1614,7 @@ func (q *Queries) UpsertProjectProposal(ctx context.Context, arg UpsertProjectPr
 		arg.Reason,
 		arg.Activities,
 		arg.Resources,
+		arg.Counterpoints,
 	)
 	var i ProjectProposal
 	err := row.Scan(
@@ -1620,6 +1624,7 @@ func (q *Queries) UpsertProjectProposal(ctx context.Context, arg UpsertProjectPr
 		&i.Activities,
 		&i.Resources,
 		&i.UpdatedAt,
+		&i.Counterpoints,
 	)
 	return i, err
 }

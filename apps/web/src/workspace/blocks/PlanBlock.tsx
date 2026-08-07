@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { Segmented } from "@/ui";
 import { Icon } from "../Icon";
@@ -25,7 +27,6 @@ import {
   getLog,
   addLog,
   coach,
-  getCoachHistory,
   generatePlan,
   createReference,
   type PlanItemPatch,
@@ -86,6 +87,7 @@ export function PlanBlock({
   createdAt,
   onOpenRoom,
   refreshWorkspace,
+  recap,
 }: {
   projectId: string;
   title: string;
@@ -94,6 +96,8 @@ export function PlanBlock({
   createdAt?: string;
   onOpenRoom: (room: BlockKey) => void;
   refreshWorkspace: () => void;
+  /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
+  recap?: string | null;
 }) {
   // #11 — a brand-new project (all four dims blank) opens in the calm forming
   // coach; anything already thought through opens straight on the working board.
@@ -106,10 +110,17 @@ export function PlanBlock({
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
   const [prop, setProp] = useState<Proposal>(proposal);
-  const [chat, setChat] = useState<ChatMsg[]>(() => introChat("zh"));
+  // The coach thread is HOISTED to WorkspaceContainer (persists across 立项↔写作
+  // room swaps, loaded once per project). This room reads/appends the shared
+  // store instead of holding its own chat state; the scripted intro is now a
+  // display-only fallback (see FormingPhase's `displayChat`), never stored.
+  const { messages, setMessages, sending, setSending, activeProjectIdRef } = useStudioChat();
+  // A turn resolves seconds later; if the student switched PROJECTS meanwhile,
+  // don't append its reply into (or clear the busy flag of) the now-different
+  // project's shared store. A plain room switch within the same project passes.
+  const isActiveProject = () => activeProjectIdRef.current === projectId;
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   // The two quick-reply chips live only under the scripted intro; any turn
   // (chip, typed message, or a language reset) dismisses them.
   const [chipsDismissed, setChipsDismissed] = useState(false);
@@ -145,25 +156,6 @@ export function PlanBlock({
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
-  // S1 · one continuous session: load THIS room's slice of the project's thread
-  // once on open, appended after the scripted intro so re-entry shows the
-  // conversation so far. Empty (a fresh project) → intro only, unchanged.
-  useEffect(() => {
-    let alive = true;
-    getCoachHistory(projectId, "forming")
-      .then((msgs) => {
-        if (!alive || msgs.length === 0) return;
-        setChat((c) => [...c, ...msgs]);
-        setChipsDismissed(true);
-      })
-      .catch(() => {
-        /* keep the intro-only view; the next turn still persists */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [projectId]);
-
   // #15: generating replaces the whole board server-side. If a plan already
   // exists, confirm before overwriting so a regenerate never silently wipes the
   // student's arranged/moved cards. onGenerate is the guard; doGenerate is the work.
@@ -191,6 +183,9 @@ export function PlanBlock({
       setSeedBoard(items);
       setHasBoard(true);
       setPhase("working");
+      // The plan now exists → let the shell refresh so the PlanSpine indicator
+      // (spec §3) appears with the freshly generated stages.
+      refreshWorkspace();
     } catch (e) {
       // 422 proposal_empty → nudge; anything else → a gentle retry hint.
       if (e instanceof ApiError && e.code === "proposal_empty") {
@@ -208,21 +203,22 @@ export function PlanBlock({
   // reply; it clears at the start of each turn so a stale offer never lingers.
   async function runCoachTurn(scope: "forming" | "proposal_review", userInput: string, studentEcho: string) {
     if (sending) return;
-    setChat((c) => [...c, { role: "student", text: studentEcho }]);
+    setMessages((c) => [...c, { role: "student", text: studentEcho }]);
     setLinkOffer(null);
     setDimSuggestion(null);
     setCardProposal(null);
     setSending(true);
     try {
       const { reply, linkOffer: offer, dimSuggestion: dim, proposal: card } = await coach(projectId, scope, userInput);
-      setChat((c) => [...c, { role: "ai", text: reply }]);
+      if (!isActiveProject()) return; // student left this project — drop the late reply from the display
+      setMessages((c) => [...c, { role: "ai", text: reply }]);
       if (offer) setLinkOffer({ url: offer.url, status: "idle" });
       if (dim) setDimSuggestion(dim);
       if (card) setCardProposal(card);
     } catch {
-      setChat((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
+      if (isActiveProject()) setMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
     } finally {
-      setSending(false);
+      if (isActiveProject()) setSending(false);
     }
   }
 
@@ -316,7 +312,8 @@ export function PlanBlock({
           proposal={prop}
           onBackToBoard={hasBoard ? () => setPhase("working") : undefined}
           setDim={setDim}
-          chat={chat}
+          messages={messages}
+          recap={recap}
           lang={lang}
           onToggleLang={() => {
             // Switch the coach's reply language WITHOUT discarding the
@@ -329,7 +326,7 @@ export function PlanBlock({
           setDraft={setDraft}
           sending={sending}
           onSend={onSend}
-          showChips={!chipsDismissed && chat.length === 1}
+          showChips={!chipsDismissed && messages.length === 0}
           onGuideMe={onGuideMe}
           onSelfFill={() => setChipsDismissed(true)}
           onReview={onReview}
@@ -346,8 +343,9 @@ export function PlanBlock({
           projectId={projectId}
           cardProposal={cardProposal}
           onCardConsumed={() => setCardProposal(null)}
-          onCardReflected={(studentText, reply, card) =>
-            setChat((c) => [
+          onCardReflected={(studentText, reply, card) => {
+            if (!isActiveProject()) return; // student switched projects mid-reflect
+            setMessages((c) => [
               ...c,
               // A card turn renders as a content-first chip (card set), falling
               // back to raw compiled text only if the server didn't echo a card.
@@ -361,8 +359,8 @@ export function PlanBlock({
                 : card || studentText
                   ? []
                   : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-            ])
-          }
+            ]);
+          }}
         />
         {confirmRegen && (
           <RegenConfirm onCancel={() => setConfirmRegen(false)} onConfirm={() => void doGenerate()} />
@@ -433,6 +431,7 @@ const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
   reason: "缘由",
   activities: "活动",
   resources: "资源",
+  counterpoints: "可能的反例 / 张力",
 };
 
 // #13: the 克制 confirm chip — offers to record a kick-off dimension the student
@@ -464,7 +463,8 @@ function FormingPhase(props: {
   proposal: Proposal;
   onBackToBoard?: () => void;
   setDim: (key: keyof Proposal, v: string) => void;
-  chat: ChatMsg[];
+  messages: StudioChatMsg[];
+  recap?: string | null;
   lang: "zh" | "en";
   onToggleLang: () => void;
   draft: string;
@@ -491,15 +491,19 @@ function FormingPhase(props: {
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
-    title, qualification, proposal, onBackToBoard, setDim, chat, lang, onToggleLang, draft, setDraft, sending, onSend,
+    title, qualification, proposal, onBackToBoard, setDim, messages, recap, lang, onToggleLang, draft, setDraft, sending, onSend,
     showChips, onGuideMe, onSelfFill, onReview, onGenerate, generating, genError,
     linkOffer, onAddLink, onReadTogether, onDismissLink,
     dimSuggestion, onConfirmDim, onDismissDim,
     projectId, cardProposal, onCardConsumed, onCardReflected,
   } = props;
   const [writing, setWriting] = useState(false);
-  const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
-  const ready = covered >= 1;
+  // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
+  // 四项必填 section 全部完成). 反例/张力 is optional and never gates.
+  const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
+  const covered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
+  const reviewReady = covered >= 1; // can ask 印记 for feedback as soon as there's something
+  const planReady = covered === requiredDims.length; // all four required finished
   // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
   // proposal panel + its actions — renders directly below, in <main>; its
   // COACH (the chat conversation) is portaled into the constant AiPanel via
@@ -507,6 +511,10 @@ function FormingPhase(props: {
   // component renders outside a studio shell (e.g. some tests) — in either
   // case the coach content simply doesn't render, never crashes.
   const slot = useStudioAiSlot();
+  // The scripted intro is DISPLAY-ONLY now (never stored): a fresh project has
+  // an empty hoisted store, so fall back to the localized intro for rendering.
+  // Once any turn lands the store is non-empty and IT is what shows.
+  const displayChat: StudioChatMsg[] = messages.length ? messages : introChat(lang);
   return (
     <>
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
@@ -540,7 +548,7 @@ function FormingPhase(props: {
           </div>
           <button
             type="button"
-            disabled={!ready || sending}
+            disabled={!reviewReady || sending}
             onClick={onReview}
             className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[12.5px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -549,7 +557,7 @@ function FormingPhase(props: {
         </div>
         <button
           type="button"
-          disabled={!ready || generating}
+          disabled={!planReady || generating}
           onClick={onGenerate}
           className="flex items-center justify-center gap-2 rounded-mk-md bg-mk-accent py-3 text-[14px] font-bold text-white transition enabled:hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:bg-mk-input-border disabled:text-mk-faint"
         >
@@ -562,6 +570,11 @@ function FormingPhase(props: {
             </>
           )}
         </button>
+        {!planReady && (
+          <p className="-mt-2 text-center text-[11.5px] text-mk-faint">
+            把「目标 / 缘由 / 活动 / 资源」四项都聊清楚，就能生成项目计划（反例可选）。
+          </p>
+        )}
         {genError && <p className="-mt-3 text-center text-[12px] font-semibold text-mk-accent">{genError}</p>}
         <button
           type="button"
@@ -595,7 +608,7 @@ function FormingPhase(props: {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-              <ChatLog messages={toChatMessages(chat)} thinking={sending} />
+              <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
               {linkOffer && !sending && (
                 <CoachLinkOffer
                   url={linkOffer.url}
@@ -748,7 +761,7 @@ function renderRich(text: string) {
 // never raw compiled text) instead of nesting inside a second bubble. Every
 // other turn keeps **bold** rendering (renderRich) via `node`, since ChatLog
 // only prints `text` literally.
-function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
+function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
       ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }

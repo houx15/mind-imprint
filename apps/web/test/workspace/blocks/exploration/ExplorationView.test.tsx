@@ -84,6 +84,7 @@ vi.mock("@/api/exploration", () => ({
 // mocked so the component's import resolves and never hits the network in tests.
 vi.mock("@/workspace/api/workspace", () => ({
   enterReading: vi.fn(),
+  pasteContent: vi.fn(),
   NoReadableContentError: class extends Error {},
 }));
 
@@ -110,6 +111,12 @@ const mockProposeEdges = vi.mocked(proposeEdges);
 const mockCreateEdge = vi.mocked(createEdge);
 const mockPatchEdge = vi.mocked(patchEdge);
 const mockDeleteEdge = vi.mocked(deleteEdge);
+
+// The 进入阅读室 path (workspace.enterReading) + its 422 paste fallback
+// (workspace.pasteContent), both mocked above so nothing hits the network.
+import { enterReading, pasteContent, NoReadableContentError } from "@/workspace/api/workspace";
+const mockEnterReading = vi.mocked(enterReading);
+const mockPasteContent = vi.mocked(pasteContent);
 
 // Simulate a React Flow drag-to-connect (jsdom can't perform the real handle
 // drag): the @xyflow/react mock stashes the live onConnect prop; call it with a
@@ -838,5 +845,46 @@ describe("ExplorationView", () => {
     expect(screen.queryByText("这两个问题是什么关系？")).toBeNull();
     expect(mockCreateEdge).not.toHaveBeenCalled();
     expect(screen.getByText("这两个问题已经连过了。")).toBeInTheDocument();
+  });
+
+  it("进入阅读室 on a paper whose full text can't be fetched (422) opens an inline paste box, not a dead click; 开始共读 pastes the body then enters the reading room", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    // enter-reading rejects with the typed no-content error (server 422).
+    mockEnterReading.mockRejectedValue(
+      new NoReadableContentError("取不到这个链接的正文，可以直接把正文粘进来。"),
+    );
+    const materialSource = { id: "m1", title: NASA_REF.title } as unknown as Awaited<ReturnType<typeof pasteContent>>;
+    mockPasteContent.mockResolvedValue(materialSource);
+    const onEnterReading = vi.fn();
+
+    const user = userEvent.setup();
+    render(
+      <ExplorationView
+        projectId={nextPid()}
+        references={[NASA_REF]}
+        coach={COACH_SLOT}
+        onEnterReading={onEnterReading}
+      />,
+    );
+
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, CHILD_PAPER.text);
+
+    // click 进入阅读室 → 422 → the paste box appears (no navigation, no dead click)
+    await user.click(await screen.findByRole("button", { name: "进入阅读室" }));
+    expect(await screen.findByText("取不到这个链接的正文，可以直接把正文粘进来。")).toBeInTheDocument();
+    // the enter button is replaced by the paste flow while the prompt is open
+    expect(screen.queryByRole("button", { name: "进入阅读室" })).toBeNull();
+    expect(onEnterReading).not.toHaveBeenCalled();
+
+    // paste the body + 开始共读 → pasteContent(projectId, refId, text) then enter
+    const box = screen.getByPlaceholderText(/把文章正文粘到这里/);
+    await user.type(box, "这是粘贴进来的正文段落。");
+    await user.click(screen.getByRole("button", { name: "开始共读" }));
+
+    await waitFor(() =>
+      expect(mockPasteContent).toHaveBeenCalledWith(expect.any(String), NASA_REF.id, "这是粘贴进来的正文段落。"),
+    );
+    await waitFor(() => expect(onEnterReading).toHaveBeenCalledWith(materialSource, NASA_REF.id, "", undefined, undefined, undefined));
   });
 });

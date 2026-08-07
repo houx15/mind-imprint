@@ -41,7 +41,7 @@ const mockPostMirror = vi.mocked(postMirror);
 const mockPutReflection = vi.mocked(putReflection);
 const mockFinishProject = vi.mocked(finishProject);
 
-const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "关心气候", activities: "读 NASA/Nature", resources: "Zotero" };
+const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "关心气候", activities: "读 NASA/Nature", resources: "Zotero", counterpoints: "" };
 
 const MIRROR = {
   sections: [{ title: "你怎么想的", body: "你从溯源开始，撞上反例后做了让步。" }],

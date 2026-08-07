@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MaterialSource, PhaseTag, WorkspaceProjection } from "@mind-imprint/contracts";
+import type { MaterialSource, PhaseTag, PlanItem, WorkspaceProjection } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "../studio/ai/StudioChatContext";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
 import { Badge, Segmented } from "@/ui/feedback";
+import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import { getWorkspace, getPlan, getCoachHistory, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
 import { PlanBlock } from "./blocks/PlanBlock";
+import { PlanSpine } from "./blocks/PlanSpine";
+import { NextStepGuide } from "./blocks/NextStepGuide";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
+import { WritingReferencePanel } from "./blocks/WritingReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
 
@@ -63,17 +68,23 @@ export function WorkspaceContainer({
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
+  // The project plan's items → the PlanSpine "你在这一步" indicator (spec §3).
+  // Empty until a plan is generated; refreshed alongside the workspace.
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  // First-run guard for the room-change plan refetch (declared here so the load
+  // effect can reset it on project change). See the room-change effect below.
+  const didMountRoom = useRef(false);
   const [room, setRoom] = useState<BlockKey>("plan");
   const [error, setError] = useState<string | null>(null);
-  // The constant AI panel's side + collapsed state (spec §17) — persisted so
-  // it survives room swaps and reloads, same spirit as the old fullscreen
-  // toggle it replaces. Default side is "right" per the brief.
+  // The constant AI panel's side + collapsed state — persisted so it survives
+  // room swaps and reloads. Default side is "left" (agentic studio: 印记 is the
+  // constant left companion; the student can flip it right).
   const [aiSide, setAiSide] = useState<AiPanelSide>(() => {
     try {
       const v = localStorage.getItem("mk-studio-ai-side");
-      return v === "left" || v === "right" ? v : "right";
+      return v === "left" || v === "right" ? v : "left";
     } catch {
-      return "right";
+      return "left";
     }
   });
   const flipAiSide = useCallback(() => {
@@ -175,7 +186,19 @@ export function WorkspaceContainer({
   // for in-progress projects (a non-empty proposal) — a brand-new project has
   // nothing to summarise.
   const [summary, setSummary] = useState<string | null>(null);
-  const [summaryDismissed, setSummaryDismissed] = useState(false);
+  // The ONE continuous 印记 coach thread (立项 + 写作, surface="studio"), hoisted
+  // here so it PERSISTS across room switches: each working room reads/appends to
+  // this one store via `useStudioChat()` instead of holding its own local chat
+  // state (which a room-swap unmount would throw away, forcing a re-fetch). The
+  // in-flight `sending` flag rides up too so a reply landing after a room switch
+  // still shows its busy state on whichever room is now mounted.
+  const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
+  const [studioSending, setStudioSending] = useState(false);
+  // Live opened-project id for the rooms' cross-project append guard (see
+  // StudioChatContext). Kept current every render so a late turn closure never
+  // reads a stale value.
+  const activeProjectIdRef = useRef<string | null>(null);
+  activeProjectIdRef.current = projectId;
 
   // Re-pull the lean projection (title/qualification/proposal). Handed to rooms
   // so a persisted proposal edit can keep the rail in sync.
@@ -187,6 +210,12 @@ export function WorkspaceContainer({
     } catch {
       /* keep the last-good projection; the room surfaces its own errors */
     }
+    // Keep the plan spine in sync after a room mutates the plan (generate/edit).
+    getPlan(projectId)
+      .then(setPlanItems)
+      .catch(() => {
+        /* spine is a nicety; a failed refresh keeps the last-good stages */
+      });
   }, [projectId]);
 
   // Load the opened project's lean projection whenever the opened id changes.
@@ -195,9 +224,40 @@ export function WorkspaceContainer({
     if (!projectId) return;
     let cancelled = false;
     setWorkspace(null);
+    setPlanItems([]);
     setError(null);
     setSummary(null);
-    setSummaryDismissed(false);
+    setStudioMessages([]);
+    // Reset the in-flight flag too — else a project opened while a PREVIOUS
+    // project's turn is still in flight inherits sending=true and its composer
+    // stays disabled until that unrelated reply resolves.
+    setStudioSending(false);
+    // Reset the room-effect's first-run guard for this new project, so its
+    // getPlan fetch is skipped once here (this effect already fetches) rather
+    // than firing a redundant duplicate on every project switch.
+    didMountRoom.current = false;
+    getPlan(projectId)
+      .then((items) => {
+        if (!cancelled) setPlanItems(items);
+      })
+      .catch(() => {
+        /* no plan yet (or fetch failed) → the spine simply doesn't render */
+      });
+    // Load the ONE continuous coach thread ONCE per opened project (立项 + 写作,
+    // surface="studio"), into the hoisted store both rooms read. Empty → each
+    // room falls back to its own display-only intro/greeting locally.
+    getCoachHistory(projectId, "studio")
+      .then((msgs) => {
+        if (cancelled) return;
+        // Don't clobber a turn the student optimistically sent in the small
+        // window before this fetch resolved — only seed when still empty.
+        setStudioMessages((prev) =>
+          prev.length ? prev : msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+        );
+      })
+      .catch(() => {
+        /* keep the empty store; each room shows its intro and the next turn persists */
+      });
     (async () => {
       try {
         const w = await getWorkspace(projectId);
@@ -239,6 +299,30 @@ export function WorkspaceContainer({
     closeReadingSource();
     setError(null);
   }
+
+  // Refresh the plan spine when the student switches rooms — the plan is edited
+  // in 立项, so navigating away is the natural moment to re-read its stages
+  // (generation itself refreshes eagerly via refreshWorkspace). Skips the very
+  // first render for each project (the load effect already fetched; it resets
+  // this guard on project change).
+  useEffect(() => {
+    if (!projectId) return;
+    if (!didMountRoom.current) {
+      didMountRoom.current = true;
+      return;
+    }
+    let cancelled = false;
+    getPlan(projectId)
+      .then((items) => {
+        if (!cancelled) setPlanItems(items);
+      })
+      .catch(() => {
+        /* keep last-good stages */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [room, projectId]);
 
   // Tell the shell whether a project is open, so it can hide the platform nav
   // for the immersive studio (spec §17). Fires on open/close and on unmount.
@@ -318,28 +402,37 @@ export function WorkspaceContainer({
 
   return (
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
-      <TopBar workspace={workspace} room={room} onRoom={setRoom} onBack={onExitToHome ?? backToAll} />
+      <TopBar workspace={workspace} onBack={onExitToHome ?? backToAll} />
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
-        <main className="relative min-w-0 flex-1 overflow-hidden">
-        {workspace && ((summary && !summaryDismissed) || carryForward) && (
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* The persistent stage switcher lives at the top-left of the
+            interactive area (spec §2) — beside the 印记 chat, not spanning it.
+            AI-driven view changes flip `room`; this is the always-available
+            manual override so the student is never lost. */}
+        <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
+          <Segmented
+            options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
+            value={room}
+            onChange={(v) => setRoom(v as BlockKey)}
+          />
+          {/* The plan spine (spec §3): where you are along the generated plan.
+              Renders only once a plan exists; tapping jumps to 立项's board. */}
+          <PlanSpine items={planItems} onOpenPlan={() => setRoom("plan")} />
+          {/* 印记's next-step offer (spec §5): AI drives, the switcher overrides. */}
+          <NextStepGuide
+            hasPlan={planItems.length > 0}
+            writingFinished={workspace?.writingFinished ?? false}
+            room={room}
+            onGoRoom={setRoom}
+          />
+        </div>
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* The re-entry recap now lives INSIDE the continuous chat (passed as
+            `recap` to the working rooms), not as a banner here — the chat is the
+            primary surface. Only the reading carry-forward stays a toast. */}
+        {workspace && carryForward && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 px-4 pt-4">
-            {summary && !summaryDismissed && (
-              <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 shadow-mk-lg">
-                <span className="mt-0.5 text-mk-accent">
-                  <Icon name="spark" size={16} />
-                </span>
-                <p className="flex-1 text-[13.5px] leading-relaxed text-mk-ink">{summary}</p>
-                <button
-                  type="button"
-                  onClick={() => setSummaryDismissed(true)}
-                  aria-label="收起"
-                  className="-mt-0.5 px-1 text-[16px] leading-none text-mk-faint hover:text-mk-ink"
-                >
-                  ×
-                </button>
-              </div>
-            )}
             {carryForward && (
               <div className="pointer-events-auto flex w-full max-w-2xl items-start gap-3 rounded-mk-lg border border-mk-accent/40 bg-mk-accent-50 px-4 py-3 shadow-mk-lg">
                 <span className="mt-0.5 text-mk-accent">
@@ -371,6 +464,15 @@ export function WorkspaceContainer({
           // <main>. plan / writing / reflection all portal their coach into the
           // constant panel. reading is the exception: it's a distinct
           // full-screen surface with its own coach column (see showAiPanel).
+          <StudioChatContext.Provider
+            value={{
+              messages: studioMessages,
+              setMessages: setStudioMessages,
+              sending: studioSending,
+              setSending: setStudioSending,
+              activeProjectIdRef,
+            }}
+          >
           <StudioAiSlotContext.Provider value={aiSlotEl}>
             {room === "plan" && (
               <PlanBlock
@@ -382,21 +484,34 @@ export function WorkspaceContainer({
                 createdAt={workspace.createdAt}
                 onOpenRoom={setRoom}
                 refreshWorkspace={refreshWorkspace}
+                recap={summary}
               />
             )}
             {room === "reading" && (
               <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={openReadingSource} />
             )}
             {room === "writing" && (
-              <WritingBlock
-                key={projectId}
-                projectId={projectId}
-                title={workspace.title}
-                proposal={workspace.proposal}
-                status={workspace.status}
-                writingFinished={workspace.writingFinished ?? false}
-                onOpenRoom={setRoom}
-                refreshWorkspace={refreshWorkspace}
+              // Writing stage (spec §2/§6): the interactive area splits into a
+              // read-only reference sub-pane (提案要点/阅读笔记/批注) and the
+              // writing area, with a draggable divider. The coach still portals
+              // to the constant AiPanel, independent of this split.
+              <SplitPane
+                storageKey="mk-studio-write-split"
+                defaultRatio={0.34}
+                left={<WritingReferencePanel key={projectId} projectId={projectId} proposal={workspace.proposal} />}
+                right={
+                  <WritingBlock
+                    key={projectId}
+                    projectId={projectId}
+                    title={workspace.title}
+                    proposal={workspace.proposal}
+                    status={workspace.status}
+                    writingFinished={workspace.writingFinished ?? false}
+                    onOpenRoom={setRoom}
+                    refreshWorkspace={refreshWorkspace}
+                    recap={summary}
+                  />
+                }
               />
             )}
             {room === "reflection" && (
@@ -411,7 +526,9 @@ export function WorkspaceContainer({
               />
             )}
           </StudioAiSlotContext.Provider>
+          </StudioChatContext.Provider>
         )}
+        </div>
         </main>
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
@@ -419,18 +536,14 @@ export function WorkspaceContainer({
   );
 }
 
-// The top bar (spec §17): a small 「← 主页」capsule back to the Directory,
-// the project's title + qualification, and the room switcher. Replaces the
-// old left `Rail` — there is no more in-project sidebar.
+// The top bar (spec §17): a small 「← 主页」capsule back to the Directory and
+// the project's title + qualification. The stage switcher no longer lives here
+// — it moved into the interactive area's top-left (spec §2), beside the chat.
 function TopBar({
   workspace,
-  room,
-  onRoom,
   onBack,
 }: {
   workspace: WorkspaceProjection | null;
-  room: BlockKey;
-  onRoom: (b: BlockKey) => void;
   onBack: () => void;
 }) {
   return (
@@ -453,12 +566,6 @@ function TopBar({
           {workspace?.qualification || "项目"}
         </Badge>
       </div>
-      <Segmented
-        className="shrink-0"
-        options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
-        value={room}
-        onChange={(v) => onRoom(v as BlockKey)}
-      />
     </header>
   );
 }

@@ -30,7 +30,7 @@ const ITEM = {
 
 describe("putProposal", () => {
   it("PUTs the four dims and returns the stored proposal", async () => {
-    const proposal = { objective: "o", reason: "r", activities: "a", resources: "s" };
+    const proposal = { objective: "o", reason: "r", activities: "a", resources: "s", counterpoints: "c" };
     const spy = vi.fn(async () => json({ proposal }));
     vi.stubGlobal("fetch", spy);
 

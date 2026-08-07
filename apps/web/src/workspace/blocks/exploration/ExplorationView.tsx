@@ -9,7 +9,7 @@ import type {
   PhaseTag,
   Reference,
 } from "@mind-imprint/contracts";
-import { enterReading, NoReadableContentError } from "../../api/workspace";
+import { enterReading, pasteContent, NoReadableContentError, type SourceMeta } from "../../api/workspace";
 import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
@@ -88,6 +88,11 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
   const [enteringRefId, setEnteringRefId] = useState<string | null>(null);
   const [actionError, setActionError] = useState(false);
+  // When enter-reading 422s (paper's full text can't be fetched — most paywalled
+  // papers), we don't dead-click: carry the friendly message + any recovered DOI
+  // metadata so the sidebar shows an inline paste box, mirroring the Library.
+  const [pasteFor, setPasteFor] = useState<{ refId: string; msg: string; meta?: SourceMeta } | null>(null);
+  const [pasteBusy, setPasteBusy] = useState(false);
 
   // GVb · which node inside the focused question's mindmap is selected → the
   // sidebar's metadata + search target. Zooming in selects the root question.
@@ -132,11 +137,13 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
   // the previous node's dig results.
   const selectNode = (id: string) => {
     resetDig();
+    setPasteFor(null);
     setSelectedId(id);
   };
   // GVd · "← 印记" from 'node'/'results' → back to the coach: deselect + clear dig.
   const deselect = () => {
     resetDig();
+    setPasteFor(null);
     setSelectedId(null);
   };
 
@@ -364,15 +371,38 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
   async function enterSource(ref: Reference) {
     if (!onEnterReading || enteringRefId) return;
     setEnteringRefId(ref.id);
+    setPasteFor(null);
     try {
       const { source, suggestedReason } = await enterReading(projectId, ref.id);
       onEnterReading(source, ref.id, suggestedReason, ref.phaseTag, ref.readingReason, ref.readingFocus);
     } catch (e) {
-      // NoReadableContentError has a paste fallback in the Library preview — this
-      // view just nudges toward the Library rather than duplicating it.
-      void (e instanceof NoReadableContentError);
+      // 422 = the paper's full text can't be fetched (most paywalled papers).
+      // Don't dead-click: open an inline paste box right here so she can drop the
+      // body in and enter the reading room, carrying any DOI metadata we recovered.
+      if (e instanceof NoReadableContentError) {
+        setPasteFor({ refId: ref.id, msg: e.message, meta: e.meta });
+      } else {
+        setActionError(true);
+      }
     } finally {
       setEnteringRefId(null);
+    }
+  }
+
+  // Paste-body fallback for the selected paper: create its material from the
+  // pasted text, then enter the reading room exactly as the fetch path would.
+  async function submitPaste(ref: Reference, text: string) {
+    if (!onEnterReading || pasteBusy) return;
+    setPasteBusy(true);
+    setActionError(false);
+    try {
+      const source = await pasteContent(projectId, ref.id, text);
+      setPasteFor(null);
+      onEnterReading(source, ref.id, "", ref.phaseTag, ref.readingReason, ref.readingFocus);
+    } catch {
+      setActionError(true);
+    } finally {
+      setPasteBusy(false);
     }
   }
 
@@ -455,6 +485,9 @@ export function ExplorationView({ projectId, references, projectTitle, onEnterRe
       onBackToNode={resetDig}
       onEnterReading={onEnterReading && selectedRef ? () => enterSource(selectedRef) : undefined}
       entering={enteringRefId != null && enteringRefId === selectedRef?.id}
+      pastePrompt={pasteFor && selectedRef && pasteFor.refId === selectedRef.id ? { msg: pasteFor.msg, meta: pasteFor.meta } : undefined}
+      pasteBusy={pasteBusy}
+      onPaste={onEnterReading && selectedRef ? (text: string) => submitPaste(selectedRef, text) : undefined}
     />
   );
 

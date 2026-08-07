@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 
 /**
  * PlanBlock (studio agentic rebuild, Task 5): the forming coach now portals
@@ -34,22 +36,41 @@ const mockCoach = vi.mocked(coach);
 const mockGetCoachHistory = vi.mocked(getCoachHistory);
 const mockGetPlan = vi.mocked(getPlan);
 
-const EMPTY_PROPOSAL = { objective: "", reason: "", activities: "", resources: "" };
+const EMPTY_PROPOSAL = { objective: "", reason: "", activities: "", resources: "", counterpoints: "" };
 const FILLED_PROPOSAL = {
   objective: "论证中国是否让地球更可持续",
   reason: "关心气候变化",
   activities: "读 NASA/Nature Sustainability",
   resources: "Zotero、图书馆数据库",
+  counterpoints: "",
 };
+
+// The coach thread now lives in the hoisted StudioChatContext store (owned by
+// WorkspaceContainer in the real shell); FormingPhase reads/appends it via
+// `useStudioChat()`. Tests stand in a stateful provider the same way the shell
+// does, seeded with any initial thread the test needs.
+function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
+  const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
+  const [sending, setSending] = useState(false);
+  return (
+    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending, activeProjectIdRef: { current: "p1" } }}>
+      {children}
+    </StudioChatContext.Provider>
+  );
+}
 
 // The AiPanel body is a real DOM node the panel hands down via context; the
 // portal contract (Task 4) needs a genuine element to portal into (jsdom
 // createPortal requires it), and RTL's `screen` queries document.body — where
 // this node lives — so portaled content is found the same as any other.
-function renderWithAiSlot(ui: React.ReactElement) {
+function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg[] = []) {
   const slot = document.createElement("div");
   document.body.appendChild(slot);
-  return render(<StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>);
+  return render(
+    <ChatProvider initial={initialMessages}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </ChatProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -91,6 +112,49 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(await screen.findByText("你想回答的到底是什么问题？")).toBeInTheDocument();
     // The student's own turn also lands in the shared log.
     expect(screen.getByText("我想研究中国的碳排放")).toBeInTheDocument();
+  });
+
+  it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {
+    renderWithAiSlot(
+      <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
+    );
+    await screen.findByText(/先想清楚四件事/);
+
+    const gen = screen.getByRole("button", { name: /生成项目计划/ });
+    expect(gen).toBeDisabled();
+
+    // Fill three of the four required — still gated.
+    await userEvent.type(screen.getByRole("textbox", { name: /^目标/ }), "以中国为例的研究问题");
+    await userEvent.type(screen.getByRole("textbox", { name: /^缘由/ }), "关心气候矛盾");
+    await userEvent.type(screen.getByRole("textbox", { name: /^活动与时间/ }), "溯源→读→写");
+    expect(gen).toBeDisabled();
+
+    // The 4th REQUIRED dim opens the gate — even though 反例/张力 is left empty.
+    await userEvent.type(screen.getByRole("textbox", { name: /^资源/ }), "NASA、学校数据库");
+    expect(gen).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: /^可能的反例/ })).toHaveValue("");
+  });
+
+  it("renders the CONTINUOUS thread from the hoisted store (not just this room's slice), and shows the recap in-chat", async () => {
+    // The thread is loaded ONCE by WorkspaceContainer into the hoisted store and
+    // handed down; this room reads it via the provider (no per-room re-fetch).
+    // Seeding the provider stands in for that container load.
+    renderWithAiSlot(
+      <PlanBlock
+        projectId="p1"
+        title="T"
+        qualification="拓展论文 EE"
+        proposal={EMPTY_PROPOSAL}
+        onOpenRoom={() => {}}
+        refreshWorkspace={() => {}}
+        recap="欢迎回来——你上次聊到了判断尺度。"
+      />,
+      [{ role: "ai", text: "我们上次聊到判断尺度。", card: null }],
+    );
+    // The one continuous 印记 conversation across 立项/写作 renders from the store.
+    expect(await screen.findByText("我们上次聊到判断尺度。")).toBeInTheDocument();
+    // The recap is 印记's opening line inside the chat (not a separate banner).
+    expect(screen.getByText("欢迎回来——你上次聊到了判断尺度。")).toBeInTheDocument();
   });
 });
 

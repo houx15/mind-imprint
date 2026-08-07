@@ -46,6 +46,8 @@ vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-te
 const getWorkspace = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
+  getPlan: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
 }));
@@ -58,7 +60,7 @@ function fakeWorkspace(id: string) {
     title: `项目 ${id}`,
     qualification: "拓展论文 EE",
     status: "working" as const,
-    proposal: { objective: "", reason: "", activities: "", resources: "" },
+    proposal: { objective: "", reason: "", activities: "", resources: "", counterpoints: "" },
     createdAt: "2026-08-01T00:00:00Z",
     writingFinished: false,
   };
@@ -117,13 +119,15 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
 
     const main = screen.getByRole("main");
     const row = main.parentElement as HTMLElement;
-    // Default side is "right" (spec) → <main> comes first in DOM order.
-    expect(row.firstElementChild).toBe(main);
+    // Default side is "left" (agentic studio: 印记 is the constant left
+    // companion) → the AiPanel comes first, <main> last in DOM order.
+    expect(row.lastElementChild).toBe(main);
 
     await userEvent.click(screen.getByRole("button", { name: "切换 AI 面板左右" }));
 
-    expect(row.firstElementChild).not.toBe(main);
-    expect(row.lastElementChild).toBe(main);
+    // Flipped to "right" → <main> now comes first, panel last.
+    expect(row.firstElementChild).toBe(main);
+    expect(row.lastElementChild).not.toBe(main);
   });
 
   it("collapse hides the panel body (coach content unmounts) and shows an expand control", async () => {

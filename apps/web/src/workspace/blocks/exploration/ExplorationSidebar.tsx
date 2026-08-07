@@ -73,7 +73,15 @@ export type ExplorationSidebarProps = {
   // A paper node can jump into the reading room (reuses ReadingBlock's slot).
   onEnterReading?: () => void;
   entering?: boolean;
+  // When enter-reading 422s (full text unfetchable), the paper shows an inline
+  // paste box instead of dead-clicking. `pastePrompt` carries the friendly
+  // message + any recovered DOI metadata; `onPaste` submits the pasted body.
+  pastePrompt?: { msg: string; meta?: PasteMeta };
+  pasteBusy?: boolean;
+  onPaste?: (text: string) => void;
 };
+
+export type PasteMeta = { title?: string; author?: string; year?: string; journal?: string; abstract?: string };
 
 const SHELL = "flex w-[340px] flex-none flex-col border-l border-mk-border bg-mk-surface";
 
@@ -112,6 +120,9 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
     onBackToAi,
     onEnterReading,
     entering,
+    pastePrompt,
+    pasteBusy,
+    onPaste,
   } = props;
   const [keyword, setKeyword] = useState("");
   useEffect(() => {
@@ -131,7 +142,15 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
       <BackBar label="← 印记" onClick={onBackToAi} />
 
       {isPaper ? (
-        <PaperMeta reference={reference} node={node} onEnterReading={onEnterReading} entering={entering} />
+        <PaperMeta
+          reference={reference}
+          node={node}
+          onEnterReading={onEnterReading}
+          entering={entering}
+          pastePrompt={pastePrompt}
+          pasteBusy={pasteBusy}
+          onPaste={onPaste}
+        />
       ) : (
         <QuestionMeta node={node} papers={papers} onSelectPaper={onSelectPaper} />
       )}
@@ -192,12 +211,23 @@ function PaperMeta({
   node,
   onEnterReading,
   entering,
+  pastePrompt,
+  pasteBusy,
+  onPaste,
 }: {
   reference: Reference | null;
   node: ExplorationLead;
   onEnterReading?: () => void;
   entering?: boolean;
+  pastePrompt?: { msg: string; meta?: PasteMeta };
+  pasteBusy?: boolean;
+  onPaste?: (text: string) => void;
 }) {
+  const [pasteText, setPasteText] = useState("");
+  useEffect(() => {
+    // Reset the draft whenever a different paper is selected or the prompt clears.
+    setPasteText("");
+  }, [node.id, Boolean(pastePrompt)]);
   const title = reference?.title ?? node.text;
   const authors = reference?.author?.trim() || "";
   const year = reference?.year?.trim() || "";
@@ -265,7 +295,7 @@ function PaperMeta({
             打开原文
           </a>
         )}
-        {onEnterReading && (
+        {onEnterReading && !pastePrompt && (
           <button
             type="button"
             onClick={onEnterReading}
@@ -276,6 +306,30 @@ function PaperMeta({
           </button>
         )}
       </div>
+
+      {/* 422 fallback: the full text couldn't be fetched, so instead of a dead
+          click we ask her to paste the body → pasteContent → straight into the
+          reading room. Mirrors the Library preview's paste path. */}
+      {pastePrompt && onPaste && (
+        <div className="mt-3 rounded-mk border border-mk-accent-200 bg-mk-accent-50 p-2.5">
+          <p className="text-[12px] font-semibold leading-relaxed text-mk-ink">{pastePrompt.msg}</p>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={5}
+            placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……"
+            className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+          />
+          <button
+            type="button"
+            onClick={() => onPaste(pasteText.trim())}
+            disabled={pasteBusy || !pasteText.trim()}
+            className="mt-2 w-full rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+          >
+            {pasteBusy ? "开始中…" : "开始共读"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

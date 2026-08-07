@@ -234,10 +234,18 @@ type coachHistoryMsg struct {
 	Card *chatCardRef `json:"card,omitempty"`
 }
 
-// getCoachHistory returns one room's surface-slice of the ONE per-project thread
-// (folded turns included — a folded turn is still part of the visible
-// conversation). No spend. Continuity across rooms lives in the coach's context
-// (LoadActiveCoachHistory), not in this display slice.
+// workingCoachSurfaces are the surfaces that make up the ONE continuous 印记
+// conversation the student carries across the working rooms (立项/写作). Reading
+// and reflection are context-isolated sub-agents and are deliberately excluded,
+// so their turns never bleed into the main thread.
+var workingCoachSurfaces = []string{"forming", "proposal_review", "writing"}
+
+// getCoachHistory returns coach turns from the ONE per-project thread (folded
+// turns included — a folded turn is still part of the visible conversation). No
+// spend. `surface=studio` returns the CONTINUOUS working thread (all of
+// workingCoachSurfaces, in order) — the one persistent conversation across
+// 立项/写作; any other surface returns just that room's slice (reading/reflection
+// sub-agents). Continuity for the AI's own context lives in LoadActiveCoachHistory.
 func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -248,10 +256,19 @@ func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "surface 不能为空", nil))
 		return
 	}
-	rows, err := a.d.Queries.ListChatMessagesByProjectSurface(r.Context(), sqlc.ListChatMessagesByProjectSurfaceParams{
-		SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
-		Surface:         &surface,
-	})
+	var rows []sqlc.ChatMessage
+	var err error
+	if surface == "studio" {
+		rows, err = a.d.Queries.ListChatMessagesByProjectSurfaces(r.Context(), sqlc.ListChatMessagesByProjectSurfacesParams{
+			SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+			Column2:         workingCoachSurfaces,
+		})
+	} else {
+		rows, err = a.d.Queries.ListChatMessagesByProjectSurface(r.Context(), sqlc.ListChatMessagesByProjectSurfaceParams{
+			SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+			Surface:         &surface,
+		})
+	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

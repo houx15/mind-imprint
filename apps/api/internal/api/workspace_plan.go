@@ -33,10 +33,11 @@ func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Objective  string `json:"objective"`
-		Reason     string `json:"reason"`
-		Activities string `json:"activities"`
-		Resources  string `json:"resources"`
+		Objective     string `json:"objective"`
+		Reason        string `json:"reason"`
+		Activities    string `json:"activities"`
+		Resources     string `json:"resources"`
+		Counterpoints string `json:"counterpoints"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -49,11 +50,12 @@ func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
 	firstSave := errors.Is(getErr, pgx.ErrNoRows)
 
 	row, err := a.d.Queries.UpsertProjectProposal(r.Context(), sqlc.UpsertProjectProposalParams{
-		ProjectID:  projectID,
-		Objective:  body.Objective,
-		Reason:     body.Reason,
-		Activities: body.Activities,
-		Resources:  body.Resources,
+		ProjectID:     projectID,
+		Objective:     body.Objective,
+		Reason:        body.Reason,
+		Activities:    body.Activities,
+		Resources:     body.Resources,
+		Counterpoints: body.Counterpoints,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -75,10 +77,11 @@ func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"proposal": workspaceProposal{
-		Objective:  row.Objective,
-		Reason:     row.Reason,
-		Activities: row.Activities,
-		Resources:  row.Resources,
+		Objective:     row.Objective,
+		Reason:        row.Reason,
+		Activities:    row.Activities,
+		Resources:     row.Resources,
+		Counterpoints: row.Counterpoints,
 	}})
 }
 

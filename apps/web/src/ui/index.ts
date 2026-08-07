@@ -43,3 +43,4 @@ export * from "./Skeleton";
 export * from "./Pebble";
 export * from "./loaders";
 export * from "./Illustration";
+export * from "./SplitPane";

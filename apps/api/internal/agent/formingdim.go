@@ -14,21 +14,22 @@ import (
 // which she confirms with a tap (打开由学生确认). The AI never writes the
 // proposal on its own; this is a suggestion, not an autofill (#13).
 type FormingDimSuggestion struct {
-	Dim   string `json:"dim"`   // objective | reason | activities | resources
+	Dim   string `json:"dim"`   // objective | reason | activities | resources | counterpoints
 	Value string `json:"value"` // one-line summary in the student's own words
 }
 
 var formingDimLabels = map[string]string{
-	"objective":  "目标",
-	"reason":     "缘由",
-	"activities": "活动",
-	"resources":  "资源",
+	"objective":     "目标",
+	"reason":        "缘由",
+	"activities":    "活动",
+	"resources":     "资源",
+	"counterpoints": "反例/张力",
 }
 
-const formingDimSystemPrompt = `你在帮一个学生立题（开题四问：目标 objective / 缘由 reason / 活动 activities / 资源 resources）。
-判断学生刚说的这句话，是否已经清楚地表达了其中【某一个还没填】的维度。
-- 如果是：输出 JSON {"dim":"<objective|reason|activities|resources 之一>","value":"<用学生自己的话，一句话概括要记进那一栏的内容>"}。value 必须忠于她的原话，别替她扩写、别下结论、别润色成不是她说的意思。
-- 如果她这句话没有清楚落到任何一个还没填的维度：输出 {"dim":""}。
+const formingDimSystemPrompt = `你在帮一个学生立题。提案要点有五栏：目标 objective / 缘由 reason / 活动 activities / 资源 resources / 反例·张力 counterpoints（她的论点可能撞上的反例、张力或反方证据）。
+判断学生刚说的这句话，是否已经清楚地表达了其中【某一个还没填】的栏目。
+- 如果是：输出 JSON {"dim":"<objective|reason|activities|resources|counterpoints 之一>","value":"<用学生自己的话，一句话概括要记进那一栏的内容>"}。value 必须忠于她的原话，别替她扩写、别下结论、别润色成不是她说的意思。
+- 如果她这句话没有清楚落到任何一个还没填的栏目：输出 {"dim":""}。
 只输出这个 JSON，不要多余文字。`
 
 func stripJSONFence(s string) string {

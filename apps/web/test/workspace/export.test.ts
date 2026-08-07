@@ -73,6 +73,7 @@ const proposal: Proposal = {
   reason: "新闻里中国既大规模植树造林，又是全球碳排放第一。",
   activities: "溯源关键数据 → 读正反两方文献 → 搭论证。",
   resources: "",
+  counterpoints: "",
 };
 
 const log: LogEntry[] = [

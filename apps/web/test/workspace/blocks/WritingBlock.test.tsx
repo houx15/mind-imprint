@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 
 // WritingBlock's coach (formerly the bespoke inline `CoachRail`) now portals
 // its chat log + composer + card shelf through the SHARED `ChatLog`/
@@ -9,10 +11,27 @@ import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
 // resolves to (Task 4's room→panel contract) — mirrors PlanBlock/
 // ReviewBlock's test helper: stand in a real DOM node via
 // `StudioAiSlotContext.Provider` the same way the constant AiPanel body does.
-function renderWithAiSlot(ui: React.ReactElement) {
+// The coach thread now lives in the hoisted StudioChatContext store (owned by
+// WorkspaceContainer in the shell); the rail reads/appends it via
+// `useStudioChat()`, so tests stand in a stateful provider around it.
+function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
+  const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
+  const [sending, setSending] = useState(false);
+  return (
+    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending, activeProjectIdRef: { current: "p1" } }}>
+      {children}
+    </StudioChatContext.Provider>
+  );
+}
+
+function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg[] = []) {
   const slot = document.createElement("div");
   document.body.appendChild(slot);
-  return render(<StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>);
+  return render(
+    <ChatProvider initial={initialMessages}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </ChatProvider>,
+  );
 }
 
 // WA · the Write room's 整稿体检 (check-my-draft). Mock the thin api modules
@@ -72,7 +91,7 @@ const mockReview = vi.mocked(runDraftReview);
 const mockPutBuffer = vi.mocked(putBuffer);
 const mockExport = vi.mocked(exportDraftDocx);
 const mockCoach = vi.mocked(coach);
-const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res" };
+const PROPOSAL = { objective: "论证中国是否让地球更可持续", reason: "r", activities: "a", resources: "res", counterpoints: "" };
 
 beforeEach(() => {
   vi.clearAllMocks();
