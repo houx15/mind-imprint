@@ -64,7 +64,11 @@ func TestProposeOrchestratorTurn_RetriesOnParseError(t *testing.T) {
 	if prov.Calls != 2 {
 		t.Fatalf("expected exactly 2 attempts, got %d", prov.Calls)
 	}
-	if usage.InputTokens != 7 || usage.OutputTokens != 3 {
-		t.Fatalf("expected usage from the successful second attempt, got %+v", usage)
+	// Whole-branch review Fix 3: attempt 0 still cost real tokens even though
+	// its output failed to parse — the returned usage must be the SUM across
+	// both attempts (5+7, 1+3), not just the successful second attempt's, else
+	// attempt 0's spend goes unmetered.
+	if usage.InputTokens != 12 || usage.OutputTokens != 4 {
+		t.Fatalf("expected usage summed across both attempts (12,4), got %+v", usage)
 	}
 }

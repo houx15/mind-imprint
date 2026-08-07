@@ -65,7 +65,19 @@ func ParseOrchestratorOutput(text string) (OrchestratorDecision, error) {
 	}
 	kept := make([]OrchestratorToolCall, 0, len(out.Tools))
 	for _, tc := range out.Tools {
-		if !knownOrchestratorTools[tc.Name] || !validToolArgs(tc) {
+		if !knownOrchestratorTools[tc.Name] {
+			continue
+		}
+		// curate_reference gets item-level filtering (drop only the bad items,
+		// not the whole tool) rather than the all-or-nothing validToolArgs check
+		// the other tools use — see filterCurateReferenceCall.
+		if tc.Name == "curate_reference" {
+			if filtered, ok := filterCurateReferenceCall(tc); ok {
+				kept = append(kept, filtered)
+			}
+			continue
+		}
+		if !validToolArgs(tc) {
 			continue
 		}
 		kept = append(kept, tc)
@@ -81,9 +93,6 @@ func validToolArgs(tc OrchestratorToolCall) bool {
 	case "open_tool":
 		a, err := OpenToolArgs(tc)
 		return err == nil && a.Tool.IsValid()
-	case "curate_reference":
-		_, err := CurateReferenceArgs(tc)
-		return err == nil
 	case "propose_note":
 		a, err := ProposeNoteArgs(tc)
 		return err == nil && validSection(a.Section)
@@ -102,6 +111,46 @@ func validSection(s string) bool {
 		return true
 	}
 	return false
+}
+
+// validReferenceKind reports whether kind is one of the closed set the client
+// contract's strict `z.enum` accepts (`packages/contracts/src/orchestrator.ts`).
+// An out-of-enum kind that slips past the server would make the client's
+// OrchestratorReply/StudioState parse throw downstream, silently swallowing
+// the narration and leaving the student stuck on a sticky chat-first resume —
+// so it must never reach `studio_state`.
+func validReferenceKind(kind string) bool {
+	switch kind {
+	case "material", "note", "annotation":
+		return true
+	}
+	return false
+}
+
+// filterCurateReferenceCall unmarshals a curate_reference call's args and
+// drops any item whose kind is outside the closed set (validReferenceKind),
+// keeping the rest. Returns ok=false when the args don't unmarshal at all, OR
+// when filtering leaves zero valid items — in both cases the whole tool call
+// is dropped (a no-op turn) rather than persisting a bad/empty reference set.
+func filterCurateReferenceCall(tc OrchestratorToolCall) (OrchestratorToolCall, bool) {
+	a, err := CurateReferenceArgs(tc)
+	if err != nil {
+		return OrchestratorToolCall{}, false
+	}
+	valid := make([]ReferenceRef, 0, len(a.Items))
+	for _, item := range a.Items {
+		if validReferenceKind(item.Kind) {
+			valid = append(valid, item)
+		}
+	}
+	if len(valid) == 0 {
+		return OrchestratorToolCall{}, false
+	}
+	args, merr := json.Marshal(CurateReferenceArgsT{Items: valid})
+	if merr != nil {
+		return OrchestratorToolCall{}, false
+	}
+	return OrchestratorToolCall{Name: tc.Name, Args: args}, true
 }
 
 // --- typed arg accessors ---
@@ -174,9 +223,13 @@ func buildOrchestratorRequest(spineProjection string, state StudioState, history
 	return gateway.ChatRequest{Messages: messages}
 }
 
-// ProposeOrchestratorTurn makes ONE LLM call for a student turn and returns the
-// parsed decision. Retries once on a parse failure; the caller falls back to a
-// plain narration on a second failure.
+// ProposeOrchestratorTurn makes up to two LLM calls for a student turn (a
+// retry on a parse failure) and returns the parsed decision. The returned
+// usage is the SUM across every attempt actually made — attempt 0's tokens
+// are real spend even when its output failed to parse and attempt 1 had to
+// run, so they must still be metered, not silently dropped in favor of only
+// the last attempt's usage. The caller falls back to a plain narration when
+// both attempts fail to parse.
 func ProposeOrchestratorTurn(
 	ctx context.Context,
 	prov gateway.Provider,
@@ -186,17 +239,18 @@ func ProposeOrchestratorTurn(
 	history []ChatTurn,
 ) (OrchestratorDecision, gateway.ChatUsage, error) {
 	req := buildOrchestratorRequest(spineProjection, state, history)
-	var lastUsage gateway.ChatUsage
+	var totalUsage gateway.ChatUsage
 	for attempt := 0; attempt < 2; attempt++ {
 		res, err := gateway.Collect(ctx, prov, r, req)
 		if err != nil {
-			return OrchestratorDecision{}, lastUsage, err
+			return OrchestratorDecision{}, totalUsage, err
 		}
-		lastUsage = res.Usage
+		totalUsage.InputTokens += res.Usage.InputTokens
+		totalUsage.OutputTokens += res.Usage.OutputTokens
 		dec, perr := ParseOrchestratorOutput(res.Text)
 		if perr == nil {
-			return dec, lastUsage, nil
+			return dec, totalUsage, nil
 		}
 	}
-	return OrchestratorDecision{}, lastUsage, errOrchestratorParse
+	return OrchestratorDecision{}, totalUsage, errOrchestratorParse
 }

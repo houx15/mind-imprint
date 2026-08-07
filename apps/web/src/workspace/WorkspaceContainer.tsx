@@ -409,6 +409,14 @@ export function WorkspaceContainer({
     // chat-first landing (never the previous project's board) until this
     // project's studio_state resolves.
     setStudioState(null);
+    // Reset the room too — else a project resumed into e.g. the reading room
+    // leaves `room==="reading"` stuck when the NEXT project resolves
+    // chat-first: showAiPanel's old `room !== "reading"` check would then hide
+    // the constant AiPanel entirely while chat-first has nothing else to show
+    // in it, producing an empty 印记 panel. applyStudioState below re-derives
+    // the real room once this project's status resolves; "plan" is just the
+    // safe interim default (mirrors the pre-load fallback).
+    setRoom("plan");
     // Clear any manual takeover from the previous project — the new project
     // resumes at its own 印记 status.
     setTookOver(false);
@@ -595,11 +603,6 @@ export function WorkspaceContainer({
       <div ref={aiSlotRef} className="h-full" />
     </AiPanel>
   );
-  // The reading room is a distinct full-screen surface that owns its own coach
-  // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
-  // empty beside it (list mode) or duplicate it as a second 印记 column (graph
-  // mode). So the constant panel shows for every room EXCEPT reading.
-  const showAiPanel = room !== "reading";
   // Chat-first (Task 8): the interactive area shows the calm landing (not a
   // room board) while 印记's status is still loading (studioState === null, so
   // we never flash the plan board) OR when 印记 is keeping chat primary
@@ -607,6 +610,15 @@ export function WorkspaceContainer({
   // A manual takeover (spec §6) overrides this so the switcher-chosen room
   // mounts even in chat-first / null / errored status.
   const showChatFirst = !tookOver && (studioState == null || studioState.openTool === "chat");
+  // The reading room is a distinct full-screen surface that owns its own coach
+  // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
+  // empty beside it (list mode) or duplicate it as a second 印记 column (graph
+  // mode). So the constant panel shows for every room EXCEPT reading — EXCEPT
+  // while chat-first, where it must always show regardless of `room`: `room`
+  // can be stale (e.g. still "reading" from the just-left project) during the
+  // transient window before this project's own status resolves and re-derives
+  // it, and chat-first has nowhere else to render its portal target.
+  const showAiPanel = showChatFirst ? true : room !== "reading";
 
   // The ONE hoisted 印记 store — the continuous thread + the container-owned
   // send loop + note/card offers — shared by chat-first AND both working rooms

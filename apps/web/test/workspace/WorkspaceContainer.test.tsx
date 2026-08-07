@@ -226,6 +226,33 @@ describe("WorkspaceContainer", () => {
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
   });
 
+  // Whole-branch review Fix 1: `room` used to be left stale across a project
+  // switch — a project resumed into the reading room, then a NEW project
+  // resolving chat-first, left `room==="reading"` stuck (the load effect reset
+  // studioState/tookOver/etc but never `room`). `showAiPanel` used to be
+  // `room !== "reading"`, so the panel stayed hidden even though chat-first
+  // has nowhere else to render its portal — an empty 印记 panel with no
+  // switcher-visible escape. Guards BOTH halves of the fix: the reset-on-load
+  // AND the chat-first-always-shows-the-panel derivation.
+  it("does not leave an empty 印记 panel when switching from a reading-room project to a chat-first project", async () => {
+    getStudioState.mockImplementation(async (id: string) =>
+      id === "pa" ? fakeStudioState("reading") : fakeStudioState("chat"),
+    );
+    const { rerender } = render(<WorkspaceContainer initialProjectId="pa" />);
+
+    // Project A resumes into the reading room.
+    expect(await screen.findByTestId("reading-block")).toBeInTheDocument();
+
+    // Switch to project B, which resolves chat-first.
+    rerender(<WorkspaceContainer initialProjectId="pb" />);
+
+    expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
+    expect(screen.queryByTestId("reading-block")).not.toBeInTheDocument();
+    // The panel is not empty: the real 印记 chat composer is portaled in —
+    // this is what a stale `room==="reading"` used to hide.
+    expect(await screen.findByPlaceholderText(/和印记说说你的项目/)).toBeInTheDocument();
+  });
+
   // Task 9b · a reply carrying a note OFFER renders a confirm chip; confirming
   // read-modify-writes the proposal board (getWorkspace → putProposal merged).
   it("a reply with a note renders a confirm chip; confirming persists the merged proposal", async () => {

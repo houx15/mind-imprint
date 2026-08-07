@@ -35,6 +35,50 @@ func TestParseOrchestratorOutput_DropsUnknownAndInvalid(t *testing.T) {
 	}
 }
 
+// Whole-branch review Fix 2: an out-of-enum `kind` on a curate_reference item
+// used to pass server-side (only `err == nil` on unmarshal was checked, and
+// ReferenceRef.Kind is a plain Go string) and get persisted into studio_state
+// — then the client's strict `z.enum(["material","note","annotation"])`
+// (packages/contracts/src/orchestrator.ts) throws on OrchestratorReply.parse,
+// silently swallowing the narration. A mix of one valid + one invalid item
+// keeps only the valid one (item-level drop, not the whole tool).
+func TestParseOrchestratorOutput_CurateReferenceDropsInvalidKindKeepsValid(t *testing.T) {
+	raw := `{"narrate":"材料摆好了。","tools":[` +
+		`{"name":"curate_reference","args":{"items":[` +
+		`{"kind":"material","id":"m1","label":"NASA 数据"},` +
+		`{"kind":"bogus","id":"b1","label":"越权项"}` +
+		`]}}]}`
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dec.Tools) != 1 || dec.Tools[0].Name != "curate_reference" {
+		t.Fatalf("expected the curate_reference tool to be kept, got %+v", dec.Tools)
+	}
+	args, aerr := CurateReferenceArgs(dec.Tools[0])
+	if aerr != nil {
+		t.Fatal(aerr)
+	}
+	if len(args.Items) != 1 || args.Items[0].Kind != "material" || args.Items[0].ID != "m1" {
+		t.Fatalf("expected only the valid material item to survive, got %+v", args.Items)
+	}
+}
+
+// When EVERY item's kind is out-of-enum, the whole tool call is dropped (a
+// no-op turn) rather than persisting an empty/bad reference set.
+func TestParseOrchestratorOutput_CurateReferenceAllInvalidDropsTool(t *testing.T) {
+	raw := `{"narrate":"ok","tools":[` +
+		`{"name":"curate_reference","args":{"items":[{"kind":"bogus","id":"b1","label":"x"}]}}` +
+		`]}`
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dec.Tools) != 0 {
+		t.Fatalf("expected the curate_reference tool to be dropped entirely, got %+v", dec.Tools)
+	}
+}
+
 func TestParseOrchestratorOutput_MalformedIsError(t *testing.T) {
 	if _, err := ParseOrchestratorOutput("not json at all"); err == nil {
 		t.Fatal("expected error on unparseable output")

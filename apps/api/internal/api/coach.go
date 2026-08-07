@@ -58,11 +58,14 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		UserInput string `json:"user_input"`
 		// Scope is OPTIONAL. Empty (the studio callers — 计划/写作) drives the
-		// orchestrator below. The two context-isolated SUB-AGENTS — reading-library
-		// find_sources (ReadingBlock) and reflection (ReviewBlock) — set it so
-		// their turns take the retained legacy per-surface path instead (Task 9a):
-		// they must NOT be driven by the studio orchestrator (different thread,
-		// different posture, never touches studio_state).
+		// orchestrator below. The two SUB-AGENTS — reading-library find_sources
+		// (ReadingBlock) and reflection (ReviewBlock) — set it so their turns take
+		// the retained legacy per-surface path instead (Task 9a): they must NOT be
+		// driven by the studio orchestrator. NOTE this is isolation by POSTURE
+		// (a different, tool-less producer) and STORAGE SURFACE tag, and by never
+		// mutating studio_state — NOT by context window: LoadActiveCoachHistory is
+		// surface-agnostic (same project thread), so the LLM context DOES include
+		// these sub-agent turns when the orchestrator next runs, and vice versa.
 		Scope string `json:"scope"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
@@ -232,24 +235,31 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 
-// isSubagentCoachScope reports whether scope names one of the two
-// context-isolated SUB-AGENT coaches (Task 9a) that must stay OUTSIDE the
-// studio orchestrator's one continuous thread: reading-library find_sources
-// (ReadingBlock, spawned while checking a source) and reflection (ReviewBlock,
-// spawned while writing the retrospective). Both keep their own retained
-// legacy per-surface conversation and their own posture — the orchestrator
-// never sees or drives them.
+// isSubagentCoachScope reports whether scope names one of the two SUB-AGENT
+// coaches (Task 9a): reading-library find_sources (ReadingBlock, spawned while
+// checking a source) and reflection (ReviewBlock, spawned while writing the
+// retrospective). Both are stored under their own `surface` tag and run their
+// own posture (ProposeProjectCoachReply — no tools, no studio_state mutation),
+// so the studio orchestrator never DRIVES them. But they are NOT isolated by
+// context window: they live on the same project thread, and
+// LoadActiveCoachHistory (surface-agnostic) means the orchestrator's context
+// on its next turn DOES include these sub-agent turns, and these sub-agents'
+// context includes the orchestrator's turns too.
 func isSubagentCoachScope(scope string) bool {
 	return scope == "find_sources" || scope == "reflection"
 }
 
-// postCoachSubagentTurn runs one turn of a context-isolated sub-agent coach
-// (find_sources / reflection) — the RETAINED legacy per-surface path, isolated
-// from the studio orchestrator's one continuous thread. Turns are stored under
-// `scope` (never "studio"), the reply comes from the always-reply conversational
-// producer ProposeProjectCoachReply (no tools, no studio_state mutation — a
-// sub-agent never drives project status), and the response is still shaped as
-// an OrchestratorReply so the frontend contract parses uniformly: `directive`
+// postCoachSubagentTurn runs one turn of a sub-agent coach (find_sources /
+// reflection) — the RETAINED legacy per-surface path. Turns are stored under
+// `scope` (never "studio") — same project thread, different surface tag — and
+// the reply comes from the always-reply conversational producer
+// ProposeProjectCoachReply (no tools, no studio_state mutation — a sub-agent
+// never drives project status). The isolation from the studio orchestrator is
+// by POSTURE and by never mutating studio_state, NOT by context window:
+// LoadActiveCoachHistory pulls the whole thread regardless of surface, so
+// these turns still land in the orchestrator's context (and the orchestrator's
+// turns in this sub-agent's). The response is still shaped as an
+// OrchestratorReply so the frontend contract parses uniformly: `directive`
 // carries the project's CURRENT studio_state UNCHANGED, and note/card/
 // reviewRequested are always the zero value (nil/nil/false).
 func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, resolved gateway.Resolved, projectID uuid.UUID, scope, userInput string) {
