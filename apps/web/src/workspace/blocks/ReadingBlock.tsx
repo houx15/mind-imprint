@@ -76,9 +76,14 @@ export function ReadingBlock({
   projectId,
   title,
   setReadingSource,
+  refreshNonce,
 }: {
   projectId: string;
   title: string;
+  // Task 8 (P2b) · WorkspaceContainer's `explorationRefreshNonce`, forwarded
+  // straight through to ExplorationView so a 印记-confirmed question (the chat
+  // chip, Task 7) re-fetches the graph without a manual reload.
+  refreshNonce?: number;
   // referenceId is the Library row this material was opened from — the S2
   // reading-brief/takeaway endpoints are keyed by reference id, not material
   // id, so the room needs it threaded through. suggestedReason is the
@@ -465,6 +470,7 @@ export function ReadingBlock({
               // the project title (already threaded in as `title`/`topic`) is
               // the driving-question seed's fallback source.
               projectTitle={title}
+              refreshNonce={refreshNonce}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib

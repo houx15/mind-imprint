@@ -780,7 +780,13 @@ export function WorkspaceContainer({
               />
             )}
             {room === "reading" && (
-              <ReadingBlock key={projectId} projectId={projectId} title={workspace.title} setReadingSource={openReadingSource} />
+              <ReadingBlock
+                key={projectId}
+                projectId={projectId}
+                title={workspace.title}
+                setReadingSource={openReadingSource}
+                refreshNonce={explorationRefreshNonce}
+              />
             )}
             {room === "writing" && (
               // Writing stage (spec §2/§6): the interactive area splits into a
