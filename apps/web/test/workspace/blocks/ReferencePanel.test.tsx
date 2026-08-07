@@ -128,12 +128,21 @@ describe("ReferencePanel", () => {
     render(
       // reference=[] → REF is NOT curated, so it appears in the 你的材料 browse
       // (the fold of the old floating 材料 box), with an insert action.
-      <ReferencePanel projectId="p1" reference={[]} stage="body_writing" proposal={EMPTY_PROPOSAL} onInsert={onInsert} />,
+      <ReferencePanel projectId="p1" reference={[]} stage="body_writing" proposal={EMPTY_PROPOSAL} onInsert={onInsert} canInsert />,
     );
 
     expect(await screen.findByText("你的材料")).toBeInTheDocument();
     expect(await screen.findByText(REF.title)).toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole("button", { name: "插入" }))[0]!);
     expect(onInsert).toHaveBeenCalledWith("关注可再生能源投资规模。");
+  });
+
+  it("hides the 「插入」 action when the draft isn't open (canInsert=false)", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+    render(
+      <ReferencePanel projectId="p1" reference={[]} stage="body_writing" proposal={EMPTY_PROPOSAL} onInsert={() => {}} canInsert={false} />,
+    );
+    expect(await screen.findByText("你的材料")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "插入" })).toBeNull();
   });
 });

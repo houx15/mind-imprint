@@ -50,15 +50,18 @@ export function ReferencePanel({
   stage,
   proposal,
   onInsert,
+  canInsert,
 }: {
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
   proposal: Proposal;
   /** P3 · insert a fragment into the draft at the caret (the fold of the old
-   * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer;
-   * a no-op when the 正文 tab isn't open (DraftPane hasn't registered). */
+   * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer. */
   onInsert?: (text: string) => void;
+  /** Whether the draft is currently open (正文 tab) — the 「插入」 action only
+   * shows when true, so it's never a dead no-op on 大纲/片段 (P3 review). */
+  canInsert?: boolean;
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
@@ -93,8 +96,9 @@ export function ReferencePanel({
   // 材料 group, so a source never shows twice (spec §5: the floating 材料 box,
   // folded into the left panel).
   const curatedIds = new Set(materials.map((m) => m.id));
+  const curatedNoteIds = new Set(notes.map((n) => n.id));
   const collectedLib = loading ? [] : (lib ?? []).filter((r) => !curatedIds.has(r.id));
-  const collectedSnips = snippets ?? [];
+  const collectedSnips = loading ? [] : (snippets ?? []).filter((s) => !curatedNoteIds.has(s.id));
   const hasCollected = !loading && (collectedLib.length > 0 || collectedSnips.length > 0);
   const isEmpty =
     !loading && !showProposal && materials.length === 0 && notes.length === 0 && !hasCollected;
@@ -117,7 +121,9 @@ export function ReferencePanel({
             {showProposal && <ProposalGroup proposal={proposal} />}
             {materials.length > 0 && <MaterialGroup items={materials} />}
             {notes.length > 0 && <NoteGroup items={notes} />}
-            {hasCollected && <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} />}
+            {hasCollected && (
+              <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} canInsert={canInsert} />
+            )}
             <AnnotationGroup />
           </div>
         )}
@@ -229,10 +235,12 @@ function CollectedSection({
   lib,
   snippets,
   onInsert,
+  canInsert,
 }: {
   lib: Reference[];
   snippets: Snippet[];
   onInsert?: (text: string) => void;
+  canInsert?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -248,7 +256,7 @@ function CollectedSection({
                   {frags.map((f, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-mk-muted">{f}</p>
-                      {onInsert && (
+                      {onInsert && canInsert && (
                         <button
                           type="button"
                           onClick={() => onInsert(f)}
@@ -271,7 +279,7 @@ function CollectedSection({
             {snippets.map((s) => (
               <div key={s.id} className="flex items-start gap-2 rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
                 <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-mk-muted">{s.text}</p>
-                {onInsert && s.text.trim() && (
+                {onInsert && canInsert && s.text.trim() && (
                   <button
                     type="button"
                     onClick={() => onInsert(s.text)}

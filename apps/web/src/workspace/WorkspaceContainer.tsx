@@ -261,6 +261,10 @@ export function WorkspaceContainer({
   // ReferencePanel's 材料 fragments call it — the fold of the old floating
   // 材料 box, hoisted one level so the two SplitPane siblings share one path.
   const draftInsertRef = useRef<((t: string) => void) | null>(null);
+  // Whether the writing draft (DraftPane, 正文 tab) is mounted + has registered
+  // its inserter — gates the ReferencePanel 材料「插入」action so it is never a
+  // dead no-op on the 大纲/片段 tabs (P3 review).
+  const [insertReady, setInsertReady] = useState(false);
 
   // Apply a fresh directive from 印记: store it, and (unless it's chat-first)
   // swap the interactive area to the room it names. The load effect calls this
@@ -838,6 +842,7 @@ export function WorkspaceContainer({
                     stage={studioState?.stage ?? "body_writing"}
                     proposal={workspace.proposal}
                     onInsert={(t) => draftInsertRef.current?.(t)}
+                    canInsert={insertReady}
                   />
                 }
                 right={
@@ -849,6 +854,7 @@ export function WorkspaceContainer({
                     status={workspace.status}
                     writingFinished={workspace.writingFinished ?? false}
                     draftInsertRef={draftInsertRef}
+                    onInsertReady={setInsertReady}
                     refreshWorkspace={refreshWorkspace}
                     recap={summary}
                   />

@@ -103,6 +103,7 @@ export function WritingBlock({
   status,
   writingFinished,
   draftInsertRef,
+  onInsertReady,
   refreshWorkspace,
   recap,
 }: {
@@ -118,6 +119,9 @@ export function WritingBlock({
    * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
    * isolated unit render falls back to a local ref. */
   draftInsertRef?: { current: ((t: string) => void) | null };
+  /** Notified when DraftPane registers (正文 mounted) / unregisters its inserter,
+   * so the container can gate the ReferencePanel 「插入」 action (P3 review). */
+  onInsertReady?: (ready: boolean) => void;
   // Re-pull the projection so a 完成写作 / 重新打开写作 toggle propagates to both
   // rooms (WritingBlock's lock + ReviewBlock's gate) without a full remount.
   refreshWorkspace: () => Promise<void> | void;
@@ -233,7 +237,7 @@ export function WritingBlock({
             title={title}
             locked={locked}
             onFocusPart={setFocusPart}
-            registerInsert={(fn) => { insertTarget.current = fn; }}
+            registerInsert={(fn) => { insertTarget.current = fn; onInsertReady?.(!!fn); }}
             pendingReview={pendingReview}
             onPendingReviewHandled={() => setPendingReview(null)}
           />
