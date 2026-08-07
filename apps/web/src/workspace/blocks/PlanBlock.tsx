@@ -409,7 +409,7 @@ function dayIndexFromAnchor(anchor: Date, target: Date): number {
 // #15: the overwrite guard shown before a regenerate replaces an existing plan.
 function RegenConfirm({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-6" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" role="dialog" aria-modal="true">
       <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg">
         <h3 className="text-[16px] font-bold text-mk-ink">重新生成计划？</h3>
         <p className="mt-2.5 text-[13.5px] leading-relaxed text-mk-muted">
@@ -441,7 +441,7 @@ const DIM_LABEL: Record<DimSuggestionWire["dim"], string> = {
 function DimConfirmChip({ suggestion, onConfirm, onDismiss }: { suggestion: DimSuggestionWire; onConfirm: () => void; onDismiss: () => void }) {
   const label = DIM_LABEL[suggestion.dim];
   return (
-    <div className="rounded-mk-lg border border-mk-success/40 bg-mk-success-bg/50 px-3.5 py-3 text-[13px] text-mk-ink">
+    <div className="rounded-mk-lg border border-mk-success/40 bg-mk-success-bg px-3.5 py-3 text-[13px] text-mk-ink">
       <p className="font-semibold leading-snug text-mk-success">要不要把这点记进「{label}」？</p>
       <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">{suggestion.value}</p>
       <div className="mt-2.5 flex items-center gap-2">
@@ -672,7 +672,7 @@ function ProposalWriter({ proposal, setDim, title, qualification, onClose }: { p
     }
   }
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 px-8" onClick={onClose}>
       <div className="flex max-h-[86%] w-[640px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-mk-border px-6 py-4">
           <div>
@@ -950,7 +950,7 @@ function KanbanView({ board, loading, anchor, onMove, onAddTask, onEditItem, onJ
             onDragOver={(e) => { e.preventDefault(); setOver(col); }}
             onDragLeave={() => setOver((o) => (o === col ? null : o))}
             onDrop={() => { if (dragId) onMove(dragId, col); setDragId(null); setOver(null); }}
-            className={`flex min-h-0 flex-col rounded-mk-lg border-2 p-3 transition ${isOver ? "border-mk-accent/50 bg-mk-accent-50/40" : "border-transparent bg-mk-surface/60"}`}
+            className={`flex min-h-0 flex-col rounded-mk-lg border-2 p-3 transition ${isOver ? "border-mk-accent/50 bg-mk-accent-50" : "border-transparent bg-mk-surface"}`}
           >
             <header className="mb-3 flex items-center justify-between px-1">
               <span className="text-[13px] font-bold text-mk-ink">{COLUMN_LABEL[col]}</span>
@@ -1046,12 +1046,12 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
           if (items.length === 0) return null;
           return (
             <div key={stage}>
-              <div className="grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-paper/50">
+              <div className="grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-paper">
                 <div className="px-4 py-1.5 text-[11.5px] font-bold uppercase tracking-wider text-mk-muted">{stage}</div>
                 <div />
               </div>
               {items.map((item) => (
-                <div key={item.id} className="group grid grid-cols-[240px,1fr] items-center border-b border-mk-border hover:bg-mk-paper/40">
+                <div key={item.id} className="group grid grid-cols-[240px,1fr] items-center border-b border-mk-border hover:bg-mk-paper">
                   <div className="flex items-center gap-1 px-4 py-3">
                     {/* label click = view/edit; the small arrow = doorway jump (#4) */}
                     <button type="button" onClick={() => onEditItem(item)} title="查看 / 修改任务" className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -1069,7 +1069,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
                         return (
                           <div
                             key={d}
-                            className={`${isToday ? "border-l-2 border-l-mk-accent/60 bg-mk-accent-50/25" : `border-l border-mk-border ${isWeekend ? "bg-mk-paper/60" : ""}`}`}
+                            className={`${isToday ? "border-l-2 border-l-mk-accent/60 bg-mk-accent-50" : `border-l border-mk-border ${isWeekend ? "bg-mk-paper" : ""}`}`}
                           />
                         );
                       })}
@@ -1183,7 +1183,7 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
           // #5 — one box per date; each date's lines keep their 自动/我记的 tag.
           <div className="flex flex-col gap-4 p-4">
             {groupByDate(rows).map((g) => (
-              <div key={g.date} className="rounded-mk-md border border-mk-border bg-mk-paper/40">
+              <div key={g.date} className="rounded-mk-md border border-mk-border bg-mk-paper">
                 <div className="border-b border-mk-border px-4 py-2 text-[12px] font-bold text-mk-faint">{g.date}</div>
                 <div className="flex flex-col">
                   {g.entries.map((e, i) => (
@@ -1253,7 +1253,7 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
 
   const tags: PlanTag[] = ["read", "write", "review"];
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-mk-ink/30 px-8" onClick={onClose}>
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 px-8" onClick={onClose}>
       <div className="flex w-[460px] flex-col rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-mk-border px-5 py-3.5">
           <h3 className="font-sans text-[16px] font-bold text-mk-ink">任务详情</h3>

@@ -176,7 +176,7 @@ export function InnerPartsRenderer({
                 onClick={() => onField("inner_part_choice", optionString)}
                 className={`flex flex-col items-center gap-2 rounded-[14px] border-2 p-4 text-center transition-colors ${
                   isSelected
-                    ? "border-mk-primary bg-mk-primary/5"
+                    ? "border-mk-primary bg-mk-accent-50"
                     : "border-mk-border-2 bg-white hover:border-mk-primary/40"
                 }`}
               >

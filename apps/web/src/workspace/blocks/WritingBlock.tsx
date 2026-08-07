@@ -275,7 +275,7 @@ export function WritingBlock({
           draft read-only and unlocks 回顾. Reversible via 重新打开写作 until you 归档
           there, at which point 正文与回顾都会锁定、不能再改，并生成过程评估。 */}
       {showFinishModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
@@ -523,7 +523,7 @@ function SnippetSection({
     setEditingIds((ids) => { if (!ids.has(id)) return ids; const n = new Set(ids); n.delete(id); return n; });
   }
   return (
-    <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-accent bg-mk-accent-50/30" : "border-mk-border bg-mk-paper/30"}`}>
+    <section className={`rounded-mk-lg border ${isDropTarget ? "border-mk-accent bg-mk-accent-50" : "border-mk-border bg-mk-paper"}`}>
       <div
         onDragOver={(e) => { e.preventDefault(); onDragOverHead(); }}
         onDrop={(e) => { e.preventDefault(); onDropHead(); }}
@@ -953,7 +953,7 @@ function OutlineRow({ node, registerInput, onKey, onEdit, onIndent, onOutdent, o
   // mk-accent family root/0 uses above.
   const dot = node.depth === 0 ? "bg-mk-accent" : node.depth === 1 ? "bg-mk-taro" : "bg-mk-success";
   return (
-    <div className="group flex items-center gap-2 rounded-mk-md py-1 hover:bg-mk-paper/60" style={{ paddingLeft: node.depth * 26 }}>
+    <div className="group flex items-center gap-2 rounded-mk-md py-1 hover:bg-mk-paper" style={{ paddingLeft: node.depth * 26 }}>
       <span className={`h-1.5 w-1.5 flex-none rounded-full ${dot}`} />
       <input
         ref={registerInput}
@@ -1463,7 +1463,7 @@ function DraftPane({
                     onScroll={() => setSelPop(null)}
                     readOnly={locked}
                     placeholder="在这里写你的草稿……（支持 Markdown）"
-                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper/60 cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
+                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
                   />
                 )
               ) : (
@@ -1471,7 +1471,7 @@ function DraftPane({
               )
             ) : (
               <div
-                className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input-border bg-mk-surface/50 px-6 text-center"
+                className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input-border bg-mk-surface px-6 text-center"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -1622,7 +1622,7 @@ function SectionedDraft({
       ) : (
         <div className="flex flex-col gap-4">
           {sections.map((s) => (
-            <section key={s.id} className="group rounded-mk-lg border border-mk-border bg-mk-paper/20 p-3">
+            <section key={s.id} className="group rounded-mk-lg border border-mk-border bg-mk-paper p-3">
               {s.level > 0 ? (
                 <input
                   value={s.heading}
@@ -1686,7 +1686,7 @@ function DraftReviewPanel({
   // distinct from mk-accent's everyday-chrome role (buttons, tabs) once both
   // legacy families alias onto the same var.
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-peach/40 bg-mk-peach-bg/40 p-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-mk-lg border border-mk-peach/40 bg-mk-peach-bg p-4">
       <div className="mb-2 flex flex-none items-center justify-between">
         <p className="text-[13px] font-bold text-mk-ink">{scope === "part" ? "印记体检了你选中的这一段" : "印记的整稿体检"} · 供你参考，不替你改字</p>
         <button type="button" onClick={onClose} className="text-[12px] font-semibold text-mk-faint hover:text-mk-muted">收起</button>
@@ -1789,7 +1789,7 @@ function toChatMessages(chat: ChatMsg[]): ChatMessage[] {
           node: (
             <>
               {m.quotedPart && (
-                <blockquote className="mb-1 rounded-mk-sm border-l-[3px] border-mk-peach bg-mk-peach-bg/60 px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
+                <blockquote className="mb-1 rounded-mk-sm border-l-[3px] border-mk-peach bg-mk-peach-bg px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
                   {m.quotedPart}
                 </blockquote>
               )}
@@ -1968,7 +1968,7 @@ function CoachRail({
                   already responded to the card's content above; this just asks
                   whether the compiled paragraph should also become a 片段. */}
               {pendingArtifact && !openCardId && (
-                <div className="rounded-mk-md border border-mk-border bg-mk-paper/60 p-3">
+                <div className="rounded-mk-md border border-mk-border bg-mk-paper p-3">
                   <p className="text-[12px] font-semibold text-mk-faint">要不要把《{pendingArtifact.cardName}》里写的收进「片段」？</p>
                   <p className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-mk-ink">{pendingArtifact.text}</p>
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
@@ -2001,7 +2001,7 @@ function CoachRail({
                 automatic UI; OPENING the card sheet or SEEING the check result
                 still needs her tap/click (铁律 · 不操纵). */}
             {!locked && (
-              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper/50 p-2.5">
+              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper p-2.5">
                 <p className="mb-1.5 text-[11px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
                 <div className="flex flex-wrap gap-1.5">
                   {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
@@ -2053,7 +2053,7 @@ function CoachRail({
               </div>
             )}
             {focusPart && (
-              <div className="flex flex-none items-center gap-2 rounded-mk-md border border-mk-peach/40 bg-mk-peach-bg/50 px-3 py-2">
+              <div className="flex flex-none items-center gap-2 rounded-mk-md border border-mk-peach/40 bg-mk-peach-bg px-3 py-2">
                 <span className="flex-none text-[11px] font-bold text-mk-peach-fg">就这一段</span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-mk-muted">{focusPart}</span>
                 <button type="button" onClick={onClearFocus} className="flex-none text-[12px] font-semibold text-mk-faint hover:text-mk-muted">✕</button>
@@ -2064,7 +2064,7 @@ function CoachRail({
               // #5 (review L2) · an archived project's process is sealed — the
               // writing coach takes no new turns/cards so 过程即数据 stays true
               // to the record.
-              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper/40 p-3 text-center text-[12px] font-semibold text-mk-faint">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
+              <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper p-3 text-center text-[12px] font-semibold text-mk-faint">这篇已归档——过程已封存，印记不再新增这里的思考。</div>
             ) : (
               <Composer
                 value={draft}
@@ -2084,7 +2084,7 @@ function CoachRail({
           chip / deck); OPENING is the student's tap, and the sheet then fills the
           modal. Backdrop / 收起 closes it. */}
       {openCardId && CARD_REGISTRY[openCardId] && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 p-4" onClick={() => setOpenCardId(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpenCardId(null)}>
           <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
             <StudioCardSheet
               spec={CARD_REGISTRY[openCardId]}

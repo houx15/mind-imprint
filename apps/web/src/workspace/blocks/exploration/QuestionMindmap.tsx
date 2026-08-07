@@ -87,7 +87,7 @@ function MindmapNodeView({ id, data }: NodeProps) {
         type="button"
         aria-label="删除这个节点"
         title="删除"
-        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper/85 text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
+        className="nodrag absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[13px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
         style={{ color: d.theme.label }}
         onClick={(e) => {
           e.stopPropagation();
@@ -260,7 +260,7 @@ function QuestionMindmapInner({ projectId, root, leads, selectedId, onSelect, on
 
       {deleteTarget && (
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-4"
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
           onClick={() => setDeleteTarget(null)}
         >
           <div

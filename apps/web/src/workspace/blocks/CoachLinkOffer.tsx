@@ -45,7 +45,7 @@ export function CoachLinkOffer({
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {added ? (
-          <span className="inline-flex items-center gap-1 rounded-mk-full bg-mk-accent/10 px-3 py-1.5 text-[12px] font-bold text-mk-accent">
+          <span className="inline-flex items-center gap-1 rounded-mk-full bg-mk-accent-50 px-3 py-1.5 text-[12px] font-bold text-mk-accent">
             已加入文献库 ✓
           </span>
         ) : (

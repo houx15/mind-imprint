@@ -60,7 +60,7 @@ export function MethodologyPanel({ step, onNote }: { step: Step; onNote?: (stepK
         方法
       </button>
       {open && (
-        <div className="mt-2 space-y-3 rounded-mk border border-mk-primary-tint bg-mk-primary-tint/30 p-4 text-[13px] leading-relaxed text-[#3A4256]">
+        <div className="mt-2 space-y-3 rounded-mk border border-mk-primary-tint bg-mk-accent-50 p-4 text-[13px] leading-relaxed text-[#3A4256]">
           <div><div className="mb-1 font-bold text-mk-ink">为什么</div><Markdown text={m.why} /></div>
           <div><div className="mb-1 font-bold text-mk-ink">怎么做</div><Markdown text={m.how} /></div>
           <div><div className="mb-1 font-bold text-mk-ink">什么时候用</div><Markdown text={m.when} /></div>
@@ -79,7 +79,7 @@ function SentenceFrames({ step }: { step: Step }) {
   const frames = (step as { sentence_frames?: string[] }).sentence_frames;
   if (!frames || frames.length === 0) return null;
   return (
-    <div className="mb-4 rounded-mk border border-mk-accent/30 bg-mk-accent-tint/20 p-3">
+    <div className="mb-4 rounded-mk border border-mk-accent/30 bg-mk-accent-50 p-3">
       <div className="mb-1.5 text-[12px] font-bold text-mk-accent">参考句式 · 换成你自己的话</div>
       <ul className="space-y-1">
         {frames.map((f, i) => (
@@ -121,7 +121,7 @@ function ReadOnlyField({ label, value }: { label: string; value: unknown }) {
     <div>
       <div className="mb-1 text-[12.5px] font-semibold text-mk-ink">{label}</div>
       {text ? (
-        <p className="whitespace-pre-wrap rounded-mk border border-mk-border-2 bg-mk-bg/50 px-3 py-2 text-[13px] leading-relaxed text-[#3A4256]">{text}</p>
+        <p className="whitespace-pre-wrap rounded-mk border border-mk-border-2 bg-mk-paper px-3 py-2 text-[13px] leading-relaxed text-[#3A4256]">{text}</p>
       ) : (
         <p className="text-[12.5px] italic text-mk-muted-2">未填</p>
       )}

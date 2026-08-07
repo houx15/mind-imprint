@@ -194,7 +194,7 @@ export function ReviewBlock({
 
           {/* #20 · view-only lock — the room only unlocks once writing is finished. */}
           {!writingFinished && (
-            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper/60 px-4 py-3">
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-paper px-4 py-3">
               <Icon name="writing" size={16} />
               <p className="flex-1 text-[13px] font-semibold text-mk-muted">先在写作房间点「完成写作」，回顾才会解锁。</p>
               {onOpenRoom && (
@@ -329,7 +329,7 @@ export function ReviewBlock({
       {/* #5 · 定稿并评估 confirm — the point of no return. Archiving locks 正文与回顾
           and generates the process assessment. */}
       {confirmFinish && !archived && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <h2 className="font-sans text-[18px] font-bold text-mk-ink">定稿并开始评估？</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
@@ -359,7 +359,7 @@ export function ReviewBlock({
           free to leave. One action returns to 全部项目, where the row shows
           "评估中" and later "已完成 · 查看评估报告". */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/40 px-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
             <div className="flex items-center gap-2 text-mk-accent">
               <Icon name="spark" size={18} />

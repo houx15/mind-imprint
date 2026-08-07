@@ -50,7 +50,7 @@ export function CardTurnChip({ card }: { card: CardTurnRef }) {
 function CardTurnViewer({ card, onClose }: { card: CardTurnRef; onClose: () => void }) {
   const spec = CARD_REGISTRY[card.cardId]!;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-mk-ink/30 px-6" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="flex max-h-[86%] w-[560px] flex-col overflow-hidden rounded-mk-lg border border-mk-border bg-mk-surface shadow-[0_20px_60px_rgba(28,35,51,0.25)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between border-b border-mk-border px-6 py-4">
           <div>
@@ -63,7 +63,7 @@ function CardTurnViewer({ card, onClose }: { card: CardTurnRef; onClose: () => v
           </div>
           <button type="button" onClick={onClose} aria-label="关闭" className="text-[20px] leading-none text-mk-faint hover:text-mk-ink">×</button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-mk-paper/40 px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-mk-paper px-6 py-5">
           <CardRenderer card={spec} values={card.fieldValues} onField={() => {}} onExpandStep={() => {}} readOnly />
         </div>
         <div className="flex justify-end border-t border-mk-border px-6 py-3.5">
