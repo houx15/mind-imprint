@@ -12,14 +12,13 @@ import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
+import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
 import type { BlockKey } from "./mockData";
-import { getOutline, putOutline, getSnippets, putSnippets, getDraft, coach, reflectProjectCard, dismissProposal } from "../api/workspace";
+import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { MaterialsSidebar } from "./MaterialsSidebar";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
-import type { CardProposalWire } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { CoachProposal } from "./CoachProposal";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
 import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
@@ -1839,17 +1838,16 @@ function CoachRail({
   // room swaps, loaded once per project). This rail reads/appends the shared
   // store instead of holding its own chat state; the greeting is now a
   // display-only fallback (see `displayChat`), never stored.
-  const { messages, setMessages, sending, setSending, activeProjectIdRef } = useStudioChat();
+  const { messages, setMessages, sending, activeProjectIdRef, sendStudioTurn } = useStudioChat();
   // Guard shared-store writes after an await: if the student switched PROJECTS
   // while a turn was in flight, don't append its reply into (or clear the busy
   // flag of) the now-different project. A plain room switch (same project) passes.
   const isActiveProject = () => activeProjectIdRef.current === projectId;
   const [draft, setDraft] = useState("");
-  // S4 · cross-phase card proposing. `proposal` is the coach's latest OFFER (a
-  // dismissable chip); `openCardId` is the card the student CHOSE to open — the
-  // only path to a card sheet, so triggering stays automatic while opening is
-  // the student's tap (铁律).
-  const [proposal, setProposal] = useState<CardProposalWire | null>(null);
+  // `openCardId` is the card the student CHOSE to open from the self-summon
+  // shelf — the only path to a card sheet, so triggering stays automatic while
+  // opening is the student's tap (铁律). 印记's OWN card proposal is now the
+  // container's pendingCard → the shared card sheet (StudioTurnChips), not here.
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   // #8 · a finished card's compiled paragraph, offered (never auto-added) as a
   // 片段 once the coach has responded to it. cardName is kept for the offer's
@@ -1861,41 +1859,22 @@ function CoachRail({
     const text = draft.trim();
     if (!text || sending || locked) return;
     // WC · if a draft part is pinned, scope this turn to it so 印记 checks THAT
-    // part's argument/function — never rewriting it.
+    // part's argument/function — never rewriting it. The pinned part also rides
+    // as `quotedPart`, rendered as a styled callout above the bubble.
     const turnText = focusPart ? `就这一段想（帮我看它的论证与功能，别替我改写）：\n「${focusPart}」\n\n${text}` : text;
-    // #9-second · the referenced paragraph rides as its own field (quotedPart),
-    // rendered as a styled quote block above the bubble — never baked into the
-    // message string as a literal 【就这一段】 token.
-    setMessages((c) => [...c, { role: "student", text, quotedPart: focusPart ?? undefined }]);
     setDraft("");
-    setSending(true);
-    try {
-      const { reply, proposal: p } = await coach(projectId, "writing", turnText);
-      if (!isActiveProject()) return; // student left this project — drop the late reply
-      onClearFocus(); // clear the pinned part only on success — a failed turn keeps it so she needn't re-pin
-      setMessages((c) => [...c, { role: "ai", text: reply }]);
-      // S4 · the coach may OFFER a thinking-card (克制 summon rung). It's a
-      // dismissable chip; opening it (below) is the student's tap, never auto.
-      setProposal(p);
-    } catch {
-      if (isActiveProject()) setMessages((c) => [...c, { role: "ai", text: "刚才没接上，稍等再问我一次。" }]);
-    } finally {
-      if (isActiveProject()) setSending(false);
-    }
+    // The ONE container-owned send loop appends the turn, calls the orchestrator,
+    // applies the directive, and surfaces its note/card offers (StudioTurnChips).
+    const ok = await sendStudioTurn(turnText, { quotedPart: focusPart ?? undefined });
+    // Clear the pinned part only on success — a failed turn keeps it so she
+    // needn't re-pin.
+    if (ok) onClearFocus();
   }
 
-  // Opening a proposed card is the student's explicit choice (铁律). On submit
-  // the completed envelope persists (过程即数据 — recorded, not discarded), and
-  // the rail acknowledges it.
+  // Opening a shelf card is the student's explicit choice (铁律). On submit the
+  // completed envelope persists (过程即数据) and the rail acknowledges it.
   function openProposedCard(cardId: string) {
-    setProposal(null);
     setOpenCardId(cardId);
-  }
-  // Dismiss is an explicit "no": record it so the coach stops offering this card
-  // (铁律 · 不操纵). Best-effort — the chip clears regardless.
-  function dismissProposedCard(cardId: string) {
-    setProposal(null);
-    void dismissProposal(projectId, cardId).catch(() => {});
   }
   // #8 · finishing a card now runs a coach turn that responds to what the
   // student wrote FIRST (mirrors the forming flow's reflect path) — it no
@@ -1967,9 +1946,10 @@ function CoachRail({
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
               <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
-              {proposal && !openCardId && !sending ? (
-                <CoachProposal proposal={proposal} onOpen={openProposedCard} onDismiss={() => dismissProposedCard(proposal.cardId)} />
-              ) : null}
+              {/* 印记's per-turn note/card OFFERS come from the ONE container store
+                  (StudioTurnChips) — identical chips in chat-first, 立项 and 写作.
+                  The self-summon writing-card shelf lives further below. */}
+              {!openCardId && <StudioTurnChips />}
               {/* #8 · 收进片段 is an explicit offer, never a silent add — the coach has
                   already responded to the card's content above; this just asks
                   whether the compiled paragraph should also become a 片段. */}

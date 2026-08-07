@@ -72,6 +72,27 @@ vi.mock("@/workspace/api/workspace", () => ({
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
+  // 印记's AI-managed status (Task 8). Resolve to the plan room so this smoke
+  // test lands on the plan board (its walk then uses the switcher).
+  getStudioState: vi.fn(async () => ({
+    stage: "plan_generation",
+    openTool: "plan",
+    widthTier: "half",
+    reference: [],
+    updatedAtTurn: 0,
+  })),
+  // The container-owned send loop + note/card handlers (Task 9b) — stubbed so
+  // the module resolves; this smoke test drives the switcher, not the chat.
+  coach: vi.fn(async () => ({
+    narrate: "",
+    directive: { stage: "plan_generation", openTool: "plan", widthTier: "half", reference: [], updatedAtTurn: 0 },
+    note: null,
+    card: null,
+    reviewRequested: false,
+  })),
+  putProposal: vi.fn(async (_id: string, p: unknown) => p),
+  reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
+  dismissProposal: vi.fn(async () => {}),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";

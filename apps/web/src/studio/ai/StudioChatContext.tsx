@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { CardTurnRef } from "@mind-imprint/contracts";
+import type { CardTurnRef, NoteProposal, CardProposalWire } from "@mind-imprint/contracts";
 
 /**
  * StudioChatContext (coach-persistence hoist).
@@ -41,6 +41,31 @@ export type StudioChatValue = {
   // (it's still persisted server-side), while a plain room switch within the
   // same project still lands its reply. See useStudioChat consumers.
   activeProjectIdRef: MutableRefObject<string | null>;
+  // ── Task 9b: the container-owned 印记 send loop + note/card offers ────────
+  // The ONE studio send: appends the student turn, calls the orchestrator
+  // (`coach(id, input)`), appends 印记's narration, APPLIES the returned
+  // directive (stage/openTool — auto-configure, always overridable), and
+  // surfaces the reply's note/card OFFERS below. Owned by WorkspaceContainer so
+  // chat-first AND both working rooms drive ONE loop. Resolves `true` when the
+  // turn landed for the still-active project (so a caller can clear per-turn UI
+  // like 写作's pinned focusPart only on success), `false` otherwise.
+  sendStudioTurn: (userInput: string, opts?: { quotedPart?: string }) => Promise<boolean>;
+  // The current project (null in the directory). Rooms/chat read it where they
+  // need the live id without threading a prop.
+  projectId: string | null;
+  // 印记's per-turn OFFERS (铁律②: proposed, never auto-applied). `pendingNote`
+  // is a proposal-section note the student confirms into the board; `pendingCard`
+  // is a thinking-card the student may open. Both cleared at the start of the
+  // next turn (and on project switch).
+  pendingNote: NoteProposal | null;
+  pendingCard: CardProposalWire | null;
+  // Read-modify-write the confirmed note into the proposal board, then clear it.
+  confirmNote: () => void;
+  dismissNote: () => void;
+  // Open the proposed card in the shared card sheet (records a coach turn on
+  // submit); or decline it (records the decline so 印记 stops offering it).
+  openCard: (cardId: string) => void;
+  dismissCard: (cardId: string) => void;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

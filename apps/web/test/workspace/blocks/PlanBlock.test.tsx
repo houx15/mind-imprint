@@ -23,18 +23,25 @@ vi.mock("@/workspace/api/workspace", () => ({
   deletePlanItem: vi.fn(async () => {}),
   getLog: vi.fn(async () => []),
   addLog: vi.fn(async () => ({})),
-  coach: vi.fn(async () => ({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null })),
   getCoachHistory: vi.fn(async () => []),
   generatePlan: vi.fn(async () => []),
-  createReference: vi.fn(async () => ({})),
+  reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
 }));
 
-import { coach, getCoachHistory, getPlan } from "@/workspace/api/workspace";
+import { getCoachHistory, getPlan } from "@/workspace/api/workspace";
 import { PlanBlock } from "@/workspace/blocks/PlanBlock";
 
-const mockCoach = vi.mocked(coach);
 const mockGetCoachHistory = vi.mocked(getCoachHistory);
 const mockGetPlan = vi.mocked(getPlan);
+
+// The coach send is now the ONE container-owned loop, provided to the room via
+// StudioChatContext (`sendStudioTurn`). The room's onSend/onGuideMe/onReview
+// call it — so tests assert on this spy (the shared-send shape), not on a
+// direct `coach()` call the room no longer makes. The stub mirrors the
+// container: it appends the student turn to the store so the block still shows
+// what the student sent (the reply itself is the container's job, covered in
+// WorkspaceContainer.test).
+const mockSend = vi.fn();
 
 const EMPTY_PROPOSAL = { objective: "", reason: "", activities: "", resources: "", counterpoints: "" };
 const FILLED_PROPOSAL = {
@@ -52,8 +59,29 @@ const FILLED_PROPOSAL = {
 function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
   const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
   const [sending, setSending] = useState(false);
+  const sendStudioTurn = async (userInput: string, opts?: { quotedPart?: string }) => {
+    mockSend(userInput, opts);
+    setMessages((c) => [...c, { role: "student", text: userInput, quotedPart: opts?.quotedPart }]);
+    return true;
+  };
   return (
-    <StudioChatContext.Provider value={{ messages, setMessages, sending, setSending, activeProjectIdRef: { current: "p1" } }}>
+    <StudioChatContext.Provider
+      value={{
+        messages,
+        setMessages,
+        sending,
+        setSending,
+        activeProjectIdRef: { current: "p1" },
+        sendStudioTurn,
+        projectId: "p1",
+        pendingNote: null,
+        pendingCard: null,
+        confirmNote: () => {},
+        dismissNote: () => {},
+        openCard: () => {},
+        dismissCard: () => {},
+      }}
+    >
       {children}
     </StudioChatContext.Provider>
   );
@@ -75,7 +103,7 @@ function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCoach.mockResolvedValue({ reply: "", proposal: null, linkOffer: null, dimSuggestion: null });
+  mockSend.mockClear();
   mockGetCoachHistory.mockResolvedValue([]);
   mockGetPlan.mockResolvedValue([]);
 });
@@ -92,13 +120,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(await screen.findByRole("button", { name: "提问卡" })).toBeInTheDocument();
   });
 
-  it("sends a message through the shared Composer and appends the coach's reply via ChatLog", async () => {
-    mockCoach.mockResolvedValueOnce({
-      reply: "你想回答的到底是什么问题？",
-      proposal: null,
-      linkOffer: null,
-      dimSuggestion: null,
-    });
+  it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} onOpenRoom={() => {}} refreshWorkspace={() => {}} />,
     );
@@ -108,10 +130,10 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     await userEvent.type(textarea, "我想研究中国的碳排放");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    expect(mockCoach).toHaveBeenCalledWith("p1", "forming", "我想研究中国的碳排放");
-    expect(await screen.findByText("你想回答的到底是什么问题？")).toBeInTheDocument();
-    // The student's own turn also lands in the shared log.
-    expect(screen.getByText("我想研究中国的碳排放")).toBeInTheDocument();
+    // The room no longer calls coach() directly — it drives the ONE shared send.
+    expect(mockSend).toHaveBeenCalledWith("我想研究中国的碳排放", undefined);
+    // The student's own turn lands in the shared store (mirrors the container).
+    expect(await screen.findByText("我想研究中国的碳排放")).toBeInTheDocument();
   });
 
   it("生成项目计划 unlocks only once all FOUR required dims are filled — 反例/张力 stays optional (spec §5 gate)", async () => {

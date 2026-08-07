@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Keep this a light, seam-focused test of the `initialProjectId` deep-link
@@ -47,13 +47,19 @@ vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-te
 
 const getWorkspace = vi.fn();
 const getStudioState = vi.fn();
+const coach = vi.fn();
+const putProposal = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getStudioState: (...args: unknown[]) => getStudioState(...args),
+  coach: (...args: unknown[]) => coach(...args),
+  putProposal: (...args: unknown[]) => putProposal(...args),
   getPlan: vi.fn(async () => []),
   getCoachHistory: vi.fn(async () => []),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
+  reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
+  dismissProposal: vi.fn(async () => {}),
 }));
 
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
@@ -81,6 +87,21 @@ function fakeStudioState(openTool: OpenTool) {
   };
 }
 
+// The full OrchestratorReply the container's send loop applies each turn.
+function fakeReply(
+  narrate: string,
+  openTool: OpenTool,
+  extra: { note?: unknown; card?: unknown } = {},
+) {
+  return {
+    narrate,
+    directive: fakeStudioState(openTool),
+    note: extra.note ?? null,
+    card: extra.card ?? null,
+    reviewRequested: false,
+  };
+}
+
 describe("WorkspaceContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -89,6 +110,8 @@ describe("WorkspaceContainer", () => {
     // tests below asserting the plan room (now via resume-at-stage, not a
     // forced landing). Individual cases override for chat/writing.
     getStudioState.mockImplementation(async () => fakeStudioState("plan"));
+    coach.mockResolvedValue(fakeReply("好的。", "chat"));
+    putProposal.mockImplementation(async (_id: string, p: unknown) => p);
   });
 
   it("shows the directory when no project is open", () => {
@@ -180,5 +203,52 @@ describe("WorkspaceContainer", () => {
 
     expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
+
+  // Task 9b · the container-owned 印记 chat: in chat-first the constant AiPanel
+  // shows the REAL chat, a turn calls `coach`, and the returned directive is
+  // APPLIED (auto-configure the view — here it opens the writing room).
+  it("chat-first renders the 印记 Composer; a turn calls coach and applies the reply's directive (opens 写作)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    // 印记 replies AND, via the directive, decides to open the writing room.
+    coach.mockResolvedValue(fakeReply("我们去写作台看看。", "writing"));
+    render(<WorkspaceContainer initialProjectId="pc" />);
+
+    // The panel shows the real chat composer (not just the calm landing).
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "我想研究中国的可持续");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    // The turn hit the orchestrator with just (id, input) — no scope on studio path.
+    await waitFor(() => expect(coach).toHaveBeenCalledWith("pc", "我想研究中国的可持续"));
+    // Directive applied: the writing room mounts, chat-first is gone.
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+  });
+
+  // Task 9b · a reply carrying a note OFFER renders a confirm chip; confirming
+  // read-modify-writes the proposal board (getWorkspace → putProposal merged).
+  it("a reply with a note renders a confirm chip; confirming persists the merged proposal", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(
+      fakeReply("记下来吧。", "chat", { note: { section: "objective", value: "以中国为例回答可持续问题" } }),
+    );
+    render(<WorkspaceContainer initialProjectId="pn" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "帮我把目标记下来");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    // The 克制 confirm chip surfaces the offer (打开由学生确认).
+    const confirm = await screen.findByRole("button", { name: "记进「目标」" });
+    await userEvent.click(confirm);
+
+    // Read-modify-write: re-read the proposal, append into the section, persist.
+    await waitFor(() =>
+      expect(putProposal).toHaveBeenCalledWith(
+        "pn",
+        expect.objectContaining({ objective: "以中国为例回答可持续问题" }),
+      ),
+    );
   });
 });

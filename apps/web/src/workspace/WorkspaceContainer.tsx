@@ -1,16 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MaterialSource, PhaseTag, PlanItem, StudioState, WorkspaceProjection } from "@mind-imprint/contracts";
+import { createPortal } from "react-dom";
+import type {
+  CardProposalWire,
+  MaterialSource,
+  NoteProposal,
+  PhaseTag,
+  PlanItem,
+  Proposal,
+  StudioState,
+  WorkspaceProjection,
+} from "@mind-imprint/contracts";
+import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { api } from "../api";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
-import { StudioChatContext, type StudioChatMsg } from "../studio/ai/StudioChatContext";
+import { StudioChatContext, type StudioChatMsg, type StudioChatValue } from "../studio/ai/StudioChatContext";
+import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
+import { StudioCardSheet } from "../studio/StudioCardSheet";
+import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
 import { Badge, Segmented } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon, BLOCK_META } from "./Icon";
 import { Directory } from "./Directory";
-import { getWorkspace, getPlan, getCoachHistory, getStudioState, postProjectSummary, patchReference, type ReferenceBib } from "./api/workspace";
+import {
+  getWorkspace,
+  getPlan,
+  getCoachHistory,
+  getStudioState,
+  postProjectSummary,
+  patchReference,
+  coach,
+  putProposal,
+  reflectProjectCard,
+  dismissProposal,
+  type ReferenceBib,
+} from "./api/workspace";
 import { openToolToRoom } from "./studioResume";
 import { ChatFirstLanding } from "./blocks/ChatFirstLanding";
 import { PlanBlock } from "./blocks/PlanBlock";
@@ -210,6 +236,14 @@ export function WorkspaceContainer({
   // still shows its busy state on whichever room is now mounted.
   const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
   const [studioSending, setStudioSending] = useState(false);
+  // Task 9b · 印记's per-turn OFFERS (铁律②: proposed, never auto-applied). A
+  // note the student can confirm into the proposal board; a thinking-card she
+  // can open. Both cleared at the start of the next turn and on project switch.
+  const [pendingNote, setPendingNote] = useState<NoteProposal | null>(null);
+  const [pendingCard, setPendingCard] = useState<CardProposalWire | null>(null);
+  // The AI-proposed card the student CHOSE to open — the only path to the shared
+  // card sheet (triggering is automatic, opening is her tap · 铁律).
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
   // Live opened-project id for the rooms' cross-project append guard (see
   // StudioChatContext). Kept current every render so a late turn closure never
   // reads a stale value.
@@ -256,6 +290,112 @@ export function WorkspaceContainer({
       });
   }, [projectId]);
 
+  // ── Task 9b · the ONE container-owned 印记 send loop ──────────────────────
+  // Append the student turn, call the orchestrator (`coach(id, input)`), append
+  // 印记's narration, APPLY the returned directive (auto-configure stage/room,
+  // always overridable), and surface the reply's note/card OFFERS. Chat-first
+  // AND both working rooms call this one loop, so the thread is continuous and
+  // the status morphs live after every turn. Resolves true iff the turn landed
+  // for the still-active project (so 写作 can clear its pinned part only then).
+  const sendStudioTurn = useCallback(
+    async (userInput: string, opts?: { quotedPart?: string }): Promise<boolean> => {
+      const pid = activeProjectIdRef.current;
+      if (!userInput.trim() || studioSending || !pid) return false;
+      const isActive = () => activeProjectIdRef.current === pid;
+      setStudioMessages((c) => [...c, { role: "student", text: userInput, quotedPart: opts?.quotedPart }]);
+      setStudioSending(true);
+      // A fresh turn clears any stale offer before the reply's own offers land.
+      setPendingNote(null);
+      setPendingCard(null);
+      try {
+        const reply = await coach(pid, userInput);
+        if (!isActive()) return false;
+        setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+        // 印记 auto-configures the view (spec: auto-configure, always overridable).
+        applyStudioState(reply.directive);
+        setPendingNote(reply.note);
+        setPendingCard(reply.card);
+        return true;
+      } catch {
+        if (isActive()) {
+          setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再试一次？）" }]);
+        }
+        return false;
+      } finally {
+        if (isActive()) setStudioSending(false);
+      }
+    },
+    [studioSending, applyStudioState],
+  );
+
+  // Confirm a proposed note into the proposal board (铁律②: her tap writes it).
+  // Read-modify-write: re-read the current proposal, append the note's value to
+  // its section (newline-join when the section already has content, so a tap
+  // never clobbers her own words), persist, then refresh the board.
+  const confirmNote = useCallback(async () => {
+    const pid = activeProjectIdRef.current;
+    const note = pendingNote;
+    if (!pid || !note) return;
+    setPendingNote(null);
+    try {
+      const w = await getWorkspace(pid);
+      const section = note.section as keyof Proposal;
+      const existing = (w.proposal[section] ?? "").trim();
+      const value = existing ? `${existing}\n${note.value}` : note.value;
+      const merged: Proposal = { ...w.proposal, [section]: value };
+      await putProposal(pid, merged);
+      if (activeProjectIdRef.current === pid) await refreshWorkspace();
+    } catch {
+      /* keep it dismissed; a later turn can re-offer, and the board reloads */
+    }
+  }, [pendingNote, refreshWorkspace]);
+
+  const dismissNote = useCallback(() => setPendingNote(null), []);
+
+  // Opening a proposed card is the student's explicit choice (铁律). The sheet
+  // (rendered at the container root) then records a coach turn on submit.
+  const openCard = useCallback((cardId: string) => {
+    setPendingCard(null);
+    setOpenCardId(cardId);
+  }, []);
+
+  // Declining is an explicit "no": record it so 印记 stops offering this card.
+  const dismissCard = useCallback((cardId: string) => {
+    setPendingCard(null);
+    const pid = activeProjectIdRef.current;
+    if (pid) void dismissProposal(pid, cardId).catch(() => {});
+  }, []);
+
+  // Submit the opened card: persist the completed envelope AND get a coach turn
+  // that RESPONDS to its content (reflectProjectCard), appending both the
+  // content-first student chip and 印记's reply into the one continuous thread.
+  // Surface tags the turn to the room the student is working in.
+  const submitStudioCard = useCallback(
+    async (fieldValues: Record<string, unknown>, eventTrace: unknown[]) => {
+      const cardId = openCardId;
+      setOpenCardId(null);
+      const pid = activeProjectIdRef.current;
+      if (!cardId || !pid) return;
+      const isActive = () => activeProjectIdRef.current === pid;
+      const spec = CARD_REGISTRY[cardId];
+      const studentText = spec ? compileCardForCoach(spec, fieldValues) : "";
+      const surface = room === "writing" ? "writing" : "forming";
+      try {
+        const { reply, card } = await reflectProjectCard(pid, cardId, fieldValues, eventTrace, surface);
+        if (!isActive()) return;
+        if (card) setStudioMessages((c) => [...c, { role: "student", text: studentText, card }]);
+        else if (studentText) setStudioMessages((c) => [...c, { role: "student", text: studentText }]);
+        if (reply) setStudioMessages((c) => [...c, { role: "ai", text: reply }]);
+        else if (!card && !studentText) setStudioMessages((c) => [...c, { role: "ai", text: "这张卡还没填内容，先留着，想清楚了再来。" }]);
+      } catch {
+        if (!isActive()) return;
+        if (studentText) setStudioMessages((c) => [...c, { role: "student", text: studentText }]);
+        setStudioMessages((c) => [...c, { role: "ai", text: "刚才没接住这张卡，等下再试一次。" }]);
+      }
+    },
+    [openCardId, room],
+  );
+
   // Load the opened project's lean projection whenever the opened id changes.
   // Landing room is always 项目管理.
   useEffect(() => {
@@ -277,6 +417,10 @@ export function WorkspaceContainer({
     // project's turn is still in flight inherits sending=true and its composer
     // stays disabled until that unrelated reply resolves.
     setStudioSending(false);
+    // Clear any stale per-turn offers / open card from the previous project.
+    setPendingNote(null);
+    setPendingCard(null);
+    setOpenCardId(null);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
     // than firing a redundant duplicate on every project switch.
@@ -464,7 +608,27 @@ export function WorkspaceContainer({
   // mounts even in chat-first / null / errored status.
   const showChatFirst = !tookOver && (studioState == null || studioState.openTool === "chat");
 
+  // The ONE hoisted 印记 store — the continuous thread + the container-owned
+  // send loop + note/card offers — shared by chat-first AND both working rooms
+  // so there is a single source of truth for the conversation and 印记's status.
+  const chatValue: StudioChatValue = {
+    messages: studioMessages,
+    setMessages: setStudioMessages,
+    sending: studioSending,
+    setSending: setStudioSending,
+    activeProjectIdRef,
+    sendStudioTurn,
+    projectId,
+    pendingNote,
+    pendingCard,
+    confirmNote,
+    dismissNote,
+    openCard,
+    dismissCard,
+  };
+
   return (
+    <StudioChatContext.Provider value={chatValue}>
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
       <TopBar workspace={workspace} onBack={onExitToHome ?? backToAll} />
       <div className="flex min-h-0 flex-1">
@@ -533,15 +697,6 @@ export function WorkspaceContainer({
           // <main>. plan / writing / reflection all portal their coach into the
           // constant panel. reading is the exception: it's a distinct
           // full-screen surface with its own coach column (see showAiPanel).
-          <StudioChatContext.Provider
-            value={{
-              messages: studioMessages,
-              setMessages: setStudioMessages,
-              sending: studioSending,
-              setSending: setStudioSending,
-              activeProjectIdRef,
-            }}
-          >
           <StudioAiSlotContext.Provider value={aiSlotEl}>
             {room === "plan" && (
               <PlanBlock
@@ -595,13 +750,32 @@ export function WorkspaceContainer({
               />
             )}
           </StudioAiSlotContext.Provider>
-          </StudioChatContext.Provider>
         )}
         </div>
         </main>
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
     </div>
+    {/* Chat-first (spec §2): 印记 keeps the chat primary — the calm landing fills
+        <main>, and the REAL continuous chat portals into the constant AiPanel.
+        When a room is open the room portals its own coach instead, so exactly
+        one thing occupies the slot at a time. */}
+    {showChatFirst && showAiPanel && aiSlotEl && createPortal(<StudioCoachChat recap={summary} />, aiSlotEl)}
+    {/* The shared card sheet for an AI-proposed card (openCard). Triggering is
+        automatic; opening is the student's tap, and the sheet then fills the
+        modal. Submit records a coach turn into the one continuous thread. */}
+    {openCardId && CARD_REGISTRY[openCardId] && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpenCardId(null)}>
+        <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
+          <StudioCardSheet
+            spec={CARD_REGISTRY[openCardId]}
+            onSubmit={(env) => void submitStudioCard(env.field_values, env.event_trace)}
+            onSkip={() => setOpenCardId(null)}
+          />
+        </div>
+      </div>
+    )}
+    </StudioChatContext.Provider>
   );
 }
 
