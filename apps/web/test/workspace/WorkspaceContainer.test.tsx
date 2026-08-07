@@ -85,11 +85,15 @@ type Stage =
   | "proposal_review"
   | "body_writing"
   | "retrospective";
-function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation") {
+type WidthTier = "chat" | "half" | "wide";
+// `widthTier` follows `openTool` by default (chat → the full-width chat surface;
+// any real room → the split, defaulting to `half`) — override it explicitly to
+// exercise the morphing-width tiers (P2a).
+function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", widthTier?: WidthTier) {
   return {
     stage,
     openTool,
-    widthTier: "half" as const,
+    widthTier: widthTier ?? (openTool === "chat" ? "chat" : "half"),
     reference: [] as never[],
     updatedAtTurn: 0,
   };
@@ -273,6 +277,62 @@ describe("WorkspaceContainer", () => {
     // The panel is not empty: the real 印记 chat composer is portaled in —
     // this is what a stale `room==="reading"` used to hide.
     expect(await screen.findByPlaceholderText(/和印记说说你的项目/)).toBeInTheDocument();
+  });
+
+  // P2a · Morphing width (spec §3). In the `chat` tier the 印记 chat IS the
+  // surface: it fills the content width, with NO interactive room and NO side
+  // AiPanel rail — the chat is not a narrow companion beside an empty landing.
+  it("chat tier: the 印记 chat fills the width — no room and no side panel", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    render(<WorkspaceContainer initialProjectId="pchatwide" />);
+
+    // The full-width chat surface (composer present).
+    expect(await screen.findByPlaceholderText(/和印记说说你的项目/)).toBeInTheDocument();
+    expect(screen.getByTestId("chat-first")).toBeInTheDocument();
+    // No interactive room is mounted…
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("writing-block")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("reading-block")).not.toBeInTheDocument();
+    // …and no side AiPanel rail (the chat owns the whole width).
+    expect(screen.queryByRole("button", { name: "切换 AI 面板左右" })).not.toBeInTheDocument();
+  });
+
+  // `half` tier: a room mounts in the interactive area AND the 印记 chat rides
+  // alongside as the AiPanel rail (its coach content is portaled by the room —
+  // mocked away here — but the constant panel chrome is present).
+  it("half tier: mounts the room AND keeps the 印记 rail (no full-width chat)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "half"));
+    render(<WorkspaceContainer initialProjectId="phalf" />);
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    // The chat is a rail beside the room, not the full-width chat surface.
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // `wide` tier: same invariant — the interactive area is the surface, the 印记
+  // rail persists (the student can still collapse it to the slim rail).
+  it("wide tier: mounts the room AND keeps the 印记 rail", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "wide"));
+    render(<WorkspaceContainer initialProjectId="pwide" />);
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // A manual takeover forces at least `wide` (a room is always showing) even
+  // when 印记's status is chat — the chat-only surface yields to the room.
+  it("manual takeover from chat forces a room (tookOver ⇒ wide)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    render(<WorkspaceContainer initialProjectId="ptake" />);
+
+    expect(await screen.findByTestId("chat-first")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
   });
 
   // Task 9b · a reply carrying a note OFFER renders a confirm chip; confirming

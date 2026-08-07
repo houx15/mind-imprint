@@ -32,14 +32,32 @@ export interface AiPanelProps {
   onToggleCollapse: () => void;
   title?: string;
   children?: ReactNode;
+  /**
+   * The EXPANDED panel's width class — the morphing-width seam (spec §3, P2a).
+   * WorkspaceContainer drives it from 印记's `widthTier`: a prominent column
+   * (`w-[42%]`) beside a ~half interactive area, or the default sidebar
+   * (`w-[320px]`) when the interactive area is wide. Collapsed always wins
+   * (the slim rail), so this only applies while expanded. Defaults to the
+   * historical `w-[320px]` so the prop is purely additive.
+   */
+  widthClass?: string;
 }
 
-const PANEL_BASE = "flex h-full shrink-0 flex-col bg-mk-surface transition-[width] duration-[var(--mk-base)] ease-mk";
+const PANEL_BASE =
+  "flex h-full shrink-0 flex-col bg-mk-surface transition-[width] duration-[var(--mk-base)] ease-mk motion-reduce:transition-none";
 
 const ICON_BUTTON_BASE =
   "flex shrink-0 items-center justify-center rounded-mk-sm p-1 text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-paper hover:text-mk-ink";
 
-export function AiPanel({ side, onFlip, collapsed, onToggleCollapse, title = "印记", children }: AiPanelProps) {
+export function AiPanel({
+  side,
+  onFlip,
+  collapsed,
+  onToggleCollapse,
+  title = "印记",
+  children,
+  widthClass = "w-[320px]",
+}: AiPanelProps) {
   const borderClass = side === "right" ? "border-l" : "border-r";
 
   if (collapsed) {
@@ -58,7 +76,7 @@ export function AiPanel({ side, onFlip, collapsed, onToggleCollapse, title = "�
   // Chevron points outward — toward the panel's own edge — inviting collapse.
   const CollapseIcon = side === "right" ? ChevronRight : ChevronLeft;
   return (
-    <div className={cx(PANEL_BASE, borderClass, "border-mk-border", "w-[320px]")}>
+    <div className={cx(PANEL_BASE, borderClass, "border-mk-border", widthClass)}>
       <div className="flex shrink-0 items-center gap-2 border-b border-mk-border px-4 py-3">
         <Pebble size={24} />
         <span className="flex-1 truncate text-mk-h3">{title}</span>

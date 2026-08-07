@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type {
   CardProposalWire,
   MaterialSource,
@@ -8,6 +7,7 @@ import type {
   PlanItem,
   Proposal,
   StudioState,
+  WidthTier,
   WorkspaceProjection,
 } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
@@ -38,7 +38,6 @@ import {
   type ReferenceBib,
 } from "./api/workspace";
 import { roomForResume } from "./studioResume";
-import { ChatFirstLanding } from "./blocks/ChatFirstLanding";
 import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
 import { NextStepGuide } from "./blocks/NextStepGuide";
@@ -601,27 +600,41 @@ export function WorkspaceContainer({
     );
   }
 
+  // Morphing width (spec §3, P2a): 印记's `widthTier` drives the split between
+  // the 印记 chat and the interactive area. `chat` → the chat IS the surface
+  // (full width, no room); `half` → the chat as a prominent column beside a
+  // ~half interactive area; `wide` → the interactive area fills, the chat
+  // collapses toward a sidebar (and the student can collapse it further to the
+  // slim rail). A manual takeover always shows a room, so it implies at least
+  // `wide`. Null status
+  // (still loading) = chat — we never flash a board before 印记's status lands.
+  const widthTier: WidthTier = tookOver ? "wide" : (studioState?.widthTier ?? "chat");
+  // The chat-only surface: no interactive area at all. `chatOnly` ⇒ the
+  // full-width 印记 chat fills <main> INSTEAD of a room + side panel. Any
+  // other tier ⇒ a room is mounted and the chat rides in the AiPanel.
+  const chatOnly = widthTier === "chat" && !tookOver;
+  // The expanded AiPanel's width follows the tier: a prominent 42% column in
+  // `half`, the default sidebar in `wide` (collapsed always wins → slim rail).
+  const aiPanelWidthClass = widthTier === "half" ? "w-[42%]" : "w-[320px]";
   const aiPanel = (
-    <AiPanel side={aiSide} onFlip={flipAiSide} collapsed={aiCollapsed} onToggleCollapse={toggleAiCollapsed}>
+    <AiPanel
+      side={aiSide}
+      onFlip={flipAiSide}
+      collapsed={aiCollapsed}
+      onToggleCollapse={toggleAiCollapsed}
+      widthClass={aiPanelWidthClass}
+    >
       <div ref={aiSlotRef} className="h-full" />
     </AiPanel>
   );
-  // Chat-first (Task 8): the interactive area shows the calm landing (not a
-  // room board) while 印记's status is still loading (studioState === null, so
-  // we never flash the plan board) OR when 印记 is keeping chat primary
-  // (openTool === "chat"). Any other openTool means a real room is mounted.
-  // A manual takeover (spec §6) overrides this so the switcher-chosen room
-  // mounts even in chat-first / null / errored status.
-  const showChatFirst = !tookOver && (studioState == null || studioState.openTool === "chat");
   // The reading room is a distinct full-screen surface that owns its own coach
   // column (印记 · 找资料) — the shell's constant AiPanel would otherwise sit
   // empty beside it (list mode) or duplicate it as a second 印记 column (graph
-  // mode). So the constant panel shows for every room EXCEPT reading — EXCEPT
-  // while chat-first, where it must always show regardless of `room`: `room`
-  // can be stale (e.g. still "reading" from the just-left project) during the
-  // transient window before this project's own status resolves and re-derives
-  // it, and chat-first has nowhere else to render its portal target.
-  const showAiPanel = showChatFirst ? true : room !== "reading";
+  // mode). So the constant panel shows for every room EXCEPT reading. In
+  // `chatOnly` there is no room and the chat fills <main> directly, so no side
+  // panel renders at all (`room` may be stale here — e.g. still "reading" from
+  // the just-left project — but chatOnly doesn't depend on it).
+  const showAiPanel = !chatOnly && room !== "reading";
 
   // The ONE hoisted 印记 store — the continuous thread + the container-owned
   // send loop + note/card offers — shared by chat-first AND both working rooms
@@ -698,11 +711,19 @@ export function WorkspaceContainer({
         )}
         {error ? (
           <div className="flex h-full items-center justify-center text-[14px] font-semibold text-mk-accent">{error}</div>
-        ) : showChatFirst ? (
-          // Chat is primary (or status still loading): fill <main> with the
-          // calm landing, never a room board. The 印记 chat panel stays mounted
-          // alongside (the constant AiPanel), so the thread is uninterrupted.
-          <ChatFirstLanding />
+        ) : chatOnly ? (
+          // Morphing width (spec §3): in the `chat` tier the 印记 chat IS the
+          // surface — it fills the full content width, comfortably max-width-
+          // centered, with NO interactive area and NO side rail. This renders
+          // the ONE hoisted thread directly (no portal); the working rooms
+          // instead portal their own coach into the AiPanel. `data-testid`
+          // keeps the chat-first surface addressable in tests.
+          <div
+            data-testid="chat-first"
+            className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden transition-[max-width] duration-[240ms] ease-mk motion-reduce:transition-none"
+          >
+            <StudioCoachChat recap={summary} />
+          </div>
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
         ) : (
@@ -773,11 +794,6 @@ export function WorkspaceContainer({
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
     </div>
-    {/* Chat-first (spec §2): 印记 keeps the chat primary — the calm landing fills
-        <main>, and the REAL continuous chat portals into the constant AiPanel.
-        When a room is open the room portals its own coach instead, so exactly
-        one thing occupies the slot at a time. */}
-    {showChatFirst && showAiPanel && aiSlotEl && createPortal(<StudioCoachChat recap={summary} />, aiSlotEl)}
     {/* The shared card sheet for an AI-proposed card (openCard). Triggering is
         automatic; opening is the student's tap, and the sheet then fills the
         modal. Submit records a coach turn into the one continuous thread. */}
