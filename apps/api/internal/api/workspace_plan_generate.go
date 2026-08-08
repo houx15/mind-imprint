@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -96,6 +97,17 @@ func (a *API) regeneratePlan(ctx context.Context, projectID uuid.UUID) ([]planIt
 	}
 
 	items := a.generatePlanItems(ctx, projectID, prop)
+
+	// Order the board chronologically: the model can emit tasks out of date
+	// order (e.g. all 阶段三 before 阶段二), and the board/spine render by
+	// position. Sort by start day (then stage) so position — and thus the
+	// kanban todo column and the plan spine — reads left-to-right in time.
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].Start != items[j].Start {
+			return items[i].Start < items[j].Start
+		}
+		return items[i].Stage < items[j].Stage
+	})
 
 	// Persist all produced items in one tx (column="todo", position by index).
 	tx, err := a.d.Pool.Begin(ctx)
