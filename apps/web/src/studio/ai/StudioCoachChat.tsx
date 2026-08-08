@@ -8,6 +8,10 @@ import { withRecap } from "./RecapHint";
 import { useStudioChat, type StudioChatMsg } from "./StudioChatContext";
 import { CardTurnChip } from "../../workspace/blocks/CardTurnChip";
 import { CoachProposal } from "../../workspace/blocks/CoachProposal";
+// The 开始 button's icon (Task 6, start gate) uses the geometric line-icon
+// set the working rooms already draw "spark"/"arrow" from — aliased so it
+// doesn't collide with `@/ui/Icon`'s lucide-wrapper `Icon` used above.
+import { Icon as GlyphIcon } from "../../workspace/Icon";
 
 /**
  * StudioCoachChat (Task 9b) — the ONE 印记 chat body. Renders the continuous
@@ -21,7 +25,17 @@ import { CoachProposal } from "../../workspace/blocks/CoachProposal";
  */
 
 export function StudioCoachChat({ recap, header }: { recap?: string | null; header?: ReactNode }) {
-  const { messages, sending, sendStudioTurn, historyHasMore, loadEarlier, loadingEarlier } = useStudioChat();
+  const {
+    messages,
+    sending,
+    sendStudioTurn,
+    historyHasMore,
+    loadEarlier,
+    loadingEarlier,
+    started,
+    startJourney,
+    starting,
+  } = useStudioChat();
   const [draft, setDraft] = useState("");
   // An empty thread renders no fake AI line — a brand-new project simply
   // starts with the Composer (no more scripted CHAT_INTRO fallback).
@@ -83,14 +97,32 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
         <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} stickToBottom={false} />
         <StudioTurnChips />
       </div>
-      <Composer
-        value={draft}
-        onChange={setDraft}
-        onSend={onSend}
-        state={sending ? "replying" : undefined}
-        placeholder="和印记说说你的项目……（Shift+Enter 换行）"
-        className="flex-none"
-      />
+      {started ? (
+        <Composer
+          value={draft}
+          onChange={setDraft}
+          onSend={onSend}
+          state={sending ? "replying" : undefined}
+          placeholder="和印记说说你的项目……（Shift+Enter 换行）"
+          className="flex-none"
+        />
+      ) : (
+        // Task 6 (start gate): before the student taps 开始, there is no
+        // composer at all — 印记's opening turn ends 准备好开始了吗 and this
+        // is the one real, clearly-visible action that answers it (never a
+        // 12px hint chip). Clicking calls `coach/start`, which flips
+        // `started` → true and opens 提案 — the container re-renders the
+        // switcher/tabs in.
+        <button
+          type="button"
+          onClick={() => void startJourney()}
+          disabled={starting}
+          className="flex flex-none items-center justify-center gap-2 rounded-mk-lg bg-mk-accent px-5 py-3 text-mk-body font-bold text-white transition hover:bg-mk-accent-600 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <GlyphIcon name={starting ? "spark" : "arrow"} size={16} />
+          {starting ? "准备中…" : "开始"}
+        </button>
+      )}
     </div>
   );
 }

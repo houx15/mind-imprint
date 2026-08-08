@@ -52,6 +52,9 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         historyHasMore: false,
         loadEarlier: () => {},
         loadingEarlier: false,
+        started: true,
+        startJourney: async () => {},
+        starting: false,
       }}
     >
       {children}

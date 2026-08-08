@@ -34,6 +34,8 @@ import {
   postProjectSummary,
   patchReference,
   coach,
+  coachOpening,
+  coachStart,
   putProposal,
   reflectProjectCard,
   dismissProposal,
@@ -102,6 +104,15 @@ export function WorkspaceContainer({
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
+  // Task 6 (start gate): guards the one-shot `coach/opening` fire in the load
+  // effect below (a brand-new, not-yet-started project with an empty thread)
+  // so a re-render or effect re-run for the SAME project never double-fires
+  // it — keyed on the project id, mirroring `lastInitialProjectId`/
+  // `didMountRoom`. Reset on every project switch (below).
+  const openingFiredForProjectId = useRef<string | null>(null);
+  // Busy flag around the student's 开始 tap (`startJourney`, below) — drives
+  // the 开始 button's pending/disabled state in StudioCoachChat.
+  const [starting, setStarting] = useState(false);
   const [room, setRoom] = useState<BlockKey>("plan");
   // 印记's AI-managed status directive (stage/openTool/widthTier/reference),
   // loaded once per project (Task 8). Drives resume-at-stage: which room the
@@ -378,6 +389,30 @@ export function WorkspaceContainer({
     [studioSending, applyStudioState],
   );
 
+  // Task 6 (start gate) · the student's explicit 开始 tap: calls `coach/start`,
+  // appends its narrate, and APPLIES the returned directive (started → true,
+  // openTool → "forming") — applyStudioState's re-render is what reveals the
+  // switcher/tabs (see `chatOnly`/`started` below), so no separate state flip
+  // is needed here beyond the directive itself.
+  const startJourney = useCallback(async (): Promise<void> => {
+    const pid = activeProjectIdRef.current;
+    if (!pid || starting) return;
+    const isActive = () => activeProjectIdRef.current === pid;
+    setStarting(true);
+    try {
+      const reply = await coachStart(pid);
+      if (!isActive()) return;
+      if (reply.narrate) setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+      applyStudioState(reply.directive);
+    } catch {
+      if (isActive()) {
+        setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再点一次「开始」？）" }]);
+      }
+    } finally {
+      if (isActive()) setStarting(false);
+    }
+  }, [starting, applyStudioState]);
+
   // Task 5 (history pagination) · page one OLDER page of the studio thread in,
   // prepending it above the currently-loaded messages. Guarded on a live
   // cursor + not-already-loading (StudioCoachChat also disables its button
@@ -537,6 +572,10 @@ export function WorkspaceContainer({
     // getPlan fetch is skipped once here (this effect already fetches) rather
     // than firing a redundant duplicate on every project switch.
     didMountRoom.current = false;
+    // Task 6 (start gate): reset the opening-fire guard + any stale busy flag
+    // from the previous project.
+    openingFiredForProjectId.current = null;
+    setStarting(false);
     getPlan(projectId)
       .then((items) => {
         if (!cancelled) setPlanItems(items);
@@ -544,13 +583,54 @@ export function WorkspaceContainer({
       .catch(() => {
         /* no plan yet (or fetch failed) → the spine simply doesn't render */
       });
+    // Task 6 (start gate): coordinates the two loads below — once BOTH the
+    // studio-state and the first history page have resolved for a project
+    // that is genuinely not-yet-started with an empty thread, fire the ONE
+    // real-AI opening turn. Local (not state) because it only needs to
+    // survive within this effect's closure; `openingFiredForProjectId`
+    // (component ref) is the actual re-render-proof double-fire guard.
+    // A locally-narrowed alias: the effect's early `if (!projectId) return;`
+    // above narrows `projectId` for direct use in this scope, but that
+    // narrowing doesn't carry into the nested `maybeFireOpening` function
+    // declaration below — `pid` is the `string` TS needs there.
+    const pid = projectId;
+    let stateLoaded = false;
+    let loadedStarted = false;
+    let historyLoaded = false;
+    let historyEmpty = false;
+    function maybeFireOpening() {
+      if (cancelled || !stateLoaded || !historyLoaded) return;
+      if (loadedStarted || !historyEmpty) return; // already started, or a resumed non-empty thread
+      if (openingFiredForProjectId.current === pid) return;
+      openingFiredForProjectId.current = pid;
+      coachOpening(pid)
+        .then((reply) => {
+          if (cancelled) return;
+          // The idempotent 200 (thread already has a turn — a race with
+          // another tab/reload) narrates nothing; only seed when it did.
+          if (reply.narrate) {
+            setStudioMessages((prev) => (prev.length ? prev : [{ role: "ai", text: reply.narrate }]));
+          }
+          applyStudioState(reply.directive);
+        })
+        .catch(() => {
+          // Best-effort: the pure chat-first landing (studioState.started
+          // already false) still shows, just without the AI's opening line —
+          // a reload retries.
+        });
+    }
     // Resume-at-stage (Task 8): land wherever 印记's AI-managed status says,
     // not on a forced plan board. `cancelled` guards a late response for a
     // project the student already switched away from. On error we simply stay
-    // chat-first (studioState null) — chat is the safe primary surface.
+    // chat-first (studioState null) — chat is the safe primary surface, and
+    // the opening never fires without a confirmed `started === false`.
     getStudioState(projectId)
       .then((state) => {
-        if (!cancelled) applyStudioState(state);
+        if (cancelled) return;
+        applyStudioState(state);
+        stateLoaded = true;
+        loadedStarted = state.started;
+        maybeFireOpening();
       })
       .catch(() => {
         /* no studio_state yet (or fetch failed) → stay on the chat-first landing */
@@ -570,6 +650,9 @@ export function WorkspaceContainer({
         setHistoryCursor(page.nextCursor);
         setHistoryHasMore(page.hasMore);
         setHistoryRecap(page.recap);
+        historyLoaded = true;
+        historyEmpty = page.messages.length === 0;
+        maybeFireOpening();
       })
       .catch(() => {
         /* keep the empty store; each room shows its intro and the next turn persists */
@@ -715,10 +798,22 @@ export function WorkspaceContainer({
   // `wide`. Null status
   // (still loading) = chat — we never flash a board before 印记's status lands.
   const widthTier: WidthTier = tookOver ? "wide" : (studioState?.widthTier ?? "chat");
+  // Task 6 (start gate): a CONFIRMED not-started project (a successfully
+  // loaded studio_state with started === false) is ALWAYS chat-only — pure
+  // full-width 印记 chat, no tabs, until the student's explicit 开始 tap flips
+  // it. `null` studioState (still loading, or the fetch failed) is a
+  // DIFFERENT case — we don't yet know whether the project has started, so it
+  // falls back to `true` here, preserving the shell's pre-existing "chat-first
+  // landing with the switcher still live as an escape hatch" fallback (a
+  // resumed project hitting one transient studio-state error must not lose
+  // its tabs and get stuck behind a 开始 button it already passed).
+  const started = studioState ? studioState.started : true;
   // The chat-only surface: no interactive area at all. `chatOnly` ⇒ the
   // full-width 印记 chat fills <main> INSTEAD of a room + side panel. Any
-  // other tier ⇒ a room is mounted and the chat rides in the AiPanel.
-  const chatOnly = widthTier === "chat" && !tookOver;
+  // other tier ⇒ a room is mounted and the chat rides in the AiPanel. A
+  // not-started project is unconditionally chat-only — stronger than the
+  // width-tier gate alone, which a manual takeover could otherwise defeat.
+  const chatOnly = !started || (widthTier === "chat" && !tookOver);
   // The expanded AiPanel's width follows the tier: a prominent 42% column in
   // `half`, the default sidebar in `wide` (collapsed always wins → slim rail).
   const aiPanelWidthClass = widthTier === "half" ? "w-[42%]" : "w-[320px]";
@@ -766,6 +861,9 @@ export function WorkspaceContainer({
     historyHasMore,
     loadEarlier,
     loadingEarlier,
+    started,
+    startJourney,
+    starting,
   };
 
   return (
@@ -778,7 +876,12 @@ export function WorkspaceContainer({
         {/* The persistent stage switcher lives at the top-left of the
             interactive area (spec §2) — beside the 印记 chat, not spanning it.
             AI-driven view changes flip `room`; this is the always-available
-            manual override so the student is never lost. */}
+            manual override so the student is never lost. Task 6 (start gate):
+            a not-started project renders NO tabs at all — stronger than the
+            old chatOnly (which still rendered this row, just with no segment
+            highlighted). The whole row (switcher + plan spine + 继续印记)
+            only exists once the journey has actually started. */}
+        {started && (
         <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
           <Segmented
             options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
@@ -807,6 +910,7 @@ export function WorkspaceContainer({
             </button>
           )}
         </div>
+        )}
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The re-entry recap now lives INSIDE the continuous chat (passed as
             `recap` to the working rooms), not as a banner here — the chat is the

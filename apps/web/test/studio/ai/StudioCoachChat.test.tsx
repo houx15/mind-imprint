@@ -97,6 +97,9 @@ function Harness({ projectId = "p1" }: { projectId?: string }) {
         historyHasMore,
         loadEarlier,
         loadingEarlier,
+        started: true,
+        startJourney: async () => {},
+        starting: false,
       }}
     >
       <StudioCoachChat recap={RECENT_PAGE.recap} />
@@ -165,6 +168,9 @@ describe("StudioCoachChat · history pagination (Task 5)", () => {
           historyHasMore: false,
           loadEarlier: () => {},
           loadingEarlier: false,
+          started: true,
+          startJourney: async () => {},
+          starting: false,
         }}
       >
         <StudioCoachChat recap={null} />

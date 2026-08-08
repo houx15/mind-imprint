@@ -80,6 +80,19 @@ export type StudioChatValue = {
   historyHasMore: boolean;
   loadEarlier: () => void;
   loadingEarlier: boolean;
+  // ── Task 6 (start gate) ────────────────────────────────────────────────
+  // Whether this project's ONE thread has been explicitly started
+  // (`StudioState.started`). A brand-new project renders pure full-width
+  // chat with NO tabs until the student taps 开始 (StudioCoachChat swaps the
+  // Composer for that button while `!started`).
+  started: boolean;
+  // The student's 开始 tap: calls `coach/start`, appends its narrate, and
+  // applies the returned directive (flips `started` → true, opens 提案 —
+  // the container's applyStudioState re-renders the switcher/tabs in).
+  startJourney: () => Promise<void>;
+  // Busy flag around `startJourney`'s round-trip — drives the button's
+  // pending/disabled state.
+  starting: boolean;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

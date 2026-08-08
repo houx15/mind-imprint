@@ -16,7 +16,6 @@ import {
   TIMELINE_DAYS,
   STAGES,
   STAGE_1,
-  type ChatMsg,
 } from "./mockData";
 import {
   putProposal,
@@ -31,14 +30,6 @@ import {
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
-
-// The forming chat opens with a scripted guiding intro (NOT an LLM call). It
-// names the four things worth thinking through and offers a fork: be walked
-// through them one part at a time, or fill the panel directly. **bold** markers
-// are rendered by renderRich (via toChatMessages, into the shared ChatLog).
-const INTRO_ZH =
-  "要做好一个研究项目，先想清楚四件事：**目标**（想回答什么）、**缘由**（为什么做）、**活动与时间**（打算怎么做）、**资源**（需要什么）。想让我一部分一部分带你想，还是你已经有想法、想直接填右边？";
-const introChat = (): ChatMsg[] => [{ role: "ai", text: INTRO_ZH }];
 
 // The legacy "primary" family and "accent" family were two distinct hues in
 // the old two-tone design; the 2026-08-06 redesign aliases both to the same
@@ -101,9 +92,6 @@ export function PlanBlock({
   // project's shared store. A plain room switch within the same project passes.
   const isActiveProject = () => activeProjectIdRef.current === projectId;
   const [draft, setDraft] = useState("");
-  // The two quick-reply chips live only under the scripted intro; any turn
-  // (chip, typed message, or a language reset) dismisses them.
-  const [chipsDismissed, setChipsDismissed] = useState(false);
 
   // Debounced persistence of proposal edits (~600ms after the last keystroke).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,7 +118,6 @@ export function PlanBlock({
   async function onSend() {
     const text = draft.trim();
     if (!text || sending) return;
-    setChipsDismissed(true);
     setDraft("");
     // EC · flush a pending dim autosave BEFORE the turn so 印记's spine read
     // (GetProjectProposal) sees the latest dimensions — otherwise a dim typed
@@ -141,13 +128,6 @@ export function PlanBlock({
       await putProposal(projectId, prop).catch(() => {/* the turn still proceeds */});
     }
     await sendStudioTurn(text);
-  }
-
-  // Chip 1 — kick off the guided walk-through, starting with 目标.
-  async function onGuideMe() {
-    setChipsDismissed(true);
-    const prompt = "请一部分一部分带我想。先从第一件事「目标」开始：帮我想清楚我到底想回答什么问题。";
-    await sendStudioTurn(prompt);
   }
 
   // #2 — 让印记看看我的开题：hand the four dims to 印记. It critiques; it never
@@ -168,9 +148,6 @@ export function PlanBlock({
         setDraft={setDraft}
         sending={sending}
         onSend={onSend}
-        showChips={!chipsDismissed && messages.length === 0}
-        onGuideMe={onGuideMe}
-        onSelfFill={() => setChipsDismissed(true)}
         onReview={onReview}
         title={title}
         qualification={qualification}
@@ -239,9 +216,6 @@ function FormingPhase(props: {
   setDraft: (s: string) => void;
   sending: boolean;
   onSend: () => void;
-  showChips: boolean;
-  onGuideMe: () => void;
-  onSelfFill: () => void;
   onReview: () => void;
   title: string;
   qualification: string;
@@ -250,7 +224,7 @@ function FormingPhase(props: {
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    showChips, onGuideMe, onSelfFill, onReview,
+    onReview,
     title, qualification, projectId, onCardReflected,
   } = props;
   // 导出开题报告 .docx — a direct "take your work with you" action (成品可导出带走),
@@ -281,10 +255,10 @@ function FormingPhase(props: {
   // component renders outside a studio shell (e.g. some tests) — in either
   // case the coach content simply doesn't render, never crashes.
   const slot = useStudioAiSlot();
-  // The scripted intro is DISPLAY-ONLY now (never stored): a fresh project has
-  // an empty hoisted store, so fall back to the localized intro for rendering.
-  // Once any turn lands the store is non-empty and IT is what shows.
-  const displayChat: StudioChatMsg[] = messages.length ? messages : introChat();
+  // The 提案 framing is now the live agent's job (delivered by `coach/start`'s
+  // narrate, seeded into the hoisted store before this room ever mounts) —
+  // no local scripted-intro fallback. An empty thread simply renders empty.
+  const displayChat: StudioChatMsg[] = messages;
   return (
     <>
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
@@ -349,24 +323,6 @@ function FormingPhase(props: {
                   card sheet. */}
               {!sending && (
                 <CoachCardPanel projectId={projectId} proposal={null} onProposalConsumed={() => {}} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
-              )}
-              {showChips && !sending && (
-                <div className="flex flex-wrap gap-2 pl-1">
-                  <button
-                    type="button"
-                    onClick={onGuideMe}
-                    className="rounded-full border border-mk-accent bg-mk-accent-50 px-3.5 py-1.5 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent hover:text-white"
-                  >
-                    带我一部分一部分想
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onSelfFill}
-                    className="rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-[14px] font-semibold text-mk-muted transition hover:text-mk-accent"
-                  >
-                    我自己填
-                  </button>
-                </div>
               )}
             </div>
 

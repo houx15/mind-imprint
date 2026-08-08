@@ -85,6 +85,13 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         historyHasMore: false,
         loadEarlier: () => {},
         loadingEarlier: false,
+        // Task 6 (start gate): PlanBlock only ever mounts once the journey has
+        // actually started (WorkspaceContainer gates the whole switcher/room
+        // area on `started`), so these tests stand in a started project —
+        // mirrors the shell's real invariant.
+        started: true,
+        startJourney: async () => {},
+        starting: false,
       }}
     >
       {children}
@@ -114,24 +121,27 @@ beforeEach(() => {
 });
 
 describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
-  it("renders the scripted intro in the shared ChatLog and the summon shelf, portaled into the AI slot", async () => {
+  // Task 6 (start gate): the hardcoded 提案 intro is GONE — the framing now
+  // comes from the live agent's `coach/start` narrate (seeded into the store
+  // BEFORE this room ever mounts), not a local scripted fallback. An empty
+  // thread renders empty; the summon shelf still shows unconditionally.
+  it("renders NO scripted intro — an empty thread stays empty, and the summon shelf still shows", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
 
-    // The scripted intro (not an LLM call) renders via the shared ChatLog.
-    expect(await screen.findByText(/先想清楚四件事/)).toBeInTheDocument();
     // The summon shelf (CoachCardPanel, FORMING_DECK) is always visible.
     expect(await screen.findByRole("button", { name: "提问卡" })).toBeInTheDocument();
+    // The old hardcoded intro never renders.
+    expect(screen.queryByText(/先想清楚四件事/)).toBeNull();
   });
 
   it("sends a message through the shared Composer via the container-owned send loop", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
-    await screen.findByText(/先想清楚四件事/);
 
-    const textarea = screen.getByPlaceholderText("说说你的想法……（Shift+Enter 换行）");
+    const textarea = await screen.findByPlaceholderText("说说你的想法……（Shift+Enter 换行）");
     await userEvent.type(textarea, "我想研究中国的碳排放");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
@@ -145,7 +155,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={FILLED_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
-    await screen.findByText(/先想清楚四件事/);
+    await screen.findByRole("button", { name: "让印记看看我的开题" });
 
     expect(screen.queryByRole("button", { name: /生成项目计划/ })).toBeNull();
     // DimFields, the review action and the export still work — this is chrome
@@ -159,7 +169,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
-    await screen.findByText(/先想清楚四件事/);
+    await screen.findByRole("button", { name: "让印记看看我的开题" });
 
     // Kept (a direct review request stays working).
     expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();

@@ -151,6 +151,27 @@ export async function coach(id: string, userInput: string, scope?: string): Prom
   return OrchestratorReply.parse(raw);
 }
 
+// POST /coach/opening — Task 6 (start gate): a real-AI welcome for a
+// brand-new project's ONE thread, fired once when the studio thread is still
+// empty. Idempotent server-side: if the thread already has a turn, this
+// returns 200 with an empty `narrate` and the CURRENT directive (no spend) —
+// the caller only acts on the reply when it actually seeded a message. The
+// returned `directive.started` is false and `directive.openTool` is "chat"
+// (the pure full-width landing, no tabs) until `coachStart` flips it.
+export async function coachOpening(id: string): Promise<OrchestratorReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/opening`, { method: "POST" });
+  return OrchestratorReply.parse(raw);
+}
+
+// POST /coach/start — Task 6 (start gate): the student's explicit 开始 tap.
+// Sets `directive.started = true` and `directive.openTool = "forming"`, and
+// `narrate` begins the 提案 discussion (replacing the old scripted
+// PlanBlock intro). Idempotent if already started.
+export async function coachStart(id: string): Promise<OrchestratorReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/start`, { method: "POST" });
+  return OrchestratorReply.parse(raw);
+}
+
 // GET /studio-state — 印记's current directive (stage/openTool/widthTier/
 // reference/updatedAtTurn) independent of any coach turn. Used to resume a
 // project at its AI-managed status (e.g. on load) without replaying the whole

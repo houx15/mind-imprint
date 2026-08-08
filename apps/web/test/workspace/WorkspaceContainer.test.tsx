@@ -54,6 +54,11 @@ vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getStudioState: (...args: unknown[]) => getStudioState(...args),
   coach: (...args: unknown[]) => coach(...args),
+  // Every scenario here is an already-`started` project (fakeStudioState
+  // default), so the Task 6 opening never fires and 开始 never renders — these
+  // are unused no-op stand-ins, kept only so the module shape matches.
+  coachOpening: vi.fn(),
+  coachStart: vi.fn(),
   putProposal: (...args: unknown[]) => putProposal(...args),
   getPlan: (...args: unknown[]) => getPlan(...args),
   getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
@@ -102,6 +107,10 @@ function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", w
     widthTier: widthTier ?? (openTool === "chat" ? "chat" : "half"),
     reference: [] as never[],
     updatedAtTurn: 0,
+    // Every scenario in THIS file is a resumed (already-started) project — the
+    // Task 6 start-gate itself (a not-started brand-new project) has its own
+    // dedicated test file (StudioStartGate.test.tsx).
+    started: true,
   };
 }
 
