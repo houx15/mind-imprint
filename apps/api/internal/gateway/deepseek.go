@@ -81,15 +81,16 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// NOTE: we measured disabling v4 "thinking" on the chaperone tier
-	// ({"thinking":{"type":"disabled"}}) — 2× faster and valid JSON, BUT it
-	// degraded the coach's STRUCTURED decisions: on a real journey it stopped
-	// advancing the stage, misclassified note sections, and never fired
-	// generate_plan even when asked (leaving the student unable to get a plan).
-	// The reasoning phase does real work for the orchestrator's tool choices, so
-	// thinking stays ON. The real perceived-latency lever is SSE-streaming the
-	// coach narrate, not the reasoning toggle. (Kept this note so we don't
-	// re-try the toggle blind.)
+	// Chaperone tier turns OFF v4's "thinking" phase for speed (陪练走中档模型可
+	// 降级) — ~2-3× faster. Disabling reasoning first degraded the coach's
+	// structured tool decisions, so the orchestrator prompt was rewritten as an
+	// explicit state machine (section defs + projection-driven set_status/
+	// generate_plan rules + a worked example) that a non-reasoning model can
+	// follow deterministically. Flagship tier keeps thinking ON (omits the param)
+	// for evaluation depth (评估走旗舰模型绝不降级). Empty tier keeps it on.
+	if r.Tier == "chaperone" {
+		body["thinking"] = map[string]any{"type": "disabled"}
+	}
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}
