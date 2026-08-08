@@ -22,7 +22,7 @@ import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
 import { StudioCardSheet } from "../studio/StudioCardSheet";
 import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
-import { Badge, Segmented, Tooltip } from "@/ui/feedback";
+import { Badge, Tooltip } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon } from "./Icon";
 import { RoomSwitcher } from "./RoomSwitcher";

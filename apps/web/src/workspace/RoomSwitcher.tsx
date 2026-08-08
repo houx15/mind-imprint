@@ -30,7 +30,13 @@ export function RoomSwitcher({ value, onChange, className }: RoomSwitcherProps) 
             className={cx(
               "flex items-center gap-1.5 rounded-mk-full px-3 py-1.5 transition-colors duration-[120ms] ease-mk",
               "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
-              active ? "bg-mk-surface text-mk-ink shadow-mk-xs" : "bg-transparent text-mk-ink/70",
+              // NOTE: `mk-*` colors resolve to `var(--mk-*)` (tailwind.config.ts) —
+              // Tailwind's JIT cannot apply an opacity modifier to a CSS-variable
+              // color, so `text-mk-ink/70` silently emits NO rule (same root
+              // cause as the documented `bg-mk-<token>/<opacity>` gotcha). Use the
+              // solid `text-mk-secondary` token instead — a real mid-tone color
+              // that actually renders, legibly dimmer than active `text-mk-ink`.
+              active ? "bg-mk-surface text-mk-ink shadow-mk-xs" : "bg-transparent text-mk-secondary",
             )}
           >
             <span aria-hidden="true" className="flex shrink-0 items-center">

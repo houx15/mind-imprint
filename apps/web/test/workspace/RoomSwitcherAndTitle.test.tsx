@@ -37,8 +37,16 @@ describe("RoomSwitcher", () => {
 
     const inactive = screen.getByRole("button", { name: "提案" });
     expect(inactive).toHaveAttribute("aria-pressed", "false");
-    expect(inactive.className).toContain("text-mk-ink/70");
-    expect(inactive.className).not.toContain("text-mk-muted");
+    // `text-mk-secondary` is a solid token (renders); any `mk-*/NN` opacity
+    // modifier on a CSS-variable color silently emits no rule (documented
+    // `bg-mk-<token>/<opacity>` gotcha, applies to text- utilities too) —
+    // must not sneak back in here.
+    expect(inactive.className).toContain("text-mk-secondary");
+    expect(inactive.className).not.toContain("text-mk-small");
+    // Only guard the text-/bg- color utilities (the ones the reviewer
+    // confirmed break under an opacity modifier) — the pre-existing
+    // `focus-visible:ring-mk-accent/15` pattern is out of this task's scope.
+    expect(inactive.className).not.toMatch(/\b(?:text|bg)-mk-[a-z-]+\/\d+\b/);
   });
 
   it("calls onChange with the clicked tab's key", async () => {
