@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// Real (unmocked) module — the mocked PlanBlock/WritingBlock below read the
+// SAME hoisted store via this hook, mirroring how the real rooms portal their
+// coach content, so the one-thread-across-room-switches test below can assert
+// message content directly through them instead of just testid presence.
+import { useStudioChat } from "@/studio/ai/StudioChatContext";
 
 // Keep this a light, seam-focused test of the `initialProjectId` deep-link
 // (Task 6) — everything below the shell's own room-swap logic is mocked out
@@ -32,15 +37,36 @@ vi.mock("@/workspace/Directory", () => ({
   ),
 }));
 
+// PlanBlock/WritingBlock also render the hoisted thread's message texts (via
+// the SAME `useStudioChat()` the real rooms read to portal their coach) — this
+// is what lets the "one thread survives a room switch" test below assert
+// actual message content is still there after switching, not just a testid.
 vi.mock("@/workspace/blocks/PlanBlock", () => ({
-  PlanBlock: ({ projectId, title }: { projectId: string; title: string }) => (
-    <div data-testid="plan-block">
-      {projectId}:{title}
-    </div>
-  ),
+  PlanBlock: ({ projectId, title }: { projectId: string; title: string }) => {
+    const { messages } = useStudioChat();
+    return (
+      <div data-testid="plan-block">
+        {projectId}:{title}
+        {messages.map((m, i) => (
+          <p key={i}>{m.text}</p>
+        ))}
+      </div>
+    );
+  },
 }));
 vi.mock("@/workspace/blocks/ReadingBlock", () => ({ ReadingBlock: () => <div data-testid="reading-block" /> }));
-vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: () => <div data-testid="writing-block" /> }));
+vi.mock("@/workspace/blocks/WritingBlock", () => ({
+  WritingBlock: () => {
+    const { messages } = useStudioChat();
+    return (
+      <div data-testid="writing-block">
+        {messages.map((m, i) => (
+          <p key={i}>{m.text}</p>
+        ))}
+      </div>
+    );
+  },
+}));
 vi.mock("@/workspace/blocks/ReferencePanel", () => ({ ReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: () => <div data-testid="review-block" /> }));
 vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-testid="reading-room" /> }));
@@ -542,5 +568,49 @@ describe("WorkspaceContainer", () => {
     expect(await screen.findByText("好的。")).toBeInTheDocument();
     expect(screen.queryByText("subagent 已整理研究计划")).toBeNull();
     expect(screen.queryByText("已整理较早的对话")).toBeNull();
+  });
+
+  // Task 7 (review fix round 1) · the brief's required "coach thread is
+  // identical when toggling 提案/管理/写作" case: 印记 is ONE continuous thread
+  // across these rooms — the hoisted `studioMessages` store must not reset or
+  // reload when the manual switcher swaps which room is mounted. Sends a real
+  // turn while chat-first, then manually toggles across 管理(plan) → 写作
+  // (writing) → 提案(forming), asserting the SAME message content (both the
+  // student's turn and 印记's reply) is still present after every switch —
+  // via the mocked PlanBlock/WritingBlock above, which read the identical
+  // `useStudioChat()` store the real rooms portal their coach from.
+  it("keeps the SAME coach thread content when switching 管理 ↔ 写作 ↔ 提案 (one hoisted thread, no reload)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("我们先理一下你的目标。", "chat"));
+    render(<WorkspaceContainer initialProjectId="pswitch" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "我想聊聊研究目标");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 管理 (plan room mounts; getPlan best-effort refresh already resolved
+    // above so the switcher/room are settled by the time we click).
+    await userEvent.click(screen.getByRole("button", { name: "管理" }));
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 写作 (a DIFFERENT mounted component; same underlying thread).
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 提案 (back to PlanBlock, forming phase) — still the same content.
+    await userEvent.click(screen.getByRole("button", { name: "提案" }));
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // No second coach call happened from any of the room switches — the
+    // thread was never re-fetched/reloaded, just re-displayed.
+    expect(coach).toHaveBeenCalledTimes(1);
   });
 });
