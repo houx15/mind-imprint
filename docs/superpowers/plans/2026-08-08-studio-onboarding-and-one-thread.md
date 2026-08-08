@@ -391,3 +391,38 @@ httpx.WriteJSON(w, http.StatusOK, map[string]any{
 **Known limitation (documented, not a gap):** plan-generation and compaction complete server-side within the awaited coach turn, so their "loading" is a post-hoc acknowledgment line, not a during-turn spinner. A true per-phase spinner needs SSE streaming of tool intent — deliberately out of scope for this plan.
 
 **Deploy:** `full` (migration 0059 + api + web).
+
+---
+
+## Task 9: Frontend — design-system conformance for scrollbars + text inputs (added 2026-08-08 per user feedback)
+
+**Files:** the global stylesheet (`apps/web/src/index.css` or the app's Tailwind entry — grep for `@tailwind`/`:root`); shared input/textarea components (`apps/web/src/studio/ai/Composer.tsx` and any `apps/web/src/ui/*` input primitives); Test `apps/web/test/`.
+
+**Interfaces — Produces:** every scroll container and every text input/textarea reads as part of the design system (mk tokens): custom-styled scrollbars (not the raw OS default) and consistent input chrome.
+
+**Context:** The user reports (1) scrollbars don't follow the design and (2) many text boxes (inputs/textareas) don't follow the design. Fix both as a conformance sweep — do NOT redesign layouts.
+
+- [ ] **Step 1: Global scrollbar styling.** In the global stylesheet add a themed scrollbar treatment applied to scrollable regions (thin, mk-token colors, rounded thumb): `::-webkit-scrollbar`, `::-webkit-scrollbar-thumb`, `::-webkit-scrollbar-track` + Firefox `scrollbar-width: thin; scrollbar-color: <thumb> <track>`. Use existing mk color tokens (e.g. a muted border/paper token for the thumb). Prefer a single reusable utility class (e.g. `.mk-scroll`) applied to scroll containers, plus a restrained global default — match how the design system is already organized. Respect `prefers-color-scheme`/theme tokens if the app themes.
+- [ ] **Step 2: Audit + normalize text inputs.** Grep `apps/web/src` for `<input`, `<textarea>`, and `contentEditable` usages. Identify the design-system input treatment (border token, `rounded-mk-*`, focus-visible ring `ring-mk-accent`, `text-mk-body` ≥14px, placeholder color token). Where a shared primitive exists, route inputs through it; where inputs are ad-hoc and off-system, bring them onto the tokens. Do NOT introduce 12px body text in inputs — inputs are content, not hints (`text-mk-body` min). Focus on the high-traffic surfaces first: the coach `Composer`, the writing textarea, create-project fields, reading/notes inputs.
+- [ ] **Step 3: Verify no regression.** `pnpm exec tsc --noEmit` = 0; `pnpm exec vitest run` green. Add a light test only where a shared input primitive gained a class contract worth locking (e.g. the Composer textarea carries `text-mk-body` and a focus ring class) — do not over-test global CSS.
+- [ ] **Step 4: Commit** `feat(web): design-system scrollbars + text-input conformance sweep`.
+
+**Constraints:** design-system tokens only; never `bg-mk-<token>/<opacity>` on a hex token (renders transparent); one Tailwind class per competing property; ≥14px for input/body text (12px only for genuine hints). Scope = styling conformance, not layout/behavior changes.
+
+---
+
+## Task 10: Backend — record the lifecycle stage on each chat turn (added 2026-08-08 per user feedback)
+
+**Files:** `apps/api/internal/store/migrations/0060_chat_message_stage.sql` (new); `apps/api/internal/store/queries/chat.sql` (+ sqlc regen); the coach message-append helper (`apps/api/internal/agent/agentstore.go` `AppendProjectCoachMessage` + the card-message variant) and its callers in `apps/api/internal/api/coach.go` / `card_reflect.go`; Test scoped `internal/api` + `internal/store` (docker foreground).
+
+**Interfaces — Produces:** `chat_message.stage text` (nullable); every studio coach turn (student + assistant + opening + start + card turns) is persisted with the `studio_state.stage` in effect at that moment, so the evaluation layer can read the per-turn lifecycle arc. Historical rows stay null.
+
+**Rationale:** 过程即数据. `surface` says WHICH room/producer; `stage` says WHERE in the lifecycle (topic_discussion/proposal_forming/plan_generation/proposal_writing/proposal_review/body_writing/retrospective). Both are useful; stage enables an arc-of-thinking read in assessment. GET must not spend tokens; this is pure persistence metadata.
+
+- [ ] **Step 1: Migration 0060.** `ALTER TABLE chat_message ADD COLUMN stage text;` (nullable — no default, historical rows null). Down: drop the column. Copy the goose header style from a recent migration.
+- [ ] **Step 2: Thread `stage` through the insert.** Update the `CreateProjectCoachMessage` query in `chat.sql` (and the card-message insert if separate) to accept and store `stage` (nullable `*string`/`sqlc.narg`). Regenerate sqlc (`cd apps/api && CGO_ENABLED=0 go tool sqlc generate`). Update `AppendProjectCoachMessage` (and the card variant) in `agentstore.go` to take a `stage string` (pass "" → NULL) and forward it.
+- [ ] **Step 3: Pass the stage at every persist site.** In `coach.go`, every `AppendProjectCoachMessage(..., "studio")` call (postCoach student+assistant, postCoachStart synthetic+assistant, postCoachOpening assistant, subagent turns) passes `string(state.Stage)` (opening: `string(agent.StageTopicDiscussion)` or the loaded state's stage). Card turns in `card_reflect.go` pass the current stage too. Keep the subagent surfaces' own stage as whatever `studio_state.stage` currently is (they don't mutate it). Do NOT change any behavior other than adding the stage argument.
+- [ ] **Step 4: Tests (docker foreground, CGO_ENABLED=0, -timeout 600s).** A coach turn persists a `chat_message` row whose `stage` equals the project's current `studio_state.stage` (e.g. after start → `proposal_forming`); the opening turn persists `stage='topic_discussion'`. Assert via a direct `SELECT stage FROM chat_message ...` query. Run the existing `TestCoach*` suite to confirm no regression. Also `go build ./...` + `go vet`.
+- [ ] **Step 5: Commit** `feat(api): record studio_state.stage on each chat turn (0060) for process evaluation`.
+
+**Note:** this changes `AppendProjectCoachMessage`'s signature — update ALL callers (grep) so the build stays green. Never `git add -A`. Deploy remains `full` (now migrations 0059 + 0060).
