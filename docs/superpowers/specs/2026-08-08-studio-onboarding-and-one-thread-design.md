@@ -153,6 +153,28 @@ The 5 tabs are primary navigation, not hints.
   purpose-built room switcher — implementer's choice, but the `Segmented`
   primitive's default 12px must not be silently reused for these tabs.
 
+## Change 5 — The full title is viewable
+
+Today the project title is truncated everywhere with no way to read it in full:
+the workspace top bar is `truncate` (`WorkspaceContainer.tsx:928`), and home /
+directory cards use `line-clamp-2` (`HomePage.tsx:92`, `Directory.tsx:122`) — a
+long enough title is still cut with no recourse.
+
+Give the student a way to see the whole title:
+- **Workspace top bar (primary fix):** wrap the truncated `<h1>` in the design
+  system `Tooltip` (`feedback.tsx` §9) so hover/focus reveals the full title,
+  and add a native `title` attribute as a baseline. Because hover does not exist
+  on touch, the top-bar title is also **tappable** to reveal the full text (a
+  small popover / expand, or toggling the truncation off) — a keyboard-focusable,
+  non-hint affordance.
+- **Home & directory cards:** add the native `title` attribute carrying the full
+  title on the clamped element, so at minimum a desktop hover shows it. (Cards
+  already link into the project, so the top-bar affordance is the real answer;
+  the `title` attr is a cheap safety net.)
+
+Full title text is always available in `workspace.title` / `project.title`; no
+new API. Keep it small — this is a legibility fix, not a redesign.
+
 ## Loading states (hidden subagents + compaction)
 
 Every hidden subagent turn and compaction shows a **loading status + hint** in
@@ -206,6 +228,9 @@ this is the one place 12px is correct.
   ≥14px (either a new switcher or an icon+size variant).
 - `apps/web/src/workspace/api/workspace.ts` — paginated `getCoachHistory`,
   opening/start calls.
+- `apps/web/src/workspace/WorkspaceContainer.tsx` (top-bar `<h1>`),
+  `apps/web/src/shell/home/HomePage.tsx`, `apps/web/src/workspace/Directory.tsx`
+  — full-title affordance (Tooltip + tap-to-reveal + `title` attr).
 
 ## Testing
 
@@ -217,7 +242,8 @@ this is the one place 12px is correct.
   after opening and reveals tabs; recap card renders when `recap` set; 载入更早
   prepends and hides at `hasMore=false`; the coach panel shows the same thread
   across 提案/管理/写作; tab buttons render icon + ≥14px; loading hints render for
-  hidden subagents.
+  hidden subagents; the top-bar title exposes the full title (tooltip +
+  tap-to-reveal) and clamped cards carry a `title` attr.
 - Pre-existing `TestWeeklyReportForSeededClass` is calendar-flaky — ignore.
 
 ## Non-goals / 铁律 held
