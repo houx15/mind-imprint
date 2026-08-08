@@ -100,6 +100,17 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
+	// Load the current studio_state's stage so this card turn's persisted rows
+	// carry WHERE in the project lifecycle it happened (过程即数据), same
+	// convention as postCoach. Any load/unmarshal error → "" (stored as NULL).
+	stage := ""
+	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			stage = string(loaded.Stage)
+		}
+	}
+
 	// Load the PRIOR active window, then append the compiled card text as the
 	// student's current turn — independent of whether the persist below succeeds
 	// (mirrors postCoach). The coach's context always ends with what the student
@@ -128,7 +139,7 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("card reflect: marshal card attachment failed; persisting plain turn", "err", merr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		cardAttachments = nil
 	}
-	if err := store.AppendProjectCoachCardMessage(r.Context(), projectID, "user", compiled, surface, cardAttachments); err != nil {
+	if err := store.AppendProjectCoachCardMessage(r.Context(), projectID, "user", compiled, surface, stage, cardAttachments); err != nil {
 		slog.Warn("card reflect: persist student card turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
@@ -162,7 +173,7 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 
 	// Persist the reply as the assistant turn, so the thread stays coherent for
 	// the next turn's context. Best-effort.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", reply, surface); err != nil {
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", reply, surface, stage); err != nil {
 		slog.Warn("card reflect: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 

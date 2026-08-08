@@ -113,22 +113,24 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	}
 	history = append(history, agent.ChatTurn{Role: "user", Content: userInput})
 
-	// Persist the student turn to the ONE per-project thread under the single
-	// continuous `studio` surface — the four rooms are views of one thread now,
-	// not separate scope-tagged conversations. Best-effort — the reply does not
-	// depend on it, since the current turn is already in `history` above.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", userInput, "studio"); err != nil {
-		slog.Warn("coach: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
-	}
-
 	// Load the AI-managed studio_state — the orchestrator reads where the project
 	// is from it and returns the next state. Any error/empty → fresh default.
+	// Loaded BEFORE the student-turn persist below so that persist can tag the
+	// turn with the stage in effect at the START of this turn (过程即数据).
 	state := agent.DefaultStudioState()
 	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
 		var loaded agent.StudioState
 		if json.Unmarshal(raw, &loaded) == nil {
 			state = loaded
 		}
+	}
+
+	// Persist the student turn to the ONE per-project thread under the single
+	// continuous `studio` surface — the four rooms are views of one thread now,
+	// not separate scope-tagged conversations. Best-effort — the reply does not
+	// depend on it, since the current turn is already in `history` above.
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", userInput, "studio", string(state.Stage)); err != nil {
+		slog.Warn("coach: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
 	// Always-on spine projection (D2). The room scope is derived from the open
@@ -186,8 +188,9 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	reply.Narrate = narrate
 	reply.Directive = state
 
-	// Persist the assistant narration to the ONE thread (studio surface). Best-effort.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio"); err != nil {
+	// Persist the assistant narration to the ONE thread (studio surface), tagged
+	// with the FINAL stage (post-tool-effects) — where the turn landed. Best-effort.
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
@@ -258,10 +261,22 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	}
 	history = append(history, agent.ChatTurn{Role: "user", Content: userInput})
 
+	// Load the current studio_state's stage — sub-agents never mutate
+	// studio_state (see the doc comment above), but their turns still carry
+	// the stage in effect so the evaluation layer's arc-of-thinking read stays
+	// complete across surfaces. Any load/unmarshal error → "" (stored as NULL).
+	stage := ""
+	if raw, gerr := a.d.Queries.GetStudioState(ctx, projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			stage = string(loaded.Stage)
+		}
+	}
+
 	// Persist the student turn to THIS sub-agent's own surface (durability for
 	// the NEXT turn's context). Best-effort — this turn's reply does not depend
 	// on it, since the current turn is already in `history` above.
-	if err := store.AppendProjectCoachMessage(ctx, projectID, "user", userInput, scope); err != nil {
+	if err := store.AppendProjectCoachMessage(ctx, projectID, "user", userInput, scope, stage); err != nil {
 		slog.Warn("coach: persist student turn failed", "err", err, "scope", scope, "request_id", httpx.RequestIDFromContext(ctx))
 	}
 
@@ -293,7 +308,7 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	}
 
 	// Persist the assistant narration to the same sub-agent surface. Best-effort.
-	if err := store.AppendProjectCoachMessage(ctx, projectID, "assistant", narrate, scope); err != nil {
+	if err := store.AppendProjectCoachMessage(ctx, projectID, "assistant", narrate, scope, stage); err != nil {
 		slog.Warn("coach: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
 	}
 
@@ -533,7 +548,7 @@ func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
 
 	// Persist ONLY the assistant welcome — the student hasn't spoken, so no
 	// student turn opens the thread.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio"); err != nil {
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach opening: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
@@ -600,7 +615,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	}
 	history = append(history, agent.ChatTurn{Role: "user", Content: startUtterance})
 
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", startUtterance, "studio"); err != nil {
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", startUtterance, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach start: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
@@ -650,7 +665,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	reply.Narrate = narrate
 	reply.Directive = state
 
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio"); err != nil {
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach start: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 

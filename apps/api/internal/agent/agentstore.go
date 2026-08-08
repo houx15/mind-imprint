@@ -206,12 +206,15 @@ func (s *sqlcAgentStore) LoadChatHistory(ctx context.Context, projectID uuid.UUI
 // AppendProjectCoachMessage persists one surface-tagged coach turn (role
 // "user"|"assistant") to the project's ONE thread (S1 · one continuous
 // session), creating the thread on first use. surface is the room the turn
-// happened on; "" stores NULL (untagged). Unlike CreateChatMessage (the
-// intervention-loop's student-only writer), this persists BOTH sides of the
-// conversational coach exchange, since the four-room coach's replies are
-// conversational (chat_message), not interventions.
-func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string) error {
-	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, nil)
+// happened on; "" stores NULL (untagged). stage is the studio_state.stage in
+// effect when the turn was persisted (过程即数据 — the evaluation layer reads
+// the per-turn lifecycle arc); "" stores NULL, same convention as surface.
+// Unlike CreateChatMessage (the intervention-loop's student-only writer),
+// this persists BOTH sides of the conversational coach exchange, since the
+// four-room coach's replies are conversational (chat_message), not
+// interventions.
+func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface, stage string) error {
+	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, stage, nil)
 }
 
 // AppendProjectCoachCardMessage is AppendProjectCoachMessage for a CARD turn:
@@ -220,14 +223,14 @@ func (s *sqlcAgentStore) AppendProjectCoachMessage(ctx context.Context, projectI
 // re-renders the completed card as a clickable, content-first chip (opening a
 // read-only record) instead of the plain compiled text. `content` stays the
 // compiled fallback (any non-card-aware reader still sees the words).
-func (s *sqlcAgentStore) AppendProjectCoachCardMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string, attachments []byte) error {
-	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, attachments)
+func (s *sqlcAgentStore) AppendProjectCoachCardMessage(ctx context.Context, projectID uuid.UUID, role, content, surface, stage string, attachments []byte) error {
+	return s.appendProjectCoachMessage(ctx, projectID, role, content, surface, stage, attachments)
 }
 
 // appendProjectCoachMessage is the shared body. attachments defaults to the
 // column's empty-array shape ('[]') when nil so the NOT NULL column never sees a
 // NULL (the explicit param bypasses the SQL DEFAULT).
-func (s *sqlcAgentStore) appendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface string, attachments []byte) error {
+func (s *sqlcAgentStore) appendProjectCoachMessage(ctx context.Context, projectID uuid.UUID, role, content, surface, stage string, attachments []byte) error {
 	threadID, err := s.getOrCreateThread(ctx, projectID)
 	if err != nil {
 		return err
@@ -236,11 +239,15 @@ func (s *sqlcAgentStore) appendProjectCoachMessage(ctx context.Context, projectI
 	if surface != "" {
 		surfPtr = &surface
 	}
+	var stagePtr *string
+	if stage != "" {
+		stagePtr = &stage
+	}
 	if len(attachments) == 0 {
 		attachments = []byte("[]")
 	}
 	_, err = s.q.CreateProjectCoachMessage(ctx, sqlc.CreateProjectCoachMessageParams{
-		ThreadID: threadID, Role: role, Content: content, Surface: surfPtr, Attachments: attachments,
+		ThreadID: threadID, Role: role, Content: content, Surface: surfPtr, Attachments: attachments, Stage: stagePtr,
 	})
 	return err
 }

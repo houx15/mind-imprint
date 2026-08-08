@@ -29,9 +29,10 @@ ORDER BY cm.created_at, cm.id;
 -- thread. Mirrors CreateChatMessage but carries the active surface. attachments
 -- reuses the existing jsonb column to carry a card-turn's structured reference
 -- ({"card":{"cardId","fieldValues"}}), so a reloaded thread re-renders a
--- completed card as a clickable chip; '[]' for a plain turn.
-INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments)
-VALUES ($1, $2, $3, 'text', $4, $5)
+-- completed card as a clickable chip; '[]' for a plain turn. stage carries the
+-- studio_state.stage in effect at persist time (nullable — "" -> NULL from Go).
+INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments, stage)
+VALUES ($1, $2, $3, 'text', $4, $5, sqlc.narg('stage'))
 RETURNING *;
 
 -- name: ListActiveChatMessagesByProject :many

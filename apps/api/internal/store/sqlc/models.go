@@ -60,6 +60,7 @@ type ChatMessage struct {
 	CreatedAt      time.Time          `json:"created_at"`
 	Surface        *string            `json:"surface"`
 	FoldedAt       pgtype.Timestamptz `json:"folded_at"`
+	Stage          *string            `json:"stage"`
 }
 
 type ChatThread struct {
