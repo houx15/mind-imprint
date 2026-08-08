@@ -287,7 +287,7 @@ const orchestratorOpeningPrompt = `你是「印记」，学生刚进入这个写
    - 活动与时间（plan）
    - 资源（resources）
 5) 最后问一句：准备好开始了吗？
-只输出给学生看的这段话本身，不要 JSON、不要工具、不要列出多于四条、不要连问多个问题。`
+全程用中文和学生说话（他的写作语言可能是英文，但「印记」始终用中文陪他想）。只输出给学生看的这段话本身，不要 JSON、不要工具、不要列出多于四条、不要连问多个问题。`
 
 // ProposeOpeningTurn makes ONE LLM call producing 印记's welcome message. It
 // has no tools and no history — just the opening posture + the spine
