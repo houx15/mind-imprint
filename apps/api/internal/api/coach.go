@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -31,6 +32,12 @@ import (
 // is never 500'd on a coach turn — the point is to keep thinking, and a
 // restrained nudge does that even offline.
 const coachFallbackReply = "先自己说说看——现在你最想弄清楚的是哪一点？"
+
+// openingFallback is what postCoachOpening persists/returns when
+// ProposeOpeningTurn's real-AI call fails or yields nothing (provider error,
+// empty text). It still names all four kick-off things — the design 铁律
+// (AI 克制, one framing message, never a barrage) holds even offline.
+const openingFallback = "欢迎来到这个写作空间。完整做完一个写作项目，会一路经过 立项 → 阅读 → 写作 → 回顾。我们先一起把研究计划的四件事讨论清楚：目标（research question）、缘由（motivation）、活动与时间（plan）、资源（resources）。准备好开始了吗？"
 
 // coachHistoryWindow caps the raw turns fed into the coach's context (the rest
 // live in the spine via fold-on-solidify). Matches the loop's 12-turn window.
@@ -154,72 +161,16 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		narrate = coachFallbackReply
 	}
 
-	// Apply the emitted tools in order onto the loaded state. This turn advances
-	// the turn counter regardless of which tools fired.
-	state.UpdatedAtTurn++
-	for _, tc := range dec.Tools {
-		switch tc.Name {
-		case "set_status":
-			if args, aerr := agent.SetStatusArgs(tc); aerr == nil {
-				state.Stage = args.Stage
-			}
-		case "open_tool":
-			if args, aerr := agent.OpenToolArgs(tc); aerr == nil {
-				state.OpenTool = args.Tool
-				state.WidthTier = agent.WidthForTool(args.Tool)
-			}
-		case "curate_reference":
-			// id-validation (P3): filterCurateReferenceCall already dropped bad
-			// `kind`s; this drops items whose id isn't a real material/snippet id
-			// for THIS project, so a hallucinated id never reaches studio_state
-			// (the panel a later task renders from these ids).
-			if args, aerr := agent.CurateReferenceArgs(tc); aerr == nil {
-				state.Reference = a.filterKnownReferences(r.Context(), projectID, args.Items)
-			}
-		case "propose_note":
-			// Last one wins; NO db write — the student confirms via putProposal.
-			if args, aerr := agent.ProposeNoteArgs(tc); aerr == nil {
-				reply.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
-			}
-		case "summon_card":
-			// The orchestrator picked the card; gate on a simple in-flight guard
-			// (never offer over a card already proposed/active for this project).
-			if args, aerr := agent.SummonCardToolArgs(tc); aerr == nil {
-				if a.cardEligibleForSummon(r.Context(), projectID, args.CardID) {
-					reply.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
-					if eerr := store.AppendEvent(r.Context(), agent.EventRow{
-						ProjectID: projectID, Surface: "studio", Type: "coach_proposed",
-						Payload: mustJSON(map[string]any{"cardId": args.CardID}),
-					}); eerr != nil {
-						slog.Warn("coach: append coach_proposed event failed", "err", eerr, "request_id", httpx.RequestIDFromContext(r.Context()))
-					}
-				}
-			}
-		case "request_review":
-			state.OpenTool = agent.ToolWriting
-			state.WidthTier = agent.WidthWide
-			reply.ReviewRequested = true
-		case "generate_plan":
-			// 印记 triggers plan generation itself (the 生成计划 button is gone). Best-
-			// effort: a proposal-empty project just doesn't generate — the narration
-			// still lands, 印记 will have nudged for the dims. Open 管理 on success.
-			if _, gerr := a.regeneratePlan(r.Context(), projectID); gerr == nil {
-				state.OpenTool = agent.ToolPlan
-				state.WidthTier = agent.WidthForTool(agent.ToolPlan)
-				// Advance the stage off the proposal side too. The frontend's
-				// roomForResume routes openTool=plan by STAGE, so a still-
-				// proposal_forming stage would snap the view back to 提案 even
-				// though the plan just generated — bump it so 管理 opens.
-				if state.Stage == agent.StageTopicDiscussion || state.Stage == agent.StageProposalForming {
-					state.Stage = agent.StagePlanGeneration
-				}
-			}
-		case "propose_question":
-			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
-				reply.Question = &questionProposalDTO{Text: args.Text}
-			}
-		}
-	}
+	// Apply the emitted tools in order onto the loaded state — shared with
+	// postCoachStart so the two paths can never drift on how a tool call
+	// mutates studio_state / the reply.
+	var effects orchestratorToolEffects
+	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	reply.Note = effects.Note
+	reply.Question = effects.Question
+	reply.Card = effects.Card
+	reply.ReviewRequested = effects.ReviewRequested
+	reply.PlanGenerated = effects.PlanGenerated
 
 	// Persist the AI-managed state (best-effort — a failure logs, never fails the
 	// turn). The reply carries the same state back as the directive.
@@ -252,8 +203,8 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 
 	// S4 · size-threshold compaction backstop: if the active window overflows,
 	// fold the oldest turns into the rolling conversation_digest. Best-effort;
-	// never disturbs the reply.
-	a.maybeCompactBackstop(r.Context(), projectID)
+	// never disturbs the reply — only its Compacted flag reflects the outcome.
+	reply.Compacted = a.maybeCompactBackstop(r.Context(), projectID)
 
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
@@ -362,8 +313,9 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 	}
 
 	// S4 · size-threshold compaction backstop, same as the orchestrator path.
-	// Best-effort; never disturbs the reply.
-	a.maybeCompactBackstop(ctx, projectID)
+	// Best-effort; never disturbs the reply — only its Compacted flag reflects
+	// the outcome.
+	compacted := a.maybeCompactBackstop(ctx, projectID)
 
 	// The directive mirrors the project's CURRENT studio_state, UNCHANGED — a
 	// sub-agent turn never advances or mutates project status. Loaded exactly
@@ -380,7 +332,338 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 		Narrate:   narrate,
 		Directive: state,
 		Question:  nil,
+		Compacted: compacted,
 	})
+}
+
+// orchestratorToolStore is applyOrchestratorTools' minimal persistence seam —
+// summon_card records a coach_proposed event when it offers a card. A small
+// local interface (rather than the concrete *agent.sqlcAgentStore, which is
+// unexported) so both postCoach's and postCoachStart's
+// agent.NewSqlcAgentStore-built stores satisfy it structurally.
+type orchestratorToolStore interface {
+	AppendEvent(ctx context.Context, row agent.EventRow) error
+}
+
+// orchestratorToolEffects carries the reply-shaped bits a tool-apply pass
+// produces, alongside the mutated agent.StudioState applyOrchestratorTools
+// returns — everything orchestratorReplyDTO needs beyond narrate/directive.
+type orchestratorToolEffects struct {
+	Note            *noteProposalDTO
+	Question        *questionProposalDTO
+	Card            *cardProposalWireDTO
+	ReviewRequested bool
+	PlanGenerated   bool
+}
+
+// applyOrchestratorTools applies one orchestrator turn's emitted tool calls,
+// in order, onto state — the DRY extraction shared by postCoach and
+// postCoachStart so the two paths can never drift on how a tool call mutates
+// studio_state / the reply. Always advances state.UpdatedAtTurn, regardless
+// of which (if any) tools fired — mirrors postCoach's prior inline behavior
+// exactly.
+func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, dec agent.OrchestratorDecision, state agent.StudioState, store orchestratorToolStore) (agent.StudioState, orchestratorToolEffects) {
+	var effects orchestratorToolEffects
+	state.UpdatedAtTurn++
+	for _, tc := range dec.Tools {
+		switch tc.Name {
+		case "set_status":
+			if args, aerr := agent.SetStatusArgs(tc); aerr == nil {
+				state.Stage = args.Stage
+			}
+		case "open_tool":
+			if args, aerr := agent.OpenToolArgs(tc); aerr == nil {
+				state.OpenTool = args.Tool
+				state.WidthTier = agent.WidthForTool(args.Tool)
+			}
+		case "curate_reference":
+			// id-validation (P3): filterCurateReferenceCall already dropped bad
+			// `kind`s; this drops items whose id isn't a real material/snippet id
+			// for THIS project, so a hallucinated id never reaches studio_state
+			// (the panel a later task renders from these ids).
+			if args, aerr := agent.CurateReferenceArgs(tc); aerr == nil {
+				state.Reference = a.filterKnownReferences(ctx, projectID, args.Items)
+			}
+		case "propose_note":
+			// Last one wins; NO db write — the student confirms via putProposal.
+			if args, aerr := agent.ProposeNoteArgs(tc); aerr == nil {
+				effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
+			}
+		case "summon_card":
+			// The orchestrator picked the card; gate on a simple in-flight guard
+			// (never offer over a card already proposed/active for this project).
+			if args, aerr := agent.SummonCardToolArgs(tc); aerr == nil {
+				if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
+					effects.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
+					if eerr := store.AppendEvent(ctx, agent.EventRow{
+						ProjectID: projectID, Surface: "studio", Type: "coach_proposed",
+						Payload: mustJSON(map[string]any{"cardId": args.CardID}),
+					}); eerr != nil {
+						slog.Warn("coach: append coach_proposed event failed", "err", eerr, "request_id", httpx.RequestIDFromContext(ctx))
+					}
+				}
+			}
+		case "request_review":
+			state.OpenTool = agent.ToolWriting
+			state.WidthTier = agent.WidthWide
+			effects.ReviewRequested = true
+		case "generate_plan":
+			// 印记 triggers plan generation itself (the 生成计划 button is gone). Best-
+			// effort: a proposal-empty project just doesn't generate — the narration
+			// still lands, 印记 will have nudged for the dims. Open 管理 on success.
+			if _, gerr := a.regeneratePlan(ctx, projectID); gerr == nil {
+				state.OpenTool = agent.ToolPlan
+				state.WidthTier = agent.WidthForTool(agent.ToolPlan)
+				// Advance the stage off the proposal side too. The frontend's
+				// roomForResume routes openTool=plan by STAGE, so a still-
+				// proposal_forming stage would snap the view back to 提案 even
+				// though the plan just generated — bump it so 管理 opens.
+				if state.Stage == agent.StageTopicDiscussion || state.Stage == agent.StageProposalForming {
+					state.Stage = agent.StagePlanGeneration
+				}
+				effects.PlanGenerated = true
+			}
+		case "propose_question":
+			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
+				effects.Question = &questionProposalDTO{Text: args.Text}
+			}
+		}
+	}
+	return state, effects
+}
+
+// postCoachOpening runs 印记's real-AI opening welcome — the very first thing
+// the student sees on entering a project's studio, before she has said
+// anything (Task 3, studio onboarding). ONE tool-less LLM call
+// (agent.ProposeOpeningTurn); the reply is persisted as the sole assistant
+// turn opening the studio thread — deliberately NO student turn, since the
+// student hasn't spoken yet. Idempotent: if the studio thread already carries
+// ANY turn (a page reload, a resumed session), this returns 200 with an EMPTY
+// narrate and the current directive — no new turn, no spend.
+func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	state := agent.DefaultStudioState()
+	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			state = loaded
+		}
+	}
+
+	// Idempotency gate: any existing studio turn means the opening already
+	// happened. No spend, no new turn — just hand back the current directive.
+	surface := "studio"
+	rows, lerr := a.d.Queries.ListChatMessagesByProjectSurface(r.Context(), sqlc.ListChatMessagesByProjectSurfaceParams{
+		SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true}, Surface: &surface,
+	})
+	if lerr != nil {
+		httpx.WriteError(w, r, lerr)
+		return
+	}
+	if len(rows) > 0 {
+		httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{Narrate: "", Directive: state})
+		return
+	}
+
+	resolved, rerr := a.d.ChatResolver(r.Context())
+	if rerr != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	// forming: the opening frames the upcoming 立项 discussion (the four
+	// kick-off dims), same scope postCoachStart's first turn projects into.
+	projection, perr := a.buildSpineProjection(r.Context(), projectID, "forming")
+	if perr != nil {
+		slog.Warn("coach opening: build spine projection failed; proceeding without it", "err", perr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		projection = ""
+	}
+
+	narrate, usage, operr := agent.ProposeOpeningTurn(r.Context(), a.d.Provider, resolved, projection)
+
+	// Meter BEFORE any bail — a call that yields nothing still cost money.
+	// Only when a real call happened (usage > 0).
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if mrerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "opening",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); mrerr != nil {
+			slog.Warn("coach opening: record llm call failed", "err", mrerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	narrate = strings.TrimSpace(narrate)
+	if operr != nil || narrate == "" {
+		if operr != nil {
+			slog.Warn("coach opening: propose turn not produced", "err", operr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+		narrate = openingFallback
+	}
+
+	// Force the landing directive: chat-only, not started — the student has
+	// not confirmed she's ready yet (postCoachStart is the explicit gate).
+	state.OpenTool = agent.ToolChat
+	state.WidthTier = agent.WidthChat
+	state.Started = false
+	if b, merr := json.Marshal(state); merr == nil {
+		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
+			slog.Warn("coach opening: persist studio_state failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	// Persist ONLY the assistant welcome — the student hasn't spoken, so no
+	// student turn opens the thread.
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio"); err != nil {
+		slog.Warn("coach opening: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{Narrate: narrate, Directive: state})
+}
+
+// postCoachStart is the explicit "start" gate (Task 3, studio onboarding):
+// the student confirms she's ready, so 印记 opens 提案 (forming) and begins
+// the 开题 discussion for real, via a synthetic student turn standing in for
+// the button press. Idempotent: once state.Started is already true, returns
+// the current directive with no spend and no new turn.
+func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	state := agent.DefaultStudioState()
+	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			state = loaded
+		}
+	}
+	if state.Started {
+		httpx.WriteJSON(w, http.StatusOK, orchestratorReplyDTO{Narrate: "", Directive: state})
+		return
+	}
+
+	resolved, rerr := a.d.ChatResolver(r.Context())
+	if rerr != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	state.Started = true
+	state.OpenTool = agent.ToolForming
+	state.WidthTier = agent.WidthForTool(agent.ToolForming)
+	if state.Stage == agent.StageTopicDiscussion {
+		state.Stage = agent.StageProposalForming
+	}
+
+	// The button press stands in for a real student utterance — 印记 needs
+	// something to open the 提案 discussion FROM. It is persisted (studio
+	// surface) like any other turn, not synthesized only in-memory.
+	const startUtterance = "我准备好了，开始吧"
+
+	history, herr := store.LoadActiveCoachHistory(r.Context(), projectID, coachHistoryWindow)
+	if herr != nil {
+		slog.Warn("coach start: load history failed; proceeding on current turn only", "err", herr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		history = nil
+	}
+	history = append(history, agent.ChatTurn{Role: "user", Content: startUtterance})
+
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", startUtterance, "studio"); err != nil {
+		slog.Warn("coach start: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	projection, perr := a.buildSpineProjection(r.Context(), projectID, "forming")
+	if perr != nil {
+		slog.Warn("coach start: build spine projection failed; proceeding without it", "err", perr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		projection = ""
+	}
+
+	dec, usage, cerr := agent.ProposeOrchestratorTurn(r.Context(), a.d.Provider, resolved, projection, state, history)
+
+	// Meter BEFORE any bail — mirrors postCoach exactly.
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if mrerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "coach",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); mrerr != nil {
+			slog.Warn("coach start: record llm call failed", "err", mrerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	reply := orchestratorReplyDTO{}
+	narrate := strings.TrimSpace(dec.Narrate)
+	if cerr != nil || narrate == "" {
+		if cerr != nil {
+			slog.Warn("coach start: orchestrator turn not produced", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+		narrate = coachFallbackReply
+	}
+
+	// Apply the emitted tools — state.Started is untouched by every case in
+	// applyOrchestratorTools, so it survives exactly as set above; open_tool
+	// may move the room off "forming" if the orchestrator itself named one.
+	var effects orchestratorToolEffects
+	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	reply.Note = effects.Note
+	reply.Question = effects.Question
+	reply.Card = effects.Card
+	reply.ReviewRequested = effects.ReviewRequested
+	reply.PlanGenerated = effects.PlanGenerated
+
+	if b, merr := json.Marshal(state); merr == nil {
+		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
+			slog.Warn("coach start: persist studio_state failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+	reply.Narrate = narrate
+	reply.Directive = state
+
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio"); err != nil {
+		slog.Warn("coach start: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "coach_turn",
+		Payload: mustJSON(map[string]any{"student": startUtterance, "ai": narrate}),
+	}); err != nil {
+		slog.Warn("coach start: append coach_turn event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("coach start: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	reply.Compacted = a.maybeCompactBackstop(r.Context(), projectID)
+
+	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 
 // spineScopeForTool maps the AI-managed open tool to the room scope the spine
@@ -410,6 +693,8 @@ type orchestratorReplyDTO struct {
 	Question        *questionProposalDTO `json:"question"`
 	Card            *cardProposalWireDTO `json:"card"`
 	ReviewRequested bool                 `json:"reviewRequested"`
+	PlanGenerated   bool                 `json:"planGenerated"`
+	Compacted       bool                 `json:"compacted"`
 }
 
 // noteProposalDTO mirrors the contract's NoteProposal {section, value}.
