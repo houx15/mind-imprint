@@ -39,6 +39,18 @@ func anyProposalDim(p sqlc.ProjectProposal) bool {
 		strings.TrimSpace(p.Resources) != ""
 }
 
+// allRequiredDims reports whether every one of the four required proposal
+// dimensions (objective/reason/activities/resources — counterpoints is optional)
+// is non-empty. The server-side plan-generation gate: the funnel auto-generates
+// the plan the moment this becomes true (see reconcileStudioFunnel), so the coach
+// model never has to decide to call generate_plan.
+func allRequiredDims(p sqlc.ProjectProposal) bool {
+	return strings.TrimSpace(p.Objective) != "" &&
+		strings.TrimSpace(p.Reason) != "" &&
+		strings.TrimSpace(p.Activities) != "" &&
+		strings.TrimSpace(p.Resources) != ""
+}
+
 // displayStatus maps a persisted project.status to the four-state lifecycle the
 // UI shows: finished→"done", evaluating→"evaluating", else (active) any framing
 // started (a non-empty proposal dim OR ≥1 plan item)→"working", else "forming".

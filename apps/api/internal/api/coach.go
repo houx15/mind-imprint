@@ -172,6 +172,14 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// mutates studio_state / the reply.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	// Deterministic funnel (server-side state machine): advance the stage and
+	// auto-generate the plan from concrete DB state, so a fast reasoning-off
+	// coach can never strand the project by failing to call set_status/
+	// generate_plan. Idempotent — a no-op once the plan exists / stage is ahead.
+	state, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, state)
+	if autoPlan {
+		effects.PlanGenerated = true
+	}
 	reply.Note = effects.Note
 	reply.Question = effects.Question
 	reply.Card = effects.Card
@@ -451,6 +459,73 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 	return state, effects
 }
 
+// stageOrder gives a stage's funnel position, for monotonic reconciliation
+// (never send a project backward).
+func stageOrder(s agent.StudioStage) int {
+	switch s {
+	case agent.StageTopicDiscussion:
+		return 0
+	case agent.StageProposalForming:
+		return 1
+	case agent.StagePlanGeneration:
+		return 2
+	case agent.StageProposalWriting:
+		return 3
+	case agent.StageProposalReview:
+		return 4
+	case agent.StageBodyWriting:
+		return 5
+	case agent.StageRetrospective:
+		return 6
+	}
+	return 0
+}
+
+// reconcileStudioFunnel makes the EARLY funnel deterministic in Go instead of
+// trusting the coach model to drive it via set_status/generate_plan. A fast
+// (reasoning-off) chaperone reliably proposes notes + narrates but is erratic at
+// those structured, MECHANICAL decisions — which don't need an LLM at all. This:
+//   (1) auto-generates the plan the moment all four required proposal dims are
+//       filled and none exists yet (same gate regeneratePlan enforces), and
+//   (2) advances stage + open room to at least the canonical minimum for the
+//       concrete state (started → proposal_forming; plan exists → plan_generation),
+//       never downgrading a project already further along (writing/review/回顾).
+// The model may still ADVANCE beyond the minimum (into writing etc.) via
+// set_status — this only stops it sitting too early or skipping the plan.
+// Returns the reconciled state and whether it generated the plan this call.
+func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, state agent.StudioState) (agent.StudioState, bool) {
+	if !state.Started {
+		return state, false
+	}
+	planExists := false
+	if items, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil {
+		planExists = len(items) > 0
+	}
+	planGenerated := false
+	if !planExists {
+		if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil && allRequiredDims(prop) {
+			if _, gerr := a.regeneratePlan(ctx, projectID); gerr == nil {
+				planExists = true
+				planGenerated = true
+			}
+		}
+	}
+	minStage := agent.StageProposalForming
+	if planExists {
+		minStage = agent.StagePlanGeneration
+	}
+	if stageOrder(state.Stage) < stageOrder(minStage) {
+		state.Stage = minStage
+		if minStage == agent.StagePlanGeneration {
+			state.OpenTool = agent.ToolPlan
+		} else {
+			state.OpenTool = agent.ToolForming
+		}
+		state.WidthTier = agent.WidthForTool(state.OpenTool)
+	}
+	return state, planGenerated
+}
+
 // postCoachOpening runs 印记's real-AI opening welcome — the very first thing
 // the student sees on entering a project's studio, before she has said
 // anything (Task 3, studio onboarding). ONE tool-less LLM call
@@ -651,6 +726,12 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	// may move the room off "forming" if the orchestrator itself named one.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	// Deterministic funnel — same as postCoach (a started project never sits at
+	// topic_discussion; plan auto-generates once the four dims are filled).
+	state, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, state)
+	if autoPlan {
+		effects.PlanGenerated = true
+	}
 	reply.Note = effects.Note
 	reply.Question = effects.Question
 	reply.Card = effects.Card

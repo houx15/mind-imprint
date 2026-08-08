@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -73,6 +74,25 @@ func (a *API) putProposal(w http.ResponseWriter, r *http.Request) {
 		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 		if err := store.FoldCoachSurfaces(r.Context(), projectID, solidifyFoldSurfaces); err != nil {
 			slog.Warn("proposal: fold shaping turns failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
+	// Server-side funnel: if this save just completed the four required dims,
+	// generate the plan and advance the funnel NOW — so the plan is ready the
+	// instant the student confirms the last dim (印记's 记进), not on their next
+	// chat turn. Best-effort; a failure never fails the save. Only runs once the
+	// journey has started (studio_state present + Started).
+	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
+		var st agent.StudioState
+		if json.Unmarshal(raw, &st) == nil && st.Started {
+			reconciled, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, st)
+			if autoPlan || reconciled.Stage != st.Stage {
+				if b, merr := json.Marshal(reconciled); merr == nil {
+					if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
+						slog.Warn("proposal: persist reconciled studio_state failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+					}
+				}
+			}
 		}
 	}
 

@@ -81,17 +81,17 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// Reasoning stays ON for all tiers. We measured disabling v4 "thinking" on
-	// the chaperone ({"thinking":{"type":"disabled"}}) — 2-3× faster and valid
-	// JSON — across two prompt designs (a strengthened rule set AND an explicit
-	// state machine + worked example). Neither made a non-reasoning model drive
-	// the coach's interdependent per-turn tool decisions reliably: one recovered
-	// note-proposing but never advanced the stage or generated a plan; the other
-	// advanced the stage but stopped proposing notes and left the proposal empty
-	// with no plan. The reasoning phase coordinates propose_note + set_status +
-	// generate_plan together, so it must stay on. The real perceived-latency
-	// lever is SSE-streaming the coach narrate; unlocking thinking-off would need
-	// the deterministic transitions moved server-side, not more prompt tuning.
+	// Chaperone tier turns OFF v4 "thinking" for speed (陪练走中档模型可降级) —
+	// ~2-3× faster. Prompt tuning alone couldn't make a non-reasoning model drive
+	// the coach's mechanical transitions (set_status / generate_plan), so those
+	// moved server-side (reconcileStudioFunnel): the funnel now advances the stage
+	// and auto-generates the plan deterministically in Go, leaving the model only
+	// propose_note + narrate — which it does reliably fast. Flagship tier keeps
+	// thinking ON (omits the param) for evaluation depth (评估走旗舰模型绝不降级);
+	// empty tier keeps it on. Anthropic ignores this.
+	if r.Tier == "chaperone" {
+		body["thinking"] = map[string]any{"type": "disabled"}
+	}
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}

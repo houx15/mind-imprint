@@ -100,15 +100,19 @@ func drain(t *testing.T, p Provider, r Resolved) {
 	}
 }
 
-func TestDeepSeekNeverDisablesThinking(t *testing.T) {
-	// Regression guard: we do NOT send {"thinking":{"type":"disabled"}} for any
-	// tier. Disabling it (2-3× faster) broke the coach's interdependent per-turn
-	// tool decisions and no prompt design recovered them, so reasoning stays on
-	// everywhere. See deepseek.go.
+func TestDeepSeekThinkingByTier(t *testing.T) {
+	// Chaperone disables thinking (speed); the mechanical funnel transitions live
+	// server-side (reconcileStudioFunnel) so a non-reasoning coach still can't
+	// strand the project. Flagship + empty tier keep thinking on for depth.
 	srv, body := captureBody(t)
 	defer srv.Close()
 	p := NewDeepSeekProvider(srv.Client())
-	for _, tier := range []string{"chaperone", "flagship", ""} {
+
+	drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "chaperone"})
+	if !strings.Contains(*body, `"thinking"`) || !strings.Contains(*body, `"disabled"`) {
+		t.Fatalf("chaperone must disable thinking, got: %s", *body)
+	}
+	for _, tier := range []string{"flagship", ""} {
 		drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: tier})
 		if strings.Contains(*body, `"thinking"`) {
 			t.Fatalf("tier %q must NOT set thinking, got: %s", tier, *body)
