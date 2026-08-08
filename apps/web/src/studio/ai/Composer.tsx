@@ -41,7 +41,7 @@ const MAX_TEXTAREA_PX = 140;
 // `mk-*/NN` opacity modifier emits NO CSS. `ring-mk-accent-100` is a solid
 // token (no opacity modifier) so it actually paints a soft accent-tinted
 // ring; `focus-visible:border-mk-accent` gives the border itself a
-// branded state too. Verified with a tailwind build (see task-9-report.md).
+// branded state too. Verified with a tailwind build.
 const TEXTAREA_BASE =
   "flex-1 resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface " +
   "px-3 py-2 text-mk-body text-mk-ink outline-none transition-colors duration-[120ms] ease-mk " +

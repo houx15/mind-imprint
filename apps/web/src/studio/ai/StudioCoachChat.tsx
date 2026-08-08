@@ -89,7 +89,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
             type="button"
             onClick={handleLoadEarlier}
             disabled={loadingEarlier}
-            className="mx-auto flex shrink-0 items-center gap-1.5 rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-mk-body font-semibold text-mk-muted transition hover:text-mk-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mx-auto flex shrink-0 items-center gap-1.5 rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-mk-body font-semibold text-mk-muted transition hover:text-mk-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Icon icon={ChevronUp} size={14} />
             {loadingEarlier ? "载入中…" : "载入更早的对话"}
@@ -118,7 +118,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
           type="button"
           onClick={() => void startJourney()}
           disabled={starting}
-          className="flex flex-none items-center justify-center gap-2 rounded-mk-lg bg-mk-accent px-5 py-3 text-mk-body font-bold text-white transition hover:bg-mk-accent-600 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex flex-none items-center justify-center gap-2 rounded-mk-lg bg-mk-accent px-5 py-3 text-mk-body font-bold text-white transition hover:bg-mk-accent-600 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           <GlyphIcon name={starting ? "spark" : "arrow"} size={16} />
           {starting ? "准备中…" : "开始"}

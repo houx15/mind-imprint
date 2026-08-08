@@ -1136,7 +1136,7 @@ function TopBar({
               }
             }}
             className={cx(
-              "cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+              "cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent",
               titleExpanded ? "whitespace-normal break-words" : "truncate",
             )}
           >

@@ -29,7 +29,7 @@ export function RoomSwitcher({ value, onChange, className }: RoomSwitcherProps) 
             onClick={() => onChange(b.key)}
             className={cx(
               "flex items-center gap-1.5 rounded-mk-full px-3 py-1.5 transition-colors duration-[120ms] ease-mk",
-              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent",
               // NOTE: `mk-*` colors resolve to `var(--mk-*)` (tailwind.config.ts) —
               // Tailwind's JIT cannot apply an opacity modifier to a CSS-variable
               // color, so `text-mk-ink/70` silently emits NO rule (same root
