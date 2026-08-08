@@ -4,9 +4,10 @@ import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } f
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
-import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
+import { StudioCoachChat, StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
 import { Icon } from "../Icon";
 import {
@@ -29,7 +30,7 @@ import {
 } from "../api/workspace";
 import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
-import { exportTimescale, exportActivityLog, exportProposalDocx } from "../export";
+import { exportTimescale, exportActivityLog } from "../export";
 
 // The legacy "primary" family and "accent" family were two distinct hues in
 // the old two-tone design; the 2026-08-06 redesign aliases both to the same
@@ -130,13 +131,6 @@ export function PlanBlock({
     await sendStudioTurn(text);
   }
 
-  // #2 — 让印记看看我的开题：hand the four dims to 印记. It critiques; it never
-  // writes into the dim fields (the student still types).
-  async function onReview() {
-    const labelled = PROPOSAL_DIMS.map((d) => `${d.label}：${prop[d.key].trim() || "（空）"}`).join("\n");
-    await sendStudioTurn(labelled);
-  }
-
   if (phase === "forming") {
     return (
       <FormingPhase
@@ -148,7 +142,6 @@ export function PlanBlock({
         setDraft={setDraft}
         sending={sending}
         onSend={onSend}
-        onReview={onReview}
         title={title}
         qualification={qualification}
         projectId={projectId}
@@ -216,7 +209,6 @@ function FormingPhase(props: {
   setDraft: (s: string) => void;
   sending: boolean;
   onSend: () => void;
-  onReview: () => void;
   title: string;
   qualification: string;
   projectId: string;
@@ -224,30 +216,12 @@ function FormingPhase(props: {
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    onReview,
-    title, qualification, projectId, onCardReflected,
+    projectId, onCardReflected,
   } = props;
-  // 导出开题报告 .docx — a direct "take your work with you" action (成品可导出带走),
-  // NOT a stage transition. Disabled until there's something to export.
-  const [exportingProposal, setExportingProposal] = useState(false);
-  async function onExportProposal() {
-    if (exportingProposal) return;
-    setExportingProposal(true);
-    try {
-      // exportProposalDocx self-saves the .docx (same as the other export fns);
-      // the caller must NOT saveBlob again or it double-downloads.
-      await exportProposalDocx(proposal, { title, qualification });
-    } catch {
-      /* a failed export must never crash the room */
-    } finally {
-      setExportingProposal(false);
-    }
-  }
-  // Only the four REQUIRED dims gate plan generation (spec §5: 生成计划 前置条件 =
-  // 四项必填 section 全部完成). 反例/张力 is optional and never gates.
+  // The coverage counter still uses the four REQUIRED dims only (spec §5):
+  // 反例/张力 is optional and never counts toward it.
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
   const covered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
-  const reviewReady = covered >= 1; // can ask 印记 for feedback as soon as there's something
   // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
   // proposal panel + its actions — renders directly below, in <main>; its
   // COACH (the chat conversation) is portaled into the constant AiPanel via
@@ -264,9 +238,9 @@ function FormingPhase(props: {
       {/* WORK — the 开题 panel: proposal's four dimensions + actions. */}
       <div className="relative mx-auto flex h-full w-full max-w-2xl flex-col gap-5 overflow-y-auto px-10 py-9">
         <header>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">先想清楚，再动手</p>
-          <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
-          <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">立项 · 先想清楚再动手</p>
+          <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">先搭好研究的大框架</h1>
+          <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此长出来。</p>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
@@ -283,23 +257,6 @@ function FormingPhase(props: {
               <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
             ))}
           </div>
-          <button
-            type="button"
-            disabled={!reviewReady || sending}
-            onClick={onReview}
-            className="mt-3.5 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-accent/50 bg-mk-accent-50 py-2 text-[14px] font-bold text-mk-accent transition enabled:hover:bg-mk-accent enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon name="spark" size={14} /> 让印记看看我的开题
-          </button>
-          <button
-            type="button"
-            disabled={!reviewReady || exportingProposal}
-            onClick={onExportProposal}
-            title="把开题报告导出成 .docx 带走（可选）"
-            className="mt-2 flex items-center justify-center gap-1.5 rounded-mk-md border border-mk-border py-1.5 text-[12px] font-semibold text-mk-muted transition enabled:hover:text-mk-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {exportingProposal ? "导出中…" : "导出开题报告 .docx"}
-          </button>
         </div>
       </div>
 
@@ -360,24 +317,14 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
   );
 }
 
-// Render **bold** spans inline; everything else is plain text.
-function renderRich(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? (
-      <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
-  );
-}
-
 // PlanBlock's own ChatMsg[] history → the shared ChatLog's ChatMessage[]. A
 // card-turn (msg.card set) maps to a "system"-role message carrying only
 // `node` — ChatLog's system row has no bubble background/padding, letting
 // `CardTurnChip` be the whole message (its own content-first accent chip,
 // never raw compiled text) instead of nesting inside a second bubble. Every
-// other turn keeps **bold** rendering (renderRich) via `node`, since ChatLog
-// only prints `text` literally.
+// other AI turn renders through the shared `ChatMarkdown` (bold/lists/links/
+// code, not just `**bold**`); a student turn stays plain text — she types
+// prose, not markup, and shouldn't have `*`/`#` silently swallowed.
 function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
@@ -385,7 +332,12 @@ function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
       : {
           id: String(i),
           role: m.role === "ai" ? "assistant" : "student",
-          node: <span className="whitespace-pre-wrap">{renderRich(m.text)}</span>,
+          node:
+            m.role === "ai" ? (
+              <ChatMarkdown text={m.text} />
+            ) : (
+              <span className="whitespace-pre-wrap">{m.text}</span>
+            ),
         },
   );
 }
@@ -403,6 +355,12 @@ function WorkingPhase(props: {
   createdAt?: string;
 }) {
   const { projectId, title, qualification, seedBoard, createdAt } = props;
+  // The room→panel contract (same as FormingPhase/ReadingBlock/WritingBlock/
+  // ReviewBlock, Task 4, spec §17): 管理 previously portaled nothing into the
+  // shared AiPanel slot, so it showed an empty 印记 panel — this is the SAME
+  // continuous thread every other room shows (StudioCoachChat reads the
+  // hoisted store via `useStudioChat`), not a second conversation.
+  const slot = useStudioAiSlot();
   // #14: anchor the plan timeline to real calendar dates. Fall back to today
   // when the project has no creation timestamp (older mocks).
   const anchor = useMemo(() => (createdAt ? new Date(createdAt) : new Date()), [createdAt]);
@@ -498,49 +456,57 @@ function WorkingPhase(props: {
   }
 
   return (
-    <div className="relative flex h-full flex-col px-10 py-8">
-      {/* Slim goal header */}
-      <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
-        <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">{qualification}</span>
-        <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
-      </div>
-
-      {/* Toolbar: title + view toggle + export */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="font-sans text-[20px] font-bold text-mk-ink">项目管理</h2>
-          <p className="mt-0.5 text-[14px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
+    <>
+      <div className="relative flex h-full flex-col px-10 py-8">
+        {/* Slim goal header */}
+        <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
+          <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">{qualification}</span>
+          <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <Segmented
-            options={[
-              { value: "kanban", label: "看板" },
-              { value: "gantt", label: "甘特图" },
-              { value: "log", label: "活动日志" },
-            ]}
-            value={view}
-            onChange={(v) => setView(v as PlanView)}
+
+        {/* Toolbar: title + view toggle + export */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-sans text-[20px] font-bold text-mk-ink">项目管理</h2>
+            <p className="mt-0.5 text-[14px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Segmented
+              options={[
+                { value: "kanban", label: "看板" },
+                { value: "gantt", label: "甘特图" },
+                { value: "log", label: "活动日志" },
+              ]}
+              value={view}
+              onChange={(v) => setView(v as PlanView)}
+            />
+            <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
+              {exporting ? "导出中…" : "导出"}
+            </button>
+          </div>
+        </div>
+
+        {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} />}
+        {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} />}
+        {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
+
+        {editing && (
+          <PlanItemEditor
+            item={editing}
+            stageOptions={stageOptions}
+            onPatch={(patch) => patchItem(editing.id, patch)}
+            onDelete={() => { removeItem(editing.id); setEditingId(null); }}
+            onClose={() => setEditingId(null)}
           />
-          <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
-            {exporting ? "导出中…" : "导出"}
-          </button>
-        </div>
+        )}
       </div>
 
-      {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} />}
-      {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} />}
-      {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
-
-      {editing && (
-        <PlanItemEditor
-          item={editing}
-          stageOptions={stageOptions}
-          onPatch={(patch) => patchItem(editing.id, patch)}
-          onDelete={() => { removeItem(editing.id); setEditingId(null); }}
-          onClose={() => setEditingId(null)}
-        />
-      )}
-    </div>
+      {/* COACH — portaled into the constant AiPanel, same contract as every
+          other room (Task 4). 管理 has no room-specific coach chrome to add,
+          so it reuses the shared `StudioCoachChat` body as-is (mirrors
+          ReadingBlock). */}
+      {slot && createPortal(<StudioCoachChat />, slot)}
+    </>
   );
 }
 

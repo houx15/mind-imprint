@@ -3,6 +3,7 @@ import { ChevronUp } from "lucide-react";
 import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
 import { Icon } from "@/ui/Icon";
 import { ChatLog, type ChatMessage } from "./ChatLog";
+import { ChatMarkdown } from "./ChatMarkdown";
 import { Composer } from "./Composer";
 import { withRecap } from "./RecapHint";
 import { SubagentHint } from "./SubagentHint";
@@ -219,18 +220,6 @@ function QuestionConfirmChip({
   );
 }
 
-// Render **bold** spans inline; everything else is plain text (mirrors the
-// rooms' own renderRich so bold markers survive into the shared ChatLog).
-function renderRich(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? (
-      <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
-  );
-}
-
 // StudioChatMsg[] → the shared ChatLog's ChatMessage[]. A card-turn (msg.card)
 // maps to a system-role node (no bubble chrome) so CardTurnChip is the whole
 // message; a hint (msg.hint, Task 7) likewise maps to a system-role node
@@ -253,7 +242,11 @@ export function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
                     {m.quotedPart}
                   </blockquote>
                 )}
-                <span className="whitespace-pre-wrap">{renderRich(m.text)}</span>
+                {m.role === "ai" ? (
+                  <ChatMarkdown text={m.text} />
+                ) : (
+                  <span className="whitespace-pre-wrap">{m.text}</span>
+                )}
               </>
             ),
           },
