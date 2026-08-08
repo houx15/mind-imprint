@@ -31,19 +31,20 @@ type Fetcher interface {
 
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
-	Queries      *sqlc.Queries
-	Provider     gateway.Provider    // the MuxProvider
-	ChatResolver gateway.KeyResolver // chaperone (turn)
-	EvalResolver gateway.KeyResolver // flagship (course step render)
-	Catalog      []cards.Spec
-	SpecByID     func(id string) (cards.Spec, bool)
-	Pool         TxBeginner   // for multi-statement transactions (signup)
-	CookieSecure bool         // Secure flag on the session cookie
-	Voice        VoiceService // TTS/ASR seam; nil disables voice routes (503)
-	CORSOrigins  []string     // allowlisted SPA origins, used for WS OriginPatterns
-	Fetcher      Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
-	OSS          *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
-	OSSAdminKey  string       // static bearer secret authorizing the admin upload routes
+	Queries          *sqlc.Queries
+	Provider         gateway.Provider    // the MuxProvider
+	ChatResolver     gateway.KeyResolver // chaperone (turn)
+	FastChatResolver gateway.KeyResolver // fast chaperone (per-status studio router); falls back to ChatResolver when nil
+	EvalResolver     gateway.KeyResolver // flagship (course step render)
+	Catalog          []cards.Spec
+	SpecByID         func(id string) (cards.Spec, bool)
+	Pool             TxBeginner   // for multi-statement transactions (signup)
+	CookieSecure     bool         // Secure flag on the session cookie
+	Voice            VoiceService // TTS/ASR seam; nil disables voice routes (503)
+	CORSOrigins      []string     // allowlisted SPA origins, used for WS OriginPatterns
+	Fetcher          Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
+	OSS              *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
+	OSSAdminKey      string       // static bearer secret authorizing the admin upload routes
 }
 
 // API holds the handler dependencies.

@@ -54,6 +54,41 @@ func NewKeyResolver(cfg config.Config) KeyResolver {
 	}
 }
 
+// NewFastChaperoneResolver builds the FAST chaperone resolver for the
+// status-router studio turns. The flash regression documented on NewKeyResolver
+// was measured against the ONE mega-orchestrator prompt (a large JSON contract
+// the non-reasoning model drifted off). The status-router redesign
+// (docs/superpowers/specs/2026-08-09-status-router-studio-redesign.md) shrinks
+// each turn to a ≤6-line prompt with 2-4 tools, which is squarely in flash's
+// competence — so the per-status conversational turn runs on deepseek-v4-flash
+// (cheaper + lower-latency). Evaluation is unaffected (NewEvalKeyResolver stays
+// flagship; 评估绝不降级). If flash still under-performs on the small prompts,
+// swap the model here for v4-pro with request-level thinking disabled.
+func NewFastChaperoneResolver(cfg config.Config) KeyResolver {
+	return func(_ context.Context) (Resolved, error) {
+		switch {
+		case cfg.DeepSeekKey != "":
+			return Resolved{
+				Provider: "deepseek",
+				BaseURL:  "https://api.deepseek.com/v1",
+				Model:    "deepseek-v4-flash",
+				APIKey:   cfg.DeepSeekKey,
+				Tier:     "chaperone",
+			}, nil
+		case cfg.AnthropicKey != "":
+			return Resolved{
+				Provider: "anthropic",
+				BaseURL:  "https://api.anthropic.com/v1",
+				Model:    "claude-3-5-sonnet-latest",
+				APIKey:   cfg.AnthropicKey,
+				Tier:     "chaperone",
+			}, nil
+		default:
+			return Resolved{}, errNoProvider
+		}
+	}
+}
+
 // NewEvalKeyResolver builds the FLAGSHIP resolver for evaluation — never
 // downgraded (评估走旗舰模型绝不降级). DeepSeek's v4-pro is the China-first
 // default; Anthropic is the fallback. Same seam shape as NewKeyResolver.

@@ -132,19 +132,20 @@ func main() {
 	})
 
 	apiHandler := api.New(api.Deps{
-		Queries:      queries,
-		Provider:     provider,
-		ChatResolver: gateway.NewKeyResolver(cfg),
-		EvalResolver: gateway.NewEvalKeyResolver(cfg), // flagship (course step render)
-		Catalog:      catalog,
-		SpecByID:     specByID,
-		Pool:         pool,
-		CookieSecure: cfg.CookieSecure,
-		Voice:        voiceSvc,
-		CORSOrigins:  cfg.CORSOrigins,
-		Fetcher:      materialize.NewFetcher(),
-		OSS:          ossSvc,
-		OSSAdminKey:  cfg.OSSAdminKey,
+		Queries:          queries,
+		Provider:         provider,
+		ChatResolver:     gateway.NewKeyResolver(cfg),
+		FastChatResolver: gateway.NewFastChaperoneResolver(cfg), // fast per-status studio router
+		EvalResolver:     gateway.NewEvalKeyResolver(cfg),       // flagship (course step render)
+		Catalog:          catalog,
+		SpecByID:         specByID,
+		Pool:             pool,
+		CookieSecure:     cfg.CookieSecure,
+		Voice:            voiceSvc,
+		CORSOrigins:      cfg.CORSOrigins,
+		Fetcher:          materialize.NewFetcher(),
+		OSS:              ossSvc,
+		OSSAdminKey:      cfg.OSSAdminKey,
 	}).Handler()
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
