@@ -41,7 +41,7 @@ describe("Input", () => {
     render(<Input value="" onChange={() => {}} />);
     const input = screen.getByRole("textbox");
     expect(input.className).toContain("text-mk-body");
-    expect(input.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(input.className).toContain("focus-visible:ring-mk-accent-200");
     expect(input.className).not.toContain("ring-mk-accent/15");
   });
 });
@@ -59,7 +59,7 @@ describe("Textarea", () => {
     render(<Textarea value="" onChange={() => {}} />);
     const textarea = screen.getByRole("textbox");
     expect(textarea.className).toContain("text-mk-body");
-    expect(textarea.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(textarea.className).toContain("focus-visible:ring-mk-accent-200");
     expect(textarea.className).not.toContain("ring-mk-accent/15");
   });
 });
@@ -131,8 +131,8 @@ describe("Radio", () => {
     const input = screen.getByRole("radio");
     expect(input.className).toContain("peer");
     const marker = input.nextElementSibling as HTMLElement;
-    expect(marker.className).toContain("peer-focus-visible:ring-[3px]");
-    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent/15");
+    expect(marker.className).toContain("peer-focus-visible:ring-2");
+    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent-200");
   });
 });
 
@@ -156,8 +156,8 @@ describe("Checkbox", () => {
     const input = screen.getByRole("checkbox");
     expect(input.className).toContain("peer");
     const marker = input.nextElementSibling as HTMLElement;
-    expect(marker.className).toContain("peer-focus-visible:ring-[3px]");
-    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent/15");
+    expect(marker.className).toContain("peer-focus-visible:ring-2");
+    expect(marker.className).toContain("peer-focus-visible:ring-mk-accent-200");
   });
 });
 

@@ -48,7 +48,7 @@ function NewProjectTile({ onClick }: { onClick: () => void }) {
       className={cx(
         "flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-mk-md border border-dashed border-mk-border text-mk-muted",
         "transition-colors duration-[120ms] ease-mk hover:border-mk-accent hover:text-mk-accent-600",
-        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
       )}
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-mk-full bg-mk-accent-50 text-mk-accent-600">

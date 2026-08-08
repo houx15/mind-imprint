@@ -69,7 +69,7 @@ describe("Composer", () => {
     render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
     const textarea = screen.getByRole("textbox");
     expect(textarea.className).toContain("text-mk-body");
-    expect(textarea.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(textarea.className).toContain("focus-visible:ring-mk-accent-200");
     expect(textarea.className).not.toContain("ring-mk-accent/15");
   });
 });

@@ -33,16 +33,17 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 // accent border + focus ring, error = danger border + danger bg. Exactly one
 // border-color utility and one background utility per state.
 //
-// Focus treatment note (Task 9): `focus-visible:ring-mk-accent/15` never
+// Focus treatment note (Round 2): `focus-visible:ring-mk-accent/15` never
 // rendered — every mk color is a CSS variable, and Tailwind's JIT can't
 // alpha-mix a var() color, so any `mk-*/NN` opacity modifier emits NO CSS.
-// `ring-mk-accent-100` is a solid token (no opacity modifier), so it
-// actually paints a soft accent-tinted ring; the per-state border color
+// `ring-mk-accent-200` is a solid token (no opacity modifier), so it
+// actually paints a visible accent-tinted ring; the per-state border color
 // (accent/danger, see fieldStateClasses below) already renders correctly.
+// This is the ONE standard focus ring used app-wide.
 const FIELD_BASE =
   "w-full rounded-mk-xs text-mk-body text-mk-ink transition-colors duration-[120ms] ease-mk " +
   "placeholder:text-[#B8ADA2] outline-none " +
-  "focus-visible:ring-2 focus-visible:ring-mk-accent-100 " +
+  "focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
   "disabled:cursor-not-allowed disabled:text-mk-muted";
 
 function fieldStateClasses(hasError: boolean): string {
@@ -184,7 +185,7 @@ export function Toggle({ checked, onChange, label, disabled, className }: Toggle
       onClick={() => onChange(!checked)}
       className={cx(
         "relative inline-flex h-[26px] w-[44px] shrink-0 items-center rounded-mk-full transition-colors duration-[120ms] ease-mk",
-        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
         disabled && "cursor-not-allowed opacity-50",
         checked ? "bg-mk-accent" : "bg-mk-border",
         className,
@@ -236,7 +237,7 @@ export function Radio({ name, value, onChange, options, className }: RadioProps)
               aria-hidden="true"
               className={cx(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full border",
-                "peer-focus-visible:ring-[3px] peer-focus-visible:ring-mk-accent/15",
+                "peer-focus-visible:ring-2 peer-focus-visible:ring-mk-accent-200",
                 selected ? "border-mk-accent bg-mk-accent" : "border-mk-input-border bg-mk-surface",
               )}
             >
@@ -276,7 +277,7 @@ export function Checkbox({ checked, onChange, label, disabled, className }: Chec
         aria-hidden="true"
         className={cx(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-xs border",
-          "peer-focus-visible:ring-[3px] peer-focus-visible:ring-mk-accent/15",
+          "peer-focus-visible:ring-2 peer-focus-visible:ring-mk-accent-200",
           checked ? "border-mk-accent bg-mk-accent" : "border-mk-input-border bg-mk-surface",
         )}
       >
@@ -312,7 +313,7 @@ export function Chip({ label, selected, onChange, disabled, className }: ChipPro
       onClick={() => onChange(!selected)}
       className={cx(
         "inline-flex items-center rounded-mk-full border px-3 py-1 text-mk-small transition-colors duration-[120ms] ease-mk",
-        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
         disabled && "cursor-not-allowed opacity-50",
         selected
           ? "border-mk-accent-50 bg-mk-accent-50 text-mk-accent-700"
@@ -349,7 +350,7 @@ export function Rating({ value, onChange, max = 5, className }: RatingProps) {
             aria-checked={n === value}
             aria-label={`${n} star${n === 1 ? "" : "s"}`}
             onClick={() => onChange(n)}
-            className="p-0.5 text-mk-warning focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15"
+            className="p-0.5 text-mk-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
           >
             <Icon icon={Star} size={20} fill={filled ? "currentColor" : "none"} />
           </button>

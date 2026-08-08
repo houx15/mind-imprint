@@ -102,7 +102,7 @@ export function Tabs({ tabs, value, onChange, className }: TabsProps) {
             onClick={() => onChange(tab.key)}
             className={cx(
               "relative -mb-px border-b-2 px-1 pb-2 text-mk-body transition-colors duration-[120ms] ease-mk",
-              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
               active ? "border-mk-accent text-mk-ink" : "border-transparent text-mk-muted",
             )}
           >
@@ -143,7 +143,7 @@ export function Segmented({ options, value, onChange, className }: SegmentedProp
             onClick={() => onChange(opt.value)}
             className={cx(
               "rounded-mk-full px-3 py-1 text-mk-small transition-colors duration-[120ms] ease-mk",
-              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
               // The "thumb" is simply the active option's own white fill —
               // functionally identical to a sliding thumb without absolute
               // positioning/measurement.
