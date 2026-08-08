@@ -81,16 +81,17 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// Chaperone tier turns OFF v4's "thinking" phase for speed (陪练走中档模型可
-	// 降级) — ~2-3× faster. Disabling reasoning first degraded the coach's
-	// structured tool decisions, so the orchestrator prompt was rewritten as an
-	// explicit state machine (section defs + projection-driven set_status/
-	// generate_plan rules + a worked example) that a non-reasoning model can
-	// follow deterministically. Flagship tier keeps thinking ON (omits the param)
-	// for evaluation depth (评估走旗舰模型绝不降级). Empty tier keeps it on.
-	if r.Tier == "chaperone" {
-		body["thinking"] = map[string]any{"type": "disabled"}
-	}
+	// Reasoning stays ON for all tiers. We measured disabling v4 "thinking" on
+	// the chaperone ({"thinking":{"type":"disabled"}}) — 2-3× faster and valid
+	// JSON — across two prompt designs (a strengthened rule set AND an explicit
+	// state machine + worked example). Neither made a non-reasoning model drive
+	// the coach's interdependent per-turn tool decisions reliably: one recovered
+	// note-proposing but never advanced the stage or generated a plan; the other
+	// advanced the stage but stopped proposing notes and left the proposal empty
+	// with no plan. The reasoning phase coordinates propose_note + set_status +
+	// generate_plan together, so it must stay on. The real perceived-latency
+	// lever is SSE-streaming the coach narrate; unlocking thinking-off would need
+	// the deterministic transitions moved server-side, not more prompt tuning.
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}
