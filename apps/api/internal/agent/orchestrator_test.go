@@ -197,3 +197,27 @@ func TestOrchestratorPrompt_NarrationAndForming(t *testing.T) {
 		t.Error("open_tool bullet must list forming(提案要点)")
 	}
 }
+
+func TestClaimsNoteRecording(t *testing.T) {
+	yes := []string{
+		"你的研究问题很清晰，我先帮你把这条目标记进提案面板。",
+		"这条我也给你记进提案要点里了。",
+		"我把你这条三周计划记进要点里，当作活动的初稿。",
+		"好，帮你记一条缘由。",
+	}
+	for _, s := range yes {
+		if !ClaimsNoteRecording(s) {
+			t.Errorf("expected claim detected in %q", s)
+		}
+	}
+	no := []string{
+		"这个问题你想怎么问？",
+		"先跟我说说你打算怎么开头？",
+		"我把提案面板给你打开了，我们一起理清楚四件事。",
+	}
+	for _, s := range no {
+		if ClaimsNoteRecording(s) {
+			t.Errorf("did NOT expect claim detected in %q", s)
+		}
+	}
+}

@@ -172,6 +172,24 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// mutates studio_state / the reply.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	// Note backstop: the reasoning model sometimes narrates "我把这条记进提案了"
+	// yet omits the propose_note tool (a contract violation confirmed live —
+	// 3/3 framing turns, panel stayed empty while 印记 claimed a recording). When
+	// the narration claims a recording but no note fired, recover it with ONE
+	// focused extraction so the panel never contradicts 印记.
+	if effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
+		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, resolved, userInput, narrate); ok {
+			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
+			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
+				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
+					Resolved: resolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
+				}); rerr != nil {
+					slog.Warn("coach: record note-recover llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
+			}
+		}
+	}
 	// Deterministic funnel (server-side state machine): advance the stage and
 	// auto-generate the plan from concrete DB state, so a fast reasoning-off
 	// coach can never strand the project by failing to call set_status/
@@ -726,6 +744,20 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	// may move the room off "forming" if the orchestrator itself named one.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	// Note backstop (same as postCoach): recover a note 印记 claimed but didn't emit.
+	if effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
+		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, resolved, startUtterance, narrate); ok {
+			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
+			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
+				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
+					Resolved: resolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
+				}); rerr != nil {
+					slog.Warn("coach start: record note-recover llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+				}
+			}
+		}
+	}
 	// Deterministic funnel — same as postCoach (a started project never sits at
 	// topic_discussion; plan auto-generates once the four dims are filled).
 	state, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, state)

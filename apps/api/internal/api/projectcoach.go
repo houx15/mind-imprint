@@ -305,7 +305,13 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 		b.WriteString("（学生在写回顾：这不是答辩，别追问、别考她——是陪她把自己的思考和感受说清楚。她可能卡在目标有没有达成、方法和数据用得怎么样、过程中遇到的问题、局限在哪，或者收获与接下来想怎么不一样地做；也可能是在写和 AI 互动的使用声明。看她卡在哪一部分，就顺着那部分一次问一个具体的开放问题，帮她想起细节、举个例子、找到自己的措辞；如果她已经写得不错，明确认可她、再问下一处还没写的。绝不替她下结论、绝不替她把话写出来——那些话必须是她自己的。）\n")
 	}
 
-	// 计划 status.
+	// 计划 status. Once a plan EXISTS the coach must (a) STOP offering to generate
+	// one — the stage code `plan_generation` reads to the model as "generate now",
+	// so a bare count line let it narrate "要我帮你生成计划吗？" over an existing
+	// 8-item plan — and (b) actively lead the student to the next plan step (印记
+	// 是 agent，房间是它的工具). We surface the concrete 下一步 (the first not-done
+	// task) + the room it lives in, and instruct the coach to propose it and wait
+	// for confirmation before opening that room (铁律② 打开由学生确认 · one-tap).
 	if plan, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil {
 		if len(plan) == 0 {
 			b.WriteString("计划：（未生成）\n")
@@ -321,7 +327,11 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 					todo++
 				}
 			}
-			fmt.Fprintf(&b, "计划：%d 项（待办 %d · 进行 %d · 完成 %d）\n", len(plan), todo, doing, done)
+			fmt.Fprintf(&b, "计划：已生成 %d 项（待办 %d · 进行 %d · 完成 %d）——不要再提议「生成计划」，计划已经有了。\n", len(plan), todo, doing, done)
+			if step, ok := nextPlanStep(plan); ok {
+				fmt.Fprintf(&b, "按计划下一步是：%s（属于「%s」，在「%s」房间做）。像 agent 一样带学生走：先在 narrate 里说清这一步、问他要不要现在开始，得到肯定后再 open_tool 打开「%s」并用 set_status 推进阶段；他若想先做别的就顺着他。别替他做，也别一次抛多步。\n",
+					step.title, step.stageLabel, step.roomLabel, step.tool)
+			}
 		}
 	}
 
@@ -497,6 +507,56 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	}
 
 	return strings.TrimSpace(b.String()), nil
+}
+
+// planStep is the projection's view of the next actionable plan task: the task
+// title, its stage label, and the room (open_tool code + human label) the coach
+// should offer to open for it.
+type planStep struct {
+	title      string
+	stageLabel string
+	tool       string // OpenTool code: reading | writing | reflection
+	roomLabel  string
+}
+
+// planRoomForTag maps a plan item's tag to the room its work happens in, plus a
+// human label. read → 阅读室; write → 写作台; review (整稿体检/复盘) → 写作台.
+func planRoomForTag(tag string) (tool, label string) {
+	switch tag {
+	case "read":
+		return "reading", "阅读"
+	default: // write, review, and anything else → the writing surface
+		return "writing", "写作"
+	}
+}
+
+// nextPlanStep returns the first not-done plan item (lowest Position, ties by
+// creation order as ListPlanItems already returns) so the coach can lead the
+// student to it. ok=false when every task is done (nothing left to steer to).
+func nextPlanStep(items []sqlc.PlanItem) (planStep, bool) {
+	var best *sqlc.PlanItem
+	for i := range items {
+		if items[i].Col == "done" {
+			continue
+		}
+		if best == nil || items[i].Position < best.Position {
+			best = &items[i]
+		}
+	}
+	if best == nil {
+		return planStep{}, false
+	}
+	tool, roomLabel := planRoomForTag(best.Tag)
+	stageLabel := strings.TrimSpace(best.Stage)
+	if stageLabel == "" {
+		stageLabel = "计划"
+	}
+	return planStep{
+		title:      truncateRunes(best.Title, 40),
+		stageLabel: stageLabel,
+		tool:       tool,
+		roomLabel:  roomLabel,
+	}, true
 }
 
 // proposalDimOrBlank renders one proposal dimension, or a placeholder when empty.

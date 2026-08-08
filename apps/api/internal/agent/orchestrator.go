@@ -29,7 +29,7 @@ narrate 全程用中文写（哪怕学生用英文跟你说、哪怕他的成品
 - propose_note: {"section": 分区, "value": 内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区必须用英文码之一，按内容严格归类：objective=想回答的研究问题本身/核心变量怎么测量；reason=为什么研究这个/动机/个人经历；activities=打算怎么做/步骤/方法/时间安排（学生说「先读文献再做问卷最后写作、大概三周」这类就是 activities，不是 objective）；resources=能用或需要的数据/文献/工具/渠道；counterpoints=可能的反例/混淆因素/张力。凡是你在 narrate 里说「我把这点记成了一条候选」之类的话，本轮就必须真的放出对应的 propose_note，别只说不做。
 - summon_card: {"card_id":..., "reason":..., "nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生。
 - request_review: {} —— 学生写完、该做整稿体检时。
-- generate_plan: {} —— 四项必填提案要点都齐了、该把计划落出来时，由你生成项目计划（不再有按钮）。要重排已有计划前，先在 narrate 里征得学生同意。
+- generate_plan: {} —— 四项必填提案要点都齐了、该把计划落出来时，由你生成项目计划（不再有按钮）。计划一旦生成（投影里会显示「计划：已生成 N 项」），就绝不再提议或重复生成，改为带学生走计划里的下一步。要重排已有计划前，先在 narrate 里征得学生同意。
 - propose_question: {"text": 问题} —— 在阅读/探索时，向学生提议一个值得追的研究问题（学生确认后才加入探索图谱；一次一个）。
 
 原则：一次只问一个问题（narrate 里不要连问）；只有当四项必填提案要点(objective/reason/activities/resources)都有内容后，才 set_status 到 plan_generation 或更后；proposal_forming 阶段用 open_tool 打开 forming(提案)，生成计划后打开 plan(管理)；不确定就少配工具、多陪聊。curate_reference 只能引用投影里出现过的 [id]，服务端会丢弃编造的 id；写提案阶段侧重提案要点相关来源，写正文阶段侧重当下在用的来源/片段，不强求提案要点齐全。叙述规则：每当你配置了工作台（开了房间 / 摆了参考 / 生成了计划），narrate 里先用一句话说清「我给你配了什么」，再问下一步唯一的一个问题——像「写作面板给你开好了，左边把你读过的材料都列出来了。先跟我说说你打算怎么开头？」。一次只问一个，不连问，不替学生定论。只输出那个 JSON，不要多余文字。`
@@ -361,6 +361,62 @@ func ProposeOrchestratorTurn(
 		return OrchestratorDecision{Narrate: prose}, totalUsage, nil
 	}
 	return OrchestratorDecision{}, totalUsage, errOrchestratorParse
+}
+
+// noteRecoveryClaimMarkers are the Chinese phrases 印记's narrate uses when it
+// TELLS the student it recorded a proposal note. narrate is pinned to Chinese,
+// so matching these is reliable. When one appears but the turn emitted NO
+// propose_note (a reasoning-model contract violation: it writes "I recorded it"
+// yet omits the tool), the server recovers the note via ExtractProposalNote so
+// the panel never contradicts what 印记 just said.
+var noteRecoveryClaimMarkers = []string{
+	"记进", "记下", "记成", "记到", "记入", "记了一条", "帮你记", "记一条", "写进提案", "记进提案", "记进要点", "加进提案",
+}
+
+// ClaimsNoteRecording reports whether narrate tells the student a proposal note
+// was recorded — the trigger for the server-side note backstop.
+func ClaimsNoteRecording(narrate string) bool {
+	for _, m := range noteRecoveryClaimMarkers {
+		if strings.Contains(narrate, m) {
+			return true
+		}
+	}
+	return false
+}
+
+const noteExtractPrompt = `印记（一个陪学生做研究的 agent）刚才对学生说，要把学生说的话记成一条「提案要点」候选，但没有真正给出结构化的记录。请你根据【学生的话】和【印记的话】，判断这条要点属于哪一维，并用学生原话的语言提炼一句简洁的候选内容。
+维度码（section）只能取其一：objective（研究问题本身/核心变量怎么测量）、reason（为什么研究这个/动机/个人经历）、activities（打算怎么做/步骤/方法/时间安排）、resources（能用或需要的数据/文献/工具/渠道）、counterpoints（可能的反例/混淆因素/张力）。
+只输出一个 JSON：{"section":"<维度码或空字符串>","value":"<候选内容>"}。判断不出维度就把 section 设为空字符串。value 用学生原话的语言，别替他扩写或下结论。不要输出别的文字。`
+
+// ExtractProposalNote is the server-side backstop for the note contract: given
+// the student's message and 印记's narration (which claimed a recording), it
+// makes ONE focused LLM call to recover the {section, value} the missing
+// propose_note should have carried. Returns ok=false (with usage still metered
+// by the caller) when the model can't classify a section or yields no value —
+// the panel then simply stays as-is rather than filling a wrong dim. Section is
+// normalized + validated exactly as a real propose_note would be.
+func ExtractProposalNote(ctx context.Context, prov gateway.Provider, r gateway.Resolved, studentMsg, narrate string) (ProposeNoteArgsT, gateway.ChatUsage, bool) {
+	req := gateway.ChatRequest{Messages: []gateway.ChatMessage{
+		{Role: gateway.RoleSystem, Content: noteExtractPrompt},
+		{Role: gateway.RoleUser, Content: "【学生的话】\n" + studentMsg + "\n\n【印记的话】\n" + narrate},
+	}}
+	res, err := gateway.Collect(ctx, prov, r, req)
+	if err != nil {
+		return ProposeNoteArgsT{}, res.Usage, false
+	}
+	var parsed ProposeNoteArgsT
+	cleaned := stripFences(res.Text)
+	if uerr := json.Unmarshal([]byte(cleaned), &parsed); uerr != nil {
+		obj := extractJSONObject(cleaned)
+		if obj == "" || json.Unmarshal([]byte(obj), &parsed) != nil {
+			return ProposeNoteArgsT{}, res.Usage, false
+		}
+	}
+	parsed.Section = normalizeSection(parsed.Section)
+	if !validSection(parsed.Section) || strings.TrimSpace(parsed.Value) == "" {
+		return ProposeNoteArgsT{}, res.Usage, false
+	}
+	return parsed, res.Usage, true
 }
 
 // orchestratorOpeningPrompt is the ONE crafted posture for 印记's real-AI
