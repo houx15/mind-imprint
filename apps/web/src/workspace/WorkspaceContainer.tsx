@@ -121,6 +121,17 @@ export function WorkspaceContainer({
   // chat-first landing, never a forced plan board. Task 9 re-applies this
   // after every turn (morphing status).
   const [studioState, setStudioState] = useState<StudioState | null>(null);
+  // Task 6 fix round 1 (start gate): whether the `getStudioState` fetch for
+  // the CURRENTLY OPEN project has settled (resolved OR rejected) — distinct
+  // from `studioState` itself, which stays `null` for both "still loading"
+  // and "fetch failed". `started` (below) needs to tell those two apart: a
+  // still-loading fetch must default to chat-only/开始 (no tab flash for a
+  // genuinely new project), while a FAILED fetch on a project that may
+  // already be started must keep the switcher live as an escape hatch (a
+  // pre-existing invariant). Reset to `false` on every project switch,
+  // flipped `true` in both the `.then` and `.catch` of the load effect's
+  // `getStudioState` call.
+  const [studioStateResolved, setStudioStateResolved] = useState(false);
   // Manual-takeover flag (spec §6): while true, the switcher-chosen `room`
   // mounts even in chat-first / null / errored status — the student is never
   // trapped in the chat landing with a dead switcher. Taking over does NOT
@@ -542,6 +553,10 @@ export function WorkspaceContainer({
     // chat-first landing (never the previous project's board) until this
     // project's studio_state resolves.
     setStudioState(null);
+    // Task 6 fix round 1: reset the resolved flag too — else a project switch
+    // could briefly inherit the PREVIOUS project's "resolved" (true) state
+    // before this project's own getStudioState settles.
+    setStudioStateResolved(false);
     // Reset the room too — else a project resumed into e.g. the reading room
     // leaves `room==="reading"` stuck while the NEXT project's real status is
     // still loading. applyStudioState below re-derives the real room once this
@@ -628,12 +643,17 @@ export function WorkspaceContainer({
       .then((state) => {
         if (cancelled) return;
         applyStudioState(state);
+        setStudioStateResolved(true);
         stateLoaded = true;
         loadedStarted = state.started;
         maybeFireOpening();
       })
       .catch(() => {
-        /* no studio_state yet (or fetch failed) → stay on the chat-first landing */
+        /* no studio_state yet (or fetch failed) → stay on the chat-first landing.
+           `studioStateResolved` still flips true here — a CONFIRMED failure
+           (not "still loading") is what lets `started` fall back to `true`
+           below, preserving the switcher-stays-live-on-error escape hatch. */
+        if (!cancelled) setStudioStateResolved(true);
       });
     // Load the ONE continuous coach thread's RECENT PAGE ONCE per opened
     // project (立项 + 写作, surface="studio"), into the hoisted store both
@@ -798,16 +818,21 @@ export function WorkspaceContainer({
   // `wide`. Null status
   // (still loading) = chat — we never flash a board before 印记's status lands.
   const widthTier: WidthTier = tookOver ? "wide" : (studioState?.widthTier ?? "chat");
-  // Task 6 (start gate): a CONFIRMED not-started project (a successfully
-  // loaded studio_state with started === false) is ALWAYS chat-only — pure
-  // full-width 印记 chat, no tabs, until the student's explicit 开始 tap flips
-  // it. `null` studioState (still loading, or the fetch failed) is a
-  // DIFFERENT case — we don't yet know whether the project has started, so it
-  // falls back to `true` here, preserving the shell's pre-existing "chat-first
-  // landing with the switcher still live as an escape hatch" fallback (a
-  // resumed project hitting one transient studio-state error must not lose
-  // its tabs and get stuck behind a 开始 button it already passed).
-  const started = studioState ? studioState.started : true;
+  // Task 6 (start gate), fix round 1: THREE distinct states, not two.
+  // - `studioState` present → the resolved truth: `studioState.started`.
+  // - `studioState` null + NOT yet resolved (still in flight) → `false`
+  //   (chat-only, 开始 button, no tabs) — this is what stops a brand-new
+  //   project from flashing tabs/Composer for the whole network round-trip
+  //   (the bug: defaulting to `true` here made the gate's "no tabs at all"
+  //   promise hold only AFTER the fetch resolved, not during it). Matches
+  //   `widthTier`'s own "safe/minimal default while loading" convention
+  //   directly above.
+  // - `studioState` null + resolved (a CONFIRMED fetch failure) → `true`,
+  //   preserving the shell's pre-existing "switcher stays live as an escape
+  //   hatch on a transient error" fallback — a resumed project hitting one
+  //   flaky studio-state fetch must not lose its tabs and get stuck behind a
+  //   开始 button it already passed.
+  const started = studioState ? studioState.started : studioStateResolved;
   // The chat-only surface: no interactive area at all. `chatOnly` ⇒ the
   // full-width 印记 chat fills <main> INSTEAD of a room + side panel. Any
   // other tier ⇒ a room is mounted and the chat rides in the AiPanel. A

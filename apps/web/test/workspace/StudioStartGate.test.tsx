@@ -166,6 +166,38 @@ describe("Studio start gate (Task 6)", () => {
     expect(screen.queryByRole("button", { name: "开始" })).not.toBeInTheDocument();
   });
 
+  // Fix round 1: `started` used to default to `true` while `studioState` was
+  // simply `null` — which is ALSO the state during the entire in-flight
+  // `getStudioState` fetch, not just on a confirmed failure. That flashed the
+  // switcher/tabs AND the normal Composer (instead of 开始) for the whole
+  // network round-trip on every brand-new project, directly violating "a new
+  // project shows NO tabs at all". A `studioStateResolved` flag now tells
+  // "still loading" apart from "confirmed failure" — this test pins the
+  // loading window itself, using a `getStudioState` call that never resolves.
+  it("stays chat-only (no tabs, 开始 not the Composer) for the whole in-flight getStudioState fetch — no tab flash on a new project", async () => {
+    getStudioState.mockReturnValue(new Promise(() => {})); // never resolves within this test
+    getCoachHistory.mockResolvedValue({ messages: [], hasMore: false, recap: null, nextCursor: null });
+
+    render(<WorkspaceContainer initialProjectId="ploading" />);
+
+    // Settles synchronously (studioState starts null, studioStateResolved
+    // starts false ⇒ started === false from the very first render) — findBy
+    // still used defensively for consistency with the rest of this file.
+    const startBtn = await screen.findByRole("button", { name: "开始" });
+    expect(startBtn).toBeInTheDocument();
+
+    for (const label of BLOCK_LABELS) {
+      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    // The Composer must NOT render during the loading window either — 开始
+    // stands in its place, not beside it.
+    expect(screen.queryByPlaceholderText(/和印记说说你的项目/)).not.toBeInTheDocument();
+    // The opening only fires once BOTH loads resolve — an in-flight
+    // getStudioState must not let it fire early.
+    expect(coachOpening).not.toHaveBeenCalled();
+  });
+
   it("an already-started project with a non-empty thread renders tabs immediately, no 开始 button, and never calls coach/opening", async () => {
     getStudioState.mockResolvedValue(startedState());
     getCoachHistory.mockResolvedValue({
