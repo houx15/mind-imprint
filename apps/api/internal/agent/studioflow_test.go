@@ -1,6 +1,51 @@
 package agent
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"mindimprint/api/internal/cards"
+)
+
+func TestStatusRegistry_Integrity(t *testing.T) {
+	reg := StatusRegistry()
+	for _, f := range []FlowStatus{FlowTopic, FlowFramework, FlowProposal, FlowEssay, FlowReview} {
+		def, ok := reg[f]
+		if !ok {
+			t.Fatalf("status %q missing from registry", f)
+		}
+		if !def.Surface.IsValid() {
+			t.Errorf("status %q has invalid surface %q", f, def.Surface)
+		}
+		if strings.TrimSpace(def.SystemPrompt) == "" || strings.TrimSpace(def.Goal) == "" {
+			t.Errorf("status %q has empty goal/prompt", f)
+		}
+		for _, tool := range def.Tools {
+			if !IsKnownStatusTool(tool) {
+				t.Errorf("status %q lists unknown tool %q", f, tool)
+			}
+		}
+		for _, cardID := range def.Cards {
+			if _, found := cards.ByID(cardID); !found {
+				t.Errorf("status %q references unknown card %q", f, cardID)
+			}
+		}
+	}
+	// Doc mapping per spec.
+	if reg[FlowFramework].Doc != DocNone {
+		t.Errorf("framework doc should be none, got %q", reg[FlowFramework].Doc)
+	}
+	if reg[FlowProposal].Doc != DocProposal {
+		t.Errorf("proposal doc should be proposal, got %q", reg[FlowProposal].Doc)
+	}
+	if reg[FlowEssay].Doc != DocEssay {
+		t.Errorf("essay doc should be essay, got %q", reg[FlowEssay].Doc)
+	}
+	// review has no tools (supportive reflection only).
+	if len(reg[FlowReview].Tools) != 0 {
+		t.Errorf("review should have no tools, got %v", reg[FlowReview].Tools)
+	}
+}
 
 func TestStatusForStage_Collapse(t *testing.T) {
 	cases := map[StudioStage]FlowStatus{
