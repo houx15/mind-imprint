@@ -47,6 +47,25 @@ func (q *Queries) DeleteStationViewNodes(ctx context.Context, arg DeleteStationV
 	return err
 }
 
+const getAssignmentBriefNode = `-- name: GetAssignmentBriefNode :one
+SELECT body FROM graph_node
+WHERE project_id = $1 AND type = 'assignment_brief'
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+// The full pasted assignment prompt, stored at creation. The project title is a
+// 60-char truncation of this (titleFromPrompt), which reads as "cut off" to the
+// coach — it once opened by asking the student to finish their own title — so the
+// projection uses this full text for 主题 instead. Latest wins. Returns just the
+// body ({"text":"..."}).
+func (q *Queries) GetAssignmentBriefNode(ctx context.Context, projectID uuid.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getAssignmentBriefNode, projectID)
+	var body []byte
+	err := row.Scan(&body)
+	return body, err
+}
+
 const getGateStateNode = `-- name: GetGateStateNode :one
 SELECT id, project_id, type, body, author, span_ref, created_at FROM graph_node
 WHERE project_id = $1 AND type = 'gate_state' AND body->>'contract' = $2::text

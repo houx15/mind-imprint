@@ -229,6 +229,19 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 		return "", err
 	}
 	title := strings.TrimSpace(proj.Title)
+	// Prefer the FULL assignment brief over project.Title, which is only a 60-char
+	// truncation (titleFromPrompt) — the coach otherwise sees a title cut mid-word
+	// and treats it as the student's unfinished title (it once opened by asking
+	// her to complete "…for Western"). Capped so a long multi-part prompt can't
+	// bloat the projection. Falls back to the title when the brief is absent.
+	if raw, berr := a.d.Queries.GetAssignmentBriefNode(ctx, projectID); berr == nil {
+		var brief struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(raw, &brief) == nil && strings.TrimSpace(brief.Text) != "" {
+			title = truncateRunes(strings.TrimSpace(brief.Text), 400)
+		}
+	}
 	if title == "" {
 		title = "（未命名）"
 	}

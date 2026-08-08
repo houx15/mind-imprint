@@ -24,7 +24,7 @@ const orchestratorSystemPrompt = `你是「印记」，一个带着学生把研�
 - set_status: {"stage": 阶段码} —— 推进/回退项目阶段。阶段码 ∈ topic_discussion(立题讨论)/proposal_forming(提案要点成形)/plan_generation(生成计划)/proposal_writing(写提案)/proposal_review(提案体检)/body_writing(写正文)/retrospective(复盘)。
 - open_tool: {"tool": 房间, "reason": 理由} —— 为这一步打开对的房间。房间 ∈ chat(只聊,无面板)/forming(提案要点)/plan(项目管理·计划)/reading(阅读室)/writing(写作台)/reflection(复盘)。
 - curate_reference: {"items": [{"kind":"material|note|annotation","id":...,"label":...}]} —— 把学生此刻会去查的材料/片段/批注摆到左侧；id 必须是投影里「文献库」「片段」「批注」给出的真实 [id]，绝不编造。写提案阶段(proposal_writing/proposal_review)优先摆提案要点相关的来源；写正文阶段(body_writing)摆她此刻在用的来源/片段，体检后可摆相关批注(kind="annotation")，不必凑齐提案要点。
-- propose_note: {"section": 分区, "value": 内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区 ∈ objective(研究问题/目标)/reason(动机与意义)/activities(活动计划)/resources(资源与文献)/counterpoints(可能的反例/张力)。
+- propose_note: {"section": 分区, "value": 内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区必须用英文码之一：objective(研究问题/目标)/reason(动机与意义)/activities(活动计划)/resources(资源与文献)/counterpoints(可能的反例/张力)。凡是你在 narrate 里说「我把这点记成了一条候选」之类的话，本轮就必须真的放出对应的 propose_note，别只说不做。
 - summon_card: {"card_id":..., "reason":..., "nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生。
 - request_review: {} —— 学生写完、该做整稿体检时。
 - generate_plan: {} —— 四项必填提案要点都齐了、该把计划落出来时，由你生成项目计划（不再有按钮）。要重排已有计划前，先在 narrate 里征得学生同意。
@@ -259,7 +259,29 @@ func CurateReferenceArgs(tc OrchestratorToolCall) (CurateReferenceArgsT, error) 
 func ProposeNoteArgs(tc OrchestratorToolCall) (ProposeNoteArgsT, error) {
 	var a ProposeNoteArgsT
 	err := json.Unmarshal(tc.Args, &a)
+	a.Section = normalizeSection(a.Section)
 	return a, err
+}
+
+// normalizeSection maps the section labels the model sometimes emits (Chinese
+// names, English synonyms) onto the five canonical codes. Without it a
+// propose_note whose section is "缘由"/"motivation" fails validSection and is
+// silently dropped — AFTER the narrate already told the student "我把这点记成了
+// 一条候选", leaving a promised note that never appears and a dim that never fills.
+func normalizeSection(s string) string {
+	switch strings.TrimSpace(strings.ToLower(s)) {
+	case "objective", "目标", "研究问题", "research question", "question", "aim", "goal":
+		return "objective"
+	case "reason", "缘由", "动机", "motivation", "why":
+		return "reason"
+	case "activities", "活动", "活动与时间", "plan", "计划", "方法", "method", "timeline", "schedule":
+		return "activities"
+	case "resources", "资源", "文献", "materials", "sources", "data":
+		return "resources"
+	case "counterpoints", "反例", "张力", "反例/张力", "counterpoint", "counterargument", "tension":
+		return "counterpoints"
+	}
+	return s // unknown → unchanged; validSection rejects it as before
 }
 func SummonCardToolArgs(tc OrchestratorToolCall) (SummonCardToolArgsT, error) {
 	var a SummonCardToolArgsT

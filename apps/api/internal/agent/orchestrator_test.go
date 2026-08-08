@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -110,6 +111,49 @@ func TestParseOrchestratorOutput_NarrateWithBraceInString(t *testing.T) {
 	}
 	if dec.Narrate != "用集合 {A} 打个比方" {
 		t.Fatalf("narrate=%q", dec.Narrate)
+	}
+}
+
+func TestProposeNoteArgs_NormalizesSection(t *testing.T) {
+	// A propose_note whose section is a Chinese label / synonym must be recovered
+	// to the canonical code, not dropped (bug A2: the narrate promised a note that
+	// then vanished because validSection rejected "缘由").
+	cases := map[string]string{
+		"缘由": "reason", "motivation": "reason",
+		"目标": "objective", "research question": "objective",
+		"活动与时间": "activities", "plan": "activities",
+		"资源": "resources", "反例": "counterpoints",
+		"reason": "reason", // canonical passes through
+	}
+	for in, want := range cases {
+		raw := `{"section":"` + in + `","value":"x"}`
+		a, err := ProposeNoteArgs(OrchestratorToolCall{Name: "propose_note", Args: json.RawMessage(raw)})
+		if err != nil {
+			t.Fatalf("section %q: %v", in, err)
+		}
+		if a.Section != want {
+			t.Fatalf("section %q → %q, want %q", in, a.Section, want)
+		}
+		if !validSection(a.Section) {
+			t.Fatalf("normalized section %q for input %q is not valid", a.Section, in)
+		}
+	}
+}
+
+func TestParseOrchestratorOutput_NormalizesNoteSectionKeepsTool(t *testing.T) {
+	// End-to-end: a propose_note with a Chinese section survives parsing (was
+	// dropped before the normalizer).
+	raw := `{"narrate":"记一条缘由候选","tools":[{"name":"propose_note","args":{"section":"缘由","value":"个人经历"}}]}`
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dec.Tools) != 1 {
+		t.Fatalf("expected the propose_note to survive, got %+v", dec.Tools)
+	}
+	a, _ := ProposeNoteArgs(dec.Tools[0])
+	if a.Section != "reason" {
+		t.Fatalf("section = %q, want reason", a.Section)
 	}
 }
 
