@@ -64,8 +64,21 @@ var knownOrchestratorTools = map[string]bool{
 // not unmarshal at all (caller retries once, then falls back).
 func ParseOrchestratorOutput(text string) (OrchestratorDecision, error) {
 	var out rawOrchestratorOutput
-	if err := json.Unmarshal([]byte(stripFences(text)), &out); err != nil {
-		return OrchestratorDecision{}, errOrchestratorParse
+	cleaned := stripFences(text)
+	if err := json.Unmarshal([]byte(cleaned), &out); err != nil {
+		// The model wrapped the envelope in prose (a lead-in like "好的，我来配一下：",
+		// a trailing note, or a reasoning preamble). Rather than discard an
+		// otherwise-good turn — and dump the generic fallback line that ignores the
+		// student and poisons the next turn's history — salvage the first balanced
+		// {...} object and parse THAT. Only when no balanced object survives do we
+		// report a parse failure.
+		obj := extractJSONObject(cleaned)
+		if obj == "" {
+			return OrchestratorDecision{}, errOrchestratorParse
+		}
+		if err2 := json.Unmarshal([]byte(obj), &out); err2 != nil {
+			return OrchestratorDecision{}, errOrchestratorParse
+		}
 	}
 	kept := make([]OrchestratorToolCall, 0, len(out.Tools))
 	for _, tc := range out.Tools {
@@ -87,6 +100,47 @@ func ParseOrchestratorOutput(text string) (OrchestratorDecision, error) {
 		kept = append(kept, tc)
 	}
 	return OrchestratorDecision{Narrate: out.Narrate, Tools: kept}, nil
+}
+
+// extractJSONObject returns the first top-level balanced {...} substring in s,
+// or "" if none is found. It tracks string literals and escapes so a brace
+// INSIDE a JSON string value (e.g. a narrate mentioning "{" ) never miscounts
+// the depth. Used by ParseOrchestratorOutput to recover the envelope when the
+// model surrounded it with prose.
+func extractJSONObject(s string) string {
+	start := strings.IndexByte(s, '{')
+	if start < 0 {
+		return ""
+	}
+	depth := 0
+	inStr := false
+	esc := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			switch {
+			case esc:
+				esc = false
+			case c == '\\':
+				esc = true
+			case c == '"':
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return s[start : i+1]
+			}
+		}
+	}
+	return ""
 }
 
 func validToolArgs(tc OrchestratorToolCall) bool {
@@ -257,6 +311,7 @@ func ProposeOrchestratorTurn(
 ) (OrchestratorDecision, gateway.ChatUsage, error) {
 	req := buildOrchestratorRequest(spineProjection, state, history)
 	var totalUsage gateway.ChatUsage
+	var lastText string
 	for attempt := 0; attempt < 2; attempt++ {
 		res, err := gateway.Collect(ctx, prov, r, req)
 		if err != nil {
@@ -264,10 +319,22 @@ func ProposeOrchestratorTurn(
 		}
 		totalUsage.InputTokens += res.Usage.InputTokens
 		totalUsage.OutputTokens += res.Usage.OutputTokens
+		lastText = res.Text
 		dec, perr := ParseOrchestratorOutput(res.Text)
 		if perr == nil {
 			return dec, totalUsage, nil
 		}
+	}
+	// Neither attempt yielded a parseable envelope. If the model instead answered
+	// in PLAIN PROSE (a real coaching sentence, no JSON at all — which reasoning
+	// models drift into once the history window is rich, ~12 turns in), show that
+	// prose as the narration rather than throwing the student's turn away for the
+	// generic canned fallback (which reads as a non-sequitur and makes the NEXT
+	// turn confabulate an apology). A reply that carries braces is broken JSON,
+	// not prose — leave that to the caller's fallback so we never surface a raw
+	// or half-formed envelope.
+	if prose := strings.TrimSpace(stripFences(lastText)); prose != "" && !strings.ContainsAny(prose, "{}") {
+		return OrchestratorDecision{Narrate: prose}, totalUsage, nil
 	}
 	return OrchestratorDecision{}, totalUsage, errOrchestratorParse
 }

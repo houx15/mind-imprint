@@ -273,6 +273,11 @@ export function WorkspaceContainer({
   // can open. Both cleared at the start of the next turn and on project switch.
   const [pendingNote, setPendingNote] = useState<NoteProposal | null>(null);
   const [pendingCard, setPendingCard] = useState<CardProposalWire | null>(null);
+  // After the student taps 记进「分区」, the actionable chip is replaced by a
+  // quiet "记下了" acknowledgment (not a disappearance) so her tap has visible,
+  // lasting confirmation. Cleared at the start of the next turn and on project
+  // switch, exactly like `pendingNote`.
+  const [confirmedNote, setConfirmedNote] = useState<NoteProposal | null>(null);
   // Task 7 (P2b) · 印记's per-turn `propose_question` OFFER — mirrors
   // `pendingNote` exactly, but confirming creates an exploration lead instead of
   // writing a proposal section.
@@ -370,6 +375,7 @@ export function WorkspaceContainer({
       setStudioSending(true);
       // A fresh turn clears any stale offer before the reply's own offers land.
       setPendingNote(null);
+      setConfirmedNote(null);
       setPendingCard(null);
       setPendingQuestion(null);
       try {
@@ -471,7 +477,10 @@ export function WorkspaceContainer({
     const pid = activeProjectIdRef.current;
     const note = pendingNote;
     if (!pid || !note) return;
+    // Optimistic: swap the actionable chip for the "记下了" acknowledgment right
+    // away so her tap reads as done, not vanished.
     setPendingNote(null);
+    setConfirmedNote(note);
     try {
       const w = await getWorkspace(pid);
       const section = note.section as keyof Proposal;
@@ -481,9 +490,11 @@ export function WorkspaceContainer({
       await putProposal(pid, merged);
       if (activeProjectIdRef.current === pid) await refreshWorkspace();
     } catch {
-      // The write failed — restore the chip so her tap isn't silently lost and
-      // she can retry, UNLESS a newer offer already took the slot (don't clobber
-      // a fresher note the next turn surfaced while this write was in flight).
+      // The write failed — roll back the acknowledgment and restore the
+      // actionable chip so her tap isn't silently lost and she can retry, UNLESS
+      // a newer offer already took the slot (don't clobber a fresher note the
+      // next turn surfaced while this write was in flight).
+      setConfirmedNote((cur) => (cur === note ? null : cur));
       setPendingNote((cur) => cur ?? note);
     }
   }, [pendingNote, refreshWorkspace]);
@@ -592,6 +603,7 @@ export function WorkspaceContainer({
     setStudioSending(false);
     // Clear any stale per-turn offers / open card from the previous project.
     setPendingNote(null);
+    setConfirmedNote(null);
     setPendingCard(null);
     setPendingQuestion(null);
     setOpenCardId(null);
@@ -887,6 +899,7 @@ export function WorkspaceContainer({
     sendStudioTurn,
     projectId,
     pendingNote,
+    confirmedNote,
     pendingCard,
     confirmNote,
     dismissNote,

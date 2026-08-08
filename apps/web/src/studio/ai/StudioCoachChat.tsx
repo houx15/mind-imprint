@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Check } from "lucide-react";
 import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
 import { Icon } from "@/ui/Icon";
 import { ChatLog, type ChatMessage } from "./ChatLog";
@@ -138,6 +138,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
 export function StudioTurnChips() {
   const {
     pendingNote,
+    confirmedNote,
     confirmNote,
     dismissNote,
     pendingCard,
@@ -152,6 +153,9 @@ export function StudioTurnChips() {
   return (
     <>
       {pendingNote && <NoteConfirmChip note={pendingNote} onConfirm={confirmNote} onDismiss={dismissNote} />}
+      {/* After confirm, the actionable chip becomes a quiet 记下了 acknowledgment
+          (not a disappearance). Only when no fresh offer is pending. */}
+      {!pendingNote && confirmedNote && <NoteRecordedChip note={confirmedNote} />}
       {pendingCard && (
         <CoachProposal proposal={pendingCard} onOpen={openCard} onDismiss={() => dismissCard(pendingCard.cardId)} />
       )}
@@ -187,6 +191,24 @@ function NoteConfirmChip({ note, onConfirm, onDismiss }: { note: NoteProposal; o
           跳过
         </button>
       </div>
+    </div>
+  );
+}
+
+// The post-confirm acknowledgment: 记进 was tapped, the note is now in the
+// proposal board. Replaces NoteConfirmChip's actionable form with a quiet, no-
+// button "记下了" state so the student's tap has lasting confirmation instead of
+// vanishing. A SOLID border token (design gotcha: `border-mk-<token>/<NN>`
+// renders transparent).
+function NoteRecordedChip({ note }: { note: NoteProposal }) {
+  const label = SECTION_LABEL[note.section];
+  return (
+    <div className="rounded-mk-lg border border-mk-success bg-mk-success-bg px-3.5 py-2.5 text-[14px] text-mk-ink">
+      <p className="flex items-center gap-1.5 font-semibold leading-snug text-mk-success">
+        <Icon icon={Check} size={14} />
+        已记进「{label}」
+      </p>
+      <p className="mt-1 text-[14px] leading-relaxed text-mk-muted">{note.value}</p>
     </div>
   );
 }

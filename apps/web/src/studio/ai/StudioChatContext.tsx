@@ -65,8 +65,14 @@ export type StudioChatValue = {
   // is a thinking-card the student may open. Both cleared at the start of the
   // next turn (and on project switch).
   pendingNote: NoteProposal | null;
+  // After the student confirms `pendingNote`, the actionable chip is replaced by
+  // a quiet "记下了" acknowledgment carrying this note (铁律②: her tap is visibly
+  // honored, not vanished). Cleared at the start of the next turn and on project
+  // switch, like `pendingNote`.
+  confirmedNote: NoteProposal | null;
   pendingCard: CardProposalWire | null;
-  // Read-modify-write the confirmed note into the proposal board, then clear it.
+  // Read-modify-write the confirmed note into the proposal board, surface the
+  // "记下了" acknowledgment, then let the next turn clear it.
   confirmNote: () => void;
   dismissNote: () => void;
   // Open the proposed card in the shared card sheet (records a coach turn on

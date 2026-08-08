@@ -82,6 +82,37 @@ func TestParseOrchestratorOutput_CurateReferenceAllInvalidDropsTool(t *testing.T
 	}
 }
 
+func TestParseOrchestratorOutput_ProseWrappedEnvelope(t *testing.T) {
+	// A reasoning model sometimes brackets the envelope with prose. The parser
+	// must salvage the first balanced {...} object rather than fail the turn.
+	raw := "好的，我来给你配一下工作台：\n" +
+		`{"narrate":"写作面板开好了。","tools":[{"name":"open_tool","args":{"tool":"writing","reason":"该写正文了"}}]}` +
+		"\n希望这样清楚一些。"
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dec.Narrate != "写作面板开好了。" {
+		t.Fatalf("narrate=%q", dec.Narrate)
+	}
+	if len(dec.Tools) != 1 || dec.Tools[0].Name != "open_tool" {
+		t.Fatalf("expected the salvaged open_tool, got %+v", dec.Tools)
+	}
+}
+
+func TestParseOrchestratorOutput_NarrateWithBraceInString(t *testing.T) {
+	// A brace inside a JSON string value must not confuse the balanced-object
+	// scan when it has to extract from prose-wrapped output.
+	raw := `前言。{"narrate":"用集合 {A} 打个比方","tools":[]}后记。`
+	dec, err := ParseOrchestratorOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dec.Narrate != "用集合 {A} 打个比方" {
+		t.Fatalf("narrate=%q", dec.Narrate)
+	}
+}
+
 func TestParseOrchestratorOutput_MalformedIsError(t *testing.T) {
 	if _, err := ParseOrchestratorOutput("not json at all"); err == nil {
 		t.Fatal("expected error on unparseable output")

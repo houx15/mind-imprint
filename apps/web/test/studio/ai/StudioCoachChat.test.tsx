@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
+import { StudioChatContext, type StudioChatMsg, type StudioChatValue } from "@/studio/ai/StudioChatContext";
 
 /**
  * StudioCoachChat (Task 5 · history pagination): the studio thread now loads
@@ -22,7 +22,7 @@ vi.mock("@/workspace/api/workspace", () => ({
 }));
 
 import { getCoachHistory } from "@/workspace/api/workspace";
-import { StudioCoachChat, toChatMessages } from "@/studio/ai/StudioCoachChat";
+import { StudioCoachChat, StudioTurnChips, toChatMessages } from "@/studio/ai/StudioCoachChat";
 
 const mockGetCoachHistory = vi.mocked(getCoachHistory);
 
@@ -86,6 +86,7 @@ function Harness({ projectId = "p1" }: { projectId?: string }) {
         sendStudioTurn: async () => true,
         projectId,
         pendingNote: null,
+        confirmedNote: null,
         pendingCard: null,
         confirmNote: () => {},
         dismissNote: () => {},
@@ -157,6 +158,7 @@ describe("StudioCoachChat · history pagination (Task 5)", () => {
           sendStudioTurn: async () => true,
           projectId: "p1",
           pendingNote: null,
+          confirmedNote: null,
           pendingCard: null,
           confirmNote: () => {},
           dismissNote: () => {},
@@ -233,6 +235,7 @@ describe("toChatMessages · hint mapping (Task 7)", () => {
           sendStudioTurn: async () => true,
           projectId: "p1",
           pendingNote: null,
+          confirmedNote: null,
           pendingCard: null,
           confirmNote: () => {},
           dismissNote: () => {},
@@ -255,5 +258,78 @@ describe("toChatMessages · hint mapping (Task 7)", () => {
 
     expect(await screen.findByText("好的，我已经把计划列出来了。")).toBeInTheDocument();
     expect(screen.getByText("subagent 已整理研究计划")).toBeInTheDocument();
+  });
+});
+
+// Bug fix (2026-08-08): tapping 记进 must swap the actionable chip for a lasting
+// "已记进" acknowledgment instead of making it vanish. StudioTurnChips renders
+// the actionable NoteConfirmChip while `pendingNote` is set, and the quiet
+// recorded chip once only `confirmedNote` is set.
+describe("StudioTurnChips · note confirm → 已记进 acknowledgment", () => {
+  function chipsValue(over: Partial<StudioChatValue>): StudioChatValue {
+    return {
+      messages: [] as StudioChatMsg[],
+      setMessages: () => {},
+      sending: false,
+      setSending: () => {},
+      activeProjectIdRef: { current: "p1" },
+      sendStudioTurn: async () => true,
+      projectId: "p1",
+      pendingNote: null,
+      confirmedNote: null,
+      pendingCard: null,
+      confirmNote: () => {},
+      dismissNote: () => {},
+      openCard: () => {},
+      dismissCard: () => {},
+      pendingQuestion: null,
+      confirmQuestion: () => {},
+      dismissQuestion: () => {},
+      historyHasMore: false,
+      loadEarlier: () => {},
+      loadingEarlier: false,
+      started: true,
+      startJourney: async () => {},
+      starting: false,
+      ...over,
+    };
+  }
+
+  it("shows the actionable 记进 chip while a note is pending", () => {
+    render(
+      <StudioChatContext.Provider value={chipsValue({ pendingNote: { section: "objective", value: "研究北京绿地与心理健康" } })}>
+        <StudioTurnChips />
+      </StudioChatContext.Provider>,
+    );
+    expect(screen.getByRole("button", { name: /记进「目标」/ })).toBeInTheDocument();
+    expect(screen.queryByText(/已记进/)).toBeNull();
+  });
+
+  it("shows the 已记进 acknowledgment (no buttons) once confirmed", () => {
+    render(
+      <StudioChatContext.Provider value={chipsValue({ pendingNote: null, confirmedNote: { section: "objective", value: "研究北京绿地与心理健康" } })}>
+        <StudioTurnChips />
+      </StudioChatContext.Provider>,
+    );
+    expect(screen.getByText(/已记进「目标」/)).toBeInTheDocument();
+    expect(screen.getByText("研究北京绿地与心理健康")).toBeInTheDocument();
+    // The acknowledgment is quiet — no actionable buttons.
+    expect(screen.queryByRole("button", { name: /记进/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /跳过/ })).toBeNull();
+  });
+
+  it("a fresh pending note takes precedence over a stale confirmed one", () => {
+    render(
+      <StudioChatContext.Provider
+        value={chipsValue({
+          pendingNote: { section: "reason", value: "新的一条" },
+          confirmedNote: { section: "objective", value: "旧的一条" },
+        })}
+      >
+        <StudioTurnChips />
+      </StudioChatContext.Provider>,
+    );
+    expect(screen.getByRole("button", { name: /记进「缘由」/ })).toBeInTheDocument();
+    expect(screen.queryByText(/已记进/)).toBeNull();
   });
 });

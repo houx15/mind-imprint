@@ -100,6 +100,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         sendStudioTurn,
         projectId: "p1",
         pendingNote: null,
+        confirmedNote: null,
         pendingCard: null,
         confirmNote: () => {},
         dismissNote: () => {},

@@ -107,9 +107,29 @@ export function PlanBlock({
     const next = { ...prop, [key]: v };
     setProp(next);
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => persistProposal(next), 600);
+    // Null the ref when the debounce FIRES (not just when it's replaced) so
+    // `saveTimer.current != null` is a true "mid-typing" signal for the
+    // external-sync effect below — a fired-but-unnulled timer would wrongly
+    // block every later external update.
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      persistProposal(next);
+    }, 600);
   }
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  // Sync the local draft when the proposal projection changes from OUTSIDE this
+  // room — chiefly 印记's 记进「分区」 note-confirm (confirmNote in the container
+  // writes the section, then refreshWorkspace re-pushes the projection here). The
+  // local `prop` state exists only to debounce keystrokes; without this it stays
+  // seeded at mount, so a confirmed note didn't show until the room remounted
+  // (the "appears after I go home and back" bug). Skip the sync while a local
+  // edit is mid-debounce so an in-flight refresh never clobbers unsaved
+  // keystrokes; the pending save (and its own refresh) reconciles right after.
+  useEffect(() => {
+    if (saveTimer.current) return;
+    setProp(proposal);
+  }, [proposal]);
 
   // The coach send is now the ONE container-owned loop (`sendStudioTurn`): it
   // appends the turn, calls the orchestrator, applies the returned directive,
