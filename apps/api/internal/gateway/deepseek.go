@@ -81,17 +81,15 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// Chaperone tier turns OFF v4 "thinking" for speed (陪练走中档模型可降级) —
-	// ~2-3× faster. Prompt tuning alone couldn't make a non-reasoning model drive
-	// the coach's mechanical transitions (set_status / generate_plan), so those
-	// moved server-side (reconcileStudioFunnel): the funnel now advances the stage
-	// and auto-generates the plan deterministically in Go, leaving the model only
-	// propose_note + narrate — which it does reliably fast. Flagship tier keeps
-	// thinking ON (omits the param) for evaluation depth (评估走旗舰模型绝不降级);
-	// empty tier keeps it on. Anthropic ignores this.
-	if r.Tier == "chaperone" {
-		body["thinking"] = map[string]any{"type": "disabled"}
-	}
+	// Reasoning stays ON for all tiers. Even with the mechanical transitions moved
+	// server-side (reconcileStudioFunnel handling stage + plan), disabling v4
+	// "thinking" on the chaperone still failed the coach's ONE remaining semantic
+	// job — propose_note: across every prompt design a reasoning-off coach either
+	// barely proposed notes (1/6) or misclassified their section (resources→
+	// activities) and skipped dimensions (no reason/resources), leaving the
+	// student's proposal board wrong. Note-proposing + section routing needs
+	// reasoning and can't move to Go. So thinking stays on; the real
+	// perceived-latency lever is SSE-streaming the coach narrate.
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}
