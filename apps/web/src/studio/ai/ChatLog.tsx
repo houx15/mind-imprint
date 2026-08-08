@@ -32,6 +32,13 @@ export interface ChatLogProps {
   messages: ChatMessage[];
   thinking?: boolean;
   className?: string;
+  // Task 5 (history pagination): a caller that manages its OWN scroll
+  // position (StudioCoachChat, preserving the viewport when 载入更早 prepends
+  // older turns) sets this false to opt out of ChatLog's own scroll-to-bottom
+  // — otherwise every prepend would immediately jump back to the newest turn,
+  // undoing the preservation. Defaults true (unchanged behavior for every
+  // other caller).
+  stickToBottom?: boolean;
 }
 
 // Bubble corner radii are non-token literals from spec §13 (assistant tail
@@ -41,15 +48,16 @@ const ASSISTANT_RADIUS = "rounded-[4px_13px_13px_13px]";
 const STUDENT_RADIUS = "rounded-[13px_4px_13px_13px]";
 const BUBBLE_BASE = "inline-block max-w-[85%] px-4 py-3 text-mk-body text-mk-ink";
 
-export function ChatLog({ messages, thinking = false, className }: ChatLogProps) {
+export function ChatLog({ messages, thinking = false, className, stickToBottom = true }: ChatLogProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const count = messages.length;
 
   useEffect(() => {
+    if (!stickToBottom) return;
     // jsdom does not implement scrollIntoView — guard existence so tests
     // don't throw, while real browsers still get the smooth auto-scroll.
     bottomRef.current?.scrollIntoView?.({ block: "end" });
-  }, [count, thinking]);
+  }, [count, thinking, stickToBottom]);
 
   return (
     <div className={cx("mk-scroll flex flex-col gap-3 overflow-y-auto", className)}>

@@ -73,6 +73,13 @@ export type StudioChatValue = {
   pendingQuestion: QuestionProposal | null;
   confirmQuestion: () => void;
   dismissQuestion: () => void;
+  // ── Task 5 (history pagination) · 载入更早的对话 ──────────────────────────
+  // The container loads only the thread's RECENT page on open; `historyHasMore`
+  // gates the 载入更早 control, `loadEarlier` fetches + prepends the next OLDER
+  // page, and `loadingEarlier` drives the control's inline busy state.
+  historyHasMore: boolean;
+  loadEarlier: () => void;
+  loadingEarlier: boolean;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

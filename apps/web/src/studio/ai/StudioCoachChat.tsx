@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronUp } from "lucide-react";
 import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
+import { Icon } from "@/ui/Icon";
 import { ChatLog, type ChatMessage } from "./ChatLog";
 import { Composer } from "./Composer";
 import { withRecap } from "./RecapHint";
@@ -18,17 +20,43 @@ import { CoachProposal } from "../../workspace/blocks/CoachProposal";
  * Design-system: solid `mk-*` tokens, one Tailwind class per competing property.
  */
 
-// The scripted opening line for a brand-new project's chat-first panel — a
-// display-only fallback (never stored), shown until the first real turn lands.
-const CHAT_INTRO =
-  "把你手上的真实任务丢给我——一个题目、一段困惑、一篇要读的文章都行。我们一起把它想清楚，我会在对的时候为你打开对的工作台。";
-
 export function StudioCoachChat({ recap, header }: { recap?: string | null; header?: ReactNode }) {
-  const { messages, sending, sendStudioTurn } = useStudioChat();
+  const { messages, sending, sendStudioTurn, historyHasMore, loadEarlier, loadingEarlier } = useStudioChat();
   const [draft, setDraft] = useState("");
-  // Display-only intro fallback: an empty hoisted store falls back to the
-  // scripted line; once any turn lands the store is non-empty and IT shows.
-  const displayChat: StudioChatMsg[] = messages.length ? messages : [{ role: "ai", text: CHAT_INTRO }];
+  // An empty thread renders no fake AI line — a brand-new project simply
+  // starts with the Composer (no more scripted CHAT_INTRO fallback).
+  const displayChat: StudioChatMsg[] = messages;
+
+  // Scroll-position preservation (Task 5): prepending an older page must not
+  // jump the viewport. `pendingDelta` captures the scroll container's
+  // `scrollHeight` right before `loadEarlier()` kicks off its fetch; once the
+  // older messages land and the DOM grows ABOVE the current view, a layout
+  // effect (fires before paint) adds the height delta to `scrollTop` so the
+  // messages the student was already reading stay in place. ChatLog's own
+  // scroll-to-bottom is disabled for this consumer (`stickToBottom={false}`
+  // below) — it would otherwise re-jump to the newest turn on every prepend —
+  // so this effect ALSO takes over the "stick to the newest turn" behavior
+  // for the normal (non-prepend) case: a sent/received turn, or the 「印记正在
+  // 打字」indicator appearing.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingDelta = useRef<number | null>(null);
+
+  function handleLoadEarlier() {
+    const el = scrollRef.current;
+    if (el) pendingDelta.current = el.scrollHeight;
+    loadEarlier();
+  }
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (pendingDelta.current != null) {
+      el.scrollTop += el.scrollHeight - pendingDelta.current;
+      pendingDelta.current = null;
+      return;
+    }
+    el.scrollTop = el.scrollHeight;
+  }, [messages, sending]);
 
   async function onSend() {
     const text = draft.trim();
@@ -40,8 +68,19 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       {header}
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
-        <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} />
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-1">
+        {historyHasMore && (
+          <button
+            type="button"
+            onClick={handleLoadEarlier}
+            disabled={loadingEarlier}
+            className="mx-auto flex shrink-0 items-center gap-1.5 rounded-full border border-mk-border bg-mk-surface px-3.5 py-1.5 text-mk-body font-semibold text-mk-muted transition hover:text-mk-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Icon icon={ChevronUp} size={14} />
+            {loadingEarlier ? "载入中…" : "载入更早的对话"}
+          </button>
+        )}
+        <ChatLog messages={withRecap(recap, toChatMessages(displayChat))} thinking={sending} stickToBottom={false} />
         <StudioTurnChips />
       </div>
       <Composer

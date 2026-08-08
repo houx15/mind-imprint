@@ -108,6 +108,9 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},
+        historyHasMore: false,
+        loadEarlier: () => {},
+        loadingEarlier: false,
       }}
     >
       {children}

@@ -14,6 +14,7 @@ const DIRECTIVE: StudioState = {
   widthTier: "chat",
   reference: [],
   updatedAtTurn: 1,
+  started: false,
 };
 
 const REPLY: OrchestratorReply = {
@@ -23,6 +24,8 @@ const REPLY: OrchestratorReply = {
   question: null,
   card: null,
   reviewRequested: false,
+  planGenerated: false,
+  compacted: false,
 };
 
 describe("coach (orchestrator turn)", () => {

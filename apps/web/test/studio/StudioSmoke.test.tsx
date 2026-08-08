@@ -62,7 +62,7 @@ const getWorkspace = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getPlan: vi.fn(async () => []),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   // 印记's AI-managed status (Task 8). Resolve to the plan room so this smoke

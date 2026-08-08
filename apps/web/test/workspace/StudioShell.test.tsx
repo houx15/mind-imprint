@@ -56,7 +56,7 @@ vi.mock("@/workspace/api/workspace", () => ({
     updatedAtTurn: 0,
   })),
   getPlan: vi.fn(async () => []),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   // ReferencePanel (writing room's left sub-pane) fetches these eagerly on

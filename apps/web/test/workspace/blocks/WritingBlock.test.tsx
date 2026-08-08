@@ -49,6 +49,9 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},
+        historyHasMore: false,
+        loadEarlier: () => {},
+        loadingEarlier: false,
       }}
     >
       {children}
@@ -75,7 +78,7 @@ vi.mock("@/workspace/api/workspace", () => ({
   putSnippets: vi.fn(async () => []),
   getLibrary: vi.fn(async () => ({ collections: [], references: [] })),
   getDraft: vi.fn(async () => "我的草稿第一段。中国在可再生能源上的贡献是实质性的。"),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
   dismissProposal: vi.fn(async () => {}),
 }));

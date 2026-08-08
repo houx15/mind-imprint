@@ -23,7 +23,7 @@ vi.mock("@/workspace/api/workspace", () => ({
   deletePlanItem: vi.fn(async () => {}),
   getLog: vi.fn(async () => []),
   addLog: vi.fn(async () => ({})),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
 }));
 
@@ -82,6 +82,9 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},
+        historyHasMore: false,
+        loadEarlier: () => {},
+        loadingEarlier: false,
       }}
     >
       {children}
@@ -106,7 +109,7 @@ function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg
 beforeEach(() => {
   vi.clearAllMocks();
   mockSend.mockClear();
-  mockGetCoachHistory.mockResolvedValue([]);
+  mockGetCoachHistory.mockResolvedValue({ messages: [], hasMore: false, recap: null, nextCursor: null });
   mockGetPlan.mockResolvedValue([]);
 });
 

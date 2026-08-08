@@ -236,6 +236,15 @@ export function WorkspaceContainer({
   // still shows its busy state on whichever room is now mounted.
   const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
   const [studioSending, setStudioSending] = useState(false);
+  // Task 5 (history pagination): the studio thread now loads its RECENT page
+  // only (not the whole thread) — `historyCursor` is the cursor to pass as
+  // `before` for the NEXT (older) page, `historyHasMore` gates the 载入更早的
+  // 对话 control, `historyRecap` is the endpoint's digest prose for a long
+  // thread (wins over the S1 `summary` re-entry paragraph when present).
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyRecap, setHistoryRecap] = useState<string | null>(null);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   // Task 9b · 印记's per-turn OFFERS (铁律②: proposed, never auto-applied). A
   // note the student can confirm into the proposal board; a thinking-card she
   // can open. Both cleared at the start of the next turn and on project switch.
@@ -369,6 +378,33 @@ export function WorkspaceContainer({
     [studioSending, applyStudioState],
   );
 
+  // Task 5 (history pagination) · page one OLDER page of the studio thread in,
+  // prepending it above the currently-loaded messages. Guarded on a live
+  // cursor + not-already-loading (StudioCoachChat also disables its button
+  // while `loadingEarlier`, this is the belt-and-braces re-entrancy guard).
+  const loadEarlier = useCallback(() => {
+    const pid = activeProjectIdRef.current;
+    if (!pid || !historyCursor || loadingEarlier) return;
+    const isActive = () => activeProjectIdRef.current === pid;
+    setLoadingEarlier(true);
+    getCoachHistory(pid, "studio", { before: historyCursor })
+      .then((page) => {
+        if (!isActive()) return;
+        setStudioMessages((prev) => [
+          ...page.messages.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+          ...prev,
+        ]);
+        setHistoryCursor(page.nextCursor);
+        setHistoryHasMore(page.hasMore);
+      })
+      .catch(() => {
+        /* leave the cursor/hasMore as-is; the 载入更早 control stays so she can retry */
+      })
+      .finally(() => {
+        if (isActive()) setLoadingEarlier(false);
+      });
+  }, [historyCursor, loadingEarlier]);
+
   // Confirm a proposed note into the proposal board (铁律②: her tap writes it).
   // Read-modify-write: re-read the current proposal, append the note's value to
   // its section (newline-join when the section already has content, so a tap
@@ -481,6 +517,13 @@ export function WorkspaceContainer({
     // resumes at its own 印记 status.
     setTookOver(false);
     setStudioMessages([]);
+    // Reset the pagination cursor/recap too — else a project switch could show
+    // the PREVIOUS project's "载入更早" affordance or digest recap for a beat
+    // before this project's first page resolves.
+    setHistoryCursor(null);
+    setHistoryHasMore(false);
+    setHistoryRecap(null);
+    setLoadingEarlier(false);
     // Reset the in-flight flag too — else a project opened while a PREVIOUS
     // project's turn is still in flight inherits sending=true and its composer
     // stays disabled until that unrelated reply resolves.
@@ -512,17 +555,21 @@ export function WorkspaceContainer({
       .catch(() => {
         /* no studio_state yet (or fetch failed) → stay on the chat-first landing */
       });
-    // Load the ONE continuous coach thread ONCE per opened project (立项 + 写作,
-    // surface="studio"), into the hoisted store both rooms read. Empty → each
-    // room falls back to its own display-only intro/greeting locally.
+    // Load the ONE continuous coach thread's RECENT PAGE ONCE per opened
+    // project (立项 + 写作, surface="studio"), into the hoisted store both
+    // rooms read. Empty → each room falls back to its own display-only
+    // intro/greeting locally. `loadEarlier` (below) pages older turns in.
     getCoachHistory(projectId, "studio")
-      .then((msgs) => {
+      .then((page) => {
         if (cancelled) return;
         // Don't clobber a turn the student optimistically sent in the small
         // window before this fetch resolved — only seed when still empty.
         setStudioMessages((prev) =>
-          prev.length ? prev : msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+          prev.length ? prev : page.messages.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
         );
+        setHistoryCursor(page.nextCursor);
+        setHistoryHasMore(page.hasMore);
+        setHistoryRecap(page.recap);
       })
       .catch(() => {
         /* keep the empty store; each room shows its intro and the next turn persists */
@@ -716,6 +763,9 @@ export function WorkspaceContainer({
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    historyHasMore,
+    loadEarlier,
+    loadingEarlier,
   };
 
   return (
@@ -796,7 +846,7 @@ export function WorkspaceContainer({
             data-testid="chat-first"
             className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden"
           >
-            <StudioCoachChat recap={summary} />
+            <StudioCoachChat recap={historyRecap ?? summary} />
           </div>
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
@@ -818,7 +868,7 @@ export function WorkspaceContainer({
                 createdAt={workspace.createdAt}
                 phase={room === "forming" ? "forming" : "working"}
                 refreshWorkspace={refreshWorkspace}
-                recap={summary}
+                recap={historyRecap ?? summary}
               />
             )}
             {room === "reading" && (
@@ -860,7 +910,7 @@ export function WorkspaceContainer({
                     draftInsertRef={draftInsertRef}
                     onInsertReady={setInsertReady}
                     refreshWorkspace={refreshWorkspace}
-                    recap={summary}
+                    recap={historyRecap ?? summary}
                   />
                 }
               />
