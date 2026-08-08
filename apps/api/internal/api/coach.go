@@ -2,10 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -763,13 +767,60 @@ type coachHistoryMsg struct {
 	Card *chatCardRef `json:"card,omitempty"`
 }
 
-// getCoachHistory returns coach turns from the ONE per-project thread (folded
-// turns included — a folded turn is still part of the visible conversation). No
-// spend. Since Task 5 the continuous 印记 conversation across the working rooms
-// (立项/写作) is stored under one `studio` surface, so `surface=studio` reads that
-// surface directly; any other surface returns just that room's slice
-// (reading/reflection sub-agents keep their own surfaces). Continuity for the
-// AI's own context lives in LoadActiveCoachHistory.
+// coachHistoryDefaultLimit/coachHistoryMaxLimit bound the `limit` query param
+// on GET /coach/history — default page size and the hard clamp so a caller
+// can't force a load-everything scan via a huge limit.
+const (
+	coachHistoryDefaultLimit = 20
+	coachHistoryMaxLimit     = 100
+)
+
+// encodeCoachCursor/decodeCoachCursor: an opaque pagination cursor over the
+// composite (created_at, id) total order — base64 of "<unixNano>|<uuid>". id
+// breaks created_at ties deterministically (ids are random UUIDs, created_at
+// alone is not unique), so paging over this pair never skips or duplicates a
+// row. Opaque so the wire format can change without breaking clients that
+// just round-trip the string.
+func encodeCoachCursor(t time.Time, id uuid.UUID) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%d|%s", t.UnixNano(), id.String())))
+}
+
+func decodeCoachCursor(s string) (time.Time, uuid.UUID, bool) {
+	raw, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return time.Time{}, uuid.Nil, false
+	}
+	parts := strings.SplitN(string(raw), "|", 2)
+	if len(parts) != 2 {
+		return time.Time{}, uuid.Nil, false
+	}
+	ns, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return time.Time{}, uuid.Nil, false
+	}
+	id, err := uuid.Parse(parts[1])
+	if err != nil {
+		return time.Time{}, uuid.Nil, false
+	}
+	return time.Unix(0, ns).UTC(), id, true
+}
+
+// getCoachHistory returns one CURSOR-PAGINATED page of coach turns from the
+// ONE per-project thread (folded turns included — a folded turn is still part
+// of the visible conversation). No spend — recap reuses the already-stored
+// conversation_digest, never a fresh LLM call. Since Task 5 the continuous 印记
+// conversation across the working rooms (立项/写作) is stored under one `studio`
+// surface, so `surface=studio` reads that surface directly; any other surface
+// returns just that room's slice (reading/reflection sub-agents keep their own
+// surfaces). Continuity for the AI's own context lives in LoadActiveCoachHistory.
+//
+// Paging: newest page first (no `before`), `limit+1` rows fetched newest-first
+// so hasMore is detectable without a second COUNT query; trimmed to `limit`
+// and reversed to oldest→newest for display. `nextCursor` is the (created_at,
+// id) of the oldest row on the page, set only when there's more above it.
+// `recap` — the digest prose — is only offered on the first page, and only
+// when there IS more history hiding behind it (a short thread doesn't need a
+// summary of itself).
 func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -780,21 +831,91 @@ func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "surface 不能为空", nil))
 		return
 	}
-	rows, err := a.d.Queries.ListChatMessagesByProjectSurface(r.Context(), sqlc.ListChatMessagesByProjectSurfaceParams{
-		SeededProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
-		Surface:         &surface,
-	})
+
+	limit := coachHistoryDefaultLimit
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			limit = n
+		}
+	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > coachHistoryMaxLimit {
+		limit = coachHistoryMaxLimit
+	}
+
+	before := strings.TrimSpace(r.URL.Query().Get("before"))
+	var (
+		beforeCreatedAt time.Time
+		beforeID        uuid.UUID
+	)
+	if before != "" {
+		var okCursor bool
+		beforeCreatedAt, beforeID, okCursor = decodeCoachCursor(before)
+		if !okCursor {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_cursor", "before 游标无效", nil))
+			return
+		}
+	}
+
+	pgProjectID := pgtype.UUID{Bytes: projectID, Valid: true}
+	var (
+		rows []sqlc.ChatMessage
+		err  error
+	)
+	if before == "" {
+		rows, err = a.d.Queries.ListChatMessagesPageLatest(r.Context(), sqlc.ListChatMessagesPageLatestParams{
+			SeededProjectID: pgProjectID,
+			Surface:         &surface,
+			Limit:           int32(limit + 1),
+		})
+	} else {
+		rows, err = a.d.Queries.ListChatMessagesPageBefore(r.Context(), sqlc.ListChatMessagesPageBeforeParams{
+			SeededProjectID: pgProjectID,
+			Surface:         &surface,
+			BeforeCreatedAt: beforeCreatedAt,
+			BeforeID:        beforeID,
+			PageLimit:       int32(limit + 1),
+		})
+	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	var nextCursor *string
+	if hasMore && len(rows) > 0 {
+		oldest := rows[len(rows)-1]
+		c := encodeCoachCursor(oldest.CreatedAt, oldest.ID)
+		nextCursor = &c
+	}
+
+	// rows arrive newest→oldest; reverse to oldest→newest for display.
 	msgs := make([]coachHistoryMsg, 0, len(rows))
-	for _, m := range rows {
+	for i := len(rows) - 1; i >= 0; i-- {
+		m := rows[i]
 		role := "student"
 		if m.Role == "assistant" {
 			role = "ai"
 		}
 		msgs = append(msgs, coachHistoryMsg{Role: role, Text: m.Content, Card: cardRefFromAttachments(m.Attachments)})
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": msgs})
+
+	var recap *string
+	if before == "" && hasMore {
+		digest, err := a.d.Queries.GetConversationDigest(r.Context(), projectID)
+		if err == nil && strings.TrimSpace(digest.Prose) != "" {
+			recap = &digest.Prose
+		}
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"messages": msgs, "hasMore": hasMore, "recap": recap, "nextCursor": nextCursor,
+	})
 }

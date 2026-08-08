@@ -51,6 +51,29 @@ JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1 AND cm.surface = $2
 ORDER BY cm.created_at, cm.id;
 
+-- name: ListChatMessagesPageLatest :many
+-- Task 4 pagination: the newest page of a surface slice, newest-first (caller
+-- fetches limit+1 to detect hasMore, then reverses to oldest→newest for
+-- display). Folded turns are included — a folded turn is still part of the
+-- visible conversation, it has just left the coach's active context window.
+SELECT cm.* FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT $3;
+
+-- name: ListChatMessagesPageBefore :many
+-- Task 4 pagination: the next older page, keyed off the composite cursor
+-- (created_at, id) of the oldest row already shown. (created_at, id) is a
+-- stable total order — id breaks created_at ties deterministically, so
+-- paging never skips or duplicates a row even though ids are random UUIDs.
+SELECT cm.* FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+  AND (cm.created_at, cm.id) < (sqlc.arg(before_created_at)::timestamptz, sqlc.arg(before_id)::uuid)
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT sqlc.arg(page_limit)::int;
+
 -- name: FoldChatSurface :exec
 -- Lever 1 (compaction): fold every live turn on the named surfaces into the
 -- spine the moment an artifact solidifies (proposal finalized / plan generated).

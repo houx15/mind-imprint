@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -324,6 +325,113 @@ type ListChatMessagesByProjectSurfaceParams struct {
 // folded turn is still part of the visible conversation).
 func (q *Queries) ListChatMessagesByProjectSurface(ctx context.Context, arg ListChatMessagesByProjectSurfaceParams) ([]ChatMessage, error) {
 	rows, err := q.db.Query(ctx, listChatMessagesByProjectSurface, arg.SeededProjectID, arg.Surface)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatMessagesPageBefore = `-- name: ListChatMessagesPageBefore :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+  AND (cm.created_at, cm.id) < ($3::timestamptz, $4::uuid)
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT $5::int
+`
+
+type ListChatMessagesPageBeforeParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Surface         *string     `json:"surface"`
+	BeforeCreatedAt time.Time   `json:"before_created_at"`
+	BeforeID        uuid.UUID   `json:"before_id"`
+	PageLimit       int32       `json:"page_limit"`
+}
+
+// Task 4 pagination: the next older page, keyed off the composite cursor
+// (created_at, id) of the oldest row already shown. (created_at, id) is a
+// stable total order — id breaks created_at ties deterministically, so
+// paging never skips or duplicates a row even though ids are random UUIDs.
+func (q *Queries) ListChatMessagesPageBefore(ctx context.Context, arg ListChatMessagesPageBeforeParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesPageBefore,
+		arg.SeededProjectID,
+		arg.Surface,
+		arg.BeforeCreatedAt,
+		arg.BeforeID,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatMessagesPageLatest = `-- name: ListChatMessagesPageLatest :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT $3
+`
+
+type ListChatMessagesPageLatestParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Surface         *string     `json:"surface"`
+	Limit           int32       `json:"limit"`
+}
+
+// Task 4 pagination: the newest page of a surface slice, newest-first (caller
+// fetches limit+1 to detect hasMore, then reverses to oldest→newest for
+// display). Folded turns are included — a folded turn is still part of the
+// visible conversation, it has just left the coach's active context window.
+func (q *Queries) ListChatMessagesPageLatest(ctx context.Context, arg ListChatMessagesPageLatestParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesPageLatest, arg.SeededProjectID, arg.Surface, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
