@@ -19,6 +19,7 @@ import (
 
 	"mindimprint/api/internal/gateway"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store/sqlc"
@@ -41,27 +42,29 @@ func sequenceOrchestratorProvider(jsonOuts ...string) gateway.Provider {
 	return gateway.NewSequenceStubProvider(scripts...)
 }
 
-// TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan — a coach turn whose
-// stubbed model emits generate_plan results in plan rows actually existing
-// after (regeneratePlan ran for real, not just a directive flip) and the
-// reply's directive opens the 管理 (plan) tool at wide width.
-func TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan(t *testing.T) {
+// TestFunnelAutoGeneratesPlanAndCoachOffersProposal — the status-router
+// replacement for the retired generate_plan tool: filling all four proposal
+// dims (PUT /proposal) auto-generates the plan DETERMINISTICALLY (the funnel,
+// not a model tool), and a subsequent framework coach turn offers the one-tap
+// nextStep to 写提案 instead of re-offering plan generation.
+func TestFunnelAutoGeneratesPlanAndCoachOffersProposal(t *testing.T) {
 	pool := newAPITestPool(t)
-	// Call 1 = the coach orchestrator turn (emits generate_plan). Call 2 = the
-	// one-shot completion regeneratePlan's generatePlanItems makes itself.
+	// Call 1 = the one-shot completion regeneratePlan makes during PUT /proposal
+	// (auto-gen). Call 2 = the coach status turn (neutral, no recording claim so
+	// no note-recover call).
 	prov := sequenceOrchestratorProvider(
-		`{"narrate":"四项都齐了，我把计划排出来。","tools":[{"name":"generate_plan","args":{}}]}`,
 		planGenReply,
+		`{"narrate":"计划有了，我们下一步写提案。","tools":[]}`,
 	)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
 		Provider: prov, ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // started framework
 	base := "/api/v1/projects/" + seedProjectID
 
-	// Fill the proposal first — an empty kick-off makes generate_plan a no-op
-	// (errProposalEmpty), and this test wants the success path.
+	// Fill all four dims — the funnel auto-generates the plan on this write.
 	rrProp := httptest.NewRecorder()
 	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
 		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
@@ -69,33 +72,7 @@ func TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan(t *testing.T) {
 		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
 	}
 
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"user_input":"四项都填好了，可以生成计划了吗"}`)), cookie))
-	if rr.Code != http.StatusOK {
-		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
-	}
-	var resp struct {
-		Directive struct {
-			Stage     string `json:"stage"`
-			OpenTool  string `json:"openTool"`
-			WidthTier string `json:"widthTier"`
-		} `json:"directive"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v — %s", err, rr.Body)
-	}
-	if resp.Directive.OpenTool != "plan" || resp.Directive.WidthTier != "wide" {
-		t.Fatalf("directive not applied: %+v — %s", resp.Directive, rr.Body)
-	}
-	// The stage must advance off the proposal side even though the model emitted
-	// ONLY generate_plan (no set_status) — else roomForResume would route the
-	// plan-tool directive back to 提案 and the 管理 board wouldn't open.
-	if resp.Directive.Stage != "plan_generation" {
-		t.Fatalf("stage not advanced on generate_plan: got %q, want plan_generation — %s", resp.Directive.Stage, rr.Body)
-	}
-
-	// The plan items must actually exist now — regeneratePlan really ran.
+	// Plan items exist now — the funnel ran regeneratePlan for real.
 	rrList := httptest.NewRecorder()
 	h.ServeHTTP(rrList, withCookie(httptest.NewRequest("GET", base+"/plan", nil), cookie))
 	if rrList.Code != http.StatusOK {
@@ -110,7 +87,27 @@ func TestPostCoach_GeneratePlanGeneratesItemsAndOpensPlan(t *testing.T) {
 		t.Fatalf("decode plan list: %v — %s", err, rrList.Body)
 	}
 	if len(listed.Items) != 5 {
-		t.Fatalf("plan items after generate_plan tool = %d, want 5 (the model reply)", len(listed.Items))
+		t.Fatalf("plan items after auto-gen = %d, want 5 (the model reply)", len(listed.Items))
+	}
+
+	// A framework coach turn now offers the one-tap nextStep to 写提案.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"接下来做什么"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+	var resp struct {
+		NextStep *struct {
+			ToStatus string `json:"toStatus"`
+			Surface  string `json:"surface"`
+		} `json:"nextStep"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if resp.NextStep == nil || resp.NextStep.ToStatus != "proposal" || resp.NextStep.Surface != "writing" {
+		t.Fatalf("expected nextStep → proposal/writing, got %+v — %s", resp.NextStep, rr.Body)
 	}
 }
 

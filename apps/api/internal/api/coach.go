@@ -142,7 +142,18 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		projection = ""
 	}
 
-	dec, usage, cerr := agent.ProposeOrchestratorTurn(r.Context(), a.d.Provider, resolved, projection, state, history)
+	// Status-router dispatch: derive the project's coarse status, load its short
+	// posture (goal + 2-4 tools), and run the turn on the FAST model. The small
+	// per-status prompt is what makes the non-reasoning model reliable here.
+	fastResolved := resolved
+	if a.d.FastChatResolver != nil {
+		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+			fastResolved = fr
+		}
+	}
+	status := agent.StatusForStage(state.Stage)
+	def := agent.StatusRegistry()[status]
+	dec, usage, cerr := agent.ProposeStatusTurn(r.Context(), a.d.Provider, fastResolved, def, projection, state, history)
 
 	// Meter BEFORE any bail — a call that yields nothing (or was enforcement-
 	// rejected) still cost money. Only when a real call happened (usage > 0).
@@ -150,7 +161,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "coach",
-			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			Resolved: fastResolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
 		}); rerr != nil {
 			slog.Warn("coach: record llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
@@ -177,24 +188,24 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// 3/3 framing turns, panel stayed empty while 印记 claimed a recording). When
 	// the narration claims a recording but no note fired, recover it with ONE
 	// focused extraction so the panel never contradicts 印记.
-	if effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
-		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, resolved, userInput, narrate); ok {
+	// Only meaningful in framework (the only status with propose_note). Gating it
+	// there avoids a stray recovery filling a proposal dim during essay writing.
+	if status == agent.FlowFramework && effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
+		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, fastResolved, userInput, narrate); ok {
 			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
 			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
 				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
-					Resolved: resolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
+					Resolved: fastResolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
 				}); rerr != nil {
 					slog.Warn("coach: record note-recover llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 				}
 			}
 		}
 	}
-	// Deterministic funnel (server-side state machine): advance the stage and
-	// auto-generate the plan from concrete DB state, so a fast reasoning-off
-	// coach can never strand the project by failing to call set_status/
-	// generate_plan. Idempotent — a no-op once the plan exists / stage is ahead.
-	state, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, state)
+	// Deterministic flow router: run the funnel (stage floor + plan auto-gen) and
+	// compute the one-tap nextStep to the following status. Never auto-advances.
+	state, next, autoPlan := a.advanceStudioFlow(r.Context(), projectID, state, effects)
 	if autoPlan {
 		effects.PlanGenerated = true
 	}
@@ -203,6 +214,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	reply.Card = effects.Card
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
+	reply.NextStep = next
 
 	// Persist the AI-managed state (best-effort — a failure logs, never fails the
 	// turn). The reply carries the same state back as the directive.
@@ -780,13 +792,21 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 		projection = ""
 	}
 
-	dec, usage, cerr := agent.ProposeOrchestratorTurn(r.Context(), a.d.Provider, resolved, projection, state, history)
+	fastResolved := resolved
+	if a.d.FastChatResolver != nil {
+		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+			fastResolved = fr
+		}
+	}
+	status := agent.StatusForStage(state.Stage)
+	def := agent.StatusRegistry()[status]
+	dec, usage, cerr := agent.ProposeStatusTurn(r.Context(), a.d.Provider, fastResolved, def, projection, state, history)
 
 	// Meter BEFORE any bail — mirrors postCoach exactly.
 	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 		if mrerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "coach",
-			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+			Resolved: fastResolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
 		}); mrerr != nil {
 			slog.Warn("coach start: record llm call failed", "err", mrerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
@@ -806,23 +826,23 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	// may move the room off "forming" if the orchestrator itself named one.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
-	// Note backstop (same as postCoach): recover a note 印记 claimed but didn't emit.
-	if effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
-		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, resolved, startUtterance, narrate); ok {
+	// Note backstop (same as postCoach): recover a note 印记 claimed but didn't
+	// emit — framework only.
+	if status == agent.FlowFramework && effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
+		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, fastResolved, startUtterance, narrate); ok {
 			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
 			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
 				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
-					Resolved: resolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
+					Resolved: fastResolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
 				}); rerr != nil {
 					slog.Warn("coach start: record note-recover llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 				}
 			}
 		}
 	}
-	// Deterministic funnel — same as postCoach (a started project never sits at
-	// topic_discussion; plan auto-generates once the four dims are filled).
-	state, autoPlan := a.reconcileStudioFunnel(r.Context(), projectID, state)
+	// Deterministic flow router — same as postCoach.
+	state, next, autoPlan := a.advanceStudioFlow(r.Context(), projectID, state, effects)
 	if autoPlan {
 		effects.PlanGenerated = true
 	}
@@ -831,6 +851,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	reply.Card = effects.Card
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
+	reply.NextStep = next
 
 	if b, merr := json.Marshal(state); merr == nil {
 		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
@@ -889,6 +910,7 @@ type orchestratorReplyDTO struct {
 	ReviewRequested bool                 `json:"reviewRequested"`
 	PlanGenerated   bool                 `json:"planGenerated"`
 	Compacted       bool                 `json:"compacted"`
+	NextStep        *nextStepDTO         `json:"nextStep"`
 }
 
 // noteProposalDTO mirrors the contract's NoteProposal {section, value}.

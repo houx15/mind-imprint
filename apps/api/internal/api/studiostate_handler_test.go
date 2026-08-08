@@ -10,8 +10,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+
+	"mindimprint/api/internal/agent"
 )
 
 func TestGetStudioState_FreshProjectIsDefault(t *testing.T) {
@@ -37,16 +38,12 @@ func TestGetStudioState_FreshProjectIsDefault(t *testing.T) {
 }
 
 func TestGetStudioState_ReturnsPersistedState(t *testing.T) {
-	out := `{"narrate":"ok","tools":[{"name":"set_status","args":{"stage":"plan_generation"}}]}`
-	h, cookie, _ := orchestratorHandler(t, out)
+	// GET /studio-state echoes the persisted state verbatim (no reconcile). Set a
+	// stage directly and assert it round-trips — transitions are deterministic
+	// server-side now, not driven by a coach set_status tool.
+	h, cookie, pool := orchestratorHandler(t, `{"narrate":"ok","tools":[]}`)
+	setStudioStage(t, pool, seedProjectID, agent.StagePlanGeneration)
 	base := "/api/v1/projects/" + seedProjectID
-
-	rrCoach := httptest.NewRecorder()
-	h.ServeHTTP(rrCoach, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"user_input":"go"}`)), cookie))
-	if rrCoach.Code != http.StatusOK {
-		t.Fatalf("coach = %d — %s", rrCoach.Code, rrCoach.Body)
-	}
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/studio-state", nil), cookie))

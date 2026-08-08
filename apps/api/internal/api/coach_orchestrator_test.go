@@ -43,17 +43,41 @@ func orchestratorHandler(t *testing.T, jsonOut string) (http.Handler, *http.Cook
 	return h, signInSeed(t, pool), pool
 }
 
-func TestPostCoach_AppliesOrchestratorDirective(t *testing.T) {
-	out := `{"narrate":"写作面板开好了。","tools":[` +
+// setStudioStage puts the seed project into a started status so status-scoped
+// tool filtering (studioflow) admits the tool a test exercises. Fresh projects
+// default to topic_discussion (FlowTopic), which permits only propose_question;
+// most tool tests need framework/proposal/essay.
+func setStudioStage(t *testing.T, pool *pgxpool.Pool, projectID string, stage agent.StudioStage) {
+	t.Helper()
+	st := agent.DefaultStudioState()
+	st.Started = true
+	st.Stage = stage
+	st.OpenTool = agent.ToolForming
+	b, err := json.Marshal(st)
+	if err != nil {
+		t.Fatalf("marshal studio_state: %v", err)
+	}
+	if err := sqlc.New(pool).SetStudioState(context.Background(), sqlc.SetStudioStateParams{ID: mustUUID(projectID), StudioState: b}); err != nil {
+		t.Fatalf("SetStudioState: %v", err)
+	}
+}
+
+// TestPostCoach_FrameworkAppliesNoteDropsForeignTools — status-router contract:
+// in framework, propose_note applies; set_status/open_tool are NOT framework
+// tools (transitions are deterministic now), so they are filtered out and have
+// NO effect — the stage does NOT jump to body_writing.
+func TestPostCoach_FrameworkAppliesNoteDropsForeignTools(t *testing.T) {
+	out := `{"narrate":"我把这条记进目标了。","tools":[` +
 		`{"name":"set_status","args":{"stage":"body_writing"}},` +
 		`{"name":"open_tool","args":{"tool":"writing","reason":"该写正文"}},` +
 		`{"name":"propose_note","args":{"section":"objective","value":"净影响"}}]}`
 	h, cookie, pool := orchestratorHandler(t, out)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework
 	base := "/api/v1/projects/" + seedProjectID
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
-		strings.NewReader(`{"user_input":"我准备好写了"}`)), cookie))
+		strings.NewReader(`{"user_input":"我的研究问题是净影响"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
 	}
@@ -61,31 +85,24 @@ func TestPostCoach_AppliesOrchestratorDirective(t *testing.T) {
 	var resp struct {
 		Narrate   string `json:"narrate"`
 		Directive struct {
-			Stage     string `json:"stage"`
-			OpenTool  string `json:"openTool"`
-			WidthTier string `json:"widthTier"`
+			Stage string `json:"stage"`
 		} `json:"directive"`
 		Note *struct {
 			Section string `json:"section"`
 			Value   string `json:"value"`
 		} `json:"note"`
-		Card            *json.RawMessage `json:"card"`
-		ReviewRequested bool             `json:"reviewRequested"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v — %s", err, rr.Body)
 	}
-	if strings.TrimSpace(resp.Narrate) == "" {
-		t.Fatalf("empty narrate — %s", rr.Body)
-	}
-	if resp.Directive.Stage != "body_writing" || resp.Directive.OpenTool != "writing" || resp.Directive.WidthTier != "wide" {
-		t.Fatalf("directive not applied: %+v — %s", resp.Directive, rr.Body)
-	}
 	if resp.Note == nil || resp.Note.Section != "objective" || resp.Note.Value != "净影响" {
 		t.Fatalf("note proposal wrong: %+v — %s", resp.Note, rr.Body)
 	}
+	// The foreign set_status/open_tool were filtered — no jump to body_writing.
+	if resp.Directive.Stage == string(agent.StageBodyWriting) {
+		t.Fatalf("foreign set_status must be dropped; stage jumped to body_writing — %s", rr.Body)
+	}
 
-	// studio_state persisted with the advanced stage.
 	raw, err := sqlc.New(pool).GetStudioState(context.Background(), mustUUID(seedProjectID))
 	if err != nil {
 		t.Fatalf("GetStudioState: %v", err)
@@ -94,11 +111,8 @@ func TestPostCoach_AppliesOrchestratorDirective(t *testing.T) {
 	if err := json.Unmarshal(raw, &st); err != nil {
 		t.Fatalf("unmarshal studio_state: %v — %s", err, raw)
 	}
-	if st.Stage != agent.StageBodyWriting {
-		t.Fatalf("studio_state not persisted: %+v", st)
-	}
-	if st.OpenTool != agent.ToolWriting || st.WidthTier != agent.WidthWide {
-		t.Fatalf("studio_state open tool/width not persisted: %+v", st)
+	if st.Stage == agent.StageBodyWriting {
+		t.Fatalf("studio_state stage must NOT have jumped to body_writing: %+v", st)
 	}
 }
 
@@ -111,6 +125,7 @@ func TestPostCoach_SummonCardOffersCardAndRecordsEvent(t *testing.T) {
 	out := `{"narrate":"这里适合停一下。","tools":[` +
 		`{"name":"summon_card","args":{"card_id":"fact-opinion-value","reason":"事实与观点混在一起","nudge_text":"要不要用这张卡分一分？"}}]}`
 	h, cookie, pool := orchestratorHandler(t, out)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework allows summon_card
 	base := "/api/v1/projects/" + seedProjectID
 
 	rr := httptest.NewRecorder()
@@ -148,6 +163,7 @@ func TestPostCoach_SummonCardSkippedCardNotReoffered(t *testing.T) {
 	out := `{"narrate":"这里适合停一下。","tools":[` +
 		`{"name":"summon_card","args":{"card_id":"fact-opinion-value","reason":"事实与观点混在一起","nudge_text":"要不要用这张卡分一分？"}}]}`
 	h, cookie, pool := orchestratorHandler(t, out)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework allows summon_card
 	base := "/api/v1/projects/" + seedProjectID
 
 	// The student dismissed this card earlier → a `skipped` instance exists.
@@ -353,6 +369,7 @@ func TestPostCoach_CurateReferenceDropsUnknownIDKeepsRealID(t *testing.T) {
 		Provider: orchestratorStubProvider(out), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	cookie := signInSeed(t, pool)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalWriting) // proposal allows curate_reference
 	base := "/api/v1/projects/" + seedProjectID
 
 	rr := httptest.NewRecorder()
@@ -448,6 +465,7 @@ func TestPostCoach_CurateReferenceAnnotationKeepsRealReviewItemID(t *testing.T) 
 		Queries: q, Pool: pool,
 		Provider: orchestratorStubProvider(out), ChatResolver: fakeResolver(), SpecByID: cards.ByID,
 	}).Handler()
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalWriting) // proposal allows curate_reference
 
 	rr := httptest.NewRecorder()
 	coachH.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",

@@ -458,6 +458,43 @@ func ExtractProposalNote(ctx context.Context, prov gateway.Provider, r gateway.R
 	return parsed, res.Usage, true
 }
 
+// ProposeStatusTurn is the status-router turn: same 2-attempt loop + prose
+// salvage as ProposeOrchestratorTurn, but built from a status's SHORT prompt
+// (BuildStatusRequest) and with the result filtered to that status's tool
+// subset (FilterToolsForStatus). This is what runs on the fast model — the
+// per-turn decision is small enough that a non-reasoning model handles it.
+func ProposeStatusTurn(
+	ctx context.Context,
+	prov gateway.Provider,
+	r gateway.Resolved,
+	def StatusDef,
+	spineProjection string,
+	state StudioState,
+	history []ChatTurn,
+) (OrchestratorDecision, gateway.ChatUsage, error) {
+	req := BuildStatusRequest(def, spineProjection, state, history)
+	var totalUsage gateway.ChatUsage
+	var lastText string
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := gateway.Collect(ctx, prov, r, req)
+		if err != nil {
+			return OrchestratorDecision{}, totalUsage, err
+		}
+		totalUsage.InputTokens += res.Usage.InputTokens
+		totalUsage.OutputTokens += res.Usage.OutputTokens
+		lastText = res.Text
+		if dec, perr := ParseOrchestratorOutput(res.Text); perr == nil {
+			return FilterToolsForStatus(dec, def), totalUsage, nil
+		}
+	}
+	// Prose-only reply (no JSON) → show it as the narration (same salvage as the
+	// orchestrator path). A braced-but-broken reply is left to the caller's fallback.
+	if prose := strings.TrimSpace(stripFences(lastText)); prose != "" && !strings.ContainsAny(prose, "{}") {
+		return OrchestratorDecision{Narrate: prose}, totalUsage, nil
+	}
+	return OrchestratorDecision{}, totalUsage, errOrchestratorParse
+}
+
 // orchestratorOpeningPrompt is the ONE crafted posture for 印记's real-AI
 // welcome — the student's very first turn in a project, before she has said
 // anything. Unlike orchestratorSystemPrompt this call is tool-less: it only

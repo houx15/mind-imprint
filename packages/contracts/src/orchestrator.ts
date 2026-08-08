@@ -70,6 +70,16 @@ export const CardProposalWire = z.object({
 export type CardProposalWire = z.infer<typeof CardProposalWire>;
 
 // The turn response the frontend applies.
+// NextStep is the one-tap advance the deterministic flow router offers when a
+// status milestone is reached (铁律②: 打开由学生确认). toStatus is a FlowStatus
+// code; surface is the OpenTool that opens on advance.
+export const NextStep = z.object({
+  label: z.string(),
+  toStatus: z.string(),
+  surface: z.string(),
+});
+export type NextStep = z.infer<typeof NextStep>;
+
 export const OrchestratorReply = z.object({
   narrate: z.string(),
   directive: StudioState,
@@ -79,6 +89,7 @@ export const OrchestratorReply = z.object({
   reviewRequested: z.boolean(),
   planGenerated: z.boolean(),
   compacted: z.boolean(),
+  nextStep: NextStep.nullable().optional(),
 });
 export type OrchestratorReply = z.infer<typeof OrchestratorReply>;
 
