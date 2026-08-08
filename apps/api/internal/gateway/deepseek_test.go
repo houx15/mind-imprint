@@ -75,6 +75,54 @@ func TestDeepSeekStreamsTextThenToolUse(t *testing.T) {
 	}
 }
 
+// captureBody starts a server that records the request body it receives, then
+// replies with a minimal valid SSE done frame. Returns the server and a pointer
+// the test reads after Stream drains.
+func captureBody(t *testing.T) (*httptest.Server, *string) {
+	t.Helper()
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = string(b)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}\n\ndata: [DONE]\n\n")
+	}))
+	return srv, &got
+}
+
+func drain(t *testing.T, p Provider, r Resolved) {
+	t.Helper()
+	ch, err := p.Stream(context.Background(), r, ChatRequest{Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}}})
+	if err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	for range ch {
+	}
+}
+
+func TestDeepSeekChaperoneDisablesThinking(t *testing.T) {
+	// Chaperone tier must send thinking:{type:disabled} (speed); flagship must
+	// NOT (keeps v4-pro's reasoning for eval depth); an empty tier keeps it on.
+	srv, body := captureBody(t)
+	defer srv.Close()
+	p := NewDeepSeekProvider(srv.Client())
+
+	drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "chaperone"})
+	if !strings.Contains(*body, `"thinking"`) || !strings.Contains(*body, `"disabled"`) {
+		t.Fatalf("chaperone body must disable thinking, got: %s", *body)
+	}
+
+	drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "flagship"})
+	if strings.Contains(*body, `"thinking"`) {
+		t.Fatalf("flagship body must NOT set thinking (keeps reasoning), got: %s", *body)
+	}
+
+	drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk"})
+	if strings.Contains(*body, `"thinking"`) {
+		t.Fatalf("empty-tier body must NOT set thinking, got: %s", *body)
+	}
+}
+
 func TestDeepSeekSurfacesHTTPErrorWithoutLeaking(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
