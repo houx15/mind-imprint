@@ -21,12 +21,19 @@ import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal } fr
  * `StudioChatMsg` is the superset of the two rooms' former local `ChatMsg`
  * shapes: `card` (a card-turn chip) comes from both; `quotedPart` (就这一段) is
  * WritingBlock-only but harmless in the plan room (its mapper ignores it).
+ *
+ * `hint` (Task 7, hidden-subagent acknowledgments) marks a message as a
+ * transient `SubagentHint` line instead of a chat bubble — appended after
+ * 印记's narrate line when a turn's reply reports `planGenerated`/`compacted`.
+ * `toChatMessages` renders it as a `system`-role node (no bubble chrome),
+ * mirroring the `card` branch.
  */
 export type StudioChatMsg = {
   role: "ai" | "student";
   text: string;
   card?: CardTurnRef | null;
   quotedPart?: string;
+  hint?: string;
 };
 
 export type StudioChatValue = {
@@ -73,6 +80,26 @@ export type StudioChatValue = {
   pendingQuestion: QuestionProposal | null;
   confirmQuestion: () => void;
   dismissQuestion: () => void;
+  // ── Task 5 (history pagination) · 载入更早的对话 ──────────────────────────
+  // The container loads only the thread's RECENT page on open; `historyHasMore`
+  // gates the 载入更早 control, `loadEarlier` fetches + prepends the next OLDER
+  // page, and `loadingEarlier` drives the control's inline busy state.
+  historyHasMore: boolean;
+  loadEarlier: () => void;
+  loadingEarlier: boolean;
+  // ── Task 6 (start gate) ────────────────────────────────────────────────
+  // Whether this project's ONE thread has been explicitly started
+  // (`StudioState.started`). A brand-new project renders pure full-width
+  // chat with NO tabs until the student taps 开始 (StudioCoachChat swaps the
+  // Composer for that button while `!started`).
+  started: boolean;
+  // The student's 开始 tap: calls `coach/start`, appends its narrate, and
+  // applies the returned directive (flips `started` → true, opens 提案 —
+  // the container's applyStudioState re-renders the switcher/tabs in).
+  startJourney: () => Promise<void>;
+  // Busy flag around `startJourney`'s round-trip — drives the button's
+  // pending/disabled state.
+  starting: boolean;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

@@ -21,7 +21,7 @@ vi.mock("@/workspace/api/workspace", () => ({
   getAIUseDraft: vi.fn(),
   postAIUse: vi.fn(async (_id: string, s: unknown) => s),
   coach: vi.fn(),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   // used by the #21 reflection card shelf (CoachCardPanel)
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
   persistProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1" })),
@@ -78,11 +78,20 @@ beforeEach(() => {
   // card/reviewRequested), never note/card/reviewRequested on this path.
   mockCoach.mockResolvedValue({
     narrate: "你先自己答——你的结论回答了原题吗？",
-    directive: { stage: "topic_discussion", openTool: "chat", widthTier: "chat", reference: [], updatedAtTurn: 0 },
+    directive: {
+      stage: "topic_discussion",
+      openTool: "chat",
+      widthTier: "chat",
+      reference: [],
+      updatedAtTurn: 0,
+      started: false,
+    },
     note: null,
     question: null,
     card: null,
     reviewRequested: false,
+    planGenerated: false,
+    compacted: false,
   });
 });
 

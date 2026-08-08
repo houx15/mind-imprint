@@ -119,7 +119,12 @@ function ProjectCard({
           </div>
         )}
 
-        <div className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink">{project.title || "未命名项目"}</div>
+        <div
+          title={project.title || "未命名项目"}
+          className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
+        >
+          {project.title || "未命名项目"}
+        </div>
         <div className="truncate text-mk-small text-mk-muted">
           {project.qualLabel || "项目"}
           {project.activeStation ? ` · ${project.activeStation}` : ""}

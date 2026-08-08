@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,7 +16,7 @@ import (
 const createChatMessage = `-- name: CreateChatMessage :one
 INSERT INTO chat_message (thread_id, role, content, modality)
 VALUES ($1, $2, $3, $4)
-RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at
+RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at, stage
 `
 
 type CreateChatMessageParams struct {
@@ -44,15 +45,16 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 		&i.CreatedAt,
 		&i.Surface,
 		&i.FoldedAt,
+		&i.Stage,
 	)
 	return i, err
 }
 
 const createProjectCoachMessage = `-- name: CreateProjectCoachMessage :one
 
-INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments)
-VALUES ($1, $2, $3, 'text', $4, $5)
-RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at
+INSERT INTO chat_message (thread_id, role, content, modality, surface, attachments, stage)
+VALUES ($1, $2, $3, 'text', $4, $5, $6)
+RETURNING id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at, stage
 `
 
 type CreateProjectCoachMessageParams struct {
@@ -61,6 +63,7 @@ type CreateProjectCoachMessageParams struct {
 	Content     string    `json:"content"`
 	Surface     *string   `json:"surface"`
 	Attachments []byte    `json:"attachments"`
+	Stage       *string   `json:"stage"`
 }
 
 // S1 · one continuous per-project session. The four-room coach persists both
@@ -70,7 +73,8 @@ type CreateProjectCoachMessageParams struct {
 // thread. Mirrors CreateChatMessage but carries the active surface. attachments
 // reuses the existing jsonb column to carry a card-turn's structured reference
 // ({"card":{"cardId","fieldValues"}}), so a reloaded thread re-renders a
-// completed card as a clickable chip; '[]' for a plain turn.
+// completed card as a clickable chip; '[]' for a plain turn. stage carries the
+// studio_state.stage in effect at persist time (nullable — "" -> NULL from Go).
 func (q *Queries) CreateProjectCoachMessage(ctx context.Context, arg CreateProjectCoachMessageParams) (ChatMessage, error) {
 	row := q.db.QueryRow(ctx, createProjectCoachMessage,
 		arg.ThreadID,
@@ -78,6 +82,7 @@ func (q *Queries) CreateProjectCoachMessage(ctx context.Context, arg CreateProje
 		arg.Content,
 		arg.Surface,
 		arg.Attachments,
+		arg.Stage,
 	)
 	var i ChatMessage
 	err := row.Scan(
@@ -91,6 +96,7 @@ func (q *Queries) CreateProjectCoachMessage(ctx context.Context, arg CreateProje
 		&i.CreatedAt,
 		&i.Surface,
 		&i.FoldedAt,
+		&i.Stage,
 	)
 	return i, err
 }
@@ -230,7 +236,7 @@ func (q *Queries) GetThreadByProject(ctx context.Context, seededProjectID pgtype
 }
 
 const listActiveChatMessagesByProject = `-- name: ListActiveChatMessagesByProject :many
-SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1 AND cm.folded_at IS NULL
 ORDER BY cm.created_at, cm.id
@@ -259,6 +265,7 @@ func (q *Queries) ListActiveChatMessagesByProject(ctx context.Context, seededPro
 			&i.CreatedAt,
 			&i.Surface,
 			&i.FoldedAt,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}
@@ -271,7 +278,7 @@ func (q *Queries) ListActiveChatMessagesByProject(ctx context.Context, seededPro
 }
 
 const listChatMessagesByProject = `-- name: ListChatMessagesByProject :many
-SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1
 ORDER BY cm.created_at, cm.id
@@ -297,6 +304,7 @@ func (q *Queries) ListChatMessagesByProject(ctx context.Context, seededProjectID
 			&i.CreatedAt,
 			&i.Surface,
 			&i.FoldedAt,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}
@@ -309,7 +317,7 @@ func (q *Queries) ListChatMessagesByProject(ctx context.Context, seededProjectID
 }
 
 const listChatMessagesByProjectSurface = `-- name: ListChatMessagesByProjectSurface :many
-SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1 AND cm.surface = $2
 ORDER BY cm.created_at, cm.id
@@ -342,6 +350,116 @@ func (q *Queries) ListChatMessagesByProjectSurface(ctx context.Context, arg List
 			&i.CreatedAt,
 			&i.Surface,
 			&i.FoldedAt,
+			&i.Stage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatMessagesPageBefore = `-- name: ListChatMessagesPageBefore :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+  AND (cm.created_at, cm.id) < ($3::timestamptz, $4::uuid)
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT $5::int
+`
+
+type ListChatMessagesPageBeforeParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Surface         *string     `json:"surface"`
+	BeforeCreatedAt time.Time   `json:"before_created_at"`
+	BeforeID        uuid.UUID   `json:"before_id"`
+	PageLimit       int32       `json:"page_limit"`
+}
+
+// Task 4 pagination: the next older page, keyed off the composite cursor
+// (created_at, id) of the oldest row already shown. (created_at, id) is a
+// stable total order — id breaks created_at ties deterministically, so
+// paging never skips or duplicates a row even though ids are random UUIDs.
+func (q *Queries) ListChatMessagesPageBefore(ctx context.Context, arg ListChatMessagesPageBeforeParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesPageBefore,
+		arg.SeededProjectID,
+		arg.Surface,
+		arg.BeforeCreatedAt,
+		arg.BeforeID,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+			&i.Stage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatMessagesPageLatest = `-- name: ListChatMessagesPageLatest :many
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
+JOIN chat_thread ct ON cm.thread_id = ct.id
+WHERE ct.seeded_project_id = $1 AND cm.surface = $2
+ORDER BY cm.created_at DESC, cm.id DESC
+LIMIT $3
+`
+
+type ListChatMessagesPageLatestParams struct {
+	SeededProjectID pgtype.UUID `json:"seeded_project_id"`
+	Surface         *string     `json:"surface"`
+	Limit           int32       `json:"limit"`
+}
+
+// Task 4 pagination: the newest page of a surface slice, newest-first (caller
+// fetches limit+1 to detect hasMore, then reverses to oldest→newest for
+// display). Folded turns are included — a folded turn is still part of the
+// visible conversation, it has just left the coach's active context window.
+func (q *Queries) ListChatMessagesPageLatest(ctx context.Context, arg ListChatMessagesPageLatestParams) ([]ChatMessage, error) {
+	rows, err := q.db.Query(ctx, listChatMessagesPageLatest, arg.SeededProjectID, arg.Surface, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChatMessage
+	for rows.Next() {
+		var i ChatMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.Role,
+			&i.Content,
+			&i.Modality,
+			&i.Attachments,
+			&i.QuotedFragment,
+			&i.CreatedAt,
+			&i.Surface,
+			&i.FoldedAt,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}
@@ -354,7 +472,7 @@ func (q *Queries) ListChatMessagesByProjectSurface(ctx context.Context, arg List
 }
 
 const listMessagesByThread = `-- name: ListMessagesByThread :many
-SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
+SELECT id, thread_id, role, content, modality, attachments, quoted_fragment, created_at, surface, folded_at, stage FROM chat_message WHERE thread_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListMessagesByThread(ctx context.Context, threadID uuid.UUID) ([]ChatMessage, error) {
@@ -377,6 +495,7 @@ func (q *Queries) ListMessagesByThread(ctx context.Context, threadID uuid.UUID) 
 			&i.CreatedAt,
 			&i.Surface,
 			&i.FoldedAt,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}
@@ -422,7 +541,7 @@ func (q *Queries) ListThreadsByUser(ctx context.Context, userID uuid.UUID) ([]Ch
 }
 
 const selectOldestActiveChatMessages = `-- name: SelectOldestActiveChatMessages :many
-SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at FROM chat_message cm
+SELECT cm.id, cm.thread_id, cm.role, cm.content, cm.modality, cm.attachments, cm.quoted_fragment, cm.created_at, cm.surface, cm.folded_at, cm.stage FROM chat_message cm
 JOIN chat_thread ct ON cm.thread_id = ct.id
 WHERE ct.seeded_project_id = $1 AND cm.folded_at IS NULL
   AND cm.id NOT IN (
@@ -463,6 +582,7 @@ func (q *Queries) SelectOldestActiveChatMessages(ctx context.Context, arg Select
 			&i.CreatedAt,
 			&i.Surface,
 			&i.FoldedAt,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}

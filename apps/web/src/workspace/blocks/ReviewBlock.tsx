@@ -499,8 +499,8 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
     let cancelled = false;
     (async () => {
       try {
-        const hist = await getCoachHistory(projectId, "reflection");
-        if (!cancelled) setChat(hist.map((m) => ({ role: m.role === "ai" ? "ai" : "student", text: m.text, card: m.card })));
+        const page = await getCoachHistory(projectId, "reflection");
+        if (!cancelled) setChat(page.messages.map((m) => ({ role: m.role === "ai" ? "ai" : "student", text: m.text, card: m.card })));
       } catch {
         /* empty thread */
       }

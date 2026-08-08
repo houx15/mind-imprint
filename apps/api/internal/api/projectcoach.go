@@ -119,17 +119,20 @@ const (
 )
 
 // maybeCompactBackstop is S4 lever-1's size-threshold backstop, run at the tail
-// of a coach turn. Best-effort, no return: a failure never disturbs the reply.
+// of a coach turn. Best-effort: a failure never disturbs the reply. Returns
+// true ONLY when it actually composed AND persisted a digest this call (so a
+// caller building an OrchestratorReply can surface reply.Compacted) — false
+// on every early return, including a fold-under-budget no-op or any failure.
 // Discipline (克制 / 过程即数据):
 //   - under budget → ZERO provider calls, ZERO spend;
 //   - meter ONLY a completed compact call (resolved.Provider != "" && cerr == nil);
 //   - the digest write PRECEDES the fold — a turn is never folded out of the
 //     window before its content is durable in conversation_digest.
-func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
+func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) bool {
 	pid := pgtype.UUID{Bytes: projectID, Valid: true}
 	active, err := a.d.Queries.ListActiveChatMessagesByProject(ctx, pid)
 	if err != nil {
-		return
+		return false
 	}
 	total := 0
 	for _, m := range active {
@@ -139,14 +142,14 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
 	// turns) OR more turns than the coach shows verbatim (short turns that would
 	// otherwise slide out of context undigested).
 	if total <= digestRuneBudget && len(active) <= digestKeepLastN {
-		return // within the verbatim window and under budget → no spend
+		return false // within the verbatim window and under budget → no spend
 	}
 
 	overflow, err := a.d.Queries.SelectOldestActiveChatMessages(ctx, sqlc.SelectOldestActiveChatMessagesParams{
 		SeededProjectID: pid, Limit: digestKeepLastN,
 	})
 	if err != nil || len(overflow) == 0 {
-		return
+		return false
 	}
 
 	prior, _ := a.d.Queries.GetConversationDigest(ctx, projectID) // zero value if no row yet
@@ -159,7 +162,7 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
 
 	resolved, rerr := a.d.ChatResolver(ctx)
 	if rerr != nil {
-		return
+		return false
 	}
 	prose, usage, cerr := agent.ComposeDigestMerge(ctx, a.d.Provider, resolved, prior.Prose, turns)
 
@@ -176,7 +179,7 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
 		}
 	}
 	if cerr != nil || strings.TrimSpace(prose) == "" {
-		return // compose failed / empty → fold NOTHING (digest-before-fold)
+		return false // compose failed / empty → fold NOTHING (digest-before-fold)
 	}
 
 	// Digest write PRECEDES fold: only after the overflow content is durable do we
@@ -187,11 +190,12 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) {
 		Model: &model, Tier: &tier,
 	}); uerr != nil {
 		slog.Warn("coach compact: upsert digest failed; not folding", "err", uerr)
-		return // could not persist digest → do NOT fold
+		return false // could not persist digest → do NOT fold
 	}
 	if ferr := a.d.Queries.FoldChatMessagesByID(ctx, ids); ferr != nil {
 		slog.Warn("coach compact: fold failed", "err", ferr)
 	}
+	return true
 }
 
 // truncateRunes clamps s to at most n runes, appending … when clipped. Keeps

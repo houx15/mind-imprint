@@ -22,9 +22,10 @@ import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
 import { StudioCardSheet } from "../studio/StudioCardSheet";
 import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
-import { Badge, Segmented } from "@/ui/feedback";
+import { Badge, Tooltip } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
-import { Icon, BLOCK_META } from "./Icon";
+import { Icon } from "./Icon";
+import { RoomSwitcher } from "./RoomSwitcher";
 import { Directory } from "./Directory";
 import {
   getWorkspace,
@@ -34,6 +35,8 @@ import {
   postProjectSummary,
   patchReference,
   coach,
+  coachOpening,
+  coachStart,
   putProposal,
   reflectProjectCard,
   dismissProposal,
@@ -102,6 +105,15 @@ export function WorkspaceContainer({
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
+  // Task 6 (start gate): guards the one-shot `coach/opening` fire in the load
+  // effect below (a brand-new, not-yet-started project with an empty thread)
+  // so a re-render or effect re-run for the SAME project never double-fires
+  // it — keyed on the project id, mirroring `lastInitialProjectId`/
+  // `didMountRoom`. Reset on every project switch (below).
+  const openingFiredForProjectId = useRef<string | null>(null);
+  // Busy flag around the student's 开始 tap (`startJourney`, below) — drives
+  // the 开始 button's pending/disabled state in StudioCoachChat.
+  const [starting, setStarting] = useState(false);
   const [room, setRoom] = useState<BlockKey>("plan");
   // 印记's AI-managed status directive (stage/openTool/widthTier/reference),
   // loaded once per project (Task 8). Drives resume-at-stage: which room the
@@ -110,6 +122,17 @@ export function WorkspaceContainer({
   // chat-first landing, never a forced plan board. Task 9 re-applies this
   // after every turn (morphing status).
   const [studioState, setStudioState] = useState<StudioState | null>(null);
+  // Task 6 fix round 1 (start gate): whether the `getStudioState` fetch for
+  // the CURRENTLY OPEN project has settled (resolved OR rejected) — distinct
+  // from `studioState` itself, which stays `null` for both "still loading"
+  // and "fetch failed". `started` (below) needs to tell those two apart: a
+  // still-loading fetch must default to chat-only/开始 (no tab flash for a
+  // genuinely new project), while a FAILED fetch on a project that may
+  // already be started must keep the switcher live as an escape hatch (a
+  // pre-existing invariant). Reset to `false` on every project switch,
+  // flipped `true` in both the `.then` and `.catch` of the load effect's
+  // `getStudioState` call.
+  const [studioStateResolved, setStudioStateResolved] = useState(false);
   // Manual-takeover flag (spec §6): while true, the switcher-chosen `room`
   // mounts even in chat-first / null / errored status — the student is never
   // trapped in the chat landing with a dead switcher. Taking over does NOT
@@ -236,6 +259,15 @@ export function WorkspaceContainer({
   // still shows its busy state on whichever room is now mounted.
   const [studioMessages, setStudioMessages] = useState<StudioChatMsg[]>([]);
   const [studioSending, setStudioSending] = useState(false);
+  // Task 5 (history pagination): the studio thread now loads its RECENT page
+  // only (not the whole thread) — `historyCursor` is the cursor to pass as
+  // `before` for the NEXT (older) page, `historyHasMore` gates the 载入更早的
+  // 对话 control, `historyRecap` is the endpoint's digest prose for a long
+  // thread (wins over the S1 `summary` re-entry paragraph when present).
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyRecap, setHistoryRecap] = useState<string | null>(null);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   // Task 9b · 印记's per-turn OFFERS (铁律②: proposed, never auto-applied). A
   // note the student can confirm into the proposal board; a thinking-card she
   // can open. Both cleared at the start of the next turn and on project switch.
@@ -279,7 +311,7 @@ export function WorkspaceContainer({
     if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
-  // The switcher's manual override (the Segmented stage switcher):
+  // The switcher's manual override (the RoomSwitcher stage switcher):
   // swap the room AND flag the takeover so the chosen room mounts even while
   // 印记 is keeping chat primary (or its status hasn't loaded / failed). Does
   // not change `studioState` — manual browsing never changes 印记's status.
@@ -344,6 +376,17 @@ export function WorkspaceContainer({
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
         setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+        // Task 7 · hidden-subagent post-hoc acknowledgments: `generate_plan`
+        // and the backstop compaction ran silently during this awaited turn
+        // (no per-phase SSE) — surface a one-line SubagentHint after 印记's
+        // narrate so the student sees SOMETHING happened, without a second chat
+        // exchange. Order: narrate first, then any hint lines.
+        if (reply.planGenerated) {
+          setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "subagent 已整理研究计划" }]);
+        }
+        if (reply.compacted) {
+          setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "已整理较早的对话" }]);
+        }
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
         // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call
@@ -368,6 +411,57 @@ export function WorkspaceContainer({
     },
     [studioSending, applyStudioState],
   );
+
+  // Task 6 (start gate) · the student's explicit 开始 tap: calls `coach/start`,
+  // appends its narrate, and APPLIES the returned directive (started → true,
+  // openTool → "forming") — applyStudioState's re-render is what reveals the
+  // switcher/tabs (see `chatOnly`/`started` below), so no separate state flip
+  // is needed here beyond the directive itself.
+  const startJourney = useCallback(async (): Promise<void> => {
+    const pid = activeProjectIdRef.current;
+    if (!pid || starting) return;
+    const isActive = () => activeProjectIdRef.current === pid;
+    setStarting(true);
+    try {
+      const reply = await coachStart(pid);
+      if (!isActive()) return;
+      if (reply.narrate) setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+      applyStudioState(reply.directive);
+    } catch {
+      if (isActive()) {
+        setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再点一次「开始」？）" }]);
+      }
+    } finally {
+      if (isActive()) setStarting(false);
+    }
+  }, [starting, applyStudioState]);
+
+  // Task 5 (history pagination) · page one OLDER page of the studio thread in,
+  // prepending it above the currently-loaded messages. Guarded on a live
+  // cursor + not-already-loading (StudioCoachChat also disables its button
+  // while `loadingEarlier`, this is the belt-and-braces re-entrancy guard).
+  const loadEarlier = useCallback(() => {
+    const pid = activeProjectIdRef.current;
+    if (!pid || !historyCursor || loadingEarlier) return;
+    const isActive = () => activeProjectIdRef.current === pid;
+    setLoadingEarlier(true);
+    getCoachHistory(pid, "studio", { before: historyCursor })
+      .then((page) => {
+        if (!isActive()) return;
+        setStudioMessages((prev) => [
+          ...page.messages.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+          ...prev,
+        ]);
+        setHistoryCursor(page.nextCursor);
+        setHistoryHasMore(page.hasMore);
+      })
+      .catch(() => {
+        /* leave the cursor/hasMore as-is; the 载入更早 control stays so she can retry */
+      })
+      .finally(() => {
+        if (isActive()) setLoadingEarlier(false);
+      });
+  }, [historyCursor, loadingEarlier]);
 
   // Confirm a proposed note into the proposal board (铁律②: her tap writes it).
   // Read-modify-write: re-read the current proposal, append the note's value to
@@ -471,6 +565,10 @@ export function WorkspaceContainer({
     // chat-first landing (never the previous project's board) until this
     // project's studio_state resolves.
     setStudioState(null);
+    // Task 6 fix round 1: reset the resolved flag too — else a project switch
+    // could briefly inherit the PREVIOUS project's "resolved" (true) state
+    // before this project's own getStudioState settles.
+    setStudioStateResolved(false);
     // Reset the room too — else a project resumed into e.g. the reading room
     // leaves `room==="reading"` stuck while the NEXT project's real status is
     // still loading. applyStudioState below re-derives the real room once this
@@ -481,6 +579,13 @@ export function WorkspaceContainer({
     // resumes at its own 印记 status.
     setTookOver(false);
     setStudioMessages([]);
+    // Reset the pagination cursor/recap too — else a project switch could show
+    // the PREVIOUS project's "载入更早" affordance or digest recap for a beat
+    // before this project's first page resolves.
+    setHistoryCursor(null);
+    setHistoryHasMore(false);
+    setHistoryRecap(null);
+    setLoadingEarlier(false);
     // Reset the in-flight flag too — else a project opened while a PREVIOUS
     // project's turn is still in flight inherits sending=true and its composer
     // stays disabled until that unrelated reply resolves.
@@ -494,6 +599,10 @@ export function WorkspaceContainer({
     // getPlan fetch is skipped once here (this effect already fetches) rather
     // than firing a redundant duplicate on every project switch.
     didMountRoom.current = false;
+    // Task 6 (start gate): reset the opening-fire guard + any stale busy flag
+    // from the previous project.
+    openingFiredForProjectId.current = null;
+    setStarting(false);
     getPlan(projectId)
       .then((items) => {
         if (!cancelled) setPlanItems(items);
@@ -501,28 +610,81 @@ export function WorkspaceContainer({
       .catch(() => {
         /* no plan yet (or fetch failed) → the spine simply doesn't render */
       });
+    // Task 6 (start gate): coordinates the two loads below — once BOTH the
+    // studio-state and the first history page have resolved for a project
+    // that is genuinely not-yet-started with an empty thread, fire the ONE
+    // real-AI opening turn. Local (not state) because it only needs to
+    // survive within this effect's closure; `openingFiredForProjectId`
+    // (component ref) is the actual re-render-proof double-fire guard.
+    // A locally-narrowed alias: the effect's early `if (!projectId) return;`
+    // above narrows `projectId` for direct use in this scope, but that
+    // narrowing doesn't carry into the nested `maybeFireOpening` function
+    // declaration below — `pid` is the `string` TS needs there.
+    const pid = projectId;
+    let stateLoaded = false;
+    let loadedStarted = false;
+    let historyLoaded = false;
+    let historyEmpty = false;
+    function maybeFireOpening() {
+      if (cancelled || !stateLoaded || !historyLoaded) return;
+      if (loadedStarted || !historyEmpty) return; // already started, or a resumed non-empty thread
+      if (openingFiredForProjectId.current === pid) return;
+      openingFiredForProjectId.current = pid;
+      coachOpening(pid)
+        .then((reply) => {
+          if (cancelled) return;
+          // The idempotent 200 (thread already has a turn — a race with
+          // another tab/reload) narrates nothing; only seed when it did.
+          if (reply.narrate) {
+            setStudioMessages((prev) => (prev.length ? prev : [{ role: "ai", text: reply.narrate }]));
+          }
+          applyStudioState(reply.directive);
+        })
+        .catch(() => {
+          // Best-effort: the pure chat-first landing (studioState.started
+          // already false) still shows, just without the AI's opening line —
+          // a reload retries.
+        });
+    }
     // Resume-at-stage (Task 8): land wherever 印记's AI-managed status says,
     // not on a forced plan board. `cancelled` guards a late response for a
     // project the student already switched away from. On error we simply stay
-    // chat-first (studioState null) — chat is the safe primary surface.
+    // chat-first (studioState null) — chat is the safe primary surface, and
+    // the opening never fires without a confirmed `started === false`.
     getStudioState(projectId)
       .then((state) => {
-        if (!cancelled) applyStudioState(state);
+        if (cancelled) return;
+        applyStudioState(state);
+        setStudioStateResolved(true);
+        stateLoaded = true;
+        loadedStarted = state.started;
+        maybeFireOpening();
       })
       .catch(() => {
-        /* no studio_state yet (or fetch failed) → stay on the chat-first landing */
+        /* no studio_state yet (or fetch failed) → stay on the chat-first landing.
+           `studioStateResolved` still flips true here — a CONFIRMED failure
+           (not "still loading") is what lets `started` fall back to `true`
+           below, preserving the switcher-stays-live-on-error escape hatch. */
+        if (!cancelled) setStudioStateResolved(true);
       });
-    // Load the ONE continuous coach thread ONCE per opened project (立项 + 写作,
-    // surface="studio"), into the hoisted store both rooms read. Empty → each
-    // room falls back to its own display-only intro/greeting locally.
+    // Load the ONE continuous coach thread's RECENT PAGE ONCE per opened
+    // project (立项 + 写作, surface="studio"), into the hoisted store both
+    // rooms read. Empty → each room falls back to its own display-only
+    // intro/greeting locally. `loadEarlier` (below) pages older turns in.
     getCoachHistory(projectId, "studio")
-      .then((msgs) => {
+      .then((page) => {
         if (cancelled) return;
         // Don't clobber a turn the student optimistically sent in the small
         // window before this fetch resolved — only seed when still empty.
         setStudioMessages((prev) =>
-          prev.length ? prev : msgs.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
+          prev.length ? prev : page.messages.map((m) => ({ role: m.role, text: m.text, card: m.card ?? null })),
         );
+        setHistoryCursor(page.nextCursor);
+        setHistoryHasMore(page.hasMore);
+        setHistoryRecap(page.recap);
+        historyLoaded = true;
+        historyEmpty = page.messages.length === 0;
+        maybeFireOpening();
       })
       .catch(() => {
         /* keep the empty store; each room shows its intro and the next turn persists */
@@ -668,10 +830,27 @@ export function WorkspaceContainer({
   // `wide`. Null status
   // (still loading) = chat — we never flash a board before 印记's status lands.
   const widthTier: WidthTier = tookOver ? "wide" : (studioState?.widthTier ?? "chat");
+  // Task 6 (start gate), fix round 1: THREE distinct states, not two.
+  // - `studioState` present → the resolved truth: `studioState.started`.
+  // - `studioState` null + NOT yet resolved (still in flight) → `false`
+  //   (chat-only, 开始 button, no tabs) — this is what stops a brand-new
+  //   project from flashing tabs/Composer for the whole network round-trip
+  //   (the bug: defaulting to `true` here made the gate's "no tabs at all"
+  //   promise hold only AFTER the fetch resolved, not during it). Matches
+  //   `widthTier`'s own "safe/minimal default while loading" convention
+  //   directly above.
+  // - `studioState` null + resolved (a CONFIRMED fetch failure) → `true`,
+  //   preserving the shell's pre-existing "switcher stays live as an escape
+  //   hatch on a transient error" fallback — a resumed project hitting one
+  //   flaky studio-state fetch must not lose its tabs and get stuck behind a
+  //   开始 button it already passed.
+  const started = studioState ? studioState.started : studioStateResolved;
   // The chat-only surface: no interactive area at all. `chatOnly` ⇒ the
   // full-width 印记 chat fills <main> INSTEAD of a room + side panel. Any
-  // other tier ⇒ a room is mounted and the chat rides in the AiPanel.
-  const chatOnly = widthTier === "chat" && !tookOver;
+  // other tier ⇒ a room is mounted and the chat rides in the AiPanel. A
+  // not-started project is unconditionally chat-only — stronger than the
+  // width-tier gate alone, which a manual takeover could otherwise defeat.
+  const chatOnly = !started || (widthTier === "chat" && !tookOver);
   // The expanded AiPanel's width follows the tier: a prominent 42% column in
   // `half`, the default sidebar in `wide` (collapsed always wins → slim rail).
   const aiPanelWidthClass = widthTier === "half" ? "w-[42%]" : "w-[320px]";
@@ -716,6 +895,12 @@ export function WorkspaceContainer({
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    historyHasMore,
+    loadEarlier,
+    loadingEarlier,
+    started,
+    startJourney,
+    starting,
   };
 
   return (
@@ -728,10 +913,14 @@ export function WorkspaceContainer({
         {/* The persistent stage switcher lives at the top-left of the
             interactive area (spec §2) — beside the 印记 chat, not spanning it.
             AI-driven view changes flip `room`; this is the always-available
-            manual override so the student is never lost. */}
+            manual override so the student is never lost. Task 6 (start gate):
+            a not-started project renders NO tabs at all — stronger than the
+            old chatOnly (which still rendered this row, just with no segment
+            highlighted). The whole row (switcher + plan spine + 继续印记)
+            only exists once the journey has actually started. */}
+        {started && (
         <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
-          <Segmented
-            options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
+          <RoomSwitcher
             // While chat-only (印记 keeps the chat primary), `room` is the stale
             // interim default — highlighting it would falsely mark a segment the
             // student isn't on. Pass a non-matching value so NO segment lights up
@@ -757,6 +946,7 @@ export function WorkspaceContainer({
             </button>
           )}
         </div>
+        )}
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The re-entry recap now lives INSIDE the continuous chat (passed as
             `recap` to the working rooms), not as a banner here — the chat is the
@@ -796,7 +986,7 @@ export function WorkspaceContainer({
             data-testid="chat-first"
             className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden"
           >
-            <StudioCoachChat recap={summary} />
+            <StudioCoachChat recap={historyRecap ?? summary} />
           </div>
         ) : !workspace ? (
           <div className="flex h-full items-center justify-center text-[14px] text-mk-faint">加载中…</div>
@@ -818,7 +1008,7 @@ export function WorkspaceContainer({
                 createdAt={workspace.createdAt}
                 phase={room === "forming" ? "forming" : "working"}
                 refreshWorkspace={refreshWorkspace}
-                recap={summary}
+                recap={historyRecap ?? summary}
               />
             )}
             {room === "reading" && (
@@ -860,7 +1050,7 @@ export function WorkspaceContainer({
                     draftInsertRef={draftInsertRef}
                     onInsertReady={setInsertReady}
                     refreshWorkspace={refreshWorkspace}
-                    recap={summary}
+                    recap={historyRecap ?? summary}
                   />
                 }
               />
@@ -910,6 +1100,13 @@ function TopBar({
   workspace: WorkspaceProjection | null;
   onBack: () => void;
 }) {
+  // Task 8: the title is frequently truncated by the top bar's fixed width,
+  // and the project title is content the student needs to actually read —
+  // not just a hint. Hover/focus reveals it via `Tooltip` (+ a native
+  // `title` attr baseline for a no-JS fallback); a tap/click toggles full
+  // wrap in place so touch users (no hover) can reach it too.
+  const [titleExpanded, setTitleExpanded] = useState(false);
+  const title = workspace?.title || "未命名项目";
   return (
     <header className={cx("flex shrink-0 items-center gap-4 border-b border-mk-border bg-mk-paper px-6 py-3")}>
       <button
@@ -925,7 +1122,27 @@ function TopBar({
         主页
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <h1 className="truncate text-mk-h2">{workspace?.title || "未命名项目"}</h1>
+        <Tooltip label={title} className="min-w-0">
+          <h1
+            role="button"
+            tabIndex={0}
+            aria-label="展开完整标题"
+            title={title}
+            onClick={() => setTitleExpanded((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setTitleExpanded((v) => !v);
+              }
+            }}
+            className={cx(
+              "cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent",
+              titleExpanded ? "whitespace-normal break-words" : "truncate",
+            )}
+          >
+            {title}
+          </h1>
+        </Tooltip>
         <Badge tone="progress" className="shrink-0">
           {workspace?.qualification || "项目"}
         </Badge>

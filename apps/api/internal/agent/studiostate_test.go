@@ -52,3 +52,26 @@ func TestStageIsValid(t *testing.T) {
 		t.Fatal("IsValid wrong")
 	}
 }
+
+// TestStudioStateStartedDefault covers the `started` flag added alongside
+// the studio-onboarding start gate: brand-new state must default to false,
+// and a legacy studio_state jsonb blob (persisted before this field
+// existed, so it has no "started" key) must unmarshal to false too — this
+// pins the contract so projects mid-journey before migration 0059's
+// backfill runs still read as "not started" rather than panicking or
+// zero-valuing into something else.
+func TestStudioStateStartedDefault(t *testing.T) {
+	if DefaultStudioState().Started {
+		t.Fatal("default Started must be false")
+	}
+
+	// legacy jsonb without the key → Started false
+	var s StudioState
+	legacy := `{"stage":"topic_discussion","openTool":"chat","widthTier":"chat","reference":[],"updatedAtTurn":0}`
+	if err := json.Unmarshal([]byte(legacy), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.Started {
+		t.Fatal("legacy state must unmarshal Started=false")
+	}
+}

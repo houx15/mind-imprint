@@ -598,10 +598,12 @@ describe("ExplorationView", () => {
     await waitFor(() => expect(onLibraryChanged).toHaveBeenCalled());
   });
 
-  // Job 3 (studio agentic restyle 2026-08): the per-question paper-dig loading
-  // state renders the RabbitHoleLoader scene (from @/ui) instead of a plain
-  // spinner/text — assert via its caption, which stays put under the loader.
-  it("shows the rabbit-hole loader while digging for papers", async () => {
+  // Task 7 (hidden-subagent hints, 2026-08-08; review fix round 1): the
+  // per-question paper-dig is a HIDDEN subagent (the reading-list source
+  // search) — mid-flight it shows the RabbitHoleLoader scene (already a
+  // non-chat loading status, never a chat exchange), with a subagent-framed
+  // caption.
+  it("shows the themed rabbit-hole loader, subagent-framed, while digging for papers", async () => {
     const projectId = nextPid();
     let resolveDig!: (v: { candidates: DigCandidate[] }) => void;
     mockDigExploration.mockImplementationOnce(
@@ -614,15 +616,15 @@ describe("ExplorationView", () => {
 
     await user.click(screen.getByRole("button", { name: "找相似文献" }));
 
-    // mid-flight: the rabbit-hole scene shows, not the old plain-text spinner
-    expect(await screen.findByText("印记在找相关论文……")).toBeInTheDocument();
+    // mid-flight: the themed loader shows with the subagent-framed caption
+    expect(await screen.findByText("subagent 正在检索来源……")).toBeInTheDocument();
     expect(mockAdoptCandidate).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveDig({ candidates: [CANDIDATE] });
     });
     await screen.findByText(CANDIDATE.title);
-    expect(screen.queryByText("印记在找相关论文……")).toBeNull();
+    expect(screen.queryByText("subagent 正在检索来源……")).toBeNull();
   });
 
   it("丢弃 removes a candidate from 'results' with no server call", async () => {

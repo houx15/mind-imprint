@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"mindimprint/api/internal/gateway"
 )
@@ -269,4 +270,37 @@ func ProposeOrchestratorTurn(
 		}
 	}
 	return OrchestratorDecision{}, totalUsage, errOrchestratorParse
+}
+
+// orchestratorOpeningPrompt is the ONE crafted posture for 印记's real-AI
+// welcome — the student's very first turn in a project, before she has said
+// anything. Unlike orchestratorSystemPrompt this call is tool-less: it only
+// ever produces the framing message itself (no JSON envelope), one message,
+// not a barrage (design 铁律 ③ 一次只问一个).
+const orchestratorOpeningPrompt = `你是「印记」，学生刚进入这个写作项目，还没开始。用一段话欢迎他，语气温暖、克制、不啰嗦。你必须：
+1) 欢迎他来到写作空间；
+2) 复述你看到的题目（用投影里的项目题目，别编造；若没有题目就说「你还没定题目」）；
+3) 用一句话点明：完整做完一个写作项目，会一路经过 立项 → 阅读 → 写作 → 回顾；
+4) 说明我们先一起把研究计划的四件事讨论清楚，并列成一个短清单：
+   - 目标（research question）
+   - 缘由（motivation）
+   - 活动与时间（plan）
+   - 资源（resources）
+5) 最后问一句：准备好开始了吗？
+只输出给学生看的这段话本身，不要 JSON、不要工具、不要列出多于四条、不要连问多个问题。`
+
+// ProposeOpeningTurn makes ONE LLM call producing 印记's welcome message. It
+// has no tools and no history — just the opening posture + the spine
+// projection (which carries the project title). Returns the narrate text and
+// usage.
+func ProposeOpeningTurn(ctx context.Context, prov gateway.Provider, r gateway.Resolved, spineProjection string) (string, gateway.ChatUsage, error) {
+	req := gateway.ChatRequest{Messages: []gateway.ChatMessage{
+		{Role: gateway.RoleSystem, Content: orchestratorOpeningPrompt},
+		{Role: gateway.RoleUser, Content: spineProjection + "\n\n（这是开场，学生还没说话。）"},
+	}}
+	res, err := gateway.Collect(ctx, prov, r, req)
+	if err != nil {
+		return "", res.Usage, err
+	}
+	return strings.TrimSpace(res.Text), res.Usage, nil
 }

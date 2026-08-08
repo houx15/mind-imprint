@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CardTurnRef } from "./cardReflect";
 
 export const StudioStage = z.enum([
   "topic_discussion",
@@ -33,6 +34,7 @@ export const StudioState = z.object({
   widthTier: WidthTier,
   reference: z.array(ReferenceRef),
   updatedAtTurn: z.number().int(),
+  started: z.boolean(),
 });
 export type StudioState = z.infer<typeof StudioState>;
 
@@ -75,5 +77,27 @@ export const OrchestratorReply = z.object({
   card: CardProposalWire.nullable(),
   question: QuestionProposal.nullable(),
   reviewRequested: z.boolean(),
+  planGenerated: z.boolean(),
+  compacted: z.boolean(),
 });
 export type OrchestratorReply = z.infer<typeof OrchestratorReply>;
+
+// A single coach-thread message as returned by GET /coach/history. Mirrors the
+// web-local CoachHistoryMsg previously declared ad hoc in workspace.ts; card
+// reuses CardTurnRef (cardReflect.ts) rather than duplicating its shape.
+export const CoachHistoryMsg = z.object({
+  role: z.enum(["student", "ai"]),
+  text: z.string(),
+  card: CardTurnRef.nullish(),
+});
+export type CoachHistoryMsg = z.infer<typeof CoachHistoryMsg>;
+
+// A paginated page of coach history. recap/nextCursor are explicitly nullable
+// (not optional) — the server always includes both keys.
+export const CoachHistoryPage = z.object({
+  messages: z.array(CoachHistoryMsg),
+  hasMore: z.boolean(),
+  recap: z.string().nullable(),
+  nextCursor: z.string().nullable(),
+});
+export type CoachHistoryPage = z.infer<typeof CoachHistoryPage>;

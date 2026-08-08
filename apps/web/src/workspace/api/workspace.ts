@@ -17,10 +17,11 @@ import {
   AIUseDraft as AIUseDraftSchema,
   AIUseStatement as AIUseStatementSchema,
   CardReflectReply,
-  CardTurnRef,
   OrchestratorReply,
   StudioState,
+  CoachHistoryPage as CoachHistoryPageSchema,
 } from "@mind-imprint/contracts";
+import type { CoachHistoryPage, CoachHistoryMsg as ContractCoachHistoryMsg } from "@mind-imprint/contracts";
 import type { AIUseDraft, AIUseStatement } from "@mind-imprint/contracts";
 import { apiFetch, ApiError } from "../../api/client";
 
@@ -150,6 +151,27 @@ export async function coach(id: string, userInput: string, scope?: string): Prom
   return OrchestratorReply.parse(raw);
 }
 
+// POST /coach/opening — Task 6 (start gate): a real-AI welcome for a
+// brand-new project's ONE thread, fired once when the studio thread is still
+// empty. Idempotent server-side: if the thread already has a turn, this
+// returns 200 with an empty `narrate` and the CURRENT directive (no spend) —
+// the caller only acts on the reply when it actually seeded a message. The
+// returned `directive.started` is false and `directive.openTool` is "chat"
+// (the pure full-width landing, no tabs) until `coachStart` flips it.
+export async function coachOpening(id: string): Promise<OrchestratorReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/opening`, { method: "POST" });
+  return OrchestratorReply.parse(raw);
+}
+
+// POST /coach/start — Task 6 (start gate): the student's explicit 开始 tap.
+// Sets `directive.started = true` and `directive.openTool = "forming"`, and
+// `narrate` begins the 提案 discussion (replacing the old scripted
+// PlanBlock intro). Idempotent if already started.
+export async function coachStart(id: string): Promise<OrchestratorReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/start`, { method: "POST" });
+  return OrchestratorReply.parse(raw);
+}
+
 // GET /studio-state — 印记's current directive (stage/openTool/widthTier/
 // reference/updatedAtTurn) independent of any coach turn. Used to resume a
 // project at its AI-managed status (e.g. on load) without replaying the whole
@@ -221,25 +243,30 @@ export async function dismissProposal(id: string, cardId: string): Promise<void>
 }
 
 // GET /coach/history — a room's surface-slice of the ONE per-project thread
-// (S1 · continuous session). Both sides, role already mapped to the room's
-// student|ai shape; folded turns included. No spend.
+// (S1 · continuous session; paginated per Task 4). Both sides, role already
+// mapped to the room's student|ai shape; folded turns included. No spend.
 // A card-turn message carries a structured `card` reference (cardId + the
 // student's fieldValues) so a reloaded thread re-renders it as a clickable chip
 // — self-contained, no separate fetch. `text` stays the plain compiled fallback.
-const CoachHistoryMsg = z.object({
-  role: z.enum(["student", "ai"]),
-  text: z.string(),
-  card: CardTurnRef.nullish(),
-});
-export type CoachHistoryMsg = z.infer<typeof CoachHistoryMsg>;
+// The shape lives in the shared contract now (`CoachHistoryPage`/`CoachHistoryMsg`
+// in `@mind-imprint/contracts`) — re-exported here so existing local importers
+// keep working unchanged.
+export type CoachHistoryMsg = ContractCoachHistoryMsg;
 // `surface` is a real turn scope for a single room's slice, OR the special
 // "studio" — the ONE continuous working thread across 立项/写作 (server unions
 // forming+proposal_review+writing; reading/reflection sub-agents stay out).
-export async function getCoachHistory(id: string, surface: CoachScope | "studio"): Promise<CoachHistoryMsg[]> {
-  const raw = await apiFetch<unknown>(
-    `/api/v1/projects/${id}/coach/history?surface=${encodeURIComponent(surface)}`,
-  );
-  return z.object({ messages: z.array(CoachHistoryMsg) }).parse(raw).messages;
+// `opts.before` pages OLDER turns in (pass the previous page's `nextCursor`);
+// `opts.limit` overrides the server's default page size.
+export async function getCoachHistory(
+  id: string,
+  surface: CoachScope | "studio",
+  opts?: { before?: string; limit?: number },
+): Promise<CoachHistoryPage> {
+  const params = new URLSearchParams({ surface });
+  if (opts?.before) params.set("before", opts.before);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/history?${params.toString()}`);
+  return CoachHistoryPageSchema.parse(raw);
 }
 
 // GET /summary — the stored summary-on-return prose, or null until composed.

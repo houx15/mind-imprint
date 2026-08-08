@@ -62,23 +62,33 @@ const getWorkspace = vi.fn();
 vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getPlan: vi.fn(async () => []),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   // 印记's AI-managed status (Task 8). Resolve to the plan room so this smoke
   // test lands on the plan board (its walk then uses the switcher).
+  // Task 6 (start gate): this smoke test drives the already-open switcher —
+  // started:true keeps the pre-existing tabs-render-immediately behavior.
   getStudioState: vi.fn(async () => ({
     stage: "plan_generation",
     openTool: "plan",
     widthTier: "half",
     reference: [],
     updatedAtTurn: 0,
+    started: true,
   })),
   // The container-owned send loop + note/card handlers (Task 9b) — stubbed so
   // the module resolves; this smoke test drives the switcher, not the chat.
   coach: vi.fn(async () => ({
     narrate: "",
-    directive: { stage: "plan_generation", openTool: "plan", widthTier: "half", reference: [], updatedAtTurn: 0 },
+    directive: {
+      stage: "plan_generation",
+      openTool: "plan",
+      widthTier: "half",
+      reference: [],
+      updatedAtTurn: 0,
+      started: true,
+    },
     note: null,
     card: null,
     question: null,

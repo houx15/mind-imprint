@@ -420,8 +420,13 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {digging ? (
+          // Task 7 (review fix round 1) · this dig is the "reading-list search"
+          // HIDDEN subagent — but it was ALREADY a non-chat loading scene
+          // (RabbitHoleLoader), which already satisfies "a loading status,
+          // never a chat". Keep the richer animation; just frame the caption
+          // as a subagent doing the searching.
           <div className="flex justify-center py-4">
-            <RabbitHoleLoader caption="印记在找相关论文……" />
+            <RabbitHoleLoader caption="subagent 正在检索来源……" />
           </div>
         ) : digError ? (
           <p className="py-2 text-[14px] font-semibold text-mk-accent">刚才没接上，再试一次？</p>

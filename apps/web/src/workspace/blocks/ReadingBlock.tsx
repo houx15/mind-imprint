@@ -617,7 +617,7 @@ function CollectionsRail(props: {
               onKeyDown={(e) => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") { setNewName(""); setCreating(false); } }}
               onBlur={commitNew}
               placeholder="合集名称"
-              className="w-full rounded-mk border border-mk-accent/40 bg-mk-surface px-2 py-1 text-[14px] text-mk-ink outline-none placeholder:text-mk-faint"
+              className="w-full rounded-mk border border-mk-input-border bg-mk-surface px-2 py-1 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
             />
           </div>
         )}
@@ -1086,7 +1086,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
           onChange={(e) => onPatchDebounced({ evaluation: e.target.value })}
           rows={3}
           placeholder="这篇能回答什么 / 不能回答什么？"
-          className="w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-1.5 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+          className="w-full resize-none rounded-mk border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-body leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
         />
       </div>
 
@@ -1173,7 +1173,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
               onChange={(e) => setPasteText(e.target.value)}
               rows={6}
               placeholder="把文章正文粘到这里……"
-              className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+              className="mt-2 w-full resize-none rounded-mk border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-body leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
             />
             <button
               type="button"
@@ -1216,7 +1216,7 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
               onKeyDown={(e) => { if (e.key === "Enter" && val.trim()) { onAdd(val); setVal(""); } if (e.key === "Escape") { setEditing(false); setVal(""); } }}
               onBlur={() => { if (val.trim()) onAdd(val); setEditing(false); setVal(""); }}
               placeholder="输入后回车"
-              className="w-24 rounded-full border border-mk-accent/40 bg-mk-surface px-2 py-0.5 text-[12px] text-mk-ink outline-none"
+              className="w-24 rounded-full border border-mk-input-border bg-mk-surface px-2 py-0.5 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
             />
             {val && suggestions.length > 0 && (
               <div className="absolute left-0 top-7 z-10 w-40 rounded-mk border border-mk-border bg-mk-surface p-1 shadow-lg">

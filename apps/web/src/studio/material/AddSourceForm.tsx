@@ -25,16 +25,15 @@ function tabStyle(active: boolean): React.CSSProperties {
   };
 }
 
-const INPUT_STYLE: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid var(--mk-input-border)",
-  borderRadius: 10,
-  fontSize: 13.5,
-  padding: "8px 11px",
-  fontFamily: "inherit",
-  color: "var(--mk-ink)",
-  boxSizing: "border-box",
-};
+// Task 9: was a raw inline-style object (13.5px, no focus state at all) —
+// now Tailwind token classes so it renders the same border/focus chrome as
+// every other design-system input (`border-mk-input-border` +
+// `focus:border-mk-accent`, which actually renders — unlike a `mk-*/NN`
+// opacity-modified ring, `border-mk-accent` is a solid token).
+const INPUT_CLASS =
+  "w-full rounded-mk-sm border border-mk-input-border bg-mk-surface px-3 py-2 " +
+  "text-mk-body text-mk-ink outline-none transition-colors duration-[120ms] ease-mk " +
+  "placeholder:text-mk-faint focus:border-mk-accent";
 
 function PlusIcon() {
   return (
@@ -159,7 +158,7 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
               placeholder="粘贴链接，例如 https://..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              style={INPUT_STYLE}
+              className={INPUT_CLASS}
             />
           ) : (
             <>
@@ -167,14 +166,14 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
                 placeholder="标题（必填）"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                style={INPUT_STYLE}
+                className={INPUT_CLASS}
               />
               <textarea
                 placeholder="把正文粘贴进来……"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={4}
-                style={{ ...INPUT_STYLE, resize: "vertical" }}
+                className={`${INPUT_CLASS} resize-y`}
               />
             </>
           )}
@@ -184,7 +183,7 @@ export function AddSourceForm({ onSubmit, error }: AddSourceFormProps) {
             value={takeaway}
             onChange={(e) => setTakeaway(e.target.value)}
             rows={2}
-            style={{ ...INPUT_STYLE, resize: "vertical" }}
+            className={`${INPUT_CLASS} resize-y`}
           />
 
           <div>

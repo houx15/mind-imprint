@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// Real (unmocked) module — the mocked PlanBlock/WritingBlock below read the
+// SAME hoisted store via this hook, mirroring how the real rooms portal their
+// coach content, so the one-thread-across-room-switches test below can assert
+// message content directly through them instead of just testid presence.
+import { useStudioChat } from "@/studio/ai/StudioChatContext";
 
 // Keep this a light, seam-focused test of the `initialProjectId` deep-link
 // (Task 6) — everything below the shell's own room-swap logic is mocked out
@@ -32,15 +37,36 @@ vi.mock("@/workspace/Directory", () => ({
   ),
 }));
 
+// PlanBlock/WritingBlock also render the hoisted thread's message texts (via
+// the SAME `useStudioChat()` the real rooms read to portal their coach) — this
+// is what lets the "one thread survives a room switch" test below assert
+// actual message content is still there after switching, not just a testid.
 vi.mock("@/workspace/blocks/PlanBlock", () => ({
-  PlanBlock: ({ projectId, title }: { projectId: string; title: string }) => (
-    <div data-testid="plan-block">
-      {projectId}:{title}
-    </div>
-  ),
+  PlanBlock: ({ projectId, title }: { projectId: string; title: string }) => {
+    const { messages } = useStudioChat();
+    return (
+      <div data-testid="plan-block">
+        {projectId}:{title}
+        {messages.map((m, i) => (
+          <p key={i}>{m.text}</p>
+        ))}
+      </div>
+    );
+  },
 }));
 vi.mock("@/workspace/blocks/ReadingBlock", () => ({ ReadingBlock: () => <div data-testid="reading-block" /> }));
-vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: () => <div data-testid="writing-block" /> }));
+vi.mock("@/workspace/blocks/WritingBlock", () => ({
+  WritingBlock: () => {
+    const { messages } = useStudioChat();
+    return (
+      <div data-testid="writing-block">
+        {messages.map((m, i) => (
+          <p key={i}>{m.text}</p>
+        ))}
+      </div>
+    );
+  },
+}));
 vi.mock("@/workspace/blocks/ReferencePanel", () => ({ ReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: () => <div data-testid="review-block" /> }));
 vi.mock("@/studio/reading/ReadingRoom", () => ({ ReadingRoom: () => <div data-testid="reading-room" /> }));
@@ -54,9 +80,14 @@ vi.mock("@/workspace/api/workspace", () => ({
   getWorkspace: (...args: unknown[]) => getWorkspace(...args),
   getStudioState: (...args: unknown[]) => getStudioState(...args),
   coach: (...args: unknown[]) => coach(...args),
+  // Every scenario here is an already-`started` project (fakeStudioState
+  // default), so the Task 6 opening never fires and 开始 never renders — these
+  // are unused no-op stand-ins, kept only so the module shape matches.
+  coachOpening: vi.fn(),
+  coachStart: vi.fn(),
   putProposal: (...args: unknown[]) => putProposal(...args),
   getPlan: (...args: unknown[]) => getPlan(...args),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "", reply: "", card: null })),
@@ -102,6 +133,10 @@ function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", w
     widthTier: widthTier ?? (openTool === "chat" ? "chat" : "half"),
     reference: [] as never[],
     updatedAtTurn: 0,
+    // Every scenario in THIS file is a resumed (already-started) project — the
+    // Task 6 start-gate itself (a not-started brand-new project) has its own
+    // dedicated test file (StudioStartGate.test.tsx).
+    started: true,
   };
 }
 
@@ -109,7 +144,15 @@ function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", w
 function fakeReply(
   narrate: string,
   openTool: OpenTool,
-  extra: { note?: unknown; card?: unknown; question?: unknown } = {},
+  extra: {
+    note?: unknown;
+    card?: unknown;
+    question?: unknown;
+    // Task 7 · hidden-subagent post-hoc acknowledgments (generate_plan /
+    // maybeCompactBackstop ran silently during this turn).
+    planGenerated?: boolean;
+    compacted?: boolean;
+  } = {},
 ) {
   return {
     narrate,
@@ -118,6 +161,8 @@ function fakeReply(
     card: extra.card ?? null,
     question: extra.question ?? null,
     reviewRequested: false,
+    planGenerated: extra.planGenerated ?? false,
+    compacted: extra.compacted ?? false,
   };
 }
 
@@ -474,5 +519,98 @@ describe("WorkspaceContainer", () => {
     );
     // The chip clears once confirmed.
     expect(screen.queryByRole("button", { name: "加入探索图谱" })).not.toBeInTheDocument();
+  });
+
+  // Task 7 · hidden-subagent post-hoc acknowledgments: `generate_plan` and the
+  // backstop compaction run silently during the awaited turn (no per-phase
+  // SSE) — a reply flagging either appends a one-line SubagentHint AFTER
+  // 印记's own narrate line, never a second chat exchange.
+  it("a reply with planGenerated:true appends the 已整理研究计划 hint after 印记's narrate line", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("我把研究计划列出来了。", "chat", { planGenerated: true }));
+    render(<WorkspaceContainer initialProjectId="pplan" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "帮我理一下研究计划");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("我把研究计划列出来了。")).toBeInTheDocument();
+    expect(await screen.findByText("subagent 已整理研究计划")).toBeInTheDocument();
+
+    // Order: narrate first, then the hint line (DOM order).
+    const narrate = screen.getByText("我把研究计划列出来了。");
+    const hint = screen.getByText("subagent 已整理研究计划");
+    expect(narrate.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("a reply with compacted:true appends the 已整理较早的对话 hint", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("继续说说看。", "chat", { compacted: true }));
+    render(<WorkspaceContainer initialProjectId="pcompact" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "接着之前聊的");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("继续说说看。")).toBeInTheDocument();
+    expect(await screen.findByText("已整理较早的对话")).toBeInTheDocument();
+  });
+
+  it("a plain reply (no planGenerated/compacted) shows no subagent hint line", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("好的。", "chat"));
+    render(<WorkspaceContainer initialProjectId="pplain" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "你好");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("好的。")).toBeInTheDocument();
+    expect(screen.queryByText("subagent 已整理研究计划")).toBeNull();
+    expect(screen.queryByText("已整理较早的对话")).toBeNull();
+  });
+
+  // Task 7 (review fix round 1) · the brief's required "coach thread is
+  // identical when toggling 提案/管理/写作" case: 印记 is ONE continuous thread
+  // across these rooms — the hoisted `studioMessages` store must not reset or
+  // reload when the manual switcher swaps which room is mounted. Sends a real
+  // turn while chat-first, then manually toggles across 管理(plan) → 写作
+  // (writing) → 提案(forming), asserting the SAME message content (both the
+  // student's turn and 印记's reply) is still present after every switch —
+  // via the mocked PlanBlock/WritingBlock above, which read the identical
+  // `useStudioChat()` store the real rooms portal their coach from.
+  it("keeps the SAME coach thread content when switching 管理 ↔ 写作 ↔ 提案 (one hoisted thread, no reload)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("我们先理一下你的目标。", "chat"));
+    render(<WorkspaceContainer initialProjectId="pswitch" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "我想聊聊研究目标");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 管理 (plan room mounts; getPlan best-effort refresh already resolved
+    // above so the switcher/room are settled by the time we click).
+    await userEvent.click(screen.getByRole("button", { name: "管理" }));
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 写作 (a DIFFERENT mounted component; same underlying thread).
+    await userEvent.click(screen.getByRole("button", { name: "写作" }));
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // → 提案 (back to PlanBlock, forming phase) — still the same content.
+    await userEvent.click(screen.getByRole("button", { name: "提案" }));
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
+    expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
+    expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
+
+    // No second coach call happened from any of the room switches — the
+    // thread was never re-fetched/reloaded, just re-displayed.
+    expect(coach).toHaveBeenCalledTimes(1);
   });
 });

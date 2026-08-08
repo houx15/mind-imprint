@@ -32,10 +32,17 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 // Shared field chrome: border mk-input-border, radius 8 (mk-xs), focus =
 // accent border + focus ring, error = danger border + danger bg. Exactly one
 // border-color utility and one background utility per state.
+//
+// Focus treatment note (Task 9): `focus-visible:ring-mk-accent/15` never
+// rendered — every mk color is a CSS variable, and Tailwind's JIT can't
+// alpha-mix a var() color, so any `mk-*/NN` opacity modifier emits NO CSS.
+// `ring-mk-accent-100` is a solid token (no opacity modifier), so it
+// actually paints a soft accent-tinted ring; the per-state border color
+// (accent/danger, see fieldStateClasses below) already renders correctly.
 const FIELD_BASE =
   "w-full rounded-mk-xs text-mk-body text-mk-ink transition-colors duration-[120ms] ease-mk " +
   "placeholder:text-[#B8ADA2] outline-none " +
-  "focus-visible:ring-[3px] focus-visible:ring-mk-accent/15 " +
+  "focus-visible:ring-2 focus-visible:ring-mk-accent-100 " +
   "disabled:cursor-not-allowed disabled:text-mk-muted";
 
 function fieldStateClasses(hasError: boolean): string {

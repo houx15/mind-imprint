@@ -54,9 +54,13 @@ vi.mock("@/workspace/api/workspace", () => ({
     widthTier: "half" as const,
     reference: [] as never[],
     updatedAtTurn: 0,
+    // Task 6 (start gate): this shell suite exercises an already-resumed
+    // project (the switcher/room chrome itself), not the gate — started:true
+    // keeps the pre-existing tabs-render-immediately behavior.
+    started: true,
   })),
   getPlan: vi.fn(async () => []),
-  getCoachHistory: vi.fn(async () => []),
+  getCoachHistory: vi.fn(async () => ({ messages: [], hasMore: false, recap: null, nextCursor: null })),
   postProjectSummary: vi.fn(async () => ""),
   patchReference: vi.fn(async () => ({})),
   // ReferencePanel (writing room's left sub-pane) fetches these eagerly on
