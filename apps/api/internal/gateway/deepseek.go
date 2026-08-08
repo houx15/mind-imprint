@@ -81,18 +81,15 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// Chaperone tier turns OFF v4's "thinking" phase (陪练走中档模型可降级). The
-	// reasoning phase is the dominant latency — measured ~77% of the completion
-	// budget, 8.5s→2.5s with it off — while the model still emits clean,
-	// well-formed JSON, so the coach/plan/compact turns run ~3× faster. The
-	// flagship eval tier (review/reflection/assessment) keeps thinking ON (the
-	// param is omitted, which is v4-pro's default) for evaluation depth
-	// (评估走旗舰模型绝不降级). An empty tier also keeps thinking on — only an
-	// explicit chaperone downgrades. Anthropic ignores this (its own extended
-	// thinking is off by default).
-	if r.Tier == "chaperone" {
-		body["thinking"] = map[string]any{"type": "disabled"}
-	}
+	// NOTE: we measured disabling v4 "thinking" on the chaperone tier
+	// ({"thinking":{"type":"disabled"}}) — 2× faster and valid JSON, BUT it
+	// degraded the coach's STRUCTURED decisions: on a real journey it stopped
+	// advancing the stage, misclassified note sections, and never fired
+	// generate_plan even when asked (leaving the student unable to get a plan).
+	// The reasoning phase does real work for the orchestrator's tool choices, so
+	// thinking stays ON. The real perceived-latency lever is SSE-streaming the
+	// coach narrate, not the reasoning toggle. (Kept this note so we don't
+	// re-try the toggle blind.)
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}
