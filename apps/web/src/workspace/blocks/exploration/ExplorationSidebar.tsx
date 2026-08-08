@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { DigCandidate, ExplorationLead, LeadOrigin, Reference } from "@mind-imprint/contracts";
-import { RabbitHoleLoader } from "@/ui";
+import { SubagentHint } from "@/studio/ai/SubagentHint";
 
 // GVd · ONE stateful right sidebar for the 探索 view — the ONLY right panel here
 // (the separately-docked 印记·找资料 coach is gone; it now IS this sidebar's
@@ -420,8 +420,10 @@ function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {digging ? (
+          // Task 7 · this dig is the "reading-list search" HIDDEN subagent: a
+          // status line only, never a chat exchange.
           <div className="flex justify-center py-4">
-            <RabbitHoleLoader caption="印记在找相关论文……" />
+            <SubagentHint text="subagent 正在检索来源…" />
           </div>
         ) : digError ? (
           <p className="py-2 text-[14px] font-semibold text-mk-accent">刚才没接上，再试一次？</p>

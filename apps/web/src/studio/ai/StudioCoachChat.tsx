@@ -5,6 +5,7 @@ import { Icon } from "@/ui/Icon";
 import { ChatLog, type ChatMessage } from "./ChatLog";
 import { Composer } from "./Composer";
 import { withRecap } from "./RecapHint";
+import { SubagentHint } from "./SubagentHint";
 import { useStudioChat, type StudioChatMsg } from "./StudioChatContext";
 import { CardTurnChip } from "../../workspace/blocks/CardTurnChip";
 import { CoachProposal } from "../../workspace/blocks/CoachProposal";
@@ -232,25 +233,29 @@ function renderRich(text: string) {
 
 // StudioChatMsg[] → the shared ChatLog's ChatMessage[]. A card-turn (msg.card)
 // maps to a system-role node (no bubble chrome) so CardTurnChip is the whole
-// message; a quotedPart (就这一段) rides as a callout above the text. Mirrors
-// WritingBlock's mapper (the superset that handles both card + quotedPart).
+// message; a hint (msg.hint, Task 7) likewise maps to a system-role node
+// rendering a `SubagentHint` (done — these are post-hoc acknowledgments, not a
+// live spinner); a quotedPart (就这一段) rides as a callout above the text.
+// Mirrors WritingBlock's mapper (the superset that handles both card + quotedPart).
 export function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
       ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
-      : {
-          id: String(i),
-          role: m.role === "ai" ? "assistant" : "student",
-          node: (
-            <>
-              {m.quotedPart && (
-                <blockquote className="mb-1 rounded-mk-sm border-l-[3px] border-mk-peach bg-mk-peach-bg px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
-                  {m.quotedPart}
-                </blockquote>
-              )}
-              <span className="whitespace-pre-wrap">{renderRich(m.text)}</span>
-            </>
-          ),
-        },
+      : m.hint
+        ? { id: String(i), role: "system", node: <SubagentHint text={m.hint} done /> }
+        : {
+            id: String(i),
+            role: m.role === "ai" ? "assistant" : "student",
+            node: (
+              <>
+                {m.quotedPart && (
+                  <blockquote className="mb-1 rounded-mk-sm border-l-[3px] border-mk-peach bg-mk-peach-bg px-2.5 py-1.5 text-[12px] italic leading-snug text-mk-muted">
+                    {m.quotedPart}
+                  </blockquote>
+                )}
+                <span className="whitespace-pre-wrap">{renderRich(m.text)}</span>
+              </>
+            ),
+          },
   );
 }

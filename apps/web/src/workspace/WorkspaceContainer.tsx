@@ -375,6 +375,17 @@ export function WorkspaceContainer({
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
         setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+        // Task 7 · hidden-subagent post-hoc acknowledgments: `generate_plan`
+        // and the backstop compaction ran silently during this awaited turn
+        // (no per-phase SSE) — surface a one-line SubagentHint after 印记's
+        // narrate so the student sees SOMETHING happened, without a second chat
+        // exchange. Order: narrate first, then any hint lines.
+        if (reply.planGenerated) {
+          setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "subagent 已整理研究计划" }]);
+        }
+        if (reply.compacted) {
+          setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "已整理较早的对话" }]);
+        }
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
         // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call

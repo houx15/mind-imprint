@@ -22,7 +22,7 @@ vi.mock("@/workspace/api/workspace", () => ({
 }));
 
 import { getCoachHistory } from "@/workspace/api/workspace";
-import { StudioCoachChat } from "@/studio/ai/StudioCoachChat";
+import { StudioCoachChat, toChatMessages } from "@/studio/ai/StudioCoachChat";
 
 const mockGetCoachHistory = vi.mocked(getCoachHistory);
 
@@ -178,5 +178,58 @@ describe("StudioCoachChat · history pagination (Task 5)", () => {
     );
     expect(screen.queryByRole("button", { name: /载入更早的对话/ })).toBeNull();
     expect(screen.queryByText("我们之前聊到X")).toBeNull();
+  });
+});
+
+// Task 7 (hidden-subagent hints, 2026-08-08): a `StudioChatMsg` with `hint` set
+// maps to a system-role node rendering a `SubagentHint` (done) instead of a
+// chat bubble — this is how `sendStudioTurn`'s plan/compaction acknowledgments
+// (appended after 印记's narrate line) actually reach the thread.
+describe("toChatMessages · hint mapping (Task 7)", () => {
+  it("maps a message with `hint` to a system node rendering the hint text", () => {
+    const [msg] = toChatMessages([{ role: "ai", text: "", hint: "subagent 已整理研究计划" }]);
+    expect(msg!.role).toBe("system");
+    render(<>{msg!.node}</>);
+    expect(screen.getByText("subagent 已整理研究计划")).toBeInTheDocument();
+  });
+
+  it("a hint message renders inside the live thread (via StudioCoachChat) alongside a normal turn", async () => {
+    render(
+      <StudioChatContext.Provider
+        value={{
+          messages: [
+            { role: "student", text: "帮我整理一下研究计划" },
+            { role: "ai", text: "好的，我已经把计划列出来了。" },
+            { role: "ai", text: "", hint: "subagent 已整理研究计划" },
+          ],
+          setMessages: () => {},
+          sending: false,
+          setSending: () => {},
+          activeProjectIdRef: { current: "p1" },
+          sendStudioTurn: async () => true,
+          projectId: "p1",
+          pendingNote: null,
+          pendingCard: null,
+          confirmNote: () => {},
+          dismissNote: () => {},
+          openCard: () => {},
+          dismissCard: () => {},
+          pendingQuestion: null,
+          confirmQuestion: () => {},
+          dismissQuestion: () => {},
+          historyHasMore: false,
+          loadEarlier: () => {},
+          loadingEarlier: false,
+          started: true,
+          startJourney: async () => {},
+          starting: false,
+        }}
+      >
+        <StudioCoachChat recap={null} />
+      </StudioChatContext.Provider>,
+    );
+
+    expect(await screen.findByText("好的，我已经把计划列出来了。")).toBeInTheDocument();
+    expect(screen.getByText("subagent 已整理研究计划")).toBeInTheDocument();
   });
 });

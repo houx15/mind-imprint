@@ -118,7 +118,15 @@ function fakeStudioState(openTool: OpenTool, stage: Stage = "plan_generation", w
 function fakeReply(
   narrate: string,
   openTool: OpenTool,
-  extra: { note?: unknown; card?: unknown; question?: unknown } = {},
+  extra: {
+    note?: unknown;
+    card?: unknown;
+    question?: unknown;
+    // Task 7 · hidden-subagent post-hoc acknowledgments (generate_plan /
+    // maybeCompactBackstop ran silently during this turn).
+    planGenerated?: boolean;
+    compacted?: boolean;
+  } = {},
 ) {
   return {
     narrate,
@@ -127,6 +135,8 @@ function fakeReply(
     card: extra.card ?? null,
     question: extra.question ?? null,
     reviewRequested: false,
+    planGenerated: extra.planGenerated ?? false,
+    compacted: extra.compacted ?? false,
   };
 }
 
@@ -483,5 +493,54 @@ describe("WorkspaceContainer", () => {
     );
     // The chip clears once confirmed.
     expect(screen.queryByRole("button", { name: "加入探索图谱" })).not.toBeInTheDocument();
+  });
+
+  // Task 7 · hidden-subagent post-hoc acknowledgments: `generate_plan` and the
+  // backstop compaction run silently during the awaited turn (no per-phase
+  // SSE) — a reply flagging either appends a one-line SubagentHint AFTER
+  // 印记's own narrate line, never a second chat exchange.
+  it("a reply with planGenerated:true appends the 已整理研究计划 hint after 印记's narrate line", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("我把研究计划列出来了。", "chat", { planGenerated: true }));
+    render(<WorkspaceContainer initialProjectId="pplan" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "帮我理一下研究计划");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("我把研究计划列出来了。")).toBeInTheDocument();
+    expect(await screen.findByText("subagent 已整理研究计划")).toBeInTheDocument();
+
+    // Order: narrate first, then the hint line (DOM order).
+    const narrate = screen.getByText("我把研究计划列出来了。");
+    const hint = screen.getByText("subagent 已整理研究计划");
+    expect(narrate.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("a reply with compacted:true appends the 已整理较早的对话 hint", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("继续说说看。", "chat", { compacted: true }));
+    render(<WorkspaceContainer initialProjectId="pcompact" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "接着之前聊的");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("继续说说看。")).toBeInTheDocument();
+    expect(await screen.findByText("已整理较早的对话")).toBeInTheDocument();
+  });
+
+  it("a plain reply (no planGenerated/compacted) shows no subagent hint line", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    coach.mockResolvedValue(fakeReply("好的。", "chat"));
+    render(<WorkspaceContainer initialProjectId="pplain" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "你好");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("好的。")).toBeInTheDocument();
+    expect(screen.queryByText("subagent 已整理研究计划")).toBeNull();
+    expect(screen.queryByText("已整理较早的对话")).toBeNull();
   });
 });

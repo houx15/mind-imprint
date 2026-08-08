@@ -27,6 +27,7 @@ import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
+import { SubagentHint } from "@/studio/ai/SubagentHint";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
 // (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
@@ -536,8 +537,11 @@ export function ExplorationView({
               disabled={proposing}
               className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
             >
-              {proposing ? "印记在找关系…" : "让印记找找问题之间的关系"}
+              让印记找找问题之间的关系
             </button>
+            {/* Task 7 · the question-relation proposer is a HIDDEN subagent: a
+                status line while it runs, never a chat. */}
+            {proposing && <SubagentHint text="subagent 正在梳理问题关系…" />}
             {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
           </div>
         )}

@@ -21,12 +21,19 @@ import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal } fr
  * `StudioChatMsg` is the superset of the two rooms' former local `ChatMsg`
  * shapes: `card` (a card-turn chip) comes from both; `quotedPart` (就这一段) is
  * WritingBlock-only but harmless in the plan room (its mapper ignores it).
+ *
+ * `hint` (Task 7, hidden-subagent acknowledgments) marks a message as a
+ * transient `SubagentHint` line instead of a chat bubble — appended after
+ * 印记's narrate line when a turn's reply reports `planGenerated`/`compacted`.
+ * `toChatMessages` renders it as a `system`-role node (no bubble chrome),
+ * mirroring the `card` branch.
  */
 export type StudioChatMsg = {
   role: "ai" | "student";
   text: string;
   card?: CardTurnRef | null;
   quotedPart?: string;
+  hint?: string;
 };
 
 export type StudioChatValue = {
