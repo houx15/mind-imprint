@@ -22,9 +22,10 @@ import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
 import { StudioCardSheet } from "../studio/StudioCardSheet";
 import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
-import { Badge, Segmented } from "@/ui/feedback";
+import { Badge, Segmented, Tooltip } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
-import { Icon, BLOCK_META } from "./Icon";
+import { Icon } from "./Icon";
+import { RoomSwitcher } from "./RoomSwitcher";
 import { Directory } from "./Directory";
 import {
   getWorkspace,
@@ -310,7 +311,7 @@ export function WorkspaceContainer({
     if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
-  // The switcher's manual override (the Segmented stage switcher):
+  // The switcher's manual override (the RoomSwitcher stage switcher):
   // swap the room AND flag the takeover so the chosen room mounts even while
   // 印记 is keeping chat primary (or its status hasn't loaded / failed). Does
   // not change `studioState` — manual browsing never changes 印记's status.
@@ -919,8 +920,7 @@ export function WorkspaceContainer({
             only exists once the journey has actually started. */}
         {started && (
         <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
-          <Segmented
-            options={BLOCK_META.map((b) => ({ value: b.key, label: b.label }))}
+          <RoomSwitcher
             // While chat-only (印记 keeps the chat primary), `room` is the stale
             // interim default — highlighting it would falsely mark a segment the
             // student isn't on. Pass a non-matching value so NO segment lights up
@@ -1100,6 +1100,13 @@ function TopBar({
   workspace: WorkspaceProjection | null;
   onBack: () => void;
 }) {
+  // Task 8: the title is frequently truncated by the top bar's fixed width,
+  // and the project title is content the student needs to actually read —
+  // not just a hint. Hover/focus reveals it via `Tooltip` (+ a native
+  // `title` attr baseline for a no-JS fallback); a tap/click toggles full
+  // wrap in place so touch users (no hover) can reach it too.
+  const [titleExpanded, setTitleExpanded] = useState(false);
+  const title = workspace?.title || "未命名项目";
   return (
     <header className={cx("flex shrink-0 items-center gap-4 border-b border-mk-border bg-mk-paper px-6 py-3")}>
       <button
@@ -1115,7 +1122,27 @@ function TopBar({
         主页
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <h1 className="truncate text-mk-h2">{workspace?.title || "未命名项目"}</h1>
+        <Tooltip label={title} className="min-w-0">
+          <h1
+            role="button"
+            tabIndex={0}
+            aria-label="展开完整标题"
+            title={title}
+            onClick={() => setTitleExpanded((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setTitleExpanded((v) => !v);
+              }
+            }}
+            className={cx(
+              "cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+              titleExpanded ? "whitespace-normal break-words" : "truncate",
+            )}
+          >
+            {title}
+          </h1>
+        </Tooltip>
         <Badge tone="progress" className="shrink-0">
           {workspace?.qualification || "项目"}
         </Badge>

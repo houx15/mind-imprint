@@ -89,7 +89,12 @@ function ProjectTile({ project, onClick }: { project: ProjectListItem; onClick: 
         <div className="-mx-4 -mt-4 h-[120px] w-[calc(100%+2rem)] shrink-0 overflow-hidden rounded-t-mk-sm">
           <ProjectCover project={project} />
         </div>
-        <div className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink">{project.title || "未命名项目"}</div>
+        <div
+          title={project.title || "未命名项目"}
+          className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
+        >
+          {project.title || "未命名项目"}
+        </div>
         <Badge tone={STATUS_TONE[project.status]} className="self-start">
           {STATUS_LABEL[project.status]}
         </Badge>
