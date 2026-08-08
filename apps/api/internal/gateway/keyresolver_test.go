@@ -19,8 +19,8 @@ func TestKeyResolverPrefersDeepSeek(t *testing.T) {
 	if got.BaseURL != "https://api.deepseek.com/v1" {
 		t.Fatalf("baseURL = %q", got.BaseURL)
 	}
-	if got.Model != "deepseek-v4-flash" {
-		t.Fatalf("model = %q, want chaperone deepseek-v4-flash", got.Model)
+	if got.Model != "deepseek-v4-pro" {
+		t.Fatalf("model = %q, want chaperone deepseek-v4-pro", got.Model)
 	}
 	if got.APIKey != "sk-deepseek" {
 		t.Fatalf("apiKey not wired")

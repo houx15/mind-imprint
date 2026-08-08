@@ -19,16 +19,16 @@ var errNoProvider = errors.New("no LLM provider configured")
 // NewKeyResolver builds a platform-env resolver. DeepSeek is the default chat
 // provider; Anthropic is used only when DeepSeek is absent.
 //
-// The chaperone tier runs deepseek-v4-flash, NOT the flagship v4-pro (陪练走中
-// 档模型可降级). v4-pro is a reasoning model: it spends most of each turn on
-// hidden reasoning tokens, so the coach loop (which is buffered, one call per
-// student turn, plus an inline compaction call) ran ~20s/turn and climbed as
-// the history window filled. Flash is a non-reasoning model — far faster and
-// ~1/3 the cost — which is the right trade for the always-on chaperone. The
-// orchestrator's JSON envelope is defended by ParseOrchestratorOutput's
-// balanced-object salvage + the plain-prose fallback, so a less format-strict
-// model degrades gracefully. Evaluation stays on the flagship (NewEvalKeyResolver,
-// 评估走旗舰模型绝不降级).
+// The chaperone tier runs deepseek-v4-pro. We measured deepseek-v4-flash here
+// (cheaper, non-reasoning) hoping to cut coach latency — but it was a NET
+// REGRESSION on the orchestrator's JSON-envelope turn: without the reasoning
+// model's "reason silently, emit compact JSON" discipline, flash poured volume
+// into the visible output (4,000–7,000 completion tokens/turn vs v4-pro's
+// 600–1,100), pushing turns to 40–66s (vs ~20s) and, on the worst runaway,
+// truncating the envelope mid-JSON so it fell back to the canned line. v4-pro
+// is both faster in wall-clock AND better-formed for this task, so the
+// chaperone stays on it. The real latency lever is SSE-streaming the narrate
+// (perceived first-token latency), not the model tier.
 func NewKeyResolver(cfg config.Config) KeyResolver {
 	return func(_ context.Context) (Resolved, error) {
 		switch {
@@ -36,7 +36,7 @@ func NewKeyResolver(cfg config.Config) KeyResolver {
 			return Resolved{
 				Provider: "deepseek",
 				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-v4-flash",
+				Model:    "deepseek-v4-pro",
 				APIKey:   cfg.DeepSeekKey,
 				Tier:     "chaperone",
 			}, nil
