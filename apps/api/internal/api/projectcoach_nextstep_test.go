@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -48,5 +49,31 @@ func TestNextPlanStep(t *testing.T) {
 	allDone := []sqlc.PlanItem{{Title: "x", Tag: "write", Col: "done", Position: 0}}
 	if _, ok := nextPlanStep(allDone); ok {
 		t.Error("expected no step when every task is done")
+	}
+}
+
+func TestNextStepFor(t *testing.T) {
+	// framework: plan not yet → no step; plan exists → offer proposal.
+	if s := nextStepFor(agent.FlowFramework, false, false); s != nil {
+		t.Errorf("framework w/o plan should offer nothing, got %+v", s)
+	}
+	s := nextStepFor(agent.FlowFramework, true, false)
+	if s == nil || s.ToStatus != "proposal" || s.Surface != "writing" {
+		t.Errorf("framework w/ plan should offer proposal→writing, got %+v", s)
+	}
+	// proposal: only on finish_part → offer essay.
+	if s := nextStepFor(agent.FlowProposal, true, false); s != nil {
+		t.Errorf("proposal w/o finish should offer nothing, got %+v", s)
+	}
+	if s := nextStepFor(agent.FlowProposal, true, true); s == nil || s.ToStatus != "essay" {
+		t.Errorf("proposal w/ finish should offer essay, got %+v", s)
+	}
+	// essay: only on finish_part → offer review.
+	if s := nextStepFor(agent.FlowEssay, true, true); s == nil || s.ToStatus != "review" || s.Surface != "reflection" {
+		t.Errorf("essay w/ finish should offer review→reflection, got %+v", s)
+	}
+	// review: never offers.
+	if s := nextStepFor(agent.FlowReview, true, true); s != nil {
+		t.Errorf("review should offer nothing, got %+v", s)
 	}
 }

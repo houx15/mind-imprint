@@ -394,11 +394,12 @@ type orchestratorToolStore interface {
 // produces, alongside the mutated agent.StudioState applyOrchestratorTools
 // returns — everything orchestratorReplyDTO needs beyond narrate/directive.
 type orchestratorToolEffects struct {
-	Note            *noteProposalDTO
-	Question        *questionProposalDTO
-	Card            *cardProposalWireDTO
-	ReviewRequested bool
-	PlanGenerated   bool
+	Note                *noteProposalDTO
+	Question            *questionProposalDTO
+	Card                *cardProposalWireDTO
+	ReviewRequested     bool
+	PlanGenerated       bool
+	FinishPartRequested bool
 }
 
 // applyOrchestratorTools applies one orchestrator turn's emitted tool calls,
@@ -472,6 +473,16 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 			if args, aerr := agent.ProposeQuestionArgs(tc); aerr == nil && strings.TrimSpace(args.Text) != "" {
 				effects.Question = &questionProposalDTO{Text: args.Text}
 			}
+		case "open_reading":
+			// The status router's cross-cutting detour: open the reading room.
+			// Returns to the writing status when the student finalizes a source.
+			state.OpenTool = agent.ToolReading
+			state.WidthTier = agent.WidthForTool(agent.ToolReading)
+		case "finish_part":
+			// Student signals this writing part is done — the deterministic router
+			// (advanceStudioFlow) turns it into the one-tap nextStep to the next
+			// status. Per-doc finish persistence is Phase B.
+			effects.FinishPartRequested = true
 		}
 	}
 	return state, effects
@@ -542,6 +553,57 @@ func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, st
 		state.WidthTier = agent.WidthForTool(state.OpenTool)
 	}
 	return state, planGenerated
+}
+
+// nextStepDTO is the one-tap next-step the deterministic router offers when a
+// status milestone is reached (铁律②: 触发自动，打开由学生确认 — the student taps
+// to advance; the server never auto-advances the status). Surface is the room
+// that opens on advance; ToStatus is the FlowStatus code.
+type nextStepDTO struct {
+	Label    string `json:"label"`
+	ToStatus string `json:"toStatus"`
+	Surface  string `json:"surface"`
+}
+
+// advanceStudioFlow is the deterministic flow router: it runs the funnel
+// (stage floor + plan auto-gen) then, from the concrete project state, computes
+// the one-tap nextStep to the following status. It NEVER auto-advances the
+// status — it only offers. Transitions: framework (plan exists) → 写提案;
+// proposal (finish_part) → 写正文; essay (finish_part) → 复盘.
+func (a *API) advanceStudioFlow(ctx context.Context, projectID uuid.UUID, state agent.StudioState, effects orchestratorToolEffects) (agent.StudioState, *nextStepDTO, bool) {
+	state, planGenerated := a.reconcileStudioFunnel(ctx, projectID, state)
+	if !state.Started {
+		return state, nil, planGenerated
+	}
+	planExists := false
+	if items, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil {
+		planExists = len(items) > 0
+	}
+	next := nextStepFor(agent.StatusForStage(state.Stage), planExists, effects.FinishPartRequested)
+	return state, next, planGenerated
+}
+
+// nextStepFor is the pure transition decision (no DB): given the current
+// status, whether a plan exists, and whether the student asked to finish the
+// current part, return the one-tap next step to offer (or nil). Never offers a
+// transition the student hasn't earned (framework needs a plan; proposal/essay
+// need finish_part).
+func nextStepFor(status agent.FlowStatus, planExists, finishPart bool) *nextStepDTO {
+	switch status {
+	case agent.FlowFramework:
+		if planExists {
+			return &nextStepDTO{Label: "写研究提案", ToStatus: string(agent.FlowProposal), Surface: string(agent.ToolWriting)}
+		}
+	case agent.FlowProposal:
+		if finishPart {
+			return &nextStepDTO{Label: "开始写正文", ToStatus: string(agent.FlowEssay), Surface: string(agent.ToolWriting)}
+		}
+	case agent.FlowEssay:
+		if finishPart {
+			return &nextStepDTO{Label: "进入复盘", ToStatus: string(agent.FlowReview), Surface: string(agent.ToolReflection)}
+		}
+	}
+	return nil
 }
 
 // postCoachOpening runs 印记's real-AI opening welcome — the very first thing
