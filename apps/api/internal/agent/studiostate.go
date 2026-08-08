@@ -81,6 +81,7 @@ type StudioState struct {
 	WidthTier     WidthTier      `json:"widthTier"`
 	Reference     []ReferenceRef `json:"reference"`
 	UpdatedAtTurn int            `json:"updatedAtTurn"`
+	Started       bool           `json:"started"`
 }
 
 func DefaultStudioState() StudioState {
@@ -90,5 +91,6 @@ func DefaultStudioState() StudioState {
 		WidthTier:     WidthChat,
 		Reference:     []ReferenceRef{},
 		UpdatedAtTurn: 0,
+		Started:       false,
 	}
 }
