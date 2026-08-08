@@ -40,9 +40,9 @@ type planGenItem struct {
 	Days  int32  `json:"days"`
 }
 
-const planGenSystem = `你是「印记」。学生刚把研究项目的开题四问填好（目标/缘由/活动与时间/资源）。请据此拟一份可执行的项目计划：5 到 9 个任务，覆盖「读—写—回顾」的完整节奏，落在大约 18 天的时间线上。
+const planGenSystem = `你是「印记」。学生刚把研究项目的「大框架」四件事讨论清楚（目标/缘由/活动与时间/资源）——这只是研究方向的框架，还不是正式提案。请据此拟一份可执行的完整项目计划，覆盖一个研究项目从提案到成稿的真实节奏：先写一份完整的研究提案，再读文献并溯源、找论点并收集支撑证据、搭提纲并构建论证结构、写正文，最后整稿体检与复盘。5 到 9 个任务，落在大约 21 天的时间线上。
 只输出一个 JSON 数组，每个元素形如 {"title":"...","tag":"read|write|review","stage":"...","start":<第几天,整数>,"days":<持续天数,整数>}。
-要求：title 用中文、具体可动手；tag 只能是 read/write/review 三者之一，且三类都要有；stage 用「阶段一 · 研究」「阶段二 · 写作」这样的中文分段；start 从 0 起、按时间递增，days ≥ 1。不要输出数组以外的任何文字、解释或代码块标记。`
+要求：必须包含一个「写研究提案」类任务（tag=write，尽量排在最前）；title 用中文、具体可动手；tag 只能是 read/write/review 三者之一，且三类都要有；stage 用「阶段一 · 提案」「阶段二 · 研究」「阶段三 · 写作」这样的中文分段；start 从 0 起、按时间递增，days ≥ 1。不要输出数组以外的任何文字、解释或代码块标记。`
 
 // postPlanGenerate reads the proposal, refuses an empty kick-off (422
 // proposal_empty), then one-shot-generates + persists the plan. Spend endpoint:
@@ -248,9 +248,11 @@ func parsePlanItems(text string) []planGenItem {
 // when the model is unavailable or unparseable.
 func defaultPlanItems() []planGenItem {
 	return []planGenItem{
-		{Title: "通读并溯源关键资料", Tag: "read", Stage: "阶段一 · 研究", Start: 0, Days: 4},
-		{Title: "梳理论点与证据提纲", Tag: "write", Stage: "阶段一 · 研究", Start: 4, Days: 3},
-		{Title: "写第一版正文草稿", Tag: "write", Stage: "阶段二 · 写作", Start: 8, Days: 5},
-		{Title: "回顾修订并检查反例", Tag: "review", Stage: "阶段二 · 写作", Start: 14, Days: 3},
+		{Title: "写一份完整的研究提案", Tag: "write", Stage: "阶段一 · 提案", Start: 0, Days: 3},
+		{Title: "通读并溯源关键文献", Tag: "read", Stage: "阶段二 · 研究", Start: 3, Days: 4},
+		{Title: "梳理论点、收集支撑证据", Tag: "write", Stage: "阶段二 · 研究", Start: 7, Days: 3},
+		{Title: "搭建提纲与论证结构", Tag: "write", Stage: "阶段三 · 写作", Start: 10, Days: 2},
+		{Title: "写第一版正文草稿", Tag: "write", Stage: "阶段三 · 写作", Start: 12, Days: 5},
+		{Title: "整稿体检并复盘修订", Tag: "review", Stage: "阶段三 · 写作", Start: 17, Days: 3},
 	}
 }

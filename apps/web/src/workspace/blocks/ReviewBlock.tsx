@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Mirror, Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { Composer } from "@/studio/ai/Composer";
 import { ApiError } from "../../api/client";
 import { finishProject } from "../../api/projects";
@@ -480,13 +481,15 @@ type RevMsg = { role: "ai" | "student"; text: string; card?: CardTurnRef | null 
 // carrying only `node` — ChatLog's system row has no bubble
 // background/padding, letting `CardTurnChip` be the whole message (its own
 // content-first accent chip, never raw compiled text) instead of nesting
-// inside a second bubble. Plain turns keep their text as-is (no **bold**
-// markup in this thread, unlike PlanBlock's forming chat).
+// inside a second bubble. An AI turn's text renders through the shared
+// `ChatMarkdown` (bold/lists/links/code); a student turn stays plain text.
 function toChatMessages(chat: RevMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
       ? { id: String(i), role: "system", node: <CardTurnChip card={m.card} /> }
-      : { id: String(i), role: m.role === "ai" ? "assistant" : "student", text: m.text },
+      : m.role === "ai"
+        ? { id: String(i), role: "assistant", node: <ChatMarkdown text={m.text} /> }
+        : { id: String(i), role: "student", text: m.text },
   );
 }
 

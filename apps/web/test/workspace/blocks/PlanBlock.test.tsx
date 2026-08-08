@@ -151,31 +151,29 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(await screen.findByText("我想研究中国的碳排放")).toBeInTheDocument();
   });
 
-  it("P2b: the 生成项目计划 button is GONE — 印记 triggers generation via the generate_plan tool now, not a button", async () => {
+  it("Round 3: reframed as research-framing — no 让印记看看我的开题/导出开题报告 buttons, DimFields still work", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={FILLED_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
-    await screen.findByRole("button", { name: "让印记看看我的开题" });
+    await screen.findByText("先搭好研究的大框架");
 
+    // The old two-button footer (印记's 开题 review + a .docx export) is gone —
+    // 提案/forming is framing chat now, not a proposal draft with an export.
+    expect(screen.queryByRole("button", { name: /让印记看看我的开题/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /导出开题报告/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /生成项目计划/ })).toBeNull();
-    // DimFields, the review action and the export still work — this is chrome
-    // removal, not a forming-room gutting.
-    expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /导出开题报告/ })).toBeInTheDocument();
+    // DimFields still work — this is chrome removal, not a forming-room gutting.
     expect(screen.getByRole("textbox", { name: /^目标/ })).toBeInTheDocument();
   });
 
-  it("P2a Tier-1 strip: keeps 让印记看看我的开题, drops the redundant 聊聊计划/写开题报告/中EN chrome", async () => {
+  it("Round 3: retitled eyebrow/h1/subtitle read as research-framing, and the old Tier-1 chrome stays gone", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
-    await screen.findByRole("button", { name: "让印记看看我的开题" });
+    await screen.findByText("先搭好研究的大框架");
 
-    // Kept (a direct review request stays working).
-    expect(screen.getByRole("button", { name: "让印记看看我的开题" })).toBeInTheDocument();
-    // The optional 开题报告 export stays reachable as a direct action (成品可导出
-    // 带走) — killing 写开题报告 dropped only the transition-nudge, not the export.
-    expect(screen.getByRole("button", { name: /导出开题报告/ })).toBeInTheDocument();
+    expect(screen.getByText("立项 · 先想清楚再动手")).toBeInTheDocument();
+    expect(screen.getByText("把这几件事聊清楚，计划会据此长出来。")).toBeInTheDocument();
 
     // Killed Tier-1 chrome — 印记 cues these instead.
     expect(screen.queryByRole("button", { name: "聊聊计划" })).toBeNull();
@@ -251,5 +249,29 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
     expect(screen.queryByRole("button", { name: "查看我的题目" })).toBeNull();
     expect(screen.queryByRole("button", { name: "收起" })).toBeNull();
     expect(screen.queryByRole("button", { name: "进入 →" })).toBeNull();
+  });
+
+  // Round 3, Part 3: 管理 used to portal NOTHING into the shared AiPanel slot
+  // (a blank 印记 panel) — it now portals the SAME `StudioCoachChat` every
+  // other room shows (mirrors ReadingBlock's `useStudioAiSlot`+`createPortal`
+  // contract), reading the ONE hoisted thread — not a second conversation.
+  it("Round 3: portals the shared StudioCoachChat (the one continuous 印记 thread) into the AiPanel slot", async () => {
+    renderWithAiSlot(
+      <PlanBlock
+        projectId="p1"
+        title="中国是否让地球更可持续？"
+        qualification="拓展论文 EE"
+        proposal={FILLED_PROPOSAL}
+        createdAt="2026-08-01T00:00:00Z"
+        phase="working"
+        refreshWorkspace={() => {}}
+      />,
+      [{ role: "ai", text: "我们上次聊到判断尺度。", card: null }],
+    );
+    // The hoisted store's existing thread shows via the portaled StudioCoachChat
+    // — proof it's the SAME conversation, not an empty/second panel.
+    expect(await screen.findByText("我们上次聊到判断尺度。")).toBeInTheDocument();
+    // The shared Composer (StudioCoachChat's own) is present too.
+    expect(screen.getByPlaceholderText("和印记说说你的项目……（Shift+Enter 换行）")).toBeInTheDocument();
   });
 });

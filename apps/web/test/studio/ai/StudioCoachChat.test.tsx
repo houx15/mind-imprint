@@ -181,6 +181,30 @@ describe("StudioCoachChat · history pagination (Task 5)", () => {
   });
 });
 
+// Round 3, Part 1: an AI turn's `text` now renders through the shared
+// `ChatMarkdown` (bold/lists/links), not the old `**bold**`-only `renderRich`
+// — a student turn stays plain text (she types prose, not markup).
+describe("toChatMessages · markdown mapping (Round 3)", () => {
+  it("renders an AI turn's markdown as real elements (list item + link + strong)", () => {
+    const [msg] = toChatMessages([
+      { role: "ai", text: "- a\n- b\n\n访问[这里](https://e.com)看看\n\n**重点**别忘了" },
+    ]);
+    expect(msg!.role).toBe("assistant");
+    render(<>{msg!.node}</>);
+    expect(screen.getByText("a").tagName).toBe("LI");
+    expect(screen.getByRole("link", { name: "这里" })).toHaveAttribute("href", "https://e.com");
+    expect(screen.getByText("重点").tagName).toBe("STRONG");
+  });
+
+  it("keeps a student turn as plain text — markdown syntax is never mis-rendered", () => {
+    const [msg] = toChatMessages([{ role: "student", text: "我用了 **不是加粗** 和 - 不是列表" }]);
+    expect(msg!.role).toBe("student");
+    render(<>{msg!.node}</>);
+    expect(screen.getByText("我用了 **不是加粗** 和 - 不是列表")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).toBeNull();
+  });
+});
+
 // Task 7 (hidden-subagent hints, 2026-08-08): a `StudioChatMsg` with `hint` set
 // maps to a system-role node rendering a `SubagentHint` (done) instead of a
 // chat bubble — this is how `sendStudioTurn`'s plan/compaction acknowledgments

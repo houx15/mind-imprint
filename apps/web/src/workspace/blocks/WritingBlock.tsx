@@ -10,6 +10,7 @@ import { Icon } from "../Icon";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
+import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
@@ -1765,7 +1766,9 @@ const PANEL_LABEL: Record<"outline" | "snippets" | "draft", string> = {
 // as its own callout ABOVE the turn's text, inside the same `node` — ChatLog
 // has no separate above-bubble slot, so the callout renders inside the
 // bubble; peach (not mk-accent) keeps it visually distinct from the
-// surrounding accent-tinted student bubble.
+// surrounding accent-tinted student bubble. An AI turn's text renders through
+// the shared `ChatMarkdown` (bold/lists/links/code); a student turn stays
+// plain text — she types prose, not markup.
 function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
   return chat.map((m, i) =>
     m.card
@@ -1780,7 +1783,11 @@ function toChatMessages(chat: StudioChatMsg[]): ChatMessage[] {
                   {m.quotedPart}
                 </blockquote>
               )}
-              <span className="whitespace-pre-wrap">{m.text}</span>
+              {m.role === "ai" ? (
+                <ChatMarkdown text={m.text} />
+              ) : (
+                <span className="whitespace-pre-wrap">{m.text}</span>
+              )}
             </>
           ),
         },
