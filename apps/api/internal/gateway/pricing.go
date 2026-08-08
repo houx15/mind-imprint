@@ -10,8 +10,10 @@ import (
 // Unpriced models yield ok=false so callers persist a NULL cost rather than a
 // wrong number. Update when adding a model.
 var priceTable = map[string]struct{ in, out float64 }{
-	// Both tiers (chaperone + flagship) name deepseek-v4-pro; cache-miss prices
-	// (the conservative choice — cannot under-report spend).
+	// Chaperone (coach/plan/compact/course) runs deepseek-v4-flash; the flagship
+	// eval tier stays deepseek-v4-pro. Cache-miss prices per DeepSeek's published
+	// USD table (the conservative choice — cannot under-report spend).
+	"deepseek/deepseek-v4-flash":         {0.14, 0.28},
 	"deepseek/deepseek-v4-pro":           {0.435, 0.87},
 	"anthropic/claude-3-5-sonnet-latest": {3.00, 15.00},
 }
