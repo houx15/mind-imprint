@@ -13,7 +13,7 @@ export function TextAreaField({ field, value, onChange }: FieldProps<F>) {
         rows={field.rows ?? 2}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full resize-y rounded-[10px] border border-mk-input bg-mk-input-bg px-3 py-2.5 text-sm leading-relaxed text-mk-ink outline-none"
+        className="mt-2 w-full resize-y rounded-mk-sm border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body leading-relaxed text-mk-ink placeholder:text-mk-faint outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 focus-visible:border-mk-accent transition-colors"
       />
     </label>
   );

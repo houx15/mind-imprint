@@ -36,16 +36,17 @@ export interface ComposerProps {
 // ~5 lines at mk-body's 14px/1.6 line-height, plus vertical padding.
 const MAX_TEXTAREA_PX = 140;
 
-// Focus treatment note (Task 9): `focus-visible:ring-mk-accent/15` never
+// Focus treatment note (Round 2): `focus-visible:ring-mk-accent/15` never
 // rendered — Tailwind's JIT can't alpha-mix a CSS-variable color, so any
-// `mk-*/NN` opacity modifier emits NO CSS. `ring-mk-accent-100` is a solid
-// token (no opacity modifier) so it actually paints a soft accent-tinted
+// `mk-*/NN` opacity modifier emits NO CSS. `ring-mk-accent-200` is a solid
+// token (no opacity modifier) so it actually paints a visible accent-tinted
 // ring; `focus-visible:border-mk-accent` gives the border itself a
-// branded state too. Verified with a tailwind build.
+// branded state too. This matches the standard focus ring used app-wide
+// (see ui/forms.tsx `FIELD_BASE`). Verified with a tailwind build.
 const TEXTAREA_BASE =
   "flex-1 resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface " +
   "px-3 py-2 text-mk-body text-mk-ink outline-none transition-colors duration-[120ms] ease-mk " +
-  "placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-100 " +
+  "placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
   "disabled:cursor-not-allowed disabled:text-mk-muted";
 
 const TRAILING_BUTTON_BASE =

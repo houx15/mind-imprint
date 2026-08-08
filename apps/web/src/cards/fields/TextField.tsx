@@ -12,7 +12,7 @@ export function TextField({ field, value, onChange }: FieldProps<F>) {
         aria-label={field.label}
         value={(value as string) ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-[10px] border border-mk-input bg-mk-input-bg px-3 py-2.5 text-sm text-mk-ink outline-none"
+        className="mt-2 w-full rounded-mk-sm border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink placeholder:text-mk-faint outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 focus-visible:border-mk-accent transition-colors"
       />
     </label>
   );

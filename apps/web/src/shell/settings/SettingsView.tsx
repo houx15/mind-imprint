@@ -117,7 +117,7 @@ export function SettingsView({
                   onClick={() => setAccent(preset.id)}
                   className={cx(
                     "flex flex-col items-center gap-1.5 rounded-mk-sm p-2 transition-colors duration-[120ms] ease-mk",
-                    "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
                     selected ? "bg-mk-accent-50" : "bg-transparent",
                   )}
                 >
@@ -163,7 +163,7 @@ export function SettingsView({
         <button
           type="button"
           onClick={onLogout}
-          className="mt-8 inline-flex items-center gap-2 rounded-mk-sm px-3 py-2 text-mk-body font-medium text-mk-danger hover:bg-mk-danger-bg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent/15"
+          className="mt-8 inline-flex items-center gap-2 rounded-mk-sm px-3 py-2 text-mk-body font-medium text-mk-danger hover:bg-mk-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         >
           <Icon icon={LogOut} size={17} />
           退出登录
