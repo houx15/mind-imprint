@@ -64,4 +64,12 @@ describe("Composer", () => {
     render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
     expect(screen.getByRole("button", { name: "发送" })).toBeDisabled();
   });
+
+  it("textarea carries body-size text and a focus ring class that actually renders (Task 9 — mk-*/NN opacity modifiers emit no CSS)", () => {
+    render(<Composer value="" onChange={() => {}} onSend={() => {}} />);
+    const textarea = screen.getByRole("textbox");
+    expect(textarea.className).toContain("text-mk-body");
+    expect(textarea.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(textarea.className).not.toContain("ring-mk-accent/15");
+  });
 });

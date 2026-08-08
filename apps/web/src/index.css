@@ -37,7 +37,29 @@
 body { background: var(--mk-paper); color: var(--mk-ink);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",system-ui,sans-serif; }
 
-/* scrollbar: hidden until .scrolling on a scroll container (spec §6) */
+/* Global themed scrollbar (Task 9): every scroll region — not just ones
+   opted into `.mk-scroll` — should read as design-system, not the raw OS
+   default. Thin, rounded, subtle neutral thumb (--mk-faint) on a transparent
+   track; `background-clip: padding-box` + a transparent border insets the
+   WebKit thumb off the track edges for a slimmer look. This is the base;
+   `.mk-scroll` below layers its own hide-until-scrolling + accent-on-scroll
+   behavior on top for the surfaces that opt into that treatment. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mk-faint) transparent;
+}
+*::-webkit-scrollbar { width:10px; height:10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--mk-faint);
+  border-radius:999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--mk-secondary); background-clip: padding-box; }
+
+/* scrollbar: hidden until .scrolling on a scroll container (spec §6) —
+   opt-in accent variant layered over the global default above. */
 .mk-scroll { scrollbar-width: none; }
 .mk-scroll::-webkit-scrollbar { width:8px; height:8px; }
 .mk-scroll::-webkit-scrollbar-thumb { background:transparent; border-radius:999px; }

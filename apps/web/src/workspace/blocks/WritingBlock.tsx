@@ -1450,7 +1450,7 @@ function DraftPane({
                     onScroll={() => setSelPop(null)}
                     readOnly={locked}
                     placeholder="在这里写你的草稿……（支持 Markdown）"
-                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-border p-5 font-sans text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
+                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-input-border p-5 font-sans text-mk-body leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
                   />
                 )
               ) : (

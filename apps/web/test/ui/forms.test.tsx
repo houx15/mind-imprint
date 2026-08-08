@@ -36,6 +36,14 @@ describe("Input", () => {
     render(<Input value="" onChange={() => {}} />);
     expect(screen.getByRole("textbox").className).toContain("border-mk-input-border");
   });
+
+  it("carries body-size text and a focus ring class that actually renders (Task 9 — mk-*/NN opacity modifiers emit no CSS)", () => {
+    render(<Input value="" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("text-mk-body");
+    expect(input.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(input.className).not.toContain("ring-mk-accent/15");
+  });
 });
 
 describe("Textarea", () => {
@@ -45,6 +53,14 @@ describe("Textarea", () => {
     expect(screen.getByText("太短了")).toBeInTheDocument();
     await userEvent.type(screen.getByRole("textbox"), "x");
     expect(onChange).toHaveBeenCalledWith("x");
+  });
+
+  it("carries body-size text and a focus ring class that actually renders (Task 9)", () => {
+    render(<Textarea value="" onChange={() => {}} />);
+    const textarea = screen.getByRole("textbox");
+    expect(textarea.className).toContain("text-mk-body");
+    expect(textarea.className).toContain("focus-visible:ring-mk-accent-100");
+    expect(textarea.className).not.toContain("ring-mk-accent/15");
   });
 });
 
