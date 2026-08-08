@@ -318,6 +318,45 @@ func buildOrchestratorRequest(spineProjection string, state StudioState, history
 	return gateway.ChatRequest{Messages: messages}
 }
 
+// BuildStatusRequest assembles the per-status LLM request: the status's SHORT
+// system prompt (not the mega-prompt), the continuous history, and a final user
+// turn carrying the spine projection + current stage/open tool. Mirrors
+// buildOrchestratorRequest but swaps the posture for def.SystemPrompt.
+func BuildStatusRequest(def StatusDef, spineProjection string, state StudioState, history []ChatTurn) gateway.ChatRequest {
+	messages := make([]gateway.ChatMessage, 0, len(history)+2)
+	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: def.SystemPrompt})
+	for _, t := range history {
+		role := gateway.RoleUser
+		if t.Role == "assistant" {
+			role = gateway.RoleAssistant
+		}
+		messages = append(messages, gateway.ChatMessage{Role: role, Content: t.Content})
+	}
+	messages = append(messages, gateway.ChatMessage{
+		Role:    gateway.RoleUser,
+		Content: spineProjection + "\n\n当前阶段：" + string(state.Stage) + "，当前打开：" + string(state.OpenTool),
+	})
+	return gateway.ChatRequest{Messages: messages}
+}
+
+// FilterToolsForStatus drops any tool the model emitted that this status does
+// not permit — the enforcement half of progressive disclosure. Even if the fast
+// model hallucinates a tool outside its subset (e.g. generate_plan while
+// writing), it never takes effect.
+func FilterToolsForStatus(dec OrchestratorDecision, def StatusDef) OrchestratorDecision {
+	allowed := make(map[string]bool, len(def.Tools))
+	for _, t := range def.Tools {
+		allowed[t] = true
+	}
+	kept := make([]OrchestratorToolCall, 0, len(dec.Tools))
+	for _, tc := range dec.Tools {
+		if allowed[tc.Name] {
+			kept = append(kept, tc)
+		}
+	}
+	return OrchestratorDecision{Narrate: dec.Narrate, Tools: kept}
+}
+
 // ProposeOrchestratorTurn makes up to two LLM calls for a student turn (a
 // retry on a parse failure) and returns the parsed decision. The returned
 // usage is the SUM across every attempt actually made — attempt 0's tokens

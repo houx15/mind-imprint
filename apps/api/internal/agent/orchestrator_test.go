@@ -221,3 +221,43 @@ func TestClaimsNoteRecording(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterToolsForStatus(t *testing.T) {
+	reg := StatusRegistry()
+	dec := OrchestratorDecision{
+		Narrate: "x",
+		Tools: []OrchestratorToolCall{
+			{Name: "propose_note", Args: json.RawMessage(`{"section":"objective","value":"q"}`)},
+			{Name: "generate_plan", Args: json.RawMessage(`{}`)},
+			{Name: "open_tool", Args: json.RawMessage(`{"tool":"plan"}`)},
+		},
+	}
+	// framework permits propose_note only (of these three).
+	got := FilterToolsForStatus(dec, reg[FlowFramework])
+	if len(got.Tools) != 1 || got.Tools[0].Name != "propose_note" {
+		t.Fatalf("framework filter: want [propose_note], got %+v", got.Tools)
+	}
+	// essay does NOT permit propose_note → dropped to zero.
+	essayDec := OrchestratorDecision{Tools: []OrchestratorToolCall{
+		{Name: "propose_note", Args: json.RawMessage(`{"section":"objective","value":"q"}`)},
+	}}
+	if got := FilterToolsForStatus(essayDec, reg[FlowEssay]); len(got.Tools) != 0 {
+		t.Fatalf("essay should drop propose_note, got %+v", got.Tools)
+	}
+	// essay permits finish_part.
+	fin := OrchestratorDecision{Tools: []OrchestratorToolCall{{Name: "finish_part", Args: json.RawMessage(`{}`)}}}
+	if got := FilterToolsForStatus(fin, reg[FlowEssay]); len(got.Tools) != 1 {
+		t.Fatalf("essay should keep finish_part, got %+v", got.Tools)
+	}
+}
+
+func TestBuildStatusRequest_UsesStatusPrompt(t *testing.T) {
+	reg := StatusRegistry()
+	req := BuildStatusRequest(reg[FlowEssay], "主题：X", DefaultStudioState(), []ChatTurn{{Role: "user", Content: "hi"}})
+	if len(req.Messages) < 2 {
+		t.Fatal("expected system + turns")
+	}
+	if req.Messages[0].Content != reg[FlowEssay].SystemPrompt {
+		t.Error("system message should be the essay status prompt")
+	}
+}
