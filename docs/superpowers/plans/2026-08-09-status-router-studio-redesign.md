@@ -126,12 +126,72 @@
 
 ---
 
-## Phase B — Multi-document writing (outline; plan in its own pass when A lands)
+## Phase B — Multi-document writing
 
-- Migration: add `doc_kind TEXT DEFAULT 'essay'` to `edit_buffer`, `draft_snapshot`; new `writing_finish(project_id, doc_kind, finished_at)`; backfill `project.writing_finished_at` → an `essay` finish row.
-- REST `doc` param on `/buffer`, `/snapshots`, `/finish-writing`, review; active doc derived from status (proposal→proposal doc, essay→essay doc).
-- Frontend: proposal doc = prose surface (textarea+markdown); essay doc keeps 大纲/片段/正文; per-doc 完成; the other doc preserved on switch.
-- Acceptance: real-frontend run writes proposal AND essay as distinct preserved documents.
+**Goal:** proposal and essay become distinct, separately-preserved documents. The writing room's active doc follows the status (`proposal_writing`/`proposal_review` → proposal doc; `body_writing` → essay doc); each doc has its own buffer, snapshots, and 完成 milestone. The proposal renders as a plain prose surface (textarea + Markdown preview); the essay keeps 大纲/片段/正文.
+
+**Data-model decision (settled):** add `doc_kind` to `edit_buffer` + `draft_snapshot`; replace the scalar `project.writing_finished_at` with a `writing_finish(project_id, doc_kind)` table (backfill the existing finish as an `essay` row, then DROP the column — the Go compiler then flags every reader for me). All INTERNAL reads that feed evaluation (studio load, assessment draft, review mirror draft, `finishProject` gate) bind to the **essay** doc = the final paper. The frontend derives the active doc from `studioState.stage` (a 4-line mirror of the collapse) and passes `?doc=` on every writing REST call. `完成` for a doc = `finishWriting(doc)` then advance status (proposal→essay, essay→review) via the existing `coachAdvance` — one student tap (铁律②).
+
+### Task B1: Data model — migration 0061 + per-doc queries + all Go callers
+
+**Files:**
+- Create: `apps/api/internal/store/migrations/0061_writing_doc_kind.sql`
+- Create: `apps/api/internal/store/queries/writing_finish.sql`
+- Modify: `apps/api/internal/store/queries/writing.sql`, `apps/api/internal/store/queries/project.sql` (remove `SetProjectWritingFinished`/`ClearProjectWritingFinished`)
+- Regenerate: `apps/api/internal/store/sqlc/*` (via `cd apps/api && CGO_ENABLED=0 go tool sqlc generate`)
+- Modify (compile-fix all callers): `apps/api/internal/api/writing.go`, `workspace_write.go`, `project_writing_finish.go`, `project_finish.go`, `projects.go`, `workspace_review.go`, `assessment.go`, `apps/api/internal/studio/load.go`
+
+**Interfaces:**
+- Produces sqlc: `UpsertEditBuffer(project_id, doc_kind, content)`, `GetEditBuffer(project_id, doc_kind)`, `InsertDraftSnapshot(project_id, doc_kind, seq, content, span_index)`, `GetLatestSnapshot(project_id, doc_kind)`, `NextSnapshotSeq(project_id, doc_kind)`, `GetSnapshot(id, project_id)` UNCHANGED; new `SetWritingFinish(project_id, doc_kind)` (upsert `finished_at=now()`), `ClearWritingFinish(project_id, doc_kind)`, `GetWritingFinish(project_id, doc_kind)` (:one → `finished_at`), `ListWritingFinish(project_id)` (:many → doc_kind, finished_at).
+- All handler-level callers thread a `doc string` ("proposal"|"essay"); internal/eval callers pass `"essay"` verbatim.
+
+- [ ] **Step 1:** Write migration 0061 Up: `ALTER TABLE edit_buffer ADD COLUMN doc_kind text NOT NULL DEFAULT 'essay'`; same for `draft_snapshot`; drop+recreate the unique indexes to `(project_id, doc_kind)` and `(project_id, doc_kind, seq)`; `CREATE TABLE writing_finish(id uuid pk, project_id uuid fk cascade, doc_kind text, finished_at timestamptz default now())` + unique `(project_id, doc_kind)`; `INSERT INTO writing_finish(project_id,doc_kind,finished_at) SELECT id,'essay',writing_finished_at FROM project WHERE writing_finished_at IS NOT NULL`; `ALTER TABLE project DROP COLUMN writing_finished_at`. Down reverses (re-add column, copy essay finish back, drop table, restore indexes, drop columns).
+- [ ] **Step 2:** Rewrite `writing.sql` (add `doc_kind` param/filter to the 5 queries above); create `writing_finish.sql`; delete the two `*ProjectWritingFinished` queries from `project.sql`.
+- [ ] **Step 3:** `cd apps/api && CGO_ENABLED=0 go tool sqlc generate`.
+- [ ] **Step 4:** Fix every caller so the package compiles: writing.go (`putEditBuffer`/`commitSnapshot` read `doc` query param, default essay; word_budget node reconcile ONLY when doc==essay), workspace_write.go (`getDraft` reads `doc`), project_writing_finish.go (`finishWriting`/`reopenWriting` read `doc`, use `writing_finish`; the empty-draft guard reads the doc's buffer), project_finish.go (gate = `GetWritingFinish(essay)` valid), projects.go (`WritingFinished` = essay finish valid; add `WritingFinish struct{Proposal,Essay bool}`), workspace_review.go + assessment.go (`GetEditBuffer(...,"essay")`), studio/load.go (buffer + snapshot bound to "essay").
+- [ ] **Step 5:** Run `cd apps/api && go test ./internal/store/... ./internal/api/... ./internal/studio/...` (foreground, testcontainers). Fix per-doc-touching tests (any calling the changed queries/handlers).
+- [ ] **Step 6:** Commit `feat(writing): per-doc storage (doc_kind + writing_finish, migration 0061)`.
+
+### Task B2: Contracts + frontend API clients (doc param) + active-doc derive
+
+**Files:**
+- Modify: `packages/contracts/src/orchestrator.ts` (no StudioState change needed — derive on the frontend), `apps/web/src/api/writing.ts`, `apps/web/src/api/projects.ts`, `apps/web/src/workspace/api/workspace.ts`
+- Create: `apps/web/src/workspace/activeDoc.ts` (+ test)
+
+**Interfaces:**
+- Produces: `putBuffer(id, content, doc)`, `commitSnapshot(id, content, doc)`, `runDraftReview(id, content, voice, doc)`, `finishWriting(id, doc)`, `reopenWriting(id, doc)`, `getDraft(id, doc)` — all append `?doc=<doc>`; `export function activeDocForStage(stage: StudioStage): "proposal" | "essay"` (proposal_writing/proposal_review → proposal; else essay).
+- `WorkspaceProjection` (web) gains `writingFinish?: { proposal: boolean; essay: boolean }` mirroring the backend field.
+
+- [ ] **Step 1: Failing test** — `activeDoc.test.ts`: `activeDocForStage("proposal_writing")==="proposal"`, `("body_writing")==="essay"`, `("proposal_review")==="proposal"`, `("topic_discussion")==="essay"`.
+- [ ] **Step 2:** run vitest, fail.
+- [ ] **Step 3:** implement `activeDocForStage`; add the `doc` argument (default `"essay"`) + `?doc=` query to each client fn; add `writingFinish` to the web projection zod/type.
+- [ ] **Step 4:** run vitest + `tsc`, pass.
+- [ ] **Step 5:** commit `feat(web): doc-aware writing clients + activeDocForStage`.
+
+### Task B3: WritingBlock — proposal ProsePane + doc-aware essay + per-doc 完成 + advance
+
+**Files:**
+- Modify: `apps/web/src/workspace/blocks/WritingBlock.tsx`, `apps/web/src/workspace/WorkspaceContainer.tsx`, `apps/web/src/studio/ai/StudioChatContext.tsx`
+- Create: `apps/web/src/workspace/blocks/ProsePane.tsx` (+ test)
+
+**Interfaces:**
+- Consumes: `activeDocForStage`, the doc-aware clients, `coachAdvance`.
+- `WritingBlock` gains props `doc: "proposal" | "essay"` and `docFinished: boolean`; when `doc==="proposal"` it renders `<ProsePane>` (textarea bound to buffer(proposal) + Markdown preview toggle + 完成提案 button) and HIDES the 大纲/片段 tabs; when `doc==="essay"` it renders today's 大纲/片段/正文 unchanged.
+- Container: compute `activeDoc = activeDocForStage(studioState?.stage ?? "topic_discussion")`, pass `doc`, `docFinished = workspace.writingFinish?.[activeDoc]`; refactor `advanceToNextStep` to call a new `advanceStatusTo(toStatus)` and expose `advanceStatusTo` via `StudioChatContext` (used by 完成: proposal→"essay", essay→"review").
+- 完成 handler (both surfaces): `await finishWriting(id, doc)` → `await advanceStatusTo(nextStatus)`; lock the doc read-only when `docFinished`.
+
+- [ ] **Step 1: Failing test** — `ProsePane.test.tsx`: renders the textarea with initial content, typing calls `putBuffer(id, text, "proposal")` (debounced/mocked), the 完成 button is disabled when content is whitespace.
+- [ ] **Step 2:** run vitest, fail.
+- [ ] **Step 3:** implement ProsePane; wire WritingBlock doc-switch + per-doc 完成 + advance; add `advanceStatusTo` to container + context; update any WritingBlock/context test mocks (add `advanceStatusTo`, `doc`, `docFinished`).
+- [ ] **Step 4:** run vitest + `tsc`, pass.
+- [ ] **Step 5:** commit `feat(web): proposal prose surface + doc-aware writing room`.
+
+### Task B4: Real-frontend journey + deploy
+
+- [ ] Deploy `full` (migration 0061). Real Playwright walk on a FRESH project: 立项 four points → plan → 写研究提案 (prose surface, write proposal, 完成提案) → status advances to 写正文 (room flips to 大纲/片段/正文, proposal preserved) → write essay, 完成写作 → 复盘. Verify server-side both buffers exist distinctly (`GET /draft?doc=proposal` and `?doc=essay` differ). 0 canned fallbacks.
+- [ ] Update memory + plan; report.
+
+**Acceptance:** real-frontend run writes proposal AND essay as distinct preserved documents; evaluation reads the essay.
 
 ## Phase C — Polish (outline)
 
