@@ -27,16 +27,17 @@ export async function finishProject(id: string): Promise<{ status: ProjectStatus
   return { status: ProjectStatus.parse(raw.status) };
 }
 
-// #20 · the 完成写作 milestone. Locks the draft read-only and unlocks the 回顾
-// room. Idempotent server-side; 422 draft_empty when the draft has no content.
-export async function finishWriting(id: string): Promise<{ writingFinished: boolean }> {
-  return apiFetch<{ writingFinished: boolean }>(`/api/v1/projects/${id}/finish-writing`, { method: "POST" });
+// #20 · the 完成写作 milestone, now per-document (Phase B: `doc` selects the
+// proposal or essay). Locks that document read-only; the essay's finish unlocks
+// the 回顾 room. Idempotent server-side; 422 draft_empty when the draft is empty.
+export async function finishWriting(id: string, doc: "proposal" | "essay" = "essay"): Promise<{ writingFinished: boolean }> {
+  return apiFetch<{ writingFinished: boolean }>(`/api/v1/projects/${id}/finish-writing?doc=${doc}`, { method: "POST" });
 }
 
-// #20 (铁律②) · 重新打开写作 — reversible: clears the milestone so the draft is
-// editable again. 409 already_finalizing once the project is evaluating/done.
-export async function reopenWriting(id: string): Promise<{ writingFinished: boolean }> {
-  return apiFetch<{ writingFinished: boolean }>(`/api/v1/projects/${id}/reopen-writing`, { method: "POST" });
+// #20 (铁律②) · 重新打开写作 — reversible: clears the requested document's milestone
+// so it is editable again. 409 already_finalizing once the project is evaluating/done.
+export async function reopenWriting(id: string, doc: "proposal" | "essay" = "essay"): Promise<{ writingFinished: boolean }> {
+  return apiFetch<{ writingFinished: boolean }>(`/api/v1/projects/${id}/reopen-writing?doc=${doc}`, { method: "POST" });
 }
 
 export async function createProject(body: {

@@ -15,19 +15,26 @@ const SnapshotResp = z.object({
 });
 export type CommitSnapshotResult = { id: string; seq: number; wordCount: number; inBand: boolean };
 
+// WritingDocKind (Phase B) — which document a writing call targets. The proposal
+// (写研究提案) and the essay (写正文) are distinct documents; the active one is
+// derived from the studio status (see workspace/activeDoc.ts). Defaults to essay.
+export type WritingDocKind = "proposal" | "essay";
+
 // Silent-edit buffer autosave (Task 3's PUT /buffer) — student text only, no
-// entitlement gate, no model call. Fire on every debounced keystroke.
-export async function putBuffer(projectId: string, content: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/projects/${projectId}/buffer`, {
+// entitlement gate, no model call. Fire on every debounced keystroke. `doc`
+// selects the document (Phase B).
+export async function putBuffer(projectId: string, content: string, doc: WritingDocKind = "essay"): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/buffer?doc=${doc}`, {
     method: "PUT",
     body: JSON.stringify({ content }),
   });
 }
 
 // Mints an immutable draft snapshot from the posted content (Task 3's POST
-// /snapshots) — fails loud on schema drift, same posture as materials.ts.
-export async function commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/snapshots`, {
+// /snapshots) — fails loud on schema drift, same posture as materials.ts. `doc`
+// selects the document (Phase B).
+export async function commitSnapshot(projectId: string, content: string, doc: WritingDocKind = "essay"): Promise<CommitSnapshotResult> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/snapshots?doc=${doc}`, {
     method: "POST",
     body: JSON.stringify({ content }),
   });
@@ -67,8 +74,8 @@ export type DraftReviewResult = { items: ReviewItem[]; wordCount: number; inBand
 // refetch needed — the frame carries the persisted ReviewItem[]). Throws on the
 // stream's error frame. Never touches the draft — the advice is the student's to
 // act on (AI 克制: checks thinking/structure, doesn't rewrite).
-export async function runDraftReview(projectId: string, content: string, voice: ReviewVoice = "board"): Promise<DraftReviewResult> {
-  const snap = await commitSnapshot(projectId, content);
+export async function runDraftReview(projectId: string, content: string, voice: ReviewVoice = "board", doc: WritingDocKind = "essay"): Promise<DraftReviewResult> {
+  const snap = await commitSnapshot(projectId, content, doc);
   let items: ReviewItem[] = [];
   for await (const ev of orderReview(projectId, snap.id, voice)) {
     if (ev.type === "error") throw new ApiError(ev.code, ev.message, 0);

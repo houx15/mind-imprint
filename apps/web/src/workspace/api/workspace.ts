@@ -438,9 +438,10 @@ export async function getAnnotations(id: string): Promise<Annotation[]> {
 }
 
 // GET /draft — the current edit_buffer content ("" when there's no row yet).
-// Autosave goes through putBuffer (api/writing), not a fn here.
-export async function getDraft(id: string): Promise<string> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/draft`);
+// Autosave goes through putBuffer (api/writing), not a fn here. `doc` selects the
+// document (Phase B: proposal or essay).
+export async function getDraft(id: string, doc: "proposal" | "essay" = "essay"): Promise<string> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/draft?doc=${doc}`);
   return z.object({ content: z.string() }).parse(raw).content;
 }
 
