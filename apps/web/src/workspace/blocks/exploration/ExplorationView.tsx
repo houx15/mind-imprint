@@ -11,6 +11,7 @@ import type {
   Reference,
 } from "@mind-imprint/contracts";
 import { enterReading, pasteContent, NoReadableContentError, type SourceMeta } from "../../api/workspace";
+import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
 import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
@@ -464,6 +465,9 @@ export function ExplorationView({
       pastePrompt={pasteFor && selectedRef && pasteFor.refId === selectedRef.id ? { msg: pasteFor.msg, meta: pasteFor.meta } : undefined}
       pasteBusy={pasteBusy}
       onPaste={onEnterReading && selectedRef ? (text: string) => submitPaste(selectedRef, text) : undefined}
+      onSetEvidence={selectedRef ? (ev) => void setReferenceEvidence(projectId, selectedRef.id, ev).then(() => onLibraryChanged?.()) : undefined}
+      onSetTriage={selectedRef ? (tri) => void setReferenceTriage(projectId, selectedRef.id, tri).then(() => onLibraryChanged?.()) : undefined}
+      onArchive={selectedRef ? () => void archiveReference(projectId, selectedRef.id, !(selectedRef.archived ?? false)).then(() => onLibraryChanged?.()) : undefined}
     />
   );
 

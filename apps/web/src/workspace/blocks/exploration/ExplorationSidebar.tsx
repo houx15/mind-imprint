@@ -79,6 +79,12 @@ export type ExplorationSidebarProps = {
   pastePrompt?: { msg: string; meta?: PasteMeta };
   pasteBusy?: boolean;
   onPaste?: (text: string) => void;
+  // Slice 4a · 证据地图: set the selected paper's evidence note / 支持-反驳 nature /
+  // triage / archive. Operate on the currently-selected paper (ExplorationView
+  // knows its id). Absent when the sidebar isn't in the research stage.
+  onSetEvidence?: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
+  onSetTriage?: (triage: "" | "red" | "yellow") => void;
+  onArchive?: () => void;
 };
 
 export type PasteMeta = { title?: string; author?: string; year?: string; journal?: string; abstract?: string };
@@ -151,6 +157,9 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
           pastePrompt={pastePrompt}
           pasteBusy={pasteBusy}
           onPaste={onPaste}
+          onSetEvidence={props.onSetEvidence}
+          onSetTriage={props.onSetTriage}
+          onArchive={props.onArchive}
         />
       ) : (
         <QuestionMeta node={node} papers={papers} onSelectPaper={onSelectPaper} />
@@ -207,6 +216,109 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
   );
 }
 
+// EvidenceNote — slice 4a · a paper's 证据地图 facets, edited in the sidebar
+// (never on the graph). Nature (支持/反驳) + a structured note (key argument /
+// key evidence / where it can appear) + triage (must-read/to-decide) + archive.
+export function EvidenceNote({
+  reference,
+  onSetEvidence,
+  onSetTriage,
+  onArchive,
+}: {
+  reference: Reference;
+  onSetEvidence: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
+  onSetTriage: (triage: "" | "red" | "yellow") => void;
+  onArchive: () => void;
+}) {
+  const [argument, setArgument] = useState(reference.evidenceArgument ?? "");
+  const [finding, setFinding] = useState(reference.evidenceFinding ?? "");
+  const [placement, setPlacement] = useState(reference.evidencePlacement ?? "");
+  const nature = (reference.evidenceNature ?? "") as "" | "support" | "challenge";
+  const triage = (reference.triage ?? "") as "" | "red" | "yellow";
+  useEffect(() => {
+    setArgument(reference.evidenceArgument ?? "");
+    setFinding(reference.evidenceFinding ?? "");
+    setPlacement(reference.evidencePlacement ?? "");
+  }, [reference.id, reference.evidenceArgument, reference.evidenceFinding, reference.evidencePlacement]);
+
+  function saveNote(next: Partial<{ nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }>) {
+    onSetEvidence({ nature, argument, finding, placement, ...next });
+  }
+
+  return (
+    <div className="flex-none border-b border-mk-border px-4 py-3">
+      <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">证据笔记</p>
+
+      {/* triage — 必读 / 待定 */}
+      <div className="mt-2 flex items-center gap-1.5">
+        <span className="text-[12px] font-bold text-mk-faint">优先级</span>
+        <TriageDot label="必读" active={triage === "red"} color="bg-mk-danger" onClick={() => onSetTriage(triage === "red" ? "" : "red")} />
+        <TriageDot label="待定" active={triage === "yellow"} color="bg-mk-warning" onClick={() => onSetTriage(triage === "yellow" ? "" : "yellow")} />
+      </div>
+
+      {/* nature — 支持 / 反驳 */}
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <span className="text-[12px] font-bold text-mk-faint">对这个子问题</span>
+        <NatureChip label="支持" active={nature === "support"} tone="text-mk-success border-mk-success" onClick={() => saveNote({ nature: nature === "support" ? "" : "support" })} />
+        <NatureChip label="反驳/张力" active={nature === "challenge"} tone="text-mk-danger border-mk-danger" onClick={() => saveNote({ nature: nature === "challenge" ? "" : "challenge" })} />
+      </div>
+
+      <NoteField label="关键论点" value={argument} onChange={setArgument} onBlur={() => saveNote({ argument })} placeholder="这篇在说什么？" />
+      <NoteField label="关键证据" value={finding} onChange={setFinding} onBlur={() => saveNote({ finding })} placeholder="它拿出的数据/发现？" />
+      <NoteField label="可以用在" value={placement} onChange={setPlacement} onBlur={() => saveNote({ placement })} placeholder="论文里哪个部分？" />
+
+      <button
+        type="button"
+        onClick={onArchive}
+        className="mt-2.5 text-[12px] font-semibold text-mk-faint underline decoration-dotted hover:text-mk-accent"
+      >
+        {reference.archived ? "已归档 · 移回" : "归档（有点意思，但不太相关）"}
+      </button>
+    </div>
+  );
+}
+
+function TriageDot({ label, active, color, onClick }: { label: string; active: boolean; color: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] font-bold ${active ? "border-mk-accent bg-mk-accent-50 text-mk-accent" : "border-mk-border text-mk-faint"}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      {label}
+    </button>
+  );
+}
+
+function NatureChip({ label, active, tone, onClick }: { label: string; active: boolean; tone: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-2 py-0.5 text-[12px] font-bold ${active ? tone : "border-mk-border text-mk-faint"}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function NoteField({ label, value, onChange, onBlur, placeholder }: { label: string; value: string; onChange: (v: string) => void; onBlur: () => void; placeholder: string }) {
+  return (
+    <div className="mt-2.5">
+      <p className="text-[12px] font-bold text-mk-faint">{label}</p>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        rows={2}
+        placeholder={placeholder}
+        className="mt-1 w-full resize-none rounded-mk border border-mk-border bg-mk-paper px-2 py-1.5 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+      />
+    </div>
+  );
+}
+
 function PaperMeta({
   reference,
   node,
@@ -215,6 +327,9 @@ function PaperMeta({
   pastePrompt,
   pasteBusy,
   onPaste,
+  onSetEvidence,
+  onSetTriage,
+  onArchive,
 }: {
   reference: Reference | null;
   node: ExplorationLead;
@@ -223,6 +338,9 @@ function PaperMeta({
   pastePrompt?: { msg: string; meta?: PasteMeta };
   pasteBusy?: boolean;
   onPaste?: (text: string) => void;
+  onSetEvidence?: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
+  onSetTriage?: (triage: "" | "red" | "yellow") => void;
+  onArchive?: () => void;
 }) {
   const [pasteText, setPasteText] = useState("");
   useEffect(() => {
@@ -307,6 +425,14 @@ function PaperMeta({
           </button>
         )}
       </div>
+
+      {/* Slice 4a · the 证据笔记 (evidence note) lives here in the sidebar — never
+          on the graph. Present when the research-stage setters are wired. */}
+      {reference && onSetEvidence && onSetTriage && onArchive && (
+        <div className="mt-3 border-t border-mk-border pt-3">
+          <EvidenceNote reference={reference} onSetEvidence={onSetEvidence} onSetTriage={onSetTriage} onArchive={onArchive} />
+        </div>
+      )}
 
       {/* 422 fallback: the full text couldn't be fetched, so instead of a dead
           click we ask her to paste the body → pasteContent → straight into the
