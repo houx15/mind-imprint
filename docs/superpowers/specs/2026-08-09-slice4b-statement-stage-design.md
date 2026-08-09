@@ -77,17 +77,33 @@ The walk is **guided in the chat**, not by a heavy overlay. The concrete flow (u
 
 印记 keeps narrating the walk from there (finish the claims in order → 比较/讨论 → 面对反方观点 → 结论 → 论证结构). The heavy lifting per claim is a **`GuidedWritingCard` in 片段**.
 
-### The `GuidedWritingCard` (shared primitive — also retrofits 3a)
+### The `GuidedWritingCard` (a shared, configurable primitive — used by 3a AND 4b)
 
-Per `all-statuses.md §4/§6`, each part/claim is written in a **colorful card that carries its guidance AND its own writing surface** — not a guidance card floating above a shared draft. So 4b builds a shared `GuidedWritingCard`:
-- **Clear guidance** at top: the AI-generated guiding question for this claim (evidence / analysis / limitation / how it links to the next), applied to THIS claim, + an English example.
-- **A multi-line textarea that auto-grows** as the student writes (height increases with content; no fixed 6-row cage) — the student writes this claim's argument paragraph right here.
-- **Two buttons (§6):** **我依然有问题** → 印记 guides in the chat (fast); **我写好了** → 批注 on this claim's text (doc-keyed essay 批注, Pillar 0), surfaced in the left panel.
-- **写作卡 offer (§6):** a "需要帮你把论证搭起来吗？" affordance offering **PEE / toulmin / argument-map** (already summonable in the essay deck) — only on claim cards (§6: 写作卡 only needed here).
+Per `all-statuses.md §4/§6`, each part/claim is written in a **colorful card that carries its guidance AND its own writing surface** — not a guidance card floating above a shared draft. `GuidedWritingCard` is one reusable component; **3a (proposal parts) and 4b (essay claims) use the same card, injected with different content** (user). It is **configurable**:
 
-Each claim card = one snippet (the essay 片段 model): the card's text saves as that claim's snippet (`section` = the claim). This fits the existing `SnippetsPane`/`useSnippets` — a claim card is a snippet with guidance + an auto-growing textarea.
+```ts
+GuidedWritingCard props (injected per card):
+  guidance:   string                     // the guiding question / instruction (clear)
+  colorTheme: "accent" | …               // the card's color
+  example:    { content: string } | null // an example may or may not exist
+  value / onChange                        // bound to this card's text — a multi-line
+                                          //   textarea that AUTO-GROWS as the student writes
+  onStillStuck()                          // 我依然有问题 → 印记 guides in the chat (fast)
+  onDone()                                // 我写好了 → 批注 on this card's text (flagship)
+  cardOffer?: string[]                    // optional 写作卡 offer (essay claims: PEE/toulmin/argument-map)
+```
 
-> **3a reconciliation (flagged):** my 3a proposal guide put the guidance card *above the shared ProsePane* — the student writes the whole proposal in one textarea, diverging from §4's per-part "snippet writing frame". The `GuidedWritingCard` here is the correct model; **I'll refactor 3a's proposal parts to use it too** (each proposal part → a guided card with its own auto-growing textarea) so both match §4 — unless you'd rather leave 3a and only apply this to 4b.
+- The **auto-grow textarea** is the key fix (no fixed 6-row cage; height rises with content).
+- **写作卡 offer (§6):** only on essay claim cards (§6: 写作卡 only needed there) — "需要帮你把论证搭起来吗？" opens PEE / toulmin / argument-map (already summonable in the essay deck).
+
+### A step yields ONE OR MORE cards (user)
+
+A guide step is not 1:1 with a card — **one step may need several cards.** So the derive/generate layer maps a step → a list of `GuidedWritingCard` configs:
+- proposal `research-plan` step → one card per sub-question (3a already expands per sub-question — now each is a card with its own textarea).
+- essay `claim:*` → written one claim at a time; a claim step may be a single card, or several (e.g. 论点 / 证据+分析 / 局限) if the guidance splits — the generator decides, the surface renders the list.
+- Each card's text saves to its own store slot: proposal = a labeled section of the proposal buffer; essay = a snippet (`section` = the claim / part) via the existing `useSnippets`.
+
+**3a reconciliation (confirmed):** 3a's proposal guide currently puts a guidance card *above the shared ProsePane* — diverging from §4's per-part "snippet writing frame". Since `GuidedWritingCard` is the shared primitive, **3a's proposal parts are refactored to use it** (each part → its card(s) with an auto-growing textarea), so both surfaces match §4. This is a task in 4b-1.
 
 ### Track + endpoints
 
@@ -151,11 +167,11 @@ When the statement steps are done, a "正文写完了，去收尾" tap advances 
 - **Editing claims:** editable, with 印记 distinguishing rephrase (keep materials) from total change (warn: materials/writing inapplicable) + flagging un-claimable questions; total RQ change → reading. ✅
 - **反方观点:** a **dedicated `challenges` step** in the walk (not just cross-cutting cards — else it's skipped). ✅
 - **Endpoints:** reuse the proposal-track shape via `?doc=`, but doc-specific step derivation (proposal ≠ paper). ✅
-- **Split:** yes — **4b-1** (doc-key 批注 + essay track + outline seed + `GuidedWritingCard` + per-claim writing + the ready gate) then **4b-2** (写作卡 offer + synthesis/challenges/conclusion/结构 steps + claim-edit warning + statement→submission advance). ✅
+- **`GuidedWritingCard` is a shared configurable primitive** (guidance / color / example-or-none injected); 3a and 4b use the same card; **a step yields one or more cards**. ✅
+- **3a reconciliation:** confirmed — 3a's proposal parts are refactored onto `GuidedWritingCard` (a task in 4b-1). ✅
+- **Split:** yes — **4b-1** (doc-key 批注 + `GuidedWritingCard` primitive + retrofit 3a proposal parts + essay track + outline seed + ready gate + per-claim writing) then **4b-2** (写作卡 offer + synthesis/challenges/conclusion/结构 steps + claim-edit warning + statement→submission advance). ✅
 
-## Still open for you
-
-1. **3a reconciliation:** apply the `GuidedWritingCard` (guidance + per-part auto-growing textarea) back to **3a's proposal parts** too — so both match §4's per-part "snippet writing frame" — or leave 3a as-is and only build the correct model for the essay in 4b? *(I lean: reconcile 3a; it's the same primitive and 3a currently diverges from §4. If yes, it becomes a task in 4b-1.)*
+All design questions are resolved.
 
 ## Out of scope / follow-ups
 
