@@ -6,7 +6,12 @@ import type { ProposalGuideStep } from "@mind-imprint/contracts";
 function step(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
   return { key: "outline", title: "搭大纲", kind: "fixed", index: 0, total: 7, mode: "guided", started: true, subQuestions: [], card: { prompt: "调整大纲", example: "" }, steps: [], ...over };
 }
-const handlers = () => ({ onChange: vi.fn(), onStart: vi.fn(), onStillStuck: vi.fn(), onDone: vi.fn(), onNext: vi.fn(), onPrev: vi.fn(), onOfferCard: vi.fn() });
+const handlers = () => ({
+  onChange: vi.fn(), onStart: vi.fn(), onStillStuck: vi.fn(), onDone: vi.fn(), onNext: vi.fn(), onPrev: vi.fn(),
+  onOfferCard: vi.fn(),
+  onReviseClaim: vi.fn(async () => ({ verdict: { kind: "total_change" as const, why: "换了对象" }, applied: false })),
+  onClaimApplied: vi.fn(), onFinishStatement: vi.fn(),
+});
 
 describe("EssayStatementView", () => {
   it("ready gate shows the plan intro + starts the walk", () => {
@@ -34,5 +39,28 @@ describe("EssayStatementView", () => {
     expect(h.onOfferCard).toHaveBeenCalledWith("pee");
     fireEvent.click(screen.getByText("我写好了"));
     expect(h.onDone).toHaveBeenCalled();
+  });
+
+  it("the last step (论证结构) shows the completion gate → onFinishStatement", () => {
+    const h = handlers();
+    render(<EssayStatementView step={step({ key: "structure", title: "论证结构", index: 6, total: 7, card: { prompt: "写结构", example: "" } })} value="" {...h} />);
+    fireEvent.click(screen.getByText("完成正文陈述，进入成文"));
+    expect(h.onFinishStatement).toHaveBeenCalled();
+  });
+
+  it("outline step renders the editable claim list; 保存 → onReviseClaim; total_change shows 确定替换", async () => {
+    const h = handlers();
+    render(
+      <EssayStatementView
+        step={step({ key: "outline", subQuestions: [{ id: "a", text: "论点甲" }] })}
+        value=""
+        {...h}
+      />,
+    );
+    const input = screen.getByDisplayValue("论点甲") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "一个全新的问题" } });
+    fireEvent.click(screen.getByText("保存"));
+    expect(h.onReviseClaim).toHaveBeenCalledWith("a", "一个全新的问题", false);
+    expect(await screen.findByText("确定替换")).toBeTruthy();
   });
 });

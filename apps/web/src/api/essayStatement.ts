@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProposalGuideStep, DraftAnnotation } from "@mind-imprint/contracts";
+import { ProposalGuideStep, DraftAnnotation, ClaimRevisionVerdict } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 // essayStatement.ts — slice 4b · the essay statement-track client (reuses the
@@ -21,6 +21,22 @@ export async function advanceEssayStatement(projectId: string, dir: "next" | "pr
       body: JSON.stringify({ dir }),
     }),
   );
+}
+
+// reviseClaim — §133–134 · classify a sub-question edit (rephrase vs
+// total_change). confirm=false returns the verdict WITHOUT persisting (the
+// warning); confirm=true persists the new text.
+export async function reviseClaim(
+  projectId: string,
+  subQuestionId: string,
+  newText: string,
+  confirm: boolean,
+): Promise<{ verdict: ClaimRevisionVerdict; applied: boolean }> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/essay-statement/revise-claim`, {
+    method: "POST",
+    body: JSON.stringify({ subQuestionId, newText, confirm }),
+  });
+  return z.object({ verdict: ClaimRevisionVerdict, applied: z.boolean() }).parse(raw);
 }
 
 export async function reviewEssayPart(projectId: string, stepKey?: string): Promise<DraftAnnotation[]> {

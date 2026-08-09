@@ -44,9 +44,14 @@ export async function archiveReference(projectId: string, rid: string, archived 
 
 // The essay stage flip (§6 flexible advance): research → statement opens the
 // writing surface. The caller then re-applies studio state to switch rooms.
-export async function advanceEssayStage(projectId: string, stage: "statement" | "submission"): Promise<{ stage: string; surface: string }> {
+// claimId (slice 4b-2) deep-links the student onto that sub-question's claim step.
+export async function advanceEssayStage(
+  projectId: string,
+  stage: "statement" | "submission",
+  claimId?: string,
+): Promise<{ stage: string; surface: string }> {
   return apiFetch<{ stage: string; surface: string }>(`/api/v1/projects/${projectId}/essay-track/advance-stage`, {
     method: "POST",
-    body: JSON.stringify({ stage }),
+    body: JSON.stringify({ stage, ...(claimId ? { claimId } : {}) }),
   });
 }

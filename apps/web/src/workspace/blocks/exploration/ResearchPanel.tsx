@@ -51,11 +51,11 @@ export function ResearchPanel({ projectId, onAdvanced }: { projectId: string; on
     }
   }
 
-  async function advance() {
+  async function advance(claimId?: string) {
     if (advancing) return;
     setAdvancing(true);
     try {
-      await advanceEssayStage(projectId, "statement");
+      await advanceEssayStage(projectId, "statement", claimId);
       await onAdvanced();
     } catch {
       setAdvancing(false);
@@ -111,7 +111,7 @@ export function ResearchPanel({ projectId, onAdvanced }: { projectId: string; on
                     <button
                       type="button"
                       disabled={advancing}
-                      onClick={() => void advance()}
+                      onClick={() => void advance(sq.id)}
                       className="mt-1.5 rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
                     >
                       去写这条论点

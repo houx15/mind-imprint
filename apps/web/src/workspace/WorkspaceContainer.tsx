@@ -1163,6 +1163,7 @@ export function WorkspaceContainer({
                       onOpenReading={() => setRoom("reading")}
                       onAnnotationsChanged={() => setAnnotationsVersion((v) => v + 1)}
                       essayStage={studioState?.essayTrack?.stage}
+                      onStudioStateChanged={continueYinji}
                     />
                   );
                 })()}

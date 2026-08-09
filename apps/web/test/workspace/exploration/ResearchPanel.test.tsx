@@ -46,7 +46,8 @@ describe("ResearchPanel", () => {
     await waitFor(() => expect(reviewSubQuestion).toHaveBeenCalledWith("p1", "a"));
     const writeBtn = await screen.findByText("去写这条论点");
     fireEvent.click(writeBtn);
-    await waitFor(() => expect(advanceEssayStage).toHaveBeenCalledWith("p1", "statement"));
+    // deep-link: lands on THIS sub-question's claim step (sq id "a").
+    await waitFor(() => expect(advanceEssayStage).toHaveBeenCalledWith("p1", "statement", "a"));
     expect(onAdvanced).toHaveBeenCalled();
   });
 

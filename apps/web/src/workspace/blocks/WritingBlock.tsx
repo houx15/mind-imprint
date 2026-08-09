@@ -114,6 +114,7 @@ export function WritingBlock({
   onOpenReading,
   onAnnotationsChanged,
   essayStage,
+  onStudioStateChanged,
 }: {
   projectId: string;
   title: string;
@@ -148,6 +149,9 @@ export function WritingBlock({
   onAnnotationsChanged?: () => void;
   /** slice 4b · the essay stage; the statement guide shows when "statement". */
   essayStage?: string;
+  /** slice 4b-2 · re-assert 印记's studio state after the statement→submission
+   * advance so `essayStage` flips and the statement pane unmounts. */
+  onStudioStateChanged?: () => void;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -295,7 +299,7 @@ export function WritingBlock({
       {/* slice 4b · the guided statement walk (ready gate + per-claim cards),
           above the 大纲/片段/正文 tabs, when the essay is in the statement stage. */}
       {!isProposal && essayStage === "statement" && !locked && (
-        <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} />
+        <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
