@@ -1175,7 +1175,9 @@ export function WorkspaceContainer({
                 projectId={projectId}
                 proposal={workspace.proposal}
                 status={workspace.status}
-                writingFinished={workspace.writingFinished ?? false}
+                // slice 4c · gate on the ESSAY's own finish (the paper is the
+                // thing 回顾 reflects on), falling back to the legacy scalar.
+                writingFinished={workspace.writingFinish?.essay ?? workspace.writingFinished ?? false}
                 onFinished={backToAll}
               />
             )}

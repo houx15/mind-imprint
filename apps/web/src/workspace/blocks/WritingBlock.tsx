@@ -20,6 +20,7 @@ import { parseSections, serializeSections, sectionsFromOutline, newSection, type
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
 import { EssayStatementPane } from "./EssayStatementGuide";
+import { EssaySubmissionPane } from "./EssaySubmissionGuide";
 import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
@@ -300,6 +301,16 @@ export function WritingBlock({
           above the 大纲/片段/正文 tabs, when the essay is in the statement stage. */}
       {!isProposal && essayStage === "statement" && !locked && (
         <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
+      )}
+
+      {/* slice 4c · the guided submission walk (引言→结论→成文→润色) when the essay is
+          in the submission stage. 成文/润色 defer to the 正文 tab. */}
+      {!isProposal && essayStage === "submission" && !locked && (
+        <EssaySubmissionPane
+          projectId={projectId}
+          onGoToDraft={() => setTab("draft")}
+          onRequestFinish={() => void openFinish()}
+        />
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">

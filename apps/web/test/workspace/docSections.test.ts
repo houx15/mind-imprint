@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleGuidedDoc, partSectionKey } from "@/workspace/blocks/docSections";
+import { assembleGuidedDoc, assembleEssayDoc, partSectionKey } from "@/workspace/blocks/docSections";
 import type { StepRef } from "@mind-imprint/contracts";
 
 const steps: StepRef[] = [
@@ -22,5 +22,17 @@ describe("docSections", () => {
 
   it("empty when nothing written", () => {
     expect(assembleGuidedDoc(steps, {})).toBe("");
+  });
+
+  it("assembleEssayDoc joins parts by section in order, skipping empties", () => {
+    const parts = [
+      { section: "sub:intro", title: "引言" },
+      { section: "claim:a", title: "论点 1" },
+      { section: "synthesis", title: "比较 / 综合" },
+      { section: "sub:conclusion", title: "结论" },
+    ];
+    const doc = assembleEssayDoc(parts, { "sub:intro": "引言正文", "claim:a": "论点甲", synthesis: "  ", "sub:conclusion": "收束" });
+    expect(doc).toBe("## 引言\n引言正文\n\n## 论点 1\n论点甲\n\n## 结论\n收束");
+    expect(doc).not.toContain("比较 / 综合");
   });
 });

@@ -20,3 +20,17 @@ export function assembleGuidedDoc(steps: StepRef[], textByKey: Record<string, st
   }
   return blocks.join("\n\n");
 }
+
+// assembleEssayDoc — slice 4c · the 成文 step joins the written parts (引言 + each
+// claim in outline order + 综合 + 反方 + 结论) into one continuous draft. Each part
+// is a snippet keyed by its section; empty parts are skipped. The buffer stays the
+// single source (export/finish unchanged), like the proposal retrofit.
+export function assembleEssayDoc(parts: { section: string; title: string }[], textBySection: Record<string, string>): string {
+  const blocks: string[] = [];
+  for (const p of parts) {
+    const text = (textBySection[p.section] ?? "").trim();
+    if (text === "") continue;
+    blocks.push(`## ${p.title}\n${text}`);
+  }
+  return blocks.join("\n\n");
+}
