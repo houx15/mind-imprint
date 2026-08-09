@@ -89,6 +89,14 @@ type StudioState struct {
 	// Decouples "when the review runs" (note-confirm OR a coach turn) from "when
 	// it's shown" (the next coach turn).
 	PendingFrameworkVerdict *FrameworkVerdict `json:"pendingFrameworkVerdict,omitempty"`
+	// ProposalTrack (slice 3a) is the proposal document's guide-step track
+	// (free/guided mode + dynamic per-sub-question steps). Pointer so absence is
+	// distinguishable from a zero track; the essay track is slice 4.
+	ProposalTrack *WritingTrack `json:"proposalTrack,omitempty"`
+	// CounterpointsWaived (slice 3a, Finding 2) — the student chose to generate
+	// the plan without articulating a 反例. Lets frameworkReadyForPlan proceed
+	// while keeping the 反例 prompt non-blocking (铁律②). jsonb, no migration.
+	CounterpointsWaived bool `json:"counterpointsWaived,omitempty"`
 }
 
 func DefaultStudioState() StudioState {

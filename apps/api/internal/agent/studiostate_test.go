@@ -75,3 +75,46 @@ func TestStudioStateStartedDefault(t *testing.T) {
 		t.Fatal("legacy state must unmarshal Started=false")
 	}
 }
+
+func TestStudioState_ProposalTrackRoundTrip(t *testing.T) {
+	in := DefaultStudioState()
+	in.ProposalTrack = &WritingTrack{
+		Mode:         ModeGuided,
+		Started:      true,
+		StepIndex:    2,
+		SubQuestions: []SubQuestion{{ID: "a", Text: "q1"}},
+		StepGuides:   map[string]string{"understanding": "{}"},
+	}
+	in.CounterpointsWaived = true
+
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var out StudioState
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.ProposalTrack == nil {
+		t.Fatal("proposalTrack lost in round-trip")
+	}
+	if out.ProposalTrack.Mode != ModeGuided || out.ProposalTrack.StepIndex != 2 {
+		t.Fatalf("track fields wrong: %+v", out.ProposalTrack)
+	}
+	if len(out.ProposalTrack.SubQuestions) != 1 || out.ProposalTrack.SubQuestions[0].ID != "a" {
+		t.Fatalf("sub-questions lost: %+v", out.ProposalTrack.SubQuestions)
+	}
+	if !out.CounterpointsWaived {
+		t.Fatal("counterpointsWaived lost in round-trip")
+	}
+}
+
+func TestDefaultStudioState_NoTrack(t *testing.T) {
+	s := DefaultStudioState()
+	if s.ProposalTrack != nil {
+		t.Fatalf("default should have nil proposalTrack, got %+v", s.ProposalTrack)
+	}
+	if s.CounterpointsWaived {
+		t.Fatal("default should have counterpointsWaived=false")
+	}
+}
