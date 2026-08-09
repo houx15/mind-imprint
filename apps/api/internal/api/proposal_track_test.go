@@ -132,32 +132,5 @@ func TestProposalTrack_SubQuestionsExpandTrack(t *testing.T) {
 	}
 }
 
-func TestProposalTrack_ReviewReturnsVerdict(t *testing.T) {
-	// A provider whose reply is a verdict JSON exercises the review parse path.
-	verdict := gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `{"ready":true,"why":"这部分写清楚了","suggestions":["再点明一个争议点"]}`},
-		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 20, OutputTokens: 8}},
-		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
-	})
-	h, cookie, _ := proposalTrackHandler(t, verdict)
-	trackReq(t, h, cookie, "POST", "/proposal-track/mode", `{"mode":"guided"}`)
-	trackReq(t, h, cookie, "POST", "/proposal-track/start", "")
-
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+seedProjectID+"/proposal-track/review",
-		strings.NewReader(`{}`)), cookie))
-	if rr.Code != http.StatusOK {
-		t.Fatalf("review = %d — %s", rr.Code, rr.Body)
-	}
-	var v struct {
-		Ready       bool     `json:"ready"`
-		Why         string   `json:"why"`
-		Suggestions []string `json:"suggestions"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &v); err != nil {
-		t.Fatalf("decode verdict: %v — %s", err, rr.Body)
-	}
-	if !v.Ready || v.Why == "" {
-		t.Fatalf("verdict = %+v — %s", v, rr.Body)
-	}
-}
+// (The 我写好了 review now returns 批注, not a ReviewVerdict — covered by
+// TestProposalTrackReview_ReturnsAnnotations in proposal_annotations_test.go.)

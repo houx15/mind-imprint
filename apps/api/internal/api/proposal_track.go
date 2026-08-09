@@ -325,9 +325,10 @@ func (a *API) finishTrackWrite(w http.ResponseWriter, r *http.Request, projectID
 }
 
 // POST /projects/{id}/proposal-track/review {stepKey}
-// The "我写好了" interim: the flagship reviewer reads the proposal buffer against
-// the current step's guiding question and returns a ReviewVerdict. 3b upgrades
-// this to anchored, colored 批注.
+// The "我写好了" action (slice 3b): the flagship 批注 reviewer reads the proposal
+// buffer (focused on the current step) and returns layered colored 批注, which
+// the left panel renders view-only. (Slice 3a returned a chat-bubble
+// ReviewVerdict; that is superseded here.)
 func (a *API) reviewProposalPart(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -352,43 +353,17 @@ func (a *API) reviewProposalPart(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
-	if a.d.Provider == nil || a.d.EvalResolver == nil {
-		httpx.WriteJSON(w, http.StatusOK, reviewVerdictDTO{Ready: true, Why: "", Suggestions: []string{}})
-		return
-	}
-	resolved, rerr := a.d.EvalResolver(r.Context())
-	if rerr != nil {
-		httpx.WriteJSON(w, http.StatusOK, reviewVerdictDTO{Ready: true, Why: "", Suggestions: []string{}})
-		return
-	}
-
-	title := ""
-	if p, perr := a.d.Queries.GetProject(r.Context(), projectID); perr == nil {
-		title = p.Title
-	}
-	text, _ := a.d.Queries.GetEditBuffer(r.Context(), sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: string(agent.DocProposal)})
-	stepPrompt := ""
+	// Focus the reviewer on this step (its title + cached guiding question).
+	focus := cur.Title
 	if state.ProposalTrack.StepGuides != nil {
 		if cached := state.ProposalTrack.StepGuides[cur.Key]; cached != "" {
 			var c guideCardDTO
-			if json.Unmarshal([]byte(cached), &c) == nil {
-				stepPrompt = c.Prompt
+			if json.Unmarshal([]byte(cached), &c) == nil && c.Prompt != "" {
+				focus = cur.Title + "：" + c.Prompt
 			}
 		}
 	}
 
-	v, usage, verr := agent.ReviewProposalPart(r.Context(), a.d.Provider, resolved, agent.ProposalPartReviewInput{
-		Title: title, StepTitle: cur.Title, StepPrompt: stepPrompt, StudentText: text,
-	})
-	a.meterCall(r.Context(), projectID, resolved, "proposal_part_review", usage)
-	if verr != nil {
-		httpx.WriteJSON(w, http.StatusOK, reviewVerdictDTO{Ready: true, Why: "", Suggestions: []string{}})
-		return
-	}
-	sug := v.Suggestions
-	if sug == nil {
-		sug = []string{}
-	}
-	httpx.WriteJSON(w, http.StatusOK, reviewVerdictDTO{Ready: v.Ready, Why: v.Why, Suggestions: sug})
+	out := a.runDraftAnnotationReview(r.Context(), projectID, focus)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }
