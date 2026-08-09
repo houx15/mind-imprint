@@ -29,6 +29,8 @@ import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
+import { SearchGuidanceBox } from "./SearchGuidanceBox";
+import { NeedsResourcesBox } from "../NeedsResourcesBox";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
 // (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
@@ -523,6 +525,13 @@ export function ExplorationView({
           (so it grows with the viewport / full-screen mode instead of sitting in
           a short fixed box). */}
       <div className="flex-none px-6 pt-5 pb-3">
+        {/* slice 5 (§113/§115/§116) · the reading room's two aux boxes: 印记's
+            search-direction guidance, and the student's 还需要探索的 notes (here a
+            「去探索」 runs the note as a search). */}
+        <div className="mb-3 flex flex-col gap-2">
+          <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
+          <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
+        </div>
         {/* Task 8 (P2b) · the manual root-question input + 从笔记新建问题 picker
             are gone — 印记 now proposes questions in the chat (a confirm chip,
             Task 7), and confirming lands the lead here via the refresh nonce

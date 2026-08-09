@@ -4,6 +4,7 @@ import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
 import { getProposalAnnotations } from "../../api/proposalAnnotations";
 import { resolveReferences, type ResolvedRef } from "./referenceResolve";
+import { NeedsResourcesBox } from "./NeedsResourcesBox";
 
 /**
  * ReferencePanel — the writing stage's left "reference" sub-pane (agentic
@@ -55,11 +56,14 @@ export function ReferencePanel({
   onInsert,
   canInsert,
   annotationsVersion,
+  onOpenReading,
 }: {
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
   proposal: Proposal;
+  /** slice 5 · jump to the reading room from the 还需要探索的 box (§101). */
+  onOpenReading?: (note?: string) => void;
   /** P3 · insert a fragment into the draft at the caret (the fold of the old
    * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer. */
   onInsert?: (text: string) => void;
@@ -136,10 +140,14 @@ export function ReferencePanel({
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-mk-border bg-mk-surface">
       <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {/* slice 5 · the 还需要探索的 box is always available while writing (§101). */}
+        <div className="mb-4">
+          <NeedsResourcesBox projectId={projectId} onExplore={onOpenReading} />
+        </div>
         {loading ? (
           <p className="text-mk-body text-mk-faint">加载中…</p>
         ) : isEmpty ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="py-10">
             <EmptyState
               illustration="reading"
               title="还没有印记留下的参考"

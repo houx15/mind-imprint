@@ -101,6 +101,17 @@ type StudioState struct {
 	// statement → submission, §6). 4a lands "research"; nil until 完成提案 enters
 	// the essay. jsonb, no migration.
 	EssayTrack *EssayTrack `json:"essayTrack,omitempty"`
+	// ResourceNeeds (slice 5, §101/§115) — the student's "还需要探索的" box: free-text
+	// notes of things to look up, shared by the proposal writing page + reading
+	// room. jsonb, no migration.
+	ResourceNeeds []ResourceNeed `json:"resourceNeeds,omitempty"`
+}
+
+// ResourceNeed is one entry in the needs-resources box (slice 5).
+type ResourceNeed struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+	Done bool   `json:"done"`
 }
 
 // EssayStage is the essay's position in §6's three stages.

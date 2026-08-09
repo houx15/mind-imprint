@@ -43,3 +43,5 @@ export * from "./proposalGuide";
 export * from "./questionCard";
 export * from "./proposalAnnotation";
 export * from "./essayTrack";
+export * from "./resourceNeed";
+export * from "./searchGuidance";

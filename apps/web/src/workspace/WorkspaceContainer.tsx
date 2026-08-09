@@ -1136,6 +1136,7 @@ export function WorkspaceContainer({
                     onInsert={(t) => draftInsertRef.current?.(t)}
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
+                    onOpenReading={() => setRoom("reading")}
                   />
                 }
                 right={(() => {

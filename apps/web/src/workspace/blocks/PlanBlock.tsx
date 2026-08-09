@@ -433,7 +433,9 @@ function WorkingPhase(props: {
   // #14: anchor the plan timeline to real calendar dates. Fall back to today
   // when the project has no creation timestamp (older mocks).
   const anchor = useMemo(() => (createdAt ? new Date(createdAt) : new Date()), [createdAt]);
-  const [view, setView] = useState<PlanView>("kanban");
+  // §3 · the management page opens on the 甘特图 by default (the whole-plan recap
+  // view), then the student can switch to 看板 / 活动日志.
+  const [view, setView] = useState<PlanView>("gantt");
 
   // The board — seeded from a fresh 生成计划 when we arrive that way, otherwise
   // loaded on enter; mutated optimistically then reconciled.

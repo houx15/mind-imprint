@@ -226,7 +226,8 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
       />,
     );
 
-    expect(await screen.findByText("读：找反例")).toBeInTheDocument();
+    // §3 · opens on the 甘特图 by default (which strips the 读：/写：/省： prefix).
+    expect(await screen.findByText("找反例")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "看板" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "活动日志" }));
@@ -249,6 +250,9 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
       />,
     );
 
+    // Switch to 看板 (the card view) to check the Tier-1 strip drops the doorway.
+    expect(await screen.findByText("找反例")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "看板" }));
     expect(await screen.findByText("读：找反例")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "查看我的题目" })).toBeNull();
     expect(screen.queryByRole("button", { name: "收起" })).toBeNull();
