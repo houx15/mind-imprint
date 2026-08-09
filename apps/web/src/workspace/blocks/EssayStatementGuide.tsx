@@ -1,5 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
+import { useEssayStatement } from "./useEssayStatement";
+import { useSnippets } from "./WritingBlock";
+import { reviewEssayPart } from "../../api/essayStatement";
+import { useStudioChat } from "@/studio/ai/StudioChatContext";
 
 // EssayStatementGuide — slice 4b · the guided statement walk in the essay writing
 // room. Two presentational states (§6 + user):
@@ -116,5 +121,77 @@ export function EssayStatementView({
         />
       </div>
     </div>
+  );
+}
+
+// EssayStatementPane — the container: wires the statement track + per-step
+// snippet storage + coach + essay 批注. Each step's text is a snippet
+// (section = the step key); the outline/ready-gate steps carry no text.
+export function EssayStatementPane({
+  projectId,
+  onAnnotationsChanged,
+}: {
+  projectId: string;
+  onAnnotationsChanged?: () => void;
+}) {
+  const track = useEssayStatement(projectId);
+  const snip = useSnippets(projectId);
+  const { sendStudioTurn, openCard } = useStudioChat();
+  const [reviewing, setReviewing] = useState(false);
+
+  const step = track.step;
+  const stepKey = step?.key ?? "";
+  // The current step's snippet (section = the step key). Bound to the card.
+  const [text, setText] = useState("");
+  const snippetIdRef = useRef<string | null>(null);
+
+  // Re-seed the local text + snippet id when the step changes.
+  useEffect(() => {
+    const existing = snip.snippets.find((s) => s.section === stepKey);
+    snippetIdRef.current = existing?.id ?? null;
+    setText(existing?.text ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepKey]);
+
+  function onChange(v: string) {
+    setText(v);
+    if (snippetIdRef.current) {
+      snip.update(snippetIdRef.current, v);
+    } else {
+      snippetIdRef.current = snip.add(v, stepKey); // add once, then update
+    }
+  }
+
+  function onStillStuck() {
+    if (!step) return;
+    void sendStudioTurn(`我在写「${step.title}」这部分，还是有点卡，能带我想想吗？`);
+  }
+
+  async function onDone() {
+    if (!step) return;
+    setReviewing(true);
+    try {
+      await reviewEssayPart(projectId, step.key);
+      onAnnotationsChanged?.();
+    } catch {
+      /* best-effort */
+    } finally {
+      setReviewing(false);
+    }
+  }
+
+  return (
+    <EssayStatementView
+      step={step}
+      value={text}
+      onChange={onChange}
+      onStart={() => void track.start()}
+      onStillStuck={onStillStuck}
+      onDone={() => void onDone()}
+      onNext={() => void track.next()}
+      onPrev={() => void track.prev()}
+      onOfferCard={(cardId) => openCard(cardId)}
+      reviewing={reviewing}
+    />
   );
 }

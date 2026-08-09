@@ -1162,6 +1162,7 @@ export function WorkspaceContainer({
                       recap={historyRecap ?? summary}
                       onOpenReading={() => setRoom("reading")}
                       onAnnotationsChanged={() => setAnnotationsVersion((v) => v + 1)}
+                      essayStage={studioState?.essayTrack?.stage}
                     />
                   );
                 })()}

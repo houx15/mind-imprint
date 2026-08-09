@@ -118,8 +118,10 @@ describe("ReferencePanel", () => {
       />,
     );
 
-    expect(await screen.findByText("批注")).toBeInTheDocument();
-    expect(await screen.findByText("批注会在印记体检你的写作后出现。")).toBeInTheDocument();
+    // slice 4b · the essay writing stage shows the layered AI批注 group (view-only);
+    // empty → its calm line.
+    expect(await screen.findByText("AI批注")).toBeInTheDocument();
+    expect(await screen.findByText("批注会在印记看过你的写作后出现。")).toBeInTheDocument();
   });
 
   it("renders a curated annotation's criterion·band + text instead of the placeholder", async () => {

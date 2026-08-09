@@ -7,8 +7,10 @@ import { apiFetch } from "./client";
 
 const AnnotationsResp = z.object({ annotations: z.array(DraftAnnotation) });
 
-export async function getProposalAnnotations(projectId: string): Promise<DraftAnnotation[]> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/proposal-annotations`);
+// slice 4b · doc-scoped: proposal (default) or essay 批注.
+export async function getProposalAnnotations(projectId: string, doc: "proposal" | "essay" = "proposal"): Promise<DraftAnnotation[]> {
+  const q = doc === "essay" ? "?doc=essay" : "";
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/proposal-annotations${q}`);
   return AnnotationsResp.parse(raw).annotations;
 }
 

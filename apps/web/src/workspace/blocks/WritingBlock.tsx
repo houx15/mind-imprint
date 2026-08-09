@@ -19,6 +19,7 @@ import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProj
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
+import { EssayStatementPane } from "./EssayStatementGuide";
 import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
@@ -112,6 +113,7 @@ export function WritingBlock({
   recap,
   onOpenReading,
   onAnnotationsChanged,
+  essayStage,
 }: {
   projectId: string;
   title: string;
@@ -144,6 +146,8 @@ export function WritingBlock({
   onOpenReading?: (note?: string) => void;
   /** slice 3b · fired after a 批注 review so the left panel re-fetches. */
   onAnnotationsChanged?: () => void;
+  /** slice 4b · the essay stage; the statement guide shows when "statement". */
+  essayStage?: string;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -288,6 +292,12 @@ export function WritingBlock({
         </div>
       )}
 
+      {/* slice 4b · the guided statement walk (ready gate + per-claim cards),
+          above the 大纲/片段/正文 tabs, when the essay is in the statement stage. */}
+      {!isProposal && essayStage === "statement" && !locked && (
+        <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} />
+      )}
+
       <div className="relative flex min-h-0 flex-1 flex-col">
         {isProposal ? (
           <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
@@ -422,7 +432,7 @@ export type SnippetsHandle = {
   remove: (id: string) => void;
   setSection: (id: string, section: string | null) => void;
 };
-function useSnippets(projectId: string): SnippetsHandle {
+export function useSnippets(projectId: string): SnippetsHandle {
   const [snippets, setSnippets] = useState<Snip[]>([]);
   const ref = useRef<Snip[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -73,21 +73,18 @@ export function ReferencePanel({
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[] | null>(null);
-  // slice 3b · the proposal's layered colored 批注 (view-only). Only on a
-  // proposal stage; re-fetched when annotationsVersion changes.
+  // slice 3b/4b · the layered colored 批注 (view-only) for the active document —
+  // proposal on a proposal stage, essay otherwise. Re-fetched on annotationsVersion.
   const isProposalStage = PROPOSAL_VISIBLE_STAGES.includes(stage);
+  const annotationDoc: "proposal" | "essay" = isProposalStage ? "proposal" : "essay";
   const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
   useEffect(() => {
-    if (!isProposalStage) {
-      setProposalAnnos([]);
-      return;
-    }
     let cancelled = false;
-    void getProposalAnnotations(projectId)
+    void getProposalAnnotations(projectId, annotationDoc)
       .then((a) => { if (!cancelled) setProposalAnnos(a); })
       .catch(() => { if (!cancelled) setProposalAnnos([]); });
     return () => { cancelled = true; };
-  }, [projectId, isProposalStage, annotationsVersion]);
+  }, [projectId, annotationDoc, annotationsVersion]);
 
   // Lazily fetch library + snippets + annotations once — the panel is
   // context, not the main event, but it needs all three to resolve 印记's
@@ -159,7 +156,11 @@ export function ReferencePanel({
             )}
             {/* slice 3b · the proposal uses the layered colored 批注 (view-only);
                 the essay keeps the flat curated review-item annotations. */}
-            {isProposalStage ? <ProposalAnnotationGroup items={proposalAnnos} /> : <AnnotationGroup items={annotationItems} />}
+            {/* slice 4b · the layered 批注 for the active doc (proposal or essay).
+                The flat curated AnnotationGroup remains for any curate_reference
+                annotation items 印记 pulled to the top. */}
+            <ProposalAnnotationGroup items={proposalAnnos} />
+            {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
           </div>
         )}
       </div>
