@@ -188,10 +188,12 @@
 
 ### Task B4: Real-frontend journey + deploy
 
-- [ ] Deploy `full` (migration 0061). Real Playwright walk on a FRESH project: 立项 four points → plan → 写研究提案 (prose surface, write proposal, 完成提案) → status advances to 写正文 (room flips to 大纲/片段/正文, proposal preserved) → write essay, 完成写作 → 复盘. Verify server-side both buffers exist distinctly (`GET /draft?doc=proposal` and `?doc=essay` differ). 0 canned fallbacks.
-- [ ] Update memory + plan; report.
+- [x] Deployed `full @ 81b759b` (migration 0061 applied on prod). Real Playwright walk on a FRESH project (印刷术/宗教改革, id 0e90a6d3): 立项 four points (note chips fired reliably on flash) → plan auto-generated → **下一步·写研究提案 chip** (no regenerate offer) → **写研究提案 = PROSE surface** (ProsePane textarea, 提案 label, 完成提案, NO 大纲/片段/正文) → wrote proposal → **完成提案 advanced to 写正文** → essay 大纲/片段/正文 surface (proposal preserved) → wrote essay → **完成写作 advanced to 复盘/reflection** (retrospective rendered). 0 canned fallbacks, 0 console errors.
+- [x] Server-side proof of distinct docs: `GET /draft?doc=proposal` = 189 chars ("# 研究提案…"), `?doc=essay` = 176 chars ("印刷术在宗教改革…"), `distinct:true`; `writingFinish {proposal:true, essay:true}`.
 
-**Acceptance:** real-frontend run writes proposal AND essay as distinct preserved documents; evaluation reads the essay.
+**PHASE B COMPLETE (shipped + live-verified 2026-08-09, `full @ 81b759b`).** Acceptance MET: proposal AND essay are distinct preserved documents; evaluation binds to the essay. Commits B1 `8b0af04` (per-doc storage) → B2 `449bc6f` (doc-aware clients) → B3 `81b759b` (prose surface + doc-aware room). Go build + store/studio/api suites green (except the known pre-existing `TestWeeklyReportForSeededClass` flake); web tsc0 + 1029 vitest.
+
+**Acceptance:** real-frontend run writes proposal AND essay as distinct preserved documents; evaluation reads the essay. ✅
 
 ## Phase C — Polish (outline)
 
