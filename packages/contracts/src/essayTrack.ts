@@ -20,6 +20,17 @@ export const SubQuestionVerdict = z.object({
 });
 export type SubQuestionVerdict = z.infer<typeof SubQuestionVerdict>;
 
+// ClaimRevisionVerdict — slice 4b-2 · when the student edits a sub-question at the
+// 大纲 step (§133–134), the flagship classifies the edit: a "rephrase" keeps the
+// same research target so the claim's materials/writing still apply; a
+// "total_change" asks a different question, so they no longer do. Advisory (铁律②)
+// — surfaced as a warning, never a block; the student's writing is never deleted.
+export const ClaimRevisionVerdict = z.object({
+  kind: z.enum(["rephrase", "total_change"]),
+  why: z.string(),
+});
+export type ClaimRevisionVerdict = z.infer<typeof ClaimRevisionVerdict>;
+
 // EvidenceMapPaper / EvidenceMapSubQuestion / EvidenceMap — the read projection
 // of the seeded warren for the research stage (the map is the graph; this is the
 // per-sub-question rollup the reading room reads).

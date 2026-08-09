@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EssayStage, SubQuestionVerdict, EvidenceMap, Reference } from "../src/index";
+import { EssayStage, SubQuestionVerdict, ClaimRevisionVerdict, EvidenceMap, Reference } from "../src/index";
 
 describe("essay track contracts", () => {
   it("EssayStage accepts the three stages", () => {
@@ -11,6 +11,12 @@ describe("essay track contracts", () => {
     const v = SubQuestionVerdict.parse({ subQuestionId: "a", saturated: false, why: "只有支持材料", gaps: ["缺一个反例"] });
     expect(v.saturated).toBe(false);
     expect(v.gaps).toHaveLength(1);
+  });
+
+  it("ClaimRevisionVerdict parses both kinds; rejects unknown", () => {
+    expect(ClaimRevisionVerdict.parse({ kind: "rephrase", why: "只是措辞调整" }).kind).toBe("rephrase");
+    expect(ClaimRevisionVerdict.parse({ kind: "total_change", why: "换了一个问题" }).kind).toBe("total_change");
+    expect(() => ClaimRevisionVerdict.parse({ kind: "tweak", why: "x" })).toThrow();
   });
 
   it("EvidenceMap parses a seeded map", () => {
