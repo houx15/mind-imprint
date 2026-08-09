@@ -27,14 +27,26 @@ type DraftAnnotationOut struct {
 	Note    string `json:"note"`
 }
 
-// DraftAnnotationInput is the whole draft (+ an optional per-step focus).
+// DraftAnnotationInput is the whole draft (+ an optional per-step focus). Doc
+// selects the document being 批注ed ("proposal" | "essay") so the prompt names it
+// correctly; empty defaults to the proposal (back-compat).
 type DraftAnnotationInput struct {
 	Title string
 	Draft string
 	Focus string // the current guided step (for 我写好了); "" for a whole-draft check
+	Doc   string // "proposal" | "essay"; "" = proposal
 }
 
-const draftAnnotationSystem = `你是一位像老师一样批改研究提案的 IB 导师。通读学生写的提案，像老师用红蓝绿笔在纸上批注一样，给出分层的批注。批注要克制——只标你真的有话要说的地方，不要每段每句都标。绝不替学生改写正文，只给方向（铁律①）。
+// annotationDocNoun names the document in the reviewer prompt.
+func annotationDocNoun(doc string) string {
+	if doc == "essay" {
+		return "论文正文"
+	}
+	return "研究提案"
+}
+
+func draftAnnotationSystemFor(docNoun string) string {
+	return `你是一位像老师一样批改` + docNoun + `的 IB 导师。通读学生写的` + docNoun + `，像老师用红蓝绿笔在纸上批注一样，给出分层的批注。批注要克制——只标你真的有话要说的地方，不要每段每句都标。绝不替学生改写正文，只给方向（铁律①）。
 
 只返回一个 JSON 对象：
 {"annotations":[{"level":"paper|paragraph|sentence","nature":"good|suggest|problem","quote":"（句子级：原文照抄的那句话；其它为空）","locator":"（段落级/句子级：如「第2段」；paper 为空）","note":"你的批注（一句到几句，是建议方向，不是改写）"}]}
@@ -45,6 +57,7 @@ const draftAnnotationSystem = `你是一位像老师一样批改研究提案的 
 - sentence（句子）：只针对个别值得指出的句子/短语（nature=suggest 或 problem），quote 照抄原句。
 - good（绿）只用于 paper 级；段落与句子只用 suggest（蓝）或 problem（红）。
 - 批注总数不超过 10 条。用中文。只回 JSON，不要任何解释或代码块外的文字。`
+}
 
 const maxDraftAnnotationAttempts = 2
 const maxDraftAnnotations = 10
@@ -64,7 +77,7 @@ func ReviewDraftAnnotations(ctx context.Context, prov gateway.Provider, resolved
 
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: draftAnnotationSystem},
+			{Role: gateway.RoleSystem, Content: draftAnnotationSystemFor(annotationDocNoun(in.Doc))},
 			{Role: gateway.RoleUser, Content: b.String()},
 		},
 		MaxTokens: 3500,

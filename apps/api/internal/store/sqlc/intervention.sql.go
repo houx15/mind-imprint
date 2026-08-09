@@ -12,6 +12,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteAnnotationsByType = `-- name: DeleteAnnotationsByType :exec
+DELETE FROM intervention
+WHERE project_id = $1 AND type = $2
+`
+
+type DeleteAnnotationsByTypeParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Type      string    `json:"type"`
+}
+
+func (q *Queries) DeleteAnnotationsByType(ctx context.Context, arg DeleteAnnotationsByTypeParams) error {
+	_, err := q.db.Exec(ctx, deleteAnnotationsByType, arg.ProjectID, arg.Type)
+	return err
+}
+
 const deleteProposalAnnotations = `-- name: DeleteProposalAnnotations :exec
 DELETE FROM intervention
 WHERE project_id = $1 AND type = 'proposal_annotation'
@@ -64,6 +79,48 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listAnnotationsByType = `-- name: ListAnnotationsByType :many
+SELECT id, project_id, card_instance_id, type, anchor, criterion, body, level, output_check_verdict, created_at FROM intervention
+WHERE project_id = $1 AND type = $2
+ORDER BY created_at, id
+`
+
+type ListAnnotationsByTypeParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	Type      string    `json:"type"`
+}
+
+func (q *Queries) ListAnnotationsByType(ctx context.Context, arg ListAnnotationsByTypeParams) ([]Intervention, error) {
+	rows, err := q.db.Query(ctx, listAnnotationsByType, arg.ProjectID, arg.Type)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Intervention
+	for rows.Next() {
+		var i Intervention
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.CardInstanceID,
+			&i.Type,
+			&i.Anchor,
+			&i.Criterion,
+			&i.Body,
+			&i.Level,
+			&i.OutputCheckVerdict,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listInterventionsByProject = `-- name: ListInterventionsByProject :many

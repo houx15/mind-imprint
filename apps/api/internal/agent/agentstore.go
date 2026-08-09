@@ -697,18 +697,26 @@ type ProposalAnnotationRow struct {
 // latest review (a re-review never accretes stale marks). An empty `rows` clears
 // them.
 func (s *sqlcAgentStore) ReplaceProposalAnnotations(ctx context.Context, projectID uuid.UUID, rows []ProposalAnnotationRow) error {
+	return s.ReplaceAnnotations(ctx, projectID, "proposal", rows)
+}
+
+// ReplaceAnnotations (slice 4b) is the doc-keyed generalization: 批注 for the
+// proposal and the essay are stored as distinct intervention types
+// (`proposal_annotation` / `essay_annotation`) so they never collide.
+func (s *sqlcAgentStore) ReplaceAnnotations(ctx context.Context, projectID uuid.UUID, docKind string, rows []ProposalAnnotationRow) error {
+	annoType := docKind + "_annotation"
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := s.q.WithTx(tx)
-	if err := qtx.DeleteProposalAnnotations(ctx, projectID); err != nil {
+	if err := qtx.DeleteAnnotationsByType(ctx, sqlc.DeleteAnnotationsByTypeParams{ProjectID: projectID, Type: annoType}); err != nil {
 		return err
 	}
 	for _, r := range rows {
 		anchor, merr := json.Marshal(map[string]string{
-			"docKind": "proposal", "level": r.Level, "nature": r.Nature, "quote": r.Quote, "locator": r.Locator,
+			"docKind": docKind, "level": r.Level, "nature": r.Nature, "quote": r.Quote, "locator": r.Locator,
 		})
 		if merr != nil {
 			return merr
@@ -717,7 +725,7 @@ func (s *sqlcAgentStore) ReplaceProposalAnnotations(ctx context.Context, project
 		criterion := r.Level
 		if _, err := qtx.InsertIntervention(ctx, sqlc.InsertInterventionParams{
 			ProjectID: projectID,
-			Type:      "proposal_annotation",
+			Type:      annoType,
 			Anchor:    anchor,
 			Criterion: &criterion,
 			Body:      r.Note,
@@ -727,6 +735,12 @@ func (s *sqlcAgentStore) ReplaceProposalAnnotations(ctx context.Context, project
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// ListAnnotations reads a doc's 批注 rows (raw interventions; the api layer
+// reassembles the facets from the anchor jsonb).
+func (s *sqlcAgentStore) ListAnnotations(ctx context.Context, projectID uuid.UUID, docKind string) ([]sqlc.Intervention, error) {
+	return s.q.ListAnnotationsByType(ctx, sqlc.ListAnnotationsByTypeParams{ProjectID: projectID, Type: docKind + "_annotation"})
 }
 
 // SeedEvidenceMapFromProposal (slice 4a) draws the essay's 证据地图 backbone into

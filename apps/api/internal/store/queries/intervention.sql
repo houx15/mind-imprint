@@ -21,3 +21,12 @@ ORDER BY created_at, id;
 -- name: DeleteProposalAnnotations :exec
 DELETE FROM intervention
 WHERE project_id = $1 AND type = 'proposal_annotation';
+
+-- name: ListAnnotationsByType :many
+SELECT * FROM intervention
+WHERE project_id = $1 AND type = $2
+ORDER BY created_at, id;
+
+-- name: DeleteAnnotationsByType :exec
+DELETE FROM intervention
+WHERE project_id = $1 AND type = $2;
