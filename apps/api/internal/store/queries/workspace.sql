@@ -141,6 +141,34 @@ RETURNING *;
 -- name: DeleteReference :exec
 DELETE FROM reference WHERE id = $1 AND project_id = $2;
 
+-- name: SetReferenceEvidence :one
+-- Slice 4a · the per-paper evidence note + its 支持/反驳 nature (证据地图).
+UPDATE reference SET
+    evidence_nature    = $3,
+    evidence_argument  = $4,
+    evidence_finding   = $5,
+    evidence_placement = $6,
+    updated_at         = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: SetReferenceTriage :one
+-- Slice 4a · red (must-read) / yellow (to-decide) / '' triage on a gathered paper.
+UPDATE reference SET
+    triage     = $3,
+    updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
+-- name: SetReferenceArchived :one
+-- Slice 4a · archive "interesting but not really related" — leaves the active map,
+-- not deleted.
+UPDATE reference SET
+    archived   = $3,
+    updated_at = now()
+WHERE id = $1 AND project_id = $2
+RETURNING *;
+
 -- name: SetReferenceMaterial :one
 -- Binds a reference to the material fetched/created for it on enter-reading.
 UPDATE reference SET

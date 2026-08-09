@@ -454,6 +454,12 @@ type Reference struct {
 	Abstract            string             `json:"abstract"`
 	Journal             string             `json:"journal"`
 	ReadingStatus       string             `json:"reading_status"`
+	Triage              string             `json:"triage"`
+	EvidenceNature      string             `json:"evidence_nature"`
+	EvidenceArgument    string             `json:"evidence_argument"`
+	EvidenceFinding     string             `json:"evidence_finding"`
+	EvidencePlacement   string             `json:"evidence_placement"`
+	Archived            bool               `json:"archived"`
 }
 
 type School struct {
