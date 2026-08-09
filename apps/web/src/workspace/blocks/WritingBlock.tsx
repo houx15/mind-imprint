@@ -18,7 +18,7 @@ import { Segmented } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { ProsePane } from "./ProsePane";
+import { ProposalGuidePane } from "./ProposalGuide";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
 import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
@@ -109,6 +109,7 @@ export function WritingBlock({
   onInsertReady,
   refreshWorkspace,
   recap,
+  onOpenReading,
 }: {
   projectId: string;
   title: string;
@@ -136,6 +137,9 @@ export function WritingBlock({
   refreshWorkspace: () => Promise<void> | void;
   /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
   recap?: string | null;
+  /** slice 3a · open the reading room (proposal guide's needs-resources /
+   * explore-first jumps). Provided by the container's room switcher. */
+  onOpenReading?: (note?: string) => void;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -248,7 +252,7 @@ export function WritingBlock({
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {isProposal ? (
-          <ProsePane projectId={projectId} doc="proposal" locked={locked} />
+          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} />
         ) : tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (

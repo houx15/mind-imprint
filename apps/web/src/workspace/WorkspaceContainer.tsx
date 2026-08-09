@@ -1152,6 +1152,7 @@ export function WorkspaceContainer({
                       onInsertReady={setInsertReady}
                       refreshWorkspace={refreshWorkspace}
                       recap={historyRecap ?? summary}
+                      onOpenReading={() => setRoom("reading")}
                     />
                   );
                 })()}
