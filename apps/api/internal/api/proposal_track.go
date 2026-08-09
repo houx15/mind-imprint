@@ -364,6 +364,6 @@ func (a *API) reviewProposalPart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	out := a.runDraftAnnotationReview(r.Context(), projectID, focus)
+	out := a.runDraftAnnotationReview(r.Context(), projectID, string(agent.DocProposal), focus)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }

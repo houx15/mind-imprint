@@ -31,27 +31,37 @@ type draftAnnotationDTO struct {
 // doc's 批注 set, and returns the persisted rows as DTOs. Best-effort: nil
 // resolver / model error → the prior set is left untouched and an empty list is
 // returned (never breaks the surface).
-func (a *API) runDraftAnnotationReview(ctx context.Context, projectID uuid.UUID, focus string) []draftAnnotationDTO {
+// annotationDocParam reads the 批注 document, defaulting to PROPOSAL (3b
+// back-compat — the proposal path calls these without ?doc). ?doc=essay selects
+// the essay.
+func annotationDocParam(r *http.Request) string {
+	if r.URL.Query().Get("doc") == string(agent.DocEssay) {
+		return string(agent.DocEssay)
+	}
+	return string(agent.DocProposal)
+}
+
+func (a *API) runDraftAnnotationReview(ctx context.Context, projectID uuid.UUID, doc, focus string) []draftAnnotationDTO {
 	if a.d.Provider == nil || a.d.EvalResolver == nil {
-		return a.listProposalAnnotationDTOs(ctx, projectID)
+		return a.listAnnotationDTOs(ctx, projectID, doc)
 	}
 	resolved, rerr := a.d.EvalResolver(ctx)
 	if rerr != nil {
-		return a.listProposalAnnotationDTOs(ctx, projectID)
+		return a.listAnnotationDTOs(ctx, projectID, doc)
 	}
 	title := ""
 	if p, perr := a.d.Queries.GetProject(ctx, projectID); perr == nil {
 		title = p.Title
 	}
-	draft, _ := a.d.Queries.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: string(agent.DocProposal)})
+	draft, _ := a.d.Queries.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: doc})
 
 	items, usage, err := agent.ReviewDraftAnnotations(ctx, a.d.Provider, resolved, agent.DraftAnnotationInput{
-		Title: title, Draft: draft, Focus: focus,
+		Title: title, Draft: draft, Focus: focus, Doc: doc,
 	})
-	a.meterCall(ctx, projectID, resolved, "proposal_annotation", usage)
+	a.meterCall(ctx, projectID, resolved, doc+"_annotation", usage)
 	if err != nil {
-		slog.Warn("proposal annotations: review failed — keeping prior set", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
-		return a.listProposalAnnotationDTOs(ctx, projectID)
+		slog.Warn("annotations: review failed — keeping prior set", "err", err, "doc", doc, "request_id", httpx.RequestIDFromContext(ctx))
+		return a.listAnnotationDTOs(ctx, projectID, doc)
 	}
 
 	rows := make([]agent.ProposalAnnotationRow, 0, len(items))
@@ -61,16 +71,17 @@ func (a *API) runDraftAnnotationReview(ctx context.Context, projectID uuid.UUID,
 		})
 	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	if rerr := store.ReplaceProposalAnnotations(ctx, projectID, rows); rerr != nil {
-		slog.Warn("proposal annotations: replace failed", "err", rerr, "request_id", httpx.RequestIDFromContext(ctx))
+	if rerr := store.ReplaceAnnotations(ctx, projectID, doc, rows); rerr != nil {
+		slog.Warn("annotations: replace failed", "err", rerr, "doc", doc, "request_id", httpx.RequestIDFromContext(ctx))
 	}
-	return a.listProposalAnnotationDTOs(ctx, projectID)
+	return a.listAnnotationDTOs(ctx, projectID, doc)
 }
 
-// listProposalAnnotationDTOs reads the persisted 批注 rows and maps them to DTOs
-// (the structured facets ride the anchor jsonb).
-func (a *API) listProposalAnnotationDTOs(ctx context.Context, projectID uuid.UUID) []draftAnnotationDTO {
-	rows, err := a.d.Queries.ListProposalAnnotations(ctx, projectID)
+// listAnnotationDTOs reads a doc's persisted 批注 rows and maps them to DTOs (the
+// structured facets ride the anchor jsonb).
+func (a *API) listAnnotationDTOs(ctx context.Context, projectID uuid.UUID, doc string) []draftAnnotationDTO {
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	rows, err := store.ListAnnotations(ctx, projectID, doc)
 	if err != nil {
 		return []draftAnnotationDTO{}
 	}
@@ -99,15 +110,15 @@ func (a *API) getProposalAnnotations(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": a.listProposalAnnotationDTOs(r.Context(), projectID)})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": a.listAnnotationDTOs(r.Context(), projectID, annotationDocParam(r))})
 }
 
-// POST /projects/{id}/proposal-annotations/review — the whole-draft "AI check".
+// POST /projects/{id}/proposal-annotations/review[?doc=essay] — the whole-draft "AI check".
 func (a *API) reviewProposalAnnotations(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
 		return
 	}
-	out := a.runDraftAnnotationReview(r.Context(), projectID, "")
+	out := a.runDraftAnnotationReview(r.Context(), projectID, annotationDocParam(r), "")
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }
