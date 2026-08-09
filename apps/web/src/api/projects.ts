@@ -40,6 +40,13 @@ export async function reopenWriting(id: string, doc: "proposal" | "essay" = "ess
   return apiFetch<{ writingFinished: boolean }>(`/api/v1/projects/${id}/reopen-writing?doc=${doc}`, { method: "POST" });
 }
 
+// slice 3a (Finding 2) · non-blocking skip for the 反例 prompt — sets
+// counterpointsWaived so the framework can generate the plan without an
+// articulated counterexample (铁律②).
+export async function waiveCounterpoints(id: string): Promise<{ counterpointsWaived: boolean }> {
+  return apiFetch<{ counterpointsWaived: boolean }>(`/api/v1/projects/${id}/framework/waive-counterpoints`, { method: "POST" });
+}
+
 export async function createProject(body: {
   title?: string;
   prompt: string;
