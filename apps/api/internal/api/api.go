@@ -144,6 +144,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/essay-statement/start", protected(a.startEssayStatement))
 	mux.Handle("POST /api/v1/projects/{id}/essay-statement/advance", protected(a.advanceEssayStatement))
 	mux.Handle("POST /api/v1/projects/{id}/essay-statement/review", protected(a.reviewEssayStatement))
+	mux.Handle("POST /api/v1/projects/{id}/essay-statement/revise-claim", protected(a.reviseEssayClaim))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/open", protected(a.logSourceOpen))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/annotate", protected(a.prepareSourceAnnotation))

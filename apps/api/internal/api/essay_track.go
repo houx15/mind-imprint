@@ -41,7 +41,8 @@ func (a *API) advanceEssayStage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Stage string `json:"stage"`
+		Stage   string `json:"stage"`
+		ClaimID string `json:"claimId"` // slice 4b-2 · deep-link: land on this claim's step
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -78,6 +79,23 @@ func (a *API) advanceEssayStage(w http.ResponseWriter, r *http.Request) {
 		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 		if serr := store.SeedEssayOutlineFromProposal(r.Context(), projectID, mainRQ, subs); serr != nil {
 			slog.Warn("advance essay stage: seed outline failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+	// slice 4b-2 · deep-link from the 4a research panel's 去写这条论点: land the
+	// student directly on that claim's statement step (§133). Started so the walk
+	// skips the ready gate.
+	if target == agent.EssayStatement && body.ClaimID != "" {
+		var subs []agent.SubQuestion
+		if state.ProposalTrack != nil {
+			subs = state.ProposalTrack.SubQuestions
+		}
+		steps := agent.DeriveStatementSteps(subs)
+		for i, s := range steps {
+			if s.Key == "claim:"+body.ClaimID {
+				state.EssayTrack.Started = true
+				state.EssayTrack.StatementStep = i
+				break
+			}
 		}
 	}
 	// statement / submission are written in the writing room.

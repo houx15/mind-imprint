@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -191,6 +192,98 @@ func (a *API) advanceEssayStatement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.finishEssayWrite(w, r, projectID, state)
+}
+
+// POST /projects/{id}/essay-statement/revise-claim { subQuestionId, newText, confirm }
+// §133–134 · the student edits a sub-question at the 大纲 step. The flagship
+// classifies the edit (rephrase vs total_change); confirm=false returns the
+// verdict WITHOUT persisting (the warning), confirm=true persists the new text.
+// We never delete the claim's snippet/evidence — the warning is advisory (铁律②).
+func (a *API) reviseEssayClaim(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		SubQuestionID string `json:"subQuestionId"`
+		NewText       string `json:"newText"`
+		Confirm       bool   `json:"confirm"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	newText := strings.TrimSpace(body.NewText)
+	if body.SubQuestionID == "" || newText == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "子问题与新内容不能为空", nil))
+		return
+	}
+
+	state, err := a.loadEssayState(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if state.ProposalTrack == nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	subs := state.ProposalTrack.SubQuestions
+	oldText, idx := "", -1
+	for i, sq := range subs {
+		if sq.ID == body.SubQuestionID {
+			oldText, idx = strings.TrimSpace(sq.Text), i
+		}
+	}
+	if idx < 0 {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if newText == oldText {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "新内容和原来的一样", nil))
+		return
+	}
+
+	// Classify (flagship). Degrade to rephrase on any failure — a model hiccup
+	// must never block the student's own edit.
+	verdict := agent.ClaimRevisionVerdictOut{Kind: "rephrase", Why: "只是措辞调整，材料仍然适用。"}
+	if a.d.Provider != nil && a.d.EvalResolver != nil {
+		if resolved, rerr := a.d.EvalResolver(r.Context()); rerr == nil {
+			title := ""
+			if p, perr := a.d.Queries.GetProject(r.Context(), projectID); perr == nil {
+				title = p.Title
+			}
+			siblings := make([]agent.SubQuestion, 0, len(subs))
+			for _, sq := range subs {
+				if sq.ID != body.SubQuestionID {
+					siblings = append(siblings, sq)
+				}
+			}
+			v, usage, verr := agent.ClassifyClaimRevision(r.Context(), a.d.Provider, resolved, agent.ClaimRevisionInput{
+				Title: title, OldText: oldText, NewText: newText, Siblings: siblings,
+			})
+			a.meterCall(r.Context(), projectID, resolved, "claim_revision", usage)
+			if verr == nil {
+				verdict = v
+			} else {
+				slog.Warn("claim revision: classify failed", "err", verr, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+	}
+
+	applied := false
+	if body.Confirm {
+		state.ProposalTrack.SubQuestions[idx].Text = newText
+		if serr := a.saveTrackState(r.Context(), projectID, state); serr != nil {
+			httpx.WriteError(w, r, serr)
+			return
+		}
+		applied = true
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"verdict": map[string]any{"kind": verdict.Kind, "why": verdict.Why},
+		"applied": applied,
+	})
 }
 
 // POST /projects/{id}/essay-statement/review {stepKey} — 我写好了 → essay 批注.
