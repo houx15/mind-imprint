@@ -99,11 +99,16 @@ vi.mock("@/api/projects", () => ({
   finishWriting: vi.fn(async () => ({ writingFinished: true })),
   reopenWriting: vi.fn(async () => ({ writingFinished: false })),
 }));
+vi.mock("@/api/proposalAnnotations", () => ({
+  getProposalAnnotations: vi.fn(async () => []),
+  reviewProposalAnnotations: vi.fn(async () => []),
+}));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
 import { ApiError } from "@/api/client";
 import { getLibrary, getOutline, getSnippets, putSnippets, reflectProjectCard } from "@/workspace/api/workspace";
 import { finishWriting, reopenWriting } from "@/api/projects";
+import { getProposalAnnotations, reviewProposalAnnotations } from "@/api/proposalAnnotations";
 import { getExploration } from "@/api/exploration";
 import { exportDraftDocx } from "@/workspace/export";
 import { WritingBlock, paragraphAtCaret } from "@/workspace/blocks/WritingBlock";
@@ -629,5 +634,31 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // tab) — the main workspace tab comes first in the DOM.
     await userEvent.click(screen.getAllByRole("button", { name: "大纲" })[0]!);
     await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledWith("p1", before + "最后一句还没保存。"));
+  });
+});
+
+describe("WritingBlock · finish-proposal comment-first (slice 3b)", () => {
+  it("offers a review when the proposal has no 批注, and runs it on 先让印记看一遍", async () => {
+    vi.mocked(getProposalAnnotations).mockResolvedValue([]);
+    renderWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" doc="proposal" writingFinished={false} refreshWorkspace={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "完成提案" }));
+    // With no 批注 yet, the comment-first choice appears.
+    const reviewBtn = await screen.findByRole("button", { name: "先让印记看一遍" });
+    expect(screen.getByRole("button", { name: "跳过，直接完成" })).toBeTruthy();
+    await userEvent.click(reviewBtn);
+    await waitFor(() => expect(vi.mocked(reviewProposalAnnotations)).toHaveBeenCalledWith("p1"));
+  });
+
+  it("skips straight to finishing on 跳过，直接完成", async () => {
+    vi.mocked(getProposalAnnotations).mockResolvedValue([]);
+    renderWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" doc="proposal" writingFinished={false} refreshWorkspace={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "完成提案" }));
+    const skip = await screen.findByRole("button", { name: "跳过，直接完成" });
+    await userEvent.click(skip);
+    await waitFor(() => expect(mockFinishWriting).toHaveBeenCalledWith("p1", "proposal"));
   });
 });

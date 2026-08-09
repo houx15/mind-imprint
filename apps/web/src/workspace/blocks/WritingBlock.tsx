@@ -19,6 +19,7 @@ import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProj
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
+import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
 import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
@@ -167,6 +168,10 @@ export function WritingBlock({
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishingWriting, setFinishingWriting] = useState(false);
   const [finishWritingError, setFinishWritingError] = useState<string | null>(null);
+  // slice 3b · the finish-proposal comment-first flow (§4). null = not yet
+  // checked; the count of the proposal's current 批注 (0 → offer a review first).
+  const [proposalAnnoCount, setProposalAnnoCount] = useState<number | null>(null);
+  const [runningCheck, setRunningCheck] = useState(false);
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
@@ -194,6 +199,36 @@ export function WritingBlock({
       );
     } finally {
       setFinishingWriting(false);
+    }
+  }
+
+  // slice 3b · opening the finish modal for a proposal first checks whether 印记
+  // has ever commented; if not, the modal offers a review before locking (§4).
+  async function openFinish() {
+    setProposalAnnoCount(null);
+    setShowFinishModal(true);
+    if (isProposal) {
+      try {
+        setProposalAnnoCount((await getProposalAnnotations(projectId)).length);
+      } catch {
+        setProposalAnnoCount(0);
+      }
+    }
+  }
+
+  // "先让印记看一遍" — run the whole-draft 批注 review, then close so the student
+  // sees the 批注 in the left panel (they can re-open 完成提案 when ready).
+  async function runCommentFirst() {
+    if (runningCheck) return;
+    setRunningCheck(true);
+    try {
+      await reviewProposalAnnotations(projectId);
+      onAnnotationsChanged?.();
+    } catch {
+      /* best-effort */
+    } finally {
+      setRunningCheck(false);
+      setShowFinishModal(false);
     }
   }
 
@@ -239,7 +274,7 @@ export function WritingBlock({
             // #20 · reversible — 重新打开 unlocks this document again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title={isProposal ? "重新编辑提案" : "重新打开写作，继续修改初稿"}>{isProposal ? "重新编辑提案" : "重新打开写作"}</button>
           ) : (
-            <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title={isProposal ? "提案写好了？点这里定稿，进入写正文" : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"}>{isProposal ? "完成提案" : "完成写作"}</button>
+            <button type="button" onClick={() => void openFinish()} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title={isProposal ? "提案写好了？点这里定稿，进入写正文" : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"}>{isProposal ? "完成提案" : "完成写作"}</button>
           ))}
       </div>
 
@@ -295,34 +330,65 @@ export function WritingBlock({
       {showFinishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
-            <h2 className="font-sans text-[18px] font-bold text-mk-ink">{isProposal ? "完成提案？" : "完成写作？"}</h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-              {isProposal ? (
-                <>确认后会<span className="font-bold text-mk-ink">定下提案</span>、进入<span className="font-bold text-mk-ink">写正文</span>。之后<span className="font-bold text-mk-accent">仍可重新编辑提案</span>。</>
-              ) : (
-                <>确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。</>
-              )}
-            </p>
-            {finishWritingError && (
-              <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
+            {/* slice 3b · comment-first: a proposal with NO 批注 yet is offered a
+                review before locking (§4). Skippable (铁律②). */}
+            {isProposal && proposalAnnoCount === 0 ? (
+              <>
+                <h2 className="font-sans text-[18px] font-bold text-mk-ink">先让印记看一遍？</h2>
+                <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+                  印记还没批注过你的提案。要不要先让它像老师一样看一遍、给点批注，再决定完成？
+                </p>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={runningCheck || finishingWriting}
+                    onClick={() => { void doFinishWriting(); }}
+                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink disabled:opacity-50"
+                  >
+                    {finishingWriting ? "定稿中……" : "跳过，直接完成"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={runningCheck}
+                    onClick={() => { void runCommentFirst(); }}
+                    className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                  >
+                    {runningCheck ? "印记在看……" : "先让印记看一遍"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="font-sans text-[18px] font-bold text-mk-ink">{isProposal ? "完成提案？" : "完成写作？"}</h2>
+                <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+                  {isProposal ? (
+                    <>确认后会<span className="font-bold text-mk-ink">定下提案</span>、进入<span className="font-bold text-mk-ink">写正文</span>。之后<span className="font-bold text-mk-accent">仍可重新编辑提案</span>。</>
+                  ) : (
+                    <>确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。</>
+                  )}
+                </p>
+                {finishWritingError && (
+                  <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
+                )}
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowFinishModal(false)}
+                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
+                  >
+                    再改改
+                  </button>
+                  <button
+                    type="button"
+                    disabled={finishingWriting}
+                    onClick={() => { void doFinishWriting(); }}
+                    className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                  >
+                    {finishingWriting ? (isProposal ? "定稿中……" : "锁定中……") : (isProposal ? "进入写正文" : "锁定初稿")}
+                  </button>
+                </div>
+              </>
             )}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowFinishModal(false)}
-                className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
-              >
-                再改改
-              </button>
-              <button
-                type="button"
-                disabled={finishingWriting}
-                onClick={() => { void doFinishWriting(); }}
-                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
-              >
-                {finishingWriting ? (isProposal ? "定稿中……" : "锁定中……") : (isProposal ? "进入写正文" : "锁定初稿")}
-              </button>
-            </div>
           </div>
         </div>
       )}
