@@ -119,11 +119,11 @@ func TestPostCoach_FrameworkAppliesNoteDropsForeignTools(t *testing.T) {
 // TestPostCoach_SummonCardOffersCardAndRecordsEvent — the orchestrator's
 // summon_card tool surfaces a card chip on the reply and records a coach_proposed
 // event (the card-proposal path that replaced the retired classify chip).
-// fact-opinion-value is proposable and not pre-seeded, so the in-flight guard
+// perspective-matrix is proposable and not pre-seeded, so the in-flight guard
 // (cardEligibleForSummon) admits it.
 func TestPostCoach_SummonCardOffersCardAndRecordsEvent(t *testing.T) {
 	out := `{"narrate":"这里适合停一下。","tools":[` +
-		`{"name":"summon_card","args":{"card_id":"fact-opinion-value","reason":"事实与观点混在一起","nudge_text":"要不要用这张卡分一分？"}}]}`
+		`{"name":"summon_card","args":{"card_id":"perspective-matrix","reason":"只从一个视角看这个问题","nudge_text":"要不要用视角矩阵摊开看看？"}}]}`
 	h, cookie, pool := orchestratorHandler(t, out)
 	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework allows summon_card
 	base := "/api/v1/projects/" + seedProjectID
@@ -143,8 +143,8 @@ func TestPostCoach_SummonCardOffersCardAndRecordsEvent(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v — %s", err, rr.Body)
 	}
-	if resp.Card == nil || resp.Card.CardID != "fact-opinion-value" {
-		t.Fatalf("want fact-opinion-value card, got %+v — %s", resp.Card, rr.Body)
+	if resp.Card == nil || resp.Card.CardID != "perspective-matrix" {
+		t.Fatalf("want perspective-matrix card, got %+v — %s", resp.Card, rr.Body)
 	}
 	if resp.Card.NudgeText == "" {
 		t.Fatalf("card must carry a nudge — %s", rr.Body)
@@ -154,14 +154,49 @@ func TestPostCoach_SummonCardOffersCardAndRecordsEvent(t *testing.T) {
 	}
 }
 
+// TestPostCoach_SummonCardNotSummonableDropped — re-catalog: a summon_card for a
+// card that isn't in this status's deck ∪ cross-cutting pool (here a
+// reading-toolkit card, cda, offered in framework) is DROPPED — no card chip,
+// no coach_proposed event.
+func TestPostCoach_SummonCardNotSummonableDropped(t *testing.T) {
+	out := `{"narrate":"这里适合停一下。","tools":[` +
+		`{"name":"summon_card","args":{"card_id":"cda","reason":"话语背后的权力","nudge_text":"要不要拆一拆用词？"}}]}`
+	h, cookie, pool := orchestratorHandler(t, out)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"我想聊聊这个来源的用词"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+	var resp struct {
+		Card *struct {
+			CardID string `json:"cardId"`
+		} `json:"card"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if resp.Card != nil {
+		t.Fatalf("cda (reading-toolkit) must be dropped in framework, got %+v", resp.Card)
+	}
+	if got := countCoachProposedEvents(t, pool, seedProjectID); got != 0 {
+		t.Fatalf("coach_proposed events = %d, want 0 (dropped)", got)
+	}
+}
+
 // TestPostCoach_SummonCardSkippedCardNotReoffered — 铁律 2 · 不操纵: once the
 // student has dismissed a card (a `skipped` instance exists), the orchestrator's
 // summon_card must NOT re-offer it. The card chip is suppressed and no new
 // coach_proposed event is recorded. This restores the dismiss-suppression
 // coverage the deleted classify test used to provide.
 func TestPostCoach_SummonCardSkippedCardNotReoffered(t *testing.T) {
+	// concession is BOTH coach-proposable (dismiss endpoint) AND cross-cutting
+	// (summonable in framework), so the dismiss→suppress path is exercisable.
 	out := `{"narrate":"这里适合停一下。","tools":[` +
-		`{"name":"summon_card","args":{"card_id":"fact-opinion-value","reason":"事实与观点混在一起","nudge_text":"要不要用这张卡分一分？"}}]}`
+		`{"name":"summon_card","args":{"card_id":"concession","reason":"遇到相悖的证据","nudge_text":"要不要用让步段以退为进？"}}]}`
 	h, cookie, pool := orchestratorHandler(t, out)
 	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework allows summon_card
 	base := "/api/v1/projects/" + seedProjectID
@@ -169,7 +204,7 @@ func TestPostCoach_SummonCardSkippedCardNotReoffered(t *testing.T) {
 	// The student dismissed this card earlier → a `skipped` instance exists.
 	rrD := httptest.NewRecorder()
 	h.ServeHTTP(rrD, withCookie(httptest.NewRequest("POST", base+"/cards/dismiss-proposal",
-		strings.NewReader(`{"card_id":"fact-opinion-value"}`)), cookie))
+		strings.NewReader(`{"card_id":"concession"}`)), cookie))
 	if rrD.Code != http.StatusNoContent {
 		t.Fatalf("dismiss = %d, want 204 — %s", rrD.Code, rrD.Body)
 	}

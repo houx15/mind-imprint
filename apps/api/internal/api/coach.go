@@ -448,10 +448,17 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 				effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
 			}
 		case "summon_card":
-			// The orchestrator picked the card; gate on a simple in-flight guard
-			// (never offer over a card already proposed/active for this project).
+			// The orchestrator picked the card; gate on (1) status validity — the
+			// card must be in THIS status's deck ∪ the cross-cutting pool (a
+			// reading-toolkit card summoned mid-essay is dropped) — and (2) a
+			// simple in-flight guard (never offer over a card already
+			// proposed/active for this project).
 			if args, aerr := agent.SummonCardToolArgs(tc); aerr == nil {
-				if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
+				status := agent.StatusForStage(state.Stage)
+				if !agent.IsSummonable(args.CardID, status) {
+					slog.Info("coach: dropped summon_card not valid for status",
+						"card", args.CardID, "status", status, "request_id", httpx.RequestIDFromContext(ctx))
+				} else if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
 					effects.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
 					if eerr := store.AppendEvent(ctx, agent.EventRow{
 						ProjectID: projectID, Surface: "studio", Type: "coach_proposed",
