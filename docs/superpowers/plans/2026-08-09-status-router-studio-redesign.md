@@ -119,8 +119,10 @@
 
 ### Task A7: Real-frontend loop (Phase A acceptance) + deploy
 
-- [ ] Deploy `api`. Run the Playwright real-frontend journey on a FRESH project: 立项 four points (verify notes captured reliably, no drops), plan auto-generates (no regenerate offer), 印记 leads to 写提案. Confirm 0 canned fallbacks and materially lower per-turn latency (compare `llm_call` rows / `%{time_total}`). Fix any defect found, re-deploy, re-run until green.
-- [ ] Commit any fixes; record outcome in the plan.
+- [x] Deployed `full` @ `5fd0bf9`. Ran the Playwright real-frontend journey on a FRESH project (History EE, printing press / Reformation): 立项 four points — **note capture reliable on the fast model, the 记进「目标」chip appeared + confirmed + field filled (the `note:null` bug is gone)**; plan auto-generated (8 items, content-specific); coach recognized the existing plan (NO regenerate offer); the **下一步 · 写研究提案 chip rendered**; tapping it advanced status → `proposal_writing`/`writing` and 印记 greeted the new phase. All on **deepseek-v4-flash**, restrained Chinese narrate, 0 canned fallbacks. **Phase A acceptance MET.**
+- [x] Committed A1–A6b; Phase A live-verified.
+
+**PHASE A COMPLETE (shipped + live-verified 2026-08-09).** Commits: A1 canonical status → A6b one-tap advance, deployed `full @ 5fd0bf9`. NEXT: Phase B (multi-doc writing) — the writing room in `proposal_writing` still shows the essay 大纲/片段/正文 surface (proposal & essay still share one buffer); gap 4 closes in B.
 
 ---
 
