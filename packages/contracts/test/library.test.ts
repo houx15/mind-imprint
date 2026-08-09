@@ -33,3 +33,11 @@ describe("card library is complete", () => {
     }
   });
 });
+
+describe("card interaction taxonomy (re-catalog 2026-08-09)", () => {
+  it("question-card is sub-agent, learning-report is function, others default to form", () => {
+    expect(CARD_REGISTRY["question-card"].interaction).toBe("sub-agent");
+    expect(CARD_REGISTRY["learning-report"].interaction).toBe("function");
+    expect(CARD_REGISTRY["pee"].interaction ?? "form").toBe("form");
+  });
+});

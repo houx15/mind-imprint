@@ -70,6 +70,12 @@ export const CardSpec = z.object({
   trigger_keywords: z.array(z.string()).optional(),
   // deprecated: interaction_type (retire when cards are ported in Slice 3)
   interaction_type: InteractionType.optional(),
+  // interaction: first-class card interaction type (re-catalog 2026-08-09),
+  // replacing the deprecated interaction_type. Absent → treated as "form".
+  //   form         — schema-driven form (the default; every card today)
+  //   sub-agent    — opens a guided modal sub-conversation (e.g. question-card)
+  //   function     — a pre-built producer, no student form (e.g. learning-report)
+  interaction: z.enum(["form", "sub-agent", "function"]).optional(),
   rubric_dims: z.array(z.string()).optional(),
   related: z.array(z.string()).optional(),
   body_status: BodyStatus.optional(),
