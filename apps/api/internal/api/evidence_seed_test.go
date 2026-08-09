@@ -130,3 +130,42 @@ func TestAdvanceEssayStage(t *testing.T) {
 		t.Fatalf("should open writing, got %v", out.OpenTool)
 	}
 }
+
+// TestAdvanceEssayStage_SeedsOutline — entering the statement stage seeds the
+// essay outline from the RQ + sub-questions (§6).
+func TestAdvanceEssayStage_SeedsOutline(t *testing.T) {
+	h, cookie, pool := orchestratorHandler(t, `{"narrate":"好。","tools":[]}`)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	if _, err := q.UpsertProjectProposal(ctx, sqlc.UpsertProjectProposalParams{
+		ProjectID: mustUUID(seedProjectID), Objective: "主研究问题", Reason: "r", Activities: "a", Resources: "res", Counterpoints: "c",
+	}); err != nil {
+		t.Fatalf("seed proposal: %v", err)
+	}
+	st := agent.DefaultStudioState()
+	st.Started = true
+	st.Stage = agent.StageBodyWriting
+	st.EssayTrack = &agent.EssayTrack{Stage: agent.EssayResearch}
+	st.ProposalTrack = &agent.WritingTrack{SubQuestions: []agent.SubQuestion{{ID: "a", Text: "子问题甲"}, {ID: "b", Text: "子问题乙"}}}
+	b, _ := json.Marshal(st)
+	if err := q.SetStudioState(ctx, sqlc.SetStudioStateParams{ID: mustUUID(seedProjectID), StudioState: b}); err != nil {
+		t.Fatalf("set state: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+seedProjectID+"/essay-track/advance-stage", strings.NewReader(`{"stage":"statement"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("advance = %d — %s", rr.Code, rr.Body)
+	}
+	nodes, err := q.ListOutlineNodes(ctx, mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("list outline: %v", err)
+	}
+	texts := map[string]bool{}
+	for _, n := range nodes {
+		texts[n.Text] = true
+	}
+	if !texts["主研究问题"] || !texts["子问题甲"] || !texts["子问题乙"] {
+		t.Fatalf("outline not seeded: %+v", texts)
+	}
+}

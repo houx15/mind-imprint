@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"mindimprint/api/internal/agent"
@@ -61,7 +62,24 @@ func (a *API) advanceEssayStage(w http.ResponseWriter, r *http.Request) {
 	if state.EssayTrack == nil {
 		state.EssayTrack = &agent.EssayTrack{}
 	}
+	enteringStatement := state.EssayTrack.Stage != agent.EssayStatement && target == agent.EssayStatement
 	state.EssayTrack.Stage = target
+	// slice 4b · entering the statement stage seeds the essay outline from the RQ
+	// + sub-questions if it's empty (§6). Best-effort.
+	if enteringStatement {
+		mainRQ := ""
+		if prop, perr := a.d.Queries.GetProjectProposal(r.Context(), projectID); perr == nil {
+			mainRQ = prop.Objective
+		}
+		var subs []agent.SubQuestion
+		if state.ProposalTrack != nil {
+			subs = state.ProposalTrack.SubQuestions
+		}
+		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+		if serr := store.SeedEssayOutlineFromProposal(r.Context(), projectID, mainRQ, subs); serr != nil {
+			slog.Warn("advance essay stage: seed outline failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
 	// statement / submission are written in the writing room.
 	state.OpenTool = agent.ToolWriting
 	state.WidthTier = agent.WidthForTool(agent.ToolWriting)

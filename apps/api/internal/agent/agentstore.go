@@ -787,6 +787,38 @@ func (s *sqlcAgentStore) SeedEvidenceMapFromProposal(ctx context.Context, projec
 	return nil
 }
 
+// SeedEssayOutlineFromProposal (slice 4b) seeds the essay outline from the RQ +
+// sub-questions when it's still empty (§6: "outline initialized by the main
+// research question and 2-4 subquestions"). The RQ is a depth-0 node; each
+// sub-question a depth-1 node. Idempotent — a non-empty outline is left as-is.
+func (s *sqlcAgentStore) SeedEssayOutlineFromProposal(ctx context.Context, projectID uuid.UUID, mainRQ string, subQuestions []SubQuestion) error {
+	if strings.TrimSpace(mainRQ) == "" {
+		return nil
+	}
+	if existing, err := s.q.ListOutlineNodes(ctx, projectID); err == nil && len(existing) > 0 {
+		return nil // already has an outline
+	}
+	pos := int32(0)
+	if _, err := s.q.CreateOutlineNode(ctx, sqlc.CreateOutlineNodeParams{
+		ProjectID: projectID, Text: strings.TrimSpace(mainRQ), Depth: 0, Position: pos,
+	}); err != nil {
+		return err
+	}
+	for _, sq := range subQuestions {
+		text := strings.TrimSpace(sq.Text)
+		if text == "" {
+			continue
+		}
+		pos++
+		if _, err := s.q.CreateOutlineNode(ctx, sqlc.CreateOutlineNodeParams{
+			ProjectID: projectID, Text: text, Depth: 1, Position: pos,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // InsertSpotCheckIntervention writes one spot_check_item intervention row.
 func (s *sqlcAgentStore) InsertSpotCheckIntervention(ctx context.Context, row SpotCheckInterventionRow) error {
 	_, err := s.q.InsertIntervention(ctx, sqlc.InsertInterventionParams{
