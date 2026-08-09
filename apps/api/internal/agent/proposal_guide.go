@@ -33,9 +33,44 @@ type GuideGenInput struct {
 	Activities string
 	Resources  string
 	Step       Step
+	Doc        string // "" | "proposal" | "essay" — selects the guidance wording
 
 	ThisSubQuestion     string
 	SiblingSubQuestions []SubQuestion
+}
+
+// essayGuideBody produces the essay statement-stage guidance for a step (§6
+// stage-2). Claim steps walk 证据/分析/局限/衔接 for that one claim; the fixed
+// steps guide outline / 比较综合 / 面对反方观点 / 结论 / 论证结构.
+func essayGuideBody(in GuideGenInput) string {
+	var b strings.Builder
+	switch in.Step.Kind {
+	case KindSubq:
+		b.WriteString("\n本部分：为下面这条【论点】写论述段落——它的证据、对证据的分析、它的局限、以及它如何与其它论点衔接、共同回答核心问题。一次只写这一条论点。\n")
+		fmt.Fprintf(&b, "当前论点（子问题）：%s\n", strings.TrimSpace(in.ThisSubQuestion))
+		if len(in.SiblingSubQuestions) > 0 {
+			b.WriteString("全部论点（用于说明衔接）：\n")
+			for i, sq := range in.SiblingSubQuestions {
+				fmt.Fprintf(&b, "  %d. %s\n", i+1, strings.TrimSpace(sq.Text))
+			}
+		}
+	default:
+		switch in.Step.Key {
+		case "outline":
+			b.WriteString("\n本部分：根据你搜集到的证据，调整大纲——各条论点的顺序、层次与它们之间的关系。\n")
+		case "synthesis":
+			b.WriteString("\n本部分：比较 / 综合各条论点——它们如何共同回答核心研究问题？哪里相互支撑、哪里有张力？\n")
+		case "challenges":
+			b.WriteString("\n本部分：面对最强的反方观点 / 替代解释 / 不同视角——你如何回应？（这一步不能跳过。）\n")
+		case "conclusion":
+			b.WriteString("\n本部分：基于前面各条论证，写出你的结论。\n")
+		case "structure":
+			b.WriteString("\n本部分：用一段话描述整篇文章的论证结构——各部分如何层层推进、共同支撑结论。\n")
+		default:
+			fmt.Fprintf(&b, "\n本部分：%s。请针对当前题目引导学生写这一部分。\n", in.Step.Title)
+		}
+	}
+	return b.String()
 }
 
 const guideGenSystem = `你是一位快节奏、温暖的 IB 写作陪练。学生正在写研究提案的某一部分。请只为这一部分生成一张「引导卡」，帮助学生自己写——你绝不替他写正文。
@@ -66,6 +101,11 @@ func guideGenUserContent(in GuideGenInput) string {
 	}
 	if s := strings.TrimSpace(in.Resources); s != "" {
 		fmt.Fprintf(&b, "已有资源：%s\n", s)
+	}
+
+	if in.Doc == "essay" {
+		b.WriteString(essayGuideBody(in))
+		return b.String()
 	}
 
 	switch in.Step.Kind {

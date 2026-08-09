@@ -77,3 +77,21 @@ func TestGuideGenUserContent_VariesByStepKind(t *testing.T) {
 		t.Fatalf("subq content missing sibling sub-question: %s", sc)
 	}
 }
+
+func TestGuideGen_EssayClaim(t *testing.T) {
+	sq := GuideGenInput{
+		Title: "T", Objective: "主问题", Doc: "essay",
+		Step: Step{Key: "claim:b", Title: "论点 2", Kind: KindSubq, SubQuestionID: "b"},
+		ThisSubQuestion: "太阳能装机增长的净效应",
+		SiblingSubQuestions: []SubQuestion{{ID: "a", Text: "煤电占比"}, {ID: "b", Text: "太阳能装机增长的净效应"}},
+	}
+	sc := guideGenUserContent(sq)
+	if !strings.Contains(sc, "论点") || !strings.Contains(sc, "太阳能装机增长的净效应") || !strings.Contains(sc, "煤电占比") {
+		t.Fatalf("essay claim body wrong: %s", sc)
+	}
+	// challenges is a non-skippable essay step.
+	ch := guideGenUserContent(GuideGenInput{Doc: "essay", Step: Step{Key: "challenges", Title: "面对反方观点", Kind: KindFixed}})
+	if !strings.Contains(ch, "反方观点") {
+		t.Fatalf("challenges body wrong: %s", ch)
+	}
+}
