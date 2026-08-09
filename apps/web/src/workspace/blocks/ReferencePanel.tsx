@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Annotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
+import type { Annotation, DraftAnnotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
 import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
+import { getProposalAnnotations } from "../../api/proposalAnnotations";
 import { resolveReferences, type ResolvedRef } from "./referenceResolve";
 
 /**
@@ -53,6 +54,7 @@ export function ReferencePanel({
   proposal,
   onInsert,
   canInsert,
+  annotationsVersion,
 }: {
   projectId: string;
   reference: ReferenceRef[];
@@ -64,10 +66,28 @@ export function ReferencePanel({
   /** Whether the draft is currently open (正文 tab) — the 「插入」 action only
    * shows when true, so it's never a dead no-op on 大纲/片段 (P3 review). */
   canInsert?: boolean;
+  /** slice 3b · bumped by the container after a 批注 review so the proposal
+   * 批注 group re-fetches. */
+  annotationsVersion?: number;
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[] | null>(null);
+  // slice 3b · the proposal's layered colored 批注 (view-only). Only on a
+  // proposal stage; re-fetched when annotationsVersion changes.
+  const isProposalStage = PROPOSAL_VISIBLE_STAGES.includes(stage);
+  const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
+  useEffect(() => {
+    if (!isProposalStage) {
+      setProposalAnnos([]);
+      return;
+    }
+    let cancelled = false;
+    void getProposalAnnotations(projectId)
+      .then((a) => { if (!cancelled) setProposalAnnos(a); })
+      .catch(() => { if (!cancelled) setProposalAnnos([]); });
+    return () => { cancelled = true; };
+  }, [projectId, isProposalStage, annotationsVersion]);
 
   // Lazily fetch library + snippets + annotations once — the panel is
   // context, not the main event, but it needs all three to resolve 印记's
@@ -113,6 +133,7 @@ export function ReferencePanel({
     materials.length === 0 &&
     notes.length === 0 &&
     annotationItems.length === 0 &&
+    proposalAnnos.length === 0 &&
     !hasCollected;
 
   return (
@@ -136,7 +157,9 @@ export function ReferencePanel({
             {hasCollected && (
               <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} canInsert={canInsert} />
             )}
-            <AnnotationGroup items={annotationItems} />
+            {/* slice 3b · the proposal uses the layered colored 批注 (view-only);
+                the essay keeps the flat curated review-item annotations. */}
+            {isProposalStage ? <ProposalAnnotationGroup items={proposalAnnos} /> : <AnnotationGroup items={annotationItems} />}
           </div>
         )}
       </div>
@@ -229,6 +252,74 @@ function AnnotationGroup({ items }: { items: AnnotationRef[] }) {
                 {item.criterion}·{item.band}
               </p>
               <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{item.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// slice 3b · nature → solid color token (never mk-*/opacity — the transparent
+// gotcha). Coloring the text makes the underline (currentColor) match, so a
+// sentence 批注 is colored text + underline; §4's "green/blue/red texts and
+// underlines".
+const NATURE_TEXT: Record<string, string> = {
+  good: "text-mk-success",
+  suggest: "text-mk-info",
+  problem: "text-mk-danger",
+};
+const NATURE_DOT: Record<string, string> = {
+  good: "bg-mk-success",
+  suggest: "bg-mk-info",
+  problem: "bg-mk-danger",
+};
+
+// ProposalAnnotationGroup — the layered colored 批注 (view-only, §4). paper =
+// overall summary (green good / blue-red enhance); paragraph = a blue/red
+// comment with a locator, no underline; sentence = the quoted sentence colored
+// + underlined, with the comment. It never touches the editable draft.
+export function ProposalAnnotationGroup({ items }: { items: DraftAnnotation[] }) {
+  const paper = items.filter((a) => a.level === "paper");
+  const paragraph = items.filter((a) => a.level === "paragraph");
+  const sentence = items.filter((a) => a.level === "sentence");
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[14px] font-semibold text-mk-ink">AI批注</p>
+      {items.length === 0 ? (
+        <p className="text-[14px] leading-relaxed text-mk-faint">批注会在印记看过你的写作后出现。</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {paper.length > 0 && (
+            <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">总体</p>
+              <ul className="mt-1.5 flex flex-col gap-1.5">
+                {paper.map((a) => (
+                  <li key={a.id} className="flex gap-1.5 text-[14px] leading-relaxed">
+                    <span className={`mt-1.5 h-1.5 w-1.5 flex-none rounded-full ${NATURE_DOT[a.nature] ?? "bg-mk-faint"}`} />
+                    <span className="text-mk-ink">{a.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {paragraph.map((a) => (
+            <div key={a.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+              <p className="flex items-center gap-1.5 text-[12px] font-bold text-mk-faint">
+                <span className={`h-1.5 w-1.5 rounded-full ${NATURE_DOT[a.nature] ?? "bg-mk-faint"}`} />
+                段落{a.locator ? ` · ${a.locator}` : ""}
+              </p>
+              <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{a.note}</p>
+            </div>
+          ))}
+          {sentence.map((a) => (
+            <div key={a.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+              {a.quote && (
+                <p className={`text-[14px] leading-relaxed underline ${NATURE_TEXT[a.nature] ?? "text-mk-ink"}`}>
+                  「{a.quote}」{a.locator ? <span className="text-[12px] text-mk-faint no-underline"> · {a.locator}</span> : null}
+                </p>
+              )}
+              <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{a.note}</p>
             </div>
           ))}
         </div>

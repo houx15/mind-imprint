@@ -110,6 +110,7 @@ export function WritingBlock({
   refreshWorkspace,
   recap,
   onOpenReading,
+  onAnnotationsChanged,
 }: {
   projectId: string;
   title: string;
@@ -140,6 +141,8 @@ export function WritingBlock({
   /** slice 3a · open the reading room (proposal guide's needs-resources /
    * explore-first jumps). Provided by the container's room switcher. */
   onOpenReading?: (note?: string) => void;
+  /** slice 3b · fired after a 批注 review so the left panel re-fetches. */
+  onAnnotationsChanged?: () => void;
 }) {
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
   // WC · part-by-part: the draft part the student has pinned to think through
@@ -252,7 +255,7 @@ export function WritingBlock({
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {isProposal ? (
-          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} />
+          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
         ) : tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (

@@ -314,6 +314,9 @@ export function WorkspaceContainer({
   // The AI-proposed card the student CHOSE to open — the only path to the shared
   // card sheet (triggering is automatic, opening is her tap · 铁律).
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  // slice 3b · bumped after a 批注 review so the left ReferencePanel re-fetches
+  // the proposal's layered colored 批注.
+  const [annotationsVersion, setAnnotationsVersion] = useState(0);
   // Live opened-project id for the rooms' cross-project append guard (see
   // StudioChatContext). Kept current every render so a late turn closure never
   // reads a stale value.
@@ -1130,6 +1133,7 @@ export function WorkspaceContainer({
                     proposal={workspace.proposal}
                     onInsert={(t) => draftInsertRef.current?.(t)}
                     canInsert={insertReady}
+                    annotationsVersion={annotationsVersion}
                   />
                 }
                 right={(() => {
@@ -1155,6 +1159,7 @@ export function WorkspaceContainer({
                       refreshWorkspace={refreshWorkspace}
                       recap={historyRecap ?? summary}
                       onOpenReading={() => setRoom("reading")}
+                      onAnnotationsChanged={() => setAnnotationsVersion((v) => v + 1)}
                     />
                   );
                 })()}
