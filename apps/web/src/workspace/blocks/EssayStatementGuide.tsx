@@ -181,10 +181,11 @@ export function EssayStatementView({
     );
   }
 
-  // A claim / synthesis / challenges / conclusion / structure step → a card.
+  // A claim / synthesis / challenges / conclusion / structure step → a card. The
+  // container is paper so the accent-50 GuidedWritingCard keeps its figure/ground.
   const isClaim = step.kind === "subq";
   return (
-    <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-4">
+    <div className="border-b border-mk-border bg-mk-paper px-8 py-4">
       <div className="mx-auto max-w-[70ch]">
         <div className="mb-2 flex items-center gap-2">
           <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">第 {step.index + 1} / {step.total} 步</span>
@@ -206,8 +207,10 @@ export function EssayStatementView({
         {/* slice 4b-2 · the last step (论证结构) is the end of the statement walk —
             finish it to enter 成文 (submission), instead of a dead-end 下一步. */}
         {isLast && (
+          // Secondary (bordered) so it doesn't compete with the card's filled
+          // 我写好了 primary — 完成 is the step-after-review action.
           <div className="mt-3 flex justify-end">
-            <button type="button" onClick={onFinishStatement} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">
+            <button type="button" onClick={onFinishStatement} className="rounded-mk-md border border-mk-accent bg-mk-surface px-4 py-1.5 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-50">
               完成正文陈述，进入成文
             </button>
           </div>

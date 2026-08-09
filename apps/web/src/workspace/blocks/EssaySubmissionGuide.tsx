@@ -5,6 +5,7 @@ import { useEssaySubmission } from "./useEssaySubmission";
 import { useSnippets } from "./WritingBlock";
 import { getEssayStatement } from "../../api/essayStatement";
 import { putBuffer } from "../../api/writing";
+import { getDraft } from "../api/workspace";
 import { assembleEssayDoc } from "./docSections";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
 
@@ -112,8 +113,9 @@ export function EssaySubmissionView({
   }
 
   // 引言 / 结论 → a GuidedWritingCard (no 写作卡 offer — those live in the claims).
+  // Paper container so the accent-50 card keeps its figure/ground.
   return (
-    <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-4">
+    <div className="border-b border-mk-border bg-mk-paper px-8 py-4">
       <div className="mx-auto max-w-[70ch]">
         {header}
         <GuidedWritingCard
@@ -211,7 +213,11 @@ export function EssaySubmissionPane({
         { section: "sub:conclusion", title: "结论" },
       ];
       const doc = assembleEssayDoc(parts, textBySection);
-      if (doc.trim() !== "") {
+      // Never clobber a hand-edited draft (铁律② · we don't manipulate the
+      // student's writing): only seed the buffer when it's still empty. If the
+      // student already has a draft, 拼接 is a no-op — the microcopy says so.
+      const existing = await getDraft(projectId, "essay").catch(() => "");
+      if (doc.trim() !== "" && existing.trim() === "") {
         await putBuffer(projectId, doc, "essay");
       }
     } catch {
