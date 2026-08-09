@@ -93,8 +93,9 @@ sqlc: `SetReferenceEvidence(id, nature, argument, finding, placement)`, `SetRefe
 
 ## Pillar 4 · One task at a time + search-direction proposals
 
-- **One task at a time (§5/§6):** on entering research, 印记 does NOT throw a wall of per-sub-question search buttons. It proposes **one task** — "先从子问题 1 开始：找能支持/挑战它的材料" — and walks the sub-questions in order as each is dealt with. A lightweight "current research task" surfaced in the coach + a highlight on the active sub-question node.
-- **Search directions (only for the current task):** for the active sub-question, 印记 can offer 2–3 keyword directions with a why (reuse `agent.ComposeExplorationGuide`, scoped to that sub-question + its current evidence) — but only for the one task, not all sub-questions at once.
+- **One task at a time (§5/§6):** on entering research, 印记 does NOT throw a wall of per-sub-question search buttons. It proposes **one task** — "先从子问题 1 开始：找能支持/挑战它的材料" — as the starting point, and walks the sub-questions rather than presenting them all at once.
+- **The "active" sub-question = the one 印记 proposed to start with, OR the one the student is currently active in** (user). The student isn't locked to a rigid order — whichever sub-question they've navigated to / selected in the graph becomes the active context. A lightweight "current research task" line + a highlight on the active sub-question node track it.
+- **Search directions apply only to the currently-active sub-question:** 印记 offers 2–3 keyword directions with a why (reuse `agent.ComposeExplorationGuide`, scoped to that sub-question + its current evidence) — for the one the student is in, not all sub-questions at once.
 
 ---
 
@@ -158,7 +159,7 @@ Metered `purpose="evidence_saturation"`. Best-effort: nil resolver/error → no 
 | The warren/graph IS the 证据地图 | Whole slice (grow the warren) | ✅ (user framing) |
 | Each paper: 来源信息 / key argument / key evidence + tags (which sub-question, where it can appear) | Pillar 3 note (sidebar) + nature + placement; sub-question = the node it hangs under | ✅ |
 | Support vs challenge structure | Pillar 3 支持/反驳 typing | ✅ |
-| One task at a time (start from sub-question 1); not many buttons | Pillar 4 | ✅ |
+| One task at a time (start from sub-question 1); not many buttons; active = the one the student is in | Pillar 4 | ✅ |
 | Tag new papers during exploration (red must-read / yellow to-decide) | Pillar 3 triage | ✅ |
 | Archive interesting-but-not-related | Pillar 3 archive | ✅ |
 | Saturation = strong support + limitation/challenge/substitute/perspective + new-reading-repeats | Pillar 5 reviewer (3 criteria) | ✅ |
