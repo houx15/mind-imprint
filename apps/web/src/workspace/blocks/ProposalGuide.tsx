@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProposalGuideStep, SubQuestion } from "@mind-imprint/contracts";
 import { useProposalTrack } from "./useProposalTrack";
 import { reviewProposalPart } from "../../api/proposalTrack";
 import { getDraft } from "../api/workspace";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
 import { ProsePane } from "./ProsePane";
+import { GuidedWritingCard } from "./GuidedWritingCard";
+import { useSnippets } from "./WritingBlock";
+import { assembleGuidedDoc, partSectionKey } from "./docSections";
+import { putBuffer } from "../../api/writing";
 
 // ProposalGuide — slice 3a · the guided proposal scaffold that sits ABOVE the
 // prose writing surface. It walks the student through the proposal's parts
@@ -39,6 +43,8 @@ export function ProposalGuide({
   onStillStuck,
   onDone,
   onOpenReading,
+  partValue,
+  onPartChange,
 }: {
   step: ProposalGuideStep | null;
   bufferNonEmpty: boolean;
@@ -51,6 +57,9 @@ export function ProposalGuide({
   onStillStuck: () => void;
   onDone: () => void;
   onOpenReading: (note?: string) => void;
+  // slice 4b retrofit · the current part's text (its own auto-growing textarea).
+  partValue?: string;
+  onPartChange?: (v: string) => void;
 }) {
   if (!step) return null;
 
@@ -126,65 +135,31 @@ export function ProposalGuide({
     );
   }
 
-  // 4b · guided, started, a normal guide card (or a sub-question card).
+  // 4b · guided, started, a normal part (or a sub-question card) — a
+  // GuidedWritingCard: guidance + the part's OWN auto-growing textarea (§4's
+  // per-part "snippet writing frame") + 我依然有问题/我写好了 + nav.
   return (
-    <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-5">
+    <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-4">
       <div className="mx-auto max-w-[70ch]">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">
-            第 {step.index + 1} / {step.total} 步
-          </span>
-          <h3 className="font-sans text-[16px] font-bold text-mk-ink">{step.title}</h3>
-        </div>
-        {step.card ? (
-          <>
-            <p className="mt-3 whitespace-pre-wrap text-[14.5px] leading-relaxed text-mk-ink">{step.card.prompt}</p>
-            {step.card.example && (
-              <div className="mt-3 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2">
-                <p className="text-[12px] font-bold text-mk-muted">范例（英文，供参考）</p>
-                <p className="mt-1 whitespace-pre-wrap text-[13.5px] leading-relaxed text-mk-muted">{step.card.example}</p>
-              </div>
-            )}
-            {step.card.refHint && <p className="mt-2 text-[13px] text-mk-muted">💡 {step.card.refHint}</p>}
-          </>
-        ) : (
-          <p className="mt-3 text-[14px] text-mk-muted">印记正在为这一步准备引导……</p>
-        )}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onStillStuck}
-            className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-ink hover:border-mk-accent"
-          >
-            我依然有问题
-          </button>
-          <button
-            type="button"
-            disabled={reviewing}
-            onClick={onDone}
-            className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
-          >
-            {reviewing ? "印记在看……" : "我写好了"}
-          </button>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">第 {step.index + 1} / {step.total} 步</span>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onPrev}
-              disabled={step.index === 0}
-              className="rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-40"
-            >
-              ← 上一步
-            </button>
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={step.index >= step.total - 1}
-              className="rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-40"
-            >
-              下一步 →
-            </button>
+            <button type="button" onClick={onPrev} disabled={step.index === 0} className="rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-40">← 上一步</button>
+            <button type="button" onClick={onNext} disabled={step.index >= step.total - 1} className="rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-40">下一步 →</button>
           </div>
         </div>
+        <GuidedWritingCard
+          title={step.title}
+          guidance={step.card?.prompt ?? "印记正在为这一步准备引导……"}
+          example={step.card?.example}
+          value={partValue ?? ""}
+          onChange={onPartChange ?? (() => {})}
+          onStillStuck={onStillStuck}
+          onDone={onDone}
+          reviewing={reviewing}
+          placeholder="在这里写这一部分……"
+        />
+        {step.card?.refHint && <p className="mt-2 text-[13px] text-mk-muted">💡 {step.card.refHint}</p>}
       </div>
     </div>
   );
@@ -312,6 +287,7 @@ export function ProposalGuidePane({
 }) {
   const track = useProposalTrack(projectId);
   const { sendStudioTurn } = useStudioChat();
+  const snip = useSnippets(projectId);
   const [reviewing, setReviewing] = useState(false);
   const [bufferNonEmpty, setBufferNonEmpty] = useState(false);
 
@@ -324,6 +300,38 @@ export function ProposalGuidePane({
   }, [projectId]);
 
   const step = track.step;
+  const isGuided = step?.mode === "guided" && step.started;
+
+  // slice 4b retrofit · the current part's text is a snippet (section
+  // "prop:<key>"); the ordered parts are assembled into the proposal buffer so
+  // free mode + export + finish (which all read the buffer) stay consistent.
+  const stepKey = step?.key ?? "";
+  const [partText, setPartText] = useState("");
+  const partIdRef = useRef<string | null>(null);
+  const assembleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const existing = snip.snippets.find((s) => s.section === partSectionKey(stepKey));
+    partIdRef.current = existing?.id ?? null;
+    setPartText(existing?.text ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepKey]);
+
+  function assembleToBuffer() {
+    if (!step) return;
+    const textByKey: Record<string, string> = {};
+    for (const s of snip.snippets) {
+      if (s.section && s.section.startsWith("prop:")) textByKey[s.section.slice(5)] = s.text;
+    }
+    void putBuffer(projectId, assembleGuidedDoc(step.steps, textByKey), "proposal").catch(() => {});
+  }
+
+  function onPartChange(v: string) {
+    setPartText(v);
+    if (partIdRef.current) snip.update(partIdRef.current, v);
+    else partIdRef.current = snip.add(v, partSectionKey(stepKey));
+    if (assembleTimer.current) clearTimeout(assembleTimer.current);
+    assembleTimer.current = setTimeout(assembleToBuffer, 1000);
+  }
 
   function onStillStuck() {
     if (!step) return;
@@ -333,6 +341,7 @@ export function ProposalGuidePane({
   async function onDone() {
     if (!step) return;
     setReviewing(true);
+    assembleToBuffer(); // make sure the buffer reflects this part before the review reads it
     try {
       // The flagship reviewer produces 批注 (view-only, left panel — 铁律①).
       await reviewProposalPart(projectId, step.key);
@@ -360,11 +369,17 @@ export function ProposalGuidePane({
           onStillStuck={onStillStuck}
           onDone={() => void onDone()}
           onOpenReading={onOpenReading}
+          partValue={partText}
+          onPartChange={onPartChange}
         />
       )}
-      <div className="min-h-0 flex-1">
-        <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
-      </div>
+      {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
+          per-part in the cards above (§4). */}
+      {!isGuided && (
+        <div className="min-h-0 flex-1">
+          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
+        </div>
+      )}
     </div>
   );
 }

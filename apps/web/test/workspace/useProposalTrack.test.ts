@@ -14,6 +14,7 @@ function stepFixture(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
     started: false,
     subQuestions: [],
     card: null,
+    steps: [],
     ...over,
   };
 }

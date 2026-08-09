@@ -27,16 +27,35 @@ type guideCardDTO struct {
 	RefHint string `json:"refHint,omitempty"`
 }
 
+// stepRefDTO is one entry in the ordered step list (for client-side per-part
+// assembly of the guided writing — slice 4b retrofit).
+type stepRefDTO struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	Kind  string `json:"kind"`
+}
+
 type proposalGuideStepDTO struct {
-	Key          string               `json:"key"`
-	Title        string               `json:"title"`
-	Kind         string               `json:"kind"`
-	Index        int                  `json:"index"`
-	Total        int                  `json:"total"`
-	Mode         string               `json:"mode"`
-	Started      bool                 `json:"started"`
-	SubQuestions []agent.SubQuestion  `json:"subQuestions"`
-	Card         *guideCardDTO        `json:"card"`
+	Key          string              `json:"key"`
+	Title        string              `json:"title"`
+	Kind         string              `json:"kind"`
+	Index        int                 `json:"index"`
+	Total        int                 `json:"total"`
+	Mode         string              `json:"mode"`
+	Started      bool                `json:"started"`
+	SubQuestions []agent.SubQuestion `json:"subQuestions"`
+	Card         *guideCardDTO       `json:"card"`
+	// Steps (slice 4b) — the full ordered step list, so the guided surface can
+	// assemble the per-part text back into the document in order.
+	Steps []stepRefDTO `json:"steps"`
+}
+
+func toStepRefs(steps []agent.Step) []stepRefDTO {
+	out := make([]stepRefDTO, 0, len(steps))
+	for _, s := range steps {
+		out = append(out, stepRefDTO{Key: s.Key, Title: s.Title, Kind: string(s.Kind)})
+	}
+	return out
 }
 
 // loadTrackState loads the studio_state and returns it with a non-nil
@@ -104,7 +123,7 @@ func (a *API) buildProposalGuideStep(ctx context.Context, projectID uuid.UUID, s
 	dto := proposalGuideStepDTO{
 		Key: cur.Key, Title: cur.Title, Kind: string(cur.Kind),
 		Index: idx, Total: total, Mode: string(track.Mode), Started: track.Started,
-		SubQuestions: subs,
+		SubQuestions: subs, Steps: toStepRefs(steps),
 	}
 
 	if track.Mode == agent.ModeGuided && track.Started {

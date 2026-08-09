@@ -4,7 +4,7 @@ import { EssayStatementView } from "@/workspace/blocks/EssayStatementGuide";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
 
 function step(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
-  return { key: "outline", title: "搭大纲", kind: "fixed", index: 0, total: 7, mode: "guided", started: true, subQuestions: [], card: { prompt: "调整大纲", example: "" }, ...over };
+  return { key: "outline", title: "搭大纲", kind: "fixed", index: 0, total: 7, mode: "guided", started: true, subQuestions: [], card: { prompt: "调整大纲", example: "" }, steps: [], ...over };
 }
 const handlers = () => ({ onChange: vi.fn(), onStart: vi.fn(), onStillStuck: vi.fn(), onDone: vi.fn(), onNext: vi.fn(), onPrev: vi.fn(), onOfferCard: vi.fn() });
 

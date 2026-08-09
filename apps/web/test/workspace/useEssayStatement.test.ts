@@ -6,7 +6,7 @@ import type { ProposalGuideStep } from "@mind-imprint/contracts";
 function stepFixture(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
   return {
     key: "outline", title: "搭大纲", kind: "fixed", index: 0, total: 7,
-    mode: "guided", started: false, subQuestions: [], card: null, ...over,
+    mode: "guided", started: false, subQuestions: [], card: null, steps: [], ...over,
   };
 }
 

@@ -14,6 +14,7 @@ function step(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
     started: true,
     subQuestions: [],
     card: { prompt: "解释你对题目的理解", example: "An English example" },
+    steps: [],
     ...over,
   };
 }

@@ -28,6 +28,11 @@ export type StepKind = z.infer<typeof StepKind>;
 
 // ProposalGuideStep — the whole track state + the current step. `card` is null
 // until guided AND started (and is generated lazily for the current step).
+// StepRef — one entry in the ordered step list (slice 4b: lets the guided
+// surface assemble the per-part text back into the document in order).
+export const StepRef = z.object({ key: z.string(), title: z.string(), kind: StepKind });
+export type StepRef = z.infer<typeof StepRef>;
+
 export const ProposalGuideStep = z.object({
   key: z.string(),
   title: z.string(),
@@ -38,5 +43,7 @@ export const ProposalGuideStep = z.object({
   started: z.boolean(),
   subQuestions: z.array(SubQuestion),
   card: GuideCard.nullable(),
+  // The full ordered step list (optional/defaulted for back-compat with fixtures).
+  steps: z.array(StepRef).default([]),
 });
 export type ProposalGuideStep = z.infer<typeof ProposalGuideStep>;
