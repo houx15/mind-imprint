@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -726,6 +727,50 @@ func (s *sqlcAgentStore) ReplaceProposalAnnotations(ctx context.Context, project
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// SeedEvidenceMapFromProposal (slice 4a) draws the essay's 证据地图 backbone into
+// the warren from the proposal: a root question lead for the main RQ + one per
+// sub-question, each with a CONFIRMED 子问题 edge to the main RQ (they come from
+// the confirmed proposal). Idempotent — if a lead with the main RQ's text already
+// exists, it's already seeded and this no-ops. Existing exploration leads (from
+// proposal-time reading) are left untouched.
+func (s *sqlcAgentStore) SeedEvidenceMapFromProposal(ctx context.Context, projectID uuid.UUID, mainRQ string, subQuestions []SubQuestion) error {
+	mainRQ = strings.TrimSpace(mainRQ)
+	if mainRQ == "" {
+		return nil
+	}
+	if leads, err := s.q.ListExplorationLeads(ctx, projectID); err == nil {
+		for _, l := range leads {
+			if l.Text == mainRQ {
+				return nil // already seeded
+			}
+		}
+	}
+	main, err := s.q.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
+		ProjectID: projectID, Text: mainRQ, Status: "open", Origin: "guide", Position: 0,
+	})
+	if err != nil {
+		return err
+	}
+	for i, sq := range subQuestions {
+		text := strings.TrimSpace(sq.Text)
+		if text == "" {
+			continue
+		}
+		lead, lerr := s.q.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
+			ProjectID: projectID, Text: text, Status: "open", Origin: "guide", Position: int32(i + 1),
+		})
+		if lerr != nil {
+			return lerr
+		}
+		if _, eerr := s.q.CreateQuestionEdge(ctx, sqlc.CreateQuestionEdgeParams{
+			ProjectID: projectID, FromLeadID: main.ID, ToLeadID: lead.ID, Label: "子问题", Status: "confirmed",
+		}); eerr != nil {
+			return eerr
+		}
+	}
+	return nil
 }
 
 // InsertSpotCheckIntervention writes one spot_check_item intervention row.

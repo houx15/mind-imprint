@@ -65,8 +65,9 @@ func TestNextStepFor(t *testing.T) {
 	if s := nextStepFor(agent.FlowProposal, true, false); s != nil {
 		t.Errorf("proposal w/o finish should offer nothing, got %+v", s)
 	}
-	if s := nextStepFor(agent.FlowProposal, true, true); s == nil || s.ToStatus != "essay" {
-		t.Errorf("proposal w/ finish should offer essay, got %+v", s)
+	// slice 4a · 完成提案 → research in the reading room first (not the writing surface).
+	if s := nextStepFor(agent.FlowProposal, true, true); s == nil || s.ToStatus != "essay" || s.Surface != "reading" {
+		t.Errorf("proposal w/ finish should offer essay→reading (research), got %+v", s)
 	}
 	// essay: only on finish_part → offer review.
 	if s := nextStepFor(agent.FlowEssay, true, true); s == nil || s.ToStatus != "review" || s.Surface != "reflection" {

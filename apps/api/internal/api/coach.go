@@ -689,7 +689,9 @@ func nextStepFor(status agent.FlowStatus, planExists, finishPart bool) *nextStep
 		}
 	case agent.FlowProposal:
 		if finishPart {
-			return &nextStepDTO{Label: "开始写正文", ToStatus: string(agent.FlowEssay), Surface: string(agent.ToolWriting)}
+			// slice 4a · 完成提案 → research (reading room) first, not the writing
+			// surface (§5/§6). The essay track lands in the research stage on advance.
+			return &nextStepDTO{Label: "去做研究", ToStatus: string(agent.FlowEssay), Surface: string(agent.ToolReading)}
 		}
 	case agent.FlowEssay:
 		if finishPart {
@@ -1026,6 +1028,30 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	state.Started = true
 	state.OpenTool = def.Surface
 	state.WidthTier = agent.WidthForTool(def.Surface)
+
+	// slice 4a · entering the essay lands in the RESEARCH stage first — the
+	// reading room, not the writing surface (§5/§6, supersedes Phase B). Seed the
+	// 证据地图 backbone into the warren from the proposal once (idempotent).
+	if target == agent.FlowEssay {
+		if state.EssayTrack == nil {
+			state.EssayTrack = &agent.EssayTrack{Stage: agent.EssayResearch}
+			mainRQ := ""
+			if prop, perr := a.d.Queries.GetProjectProposal(r.Context(), projectID); perr == nil {
+				mainRQ = prop.Objective
+			}
+			var subs []agent.SubQuestion
+			if state.ProposalTrack != nil {
+				subs = state.ProposalTrack.SubQuestions
+			}
+			if serr := store.SeedEvidenceMapFromProposal(r.Context(), projectID, mainRQ, subs); serr != nil {
+				slog.Warn("coach advance: seed evidence map failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+		if state.EssayTrack.Stage == agent.EssayResearch {
+			state.OpenTool = agent.ToolReading
+			state.WidthTier = agent.WidthForTool(agent.ToolReading)
+		}
+	}
 
 	const advanceUtterance = "好，我们进入下一步。"
 	history, herr := store.LoadActiveCoachHistory(r.Context(), projectID, coachHistoryWindow)
