@@ -41,3 +41,12 @@ export async function archiveReference(projectId: string, rid: string, archived 
   });
   return Reference.parse(raw);
 }
+
+// The essay stage flip (§6 flexible advance): research → statement opens the
+// writing surface. The caller then re-applies studio state to switch rooms.
+export async function advanceEssayStage(projectId: string, stage: "statement" | "submission"): Promise<{ stage: string; surface: string }> {
+  return apiFetch<{ stage: string; surface: string }>(`/api/v1/projects/${projectId}/essay-track/advance-stage`, {
+    method: "POST",
+    body: JSON.stringify({ stage }),
+  });
+}

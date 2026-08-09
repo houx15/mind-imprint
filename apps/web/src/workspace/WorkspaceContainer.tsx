@@ -1114,6 +1114,8 @@ export function WorkspaceContainer({
                 title={workspace.title}
                 setReadingSource={openReadingSource}
                 refreshNonce={explorationRefreshNonce}
+                essayStage={studioState?.essayTrack?.stage}
+                onStudioStateChanged={continueYinji}
               />
             )}
             {room === "writing" && (

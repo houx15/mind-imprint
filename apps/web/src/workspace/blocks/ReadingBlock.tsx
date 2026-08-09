@@ -18,6 +18,7 @@ import {
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
+import { ResearchPanel } from "./exploration/ResearchPanel";
 import { getExploration } from "../../api/exploration";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
@@ -78,9 +79,16 @@ export function ReadingBlock({
   title,
   setReadingSource,
   refreshNonce,
+  essayStage,
+  onStudioStateChanged,
 }: {
   projectId: string;
   title: string;
+  // slice 4a · the essay stage; the 证据地图 research panel shows only while
+  // "research". onStudioStateChanged re-applies 印记's state after the advance to
+  // statement (opens the writing room).
+  essayStage?: string;
+  onStudioStateChanged?: () => void | Promise<void>;
   // Task 8 (P2b) · WorkspaceContainer's `explorationRefreshNonce`, forwarded
   // straight through to ExplorationView so a 印记-confirmed question (the chat
   // chip, Task 7) re-fetches the graph without a manual reload.
@@ -463,7 +471,11 @@ export function ReadingBlock({
           // `coach` slot is passed — ExplorationSidebar's existing fallback
           // (coach ? … : blank aside) renders instead, and the ONE 印记 lives
           // in the constant rail beside this room (portaled below).
-          <div className="relative h-full min-h-0">
+          <div className="relative flex h-full min-h-0 flex-col">
+            {essayStage === "research" && (
+              <ResearchPanel projectId={projectId} onAdvanced={() => onStudioStateChanged?.()} />
+            )}
+            <div className="relative min-h-0 flex-1">
             <ExplorationView
               projectId={projectId}
               references={refs}
@@ -494,6 +506,7 @@ export function ReadingBlock({
                 ])
               }
             />
+            </div>
           </div>
         )}
       </div>

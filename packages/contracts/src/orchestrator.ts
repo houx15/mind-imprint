@@ -47,6 +47,9 @@ export const StudioState = z.object({
     .nullish(),
   // slice 3a (Finding 2) · the student waived the 反例 prompt before plan-gen.
   counterpointsWaived: z.boolean().optional(),
+  // slice 4a · the essay's stage (research → statement → submission). nullish
+  // until 完成提案 enters the essay.
+  essayTrack: z.object({ stage: z.enum(["research", "statement", "submission"]) }).nullish(),
 });
 export type StudioState = z.infer<typeof StudioState>;
 
