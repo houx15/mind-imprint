@@ -35,6 +35,21 @@ describe("orchestrator contract", () => {
     expect(() => StudioState.parse(bad)).toThrow();
   });
 
+  it("accepts a reply carrying a reviewVerdict (and one without it)", () => {
+    const base = {
+      narrate: "提案计划生成好了。",
+      directive: { stage: "plan_generation", openTool: "plan", widthTier: "half", reference: [], updatedAtTurn: 4, started: true },
+      note: null, card: null, question: null, reviewRequested: false, planGenerated: true, compacted: false,
+    };
+    expect(() => OrchestratorReply.parse(base)).not.toThrow();
+    expect(() =>
+      OrchestratorReply.parse({
+        ...base,
+        reviewVerdict: { ready: true, why: "四点都扎实。", suggestions: ["资源那条可以更具体", "补一个反例"] },
+      }),
+    ).not.toThrow();
+  });
+
   it("accepts a note-proposal reply with null directive fields defaulted", () => {
     const reply = {
       narrate: "要不要把这条记进「目标」？",

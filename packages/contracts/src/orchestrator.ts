@@ -80,6 +80,17 @@ export const NextStep = z.object({
 });
 export type NextStep = z.infer<typeof NextStep>;
 
+// ReviewVerdict — a reasoning-model reviewer's read at a gate point (slice 2:
+// framework readiness). Strong-advisory: `ready` reflects "solid enough to
+// proceed", never blocks; `suggestions` are concrete, pointed at the weakest
+// spots. Attached to OrchestratorReply when a gate reviewer ran this turn.
+export const ReviewVerdict = z.object({
+  ready: z.boolean(),
+  why: z.string(),
+  suggestions: z.array(z.string()),
+});
+export type ReviewVerdict = z.infer<typeof ReviewVerdict>;
+
 export const OrchestratorReply = z.object({
   narrate: z.string(),
   directive: StudioState,
@@ -90,6 +101,7 @@ export const OrchestratorReply = z.object({
   planGenerated: z.boolean(),
   compacted: z.boolean(),
   nextStep: NextStep.nullable().optional(),
+  reviewVerdict: ReviewVerdict.nullable().optional(),
 });
 export type OrchestratorReply = z.infer<typeof OrchestratorReply>;
 
