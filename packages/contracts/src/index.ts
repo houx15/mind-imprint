@@ -42,3 +42,4 @@ export * from "./annotation";
 export * from "./proposalGuide";
 export * from "./questionCard";
 export * from "./proposalAnnotation";
+export * from "./essayTrack";

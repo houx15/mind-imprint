@@ -93,5 +93,16 @@ export const Reference = z.object({
   // NOT NULL with a DB default of "to_read"; defaulted here too so older
   // fixtures/mocks without it still parse.
   readingStatus: z.enum(["to_read", "reading", "done"]).default("to_read"),
+  // Slice 4a · 证据地图 facets on a paper gathered under a sub-question. All
+  // optional/defaulted so older fixtures/mocks parse; the Go DTO always emits them.
+  // triage = 必读(red)/待定(yellow)/'' (before reading); evidenceNature = how it
+  // bears on the sub-question (支持/反驳); the structured per-paper note; archived
+  // = "interesting but not really related" (off the active map, not deleted).
+  triage: z.enum(["", "red", "yellow"]).default(""),
+  evidenceNature: z.enum(["", "support", "challenge"]).default(""),
+  evidenceArgument: z.string().default(""),
+  evidenceFinding: z.string().default(""),
+  evidencePlacement: z.string().default(""),
+  archived: z.boolean().default(false),
 });
 export type Reference = z.infer<typeof Reference>;
