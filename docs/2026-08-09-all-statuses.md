@@ -1,0 +1,173 @@
+## Coach's task at each stage
+
+### All statuses
+
+- 1.Beginning
+    - description: nothing has started yet
+    - page: full screen AI chat
+    - Cards: no cards available
+    - AI's role: introduce our writing journey and guide students to start journey
+    - status change
+        - by click "beginning journey", can switch to "Research framework" status
+- 2.Research framework
+    - description: discussing with students about their research framework (namely the current 目标、缘由、活动与时间、资源、可能的反例/张力) one by one
+    - page: 提案page
+    - Cards: 提问卡
+        - only can be manually trigerred when motivation/目标 is not entered yet.
+        - when to propose: When students have difficulty to make their research objective more clearly or more focused.
+        - content: try to analyze the keywords in the essay prompt/question. and link it with the user's real experience. trigger their motivation.
+        - interaction: 
+            - (hint: cards have three possible interaction: 1) a fixed form/buttons/interactions predesigned; 2) a sub-agent; 3) a pre-built function )
+            - this is a sub-agent card. click it will open a modal in the page. sub-agent will guide students to link the essay question with their own experience, briefly through the following steps:
+                - if student has provided a target which is not related with the title or too general. first explain why we need to further narrow down.
+                - decompose the essay prompt: 用你自己的话说说，你对这个题目的理解是？ if students have totally uncorrelated understanding, we can translate and explain it with words juniors can understand
+                    - what is a good research objective? 不能只是换一种说法复述题目；需要说明“我将按照什么理解来回答这个题目”；如果关键词有多种解释，需要选择一种工作定义并说明理由。
+                - then ask what experience/knowledge students may connected when seeing this question. (be exact, like a particular example, a report, an artist, etc.)
+                - ask students' understanding of that experience.
+                - try to guide students to propose a more detailed research question based on this example.
+                - when finished, click ok, the card used status will be in AI chat, and target will be filled. and AI would continue the thread.
+    - AI's role:
+        - guide students to think these five parts clearly one by one.
+        - decide if students' thought is suitable to form the research framework. if suitable, ask students whether to note down. if not suitable, use card (目标) or guide more.
+            - 目标: contain a detailed question. correlated with the essay prompt. 
+            - 缘由: connects with their own experience or understanding
+            - 活动与时间: a brief structure of the plan
+            - 资源: something students have already known or think are important for this paper. can be even more generally if they are not familiar currently
+            - 可能的反例: some statements or evidence that may challenge the current question.
+        - after all five are finished, read the whole framework, give some suggestions, and propose that it's time to generate a plan.
+    - status change:
+        - by clicking "generate plan", AI begins to generate plan, and would switch to plan management
+- 3.Project Management
+    - description: the general plan, and activity log of students' project. has two situations to appear:
+        - a) after we just clicked "generate plan", here AI would introduce the whole plan, and why the plan looks like this. and how students should use this plan. in my imagination, AI should introduce the gantt chart, then tell students how to use kanban, then tell students about the activity log
+        - b) when students leave and then back to the project. by default we first look at the plan, for the purpose of recap. with a button for students to "continue working", click this button and back to the current status's page.
+    - page: project management page (gantt char by default please)
+    - Cards: no cards available
+    - AI's role: 
+        - situation a) introduce the plan
+        - situation b) recap
+    - status change
+        - situation a) after introduction, AI guides student to the next step following plan(which should be write proposal)
+        - situation b) should be back to the current status students should be
+- 4.Writing proposal
+    - description: this is the first huge thing that students need to finish. first I need to clarify to you what is a golden standard of a solid proposal:
+        - golden standard of a solid proposal:
+            - Introduction
+                - the understanding of the task/question: the requirements; keywords and the definition; the assumptions of the question; what is controversial. this part should not be a paraphrase of the original question, should show student's perspective of this question.
+                - the key research question (focus and scope): the research objective/question; belongs to what subject/aok/perspective; this part should make the question not too general, and not too narrow.
+                - motivation: personal motivation (connection with one's own experience or interest); academical/real motivation (why this question is important; what thing is not clear yet; what new understanding can be reached after answering; who would be benifit)
+                - your statement/opinion: currently how you would answer the question. a 暂定论点/工作假设. a solid 暂定观点should be under assumption: if under condition A, this statement is solid; but if B, then it will be restricted by C.
+            - Research Plan
+                - decompose your research question to 2-4 correlated sub-questions/statements/directions.
+                - for each part, should state: what question needs to be solved; how it correlates with the central question; what is your opinion now and what materials/evidence would support this statement; how it can advance the next part.
+                - a good decomposition is a correlated chain, a simple decomposition is a list of topics.
+            - Resources
+                - list initial evidence/materials you have got to show you have doen preliminary exploration and there exists supporting materials. show what the material is, where it comes from, how it can support what sub-question, and its limitation.
+            - possible challenges
+                - the most powerful substitute explanation
+                - the possible 反驳当前观点的cases
+                - different perspectives from different groups
+                - in what situation your statement may be changed
+            - research method:
+                - would vary in different situations: TOK：比较AOK、分析具体例子、评价知识生产方式及其含义；EE：使用对应学科认可的方法；AP Seminar IRR：分析来源论证、评价可信度、连接不同视角；AP Seminar IWA：综合刺激材料与外部来源，建立可辩护的论证链。
+                - Show what materials you would select; how you would analyze or compare; what is your 判断标准; what questions can be answered through this method.
+            - 可行性，限制，伦理
+                - materials are reachable or not.
+                - Time is enough?
+                - research scope is proper?
+                - would it touch privacy? Content? copyright?
+                - possible bias?
+            - Expected result
+        - so we have two modes: free writing (default writing page), or step-by-step guide.
+            - guide students to select before start. if students have written a proposal, don't need guidance, select free and directly go to ai comment part. if students have difficulty and wants to be guided, select step-by-step guide.
+            - as aforementioned, we have nine big parts of a proposal, among which one big part is research plan, which can be further decomposed. then step-by-step guide, is actually following these parts, use question to guide students to write these snippets one by one, with clear question during each writing.
+                - firstly, AI introduces a good structure of a proposal (generates the outline for students, introduces it to students, and students can click 开始写作)
+                - then appears a snippet writing frame. but not the current snippet! because it is not guidance at all. it should appears like a colorful card in the main part (snippet part), with very clear guiding question (e.g. 尝试解释你对于题目的理解。你可以参考research framework的xxx，解释其中的关键词xxx。可以尝试参考下面的一个案例 - note that examples should be in English), two buttons under: 我依然有问题; 我写好了. the first one triggers AI guiding in the chat; the second one triggers AI comment/check.
+                - for the research plan part. we should first let students propose 2-4 sub-questions first, discuss this carefully with students, then for each sub-question, we need to have a card that guide students to write.
+                    - actually, if students don't have thoughts (没有暂定观点/没有2-4个子问题想法), we should suggest them to do some literature exploration first. with a button "begin literature exploration"
+                    - if they have 2-4 questions, they still need some literature exploration to fully write this part.
+                - I suggest, that for each card, the guiding question is AI-generated, we have examples, but we need to apply it to the current question. example can be prepared.
+    - page: 
+        - default writing page, where student directly gives their writing and we comment
+            - left reference part (should be multi-tab, and one tab would show if there is content)
+                - possible tabs: 提案要点；阅读文献的笔记；AI的批注；检索文献（only appears when student explicitly requires to search paper here? I'm not sure, what's your suggestion.）
+            - right write part.
+                - be clear: please delete the top icons, only keep word count and save status and put these two right lower corner.
+                - can select text and click "send to AI", will work as reference in AI chat.
+                - can click "AI check" and "finish proposal"
+                - finish proposal -> if AI has never commented yet, alert a modal suggest student to let AI comment. student can select to skip comment, or let ai comment; if AI has commented, but there is still evident flaw in the writing (AI check here?) still modals to suggest AI comment.
+                - if no need to suggest AI comment, or student clicks "skip comment", modal again: congratulations to the student for finish proposal, can click to export docx in this modal. a button to continue to the next step
+        - guiding page: snippets page, with guiding cards (as described above)
+        - we should have a small "needs resources" box. where during writing, students may found that something need to be explored, and write down there. the box can have a button to jump to exploration page under "reading". (or do we need to allow students to search in this writing page?)
+    - Cards: no cards available
+    - AI's role: as previously in "description" shown, guide students step by step, or check the writings with a 文章批注 format.
+        - 批注 is very important: I hope it is like a teacher, giving comments to the whole structure; to a paragraph's 论证; to a particular sentence or phrase. use green/blue/red texts and underlines.
+    - status change:
+        - write and read don't have explicit switch line. AI can guide, student can manually switch.
+        - after finish writing, switch to the reading part. suggest student to do some literature exploration.
+        - after finish writing, the proposal is locked, except students explicitly to click to modify again.
+- 5.reading
+    - Description: mainly exploration. because reading a paper, is inside a reading room, which is realatively separated.
+        - if we come to reading room from AI's guide (click a button in AI's chat). then AI directly begins the guidance.
+        - if student manually clicks the reading room. we first confirm if students want to start an exploration journey.
+        - what is AI guidance? we have our resources plan in research framework, or during writing something added something to the box. we also have the research question. based on these, AI would give 2-3 possible keywords with a "why" here, and student can search with one click
+    - Page:
+        - the current page is very cool. but I think we should add the "needs resources" box here.
+        - besides, we need a guidance box in the main part as well -> because AI will propose several things to search.
+    - Cards:检索方向审视 - but this is for AI, when AI give guidance for next search.
+    - AI's role: propose suggestions for students to explore, give suggestions for what is good to read, what may be not correlated with the current question.
+    - status change: 
+        - during proposal: 
+            - no deliberate change. when students say the exploration is ok, or students click to write -> it is.
+        - aafter proposal finished:
+            - do research here. 
+            - Initialized with the main question and 2-4 subquestions
+            - finished when each subquestion is fully explored with a good 证据地图 structure (ai reviews it)
+- 6.writing paper
+    - Description: 
+        - it has three stages: 
+            - research complete (research is the construction of 论证地图, through comprehensive searching, reading materials and compose the structure between materials)-mainly happens in reading room; 
+                - read comprehensive papers, each paper, note down the 来源信息, key arguments, key evidence, etc. and its correlation with the paper (which sub question, where it can appear - this two work as tags?)
+                - construct great 证据地图
+                - ai proposes new research keywords. and ai reviews if students' 证据地图 for each important part is saturated or not.
+            - statement complete (modified question and subquestions; for each claim have enough evidence; claims construct a good 推理链; finished writing the main parts of each claim); -> 
+                - firstly go to the outline parts (which is initialized by the main research question and 2-4 subquestions, ask students to modify according to the materials/evidence); 
+                - then snippet. part, guide students to write the argument paragraph for each claim one by one (with guidance, when need, propose 写作卡 here -> it is only needed here to help students build arguments) 
+                    - for each claim, we need evidence, analysis, limitation, how it correlates with others
+                - then guide students to write comparison  or 综合; 
+                - then guide students to write a paragraph that can show the conclusion based on these.
+                - then guide students to write a paragraph that describes the full 论证结构
+                - challenge if there is 反方观点, suggest students to discuss with these challenges when one part need.
+                - similar to proposal -> each guided card has two buttons, which triggers AI support/AI comments
+            - submission complete (write the full paper)
+                - guide students to write the 引言 part. -> background; the exact research question; the keywords/scope; importance for this question; the structure of the 论证结构.
+                - guide students to write the conclusion part.
+                - guide students to compose the whole article. and polish the grammar. then AI check - student revise -> loop until students click finish
+    - Page: as description said.
+    - Cards: during writing claims: PEE写作卡/论证解剖 -> offers as AI's guidance when students need. provide writing examples.
+    - AI's role:
+        - as described above
+    - status change: 
+        - after final submission of paper, unlock review.
+- 7.review
+    - Description: together with students, review the whole journey
+    - Page: left part -> activity log/research framework/proposal/finished paper - four tabs. Right -> students' form about review
+    - Cards: no
+    - AI's role: guide students' review when students ask questions. provide AI's review
+    - status change:  after review, project finishes, generate evaluation.
+
+
+
+
+
+## model routing
+
+- reasoning model work as reviewers:
+    - review research framework to decide whether it is ok to proceed or not
+    - generate research plan
+    - review writings
+    - review if 论证地图 is ok or not
+    - etc.
+    - work as a reviewing agent
+        - review takes time, we can show interesting texts during loading, like 印记正在检查写作细节，印记正在思考论证完整性，etc.
+    - main agent use no reasoning to speed.
