@@ -37,15 +37,15 @@
 
 | all-statuses 的阶段 | 机器上的落点 |
 |---|---|
-| 1. Beginning | 现有**开始门**（`started=false`，全屏对话，无卡） |
-| 2. Research framework | `FlowFramework`（提案 page，5 部分逐一） |
+| 1. Beginning | 现有**开始门**（`started=false`，全屏对话，无卡）——即热身，**非独立状态** |
+| 2. Research framework | `FlowFramework`（提案 page，5 部分逐一）；**开始门直接进入这里的第一维「目标」** |
 | 3. Project Management | **一个视图/房间，不是状态**（两模式：计划刚生成的介绍 / 回访时的 recap + 「继续工作」） |
 | 4. Writing proposal | `FlowProposal`（`doc_kind=proposal`，Phase B 已有）**+ 引导步骤轨道** |
 | 5. Reading | **横切房间**（已建成），可从任一写作状态进入并返回 |
 | 6. Writing paper | `FlowEssay`（`doc_kind=essay`）**+ 三阶段子轨道** |
 | 7. Review | `FlowReview`（reflection） |
 
-**结论：5 个 `FlowStatus` 不变**（topic/framework/proposal/essay/review，沿用 `internal/agent/studioflow.go`）。写作内部不新增状态，而是给两份文档挂一条轻量的**引导步骤轨道（guide-step track）**。
+**结论：写作前有 4 个 `FlowStatus`**（framework/proposal/essay/review）+ 一个非状态的开始门。**独立的 `FlowTopic`（立题）并入 framework**——你的 doc 从 Beginning 直接进 framework，题目在建项目时已给，开始门的欢迎语即热身，独立 topic 态没有专属交互面。实现上：`StatusForStage` 里 `topic_discussion` 折叠到 `FlowFramework`，开始门把 stage 直接落到 framework 的第一维。写作内部不新增状态，而是给两份文档挂一条轻量的**引导步骤轨道（guide-step track）**。
 
 ### 写作与阅读的关系（重要 · 纠正 Phase B 现状）
 
@@ -74,7 +74,17 @@ WritingTrack {
 ```
 
 - **模板是确定的**（像计划模板）：
-  - **proposal 模板** = `all-statuses.md` §4「golden standard」列出的各部分；其中「Research Plan」部分展开为「先定 2–4 个子问题 → 每个子问题一步」。（**确切步骤数/粒度待定**——doc 称「九大部分」但顶层枚举为 7 个 Introduction+6，见文末开放问题 C。）
+  - **proposal 模板 = 9 部分**（Introduction=3 + 其余 6）：
+    1. **对题目的理解**（要求 / 关键词与工作定义 / 假设 / 争议点——非复述，须显学生视角）
+    2. **研究问题与范围**（RQ、focus & scope、所属 subject/AOK/视角）
+    3. **暂定论点 / 工作假设**（带条件：若 A 则成立，若 B 则受 C 限制）
+    4. **研究计划**（先定 2–4 个子问题 → **每个子问题一步**；每步说：要解决什么、如何与中心问题相关、当前观点与支撑材料、如何推进下一部分）
+    5. **资源**（初步已获材料：是什么、来源、支撑哪个子问题、局限）
+    6. **可能的挑战**（最强替代解释 / 反驳 cases / 不同群体视角 / 何种情形下论点会变）
+    7. **研究方法**（选什么材料、如何分析比较、判断标准；随 TOK/EE/AP 变体）
+    8. **可行性 / 限制 / 伦理**
+    9. **预期结果**
+    - *动机（motivation）不单列一步*——由 framework 的「缘由」承接。
   - **essay 模板** = `all-statuses.md` §6 的三阶段：research-complete → statement-complete → submission-complete，各阶段内部再有确定的步骤序列（大纲 → 逐 claim 论证段 → 比较/综合 → 结论 → 论证结构段 → 引言/结论/合稿/润色 loop）。
 - **每一步的引导问题是 AI 生成的**（把模板问题套用到当前题目），我们准备好范例（范例用英文）。
 - `free` 模式 = 无轨道，学生直接写、AI 批注（默认）。`guided` 模式 = 轨道驱动「引导写作步骤」（见 Pillar 3）。学生可在开始前选，也允许中途切换（切换只改 `mode`，不丢已写内容）。
@@ -135,7 +145,7 @@ ReviewVerdict {
 3. **预置函数（pre-built function）**：一个确定性工具（如按流程跑一段计算/检索/归类的函数）。
 
 按状态的思维卡（初稿，re-catalog 时定稿）：
-- **framework**：提问卡（子代理）——仅在 目标/motivation 未填时可**手动**触发；用途见 `all-statuses.md` §2。
+- **framework**：提问卡（子代理）——**触发权按条件切换**：目标/motivation **为空时 → 仅学生手动**触发（AI 不提议）；目标**已填但被判定太泛/不合适时 → 仅 AI 提议**（学生确认后打开，铁律②；学生此时不能手动召唤）。用途见 `all-statuses.md` §2。
 - **essay·写 claim**：PEE写作卡 / 论证解剖——AI 在学生需要时**提议**，给写作范例。
 - **reading room**：保留现有**思维卡库**（CRAAP/SIFT/九学科透镜等）基本不动；但 **检索方向审视 改为 AI 侧卡**——它是 AI 给检索建议时用的（不是学生召唤的思维卡）。⚠️ 注意 reading room 本身**并非完全不动**：需新增 needs-resources 盒 + 主区「检索引导盒」（承载 AI 的 2–3 个关键词 + why + 一键检索），见「新增」UI 收整。
 
@@ -183,7 +193,7 @@ ReviewVerdict {
 - **推理评审接缝**：`ReviewVerdict` 契约 + 各触发点接线 + 加载 UX。
 - **批注**：分层着色批注原语（扩展 review-item）。
 - **卡片 re-catalog**：思维卡精简 + 三型 + 按状态绑定；引导写作步骤移出卡注册表；新增「预置函数」交互型（若确有需要）。
-- **写作页 UI 收整**（`all-statuses.md` §4 page）：删顶部图标、字数+保存态移到右下角、左侧多 tab 参考（提案要点/阅读笔记/AI批注/检索文献，有内容才显示 tab；「检索文献」tab 是否常驻是开放问题 F）、选中「发送给 AI」、「needs resources」小盒（写作页 + 阅读页，可跳转探索）。
+- **写作页 UI 收整**（`all-statuses.md` §4 page）：删顶部图标、字数+保存态移到右下角、左侧多 tab 参考（**提案要点 / 阅读笔记 / AI批注**，有内容才显示 tab；**不放检索 tab——检索只在 reading room**，写作页用 needs-resources 盒跳转）、选中「发送给 AI」、「needs resources」小盒（写作页 + 阅读页，可跳转探索）。
 - **reading room UI**（`all-statuses.md` §5）：主区「检索引导盒」（AI 的 2–3 关键词 + why + 一键检索）+ needs-resources 盒；**检索方向审视 → AI 侧**（AI 生成检索建议时的内部卡，非学生召唤）。
 
 ---
@@ -213,11 +223,8 @@ ReviewVerdict {
 - 引导写作步骤**移出卡注册表**。
 - reading room **思维卡库**不动；但其 UI 与 检索方向审视 的 AI 侧化在范围内。
 - **完成提案 → 进入阅读/研究**（essay stage-1），非直连正文写作面（取代 Phase B 现状）。
+- **C · proposal 引导步骤 = 9 部分**（Introduction=3：对题目的理解 / 研究问题与范围 / 暂定论点；+ 研究计划/资源/挑战/方法/可行性/预期结果 6 部分；动机由 framework 缘由承接）。
+- **D · 提问卡触发权按条件切换**（目标空→仅学生手动；目标已填但不合适→仅 AI 提议）。
+- **E · 并入 topic**：`FlowTopic` 折叠进 framework，开始门直接进 目标。
+- **F · 检索只在 reading room**；写作页参考 tab = 提案要点/阅读笔记/AI批注，无检索 tab，用 needs-resources 盒跳转。
 - 每状态行为细节以 `docs/2026-08-09-all-statuses.md` 为单一真相源。
-
-## 开放问题（待用户确认，才能出 plan）
-
-- **C · proposal 引导步骤的确切列表/粒度。** doc 称「九大部分」，但 §4 顶层枚举为 7（Introduction + Research Plan + Resources + challenges + method + 可行性/限制/伦理 + Expected result）。是把 Introduction 的 4 小节各算一步（≈10 步）？还是别的切法？guided 轨道需要一份**确定的步骤清单**。
-- **D · 提问卡触发方式。** §2 Cards 写「仅在 目标/motivation 未填时**手动**触发」；§2 AI-role 写「不合适时**用 card（目标）**」（AI 提议）。到底是纯手动，还是 AI 也可提议？
-- **E · 是否保留独立「立题/topic」态。** 你的 doc 从 Beginning 直接进 framework，没有独立立题阶段；现有机器保留 `FlowTopic`（开始门后的开场对话）。保留 topic 作开场，还是并入 framework？
-- **F · 写作页「检索文献」tab 是否常驻。** doc 标注「仅当学生明确要求时出现？不确定」。常驻，还是按需出现，还是不放在写作页（只在 reading room 检索）？
