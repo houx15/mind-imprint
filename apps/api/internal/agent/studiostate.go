@@ -82,6 +82,13 @@ type StudioState struct {
 	Reference     []ReferenceRef `json:"reference"`
 	UpdatedAtTurn int            `json:"updatedAtTurn"`
 	Started       bool           `json:"started"`
+	// PendingFrameworkVerdict (slice 2) holds the framework-readiness reviewer's
+	// verdict from the moment the plan was auto-generated, until the next coach
+	// turn surfaces it (reply.reviewVerdict) and clears it. Server-only + jsonb
+	// (no migration); the frontend's Zod StudioState ignores this unknown key.
+	// Decouples "when the review runs" (note-confirm OR a coach turn) from "when
+	// it's shown" (the next coach turn).
+	PendingFrameworkVerdict *FrameworkVerdict `json:"pendingFrameworkVerdict,omitempty"`
 }
 
 func DefaultStudioState() StudioState {

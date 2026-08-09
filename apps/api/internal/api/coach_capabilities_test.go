@@ -111,6 +111,73 @@ func TestFunnelAutoGeneratesPlanAndCoachOffersProposal(t *testing.T) {
 	}
 }
 
+// TestFrameworkReviewerSurfacesVerdictOnceAfterPlanGen — slice 2: when the
+// framework's 4 dims fill and the plan auto-generates, the flagship reasoning
+// reviewer (EvalResolver) reads the framework; its verdict is stashed and
+// surfaced on the NEXT coach turn (reply.reviewVerdict), then cleared so a
+// later turn carries none. Plan-gen is NOT gated by the verdict.
+func TestFrameworkReviewerSurfacesVerdictOnceAfterPlanGen(t *testing.T) {
+	pool := newAPITestPool(t)
+	// Shared provider call order during PUT /proposal: (1) regeneratePlan's
+	// completion, (2) the framework reviewer (EvalResolver). Then each coach turn
+	// is one more call (clamped to the last script once exhausted).
+	prov := sequenceOrchestratorProvider(
+		planGenReply,
+		`{"ready":true,"why":"四点都扎实。","suggestions":["资源那条可以更具体","补一个反例"]}`,
+		`{"narrate":"计划有了，我们继续。","tools":[]}`,
+	)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: prov, ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// Fill the 4 dims → plan auto-gens AND the reviewer runs (verdict stashed).
+	rrProp := httptest.NewRecorder()
+	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+	if rrProp.Code != http.StatusOK {
+		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
+	}
+
+	// First coach turn surfaces the stashed verdict.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"接下来做什么"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
+	}
+	var resp struct {
+		ReviewVerdict *struct {
+			Ready       bool     `json:"ready"`
+			Why         string   `json:"why"`
+			Suggestions []string `json:"suggestions"`
+		} `json:"reviewVerdict"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if resp.ReviewVerdict == nil || !resp.ReviewVerdict.Ready || len(resp.ReviewVerdict.Suggestions) != 2 || resp.ReviewVerdict.Why == "" {
+		t.Fatalf("want framework verdict with 2 suggestions, got %+v — %s", resp.ReviewVerdict, rr.Body)
+	}
+
+	// Second coach turn: verdict already surfaced + cleared → none.
+	rr2 := httptest.NewRecorder()
+	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"好的"}`)), cookie))
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("coach2 = %d — %s", rr2.Code, rr2.Body)
+	}
+	if err := json.Unmarshal(rr2.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode2: %v — %s", err, rr2.Body)
+	}
+	if resp.ReviewVerdict != nil {
+		t.Fatalf("verdict must surface once, got %+v on the 2nd turn", resp.ReviewVerdict)
+	}
+}
+
 // TestPostCoach_ProposeQuestionPopulatesReplyNoLead — a coach turn whose
 // stubbed model emits propose_question populates reply.question.text for the
 // student to confirm, and writes NO exploration_lead row itself (the student

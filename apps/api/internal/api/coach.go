@@ -215,6 +215,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.NextStep = next
+	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
 	// Persist the AI-managed state (best-effort — a failure logs, never fails the
 	// turn). The reply carries the same state back as the directive.
@@ -541,6 +542,14 @@ func stageOrder(s agent.StudioStage) int {
 // The model may still ADVANCE beyond the minimum (into writing etc.) via
 // set_status — this only stops it sitting too early or skipping the plan.
 // Returns the reconciled state and whether it generated the plan this call.
+// reviewVerdictDTO is the wire shape of a gate reviewer's read (slice 2:
+// framework readiness). Mirrors contracts' ReviewVerdict.
+type reviewVerdictDTO struct {
+	Ready       bool     `json:"ready"`
+	Why         string   `json:"why"`
+	Suggestions []string `json:"suggestions"`
+}
+
 func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, state agent.StudioState) (agent.StudioState, bool) {
 	if !state.Started {
 		return state, false
@@ -555,6 +564,14 @@ func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, st
 			if _, gerr := a.regeneratePlan(ctx, projectID); gerr == nil {
 				planExists = true
 				planGenerated = true
+				// The framework just became a plan — the reasoning reviewer reads
+				// the whole framework once and offers suggestions (all-statuses.md
+				// §2). Strong-advisory: does NOT gate plan-gen (already ran). Stash
+				// it on the state; the next coach turn surfaces + clears it (this
+				// funnel runs on the note-confirm save AND on coach turns).
+				if v := a.reviewFrameworkReadiness(ctx, projectID, prop); v != nil {
+					state.PendingFrameworkVerdict = v
+				}
 			}
 		}
 	}
@@ -572,6 +589,57 @@ func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, st
 		state.WidthTier = agent.WidthForTool(state.OpenTool)
 	}
 	return state, planGenerated
+}
+
+// reviewFrameworkReadiness runs the flagship reasoning reviewer over the
+// just-completed framework. Best-effort: a nil EvalResolver, a provider error,
+// or an unparseable reply → nil (the turn + plan-gen proceed unchanged). Meters
+// the call (purpose="framework_review") even on failure — a rejected call still
+// cost money.
+func (a *API) reviewFrameworkReadiness(ctx context.Context, projectID uuid.UUID, prop sqlc.ProjectProposal) *agent.FrameworkVerdict {
+	if a.d.EvalResolver == nil || a.d.Provider == nil {
+		return nil
+	}
+	resolved, rerr := a.d.EvalResolver(ctx)
+	if rerr != nil {
+		slog.Warn("framework review: no eval resolver", "err", rerr)
+		return nil
+	}
+	title := ""
+	if p, err := a.d.Queries.GetProject(ctx, projectID); err == nil {
+		title = p.Title
+	}
+	v, usage, err := agent.ReviewFramework(ctx, a.d.Provider, resolved, agent.FrameworkReviewInput{
+		Title: title, Objective: prop.Objective, Reason: prop.Reason,
+		Activities: prop.Activities, Resources: prop.Resources, Counterpoints: prop.Counterpoints,
+	})
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+		if rerr := store.RecordLLMCall(ctx, agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "framework_review",
+			Resolved: resolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); rerr != nil {
+			slog.Warn("framework review: record llm call failed", "err", rerr)
+		}
+	}
+	if err != nil {
+		slog.Warn("framework review: reviewer failed — no verdict", "err", err, "request_id", httpx.RequestIDFromContext(ctx))
+		return nil
+	}
+	return &v
+}
+
+// takePendingFrameworkVerdict surfaces + clears a stashed framework verdict onto
+// the reply. Called after advanceStudioFlow so the verdict shows on the coach
+// turn following plan-gen (whether the plan was auto-generated on a note-confirm
+// save or on this very turn), exactly once.
+func takePendingFrameworkVerdict(state *agent.StudioState) *reviewVerdictDTO {
+	if state.PendingFrameworkVerdict == nil {
+		return nil
+	}
+	v := state.PendingFrameworkVerdict
+	state.PendingFrameworkVerdict = nil
+	return &reviewVerdictDTO{Ready: v.Ready, Why: v.Why, Suggestions: v.Suggestions}
 }
 
 // nextStepDTO is the one-tap next-step the deterministic router offers when a
@@ -859,6 +927,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.NextStep = next
+	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
 	if b, merr := json.Marshal(state); merr == nil {
 		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
@@ -993,6 +1062,7 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.NextStep = next
+	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 	reply.Narrate = narrate
 	reply.Directive = state
 
@@ -1040,6 +1110,7 @@ type orchestratorReplyDTO struct {
 	PlanGenerated   bool                 `json:"planGenerated"`
 	Compacted       bool                 `json:"compacted"`
 	NextStep        *nextStepDTO         `json:"nextStep"`
+	ReviewVerdict   *reviewVerdictDTO    `json:"reviewVerdict"`
 }
 
 // noteProposalDTO mirrors the contract's NoteProposal {section, value}.
