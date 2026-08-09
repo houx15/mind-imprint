@@ -1,6 +1,8 @@
 # Slice 3a — Proposal-writing sub-machine (guide-step track + dynamic 9-part scaffold) · Design
 
-> **Position:** the first half (3a) of slice 3 in the [status-machine architecture spec](2026-08-09-status-machine-writing-and-cards-design.md). Behavioral source of truth = `docs/2026-08-09-all-statuses.md §4 (4.Writing proposal)`. This is the **spine** of the proposal-writing sub-machine: the guide-step track (`WritingTrack`) + the proposal 9-part scaffold **with a dynamic, per-sub-question research-plan** + free/guided modes + writing-page UI cleanup. **The 批注 annotation primitive (layered, colored teacher-style comments) is deferred to slice 3b** — here the "我写好了 (I'm done)" action uses the **existing reasoning reviewer** (suggestions surfaced in chat) as an interim; 3b upgrades it to anchored, colored annotations.
+> **Position:** the first half (3a) of slice 3 in the [status-machine architecture spec](2026-08-09-status-machine-writing-and-cards-design.md). Behavioral source of truth = `docs/2026-08-09-all-statuses.md §2 (framework) + §4 (proposal)`. This is the **spine** of the proposal-writing sub-machine: the guide-step track (`WritingTrack`) + the proposal 9-part scaffold **with a dynamic, per-sub-question research-plan** + free/guided modes + writing-page UI cleanup. **The 批注 annotation primitive (layered, colored teacher-style comments) is deferred to slice 3b** — here the "我写好了 (I'm done)" action uses the **existing reasoning reviewer** (suggestions surfaced in chat) as an interim; 3b upgrades it to anchored, colored annotations.
+>
+> **Two framework-stage fixes folded in (user-requested, from the previous-slice audit):** the proposal foundation is only as good as the research question it starts from, so 3a also (1) builds the **提问卡 (question card) as a real adaptive sub-agent** — the §2 behavior it was tagged for but never got (it currently ships as a static 3-question form) — and (2) makes the framework **prompt for 可能的反例 (counterpoints) before generating the plan** (non-blocking, 铁律②). Both live at the framework→proposal boundary and share this slice's theme: genuinely supporting the student to a good, focused, stress-tested research question before they write.
 
 ## One-sentence goal
 
@@ -141,21 +143,71 @@ On `ProsePane` (the existing proposal surface):
 
 ---
 
+## Pillar 4 · 提问卡 as a real adaptive sub-agent (Finding 1 — framework stage)
+
+Today `question-card.json` is tagged `"interaction": "sub-agent"` but ships as a **static 3-question form** (pick a direction → write a raw thought → pick a next direction). That flattens the framework stage's single most important support moment. `all-statuses.md §2` describes a genuine sub-agent that turns a vague/empty 目标 into a focused, personal research question. 3a builds it — the **first sub-agent card renderer**.
+
+### Behavior (`all-statuses.md §2`, verbatim intent)
+
+Opening the 提问卡 runs an adaptive multi-turn conversation in a **modal on the page** (fast model, one question at a time):
+
+1. If the student's stated target is unrelated to the title, or too general → first explain **why** we narrow (what a good research objective is: not a restatement of the prompt; it says "under what reading I will answer this"; if keywords have multiple readings, pick one working definition and justify it).
+2. **Decompose the prompt** — "用你自己的话说说，你对这个题目的理解是？" If the student's understanding is totally uncorrelated, translate/explain the prompt in words a junior can understand.
+3. Ask **what experience/knowledge** they connect to this question — concrete (a specific example, a report, an artist, …).
+4. Ask their **understanding of that experience**.
+5. Guide them to propose a **more detailed research question** grounded in that example.
+6. On finish, the student confirms → the **目标 is filled**, the card-used status shows in the coach thread, and 印记 continues the thread.
+
+### Interaction & data
+
+- **Sub-agent turn loop (fast model):** `agent.QuestionCardTurn(ctx, resolved, in)` → `{narrate, suggestedObjective, done}`. System prompt = the §2 script; 铁律① (never write the target *for* them — guide until the student's own wording emerges; `suggestedObjective` is the student-articulated question echoed back for confirmation, not an AI invention).
+- **Endpoint:** `POST /projects/{id}/cards/question-card/turn` `{messages:[…]}` → the reply (SSE or JSON; reuse the coach turn plumbing). Metered `purpose="question_card"` (fast model). On the student's final confirm, `POST /projects/{id}/cards/question-card/commit` `{objective}` writes `proposal.objective`, records the card usage (a `card_instance` / envelope so it lands in the process tree), and returns so the thread can continue.
+- **Renderer:** a `QuestionCardModal` chat modal (reuses `ChatLog` / `Composer`), distinct from the form-card `StudioCardSheet`. This is the sub-agent interaction type the architecture spec deferred — now landed for question-card. (The `function` interaction type / learning-report renderer stays deferred.)
+
+### Trigger authority (architecture-spec decision D — gate, deterministic)
+
+| 目标 (objective) state | Who may open the 提问卡 |
+|---|---|
+| **empty** | **student-manual only** — a visible affordance in the forming room; the coach may NOT summon it (`IsSummonable` / summon gating returns false for question-card when objective is empty). |
+| **filled but vague** | **AI-proposed only** — the coach may summon it (student confirms to open, 铁律②); the manual affordance is hidden. |
+
+"Vague" is the fast coach's judgment (it proposes when the stated 目标 reads like a restatement / too general). The deterministic gate enforces only the empty↔non-empty split; the vague judgment stays with the coach.
+
+---
+
+## Pillar 5 · Prompt for 可能的反例 before plan generation (Finding 2 — framework stage)
+
+Today `allRequiredDims` (projects.go:48) requires only objective/reason/activities/resources, and `reconcileStudioFunnel` auto-generates the plan the moment those four fill — 可能的反例 (counterpoints) is never prompted, so the framework can skip the "what would break your thesis?" moment entirely, even though 撞反例 is a core 铁律 anchor.
+
+**Change (non-blocking — 铁律②):**
+
+- **Gate plan-gen on counterpoints too, softly:** `frameworkReadyForPlan(prop, state) = allRequiredDims(prop) && (strings.TrimSpace(counterpoints) != "" || state.CounterpointsWaived)`. `reconcileStudioFunnel` uses this instead of `allRequiredDims`.
+- **Coach prompts for 反例:** the `FlowFramework` system prompt now guides all **five** — objective / reason / activities / resources / **可能的反例·张力 (ask this too, don't skip it)** — and says the plan is generated once the four core dims are set **and** counterexamples have been discussed.
+- **Student can decline (铁律②):** a small skip affordance — `POST /projects/{id}/framework/waive-counterpoints` sets `state.CounterpointsWaived = true` (new `StudioState` bool, jsonb, no migration). The forming room shows an unobtrusive "暂时想不到反例，先生成计划" link when the four dims are filled and counterpoints is still empty; tapping it waives and lets the funnel generate the plan. Writing an actual counterpoint fills the dim and generates the plan the normal way.
+
+This inserts exactly one 反例 prompt into the framework and never walls off plan-gen: the student either articulates a counterexample or taps skip.
+
+---
+
 ## Mapping to existing code
 
 **Reuse:**
-- `StudioState` jsonb read/write (`GetStudioState`/`SetStudioState`, no migration).
+- `StudioState` jsonb read/write (`GetStudioState`/`SetStudioState`, no migration) — carries `proposalTrack` (Pillar 1) and `counterpointsWaived` (Pillar 5).
 - `ProsePane` (proposal surface) — layer the choice gate / outline intro / guide card / sub-question editor / needs-resources box on top of it.
 - The `ReviewVerdict` contract (slice 2) + the 印记-bubble rendering (`appendFrameworkVerdict`'s path) — reused for the "我写好了" interim review.
-- `FastChatResolver` (guide-card generation + "我依然有问题" answers); `EvalResolver` ("我写好了" review).
+- `FastChatResolver` (guide-card generation + "我依然有问题" answers + **提问卡 sub-agent turns**); `EvalResolver` ("我写好了" review).
 - The `open_reading` tool (needs-resources / explore-first jumps).
-- The coach conversation store (`useStudioChat`) — inject guiding questions / review suggestions into the conversation.
+- The coach conversation store (`useStudioChat`) — inject guiding questions / review suggestions / card-used chips into the conversation.
+- `ChatLog` / `Composer` (coach chat components) — reused inside the 提问卡 modal (Pillar 4).
+- `reconcileStudioFunnel` / `allRequiredDims` (Pillar 5 changes the gate here).
+- The card usage / envelope + `card_instance` path — the 提问卡 records usage into the process tree (Pillar 4).
 
 **New:**
 - `agent.WritingTrack` + `agent.SubQuestion` + `agent.DeriveProposalSteps()` + guide-card generator `agent.GenerateProposalGuideStep(...)` (fast model, step-kind-aware) + `agent.ReviewProposalPart(...)` (flagship, reusing `ReviewFramework`'s structure).
-- REST: the five `proposal-track` endpoints (GET / mode / start / subquestions / advance).
-- Contracts: `proposalGuide.ts` (GuideCard / ProposalGuideStep / SubQuestion); `studioState.ts` gains `proposalTrack?`.
-- Frontend: a `useProposalTrack` hook + a `ProposalGuide` component (choice gate / outline intro / guide-card scaffold / **sub-question editor**) + the needs-resources box; `ProsePane` toolbar cleanup.
+- `agent.QuestionCardTurn(...)` (fast-model sub-agent, §2 script) + `agent.frameworkReadyForPlan(...)` + `StudioState.CounterpointsWaived`.
+- REST: the five `proposal-track` endpoints (GET / mode / start / subquestions / advance); `cards/question-card/turn` + `cards/question-card/commit`; `framework/waive-counterpoints`.
+- Contracts: `proposalGuide.ts` (GuideCard / ProposalGuideStep / SubQuestion); `studioState.ts` gains `proposalTrack?` + `counterpointsWaived?`; a `questionCard.ts` turn/reply shape.
+- Frontend: a `useProposalTrack` hook + a `ProposalGuide` component (choice gate / outline intro / guide-card scaffold / **sub-question editor**) + the needs-resources box; a `QuestionCardModal` (sub-agent chat); the forming room's manual-open affordance + the 反例 skip link; `ProsePane` toolbar cleanup.
 
 ---
 
@@ -176,11 +228,20 @@ On `ProsePane` (the existing proposal surface):
 | Select "send to AI"; "let AI comment first" suggestion modal on finish | deferred to 3b (needs annotations); finish keeps existing modal | ⏭️ handed to 3b |
 | "我写好了" triggers AI comment/check (批注) | 3a interim = reasoning review giving suggestions in chat; 3b upgrades to colored anchored annotations | ⚠️ interim, completed in 3b |
 
-No behavioral deviation from §4 remains in this slice. The only items not built here (AI批注 tab, select-to-send, comment-first modal, and the colored anchored form of "我写好了" feedback) all depend on the 批注 primitive and are explicitly handed to **3b**.
+### §2 framework points (the two folded-in fixes)
+
+| §2 point | This slice | Verdict |
+|---|---|---|
+| 提问卡 = sub-agent modal: explain why to narrow → decompose prompt → link to experience → guide to a detailed RQ → fill 目标 → continue thread | Pillar 4 (`QuestionCardTurn` + modal + commit) | ✅ builds the real sub-agent (replaces the static form's behavior) |
+| 提问卡 manual-trigger only when 目标/motivation empty; AI-proposed when 目标 vague | Pillar 4 trigger-authority gate (D) | ✅ |
+| Guide all five (目标/缘由/活动与时间/资源/可能的反例) one by one; after all finished, review + propose plan | Pillar 5 (prompt for 反例) + slice-2 reviewer | ✅ 反例 now prompted before plan-gen |
+
+No behavioral deviation from §2/§4 remains in this slice. The only items not built here (AI批注 tab, select-to-send, comment-first modal, and the colored anchored form of "我写好了" feedback) all depend on the 批注 primitive and are explicitly handed to **3b**.
 
 ## Out of scope / follow-ups
 
 - 3b: the layered, colored **批注** annotation primitive (structure/paragraph/sentence, green/blue/red + anchors) + AI批注 ref tab + the pre-finish "comment first" suggestion modal + proposal-surface select-to-send.
+- The `function` interaction-type renderer (learning-report) stays deferred (Pillar 4 lands only the `sub-agent` renderer, for question-card).
 - Slice 4: the essay three-stage track (research/statement/submission).
 - Slice 5: the reading-page needs-resources box + search-guidance box + left multi-tab reference panel cleanup.
 - No fancy layout editor, no submitting on the student's behalf, no addictive gamification (铁律 carried).
