@@ -101,6 +101,13 @@ type referenceDTO struct {
 	// A1: one shelf, three states (待读/在读/读完). NOT NULL with a DB default —
 	// every reference always has a value, never null.
 	ReadingStatus string `json:"readingStatus"`
+	// Slice 4a · 证据地图 facets (all "" / false by default).
+	Triage            string `json:"triage"`
+	EvidenceNature    string `json:"evidenceNature"`
+	EvidenceArgument  string `json:"evidenceArgument"`
+	EvidenceFinding   string `json:"evidenceFinding"`
+	EvidencePlacement string `json:"evidencePlacement"`
+	Archived          bool   `json:"archived"`
 }
 
 func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
@@ -148,9 +155,15 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		ReadingReason:  row.ReadingReason,
 		ReadingFocus:   row.ReadingFocus,
 		Takeaway:       takeaway,
-		Abstract:       row.Abstract,
-		Journal:        row.Journal,
-		ReadingStatus:  row.ReadingStatus,
+		Abstract:          row.Abstract,
+		Journal:           row.Journal,
+		ReadingStatus:     row.ReadingStatus,
+		Triage:            row.Triage,
+		EvidenceNature:    row.EvidenceNature,
+		EvidenceArgument:  row.EvidenceArgument,
+		EvidenceFinding:   row.EvidenceFinding,
+		EvidencePlacement: row.EvidencePlacement,
+		Archived:          row.Archived,
 	}
 }
 
