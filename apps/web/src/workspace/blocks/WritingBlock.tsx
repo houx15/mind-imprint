@@ -177,6 +177,10 @@ export function WritingBlock({
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishingWriting, setFinishingWriting] = useState(false);
   const [finishWritingError, setFinishWritingError] = useState<string | null>(null);
+  // §99 · after finishing the proposal, a congrats modal offers export + 继续 to
+  // the next step (essay). proposalExportText holds the proposal buffer to export.
+  const [showProposalCongrats, setShowProposalCongrats] = useState(false);
+  const [proposalExportText, setProposalExportText] = useState("");
   // slice 3b · the finish-proposal comment-first flow (§4). null = not yet
   // checked; the count of the proposal's current 批注 (0 → offer a review first).
   const [proposalAnnoCount, setProposalAnnoCount] = useState<number | null>(null);
@@ -201,7 +205,13 @@ export function WritingBlock({
       await finishWriting(projectId, doc);
       await refreshWorkspace();
       setShowFinishModal(false);
-      await advanceStatusTo(isProposal ? "essay" : "review");
+      if (isProposal) {
+        // §99 · celebrate + offer export before moving on; 继续 advances to essay.
+        setProposalExportText(await getDraft(projectId, "proposal").catch(() => ""));
+        setShowProposalCongrats(true);
+      } else {
+        await advanceStatusTo("review");
+      }
     } catch (e) {
       setFinishWritingError(
         e instanceof ApiError ? e.message || "还不能完成写作，请稍后再试。" : "刚才没接上，稍等再试一次。",
@@ -414,6 +424,34 @@ export function WritingBlock({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* §99 · proposal-done congrats: celebrate, offer .docx export, continue. */}
+      {showProposalCongrats && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
+          <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
+            <h2 className="font-sans text-[18px] font-bold text-mk-ink">🎉 提案完成！</h2>
+            <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+              你已经写好了一份扎实的研究提案。可以先把它导出带走，然后进入下一步——去做文献研究、写正文。
+            </p>
+            <div className="mt-6 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => { void exportDraftDocx(proposalExportText, { title }).catch(() => {}); }}
+                className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent"
+              >
+                导出提案 .docx
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowProposalCongrats(false); void advanceStatusTo("essay"); }}
+                className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600"
+              >
+                继续下一步 →
+              </button>
+            </div>
           </div>
         </div>
       )}
