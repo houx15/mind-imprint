@@ -23,6 +23,7 @@ import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue } from "../studio/ai/StudioChatContext";
 import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
 import { StudioCardSheet } from "../studio/StudioCardSheet";
+import { QuestionCardModal } from "../studio/QuestionCardModal";
 import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
 import { Badge, Tooltip } from "@/ui/feedback";
@@ -1100,6 +1101,7 @@ export function WorkspaceContainer({
                 phase={room === "forming" ? "forming" : "working"}
                 refreshWorkspace={refreshWorkspace}
                 recap={historyRecap ?? summary}
+                onStudioStateChanged={continueYinji}
               />
             )}
             {room === "reading" && (
@@ -1175,10 +1177,24 @@ export function WorkspaceContainer({
         {aiSide === "right" && showAiPanel && aiPanel}
       </div>
     </div>
+    {/* slice 3a · the 提问卡 is a sub-agent card — route it to its chat modal
+        (not the form sheet). Committing fills 目标, refreshes, and drops a
+        card-used chip into the coach thread. */}
+    {openCardId === "question-card" && (
+      <QuestionCardModal
+        projectId={projectId}
+        onClose={() => setOpenCardId(null)}
+        onCommitted={(objective) => {
+          void refreshWorkspace();
+          setStudioMessages((c) => [...c, { role: "ai", text: `（提问卡）我们一起把研究问题定下来了：${objective}` }]);
+        }}
+      />
+    )}
+
     {/* The shared card sheet for an AI-proposed card (openCard). Triggering is
         automatic; opening is the student's tap, and the sheet then fills the
         modal. Submit records a coach turn into the one continuous thread. */}
-    {openCardId && CARD_REGISTRY[openCardId] && (
+    {openCardId && openCardId !== "question-card" && CARD_REGISTRY[openCardId] && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpenCardId(null)}>
         <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
           <StudioCardSheet

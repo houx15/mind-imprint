@@ -9,6 +9,7 @@ import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { StudioCoachChat, StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented } from "@/ui";
+import { waiveCounterpoints } from "../../api/projects";
 import { Icon } from "../Icon";
 import {
   PROPOSAL_DIMS,
@@ -66,6 +67,7 @@ export function PlanBlock({
   phase,
   refreshWorkspace,
   recap,
+  onStudioStateChanged,
 }: {
   projectId: string;
   title: string;
@@ -79,6 +81,9 @@ export function PlanBlock({
   refreshWorkspace: () => void;
   /** Re-entry recap shown as 印记's opening note inside the continuous chat. */
   recap?: string | null;
+  /** slice 3a · re-apply 印记's studio state (e.g. after 反例 waive triggers
+   * plan-gen + advance) so the room follows the machine to 管理. */
+  onStudioStateChanged?: () => void | Promise<void>;
 }) {
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
@@ -165,6 +170,8 @@ export function PlanBlock({
         title={title}
         qualification={qualification}
         projectId={projectId}
+        refreshWorkspace={refreshWorkspace}
+        onStudioStateChanged={onStudioStateChanged}
         onCardReflected={(studentText, reply, card) => {
           if (!isActiveProject()) return; // student switched projects mid-reflect
           setMessages((c) => [
@@ -232,12 +239,26 @@ function FormingPhase(props: {
   title: string;
   qualification: string;
   projectId: string;
+  refreshWorkspace?: () => void;
+  onStudioStateChanged?: () => void | Promise<void>;
   onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    projectId, onCardReflected,
+    projectId, onCardReflected, refreshWorkspace, onStudioStateChanged,
   } = props;
+  const [waiving, setWaiving] = useState(false);
+  async function onWaiveCounterpoints() {
+    if (waiving) return;
+    setWaiving(true);
+    try {
+      await waiveCounterpoints(projectId);
+      refreshWorkspace?.();
+      await onStudioStateChanged?.();
+    } catch {
+      setWaiving(false);
+    }
+  }
   // The coverage counter still uses the four REQUIRED dims only (spec §5):
   // 反例/张力 is optional and never counts toward it.
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
@@ -249,6 +270,11 @@ function FormingPhase(props: {
   // component renders outside a studio shell (e.g. some tests) — in either
   // case the coach content simply doesn't render, never crashes.
   const slot = useStudioAiSlot();
+  // slice 3a · the 提问卡 manual-open affordance. Shown ONLY while 目标 is empty —
+  // that's the student-manual regime (all-statuses.md §2 D); once 目标 is filled
+  // the coach proposes it instead. Routes through openCard → QuestionCardModal.
+  const { openCard } = useStudioChat();
+  const objectiveEmpty = proposal.objective.trim() === "";
   // The 提案 framing is now the live agent's job (delivered by `coach/start`'s
   // narrate, seeded into the hoisted store before this room ever mounts) —
   // no local scripted-intro fallback. An empty thread simply renders empty.
@@ -262,6 +288,16 @@ function FormingPhase(props: {
           <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">先搭好研究的大框架</h1>
           <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此长出来。</p>
         </header>
+
+        {objectiveEmpty && (
+          <button
+            type="button"
+            onClick={() => openCard("question-card")}
+            className="flex items-center gap-2 self-start rounded-mk-md border border-mk-accent bg-mk-accent-50 px-3.5 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100"
+          >
+            <Icon name="spark" size={15} /> 还没头绪？用提问卡帮你想想
+          </button>
+        )}
 
         <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
           <div className="mb-1 flex items-center justify-between">
@@ -277,6 +313,19 @@ function FormingPhase(props: {
               <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
             ))}
           </div>
+          {/* slice 3a (Finding 2) · once the four dims are in but 反例 is still
+              empty, the framework prompts for a counterexample — but a student
+              who can't think of one may skip and generate the plan (铁律②). */}
+          {covered === 4 && proposal.counterpoints.trim() === "" && (
+            <button
+              type="button"
+              disabled={waiving}
+              onClick={() => void onWaiveCounterpoints()}
+              className="mt-3 self-start text-[13px] font-semibold text-mk-faint underline decoration-dotted hover:text-mk-accent disabled:opacity-50"
+            >
+              {waiving ? "生成中……" : "暂时想不到反例，先生成计划"}
+            </button>
+          )}
         </div>
       </div>
 
