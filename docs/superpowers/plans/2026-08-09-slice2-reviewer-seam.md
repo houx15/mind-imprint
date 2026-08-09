@@ -46,11 +46,13 @@
 - [ ] Commit `feat(web): surface framework reviewer suggestions`.
 
 ## Task 5: Full suite + deploy + smoke
-- [ ] contracts vitest; web tsc + vitest; `go test ./internal/agent/ ./internal/api/` (foreground, except the known TestWeeklyReportForSeededClass flake).
-- [ ] Commit main + push; `.deploy-local/deploy.sh full`.
-- [ ] Live smoke (`?trial=1`): a fresh project filling the 4 framework dims triggers plan-gen AND shows 印记's framework read (suggestions). 0 console errors.
+- [x] contracts vitest 323 (fixed a slice-1 stale key-set test); web tsc0 + vitest 1032; `go test ./internal/agent/` green; full `go test ./internal/api/` green EXCEPT the known `TestWeeklyReportForSeededClass` flake.
+- [x] Committed + pushed; `.deploy-local/deploy.sh full` → **`full @ b4a7e01`**.
+- [x] Live smoke (prod, authenticated fetch as Phoebe): a fresh project filled through the 4 framework dims → plan auto-generated (7 items) + the **flagship reasoning reviewer produced a real, high-quality verdict** (`ready:true` + 4 concrete suggestions: pin dataset variables, operationalize 传播速度, add a 反例, budget the 4 weeks). `reviewVerdict` surfaced on the next coach turn and was **null on the turn after** (surfaces once). nextStep → 写研究提案 offered.
 
-**Acceptance:** filling the framework's 4 dims runs a flagship reasoning review whose {ready, why, suggestions} is surfaced to the student; the plan still auto-generates; the review runs once (not on later turns); nil-resolver/model-error degrades silently.
+**SLICE 2 COMPLETE (shipped `full @ b4a7e01`, 2026-08-09).** The reasoning-reviewer seam + framework-readiness reviewer are live; plan-gen stays automatic; verdict surfaces once then clears; degrades silently. **Deferred to slice 3:** the guide-step track (built with its UI consumer).
+
+**Acceptance:** filling the framework's 4 dims runs a flagship reasoning review whose {ready, why, suggestions} is surfaced to the student; the plan still auto-generates; the review runs once (not on later turns); nil-resolver/model-error degrades silently. ✅
 
 ## Doc check (all-statuses.md §2)
 §2 AI-role: "after all five are finished, read the whole framework, give some suggestions, and propose that it's time to generate a plan." → This slice: reasoning reviewer reads the framework + gives suggestions; plan auto-generates + coach offers 写研究提案. Faithful (suggestions delivered; plan proposed/generated). Deviation from §status-change "click generate plan" = auto-gen, user-ruled acceptable (not a 铁律 concern).
