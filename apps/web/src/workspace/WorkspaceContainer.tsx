@@ -8,11 +8,13 @@ import type {
   PlanItem,
   Proposal,
   QuestionProposal,
+  ReviewVerdict,
   StudioState,
   WidthTier,
   WorkspaceProjection,
 } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
 import { createLead } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
@@ -53,6 +55,22 @@ import { activeDocForStage } from "./activeDoc";
 import { ReferencePanel } from "./blocks/ReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
+
+// appendFrameworkVerdict renders the framework-readiness reviewer's read (slice
+// 2) as a 印记 bubble — "（我读了一遍你的研究框架）<why>" + suggestions as markdown
+// bullets. No-op without a verdict. Real coaching → a full markdown bubble, not
+// a muted subagent hint.
+export function appendFrameworkVerdict(
+  verdict: ReviewVerdict | null | undefined,
+  setMessages: Dispatch<SetStateAction<StudioChatMsg[]>>,
+): void {
+  if (!verdict) return;
+  const lines = [`（我读了一遍你的研究框架）${verdict.why}`];
+  if (verdict.suggestions.length > 0) {
+    lines.push("", "可以再打磨：", ...verdict.suggestions.map((s) => `- ${s}`));
+  }
+  setMessages((c) => [...c, { role: "ai", text: lines.join("\n") }]);
+}
 
 /** Join truthy class fragments with a single space; drops falsy/empty ones
  * (copied from `ui/Card.tsx` — every `ui/`-adjacent file keeps its own local
@@ -401,6 +419,10 @@ export function WorkspaceContainer({
         if (reply.compacted) {
           setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "已整理较早的对话" }]);
         }
+        // Slice 2 · the framework-readiness reviewer's read (surfaced once, the
+        // turn after the plan auto-generated). Rendered as a 印记 bubble — real
+        // coaching, not a subagent hint.
+        appendFrameworkVerdict(reply.reviewVerdict, setStudioMessages);
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
         // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call
@@ -466,6 +488,7 @@ export function WorkspaceContainer({
       const reply = await coachAdvance(pid, toStatus);
       if (!isActive()) return;
       if (reply.narrate) setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+      appendFrameworkVerdict(reply.reviewVerdict, setStudioMessages);
       applyStudioState(reply.directive);
       setPendingNextStep(reply.nextStep ?? null);
       getPlan(pid)
