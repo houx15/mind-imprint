@@ -1,22 +1,22 @@
-# Slice 4a — Essay research stage: the 证据地图 (evidence map) + saturation gate · Design
+# Slice 4a — Essay research stage: the 证据地图 (the warren graph) + saturation gate · Design
 
-> **Position:** the first sub-slice of slice 4 (写正文 sub-machine) in the [status-machine architecture spec](2026-08-09-status-machine-writing-and-cards-design.md). Behavioral source of truth = `docs/2026-08-09-all-statuses.md §5 (reading, after proposal) + §6 stage-1 (research-complete)`. This builds the **first essay stage — research — which happens in the reading room**: the student reads sources and builds a **证据地图** (evidence tagged by sub-question + where it can appear), 印记 proposes search directions per sub-question, and a reasoning reviewer judges each sub-question's **saturation**; once all sub-questions are saturated, research is complete and the essay advances to the statement stage (slice 4b). It also **relocates 完成提案 → reading/research** (correcting Phase B's direct proposal→essay-writing jump).
+> **Position:** the first sub-slice of slice 4 (写正文 sub-machine). Behavioral source of truth = `docs/2026-08-09-all-statuses.md §5 (reading, after proposal) + §6 stage-1 (research-complete)`. This builds the **first essay stage — research — in the reading room**. **Framing (user):** the warren graph (兔子洞地图) *is* the 证据地图 — it was built for this from the start. 4a does not add a parallel evidence panel; it grows the warren into the full evidence map: seed it from the proposal, type evidence as 支持/反驳, capture a per-paper note in the paper sidebar, triage papers, and review each sub-question's saturation. It also **relocates 完成提案 → reading/research** (correcting Phase B's direct proposal→essay-writing jump).
 
 ## One-sentence goal
 
-After the proposal, the student doesn't jump into writing — they go to the reading room to **build an evidence map**: for the main research question and its 2–4 sub-questions (carried from the proposal), they gather sources, and for each note the 来源信息 / key argument / key evidence and tag it to a sub-question + where it can appear; 印记 suggests where to search next and reviews when each sub-question has enough, well-structured evidence to write from.
+After the proposal, the student goes to the reading room and grows their 证据地图 (the warren graph, seeded with their research question + its sub-questions): 印记 hands them **one task at a time** (start from sub-question 1), they gather and read papers, tag each paper's evidence 支持/反驳 under its sub-question and note what it argues + where it can appear; when they think a sub-question is done, 印记 reviews whether its evidence is **saturated** (strong support + a real challenge + diminishing returns) — advisory, then they write that claim or read on.
 
-## 铁律 (carried, hard constraints)
+## 铁律 (carried)
 
-1. **AI never does the thinking for the student.** 印记 proposes *search directions* and *reviews* saturation; the student reads, judges, and records the evidence. AI never fabricates a source or an evidence entry.
-2. **No manipulation.** The saturation review is strong-advisory — the student can proceed to writing even if 印记 thinks a sub-question is thin (recorded as process data). "研究够了" is the student's call, 印记's review is a suggestion.
-3. **One thing at a time** for coach guidance; a saturation review legitimately reports on all sub-questions at once.
-4. **Process is data.** Which sources the student read, what they tagged where, what they skipped — all recorded.
-5. **Never downgrade evaluation.** The saturation reviewer runs on the **flagship reasoning** model (`EvalResolver`); coach search-direction proposals run on the fast model.
+1. **AI never does the thinking.** 印记 hands out tasks, proposes searches, and reviews saturation; the student reads, judges, tags, and notes. AI never fabricates a source or an evidence tag.
+2. **No manipulation.** Saturation is strong-advisory — the student can write a claim or finish research even if 印记 thinks a sub-question is thin (recorded).
+3. **One thing at a time** — 印记 walks the sub-questions one at a time (§5/§6); a saturation review reports on one sub-question when the student asks.
+4. **Process is data** — searches, adoptions, triage, what was archived — all recorded.
+5. **Never downgrade evaluation** — the saturation reviewer runs on **flagship reasoning** (`EvalResolver`); search-direction proposals run on the fast model.
 
-## Design principle (why an evidence map, not just notes)
+## Design principle (why the graph is the map)
 
-`all-statuses.md §6` is explicit: research is *"the construction of a 证据地图, through comprehensive searching, reading materials and composing the structure between materials"*. The pedagogy is that a student who has read widely but left it as a pile of notes hasn't done the hard part — **organizing evidence against the questions it answers, and seeing where each question is still thin.** So the evidence map is structured by sub-question, each evidence entry carries *what it argues, what evidence backs it, and where in the essay it can appear*, and the saturation review is per-sub-question. The map is the deliverable of the research stage and the raw material the statement stage (4b) writes from.
+§6: research is *"the construction of a 证据地图, through comprehensive searching, reading materials and composing the structure between materials."* A pile of read papers isn't research; **organizing evidence against the questions it answers, seeing support vs challenge, and knowing where each question is still thin** is. The warren graph already models exactly this — question nodes, papers under them, typed relations (`子问题`/`支持`/`反驳·张力`), a per-node "文献 N 篇", 印记-proposes/student-confirms. 4a completes it into the evidence map and adds the reasoning that reads it.
 
 ---
 
@@ -24,89 +24,101 @@ After the proposal, the student doesn't jump into writing — they go to the rea
 
 ### `EssayTrack` on `StudioState` (jsonb, no migration)
 
-Mirroring `ProposalTrack` (3a), the essay gets a track — but its top dimension is the **stage** (§6's three), not a step index:
-
 ```go
 type EssayStage string
 const ( EssayResearch EssayStage = "research"; EssayStatement EssayStage = "statement"; EssaySubmission EssayStage = "submission" )
 
 type EssayTrack struct {
-    Stage EssayStage `json:"stage"` // 4a lands "research"; 4b adds statement; 4c submission
-    // research-stage state is the 证据地图 (its entries live in their own table, Pillar 2);
-    // saturation verdicts are computed on demand, not stored here.
+    Stage EssayStage `json:"stage"` // 4a lands "research"; 4b statement; 4c submission
 }
 // StudioState gains: EssayTrack *EssayTrack `json:"essayTrack,omitempty"`
 ```
 
-The **sub-questions and the main RQ come from the proposal** — `StudioState.ProposalTrack.SubQuestions` (3a) and `proposal.objective`. The evidence map is initialized against them (§5: *"Initialized with the main question and 2-4 subquestions"*). 4b lets them be modified; 4a reads them.
+The **main RQ = `proposal.objective`; the sub-questions = `StudioState.ProposalTrack.SubQuestions`** (from slice 3a). No re-entry — the map is seeded from the proposal (Pillar 2).
 
 ### Relocating the flow (supersede Phase B)
 
-Today 完成提案 → `advanceStatusTo("essay")` → `FlowEssay`/`StageBodyWriting` → the essay writing surface (大纲/片段/正文). Per §5/§6 + the architecture spec, the correct flow is **完成提案 → reading/research** first:
-
-- On proposal finish, the server sets `EssayTrack.Stage = "research"` and the `nextStep` / advance opens the **reading room** (`Surface: ToolReading`), not the writing surface. (`FlowEssay` stays the status; the reading room is a surface within it — the map confirmed reading is a room, not a status.)
-- `nextStepFor(FlowProposal, …, finishPart)` changes from `{"开始写正文", FlowEssay, ToolWriting}` to `{"去做研究", FlowEssay, ToolReading}` (coach.go:690). `WritingBlock.doFinishWriting`'s `advanceStatusTo("essay")` still fires; the difference is the surface the machine opens + the essay track landing in `research`.
-- The essay **writing surface** (大纲/片段/正文) is what the statement stage (4b) opens; in 4a, entering FlowEssay in the `research` stage opens the reading room.
+Today 完成提案 → `advanceStatusTo("essay")` → `FlowEssay`/`StageBodyWriting` → the writing surface. Correct flow (§5/§6): **完成提案 → reading/research first.**
+- On proposal finish, the server sets `EssayTrack.Stage = "research"` and the seed runs (Pillar 2); the `nextStep`/advance opens the **reading room** (`Surface: ToolReading`), not the writing surface.
+- `nextStepFor(FlowProposal, …, finishPart)` changes from `{"开始写正文", FlowEssay, ToolWriting}` → `{"去做研究", FlowEssay, ToolReading}` (coach.go:690). `FlowEssay` stays the status; the reading room is a surface within it. The writing surface (大纲/片段/正文) is opened by the statement stage (4b).
 
 ---
 
-## Pillar 2 · The 证据地图 data model (`evidence_entry`, a migration)
+## Pillar 2 · Seed the warren from the proposal (the map's backbone)
 
-An evidence entry is structured enough to warrant a real table (not jsonb): it is queried by sub-question, it is the statement stage's input, and it accretes as the student reads.
+On entering research (proposal-finish, once, idempotent), the server seeds the warren so the student sees their own question structure drawn for them:
+
+- A **root question lead** for the main RQ (`proposal.objective`), if not already present.
+- A **root question lead per sub-question** (`ProposalTrack.SubQuestions`), each linked to the main RQ by a **confirmed `子问题` `question_edge`** (they come from the confirmed proposal, so confirmed not proposed).
+- Idempotent: re-entry doesn't duplicate (match by text / a seeded marker on the lead).
+- Reuse `exploration_lead` + `question_edge` (no new node/edge types). A new store helper `SeedEvidenceMapFromProposal(projectID)`; run from the proposal-finish/advance path.
+
+Papers are gathered under each sub-question via the **existing dig/adopt flow** (connectedReferenceId), giving the "文献 N 篇" per sub-question and the Level-2 paper view — unchanged.
+
+---
+
+## Pillar 3 · Per-paper evidence: nature (支持/反驳), note (in the sidebar), triage
+
+### Evidence nature — reuse the graph's own edge words
+
+A paper under a sub-question is typed **支持** or **反驳·张力** — the same vocabulary the warren edges already use. This makes the map show, per sub-question, what backs it vs what challenges it, and is exactly what the saturation review reads. Stored on the paper's reference (Pillar 3 schema); shown as a small colored marker on the paper in the Level-2 list / sidebar. (Untagged = not yet judged.)
+
+### Per-paper note — in the paper sidebar, never on the graph (user)
+
+When a paper node is selected, `ExplorationSidebar`'s `PaperMeta` already shows title/authors/year/abstract/进入阅读室. 4a adds a **note section** there: the structured evidence note — **key argument** (what this source argues), **key evidence** (the data/finding), **placement** (where it can appear in the essay), plus the 支持/反驳 nature. The map stays clean; the note lives in the sidebar (§来源信息 comes from the reference metadata already shown).
+
+### Triage — red / yellow
+
+A student often searches a batch, then reads one by one. Each gathered-but-unread paper carries a **triage**: **red = 必读 (must-read)**, **yellow = 待定 (to-decide)**. Shown as a dot on the paper; set from the sidebar / results list. (Separate from the existing `reading_status` to_read/reading/done, which is about progress; triage is about priority/relevance before reading.)
+
+### Archive / trim — interesting but not related
+
+A paper that's "interesting but not really related" is **archived** (reuse the lead `pruned` status / a soft archive) — it leaves the active map but isn't deleted. An "archive" action in the sidebar.
+
+### Schema (migration — extend `reference`)
 
 ```sql
--- migration 00NN_evidence_entry.sql
-CREATE TABLE evidence_entry (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id      uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-  sub_question_id text NOT NULL,          -- the ProposalTrack sub-question id it answers ("" = main RQ / unfiled)
-  source_ref_id   uuid,                   -- optional link to a reference/material row (NULL = manual source)
-  source_note     text NOT NULL DEFAULT '',-- 来源信息 (author/title/where it's from) when not a linked reference
-  argument        text NOT NULL DEFAULT '',-- the key argument this source makes
-  evidence        text NOT NULL DEFAULT '',-- the key evidence/data
-  placement       text NOT NULL DEFAULT '',-- where it can appear in the essay (§6's second tag)
-  created_at      timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX evidence_entry_project_subq ON evidence_entry (project_id, sub_question_id);
+-- migration 00NN_reference_evidence.sql
+ALTER TABLE reference
+  ADD COLUMN triage           text NOT NULL DEFAULT '',  -- ''|red|yellow
+  ADD COLUMN evidence_nature  text NOT NULL DEFAULT '',  -- ''|support|challenge
+  ADD COLUMN evidence_argument  text NOT NULL DEFAULT '',
+  ADD COLUMN evidence_finding   text NOT NULL DEFAULT '',
+  ADD COLUMN evidence_placement text NOT NULL DEFAULT '';
 ```
 
-- **Tags (§6):** `sub_question_id` (which sub-question) + `placement` (where it can appear) are the two tags §6 names. `source_ref_id` links to a reading-room source when the student came from reading one; `source_note` holds free 来源信息 otherwise.
-- sqlc: `ListEvidenceEntries(project_id)`, `InsertEvidenceEntry(...)`, `UpdateEvidenceEntry(id, …)`, `DeleteEvidenceEntry(id)`.
-- Contract `packages/contracts/src/evidence.ts`: `EvidenceEntry = { id, subQuestionId, sourceRefId?, sourceNote, argument, evidence, placement }`.
-
-### How entries are created
-
-- **From the reading room** (primary): while reading a source, the student records an evidence entry (source auto-linked via `source_ref_id`, 来源信息 prefilled from the reference). This is the "each paper, note down 来源信息, key arguments, key evidence + tags" flow (§6).
-- **Manually**: an "add evidence" affordance in the 证据地图 panel for a source read elsewhere (source_note free text).
-
-*(4a MVP: a structured add/edit form for evidence entries, tagged to a sub-question + placement. Deeper auto-capture from the existing reading loop / hang-cards is a follow-up — flagged as an open question below.)*
+sqlc: `SetReferenceEvidence(id, nature, argument, finding, placement)`, `SetReferenceTriage(id, triage)`, `ArchiveReference(id)`. Contract `reading.ts`'s `Reference` gains the optional evidence fields. (The freeform `reading_note` column stays as-is.)
 
 ---
 
-## Pillar 3 · The reading-room 证据地图 panel + search-direction proposals
+## Pillar 4 · One task at a time + search-direction proposals
 
-The reading room stays the same "cool" room (§5); 4a adds two things:
-
-1. **The 证据地图 panel** — organized by sub-question. For the main RQ + each of the 2–4 sub-questions (from the proposal), a section listing its evidence entries (source · argument · evidence · placement) + an "add evidence" form. This is where the student builds and sees the map. A per-sub-question saturation indicator (from Pillar 4) shows how each is doing.
-2. **Search-direction proposals (per sub-question)** — 印记 suggests 2–3 keywords with a "why" for a chosen sub-question (§5: *"AI would give 2-3 possible keywords with a why, student can search with one click"*). Reuse/extend the existing `agent.ComposeExplorationGuide` (`exploration_guide.go`), scoped to a sub-question + the current evidence for it. The `检索方向审视` (search-plan) card stays AI-side (per the slice-1 catalog decision).
-
-*(The §5 "needs-resources box" on the reading page is slice 5's UI cleanup; 4a focuses on the evidence map + saturation. The needs-resources box already exists on the writing page from 3a.)*
+- **One task at a time (§5/§6):** on entering research, 印记 does NOT throw a wall of per-sub-question search buttons. It proposes **one task** — "先从子问题 1 开始：找能支持/挑战它的材料" — and walks the sub-questions in order as each is dealt with. A lightweight "current research task" surfaced in the coach + a highlight on the active sub-question node.
+- **Search directions (only for the current task):** for the active sub-question, 印记 can offer 2–3 keyword directions with a why (reuse `agent.ComposeExplorationGuide`, scoped to that sub-question + its current evidence) — but only for the one task, not all sub-questions at once.
 
 ---
 
-## Pillar 4 · Saturation review + research-complete gate
+## Pillar 5 · Saturation review + flexible writing advance
 
-### The reviewer (flagship)
+### The reviewer (flagship) — run when the student says a sub-question is done
 
-New `agent.ReviewEvidenceSaturation(ctx, prov, resolved, in) ([]SubQuestionVerdict, usage, error)`, mirroring `ReviewFramework`. Input: the main RQ + each sub-question with its evidence entries. Output per sub-question: `{ subQuestionId, saturated bool, why string, gaps []string }` — is there enough, well-structured evidence to write this sub-question's argument, and if not, what's missing. Playful loading line ("印记正在核对每个子问题的证据地图…"). Runs on `EvalResolver`.
+New `agent.ReviewEvidenceSaturation(ctx, prov, resolved, in) (SubQuestionVerdict, usage, error)` for ONE sub-question, mirroring `ReviewFramework`. Input: the sub-question text + its papers with their nature/argument/finding. Output: `{ saturated bool, why string, gaps []string }`. The prompt judges the three things the user named:
+1. **Enough strong, reliable material** that supports the claim.
+2. **At least one** limitation / challenging material / substitute explanation / different perspective (支持 alone is not saturated — the 撞反例 ethos).
+3. **The real test — diminishing returns:** new reading is largely repeating or echoing what's already gathered.
 
-### The gate + advance
+Playful loading line ("印记正在核对这条线的证据够不够扎实…"). `EvalResolver`.
 
-- `GET /projects/{id}/evidence-map` → `{ subQuestions:[{id,text, entries:[…], verdict?}], mainQuestion }` — the map + (optionally) the last saturation verdicts.
-- `POST /projects/{id}/evidence-map/review` → runs `ReviewEvidenceSaturation`, returns the per-sub-question verdicts (not persisted long-term; recomputed on demand, like the framework verdict is surfaced-then-cleared).
-- **Research complete** = the student taps "研究够了，开始写作" (a one-tap advance; 铁律②) → `EssayTrack.Stage = "statement"` and the machine opens the essay writing surface (which 4b builds out). The saturation review is *advisory* — it colors the indicators and 印记's nudge, but never blocks the tap. §6: *"finished when each subquestion is fully explored with a good 证据地图 structure (ai reviews it)"* — the review informs; the student proceeds.
+### The gate + flexible advance (§6)
 
-Endpoints metered `purpose="evidence_saturation"`. Best-effort: nil resolver / error → no verdicts, the map + advance still work.
+- `GET /projects/{id}/evidence-map` → `{ mainQuestion, subQuestions:[{ id, text, papers:[{ id, title, nature, triage, note? }], saturated? }] }` (the map projected from the seeded warren).
+- `POST /projects/{id}/evidence-map/subquestions/{sqId}/review` → runs the saturation reviewer for that sub-question; returns the verdict (recomputed on demand, surfaced, not stored long-term).
+- **Flexible writing (user):** a student can **write a claim as soon as its sub-question is ready**, OR **finish all research first**. So the research→statement advance is not one global gate:
+  - Per-sub-question: once a sub-question is reviewed/ready, a "去写这条论点" affordance advances into the statement stage focused on that claim (4b wires the per-claim writing; 4a just records the sub-question as research-ready + offers the tap).
+  - Whole: a "研究做完了，开始写作" tap sets `EssayTrack.Stage = "statement"` and opens the writing surface.
+  - Both are student taps (铁律②); the saturation review only advises.
+
+Metered `purpose="evidence_saturation"`. Best-effort: nil resolver/error → no verdict, the map + advance still work.
 
 ---
 
@@ -114,55 +126,52 @@ Endpoints metered `purpose="evidence_saturation"`. Best-effort: nil resolver / e
 
 | Role | Model | What |
 |---|---|---|
-| saturation reviewer | **flagship** (`EvalResolver`) | reads the evidence map, judges per-sub-question saturation |
-| search-direction proposals | fast (`FastChatResolver`) | 2–3 keywords + why per sub-question |
+| saturation reviewer | **flagship** (`EvalResolver`) | judges one sub-question's evidence (support + challenge + diminishing returns) |
+| current-task search directions | fast (`FastChatResolver`) | 2–3 keywords + why for the active sub-question |
 
 ---
 
 ## Mapping to existing code (reuse vs new)
 
-**Reuse:**
-- `ProposalTrack.SubQuestions` + `proposal.objective` — the sub-questions + main RQ the map is built against (no re-entry).
-- The reading room (`apps/web/src/studio/reading/*`, `ExplorationView`) — the 证据地图 panel is added within it.
-- `agent.ComposeExplorationGuide` (`exploration_guide.go`) — extended/scoped for per-sub-question search directions.
-- `ReviewFramework` pattern (`framework_review.go`) — the saturation reviewer mirrors it.
-- The proposal→essay advance seam (`nextStepFor` coach.go:690, `WritingBlock.doFinishWriting`) — re-pointed to the reading room + research stage.
+**Reuse (the warren IS the map):**
+- `exploration_lead` + `question_edge` + the dig/adopt flow + `WarrenMap` / `ExplorationView` / `ExplorationSidebar` — the graph, the papers, the Level-2 view, the paper sidebar.
+- `ProposalTrack.SubQuestions` + `proposal.objective` — the seed source.
+- `agent.ComposeExplorationGuide` — the current-task search directions.
+- `ReviewFramework` pattern — the saturation reviewer mirrors it.
+- The proposal→essay advance seam (`nextStepFor`, `WritingBlock.doFinishWriting`) — re-pointed to reading + research.
 
 **New:**
-- `agent.EssayTrack{Stage}` on StudioState (jsonb, no migration for the track).
-- `evidence_entry` table (migration) + sqlc CRUD; contract `evidence.ts`.
-- `agent.ReviewEvidenceSaturation` (flagship) + `SubQuestionVerdict`.
-- Endpoints: `evidence-map` (GET), `evidence-map/entries` (POST/PATCH/DELETE), `evidence-map/review` (POST), a per-sub-question `evidence-map/search-directions` (POST); the research→statement advance.
-- Web: `apps/web/src/api/evidenceMap.ts`; an `EvidenceMapPanel` in the reading room (per-sub-question sections + add/edit entry form + saturation indicators + search-direction chips); the 完成提案→reading redirect.
+- `agent.EssayTrack{Stage}` on StudioState (jsonb, no migration).
+- Migration: `reference` gains triage + evidence fields; sqlc setters + archive; `SeedEvidenceMapFromProposal`.
+- `agent.ReviewEvidenceSaturation` + `SubQuestionVerdict` (flagship).
+- Endpoints: `evidence-map` (GET), per-paper evidence/triage/archive setters, `evidence-map/subquestions/{id}/review`, the current-task search-direction call, the research-ready / research-done advances.
+- Web: `PaperMeta` gains the note section + nature + triage + archive; the active-sub-question highlight + current-task line; `evidenceMap.ts` client; the 完成提案→reading redirect.
 
 ---
 
-## Doc consistency check (against `all-statuses.md §5 + §6 stage-1`)
+## Doc consistency check (`all-statuses.md §5 + §6 stage-1`)
 
 | Doc point | This slice | Verdict |
 |---|---|---|
-| 完成提案 → do research in the reading room (not straight to writing) | Pillar 1 relocate | ✅ |
-| Research initialized with the main question + 2–4 sub-questions | Pillar 2/3 read from ProposalTrack | ✅ |
-| Each paper: note 来源信息 / key arguments / key evidence + tags (which sub-question, where it can appear) | Pillar 2 `evidence_entry` fields | ✅ |
-| Construct a 证据地图 | Pillar 3 panel organized by sub-question | ✅ |
-| AI proposes new research keywords (per sub-question, 2–3 + why, one-click search) | Pillar 3 search-direction proposals | ✅ |
-| AI reviews if each sub-question's 证据地图 is saturated | Pillar 4 saturation reviewer | ✅ |
-| Finished when each sub-question is fully explored (ai reviews) → then statement | Pillar 4 gate + advance to statement | ✅ (advisory, student taps) |
-| 检索方向审视 is AI-side | Pillar 3 (search-plan stays AI-side) | ✅ |
-| needs-resources box on the reading page | deferred to slice 5 (reading-page UI) | ⏭️ |
-| auto-capture evidence from the existing reading loop / hang-cards | 4a MVP = structured add/edit form; deeper auto-capture deferred | ⚠️ open question (below) |
-
-## Open design questions for you (before I plan)
-
-1. **Evidence-entry fields** — I proposed `{source (linked ref or free 来源信息), argument, evidence, placement, sub-question}`. Is that the right structure, or do you want more/fewer fields (e.g. a credibility/limitation note, a "how it advances the next part" like the proposal sub-question cards)?
-2. **How entries are created** — 4a MVP is a structured add/edit form in the 证据地图 panel (tag to a sub-question + placement). Do you want it tied more tightly into the existing reading loop (e.g. reading a source → hang a card → it becomes an evidence entry), or is the standalone form fine for 4a with tighter integration later?
-3. **Saturation criteria** — should the reviewer judge each sub-question purely on its evidence entries, or also consider counter-evidence / perspective diversity (a sub-question isn't "saturated" until it has both supporting and challenging evidence)? The latter is more faithful to the platform's 撞反例 ethos.
-4. **The 证据地图 vs the existing warren/exploration graph** — the reading room already has a question-lead graph (兔子洞地图). Should the 证据地图 be a *new panel* (my proposal), or should it reuse/extend the warren so sub-questions and evidence live in one graph?
+| 完成提案 → research in the reading room (not straight to writing) | Pillar 1 relocate | ✅ |
+| Research initialized with the main question + 2–4 sub-questions | Pillar 2 seed from proposal | ✅ |
+| The warren/graph IS the 证据地图 | Whole slice (grow the warren) | ✅ (user framing) |
+| Each paper: 来源信息 / key argument / key evidence + tags (which sub-question, where it can appear) | Pillar 3 note (sidebar) + nature + placement; sub-question = the node it hangs under | ✅ |
+| Support vs challenge structure | Pillar 3 支持/反驳 typing | ✅ |
+| One task at a time (start from sub-question 1); not many buttons | Pillar 4 | ✅ |
+| Tag new papers during exploration (red must-read / yellow to-decide) | Pillar 3 triage | ✅ |
+| Archive interesting-but-not-related | Pillar 3 archive | ✅ |
+| Saturation = strong support + limitation/challenge/substitute/perspective + new-reading-repeats | Pillar 5 reviewer (3 criteria) | ✅ |
+| Reviewed when the student thinks it's done | Pillar 5 (student-triggered) | ✅ |
+| Write one claim once its sub-question has enough, OR finish all research then write | Pillar 5 flexible advance | ✅ |
+| AI proposes new keywords (per active sub-question) | Pillar 4 search directions | ✅ (current task only) |
+| needs-resources box on the reading page | slice 5 (reading-page UI) | ⏭️ |
 
 ## Out of scope / follow-ups
 
-- 4b: the statement stage (essay track: outline from RQ+sub-questions → per-claim argument paragraphs with PEE/toulmin/argument-map + 3b 批注 → synthesis → conclusion → 论证结构).
-- 4c: the submission stage (引言/conclusion/compose/polish loop + finish→review).
-- Cross-cutting (scheduled in 4b): doc-key the 批注 storage (currently proposal-only `type='proposal_annotation'`) so the essay gets its own 批注.
-- Slice 5: reading-page needs-resources box + search-guidance box UI cleanup.
-- No fancy layout editor, no submitting for the student, no gamification (铁律 carried).
+- 4b: the statement stage (essay track: outline → per-claim argument paragraphs with PEE/toulmin/argument-map + 3b 批注 → synthesis → conclusion → 论证结构). The per-claim entry from 4a's "去写这条论点" lands here.
+- 4c: submission (引言/conclusion/compose/polish loop + finish→review).
+- Cross-cutting (in 4b): doc-key the 批注 storage so the essay gets its own 批注.
+- Slice 5: reading-page needs-resources + search-guidance UI.
+- Deeper auto-capture (reading a source in the reading loop auto-filling the evidence note) — 4a keeps the sidebar note manual; tighter capture later.
+- No fancy layout editor, no submitting for the student, no gamification.
