@@ -47,6 +47,20 @@
 
 **结论：5 个 `FlowStatus` 不变**（topic/framework/proposal/essay/review，沿用 `internal/agent/studioflow.go`）。写作内部不新增状态，而是给两份文档挂一条轻量的**引导步骤轨道（guide-step track）**。
 
+### 写作与阅读的关系（重要 · 纠正 Phase B 现状）
+
+`reading` 既是**横切房间**（写提案时可临时进出探索），也是**写正文 stage-1（research-complete）的承载面**。按 `all-statuses.md` §4/§5/§6，正确的流程是：
+
+```
+完成提案 → 进入阅读/研究（不是直接进正文写作面）
+        → 逐子问题建「证据地图」
+        → 推理评审「证据地图饱和度」达标
+        → statement-complete（大纲/片段/正文）
+        → submission-complete（引言/结论/合稿/润色 loop）
+```
+
+这**取代 Phase B 现状**（Phase B 里「完成提案 → 直接进 essay 大纲/片段/正文 写作面」）。essay 状态的 stage-1 应先落在**阅读房间**做研究，饱和后再进入写作面。由 **slice 4（写正文子状态机）** 落地；在此之前 Phase B 的直连行为暂存。
+
 ### 引导步骤轨道（新数据）
 
 每份可写文档（proposal / essay）带一个轨道状态：
@@ -60,7 +74,7 @@ WritingTrack {
 ```
 
 - **模板是确定的**（像计划模板）：
-  - **proposal 模板** = `all-statuses.md` §4「golden standard」的九大部分；其中「Research Plan」部分展开为「先定 2–4 个子问题 → 每个子问题一步」。
+  - **proposal 模板** = `all-statuses.md` §4「golden standard」列出的各部分；其中「Research Plan」部分展开为「先定 2–4 个子问题 → 每个子问题一步」。（**确切步骤数/粒度待定**——doc 称「九大部分」但顶层枚举为 7 个 Introduction+6，见文末开放问题 C。）
   - **essay 模板** = `all-statuses.md` §6 的三阶段：research-complete → statement-complete → submission-complete，各阶段内部再有确定的步骤序列（大纲 → 逐 claim 论证段 → 比较/综合 → 结论 → 论证结构段 → 引言/结论/合稿/润色 loop）。
 - **每一步的引导问题是 AI 生成的**（把模板问题套用到当前题目），我们准备好范例（范例用英文）。
 - `free` 模式 = 无轨道，学生直接写、AI 批注（默认）。`guided` 模式 = 轨道驱动「引导写作步骤」（见 Pillar 3）。学生可在开始前选，也允许中途切换（切换只改 `mode`，不丢已写内容）。
@@ -123,7 +137,7 @@ ReviewVerdict {
 按状态的思维卡（初稿，re-catalog 时定稿）：
 - **framework**：提问卡（子代理）——仅在 目标/motivation 未填时可**手动**触发；用途见 `all-statuses.md` §2。
 - **essay·写 claim**：PEE写作卡 / 论证解剖——AI 在学生需要时**提议**，给写作范例。
-- **reading room**：保留现有卡（CRAAP/SIFT/九学科透镜等）**不动**（本轮 overhaul 明确「reading room 之外」）。
+- **reading room**：保留现有**思维卡库**（CRAAP/SIFT/九学科透镜等）基本不动；但 **检索方向审视 改为 AI 侧卡**——它是 AI 给检索建议时用的（不是学生召唤的思维卡）。⚠️ 注意 reading room 本身**并非完全不动**：需新增 needs-resources 盒 + 主区「检索引导盒」（承载 AI 的 2–3 个关键词 + why + 一键检索），见「新增」UI 收整。
 
 ### 3.2 引导写作步骤（guided-writing step）——不是卡片，退出卡注册表
 
@@ -169,7 +183,8 @@ ReviewVerdict {
 - **推理评审接缝**：`ReviewVerdict` 契约 + 各触发点接线 + 加载 UX。
 - **批注**：分层着色批注原语（扩展 review-item）。
 - **卡片 re-catalog**：思维卡精简 + 三型 + 按状态绑定；引导写作步骤移出卡注册表；新增「预置函数」交互型（若确有需要）。
-- **写作页 UI 收整**（`all-statuses.md` §4 page）：删顶部图标、字数+保存态移到右下角、左侧多 tab 参考（提案要点/阅读笔记/AI批注/检索文献，有内容才显示 tab）、选中「发送给 AI」、「needs resources」小盒（写作页 + 阅读页，可跳转探索）。
+- **写作页 UI 收整**（`all-statuses.md` §4 page）：删顶部图标、字数+保存态移到右下角、左侧多 tab 参考（提案要点/阅读笔记/AI批注/检索文献，有内容才显示 tab；「检索文献」tab 是否常驻是开放问题 F）、选中「发送给 AI」、「needs resources」小盒（写作页 + 阅读页，可跳转探索）。
+- **reading room UI**（`all-statuses.md` §5）：主区「检索引导盒」（AI 的 2–3 关键词 + why + 一键检索）+ needs-resources 盒；**检索方向审视 → AI 侧**（AI 生成检索建议时的内部卡，非学生召唤）。
 
 ---
 
@@ -185,8 +200,8 @@ ReviewVerdict {
 
 ## 明确不做 / 本轮不展开
 
-- 不推翻已上线的 Phase A/B（状态机骨架、快模型、per-doc 文档）。
-- reading room 卡片与流程不在本轮 overhaul（明确「reading room 之外」）。
+- 不推翻已上线的 Phase A/B 骨架（状态机、快模型、per-doc 文档）；但 Phase B 的「完成提案→直连正文写作面」会被 slice 4 的 proposal→研究→正文 流程取代（见 Pillar 1）。
+- reading room 的**思维卡库**（CRAAP/SIFT/透镜）不在本轮 re-catalog；但 reading room 的 **UI（needs-resources 盒、检索引导盒）与 检索方向审视 的 AI 侧化** 在本轮范围内。
 - 不做花哨排版编辑器；不代学生提交；不上瘾式游戏化（沿用铁律）。
 
 ## 决策记录（本次对齐）
@@ -196,5 +211,13 @@ ReviewVerdict {
 - Management 是**视图**不是状态。
 - 逐维度「值不值得记要点」= 快模型；较重的网关 = 推理模型。
 - 引导写作步骤**移出卡注册表**。
-- reading room 卡片**不动**。
+- reading room **思维卡库**不动；但其 UI 与 检索方向审视 的 AI 侧化在范围内。
+- **完成提案 → 进入阅读/研究**（essay stage-1），非直连正文写作面（取代 Phase B 现状）。
 - 每状态行为细节以 `docs/2026-08-09-all-statuses.md` 为单一真相源。
+
+## 开放问题（待用户确认，才能出 plan）
+
+- **C · proposal 引导步骤的确切列表/粒度。** doc 称「九大部分」，但 §4 顶层枚举为 7（Introduction + Research Plan + Resources + challenges + method + 可行性/限制/伦理 + Expected result）。是把 Introduction 的 4 小节各算一步（≈10 步）？还是别的切法？guided 轨道需要一份**确定的步骤清单**。
+- **D · 提问卡触发方式。** §2 Cards 写「仅在 目标/motivation 未填时**手动**触发」；§2 AI-role 写「不合适时**用 card（目标）**」（AI 提议）。到底是纯手动，还是 AI 也可提议？
+- **E · 是否保留独立「立题/topic」态。** 你的 doc 从 Beginning 直接进 framework，没有独立立题阶段；现有机器保留 `FlowTopic`（开始门后的开场对话）。保留 topic 作开场，还是并入 framework？
+- **F · 写作页「检索文献」tab 是否常驻。** doc 标注「仅当学生明确要求时出现？不确定」。常驻，还是按需出现，还是不放在写作页（只在 reading room 检索）？
