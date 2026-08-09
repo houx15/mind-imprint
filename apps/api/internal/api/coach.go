@@ -881,6 +881,128 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 
+// postCoachAdvance acts on a one-tap nextStep (铁律②: 打开由学生确认). The student
+// taps "写研究提案"/"开始写正文"/"进入复盘"; the server sets the target status'
+// stage floor + opens its surface, then runs ONE coach turn in the NEW status so
+// 印记 greets the phase and guides the first move. This is the ONLY way the
+// status advances forward — the coach no longer has set_status/open_tool.
+func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	u, _ := UserFromContext(r.Context())
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
+	var body struct {
+		ToStatus string `json:"to_status"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	target := agent.FlowStatus(strings.TrimSpace(body.ToStatus))
+	def, known := agent.StatusRegistry()[target]
+	if !known {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "to_status 无效", nil))
+		return
+	}
+
+	resolved, rerr := a.d.ChatResolver(r.Context())
+	if rerr != nil {
+		httpx.WriteError(w, r, httpx.ErrInternal())
+		return
+	}
+	fastResolved := resolved
+	if a.d.FastChatResolver != nil {
+		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+			fastResolved = fr
+		}
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	state := agent.DefaultStudioState()
+	if raw, gerr := a.d.Queries.GetStudioState(r.Context(), projectID); gerr == nil && len(raw) > 0 {
+		var loaded agent.StudioState
+		if json.Unmarshal(raw, &loaded) == nil {
+			state = loaded
+		}
+	}
+	// Advance: set the target status' stage floor + open its surface. Monotonic —
+	// never move a project backward (a stray tap can't rewind writing to framework).
+	if stageOrder(target.StageFloor()) >= stageOrder(state.Stage) {
+		state.Stage = target.StageFloor()
+	}
+	state.Started = true
+	state.OpenTool = def.Surface
+	state.WidthTier = agent.WidthForTool(def.Surface)
+
+	const advanceUtterance = "好，我们进入下一步。"
+	history, herr := store.LoadActiveCoachHistory(r.Context(), projectID, coachHistoryWindow)
+	if herr != nil {
+		history = nil
+	}
+	history = append(history, agent.ChatTurn{Role: "user", Content: advanceUtterance})
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", advanceUtterance, "studio", string(state.Stage)); err != nil {
+		slog.Warn("coach advance: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	projection, perr := a.buildSpineProjection(r.Context(), projectID, spineScopeForTool(state.OpenTool))
+	if perr != nil {
+		projection = ""
+	}
+	// Run the greeting turn in the NEW status.
+	dec, usage, cerr := agent.ProposeStatusTurn(r.Context(), a.d.Provider, fastResolved, def, projection, state, history)
+	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
+		if mrerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+			ProjectID: projectID, Surface: "studio", Purpose: "coach",
+			Resolved: fastResolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
+		}); mrerr != nil {
+			slog.Warn("coach advance: record llm call failed", "err", mrerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+	reply := orchestratorReplyDTO{}
+	narrate := strings.TrimSpace(dec.Narrate)
+	if cerr != nil || narrate == "" {
+		narrate = coachFallbackReply
+	}
+	var effects orchestratorToolEffects
+	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	state, next, autoPlan := a.advanceStudioFlow(r.Context(), projectID, state, effects)
+	if autoPlan {
+		effects.PlanGenerated = true
+	}
+	reply.Note = effects.Note
+	reply.Question = effects.Question
+	reply.Card = effects.Card
+	reply.ReviewRequested = effects.ReviewRequested
+	reply.PlanGenerated = effects.PlanGenerated
+	reply.NextStep = next
+	reply.Narrate = narrate
+	reply.Directive = state
+
+	if b, merr := json.Marshal(state); merr == nil {
+		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
+			slog.Warn("coach advance: persist studio_state failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
+		slog.Warn("coach advance: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+		slog.Warn("coach advance: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	httpx.WriteJSON(w, http.StatusOK, reply)
+}
+
 // spineScopeForTool maps the AI-managed open tool to the room scope the spine
 // projection expects (buildSpineProjection still steers per-room). The single
 // studio thread replaced the client-supplied scope, so we derive it here.

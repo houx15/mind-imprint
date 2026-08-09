@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal } from "@mind-imprint/contracts";
+import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal, NextStep } from "@mind-imprint/contracts";
 
 /**
  * StudioChatContext (coach-persistence hoist).
@@ -86,6 +86,10 @@ export type StudioChatValue = {
   pendingQuestion: QuestionProposal | null;
   confirmQuestion: () => void;
   dismissQuestion: () => void;
+  // The deterministic flow router's one-tap next-step (立项 done → 写提案 …).
+  // Tapping advanceToNextStep advances the status server-side (coachAdvance).
+  pendingNextStep: NextStep | null;
+  advanceToNextStep: () => void;
   // ── Task 5 (history pagination) · 载入更早的对话 ──────────────────────────
   // The container loads only the thread's RECENT page on open; `historyHasMore`
   // gates the 载入更早 control, `loadEarlier` fetches + prepends the next OLDER

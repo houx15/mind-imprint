@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronUp, Check } from "lucide-react";
+import { ChevronUp, Check, ArrowRight } from "lucide-react";
 import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
 import { Icon } from "@/ui/Icon";
 import { ChatLog, type ChatMessage } from "./ChatLog";
@@ -147,6 +147,8 @@ export function StudioTurnChips() {
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    pendingNextStep,
+    advanceToNextStep,
     sending,
   } = useStudioChat();
   if (sending) return null;
@@ -162,7 +164,25 @@ export function StudioTurnChips() {
       {pendingQuestion && (
         <QuestionConfirmChip question={pendingQuestion} onConfirm={confirmQuestion} onDismiss={dismissQuestion} />
       )}
+      {pendingNextStep && <NextStepChip label={pendingNextStep.label} onAdvance={advanceToNextStep} />}
     </>
+  );
+}
+
+// The deterministic flow router's one-tap next-step: 印记 has led the student to
+// a milestone and offers the single next move (立项完成 → 写提案 …). Her tap
+// advances the status server-side (铁律②: 打开由学生确认); 印记 no longer opens
+// rooms itself. An accent, not a success, chip — it moves forward, not records.
+function NextStepChip({ label, onAdvance }: { label: string; onAdvance: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onAdvance}
+      className="flex w-full items-center justify-between gap-2 rounded-mk-lg border border-mk-accent bg-mk-accent px-3.5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
+    >
+      <span>下一步 · {label}</span>
+      <Icon icon={ArrowRight} size={16} />
+    </button>
   );
 }
 

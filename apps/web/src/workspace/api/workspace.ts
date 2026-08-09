@@ -172,6 +172,17 @@ export async function coachStart(id: string): Promise<OrchestratorReply> {
   return OrchestratorReply.parse(raw);
 }
 
+// POST /coach/advance — act on a one-tap nextStep (铁律②: 打开由学生确认). Sets the
+// target status' stage floor + opens its surface, then 印记 greets the new phase.
+// The ONLY forward status transition (the coach no longer has set_status/open_tool).
+export async function coachAdvance(id: string, toStatus: string): Promise<OrchestratorReply> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/coach/advance`, {
+    method: "POST",
+    body: JSON.stringify({ to_status: toStatus }),
+  });
+  return OrchestratorReply.parse(raw);
+}
+
 // GET /studio-state — 印记's current directive (stage/openTool/widthTier/
 // reference/updatedAtTurn) independent of any coach turn. Used to resume a
 // project at its AI-managed status (e.g. on load) without replaying the whole

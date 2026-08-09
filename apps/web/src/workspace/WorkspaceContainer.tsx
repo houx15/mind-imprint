@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CardProposalWire,
   MaterialSource,
+  NextStep,
   NoteProposal,
   PhaseTag,
   PlanItem,
@@ -37,6 +38,7 @@ import {
   coach,
   coachOpening,
   coachStart,
+  coachAdvance,
   putProposal,
   reflectProjectCard,
   dismissProposal,
@@ -282,6 +284,10 @@ export function WorkspaceContainer({
   // `pendingNote` exactly, but confirming creates an exploration lead instead of
   // writing a proposal section.
   const [pendingQuestion, setPendingQuestion] = useState<QuestionProposal | null>(null);
+  // The deterministic flow router's one-tap next-step offer (立项 done → 写提案,
+  // etc.). Tapping it advances the status server-side (coachAdvance) — the ONLY
+  // forward transition now the coach has no set_status/open_tool.
+  const [pendingNextStep, setPendingNextStep] = useState<NextStep | null>(null);
   // Bumped after a confirmed question lands as an exploration lead, so the
   // exploration surface knows to re-fetch (threaded to ExplorationView in T8).
   const [explorationRefreshNonce, setExplorationRefreshNonce] = useState(0);
@@ -378,6 +384,7 @@ export function WorkspaceContainer({
       setConfirmedNote(null);
       setPendingCard(null);
       setPendingQuestion(null);
+      setPendingNextStep(null);
       try {
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
@@ -405,6 +412,7 @@ export function WorkspaceContainer({
         setPendingNote(reply.note);
         setPendingCard(reply.card);
         setPendingQuestion(reply.question);
+        setPendingNextStep(reply.nextStep ?? null);
         return true;
       } catch {
         if (isActive()) {
@@ -441,6 +449,37 @@ export function WorkspaceContainer({
       if (isActive()) setStarting(false);
     }
   }, [starting, applyStudioState]);
+
+  // Act on the one-tap nextStep (铁律②: her tap advances). Calls coachAdvance,
+  // appends 印记's greeting for the new phase, applies the returned directive
+  // (stage + surface), and clears the chip. A plan-refresh keeps the spine live.
+  const advanceToNextStep = useCallback(async (): Promise<void> => {
+    const pid = activeProjectIdRef.current;
+    const step = pendingNextStep;
+    if (!pid || !step || studioSending) return;
+    const isActive = () => activeProjectIdRef.current === pid;
+    setPendingNextStep(null);
+    setStudioSending(true);
+    try {
+      const reply = await coachAdvance(pid, step.toStatus);
+      if (!isActive()) return;
+      if (reply.narrate) setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
+      applyStudioState(reply.directive);
+      setPendingNextStep(reply.nextStep ?? null);
+      getPlan(pid)
+        .then((items) => {
+          if (isActive()) setPlanItems(items);
+        })
+        .catch(() => {});
+    } catch {
+      if (isActive()) {
+        setPendingNextStep(step); // restore the chip so she can retry
+        setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再点一次？）" }]);
+      }
+    } finally {
+      if (isActive()) setStudioSending(false);
+    }
+  }, [pendingNextStep, studioSending, applyStudioState]);
 
   // Task 5 (history pagination) · page one OLDER page of the studio thread in,
   // prepending it above the currently-loaded messages. Guarded on a live
@@ -606,6 +645,7 @@ export function WorkspaceContainer({
     setConfirmedNote(null);
     setPendingCard(null);
     setPendingQuestion(null);
+    setPendingNextStep(null);
     setOpenCardId(null);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
@@ -908,6 +948,8 @@ export function WorkspaceContainer({
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    pendingNextStep,
+    advanceToNextStep,
     historyHasMore,
     loadEarlier,
     loadingEarlier,
