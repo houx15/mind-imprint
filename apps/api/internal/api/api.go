@@ -138,6 +138,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/projects/{id}/references/{rid}/triage", protected(a.patchReferenceTriage))
 	mux.Handle("POST /api/v1/projects/{id}/references/{rid}/archive", protected(a.archiveReference))
 	mux.Handle("POST /api/v1/projects/{id}/evidence-map/subquestions/{sqId}/review", protected(a.reviewSubQuestionSaturation))
+	mux.Handle("GET /api/v1/projects/{id}/essay-track", protected(a.getEssayTrack))
+	mux.Handle("POST /api/v1/projects/{id}/essay-track/advance-stage", protected(a.advanceEssayStage))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/open", protected(a.logSourceOpen))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/annotate", protected(a.prepareSourceAnnotation))

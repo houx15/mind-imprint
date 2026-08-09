@@ -98,3 +98,35 @@ func TestProposalToResearch_SeedsMapAndOpensReading(t *testing.T) {
 		t.Fatalf("re-advance duplicated the seed: %d → %d leads", leadCountBefore, len(leads2))
 	}
 }
+
+// TestAdvanceEssayStage — research → statement flips the stage + opens the
+// writing surface (§6 flexible advance).
+func TestAdvanceEssayStage(t *testing.T) {
+	h, cookie, pool := orchestratorHandler(t, `{"narrate":"好。","tools":[]}`)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	st := agent.DefaultStudioState()
+	st.Started = true
+	st.Stage = agent.StageBodyWriting
+	st.EssayTrack = &agent.EssayTrack{Stage: agent.EssayResearch}
+	st.OpenTool = agent.ToolReading
+	b, _ := json.Marshal(st)
+	if err := q.SetStudioState(ctx, sqlc.SetStudioStateParams{ID: mustUUID(seedProjectID), StudioState: b}); err != nil {
+		t.Fatalf("set state: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+seedProjectID+"/essay-track/advance-stage", strings.NewReader(`{"stage":"statement"}`)), cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("advance-stage = %d — %s", rr.Code, rr.Body)
+	}
+	raw, _ := q.GetStudioState(ctx, mustUUID(seedProjectID))
+	var out agent.StudioState
+	_ = json.Unmarshal(raw, &out)
+	if out.EssayTrack == nil || out.EssayTrack.Stage != agent.EssayStatement {
+		t.Fatalf("stage should be statement, got %+v", out.EssayTrack)
+	}
+	if out.OpenTool != agent.ToolWriting {
+		t.Fatalf("should open writing, got %v", out.OpenTool)
+	}
+}
