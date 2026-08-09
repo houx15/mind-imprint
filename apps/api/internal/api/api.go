@@ -130,6 +130,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/proposal-track/review", protected(a.reviewProposalPart))
 	mux.Handle("POST /api/v1/projects/{id}/cards/question-card/turn", protected(a.postQuestionCardTurn))
 	mux.Handle("POST /api/v1/projects/{id}/cards/question-card/commit", protected(a.postQuestionCardCommit))
+	mux.Handle("POST /api/v1/projects/{id}/framework/waive-counterpoints", protected(a.waiveCounterpoints))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/open", protected(a.logSourceOpen))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/annotate", protected(a.prepareSourceAnnotation))

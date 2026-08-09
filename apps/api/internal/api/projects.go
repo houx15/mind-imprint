@@ -52,6 +52,14 @@ func allRequiredDims(p sqlc.ProjectProposal) bool {
 		strings.TrimSpace(p.Resources) != ""
 }
 
+// frameworkReadyForPlan (slice 3a, Finding 2) gates plan generation on the four
+// required dims AND that 可能的反例 (counterpoints) has either been articulated OR
+// explicitly waived. This inserts one 反例 prompt into the framework before the
+// plan generates — non-blocking (铁律②): the student can waive and proceed.
+func frameworkReadyForPlan(p sqlc.ProjectProposal, waived bool) bool {
+	return allRequiredDims(p) && (strings.TrimSpace(p.Counterpoints) != "" || waived)
+}
+
 // displayStatus maps a persisted project.status to the four-state lifecycle the
 // UI shows: finished→"done", evaluating→"evaluating", else (active) any framing
 // started (a non-empty proposal dim OR ≥1 plan item)→"working", else "forming".

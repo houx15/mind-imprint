@@ -81,8 +81,8 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Doc:          DocNone,
 		},
 		FlowFramework: {
-			Goal:         "把研究计划的四件事聊清楚：目标、缘由、活动与时间、资源（反例可选）。四项齐了系统会自动生成计划。",
-			SystemPrompt: mkPrompt("把研究计划的四件事聊清楚——目标、缘由、活动与时间、资源（反例/张力可选）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项都有内容后系统会自动生成计划，你不用提议生成，只需继续把内容聊扎实。", toolProposeNote, toolSummonCard),
+			Goal:         "把研究计划的五件事聊清楚：目标、缘由、活动与时间、资源、可能的反例/张力。四项核心齐了、也谈过反例后系统会自动生成计划。",
+			SystemPrompt: mkPrompt("把研究计划的五件事聊清楚——目标、缘由、活动与时间、资源，以及可能的反例/张力（这条也要问到，别跳过——想想什么证据或情形可能挑战当前的想法）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项核心都有内容、且谈过反例之后，系统会自动生成计划；你不用提议生成，只需继续把内容聊扎实。", toolProposeNote, toolSummonCard),
 			Tools:        []string{"propose_note", "summon_card"},
 			Cards:        []string{"question-card"},
 			Surface:      ToolForming,

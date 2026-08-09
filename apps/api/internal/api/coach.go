@@ -566,7 +566,7 @@ func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, st
 	}
 	planGenerated := false
 	if !planExists {
-		if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil && allRequiredDims(prop) {
+		if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil && frameworkReadyForPlan(prop, state.CounterpointsWaived) {
 			if _, gerr := a.regeneratePlan(ctx, projectID); gerr == nil {
 				planExists = true
 				planGenerated = true

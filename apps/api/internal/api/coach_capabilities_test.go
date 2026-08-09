@@ -67,7 +67,7 @@ func TestFunnelAutoGeneratesPlanAndCoachOffersProposal(t *testing.T) {
 	// Fill all four dims — the funnel auto-generates the plan on this write.
 	rrProp := httptest.NewRecorder()
 	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
-		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero","counterpoints":"中国碳排放总量全球第一"}`)), cookie))
 	if rrProp.Code != http.StatusOK {
 		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
 	}
@@ -137,7 +137,7 @@ func TestFrameworkReviewerSurfacesVerdictOnceAfterPlanGen(t *testing.T) {
 	// Fill the 4 dims → plan auto-gens AND the reviewer runs (verdict stashed).
 	rrProp := httptest.NewRecorder()
 	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
-		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero","counterpoints":"中国碳排放总量全球第一"}`)), cookie))
 	if rrProp.Code != http.StatusOK {
 		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
 	}
@@ -175,6 +175,51 @@ func TestFrameworkReviewerSurfacesVerdictOnceAfterPlanGen(t *testing.T) {
 	}
 	if resp.ReviewVerdict != nil {
 		t.Fatalf("verdict must surface once, got %+v on the 2nd turn", resp.ReviewVerdict)
+	}
+}
+
+// TestFrameworkWaiveCounterpoints — Finding 2: filling the 4 dims with 反例
+// still EMPTY does NOT generate the plan (the framework prompts for 反例 first);
+// waiving counterpoints then generates it (non-blocking, 铁律②).
+func TestFrameworkWaiveCounterpoints(t *testing.T) {
+	pool := newAPITestPool(t)
+	// The only model call is regeneratePlan's completion, made once — on waive.
+	prov := sequenceOrchestratorProvider(planGenReply)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool,
+		Provider: prov, ChatResolver: fakeResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	cookie := signInSeed(t, pool)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// 4 dims filled, 反例 EMPTY → plan must NOT generate yet.
+	rrProp := httptest.NewRecorder()
+	h.ServeHTTP(rrProp, withCookie(httptest.NewRequest("PUT", base+"/proposal",
+		strings.NewReader(`{"objective":"论证国内新能源投资","reason":"关心气候","activities":"读NASA/Nature","resources":"Zotero"}`)), cookie))
+	if rrProp.Code != http.StatusOK {
+		t.Fatalf("PUT proposal = %d — %s", rrProp.Code, rrProp.Body)
+	}
+	items, err := sqlc.New(pool).ListPlanItems(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("ListPlanItems: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("plan must NOT generate before 反例 is discussed/waived, got %d items", len(items))
+	}
+
+	// Waive → the funnel now generates the plan.
+	rrWaive := httptest.NewRecorder()
+	h.ServeHTTP(rrWaive, withCookie(httptest.NewRequest("POST", base+"/framework/waive-counterpoints", strings.NewReader("")), cookie))
+	if rrWaive.Code != http.StatusOK {
+		t.Fatalf("waive = %d — %s", rrWaive.Code, rrWaive.Body)
+	}
+	items2, err := sqlc.New(pool).ListPlanItems(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("ListPlanItems 2: %v", err)
+	}
+	if len(items2) == 0 {
+		t.Fatal("plan must generate after waiving 反例")
 	}
 }
 
