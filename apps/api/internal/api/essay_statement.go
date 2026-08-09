@@ -110,6 +110,16 @@ func (a *API) generateEssayGuideCard(ctx context.Context, projectID uuid.UUID, s
 			}
 		}
 	}
+	// slice 4b-2 · the 面对反方观点 step names the real 反驳/张力 material (§140).
+	if step.Key == "challenges" {
+		if refs, rerr := a.d.Queries.ListReferences(ctx, projectID); rerr == nil {
+			for _, ref := range refs {
+				if ref.EvidenceNature == "challenge" && !ref.Archived {
+					in.ChallengeEvidence = append(in.ChallengeEvidence, ref.Title)
+				}
+			}
+		}
+	}
 	out, usage, err := agent.GenerateProposalGuideStep(ctx, a.d.Provider, resolved, in)
 	a.meterCall(ctx, projectID, resolved, "essay_guide", usage)
 	if err != nil {

@@ -37,6 +37,11 @@ type GuideGenInput struct {
 
 	ThisSubQuestion     string
 	SiblingSubQuestions []SubQuestion
+
+	// ChallengeEvidence — slice 4b-2 · titles of references the student tagged
+	// 反驳/张力 (evidenceNature="challenge") in the research stage. Only set for the
+	// essay "challenges" step so the 面对反方观点 card names the real counter-evidence.
+	ChallengeEvidence []string
 }
 
 // essayGuideBody produces the essay statement-stage guidance for a step (§6
@@ -62,6 +67,12 @@ func essayGuideBody(in GuideGenInput) string {
 			b.WriteString("\n本部分：比较 / 综合各条论点——它们如何共同回答核心研究问题？哪里相互支撑、哪里有张力？\n")
 		case "challenges":
 			b.WriteString("\n本部分：面对最强的反方观点 / 替代解释 / 不同视角——你如何回应？（这一步不能跳过。）\n")
+			if len(in.ChallengeEvidence) > 0 {
+				b.WriteString("你在研究阶段标记为『反驳/张力』的材料（引导学生具体回应它们）：\n")
+				for i, t := range in.ChallengeEvidence {
+					fmt.Fprintf(&b, "  %d. %s\n", i+1, strings.TrimSpace(t))
+				}
+			}
 		case "conclusion":
 			b.WriteString("\n本部分：基于前面各条论证，写出你的结论。\n")
 		case "structure":
