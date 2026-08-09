@@ -12,6 +12,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteProposalAnnotations = `-- name: DeleteProposalAnnotations :exec
+DELETE FROM intervention
+WHERE project_id = $1 AND type = 'proposal_annotation'
+`
+
+func (q *Queries) DeleteProposalAnnotations(ctx context.Context, projectID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteProposalAnnotations, projectID)
+	return err
+}
+
 const insertIntervention = `-- name: InsertIntervention :one
 INSERT INTO intervention (project_id, card_instance_id, type, anchor, criterion, body, level, output_check_verdict)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -64,6 +74,43 @@ ORDER BY created_at, id
 
 func (q *Queries) ListInterventionsByProject(ctx context.Context, projectID uuid.UUID) ([]Intervention, error) {
 	rows, err := q.db.Query(ctx, listInterventionsByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Intervention
+	for rows.Next() {
+		var i Intervention
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.CardInstanceID,
+			&i.Type,
+			&i.Anchor,
+			&i.Criterion,
+			&i.Body,
+			&i.Level,
+			&i.OutputCheckVerdict,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProposalAnnotations = `-- name: ListProposalAnnotations :many
+SELECT id, project_id, card_instance_id, type, anchor, criterion, body, level, output_check_verdict, created_at FROM intervention
+WHERE project_id = $1 AND type = 'proposal_annotation'
+ORDER BY created_at, id
+`
+
+func (q *Queries) ListProposalAnnotations(ctx context.Context, projectID uuid.UUID) ([]Intervention, error) {
+	rows, err := q.db.Query(ctx, listProposalAnnotations, projectID)
 	if err != nil {
 		return nil, err
 	}

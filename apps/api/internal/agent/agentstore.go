@@ -679,6 +679,55 @@ type SpotCheckInterventionRow struct {
 	Body      string
 }
 
+// ProposalAnnotationRow is one 批注 (slice 3b): a layered, colored, view-only
+// teacher annotation. Persisted as a type='proposal_annotation' intervention;
+// the structured facets ride the additive `anchor` jsonb (no migration), while
+// the existing columns carry a projection (level→criterion, nature→level).
+type ProposalAnnotationRow struct {
+	Level   string // paper | paragraph | sentence
+	Nature  string // good | suggest | problem
+	Quote   string
+	Locator string
+	Note    string
+}
+
+// ReplaceProposalAnnotations deletes the project's prior proposal 批注 and
+// inserts the new set in one transaction, so the AI批注 panel always reflects the
+// latest review (a re-review never accretes stale marks). An empty `rows` clears
+// them.
+func (s *sqlcAgentStore) ReplaceProposalAnnotations(ctx context.Context, projectID uuid.UUID, rows []ProposalAnnotationRow) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := s.q.WithTx(tx)
+	if err := qtx.DeleteProposalAnnotations(ctx, projectID); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		anchor, merr := json.Marshal(map[string]string{
+			"docKind": "proposal", "level": r.Level, "nature": r.Nature, "quote": r.Quote, "locator": r.Locator,
+		})
+		if merr != nil {
+			return merr
+		}
+		level := r.Nature
+		criterion := r.Level
+		if _, err := qtx.InsertIntervention(ctx, sqlc.InsertInterventionParams{
+			ProjectID: projectID,
+			Type:      "proposal_annotation",
+			Anchor:    anchor,
+			Criterion: &criterion,
+			Body:      r.Note,
+			Level:     &level,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 // InsertSpotCheckIntervention writes one spot_check_item intervention row.
 func (s *sqlcAgentStore) InsertSpotCheckIntervention(ctx context.Context, row SpotCheckInterventionRow) error {
 	_, err := s.q.InsertIntervention(ctx, sqlc.InsertInterventionParams{

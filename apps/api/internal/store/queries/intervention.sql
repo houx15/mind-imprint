@@ -12,3 +12,12 @@ ORDER BY created_at, id;
 SELECT * FROM intervention
 WHERE project_id = $1 AND type = 'review_item'
 ORDER BY created_at;
+
+-- name: ListProposalAnnotations :many
+SELECT * FROM intervention
+WHERE project_id = $1 AND type = 'proposal_annotation'
+ORDER BY created_at, id;
+
+-- name: DeleteProposalAnnotations :exec
+DELETE FROM intervention
+WHERE project_id = $1 AND type = 'proposal_annotation';
