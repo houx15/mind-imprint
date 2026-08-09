@@ -79,6 +79,7 @@ const DEFAULT_RAW: Record<string, unknown> = {
 export type CatalogEntry = {
   id: string; category: string; name: string; purpose: string; trigger_condition: string;
   trigger_keywords?: string[]; disclosure_tier?: string; priority?: string; interaction_type?: string;
+  interaction?: string; placement?: string;
 };
 export type Catalog = CatalogEntry[];
 
@@ -103,6 +104,7 @@ export function deriveCatalog(registry: Record<string, CardSpec>): Catalog {
     id: c.id, category: c.category, name: c.name, purpose: c.purpose, trigger_condition: c.trigger_condition,
     trigger_keywords: c.trigger_keywords, disclosure_tier: c.disclosure_tier,
     priority: c.priority, interaction_type: c.interaction_type,
+    interaction: c.interaction, placement: c.placement,
   }));
 }
 

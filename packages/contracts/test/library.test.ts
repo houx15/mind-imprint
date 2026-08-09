@@ -40,4 +40,21 @@ describe("card interaction taxonomy (re-catalog 2026-08-09)", () => {
     expect(CARD_REGISTRY["learning-report"].interaction).toBe("function");
     expect(CARD_REGISTRY["pee"].interaction ?? "form").toBe("form");
   });
+
+  it("every card carries a valid placement tag", () => {
+    const valid = new Set(["status", "reading", "reading-toolkit", "cross-cutting"]);
+    for (const card of Object.values(CARD_REGISTRY)) {
+      expect(valid.has(card.placement ?? ""), `${card.id}: ${card.placement}`).toBe(true);
+    }
+  });
+
+  it("catalog projects placement + interaction for all 34 cards", () => {
+    const cat = deriveCatalog(CARD_REGISTRY);
+    expect(cat.length).toBe(34);
+    const qc = cat.find((c) => c.id === "question-card")!;
+    expect(qc.interaction).toBe("sub-agent");
+    expect(qc.placement).toBe("status");
+    const cda = cat.find((c) => c.id === "cda")!;
+    expect(cda.placement).toBe("reading-toolkit");
+  });
 });
