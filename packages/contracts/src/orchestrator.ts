@@ -35,6 +35,18 @@ export const StudioState = z.object({
   reference: z.array(ReferenceRef),
   updatedAtTurn: z.number().int(),
   started: z.boolean(),
+  // slice 3a · a lean read of the proposal guide-step track (the full track,
+  // incl. sub-questions + cached guides, is served by GET /proposal-track).
+  // nullish so old rows / the essay path (no proposal track) parse cleanly.
+  proposalTrack: z
+    .object({
+      mode: z.enum(["", "free", "guided"]),
+      stepIndex: z.number().int(),
+      started: z.boolean(),
+    })
+    .nullish(),
+  // slice 3a (Finding 2) · the student waived the 反例 prompt before plan-gen.
+  counterpointsWaived: z.boolean().optional(),
 });
 export type StudioState = z.infer<typeof StudioState>;
 
