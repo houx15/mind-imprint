@@ -52,6 +52,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         dismissQuestion: () => {},
         pendingNextStep: null,
         advanceToNextStep: () => {},
+        advanceStatusTo: async () => {},
         historyHasMore: false,
         loadEarlier: () => {},
         loadingEarlier: false,
@@ -205,7 +206,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // the modal's confirm button locks the draft; it does NOT navigate anywhere
     // (the nav to 回顾 was Tier-1 chrome — 印记 now cues it in the chat).
     await userEvent.click(screen.getByRole("button", { name: "锁定初稿" }));
-    await waitFor(() => expect(mockFinishWriting).toHaveBeenCalledWith("p1"));
+    await waitFor(() => expect(mockFinishWriting).toHaveBeenCalledWith("p1", "essay"));
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -218,7 +219,7 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(ta).toHaveAttribute("readonly");
     // reversible (铁律②): 重新打开写作 clears the milestone
     await userEvent.click(screen.getByRole("button", { name: "重新打开写作" }));
-    await waitFor(() => expect(mockReopenWriting).toHaveBeenCalledWith("p1"));
+    await waitFor(() => expect(mockReopenWriting).toHaveBeenCalledWith("p1", "essay"));
     expect(refresh).toHaveBeenCalled();
   });
 

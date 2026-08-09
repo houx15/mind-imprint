@@ -49,6 +49,7 @@ import { PlanBlock } from "./blocks/PlanBlock";
 import { PlanSpine } from "./blocks/PlanSpine";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
+import { activeDocForStage } from "./activeDoc";
 import { ReferencePanel } from "./blocks/ReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
@@ -450,18 +451,19 @@ export function WorkspaceContainer({
     }
   }, [starting, applyStudioState]);
 
-  // Act on the one-tap nextStep (铁律②: her tap advances). Calls coachAdvance,
-  // appends 印记's greeting for the new phase, applies the returned directive
-  // (stage + surface), and clears the chip. A plan-refresh keeps the spine live.
-  const advanceToNextStep = useCallback(async (): Promise<void> => {
+  // Advance the studio status forward (deterministic flow router, 铁律②: only on
+  // a student action). Calls coachAdvance, appends 印记's greeting for the new
+  // phase, applies the returned directive (stage + surface), refreshes the plan
+  // AND the projection (so per-doc 完成写作 + status propagate), and carries any
+  // fresh nextStep. Shared by the one-tap chip and the writing room's 完成 button
+  // (proposal→essay, essay→review). Throws on failure so callers can surface it.
+  const advanceStatusTo = useCallback(async (toStatus: string): Promise<void> => {
     const pid = activeProjectIdRef.current;
-    const step = pendingNextStep;
-    if (!pid || !step || studioSending) return;
+    if (!pid) return;
     const isActive = () => activeProjectIdRef.current === pid;
-    setPendingNextStep(null);
     setStudioSending(true);
     try {
-      const reply = await coachAdvance(pid, step.toStatus);
+      const reply = await coachAdvance(pid, toStatus);
       if (!isActive()) return;
       if (reply.narrate) setStudioMessages((c) => [...c, { role: "ai", text: reply.narrate }]);
       applyStudioState(reply.directive);
@@ -471,15 +473,25 @@ export function WorkspaceContainer({
           if (isActive()) setPlanItems(items);
         })
         .catch(() => {});
-    } catch {
-      if (isActive()) {
-        setPendingNextStep(step); // restore the chip so she can retry
-        setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再点一次？）" }]);
-      }
+      await refreshWorkspace();
     } finally {
       if (isActive()) setStudioSending(false);
     }
-  }, [pendingNextStep, studioSending, applyStudioState]);
+  }, [applyStudioState, refreshWorkspace]);
+
+  // Act on the one-tap nextStep (铁律②: her tap advances) — a thin wrapper over
+  // advanceStatusTo that manages the chip (clear before, restore on failure).
+  const advanceToNextStep = useCallback(async (): Promise<void> => {
+    const step = pendingNextStep;
+    if (!step || studioSending) return;
+    setPendingNextStep(null);
+    try {
+      await advanceStatusTo(step.toStatus);
+    } catch {
+      setPendingNextStep(step); // restore the chip so she can retry
+      setStudioMessages((c) => [...c, { role: "ai", text: "（网络好像有点卡，我没接住——再点一次？）" }]);
+    }
+  }, [pendingNextStep, studioSending, advanceStatusTo]);
 
   // Task 5 (history pagination) · page one OLDER page of the studio thread in,
   // prepending it above the currently-loaded messages. Guarded on a live
@@ -950,6 +962,7 @@ export function WorkspaceContainer({
     dismissQuestion,
     pendingNextStep,
     advanceToNextStep,
+    advanceStatusTo,
     historyHasMore,
     loadEarlier,
     loadingEarlier,
@@ -1094,20 +1107,31 @@ export function WorkspaceContainer({
                     canInsert={insertReady}
                   />
                 }
-                right={
-                  <WritingBlock
-                    key={projectId}
-                    projectId={projectId}
-                    title={workspace.title}
-                    proposal={workspace.proposal}
-                    status={workspace.status}
-                    writingFinished={workspace.writingFinished ?? false}
-                    draftInsertRef={draftInsertRef}
-                    onInsertReady={setInsertReady}
-                    refreshWorkspace={refreshWorkspace}
-                    recap={historyRecap ?? summary}
-                  />
-                }
+                right={(() => {
+                  // Phase B · the active writing document follows the status. The
+                  // proposal (写研究提案) and essay (写正文) are distinct docs; each
+                  // locks on its OWN 完成写作 milestone (writingFinish[doc]).
+                  const writeDoc = activeDocForStage(studioState?.stage ?? "body_writing");
+                  const docFinished =
+                    writeDoc === "proposal"
+                      ? (workspace.writingFinish?.proposal ?? false)
+                      : (workspace.writingFinish?.essay ?? workspace.writingFinished ?? false);
+                  return (
+                    <WritingBlock
+                      key={`${projectId}:${writeDoc}`}
+                      projectId={projectId}
+                      title={workspace.title}
+                      proposal={workspace.proposal}
+                      status={workspace.status}
+                      doc={writeDoc}
+                      writingFinished={docFinished}
+                      draftInsertRef={draftInsertRef}
+                      onInsertReady={setInsertReady}
+                      refreshWorkspace={refreshWorkspace}
+                      recap={historyRecap ?? summary}
+                    />
+                  );
+                })()}
               />
             )}
             {room === "reflection" && (

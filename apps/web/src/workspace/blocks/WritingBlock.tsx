@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { putBuffer, runDraftReview } from "../../api/writing";
-import type { ReviewItem, ReviewVoice, DraftReviewResult } from "../../api/writing";
+import type { ReviewItem, ReviewVoice, DraftReviewResult, WritingDocKind } from "../../api/writing";
 import { finishWriting, reopenWriting } from "../../api/projects";
 import { ApiError } from "../../api/client";
 import { exportDraftDocx } from "../export";
@@ -18,6 +18,7 @@ import { Segmented } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { ProsePane } from "./ProsePane";
 import { StudioCardSheet } from "../../studio/StudioCardSheet";
 import { compileCardEnvelope, compileCardForCoach } from "../../studio/compileCard";
 import { CARD_REGISTRY, type CardTurnRef } from "@mind-imprint/contracts";
@@ -102,6 +103,7 @@ export function WritingBlock({
   title,
   proposal,
   status,
+  doc = "essay",
   writingFinished,
   draftInsertRef,
   onInsertReady,
@@ -112,8 +114,14 @@ export function WritingBlock({
   title: string;
   proposal: Proposal;
   status: ProjectStatus;
-  // #20 · the 完成写作 milestone — draft is read-only once true. Separate from
-  // status (evaluating/done terminally lock too).
+  // Phase B · which document this writing room is editing, derived from the
+  // studio status (proposal_writing → "proposal", body_writing → "essay"). The
+  // proposal renders a plain prose surface (ProsePane); the essay keeps
+  // 大纲/片段/正文. Buffer/snapshots/finish are keyed on it end-to-end.
+  doc?: WritingDocKind;
+  // #20 · the 完成写作 milestone for THIS document (Phase B: the active doc's
+  // finish state) — the surface is read-only once true. Separate from status
+  // (evaluating/done terminally lock too).
   writingFinished: boolean;
   /** Shared insert-at-caret ref (P3): DraftPane registers its inserter here on
    * mount; the sibling left ReferencePanel's 材料 fragments call it (the fold
@@ -152,19 +160,27 @@ export function WritingBlock({
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishingWriting, setFinishingWriting] = useState(false);
   const [finishWritingError, setFinishWritingError] = useState<string | null>(null);
+  // Phase B · finishing a document advances the studio status deterministically
+  // (proposal → essay; essay → review). One student tap (the 完成 button IS the
+  // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
+  const { advanceStatusTo } = useStudioChat();
+  const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
   const locked = archived || writingFinished;
 
-  // #20 · confirm → lock the draft (印记 cues 回顾 in chat). finishWriting is
-  // idempotent; 422 draft_empty when there's nothing written yet.
+  // #20 / Phase B · confirm → lock THIS document, then advance the studio status
+  // (proposal→写正文; essay→复盘). finishWriting is idempotent; 422 draft_empty
+  // when there's nothing written yet.
   async function doFinishWriting() {
     if (finishingWriting) return;
     setFinishingWriting(true);
     setFinishWritingError(null);
     try {
-      await finishWriting(projectId);
+      await finishWriting(projectId, doc);
       await refreshWorkspace();
+      setShowFinishModal(false);
+      await advanceStatusTo(isProposal ? "essay" : "review");
     } catch (e) {
       setFinishWritingError(
         e instanceof ApiError ? e.message || "还不能完成写作，请稍后再试。" : "刚才没接上，稍等再试一次。",
@@ -177,7 +193,7 @@ export function WritingBlock({
   // #20 (铁律②) · reopen — reversible until the project is archived.
   async function doReopenWriting() {
     try {
-      await reopenWriting(projectId);
+      await reopenWriting(projectId, doc);
       await refreshWorkspace();
     } catch {
       /* best-effort; the affordance stays and can be retried */
@@ -209,26 +225,31 @@ export function WritingBlock({
     <div className="flex h-full flex-col">
       {/* goal strip */}
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">论点</span>
+        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{isProposal ? "提案" : "论点"}</span>
         <p className="min-w-0 flex-1 truncate text-[14px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
         {!archived &&
           (writingFinished ? (
-            // #20 · reversible — 重新打开写作 unlocks the draft again (铁律②).
-            <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title="重新打开写作，继续修改初稿">重新打开写作</button>
+            // #20 · reversible — 重新打开 unlocks this document again (铁律②).
+            <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title={isProposal ? "重新编辑提案" : "重新打开写作，继续修改初稿"}>{isProposal ? "重新编辑提案" : "重新打开写作"}</button>
           ) : (
-            <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title="写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）">完成写作</button>
+            <button type="button" onClick={() => setShowFinishModal(true)} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title={isProposal ? "提案写好了？点这里定稿，进入写正文" : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"}>{isProposal ? "完成提案" : "完成写作"}</button>
           ))}
       </div>
 
-      {/* tabs */}
-      <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
-        <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
-        <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
-      </div>
+      {/* tabs — the essay's 大纲/片段/正文. The proposal is a plain prose doc
+          (ProsePane), so it shows no tabs. */}
+      {!isProposal && (
+        <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
+          <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
+          <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
+          <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
+        </div>
+      )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {tab === "outline" ? (
+        {isProposal ? (
+          <ProsePane projectId={projectId} doc="proposal" locked={locked} />
+        ) : tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
           <SnippetsPane snip={snip} importedSections={importedSections} />
@@ -246,7 +267,9 @@ export function WritingBlock({
       </div>
 
       {/* COACH — portals into the constant AiPanel (Task 4/5's pattern); renders
-          nothing at this position itself except its own fixed-overlay card modal. */}
+          nothing at this position itself except its own fixed-overlay card modal.
+          In the proposal doc the 正文·检查 examiner shelf is hidden (activePanel
+          ≠ "draft") — proposal review is coach-narrated, not a snapshot panel. */}
       <CoachRail
         projectId={projectId}
         focusPart={focusPart}
@@ -255,7 +278,7 @@ export function WritingBlock({
         onCardArtifact={(text, section) => snip.add(text, section)}
         sectionOptions={knownSectionLabels}
         onRunReview={requestReview}
-        activePanel={tab}
+        activePanel={isProposal ? "outline" : tab}
         recap={recap}
       />
 
@@ -265,9 +288,13 @@ export function WritingBlock({
       {showFinishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
           <div className="w-full max-w-md rounded-mk-lg border border-mk-border bg-mk-surface p-7 shadow-mk-lg">
-            <h2 className="font-sans text-[18px] font-bold text-mk-ink">完成写作？</h2>
+            <h2 className="font-sans text-[18px] font-bold text-mk-ink">{isProposal ? "完成提案？" : "完成写作？"}</h2>
             <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-              确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。
+              {isProposal ? (
+                <>确认后会<span className="font-bold text-mk-ink">定下提案</span>、进入<span className="font-bold text-mk-ink">写正文</span>。之后<span className="font-bold text-mk-accent">仍可重新编辑提案</span>。</>
+              ) : (
+                <>确认后会<span className="font-bold text-mk-ink">锁定初稿</span>、解锁<span className="font-bold text-mk-ink">回顾</span>。之后<span className="font-bold text-mk-accent">仍可重新打开写作</span>继续改；只有在回顾里<span className="font-bold text-mk-accent">定稿评估</span>后才真正锁定。</>
+              )}
             </p>
             {finishWritingError && (
               <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
@@ -283,10 +310,10 @@ export function WritingBlock({
               <button
                 type="button"
                 disabled={finishingWriting}
-                onClick={() => { setShowFinishModal(false); void doFinishWriting(); }}
+                onClick={() => { void doFinishWriting(); }}
                 className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
               >
-                {finishingWriting ? "锁定中……" : "锁定初稿"}
+                {finishingWriting ? (isProposal ? "定稿中……" : "锁定中……") : (isProposal ? "进入写正文" : "锁定初稿")}
               </button>
             </div>
           </div>

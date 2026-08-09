@@ -90,6 +90,12 @@ export type StudioChatValue = {
   // Tapping advanceToNextStep advances the status server-side (coachAdvance).
   pendingNextStep: NextStep | null;
   advanceToNextStep: () => void;
+  // Advance the studio status forward to a specific FlowStatus (coachAdvance),
+  // applying the new phase's greeting + directive + plan/projection refresh.
+  // Used by the writing room's 完成 button (proposal→"essay", essay→"review");
+  // the one-tap chip's advanceToNextStep is a thin wrapper over this. Rejects
+  // on failure so the caller can surface an error.
+  advanceStatusTo: (toStatus: string) => Promise<void>;
   // ── Task 5 (history pagination) · 载入更早的对话 ──────────────────────────
   // The container loads only the thread's RECENT page on open; `historyHasMore`
   // gates the 载入更早 control, `loadEarlier` fetches + prepends the next OLDER

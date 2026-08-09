@@ -111,6 +111,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         dismissQuestion: () => {},
         pendingNextStep: null,
         advanceToNextStep: () => {},
+        advanceStatusTo: async () => {},
         historyHasMore: false,
         loadEarlier: () => {},
         loadingEarlier: false,
