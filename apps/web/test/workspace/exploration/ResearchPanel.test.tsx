@@ -25,7 +25,7 @@ describe("currentTask", () => {
 });
 
 describe("ResearchPanel", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it("shows the current task, reviews a sub-question, and advances on saturated", async () => {
     vi.mocked(getEvidenceMap).mockResolvedValue({
