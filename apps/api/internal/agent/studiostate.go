@@ -112,10 +112,17 @@ const (
 	EssaySubmission EssayStage = "submission"
 )
 
-// EssayTrack carries the essay's stage. (The research stage's evidence map lives
-// in the warren graph; statement/submission internals arrive in slices 4b/4c.)
+// EssayTrack carries the essay's stage + (statement stage) the guide-step walk.
+// The research stage's evidence map lives in the warren graph; the statement
+// walk (outline → per-claim → synthesis → challenges → conclusion → structure)
+// is driven by StatementStep over DeriveStatementSteps.
 type EssayTrack struct {
 	Stage EssayStage `json:"stage"`
+	// slice 4b · the statement stage's walk. Started = the student passed the
+	// outline-intro ready gate. StepGuides caches generated guide cards by key.
+	Started       bool              `json:"statementStarted,omitempty"`
+	StatementStep int               `json:"statementStep,omitempty"`
+	StepGuides    map[string]string `json:"essayStepGuides,omitempty"`
 }
 
 func DefaultStudioState() StudioState {
