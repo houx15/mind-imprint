@@ -22,6 +22,7 @@ import {
 import type { AIUseRecord, CardTurnRef } from "@mind-imprint/contracts";
 import { CoachCardPanel } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
+import { ReviewArtifacts } from "./ReviewArtifacts";
 
 // #21 · the 回顾 card shelf — review/reflection thinking cards the STUDENT may
 // summon to look back on her own thinking (印记 supports, never writes her
@@ -180,8 +181,15 @@ export function ReviewBlock({
 
   return (
     <>
-      {/* WORK — the student's own reflection + AI-use retrospective. */}
-      <div className="h-full overflow-y-auto px-10 py-9">
+      {/* §7 · LEFT = the journey's four artifacts (活动日志/研究框架/提案/成品),
+          RIGHT = the student's own reflection form. The AI's mirror/coach stays
+          in the constant 印记 panel (portaled below). */}
+      <div className="flex h-full min-h-0">
+        <div className="h-full w-[40%] min-w-[300px] max-w-[520px] flex-none">
+          <ReviewArtifacts projectId={projectId} proposal={proposal} />
+        </div>
+        {/* WORK — the student's own reflection + AI-use retrospective. */}
+        <div className="h-full min-w-0 flex-1 overflow-y-auto px-10 py-9">
         <div className="mx-auto max-w-2xl">
           <header className="mb-6">
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">项目收尾</p>
@@ -289,6 +297,7 @@ export function ReviewBlock({
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
 

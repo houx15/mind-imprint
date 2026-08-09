@@ -119,8 +119,9 @@ describe("ReferencePanel", () => {
     );
 
     // slice 4b · the essay writing stage shows the layered AI批注 group (view-only);
-    // empty → its calm line.
-    expect(await screen.findByText("AI批注")).toBeInTheDocument();
+    // §93 · it's now a tab (material present → 阅读笔记 is the default tab); click
+    // AI批注 to see its calm empty line.
+    fireEvent.click(await screen.findByText("AI批注"));
     expect(await screen.findByText("批注会在印记看过你的写作后出现。")).toBeInTheDocument();
   });
 

@@ -141,6 +141,10 @@ export function WorkspaceContainer({
   // plan for a recap; this flag drives the recap banner + 继续工作 button there.
   // Cleared the moment 印记 morphs the room or the student navigates.
   const [recapLanding, setRecapLanding] = useState(false);
+  // §5 · true when the reading room was opened MANUALLY (via the switcher) and
+  // the student hasn't yet confirmed starting an exploration; a guide-entry
+  // (onOpenReading) opens directly with this false.
+  const [readingConfirmNeeded, setReadingConfirmNeeded] = useState(false);
   // 印记's AI-managed status directive (stage/openTool/widthTier/reference),
   // loaded once per project (Task 8). Drives resume-at-stage: which room the
   // shell lands on, and whether the interactive area is chat-first (openTool
@@ -360,6 +364,9 @@ export function WorkspaceContainer({
     setRoom(r);
     setTookOver(true);
     setRecapLanding(false);
+    // §5 · a manual switch INTO the reading room asks to confirm first; any other
+    // manual switch clears the gate.
+    setReadingConfirmNeeded(r === "reading");
   }, []);
 
   // 「继续印记」(P4, spec §6): while the student has manually taken over the
@@ -1135,6 +1142,8 @@ export function WorkspaceContainer({
                 refreshNonce={explorationRefreshNonce}
                 essayStage={studioState?.essayTrack?.stage}
                 onStudioStateChanged={continueYinji}
+                confirmStart={readingConfirmNeeded}
+                onConfirmStart={() => setReadingConfirmNeeded(false)}
               />
             )}
             {room === "writing" && (
@@ -1155,7 +1164,7 @@ export function WorkspaceContainer({
                     onInsert={(t) => draftInsertRef.current?.(t)}
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
-                    onOpenReading={() => setRoom("reading")}
+                    onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                   />
                 }
                 right={(() => {
@@ -1180,7 +1189,7 @@ export function WorkspaceContainer({
                       onInsertReady={setInsertReady}
                       refreshWorkspace={refreshWorkspace}
                       recap={historyRecap ?? summary}
-                      onOpenReading={() => setRoom("reading")}
+                      onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                       onAnnotationsChanged={() => setAnnotationsVersion((v) => v + 1)}
                       essayStage={studioState?.essayTrack?.stage}
                       onStudioStateChanged={continueYinji}

@@ -81,9 +81,16 @@ export function ReadingBlock({
   refreshNonce,
   essayStage,
   onStudioStateChanged,
+  confirmStart,
+  onConfirmStart,
 }: {
   projectId: string;
   title: string;
+  // §5 · when the student opens the reading room MANUALLY (via the switcher),
+  // confirm they want to start an exploration journey first; entering from 印记's
+  // guide begins directly (no gate).
+  confirmStart?: boolean;
+  onConfirmStart?: () => void;
   // slice 4a · the essay stage; the 证据地图 research panel shows only while
   // "research". onStudioStateChanged re-applies 印记's state after the advance to
   // statement (opens the writing room).
@@ -405,6 +412,27 @@ export function ReadingBlock({
   // graph-flavored empty state), so 列表's EmptyLibrary is just that view's
   // empty content, reached via the toggle like any other view.
   const topic = title?.trim();
+
+  // §5 · manual entry → confirm you want to start exploring before the room opens.
+  if (confirmStart) {
+    return (
+      <div className="flex h-full items-center justify-center bg-mk-paper px-6">
+        <div className="max-w-md text-center">
+          <h2 className="font-sans text-[20px] font-bold text-mk-ink">开始一段文献探索？</h2>
+          <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
+            在阅读室里，你可以顺着研究问题去检索、阅读、给材料做证据笔记，慢慢搭起你的证据地图。准备好了就开始吧。
+          </p>
+          <button
+            type="button"
+            onClick={onConfirmStart}
+            className="mt-5 rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600"
+          >
+            开始探索
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-full flex-col">

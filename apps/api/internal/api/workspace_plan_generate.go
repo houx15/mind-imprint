@@ -165,9 +165,11 @@ func (a *API) regeneratePlan(ctx context.Context, projectID uuid.UUID) ([]planIt
 // provider, a model error, or an unparseable/empty reply it degrades to a small
 // deterministic default board so the button always yields a usable plan.
 func (a *API) generatePlanItems(ctx context.Context, projectID uuid.UUID, prop sqlc.ProjectProposal) []planGenItem {
-	resolved, rerr := a.d.ChatResolver(ctx)
-	if rerr != nil {
-		slog.Warn("plan generate: no provider", "err", rerr)
+	// §model-routing · plan generation is reviewer-tier work → flagship (never
+	// downgrade), falling back to the chaperone.
+	resolved, ok := a.resolveEval(ctx)
+	if !ok {
+		slog.Warn("plan generate: no provider")
 		return defaultPlanItems()
 	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)

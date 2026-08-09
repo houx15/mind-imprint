@@ -334,8 +334,10 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sk, _ := skills.ByID("writing-project")
-	resolved, rerr := a.d.ChatResolver(r.Context())
-	if rerr != nil {
+	// §model-routing · whole-draft 整稿体检 is writing-review work → flagship
+	// (never downgrade), falling back to the chaperone.
+	resolved, ok := a.resolveEval(r.Context())
+	if !ok {
 		_ = em.ErrorEnvelope("internal_error", "体检失败，请重试")
 		_ = em.Done()
 		return

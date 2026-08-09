@@ -100,6 +100,23 @@ func (a *API) resolveFast(ctx context.Context) (gateway.Resolved, bool) {
 	return gateway.Resolved{}, false
 }
 
+// resolveEval returns the flagship reviewer resolver (the never-downgrade seam
+// the doc reserves for reviewers + plan-gen), falling back to the chaperone when
+// EvalResolver is unset. ok=false when neither resolves.
+func (a *API) resolveEval(ctx context.Context) (gateway.Resolved, bool) {
+	if a.d.EvalResolver != nil {
+		if er, err := a.d.EvalResolver(ctx); err == nil {
+			return er, true
+		}
+	}
+	if a.d.ChatResolver != nil {
+		if r, err := a.d.ChatResolver(ctx); err == nil {
+			return r, true
+		}
+	}
+	return gateway.Resolved{}, false
+}
+
 // buildProposalGuideStep derives the current step and (guided+started only)
 // generates/reads its cached guide card. Mutates state (clamps StepIndex, caches
 // the guide) and reports whether it changed so the caller persists once.

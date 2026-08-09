@@ -82,6 +82,8 @@ export function ReferencePanel({
   const isProposalStage = PROPOSAL_VISIBLE_STAGES.includes(stage);
   const annotationDoc: "proposal" | "essay" = isProposalStage ? "proposal" : "essay";
   const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
+  // §93 · the left panel is multi-tab; a tab appears only when it has content.
+  const [activeTab, setActiveTab] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
     void getProposalAnnotations(projectId, annotationDoc)
@@ -155,21 +157,59 @@ export function ReferencePanel({
             />
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
-            {showProposal && <ProposalGroup proposal={proposal} />}
-            {materials.length > 0 && <MaterialGroup items={materials} />}
-            {notes.length > 0 && <NoteGroup items={notes} />}
-            {hasCollected && (
-              <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} canInsert={canInsert} />
-            )}
-            {/* slice 3b · the proposal uses the layered colored 批注 (view-only);
-                the essay keeps the flat curated review-item annotations. */}
-            {/* slice 4b · the layered 批注 for the active doc (proposal or essay).
-                The flat curated AnnotationGroup remains for any curate_reference
-                annotation items 印记 pulled to the top. */}
-            <ProposalAnnotationGroup items={proposalAnnos} />
-            {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
-          </div>
+          (() => {
+            // §93 · one tab per category, shown only when it has content:
+            // 提案要点 / 阅读笔记(材料+笔记) / AI批注. Reading-search lives in the
+            // reading room, so there's no 检索文献 tab here.
+            const hasNotes = materials.length > 0 || notes.length > 0 || hasCollected;
+            // AI批注 is always a tab in the writing panel — empty → its calm
+            // "批注会在印记看过你的写作后出现" line (the ProposalAnnotationGroup
+            // self-handles the empty state). Only omitted from the truly-empty
+            // panel (which shows the illustration above, not tabs).
+            const hasAnno = true;
+            const tabs = [
+              showProposal && { key: "proposal", label: "提案要点" },
+              hasNotes && { key: "notes", label: "阅读笔记" },
+              hasAnno && { key: "anno", label: "AI批注" },
+            ].filter(Boolean) as { key: string; label: string }[];
+            const cur = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key ?? "");
+            return (
+              <div className="flex flex-col gap-4">
+                {tabs.length > 1 && (
+                  <div className="flex items-center gap-1 border-b border-mk-border">
+                    {tabs.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setActiveTab(t.key)}
+                        className={`-mb-px border-b-2 px-3 py-1.5 text-[13px] font-bold ${cur === t.key ? "border-mk-accent text-mk-accent" : "border-transparent text-mk-muted hover:text-mk-ink"}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-col gap-5">
+                  {cur === "proposal" && showProposal && <ProposalGroup proposal={proposal} />}
+                  {cur === "notes" && (
+                    <>
+                      {materials.length > 0 && <MaterialGroup items={materials} />}
+                      {notes.length > 0 && <NoteGroup items={notes} />}
+                      {hasCollected && (
+                        <CollectedSection lib={collectedLib} snippets={collectedSnips} onInsert={onInsert} canInsert={canInsert} />
+                      )}
+                    </>
+                  )}
+                  {cur === "anno" && (
+                    <>
+                      <ProposalAnnotationGroup items={proposalAnnos} />
+                      {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
     </div>
@@ -182,7 +222,7 @@ function ProposalGroup({ proposal }: { proposal: Proposal }) {
   const allEmpty = PROPOSAL_SECTIONS.every((s) => !(proposal[s.key] ?? "").trim());
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[14px] font-semibold text-mk-ink">提案要点</p>
+      {/* §93 · the 提案要点 tab labels this group; no redundant in-group heading. */}
       {allEmpty ? (
         <p className="text-[14px] leading-relaxed text-mk-faint">提案要点还没成形。</p>
       ) : (
@@ -233,7 +273,8 @@ function MaterialGroup({ items }: { items: MaterialRef[] }) {
 function NoteGroup({ items }: { items: NoteRef[] }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[14px] font-semibold text-mk-ink">阅读笔记</p>
+      {/* §93 · the 阅读笔记 tab labels this group. MaterialGroup / 你的材料 keep
+          their own sub-headings within the tab. */}
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
           <li key={item.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5 text-[12px] leading-relaxed text-mk-muted">

@@ -26,6 +26,9 @@ vi.mock("@/workspace/api/workspace", () => ({
   reflectProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1", reply: "" })),
   persistProjectCard: vi.fn(async () => ({ cardInstanceId: "ci1" })),
   dismissProposal: vi.fn(async () => {}),
+  // §7 · ReviewArtifacts (left 4-tab panel) reads these.
+  getLog: vi.fn(async () => []),
+  getDraft: vi.fn(async () => ""),
 }));
 vi.mock("@/api/projects", () => ({ finishProject: vi.fn(async () => ({ status: "evaluating" })) }));
 
