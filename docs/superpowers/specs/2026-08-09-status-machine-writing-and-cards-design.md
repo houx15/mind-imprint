@@ -144,10 +144,32 @@ ReviewVerdict {
 2. **子代理（sub-agent）**：点开在页面开一个 modal，子代理引导一段有步骤的小对话（如**提问卡**）。
 3. **预置函数（pre-built function）**：一个确定性工具（如按流程跑一段计算/检索/归类的函数）。
 
-按状态的思维卡（初稿，re-catalog 时定稿）：
-- **framework**：提问卡（子代理）——**触发权按条件切换**：目标/motivation **为空时 → 仅学生手动**触发（AI 不提议）；目标**已填但被判定太泛/不合适时 → 仅 AI 提议**（学生确认后打开，铁律②；学生此时不能手动召唤）。用途见 `all-statuses.md` §2。
-- **essay·写 claim**：PEE写作卡 / 论证解剖——AI 在学生需要时**提议**，给写作范例。
-- **reading room**：保留现有**思维卡库**（CRAAP/SIFT/九学科透镜等）基本不动；但 **检索方向审视 改为 AI 侧卡**——它是 AI 给检索建议时用的（不是学生召唤的思维卡）。⚠️ 注意 reading room 本身**并非完全不动**：需新增 needs-resources 盒 + 主区「检索引导盒」（承载 AI 的 2–3 个关键词 + why + 一键检索），见「新增」UI 收整。
+#### 卡片目标分类（re-catalog 定稿 · 34 → 33）
+
+四个「归属桶」，每张卡带 `placement` + `interaction`（form / sub-agent / function，取代废弃的中文 `interaction_type` 枚举）+ 触发条件：
+
+**桶 1 · 按状态卡组（精简，doc-named）**
+| 状态 | 卡 | interaction |
+|---|---|---|
+| framework | **question-card（提问卡）** — 触发权按条件切换：目标/motivation **为空→仅学生手动**；目标**已填但太泛→仅 AI 提议**（学生确认打开，铁律②） | **sub-agent** |
+| framework | perspective-matrix（视角对照矩阵） | form |
+| proposal | **无** | — |
+| essay·写 claim | **pee（PEE 写作卡）** | form |
+| essay·写 claim | **论证解剖**（= toulmin + argument-map **合并**；claim/理据/证据/反方/局限） | form |
+| essay·写 claim | concession（让步段） | form |
+| review | **learning-report** — 生成 AI 使用声明/学习报告（review 无「可召唤」卡，此卡是产出器） | **function** |
+
+**桶 2 · 阅读室（本轮不改交互，但接收下列迁入）**
+- 核心阅读 deck 不动：craap, sift, lens-×9（11）。
+- **迁入的信源分析工具（8，AI 按当前打开的来源提议）**：cda, money-trail, multimodal-decode, spin-detector, data-literacy, fact-opinion-value, opcvl, belief-spectrum。
+- **search-plan（检索方向审视）→ AI 侧**（AI 给检索建议时用，非学生召唤）。
+
+**桶 3 · 横切·按需（无状态卡组，AI 依上下文提议）**
+- ai-boundary（AI 可能幻觉时）、knower-perspective / metacognition（确认偏误 / 收尾）、emotional-alignment（卡住/抗拒）、rabbit-hole（兴趣捕捉）、ethics-lenses / ai-decision-tree。
+
+**合并/删除**：`toulmin` + `argument-map` → 一张 `论证解剖`（保留一个 id，删另一个）。无其他删除（桶 4 全部迁入阅读室，不删）。注册表 34 → **33**，同步更新 `packages/contracts/test/library.test.ts` 计数与 Go 镜像。
+
+**交互类型落地推迟**：本轮只**重分类 + 重绑定 + 打 interaction 标签**；sub-agent（提问卡）与 function（learning-report）的**渲染器留待后续切片**（提案卡渲染器、review 报告器）。所有卡当前仍以 form 渲染。
 
 ### 3.2 引导写作步骤（guided-writing step）——不是卡片，退出卡注册表
 
@@ -227,4 +249,5 @@ ReviewVerdict {
 - **D · 提问卡触发权按条件切换**（目标空→仅学生手动；目标已填但不合适→仅 AI 提议）。
 - **E · 并入 topic**：`FlowTopic` 折叠进 framework，开始门直接进 目标。
 - **F · 检索只在 reading room**；写作页参考 tab = 提案要点/阅读笔记/AI批注，无检索 tab，用 needs-resources 盒跳转。
+- **卡片 re-catalog（定稿）**：34→33；信源分析 8 卡迁入阅读室（AI 按来源提议）；toulmin+argument-map 合并为「论证解剖」；桶 3 横切按需；search-plan→AI 侧；本轮只重分类+重绑定+打 interaction 标签，sub-agent/function 渲染器推迟。详见 Pillar 3.1「卡片目标分类」。
 - 每状态行为细节以 `docs/2026-08-09-all-statuses.md` 为单一真相源。
