@@ -137,6 +137,10 @@ export function WorkspaceContainer({
   // the 开始 button's pending/disabled state in StudioCoachChat.
   const [starting, setStarting] = useState(false);
   const [room, setRoom] = useState<BlockKey>("plan");
+  // §3 situation b · a returning student (past the framework) lands on the 管理
+  // plan for a recap; this flag drives the recap banner + 继续工作 button there.
+  // Cleared the moment 印记 morphs the room or the student navigates.
+  const [recapLanding, setRecapLanding] = useState(false);
   // 印记's AI-managed status directive (stage/openTool/widthTier/reference),
   // loaded once per project (Task 8). Drives resume-at-stage: which room the
   // shell lands on, and whether the interactive area is chat-first (openTool
@@ -342,6 +346,9 @@ export function WorkspaceContainer({
     // 印记 reasserting the view ends any manual takeover — the "继续印记
     // returns to status" seam (spec §6; Task 9/P4 build on this).
     setTookOver(false);
+    // Any 印记-driven room morph leaves the recap landing (the load effect
+    // re-sets it right after the initial apply, so the recap banner survives).
+    setRecapLanding(false);
     if (state.openTool !== "chat") setRoom(roomForResume(state));
   }, []);
 
@@ -352,6 +359,7 @@ export function WorkspaceContainer({
   const handleManualRoom = useCallback((r: BlockKey) => {
     setRoom(r);
     setTookOver(true);
+    setRecapLanding(false);
   }, []);
 
   // 「继续印记」(P4, spec §6): while the student has manually taken over the
@@ -746,6 +754,15 @@ export function WorkspaceContainer({
       .then((state) => {
         if (cancelled) return;
         applyStudioState(state);
+        // §3 situation b · a returning student past the framework (a plan
+        // exists) first sees the 管理 plan for a recap, with a 继续工作 button
+        // back to the current status. Gated on the working stages so a fresh
+        // pre-plan project still lands chat-first / on 提案.
+        const recapStages = ["proposal_writing", "proposal_review", "body_writing", "retrospective"];
+        if (state.started && recapStages.includes(state.stage)) {
+          setRoom("plan");
+          setRecapLanding(true);
+        }
         setStudioStateResolved(true);
         stateLoaded = true;
         loadedStarted = state.started;
@@ -1105,6 +1122,8 @@ export function WorkspaceContainer({
                 refreshWorkspace={refreshWorkspace}
                 recap={historyRecap ?? summary}
                 onStudioStateChanged={continueYinji}
+                recapLanding={recapLanding && room === "plan"}
+                onContinueWorking={() => void continueYinji()}
               />
             )}
             {room === "reading" && (

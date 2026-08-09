@@ -259,6 +259,29 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
     expect(screen.queryByRole("button", { name: "进入 →" })).toBeNull();
   });
 
+  it("§3 recap landing: shows the 继续工作 banner and fires onContinueWorking", async () => {
+    mockGetPlan.mockResolvedValue([
+      { id: "i1", title: "读：找反例", tag: "read", column: "todo", stage: "阶段一", refMaterialId: null, start: 0, days: 2, position: 0 },
+    ]);
+    const onContinueWorking = vi.fn();
+    renderWithAiSlot(
+      <PlanBlock
+        projectId="p1"
+        title="中国是否让地球更可持续？"
+        qualification="拓展论文 EE"
+        proposal={FILLED_PROPOSAL}
+        createdAt="2026-08-01T00:00:00Z"
+        phase="working"
+        refreshWorkspace={() => {}}
+        recapLanding
+        onContinueWorking={onContinueWorking}
+      />,
+    );
+    expect(await screen.findByText(/欢迎回来/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "继续工作" }));
+    expect(onContinueWorking).toHaveBeenCalled();
+  });
+
   // Round 3, Part 3: 管理 used to portal NOTHING into the shared AiPanel slot
   // (a blank 印记 panel) — it now portals the SAME `StudioCoachChat` every
   // other room shows (mirrors ReadingBlock's `useStudioAiSlot`+`createPortal`

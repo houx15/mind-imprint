@@ -364,11 +364,15 @@ describe("WorkspaceContainer", () => {
   // `half` tier: a room mounts in the interactive area AND the 印记 chat rides
   // alongside as the AiPanel rail (its coach content is portaled by the room —
   // mocked away here — but the constant panel chrome is present).
+  // §3 situation b · a returning body_writing project first recap-lands on the
+  // 管理 plan (a room, not the full-width chat); the tier invariant — a room
+  // mounts beside the 印记 rail — still holds. (A non-recap stage below covers the
+  // writing-room mount directly.)
   it("half tier: mounts the room AND keeps the 印记 rail (no full-width chat)", async () => {
     getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "half"));
     render(<WorkspaceContainer initialProjectId="phalf" />);
 
-    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     // The chat is a rail beside the room, not the full-width chat surface.
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
@@ -380,9 +384,17 @@ describe("WorkspaceContainer", () => {
     getStudioState.mockImplementation(async () => fakeStudioState("writing", "body_writing", "wide"));
     render(<WorkspaceContainer initialProjectId="pwide" />);
 
-    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
+    expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-first")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换 AI 面板左右" })).toBeInTheDocument();
+  });
+
+  // The writing room mounts directly (no recap detour) when the stage isn't a
+  // post-framework working stage — e.g. an 印记 turn that opens 写作 mid-framework.
+  it("resumes at the writing room (no recap) for a non-working stage", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("writing", "plan_generation", "half"));
+    render(<WorkspaceContainer initialProjectId="pwrite2" />);
+    expect(await screen.findByTestId("writing-block")).toBeInTheDocument();
   });
 
   // Task 3 (P2a): reading used to be excluded from the constant panel (it owned
