@@ -45,13 +45,14 @@ type EssayTrack struct {
 
 `DeriveStatementSteps(subQuestions []SubQuestion) []Step` (mirrors `DeriveProposalSteps`): 
 
-| # | key | Kind | Title | tab | guidance |
+| # | key | Kind | Title | surface | guidance |
 |---|---|---|---|---|---|
-| 0 | `outline` | fixed | 搭大纲 | 大纲 | modify the outline (seeded from RQ + sub-questions) per your evidence |
-| 1..N | `claim:<sqId>` | subq | 论点 N | 片段/正文 | write this claim's argument: evidence / analysis / limitation / how it links to the next; 写作卡 offered |
-| N+1 | `synthesis` | fixed | 比较 / 综合 | 正文 | compare/synthesize the claims |
-| N+2 | `conclusion` | fixed | 结论 | 正文 | the conclusion the claims support |
-| N+3 | `structure` | fixed | 论证结构 | 正文 | a paragraph describing the whole argument's structure |
+| 0 | `outline` | fixed | 搭大纲 | 大纲 | the seeded outline (RQ + sub-questions); 印记 intros the whole plan + a 准备好了吗？ ready gate (Pillar 2) |
+| 1..N | `claim:<sqId>` | subq | 论点 N | 片段 | write this claim's argument in a `GuidedWritingCard`: evidence / analysis / limitation / how it links to the next; 写作卡 offered |
+| N+1 | `synthesis` | fixed | 比较 / 综合 | 片段 | compare/synthesize the claims |
+| N+2 | `challenges` | fixed | 面对反方观点 | 片段 | a DEDICATED step (user): address the strongest counterarguments/rebuttals — not skippable-by-default |
+| N+3 | `conclusion` | fixed | 结论 | 片段 | the conclusion the claims support |
+| N+4 | `structure` | fixed | 论证结构 | 片段 | a paragraph describing the whole argument's structure |
 
 - The **outline is seeded** from the main RQ + sub-questions on entering statement (if the outline is empty): `SeedEssayOutlineFromProposal` writes outline rows (RQ as a top node, each sub-question as a child) via the existing outline store. §6: "outline initialized by the main research question and 2-4 subquestions."
 
@@ -69,7 +70,12 @@ Implementation: a light "edit claim" affordance on the outline/claim; when an ed
 
 ## Pillar 2 · Chat-guided flow + per-claim guided writing cards
 
-The walk is **guided in the chat**, not by a heavy overlay: 印记 narrates the flow — "先看大纲，把你的论点顺序理清；然后去片段，一条一条把论点写出来" — and moves the student along (大纲 → 片段 → …). The heavy lifting per claim is a **guided writing card in 片段**.
+The walk is **guided in the chat**, not by a heavy overlay. The concrete flow (user):
+
+1. Entering the statement stage, the student is on the **大纲 (outline) page**. 印记 introduces the whole plan in the chat — e.g. *"接下来我们要开始进行正文的写作了。我们可以考虑首先将核心论证的部分完成。右边的大纲是根据前面我们讨论的你的核心问题以及具体子问题形成的初步大纲，接下来我们尝试先依次写各个子问题的论述段落，然后进行对比和讨论，最后构建整体问题与部分之间的关系。准备好了吗？"* — with a **准备好了吗？/开始写作** ready gate (mirrors the proposal's outline-intro gate).
+2. After the student taps ready → the surface switches to the **片段 (snippet) page** for focused per-claim writing.
+
+印记 keeps narrating the walk from there (finish the claims in order → 比较/讨论 → 面对反方观点 → 结论 → 论证结构). The heavy lifting per claim is a **`GuidedWritingCard` in 片段**.
 
 ### The `GuidedWritingCard` (shared primitive — also retrofits 3a)
 
@@ -86,7 +92,7 @@ Each claim card = one snippet (the essay 片段 model): the card's text saves as
 ### Track + endpoints
 
 - The essay statement track (`EssayTrack.StatementStep` + `DeriveStatementSteps`) drives which claim/step is active; the flexible entry from 4a ("去写这条论点") deep-links to that claim.
-- Endpoints mirror `proposal-track`, generalized by `?doc=` where they already differ only by document (guide-card gen, per-part 批注 review). **Decision to confirm:** generalize with `?doc=` vs a parallel `essay-track/statement` set (I lean generalize).
+- Endpoints reuse the proposal-track **shape** generalized by `?doc=` (guide-card gen, per-part 批注 review). But the **step derivation stays doc-specific** (user: the proposal's 9 parts ≠ the paper's outline→claims→synthesis→challenges→conclusion→structure) — `DeriveStatementSteps` is its own function, not a param on `DeriveProposalSteps`.
 
 ---
 
@@ -135,20 +141,21 @@ When the statement steps are done, a "正文写完了，去收尾" tap advances 
 | Then a conclusion paragraph | Pillar 1 `conclusion` step | ✅ |
 | Then a paragraph describing the full 论证结构 | Pillar 1 `structure` step | ✅ |
 | Each guided card has AI support / AI comment (two buttons) | Pillar 2 我依然有问题 / 我写好了 | ✅ |
-| Challenge 反方观点 when a part needs it | reuse concession/perspective cross-cutting cards + coach nudge | ⚠️ open Q2 (cross-cutting cards vs a dedicated step) |
+| Challenge 反方观点 when a part needs it | a DEDICATED `challenges` step in the walk (Pillar 1) | ✅ (separate step so it's not skipped) |
 | Claims can be modified (rephrase vs total change; warn when materials/writing no longer apply) | Pillar 1 "Editing the claims" | ✅ (rephrase keeps materials; total change warns; un-claimable flagged; RQ change → reading) |
 
 ## Resolved (from your steer)
 
-- **Q1 chat-guided flow + per-claim card:** the walk is narrated in the chat (大纲 → 片段 → …); each claim is a `GuidedWritingCard` (clear guidance + an **auto-growing** textarea + 我依然有问题/我写好了 + 写作卡). ✅
-- **Q2 editing claims:** editable, with 印记 distinguishing rephrase (keep materials) from total change (materials/writing inapplicable → warn) and flagging un-claimable questions; total RQ change → back to reading. ✅
+- **Flow:** 大纲 page with 印记's full plan-intro + 准备好了吗？ ready gate → 片段 page for focused per-claim writing (Pillar 2). ✅
+- **Per-claim card:** `GuidedWritingCard` — clear guidance + **auto-growing** textarea + 我依然有问题/我写好了 + 写作卡. ✅
+- **Editing claims:** editable, with 印记 distinguishing rephrase (keep materials) from total change (warn: materials/writing inapplicable) + flagging un-claimable questions; total RQ change → reading. ✅
+- **反方观点:** a **dedicated `challenges` step** in the walk (not just cross-cutting cards — else it's skipped). ✅
+- **Endpoints:** reuse the proposal-track shape via `?doc=`, but doc-specific step derivation (proposal ≠ paper). ✅
+- **Split:** yes — **4b-1** (doc-key 批注 + essay track + outline seed + `GuidedWritingCard` + per-claim writing + the ready gate) then **4b-2** (写作卡 offer + synthesis/challenges/conclusion/结构 steps + claim-edit warning + statement→submission advance). ✅
 
 ## Still open for you
 
-1. **3a reconciliation:** apply the `GuidedWritingCard` (guidance + per-part auto-growing textarea) back to **3a's proposal parts** too (so both match §4's per-part "snippet writing frame"), or leave 3a as-is and only build the correct model for 4b? *(I lean: reconcile 3a — it's the same primitive and 3a currently diverges from §4.)*
-2. **反方观点:** handle via the existing concession / perspective-matrix cross-cutting cards + a coach nudge (my lean), or a dedicated "challenges" step in the walk?
-3. **Endpoints:** generalize the proposal-track endpoints with `?doc=` (my lean), or a parallel `essay-track/statement` set?
-4. **Split:** 4b is ~3a+3b combined. Split into **4b-1** (doc-key 批注 + essay track + outline seed + the `GuidedWritingCard` + per-claim writing) and **4b-2** (写作卡 offer + synthesis/conclusion/结构 steps + claim-edit warning)? *(I lean: split.)*
+1. **3a reconciliation:** apply the `GuidedWritingCard` (guidance + per-part auto-growing textarea) back to **3a's proposal parts** too — so both match §4's per-part "snippet writing frame" — or leave 3a as-is and only build the correct model for the essay in 4b? *(I lean: reconcile 3a; it's the same primitive and 3a currently diverges from §4. If yes, it becomes a task in 4b-1.)*
 
 ## Out of scope / follow-ups
 
