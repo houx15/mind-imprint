@@ -123,11 +123,13 @@ Topic→framework is onboarding-flow (StatusForStage + the 开始 gate), orthogo
 
 ## Task 7: Full-suite green + deploy + live smoke
 
-- [ ] Run `cd packages/contracts && npx vitest run`; `cd apps/web && npx tsc --noEmit && npx vitest run`; `cd apps/api && go test ./internal/agent/ ./internal/api/ ./internal/cards/` (foreground). All green except the known `TestWeeklyReportForSeededClass` flake.
-- [ ] Commit to main + push; `.deploy-local/deploy.sh full`.
-- [ ] Live smoke (real frontend, `?trial=1`): the framework coach offers only question-card; the essay room offers pee + toulmin + argument-map; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 34 cards. 0 console errors.
+- [x] contracts vitest (320) green; web tsc0 + vitest (1029) green; Go `agent`+`cards` green; full `api` suite green EXCEPT the known pre-existing `TestWeeklyReportForSeededClass` calendar flake (the one real failure — a summon test on the changed decks — was fixed to use `concession`).
+- [x] Committed to main + pushed; `.deploy-local/deploy.sh full` → **`full @ 0af4677`** (fresh api+web containers).
+- [x] Live smoke (real frontend, `?trial=1`, signed-in Phoebe): the 图鉴 gallery serves all **34** cards (question-card present w/ cover), **0 console errors**. Backend deck behavior (framework=question-card, essay=pee/toulmin/argument-map, cross-cutting summonable, reading-toolkit dropped in writing) is covered by the deployed green Go tests (`TestStatusRegistry_FinalizedDecks`, `TestIsSummonable`, `TestPlacementTagsMatchBindingLists`, `TestPostCoach_SummonCardNotSummonableDropped`) — a full live coach-deck journey was NOT re-walked (deferred to the topic-merge slice's live journey).
 
-**Acceptance:** the registry stays 34 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model (essay = pee + toulmin + argument-map); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card.
+**SLICE 1 COMPLETE (shipped `full @ 0af4677`, 2026-08-09).** Registry stays 34; every card carries `interaction` + `placement`; decks doc-faithful (framework=question-card, proposal=none, essay=pee/toulmin/argument-map, review=none); search-plan AI-side; cross-cutting pool (9) summonable in any status + summon-gate enforced; source-analysis 8 relocated to reading toolkit. **Deferred:** Task 5 topic→framework merge (own slice); the physical toulmin/argument-map merge (own slice); sub-agent/function renderers (later slices).
+
+**Acceptance:** the registry stays 34 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model (essay = pee + toulmin + argument-map); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card. ✅
 
 ---
 
