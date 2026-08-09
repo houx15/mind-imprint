@@ -125,6 +125,13 @@ var CrossCuttingCardIDs = []string{
 	"rabbit-hole", "ethics-lenses", "ai-decision-tree", "perspective-matrix", "concession",
 }
 
+// QuestionCardAISummonable reports whether the coach (AI) may PROPOSE the 提问卡
+// (all-statuses.md §2 decision D): when the 目标 is empty it is student-manual
+// only (AI must not propose it); once the 目标 is filled (but perhaps vague) the
+// AI may propose it. This is the deterministic empty↔non-empty split; the
+// "vague" judgment stays with the fast coach.
+func QuestionCardAISummonable(objectiveEmpty bool) bool { return !objectiveEmpty }
+
 // IsSummonable reports whether the coach may summon cardID in the given status:
 // the status's own deck ∪ the cross-cutting pool. Reading-deck / reading-toolkit
 // cards are summoned inside the reading room, not via the writing-flow statuses,

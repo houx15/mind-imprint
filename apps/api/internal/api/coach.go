@@ -459,6 +459,12 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 				if !agent.IsSummonable(args.CardID, status) {
 					slog.Info("coach: dropped summon_card not valid for status",
 						"card", args.CardID, "status", status, "request_id", httpx.RequestIDFromContext(ctx))
+				} else if args.CardID == "question-card" && !a.questionCardAISummonable(ctx, projectID) {
+					// Trigger-authority gate (all-statuses.md §2 D): the 提问卡 is
+					// student-manual only while the 目标 is empty — the AI may not
+					// propose it there.
+					slog.Info("coach: dropped question-card summon (目标 empty → student-manual only)",
+						"request_id", httpx.RequestIDFromContext(ctx))
 				} else if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
 					effects.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
 					if eerr := store.AppendEvent(ctx, agent.EventRow{
