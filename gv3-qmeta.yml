@@ -1,0 +1,75 @@
+- generic [ref=f4e4]:
+  - generic [ref=f4e5]:
+    - tab "课程" [ref=f4e15] [cursor=pointer]
+    - tab "工作室" [selected] [ref=f4e22] [cursor=pointer]
+    - tab "成长报告" [ref=f4e27] [cursor=pointer]
+    - tab "设置" [ref=f4e32] [cursor=pointer]
+    - generic [ref=f4e38]: P
+  - generic [ref=f4e133]:
+    - navigation [ref=f4e134]:
+      - generic [ref=f4e135]:
+        - button "全部项目" [ref=f4e136] [cursor=pointer]
+        - heading "中国是否让地球变得更可持续？（demo）" [level=1] [ref=f4e139]
+        - generic [ref=f4e140]: "0457"
+      - generic [ref=f4e141]:
+        - button "项目管理 01 · Project Management" [ref=f4e142] [cursor=pointer]:
+          - generic [ref=f4e148]:
+            - generic [ref=f4e149]: 项目管理
+            - generic [ref=f4e150]: 01 · Project Management
+        - button "阅读 02 · Read" [ref=f4e151] [cursor=pointer]:
+          - generic [ref=f4e155]:
+            - generic [ref=f4e156]: 阅读
+            - generic [ref=f4e157]: 02 · Read
+        - button "写作 03 · Write" [ref=f4e158] [cursor=pointer]:
+          - generic [ref=f4e162]:
+            - generic [ref=f4e163]: 写作
+            - generic [ref=f4e164]: 03 · Write
+        - button "回顾 04 · Review" [ref=f4e165] [cursor=pointer]:
+          - generic [ref=f4e170]:
+            - generic [ref=f4e171]: 回顾
+            - generic [ref=f4e172]: 04 · Review
+    - main [ref=f4e173]:
+      - generic [ref=f4e174]:
+        - paragraph [ref=f4e178]: 看起来你已经把“地球变绿”这个正面证据放进来了，也意识到它并不完整。现在引言的框架已经搭好，正反两面的材料也都摆上桌面了，接下来可能会卡在怎么处理碳排放和IEA趋势这些“限制面”的解读上。你打算先从哪一头理起——是先把排放口径说清楚，还是先看看IEA的数据到底指向什么？
+        - button "收起" [ref=f4e179] [cursor=pointer]: ×
+      - generic [ref=f4e316]:
+        - generic [ref=f4e318]:
+          - button "图书馆" [ref=f4e319] [cursor=pointer]
+          - button "探索 6" [ref=f4e323] [cursor=pointer]:
+            - text: 探索
+            - generic "6 条线索待追 / 悬空来源" [ref=f4e329]: "6"
+        - generic [ref=f4e332]:
+          - generic [ref=f4e333]:
+            - generic [ref=f4e334]:
+              - button "← 返回兔子洞地图" [ref=f4e443] [cursor=pointer]
+              - heading "中国单独 vs 中印合计的口径差异" [level=2] [ref=f4e444]
+            - application [ref=f4e447]:
+              - group [active] [ref=f4e450]:
+                - generic [ref=f4e451] [cursor=pointer]:
+                  - button "删除这个节点" [ref=f4e452]: ×
+                  - generic [ref=f4e453]: 中国单独 vs 中印合计的口径差异
+              - generic "Control Panel" [ref=f4e454]:
+                - button "Zoom In" [disabled]
+                - button "Zoom Out" [ref=f4e455] [cursor=pointer]
+                - button "Fit View" [ref=f4e458] [cursor=pointer]
+          - complementary [ref=f4e462]:
+            - button "← 印记" [ref=f4e464] [cursor=pointer]
+            - generic [ref=f4e465]:
+              - text: 问题
+              - heading "中国单独 vs 中印合计的口径差异" [level=3] [ref=f4e466]
+              - generic [ref=f4e467]:
+                - generic [ref=f4e468]:
+                  - term [ref=f4e469]: 来源
+                  - definition [ref=f4e470]: 从阅读归纳而来
+                - generic [ref=f4e471]:
+                  - term [ref=f4e472]: 记于
+                  - definition [ref=f4e473]: 2026-07-30
+              - generic [ref=f4e474]:
+                - paragraph [ref=f4e475]: 论文列表
+                - paragraph [ref=f4e476]: 还没有论文挂在这个问题下面，往下找几篇吧。
+            - generic [ref=f4e477]:
+              - button "找相似文献" [ref=f4e478] [cursor=pointer]
+              - generic [ref=f4e479]:
+                - textbox "换个词找…" [ref=f4e480]
+                - button "找" [disabled] [ref=f4e481]
+            - generic [ref=f4e482]: 点上面的「找相似文献」，或换个关键词，印记会顺着这个问题给你几篇论文。

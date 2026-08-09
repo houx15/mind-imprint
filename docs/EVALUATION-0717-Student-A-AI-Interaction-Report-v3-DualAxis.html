@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>学生A · 论文修改 AI 交互评估报告</title>
+  <style>
+    :root {
+      --bg: #f6f7f4;
+      --paper: #ffffff;
+      --ink: #202426;
+      --muted: #687174;
+      --line: #dfe5df;
+      --green: #1f7a63;
+      --green-2: #dceee8;
+      --amber: #b16a18;
+      --amber-2: #f5e5ce;
+      --blue: #2c6f91;
+      --blue-2: #d9e9f0;
+      --red: #b34b42;
+      --red-2: #f2dedb;
+      --violet: #6c5a94;
+      --violet-2: #e7e1f0;
+      --shadow: 0 18px 45px rgba(41, 47, 44, 0.10);
+      --radius: 8px;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(31, 122, 99, 0.08), transparent 320px),
+        var(--bg);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px 18px;
+      border-right: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(16px);
+      overflow: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 6px;
+      padding: 10px 4px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand strong {
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    nav {
+      display: grid;
+      gap: 6px;
+      margin-top: 18px;
+    }
+
+    nav a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 10px;
+      color: #34413d;
+      text-decoration: none;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      background: #eef4ef;
+      border-color: #d7e4dc;
+    }
+
+    nav small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .side-score {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+    }
+
+    .side-score .num {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .side-score p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    main {
+      min-width: 0;
+      padding: 28px clamp(18px, 4vw, 54px) 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .hero-main {
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(28px, 4.2vw, 48px);
+      line-height: 1.08;
+    }
+
+    .summary {
+      max-width: 820px;
+      margin: 16px 0 0;
+      color: #46514e;
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border: 1px solid #d8e2da;
+      border-radius: 999px;
+      color: #384541;
+      background: #f7faf7;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .hero-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .score-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .score-card .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .score-card .score {
+      margin-top: 8px;
+      font-size: 46px;
+      font-weight: 850;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .score-card .level {
+      margin-top: 8px;
+      color: #2f3e3a;
+      font-weight: 700;
+    }
+
+    .meter {
+      overflow: hidden;
+      height: 9px;
+      margin-top: 14px;
+      border-radius: 999px;
+      background: #e7ece8;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      width: var(--value);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), #78a642);
+    }
+
+    section {
+      margin-top: 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(22px, 3vw, 31px);
+      line-height: 1.15;
+    }
+
+    .section-head p {
+      max-width: 650px;
+      margin: 5px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .dimension-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dimension-card {
+      position: relative;
+      min-height: 220px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      overflow: hidden;
+    }
+
+    .dimension-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 5px;
+      background: var(--accent, var(--green));
+    }
+
+    .dimension-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .dimension-top h3 {
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      color: var(--accent, var(--green));
+      background: var(--accent-bg, var(--green-2));
+      font-size: 18px;
+      font-weight: 850;
+    }
+
+    .dimension-card p {
+      margin: 12px 0 0;
+      color: #4c5653;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .evidence-line {
+      margin-top: 14px;
+      padding-left: 12px;
+      border-left: 3px solid var(--accent, var(--green));
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .report-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    .panel-head h3 {
+      font-size: 16px;
+    }
+
+    .panel-body {
+      padding: 16px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    details.round {
+      border: 1px solid #e1e7e1;
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    details.round[open] {
+      border-color: #bcd6c8;
+      box-shadow: 0 12px 24px rgba(31, 122, 99, 0.08);
+    }
+
+    summary {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 56px;
+      padding: 10px 12px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .round-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--green);
+      font-weight: 800;
+    }
+
+    .round-title {
+      min-width: 0;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .round-title small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dim-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: flex-end;
+    }
+
+    .dim-tag {
+      padding: 3px 7px;
+      border-radius: 999px;
+      color: #315147;
+      background: #e8f2ec;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .round-content {
+      display: grid;
+      gap: 10px;
+      padding: 0 12px 12px 64px;
+    }
+
+    .quote {
+      padding: 12px 13px;
+      border-left: 4px solid var(--green);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: #f3f8f4;
+      color: #2f3d39;
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .judge {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .map-card {
+      position: relative;
+      min-height: 680px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .map-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid #d8e2da;
+      border-radius: var(--radius);
+      color: #33413d;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .icon-btn:hover {
+      background: #eef5ef;
+    }
+
+    .map-stage {
+      position: relative;
+      min-height: 620px;
+      background:
+        linear-gradient(rgba(64, 80, 72, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(64, 80, 72, 0.035) 1px, transparent 1px),
+        #fbfcfa;
+      background-size: 28px 28px;
+      overflow: hidden;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .map-stage.is-panning {
+      cursor: grabbing;
+    }
+
+    .links {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .map-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 0 0;
+    }
+
+    .node {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: var(--w);
+      min-height: var(--h);
+      padding: 12px 14px;
+      border: 2px solid var(--node-border);
+      border-radius: var(--radius);
+      color: #1f2b28;
+      background: var(--node-bg);
+      box-shadow: 0 12px 25px rgba(39, 50, 45, 0.12);
+      text-align: center;
+      line-height: 1.4;
+      cursor: pointer;
+      user-select: none;
+      transform: translate(-50%, -50%);
+      transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    .node strong {
+      display: block;
+      font-size: var(--fs);
+    }
+
+    .node span {
+      display: block;
+      margin-top: 5px;
+      color: #4b5854;
+      font-size: 12px;
+    }
+
+    .node:hover,
+    .node.active {
+      border-color: #1f7a63;
+      box-shadow: 0 18px 35px rgba(31, 122, 99, 0.22);
+      z-index: 4;
+    }
+
+    .node.is-dragging {
+      transition: none;
+      z-index: 5;
+    }
+
+    .map-detail {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: min(360px, calc(100% - 32px));
+      padding: 14px;
+      border: 1px solid #d8e2da;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      z-index: 8;
+    }
+
+    .map-detail h4 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .map-detail p {
+      margin: 8px 0 0;
+      color: #4b5854;
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .evidence-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .evidence-card,
+    .next-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+    }
+
+    .evidence-card strong,
+    .next-card strong {
+      color: var(--green);
+    }
+
+    .evidence-card p,
+    .next-card p {
+      margin: 8px 0 0;
+      color: #4d5855;
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .risk-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .risk-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+    }
+
+    .risk-card h3 {
+      color: var(--green);
+      font-size: 17px;
+    }
+
+    .risk-card p {
+      margin: 10px 0 0;
+      color: #4d5855;
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .footer-note {
+      margin-top: 28px;
+      padding: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .side-score {
+        display: none;
+      }
+
+      .hero,
+      .report-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .dimension-grid,
+      .risk-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 18px 14px 40px;
+      }
+
+      aside {
+        padding: 16px 14px;
+      }
+
+      nav {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .hero-main,
+      .score-card {
+        padding: 18px;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .dimension-grid,
+      .evidence-grid,
+      .risk-grid {
+        grid-template-columns: 1fr;
+      }
+
+      summary {
+        grid-template-columns: 38px minmax(0, 1fr);
+      }
+
+      .dim-tags {
+        grid-column: 2;
+        justify-content: flex-start;
+      }
+
+      .round-content {
+        padding-left: 12px;
+      }
+
+      .map-card {
+        min-height: 600px;
+      }
+
+      .map-stage {
+        min-height: 540px;
+      }
+    }
+  
+    /* ===== 本版新增：提示词透镜 ===== */
+    .p-tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.4px;margin-right:6px;white-space:nowrap}
+    .p-tag.p3{background:#e2f0e8;color:#1f7a63;border:1px solid #1f7a63}
+    .p-tag.p2{background:#d9e9f0;color:#2c6f91;border:1px solid #2c6f91}
+    .p-tag.p4{background:#f5e5ce;color:#b16a18;border:1px solid #b16a18}
+    .p-tag.p0{background:#eef0f1;color:#7a8388;border:1px solid #c3cbd0}
+    .plens-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 20px}
+    .plens-stat{background:#fff;border:1px solid #e3e8ea;border-radius:14px;padding:16px 18px;text-align:center}
+    .plens-stat .big{font-size:30px;font-weight:800;color:#1f3b57;line-height:1.1}
+    .plens-stat .cap{font-size:12px;color:#68737a;margin-top:6px}
+    .plens-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+    .plens-card{background:#fff;border:1px solid #e3e8ea;border-radius:14px;padding:16px 18px}
+    .plens-card h4{margin:0 0 8px;font-size:14px;color:#1f3b57}
+    .plens-card p{margin:0;font-size:13px;line-height:1.7;color:#3d474d}
+    .plens-quote{background:#eef3f8;border-left:4px solid #2c6f91;border-radius:10px;padding:14px 16px;font-size:13.5px;line-height:1.8;margin:10px 0}
+    .plens-anno{font-size:12.5px;color:#5a646a;line-height:1.7;margin:6px 0 0}
+    .plens-take{background:#fdf7ec;border:1px solid #e3cfa4;border-radius:14px;padding:16px 18px;margin-top:6px}
+    .plens-take h4{margin:0 0 8px;font-size:14px;color:#8a5a10}
+    .plens-note{font-size:11.5px;color:#8a949a;margin-top:14px;line-height:1.6}
+    .new-chip{display:inline-block;background:#fbefef;color:#b03030;border:1px solid #d8a3a3;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;margin-left:8px;vertical-align:middle}
+    @media (max-width:860px){.plens-stats,.plens-grid{grid-template-columns:1fr}}
+
+  
+    /* ===== 本版新增：维度卡内提示词证据行 ===== */
+    .plens-line{margin-top:10px;padding:9px 12px;background:#f5f7f8;border-left:3px solid #9db4c0;border-radius:9px;font-size:12px;color:#525c62;line-height:1.7}
+    .plens-line b{color:#2c6f91;font-weight:700;margin-right:4px}
+    .plens-line.absent{background:#fdfbf5;border:1.6px dashed #c9a36a;color:#8a6d3b}
+    .plens-line.absent b{color:#8a5a10}
+    .new-mini{display:inline-block;background:#fbefef;color:#b03030;border-radius:999px;padding:0 7px;font-size:10px;font-weight:700;margin:0 6px 0 0;vertical-align:1px}
+
+  
+    /* ===== v3 双轴改造 ===== */
+    .axis-sub{grid-column:1/-1;font-size:13px;font-weight:800;letter-spacing:.5px;color:#1f3b57;background:#eef3f8;border-radius:10px;padding:8px 14px;margin:4px 0 2px}
+    .axis-note{grid-column:1/-1;font-size:12.5px;color:#3d474d;background:#f5f7f8;border:1px dashed #b9c6ce;border-radius:10px;padding:9px 14px;margin:0 0 6px}
+    .axiom-line{margin-top:10px;font-size:12px;color:#7a4a10;background:#fdf7ec;border:1px solid #e3cfa4;border-radius:10px;padding:8px 12px;line-height:1.6}
+    .badge-obs{font-size:11px !important;letter-spacing:.5px}
+    .solo-row{display:grid;grid-template-columns:64px 1fr 96px 1fr 92px;gap:10px;padding:10px 12px;border:1px solid #e3e8ea;border-radius:12px;background:#fff;margin-bottom:8px;font-size:12.5px;line-height:1.6;align-items:start}
+    .solo-row.head{background:#1f3b57;color:#fff;font-weight:700;border-color:#1f3b57}
+    .solo-chip{display:inline-block;border-radius:999px;padding:1px 10px;font-weight:800;font-size:11px}
+    .solo-chip.l3{background:#e2f0e8;color:#1f7a63;border:1px solid #1f7a63}
+    .solo-chip.l4{background:#f5e5ce;color:#b16a18;border:1px solid #b16a18}
+    .init-tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:700;background:#eef0f1;color:#7a8388;border:1px solid #c3cbd0}
+    @media (max-width:860px){.solo-row{grid-template-columns:1fr}}
+
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">
+        <strong>论文修改 AI 评估报告</strong>
+        <span>模拟对象: 学生A<br />交互轮次: 10轮</span>
+      </div>
+      <nav aria-label="页面导航">
+        <a href="#overview">总览 <small>01</small></a>
+        <a href="#dimensions">双轴读数 <small>02</small></a>
+        <a href="#solo">SOLO 判层 <small>03</small></a>
+        <a href="#mindmap">思维导图 <small>04</small></a>
+        <a href="#timeline">交互证据 <small>05</small></a>
+        <a href="#promptlens">提示词透镜 <small>06</small></a>
+        <a href="#evidence">关键原话 <small>07</small></a>
+        <a href="#next">建议 <small>08</small></a>
+      </nav>
+      <div class="side-score">
+        <div class="num" style="font-size:26px">双轴</div>
+        <p>深度 11/12（单轴小计）· 自主以观察语言呈现。单次会话为事件级证据，不判人级档位。</p>
+      </div>
+    </aside>
+
+    <main>
+      <section id="overview" class="hero" aria-label="报告总览">
+        <div class="hero-main">
+          <div class="eyebrow"><span class="dot"></span> 模拟分析报告 · 网页版</div>
+          <h1>学生A · 论文修改 AI 交互评估</h1>
+          <p class="summary">本次会话观察到：深度侧 L3 结构稳定复现（限定重构 · 论证链 · 让步段），两次 L4 证据均在引导后出现；自主侧入场即带边界意识（「不要直接重写」），但全程未主动召唤对手。笔始终在学生手里。</p>
+          <div class="meta-row">
+            <span class="chip">任务: 议论文修改</span>
+            <span class="chip">评估框架: 六维评分</span>
+            <span class="chip">数据来源: 模拟交互记录</span>
+            <span class="chip">报告性质: 产品原型示例</span>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="score-card">
+            <div class="label">第一轴 · 认知深度（会话小计）</div>
+            <div class="score">11<span style="font-size:16px;color:#8a949a"> / 12</span></div>
+            <div class="level">L3 结构稳定复现 · L4 证据 ×2（均为引导后）</div>
+            <div class="meter"><i style="width:92%"></i></div>
+          </div>
+          <div class="score-card">
+            <div class="label">第二轴 · 智识自主（本次观察 · 不计分）</div>
+            <div class="score" style="font-size:20px;line-height:1.5">边界设定 ×3 · 对手邀请 ×0</div>
+            <div class="level">自发信号 3 项 · 引导后 3 项</div>
+          </div>
+          <p class="axiom-line">两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定（《AI 时代的判断力》测量公理）。</p>
+        </div>
+      </section>
+
+      <section id="dimensions">
+        <div class="section-head">
+          <div>
+            <h2>双轴读数（六维重组）</h2>
+            <p>同一批六维观察，按测量公理重组：深度维度可做单轴小计；自主与跨轴维度以观察语言呈现，永不与深度合计。原 17/18 总分依「两轴永不合成」公理取消。</p>
+          </div>
+        </div>
+        <div class="grid dimension-grid">
+          <div class="axis-sub">第一轴 · 认知深度（会话切面：D1 / D3 / D4 / D5）</div>
+          <article class="dimension-card" style="--accent:var(--green);--accent-bg:var(--green-2)">
+            <div class="dimension-top">
+              <h3>D1 任务理解与问题表述</h3>
+              <span class="badge">3</span>
+            </div>
+            <p>能清楚说明题目、卡点、修改目标，并把绝对化 thesis 改成有限定的判断。</p>
+            <div class="evidence-line">代表证据: “中国在植被恢复方面有重要贡献，但这不能直接证明中国整体上是可持续的。”</div>
+            <div class="plens-line"><span class="new-mini">新增</span><b>提示词证据</b>R4「我想把 thesis 改成……」——五个决定中材料、任务、验收齐备：问题表述能力直接可见于提示词。</div>
+          </article>
+          <article class="dimension-card" style="--accent:var(--blue);--accent-bg:var(--blue-2)">
+            <div class="dimension-top">
+              <h3>D3 证据与信源意识</h3>
+              <span class="badge">2</span>
+            </div>
+            <p>能追到 NASA/Nature，并识别 IEA 反方证据；但对来源立场、证据适用范围的分析仍不充分。</p>
+            <div class="evidence-line">代表证据: “公众号只能当线索，真正引用应该尽量回到 NASA 或 Nature。”</div>
+            <div class="plens-line absent"><span class="new-mini">新增</span><b>提示词证据</b>空——十轮中零条来源质询指令，SIFT 核查由 AI 发起。分数 2 的形状：不是不会处理来源，是从未主动召唤对来源的检验。</div>
+          </article>
+          <article class="dimension-card" style="--accent:var(--violet);--accent-bg:var(--violet-2)">
+            <div class="dimension-top">
+              <h3>D4 论证结构意识</h3>
+              <span class="badge">3</span>
+            </div>
+            <p>能拆分 claim-evidence-reasoning，并意识到证据和结论之间还需要 warrant。</p>
+            <div class="evidence-line">代表证据: “reasoning 缺的是解释‘变绿’为什么只能支持部分可持续。”</div>
+            <div class="plens-line"><span class="new-mini">新增</span><b>提示词证据</b>R8「请检查是否回扣 thesis」——结构性验收标准由学生自己给出。</div>
+          </article>
+          <article class="dimension-card" style="--accent:var(--red);--accent-bg:var(--red-2)">
+            <div class="dimension-top">
+              <h3>D5 反馈理解与修改理由</h3>
+              <span class="badge">3</span>
+            </div>
+            <p>能解释为什么采纳结构调整、为什么拒绝整段代写，说明不是被动接受 AI 输出。</p>
+            <div class="evidence-line">代表证据: “我采纳第 1 条结构调整……但不采纳整段重写。”</div>
+            <div class="plens-line"><span class="new-mini">新增</span><b>提示词证据</b>R7「我采纳第 1 条……但不采纳整段重写」——采纳与拒绝均含明确理由，反馈处理由学生主导表达。</div>
+          </article>
+          <div class="axis-note">深度小计 11 / 12（D1+D3+D4+D5）。单轴内允许小计；两轴之间永不合计。</div>
+          <div class="axis-sub">第二轴 · 智识自主（会话观察 · 不计分）</div>
+          <article class="dimension-card" style="--accent:var(--amber);--accent-bg:var(--amber-2)">
+            <div class="dimension-top">
+              <h3>D2 学生主体性 / AI 依赖度</h3>
+              <span class="badge badge-obs">观察</span>
+            </div>
+            <p>本轴不计分。A 类（能力锚定）信号：入场即设边界（R1「不要直接重写」）、拒绝建议并说明理由（R7）、先自改再求反馈（R8）；引导后信号：SIFT 核查（R3）、反思（R9）、策略迁移（R10）。对手邀请 0 次。</p>
+            <div class="evidence-line">代表证据: “不采纳整段重写，因为那会替换掉我的论证路径。”</div>
+            <div class="plens-line"><span class="new-mini">新增</span><b>提示词证据</b>R1「不要直接重写」· R8「不要帮我润色」——边界设定 3 次；主体性首先表现在提示词的动词上。</div>
+          </article>
+          <div class="axis-sub">跨轴 · 元认知</div>
+          <article class="dimension-card" style="--accent:#497a36;--accent-bg:#e3efd9">
+            <div class="dimension-top">
+              <h3>D6 元认知与反思</h3>
+              <span class="badge badge-obs">跨轴</span>
+            </div>
+            <p>跨轴维度。深度面：反思质量达 L3——能识别自己的证据选择偏差（R9）；自主面：两次反思均为引导后完成，自发反思缺席——「能反思，尚未自发反思」。</p>
+            <div class="evidence-line">代表证据: “我一开始只想证明中国有贡献，所以先找了支持材料。”</div>
+            <div class="plens-line absent"><span class="new-mini">新增</span><b>提示词证据</b>无主动证据——反思（R9）为 引导后完成（prompted）。能反思，尚未自发反思。</div>
+          </article>
+        </div>
+      </section>
+
+      <section id="solo">
+        <div class="section-head">
+          <div>
+            <h2>SOLO 判层（本次会话）</h2>
+            <p>判层对象是学生回应的组织结构（单点 L1 → 多点 L2 → 关联 L3 → 抽象扩展 L4）。指令轮与核查行为不判层——它们归提示词透镜与自主轴记账。发起方（自发 / 引导后）不改变结构判层，单独标注、归自主轴。</p>
+          </div>
+        </div>
+        <div class="panel"><div class="panel-body">
+          <div class="solo-row head"><div>轮次</div><div>回应（摘）</div><div>判层</div><div>判据</div><div>发起方</div></div>
+          <div class="solo-row"><div>R4</div><div>「在植被恢复有重要贡献，但这不能直接证明整体可持续」</div><div><span class="solo-chip l3">L3 关联</span></div><div>绝对判断 → 限定判断：范围限定作为概念性组织者出现</div><div><span class="init-tag">应答自主</span></div></div>
+          <div class="solo-row"><div>R5</div><div>拆出 claim–evidence–reasoning，并指出「缺的是解释变绿为何只能支持部分可持续」</div><div><span class="solo-chip l3">L3 关联</span></div><div>论证链显式化；识别缺失的 warrant——元素之间开始互相解释</div><div><span class="init-tag">引导后</span></div></div>
+          <div class="solo-row"><div>R6</div><div>让步段：承认排放问题 → 不抹去修复贡献 → 限制结论范围</div><div><span class="solo-chip l3">L3 关联</span></div><div>在同一标准下协调主张与反主张——让步段是 L3 的典型工件</div><div><span class="init-tag">引导后</span></div></div>
+          <div class="solo-row"><div>R9</div><div>「我一开始只想证明贡献，先找了支持材料，没主动找反方证据」</div><div><span class="solo-chip l4">L4 反身</span></div><div>审视对象从论证内容转向自身的证据检索策略——识别自身立场（声明的 L4 扩展判据）</div><div><span class="init-tag">引导后</span></div></div>
+          <div class="solo-row"><div>R10</div><div>「下次先限定 thesis → SIFT 查源 → CER 检查 → 主动找一个反方证据」</div><div><span class="solo-chip l4">L4 迁移</span></div><div>把本次经验抽象为可复用的一般流程——通则化与跨情境迁移意图</div><div><span class="init-tag">引导后</span></div></div>
+          <p style="font-size:12px;color:#68737a;line-height:1.7;margin:10px 2px 0">判定纪律：准确性是门槛不是刻度；序数层级不作均值；单次判层为事件级证据。会话小结：L3 稳定复现（×3），L4 证据 ×2 且均为引导后出现——<b>自发的 L4，是下一阶段最值得观察的信号</b>。</p>
+        </div></div>
+      </section>
+
+      <section id="mindmap">
+        <div class="section-head">
+          <div>
+            <h2>论文核心思维导图</h2>
+            <p>导图把学生本次修改中的核心思考关系拆成节点: thesis、证据、反方、结构策略、主体性和下一步迁移。</p>
+          </div>
+        </div>
+        <div class="panel map-card">
+          <div class="panel-head">
+            <h3>学生A的论文修改思维网络</h3>
+            <div class="map-tools" aria-label="导图控制">
+              <button class="icon-btn" id="zoomOut" title="缩小">−</button>
+              <button class="icon-btn" id="zoomIn" title="放大">+</button>
+              <button class="icon-btn" id="resetMap" title="重置">↺</button>
+            </div>
+          </div>
+          <div class="map-stage" id="mapStage">
+            <svg class="links" id="linkSvg" aria-hidden="true"></svg>
+            <div class="map-world" id="mapWorld"></div>
+            <div class="map-detail" id="mapDetail" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="timeline">
+        <div class="section-head">
+          <div>
+            <h2>十轮交互证据</h2>
+            <p>这里保留每一轮最关键的学生 prompt、触发维度和判分依据，用来支撑上面的六维画像。</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>交互时间线</h3>
+            <span class="chip">10轮</span>
+          </div>
+          <div class="panel-body">
+            <div class="timeline" id="timelineList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="promptlens">
+        <div class="section-head">
+          <div>
+            <h2>提示词透镜<span class="new-chip">本版新增</span></h2>
+            <p>同一批交互的第二种读法：六维评的是「想得怎么样」，本节评的是「问得怎么样」。P 档贴在提示词上，不贴在学生身上；单次报告不做人级档位判定。</p>
+          </div>
+        </div>
+        <div class="plens-stats">
+          <div class="plens-stat"><div class="big">3 / 10</div><div class="cap">主动指令轮（其余为应答轮）——本次对话的推进主要由 AI 发起，与「AI 参与度」板块的观察互证</div></div>
+          <div class="plens-stat"><div class="big">3 次</div><div class="cap">边界设定（「不要直接重写」「不要帮我润色」「不要代写」）——主体性 D2=3 的提示词层证据</div></div>
+          <div class="plens-stat"><div class="big">0 次</div><div class="cap">对手邀请——全程未主动要求 AI 挑战自己；反方证据（IEA）由 AI 抛出</div></div>
+        </div>
+        <div class="plens-grid">
+          <div class="plens-card"><h4>一问 · 任务说清了吗</h4><p>三条主动指令的「五个决定」完整度：第 8 轮最全——材料（改完的段落）、任务（检查回扣 thesis）、边界（不要润色）、验收（是否回扣）四个决定齐备，身份由对话语境承担。第 1 轮缺「验收」：没有说明「怎样算判断到位」。</p></div>
+          <div class="plens-card"><h4>二问 · 要答案，还是要思考</h4><p>三条指令中两条为 P3（要过程），零条 P1（要成品）——全程没有向 AI 索要过可直接提交的文本。这与 D2（主体性）满分互为印证：主体性首先表现在提示词的动词上。</p></div>
+          <div class="plens-card"><h4>三问 · 给 AI 留反对的权利了吗</h4><p>零次主动邀请对抗。学生能处理 AI 抛来的反方证据（第 6 轮让步段），但从未主动召唤反方——这正是 D3 短板在提示词层的镜像：不是不会处理反方，是还没学会主动要一个对手。</p></div>
+        </div>
+        <div class="plens-card">
+          <h4>本次最佳提示词（第 8 轮）· 逐决定标注</h4>
+          <div class="plens-quote">「我改完了：虽然中国仍有高排放问题，但 NASA 和 Nature 的植被数据说明它在生态修复上有实质贡献。请检查是否回扣 thesis，不要帮我润色。」</div>
+          <p class="plens-anno">材料 ✓（自改段落原文）｜任务 ✓（结构检查而非改写）｜边界 ✓（禁止润色——把笔留在自己手里）｜验收 ✓（检查标准 = 是否回扣 thesis）｜身份（语境承担，可省）。这条提示同时展示了「先自己做、再要反馈」的换向意识——第 1 轮开场的「先帮我判断问题，不要直接重写」说明这种边界意识是入场自带的。</p>
+        </div>
+        <div class="plens-take">
+          <h4>带走的一条升级提示（针对本报告识别的 D3 短板 · P4 模板）</h4>
+          <div class="plens-quote">「这是我论文引用的三个来源［NASA 页面 / Nature 论文 / IEA 报告］。请扮演一个苛刻的审稿人，逐个质疑：这个来源的立场和利益是什么？它的数据能支持到我结论的哪一步、不能支持哪一步？除非我给出说明，否则不要放过任何一个来源。」</div>
+          <p class="plens-anno">下一次修改前先跑这一条——它把「下一步强化 D3」从一个待办事项，变成一条可复用的提问习惯。</p>
+        </div>
+        <p class="plens-note">口径说明：提示词透镜不新增测量维度，它是对同一批交互记录的会话层展示视图；P 档由提示文本自动分类（应答轮不计档），本页为产品原型示例、分类为人工标注。</p>
+      </section>
+
+      <section id="evidence">
+        <div class="section-head">
+          <div>
+            <h2>关键思维证据</h2>
+            <p>这些原话最能说明学生是否真的在学习，而不是简单接收 AI 代写结果。</p>
+          </div>
+        </div>
+        <div class="grid evidence-grid">
+          <article class="evidence-card">
+            <strong>任务理解</strong>
+            <p>“我想把 thesis 改成: 中国在植被恢复方面有重要贡献，但这不能直接证明中国整体上是可持续的。”</p>
+          </article>
+          <article class="evidence-card">
+            <strong>论证结构</strong>
+            <p>“reasoning 缺的是解释‘变绿’为什么只能支持部分可持续。”</p>
+          </article>
+          <article class="evidence-card">
+            <strong>学生主体性</strong>
+            <p>“不采纳整段重写，因为那会替换掉我的论证路径。”</p>
+          </article>
+          <article class="evidence-card">
+            <strong>元认知反思</strong>
+            <p>“我一开始只想证明中国有贡献，所以先找了支持材料，没有主动找反方证据。”</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="next">
+        <div class="section-head">
+          <div>
+            <h2>AI 参与度、风险与下一步</h2>
+            <p>报告不仅给分，还要判断哪些能力是A 类 · 自发完成（能力锚定）的，哪些主要由 AI 提示触发。</p>
+          </div>
+        </div>
+        <div class="grid risk-grid">
+          <article class="risk-card">
+            <h3>A 类 · 自发完成（能力锚定）</h3>
+            <p>主动限定 thesis、拒绝 AI 整段重写、解释采纳或拒绝建议，并总结下一次写作检查流程。</p>
+          </article>
+          <article class="risk-card">
+            <h3>引导后完成（prompted）</h3>
+            <p>SIFT 核查、反方证据整合和让步段结构主要由 AI 触发后完成，需要继续观察能否独立迁移。</p>
+          </article>
+          <article class="risk-card">
+            <h3>主要风险</h3>
+            <p>D3 仍停留在来源等级和反方证据识别，尚未充分分析来源立场、利益关系和证据适用边界。</p>
+          </article>
+        </div>
+        <div class="grid evidence-grid" style="margin-top:14px">
+          <article class="next-card">
+            <strong>下一步强化 D3</strong>
+            <p>下一次写作前完成一张 SIFT + 横向阅读记录: 原始来源、作者/机构、不同立场来源、证据适用范围。</p>
+          </article>
+          <article class="next-card">
+            <strong>下一步巩固 D4</strong>
+            <p>选择一段正文，标注 claim/data/warrant/rebuttal，并写一句“这个证据不能证明什么”。</p>
+          </article>
+          <article class="next-card">
+            <strong>下一步 · 学会要一个对手<span class="new-chip">新增</span></strong>
+            <p>本次全程零次对手邀请。把「主动找反方」升级为一条常备提示——见上方「提示词透镜」的带走模板：让 AI 扮演苛刻审稿人逐个质疑来源。</p>
+          </article>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        本网页由既有模拟交互记录和分析报告转化而来，适合作为产品原型中的“交互后评估报告”展示样式。
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const rounds = [
+      {
+        n: 1,
+        task: "上传草稿，AI 要求说明题目与卡点",
+        prompt: "我写的是“中国是否让地球更可持续”。我觉得 thesis 太绝对，但不知道该怎么改。请先帮我判断问题，不要直接重写。",
+        tags: ["D1=2", "D2=3"],
+        judge: "能说明题目、卡点和 AI 边界，但评价标准还未完全展开。"
+      },
+      {
+        n: 2,
+        task: "AI 追问最想先改哪一段",
+        prompt: "先看第二段。我用了公众号里提到的 NASA 变绿数据，但我不确定它是不是能支撑“可持续”。",
+        tags: ["D1=2", "D3=1", "D4=1"],
+        judge: "知道证据可能不够，但信源核查和论证链还不清楚。"
+      },
+      {
+        n: 3,
+        task: "AI 引导使用 SIFT 核查来源",
+        prompt: "我查到 NASA 官网和 Nature 那篇论文了。公众号只能当线索，真正引用应该尽量回到 NASA 或 Nature。",
+        tags: ["D2=2", "D3=2"],
+        judge: "能追溯原始来源，初步区分转述与一手来源。"
+      },
+      {
+        n: 4,
+        task: "AI 要求学生重写 thesis",
+        prompt: "我想把 thesis 改成: 中国在植被恢复方面有重要贡献，但这不能直接证明中国整体上是可持续的。",
+        tags: ["D1=3", "D4=2"],
+        judge: "能把绝对判断改成限定判断，论点边界更清楚。"
+      },
+      {
+        n: 5,
+        task: "AI 要求拆 claim-evidence-reasoning",
+        prompt: "我的 claim 是中国在植被恢复上有贡献；evidence 是 NASA/Nature 的变绿数据；reasoning 缺的是解释“变绿”为什么只能支持部分可持续。",
+        tags: ["D3=2", "D4=3"],
+        judge: "能识别证据与结论之间缺少 warrant / 解释链。"
+      },
+      {
+        n: 6,
+        task: "AI 抛出 IEA 碳排放反方证据",
+        prompt: "IEA 的高排放证据是真的。我想写成让步段: 先承认排放问题，再说明这不抹去生态修复贡献，但会限制我的结论范围。",
+        tags: ["D3=2", "D4=3", "D6=1"],
+        judge: "能整合矛盾证据，但反思还主要停留在任务内部。"
+      },
+      {
+        n: 7,
+        task: "AI 给出三条修改建议，学生选择采纳/拒绝",
+        prompt: "我采纳第 1 条结构调整，把让步段放在结尾前，但不采纳整段重写，因为那会替换掉我的论证路径。",
+        tags: ["D2=3", "D5=3"],
+        judge: "能筛选 AI 建议，并说明采纳/拒绝理由。"
+      },
+      {
+        n: 8,
+        task: "学生提交自改段落，AI 做结构检查",
+        prompt: "我改完了: 虽然中国仍有高排放问题，但 NASA 和 Nature 的植被数据说明它在生态修复上有实质贡献。请检查是否回扣 thesis，不要帮我润色。",
+        tags: ["D2=3", "D4=2", "D5=2"],
+        judge: "学生先自行修改，再要求结构性反馈，但段落仍可继续强化证据解释。"
+      },
+      {
+        n: 9,
+        task: "AI 要求学生反思本次最容易偏的地方",
+        prompt: "我发现我一开始只想证明中国有贡献，所以先找了支持材料，没有主动找排放这种反方证据。",
+        tags: ["D3=2", "D6=2"],
+        judge: "能识别自己的证据选择偏差。"
+      },
+      {
+        n: 10,
+        task: "AI 要求总结下一次独立写作策略",
+        prompt: "下次我会先限定 thesis，再用 SIFT 查来源，用 claim-evidence-reasoning 检查每段，最后主动找一个反方证据并写修改理由。",
+        tags: ["D1=3", "D3=2", "D4=2", "D5=3", "D6=3"],
+        judge: "能把本次互动迁移成可复用写作流程。"
+      }
+    ];
+
+    const mapNodes = [
+      { id: "center", label: "学生A论文修改画像", note: "深度 11/12 · 自主观察", x: 520, y: 315, w: 190, h: 88, fs: 18, bg: "#e2f0e8", border: "#1f7a63", detail: "学生能保留主体性，主动限定 thesis、处理证据边界，并把 AI 交互转化为下一次可迁移的写作流程。" },
+      { id: "question", label: "中心问题", note: "中国是否让地球更可持续", x: 520, y: 115, w: 172, h: 72, fs: 15, bg: "#f5e5ce", border: "#b16a18", detail: "原题容易诱发绝对判断。学生的关键进步是把“是否可持续”拆成生态修复贡献和整体可持续之间的关系。" },
+      { id: "thesis", label: "修正后 thesis", note: "贡献成立，但结论需限定", x: 820, y: 200, w: 185, h: 78, fs: 15, bg: "#dceee8", border: "#1f7a63", detail: "中国在植被恢复方面有重要贡献，但这不能直接证明中国整体上是可持续的。" },
+      { id: "support", label: "支持证据", note: "NASA / Nature 变绿数据", x: 820, y: 430, w: 174, h: 72, fs: 15, bg: "#d9e9f0", border: "#2c6f91", detail: "学生将公众号材料追溯到 NASA 和 Nature，意识到公众号更适合作为线索而非最终引用。" },
+      { id: "counter", label: "反方证据", note: "IEA 高排放问题", x: 520, y: 535, w: 170, h: 72, fs: 15, bg: "#f2dedb", border: "#b34b42", detail: "IEA 高排放证据限制了“整体可持续”的结论范围，推动学生形成让步段。" },
+      { id: "structure", label: "论证结构", note: "claim · evidence · reasoning", x: 225, y: 430, w: 190, h: 78, fs: 15, bg: "#e7e1f0", border: "#6c5a94", detail: "学生能识别 evidence 与 conclusion 之间缺少 reasoning，也就是需要解释“变绿”为何只能支持部分可持续。" },
+      { id: "agency", label: "学生主体性", note: "拒绝代写，筛选建议", x: 225, y: 200, w: 172, h: 74, fs: 15, bg: "#fff0d8", border: "#b16a18", detail: "学生主动要求 AI 不要直接重写，并拒绝整段代写，因为那会替换自己的论证路径。" },
+      { id: "meta", label: "元认知反思", note: "识别证据选择偏差", x: 520, y: 725, w: 180, h: 74, fs: 15, bg: "#e3efd9", border: "#497a36", detail: "学生发现自己一开始只想证明中国有贡献，因此优先寻找支持性材料，忽略了主动寻找反方证据。" },
+      { id: "next", label: "下一次写作策略", note: "SIFT + CER + 反方证据", x: 820, y: 650, w: 186, h: 78, fs: 15, bg: "#eef2f3", border: "#687174", detail: "下一次先限定 thesis，再查来源、检查每段论证链，并主动寻找反方证据和写出修改理由。" }
+    ];
+
+    const mapLinks = [
+      ["center", "question"],
+      ["question", "thesis"],
+      ["center", "thesis"],
+      ["thesis", "support"],
+      ["support", "structure"],
+      ["structure", "center"],
+      ["thesis", "counter"],
+      ["counter", "meta"],
+      ["agency", "center"],
+      ["agency", "structure"],
+      ["meta", "next"],
+      ["next", "center"],
+      ["counter", "thesis"]
+    ];
+
+    
+    const P_BY_ROUND = {
+      1: { c: "p3", t: "P3 要过程·设边界" },
+      2: { c: "p2", t: "P2 要判断" },
+      8: { c: "p3", t: "P3 要检查·设边界" }
+    };
+    function ptag(n) {
+      const info = P_BY_ROUND[n];
+      if (info) return `<span class="p-tag ${info.c}">${info.t}</span>`;
+      return `<span class="p-tag p0">应答轮</span>`;
+    }
+
+    const timelineList = document.getElementById("timelineList");
+    rounds.forEach((round, index) => {
+      const details = document.createElement("details");
+      details.className = "round";
+      if (index === 0 || index === 9) details.open = true;
+      const tags = round.tags.map(tag => `<span class="dim-tag">${tag}</span>`).join("");
+      details.innerHTML = `
+        <summary>
+          <span class="round-num">${round.n}</span>
+          <span class="round-title">${round.task}<small>${round.prompt}</small></span>
+          <span class="dim-tags">${ptag(round.n)}${tags}</span>
+        </summary>
+        <div class="round-content">
+          <div class="quote">${round.prompt}</div>
+          <div class="judge">${round.judge}</div>
+        </div>
+      `;
+      timelineList.appendChild(details);
+    });
+
+    const stage = document.getElementById("mapStage");
+    const world = document.getElementById("mapWorld");
+    const svg = document.getElementById("linkSvg");
+    const detail = document.getElementById("mapDetail");
+    let view = { x: 0, y: 0, scale: 1 };
+    let panning = null;
+    let dragging = null;
+    let activeId = "center";
+
+    function fitMap() {
+      const rect = stage.getBoundingClientRect();
+      const scale = Math.min(rect.width / 1080, rect.height / 850, 1);
+      view = {
+        x: rect.width / 2 - 520 * scale,
+        y: rect.height / 2 - 390 * scale,
+        scale
+      };
+      applyView();
+    }
+
+    function applyView() {
+      const transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+      world.style.transform = transform;
+      svg.setAttribute("viewBox", `${-view.x / view.scale} ${-view.y / view.scale} ${stage.clientWidth / view.scale} ${stage.clientHeight / view.scale}`);
+      renderLinks();
+    }
+
+    function renderNodes() {
+      world.innerHTML = "";
+      mapNodes.forEach(node => {
+        const el = document.createElement("button");
+        el.className = "node";
+        el.type = "button";
+        el.dataset.id = node.id;
+        el.style.left = `${node.x}px`;
+        el.style.top = `${node.y}px`;
+        el.style.setProperty("--w", `${node.w}px`);
+        el.style.setProperty("--h", `${node.h}px`);
+        el.style.setProperty("--fs", `${node.fs}px`);
+        el.style.setProperty("--node-bg", node.bg);
+        el.style.setProperty("--node-border", node.border);
+        el.innerHTML = `<strong>${node.label}</strong><span>${node.note}</span>`;
+        el.addEventListener("click", event => {
+          event.stopPropagation();
+          setActive(node.id);
+        });
+        el.addEventListener("pointerdown", event => {
+          event.stopPropagation();
+          el.setPointerCapture(event.pointerId);
+          dragging = {
+            id: node.id,
+            startX: event.clientX,
+            startY: event.clientY,
+            nodeX: node.x,
+            nodeY: node.y,
+            el
+          };
+          el.classList.add("is-dragging");
+        });
+        el.addEventListener("pointermove", event => {
+          if (!dragging || dragging.id !== node.id) return;
+          const dx = (event.clientX - dragging.startX) / view.scale;
+          const dy = (event.clientY - dragging.startY) / view.scale;
+          node.x = dragging.nodeX + dx;
+          node.y = dragging.nodeY + dy;
+          el.style.left = `${node.x}px`;
+          el.style.top = `${node.y}px`;
+          renderLinks();
+        });
+        el.addEventListener("pointerup", () => {
+          if (!dragging || dragging.id !== node.id) return;
+          el.classList.remove("is-dragging");
+          dragging = null;
+        });
+        world.appendChild(el);
+      });
+      setActive(activeId);
+    }
+
+    function nodeById(id) {
+      return mapNodes.find(node => node.id === id);
+    }
+
+    function centerOf(node) {
+      return { x: node.x, y: node.y };
+    }
+
+    function renderLinks() {
+      svg.innerHTML = "";
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      mapLinks.forEach(([fromId, toId]) => {
+        const from = centerOf(nodeById(fromId));
+        const to = centerOf(nodeById(toId));
+        const dx = Math.abs(to.x - from.x);
+        const c1x = from.x + dx * 0.38;
+        const c2x = to.x - dx * 0.38;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${from.x} ${from.y} C ${c1x} ${from.y}, ${c2x} ${to.y}, ${to.x} ${to.y}`);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#9bb7aa");
+        path.setAttribute("stroke-width", "2.2");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("opacity", "0.78");
+        group.appendChild(path);
+      });
+      svg.appendChild(group);
+    }
+
+    function setActive(id) {
+      activeId = id;
+      const node = nodeById(id);
+      document.querySelectorAll(".node").forEach(el => {
+        el.classList.toggle("active", el.dataset.id === id);
+      });
+      detail.innerHTML = `<h4>${node.label}</h4><p>${node.detail}</p>`;
+    }
+
+    stage.addEventListener("pointerdown", event => {
+      if (event.target !== stage && event.target !== svg) return;
+      stage.setPointerCapture(event.pointerId);
+      panning = { x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y };
+      stage.classList.add("is-panning");
+    });
+
+    stage.addEventListener("pointermove", event => {
+      if (!panning) return;
+      view.x = panning.viewX + event.clientX - panning.x;
+      view.y = panning.viewY + event.clientY - panning.y;
+      applyView();
+    });
+
+    stage.addEventListener("pointerup", () => {
+      panning = null;
+      stage.classList.remove("is-panning");
+    });
+
+    stage.addEventListener("wheel", event => {
+      event.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const beforeX = (pointerX - view.x) / view.scale;
+      const beforeY = (pointerY - view.y) / view.scale;
+      const factor = event.deltaY < 0 ? 1.09 : 0.92;
+      view.scale = Math.min(1.7, Math.max(0.5, view.scale * factor));
+      view.x = pointerX - beforeX * view.scale;
+      view.y = pointerY - beforeY * view.scale;
+      applyView();
+    }, { passive: false });
+
+    document.getElementById("zoomIn").addEventListener("click", () => {
+      view.scale = Math.min(1.7, view.scale * 1.12);
+      applyView();
+    });
+
+    document.getElementById("zoomOut").addEventListener("click", () => {
+      view.scale = Math.max(0.5, view.scale / 1.12);
+      applyView();
+    });
+
+    document.getElementById("resetMap").addEventListener("click", fitMap);
+
+    window.addEventListener("resize", fitMap);
+    renderNodes();
+    fitMap();
+  </script>
+</body>
+</html>

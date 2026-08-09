@@ -1,0 +1,82 @@
+- generic [ref=f4e4]:
+  - generic [ref=f4e5]:
+    - tab "课程" [ref=f4e15] [cursor=pointer]
+    - tab "工作室" [selected] [ref=f4e22] [cursor=pointer]
+    - tab "成长报告" [ref=f4e27] [cursor=pointer]
+    - tab "设置" [ref=f4e32] [cursor=pointer]
+    - generic [ref=f4e38]: P
+  - generic [ref=f4e41]:
+    - banner [ref=f4e42]:
+      - paragraph [ref=f4e43]: 你的项目
+      - heading "全部项目" [level=1] [ref=f4e44]
+      - paragraph [ref=f4e45]: 选一个继续，或开一个新项目——带着你真实的任务进来。
+    - generic [ref=f4e46]:
+      - generic [ref=f4e47]: 新建项目
+      - generic [ref=f4e51]:
+        - generic [ref=f4e52]:
+          - generic [ref=f4e53]:
+            - generic [ref=f4e54]: 项目类型
+            - combobox "项目类型" [ref=f4e55]:
+              - option "拓展论文 EE" [selected]
+              - option "TOK 论文"
+              - option "内部评估 IA"
+              - option "EPQ"
+              - option "个人项目"
+              - option "其他"
+          - generic [ref=f4e56]:
+            - generic [ref=f4e57]: 写作语言
+            - combobox "写作语言" [ref=f4e58]:
+              - option "English" [selected]
+              - option "中文"
+              - option "双语"
+        - generic [ref=f4e59]:
+          - generic [ref=f4e60]: 作业题目 / 提示
+          - textbox "作业题目 / 提示" [ref=f4e61]:
+            - /placeholder: 贴上你的作业题目或提示，比如「Can we only understand something to the extent that we understand its context? Discuss with reference to two areas of knowledge.」
+        - generic [ref=f4e62]:
+          - generic [ref=f4e63]: 研究问题不用现在就想好——进立题房间我陪你一部分一部分磨。
+          - button "开始" [disabled] [ref=f4e64]
+    - generic [ref=f4e68]:
+      - button "People are always more extreme when expressing in social med 拓展论文 EE 进行中" [ref=f4e69] [cursor=pointer]:
+        - generic [ref=f4e70]:
+          - paragraph [ref=f4e71]: People are always more extreme when expressing in social med
+          - generic [ref=f4e72]:
+            - generic [ref=f4e73]: 拓展论文 EE
+            - generic [ref=f4e74]: 进行中
+      - button "中国是否让地球变得更可持续？（demo） 0457 进行中" [ref=f4e78] [cursor=pointer]:
+        - generic [ref=f4e79]:
+          - paragraph [ref=f4e80]: 中国是否让地球变得更可持续？（demo）
+          - generic [ref=f4e81]:
+            - generic [ref=f4e82]: "0457"
+            - generic [ref=f4e83]: 进行中
+      - button "To what extent should AI be used in high school essay writin 拓展论文 EE 立题中" [ref=f4e87] [cursor=pointer]:
+        - generic [ref=f4e88]:
+          - paragraph [ref=f4e89]: To what extent should AI be used in high school essay writin
+          - generic [ref=f4e90]:
+            - generic [ref=f4e91]: 拓展论文 EE
+            - generic [ref=f4e92]: 立题中
+      - button "In the acquisition of knowledge, can we only understand something to the extent that we understand its context? Discuss with reference to two areas of knowledge. 0457 进行中" [ref=f4e96] [cursor=pointer]:
+        - generic [ref=f4e97]:
+          - paragraph [ref=f4e98]: In the acquisition of knowledge, can we only understand something to the extent that we understand its context? Discuss with reference to two areas of knowledge.
+          - generic [ref=f4e99]:
+            - generic [ref=f4e100]: "0457"
+            - generic [ref=f4e101]: 进行中
+      - button "linkoffer-live-check 0457 立题中" [ref=f4e105] [cursor=pointer]:
+        - generic [ref=f4e106]:
+          - paragraph [ref=f4e107]: linkoffer-live-check
+          - generic [ref=f4e108]:
+            - generic [ref=f4e109]: "0457"
+            - generic [ref=f4e110]: 立题中
+      - button "To what extent is China making the world more environmentally sustainable? 0457 个人报告 已完成 查看评估报告 →" [ref=f4e114] [cursor=pointer]:
+        - generic [ref=f4e115]:
+          - paragraph [ref=f4e116]: To what extent is China making the world more environmentally sustainable?
+          - generic [ref=f4e117]:
+            - generic [ref=f4e118]: 0457 个人报告
+            - generic [ref=f4e119]: 已完成
+        - button "查看评估报告 →" [ref=f4e120]
+      - button "test 0457 立题中" [ref=f4e124] [cursor=pointer]:
+        - generic [ref=f4e125]:
+          - paragraph [ref=f4e126]: test
+          - generic [ref=f4e127]:
+            - generic [ref=f4e128]: "0457"
+            - generic [ref=f4e129]: 立题中

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@keyframes beanBreath { 0%,100% { transform: rotate(-4deg) scale(1); } 50% { transform: rotate(-4deg) scale(1.035); } }
+@keyframes beanBlink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.15); } }
+</style>
+</helmet>
+<svg viewBox="0 0 120 120" width="100%" height="100%" style="display:block; overflow:visible;">
+  <g style="transform-origin:60px 60px; animation:beanBreath 4.6s ease-in-out infinite;">
+    <path d="M59.5 24.8 C75.7 23.7 93.3 31.9 98.9 47.2 C105.1 64.1 96.2 82.8 80.5 91.2 C64.6 99.7 42.4 96.4 30.2 83.4 C18.5 71.0 18.8 51.2 30.9 38.7 C37.8 31.6 48.1 25.6 59.5 24.8Z" fill="{{ color }}"></path>
+    <ellipse cx="49.4" cy="58.2" rx="2.6" ry="3.9" fill="{{ eye }}" style="transform-origin:49.4px 58.2px; animation:beanBlink 5.4s ease-in-out infinite;"></ellipse>
+    <ellipse cx="68.3" cy="58.2" rx="2.6" ry="3.9" fill="{{ eye }}" style="transform-origin:68.3px 58.2px; animation:beanBlink 5.4s ease-in-out infinite;"></ellipse>
+  </g>
+</svg>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:120,&quot;height&quot;:120},&quot;color&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7FCBA8&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const color = this.props.color || '#7FCBA8';
+    // pick a contrasting eye color: light eyes on dark beans, dark eyes on light beans
+    let eye = '#17223B';
+    const m = /^#?([0-9a-f]{6})$/i.exec((color || '').trim());
+    if (m) {
+      const n = parseInt(m[1], 16);
+      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      eye = lum < 0.55 ? '#FFFFFF' : '#17223B';
+    }
+    return { color, eye };
+  }
+}
+</script>
+</body>
+</html>

@@ -77,6 +77,14 @@ func essayGuideBody(in GuideGenInput) string {
 			b.WriteString("\n本部分：基于前面各条论证，写出你的结论。\n")
 		case "structure":
 			b.WriteString("\n本部分：用一段话描述整篇文章的论证结构——各部分如何层层推进、共同支撑结论。\n")
+		case "sub:intro":
+			b.WriteString("\n本部分：写引言。引导学生说清楚五件事——① 背景；② 确切的研究问题；③ 关键词与范围（工作定义）；④ 这个问题为什么重要；⑤ 全文论证结构的走向（先说什么、再说什么）。\n")
+		case "sub:conclusion":
+			b.WriteString("\n本部分：写结论。基于前面各条论证，收束回核心问题——你的回答是什么、在什么条件下成立、还留下什么未解。\n")
+		case "sub:compose":
+			b.WriteString("\n本部分：把已写好的引言、各条论点、比较/综合、反方回应、结论拼成一整篇，读一遍衔接是否顺畅。（这一步是组装，不是重写。）\n")
+		case "sub:polish":
+			b.WriteString("\n本部分：通读全文、润色语言与衔接。让印记像老师一样通篇体检，你据此修改，满意后完成整篇论文。\n")
 		default:
 			fmt.Fprintf(&b, "\n本部分：%s。请针对当前题目引导学生写这一部分。\n", in.Step.Title)
 		}

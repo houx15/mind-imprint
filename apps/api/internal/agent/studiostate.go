@@ -119,10 +119,15 @@ const (
 type EssayTrack struct {
 	Stage EssayStage `json:"stage"`
 	// slice 4b · the statement stage's walk. Started = the student passed the
-	// outline-intro ready gate. StepGuides caches generated guide cards by key.
+	// outline-intro ready gate. StepGuides caches generated guide cards by key
+	// (shared across statement + submission — keys are namespaced, sub:* vs the
+	// statement keys, so they never collide).
 	Started       bool              `json:"statementStarted,omitempty"`
 	StatementStep int               `json:"statementStep,omitempty"`
 	StepGuides    map[string]string `json:"essayStepGuides,omitempty"`
+	// slice 4c · the submission stage's walk (引言 → 结论 → 成文 → 润色).
+	SubmissionStarted bool `json:"submissionStarted,omitempty"`
+	SubmissionStep    int  `json:"submissionStep,omitempty"`
 }
 
 func DefaultStudioState() StudioState {

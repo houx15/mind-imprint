@@ -1,0 +1,165 @@
+- generic [ref=f4e4]:
+  - generic [ref=f4e5]:
+    - tab "课程" [ref=f4e15] [cursor=pointer]
+    - tab "工作室" [selected] [ref=f4e22] [cursor=pointer]
+    - tab "成长报告" [ref=f4e27] [cursor=pointer]
+    - tab "设置" [ref=f4e32] [cursor=pointer]
+    - generic [ref=f4e38]: P
+  - generic [ref=f4e133]:
+    - navigation [ref=f4e134]:
+      - generic [ref=f4e135]:
+        - button "全部项目" [ref=f4e136] [cursor=pointer]
+        - heading "中国是否让地球变得更可持续？（demo）" [level=1] [ref=f4e139]
+        - generic [ref=f4e140]: "0457"
+      - generic [ref=f4e141]:
+        - button "项目管理 01 · Project Management" [ref=f4e142] [cursor=pointer]:
+          - generic [ref=f4e148]:
+            - generic [ref=f4e149]: 项目管理
+            - generic [ref=f4e150]: 01 · Project Management
+        - button "阅读 02 · Read" [ref=f4e151] [cursor=pointer]:
+          - generic [ref=f4e155]:
+            - generic [ref=f4e156]: 阅读
+            - generic [ref=f4e157]: 02 · Read
+        - button "写作 03 · Write" [ref=f4e158] [cursor=pointer]:
+          - generic [ref=f4e162]:
+            - generic [ref=f4e163]: 写作
+            - generic [ref=f4e164]: 03 · Write
+        - button "回顾 04 · Review" [ref=f4e165] [cursor=pointer]:
+          - generic [ref=f4e170]:
+            - generic [ref=f4e171]: 回顾
+            - generic [ref=f4e172]: 04 · Review
+    - main [ref=f4e173]:
+      - generic [ref=f4e174]:
+        - paragraph [ref=f4e178]: 看起来你已经把“地球变绿”这个正面证据放进来了，也意识到它并不完整。现在引言的框架已经搭好，正反两面的材料也都摆上桌面了，接下来可能会卡在怎么处理碳排放和IEA趋势这些“限制面”的解读上。你打算先从哪一头理起——是先把排放口径说清楚，还是先看看IEA的数据到底指向什么？
+        - button "收起" [ref=f4e179] [cursor=pointer]: ×
+      - generic [ref=f4e180]:
+        - generic [ref=f4e182]:
+          - generic [ref=f4e183]:
+            - generic [ref=f4e184]: "0457"
+            - heading "中国是否让地球变得更可持续？（demo）" [level=1] [ref=f4e185]
+          - button "查看我的题目" [ref=f4e186] [cursor=pointer]
+        - generic [ref=f4e187]:
+          - generic [ref=f4e188]:
+            - heading "项目管理" [level=2] [ref=f4e189]
+            - paragraph [ref=f4e190]: 拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改，点「进入 →」去对应房间。
+          - generic [ref=f4e191]:
+            - generic [ref=f4e192]:
+              - button "看板" [ref=f4e193] [cursor=pointer]
+              - button "甘特图" [ref=f4e194] [cursor=pointer]
+              - button "活动日志" [ref=f4e195] [cursor=pointer]
+            - button "导出" [ref=f4e196] [cursor=pointer]
+            - button "聊聊计划" [ref=f4e197] [cursor=pointer]
+        - generic [ref=f4e200]:
+          - generic [ref=f4e201]:
+            - generic [ref=f4e202]:
+              - generic [ref=f4e203]: 待办
+              - generic [ref=f4e204]: "11"
+            - generic [ref=f4e205]:
+              - generic [ref=f4e206]:
+                - button "写 阶段一" [ref=f4e207] [cursor=pointer]:
+                  - generic [ref=f4e208]: 写
+                  - generic [ref=f4e209]: 阶段一
+                - button "整理阅读笔记，归纳中国在绿化、减排等领域的核心贡献与争议" [ref=f4e210] [cursor=pointer]
+                - generic [ref=f4e211]: 📅 8/2 – 8/3
+                - button "进入 →" [ref=f4e212] [cursor=pointer]
+              - generic [ref=f4e213]:
+                - button "省 阶段三" [ref=f4e214] [cursor=pointer]:
+                  - generic [ref=f4e215]: 省
+                  - generic [ref=f4e216]: 阶段三
+                - button "自我检查初稿逻辑、证据及论述的平衡性" [ref=f4e217] [cursor=pointer]
+                - generic [ref=f4e218]: 📅 8/12 – 8/13
+                - button "进入 →" [ref=f4e219] [cursor=pointer]
+              - generic [ref=f4e220]:
+                - button "省 阶段三" [ref=f4e221] [cursor=pointer]:
+                  - generic [ref=f4e222]: 省
+                  - generic [ref=f4e223]: 阶段三
+                - button "通读全文，检查逻辑连贯性与证据支持度，标记需修改处" [ref=f4e224] [cursor=pointer]
+                - generic [ref=f4e225]: 📅 8/12 – 8/14
+                - button "进入 →" [ref=f4e226] [cursor=pointer]
+              - generic [ref=f4e227]:
+                - button "写 阶段三" [ref=f4e228] [cursor=pointer]:
+                  - generic [ref=f4e229]: 写
+                  - generic [ref=f4e230]: 阶段三
+                - button "根据检查结果修改初稿，强化论证" [ref=f4e231] [cursor=pointer]
+                - generic [ref=f4e232]: 📅 8/14 – 8/15
+                - button "进入 →" [ref=f4e233] [cursor=pointer]
+              - generic [ref=f4e234]:
+                - button "省 阶段三" [ref=f4e235] [cursor=pointer]:
+                  - generic [ref=f4e236]: 省
+                  - generic [ref=f4e237]: 阶段三
+                - button "根据审阅意见最终修订，并准备提交格式" [ref=f4e238] [cursor=pointer]
+                - generic [ref=f4e239]: 📅 8/15 – 8/16
+                - button "进入 →" [ref=f4e240] [cursor=pointer]
+              - generic [ref=f4e241]:
+                - button "省 阶段三" [ref=f4e242] [cursor=pointer]:
+                  - generic [ref=f4e243]: 省
+                  - generic [ref=f4e244]: 阶段三
+                - button "最终通读修改稿并反思研究过程与结论" [ref=f4e245] [cursor=pointer]
+                - generic [ref=f4e246]: 📅 8/16 – 8/16
+                - button "进入 →" [ref=f4e247] [cursor=pointer]
+              - generic [ref=f4e248]:
+                - button "写 阶段二" [ref=f4e249] [cursor=pointer]:
+                  - generic [ref=f4e250]: 写
+                  - generic [ref=f4e251]: 阶段二
+                - button "撰写引言，明确研究问题与“更可持续”的评判框架" [ref=f4e252] [cursor=pointer]
+                - generic [ref=f4e253]: 📅 8/4 – 8/5
+                - button "进入 →" [ref=f4e254] [cursor=pointer]
+              - generic [ref=f4e255]:
+                - button "写 阶段二" [ref=f4e256] [cursor=pointer]:
+                  - generic [ref=f4e257]: 写
+                  - generic [ref=f4e258]: 阶段二
+                - button "梳理证据并拟定论证提纲与核心观点" [ref=f4e259] [cursor=pointer]
+                - generic [ref=f4e260]: 📅 8/5 – 8/6
+                - button "进入 →" [ref=f4e261] [cursor=pointer]
+              - generic [ref=f4e262]:
+                - button "写 阶段二" [ref=f4e263] [cursor=pointer]:
+                  - generic [ref=f4e264]: 写
+                  - generic [ref=f4e265]: 阶段二
+                - button "完成主体论述：分领域论证中国的正面角色与潜在代价" [ref=f4e266] [cursor=pointer]
+                - generic [ref=f4e267]: 📅 8/6 – 8/9
+                - button "进入 →" [ref=f4e268] [cursor=pointer]
+              - generic [ref=f4e269]:
+                - button "写 阶段二" [ref=f4e270] [cursor=pointer]:
+                  - generic [ref=f4e271]: 写
+                  - generic [ref=f4e272]: 阶段二
+                - button "撰写研究初稿，完整分析中国正反面影响" [ref=f4e273] [cursor=pointer]
+                - generic [ref=f4e274]: 📅 8/7 – 8/11
+                - button "进入 →" [ref=f4e275] [cursor=pointer]
+              - generic [ref=f4e276]:
+                - button "写 阶段二" [ref=f4e277] [cursor=pointer]:
+                  - generic [ref=f4e278]: 写
+                  - generic [ref=f4e279]: 阶段二
+                - button "完善结论与展望，平衡肯定与批判性思考" [ref=f4e280] [cursor=pointer]
+                - generic [ref=f4e281]: 📅 8/10 – 8/11
+                - button "进入 →" [ref=f4e282] [cursor=pointer]
+            - button "+ 添加任务" [ref=f4e283] [cursor=pointer]
+          - generic [ref=f4e284]:
+            - generic [ref=f4e285]:
+              - generic [ref=f4e286]: 进行中
+              - generic [ref=f4e287]: "2"
+            - generic [ref=f4e288]:
+              - generic [ref=f4e289]:
+                - button "读 阶段一" [ref=f4e290] [cursor=pointer]:
+                  - generic [ref=f4e291]: 读
+                  - generic [ref=f4e292]: 阶段一
+                - button "搜索并阅读“地球变绿”的权威科学研究与中国官方数据" [ref=f4e293] [cursor=pointer]
+                - generic [ref=f4e294]: 📅 7/30 – 8/1
+                - button "进入 →" [ref=f4e295] [cursor=pointer]
+              - generic [ref=f4e296]:
+                - button "读 阶段一" [ref=f4e297] [cursor=pointer]:
+                  - generic [ref=f4e298]: 读
+                  - generic [ref=f4e299]: 阶段一
+                - button "精读关键文献，提取中国行动与效果的关键证据" [ref=f4e300] [cursor=pointer]
+                - generic [ref=f4e301]: 📅 8/2 – 8/4
+                - button "进入 →" [ref=f4e302] [cursor=pointer]
+          - generic [ref=f4e303]:
+            - generic [ref=f4e304]:
+              - generic [ref=f4e305]: 完成
+              - generic [ref=f4e306]: "1"
+            - generic [ref=f4e308]:
+              - button "读 阶段一" [ref=f4e309] [cursor=pointer]:
+                - generic [ref=f4e310]: 读
+                - generic [ref=f4e311]: 阶段一
+              - button "搜集全球绿化与中国贡献的相关资料并初步阅读" [ref=f4e312] [cursor=pointer]
+              - generic [ref=f4e313]: 📅 7/30 – 8/1
+              - button "进入 →" [ref=f4e314] [cursor=pointer]

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<meta name="omelette-owns-print">
+<style>
+  doc-page:not(:defined){ visibility:hidden; }
+  body { font-family:'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif; -webkit-font-smoothing:antialiased; color:#20263A; }
+  @media print { .no-print { display:none !important; } }
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+
+<!-- CONTROL BAR (screen only) -->
+<div class="no-print" style="position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:50; display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #E4E7EF; border-radius:14px; padding:8px 10px; box-shadow:0 10px 30px rgba(20,30,60,.14);">
+  <div style="display:flex; background:#F1F2F6; border-radius:9px; padding:3px;">
+    <sc-for list="{{ modeTabs }}" as="m" hint-placeholder-count="2">
+      <div onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</div>
+    </sc-for>
+  </div>
+  <div style="width:1px; height:22px; background:#E4E7EF;"></div>
+  <div style="display:flex; gap:5px;">
+    <sc-for list="{{ studentChips }}" as="s" hint-placeholder-count="3">
+      <div onClick="{{ s.onClick }}" style="{{ s.style }}">{{ s.label }}</div>
+    </sc-for>
+  </div>
+  <div style="width:1px; height:22px; background:#E4E7EF;"></div>
+  <div onClick="{{ onPrint }}" style="display:inline-flex; align-items:center; gap:6px; background:#2A3B7A; color:#fff; font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:9px; cursor:pointer;" style-hover="background:#22305F;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z"></path></svg>下载 PDF
+  </div>
+</div>
+
+<doc-page margin="0.85in">
+
+  <!-- COVER -->
+  <div style="border:1px solid #E4E7EF; border-radius:16px; padding:26px 28px; background:linear-gradient(180deg,#F7F8FC 0%,#FFFFFF 70%);">
+    <div style="display:flex; align-items:center; gap:11px;">
+      <div style="width:34px; height:34px;"><dc-import name="Bean" color="#2A3B7A" hint-size="34px,34px" style="display:block; width:34px; height:34px;"></dc-import></div>
+      <div style="font-size:15px; font-weight:800; color:#2A3B7A; letter-spacing:.02em;">思维印记 · 学生能力成长报告</div>
+    </div>
+    <div style="margin-top:20px; font-size:30px; font-weight:900; color:#1C2333; line-height:1.15;">{{ cover.name }} 的能力成长报告</div>
+    <div style="margin-top:10px; font-size:14px; color:#5A6377; line-height:1.7;">{{ cover.warmLine }}</div>
+    <div style="margin-top:18px; display:flex; flex-wrap:wrap; gap:8px;">
+      <span style="display:inline-flex; align-items:center; padding:5px 12px; border-radius:20px; background:#EDEFF9; color:#2A3B7A; font-size:12.5px; font-weight:700;">{{ cover.typeLabel }}</span>
+      <span style="display:inline-flex; align-items:center; padding:5px 12px; border-radius:20px; border:1px solid #E4E7EF; color:#5A6377; font-size:12.5px;">{{ cover.subject }}</span>
+      <span style="display:inline-flex; align-items:center; padding:5px 12px; border-radius:20px; border:1px solid #E4E7EF; color:#5A6377; font-size:12.5px;">{{ cover.klass }}</span>
+      <span style="display:inline-flex; align-items:center; padding:5px 12px; border-radius:20px; border:1px solid #E4E7EF; color:#5A6377; font-size:12.5px;">生成日期 {{ cover.dateStr }}</span>
+    </div>
+  </div>
+
+  <!-- 这份报告怎么读 -->
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:30px 0 6px;">这份报告怎么读</h2>
+  <p style="font-size:15px; line-height:1.9; color:#3A4256; margin:0 0 14px;">思维印记陪伴孩子做研究和思考，记录的是过程，不是一张成绩单。在看具体内容之前，有四条我们始终遵守的原则，也希望和您达成共识。</p>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+    <sc-for list="{{ principles }}" as="p" hint-placeholder-count="4">
+      <div style="border:1px solid #E4E7EF; border-radius:14px; padding:16px 18px; break-inside:avoid;">
+        <div style="font-size:14.5px; font-weight:800; color:#2A3B7A;">{{ p.title }}</div>
+        <div style="margin-top:8px; font-size:13.5px; line-height:1.75; color:#3A4256;">{{ p.text }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- 双轴介绍 -->
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:30px 0 6px; break-after:avoid;">我们怎么看“能力”：两条轴</h2>
+  <p style="font-size:15px; line-height:1.9; color:#3A4256; margin:0 0 16px;">我们用两条彼此独立的线索来看孩子。它们回答的是两个不同的问题，所以不会被合成一个总分。</p>
+
+  <div style="border:1px solid #E4E7EF; border-radius:14px; padding:18px 20px; break-inside:avoid;">
+    <div style="font-size:16px; font-weight:800; color:#2A3B7A;">D 轴 · 认知深度</div>
+    <div style="margin-top:6px; font-size:14px; line-height:1.8; color:#3A4256;">回答“想得有多深”。我们把它分成四个台阶，逐条对孩子的表现判断处在哪个台阶，再看他最稳定停留在哪里。</div>
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <sc-for list="{{ dLevels }}" as="d" hint-placeholder-count="4">
+        <div style="display:flex; gap:12px; align-items:flex-start; border-left:4px solid {{ d.color }}; background:#FAFBFD; border-radius:0 10px 10px 0; padding:10px 14px; break-inside:avoid;">
+          <span style="flex:none; min-width:44px; font-size:13.5px; font-weight:800; color:{{ d.color }};">{{ d.label }}</span>
+          <span style="font-size:13.5px; line-height:1.7; color:#3A4256;">{{ d.desc }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:14px; font-size:13.5px; font-weight:700; color:#4A5060;">D 轴看的六个维度：</div>
+    <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <sc-for list="{{ dDims }}" as="x" hint-placeholder-count="6">
+        <div style="font-size:13px; line-height:1.65; color:#3A4256; break-inside:avoid;"><b style="color:#20263A;">{{ x.name }}</b> — {{ x.meaning }}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="border:1px solid #E4E7EF; border-radius:14px; padding:18px 20px; margin-top:14px; break-inside:avoid;">
+    <div style="font-size:16px; font-weight:800; color:#3E8A6E;">A 轴 · 智识自主</div>
+    <div style="margin-top:6px; font-size:14px; line-height:1.8; color:#3A4256;">回答“有多愿意自己想”。这条轴<b>只记录信号、不打分</b>——所以整份报告里，您不会看到 A 轴的任何数字。我们记录“主动信号”出现的次数和方式，用三种状态来呈现。</div>
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <sc-for list="{{ aStates }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex; gap:12px; align-items:flex-start; border-left:4px solid {{ s.color }}; background:#FAFBFD; border-radius:0 10px 10px 0; padding:10px 14px; break-inside:avoid;">
+          <span style="flex:none; min-width:96px; font-size:13px; font-weight:800; color:{{ s.color }};">{{ s.label }}</span>
+          <span style="font-size:13.5px; line-height:1.7; color:#3A4256;">{{ s.desc }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:14px; font-size:13.5px; font-weight:700; color:#4A5060;">A 轴看的六个信号：</div>
+    <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <sc-for list="{{ aSignals }}" as="x" hint-placeholder-count="6">
+        <div style="font-size:13px; line-height:1.65; color:#3A4256; break-inside:avoid;"><b style="color:#20263A;">{{ x.name }}</b> — {{ x.meaning }}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- 判定怎么来 -->
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:30px 0 10px; break-after:avoid;">判断是怎么得出来的</h2>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <sc-for list="{{ howList }}" as="h" hint-placeholder-count="4">
+      <div style="display:flex; gap:12px; align-items:flex-start; break-inside:avoid;">
+        <span style="flex:none; width:22px; height:22px; border-radius:50%; background:#EDEFF9; color:#2A3B7A; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; margin-top:2px;">{{ h.n }}</span>
+        <div style="font-size:14px; line-height:1.8; color:#3A4256;"><b style="color:#20263A;">{{ h.title }}</b>{{ h.text }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- 孩子这次的表现（项目模式） -->
+  <sc-if value="{{ isProject }}" hint-placeholder-val="{{ true }}">
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:32px 0 10px; break-after:avoid;">{{ cover.name }} 这次的表现</h2>
+  <div style="border:1px solid #E4E7EF; background:#F7F8FB; border-radius:14px; padding:16px 18px; break-inside:avoid;">
+    <div style="font-size:13px; font-weight:800; color:#2A3B7A;">一眼判断</div>
+    <div style="margin-top:7px; font-size:14.5px; line-height:1.75; color:#20263A; font-weight:600;">{{ glance }}</div>
+  </div>
+
+  <div style="font-size:16px; font-weight:800; color:#2A3B7A; margin:22px 0 4px;">D 轴 · 认知深度（逐维）</div>
+  <div style="font-size:13px; color:#7A8296; margin-bottom:12px;">{{ dOverview }}</div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <sc-for list="{{ dRows }}" as="r" hint-placeholder-count="6">
+      <div style="border:1px solid #E4E7EF; border-radius:12px; padding:14px 16px; break-inside:avoid;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="font-size:14.5px; font-weight:800; color:#1C2333;">{{ r.name }}</div>
+          <span style="flex:none; padding:4px 12px; border-radius:20px; background:{{ r.bg }}; color:{{ r.color }}; font-size:12.5px; font-weight:800;">{{ r.badge }}</span>
+        </div>
+        <div style="margin-top:9px; font-size:13.5px; line-height:1.75; color:#3A4256;">{{ r.reading }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="font-size:16px; font-weight:800; color:#3E8A6E; margin:24px 0 4px;">A 轴 · 智识自主（信号，不打分）</div>
+  <div style="font-size:13px; color:#7A8296; margin-bottom:12px;">{{ aOverview }}</div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <sc-for list="{{ aRows }}" as="r" hint-placeholder-count="6">
+      <div style="border:1px solid #E4E7EF; border-radius:12px; padding:14px 16px; break-inside:avoid;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="font-size:14.5px; font-weight:800; color:#1C2333;">{{ r.name }}</div>
+          <span style="flex:none; padding:4px 12px; border-radius:20px; background:{{ r.bg }}; color:{{ r.color }}; font-size:12px; font-weight:800;">{{ r.state }}</span>
+        </div>
+        <div style="margin-top:9px; font-size:13.5px; line-height:1.75; color:#3A4256;">{{ r.reading }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="border:1px solid #E4E7EF; border-radius:12px; padding:14px 16px; margin-top:16px; break-inside:avoid;">
+    <div style="font-size:13px; font-weight:800; color:#B0863A;">关于“机会”与真实性</div>
+    <div style="margin-top:7px; font-size:13.5px; line-height:1.75; color:#3A4256;">{{ opportunity }}</div>
+  </div>
+  </sc-if>
+
+  <!-- 这一阶段（阶段模式） -->
+  <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:32px 0 6px; break-after:avoid;">这一阶段的使用与成长</h2>
+  <p style="font-size:14px; line-height:1.8; color:#5A6377; margin:0 0 14px;">这段时间，孩子在思维印记上的使用情况，以及思考维度的变化。</p>
+  <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; break-inside:avoid;">
+    <sc-for list="{{ stageStats }}" as="s" hint-placeholder-count="4">
+      <div style="border:1px solid #E4E7EF; border-radius:12px; padding:14px 12px; text-align:center;">
+        <div style="font-size:24px; font-weight:900; color:#2A3B7A;">{{ s.value }}</div>
+        <div style="font-size:12px; color:#6C7488; margin-top:4px;">{{ s.label }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:16px; border:1px solid #E4E7EF; border-radius:14px; padding:16px 18px; break-inside:avoid;">
+    <div style="font-size:15px; font-weight:800; color:#1C2333;">这段时间的变化</div>
+    <div style="margin-top:9px; font-size:14px; line-height:1.8; color:#3A4256;">{{ stageGrowth }}</div>
+  </div>
+  <sc-if value="{{ hasStageHighlight }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-top:12px; border:1px solid #DFEDE7; background:linear-gradient(180deg,#F3F9F6,#fff); border-radius:14px; padding:16px 18px; break-inside:avoid;">
+    <div style="font-size:14px; font-weight:800; color:#3E8A6E;">本阶段亮点</div>
+    <div style="margin-top:8px; font-size:14px; line-height:1.8; color:#2A3040;">{{ stageHighlight }}</div>
+  </div>
+  </sc-if>
+  <div style="margin-top:12px; font-size:14px; line-height:1.85; color:#3A4256;"><b style="color:#20263A;">往前看：</b>{{ stageForward }}</div>
+  </sc-if>
+
+  <!-- 下一步 -->
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:30px 0 6px; break-after:avoid;">下一步</h2>
+  <div style="font-size:14.5px; font-weight:800; color:#2A3B7A; margin:6px 0 10px;">在家可以怎么帮</div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <sc-for list="{{ advice }}" as="a" hint-placeholder-count="3">
+      <div style="display:flex; gap:12px; align-items:flex-start; border:1px solid #E4E7EF; border-radius:12px; padding:14px 16px; break-inside:avoid;">
+        <span style="flex:none; width:26px; height:26px; border-radius:8px; background:#EDEFF9; color:#2A3B7A; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;">{{ a.n }}</span>
+        <div><div style="font-size:14.5px; font-weight:800; color:#1C2333;">{{ a.title }}</div><div style="margin-top:5px; font-size:14px; line-height:1.75; color:#3A4256;">{{ a.text }}</div></div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="font-size:14.5px; font-weight:800; color:#3E8A6E; margin:18px 0 10px;">平台接下来会做</div>
+  <div style="display:flex; flex-direction:column; gap:8px;">
+    <sc-for list="{{ supply }}" as="s" hint-placeholder-count="2">
+      <div style="display:flex; gap:10px; align-items:flex-start; break-inside:avoid;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3E8A6E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:2px;"><path d="M20 6 9 17l-5-5"></path></svg>
+        <span style="font-size:14px; line-height:1.75; color:#3A4256;">{{ s }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- 名词解释 -->
+  <h2 style="font-size:19px; font-weight:800; color:#1C2333; margin:30px 0 12px; break-after:avoid;">名词解释</h2>
+  <div style="display:flex; flex-direction:column; gap:9px;">
+    <sc-for list="{{ glossary }}" as="g" hint-placeholder-count="6">
+      <div style="display:flex; gap:12px; align-items:flex-start; break-inside:avoid;">
+        <span style="flex:none; min-width:118px; font-size:13.5px; font-weight:800; color:#2A3B7A;">{{ g.term }}</span>
+        <span style="font-size:13.5px; line-height:1.7; color:#3A4256;">{{ g.def }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin-top:28px; padding-top:14px; border-top:1px solid #E4E7EF; font-size:12px; color:#9198A8; line-height:1.7;">{{ footer }}</div>
+
+</doc-page>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:1200},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;project&quot;,&quot;stage&quot;],&quot;default&quot;:&quot;project&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;student&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;lin&quot;,&quot;shen&quot;,&quot;zhou&quot;],&quot;default&quot;:&quot;lin&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { mode:(props&&props.mode)||'project', sid:(props&&props.student)||'lin' }; }
+
+  PDA = {
+ "lin": {
+  "glance": "方法对齐、证据充分，自主性较强，但仍保留改进空间",
+  "dOverview": "多数维度稳定在“熟练”，个别出现“优秀”表现。",
+  "aOverview": "本周期在六个方面都观察到主动信号，边界全程守住。",
+  "d": [
+   {
+    "name": "D1 任务理解与问题表述",
+    "level": "L4 倾向",
+    "reading": "RQ 的对象、情境、变量和结论边界清晰，能把宽泛影响问题转成可研究关系。"
+   },
+   {
+    "name": "D2 证据与信源",
+    "level": "L3-L4",
+    "reading": "文献能比较博彩广告、广告识别、normalization 和媒体嵌入性，gap 由文献关系推出。"
+   },
+   {
+    "name": "D3 论证结构",
+    "level": "L3",
+    "reading": "gap-method-evidence-new understanding 链条稳定；问卷和访谈互补，结论谨慎。"
+   },
+   {
+    "name": "D4 视角与偏见",
+    "level": "L3",
+    "reading": "能识别自陈数据、便利学区、无法证明因果、访谈样本小等限制，并讨论替代解释。"
+   },
+   {
+    "name": "D5 反馈处理与修订",
+    "level": "L3",
+    "reading": "根据审稿式反馈改写方法说明、重排图表、收窄结论，修订影响论证而非只是语言。"
+   },
+   {
+    "name": "D6 反思与元认知",
+    "level": "L3-L4",
+    "reading": "能说明原假设从“接触越多越正常化”转为“识别困难可能解释正常化”，并反思自身早期因果化倾向。"
+   }
+  ],
+  "a": [
+   {
+    "name": "A1 方向自主",
+    "score": "4级",
+    "reading": "有 6 个左右路线判断事件，跨选题、文献和方法阶段；学生主动把题目从“广告影响”改成“嵌入式广告与正常化感知的关系”。"
+   },
+   {
+    "name": "A2 发起自主",
+    "score": "4级",
+    "reading": "有 6 个左右自发检查或补证据动作，包括补充广告识别文献、试测问卷、修订访谈问题。"
+   },
+   {
+    "name": "A3 边界主权",
+    "score": "4级",
+    "reading": "有 6 条左右边界句，跨至少 3 个阶段；学生拒绝 AI 直接改写 discussion 的建议，并说明要保留自己的论证路线。"
+   },
+   {
+    "name": "A4 对抗与检验",
+    "score": "4级",
+    "reading": "有 6 次左右反方审稿或方法攻击请求，跨方法和结论阶段，至少 2 次形成修订；部分由引导后强化。"
+   },
+   {
+    "name": "A5 判断署名",
+    "score": "5级",
+    "reading": "有 8 次左右判断署名证据，能先自评 Paper 4 而不是 5，并解释薄弱点在 implications 与编码一致性。"
+   },
+   {
+    "name": "A6 求真优先",
+    "score": "4级",
+    "reading": "至少 2 次因证据收窄结论，愿意把原先更强的结论改小，承认研究不能证明行为变化。"
+   }
+  ]
+ },
+ "shen": {
+  "glance": "研究基本成立，但 gap、方法辩护和限制仍偏薄",
+  "dOverview": "多数维度在“发展”，部分已达“熟练”。",
+  "aOverview": "部分方面观察到主动信号，但边界偶有让渡，仍需稳定。",
+  "d": [
+   {
+    "name": "D1 任务理解与问题表述",
+    "level": "L3",
+    "reading": "RQ 已经把影响收窄为 perceived normalization，但对象和场景仍偏宽，U.S. high school students 与实际样本不完全一致。"
+   },
+   {
+    "name": "D2 证据与信源",
+    "level": "L2",
+    "reading": "有学术文献和政策材料，但文献之间的关系没有充分比较，gap 更多是声明而非分析推出。"
+   },
+   {
+    "name": "D3 论证结构",
+    "level": "L2-L3",
+    "reading": "能把问卷结果连接到有限结论，但数据解释仍偏描述，部分结论靠常识补足。"
+   },
+   {
+    "name": "D4 视角与偏见",
+    "level": "L2",
+    "reading": "承认自陈、便利样本和不能证明因果，但没有深入讨论题项效度和替代解释。"
+   },
+   {
+    "name": "D5 反馈处理与修订",
+    "level": "L2",
+    "reading": "能根据反馈补充限制和图表解释，但主要是局部补丁，未重构方法论证。"
+   },
+   {
+    "name": "D6 反思与元认知",
+    "level": "L2",
+    "reading": "能说出研究从“广告影响很大”修正为“广告接触与正常化感知相关”，但对自身检索策略反思不足。"
+   }
+  ],
+  "a": [
+   {
+    "name": "A1 方向自主",
+    "score": "2级",
+    "reading": "有 2-3 个路线判断事件，主要在老师引导后收窄 RQ；能解释一部分取舍，但主动路线调整证据有限。"
+   },
+   {
+    "name": "A2 发起自主",
+    "score": "2级",
+    "reading": "有 2-3 次补证据动作，其中包括主动补查两篇 gambling normalization 研究；但多数补证据仍来自反馈。"
+   },
+   {
+    "name": "A3 边界主权",
+    "score": "2级",
+    "reading": "有 2-3 条边界句或一次带来跟进的边界动作，但 AI 仍参与生成 limitations 初稿。"
+   },
+   {
+    "name": "A4 对抗与检验",
+    "score": "1级",
+    "reading": "只有 1 次要求 AI 挑方法问题，后续修订只吸收样本限制，未处理测量效度。"
+   },
+   {
+    "name": "A5 判断署名",
+    "score": "2级",
+    "reading": "能为结论范围负责并引用 rubric，但方法选择的辩护仍偏“问卷最方便”。"
+   },
+   {
+    "name": "A6 求真优先",
+    "score": "2级",
+    "reading": "有一次实质性收窄结论，把因果说法改为相关关系；但不利证据处理不够系统。"
+   }
+  ]
+ },
+ "zhou": {
+  "glance": "有社会议题和便利问卷，但研究仍像资料报告",
+  "dOverview": "各维度多在“起步”，作品仍接近资料整理。",
+  "aOverview": "本周期较少观察到主动信号，多次把关键判断交给 AI（机会已提供、暂未取用）。",
+  "d": [
+   {
+    "name": "D1 任务理解与问题表述",
+    "level": "L2",
+    "reading": "能说出研究对象和社会议题，但 RQ 中 affect 含义不明，不能区分注意、态度、风险感知、行为意向或实际行为。"
+   },
+   {
+    "name": "D2 证据与信源",
+    "level": "L1-L2",
+    "reading": "文献多为新闻和网页，学术文献只是背景引用，没有比较已有研究以推出 gap。"
+   },
+   {
+    "name": "D3 论证结构",
+    "level": "L1-L2",
+    "reading": "问卷结果被直接当作结论，缺少 claim-evidence-reasoning 的解释链。"
+   },
+   {
+    "name": "D4 视角与偏见",
+    "level": "L1",
+    "reading": "没有处理便利样本、自陈偏差、因果推断限制，也没有反方或替代解释。"
+   },
+   {
+    "name": "D5 反馈处理与修订",
+    "level": "L1",
+    "reading": "修订主要是让 AI 润色句子，未改变研究问题、方法或结论边界。"
+   },
+   {
+    "name": "D6 反思与元认知",
+    "level": "L1",
+    "reading": "反思停留在“我学到了广告有影响”，没有审视自己的检索和方法选择。"
+   }
+  ],
+  "a": [
+   {
+    "name": "A1 方向自主",
+    "score": "1级",
+    "reading": "仅有 1 个路线相关动作，且主要来自老师提醒和 AI 建议；学生没有主动修改路线的证据，并存在判断外包风险。"
+   },
+   {
+    "name": "A2 发起自主",
+    "score": "0级",
+    "reading": "观察窗口内 0 个可计自发补查、核查或二次分析事件；多数行动只是作业要求。"
+   },
+   {
+    "name": "A3 边界主权",
+    "score": "0级",
+    "reading": "0 条有效边界句，且频繁要求 AI 代写关键部分，未建立清晰边界。"
+   },
+   {
+    "name": "A4 对抗与检验",
+    "score": "0级",
+    "reading": "0 次对手邀请；没有要求 AI 或同伴质疑 gap、方法、样本或结论。"
+   },
+   {
+    "name": "A5 判断署名",
+    "score": "1级",
+    "reading": "只有被问到时才尝试说明档位，且无法解释方法选择；属于偶发、外部驱动证据。"
+   },
+   {
+    "name": "A6 求真优先",
+    "score": "1级",
+    "reading": "只在模板式 limitations 中承认样本小，不利证据和限制没有改变结论。"
+   }
+  ]
+ }
+};
+
+  SHARED = {
+    principles:[
+      {title:'只看证据，不猜分数', text:'每一个判断都附一句孩子自己写的或说的原话；写不出证据，我们就不下判断，而是记“暂无可计入的证据”。'},
+      {title:'两条轴分开看，不合成总分', text:'认知深度和智识自主是两件不同的事，我们不把它们加成一个分数，也从不预测考试或升学成绩。'},
+      {title:'先看机会，再看表现', text:'如果平台还没给到某个锻炼机会，那记成我们的欠账，不算孩子的短板；只有“机会已经给了、孩子没接住”，才算孩子的信号。'},
+      {title:'不贴标签、不排名', text:'报告只描述这一次作品里的行为，不评价孩子这个人，也不和其他同学做比较。'}
+    ],
+    dLevels:[
+      {label:'起步', color:'#C4574D', desc:'主要在复述资料，还没形成自己的问题和判断。'},
+      {label:'发展', color:'#C68A3A', desc:'能提出问题、找到一些证据，但论证和方法还比较薄。'},
+      {label:'熟练', color:'#3E7CA8', desc:'能把问题、方法、证据和结论连成一条线，会注意研究的局限。'},
+      {label:'优秀', color:'#3E8A6E', desc:'论证扎实、证据充分，能主动说明“这份研究不能说明什么”。'}
+    ],
+    dDims:[
+      {name:'D1 任务理解与问题表述', meaning:'能不能把一个宽泛的话题，收窄成真正能研究、能回答的问题。'},
+      {name:'D2 证据与信源', meaning:'会不会找资料、判断资料可不可信、说清每份资料能支持什么。'},
+      {name:'D3 论证结构', meaning:'能不能用证据一步步推出结论，而不是“结论大于证据”。'},
+      {name:'D4 视角与偏见', meaning:'有没有考虑反方观点、承认研究的局限和偏差。'},
+      {name:'D5 反馈处理与修订', meaning:'收到质疑后，是真的改进论证，还是只改了措辞。'},
+      {name:'D6 反思与元认知', meaning:'能不能回头审视自己的思路，说清自己的判断是怎么来的。'}
+    ],
+    aStates:[
+      {label:'观察到主动信号', color:'#3E8A6E', desc:'本周期多次、跨多个阶段地自己发起，是很好的自主表现。'},
+      {label:'偶有·多在引导后', color:'#C68A3A', desc:'出现过，但常需要老师或工具卡提醒才发生。'},
+      {label:'暂未观察到', color:'#C4574D', desc:'这一周期还没看到——可能是机会已提供但没取用，也可能是我们还没提供机会。'}
+    ],
+    aSignals:[
+      {name:'A1 方向自主', meaning:'是不是自己决定研究方向，而不是让老师或 AI 替他定。'},
+      {name:'A2 发起自主', meaning:'会不会主动去查证、补证据，而不是只做被要求的事。'},
+      {name:'A3 边界主权', meaning:'用 AI 时会不会设边界（“不要代写、不要编来源”）。'},
+      {name:'A4 对抗与检验', meaning:'会不会主动请人挑刺、找自己论证里的问题。'},
+      {name:'A5 判断署名', meaning:'愿不愿意为自己的结论负责，说清“这是我的判断”。'},
+      {name:'A6 求真优先', meaning:'证据不支持时，愿不愿意把结论改小，而不是硬撑。'}
+    ],
+    howList:[
+      {title:'D 轴按四个台阶判。', text:'我们逐条看孩子的表现落在哪个台阶，再看他“最稳定停留”在哪里——同一个台阶出现两次以上，才算稳定。'},
+      {title:'A 轴只记录信号、不打分。', text:'我们记的是“主动信号”出现了几次、是自己发起还是被提醒后发生，用三种状态呈现，全程不出现任何数字或等级。'},
+      {title:'反思维度只认孩子自己写的。', text:'“反思”这一项，只有孩子亲手写的反思才会被计入；如果没有，我们记“暂无可计入的证据”，而不是判低分。'},
+      {title:'真实性只记录、不处罚。', text:'如果关键部分由 AI 代写，我们如实记录并建议当面核对，用作教学起点，不作任何处罚。'}
+    ],
+    supply:[
+      '在下一个任务里主动给出“请 AI 当反方”和“提交前先自评”的机会，把这次没提供到的机会补上。',
+      '把“自己写一段反思”列入任务要求，让反思维度有据可依。'
+    ],
+    glossary:[
+      {term:'认知深度（D 轴）', def:'思考和论证走了多深，用起步 / 发展 / 熟练 / 优秀四个台阶来看。'},
+      {term:'智识自主（A 轴）', def:'孩子有多愿意、多能够自己做研究判断，只记录信号、不打分。'},
+      {term:'主动信号', def:'孩子自己发起的行为，比如主动质疑资料、主动请人挑刺、主动设边界。'},
+      {term:'机会供给先于判定', def:'先看平台有没有给到锻炼机会。没给到，算平台欠账；给了没接住，才算孩子的信号。'},
+      {term:'研究问题（RQ）', def:'一项研究想回答的核心问题，好的研究问题既不太大也不太空。'},
+      {term:'研究空白（gap）', def:'已有研究还没回答清楚、值得孩子去补上的地方。'},
+      {term:'求真优先', def:'当证据不支持时，愿意把结论改小、承认局限，而不是硬撑一个漂亮结论。'},
+      {term:'AI 边界', def:'使用 AI 时明确“不要代写、不要编造来源、不要替我下结论”。'},
+      {term:'自写反思', def:'孩子亲手写的、复盘自己思路的文字，是“反思”维度唯一的计入来源。'},
+      {term:'训练用判定', def:'把这一次作品对照“低 / 中 / 高”的参考样例，只描述作品，不代表孩子的能力上限，也不预测考分。'}
+    ],
+    footer:'本报告由思维印记基于孩子在平台上的过程记录生成，供家校沟通参考，不作为学业评价或升学依据。报告不合成总分、不预测考试成绩、不对孩子作类型化标签或与其他同学横向比较。如有疑问，欢迎与任课老师联系。'
+  };
+
+  STU = {
+    lin:{ name:'林知远', klass:'IBDP 一年级 · 研究组', subject:'嵌入式体育博彩广告与博彩正常化',
+      warmLine:'这一阶段，林知远在“自己拿主意”上表现突出——他把 AI 当成严厉的审稿人，而不是代笔。',
+      opportunity:'这次几乎所有的锻炼机会都是孩子自己创造的：主动请 AI 当反方、自己设定验收标准、主动承认删改不利证据的冲动并把它拦下来。真实性方面，AI 全程只作为审稿人和追问者，边界守得很好，可信度高。',
+      advice:[
+        {title:'请他讲给你听', text:'请他用一句话说清“这份研究不能说明什么”——他已经能做到，值得当面肯定。'},
+        {title:'保护他的自主', text:'继续鼓励他先自己判断、再去问 AI，别急着替他把问题解决掉。'},
+        {title:'给一点更高的挑战', text:'可以问他“如果要再进一步，还差哪一步”，让他自己找到下一个目标。'}
+      ],
+      stage:{ stats:[{value:'6 天',label:'本周活跃'},{value:'78',label:'对话轮次'},{value:'3 份',label:'生成报告'},{value:'5 节',label:'完成课程'}],
+        growth:'A 轴（自己想）继续保持高位；本周最明显的变化，是他主动把一个偏强的结论改小，并邀请 AI 来挑战自己的理由。',
+        highlight:'本周三次主动请 AI 扮演反方、挑自己方法里的问题，这是很成熟的学习方式。',
+        forward:'可以给他更高的目标，鼓励他把研究的“意义”写得更具体。' } },
+
+    shen:{ name:'沈亦然', klass:'IBDP 一年级 · 研究组', subject:'体育博彩广告与正常化感知',
+      warmLine:'沈亦然的研究已经基本成立，正处在从“发展”走向“熟练”的关键阶段。',
+      opportunity:'这次大部分机会都提供了，孩子在自己发起的环节表现更好；但“请 AI 当反方”主要还是靠老师提醒才用起来。真实性方面，有一段研究局限（limitations）由 AI 起草，建议核对哪些是孩子自己改写的。',
+      advice:[
+        {title:'一起看看证据', text:'和他聊“每张图能说明什么、不能说明什么”，帮他把结论收得更稳。'},
+        {title:'守住自己的边界', text:'鼓励他即使赶时间，也先自己写初稿、再让 AI 帮忙检查。'},
+        {title:'补一段方法说明', text:'请他讲讲“为什么用问卷、为什么不用访谈”，把方法辩护补上。'}
+      ],
+      stage:{ stats:[{value:'5 天',label:'本周活跃'},{value:'54',label:'对话轮次'},{value:'2 份',label:'生成报告'},{value:'4 节',label:'完成课程'}],
+        growth:'认知深度从“发展”迈向“熟练”，研究不再像资料汇报；接下来主要是把论证和方法辩护做扎实。',
+        highlight:'会主动用评分标准（rubric）来检查自己的方法段，这是很好的自我要求。',
+        forward:'把“为什么用这个方法”讲清楚，会让他的研究更上一个台阶。' } },
+
+    zhou:{ name:'周子墨', klass:'IBDP 一年级 · 研究组', subject:'体育博彩广告是否影响高中生',
+      warmLine:'周子墨刚开始接触真正的研究。现在的作品更像资料整理，这是起点，不是终点。',
+      opportunity:'这次有几处是“机会已经给了、但还没接住”——比如系统给了资料核查、结构上的质疑，孩子暂时没用起来；而“请 AI 当反方”“提交前自评”这类机会，我们还没充分提供，这部分是平台的欠账。真实性方面，本次有多段关键文字（题目、结论、答辩答案）由 AI 代写，需要当面核对，我们只记录、不处罚。',
+      advice:[
+        {title:'先问他一句', text:'拿他自己的问卷问“这些数据凭什么能说明‘影响’？”，让他先讲清楚再动笔。'},
+        {title:'一起设一条边界', text:'教他一句开头——“不要帮我写，只帮我找我漏掉的证据”，本周先用一次。'},
+        {title:'把第一步变小', text:'先把“影响”换成一个具体、能测量的说法，再一步步往下做。'}
+      ],
+      stage:{ stats:[{value:'3 天',label:'本周活跃'},{value:'22',label:'对话轮次'},{value:'1 份',label:'生成报告'},{value:'2 节',label:'完成课程'}],
+        growth:'使用刚起步，暂未见到思考维度的明显提升；目前更需要的是在家一起建立“先自己想、再问 AI”的习惯。',
+        highlight:'',
+        forward:'从“自己设一条边界”开始，就是很好的第一步。' } }
+  };
+
+  levelInfo(lv){ lv=String(lv);
+    const g={color:'#3E8A6E',bg:'#E4F0EA'}, b={color:'#3E7CA8',bg:'#E1EDF5'}, a={color:'#C68A3A',bg:'#F6EED9'}, r={color:'#C4574D',bg:'#F7E6E4'};
+    if(/L4/.test(lv)){ const label=/L3/.test(lv)?'熟练·优秀':(lv.includes('倾向')?'熟练→优秀':'优秀'); return {label,...g}; }
+    if(/L3/.test(lv)){ const label=/L2/.test(lv)?'发展·熟练':'熟练'; return {label,...b}; }
+    if(/L2/.test(lv)){ const label=/L1/.test(lv)?'起步·发展':'发展'; return {label,...a}; }
+    return {label:'起步',...r};
+  }
+  stateInfo(sc){ sc=String(sc);
+    if(/5级|4级/.test(sc)) return {state:'观察到主动信号', color:'#3E8A6E', bg:'#E4F0EA'};
+    if(/3级|2级/.test(sc)) return {state:'偶有·多在引导后', color:'#C68A3A', bg:'#F6EED9'};
+    return {state:'暂未观察到', color:'#C4574D', bg:'#F7E6E4'};
+  }
+
+  renderVals(){
+    const S=this.state; const sh=this.SHARED; const stu=this.STU[S.sid]||this.STU.lin; const pd=this.PDA[S.sid]||{d:[],a:[]};
+    const isProject=S.mode==='project', isStage=S.mode==='stage';
+    const modeTabs=[['project','项目报告'],['stage','阶段报告']].map(([k,label])=>({ label, onClick:()=>this.setState({mode:k}), style:`font-size:12.5px; font-weight:700; padding:6px 13px; border-radius:7px; cursor:pointer; color:${S.mode===k?'#2A3B7A':'#8A92A3'}; background:${S.mode===k?'#fff':'transparent'}; box-shadow:${S.mode===k?'0 1px 4px rgba(20,30,60,.1)':'none'};` }));
+    const studentChips=Object.keys(this.STU).map(id=>({ label:this.STU[id].name, onClick:()=>this.setState({sid:id}), style:`font-size:12.5px; font-weight:700; padding:6px 11px; border-radius:8px; cursor:pointer; color:${S.sid===id?'#fff':'#5A6377'}; background:${S.sid===id?'#2A3B7A':'#F1F2F6'};` }));
+    const now=new Date();
+    const cover={ name:stu.name, klass:stu.klass, warmLine:stu.warmLine,
+      typeLabel:isProject?'项目报告':'阶段报告',
+      subject:isProject?('研究项目 · '+stu.subject):'第 12 周（7.15–7.21）',
+      dateStr:`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日` };
+    const dRows=(pd.d||[]).map(x=>{ const i=this.levelInfo(x.level); return { name:x.name, badge:i.label, color:i.color, bg:i.bg, reading:x.reading }; });
+    const aRows=(pd.a||[]).map(x=>{ const i=this.stateInfo(x.score); return { name:x.name, state:i.state, color:i.color, bg:i.bg, reading:x.reading }; });
+    return {
+      isProject, isStage, modeTabs, studentChips, onPrint:()=>window.print(),
+      cover,
+      principles:sh.principles, dLevels:sh.dLevels, dDims:sh.dDims, aStates:sh.aStates, aSignals:sh.aSignals,
+      howList:sh.howList.map((h,i)=>({ n:i+1, title:h.title, text:h.text })),
+      glance:pd.glance||'', dOverview:pd.dOverview||'', aOverview:pd.aOverview||'', dRows, aRows, opportunity:stu.opportunity,
+      stageStats:stu.stage.stats, stageGrowth:stu.stage.growth, hasStageHighlight:!!stu.stage.highlight, stageHighlight:stu.stage.highlight, stageForward:stu.stage.forward,
+      advice:stu.advice.map((a,i)=>({ n:i+1, title:a.title, text:a.text })),
+      supply:sh.supply, glossary:sh.glossary, footer:sh.footer
+    };
+  }
+}
+</script>
+</body>
+</html>
