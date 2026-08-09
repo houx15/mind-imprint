@@ -144,7 +144,7 @@ ReviewVerdict {
 2. **子代理（sub-agent）**：点开在页面开一个 modal，子代理引导一段有步骤的小对话（如**提问卡**）。
 3. **预置函数（pre-built function）**：一个确定性工具（如按流程跑一段计算/检索/归类的函数）。
 
-#### 卡片目标分类（re-catalog 定稿 · 34 → 33）
+#### 卡片目标分类（re-catalog 定稿 · 34，不合并）
 
 四个「归属桶」，每张卡带 `placement` + `interaction`（form / sub-agent / function，取代废弃的中文 `interaction_type` 枚举）+ 触发条件：
 
@@ -154,10 +154,10 @@ ReviewVerdict {
 | framework | **question-card（提问卡）** — 触发权按条件切换：目标/motivation **为空→仅学生手动**；目标**已填但太泛→仅 AI 提议**（学生确认打开，铁律②）。*doc §2 framework 仅列此一张* | **sub-agent** |
 | proposal | **无**（doc §4） | — |
 | essay·写 claim | **pee（PEE 写作卡）** | form |
-| essay·写 claim | **论证解剖**（= toulmin + argument-map **合并**；claim/理据/证据/反方/局限） | form |
+| essay·写 claim | **toulmin（论证构建卡）** + **argument-map（论证地图卡）** — 两张论证卡**都保留**（用户决定不合并，见下） | form |
 | review | **learning-report** — 生成 AI 使用声明/学习报告（review 无「可召唤」卡，此卡是产出器） | **function** |
 
-*(doc-faithful：essay·写 claim 仅 pee + 论证解剖，见 doc §6 Cards。)*
+*(essay·写 claim = pee + toulmin + argument-map。doc §6 的 Cards 只写「PEE/论证解剖」一张论证卡；这里保留两张是用户的显式决定——见「合并/删除」。)*
 
 **桶 2 · 阅读室（本轮不改交互，但接收下列迁入）**
 - 核心阅读 deck 不动：craap, sift, lens-×9（11）。
@@ -168,7 +168,7 @@ ReviewVerdict {
 - ai-boundary（AI 可能幻觉时）、knower-perspective / metacognition（确认偏误 / 收尾）、emotional-alignment（卡住/抗拒）、rabbit-hole（兴趣捕捉）、ethics-lenses / ai-decision-tree、**perspective-matrix（单一视角时）**、**concession（论证段撞上相悖证据时）**。
 - 说明：perspective-matrix、concession 原拟入状态卡组，但 doc §2/§6 的 Cards 字段未列它们 → 按 doc 移入横切按需（仍可被 AI 上下文提议，只是不作固定卡组）。
 
-**合并/删除**：`toulmin` + `argument-map` → 一张 `论证解剖`（保留一个 id，删另一个）。无其他删除（桶 4 全部迁入阅读室，不删）。注册表 34 → **33**，同步更新 `packages/contracts/test/library.test.ts` 计数与 Go 镜像。
+**不合并（用户决定）**：`toulmin` 与 `argument-map` 深度嵌入 graph-effect（`card_effects.go`）、reading→writing classifier（`classifier.go` 自动召唤 + 挖 claim 节点）、一门种子课程（`seed_courses.go`）、写作卡架（`WritingBlock.tsx`）、召唤 allowlist 与 ~15 个测试；物理合并是一次专门重构，不属于 re-catalog，风险高。故**保留两张、不删不改内容**，essay·写 claim 同时提供两张。注册表**仍为 34**。（真正合并如日后要做，另开小切片，谨慎带测试。）无其他删除（桶 4 全部迁入阅读室，不删）。
 
 **交互类型落地推迟**：本轮只**重分类 + 重绑定 + 打 interaction 标签**；sub-agent（提问卡）与 function（learning-report）的**渲染器留待后续切片**（提案卡渲染器、review 报告器）。所有卡当前仍以 form 渲染。
 
@@ -250,5 +250,5 @@ ReviewVerdict {
 - **D · 提问卡触发权按条件切换**（目标空→仅学生手动；目标已填但不合适→仅 AI 提议）。
 - **E · 并入 topic**：`FlowTopic` 折叠进 framework，开始门直接进 目标。
 - **F · 检索只在 reading room**；写作页参考 tab = 提案要点/阅读笔记/AI批注，无检索 tab，用 needs-resources 盒跳转。
-- **卡片 re-catalog（定稿）**：34→33；信源分析 8 卡迁入阅读室（AI 按来源提议）；toulmin+argument-map 合并为「论证解剖」；桶 3 横切按需；search-plan→AI 侧；本轮只重分类+重绑定+打 interaction 标签，sub-agent/function 渲染器推迟。详见 Pillar 3.1「卡片目标分类」。
+- **卡片 re-catalog（定稿）**：**注册表仍 34，不合并**（toulmin+argument-map 深度嵌入 graph/classifier/课程/测试，用户决定保留两张，essay 同时提供）；信源分析 8 卡迁入阅读室（AI 按来源提议）；桶 3 横切按需（含 perspective-matrix / concession）；search-plan→AI 侧；framework 卡组=question-card（doc §2）；本轮只重分类+重绑定+打 interaction 标签，sub-agent/function 渲染器推迟。详见 Pillar 3.1「卡片目标分类」。
 - 每状态行为细节以 `docs/2026-08-09-all-statuses.md` 为单一真相源。

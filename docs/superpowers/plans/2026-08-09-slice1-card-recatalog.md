@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** Re-classify and re-bind the 34-card thinking-card library to the finalized model in the architecture spec — a lean per-status deck, an AI-offered reading toolkit, a cross-cutting on-demand pool — consolidating the two overlapping argument cards into one, and tagging every card with a first-class `interaction` type. **Re-classification + re-binding only; sub-agent/function renderers are deferred.**
+**Goal:** Re-classify and re-bind the 34-card thinking-card library to the finalized model in the architecture spec — a lean per-status deck, an AI-offered reading toolkit, a cross-cutting on-demand pool — and tag every card with a first-class `interaction` type. **No card content changes and no deletions** (the toulmin+argument-map merge is dropped per user decision — see "Card merge decision"). **Re-classification + re-binding only; sub-agent/function renderers are deferred.**
 
 **Architecture:** Card JSON in `packages/contracts/cards/*.json` is the single source of truth (Go mirrors it in `apps/api/internal/cards/specs/*.json`). Runtime binding lives in Go: `StatusRegistry().Cards` per `FlowStatus` (writing-flow decks), `ReadingDeckIDs` (reading room), and two NEW lists — `ReadingToolkitIDs` (relocated source-analysis tools) + `CrossCuttingCardIDs` (on-demand pool). `summon_card` becomes valid for `status-deck ∪ cross-cutting`.
 
@@ -11,19 +11,23 @@
 ## Global Constraints
 
 - **Card spec single source of truth = `packages/contracts`.** The Go `internal/cards/specs/*.json` is a hand-kept lockstep mirror — every JSON change here is made in BOTH copies, identical bytes for shared fields.
-- **Registry count is pinned** in `packages/contracts/test/library.test.ts`; update it when the count changes (34 → 33).
+- **Registry count stays 34** (no deletions this slice). `packages/contracts/test/library.test.ts`'s count assertion is unchanged.
+
+## Card merge decision (dropped)
+
+The finalized model originally consolidated `toulmin` + `argument-map` → one card (34→33). Investigation showed BOTH are deeply wired — graph-effects (`card_effects.go`), the reading→writing classifier that auto-summons + mints a claim node (`classifier.go`), a seeded course (`seed_courses.go`), the writing shelf (`WritingBlock.tsx`), the summon allowlist (`card_persist.go`), and ~15 tests. **User decision: keep both, no merge.** essay·claim offers both. The physical merge, if ever done, is its own carefully-tested slice. **Task 1 below is dropped.**
 - **No renderer work this slice.** All cards still render as forms (`CardRenderer`). We only add the `interaction` *tag*; `question-card`'s sub-agent modal and `learning-report`'s function generator are later slices.
 - **铁律②:** cards are offered/summoned, opened by the student — this slice changes *which* cards are offered where, never auto-opens them.
 - Go api suite runs foreground (testcontainers). `CGO_ENABLED=0` not needed here (no sqlc regen).
 - Deploy = commit to main + push, then `.deploy-local/deploy.sh <web|api|full>` (resets server to origin/main).
 
-## Finalized card model (target state — 33 cards)
+## Finalized card model (target state — 34 cards, no deletions)
 
 **Per-status decks** (`StatusRegistry().Cards`) — doc-faithful (doc §2/§4/§6/§7 Cards fields):
 - `framework`: `question-card` (sub-agent) — **only**, per doc §2
 - `topic`: folded into framework per spec decision E (Task 5)
 - `proposal`: **none** (doc §4)
-- `essay`: `pee`, `argument-map` (reworked → 论证解剖) — **only**, per doc §6
+- `essay`: `pee`, `toulmin`, `argument-map` (both argument cards kept — user decision; together they fill doc §6's 论证解剖 role)
 - `review`: **none summonable** (`learning-report` is a function-type producer, not a summon deck entry)
 
 **Reading room** (`ReadingDeckIDs`, unchanged core): `craap`, `sift`, `lens-logic`, `lens-methods`, `lens-society`, `lens-law`, `lens-economics`, `lens-ethics`, `lens-history`, `lens-communication`, `lens-systems` (11).
@@ -32,34 +36,19 @@
 
 **Cross-cutting on-demand** (NEW `CrossCuttingCardIDs`, summonable regardless of status): `ai-boundary`, `knower-perspective`, `metacognition`, `emotional-alignment`, `rabbit-hole`, `ethics-lenses`, `ai-decision-tree`, `perspective-matrix`, `concession` (9). *(perspective-matrix + concession moved here from status decks to stay doc-faithful to §2/§6.)*
 
-**Merge:** `toulmin` + `argument-map` → one `argument-map` reworked as 论证解剖; **`toulmin` deleted**.
+**Merge:** dropped — `toulmin` and `argument-map` both kept unchanged.
 
 **Interaction tags:** `question-card` = `sub-agent`; `learning-report` = `function`; all others = `form`.
 
 **Placement tag** on each card JSON: `"status"` | `"reading"` | `"reading-toolkit"` | `"cross-cutting"` — documentation + gallery + a drift test against the Go lists.
 
-Count check: status(question-card, pee, argument-map, learning-report = 4) + reading(11) + reading-toolkit(9 incl. search-plan) + cross-cutting(9) = 33. ✓
+Count check: status(question-card, pee, toulmin, argument-map, learning-report = 5) + reading(11) + reading-toolkit(9 incl. search-plan) + cross-cutting(9) = 34. ✓
 
 ---
 
-## Task 1: Consolidate `toulmin` + `argument-map` → 论证解剖
+## Task 1: ~~Consolidate toulmin + argument-map~~ — DROPPED
 
-**Files:**
-- Modify: `packages/contracts/cards/argument-map.json`, `apps/api/internal/cards/specs/argument-map.json`
-- Delete: `packages/contracts/cards/toulmin.json`, `apps/api/internal/cards/specs/toulmin.json`
-- Modify: `packages/contracts/src/registry.ts` (drop the `toulmin` import + DEFAULT_RAW entry)
-- Modify: `packages/contracts/test/library.test.ts` (34 → 33)
-- Modify: `apps/api/internal/cards/covers-manifest.json` if it lists `toulmin`
-- Test: `packages/contracts/test/library.test.ts`
-
-**Interfaces:**
-- Produces: a single `argument-map` card whose `name` = "论证解剖", steps cover claim / 理据(grounds) / 证据(evidence) / 反方(rebuttal) / 局限(limitation). Keeps id `argument-map` so existing essay-deck references need only drop `toulmin`.
-
-- [ ] **Step 1: Failing test** — in `library.test.ts`, assert `CARD_REGISTRY` size is 33 and `CARD_REGISTRY["toulmin"]` is undefined and `CARD_REGISTRY["argument-map"].name` contains "论证".
-- [ ] **Step 2:** run `cd packages/contracts && npx vitest run test/library.test.ts` — expect FAIL (still 34, toulmin present).
-- [ ] **Step 3:** rework `argument-map.json` (both copies) to 论证解剖 (merge toulmin's claim/grounds/rebuttal framing into argument-map's structure+fallacy steps; keep id `argument-map`); delete both `toulmin.json`; remove the `toulmin` import + map entry from `registry.ts`; remove `toulmin` from `covers-manifest.json` if present; set the count assertion to 33.
-- [ ] **Step 4:** run the test — expect PASS.
-- [ ] **Step 5:** Commit `refactor(cards): merge toulmin into argument-map as 论证解剖 (34→33)`.
+Per the "Card merge decision" above (user chose keep-both), there is no merge. Both cards stay unchanged. Slice 1 begins at Task 2.
 
 ## Task 2: First-class `interaction` field on the card schema
 
@@ -81,7 +70,7 @@ Count check: status(question-card, pee, argument-map, learning-report = 4) + rea
 ## Task 3: Placement tag + binding lists (reading-toolkit, cross-cutting) + summon validation
 
 **Files:**
-- Modify: all 33 card JSON (add `placement`), both copies — scripted, see Step 3
+- Modify: all 34 card JSON (add `placement`), both copies — scripted, see Step 3
 - Modify: `apps/api/internal/agent/studioflow.go` (rewire `StatusRegistry().Cards`; add `CrossCuttingCardIDs`; extend summon validity)
 - Modify: `apps/api/internal/agent/reading_deck.go` (add `ReadingToolkitIDs`)
 - Modify: `packages/contracts/src/cardSpec.ts` (add `placement` enum)
@@ -91,9 +80,9 @@ Count check: status(question-card, pee, argument-map, learning-report = 4) + rea
 - Produces: `placement?: "status" | "reading" | "reading-toolkit" | "cross-cutting"` on `CardSpec`; Go `CrossCuttingCardIDs []string`, `ReadingToolkitIDs []string`; a helper `IsSummonable(cardID string, status FlowStatus) bool` = `cardID ∈ StatusRegistry()[status].Cards ∪ CrossCuttingCardIDs`.
 - Consumes: existing `StatusRegistry()` / `ReadingDeckIDs`.
 
-- [ ] **Step 1: Failing test** (Go) — table asserting the finalized decks: `framework` = {question-card}; `proposal` = {} ; `essay` = {pee, argument-map}; `search-plan` NOT in any status deck; `CrossCuttingCardIDs` contains `ai-boundary`, `perspective-matrix`, `concession`; `IsSummonable("perspective-matrix", FlowProposal)` is true; `IsSummonable("cda", FlowEssay)` is false.
+- [ ] **Step 1: Failing test** (Go) — table asserting the finalized decks: `framework` = {question-card}; `proposal` = {} ; `essay` = {pee, toulmin, argument-map}; `search-plan` NOT in any status deck; `CrossCuttingCardIDs` contains `ai-boundary`, `perspective-matrix`, `concession`; `IsSummonable("perspective-matrix", FlowProposal)` is true; `IsSummonable("cda", FlowEssay)` is false.
 - [ ] **Step 2:** run `cd apps/api && go test ./internal/agent/ -run TestStatusRegistry -run TestCross...` — FAIL.
-- [ ] **Step 3:** rewire `StatusRegistry().Cards` to the finalized decks (framework = {question-card}; proposal `Cards: nil`; essay = {pee, argument-map}; review `Cards: nil`); drop `search-plan`/`craap`/`sift`/`perspective-matrix` from every writing deck; add `CrossCuttingCardIDs` (incl. perspective-matrix + concession) + `ReadingToolkitIDs` + `IsSummonable`; add `placement` to `cardSpec.ts`; tag every card JSON (both copies) via a script (status/reading/reading-toolkit/cross-cutting per the model).
+- [ ] **Step 3:** rewire `StatusRegistry().Cards` to the finalized decks (framework = {question-card}; proposal `Cards: nil`; essay = {pee, toulmin, argument-map}; review `Cards: nil`); drop `search-plan`/`craap`/`sift`/`perspective-matrix`/`cda` from the writing decks; add `CrossCuttingCardIDs` (incl. perspective-matrix + concession) + `ReadingToolkitIDs` + `IsSummonable`; add `placement` to `cardSpec.ts`; tag every card JSON (both copies) via a script (status/reading/reading-toolkit/cross-cutting per the model).
 - [ ] **Step 4:** add a contracts drift test: every card's `placement` tag agrees with the Go lists (encode the expected placement map in the test, or read a shared JSON) — and a Go test that `placement`-tagged ids partition cleanly (no id in two buckets). Run vitest + `go test ./internal/agent/`.
 - [ ] **Step 5:** Commit `feat(cards): placement taxonomy + reading-toolkit + cross-cutting pool + summon validity`.
 
@@ -136,9 +125,9 @@ Count check: status(question-card, pee, argument-map, learning-report = 4) + rea
 - Test: `packages/contracts/test/*` + web gallery test if one exists
 
 **Interfaces:**
-- Produces: `Catalog` rows carry `placement` + `interaction`; the 图鉴 still renders all 33 (no card vanishes from the gallery — placement is a grouping, not a filter).
+- Produces: `Catalog` rows carry `placement` + `interaction`; the 图鉴 still renders all 34 (no card vanishes from the gallery — placement is a grouping, not a filter).
 
-- [ ] **Step 1: Failing test** — `deriveCatalog()` rows include `placement` and `interaction`; catalog length 33.
+- [ ] **Step 1: Failing test** — `deriveCatalog()` rows include `placement` and `interaction`; catalog length 34.
 - [ ] **Step 2:** run vitest — FAIL.
 - [ ] **Step 3:** add the two fields to `deriveCatalog`; confirm the web gallery still lists all cards (adjust grouping label only if it referenced a removed card).
 - [ ] **Step 4:** run vitest + `cd apps/web && npx tsc -p tsconfig.json --noEmit` — PASS.
@@ -148,15 +137,15 @@ Count check: status(question-card, pee, argument-map, learning-report = 4) + rea
 
 - [ ] Run `cd packages/contracts && npx vitest run`; `cd apps/web && npx tsc --noEmit && npx vitest run`; `cd apps/api && go test ./internal/agent/ ./internal/api/ ./internal/cards/` (foreground). All green except the known `TestWeeklyReportForSeededClass` flake.
 - [ ] Commit to main + push; `.deploy-local/deploy.sh full`.
-- [ ] Live smoke (real frontend, `?trial=1`): a fresh project reaches `framework` on 开始 (no topic limbo); the framework coach offers only question-card; the essay room offers pee/论证解剖; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 33 cards. 0 console errors.
+- [ ] Live smoke (real frontend, `?trial=1`): a fresh project reaches `framework` on 开始 (no topic limbo); the framework coach offers only question-card; the essay room offers pee + toulmin + argument-map; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 34 cards. 0 console errors.
 
-**Acceptance:** the registry is 33 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model; `toulmin` is gone (merged); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card.
+**Acceptance:** the registry stays 34 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model (essay = pee + toulmin + argument-map); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card.
 
 ---
 
 ## Self-Review
 
-- **Spec coverage:** re-catalog buckets (Tasks 1/3), consolidation (Task 1), interaction types (Task 2), placement + reading-toolkit + cross-cutting (Task 3), summon gating (Task 4), topic-merge E (Task 5), gallery (Task 6), deploy/smoke (Task 7). ✓
+- **Spec coverage:** re-catalog buckets (Task 3), merge dropped (see Card merge decision), interaction types (Task 2), placement + reading-toolkit + cross-cutting (Task 3), summon gating (Task 4), topic-merge E (Task 5), gallery (Task 6), deploy/smoke (Task 7). ✓
 - **Types:** `interaction`, `placement`, `CrossCuttingCardIDs`, `ReadingToolkitIDs`, `IsSummonable` used consistently across tasks.
 - **Placeholders:** none — each task names exact files, the finalized card lists are in "Finalized card model," and every code step has a concrete assertion.
 - **Mirror discipline:** every JSON change is called out as "both copies" (contracts + Go), with the count test as the backstop.
