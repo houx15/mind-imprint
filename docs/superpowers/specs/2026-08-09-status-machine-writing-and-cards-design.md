@@ -151,13 +151,13 @@ ReviewVerdict {
 **桶 1 · 按状态卡组（精简，doc-named）**
 | 状态 | 卡 | interaction |
 |---|---|---|
-| framework | **question-card（提问卡）** — 触发权按条件切换：目标/motivation **为空→仅学生手动**；目标**已填但太泛→仅 AI 提议**（学生确认打开，铁律②） | **sub-agent** |
-| framework | perspective-matrix（视角对照矩阵） | form |
-| proposal | **无** | — |
+| framework | **question-card（提问卡）** — 触发权按条件切换：目标/motivation **为空→仅学生手动**；目标**已填但太泛→仅 AI 提议**（学生确认打开，铁律②）。*doc §2 framework 仅列此一张* | **sub-agent** |
+| proposal | **无**（doc §4） | — |
 | essay·写 claim | **pee（PEE 写作卡）** | form |
 | essay·写 claim | **论证解剖**（= toulmin + argument-map **合并**；claim/理据/证据/反方/局限） | form |
-| essay·写 claim | concession（让步段） | form |
 | review | **learning-report** — 生成 AI 使用声明/学习报告（review 无「可召唤」卡，此卡是产出器） | **function** |
+
+*(doc-faithful：essay·写 claim 仅 pee + 论证解剖，见 doc §6 Cards。)*
 
 **桶 2 · 阅读室（本轮不改交互，但接收下列迁入）**
 - 核心阅读 deck 不动：craap, sift, lens-×9（11）。
@@ -165,7 +165,8 @@ ReviewVerdict {
 - **search-plan（检索方向审视）→ AI 侧**（AI 给检索建议时用，非学生召唤）。
 
 **桶 3 · 横切·按需（无状态卡组，AI 依上下文提议）**
-- ai-boundary（AI 可能幻觉时）、knower-perspective / metacognition（确认偏误 / 收尾）、emotional-alignment（卡住/抗拒）、rabbit-hole（兴趣捕捉）、ethics-lenses / ai-decision-tree。
+- ai-boundary（AI 可能幻觉时）、knower-perspective / metacognition（确认偏误 / 收尾）、emotional-alignment（卡住/抗拒）、rabbit-hole（兴趣捕捉）、ethics-lenses / ai-decision-tree、**perspective-matrix（单一视角时）**、**concession（论证段撞上相悖证据时）**。
+- 说明：perspective-matrix、concession 原拟入状态卡组，但 doc §2/§6 的 Cards 字段未列它们 → 按 doc 移入横切按需（仍可被 AI 上下文提议，只是不作固定卡组）。
 
 **合并/删除**：`toulmin` + `argument-map` → 一张 `论证解剖`（保留一个 id，删另一个）。无其他删除（桶 4 全部迁入阅读室，不删）。注册表 34 → **33**，同步更新 `packages/contracts/test/library.test.ts` 计数与 Go 镜像。
 

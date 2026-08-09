@@ -19,18 +19,18 @@
 
 ## Finalized card model (target state — 33 cards)
 
-**Per-status decks** (`StatusRegistry().Cards`):
-- `framework`: `question-card` (sub-agent), `perspective-matrix`
-- `topic`: (folded into framework per spec decision E — see Task 5; keep `question-card` if topic stage still resolves)
-- `proposal`: **none**
-- `essay`: `pee`, `argument-map` (reworked → 论证解剖), `concession`
+**Per-status decks** (`StatusRegistry().Cards`) — doc-faithful (doc §2/§4/§6/§7 Cards fields):
+- `framework`: `question-card` (sub-agent) — **only**, per doc §2
+- `topic`: folded into framework per spec decision E (Task 5)
+- `proposal`: **none** (doc §4)
+- `essay`: `pee`, `argument-map` (reworked → 论证解剖) — **only**, per doc §6
 - `review`: **none summonable** (`learning-report` is a function-type producer, not a summon deck entry)
 
 **Reading room** (`ReadingDeckIDs`, unchanged core): `craap`, `sift`, `lens-logic`, `lens-methods`, `lens-society`, `lens-law`, `lens-economics`, `lens-ethics`, `lens-history`, `lens-communication`, `lens-systems` (11).
 
 **Reading toolkit** (NEW `ReadingToolkitIDs`, AI-offered when a source is open — wiring deferred, tagging only): `cda`, `money-trail`, `multimodal-decode`, `spin-detector`, `data-literacy`, `fact-opinion-value`, `opcvl`, `belief-spectrum` (8). Plus `search-plan` → AI-side (reading), removed from student decks.
 
-**Cross-cutting on-demand** (NEW `CrossCuttingCardIDs`, summonable regardless of status): `ai-boundary`, `knower-perspective`, `metacognition`, `emotional-alignment`, `rabbit-hole`, `ethics-lenses`, `ai-decision-tree` (7).
+**Cross-cutting on-demand** (NEW `CrossCuttingCardIDs`, summonable regardless of status): `ai-boundary`, `knower-perspective`, `metacognition`, `emotional-alignment`, `rabbit-hole`, `ethics-lenses`, `ai-decision-tree`, `perspective-matrix`, `concession` (9). *(perspective-matrix + concession moved here from status decks to stay doc-faithful to §2/§6.)*
 
 **Merge:** `toulmin` + `argument-map` → one `argument-map` reworked as 论证解剖; **`toulmin` deleted**.
 
@@ -38,7 +38,7 @@
 
 **Placement tag** on each card JSON: `"status"` | `"reading"` | `"reading-toolkit"` | `"cross-cutting"` — documentation + gallery + a drift test against the Go lists.
 
-Count check: status(question-card, perspective-matrix, pee, argument-map, concession, learning-report = 6) + reading(11) + reading-toolkit(9 incl. search-plan) + cross-cutting(7) = 33. ✓
+Count check: status(question-card, pee, argument-map, learning-report = 4) + reading(11) + reading-toolkit(9 incl. search-plan) + cross-cutting(9) = 33. ✓
 
 ---
 
@@ -91,9 +91,9 @@ Count check: status(question-card, perspective-matrix, pee, argument-map, conces
 - Produces: `placement?: "status" | "reading" | "reading-toolkit" | "cross-cutting"` on `CardSpec`; Go `CrossCuttingCardIDs []string`, `ReadingToolkitIDs []string`; a helper `IsSummonable(cardID string, status FlowStatus) bool` = `cardID ∈ StatusRegistry()[status].Cards ∪ CrossCuttingCardIDs`.
 - Consumes: existing `StatusRegistry()` / `ReadingDeckIDs`.
 
-- [ ] **Step 1: Failing test** (Go) — table asserting the finalized decks: `framework` = {question-card, perspective-matrix}; `proposal` = {} ; `essay` = {pee, argument-map, concession}; `search-plan` NOT in any status deck; `CrossCuttingCardIDs` contains `ai-boundary`; `IsSummonable("ai-boundary", FlowProposal)` is true; `IsSummonable("cda", FlowEssay)` is false.
+- [ ] **Step 1: Failing test** (Go) — table asserting the finalized decks: `framework` = {question-card}; `proposal` = {} ; `essay` = {pee, argument-map}; `search-plan` NOT in any status deck; `CrossCuttingCardIDs` contains `ai-boundary`, `perspective-matrix`, `concession`; `IsSummonable("perspective-matrix", FlowProposal)` is true; `IsSummonable("cda", FlowEssay)` is false.
 - [ ] **Step 2:** run `cd apps/api && go test ./internal/agent/ -run TestStatusRegistry -run TestCross...` — FAIL.
-- [ ] **Step 3:** rewire `StatusRegistry().Cards` to the finalized decks (drop search-plan from framework/proposal; drop craap/sift/argument-map-dup/search-plan from proposal → proposal `Cards: nil`; essay = pee/argument-map/concession; framework = question-card/perspective-matrix); add `CrossCuttingCardIDs` + `ReadingToolkitIDs` + `IsSummonable`; add `placement` to `cardSpec.ts`; tag every card JSON (both copies) via a script (status/reading/reading-toolkit/cross-cutting per the model).
+- [ ] **Step 3:** rewire `StatusRegistry().Cards` to the finalized decks (framework = {question-card}; proposal `Cards: nil`; essay = {pee, argument-map}; review `Cards: nil`); drop `search-plan`/`craap`/`sift`/`perspective-matrix` from every writing deck; add `CrossCuttingCardIDs` (incl. perspective-matrix + concession) + `ReadingToolkitIDs` + `IsSummonable`; add `placement` to `cardSpec.ts`; tag every card JSON (both copies) via a script (status/reading/reading-toolkit/cross-cutting per the model).
 - [ ] **Step 4:** add a contracts drift test: every card's `placement` tag agrees with the Go lists (encode the expected placement map in the test, or read a shared JSON) — and a Go test that `placement`-tagged ids partition cleanly (no id in two buckets). Run vitest + `go test ./internal/agent/`.
 - [ ] **Step 5:** Commit `feat(cards): placement taxonomy + reading-toolkit + cross-cutting pool + summon validity`.
 
@@ -148,7 +148,7 @@ Count check: status(question-card, perspective-matrix, pee, argument-map, conces
 
 - [ ] Run `cd packages/contracts && npx vitest run`; `cd apps/web && npx tsc --noEmit && npx vitest run`; `cd apps/api && go test ./internal/agent/ ./internal/api/ ./internal/cards/` (foreground). All green except the known `TestWeeklyReportForSeededClass` flake.
 - [ ] Commit to main + push; `.deploy-local/deploy.sh full`.
-- [ ] Live smoke (real frontend, `?trial=1`): a fresh project reaches `framework` on 开始 (no topic limbo); the framework coach offers only question-card/perspective-matrix; the essay room offers pee/论证解剖/concession; a cross-cutting card (e.g. ai-boundary) is summonable mid-writing; the 图鉴 still shows all 33 cards. 0 console errors.
+- [ ] Live smoke (real frontend, `?trial=1`): a fresh project reaches `framework` on 开始 (no topic limbo); the framework coach offers only question-card; the essay room offers pee/论证解剖; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 33 cards. 0 console errors.
 
 **Acceptance:** the registry is 33 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model; `toulmin` is gone (merged); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card.
 
