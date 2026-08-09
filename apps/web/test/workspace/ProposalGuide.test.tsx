@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ProposalGuide, appendPartReview } from "@/workspace/blocks/ProposalGuide";
+import { ProposalGuide } from "@/workspace/blocks/ProposalGuide";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
-import type { StudioChatMsg } from "@/studio/ai/StudioChatContext";
 
 function step(over: Partial<ProposalGuideStep> = {}): ProposalGuideStep {
   return {
@@ -84,21 +83,5 @@ describe("ProposalGuide", () => {
 
     fireEvent.click(screen.getByText("先去做文献探索"));
     expect(h.onOpenReading).toHaveBeenCalled();
-  });
-});
-
-describe("appendPartReview", () => {
-  it("surfaces the verdict as a 印记 bubble with the step title", () => {
-    let msgs: StudioChatMsg[] = [];
-    const setMessages = vi.fn((u: (c: StudioChatMsg[]) => StudioChatMsg[]) => { msgs = u(msgs); });
-    appendPartReview({ ready: true, why: "扎实", suggestions: ["更具体"] }, "对题目的理解", setMessages as never);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0]!.text).toContain("对题目的理解");
-    expect(msgs[0]!.text).toContain("- 更具体");
-  });
-  it("is a no-op without a verdict", () => {
-    const setMessages = vi.fn();
-    appendPartReview(null, "x", setMessages as never);
-    expect(setMessages).not.toHaveBeenCalled();
   });
 });

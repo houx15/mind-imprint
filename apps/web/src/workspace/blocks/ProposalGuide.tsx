@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
-import type { ProposalGuideStep, ReviewVerdict, SubQuestion } from "@mind-imprint/contracts";
+import type { ProposalGuideStep, SubQuestion } from "@mind-imprint/contracts";
 import { useProposalTrack } from "./useProposalTrack";
 import { reviewProposalPart } from "../../api/proposalTrack";
 import { getDraft } from "../api/workspace";
-import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
+import { useStudioChat } from "@/studio/ai/StudioChatContext";
 import { ProsePane } from "./ProsePane";
 
 // ProposalGuide — slice 3a · the guided proposal scaffold that sits ABOVE the
@@ -25,21 +24,6 @@ const OUTLINE_PARTS = [
   "可行性 / 限制 / 伦理",
   "预期结果",
 ];
-
-// appendPartReview surfaces the "我写好了" reasoning review as a 印记 bubble
-// (3a interim; 3b upgrades to anchored colored 批注).
-export function appendPartReview(
-  verdict: ReviewVerdict | null | undefined,
-  stepTitle: string,
-  setMessages: Dispatch<SetStateAction<StudioChatMsg[]>>,
-): void {
-  if (!verdict) return;
-  const lines = [`（我看了你写的「${stepTitle}」）${verdict.why}`];
-  if (verdict.suggestions.length > 0) {
-    lines.push("", "可以再打磨：", ...verdict.suggestions.map((s) => `- ${s}`));
-  }
-  setMessages((c) => [...c, { role: "ai", text: lines.join("\n") }]);
-}
 
 // ── Presentational scaffold (pure; easy to test) ────────────────────────────
 
@@ -318,13 +302,16 @@ export function ProposalGuidePane({
   projectId,
   locked,
   onOpenReading,
+  onAnnotationsChanged,
 }: {
   projectId: string;
   locked: boolean;
   onOpenReading: (note?: string) => void;
+  // slice 3b · fired after a review produces 批注, so the left panel re-fetches.
+  onAnnotationsChanged?: () => void;
 }) {
   const track = useProposalTrack(projectId);
-  const { setMessages, sendStudioTurn } = useStudioChat();
+  const { sendStudioTurn } = useStudioChat();
   const [reviewing, setReviewing] = useState(false);
   const [bufferNonEmpty, setBufferNonEmpty] = useState(false);
 
@@ -347,8 +334,9 @@ export function ProposalGuidePane({
     if (!step) return;
     setReviewing(true);
     try {
-      const v = await reviewProposalPart(projectId, step.key);
-      appendPartReview(v, step.title, setMessages);
+      // The flagship reviewer produces 批注 (view-only, left panel — 铁律①).
+      await reviewProposalPart(projectId, step.key);
+      onAnnotationsChanged?.();
     } catch {
       /* best-effort; still advance */
     } finally {
@@ -375,7 +363,7 @@ export function ProposalGuidePane({
         />
       )}
       <div className="min-h-0 flex-1">
-        <ProsePane projectId={projectId} doc="proposal" locked={locked} />
+        <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
       </div>
     </div>
   );

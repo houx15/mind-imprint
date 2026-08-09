@@ -1,4 +1,5 @@
-import { ProposalGuideStep, ReviewVerdict, type SubQuestion } from "@mind-imprint/contracts";
+import { z } from "zod";
+import { ProposalGuideStep, DraftAnnotation, type SubQuestion } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 // proposalTrack.ts — slice 3a · the proposal-writing guide-step track client.
@@ -39,13 +40,13 @@ export async function advanceProposalStep(projectId: string, dir: "next" | "prev
   return ProposalGuideStep.parse(raw);
 }
 
-// The "我写好了" interim review of the current part (3a: suggestions in chat; 3b
-// upgrades to anchored colored 批注). `stepKey` optional — defaults to the
-// current step server-side.
-export async function reviewProposalPart(projectId: string, stepKey?: string): Promise<ReviewVerdict> {
+// The "我写好了" review of the current part (slice 3b): the flagship reviewer
+// returns layered colored 批注 rendered view-only in the left panel. `stepKey`
+// optional — defaults to the current step server-side.
+export async function reviewProposalPart(projectId: string, stepKey?: string): Promise<DraftAnnotation[]> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/proposal-track/review`, {
     method: "POST",
     body: JSON.stringify({ stepKey: stepKey ?? "" }),
   });
-  return ReviewVerdict.parse(raw);
+  return z.object({ annotations: z.array(DraftAnnotation) }).parse(raw).annotations;
 }

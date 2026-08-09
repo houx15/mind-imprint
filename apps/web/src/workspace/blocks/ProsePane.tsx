@@ -17,20 +17,40 @@ export function ProsePane({
   doc = "proposal",
   locked = false,
   placeholder = "在这里写你的研究提案——你想探究什么、为什么值得、打算怎么做。\n\n支持 Markdown。写完后点上方的「完成提案」。",
+  onSendToCoach,
 }: {
   projectId: string;
   doc?: WritingDocKind;
   locked?: boolean;
   placeholder?: string;
+  // slice 3b · select-to-send: pins the selected text into the coach thread.
+  onSendToCoach?: (text: string) => void;
 }) {
   const [text, setText] = useState("");
   const [preview, setPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "dirty" | "saving">("saved");
+  const [selPop, setSelPop] = useState<{ x: number; y: number; text: string } | null>(null);
   const textRef = useRef("");
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paneRef = useRef<HTMLDivElement | null>(null);
   const words = text.replace(/\s+/g, "").length;
+
+  // slice 3b · select-to-send. On mouse-up over a selection, float a "问印记"
+  // chip; clicking pins the selection into the coach thread (text only). Mirrors
+  // the essay DraftPane's selPop.
+  function onMouseUp(e: React.MouseEvent<HTMLTextAreaElement>) {
+    if (locked || !onSendToCoach) return;
+    const ta = e.currentTarget;
+    const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
+    if (!sel) {
+      setSelPop(null);
+      return;
+    }
+    const paneBox = paneRef.current?.getBoundingClientRect();
+    setSelPop({ x: e.clientX - (paneBox?.left ?? 0), y: e.clientY - (paneBox?.top ?? 0), text: sel });
+  }
 
   // Load the persisted proposal buffer on mount / doc change ("" when none yet).
   useEffect(() => {
@@ -108,6 +128,7 @@ export function ProsePane({
     textRef.current = next;
     dirtyRef.current = true;
     if (!savingRef.current) setSaveStatus("dirty");
+    setSelPop(null); // an edit invalidates the pending selection chip
     scheduleSave(1200);
   }
 
@@ -116,7 +137,7 @@ export function ProsePane({
   return (
     // §4: no top icon bar — word count + save status live in a lower-right
     // overlay, with an unobtrusive preview toggle beside them.
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div ref={paneRef} className="relative flex h-full min-h-0 flex-col">
       {/* surface */}
       <div className="min-h-0 flex-1 overflow-auto px-8 py-5">
         {preview ? (
@@ -131,11 +152,24 @@ export function ProsePane({
           <textarea
             value={text}
             onChange={(e) => onChange(e.target.value)}
+            onMouseUp={onMouseUp}
             readOnly={locked}
             placeholder={placeholder}
             aria-label="研究提案正文"
             className="mx-auto block h-full w-full max-w-[70ch] resize-none bg-transparent text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted"
           />
+        )}
+        {/* slice 3b · the floating 问印记 chip next to a selection */}
+        {selPop && !preview && !locked && onSendToCoach && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()} // keep the textarea selection alive
+            onClick={() => { onSendToCoach(selPop.text); setSelPop(null); }}
+            style={{ left: selPop.x, top: selPop.y + 8 }}
+            className="absolute z-10 rounded-mk-md bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white shadow-mk-md hover:bg-mk-accent-600"
+          >
+            问印记
+          </button>
         )}
       </div>
 
