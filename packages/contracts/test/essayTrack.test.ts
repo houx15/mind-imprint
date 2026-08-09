@@ -30,11 +30,11 @@ describe("Reference evidence fields (slice 4a)", () => {
     tags: [], collectionId: null, credibility: null, evaluation: "", decision: null, pending: false,
     searchHints: [], materialId: null, notes: [],
   };
-  it("parses without the new fields (back-compat)", () => {
+  it("parses without the new fields (back-compat; optional → undefined)", () => {
     const r = Reference.parse(base);
-    expect(r.triage).toBe("");
-    expect(r.evidenceNature).toBe("");
-    expect(r.archived).toBe(false);
+    expect(r.triage).toBeUndefined();
+    expect(r.evidenceNature).toBeUndefined();
+    expect(r.archived).toBeUndefined();
   });
   it("parses with evidence fields set", () => {
     const r = Reference.parse({ ...base, triage: "red", evidenceNature: "challenge", evidenceArgument: "a", evidenceFinding: "f", evidencePlacement: "p", archived: true });
