@@ -33,6 +33,20 @@ var ReadingDeckIDs = []string{
 	"lens-history", "lens-communication", "lens-systems", // 语境与系统
 }
 
+// ReadingToolkitIDs are the source-analysis cards the coach offers INSIDE the
+// reading room, contextually, when a relevant source is open (e.g. opcvl for a
+// history source, money-trail for a funded report). Re-catalog 2026-08-09
+// (bucket 4): these left the writing-flow decks — they're source-critique tools,
+// belonging where sources are read. search-plan (检索方向审视) is AI-side here:
+// the coach uses it when proposing search directions, not a student summon.
+// Wiring the per-source offer is a later reading-room slice; this list is the
+// authoritative membership + the placement-tag drift check.
+var ReadingToolkitIDs = []string{
+	"cda", "money-trail", "multimodal-decode", "spin-detector",
+	"data-literacy", "fact-opinion-value", "opcvl", "belief-spectrum",
+	"search-plan",
+}
+
 // ReadingDeck resolves ReadingDeckIDs against the card registry. It errors if
 // any id is missing — the deck must never drift from the specs that back it.
 func ReadingDeck() ([]ReadingCard, error) {

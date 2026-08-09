@@ -23,8 +23,14 @@ type Spec struct {
 	Purpose          string `json:"purpose"`
 	TriggerCondition string `json:"trigger_condition"`
 	InteractionType  string `json:"interaction_type"`
-	Mode             string `json:"mode"`
-	Steps            []Step `json:"steps"`
+	// Interaction (re-catalog 2026-08-09): first-class interaction type
+	// (form / sub-agent / function), replacing InteractionType. Placement names
+	// which surface offers the card (status / reading / reading-toolkit /
+	// cross-cutting) — a drift test cross-checks it against the binding lists.
+	Interaction string `json:"interaction"`
+	Placement   string `json:"placement"`
+	Mode        string `json:"mode"`
+	Steps       []Step `json:"steps"`
 
 	// Gallery metadata (工具卡图鉴): AssetID is the cover-art set key (T-number),
 	// empty when no design exists; Example is a short worked example. Both

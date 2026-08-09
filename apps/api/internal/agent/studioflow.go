@@ -76,7 +76,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "学生还没定研究问题——陪他把一个模糊的兴趣收成一句清晰、可研究的问题。",
 			SystemPrompt: mkPrompt("学生还没定研究问题——陪他把一个模糊的兴趣收成一句清晰、可研究的问题。别替他定题。", toolProposeQ),
 			Tools:        []string{"propose_question"},
-			Cards:        []string{"question-card", "perspective-matrix"},
+			Cards:        []string{"question-card"},
 			Surface:      ToolChat,
 			Doc:          DocNone,
 		},
@@ -84,7 +84,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "把研究计划的四件事聊清楚：目标、缘由、活动与时间、资源（反例可选）。四项齐了系统会自动生成计划。",
 			SystemPrompt: mkPrompt("把研究计划的四件事聊清楚——目标、缘由、活动与时间、资源（反例/张力可选）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项都有内容后系统会自动生成计划，你不用提议生成，只需继续把内容聊扎实。", toolProposeNote, toolSummonCard),
 			Tools:        []string{"propose_note", "summon_card"},
-			Cards:        []string{"question-card", "perspective-matrix", "search-plan"},
+			Cards:        []string{"question-card"},
 			Surface:      ToolForming,
 			Doc:          DocNone,
 		},
@@ -92,7 +92,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "陪学生把研究提案写成一段紧凑的文字（研究问题 + 文献范围 + 执行计划）。他自己写，你只陪想、查论证、点反例。",
 			SystemPrompt: mkPrompt("学生在写研究提案文档（研究问题+文献范围+执行计划，约一页）。他自己写正文，你绝不代写——只陪他想清楚、检查论证与结构、一次一问。他想读资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard),
 			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card"},
-			Cards:        []string{"craap", "sift", "search-plan", "argument-map"},
+			Cards:        nil, // doc §4: 提案无卡组；仍可召唤横切按需卡
 			Surface:      ToolWriting,
 			Doc:          DocProposal,
 		},
@@ -100,7 +100,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "陪学生写正文（大纲 → 片段 → 正文）。他自己写，你只陪想、查论证、撞反例、点结构。",
 			SystemPrompt: mkPrompt("学生在写论文正文（大纲/片段/正文）。他自己写正文，你绝不代写——陪他把论证一根根立起来、撞反例、检查结构，一次一问。缺资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard),
 			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card"},
-			Cards:        []string{"toulmin", "pee", "concession", "argument-map", "cda"},
+			Cards:        []string{"pee", "toulmin", "argument-map"},
 			Surface:      ToolWriting,
 			Doc:          DocEssay,
 		},
@@ -108,11 +108,39 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "陪学生写回顾——不是答辩，别追问、别考他，帮他把自己的思考和收获说清楚。绝不替他下结论。",
 			SystemPrompt: mkPrompt("学生在写回顾/复盘（目标是否达成、方法与数据、过程中的问题、局限、收获，或与 AI 互动的使用声明）。这不是答辩——顺着他卡住的那部分一次问一个开放问题，帮他想起细节、找到自己的措辞。绝不替他下结论、绝不替他把话写出来。"),
 			Tools:        []string{},
-			Cards:        []string{"metacognition", "learning-report", "ai-boundary", "knower-perspective"},
+			Cards:        nil, // doc §7: 回顾无可召唤卡组（learning-report 是 function 产出器，非召唤）
 			Surface:      ToolReflection,
 			Doc:          DocNone,
 		},
 	}
+}
+
+// CrossCuttingCardIDs are the on-demand thinking cards the coach may summon
+// REGARDLESS of status — they answer a contextual need (AI might be
+// hallucinating, the student is one-sided / stuck / showing confirmation bias),
+// not a phase. They sit in no status deck; IsSummonable adds them to every
+// status's summonable set. Re-catalog 2026-08-09 (bucket 3).
+var CrossCuttingCardIDs = []string{
+	"ai-boundary", "knower-perspective", "metacognition", "emotional-alignment",
+	"rabbit-hole", "ethics-lenses", "ai-decision-tree", "perspective-matrix", "concession",
+}
+
+// IsSummonable reports whether the coach may summon cardID in the given status:
+// the status's own deck ∪ the cross-cutting pool. Reading-deck / reading-toolkit
+// cards are summoned inside the reading room, not via the writing-flow statuses,
+// so they are NOT summonable here.
+func IsSummonable(cardID string, status FlowStatus) bool {
+	for _, id := range StatusRegistry()[status].Cards {
+		if id == cardID {
+			return true
+		}
+	}
+	for _, id := range CrossCuttingCardIDs {
+		if id == cardID {
+			return true
+		}
+	}
+	return false
 }
 
 // FlowStatus is the coarse-grained project position the router dispatches on.

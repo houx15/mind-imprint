@@ -1,5 +1,6 @@
 {
   "id": "perspective-matrix",
+  "placement": "cross-cutting",
   "category": "溯源与多视角",
   "name": "视角对照矩阵",
   "name_en": "Perspective Matrix",

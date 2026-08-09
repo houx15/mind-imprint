@@ -1,5 +1,6 @@
 {
   "id": "question-card",
+  "placement": "status",
   "interaction": "sub-agent",
   "asset_id": "T35",
   "category": "探究启动",

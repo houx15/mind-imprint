@@ -1,5 +1,6 @@
 {
   "id": "toulmin",
+  "placement": "status",
   "category": "论证结构",
   "name": "论证构建卡（图尔敏）",
   "name_en": "Toulmin Argument Builder",

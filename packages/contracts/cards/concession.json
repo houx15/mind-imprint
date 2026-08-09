@@ -1,5 +1,6 @@
 {
   "id": "concession",
+  "placement": "cross-cutting",
   "asset_id": "T12",
   "mode": "annotation",
   "category": "知识工具",

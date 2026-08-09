@@ -1,5 +1,6 @@
 {
   "id": "ethics-lenses",
+  "placement": "cross-cutting",
   "asset_id": "T31",
   "category": "AI伦理",
   "name": "伦理判断三镜头卡",

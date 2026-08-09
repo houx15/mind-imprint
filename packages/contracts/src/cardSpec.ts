@@ -76,6 +76,11 @@ export const CardSpec = z.object({
   //   sub-agent    — opens a guided modal sub-conversation (e.g. question-card)
   //   function     — a pre-built producer, no student form (e.g. learning-report)
   interaction: z.enum(["form", "sub-agent", "function"]).optional(),
+  // placement: which studio surface offers this card (re-catalog 2026-08-09).
+  // Documentation + gallery grouping; the runtime binding lists live in Go
+  // (StatusRegistry decks / ReadingDeckIDs / ReadingToolkitIDs / CrossCuttingCardIDs)
+  // and a test cross-checks that these tags agree with those lists.
+  placement: z.enum(["status", "reading", "reading-toolkit", "cross-cutting"]).optional(),
   rubric_dims: z.array(z.string()).optional(),
   related: z.array(z.string()).optional(),
   body_status: BodyStatus.optional(),
