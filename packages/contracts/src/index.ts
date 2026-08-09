@@ -41,3 +41,4 @@ export * from "./orchestrator";
 export * from "./annotation";
 export * from "./proposalGuide";
 export * from "./questionCard";
+export * from "./proposalAnnotation";
