@@ -68,14 +68,15 @@ func Load(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) (ProjectDat
 
 	// S5 写作: the silent edit buffer, the latest immutable snapshot, and the
 	// dispositions recorded on any of this project's interventions (review
-	// items included).
-	buffer, err := q.GetEditBuffer(ctx, projectID)
+	// items included). Phase B: the studio/assessment record is the ESSAY (final
+	// paper) — literal "essay" here to keep this package free of an agent import.
+	buffer, err := q.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: "essay"})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return ProjectData{}, err
 	}
 	d.EditBuffer = buffer // "" when ErrNoRows
 
-	latest, err := q.GetLatestSnapshot(ctx, projectID)
+	latest, err := q.GetLatestSnapshot(ctx, sqlc.GetLatestSnapshotParams{ProjectID: projectID, DocKind: "essay"})
 	switch {
 	case err == nil:
 		d.LatestSnapshot = &latest

@@ -97,34 +97,44 @@ func TestDraftSnapshotAndBufferRoundTrip(t *testing.T) {
 	q := sqlc.New(pool)
 	projectID := seedTestProject(t, ctx, q)
 
-	// Buffer upsert is idempotent per project.
-	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, Content: "draft one"}); err != nil {
+	// Buffer upsert is idempotent per (project, doc).
+	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, DocKind: "essay", Content: "draft one"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, Content: "draft two"}); err != nil {
+	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, DocKind: "essay", Content: "draft two"}); err != nil {
 		t.Fatal(err)
 	}
-	buf, err := q.GetEditBuffer(ctx, projectID)
+	buf, err := q.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: "essay"})
 	if err != nil || buf != "draft two" {
 		t.Fatalf("GetEditBuffer = %q, %v; want \"draft two\"", buf, err)
 	}
+	// The proposal doc is a SEPARATE buffer — writing it never touches the essay.
+	if err := q.UpsertEditBuffer(ctx, sqlc.UpsertEditBufferParams{ProjectID: projectID, DocKind: "proposal", Content: "the proposal"}); err != nil {
+		t.Fatal(err)
+	}
+	if pbuf, perr := q.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: "proposal"}); perr != nil || pbuf != "the proposal" {
+		t.Fatalf("GetEditBuffer(proposal) = %q, %v; want \"the proposal\"", pbuf, perr)
+	}
+	if ebuf, _ := q.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: "essay"}); ebuf != "draft two" {
+		t.Fatalf("essay buffer changed after proposal write = %q; want \"draft two\"", ebuf)
+	}
 
-	// Snapshot seq is monotonic and content immutable.
-	next, err := q.NextSnapshotSeq(ctx, projectID)
+	// Snapshot seq is monotonic per (project, doc) and content immutable.
+	next, err := q.NextSnapshotSeq(ctx, sqlc.NextSnapshotSeqParams{ProjectID: projectID, DocKind: "essay"})
 	if err != nil || next != 1 {
 		t.Fatalf("NextSnapshotSeq = %d, %v; want 1", next, err)
 	}
 	s1, err := q.InsertDraftSnapshot(ctx, sqlc.InsertDraftSnapshotParams{
-		ProjectID: projectID, Seq: 1, Content: "v1 body", SpanIndex: []byte("[]"),
+		ProjectID: projectID, DocKind: "essay", Seq: 1, Content: "v1 body", SpanIndex: []byte("[]"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	next2, _ := q.NextSnapshotSeq(ctx, projectID)
+	next2, _ := q.NextSnapshotSeq(ctx, sqlc.NextSnapshotSeqParams{ProjectID: projectID, DocKind: "essay"})
 	if next2 != 2 {
 		t.Fatalf("NextSnapshotSeq after one = %d, want 2", next2)
 	}
-	latest, err := q.GetLatestSnapshot(ctx, projectID)
+	latest, err := q.GetLatestSnapshot(ctx, sqlc.GetLatestSnapshotParams{ProjectID: projectID, DocKind: "essay"})
 	if err != nil || latest.ID != s1.ID {
 		t.Fatalf("GetLatestSnapshot = %v, %v; want %v", latest.ID, err, s1.ID)
 	}

@@ -11,6 +11,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // finishProject is the project's terminal (A3), now NON-BLOCKING (BE5). After
@@ -58,15 +59,19 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Gate guard (Slice 5 · #20): writing must be finished (完成写作) before the
-	// project can be finalized — the two-stage 写作→回顾 flow archives only after
-	// the draft is locked. Defensive: the UI already gates 定稿 behind 完成写作,
-	// but never trust the client.
-	if !proj.WritingFinishedAt.Valid {
+	// Gate guard (Slice 5 · #20): the ESSAY (final paper) must be finished
+	// (完成写作) before the project can be finalized — the two-stage 写作→回顾 flow
+	// archives only after the essay is locked (Phase B: the proposal doc's finish
+	// does NOT gate 定稿). Defensive: the UI already gates 定稿 behind 完成写作, but
+	// never trust the client.
+	if _, ferr := a.d.Queries.GetWritingFinish(r.Context(), sqlc.GetWritingFinishParams{ProjectID: projectID, DocKind: string(agent.DocEssay)}); errors.Is(ferr, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, &httpx.APIError{
 			Status: http.StatusUnprocessableEntity, Code: "writing_not_finished",
 			Message: "先在写作房间完成写作，再定稿评估",
 		})
+		return
+	} else if ferr != nil {
+		httpx.WriteError(w, r, ferr)
 		return
 	}
 

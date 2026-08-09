@@ -15,33 +15,34 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/store/sqlc"
 )
 
-// finishWriting sets the 完成写作 milestone. Ownership-gated. Guard: the draft
-// buffer must carry real content (an empty draft can't be "finished"). Idempotent
-// — if the milestone is already set, it returns the current state without error.
-// No LLM spend.
+// finishWriting sets the 完成写作 milestone for the requested document
+// (?doc=proposal|essay, Phase B). Ownership-gated. Guard: that document's draft
+// buffer must carry real content (an empty draft can't be "finished").
+// Idempotent — if the milestone is already set, it returns the current state
+// without error. No LLM spend.
 func (a *API) finishWriting(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
 		return
 	}
+	doc := docKindParam(r)
 
-	proj, err := a.d.Queries.GetProject(r.Context(), projectID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
 	// Idempotent: already finished → no-op, return the current milestone.
-	if proj.WritingFinishedAt.Valid {
+	if _, ferr := a.d.Queries.GetWritingFinish(r.Context(), sqlc.GetWritingFinishParams{ProjectID: projectID, DocKind: doc}); ferr == nil {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"writingFinished": true})
+		return
+	} else if !errors.Is(ferr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, ferr)
 		return
 	}
 
 	// Guard: the draft must have real content before it can be locked. Read the
 	// edit buffer server-side (never trust the client); no row / whitespace-only
 	// → 422 so the student can't finish an empty draft.
-	content, berr := a.d.Queries.GetEditBuffer(r.Context(), projectID)
+	content, berr := a.d.Queries.GetEditBuffer(r.Context(), sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: doc})
 	if errors.Is(berr, pgx.ErrNoRows) {
 		content = ""
 	} else if berr != nil {
@@ -56,7 +57,7 @@ func (a *API) finishWriting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.d.Queries.SetProjectWritingFinished(r.Context(), projectID); err != nil {
+	if err := a.d.Queries.SetWritingFinish(r.Context(), sqlc.SetWritingFinishParams{ProjectID: projectID, DocKind: doc}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -84,7 +85,7 @@ func (a *API) reopenWriting(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if err := a.d.Queries.ClearProjectWritingFinished(r.Context(), projectID); err != nil {
+	if err := a.d.Queries.ClearWritingFinish(r.Context(), sqlc.ClearWritingFinishParams{ProjectID: projectID, DocKind: docKindParam(r)}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

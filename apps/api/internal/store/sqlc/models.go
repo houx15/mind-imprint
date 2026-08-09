@@ -153,6 +153,7 @@ type DraftSnapshot struct {
 	Content   string    `json:"content"`
 	SpanIndex []byte    `json:"span_index"`
 	CreatedAt time.Time `json:"created_at"`
+	DocKind   string    `json:"doc_kind"`
 }
 
 type EditBuffer struct {
@@ -160,6 +161,7 @@ type EditBuffer struct {
 	ProjectID uuid.UUID `json:"project_id"`
 	Content   string    `json:"content"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DocKind   string    `json:"doc_kind"`
 }
 
 type EmailVerificationToken struct {
@@ -359,18 +361,17 @@ type PlanItem struct {
 }
 
 type Project struct {
-	ID                uuid.UUID          `json:"id"`
-	UserID            uuid.UUID          `json:"user_id"`
-	Qualification     string             `json:"qualification"`
-	Title             string             `json:"title"`
-	Deadline          pgtype.Timestamptz `json:"deadline"`
-	BoardCfgVer       int32              `json:"board_cfg_ver"`
-	Status            string             `json:"status"`
-	CreatedAt         time.Time          `json:"created_at"`
-	LastActiveAt      time.Time          `json:"last_active_at"`
-	WritingFinishedAt pgtype.Timestamptz `json:"writing_finished_at"`
-	StudioState       []byte             `json:"studio_state"`
-	Cover             *string            `json:"cover"`
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	Qualification string             `json:"qualification"`
+	Title         string             `json:"title"`
+	Deadline      pgtype.Timestamptz `json:"deadline"`
+	BoardCfgVer   int32              `json:"board_cfg_ver"`
+	Status        string             `json:"status"`
+	CreatedAt     time.Time          `json:"created_at"`
+	LastActiveAt  time.Time          `json:"last_active_at"`
+	StudioState   []byte             `json:"studio_state"`
+	Cover         *string            `json:"cover"`
 }
 
 type ProjectAiUse struct {
@@ -542,4 +543,11 @@ type VoiceTtsCache struct {
 	Audio     []byte    `json:"audio"`
 	Voice     string    `json:"voice"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type WritingFinish struct {
+	ID         uuid.UUID `json:"id"`
+	ProjectID  uuid.UUID `json:"project_id"`
+	DocKind    string    `json:"doc_kind"`
+	FinishedAt time.Time `json:"finished_at"`
 }

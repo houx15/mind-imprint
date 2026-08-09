@@ -145,7 +145,7 @@ func (a *API) getDraft(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	content, err := a.d.Queries.GetEditBuffer(r.Context(), projectID)
+	content, err := a.d.Queries.GetEditBuffer(r.Context(), sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: docKindParam(r)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		content = ""
 	} else if err != nil {

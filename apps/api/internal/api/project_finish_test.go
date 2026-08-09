@@ -40,7 +40,7 @@ func markReflectionDone(t *testing.T, pool *pgxpool.Pool, projectID string) {
 // gate (writing must be finished before finalize) is satisfied.
 func markWritingFinished(t *testing.T, pool *pgxpool.Pool, projectID string) {
 	t.Helper()
-	if err := sqlc.New(pool).SetProjectWritingFinished(context.Background(), mustUUID(projectID)); err != nil {
+	if err := sqlc.New(pool).SetWritingFinish(context.Background(), sqlc.SetWritingFinishParams{ProjectID: mustUUID(projectID), DocKind: "essay"}); err != nil {
 		t.Fatalf("mark writing finished: %v", err)
 	}
 }

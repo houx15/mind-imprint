@@ -12,21 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const clearProjectWritingFinished = `-- name: ClearProjectWritingFinished :exec
-UPDATE project SET writing_finished_at = NULL, last_active_at = now() WHERE id = $1
-`
-
-// Slice 5 (#20 / 铁律②): 重新打开写作 — never trap a student who finished by
-// accident. Clears the milestone so the draft is editable again.
-func (q *Queries) ClearProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, clearProjectWritingFinished, id)
-	return err
-}
-
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover
 `
 
 type CreateProjectParams struct {
@@ -58,7 +47,6 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Status,
 		&i.CreatedAt,
 		&i.LastActiveAt,
-		&i.WritingFinishedAt,
 		&i.StudioState,
 		&i.Cover,
 	)
@@ -66,7 +54,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -82,7 +70,6 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.Status,
 		&i.CreatedAt,
 		&i.LastActiveAt,
-		&i.WritingFinishedAt,
 		&i.StudioState,
 		&i.Cover,
 	)
@@ -90,9 +77,13 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 }
 
 const getStudioState = `-- name: GetStudioState :one
+
 SELECT studio_state FROM project WHERE id = $1
 `
 
+// The 完成写作 milestone moved to the per-document writing_finish table
+// (Phase B, writing_finish.sql); project.writing_finished_at is dropped in
+// migration 0061.
 func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getStudioState, id)
 	var studio_state []byte
@@ -101,7 +92,7 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 }
 
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, writing_finished_at, studio_state, cover FROM project
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
@@ -125,7 +116,6 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.Status,
 			&i.CreatedAt,
 			&i.LastActiveAt,
-			&i.WritingFinishedAt,
 			&i.StudioState,
 			&i.Cover,
 		); err != nil {
@@ -168,17 +158,6 @@ UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1
 // A3 terminal: the first and only writer of project.status='finished'.
 func (q *Queries) SetProjectFinished(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setProjectFinished, id)
-	return err
-}
-
-const setProjectWritingFinished = `-- name: SetProjectWritingFinished :exec
-UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id = $1
-`
-
-// Slice 5 (#20): the 完成写作 milestone — locks the draft read-only + unlocks 回顾.
-// A separate timestamp, not a status change (the lifecycle enum is untouched).
-func (q *Queries) SetProjectWritingFinished(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, setProjectWritingFinished, id)
 	return err
 }
 

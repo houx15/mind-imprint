@@ -12,25 +12,35 @@ import (
 )
 
 const getEditBuffer = `-- name: GetEditBuffer :one
-SELECT content FROM edit_buffer WHERE project_id = $1
+SELECT content FROM edit_buffer WHERE project_id = $1 AND doc_kind = $2
 `
 
-func (q *Queries) GetEditBuffer(ctx context.Context, projectID uuid.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, getEditBuffer, projectID)
+type GetEditBufferParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	DocKind   string    `json:"doc_kind"`
+}
+
+func (q *Queries) GetEditBuffer(ctx context.Context, arg GetEditBufferParams) (string, error) {
+	row := q.db.QueryRow(ctx, getEditBuffer, arg.ProjectID, arg.DocKind)
 	var content string
 	err := row.Scan(&content)
 	return content, err
 }
 
 const getLatestSnapshot = `-- name: GetLatestSnapshot :one
-SELECT id, project_id, seq, content, span_index, created_at FROM draft_snapshot
-WHERE project_id = $1
+SELECT id, project_id, seq, content, span_index, created_at, doc_kind FROM draft_snapshot
+WHERE project_id = $1 AND doc_kind = $2
 ORDER BY seq DESC
 LIMIT 1
 `
 
-func (q *Queries) GetLatestSnapshot(ctx context.Context, projectID uuid.UUID) (DraftSnapshot, error) {
-	row := q.db.QueryRow(ctx, getLatestSnapshot, projectID)
+type GetLatestSnapshotParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	DocKind   string    `json:"doc_kind"`
+}
+
+func (q *Queries) GetLatestSnapshot(ctx context.Context, arg GetLatestSnapshotParams) (DraftSnapshot, error) {
+	row := q.db.QueryRow(ctx, getLatestSnapshot, arg.ProjectID, arg.DocKind)
 	var i DraftSnapshot
 	err := row.Scan(
 		&i.ID,
@@ -39,12 +49,13 @@ func (q *Queries) GetLatestSnapshot(ctx context.Context, projectID uuid.UUID) (D
 		&i.Content,
 		&i.SpanIndex,
 		&i.CreatedAt,
+		&i.DocKind,
 	)
 	return i, err
 }
 
 const getSnapshot = `-- name: GetSnapshot :one
-SELECT id, project_id, seq, content, span_index, created_at FROM draft_snapshot WHERE id = $1 AND project_id = $2
+SELECT id, project_id, seq, content, span_index, created_at, doc_kind FROM draft_snapshot WHERE id = $1 AND project_id = $2
 `
 
 type GetSnapshotParams struct {
@@ -62,18 +73,20 @@ func (q *Queries) GetSnapshot(ctx context.Context, arg GetSnapshotParams) (Draft
 		&i.Content,
 		&i.SpanIndex,
 		&i.CreatedAt,
+		&i.DocKind,
 	)
 	return i, err
 }
 
 const insertDraftSnapshot = `-- name: InsertDraftSnapshot :one
-INSERT INTO draft_snapshot (project_id, seq, content, span_index)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, seq, content, span_index, created_at
+INSERT INTO draft_snapshot (project_id, doc_kind, seq, content, span_index)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, seq, content, span_index, created_at, doc_kind
 `
 
 type InsertDraftSnapshotParams struct {
 	ProjectID uuid.UUID `json:"project_id"`
+	DocKind   string    `json:"doc_kind"`
 	Seq       int32     `json:"seq"`
 	Content   string    `json:"content"`
 	SpanIndex []byte    `json:"span_index"`
@@ -82,6 +95,7 @@ type InsertDraftSnapshotParams struct {
 func (q *Queries) InsertDraftSnapshot(ctx context.Context, arg InsertDraftSnapshotParams) (DraftSnapshot, error) {
 	row := q.db.QueryRow(ctx, insertDraftSnapshot,
 		arg.ProjectID,
+		arg.DocKind,
 		arg.Seq,
 		arg.Content,
 		arg.SpanIndex,
@@ -94,16 +108,22 @@ func (q *Queries) InsertDraftSnapshot(ctx context.Context, arg InsertDraftSnapsh
 		&i.Content,
 		&i.SpanIndex,
 		&i.CreatedAt,
+		&i.DocKind,
 	)
 	return i, err
 }
 
 const nextSnapshotSeq = `-- name: NextSnapshotSeq :one
-SELECT COALESCE(MAX(seq), 0) + 1 AS next FROM draft_snapshot WHERE project_id = $1
+SELECT COALESCE(MAX(seq), 0) + 1 AS next FROM draft_snapshot WHERE project_id = $1 AND doc_kind = $2
 `
 
-func (q *Queries) NextSnapshotSeq(ctx context.Context, projectID uuid.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, nextSnapshotSeq, projectID)
+type NextSnapshotSeqParams struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	DocKind   string    `json:"doc_kind"`
+}
+
+func (q *Queries) NextSnapshotSeq(ctx context.Context, arg NextSnapshotSeqParams) (int32, error) {
+	row := q.db.QueryRow(ctx, nextSnapshotSeq, arg.ProjectID, arg.DocKind)
 	var next int32
 	err := row.Scan(&next)
 	return next, err
@@ -111,22 +131,24 @@ func (q *Queries) NextSnapshotSeq(ctx context.Context, projectID uuid.UUID) (int
 
 const upsertEditBuffer = `-- name: UpsertEditBuffer :exec
 
-INSERT INTO edit_buffer (project_id, content)
-VALUES ($1, $2)
-ON CONFLICT (project_id)
+INSERT INTO edit_buffer (project_id, doc_kind, content)
+VALUES ($1, $2, $3)
+ON CONFLICT (project_id, doc_kind)
 DO UPDATE SET content = EXCLUDED.content, updated_at = now()
 `
 
 type UpsertEditBufferParams struct {
 	ProjectID uuid.UUID `json:"project_id"`
+	DocKind   string    `json:"doc_kind"`
 	Content   string    `json:"content"`
 }
 
-// Slice 8 (S5): the silent edit buffer (one row per project) + immutable
-// draft snapshots. The buffer is student-owned scratch; a snapshot is an
-// immutable commit. The AI has no write path to either (RL-1) — only the
-// owning student's PUT /buffer and POST /snapshots reach these.
+// Slice 8 (S5): the silent edit buffer + immutable draft snapshots. Phase B keys
+// both on doc_kind ('proposal'|'essay') so the 立项 proposal and the essay are
+// distinct documents (one live buffer + one snapshot sequence PER doc). The AI
+// has no write path to either (RL-1) — only the owning student's PUT /buffer and
+// POST /snapshots reach these.
 func (q *Queries) UpsertEditBuffer(ctx context.Context, arg UpsertEditBufferParams) error {
-	_, err := q.db.Exec(ctx, upsertEditBuffer, arg.ProjectID, arg.Content)
+	_, err := q.db.Exec(ctx, upsertEditBuffer, arg.ProjectID, arg.DocKind, arg.Content)
 	return err
 }

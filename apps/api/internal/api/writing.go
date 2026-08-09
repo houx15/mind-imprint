@@ -17,6 +17,19 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// docKindParam reads the ?doc= query and normalizes it to a writing document
+// kind ("proposal"|"essay"). Phase B keys the writing buffer/snapshots/finish on
+// this. Anything unrecognized (incl. absent) defaults to "essay" — the final
+// paper — so pre-Phase-B clients and all evaluation reads land on the essay doc.
+func docKindParam(r *http.Request) string {
+	switch r.URL.Query().Get("doc") {
+	case string(agent.DocProposal):
+		return string(agent.DocProposal)
+	default:
+		return string(agent.DocEssay)
+	}
+}
+
 // putEditBuffer upserts the student's silent edit buffer. Student text ONLY —
 // there is no path for AI output to reach this handler (RL-1). No entitlement
 // gate: no model call, no network.
@@ -33,7 +46,7 @@ func (a *API) putEditBuffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.d.Queries.UpsertEditBuffer(r.Context(), sqlc.UpsertEditBufferParams{
-		ProjectID: projectID, Content: body.Content,
+		ProjectID: projectID, DocKind: docKindParam(r), Content: body.Content,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -70,9 +83,13 @@ func (a *API) commitSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	doc := docKindParam(r)
 	sk, _ := skills.ByID("writing-project")
 	wc := agent.CountWords(body.Content)
-	inBand := sk.WordBudget != nil && wc >= sk.WordBudget.Min && wc <= sk.WordBudget.Max
+	// Word budget is the ESSAY's gate (draft_polish). A proposal snapshot is a
+	// short prose doc with no word band, so it is never "in band" and never
+	// mints the word_budget_ok node.
+	inBand := doc == string(agent.DocEssay) && sk.WordBudget != nil && wc >= sk.WordBudget.Min && wc <= sk.WordBudget.Max
 
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
@@ -83,18 +100,18 @@ func (a *API) commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	qtx := a.d.Queries.WithTx(tx)
 
 	// NextSnapshotSeq (MAX(seq)+1) then InsertDraftSnapshot is TOCTOU-racy
-	// under concurrent commits to the same project — the unique
-	// (project_id,seq) index makes the loser of a race collide/error. That's
-	// acceptable here: a single student edits their own draft sequentially,
-	// there is no concurrent-writer scenario to protect against.
-	seq, err := qtx.NextSnapshotSeq(r.Context(), projectID)
+	// under concurrent commits to the same (project,doc) — the unique
+	// (project_id,doc_kind,seq) index makes the loser of a race collide/error.
+	// That's acceptable here: a single student edits their own draft
+	// sequentially, there is no concurrent-writer scenario to protect against.
+	seq, err := qtx.NextSnapshotSeq(r.Context(), sqlc.NextSnapshotSeqParams{ProjectID: projectID, DocKind: doc})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	spanIndex := paragraphSpanIndex(body.Content) // []byte JSON
 	snap, err := qtx.InsertDraftSnapshot(r.Context(), sqlc.InsertDraftSnapshotParams{
-		ProjectID: projectID, Seq: seq, Content: body.Content, SpanIndex: spanIndex,
+		ProjectID: projectID, DocKind: doc, Seq: seq, Content: body.Content, SpanIndex: spanIndex,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -102,10 +119,13 @@ func (a *API) commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mint or remove the word_budget_ok node so the S5 machine gate reflects
-	// the LATEST snapshot honestly.
-	if err := reconcileWordBudgetNode(r.Context(), qtx, projectID, inBand, wc, sk.WordBudget); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+	// the LATEST essay snapshot honestly. Proposal snapshots never touch it
+	// (inBand is forced false above).
+	if doc == string(agent.DocEssay) {
+		if err := reconcileWordBudgetNode(r.Context(), qtx, projectID, inBand, wc, sk.WordBudget); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 	}
 	if err := tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)

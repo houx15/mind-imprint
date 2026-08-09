@@ -62,7 +62,7 @@ func TestPutEditBuffer_Upserts(t *testing.T) {
 		t.Fatalf("second PUT = %d, want 204", rec2.Code)
 	}
 
-	content, err := sqlc.New(pool).GetEditBuffer(req.Context(), mustUUID(materialsTestProjectID))
+	content, err := sqlc.New(pool).GetEditBuffer(req.Context(), sqlc.GetEditBufferParams{ProjectID: mustUUID(materialsTestProjectID), DocKind: "essay"})
 	if err != nil {
 		t.Fatalf("GetEditBuffer: %v", err)
 	}

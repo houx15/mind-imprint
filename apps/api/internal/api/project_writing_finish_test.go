@@ -39,12 +39,12 @@ func TestFinishWriting_EmptyDraftRejected(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &perr); err != nil || perr.Error.Code != "draft_empty" {
 		t.Fatalf("finish-writing empty code = %+v (err=%v), want draft_empty", perr, err)
 	}
-	var ts *string
-	if err := pool.QueryRow(context.Background(), `SELECT to_char(writing_finished_at,'YYYY') FROM project WHERE id=$1`, mustUUID(seedProjectID)).Scan(&ts); err != nil {
-		t.Fatalf("read writing_finished_at: %v", err)
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM writing_finish WHERE project_id=$1 AND doc_kind='essay'`, mustUUID(seedProjectID)).Scan(&n); err != nil {
+		t.Fatalf("read writing_finish: %v", err)
 	}
-	if ts != nil {
-		t.Fatalf("writing_finished_at set = %v after a rejected finish-writing, want NULL", *ts)
+	if n != 0 {
+		t.Fatalf("writing_finish rows = %d after a rejected finish-writing, want 0", n)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestReopenWriting_ClearsMilestone(t *testing.T) {
 	cookie := signInSeed(t, pool)
 	base := "/api/v1/projects/" + seedProjectID
 
-	if err := sqlc.New(pool).SetProjectWritingFinished(context.Background(), mustUUID(seedProjectID)); err != nil {
+	if err := sqlc.New(pool).SetWritingFinish(context.Background(), sqlc.SetWritingFinishParams{ProjectID: mustUUID(seedProjectID), DocKind: "essay"}); err != nil {
 		t.Fatalf("seed writing finished: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestReopenWriting_BlockedWhenEvaluating(t *testing.T) {
 	base := "/api/v1/projects/" + seedProjectID
 
 	q := sqlc.New(pool)
-	if err := q.SetProjectWritingFinished(context.Background(), mustUUID(seedProjectID)); err != nil {
+	if err := q.SetWritingFinish(context.Background(), sqlc.SetWritingFinishParams{ProjectID: mustUUID(seedProjectID), DocKind: "essay"}); err != nil {
 		t.Fatalf("seed writing finished: %v", err)
 	}
 	if err := q.SetProjectEvaluating(context.Background(), mustUUID(seedProjectID)); err != nil {

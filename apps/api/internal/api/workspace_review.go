@@ -330,7 +330,7 @@ func (a *API) buildMirrorInput(ctx context.Context, projectID uuid.UUID) agent.M
 		in.Reflection = decodeReflectionAnswers(refl.Answers)
 	}
 	in.Outline = outlineDigest(ctx, a.d.Queries, projectID)
-	if draft, err := a.d.Queries.GetEditBuffer(ctx, projectID); err == nil {
+	if draft, err := a.d.Queries.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: string(agent.DocEssay)}); err == nil {
 		in.Draft = draft
 	}
 	in.ProcessDigest = processDigest(ctx, a.d.Queries, projectID)

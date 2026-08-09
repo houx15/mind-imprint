@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
@@ -161,10 +162,20 @@ type workspaceProjection struct {
 	// CreatedAt (RFC3339) anchors the plan timeline to real calendar dates —
 	// the Gantt date axis + today-line and the Kanban date markers (#14).
 	CreatedAt string `json:"createdAt"`
-	// WritingFinished (#20) — the 完成写作 milestone: true once the draft is locked
-	// read-only and the 回顾 room is unlocked. Both rooms read it (WritingBlock's
-	// read-only lock; ReviewBlock's view-only gate).
+	// WritingFinished (#20) — the ESSAY's 完成写作 milestone: true once the final
+	// paper is locked read-only and the 回顾 room is unlocked. ReviewBlock's
+	// view-only gate reads this (the essay is the paper that gates 定稿).
 	WritingFinished bool `json:"writingFinished"`
+	// WritingFinish (Phase B) — the per-document 完成写作 state. WritingBlock reads
+	// the entry for its ACTIVE doc to lock that document read-only, so the
+	// proposal and the essay lock independently.
+	WritingFinish writingFinishState `json:"writingFinish"`
+}
+
+// writingFinishState mirrors the writing_finish table for the two documents.
+type writingFinishState struct {
+	Proposal bool `json:"proposal"`
+	Essay    bool `json:"essay"`
 }
 
 // getProject returns the lean WorkspaceProjection for one project.
@@ -201,6 +212,19 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 	if items, perr := a.d.Queries.ListPlanItems(r.Context(), id); perr == nil && len(items) > 0 {
 		hasPlan = true
 	}
+	// Per-document 完成写作 state (Phase B). One row per finished doc; absent = not
+	// finished. WritingFinished (essay) drives the ReviewBlock gate.
+	finish := writingFinishState{}
+	if rows, ferr := a.d.Queries.ListWritingFinish(r.Context(), id); ferr == nil {
+		for _, row := range rows {
+			switch row.DocKind {
+			case string(agent.DocProposal):
+				finish.Proposal = true
+			case string(agent.DocEssay):
+				finish.Essay = true
+			}
+		}
+	}
 	httpx.WriteJSON(w, http.StatusOK, workspaceProjection{
 		ID:              p.ID.String(),
 		Title:           p.Title,
@@ -208,6 +232,7 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		Proposal:        prop,
 		Status:          displayStatus(p.Status, hasProposal, hasPlan),
 		CreatedAt:       p.CreatedAt.Format(time.RFC3339),
-		WritingFinished: p.WritingFinishedAt.Valid,
+		WritingFinished: finish.Essay,
+		WritingFinish:   finish,
 	})
 }

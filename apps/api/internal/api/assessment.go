@@ -75,7 +75,8 @@ func (a *API) generateProjectReport(ctx context.Context, projectID uuid.UUID) (s
 		return studio.ReportDTO{}, err
 	}
 	// Include the current edit-buffer draft (never-committed work still counts).
-	draft, derr := a.d.Queries.GetEditBuffer(ctx, projectID)
+	// Evaluation is always about the ESSAY (final paper), not the proposal doc.
+	draft, derr := a.d.Queries.GetEditBuffer(ctx, sqlc.GetEditBufferParams{ProjectID: projectID, DocKind: string(agent.DocEssay)})
 	if derr != nil && !errors.Is(derr, pgx.ErrNoRows) {
 		return studio.ReportDTO{}, derr
 	}

@@ -28,15 +28,9 @@ UPDATE project SET status = 'evaluating', last_active_at = now() WHERE id = $1;
 -- generation fails or is rejected, so the terminal stays retryable.
 UPDATE project SET status = 'active', last_active_at = now() WHERE id = $1;
 
--- name: SetProjectWritingFinished :exec
--- Slice 5 (#20): the 完成写作 milestone — locks the draft read-only + unlocks 回顾.
--- A separate timestamp, not a status change (the lifecycle enum is untouched).
-UPDATE project SET writing_finished_at = now(), last_active_at = now() WHERE id = $1;
-
--- name: ClearProjectWritingFinished :exec
--- Slice 5 (#20 / 铁律②): 重新打开写作 — never trap a student who finished by
--- accident. Clears the milestone so the draft is editable again.
-UPDATE project SET writing_finished_at = NULL, last_active_at = now() WHERE id = $1;
+-- The 完成写作 milestone moved to the per-document writing_finish table
+-- (Phase B, writing_finish.sql); project.writing_finished_at is dropped in
+-- migration 0061.
 
 -- name: GetStudioState :one
 SELECT studio_state FROM project WHERE id = $1;
