@@ -101,21 +101,9 @@ Per the "Card merge decision" above (user chose keep-both), there is no merge. B
 - [ ] **Step 4:** run the full `go test ./internal/api/ ./internal/agent/` (foreground) — PASS (except the known `TestWeeklyReportForSeededClass` flake).
 - [ ] **Step 5:** Commit `feat(coach): gate summon_card by status deck ∪ cross-cutting`.
 
-## Task 5: Fold `topic` into `framework` (spec decision E)
+## Task 5: Fold `topic` into `framework` — DEFERRED
 
-**Files:**
-- Modify: `apps/api/internal/agent/studioflow.go` (`StatusForStage`: `topic_discussion` → `FlowFramework`; keep `FlowTopic` const only if still referenced)
-- Modify: `apps/api/internal/api/coach.go` / start handler (the 开始 gate lands stage at framework's floor, not topic)
-- Test: `apps/api/internal/agent/studioflow_test.go`, coach start test
-
-**Interfaces:**
-- Produces: `StatusForStage("topic_discussion") == FlowFramework`; the start gate opens directly on framework (目标).
-
-- [ ] **Step 1: Failing test** — `StatusForStage("topic_discussion")` returns `FlowFramework`; a freshly-started project's derived status is `framework`.
-- [ ] **Step 2:** run `go test ./internal/agent/ -run TestStatusForStage` — FAIL (currently maps to FlowTopic).
-- [ ] **Step 3:** collapse `topic_discussion` → `FlowFramework` in `StatusForStage`; point the start gate at framework's `StageFloor`; remove the now-dead `FlowTopic` deck entry (keep the const if other code references it, else delete). Verify `POST /coach/start` opens forming/framework.
-- [ ] **Step 4:** run `go test ./internal/agent/ ./internal/api/ -run 'TestStatusForStage|TestPostCoachStart'` — PASS.
-- [ ] **Step 5:** Commit `refactor(studioflow): fold topic into framework (start → 目标)`.
+Topic→framework is onboarding-flow (StatusForStage + the 开始 gate), orthogonal to the card re-catalog and onboarding-critical (Phase A verified it). To keep this slice card-focused and low-risk, it's deferred to its own small, separately-verified slice. Spec decision E stands; not implemented here.
 
 ## Task 6: Card gallery / catalog reflects placement
 
@@ -137,7 +125,7 @@ Per the "Card merge decision" above (user chose keep-both), there is no merge. B
 
 - [ ] Run `cd packages/contracts && npx vitest run`; `cd apps/web && npx tsc --noEmit && npx vitest run`; `cd apps/api && go test ./internal/agent/ ./internal/api/ ./internal/cards/` (foreground). All green except the known `TestWeeklyReportForSeededClass` flake.
 - [ ] Commit to main + push; `.deploy-local/deploy.sh full`.
-- [ ] Live smoke (real frontend, `?trial=1`): a fresh project reaches `framework` on 开始 (no topic limbo); the framework coach offers only question-card; the essay room offers pee + toulmin + argument-map; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 34 cards. 0 console errors.
+- [ ] Live smoke (real frontend, `?trial=1`): the framework coach offers only question-card; the essay room offers pee + toulmin + argument-map; a cross-cutting card (e.g. ai-boundary or concession) is summonable mid-writing; the 图鉴 still shows all 34 cards. 0 console errors.
 
 **Acceptance:** the registry stays 34 cards; every card carries `interaction` + `placement`; per-status decks match the finalized model (essay = pee + toulmin + argument-map); search-plan is AI-side; cross-cutting cards summon regardless of status; source-analysis tools no longer appear in writing-flow decks; the gallery still shows every card.
 
