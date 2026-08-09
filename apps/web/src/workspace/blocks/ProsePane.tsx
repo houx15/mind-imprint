@@ -114,21 +114,9 @@ export function ProsePane({
   const saveLabel = saveStatus === "saving" ? "保存中…" : saveStatus === "dirty" ? "未保存" : "已保存 ✓";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* toolbar */}
-      <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2">
-        <button
-          type="button"
-          onClick={() => setPreview((p) => !p)}
-          className="rounded-mk-md border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent"
-          title="切换 Markdown 预览"
-        >
-          {preview ? "编辑" : "预览"}
-        </button>
-        <span className="text-[12px] text-mk-muted">{words} 字</span>
-        <span className="ml-auto text-[12px] text-mk-muted">{saveLabel}</span>
-      </div>
-
+    // §4: no top icon bar — word count + save status live in a lower-right
+    // overlay, with an unobtrusive preview toggle beside them.
+    <div className="relative flex h-full min-h-0 flex-col">
       {/* surface */}
       <div className="min-h-0 flex-1 overflow-auto px-8 py-5">
         {preview ? (
@@ -149,6 +137,20 @@ export function ProsePane({
             className="mx-auto block h-full w-full max-w-[70ch] resize-none bg-transparent text-[14.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-muted"
           />
         )}
+      </div>
+
+      {/* lower-right status overlay (§4: word count + save status, right lower corner) */}
+      <div className="pointer-events-none absolute bottom-3 right-4 flex items-center gap-3 rounded-mk-md border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] text-mk-muted shadow-mk-xs">
+        <button
+          type="button"
+          onClick={() => setPreview((p) => !p)}
+          className="pointer-events-auto font-bold text-mk-muted hover:text-mk-accent"
+          title="切换 Markdown 预览"
+        >
+          {preview ? "编辑" : "预览"}
+        </button>
+        <span>{words} 字</span>
+        <span>{saveLabel}</span>
       </div>
     </div>
   );
