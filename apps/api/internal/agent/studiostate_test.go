@@ -117,4 +117,23 @@ func TestDefaultStudioState_NoTrack(t *testing.T) {
 	if s.CounterpointsWaived {
 		t.Fatal("default should have counterpointsWaived=false")
 	}
+	if s.EssayTrack != nil {
+		t.Fatalf("default should have nil essayTrack, got %+v", s.EssayTrack)
+	}
+}
+
+func TestStudioState_EssayTrackRoundTrip(t *testing.T) {
+	in := DefaultStudioState()
+	in.EssayTrack = &EssayTrack{Stage: EssayResearch}
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var out StudioState
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.EssayTrack == nil || out.EssayTrack.Stage != EssayResearch {
+		t.Fatalf("essayTrack lost: %+v", out.EssayTrack)
+	}
 }

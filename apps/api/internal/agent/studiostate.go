@@ -97,6 +97,25 @@ type StudioState struct {
 	// the plan without articulating a 反例. Lets frameworkReadyForPlan proceed
 	// while keeping the 反例 prompt non-blocking (铁律②). jsonb, no migration.
 	CounterpointsWaived bool `json:"counterpointsWaived,omitempty"`
+	// EssayTrack (slice 4) — the essay's three-stage position (research →
+	// statement → submission, §6). 4a lands "research"; nil until 完成提案 enters
+	// the essay. jsonb, no migration.
+	EssayTrack *EssayTrack `json:"essayTrack,omitempty"`
+}
+
+// EssayStage is the essay's position in §6's three stages.
+type EssayStage string
+
+const (
+	EssayResearch   EssayStage = "research"
+	EssayStatement  EssayStage = "statement"
+	EssaySubmission EssayStage = "submission"
+)
+
+// EssayTrack carries the essay's stage. (The research stage's evidence map lives
+// in the warren graph; statement/submission internals arrive in slices 4b/4c.)
+type EssayTrack struct {
+	Stage EssayStage `json:"stage"`
 }
 
 func DefaultStudioState() StudioState {
