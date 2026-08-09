@@ -36,7 +36,7 @@ describe("deriveCatalog", () => {
     const cat = deriveCatalog(loadRegistry());
     expect(cat).toHaveLength(34);
     expect(cat.every((c) => typeof c.trigger_condition === "string" && c.trigger_condition.length > 0)).toBe(true);
-    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction_type", "name", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
+    expect(Object.keys(cat[0]!).sort()).toEqual(["category", "disclosure_tier", "id", "interaction", "interaction_type", "name", "placement", "priority", "purpose", "trigger_condition", "trigger_keywords"]);
   });
   it("every step of every card has structured methodology (Layer B)", () => {
     const reg = loadRegistry();
