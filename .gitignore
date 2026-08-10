@@ -133,9 +133,17 @@ docs/reference/
 # WORKING / SCRATCH FILES — NOT part of the repo (2026-08-10 cleanup: these were
 # accidentally committed via `git add -A`; they live only in the working tree)
 # =============================================================================
-# Root-level scratch (screenshots, graph/config experiments, verify shots)
-/*.png
-/*.yml
+# Root-level scratch (my test screenshots + graph/config experiments dumped in
+# the top folder). Targeted patterns, NOT a blanket /*.png /*.yml — test
+# artifacts should go under a scratch/tmp dir, not the repo root.
+/verify-*.png
+/*-prod.png
+/gv2-*.yml
+/gv3-*.yml
+/dig*.yml
+/map.yml
+/proj.yml
+/edges.yml
 # Course-authoring source docs (kept locally, not shipped)
 /docs/03_课程库_单课设计/
 # Unrelated sibling project drafts
